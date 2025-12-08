@@ -96,6 +96,7 @@ As a developer, I want the Django backend project to integrate seamlessly with e
 - **FR-013**: System MUST provide documentation covering project structure, Django patterns, and contribution guidelines.
 - **FR-014**: System MUST integrate with monorepo task orchestration using Justfile at backend level, with root Justfile delegating to backend tasks.
 - **FR-015**: System MUST include health check endpoint pattern for monitoring readiness.
+- **FR-016**: System MUST include a core Django app with a custom User model extending AbstractUser to enable future user field customization without migrations complexity.
 
 ### Key Entities
 
@@ -105,6 +106,18 @@ As a developer, I want the Django backend project to integrate seamlessly with e
 - **View/ViewSet**: Request handlers implementing API logic, leveraging Django REST Framework for API endpoints.
 - **Serializer**: Data transformation layer handling validation, serialization, and deserialization between Python objects and JSON.
 - **Migration**: Version-controlled database schema changes tracking model evolution over time.
+- **Custom User Model**: Project-specific User model in core app extending AbstractUser, configured as AUTH_USER_MODEL to allow future field additions without complex migrations.
+
+### Out of Scope
+
+- Authentication implementation (login, logout, password reset, session management)
+- API endpoints beyond health check pattern
+- Deployment configurations (Docker, Kubernetes, cloud provider specifics)
+- Frontend assets or templates beyond Django admin
+- Third-party integrations (email, payments, external APIs)
+- Database seeding or fixture data beyond test fixtures
+- Metrics collection and dashboards (Prometheus, Datadog, etc.)
+- Distributed tracing (OpenTelemetry, Jaeger, etc.)
 
 ## Success Criteria *(mandatory)*
 
@@ -126,13 +139,16 @@ As a developer, I want the Django backend project to integrate seamlessly with e
 - Q: Which Python dependency manager should the backend use? → A: uv (Rust-based, fastest, 2025 modern standard)
 - Q: What code quality toolchain should be configured? → A: Ruff (linting + formatting) + Pyrefly (type checking)
 - Q: Which testing framework should be configured? → A: pytest + pytest-django (modern, fixture-based, extensible)
+- Q: What minimum Python version should be required? → A: Python 3.12 (widely adopted, stable ecosystem)
+- Q: What is explicitly out of scope? → A: Auth implementation, API endpoints, deployment configs. In scope: core app with custom User model
+- Q: What level of observability should be included? → A: Logging only (structured logs); metrics and tracing deferred
 
 ## Assumptions
 
 - The monorepo will use Python with Django as the backend framework
-- Developers have standard development tools installed (Python 3.11+, Git)
+- Developers have standard development tools installed (Python 3.12+, Git)
 - The project will use Django REST Framework for API endpoints
 - Standard web application security practices apply (input validation, output encoding, secure headers)
 - The backend will be containerizable for deployment consistency
 - CI/CD pipeline infrastructure exists or will be set up separately
-- Database will be PostgreSQL for production environments (SQLite for local development)
+- Database will be PostgreSQL for all environments (development, staging, production)
