@@ -98,10 +98,10 @@ Per plan.md, this is a web app with `backend/` structure:
 
 ### Implementation for User Story 2
 
-- [ ] T037 [P] [US2] Create project structure documentation in backend/docs/architecture.md
-- [ ] T038 [P] [US2] Create API patterns documentation in backend/docs/api-patterns.md
-- [ ] T039 [P] [US2] Create contribution guidelines in backend/docs/contributing.md
-- [ ] T040 [US2] Create backend README with quickstart in backend/README.md
+- [x] T037 [P] [US2] Create project structure documentation in docs/architecture.md
+- [x] T038 [P] [US2] Create API patterns documentation in docs/api-patterns.md
+- [x] T039 [P] [US2] Create contribution guidelines in docs/contributing.md
+- [x] T040 [US2] Create backend README with quickstart in backend/README.md
 
 **Checkpoint**: User Story 2 complete - documentation available for developers
 
@@ -115,13 +115,13 @@ Per plan.md, this is a web app with `backend/` structure:
 
 ### Implementation for User Story 3
 
-- [ ] T041 [P] [US3] Create Ruff configuration in backend/ruff.toml
-- [ ] T042 [P] [US3] Add Pyrefly configuration to backend/pyproject.toml
-- [ ] T043 [P] [US3] Add pytest configuration to backend/pyproject.toml
-- [ ] T044 [P] [US3] Add coverage configuration to backend/pyproject.toml
-- [ ] T045 [US3] Create pre-commit configuration in backend/.pre-commit-config.yaml
-- [ ] T046 [US3] Install pre-commit hooks with uv run pre-commit install
-- [ ] T047 [US3] Run pre-commit on all files to validate setup
+- [x] T041 [P] [US3] Create Ruff configuration in backend/ruff.toml
+- [x] T042 [P] [US3] Add Pyrefly configuration to backend/pyproject.toml
+- [x] T043 [P] [US3] Add pytest configuration to backend/pyproject.toml
+- [x] T044 [P] [US3] Add coverage configuration to backend/pyproject.toml
+- [x] T045 [US3] Create pre-commit configuration in .pre-commit-config.yaml (monorepo root)
+- [x] T046 [US3] Install pre-commit hooks with uv run pre-commit install
+- [x] T047 [US3] Run pre-commit on all files to validate setup
 
 **Checkpoint**: User Story 3 complete - quality tools catch violations
 

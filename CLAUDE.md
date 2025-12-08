@@ -27,4 +27,5 @@ Python 3.12 (per spec clarification): Follow standard conventions
 - 001-backend-setup: Added Python 3.12 (per spec clarification) + Django 5.x, Django REST Framework, python-dotenv
 
 <!-- MANUAL ADDITIONS START -->
+- When getting a code review, if there are doc file changes, also request a review from docs-architect
 <!-- MANUAL ADDITIONS END -->

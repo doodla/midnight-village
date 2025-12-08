@@ -2,8 +2,9 @@
 Integration tests for custom exception handler.
 """
 
-import pytest
 from django.urls import reverse
+
+import pytest
 
 
 @pytest.mark.integration

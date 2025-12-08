@@ -4,7 +4,7 @@ Test settings for Midnight Village.
 Optimized for fast test execution.
 """
 
-from .base import *  # noqa: F401, F403
+from .base import *
 
 SECRET_KEY = "django-insecure-test-key-not-for-production"
 

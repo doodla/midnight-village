@@ -63,15 +63,12 @@ specs/001-backend-setup/
 
 ```text
 backend/
-├── pyproject.toml           # Project metadata, dependencies (uv)
+├── pyproject.toml           # Project metadata, dependencies, pytest/coverage config
 ├── uv.lock                  # Lockfile for deterministic deps
 ├── .python-version          # Python 3.12
 ├── .env.example             # Environment template
 ├── justfile                 # Backend-specific tasks
-├── pytest.ini               # pytest configuration
 ├── ruff.toml                # Ruff linting/formatting config
-├── pyproject.toml           # Also contains pyrefly config
-├── .pre-commit-config.yaml  # Pre-commit hooks
 │
 ├── config/                  # Django project configuration
 │   ├── __init__.py
@@ -109,6 +106,11 @@ backend/
 
 # Root level
 justfile                     # Root justfile (delegates to backend/)
+docs/                        # Developer documentation (monorepo-wide)
+├── architecture.md
+├── api-patterns.md
+└── contributing.md
+.pre-commit-config.yaml      # Pre-commit hooks (monorepo-wide)
 ```
 
 **Structure Decision**: Web application structure with `backend/` directory. Django project uses `config/` for settings (cleaner than default project-named folder) and `apps/` for Django applications. Test structure follows constitution requirement for unit/integration/contract separation.

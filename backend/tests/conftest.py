@@ -2,9 +2,10 @@
 Shared pytest fixtures for the Midnight Village backend.
 """
 
-import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
+
+import pytest
 from rest_framework.test import APIClient
 
 
@@ -17,8 +18,8 @@ def api_client() -> APIClient:
 @pytest.fixture
 def user(db) -> AbstractUser:
     """Create and return a test user."""
-    User = get_user_model()
-    return User.objects.create_user(
+    user_model = get_user_model()
+    return user_model.objects.create_user(
         username="testuser",
         email="test@example.com",
         password="testpass123",

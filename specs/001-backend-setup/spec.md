@@ -87,13 +87,13 @@ As a developer, I want the Django backend project to integrate seamlessly with e
 - **FR-004**: System MUST include configuration for environment-based Django settings (development, staging, production) with secure secrets management patterns.
 - **FR-005**: System MUST set up pytest with pytest-django, including example unit and integration test patterns using fixtures.
 - **FR-006**: System MUST configure Ruff for Python code linting with rules enforcing consistent code style and catching common errors.
-- **FR-007**: System MUST configure Pyrefly for static type checking for improved code reliability.
+- **FR-007**: System MUST configure Pyrefly for static type checking with strict mode for improved code reliability.
 - **FR-008**: System MUST configure Ruff for code formatting with automatic formatting on save/commit.
 - **FR-009**: System MUST include pre-commit hooks for automated quality checks before code is committed.
 - **FR-010**: System MUST provide Django development server configuration with auto-reload capability.
 - **FR-011**: System MUST include logging configuration with structured log output and configurable log levels following Django logging conventions.
 - **FR-012**: System MUST include error handling patterns with consistent error response formats for API endpoints.
-- **FR-013**: System MUST provide documentation covering project structure, Django patterns, and contribution guidelines.
+- **FR-013**: System MUST provide documentation covering project structure, Django patterns, and contribution guidelines at the monorepo root level (`/docs/`).
 - **FR-014**: System MUST integrate with monorepo task orchestration using Justfile at backend level, with root Justfile delegating to backend tasks.
 - **FR-015**: System MUST include health check endpoint pattern for monitoring readiness.
 - **FR-016**: System MUST include a core Django app with a custom User model extending AbstractUser to enable future user field customization without migrations complexity.
@@ -142,6 +142,7 @@ As a developer, I want the Django backend project to integrate seamlessly with e
 - Q: What minimum Python version should be required? → A: Python 3.12 (widely adopted, stable ecosystem)
 - Q: What is explicitly out of scope? → A: Auth implementation, API endpoints, deployment configs. In scope: core app with custom User model
 - Q: What level of observability should be included? → A: Logging only (structured logs); metrics and tracing deferred
+- Q: Where should documentation live in the monorepo? → A: At repo root (`/docs/`) not inside backend/, to support shared docs across future projects
 
 ## Assumptions
 

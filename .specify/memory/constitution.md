@@ -172,7 +172,7 @@ responses break immersion and cause players to miss time-sensitive actions.
 
 ## Technology Stack
 
-**Backend**: Django (Python 3.11+) with Django Channels for WebSocket support
+**Backend**: Django (Python 3.12+) with Django Channels for WebSocket support
 **Frontend Web**: TypeScript with strict mode
 **Mobile**: Native iOS (Swift) and Android (Kotlin)
 **Database**: PostgreSQL for persistent data, Redis for real-time game state
@@ -192,7 +192,7 @@ dependencies require justification against Simplicity (Principle II).
 
 **Quality Gates**:
 - All tests MUST pass
-- Type checking MUST pass (mypy, tsc, Swift/Kotlin compilers)
+- Type checking MUST pass (Pyrefly, tsc, Swift/Kotlin compilers)
 - No security vulnerabilities in dependencies (automated scanning)
 - Game logic changes require manual playtest verification
 - Performance benchmarks MUST not regress beyond defined budgets
