@@ -27,11 +27,11 @@ Per plan.md, this is a web app with `backend/` structure:
 
 **Purpose**: Create backend directory structure and initialize uv project
 
-- [ ] T001 Create backend directory structure per plan.md in backend/
-- [ ] T002 Initialize uv project with pyproject.toml in backend/pyproject.toml
-- [ ] T003 Create .python-version file with Python 3.12 in backend/.python-version
-- [ ] T004 Create .env.example template in backend/.env.example
-- [ ] T005 Create .gitignore for Python/Django in backend/.gitignore
+- [x] T001 Create backend directory structure per plan.md in backend/
+- [x] T002 Initialize uv project with pyproject.toml in backend/pyproject.toml
+- [x] T003 Create .python-version file with Python 3.12 in backend/.python-version
+- [x] T004 Create .env.example template in backend/.env.example
+- [x] T005 Create .gitignore for Python/Django in backend/.gitignore
 
 ---
 
@@ -41,23 +41,23 @@ Per plan.md, this is a web app with `backend/` structure:
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Create Django config package structure in backend/config/__init__.py
-- [ ] T007 [P] Create base settings in backend/config/settings/base.py
-- [ ] T008 [P] Create development settings in backend/config/settings/development.py
-- [ ] T009 [P] Create staging settings in backend/config/settings/staging.py
-- [ ] T010 [P] Create production settings in backend/config/settings/production.py
-- [ ] T011 Create settings __init__.py in backend/config/settings/__init__.py
-- [ ] T012 Create root URL configuration in backend/config/urls.py
-- [ ] T013 [P] Create WSGI entry point in backend/config/wsgi.py
-- [ ] T014 [P] Create ASGI entry point in backend/config/asgi.py
-- [ ] T015 Create manage.py script in backend/manage.py
-- [ ] T016 Create apps package directory in backend/apps/__init__.py
-- [ ] T017 Create core app via uv run python manage.py startapp core apps/core
-- [ ] T018 Create custom User model in backend/apps/core/models.py
-- [ ] T019 Create core app config in backend/apps/core/apps.py
-- [ ] T020 Register User in admin in backend/apps/core/admin.py
-- [ ] T021 Run initial migrations with uv run python manage.py makemigrations core
-- [ ] T022 Run migrate with uv run python manage.py migrate
+- [x] T006 Create Django config package structure in backend/config/__init__.py
+- [x] T007 [P] Create base settings in backend/config/settings/base.py
+- [x] T008 [P] Create development settings in backend/config/settings/development.py
+- [x] T009 [P] Create staging settings in backend/config/settings/staging.py
+- [x] T010 [P] Create production settings in backend/config/settings/production.py
+- [x] T011 Create settings __init__.py in backend/config/settings/__init__.py
+- [x] T012 Create root URL configuration in backend/config/urls.py
+- [x] T013 [P] Create WSGI entry point in backend/config/wsgi.py
+- [x] T014 [P] Create ASGI entry point in backend/config/asgi.py
+- [x] T015 Create manage.py script in backend/manage.py
+- [x] T016 Create apps package directory in backend/apps/__init__.py
+- [x] T017 Create core app via uv run python manage.py startapp core apps/core
+- [x] T018 Create custom User model in backend/apps/core/models.py
+- [x] T019 Create core app config in backend/apps/core/apps.py
+- [x] T020 Register User in admin in backend/apps/core/admin.py
+- [x] T021 Run initial migrations with uv run python manage.py makemigrations core
+- [x] T022 Run migrate with uv run python manage.py migrate
 
 **Checkpoint**: Django project runs - `uv run python manage.py runserver` works
 
