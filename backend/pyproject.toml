@@ -27,12 +27,12 @@ lint = [
 ]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings.development"
+DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py", "*_test.py"]
 addopts = [
     "-v",
     "--strict-markers",
-    "--reuse-db",
+    "--nomigrations",
     "--cov=apps",
     "--cov-report=term-missing:skip-covered",
     "--cov-report=html",
