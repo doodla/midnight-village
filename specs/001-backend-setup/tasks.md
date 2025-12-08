@@ -71,20 +71,20 @@ Per plan.md, this is a web app with `backend/` structure:
 
 ### Implementation for User Story 1
 
-- [ ] T023 [US1] Create health check view in backend/apps/core/views.py
-- [ ] T024 [US1] Create error handling utilities in backend/apps/core/exceptions.py
-- [ ] T025 [US1] Create core app URL patterns in backend/apps/core/urls.py
-- [ ] T026 [US1] Wire core URLs into root URLconf in backend/config/urls.py
-- [ ] T027 [US1] Configure logging in backend/config/settings/base.py
-- [ ] T028 [US1] Configure DRF settings in backend/config/settings/base.py
-- [ ] T029 [US1] Create test directory structure in backend/tests/
-- [ ] T030 [P] [US1] Create conftest.py with shared fixtures in backend/tests/conftest.py
-- [ ] T031 [P] [US1] Create unit test directory in backend/tests/unit/core/
-- [ ] T032 [P] [US1] Create integration test directory in backend/tests/integration/core/
-- [ ] T033 [P] [US1] Create contract test directory in backend/tests/contract/api/
-- [ ] T034 [US1] Add example unit test in backend/tests/unit/core/test_models.py
-- [ ] T035 [US1] Add example integration test in backend/tests/integration/core/test_health.py
-- [ ] T036 [US1] Run uv sync to generate lockfile
+- [x] T023 [US1] Create health check view in backend/apps/core/views.py
+- [x] T024 [US1] Create error handling utilities in backend/apps/core/exceptions.py
+- [x] T025 [US1] Create core app URL patterns in backend/apps/core/urls.py
+- [x] T026 [US1] Wire core URLs into root URLconf in backend/config/urls.py
+- [x] T027 [US1] Configure logging in backend/config/settings/base.py
+- [x] T028 [US1] Configure DRF settings in backend/config/settings/base.py
+- [x] T029 [US1] Create test directory structure in backend/tests/
+- [x] T030 [P] [US1] Create conftest.py with shared fixtures in backend/tests/conftest.py
+- [x] T031 [P] [US1] Create unit test directory in backend/tests/unit/core/
+- [x] T032 [P] [US1] Create integration test directory in backend/tests/integration/core/
+- [x] T033 [P] [US1] Create contract test directory in backend/tests/contract/api/
+- [x] T034 [US1] Add example unit test in backend/tests/unit/core/test_models.py
+- [x] T035 [US1] Add example integration test in backend/tests/integration/core/test_health.py
+- [x] T036 [US1] Run uv sync to generate lockfile
 
 **Checkpoint**: User Story 1 complete - developer can initialize project and run server
 

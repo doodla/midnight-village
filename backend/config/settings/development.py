@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 
 from .base import *  # noqa: F401, F403
+from .base import REST_FRAMEWORK
 
 load_dotenv()
 
@@ -35,16 +36,8 @@ DATABASES = {
     }
 }
 
-# Add browsable API renderer for development
-REST_FRAMEWORK = {
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
-    ],
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
-    ],
-    "DEFAULT_RENDERER_CLASSES": [
-        "rest_framework.renderers.JSONRenderer",
-        "rest_framework.renderers.BrowsableAPIRenderer",
-    ],
-}
+# Add browsable API renderer for development (extends base REST_FRAMEWORK)
+REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = [
+    "rest_framework.renderers.JSONRenderer",
+    "rest_framework.renderers.BrowsableAPIRenderer",
+]
