@@ -8,6 +8,7 @@ from rest_framework.generics import CreateAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Lobby, LobbyMember
 from .serializers import LobbyCreateSerializer, LobbySerializer
@@ -54,3 +55,77 @@ class LobbyDetailView(RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     lookup_field = "code"
     queryset = Lobby.objects.all()
+
+
+class LobbyJoinView(APIView):
+    """Join an existing lobby."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, code):
+        try:
+            lobby = Lobby.objects.get(code=code)
+        except Lobby.DoesNotExist:
+            return Response(
+                {"detail": "Lobby not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check if already in lobby
+        if LobbyMember.objects.filter(lobby=lobby, user=request.user).exists():
+            return Response(
+                {"detail": "You are already in this lobby."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if lobby is full
+        if lobby.players.count() >= lobby.max_players:  # type: ignore[misc]
+            return Response(
+                {"detail": "Lobby is full."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if lobby is still accepting players
+        if lobby.status != Lobby.Status.WAITING:
+            return Response(
+                {"detail": "Lobby is not accepting players."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        LobbyMember.objects.create(lobby=lobby, user=request.user)
+
+        serializer = LobbySerializer(lobby)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class LobbyLeaveView(APIView):
+    """Leave a lobby."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, code):
+        try:
+            lobby = Lobby.objects.get(code=code)
+        except Lobby.DoesNotExist:
+            return Response(
+                {"detail": "Lobby not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check if user is in lobby
+        try:
+            membership = LobbyMember.objects.get(lobby=lobby, user=request.user)
+        except LobbyMember.DoesNotExist:
+            return Response(
+                {"detail": "You are not in this lobby."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # If host leaves, delete the lobby
+        if lobby.host == request.user:
+            lobby.delete()
+            return Response({"detail": "Lobby deleted."}, status=status.HTTP_200_OK)
+
+        # Otherwise just remove the player
+        membership.delete()
+        return Response({"detail": "Left lobby."}, status=status.HTTP_200_OK)

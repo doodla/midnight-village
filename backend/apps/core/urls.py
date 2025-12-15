@@ -16,4 +16,8 @@ urlpatterns = [
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("lobbies/", views.LobbyCreateView.as_view(), name="lobby-list"),
     path("lobbies/<str:code>/", views.LobbyDetailView.as_view(), name="lobby-detail"),
+    path("lobbies/<str:code>/join/", views.LobbyJoinView.as_view(), name="lobby-join"),
+    path(
+        "lobbies/<str:code>/leave/", views.LobbyLeaveView.as_view(), name="lobby-leave"
+    ),
 ]
