@@ -227,3 +227,142 @@ class TestLobbyReady:
         response = api_client.post(url, {"is_ready": True}, format="json")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.integration
+class TestLobbyBroadcasts:
+    """Test that lobby actions broadcast events to WebSocket clients."""
+
+    def test_join_broadcasts_player_joined(self, api_client, db):
+        """Joining a lobby broadcasts player_joined event."""
+        from unittest.mock import MagicMock, patch
+
+        from apps.core.models import Lobby, LobbyMember, User
+
+        host = User.objects.create_user(username="host", password="pass")
+        player = User.objects.create_user(username="player", password="pass")
+        lobby = Lobby.objects.create(host=host, game_type="onuw")
+        LobbyMember.objects.create(lobby=lobby, user=host)
+
+        # Mock the channel layer
+        mock_channel_layer = MagicMock()
+        with patch(
+            "apps.core.views.get_channel_layer", return_value=mock_channel_layer
+        ):
+            with patch("apps.core.views.async_to_sync") as mock_async_to_sync:
+                api_client.force_authenticate(user=player)
+                url = reverse("core:lobby-join", kwargs={"code": lobby.code})
+                response = api_client.post(url)
+
+                assert response.status_code == status.HTTP_200_OK
+
+                # Verify group_send was called with correct arguments
+                mock_async_to_sync.assert_called_once_with(
+                    mock_channel_layer.group_send
+                )
+                mock_async_to_sync.return_value.assert_called_once_with(
+                    f"lobby_{lobby.code}",
+                    {"type": "player.joined", "username": "player"},
+                )
+
+    def test_leave_broadcasts_player_left(self, api_client, db):
+        """Leaving a lobby broadcasts player_left event (non-host)."""
+        from unittest.mock import MagicMock, patch
+
+        from apps.core.models import Lobby, LobbyMember, User
+
+        host = User.objects.create_user(username="host", password="pass")
+        player = User.objects.create_user(username="player", password="pass")
+        lobby = Lobby.objects.create(host=host, game_type="onuw")
+        LobbyMember.objects.create(lobby=lobby, user=host)
+        LobbyMember.objects.create(lobby=lobby, user=player)
+
+        # Mock the channel layer
+        mock_channel_layer = MagicMock()
+        with patch(
+            "apps.core.views.get_channel_layer", return_value=mock_channel_layer
+        ):
+            with patch("apps.core.views.async_to_sync") as mock_async_to_sync:
+                api_client.force_authenticate(user=player)
+                url = reverse("core:lobby-leave", kwargs={"code": lobby.code})
+                response = api_client.post(url)
+
+                assert response.status_code == status.HTTP_200_OK
+
+                # Verify group_send was called with correct arguments
+                mock_async_to_sync.assert_called_once_with(
+                    mock_channel_layer.group_send
+                )
+                mock_async_to_sync.return_value.assert_called_once_with(
+                    f"lobby_{lobby.code}", {"type": "player.left", "username": "player"}
+                )
+
+    def test_host_leave_does_not_broadcast(self, authenticated_client, user):
+        """When host leaves and deletes lobby, no player_left event is broadcast."""
+        from unittest.mock import patch
+
+        from apps.core.models import Lobby, LobbyMember
+
+        lobby = Lobby.objects.create(host=user, game_type="onuw")
+        LobbyMember.objects.create(lobby=lobby, user=user)
+
+        with patch("apps.core.views.async_to_sync") as mock_async_to_sync:
+            url = reverse("core:lobby-leave", kwargs={"code": lobby.code})
+            response = authenticated_client.post(url)
+
+            assert response.status_code == status.HTTP_200_OK
+            # Verify no broadcast was made
+            mock_async_to_sync.assert_not_called()
+
+    def test_ready_broadcasts_player_ready(self, api_client, db):
+        """Toggling ready state broadcasts player_ready event."""
+        from unittest.mock import MagicMock, patch
+
+        from apps.core.models import Lobby, LobbyMember, User
+
+        host = User.objects.create_user(username="host", password="pass")
+        player = User.objects.create_user(username="player", password="pass")
+        lobby = Lobby.objects.create(host=host, game_type="onuw")
+        LobbyMember.objects.create(lobby=lobby, user=player)
+
+        # Mock the channel layer
+        mock_channel_layer = MagicMock()
+        with patch(
+            "apps.core.views.get_channel_layer", return_value=mock_channel_layer
+        ):
+            with patch("apps.core.views.async_to_sync") as mock_async_to_sync:
+                api_client.force_authenticate(user=player)
+                url = reverse("core:lobby-ready", kwargs={"code": lobby.code})
+                response = api_client.post(url, {"is_ready": True}, format="json")
+
+                assert response.status_code == status.HTTP_200_OK
+
+                # Verify group_send was called with correct arguments
+                mock_async_to_sync.assert_called_once_with(
+                    mock_channel_layer.group_send
+                )
+                mock_async_to_sync.return_value.assert_called_once_with(
+                    f"lobby_{lobby.code}",
+                    {"type": "player.ready", "username": "player", "is_ready": True},
+                )
+
+    def test_broadcasts_handle_no_channel_layer(self, api_client, db):
+        """Actions work correctly when channel layer is None."""
+        from unittest.mock import patch
+
+        from apps.core.models import Lobby, LobbyMember, User
+
+        host = User.objects.create_user(username="host", password="pass")
+        player = User.objects.create_user(username="player", password="pass")
+        lobby = Lobby.objects.create(host=host, game_type="onuw")
+        LobbyMember.objects.create(lobby=lobby, user=host)
+
+        # Mock channel layer to return None
+        with patch("apps.core.views.get_channel_layer", return_value=None):
+            api_client.force_authenticate(user=player)
+            url = reverse("core:lobby-join", kwargs={"code": lobby.code})
+            response = api_client.post(url)
+
+            # Action should succeed even without channel layer
+            assert response.status_code == status.HTTP_200_OK
+            assert LobbyMember.objects.filter(lobby=lobby, user=player).exists()

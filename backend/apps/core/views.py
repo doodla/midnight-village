@@ -2,6 +2,8 @@
 Core app views.
 """
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.generics import CreateAPIView, RetrieveAPIView
@@ -94,6 +96,14 @@ class LobbyJoinView(APIView):
 
         LobbyMember.objects.create(lobby=lobby, user=request.user)
 
+        # Broadcast player joined event
+        channel_layer = get_channel_layer()
+        if channel_layer is not None:
+            async_to_sync(channel_layer.group_send)(
+                f"lobby_{lobby.code}",
+                {"type": "player.joined", "username": request.user.username},
+            )
+
         serializer = LobbySerializer(lobby)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -127,7 +137,16 @@ class LobbyLeaveView(APIView):
             return Response({"detail": "Lobby deleted."}, status=status.HTTP_200_OK)
 
         # Otherwise just remove the player
+        username = request.user.username
         membership.delete()
+
+        # Broadcast player left event (only for non-host)
+        channel_layer = get_channel_layer()
+        if channel_layer is not None:
+            async_to_sync(channel_layer.group_send)(
+                f"lobby_{lobby.code}", {"type": "player.left", "username": username}
+            )
+
         return Response({"detail": "Left lobby."}, status=status.HTTP_200_OK)
 
 
@@ -156,6 +175,18 @@ class LobbyReadyView(APIView):
         is_ready = request.data.get("is_ready", not membership.is_ready)
         membership.is_ready = is_ready
         membership.save()
+
+        # Broadcast player ready state change
+        channel_layer = get_channel_layer()
+        if channel_layer is not None:
+            async_to_sync(channel_layer.group_send)(
+                f"lobby_{lobby.code}",
+                {
+                    "type": "player.ready",
+                    "username": request.user.username,
+                    "is_ready": membership.is_ready,
+                },
+            )
 
         serializer = LobbySerializer(lobby)
         return Response(serializer.data, status=status.HTTP_200_OK)

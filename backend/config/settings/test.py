@@ -48,3 +48,10 @@ LOGGING = {
         "handlers": ["null"],
     },
 }
+
+# Channels - Use in-memory layer for fast test execution
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}

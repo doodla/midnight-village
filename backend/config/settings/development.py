@@ -41,3 +41,10 @@ REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = [
     "rest_framework.renderers.JSONRenderer",
     "rest_framework.renderers.BrowsableAPIRenderer",
 ]
+
+# Channels - Use in-memory layer for simple local development
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
