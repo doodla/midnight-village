@@ -11,6 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Application definition
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -18,7 +19,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Third-party
+    "channels",
     "rest_framework",
+    "rest_framework_simplejwt",
     # Local
     "apps.core",
 ]
@@ -134,5 +137,14 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
+    },
+}
+
+# Channels configuration
+ASGI_APPLICATION = "config.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
     },
 }
