@@ -476,66 +476,66 @@ git commit -m "feat(core): add Lobby model with auto-generated room codes"
 
 ---
 
-## Task 5: Create LobbyPlayer Model
+## Task 5: Create LobbyMember Model
 
 **Files:**
 - Modify: `backend/apps/core/models.py`
-- Create: `backend/tests/core/test_lobby_player_model.py`
+- Create: `backend/tests/core/test_lobby_member_model.py`
 
-**Step 1: Write failing test for LobbyPlayer model**
+**Step 1: Write failing test for LobbyMember model**
 
-Create `backend/tests/core/test_lobby_player_model.py`:
+Create `backend/tests/core/test_lobby_member_model.py`:
 
 ```python
-"""Unit tests for LobbyPlayer model."""
+"""Unit tests for LobbyMember model."""
 
 import pytest
 
 
 @pytest.mark.unit
-class TestLobbyPlayerModel:
-    """Test LobbyPlayer model behavior."""
+class TestLobbyMemberModel:
+    """Test LobbyMember model behavior."""
 
     def test_player_can_join_lobby(self, db):
         """A user can join a lobby as a player."""
-        from apps.core.models import Lobby, LobbyPlayer, User
+        from apps.core.models import Lobby, LobbyMember, User
 
         host = User.objects.create_user(username="host", password="pass")
         player = User.objects.create_user(username="player", password="pass")
         lobby = Lobby.objects.create(host=host, game_type="onuw")
 
-        lobby_player = LobbyPlayer.objects.create(lobby=lobby, user=player)
+        membership = LobbyMember.objects.create(lobby=lobby, user=player)
 
-        assert lobby_player.lobby == lobby
-        assert lobby_player.user == player
-        assert lobby_player.is_ready is False
+        assert membership.lobby == lobby
+        assert membership.user == player
+        assert membership.is_ready is False
 
     def test_player_cannot_join_same_lobby_twice(self, db):
         """A user cannot join the same lobby twice."""
         from django.db import IntegrityError
 
-        from apps.core.models import Lobby, LobbyPlayer, User
+        from apps.core.models import Lobby, LobbyMember, User
 
         host = User.objects.create_user(username="host", password="pass")
         player = User.objects.create_user(username="player", password="pass")
         lobby = Lobby.objects.create(host=host, game_type="onuw")
 
-        LobbyPlayer.objects.create(lobby=lobby, user=player)
+        LobbyMember.objects.create(lobby=lobby, user=player)
 
         with pytest.raises(IntegrityError):
-            LobbyPlayer.objects.create(lobby=lobby, user=player)
+            LobbyMember.objects.create(lobby=lobby, user=player)
 
     def test_players_ordered_by_join_time(self, db):
         """Players are ordered by when they joined."""
-        from apps.core.models import Lobby, LobbyPlayer, User
+        from apps.core.models import Lobby, LobbyMember, User
 
         host = User.objects.create_user(username="host", password="pass")
         player1 = User.objects.create_user(username="player1", password="pass")
         player2 = User.objects.create_user(username="player2", password="pass")
         lobby = Lobby.objects.create(host=host, game_type="onuw")
 
-        lp1 = LobbyPlayer.objects.create(lobby=lobby, user=player1)
-        lp2 = LobbyPlayer.objects.create(lobby=lobby, user=player2)
+        lp1 = LobbyMember.objects.create(lobby=lobby, user=player1)
+        lp2 = LobbyMember.objects.create(lobby=lobby, user=player2)
 
         players = list(lobby.players.all())
         assert players[0] == lp1
@@ -544,15 +544,15 @@ class TestLobbyPlayerModel:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd backend && uv run pytest tests/core/test_lobby_player_model.py -v`
-Expected: FAIL with "ImportError" (LobbyPlayer doesn't exist)
+Run: `cd backend && uv run pytest tests/core/test_lobby_member_model.py -v`
+Expected: FAIL with "ImportError" (LobbyMember doesn't exist)
 
-**Step 3: Implement LobbyPlayer model**
+**Step 3: Implement LobbyMember model**
 
 Add to `backend/apps/core/models.py` after the Lobby class:
 
 ```python
-class LobbyPlayer(models.Model):
+class LobbyMember(models.Model):
     """A player in a lobby."""
 
     lobby = models.ForeignKey(
@@ -581,21 +581,21 @@ class LobbyPlayer(models.Model):
 **Step 4: Create and run migration**
 
 Run: `cd backend && uv run python manage.py makemigrations core`
-Expected: Migration created for LobbyPlayer model
+Expected: Migration created for LobbyMember model
 
 Run: `cd backend && uv run python manage.py migrate`
 Expected: Migration applied successfully
 
 **Step 5: Run test to verify it passes**
 
-Run: `cd backend && uv run pytest tests/core/test_lobby_player_model.py -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_member_model.py -v`
 Expected: All 3 tests PASS
 
 **Step 6: Commit**
 
 ```bash
-git add backend/apps/core/models.py backend/apps/core/migrations/ backend/tests/core/test_lobby_player_model.py
-git commit -m "feat(core): add LobbyPlayer model for lobby membership"
+git add backend/apps/core/models.py backend/apps/core/migrations/ backend/tests/core/test_lobby_member_model.py
+git commit -m "feat(core): add LobbyMember model for lobby membership"
 ```
 
 ---
@@ -692,7 +692,7 @@ Update `backend/apps/core/serializers.py`:
 
 from rest_framework import serializers
 
-from .models import Lobby, LobbyPlayer, User
+from .models import Lobby, LobbyMember, User
 
 
 class UserBriefSerializer(serializers.ModelSerializer):
@@ -703,20 +703,20 @@ class UserBriefSerializer(serializers.ModelSerializer):
         fields = ["id", "username"]
 
 
-class LobbyPlayerSerializer(serializers.ModelSerializer):
+class LobbyMemberSerializer(serializers.ModelSerializer):
     """Serializer for lobby players."""
 
     user = UserBriefSerializer(read_only=True)
 
     class Meta:
-        model = LobbyPlayer
+        model = LobbyMember
         fields = ["user", "is_ready", "joined_at"]
 
 
 class LobbySerializer(serializers.ModelSerializer):
     """Serializer for Lobby model."""
 
-    players = LobbyPlayerSerializer(many=True, read_only=True)
+    players = LobbyMemberSerializer(many=True, read_only=True)
     host = UserBriefSerializer(read_only=True)
 
     class Meta:
@@ -762,7 +762,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from .models import Lobby, LobbyPlayer
+from .models import Lobby, LobbyMember
 from .serializers import LobbyCreateSerializer, LobbySerializer
 
 
@@ -787,7 +787,7 @@ class LobbyCreateView(CreateAPIView):
     def perform_create(self, serializer):
         lobby = serializer.save(host=self.request.user)
         # Add host as first player
-        LobbyPlayer.objects.create(lobby=lobby, user=self.request.user)
+        LobbyMember.objects.create(lobby=lobby, user=self.request.user)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -881,14 +881,14 @@ class TestJoinLobby:
 
     def test_user_cannot_join_full_lobby(self, api_client, db):
         """Users cannot join a lobby that is full."""
-        from apps.core.models import Lobby, LobbyPlayer, User
+        from apps.core.models import Lobby, LobbyMember, User
 
         host = User.objects.create_user(username="host", password="pass")
         lobby = Lobby.objects.create(host=host, game_type="onuw", max_players=2)
 
         # Add another player to fill the lobby
         player1 = User.objects.create_user(username="player1", password="pass")
-        LobbyPlayer.objects.create(lobby=lobby, user=player1)
+        LobbyMember.objects.create(lobby=lobby, user=player1)
 
         # Try to join as third player
         player2 = User.objects.create_user(username="player2", password="pass")
@@ -916,19 +916,19 @@ class TestLeaveLobby:
 
     def test_player_can_leave_lobby(self, api_client, db):
         """Players can leave a lobby."""
-        from apps.core.models import Lobby, LobbyPlayer, User
+        from apps.core.models import Lobby, LobbyMember, User
 
         host = User.objects.create_user(username="host", password="pass")
         player = User.objects.create_user(username="player", password="pass")
         lobby = Lobby.objects.create(host=host, game_type="onuw")
-        LobbyPlayer.objects.create(lobby=lobby, user=player)
+        LobbyMember.objects.create(lobby=lobby, user=player)
 
         api_client.force_authenticate(user=player)
         url = reverse("core:lobby-leave", kwargs={"code": lobby.code})
         response = api_client.post(url)
 
         assert response.status_code == status.HTTP_200_OK
-        assert not LobbyPlayer.objects.filter(lobby=lobby, user=player).exists()
+        assert not LobbyMember.objects.filter(lobby=lobby, user=player).exists()
 
     def test_host_leaving_deletes_lobby(self, authenticated_client, user):
         """When the host leaves, the lobby is deleted."""
@@ -955,7 +955,7 @@ Add to `backend/apps/core/views.py`:
 
 ```python
 from rest_framework.views import APIView
-from .models import Lobby, LobbyPlayer
+from .models import Lobby, LobbyMember
 
 
 class LobbyJoinView(APIView):
@@ -973,7 +973,7 @@ class LobbyJoinView(APIView):
             )
 
         # Check if already in lobby
-        if LobbyPlayer.objects.filter(lobby=lobby, user=request.user).exists():
+        if LobbyMember.objects.filter(lobby=lobby, user=request.user).exists():
             return Response(
                 {"detail": "You are already in this lobby."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -993,7 +993,7 @@ class LobbyJoinView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        LobbyPlayer.objects.create(lobby=lobby, user=request.user)
+        LobbyMember.objects.create(lobby=lobby, user=request.user)
 
         serializer = LobbySerializer(lobby)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1015,8 +1015,8 @@ class LobbyLeaveView(APIView):
 
         # Check if user is in lobby
         try:
-            lobby_player = LobbyPlayer.objects.get(lobby=lobby, user=request.user)
-        except LobbyPlayer.DoesNotExist:
+            membership = LobbyMember.objects.get(lobby=lobby, user=request.user)
+        except LobbyMember.DoesNotExist:
             return Response(
                 {"detail": "You are not in this lobby."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1028,7 +1028,7 @@ class LobbyLeaveView(APIView):
             return Response({"detail": "Lobby deleted."}, status=status.HTTP_200_OK)
 
         # Otherwise just remove the player
-        lobby_player.delete()
+        membership.delete()
         return Response({"detail": "Left lobby."}, status=status.HTTP_200_OK)
 ```
 
@@ -1091,12 +1091,12 @@ class TestLobbyReady:
 
     def test_player_can_toggle_ready(self, api_client, db):
         """Players can toggle their ready state."""
-        from apps.core.models import Lobby, LobbyPlayer, User
+        from apps.core.models import Lobby, LobbyMember, User
 
         host = User.objects.create_user(username="host", password="pass")
         player = User.objects.create_user(username="player", password="pass")
         lobby = Lobby.objects.create(host=host, game_type="onuw")
-        LobbyPlayer.objects.create(lobby=lobby, user=player)
+        LobbyMember.objects.create(lobby=lobby, user=player)
 
         api_client.force_authenticate(user=player)
         url = reverse("core:lobby-ready", kwargs={"code": lobby.code})
@@ -1105,7 +1105,7 @@ class TestLobbyReady:
         response = api_client.post(url, {"is_ready": True}, format="json")
         assert response.status_code == status.HTTP_200_OK
 
-        player_in_lobby = LobbyPlayer.objects.get(lobby=lobby, user=player)
+        player_in_lobby = LobbyMember.objects.get(lobby=lobby, user=player)
         assert player_in_lobby.is_ready is True
 
         # Toggle to not ready
@@ -1155,16 +1155,16 @@ class LobbyReadyView(APIView):
             )
 
         try:
-            lobby_player = LobbyPlayer.objects.get(lobby=lobby, user=request.user)
-        except LobbyPlayer.DoesNotExist:
+            membership = LobbyMember.objects.get(lobby=lobby, user=request.user)
+        except LobbyMember.DoesNotExist:
             return Response(
                 {"detail": "You are not in this lobby."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        is_ready = request.data.get("is_ready", not lobby_player.is_ready)
-        lobby_player.is_ready = is_ready
-        lobby_player.save()
+        is_ready = request.data.get("is_ready", not membership.is_ready)
+        membership.is_ready = is_ready
+        membership.save()
 
         serializer = LobbySerializer(lobby)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1256,7 +1256,7 @@ class TestLobbyWebSocket:
 
     async def test_receive_player_joined_event(self, db):
         """Connected clients receive player_joined events."""
-        from apps.core.models import LobbyPlayer, User
+        from apps.core.models import LobbyMember, User
 
         code, host = await create_lobby_with_user()
 
@@ -1274,7 +1274,7 @@ class TestLobbyWebSocket:
 
             player = User.objects.create_user(username="player2", password="pass")
             lobby = Lobby.objects.get(code=code)
-            LobbyPlayer.objects.create(lobby=lobby, user=player)
+            LobbyMember.objects.create(lobby=lobby, user=player)
             return player.username
 
         # Send event through channel layer
@@ -1503,7 +1503,7 @@ class LobbyJoinView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if LobbyPlayer.objects.filter(lobby=lobby, user=request.user).exists():
+        if LobbyMember.objects.filter(lobby=lobby, user=request.user).exists():
             return Response(
                 {"detail": "You are already in this lobby."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1521,7 +1521,7 @@ class LobbyJoinView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        LobbyPlayer.objects.create(lobby=lobby, user=request.user)
+        LobbyMember.objects.create(lobby=lobby, user=request.user)
 
         # Broadcast to lobby
         broadcast_to_lobby(code, "player.joined", {"username": request.user.username})
@@ -1637,7 +1637,7 @@ After completing all tasks, `apps.core` provides:
 
 1. **JWT Authentication** - Token obtain/refresh endpoints for Flutter app
 2. **Lobby Model** - Generic lobby with auto-generated 6-char room codes
-3. **LobbyPlayer Model** - Tracks players in lobbies with ready state
+3. **LobbyMember Model** - Tracks players in lobbies with ready state
 4. **REST API** - Create, get, join, leave, ready endpoints
 5. **WebSocket Support** - Real-time updates for lobby events
 6. **Broadcast Integration** - REST actions trigger WebSocket broadcasts
