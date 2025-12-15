@@ -20,8 +20,6 @@ def create_lobby_with_user():
     return lobby.code, user
 
 
-@pytest.mark.asyncio
-@pytest.mark.integration
 class TestLobbyWebSocket:
     """Test Lobby WebSocket consumer."""
 

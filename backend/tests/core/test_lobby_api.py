@@ -2,11 +2,9 @@
 
 from django.urls import reverse
 
-import pytest
 from rest_framework import status
 
 
-@pytest.mark.integration
 class TestCreateLobby:
     """Test lobby creation endpoint."""
 
@@ -37,7 +35,6 @@ class TestCreateLobby:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-@pytest.mark.integration
 class TestGetLobby:
     """Test lobby retrieval endpoints."""
 
@@ -65,7 +62,6 @@ class TestGetLobby:
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-@pytest.mark.integration
 class TestJoinLobby:
     """Test lobby join endpoint."""
 
@@ -133,7 +129,6 @@ class TestJoinLobby:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-@pytest.mark.integration
 class TestLeaveLobby:
     """Test lobby leave endpoint."""
 
@@ -184,7 +179,6 @@ class TestLeaveLobby:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-@pytest.mark.integration
 class TestLobbyReady:
     """Test lobby ready state endpoint."""
 
@@ -229,7 +223,6 @@ class TestLobbyReady:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-@pytest.mark.integration
 class TestLobbyBroadcasts:
     """Test that lobby actions broadcast events to WebSocket clients."""
 

@@ -3,7 +3,6 @@
 import pytest
 
 
-@pytest.mark.unit
 class TestLobbyMemberModel:
     """Test LobbyMember model behavior."""
 
