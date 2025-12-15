@@ -129,3 +129,33 @@ class LobbyLeaveView(APIView):
         # Otherwise just remove the player
         membership.delete()
         return Response({"detail": "Left lobby."}, status=status.HTTP_200_OK)
+
+
+class LobbyReadyView(APIView):
+    """Toggle ready state for a player in a lobby."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, code):
+        try:
+            lobby = Lobby.objects.get(code=code)
+        except Lobby.DoesNotExist:
+            return Response(
+                {"detail": "Lobby not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            membership = LobbyMember.objects.get(lobby=lobby, user=request.user)
+        except LobbyMember.DoesNotExist:
+            return Response(
+                {"detail": "You are not in this lobby."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        is_ready = request.data.get("is_ready", not membership.is_ready)
+        membership.is_ready = is_ready
+        membership.save()
+
+        serializer = LobbySerializer(lobby)
+        return Response(serializer.data, status=status.HTTP_200_OK)

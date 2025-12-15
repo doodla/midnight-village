@@ -20,4 +20,7 @@ urlpatterns = [
     path(
         "lobbies/<str:code>/leave/", views.LobbyLeaveView.as_view(), name="lobby-leave"
     ),
+    path(
+        "lobbies/<str:code>/ready/", views.LobbyReadyView.as_view(), name="lobby-ready"
+    ),
 ]

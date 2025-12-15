@@ -182,3 +182,48 @@ class TestLeaveLobby:
         response = api_client.post(url)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.integration
+class TestLobbyReady:
+    """Test lobby ready state endpoint."""
+
+    def test_player_can_toggle_ready(self, api_client, db):
+        """Players can toggle their ready state."""
+        from apps.core.models import Lobby, LobbyMember, User
+
+        host = User.objects.create_user(username="host", password="pass")
+        player = User.objects.create_user(username="player", password="pass")
+        lobby = Lobby.objects.create(host=host, game_type="onuw")
+        LobbyMember.objects.create(lobby=lobby, user=player)
+
+        api_client.force_authenticate(user=player)
+        url = reverse("core:lobby-ready", kwargs={"code": lobby.code})
+
+        # Toggle to ready
+        response = api_client.post(url, {"is_ready": True}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+
+        player_in_lobby = LobbyMember.objects.get(lobby=lobby, user=player)
+        assert player_in_lobby.is_ready is True
+
+        # Toggle to not ready
+        response = api_client.post(url, {"is_ready": False}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+
+        player_in_lobby.refresh_from_db()
+        assert player_in_lobby.is_ready is False
+
+    def test_non_member_cannot_ready(self, api_client, db):
+        """Users not in lobby cannot set ready state."""
+        from apps.core.models import Lobby, User
+
+        host = User.objects.create_user(username="host", password="pass")
+        outsider = User.objects.create_user(username="outsider", password="pass")
+        lobby = Lobby.objects.create(host=host, game_type="onuw")
+
+        api_client.force_authenticate(user=outsider)
+        url = reverse("core:lobby-ready", kwargs={"code": lobby.code})
+        response = api_client.post(url, {"is_ready": True}, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
