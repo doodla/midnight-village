@@ -1,10 +1,8 @@
 # midnight-village Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2025-12-07
+## Technologies
 
-## Active Technologies
-
-- Python 3.12 (per spec clarification) + Django 5.x, Django REST Framework, python-dotenv (001-backend-setup)
+- Python 3.12 + Django 5.x, Django REST Framework, python-dotenv
 
 ## Project Structure
 
@@ -32,12 +30,4 @@ just typecheck     # Type check with Pyrefly
 
 ## Code Style
 
-Python 3.12 (per spec clarification): Follow standard conventions
-
-## Recent Changes
-
-- 001-backend-setup: Added Python 3.12 (per spec clarification) + Django 5.x, Django REST Framework, python-dotenv
-
-<!-- MANUAL ADDITIONS START -->
-- When getting a code review, if there are doc file changes, also request a review from docs-architect
-<!-- MANUAL ADDITIONS END -->
+Python 3.12: Follow standard conventions
