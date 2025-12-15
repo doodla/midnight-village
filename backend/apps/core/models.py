@@ -75,3 +75,27 @@ class Lobby(models.Model):
             else:
                 raise ValueError("Could not generate unique lobby code")
         super().save(*args, **kwargs)
+
+
+class LobbyMember(models.Model):
+    """A player in a lobby."""
+
+    lobby = models.ForeignKey(
+        Lobby,
+        on_delete=models.CASCADE,
+        related_name="players",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="lobby_memberships",
+    )
+    is_ready = models.BooleanField(default=False)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (("lobby", "user"),)
+        ordering = ("joined_at",)
+
+    def __str__(self) -> str:
+        return f"{self.user.username} in {self.lobby.code}"
