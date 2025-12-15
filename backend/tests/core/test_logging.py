@@ -1,5 +1,5 @@
 """
-Integration tests for structured logging configuration.
+Tests for structured logging configuration.
 
 Validates that the base.py logging setup is correctly configured for production use.
 Tests import the base settings directly since test settings intentionally disable
@@ -9,8 +9,6 @@ logging for performance.
 import logging
 from io import StringIO
 from typing import Any
-
-import pytest
 
 # Import base settings directly to test the production logging configuration
 from config.settings import base as base_settings
@@ -23,7 +21,6 @@ def _get_logging_section(key: str) -> dict[str, Any]:
     return section
 
 
-@pytest.mark.integration
 class TestLoggingConfiguration:
     """Tests for the Django logging configuration in base.py."""
 

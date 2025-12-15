@@ -2,11 +2,9 @@
 
 from django.urls import reverse
 
-import pytest
 from rest_framework import status
 
 
-@pytest.mark.integration
 class TestTokenEndpoints:
     """Test JWT token obtain and refresh endpoints."""
 

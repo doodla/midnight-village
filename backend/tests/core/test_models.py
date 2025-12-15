@@ -1,8 +1,5 @@
 """
-Integration tests for core models.
-
-These tests interact with the database and are classified as integration tests
-per the project constitution (unit tests should have no I/O).
+Tests for core models.
 """
 
 from django.contrib.auth import get_user_model
@@ -12,7 +9,6 @@ import pytest
 User = get_user_model()
 
 
-@pytest.mark.integration
 @pytest.mark.django_db
 class TestUserModel:
     """Tests for the custom User model."""

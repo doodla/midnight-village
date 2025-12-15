@@ -1,9 +1,6 @@
-"""Unit tests for Lobby model."""
-
-import pytest
+"""Tests for Lobby model."""
 
 
-@pytest.mark.unit
 class TestLobbyModel:
     """Test Lobby model behavior."""
 

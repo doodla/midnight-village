@@ -1,5 +1,5 @@
 """
-Integration tests for health check endpoint.
+Tests for health check endpoint.
 """
 
 from django.urls import reverse
@@ -7,7 +7,6 @@ from django.urls import reverse
 import pytest
 
 
-@pytest.mark.integration
 @pytest.mark.django_db
 class TestHealthCheckEndpoint:
     """Tests for the /api/health/ endpoint."""

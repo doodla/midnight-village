@@ -1,11 +1,13 @@
 """
-Unit tests for core exception handling utilities.
+Tests for core exception handling utilities.
 
-These tests verify the exception handler transformation logic in isolation,
-without database access or HTTP requests.
+This module contains both isolated unit tests (using mocks) and integration tests
+(using real HTTP requests) for the custom exception handler.
 """
 
 from unittest.mock import MagicMock, patch
+
+from django.urls import reverse
 
 import pytest
 from rest_framework.response import Response
@@ -13,8 +15,7 @@ from rest_framework.response import Response
 from apps.core.exceptions import custom_exception_handler
 
 
-@pytest.mark.unit
-class TestCustomExceptionHandler:
+class TestCustomExceptionHandlerUnit:
     """Unit tests for custom_exception_handler function."""
 
     def test_returns_none_when_drf_handler_returns_none(self):
@@ -116,3 +117,29 @@ class TestCustomExceptionHandler:
             assert result is mock_response
             response_data: dict = mock_response.data
             assert response_data["error"]["status_code"] == status_code
+
+
+@pytest.mark.django_db
+class TestCustomExceptionHandlerIntegration:
+    """Integration tests for the custom DRF exception handler."""
+
+    def test_405_error_response_format(self, api_client):
+        """Test that 405 errors return consistent error format."""
+        url = reverse("core:health-check")
+        response = api_client.post(url)
+
+        assert response.status_code == 405
+        data = response.json()
+        assert "error" in data
+        assert "status_code" in data["error"]
+        assert "detail" in data["error"]
+        assert data["error"]["status_code"] == 405
+
+    def test_error_response_contains_detail_message(self, api_client):
+        """Test that error responses contain meaningful detail messages."""
+        url = reverse("core:health-check")
+        response = api_client.post(url)
+
+        data = response.json()
+        # 405 should have a detail about method not allowed
+        assert "Method" in str(data["error"]["detail"]) or data["error"]["detail"]

@@ -18,7 +18,6 @@ import pytest
 from rest_framework import status
 
 
-@pytest.mark.contract
 @pytest.mark.django_db
 class TestErrorResponseFormat:
     """Contract tests verifying error response structure for DRF errors."""
