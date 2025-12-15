@@ -168,11 +168,11 @@ git commit -m "feat(core): configure Django Channels with ASGI routing"
 **Files:**
 - Modify: `backend/config/settings/base.py`
 - Modify: `backend/apps/core/urls.py`
-- Create: `backend/tests/integration/core/test_auth.py`
+- Create: `backend/tests/core/test_auth.py`
 
 **Step 1: Write failing test for token endpoint**
 
-Create `backend/tests/integration/core/test_auth.py`:
+Create `backend/tests/core/test_auth.py`:
 
 ```python
 """Tests for JWT authentication endpoints."""
@@ -235,7 +235,7 @@ class TestTokenEndpoints:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_auth.py -v`
+Run: `cd backend && uv run pytest tests/core/test_auth.py -v`
 Expected: FAIL with "NoReverseMatch" (URL not configured)
 
 **Step 3: Configure JWT settings**
@@ -298,13 +298,13 @@ urlpatterns = [
 
 **Step 5: Run test to verify it passes**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_auth.py -v`
+Run: `cd backend && uv run pytest tests/core/test_auth.py -v`
 Expected: All 3 tests PASS
 
 **Step 6: Commit**
 
 ```bash
-git add backend/config/settings/base.py backend/apps/core/urls.py backend/tests/integration/core/test_auth.py
+git add backend/config/settings/base.py backend/apps/core/urls.py backend/tests/core/test_auth.py
 git commit -m "feat(core): add JWT authentication endpoints"
 ```
 
@@ -314,11 +314,11 @@ git commit -m "feat(core): add JWT authentication endpoints"
 
 **Files:**
 - Modify: `backend/apps/core/models.py`
-- Create: `backend/tests/unit/core/test_lobby_model.py`
+- Create: `backend/tests/core/test_lobby_model.py`
 
 **Step 1: Write failing test for Lobby model**
 
-Create `backend/tests/unit/core/test_lobby_model.py`:
+Create `backend/tests/core/test_lobby_model.py`:
 
 ```python
 """Unit tests for Lobby model."""
@@ -373,7 +373,7 @@ class TestLobbyModel:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd backend && uv run pytest tests/unit/core/test_lobby_model.py -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_model.py -v`
 Expected: FAIL with "ImportError" or "AttributeError" (Lobby doesn't exist)
 
 **Step 3: Implement Lobby model**
@@ -464,13 +464,13 @@ Expected: Migration applied successfully
 
 **Step 5: Run test to verify it passes**
 
-Run: `cd backend && uv run pytest tests/unit/core/test_lobby_model.py -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_model.py -v`
 Expected: All 4 tests PASS
 
 **Step 6: Commit**
 
 ```bash
-git add backend/apps/core/models.py backend/apps/core/migrations/ backend/tests/unit/core/test_lobby_model.py
+git add backend/apps/core/models.py backend/apps/core/migrations/ backend/tests/core/test_lobby_model.py
 git commit -m "feat(core): add Lobby model with auto-generated room codes"
 ```
 
@@ -480,11 +480,11 @@ git commit -m "feat(core): add Lobby model with auto-generated room codes"
 
 **Files:**
 - Modify: `backend/apps/core/models.py`
-- Create: `backend/tests/unit/core/test_lobby_player_model.py`
+- Create: `backend/tests/core/test_lobby_player_model.py`
 
 **Step 1: Write failing test for LobbyPlayer model**
 
-Create `backend/tests/unit/core/test_lobby_player_model.py`:
+Create `backend/tests/core/test_lobby_player_model.py`:
 
 ```python
 """Unit tests for LobbyPlayer model."""
@@ -510,21 +510,6 @@ class TestLobbyPlayerModel:
         assert lobby_player.user == player
         assert lobby_player.is_ready is False
 
-    def test_player_assigned_seat_number(self, db):
-        """Players are assigned sequential seat numbers."""
-        from apps.core.models import Lobby, LobbyPlayer, User
-
-        host = User.objects.create_user(username="host", password="pass")
-        player1 = User.objects.create_user(username="player1", password="pass")
-        player2 = User.objects.create_user(username="player2", password="pass")
-        lobby = Lobby.objects.create(host=host, game_type="onuw")
-
-        lp1 = LobbyPlayer.objects.create(lobby=lobby, user=player1)
-        lp2 = LobbyPlayer.objects.create(lobby=lobby, user=player2)
-
-        assert lp1.seat_number == 1
-        assert lp2.seat_number == 2
-
     def test_player_cannot_join_same_lobby_twice(self, db):
         """A user cannot join the same lobby twice."""
         from django.db import IntegrityError
@@ -540,21 +525,26 @@ class TestLobbyPlayerModel:
         with pytest.raises(IntegrityError):
             LobbyPlayer.objects.create(lobby=lobby, user=player)
 
-    def test_host_automatically_joins_lobby(self, db):
-        """When a lobby is created, the host is added as a player."""
+    def test_players_ordered_by_join_time(self, db):
+        """Players are ordered by when they joined."""
         from apps.core.models import Lobby, LobbyPlayer, User
 
         host = User.objects.create_user(username="host", password="pass")
+        player1 = User.objects.create_user(username="player1", password="pass")
+        player2 = User.objects.create_user(username="player2", password="pass")
         lobby = Lobby.objects.create(host=host, game_type="onuw")
 
-        assert LobbyPlayer.objects.filter(lobby=lobby, user=host).exists()
-        host_player = LobbyPlayer.objects.get(lobby=lobby, user=host)
-        assert host_player.seat_number == 1
+        lp1 = LobbyPlayer.objects.create(lobby=lobby, user=player1)
+        lp2 = LobbyPlayer.objects.create(lobby=lobby, user=player2)
+
+        players = list(lobby.players.all())
+        assert players[0] == lp1
+        assert players[1] == lp2
 ```
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd backend && uv run pytest tests/unit/core/test_lobby_player_model.py -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_player_model.py -v`
 Expected: FAIL with "ImportError" (LobbyPlayer doesn't exist)
 
 **Step 3: Implement LobbyPlayer model**
@@ -575,45 +565,18 @@ class LobbyPlayer(models.Model):
         on_delete=models.CASCADE,
         related_name="lobby_memberships",
     )
-    seat_number = models.PositiveIntegerField(editable=False)
     is_ready = models.BooleanField(default=False)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = [("lobby", "user")]
-        ordering = ["seat_number"]
-
-    def save(self, *args, **kwargs):
-        if not self.seat_number:
-            # Assign next available seat number
-            max_seat = self.lobby.players.aggregate(models.Max("seat_number"))["seat_number__max"]
-            self.seat_number = (max_seat or 0) + 1
-        super().save(*args, **kwargs)
+        ordering = ["joined_at"]
 
     def __str__(self) -> str:
         return f"{self.user.username} in {self.lobby.code}"
 ```
 
-Update the Lobby.save() method to auto-add host as player:
-
-```python
-def save(self, *args, **kwargs):
-    is_new = self.pk is None
-    if not self.code:
-        # Generate unique code
-        for _ in range(10):  # Max attempts
-            code = generate_lobby_code()
-            if not Lobby.objects.filter(code=code).exists():
-                self.code = code
-                break
-        else:
-            raise ValueError("Could not generate unique lobby code")
-    super().save(*args, **kwargs)
-
-    # Add host as first player when lobby is created
-    if is_new:
-        LobbyPlayer.objects.create(lobby=self, user=self.host)
-```
+**Note:** The host is added as a player at the view layer when creating a lobby, not in `Lobby.save()`. This keeps the model simple and avoids side effects in save methods.
 
 **Step 4: Create and run migration**
 
@@ -625,14 +588,14 @@ Expected: Migration applied successfully
 
 **Step 5: Run test to verify it passes**
 
-Run: `cd backend && uv run pytest tests/unit/core/test_lobby_player_model.py -v`
-Expected: All 4 tests PASS
+Run: `cd backend && uv run pytest tests/core/test_lobby_player_model.py -v`
+Expected: All 3 tests PASS
 
 **Step 6: Commit**
 
 ```bash
-git add backend/apps/core/models.py backend/apps/core/migrations/ backend/tests/unit/core/test_lobby_player_model.py
-git commit -m "feat(core): add LobbyPlayer model with auto seat assignment"
+git add backend/apps/core/models.py backend/apps/core/migrations/ backend/tests/core/test_lobby_player_model.py
+git commit -m "feat(core): add LobbyPlayer model for lobby membership"
 ```
 
 ---
@@ -643,11 +606,11 @@ git commit -m "feat(core): add LobbyPlayer model with auto seat assignment"
 - Modify: `backend/apps/core/serializers.py`
 - Modify: `backend/apps/core/views.py`
 - Modify: `backend/apps/core/urls.py`
-- Create: `backend/tests/integration/core/test_lobby_api.py`
+- Create: `backend/tests/core/test_lobby_api.py`
 
 **Step 1: Write failing tests for create and get lobby**
 
-Create `backend/tests/integration/core/test_lobby_api.py`:
+Create `backend/tests/core/test_lobby_api.py`:
 
 ```python
 """Integration tests for Lobby API endpoints."""
@@ -717,7 +680,7 @@ class TestGetLobby:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_lobby_api.py -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_api.py -v`
 Expected: FAIL with "NoReverseMatch" (URLs not configured)
 
 **Step 3: Create serializers**
@@ -747,7 +710,7 @@ class LobbyPlayerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LobbyPlayer
-        fields = ["user", "seat_number", "is_ready", "joined_at"]
+        fields = ["user", "is_ready", "joined_at"]
 
 
 class LobbySerializer(serializers.ModelSerializer):
@@ -799,7 +762,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from .models import Lobby
+from .models import Lobby, LobbyPlayer
 from .serializers import LobbyCreateSerializer, LobbySerializer
 
 
@@ -822,7 +785,9 @@ class LobbyCreateView(CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(host=self.request.user)
+        lobby = serializer.save(host=self.request.user)
+        # Add host as first player
+        LobbyPlayer.objects.create(lobby=lobby, user=self.request.user)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -871,13 +836,13 @@ urlpatterns = [
 
 **Step 6: Run test to verify it passes**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_lobby_api.py -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_api.py -v`
 Expected: All 4 tests PASS
 
 **Step 7: Commit**
 
 ```bash
-git add backend/apps/core/serializers.py backend/apps/core/views.py backend/apps/core/urls.py backend/tests/integration/core/test_lobby_api.py
+git add backend/apps/core/serializers.py backend/apps/core/views.py backend/apps/core/urls.py backend/tests/core/test_lobby_api.py
 git commit -m "feat(core): add lobby create and retrieve API endpoints"
 ```
 
@@ -888,11 +853,11 @@ git commit -m "feat(core): add lobby create and retrieve API endpoints"
 **Files:**
 - Modify: `backend/apps/core/views.py`
 - Modify: `backend/apps/core/urls.py`
-- Modify: `backend/tests/integration/core/test_lobby_api.py`
+- Modify: `backend/tests/core/test_lobby_api.py`
 
 **Step 1: Write failing tests for join and leave**
 
-Add to `backend/tests/integration/core/test_lobby_api.py`:
+Add to `backend/tests/core/test_lobby_api.py`:
 
 ```python
 @pytest.mark.integration
@@ -981,7 +946,7 @@ class TestLeaveLobby:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_lobby_api.py::TestJoinLobby -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_api.py::TestJoinLobby -v`
 Expected: FAIL with "NoReverseMatch"
 
 **Step 3: Implement join and leave views**
@@ -1096,13 +1061,13 @@ urlpatterns = [
 
 **Step 5: Run test to verify it passes**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_lobby_api.py -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_api.py -v`
 Expected: All 9 tests PASS
 
 **Step 6: Commit**
 
 ```bash
-git add backend/apps/core/views.py backend/apps/core/urls.py backend/tests/integration/core/test_lobby_api.py
+git add backend/apps/core/views.py backend/apps/core/urls.py backend/tests/core/test_lobby_api.py
 git commit -m "feat(core): add lobby join and leave API endpoints"
 ```
 
@@ -1113,11 +1078,11 @@ git commit -m "feat(core): add lobby join and leave API endpoints"
 **Files:**
 - Modify: `backend/apps/core/views.py`
 - Modify: `backend/apps/core/urls.py`
-- Modify: `backend/tests/integration/core/test_lobby_api.py`
+- Modify: `backend/tests/core/test_lobby_api.py`
 
 **Step 1: Write failing tests for ready toggle**
 
-Add to `backend/tests/integration/core/test_lobby_api.py`:
+Add to `backend/tests/core/test_lobby_api.py`:
 
 ```python
 @pytest.mark.integration
@@ -1167,7 +1132,7 @@ class TestLobbyReady:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_lobby_api.py::TestLobbyReady -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_api.py::TestLobbyReady -v`
 Expected: FAIL with "NoReverseMatch"
 
 **Step 3: Implement ready view**
@@ -1215,13 +1180,13 @@ path("lobbies/<str:code>/ready/", views.LobbyReadyView.as_view(), name="lobby-re
 
 **Step 5: Run test to verify it passes**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_lobby_api.py::TestLobbyReady -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_api.py::TestLobbyReady -v`
 Expected: All 2 tests PASS
 
 **Step 6: Commit**
 
 ```bash
-git add backend/apps/core/views.py backend/apps/core/urls.py backend/tests/integration/core/test_lobby_api.py
+git add backend/apps/core/views.py backend/apps/core/urls.py backend/tests/core/test_lobby_api.py
 git commit -m "feat(core): add lobby ready state toggle endpoint"
 ```
 
@@ -1232,11 +1197,11 @@ git commit -m "feat(core): add lobby ready state toggle endpoint"
 **Files:**
 - Create: `backend/apps/core/consumers.py`
 - Modify: `backend/apps/core/routing.py`
-- Create: `backend/tests/integration/core/test_lobby_websocket.py`
+- Create: `backend/tests/core/test_lobby_websocket.py`
 
 **Step 1: Write failing test for WebSocket connection**
 
-Create `backend/tests/integration/core/test_lobby_websocket.py`:
+Create `backend/tests/core/test_lobby_websocket.py`:
 
 ```python
 """Integration tests for Lobby WebSocket consumer."""
@@ -1335,7 +1300,7 @@ class TestLobbyWebSocket:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_lobby_websocket.py -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_websocket.py -v`
 Expected: FAIL (WebSocket route not found or consumer doesn't exist)
 
 **Step 3: Create WebSocket consumer**
@@ -1442,13 +1407,13 @@ websocket_urlpatterns = [
 
 **Step 5: Run test to verify it passes**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_lobby_websocket.py -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_websocket.py -v`
 Expected: All 3 tests PASS
 
 **Step 6: Commit**
 
 ```bash
-git add backend/apps/core/consumers.py backend/apps/core/routing.py backend/tests/integration/core/test_lobby_websocket.py
+git add backend/apps/core/consumers.py backend/apps/core/routing.py backend/tests/core/test_lobby_websocket.py
 git commit -m "feat(core): add WebSocket consumer for lobby real-time updates"
 ```
 
@@ -1458,11 +1423,11 @@ git commit -m "feat(core): add WebSocket consumer for lobby real-time updates"
 
 **Files:**
 - Modify: `backend/apps/core/views.py`
-- Modify: `backend/tests/integration/core/test_lobby_api.py`
+- Modify: `backend/tests/core/test_lobby_api.py`
 
 **Step 1: Write test for broadcast on join**
 
-Add to `backend/tests/integration/core/test_lobby_api.py`:
+Add to `backend/tests/core/test_lobby_api.py`:
 
 ```python
 @pytest.mark.integration
@@ -1497,7 +1462,7 @@ class TestLobbyBroadcast:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_lobby_api.py::TestLobbyBroadcast -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_api.py::TestLobbyBroadcast -v`
 Expected: FAIL (broadcast not implemented)
 
 **Step 3: Add broadcast helper and update views**
@@ -1569,7 +1534,7 @@ Similarly update `LobbyLeaveView` and `LobbyReadyView` to broadcast their events
 
 **Step 4: Run test to verify it passes**
 
-Run: `cd backend && uv run pytest tests/integration/core/test_lobby_api.py::TestLobbyBroadcast -v`
+Run: `cd backend && uv run pytest tests/core/test_lobby_api.py::TestLobbyBroadcast -v`
 Expected: Test PASS
 
 **Step 5: Run all tests**
@@ -1580,7 +1545,7 @@ Expected: All tests PASS
 **Step 6: Commit**
 
 ```bash
-git add backend/apps/core/views.py backend/tests/integration/core/test_lobby_api.py
+git add backend/apps/core/views.py backend/tests/core/test_lobby_api.py
 git commit -m "feat(core): broadcast WebSocket events from REST API actions"
 ```
 
@@ -1672,7 +1637,7 @@ After completing all tasks, `apps.core` provides:
 
 1. **JWT Authentication** - Token obtain/refresh endpoints for Flutter app
 2. **Lobby Model** - Generic lobby with auto-generated 6-char room codes
-3. **LobbyPlayer Model** - Tracks players in lobbies with seat numbers and ready state
+3. **LobbyPlayer Model** - Tracks players in lobbies with ready state
 4. **REST API** - Create, get, join, leave, ready endpoints
 5. **WebSocket Support** - Real-time updates for lobby events
 6. **Broadcast Integration** - REST actions trigger WebSocket broadcasts
