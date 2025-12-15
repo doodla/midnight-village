@@ -8,10 +8,11 @@ All API responses follow a consistent JSON structure.
 
 ### Success Response
 
+Example from health check endpoint (`/api/health/`):
+
 ```json
 {
-    "status": "healthy",
-    "version": "0.1.0"
+    "status": "ok"
 }
 ```
 
@@ -54,22 +55,22 @@ For validation errors with field-level details:
 
 ## Exception Handling
 
-Use the custom exception handler in `apps.core.exceptions`:
+Use DRF's built-in exceptions with our custom exception handler:
 
 ```python
-from apps.core.exceptions import APIException
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 
-# Raise with custom code
-raise APIException(
-    detail="Resource not found",
-    code="not_found"
-)
+# Raise standard DRF exceptions - they'll be formatted consistently
+raise NotFound(detail="Resource not found")
+raise ValidationError({"field": "Error message"})
+
+# Or use APIException for custom errors
+raise APIException(detail="Custom error message")
 ```
 
-The exception handler formats errors consistently:
+The custom exception handler (`backend/apps/core/exceptions.py`) formats errors consistently:
 
 ```python
-# apps/core/exceptions.py
 def custom_exception_handler(exc, context):
     response = drf_exception_handler(exc, context)
     if response is not None:

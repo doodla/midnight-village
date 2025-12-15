@@ -84,6 +84,8 @@ Per plan.md, this is a web app with `backend/` structure:
 - [x] T033 [P] [US1] Create contract test directory in backend/tests/contract/api/
 - [x] T034 [US1] Add example unit test in backend/tests/unit/core/test_models.py
 - [x] T035 [US1] Add example integration test in backend/tests/integration/core/test_health.py
+- [x] T035b [US1] Add contract test for error response format in backend/tests/contract/api/test_error_responses.py
+- [x] T035c [US1] Add integration test validating structured log output in backend/tests/integration/core/test_logging.py
 - [x] T036 [US1] Run uv sync to generate lockfile
 
 **Checkpoint**: User Story 1 complete - developer can initialize project and run server
@@ -135,9 +137,9 @@ Per plan.md, this is a web app with `backend/` structure:
 
 ### Implementation for User Story 4
 
-- [ ] T048 [P] [US4] Create backend justfile in backend/justfile
-- [ ] T049 [US4] Create root justfile delegating to backend in justfile
-- [ ] T050 [US4] Verify just commands work from both root and backend
+- [x] T048 [P] [US4] Create backend justfile in backend/justfile
+- [x] T049 [US4] Create root justfile delegating to backend in justfile
+- [x] T050 [US4] Verify just commands work from both root and backend
 
 **Checkpoint**: User Story 4 complete - monorepo integration works
 
@@ -147,9 +149,9 @@ Per plan.md, this is a web app with `backend/` structure:
 
 **Purpose**: Final validation and cleanup
 
-- [ ] T051 Run all quality checks with just check
-- [ ] T052 Validate quickstart.md instructions work end-to-end
-- [ ] T053 Verify development server auto-reload within 2 seconds
+- [x] T051 Run all quality checks with just check
+- [x] T052 Validate quickstart.md instructions work end-to-end
+- [x] T053 Verify development server auto-reload within 2 seconds
 
 ---
 
@@ -254,7 +256,7 @@ P1 stories first, then P2:
 
 - [P] tasks = different files, no dependencies
 - [Story] label maps task to specific user story
-- No test tasks included (not explicitly requested in spec)
+- Example tests included (T034-T035) to demonstrate patterns; dedicated TDD test-writing tasks for features are deferred to feature specs
 - Constitution requires test structure (unit/integration/contract) - created in US1
 - Each story independently completable and testable
 - Commit after each task or logical group

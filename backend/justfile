@@ -1,0 +1,126 @@
+# Backend Justfile for Midnight Village
+# Run `just` or `just --list` to see available commands
+
+# Use bash with strict error handling
+set shell := ["bash", "-uc"]
+
+# Load environment variables from .env file
+set dotenv-load
+
+# Default recipe: run all quality checks
+default: check
+
+# --- Setup ---
+
+# Install all dependencies (including dev and lint groups)
+install:
+    uv sync --all-groups
+
+# --- Development ---
+
+# Run development server
+dev:
+    uv run python manage.py runserver
+
+# Run development server on specific port
+serve port="8000":
+    uv run python manage.py runserver {{port}}
+
+# Run Django management command
+manage *args:
+    uv run python manage.py {{args}}
+
+# --- Database ---
+
+# Run migrations
+migrate:
+    uv run python manage.py migrate
+
+# Create new migrations
+makemigrations *args:
+    uv run python manage.py makemigrations {{args}}
+
+# --- Testing ---
+
+# Run all tests
+test *args:
+    uv run pytest {{args}}
+
+# Run tests with coverage report (uses pyproject.toml config)
+test-cov:
+    uv run pytest
+
+# Run tests for specific marker (unit, integration, contract) - no coverage
+test-marker marker:
+    uv run pytest -m {{marker}} --no-cov
+
+# Run unit tests only (no coverage - may have insufficient coverage alone)
+test-unit:
+    uv run pytest -m unit --no-cov
+
+# Run integration tests only (no coverage - may have insufficient coverage alone)
+test-integration:
+    uv run pytest -m integration --no-cov
+
+# Run contract tests only (no coverage - may have insufficient coverage alone)
+test-contract:
+    uv run pytest -m contract --no-cov
+
+# --- Code Quality ---
+
+# Lint code with Ruff
+lint:
+    uv run ruff check .
+
+# Lint and fix auto-fixable issues
+lint-fix:
+    uv run ruff check . --fix
+
+# Format code with Ruff
+format:
+    uv run ruff format .
+
+# Check formatting without making changes
+format-check:
+    uv run ruff format . --check
+
+# Type check with Pyrefly
+typecheck:
+    uv run pyrefly check .
+
+# Run all quality checks (lint, format check, typecheck)
+check: lint format-check typecheck
+
+# Run all quality checks and fix what can be fixed
+fix: lint-fix format
+
+# --- Utilities ---
+
+# Create Django superuser
+superuser:
+    uv run python manage.py createsuperuser
+
+# Show project dependencies tree
+deps:
+    uv tree
+
+# Shell into Django environment
+shell:
+    uv run python manage.py shell
+
+# Database shell
+dbshell:
+    uv run python manage.py dbshell
+
+# Collect static files
+collectstatic:
+    uv run python manage.py collectstatic --noinput
+
+# Clean up Python cache files
+clean:
+    find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    find . -type f -name "*.pyc" -delete 2>/dev/null || true
+    find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+    find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
+    find . -type d -name "htmlcov" -exec rm -rf {} + 2>/dev/null || true
+    rm -f .coverage coverage.xml 2>/dev/null || true

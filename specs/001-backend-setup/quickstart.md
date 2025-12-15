@@ -12,21 +12,21 @@
 # Navigate to backend
 cd backend
 
-# Install dependencies
-uv sync
+# Install dependencies (all groups: dev, lint)
+just install
 
 # Copy environment template
 cp .env.example .env
-# Edit .env with your database credentials
+# Edit .env with your database credentials (see note below)
 
 # Run migrations
-uv run python manage.py migrate
+just migrate
 
 # Create superuser (optional)
-uv run python manage.py createsuperuser
+just superuser
 
 # Start development server
-uv run python manage.py runserver
+just dev
 ```
 
 ## Common Commands
@@ -71,5 +71,11 @@ backend/
 |----------|-------------|---------|
 | `SECRET_KEY` | Django secret key | (required in production) |
 | `DEBUG` | Debug mode | `False` |
-| `DATABASE_URL` | PostgreSQL connection string | - |
+| `DB_NAME` | Database name | `midnight_village_dev` |
+| `DB_USER` | Database user | empty (see note) |
+| `DB_PASSWORD` | Database password | empty (see note) |
+| `DB_HOST` | Database host | `localhost` |
+| `DB_PORT` | Database port | `5432` |
 | `ALLOWED_HOSTS` | Comma-separated host list | `localhost` |
+
+**Note on database credentials**: On macOS with Homebrew PostgreSQL, leave `DB_USER` and `DB_PASSWORD` empty to use your system user. On Linux or Docker, set them to `postgres` or your configured credentials.

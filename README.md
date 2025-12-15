@@ -17,6 +17,7 @@ midnight-village/
 - [Architecture](docs/architecture.md) - System design and patterns
 - [API Patterns](docs/api-patterns.md) - API conventions
 - [Contributing](docs/contributing.md) - Development workflow
+- [Feature Specs](specs/) - Feature specifications and design documents
 
 ## First Time Setup
 
@@ -25,6 +26,7 @@ midnight-village/
 - Python 3.12+
 - PostgreSQL 14+
 - [uv](https://docs.astral.sh/uv/) package manager
+- [just](https://just.systems/) command runner
 
 ### Backend Setup
 
@@ -33,17 +35,16 @@ midnight-village/
 git clone <repo-url>
 cd midnight-village
 
-# Navigate to backend and install dependencies
-cd backend
-uv sync
+# Install dependencies (from repo root)
+just install
 
 # Configure environment
-cp .env.example .env
+cp backend/.env.example backend/.env
 # Edit .env with your database credentials
 
 # Run migrations and start server
-uv run python manage.py migrate
-uv run python manage.py runserver
+just migrate
+just dev
 ```
 
 The API will be available at http://localhost:8000
@@ -55,7 +56,7 @@ The API will be available at http://localhost:8000
 curl http://localhost:8000/api/health/
 
 # Run tests
-uv run pytest
+just test
 ```
 
 ## Development
@@ -65,17 +66,20 @@ uv run pytest
 Pre-commit hooks run automatically on commit. To run manually:
 
 ```bash
-# From repository root
-uv run --directory backend pre-commit run --all-files
+# Run all quality checks (lint, format check, typecheck)
+just check
+
+# Fix auto-fixable issues
+just fix
 ```
 
 ### Running Tests
 
 ```bash
-cd backend
-uv run pytest              # All tests
-uv run pytest -m unit      # Unit tests only
-uv run pytest -m integration  # Integration tests only
+just test              # All tests
+just test-unit         # Unit tests only
+just test-integration  # Integration tests only
+just test-cov          # Tests with coverage report
 ```
 
 ## Project Status

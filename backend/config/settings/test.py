@@ -1,10 +1,16 @@
 """
 Test settings for Midnight Village.
 
-Optimized for fast test execution.
+Optimized for fast test execution while maintaining PostgreSQL parity.
 """
 
+import os
+
+from dotenv import load_dotenv
+
 from .base import *
+
+load_dotenv()
 
 SECRET_KEY = "django-insecure-test-key-not-for-production"
 
@@ -12,11 +18,15 @@ DEBUG = False
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
-# Use SQLite for faster tests
+# Use PostgreSQL for test environment parity (per spec requirement)
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("DB_NAME", "midnight_village_test"),
+        "USER": os.environ.get("DB_USER", ""),
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
     }
 }
 

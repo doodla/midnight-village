@@ -7,6 +7,7 @@ Backend API server for the Midnight Village game, built with Django and Django R
 - Python 3.12+
 - PostgreSQL 14+
 - [uv](https://docs.astral.sh/uv/) package manager
+- [just](https://just.systems/) command runner
 
 ## Quickstart
 
@@ -15,20 +16,20 @@ Backend API server for the Midnight Village game, built with Django and Django R
 cd backend
 
 # Install dependencies
-uv sync
+just install
 
 # Copy environment template and configure
 cp .env.example .env
 # Edit .env with your database credentials
 
 # Run migrations
-uv run python manage.py migrate
+just migrate
 
 # Create superuser (optional)
-uv run python manage.py createsuperuser
+just superuser
 
 # Start development server
-uv run python manage.py runserver
+just dev
 ```
 
 The server will be available at http://localhost:8000
@@ -37,25 +38,27 @@ The server will be available at http://localhost:8000
 
 ```bash
 # Run development server
-uv run python manage.py runserver
+just dev
+
+# Run on specific port
+just serve 8001
 
 # Run tests
-uv run pytest
+just test
 
 # Run tests with coverage
-uv run pytest --cov
+just test-cov
 
-# Format code
-uv run ruff format .
+# Run all quality checks (lint, format, typecheck)
+just check
 
-# Lint code
-uv run ruff check . --fix
+# Fix auto-fixable issues
+just fix
 
-# Type check
-uv run pyrefly check .
-
-# Run all quality checks (from repo root)
-uv run --directory backend pre-commit run --all-files
+# Individual commands
+just lint          # Lint code
+just format        # Format code
+just typecheck     # Type check
 ```
 
 ## Project Structure
@@ -78,13 +81,14 @@ backend/
 |----------|-------------|---------|
 | `SECRET_KEY` | Django secret key | (required in production) |
 | `DEBUG` | Debug mode | `False` |
-| `DATABASE_URL` | PostgreSQL connection string | - |
 | `DB_NAME` | Database name | `midnight_village_dev` |
-| `DB_USER` | Database user | `postgres` |
-| `DB_PASSWORD` | Database password | `postgres` |
+| `DB_USER` | Database user | empty (see note) |
+| `DB_PASSWORD` | Database password | empty (see note) |
 | `DB_HOST` | Database host | `localhost` |
 | `DB_PORT` | Database port | `5432` |
 | `ALLOWED_HOSTS` | Comma-separated host list | `localhost` |
+
+**Note on database credentials**: On macOS with Homebrew PostgreSQL, leave `DB_USER` and `DB_PASSWORD` empty to use your system user. On Linux or Docker, set them to `postgres` or your configured credentials.
 
 ## API Endpoints
 
@@ -105,19 +109,18 @@ Tests are organized by type:
 
 ```bash
 # Run all tests
-uv run pytest
+just test
 
-# Run only unit tests
-uv run pytest -m unit
-
-# Run only integration tests
-uv run pytest -m integration
+# Run by marker
+just test-unit         # Unit tests only
+just test-integration  # Integration tests only
+just test-contract     # Contract tests only
 
 # Run with verbose output
-uv run pytest -v
+just test -v
 
 # Run specific test file
-uv run pytest tests/unit/core/test_models.py
+just test tests/integration/core/test_models.py
 ```
 
 ## License

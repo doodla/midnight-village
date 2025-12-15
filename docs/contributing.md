@@ -8,48 +8,46 @@ This document describes how to contribute to the Midnight Village backend.
    - Python 3.12+
    - PostgreSQL 14+
    - [uv](https://docs.astral.sh/uv/) package manager
+   - [just](https://just.systems/) command runner
 
-2. **Clone and navigate to backend**:
+2. **Clone and install**:
    ```bash
    git clone <repo-url>
-   cd midnight-village/backend
-   uv sync
+   cd midnight-village
+   just install
    ```
 
 3. **Configure environment**:
    ```bash
-   cp .env.example .env
+   cp backend/.env.example backend/.env
    # Edit .env with your database credentials
    ```
 
 4. **Run migrations**:
    ```bash
-   uv run python manage.py migrate
+   just migrate
    ```
 
 5. **Start the server**:
    ```bash
-   uv run python manage.py runserver
+   just dev
    ```
 
 ## Code Quality
 
 ### Before Committing
 
-Run all quality checks:
+Run all quality checks using justfile commands:
 
 ```bash
-# Format code
-uv run ruff format .
+# Run all checks (lint, format check, typecheck)
+just check
 
-# Lint code
-uv run ruff check . --fix
-
-# Type check
-uv run pyrefly check .
+# Fix auto-fixable issues (lint + format)
+just fix
 
 # Run tests
-uv run pytest
+just test
 ```
 
 Or use the pre-commit hooks (recommended):
@@ -80,17 +78,18 @@ Write tests for all new functionality:
 
 ```bash
 # Run all tests
-uv run pytest
+just test
 
 # Run with coverage
-uv run pytest --cov
+just test-cov
 
 # Run specific test file
-uv run pytest tests/unit/core/test_models.py
+just test tests/integration/core/test_models.py
 
 # Run tests by marker
-uv run pytest -m unit
-uv run pytest -m integration
+just test-unit
+just test-integration
+just test-contract
 ```
 
 Test organization:
@@ -143,7 +142,7 @@ Prefixes:
 
 1. Create the app structure:
    ```bash
-   uv run python manage.py startapp myapp apps/myapp
+   just manage startapp myapp apps/myapp
    ```
 
 2. Update `apps/myapp/apps.py` with correct name:
@@ -155,8 +154,8 @@ Prefixes:
 
 4. Create test directories:
    ```bash
-   mkdir -p tests/unit/myapp tests/integration/myapp
-   touch tests/unit/myapp/__init__.py tests/integration/myapp/__init__.py
+   mkdir -p backend/tests/unit/myapp backend/tests/integration/myapp
+   touch backend/tests/unit/myapp/__init__.py backend/tests/integration/myapp/__init__.py
    ```
 
 ### New API Endpoint
@@ -172,11 +171,11 @@ Prefixes:
 1. Add model to `apps/{app}/models.py`
 2. Create and apply migrations:
    ```bash
-   uv run python manage.py makemigrations
-   uv run python manage.py migrate
+   just makemigrations
+   just migrate
    ```
 3. Register in admin (`apps/{app}/admin.py`)
-4. Write unit tests in `tests/unit/{app}/`
+4. Write integration tests in `tests/integration/{app}/` (model tests use the database)
 
 ## Troubleshooting
 
@@ -186,8 +185,8 @@ Prefixes:
 # Find and kill process using port 8000
 lsof -ti:8000 | xargs kill -9
 
-# Or run on a different port
-uv run python manage.py runserver 8001
+# Or run on a different port (from backend directory)
+cd backend && just serve 8001
 ```
 
 ### PostgreSQL Connection Failed
@@ -216,17 +215,17 @@ psql -U postgres -d midnight_village_dev -c "SELECT 1"
 # Reset database (development only)
 dropdb midnight_village_dev
 createdb midnight_village_dev
-uv run python manage.py migrate
+just migrate
 ```
 
 ### Migration Conflicts
 
 ```bash
 # Show migration status
-uv run python manage.py showmigrations
+just manage showmigrations
 
 # Merge migrations if needed
-uv run python manage.py makemigrations --merge
+just makemigrations --merge
 ```
 
 ### Pre-commit Hook Failures
@@ -246,9 +245,10 @@ git commit --no-verify -m "message"
 ### Dependency Issues
 
 ```bash
-# Reinstall all dependencies
+# Reinstall all dependencies (from backend directory)
+cd backend
 rm -rf .venv uv.lock
-uv sync
+just install
 ```
 
 ### Environment Variable Issues

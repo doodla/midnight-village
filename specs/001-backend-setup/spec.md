@@ -72,10 +72,10 @@ As a developer, I want the Django backend project to integrate seamlessly with e
 
 ### Edge Cases
 
-- What happens when the monorepo has conflicting dependency versions with the Django backend requirements?
-- How does the system handle initialization when required global tools (Python, pip) are missing from the developer's machine?
-- What happens if the developer attempts to initialize in a directory that already contains partial project files?
-- How does the setup handle different operating systems (macOS, Linux, Windows)?
+- **Conflicting dependency versions**: uv's dependency resolver handles version conflicts automatically. If unresolvable, uv reports the conflict explicitly and the developer must adjust version constraints in pyproject.toml.
+- **Missing global tools (Python)**: The quickstart.md prerequisites section documents required tools. uv can install Python automatically via `uv python install 3.12` if missing.
+- **Partial project files in directory**: Developer must manually clean or backup existing files before initialization. The setup does not auto-merge or overwrite.
+- **Cross-OS support**: uv and Python are cross-platform. The project uses POSIX-compatible scripts (justfile). Windows developers should use WSL2 or Git Bash for full compatibility.
 
 ## Requirements *(mandatory)*
 
