@@ -31,8 +31,9 @@ select = [
 ]
 
 ignore = [
-    "E501",  # Line too long (handled by formatter)
-    "A003",  # Class attribute shadows builtin (Django uses 'id')
+    "E501",   # Line too long (handled by formatter)
+    "A003",   # Class attribute shadows builtin (Django uses 'id')
+    "RUF012", # Mutable class attributes - false positive for Django/DRF Meta classes
 ]
 
 [lint.per-file-ignores]
