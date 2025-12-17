@@ -1,5 +1,7 @@
 """Tests for guest authentication endpoint."""
 
+import re
+
 
 class TestGuestUserModel:
     """Test guest user model fields."""
@@ -46,3 +48,31 @@ class TestGuestUserModel:
             display_name="",
         )
         assert user.display_name == ""
+
+
+class TestDisplayNameGenerator:
+    """Test display name generation."""
+
+    def test_generates_adjective_animal_format(self):
+        """Generated names follow AdjectiveAnimal format."""
+        from apps.core.name_generator import generate_display_name
+
+        name = generate_display_name()
+        # Should be two capitalized words joined (e.g., "SwiftOwl")
+        assert re.match(r"^[A-Z][a-z]+[A-Z][a-z]+$", name)
+
+    def test_generates_different_names(self):
+        """Generator produces variety of names."""
+        from apps.core.name_generator import generate_display_name
+
+        names = {generate_display_name() for _ in range(100)}
+        # Should generate at least 50 unique names in 100 tries
+        assert len(names) >= 50
+
+    def test_generated_name_max_length(self):
+        """Generated names fit within 20 char limit."""
+        from apps.core.name_generator import generate_display_name
+
+        for _ in range(100):
+            name = generate_display_name()
+            assert len(name) <= 20
