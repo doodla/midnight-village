@@ -11,7 +11,8 @@ from django.db import models
 class User(AbstractUser):
     """Custom User model for Midnight Village."""
 
-    pass
+    display_name = models.CharField(max_length=20, blank=True, default="")
+    is_guest = models.BooleanField(default=False)
 
 
 def generate_lobby_code() -> str:
