@@ -1,5 +1,6 @@
 """Core app serializers."""
 
+import regex
 from rest_framework import serializers
 
 from .models import Lobby, LobbyMember, User
@@ -54,3 +55,39 @@ class LobbyCreateSerializer(serializers.ModelSerializer):
             "max_players": {"required": False},
             "settings": {"required": False},
         }
+
+
+class GuestCreateSerializer(serializers.Serializer):
+    """Serializer for guest account creation."""
+
+    display_name = serializers.CharField(
+        max_length=20,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+    def validate_display_name(self, value: str) -> str:
+        """Validate and normalize display name."""
+        # Trim whitespace
+        value = value.strip()
+
+        # Empty is valid (will be generated later)
+        if not value:
+            return ""
+
+        # Check for control characters (anything below space except allowed)
+        if any(ord(c) < 32 for c in value):
+            raise serializers.ValidationError(
+                "Display name contains invalid characters."
+            )
+
+        # Check pattern: Unicode letters/numbers with single spaces between words
+        # Use regex library for proper Unicode support
+        pattern = regex.compile(r"^[\p{L}\p{N}]+( [\p{L}\p{N}]+)*$")
+        if not pattern.match(value):
+            raise serializers.ValidationError(
+                "Display name can only contain letters, numbers, and single spaces."
+            )
+
+        return value
