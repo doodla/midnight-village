@@ -1,0 +1,74 @@
+# Frontend Justfile for Midnight Village Flutter App
+# Run `just` or `just --list` to see available commands
+
+set shell := ["bash", "-uc"]
+
+# Default: show help
+default:
+    @just --list
+
+# --- Development ---
+
+# Run app on Chrome
+run:
+    flutter run -d chrome --web-port=3000
+
+# Run app on specific device
+run-device device:
+    flutter run -d {{device}}
+
+# Run code generation
+gen:
+    dart run build_runner build --delete-conflicting-outputs
+
+# Run code generation (watch mode)
+watch:
+    dart run build_runner watch --delete-conflicting-outputs
+
+# --- Testing ---
+
+# Run all tests
+test:
+    flutter test
+
+# Run tests with coverage
+test-cov:
+    flutter test --coverage
+
+# --- Code Quality ---
+
+# Analyze code
+analyze:
+    flutter analyze
+
+# Format code
+format:
+    dart format lib test
+
+# Check formatting
+format-check:
+    dart format --set-exit-if-changed lib test
+
+# --- Build ---
+
+# Build for web (production)
+build-web:
+    flutter build web --dart-define=ENV=prod
+
+# Build for iOS (production)
+build-ios:
+    flutter build ios --dart-define=ENV=prod
+
+# Build for Android (production)
+build-android:
+    flutter build appbundle --dart-define=ENV=prod
+
+# --- Utilities ---
+
+# Get dependencies
+deps:
+    flutter pub get
+
+# Clean build artifacts
+clean:
+    flutter clean && dart run build_runner clean
