@@ -2,6 +2,8 @@
 Core app views.
 """
 
+import uuid
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import status
@@ -11,9 +13,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Lobby, LobbyMember
-from .serializers import LobbyCreateSerializer, LobbySerializer
+from .models import Lobby, LobbyMember, User
+from .name_generator import generate_display_name
+from .serializers import GuestCreateSerializer, LobbyCreateSerializer, LobbySerializer
 
 
 @api_view(["GET"])
@@ -26,6 +30,45 @@ def health_check(request: Request) -> Response:
         Response: JSON response with status "ok"
     """
     return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+
+class GuestCreateView(APIView):
+    """Create a guest account with optional display name."""
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = GuestCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        display_name = serializer.validated_data.get("display_name", "")  # type: ignore[misc]
+
+        # Generate display name if not provided or empty
+        if not display_name:
+            display_name = generate_display_name()
+
+        # Create guest user with UUID username
+        user = User.objects.create_user(
+            username=str(uuid.uuid4()),
+            password=None,  # Guest accounts have no password
+            display_name=display_name,
+            is_guest=True,
+        )
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": {
+                    "id": user.id,  # type: ignore[misc]
+                    "display_name": user.display_name,
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class LobbyCreateView(CreateAPIView):

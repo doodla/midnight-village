@@ -1,6 +1,12 @@
 """Tests for guest authentication endpoint."""
 
 import re
+import uuid
+
+from django.urls import reverse
+
+import pytest
+from rest_framework import status
 
 
 class TestGuestUserModel:
@@ -87,7 +93,7 @@ class TestGuestCreateSerializer:
 
         serializer = GuestCreateSerializer(data={"display_name": "Alice"})
         assert serializer.is_valid()
-        assert serializer.validated_data["display_name"] == "Alice"
+        assert serializer.validated_data["display_name"] == "Alice"  # type: ignore[index]
 
     def test_empty_display_name_is_valid(self):
         """Empty display name is valid (will be generated)."""
@@ -110,7 +116,7 @@ class TestGuestCreateSerializer:
         serializer = GuestCreateSerializer(data={"display_name": "   "})
         assert serializer.is_valid()
         # Whitespace should be trimmed
-        assert serializer.validated_data["display_name"] == ""
+        assert serializer.validated_data["display_name"] == ""  # type: ignore[index]
 
     def test_display_name_trimmed(self):
         """Leading/trailing whitespace is stripped."""
@@ -118,7 +124,7 @@ class TestGuestCreateSerializer:
 
         serializer = GuestCreateSerializer(data={"display_name": "  Alice  "})
         assert serializer.is_valid()
-        assert serializer.validated_data["display_name"] == "Alice"
+        assert serializer.validated_data["display_name"] == "Alice"  # type: ignore[index]
 
     def test_display_name_max_length(self):
         """Names over 20 chars are rejected."""
@@ -164,3 +170,86 @@ class TestGuestCreateSerializer:
         for char in ["@", "#", "$", "<", ">", "/"]:
             serializer = GuestCreateSerializer(data={"display_name": f"Test{char}Name"})
             assert not serializer.is_valid(), f"Should reject '{char}'"
+
+
+class TestGuestRegistrationEndpoint:
+    """Test POST /api/auth/guest/ endpoint."""
+
+    def test_create_guest_with_display_name(self, api_client, db):
+        """Create guest with provided display name."""
+        url = reverse("core:guest-create")
+        response = api_client.post(url, {"display_name": "Alice"}, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert "access" in response.data
+        assert "refresh" in response.data
+        assert response.data["user"]["display_name"] == "Alice"
+
+    def test_create_guest_without_display_name(self, api_client, db):
+        """Create guest without display name generates one."""
+        url = reverse("core:guest-create")
+        response = api_client.post(url, {}, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        # Generated name should be AdjectiveAnimal format
+        display_name = response.data["user"]["display_name"]
+        assert re.match(r"^[A-Z][a-z]+[A-Z][a-z]+$", display_name)
+
+    def test_create_guest_empty_display_name(self, api_client, db):
+        """Empty string triggers name generation."""
+        url = reverse("core:guest-create")
+        response = api_client.post(url, {"display_name": ""}, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        display_name = response.data["user"]["display_name"]
+        assert re.match(r"^[A-Z][a-z]+[A-Z][a-z]+$", display_name)
+
+    def test_create_guest_whitespace_only(self, api_client, db):
+        """Whitespace-only triggers name generation."""
+        url = reverse("core:guest-create")
+        response = api_client.post(url, {"display_name": "   "}, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        display_name = response.data["user"]["display_name"]
+        assert re.match(r"^[A-Z][a-z]+[A-Z][a-z]+$", display_name)
+
+    def test_create_guest_display_name_trimmed(self, api_client, db):
+        """Leading/trailing whitespace is stripped."""
+        url = reverse("core:guest-create")
+        response = api_client.post(url, {"display_name": "  Alice  "}, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["user"]["display_name"] == "Alice"
+
+    def test_create_guest_display_name_max_length(self, api_client, db):
+        """Names > 20 chars are rejected."""
+        url = reverse("core:guest-create")
+        response = api_client.post(url, {"display_name": "A" * 21}, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_guest_display_name_invalid_chars(self, api_client, db):
+        """Control chars / special symbols rejected."""
+        url = reverse("core:guest-create")
+        response = api_client.post(url, {"display_name": "Test@Name"}, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_guest_user_fields_set_correctly(self, api_client, db):
+        """Guest user has is_guest=True and UUID username."""
+        from apps.core.models import User
+
+        url = reverse("core:guest-create")
+        response = api_client.post(url, {"display_name": "Alice"}, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        # Verify user in database
+        user_id = response.data["user"]["id"]
+        user = User.objects.get(id=user_id)
+        assert user.is_guest is True
+        # Username should be a valid UUID
+        try:
+            uuid.UUID(user.username)
+        except ValueError:
+            pytest.fail("Username should be a valid UUID")
