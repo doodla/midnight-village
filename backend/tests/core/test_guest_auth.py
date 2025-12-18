@@ -253,3 +253,18 @@ class TestGuestRegistrationEndpoint:
             uuid.UUID(user.username)
         except ValueError:
             pytest.fail("Username should be a valid UUID")
+
+
+class TestUserBriefSerializerWithDisplayName:
+    """Test UserBriefSerializer includes display_name."""
+
+    def test_includes_display_name(self, user):
+        """UserBriefSerializer includes display_name field."""
+        from apps.core.serializers import UserBriefSerializer
+
+        user.display_name = "TestDisplay"
+        user.save()
+
+        serializer = UserBriefSerializer(user)
+        assert "display_name" in serializer.data
+        assert serializer.data["display_name"] == "TestDisplay"

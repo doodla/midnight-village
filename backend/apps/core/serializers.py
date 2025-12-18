@@ -11,7 +11,7 @@ class UserBriefSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username"]
+        fields = ["id", "username", "display_name"]
 
 
 class LobbyMemberSerializer(serializers.ModelSerializer):
