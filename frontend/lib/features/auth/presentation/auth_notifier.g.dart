@@ -52,7 +52,7 @@ final class ApiClientProvider
   }
 }
 
-String _$apiClientHash() => r'65cbd1f3ca87d60ae6f831848c2d02aec208cda4';
+String _$apiClientHash() => r'61d47ad220d8fd27b1a1258e8d30e08859d61652';
 
 /// Provides the token storage.
 
@@ -98,7 +98,7 @@ final class TokenStorageProvider
   }
 }
 
-String _$tokenStorageHash() => r'c55b482201cf22ebfe8999c77ff19ff449cb49e8';
+String _$tokenStorageHash() => r'a343b29554a438d4c009482b846b166c123898b0';
 
 /// Provides the auth service.
 
@@ -144,7 +144,7 @@ final class AuthServiceProvider
   }
 }
 
-String _$authServiceHash() => r'0d18d08a43e79eea64ce4e32fafc302acd3ecd4e';
+String _$authServiceHash() => r'40aa2776e9d8741250ee13e12e003d9bc34a8806';
 
 /// Provides the auth repository.
 
@@ -190,7 +190,7 @@ final class AuthRepositoryProvider
   }
 }
 
-String _$authRepositoryHash() => r'7e9d03160e1cf65b99bc14f6e6c3b1cebdacf588';
+String _$authRepositoryHash() => r'2e537a54d950ea0fc7f3741bfdcc5025cad1fe3a';
 
 /// Manages authentication state.
 

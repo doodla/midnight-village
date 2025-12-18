@@ -296,7 +296,7 @@ $Res call({
 });
 
 
-$UserCopyWith<$Res> get user;
+
 
 }
 /// @nodoc
@@ -316,16 +316,7 @@ as User,
   ));
 }
 
-/// Create a copy of AuthState
-/// with the given fields replaced by the non-null parameter values.
-@override
-@pragma('vm:prefer-inline')
-$UserCopyWith<$Res> get user {
-  
-  return $UserCopyWith<$Res>(_self.user, (value) {
-    return _then(_self.copyWith(user: value));
-  });
-}
+
 }
 
 /// @nodoc

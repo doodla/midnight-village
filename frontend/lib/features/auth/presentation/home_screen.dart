@@ -16,7 +16,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authNotifierProvider);
+    final authState = ref.watch(authProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -91,7 +91,7 @@ class _WelcomeViewState extends ConsumerState<_WelcomeView> {
 
   void _onContinue() {
     final displayName = _controller.text.trim();
-    ref.read(authNotifierProvider.notifier).createGuest(
+    ref.read(authProvider.notifier).createGuest(
           displayName: displayName.isEmpty ? null : displayName,
         );
   }
@@ -183,7 +183,7 @@ class _ErrorView extends ConsumerWidget {
             const SizedBox(height: 24),
             FilledButton(
               onPressed: () {
-                ref.invalidate(authNotifierProvider);
+                ref.invalidate(authProvider);
               },
               child: const Text('Try Again'),
             ),

@@ -12,20 +12,20 @@ part 'auth_notifier.g.dart';
 
 /// Provides the API client.
 @riverpod
-ApiClient apiClient(ApiClientRef ref) => ApiClient();
+ApiClient apiClient(Ref ref) => ApiClient();
 
 /// Provides the token storage.
 @riverpod
-TokenStorage tokenStorage(TokenStorageRef ref) => TokenStorage();
+TokenStorage tokenStorage(Ref ref) => TokenStorage();
 
 /// Provides the auth service.
 @riverpod
-AuthService authService(AuthServiceRef ref) =>
+AuthService authService(Ref ref) =>
     AuthService(apiClient: ref.watch(apiClientProvider));
 
 /// Provides the auth repository.
 @riverpod
-AuthRepository authRepository(AuthRepositoryRef ref) => AuthRepository(
+AuthRepository authRepository(Ref ref) => AuthRepository(
       authService: ref.watch(authServiceProvider),
       tokenStorage: ref.watch(tokenStorageProvider),
     );

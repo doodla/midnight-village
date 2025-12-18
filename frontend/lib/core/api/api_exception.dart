@@ -58,11 +58,15 @@ ApiException mapDioException(DioException e) {
     return NetworkException(e.message ?? 'Connection failed');
   }
 
+  if (statusCode == null) {
+    return NetworkException(e.message ?? 'Unknown error');
+  }
+
   return switch (statusCode) {
     401 => const UnauthorizedException(),
     404 => NotFoundException(e.requestOptions.path),
     400 => ValidationException(_parseValidationErrors(e.response?.data)),
-    >= 500 => ServerException(statusCode!),
+    >= 500 => ServerException(statusCode),
     _ => NetworkException(e.message ?? 'Unknown error'),
   };
 }

@@ -1,15 +1,20 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:json_annotation/json_annotation.dart';
 
-part 'user.freezed.dart';
 part 'user.g.dart';
 
 /// User model representing an authenticated user.
-@freezed
-class User with _$User {
-  const factory User({
-    required int id,
-    @JsonKey(name: 'display_name') required String displayName,
-  }) = _User;
+@JsonSerializable()
+class User {
+  const User({
+    required this.id,
+    required this.displayName,
+  });
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
+
+  final int id;
+  @JsonKey(name: 'display_name')
+  final String displayName;
+
+  Map<String, dynamic> toJson() => _$UserToJson(this);
 }
