@@ -106,3 +106,28 @@ shell:
 # Clean up cache files
 clean:
     {{backend_just}} clean
+
+# --- Frontend ---
+
+# Frontend justfile delegation helper
+frontend_just := "just --justfile frontend/justfile --working-directory frontend"
+
+# Run Flutter app (web)
+flutter-run:
+    cd frontend && flutter run -d chrome --web-port=3000
+
+# Run Flutter code generation
+flutter-build-runner:
+    cd frontend && dart run build_runner build --delete-conflicting-outputs
+
+# Run Flutter code generation (watch mode)
+flutter-watch:
+    cd frontend && dart run build_runner watch --delete-conflicting-outputs
+
+# Run Flutter tests
+flutter-test:
+    cd frontend && flutter test
+
+# Analyze Flutter code
+flutter-analyze:
+    cd frontend && flutter analyze
