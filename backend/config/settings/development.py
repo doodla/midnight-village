@@ -48,3 +48,6 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels.layers.InMemoryChannelLayer",
     },
 }
+
+# CORS settings for development
+CORS_ALLOW_ALL_ORIGINS = True
