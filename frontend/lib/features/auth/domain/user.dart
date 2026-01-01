@@ -3,12 +3,24 @@ import 'package:json_annotation/json_annotation.dart';
 part 'user.g.dart';
 
 /// User model representing an authenticated user.
+///
+/// Invariants:
+/// - [id] must be positive (> 0)
+/// - [displayName] must be non-empty after trimming
+///
+/// Note: This class intentionally uses a non-const constructor to enforce
+/// invariants at runtime. This prevents creation of invalid User instances
+/// at the cost of not supporting compile-time const construction.
 @JsonSerializable()
 class User {
-  const User({
-    required this.id,
-    required this.displayName,
-  });
+  User({required this.id, required this.displayName}) {
+    if (id <= 0) {
+      throw ArgumentError.value(id, 'id', 'must be positive');
+    }
+    if (displayName.trim().isEmpty) {
+      throw ArgumentError.value(displayName, 'displayName', 'must not be empty');
+    }
+  }
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
 

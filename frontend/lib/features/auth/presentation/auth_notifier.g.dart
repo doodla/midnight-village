@@ -100,6 +100,52 @@ final class TokenStorageProvider
 
 String _$tokenStorageHash() => r'a343b29554a438d4c009482b846b166c123898b0';
 
+/// Provides the user storage.
+
+@ProviderFor(userStorage)
+const userStorageProvider = UserStorageProvider._();
+
+/// Provides the user storage.
+
+final class UserStorageProvider
+    extends $FunctionalProvider<UserStorage, UserStorage, UserStorage>
+    with $Provider<UserStorage> {
+  /// Provides the user storage.
+  const UserStorageProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'userStorageProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$userStorageHash();
+
+  @$internal
+  @override
+  $ProviderElement<UserStorage> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  UserStorage create(Ref ref) {
+    return userStorage(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(UserStorage value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<UserStorage>(value),
+    );
+  }
+}
+
+String _$userStorageHash() => r'e5932af3471f8473654d9f4dbc5f0f6a4dd12f20';
+
 /// Provides the auth service.
 
 @ProviderFor(authService)
@@ -190,7 +236,7 @@ final class AuthRepositoryProvider
   }
 }
 
-String _$authRepositoryHash() => r'2e537a54d950ea0fc7f3741bfdcc5025cad1fe3a';
+String _$authRepositoryHash() => r'db5d2ac600df259007e580ed2d170d5c684f50b9';
 
 /// Manages authentication state.
 
@@ -228,7 +274,7 @@ final class AuthNotifierProvider
   }
 }
 
-String _$authNotifierHash() => r'c698526d49c2b13ca62bf6c06667f1d185962010';
+String _$authNotifierHash() => r'6982e9c7750e3b6319a7c59efa1e1c542a72f582';
 
 /// Manages authentication state.
 

@@ -24,8 +24,8 @@ class HomeScreen extends ConsumerWidget {
           AuthInitial() => const _SplashView(),
           AuthLoading() => const _LoadingView(),
           AuthAuthenticated(:final user) => _AuthenticatedView(
-              displayName: user.displayName,
-            ),
+            displayName: user.displayName,
+          ),
           AuthUnauthenticated() => const _WelcomeView(),
           AuthError(:final message) => _ErrorView(message: message),
         },
@@ -91,9 +91,9 @@ class _WelcomeViewState extends ConsumerState<_WelcomeView> {
 
   void _onContinue() {
     final displayName = _controller.text.trim();
-    ref.read(authProvider.notifier).createGuest(
-          displayName: displayName.isEmpty ? null : displayName,
-        );
+    ref
+        .read(authProvider.notifier)
+        .createGuest(displayName: displayName.isEmpty ? null : displayName);
   }
 
   @override
@@ -134,13 +134,13 @@ class _WelcomeViewState extends ConsumerState<_WelcomeView> {
   }
 }
 
-class _AuthenticatedView extends StatelessWidget {
+class _AuthenticatedView extends ConsumerWidget {
   const _AuthenticatedView({required this.displayName});
 
   final String displayName;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -150,9 +150,11 @@ class _AuthenticatedView extends StatelessWidget {
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          const Text(
-            '(token stored ✓)',
-            style: TextStyle(color: Colors.grey),
+          const Text('(token stored ✓)', style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 24),
+          OutlinedButton(
+            onPressed: () => ref.read(authProvider.notifier).logout(),
+            child: const Text('Logout'),
           ),
         ],
       ),

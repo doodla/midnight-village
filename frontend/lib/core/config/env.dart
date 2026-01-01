@@ -10,7 +10,7 @@ class Env {
   static bool get isProd => _env == 'prod';
 
   static String get apiUrl => switch (_env) {
-        'prod' => 'https://TODO_PROD_DOMAIN/api',
-        _ => 'http://localhost:8000/api',
-      };
+    'prod' => 'https://TODO_PROD_DOMAIN/api',
+    _ => 'http://localhost:8000/api',
+  };
 }

@@ -8,17 +8,17 @@ import 'logging_interceptor.dart';
 /// No authentication - used for public endpoints like guest registration.
 class ApiClient {
   ApiClient({String? baseUrl})
-      : _dio = Dio(
-          BaseOptions(
-            baseUrl: baseUrl ?? Env.apiUrl,
-            connectTimeout: const Duration(seconds: 10),
-            receiveTimeout: const Duration(seconds: 10),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-          ),
-        ) {
+    : _dio = Dio(
+        BaseOptions(
+          baseUrl: baseUrl ?? Env.apiUrl,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        ),
+      ) {
     if (Env.isDev) {
       _dio.interceptors.add(LoggingInterceptor());
     }
