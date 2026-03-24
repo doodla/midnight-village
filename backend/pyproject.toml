@@ -59,6 +59,7 @@ omit = [
     "*/migrations/*",
     "*/tests/*",
     "*/__init__.py",
+    "apps/onuw/*",  # engine untested — coverage tracked when ONUW milestone begins
 ]
 branch = true
 

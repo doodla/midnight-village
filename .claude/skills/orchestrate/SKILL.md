@@ -85,7 +85,7 @@ Report state to user in 3-5 lines. Then proceed to the right step.
 1. Read the plan.yaml.
 
 2. Spawn reviewers IN PARALLEL (use multiple Agent calls in one message):
-   - `socratic-architect` — "Review this plan. Assumptions? Gaps? Risks? Edge cases?"
+   - `socratic-architect` — "Review this plan. Assumptions? Gaps? Risks? Edge cases? Also: will multiple agents implement parts of this milestone independently? If so, what shared conventions must exist for their output to be consistent — code structure, patterns, visual language, contracts? Do those conventions exist in documented form? If not, that's a gap that must be resolved before implementation begins."
    - `researcher` (if unknowns exist) — "Investigate [specific unknown]. Report findings."
    - Stack expert if relevant — spawn `backend-developer` or `frontend-developer` with read-only prompt: "Review this plan for feasibility in your stack. Missing tasks? Wrong scope?"
 

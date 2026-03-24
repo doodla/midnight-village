@@ -209,7 +209,7 @@ class TestLobbyReady:
         assert response.status_code == status.HTTP_200_OK
 
         player_in_lobby.refresh_from_db()
-        assert player_in_lobby.is_ready is False
+        assert not player_in_lobby.is_ready
 
     def test_non_member_cannot_ready(self, api_client, db):
         """Users not in lobby cannot set ready state."""
