@@ -178,24 +178,31 @@ class TestGameStart:
         lobby = _create_lobby_with_players(host, players, _standard_5p_roles())
 
         mock_channel_layer = MagicMock()
-        with patch(
-            "apps.onuw.views.get_channel_layer", return_value=mock_channel_layer
+        with (
+            patch(
+                "apps.onuw.views.get_channel_layer",
+                return_value=mock_channel_layer,
+            ),
+            patch("apps.onuw.views.async_to_sync") as mock_views_a2s,
+            patch(
+                "apps.onuw.services.get_channel_layer",
+                return_value=mock_channel_layer,
+            ),
+            patch("apps.onuw.services.async_to_sync") as _mock_services_a2s,
         ):
-            with patch("apps.onuw.views.async_to_sync") as mock_async_to_sync:
-                api_client.force_authenticate(user=host)
-                url = reverse("onuw:game-start", kwargs={"code": lobby.code})
-                response = api_client.post(url)
+            api_client.force_authenticate(user=host)
+            url = reverse("onuw:game-start", kwargs={"code": lobby.code})
+            response = api_client.post(url)
 
-                assert response.status_code == status.HTTP_201_CREATED
+            assert response.status_code == status.HTTP_201_CREATED
 
-                mock_async_to_sync.assert_called_once_with(
-                    mock_channel_layer.group_send
-                )
-                call_args = mock_async_to_sync.return_value.call_args
-                assert call_args[0][0] == f"lobby_{lobby.code}"
-                assert call_args[0][1]["type"] == "game.started"
-                assert call_args[0][1]["game_id"] == str(response.data["game_id"])
-                assert call_args[0][1]["phase"] == "night"
+            # The views module calls async_to_sync for the lobby broadcast
+            mock_views_a2s.assert_called_once_with(mock_channel_layer.group_send)
+            call_args = mock_views_a2s.return_value.call_args
+            assert call_args[0][0] == f"lobby_{lobby.code}"
+            assert call_args[0][1]["type"] == "game.started"
+            assert call_args[0][1]["game_id"] == str(response.data["game_id"])
+            assert call_args[0][1]["phase"] == "night"
 
 
 class TestGameMe:

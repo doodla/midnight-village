@@ -33,6 +33,7 @@ class GameMeSerializer(serializers.Serializer):
 
     game_id = serializers.UUIDField(source="id")
     phase = serializers.CharField()
+    current_wave = serializers.IntegerField()
     your_role = serializers.SerializerMethodField()
 
     def get_your_role(self, game: Game) -> dict:

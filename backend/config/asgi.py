@@ -17,11 +17,12 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
 # is populated before importing code that may import ORM models.
 django_asgi_app = get_asgi_application()
 
-from apps.core.routing import websocket_urlpatterns  # noqa: E402
+from apps.core.routing import websocket_urlpatterns as core_ws  # noqa: E402
+from apps.onuw.routing import websocket_urlpatterns as onuw_ws  # noqa: E402
 
 application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
-        "websocket": AllowedHostsOriginValidator(URLRouter(websocket_urlpatterns)),
+        "websocket": AllowedHostsOriginValidator(URLRouter(core_ws + onuw_ws)),
     }
 )

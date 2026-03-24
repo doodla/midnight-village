@@ -1,0 +1,460 @@
+"""
+ONUW game service layer.
+
+Coordinates between HTTP/WS (views, consumers) and the pure-Python engine.
+All game state transitions go through this module.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from django.db import transaction
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+from .engine.behaviors import get_doppelganger_followup_wave
+from .engine.night import get_required_actions, resolve_wave
+from .engine.roles import get_role
+from .engine.state import ActionResult, GameState, NightAction
+from .models import Game, Phase, PlayerRole
+
+
+def build_game_state(game: Game) -> GameState:
+    """
+    Build an engine GameState from DB models.
+
+    Reads all PlayerRole rows for the game and constructs the immutable
+    state snapshot the engine needs.
+    """
+    player_roles: dict[int, str] = {}
+    original_roles: dict[int, str] = {}
+    doppelganger_copied: dict[int, str] = {}
+
+    # pyrefly: ignore [missing-attribute]
+    for pr in game.player_roles.all():
+        player_roles[pr.user_id] = pr.current_role
+        original_roles[pr.user_id] = pr.original_role
+        if pr.original_role == "Doppelganger" and pr.night_action_data.get(
+            "copied_role"
+        ):
+            doppelganger_copied[pr.user_id] = pr.night_action_data["copied_role"]
+
+    return GameState(
+        player_roles=player_roles,
+        center_cards=list(game.center_cards),
+        original_roles=original_roles,
+        doppelganger_copied_role=doppelganger_copied,
+    )
+
+
+def get_wave_actors(game: Game, wave: int) -> list[int]:
+    """Return user_ids of players who should act in the given wave."""
+    state = build_game_state(game)
+    doppelganger_info = state.doppelganger_copied_role if wave > 1 else None
+    prompts = get_required_actions(state, wave, doppelganger_info)
+    return [p["player_id"] for p in prompts]
+
+
+def get_next_active_wave(game: Game, after_wave: int) -> int | None:
+    """
+    Find the next wave (after after_wave) that has actors.
+
+    Returns None if no more waves need processing.
+    """
+    state = build_game_state(game)
+    for wave in range(after_wave + 1, 5):  # waves 1-4
+        doppelganger_info = state.doppelganger_copied_role if wave > 1 else None
+        prompts = get_required_actions(state, wave, doppelganger_info)
+        if prompts:
+            return wave
+    return None
+
+
+def start_night_phase(game: Game) -> None:
+    """
+    Initialize the night phase: find the first active wave, set current_wave,
+    and send prompts to players.
+
+    Called after the game is created. If no night actions exist at all,
+    transitions directly to discussion.
+    """
+    first_wave = get_next_active_wave(game, 0)
+    if first_wave is None:
+        # No night actions at all -- skip straight to discussion
+        transition_to_discussion(game)
+        return
+
+    game.current_wave = first_wave
+    game.save(update_fields=["current_wave", "updated_at"])
+
+    send_wave_prompts(game, first_wave)
+
+
+def send_wave_prompts(game: Game, wave: int) -> None:
+    """
+    Send action prompts to players who act in this wave, and
+    waiting messages to non-acting players.
+    """
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+
+    state = build_game_state(game)
+    doppelganger_info = state.doppelganger_copied_role if wave > 1 else None
+    prompts = get_required_actions(state, wave, doppelganger_info)
+    acting_player_ids = {p["player_id"] for p in prompts}
+
+    send = async_to_sync(channel_layer.group_send)
+
+    # Broadcast wave_start to all players
+    send(f"game_{game.id}", {"type": "wave.start", "wave": wave})
+
+    # Send action prompts to acting players (player-specific channels)
+    for prompt in prompts:
+        pid = prompt["player_id"]
+        send(
+            f"game_{game.id}_player_{pid}",
+            {
+                "type": "action.prompt",
+                "wave": wave,
+                "role_acting_as": prompt["role_acting_as"],
+                "action_types": prompt["action_types"],
+                "valid_targets": prompt["valid_targets"],
+            },
+        )
+
+    # Send waiting messages to non-acting players
+    for pid in state.player_roles:
+        if pid not in acting_player_ids:
+            send(
+                f"game_{game.id}_player_{pid}",
+                {
+                    "type": "wave.waiting",
+                    "wave": wave,
+                },
+            )
+
+
+def advance_wave(game: Game) -> None:
+    """
+    Resolve the current wave, persist results, send player-scoped results,
+    then advance to the next wave or transition to discussion.
+    """
+    wave = game.current_wave
+    state = build_game_state(game)
+
+    # Collect actions from PlayerRole rows
+    night_actions: list[NightAction] = []
+    actor_ids = set(get_wave_actors(game, wave))
+
+    # pyrefly: ignore [missing-attribute]
+    for pr in game.player_roles.filter(user_id__in=actor_ids):
+        if pr.has_acted and pr.night_action_data.get("wave") == wave:
+            role_acting_as = pr.night_action_data.get("role_acting_as", pr.current_role)
+            night_actions.append(
+                NightAction(
+                    player_id=pr.user_id,
+                    role_acting_as=role_acting_as,
+                    action_type=pr.night_action_data["action_type"],
+                    targets=pr.night_action_data.get("targets", {}),
+                )
+            )
+        else:
+            # Player did not submit -- mark as skip
+            role_acting_as = _determine_acting_role(pr, wave)
+            night_actions.append(
+                NightAction(
+                    player_id=pr.user_id,
+                    role_acting_as=role_acting_as,
+                    action_type="skip",
+                    targets={},
+                )
+            )
+
+    # Resolve the wave through the engine
+    new_state, results = resolve_wave(state, night_actions, wave)
+
+    # Persist results atomically
+    with transaction.atomic():
+        persist_wave_results(game, new_state, results, wave)
+
+    # Send player-scoped results via WebSocket
+    send_wave_results(game, results, wave)
+
+    # Advance to next wave or end night
+    next_wave = get_next_active_wave(game, wave)
+    if next_wave is not None:
+        with transaction.atomic():
+            game.current_wave = next_wave
+            game.save(update_fields=["current_wave", "updated_at"])
+            # Reset has_acted for all players for the new wave
+            # pyrefly: ignore [missing-attribute]
+            game.player_roles.update(has_acted=False)
+        send_wave_prompts(game, next_wave)
+    else:
+        transition_to_discussion(game)
+
+
+def _determine_acting_role(pr: PlayerRole, wave: int) -> str:
+    """
+    Determine what role a player is acting as in a given wave.
+
+    Handles Doppelganger follow-up: if the player is originally
+    Doppelganger and copied a role whose follow-up wave matches,
+    they act as that copied role.
+    """
+    if pr.original_role == "Doppelganger" and pr.night_action_data.get("copied_role"):
+        copied = pr.night_action_data["copied_role"]
+        followup = get_doppelganger_followup_wave(copied)
+        if followup == wave:
+            return copied
+
+    return pr.current_role
+
+
+def persist_wave_results(
+    game: Game,
+    new_state: GameState,
+    results: list[ActionResult],
+    wave: int,
+) -> None:
+    """Write engine results back to DB within an atomic transaction."""
+    # Update center cards
+    game.center_cards = new_state.center_cards
+
+    # Append action log entries for this wave
+    log = list(game.night_actions_log)
+    for entry in new_state.action_log:
+        if entry.wave == wave:
+            log.append(
+                {
+                    "wave": entry.wave,
+                    "player_id": entry.player_id,
+                    "action_type": entry.action_type,
+                    "targets": entry.targets,
+                    "result": entry.result,
+                    "timestamp_order": entry.timestamp_order,
+                }
+            )
+    game.night_actions_log = log
+    game.save(update_fields=["center_cards", "night_actions_log", "updated_at"])
+
+    # Update player roles (swaps may have occurred)
+    for pid, role in new_state.player_roles.items():
+        PlayerRole.objects.filter(game=game, user_id=pid).update(current_role=role)
+
+    # Store action results in each player's night_action_data
+    for result in results:
+        if result.revealed_info:
+            pr = PlayerRole.objects.get(game=game, user_id=result.player_id)
+            data = dict(pr.night_action_data)
+            data[f"wave_{wave}_result"] = result.revealed_info
+            # For Doppelganger, also store copied_role at top level
+            if "copied_role" in result.revealed_info:
+                data["copied_role"] = result.revealed_info["copied_role"]
+            pr.night_action_data = data
+            pr.save(update_fields=["night_action_data"])
+
+
+def send_wave_results(game: Game, results: list[ActionResult], wave: int) -> None:
+    """Send player-scoped results via WebSocket."""
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+
+    send = async_to_sync(channel_layer.group_send)
+
+    # Send each player their own result only
+    for result in results:
+        send(
+            f"game_{game.id}_player_{result.player_id}",
+            {
+                "type": "action.result",
+                "wave": wave,
+                "revealed_info": result.revealed_info,
+            },
+        )
+
+    # Broadcast wave_complete to all players
+    send(f"game_{game.id}", {"type": "wave.complete", "wave": wave})
+
+
+def transition_to_discussion(game: Game) -> None:
+    """Transition the game from night to discussion phase."""
+    with transaction.atomic():
+        game.phase = Phase.DISCUSSION
+        game.current_wave = 0
+        game.save(update_fields=["phase", "current_wave", "updated_at"])
+
+        # Reset has_acted for voting phase later
+        # pyrefly: ignore [missing-attribute]
+        game.player_roles.update(has_acted=False)
+
+    # Broadcast phase change to all players
+    channel_layer = get_channel_layer()
+    if channel_layer is not None:
+        async_to_sync(channel_layer.group_send)(
+            f"game_{game.id}",
+            {"type": "phase.change", "phase": "discussion"},
+        )
+
+
+def check_and_maybe_advance(game: Game) -> None:
+    """
+    Check if all actors for the current wave have submitted.
+
+    If everyone has acted, advance the wave. This is called after
+    each action submission to auto-advance when ready.
+    """
+    wave = game.current_wave
+    actor_ids = get_wave_actors(game, wave)
+    if not actor_ids:
+        advance_wave(game)
+        return
+
+    # Check if any actors are still pending
+    pending = PlayerRole.objects.filter(
+        game=game, user_id__in=actor_ids, has_acted=False
+    ).count()
+
+    if pending == 0:
+        advance_wave(game)
+
+
+def get_player_acting_role_for_wave(pr: PlayerRole, wave: int) -> str | None:
+    """
+    Determine what role this player acts as in the given wave, or None if
+    they do not act.
+
+    Uses the role registry to check wave assignments, plus Doppelganger
+    follow-up logic.
+    """
+    # Check if their current role acts in this wave
+    role_def = get_role(pr.current_role)
+    if role_def.wave == wave:
+        return pr.current_role
+
+    # Check Doppelganger follow-up
+    if pr.original_role == "Doppelganger" and pr.night_action_data.get("copied_role"):
+        copied = pr.night_action_data["copied_role"]
+        followup = get_doppelganger_followup_wave(copied)
+        if followup == wave:
+            return copied
+
+    return None
+
+
+def validate_night_action(
+    game: Game,
+    pr: PlayerRole,
+    action_type: str,
+    targets: dict[str, Any],
+) -> list[str]:
+    """
+    Validate a submitted night action.
+
+    Returns a list of error messages. Empty list means valid.
+    """
+    errors: list[str] = []
+    wave = game.current_wave
+
+    # Determine what role the player acts as this wave
+    acting_role = get_player_acting_role_for_wave(pr, wave)
+    if acting_role is None:
+        errors.append("You do not act in the current wave.")
+        return errors
+
+    # Validate action_type is allowed for this role
+    role_def = get_role(acting_role)
+    allowed_types = [at.value for at in role_def.action_types]
+    if action_type not in allowed_types:
+        errors.append(
+            f"Action type '{action_type}' is not allowed for {acting_role}. "
+            f"Allowed: {allowed_types}"
+        )
+        return errors
+
+    # Get all player IDs in this game (for target validation)
+    # pyrefly: ignore [missing-attribute]
+    game_player_ids = set(game.player_roles.values_list("user_id", flat=True))
+
+    # Validate targets based on action_type
+    if action_type == "peek_player":
+        target_id = targets.get("player_id")
+        if target_id is None:
+            errors.append("targets.player_id is required for peek_player.")
+        else:
+            target_id = int(target_id)
+            # pyrefly: ignore [missing-attribute]
+            if target_id == pr.user_id:
+                errors.append("Cannot target yourself.")
+            elif target_id not in game_player_ids:
+                errors.append(f"Invalid target player: {target_id}.")
+
+    elif action_type == "peek_center":
+        indices = targets.get("center_indices")
+        if not isinstance(indices, list) or len(indices) != 2:
+            errors.append("targets.center_indices must be a list of exactly 2 indices.")
+        else:
+            for idx in indices:
+                idx_int = int(idx)
+                if idx_int < 0 or idx_int >= len(game.center_cards):
+                    errors.append(
+                        f"Invalid center card index: {idx_int}. "
+                        f"Must be 0-{len(game.center_cards) - 1}."
+                    )
+            if len(indices) == 2 and int(indices[0]) == int(indices[1]):
+                errors.append("Must peek at 2 different center cards.")
+
+    elif action_type == "swap_with_player":
+        target_id = targets.get("player_id")
+        if target_id is None:
+            errors.append("targets.player_id is required for swap_with_player.")
+        else:
+            target_id = int(target_id)
+            # pyrefly: ignore [missing-attribute]
+            if target_id == pr.user_id:
+                errors.append("Cannot target yourself.")
+            elif target_id not in game_player_ids:
+                errors.append(f"Invalid target player: {target_id}.")
+
+    elif action_type == "swap_with_center":
+        center_index = targets.get("center_index")
+        if center_index is None:
+            errors.append("targets.center_index is required for swap_with_center.")
+        else:
+            idx = int(center_index)
+            if idx < 0 or idx >= len(game.center_cards):
+                errors.append(
+                    f"Invalid center card index: {idx}. "
+                    f"Must be 0-{len(game.center_cards) - 1}."
+                )
+
+    elif action_type == "swap_others":
+        player_ids = targets.get("player_ids")
+        if not isinstance(player_ids, list) or len(player_ids) != 2:
+            errors.append("targets.player_ids must be a list of exactly 2 player IDs.")
+        else:
+            for pid in player_ids:
+                pid_int = int(pid)
+                # pyrefly: ignore [missing-attribute]
+                if pid_int == pr.user_id:
+                    errors.append("Cannot target yourself in swap_others.")
+                elif pid_int not in game_player_ids:
+                    errors.append(f"Invalid target player: {pid_int}.")
+            if len(player_ids) == 2 and int(player_ids[0]) == int(player_ids[1]):
+                errors.append("Must target 2 different players.")
+
+    elif action_type == "see_team":
+        # No targets required. Lone werewolf may optionally peek center.
+        if targets.get("center_index") is not None:
+            idx = int(targets["center_index"])
+            if idx < 0 or idx >= len(game.center_cards):
+                errors.append(
+                    f"Invalid center card index: {idx}. "
+                    f"Must be 0-{len(game.center_cards) - 1}."
+                )
+
+    return errors

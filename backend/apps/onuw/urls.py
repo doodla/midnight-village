@@ -17,4 +17,14 @@ urlpatterns = [
         views.GameMeView.as_view(),
         name="game-me",
     ),
+    path(
+        "games/<str:game_id>/action/",
+        views.NightActionView.as_view(),
+        name="night-action",
+    ),
+    path(
+        "games/<str:game_id>/advance-wave/",
+        views.WaveAdvanceView.as_view(),
+        name="wave-advance",
+    ),
 ]

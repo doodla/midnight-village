@@ -19,6 +19,12 @@ from .engine.assignment import assign_roles
 from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
 from .serializers import GameMeSerializer, GameStartResponseSerializer
+from .services import (
+    check_and_maybe_advance,
+    get_player_acting_role_for_wave,
+    start_night_phase,
+    validate_night_action,
+)
 
 
 class GameStartView(APIView):
@@ -113,6 +119,9 @@ class GameStartView(APIView):
                 },
             )
 
+        # Initialize the night phase (find first wave, send prompts)
+        start_night_phase(game)
+
         serializer = GameStartResponseSerializer(
             {"game_id": game.id, "phase": game.phase}
         )
@@ -139,7 +148,7 @@ class GameMeView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Look up player role — 403 if not in this game
+        # Look up player role -- 403 if not in this game
         try:
             player_role = PlayerRole.objects.get(game=game, user=request.user)
         except PlayerRole.DoesNotExist:
@@ -153,3 +162,140 @@ class GameMeView(APIView):
             context={"player_role": player_role, "request": request},
         )
         return Response(serializer.data)
+
+
+class NightActionView(APIView):
+    """Submit a night action during the night phase."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, game_id: str) -> Response:
+        # 1. Look up game
+        try:
+            game = Game.objects.get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # 2. Validate game is in NIGHT phase
+        if game.phase != Phase.NIGHT:
+            return Response(
+                {"detail": "Game is not in the night phase."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 3. Look up PlayerRole (403 if not in game)
+        try:
+            pr = PlayerRole.objects.get(game=game, user=request.user)
+        except PlayerRole.DoesNotExist:
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # 4. Check player hasn't already acted this wave
+        if pr.has_acted:
+            return Response(
+                {"detail": "You have already acted this wave."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 5. Determine what role they're acting as this wave
+        wave = game.current_wave
+        acting_role = get_player_acting_role_for_wave(pr, wave)
+        if acting_role is None:
+            return Response(
+                {"detail": "You do not act in the current wave."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 6. Extract and validate action
+        # pyrefly: ignore [missing-attribute]
+        action_type = request.data.get("action_type")
+        # pyrefly: ignore [missing-attribute]
+        targets = request.data.get("targets", {})
+
+        if not action_type:
+            return Response(
+                {"detail": "action_type is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        errors = validate_night_action(game, pr, action_type, targets)
+        if errors:
+            return Response(
+                {"detail": errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 7. Store action in night_action_data, set has_acted=True
+        with transaction.atomic():
+            # Preserve previously stored data (copied_role, wave_N_result keys)
+            preserved = {
+                k: v
+                for k, v in pr.night_action_data.items()
+                if k == "copied_role" or k.startswith("wave_")
+            }
+            pr.night_action_data = {
+                **preserved,
+                "wave": wave,
+                "role_acting_as": acting_role,
+                "action_type": action_type,
+                "targets": targets,
+            }
+            pr.has_acted = True
+            pr.save(update_fields=["night_action_data", "has_acted"])
+
+        # 8. Check if all actors submitted -- auto-advance if so
+        # Refresh game to get latest state
+        game.refresh_from_db()
+        check_and_maybe_advance(game)
+
+        return Response({"status": "submitted"})
+
+
+class WaveAdvanceView(APIView):
+    """Force-advance the current wave (host only). Marks non-submitters as skipped."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, game_id: str) -> Response:
+        # Look up game
+        try:
+            game = Game.objects.get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Host-only check
+        if game.lobby.host_id != request.user.id:  # type: ignore[misc]
+            return Response(
+                {"detail": "Only the host can force-advance the wave."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Game must be in NIGHT phase
+        if game.phase != Phase.NIGHT:
+            return Response(
+                {"detail": "Game is not in the night phase."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .services import advance_wave
+
+        advance_wave(game)
+
+        # Refresh to get updated state
+        game.refresh_from_db()
+
+        return Response(
+            {
+                "status": "advanced",
+                "phase": game.phase,
+                "current_wave": game.current_wave,
+            }
+        )
