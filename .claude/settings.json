@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -c '{hookSpecificOutput:{hookEventName:\"PreToolUse\",updatedInput:{command:(.tool_input.command + \"; cd /Users/doodla/Code/midnight-village\")}}}'",
+            "statusMessage": "Resetting CWD to project root after command..."
+          }
+        ]
+      }
+    ]
+  }
+}
