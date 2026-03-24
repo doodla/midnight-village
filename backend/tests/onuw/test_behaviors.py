@@ -314,6 +314,45 @@ class TestExecuteMason:
         _, result = execute_mason(state, action)
         assert result.state_mutations == []
 
+    def test_three_way_mason_doppelganger_and_two_real_masons(self):
+        """Spec: Doppelganger-as-Mason + 2 real Masons all see each other."""
+        state = _make_state(
+            player_roles={
+                1: "Doppelganger",
+                2: "Mason",
+                3: "Mason",
+                4: "Werewolf",
+                5: "Villager",
+            },
+            center_cards=["Villager", "Tanner", "Villager"],
+        )
+        state = state.with_doppelganger_copy(1, "Mason")
+
+        # Real Mason (player 2) sees both player 1 (DG-as-Mason) and player 3
+        action_p2 = NightAction(
+            player_id=2,
+            role_acting_as="Mason",
+            action_type="see_team",
+            targets={},
+        )
+        _, result_p2 = execute_mason(state, action_p2)
+        assert sorted(result_p2.revealed_info["masons"]) == [1, 3], (
+            "Real Mason (player 2) should see both Doppelganger-as-Mason "
+            "and the other real Mason"
+        )
+
+        # Doppelganger-as-Mason (player 1) sees both real Masons
+        action_p1 = NightAction(
+            player_id=1,
+            role_acting_as="Mason",
+            action_type="see_team",
+            targets={},
+        )
+        _, result_p1 = execute_mason(state, action_p1)
+        assert sorted(result_p1.revealed_info["masons"]) == [2, 3], (
+            "Doppelganger-as-Mason should see both real Masons"
+        )
+
 
 # ── Seer Tests ───────────────────────────────────────────────────────────────
 

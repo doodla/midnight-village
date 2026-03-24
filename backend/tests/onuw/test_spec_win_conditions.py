@@ -271,6 +271,32 @@ class TestMinionNoWerewolvesScenarios:
             "All players should lose when only Minion dies in no-WW game"
         )
 
+    def test_no_werewolves_only_minion_types_die_no_team_wins(self):
+        """Both Minion and Doppelganger-as-Minion die, no non-minion dies.
+        No Werewolves among players. No team should win.
+
+        Spec: Minion wins only if "a non-Minion/non-Doppelganger-as-Minion
+        player dies." If ONLY Minion-type players die, no team wins.
+        """
+        eliminated = [1, 2]  # Both minion-type players die
+        player_roles = {
+            1: "Doppelganger",  # copied Minion
+            2: "Minion",
+            3: "Seer",
+            4: "Villager",
+        }
+        doppelganger_copied = {1: "Minion"}
+
+        result = evaluate_winner(eliminated, player_roles, doppelganger_copied)
+
+        # No team wins -- only minion-type players died
+        assert result.winning_teams == [], (
+            "No team should win when only Minion-type players die in a no-WW game"
+        )
+        assert all(v == "lose" for v in result.player_outcomes.values()), (
+            "All players should lose when only Minion-type players die in no-WW game"
+        )
+
     def test_no_werewolves_no_minion_someone_dies(self):
         """
         Spec (Scenario B/C): No WW, no Minion, someone dies.
