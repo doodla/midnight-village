@@ -227,6 +227,7 @@ class TestEvaluateWinner:
         assert result.winning_teams == ["werewolf"]
         assert result.player_outcomes[1] == "win"  # Doppelganger-as-Werewolf
         assert result.player_outcomes[2] == "lose"
+        assert result.player_outcomes[3] == "lose"  # Villager loses
 
     def test_doppelganger_werewolf_eliminated(self):
         """Doppelganger-as-Werewolf eliminated -> village wins."""
@@ -262,7 +263,10 @@ class TestEvaluateWinner:
         }
         result = evaluate_winner(eliminated, player_roles)
         assert "tanner" in result.winning_teams
+        assert "village" not in result.winning_teams  # someone died, village loses
         assert result.player_outcomes[3] == "win"
+        assert result.player_outcomes[1] == "lose"
+        assert result.player_outcomes[2] == "lose"
 
     def test_tanner_loses_when_not_eliminated(self):
         """Tanner loses if not eliminated, even in village win."""

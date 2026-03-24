@@ -77,7 +77,13 @@ def execute_werewolf(
             state_mutations=[],
         )
 
-    # Multiple werewolves see each other
+    # Multiple werewolves see each other — center peek not allowed
+    if action.targets and "center_index" in action.targets:
+        raise ValueError(
+            "Only a lone Werewolf may peek at a center card. "
+            "Multiple Werewolves are in play."
+        )
+
     return state, ActionResult(
         player_id=player_id,
         revealed_info={"werewolves": all_werewolves},
@@ -298,7 +304,7 @@ def execute_insomniac(
 # Roles that have follow-up actions and which wave they belong to
 _DOPPELGANGER_FOLLOWUP_WAVES: dict[str, int] = {
     "Werewolf": 2,
-    "Minion": 2,
+    "Minion": 1,
     "Mason": 2,
     "Seer": 1,
     "Robber": 1,

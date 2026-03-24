@@ -23,10 +23,10 @@ def determine_elimination(vote_counts: dict[int, int]) -> list[int]:
     """
     Determine who is eliminated.
 
-    - Player(s) with most votes are eliminated.
-    - If ALL players who received votes are tied (everyone has same count),
-      no one is eliminated.
-    - If a subset tie for most, all in that subset are eliminated.
+    - A player must receive at least 2 votes to be eliminated.
+    - Player(s) with the most votes (>= 2) are eliminated.
+    - If multiple players tie for the most votes (each >= 2), all die.
+    - If no player has 2+ votes, no one is eliminated.
     - If no votes were cast, no one is eliminated.
     """
     if not vote_counts:

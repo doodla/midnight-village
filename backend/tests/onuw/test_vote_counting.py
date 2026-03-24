@@ -89,6 +89,15 @@ class TestDetermineElimination:
         eliminated = determine_elimination(vote_counts)
         assert eliminated == [1]
 
+    def test_all_players_get_one_vote_each_no_elimination(self):
+        """Spec: 'No player has more than 1 vote -> no one dies.'
+
+        5-player game where each player receives exactly 1 vote.
+        """
+        vote_counts = {1: 1, 2: 1, 3: 1, 4: 1, 5: 1}
+        eliminated = determine_elimination(vote_counts)
+        assert eliminated == []
+
     def test_empty_counts(self):
         """No votes cast -> no elimination."""
         eliminated = determine_elimination({})

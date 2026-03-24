@@ -144,6 +144,29 @@ class TestExecuteWerewolf:
         with pytest.raises(ValueError, match="Invalid center card index"):
             execute_werewolf(state, action)
 
+    def test_multi_werewolf_rejects_center_peek(self):
+        """Spec: only a lone Werewolf may peek at a center card.
+
+        Multi-werewolf submitting center_index should be rejected.
+        """
+        state = _make_state(
+            player_roles={
+                1: "Werewolf",
+                2: "Werewolf",
+                3: "Seer",
+                4: "Villager",
+                5: "Drunk",
+            }
+        )
+        action = NightAction(
+            player_id=1,
+            role_acting_as="Werewolf",
+            action_type="see_team",
+            targets={"center_index": 0},
+        )
+        with pytest.raises(ValueError, match="Only a lone Werewolf"):
+            execute_werewolf(state, action)
+
     def test_werewolf_no_state_mutations(self):
         state = _make_state(
             player_roles={
@@ -642,8 +665,8 @@ class TestExecuteDoppelganger:
     def test_doppelganger_copies_doppelganger_no_followup(self):
         assert get_doppelganger_followup_wave("Doppelganger") is None
 
-    def test_doppelganger_copies_minion_followup_in_wave_2(self):
-        assert get_doppelganger_followup_wave("Minion") == 2
+    def test_doppelganger_copies_minion_followup_in_wave_1(self):
+        assert get_doppelganger_followup_wave("Minion") == 1
 
     def test_doppelganger_copies_mason_followup_in_wave_2(self):
         assert get_doppelganger_followup_wave("Mason") == 2

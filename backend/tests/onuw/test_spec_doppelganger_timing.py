@@ -9,7 +9,8 @@ right after the Doppelganger copies the role. This means:
     so the Doppelganger sees the ORIGINAL game state.
   - Doppelganger-as-Robber/Troublemaker/Drunk swaps happen in Wave 1,
     BEFORE werewolves wake, before real Seer/Robber/etc act.
-  - Wave 2 follow-ups (Werewolf, Mason, Minion) remain in Wave 2.
+  - Wave 1 follow-ups (Minion) also resolve immediately in Wave 1.
+  - Wave 2 follow-ups (Werewolf, Mason) remain in Wave 2.
   - Wave 4 follow-ups (Insomniac) remain in Wave 4.
 
 The current engine defers Wave 3 follow-ups to Wave 3 (with Doppelganger
@@ -1016,4 +1017,101 @@ class TestDoppelgangerTeamVisibility:
         minion_result = next(r for r in w2_results if r.player_id == 3)
         assert sorted(minion_result.revealed_info["werewolves"]) == [1, 2], (
             "Minion should see both Doppelganger-as-Werewolf and real Werewolf"
+        )
+
+
+# ── Test 10: Doppelganger-as-Minion sees Werewolves in Wave 1 ────────────
+
+
+class TestDoppelgangerAsMinion:
+    """Spec: Doppelganger-as-Minion sees Werewolves in Wave 1 (special), not Wave 2."""
+
+    def test_doppelganger_as_minion_sees_werewolves_in_wave_1(self):
+        """Doppelganger copies Minion, sees Werewolf identities at end of Wave 1."""
+        state = _make_state(
+            player_roles={
+                1: "Doppelganger",
+                2: "Minion",
+                3: "Werewolf",
+                4: "Seer",
+                5: "Villager",
+            },
+        )
+
+        all_actions: dict[int, list[NightAction]] = {
+            1: [
+                # Doppelganger copies player 2 (Minion)
+                NightAction(
+                    player_id=1,
+                    role_acting_as="Doppelganger",
+                    action_type="peek_player",
+                    targets={"player_id": 2},
+                ),
+                # Doppelganger-as-Minion sees team (follow-up in Wave 1)
+                NightAction(
+                    player_id=1,
+                    role_acting_as="Minion",
+                    action_type="see_team",
+                    targets={},
+                ),
+            ],
+            2: [
+                # Real Minion sees team
+                NightAction(
+                    player_id=2,
+                    role_acting_as="Minion",
+                    action_type="see_team",
+                    targets={},
+                ),
+                # Werewolf sees team
+                NightAction(
+                    player_id=3,
+                    role_acting_as="Werewolf",
+                    action_type="see_team",
+                    targets={},
+                ),
+            ],
+            3: [
+                # Seer peeks player 5
+                NightAction(
+                    player_id=4,
+                    role_acting_as="Seer",
+                    action_type="peek_player",
+                    targets={"player_id": 5},
+                ),
+            ],
+        }
+
+        _final_state, results_by_wave = resolve_night(state, all_actions)
+
+        # Wave 1 should include BOTH the copy peek AND the Minion see_team follow-up
+        assert 1 in results_by_wave, "Wave 1 should have results"
+        w1_results = results_by_wave[1]
+        assert len(w1_results) == 2, (
+            "Wave 1 should contain both the Doppelganger copy action "
+            "and the Doppelganger-as-Minion follow-up see_team"
+        )
+
+        # First result: Doppelganger copies Minion
+        assert w1_results[0].player_id == 1
+        assert w1_results[0].revealed_info["copied_role"] == "Minion"
+
+        # Second result: Doppelganger-as-Minion sees werewolves
+        doppel_minion_result = w1_results[1]
+        assert doppel_minion_result.player_id == 1
+        assert doppel_minion_result.revealed_info["werewolves"] == [3], (
+            "Doppelganger-as-Minion should see player 3 (Werewolf) in Wave 1"
+        )
+
+        # Wave 2 should still have the real Minion acting normally
+        assert 2 in results_by_wave, "Wave 2 should have results"
+        w2_results = results_by_wave[2]
+        w2_player_ids = [r.player_id for r in w2_results]
+        assert 2 in w2_player_ids, "Real Minion should act in Wave 2"
+        assert 3 in w2_player_ids, "Real Werewolf should act in Wave 2"
+
+        # The Doppelganger should NOT appear in Wave 2 results (already acted in Wave 1)
+        assert 1 not in w2_player_ids, (
+            "Doppelganger-as-Minion should NOT appear in Wave 2 "
+            "(follow-up already resolved in Wave 1)"
         )
