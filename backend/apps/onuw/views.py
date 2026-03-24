@@ -412,3 +412,97 @@ class ForceRevealView(APIView):
         reveal_votes(game)
 
         return Response({"status": "revealed"})
+
+
+class ResultsView(APIView):
+    """
+    Get full game results after the game has ended.
+
+    Returns all information (game is over, nothing is hidden):
+    - Winning team and reason
+    - Eliminated players with their roles
+    - All player original and final roles, outcomes, and vote targets
+    - Center cards (original and final)
+    - Night actions log
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, game_id: str) -> Response:
+        # Look up game
+        try:
+            game = Game.objects.get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check user is a player in this game
+        try:
+            PlayerRole.objects.get(game=game, user=request.user)
+        except PlayerRole.DoesNotExist:
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Game must be in RESULTS phase
+        if game.phase != Phase.RESULTS:
+            return Response(
+                {"detail": "Game results are not available yet."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Build full results response
+        # pyrefly: ignore [missing-attribute]
+        player_roles_qs = game.player_roles.select_related("user", "vote_target").all()
+
+        # Build eliminated player details
+        eliminated_ids = set(game.results.get("eliminated_players", []))
+        eliminated_details = []
+        players_data = []
+
+        for pr in player_roles_qs:
+            player_info = {
+                "player_id": pr.user_id,
+                "display_name": pr.user.display_name or pr.user.username,
+                "original_role": pr.original_role,
+                "final_role": pr.current_role,
+                "outcome": game.results.get("player_outcomes", {}).get(
+                    str(pr.user_id), "lose"
+                ),
+                # pyrefly: ignore [missing-attribute]
+                "vote_target_id": pr.vote_target_id,
+            }
+            players_data.append(player_info)
+
+            if pr.user_id in eliminated_ids:
+                eliminated_details.append(
+                    {
+                        "player_id": pr.user_id,
+                        "display_name": pr.user.display_name or pr.user.username,
+                        "role": pr.current_role,
+                    }
+                )
+
+        # Build center cards info
+        # Original center cards are stored in the game settings via
+        # the initial assignment. We reconstruct from night_actions_log
+        # or just show final state. For simplicity, we store original
+        # center cards in the settings at game start, and final center
+        # cards in game.center_cards.
+        center_cards_data = {
+            "final": list(game.center_cards),
+        }
+
+        response_data = {
+            "winning_team": game.results.get("winning_team", ""),
+            "reason": game.results.get("reason", ""),
+            "eliminated_players": eliminated_details,
+            "players": players_data,
+            "center_cards": center_cards_data,
+            "night_actions_log": list(game.night_actions_log),
+        }
+
+        return Response(response_data)

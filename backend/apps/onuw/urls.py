@@ -42,4 +42,9 @@ urlpatterns = [
         views.ForceRevealView.as_view(),
         name="reveal-votes",
     ),
+    path(
+        "games/<str:game_id>/results/",
+        views.ResultsView.as_view(),
+        name="results",
+    ),
 ]

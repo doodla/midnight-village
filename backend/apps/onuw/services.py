@@ -18,6 +18,8 @@ from .engine.behaviors import get_doppelganger_followup_wave
 from .engine.night import get_required_actions, resolve_wave
 from .engine.roles import get_role
 from .engine.state import ActionResult, GameState, NightAction
+from .engine.voting import apply_hunter, count_votes, determine_elimination
+from .engine.win_conditions import evaluate_winner
 from .models import Game, Phase, PlayerRole
 
 
@@ -562,34 +564,79 @@ def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
 
 def reveal_votes(game: Game) -> None:
     """
-    Reveal all votes simultaneously and transition to results.
+    Reveal all votes simultaneously, compute win conditions, and
+    transition to results.
 
     Collects all votes (including None for abstainers).
     Broadcasts vote_reveal event with full vote data.
+    Computes elimination and win conditions.
+    Stores results in game.results.
     Transitions game to RESULTS phase.
+    Broadcasts game_results event.
     """
     # Collect vote data
     # pyrefly: ignore [missing-attribute]
-    player_roles = game.player_roles.all()
-    votes = []
-    for pr in player_roles:
-        votes.append(
+    player_roles_qs = game.player_roles.all()
+    votes_broadcast: list[dict[str, Any]] = []
+    votes_dict: dict[int, int | None] = {}
+    current_roles: dict[int, str] = {}
+    doppelganger_copied: dict[int, str] = {}
+
+    for pr in player_roles_qs:
+        votes_broadcast.append(
             {
                 "player_id": pr.user_id,
                 # pyrefly: ignore [missing-attribute]
                 "target_player_id": pr.vote_target_id,
             }
         )
+        # pyrefly: ignore [missing-attribute]
+        votes_dict[pr.user_id] = pr.vote_target_id
+        current_roles[pr.user_id] = pr.current_role
+        if pr.original_role == "Doppelganger" and pr.night_action_data.get(
+            "copied_role"
+        ):
+            doppelganger_copied[pr.user_id] = pr.night_action_data["copied_role"]
 
     # Broadcast vote_reveal to all players
     channel_layer = get_channel_layer()
     if channel_layer is not None:
         async_to_sync(channel_layer.group_send)(
             f"game_{game.id}",
-            {"type": "vote.reveal", "votes": votes},
+            {"type": "vote.reveal", "votes": votes_broadcast},
         )
 
-    # Transition to results phase
+    # Compute elimination
+    vote_counts = count_votes(votes_dict)
+    eliminated = determine_elimination(vote_counts)
+
+    # Apply Hunter chain
+    eliminated = apply_hunter(eliminated, current_roles, votes_dict)
+
+    # Compute win conditions
+    result = evaluate_winner(eliminated, current_roles, doppelganger_copied)
+
+    # Transition to results phase and store results atomically
     with transaction.atomic():
         game.phase = Phase.RESULTS
-        game.save(update_fields=["phase", "updated_at"])
+        game.results = {
+            "winning_team": result.winning_team,
+            "reason": result.reason,
+            "eliminated_players": result.eliminated_players,
+            "player_outcomes": {str(k): v for k, v in result.player_outcomes.items()},
+        }
+        game.save(update_fields=["phase", "results", "updated_at"])
+
+    # Broadcast game results
+    if channel_layer is not None:
+        async_to_sync(channel_layer.group_send)(
+            f"game_{game.id}",
+            {
+                "type": "game.results",
+                "data": {
+                    "winning_team": result.winning_team,
+                    "reason": result.reason,
+                    "eliminated_players": result.eliminated_players,
+                },
+            },
+        )

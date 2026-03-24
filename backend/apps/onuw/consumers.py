@@ -128,6 +128,15 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
+    async def game_results(self, event):
+        """Broadcast: game results after vote resolution."""
+        await self.send_json(
+            {
+                "type": "game_results",
+                "data": event["data"],
+            }
+        )
+
     # ── Helpers ─────────────────────────────────────────────────────────────
 
     @database_sync_to_async
