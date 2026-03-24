@@ -7,16 +7,16 @@ NO Django imports allowed in this module. This is pure game logic.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class Team(str, Enum):
+class Team(StrEnum):
     VILLAGE = "village"
     WEREWOLF = "werewolf"
     NEUTRAL = "neutral"
 
 
-class ActionType(str, Enum):
+class ActionType(StrEnum):
     PEEK_PLAYER = "peek_player"
     PEEK_CENTER = "peek_center"
     SWAP_WITH_PLAYER = "swap_with_player"

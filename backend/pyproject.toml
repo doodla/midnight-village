@@ -76,3 +76,10 @@ exclude_lines = [
 [tool.pyrefly]
 python_version = "3.12"
 search_path = ["."]
+# Suppress Django ORM false positives (pyrefly doesn't understand Django's
+# metaclass-generated attributes like .objects, ForeignKey field access, etc.)
+[tool.pyrefly.errors]
+missing-attribute = "ignore"
+bad-override = "ignore"
+bad-assignment = "ignore"
+bad-context-manager = "ignore"
