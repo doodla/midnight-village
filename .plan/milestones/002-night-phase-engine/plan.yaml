@@ -1,0 +1,157 @@
+id: milestone-002
+title: "Night Phase Engine"
+status: planned
+description: |
+  Build the pure-Python game logic layer that resolves the ONUW night phase.
+  This is the heart of the game: role behaviors execute in wave order,
+  swaps modify the role board, peeks return scoped information, and the
+  Doppelganger's copied-role logic chains correctly.
+
+  Everything in this milestone is pure Python with zero Django/ORM imports.
+  The engine operates on plain data structures: a GameState dataclass that
+  holds the role board (player->role mapping), center cards, and an action
+  log. Functions take GameState in and return a new GameState (or results).
+
+  This design means rules can be changed, tested, and reasoned about without
+  touching the database or API layers.
+
+success_criteria:
+  - All game logic is pure Python -- no Django imports anywhere in the engine module(s)
+  - GameState dataclass holds the complete board state needed for resolution
+  - Each of the 12 roles has a behavior function that validates and applies its action
+  - Wave resolution processes all actions in a wave simultaneously (within ordering rules)
+  - Doppelganger correctly copies another role and acts again in the appropriate wave
+  - All randomness uses seeded random.Random passed in explicitly
+  - Action log captures every mutation for replay/debugging
+  - 100% unit test coverage on the engine module
+
+tasks:
+  - id: TASK-010
+    title: "Define GameState and action data structures"
+    status: not_started
+    assignee: backend-developer
+    depends_on: []
+    blocks: [TASK-011, TASK-012, TASK-013, TASK-014]
+    acceptance:
+      - "Module at apps/onuw/engine/state.py (pure Python, no Django imports)"
+      - "GameState dataclass (frozen or copy-on-write pattern) with fields: player_roles (dict[int, str] -- player_id to current role), center_cards (list[str] -- 3 cards), original_roles (dict[int, str] -- immutable snapshot from start), action_log (list[ActionLogEntry])"
+      - "ActionLogEntry dataclass: wave (int), player_id (int), action_type (str), targets (dict), result (dict), timestamp_order (int)"
+      - "NightAction dataclass: player_id (int), role_acting_as (str), action_type (str), targets (dict -- e.g. {'player_id': 3} or {'center_indices': [0, 1]})"
+      - "ActionResult dataclass: player_id (int), revealed_info (dict -- player-scoped data to send back), state_mutations (list of mutations applied)"
+      - "Helper: GameState.with_swap(id_a, id_b) -> new GameState with roles swapped"
+      - "Helper: GameState.with_center_swap(player_id, center_index) -> new GameState"
+      - "Helper: GameState.with_log_entry(entry) -> new GameState with appended log"
+      - "just check passes"
+    tests: unit
+    test_details:
+      - "test GameState.with_swap correctly swaps two players' current_roles"
+      - "test GameState.with_center_swap correctly swaps a player's role with a center card"
+      - "test original_roles is never mutated by swaps"
+      - "test with_log_entry appends without mutating original"
+
+  - id: TASK-011
+    title: "Implement role behavior functions for Wave 2 roles (Werewolf, Minion, Mason)"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-010]
+    blocks: [TASK-014]
+    acceptance:
+      - "Module at apps/onuw/engine/behaviors.py (pure Python)"
+      - "Each behavior is a function: execute_<role>(state: GameState, action: NightAction) -> tuple[GameState, ActionResult]"
+      - "Werewolf (see_team): if lone werewolf, may peek at one center card (action target = center_index). If multiple werewolves, revealed_info contains list of other werewolf player_ids. No state mutations."
+      - "Minion (see_team): revealed_info contains list of werewolf player_ids. No state mutations."
+      - "Mason (see_team): revealed_info contains list of other mason player_ids. No state mutations."
+      - "Validation: each behavior rejects invalid targets (e.g. werewolf peeking center when not lone)"
+      - "just check passes"
+    tests: unit
+    test_details:
+      - "test two werewolves see each other"
+      - "test lone werewolf can peek one center card"
+      - "test lone werewolf peeking invalid center index is rejected"
+      - "test minion sees all werewolf player_ids"
+      - "test minion with no werewolves in game sees empty list"
+      - "test two masons see each other"
+      - "test lone mason sees empty list"
+
+  - id: TASK-012
+    title: "Implement role behavior functions for Wave 3 roles (Seer, Robber, Troublemaker, Drunk)"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-010]
+    blocks: [TASK-014]
+    acceptance:
+      - "Seer (peek_player OR peek_center): either peek one player's current role, or peek two center cards. revealed_info contains the peeked role(s). No state mutations."
+      - "Robber (swap_with_player): swaps own role with target player's role. revealed_info contains the role the Robber took (their new role). State mutation: swap."
+      - "Troublemaker (swap_others): swaps two other players' roles. revealed_info is empty (Troublemaker does not learn the roles). State mutation: swap."
+      - "Drunk (swap_with_center): swaps own role with a center card. revealed_info is empty (Drunk does not learn what they got). State mutation: swap."
+      - "Validation: Seer can't peek own role, Robber can't target self, Troublemaker can't include self, center indices must be 0-2"
+      - "just check passes"
+    tests: unit
+    test_details:
+      - "test seer peeks a player and sees their current role"
+      - "test seer peeks two center cards and sees both"
+      - "test seer cannot peek self"
+      - "test robber swaps with target and learns new role"
+      - "test robber cannot target self"
+      - "test troublemaker swaps two others, state reflects swap, troublemaker learns nothing"
+      - "test troublemaker cannot include self"
+      - "test drunk swaps with center, state reflects swap, drunk learns nothing"
+      - "test invalid center index rejected for drunk"
+
+  - id: TASK-013
+    title: "Implement Doppelganger behavior and Wave 4 (Insomniac)"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-010]
+    blocks: [TASK-014]
+    acceptance:
+      - "Doppelganger (wave 1): peeks target player's role, copies it. revealed_info contains the copied role. State: Doppelganger's role does NOT change yet (they are still Doppelganger in the board until they act as the copied role). The copied role is recorded in action result for the engine to schedule a follow-up action."
+      - "Doppelganger follow-up: engine must recognize that Doppelganger needs a second action in the copied role's wave. If copied role is Werewolf/Minion/Mason, acts in wave 2. If Seer/Robber/Troublemaker/Drunk, acts in wave 3. If Insomniac, acts in wave 4. If Villager/Tanner/Hunter, no follow-up."
+      - "Doppelganger follow-up action uses the copied role's behavior function but with role_acting_as set to the copied role."
+      - "Insomniac (wave 4): peeks own current_role. revealed_info contains own current role. No state mutations."
+      - "Doppelganger-as-Insomniac (wave 4): peeks own current_role, same as Insomniac."
+      - "Function: get_doppelganger_followup_wave(copied_role: str) -> int | None"
+      - "just check passes"
+    tests: unit
+    test_details:
+      - "test doppelganger copies Seer, gets follow-up in wave 3"
+      - "test doppelganger copies Werewolf, gets follow-up in wave 2"
+      - "test doppelganger copies Villager, no follow-up"
+      - "test doppelganger copies Insomniac, follow-up in wave 4"
+      - "test doppelganger-as-Robber swaps correctly"
+      - "test insomniac sees own current role (which may have changed due to swaps)"
+      - "test doppelganger-as-Insomniac sees own current role"
+
+  - id: TASK-014
+    title: "Wave resolution engine -- orchestrate full night phase"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-010, TASK-011, TASK-012, TASK-013]
+    blocks: []
+    acceptance:
+      - "Module at apps/onuw/engine/night.py (pure Python)"
+      - "Function: resolve_wave(state: GameState, actions: list[NightAction], wave: int) -> tuple[GameState, list[ActionResult]] -- processes all actions for a wave, returns updated state and per-player results"
+      - "Function: get_required_actions(state: GameState, wave: int, doppelganger_copied_role: str | None) -> list[dict] describing which players need to act in this wave and what action types are available to them"
+      - "Function: resolve_night(state: GameState, all_actions: dict[int, list[NightAction]]) -> tuple[GameState, dict[int, list[ActionResult]]] -- processes all 4 waves in order, handles Doppelganger follow-ups, returns final state and all results keyed by wave"
+      - "Actions within a wave are resolved simultaneously (order within wave does not matter)"
+      - "Players who do not submit an action in a wave are skipped (no error, action_log records skip)"
+      - "action_log in final GameState contains complete ordered history"
+      - "just check passes"
+    tests: unit
+    test_details:
+      - "test resolve_wave processes a single Seer peek correctly"
+      - "test resolve_wave processes Robber + Troublemaker in same wave -- both see pre-swap state for their reads, but both swaps apply"
+      - "test resolve_night with full 5-player game (Werewolf, Seer, Robber, Troublemaker, Villager + 3 center) produces correct final state"
+      - "test Doppelganger copies Robber, acts in wave 1 then wave 3, final state correct"
+      - "test player who skips action is logged as skip, no error"
+      - "test resolve_night is deterministic given same inputs"
+      - "test wave ordering: wave 1 before 2 before 3 before 4"
+      - "test complex scenario: Doppelganger copies Troublemaker, Robber also acts in wave 3, Insomniac sees final role"
+
+open_questions:
+  - id: Q-010
+    question: "Should wave 3 actions truly resolve simultaneously (all reads see pre-wave state, all writes apply after), or sequentially within the wave? The game design says 'independent actions, resolve simultaneously' which suggests simultaneous. This matters when Robber and Troublemaker both target the same player."
+    needs: user_decision
+  - id: Q-011
+    question: "When the lone Werewolf peeks a center card, should this be mandatory or optional? In the physical game it is optional."
+    needs: user_decision

@@ -2,10 +2,7 @@
 
 from django.contrib import admin
 
-from .models import (  # type: ignore[import]  — models pending implementation
-    Game,
-    PlayerRole,
-)
+from .models import Game, PlayerRole
 
 
 @admin.register(Game)

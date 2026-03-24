@@ -1,0 +1,81 @@
+milestones:
+  - id: milestone-001
+    title: "ONUW App Foundation"
+    status: planned
+    priority: 1
+    depends_on: []
+    blocks: [milestone-002, milestone-003, milestone-004, milestone-005]
+    task_count: 7
+    description: |
+      Django app skeleton, models (Game, PlayerRole), role registry,
+      lobby settings validation, start game endpoint with role assignment,
+      player-scoped game state endpoint.
+
+  - id: milestone-002
+    title: "Night Phase Engine"
+    status: planned
+    priority: 2
+    depends_on: [milestone-001]
+    blocks: [milestone-003]
+    task_count: 5
+    description: |
+      Pure-Python game logic: GameState data structures, role behavior
+      functions for all 12 roles, wave resolution, Doppelganger follow-ups,
+      full night orchestration. Zero Django imports.
+
+  - id: milestone-003
+    title: "Night Phase API"
+    status: planned
+    priority: 3
+    depends_on: [milestone-001, milestone-002]
+    blocks: [milestone-005]
+    task_count: 5
+    description: |
+      Wire engine to Django: ONUW WebSocket consumer, action submission
+      endpoint, wave timer system, engine-to-DB adapter, player-scoped
+      result delivery.
+
+  - id: milestone-004
+    title: "Discussion and Voting"
+    status: planned
+    priority: 4
+    depends_on: [milestone-001]
+    blocks: [milestone-005]
+    task_count: 5
+    description: |
+      Phase transition system, discussion countdown timer, vote submission
+      endpoint, simultaneous vote reveal, discussion-to-voting e2e test.
+
+  - id: milestone-005
+    title: "Results and Win Conditions"
+    status: planned
+    priority: 5
+    depends_on: [milestone-003, milestone-004]
+    blocks: []
+    task_count: 4
+    description: |
+      Vote counting, elimination logic (incl. Hunter chain), win condition
+      evaluation for all scenarios, results endpoint with full reveal,
+      complete game e2e integration test.
+
+# Dependency graph (critical path):
+#
+#   milestone-001 (Foundation)
+#       |           \
+#       v            v
+#   milestone-002   milestone-004
+#   (Engine)        (Discussion/Voting)
+#       |               |
+#       v               |
+#   milestone-003       |
+#   (Night API)         |
+#       |               |
+#       v               v
+#   milestone-005 (Results & Win Conditions)
+#
+# Parallelizable:
+#   - milestone-002 and milestone-004 can run in parallel after milestone-001
+#   - Within milestone-001: TASK-003 and TASK-002 can run in parallel (both depend only on TASK-001)
+#   - Within milestone-002: TASK-011, TASK-012, TASK-013 can all run in parallel (all depend only on TASK-010)
+#
+# Total tasks: 26

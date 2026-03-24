@@ -1,0 +1,165 @@
+id: milestone-001
+title: "ONUW App Foundation"
+status: planned
+description: |
+  Stand up the apps.onuw Django app with models, role registry, lobby
+  configuration validation, and the "start game" flow that transitions
+  a core.Lobby into a running ONUW game with assigned roles.
+
+  After this milestone a host can configure roles in the lobby settings,
+  start the game, and each player can query their secretly-assigned role.
+  The game record exists in the DB and is ready for the night phase engine
+  to drive it forward.
+
+  Key architectural decision: the role registry and role-count validation
+  are pure Python (no ORM). Models store state; logic operates on plain
+  data structures passed in and out.
+
+success_criteria:
+  - apps.onuw Django app exists, is registered in INSTALLED_APPS, and migrates cleanly
+  - Game and PlayerRole models store all state needed for night/voting phases
+  - A pure-Python role registry defines all 12 v1 roles with metadata (team, wave, action_type)
+  - Lobby settings validation rejects invalid role configurations (wrong count, unknown roles)
+  - "Start game" endpoint transitions lobby to in_game, creates Game + PlayerRole rows, assigns roles with seeded randomness
+  - Player-scoped GET endpoint returns only the requesting player's own assigned role
+  - Integration test simulates full flow: create lobby, join players, configure roles, start game, each player sees only their own role
+
+tasks:
+  - id: TASK-001
+    title: "Create apps.onuw Django app skeleton"
+    status: not_started
+    assignee: backend-developer
+    depends_on: []
+    blocks: [TASK-002, TASK-003, TASK-004]
+    acceptance:
+      - "apps/onuw/ directory exists with __init__.py, apps.py, models.py, admin.py, urls.py, views.py, serializers.py"
+      - "apps.onuw is added to INSTALLED_APPS in config/settings/base.py"
+      - "config/urls.py includes apps.onuw.urls under api/onuw/ prefix"
+      - "just check passes (lint, format, typecheck)"
+    tests: none  # Structural scaffolding only
+
+  - id: TASK-002
+    title: "Define Game and PlayerRole models"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-001]
+    blocks: [TASK-005, TASK-006]
+    acceptance:
+      - "Game model has: id (UUID pk), lobby (FK to core.Lobby, one-to-one), phase (lobby/night/discussion/voting/results), random_seed (int), night_actions_log (JSON, default []), settings (JSON, copied from lobby at start), created_at, updated_at"
+      - "Game.phase uses TextChoices with exactly these values: lobby, night, discussion, voting, results"
+      - "PlayerRole model has: id (UUID pk), game (FK to Game), user (FK to User), original_role (CharField), current_role (CharField), night_action_data (JSON, default {}), vote_target (nullable FK to User), has_acted (bool, default False)"
+      - "PlayerRole has unique_together on (game, user)"
+      - "Migration is generated and applies cleanly"
+      - "just check passes"
+    tests: unit  # Model creation and constraints
+
+  - id: TASK-003
+    title: "Build pure-Python role registry"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-001]
+    blocks: [TASK-004, TASK-005]
+    acceptance:
+      - "Module at apps/onuw/roles.py (or apps/onuw/roles/ package)"
+      - "RoleDefinition dataclass (or frozen attrs): name, team (village/werewolf/neutral), wave (1-4 or None for no-action roles), action_type (enum: peek_player, peek_center, swap_with_player, swap_with_center, swap_others, see_team, none), min_count, max_count"
+      - "ROLE_REGISTRY dict mapping role name string to RoleDefinition for all 12 roles: Werewolf, Villager, Seer, Robber, Troublemaker, Drunk, Insomniac, Minion, Tanner, Hunter, Mason, Doppelganger"
+      - "Correct metadata for each role: Werewolf (werewolf team, wave 2, see_team), Villager (village, no wave, none), Seer (village, wave 3, peek_player OR peek_center), Robber (village, wave 3, swap_with_player), Troublemaker (village, wave 3, swap_others), Drunk (village, wave 3, swap_with_center), Insomniac (village, wave 4, peek_player -- self), Minion (werewolf, wave 2, see_team), Tanner (neutral, no wave, none), Hunter (village, no wave, none), Mason (village, wave 2, see_team), Doppelganger (village, wave 1, peek_player -- copies role)"
+      - "Helper function: get_role(name) -> RoleDefinition, raises ValueError for unknown role"
+      - "Helper function: get_roles_for_wave(wave_number) -> list[RoleDefinition]"
+      - "No Django imports in this module -- pure Python only"
+      - "just check passes"
+    tests: unit
+    test_details:
+      - "test each role is in the registry with correct team, wave, and action_type"
+      - "test get_role raises ValueError for unknown role name"
+      - "test get_roles_for_wave returns correct roles for each wave 1-4"
+      - "test roles with no wave (Villager, Tanner, Hunter) are not in any wave"
+
+  - id: TASK-004
+    title: "Lobby settings validation for ONUW role configuration"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-003]
+    blocks: [TASK-005]
+    acceptance:
+      - "Pure-Python function validate_onuw_settings(settings: dict, player_count: int) -> list[str] (returns list of error strings, empty = valid)"
+      - "settings.roles is a dict mapping role name to count, e.g. {'Werewolf': 2, 'Seer': 1, ...}"
+      - "Validation rules: (1) total role count == player_count + 3 (3 center cards), (2) all role names exist in registry, (3) each role count is within min_count/max_count bounds, (4) player_count >= 3"
+      - "No Django imports -- pure Python only, uses role registry"
+      - "just check passes"
+    tests: unit
+    test_details:
+      - "test valid configuration passes (e.g. 5 players, 8 roles)"
+      - "test wrong total count fails with descriptive error"
+      - "test unknown role name fails"
+      - "test role count exceeding max_count fails"
+      - "test player_count < 3 fails"
+
+  - id: TASK-005
+    title: "Start game endpoint -- role assignment with seeded randomness"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-002, TASK-003, TASK-004]
+    blocks: [TASK-006, TASK-007]
+    acceptance:
+      - "POST /api/onuw/lobbies/<code>/start/ endpoint, host-only"
+      - "Validates: caller is host, lobby status is waiting, all players are ready, ONUW settings are valid (calls validate_onuw_settings)"
+      - "Pure-Python function assign_roles(role_counts: dict[str, int], player_ids: list[int], seed: int) -> tuple[dict[int, str], list[str]] that returns (player_id -> role mapping, center_cards list). Uses seeded random.Random for deterministic assignment"
+      - "Endpoint calls assign_roles, then atomically: creates Game row (with seed, settings, phase=night), creates PlayerRole rows for each player, updates Lobby.status to in_game, stores center cards in Game.settings['center_cards']"
+      - "Returns 200 with game_id and phase=night (no role info in start response)"
+      - "Broadcasts game_started event via channel layer to lobby group"
+      - "Rejects with 400 if validation fails, 403 if not host"
+      - "just check passes"
+    tests: both
+    test_details:
+      - "UNIT: test assign_roles is deterministic -- same seed produces same assignment"
+      - "UNIT: test assign_roles distributes exactly player_count roles to players and 3 to center"
+      - "UNIT: test assign_roles with different seeds produces different assignments"
+      - "INTEGRATION: test full start flow -- create lobby, add players, configure roles, start, verify Game and PlayerRole rows exist"
+      - "INTEGRATION: test non-host cannot start game (403)"
+      - "INTEGRATION: test start fails if not all players ready (400)"
+      - "INTEGRATION: test start fails with invalid role config (400)"
+
+  - id: TASK-006
+    title: "Player-scoped game state endpoint"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-002, TASK-005]
+    blocks: [TASK-007]
+    acceptance:
+      - "GET /api/onuw/games/<game_id>/me/ returns the requesting player's game state"
+      - "Response includes: game phase, player's original_role (assigned at start), player's current_role (may change after swaps), has_acted flag, night_action_data (what they learned from their action)"
+      - "Response NEVER includes other players' roles, other players' night_action_data, or center card values"
+      - "Returns 403 if user is not a player in this game"
+      - "Returns 404 if game does not exist"
+      - "just check passes"
+    tests: integration
+    test_details:
+      - "test player sees their own role after game starts"
+      - "test player A cannot see player B's role (verify response body)"
+      - "test non-player gets 403"
+      - "test response shape matches expected schema"
+
+  - id: TASK-007
+    title: "Full lobby-to-game integration test"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-005, TASK-006]
+    blocks: []
+    acceptance:
+      - "Single test simulates realistic frontend flow with 5 players: guest auth -> create lobby -> 4 players join -> host configures roles -> all ready up -> host starts game -> each player queries their state -> verify hidden information"
+      - "Uses APIClient for HTTP calls (simulating what Flutter client does)"
+      - "Verifies: each player gets exactly one role, no two players share info about other players' roles, center cards not visible to any player, game phase is night"
+      - "Test is marked @pytest.mark.integration"
+      - "just test passes"
+    tests: integration
+    test_details:
+      - "test_full_lobby_to_game_flow: 5 API clients, full sequence of HTTP calls, assertions on every response"
+
+open_questions:
+  - id: Q-001
+    question: "Should the lobby settings endpoint be a new ONUW-specific endpoint (PUT /api/onuw/lobbies/<code>/settings/) or should it reuse the existing core lobby PATCH? The core Lobby already has a settings JSONField."
+    needs: user_decision
+  - id: Q-002
+    question: "Should center_cards be stored in Game.settings or as a separate field? Game.settings is a catch-all JSON field; a dedicated JSONField would be more explicit."
+    needs: user_decision

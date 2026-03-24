@@ -1,0 +1,26 @@
+project: midnight-village
+updated: 2026-03-23
+
+current_milestone: milestone-001
+current_milestone_title: "ONUW App Foundation"
+
+overall_progress:
+  milestones_complete: 0
+  milestones_total: 5
+  tasks_complete: 0
+  tasks_total: 26
+
+milestone_status:
+  milestone-001: planned
+  milestone-002: planned
+  milestone-003: planned
+  milestone-004: planned
+  milestone-005: planned
+
+blockers: []
+
+notes: |
+  Core app (auth, lobbies, WebSockets) is fully built and tested.
+  All ONUW backend work starts from milestone-001.
+  Key architectural constraint: game logic layer is pure Python (no Django ORM).
+  Models store state; engine operates on plain data structures.

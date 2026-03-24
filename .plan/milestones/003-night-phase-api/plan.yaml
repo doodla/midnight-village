@@ -1,0 +1,140 @@
+id: milestone-003
+title: "Night Phase API"
+status: planned
+description: |
+  Wire the pure-Python night phase engine (milestone 002) to the
+  Django API and WebSocket layers. Players receive action prompts via
+  WebSocket, submit actions via HTTP, and receive player-scoped results.
+  Timers enforce wave deadlines. The server drives wave progression
+  automatically.
+
+  After this milestone, a full night phase can run end-to-end: the server
+  sends each player their prompt, collects submissions (or times out),
+  resolves each wave, sends results, and transitions to the discussion phase.
+
+  Hidden information is strictly enforced: each player only receives the
+  ActionResult for their own action, never other players' results.
+
+success_criteria:
+  - WebSocket broadcasts wave-start prompts with action type and valid targets for each player
+  - HTTP endpoint accepts action submissions, validates against engine, stores in DB
+  - Timer system auto-advances waves when deadline passes (skips non-submitters)
+  - Per-player WebSocket messages deliver only that player's action results (hidden info)
+  - Full night phase completes and game transitions to discussion phase
+  - Integration tests simulate multiple clients through entire night phase
+
+tasks:
+  - id: TASK-020
+    title: "ONUW WebSocket consumer -- game event routing"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-001]
+    blocks: [TASK-023, TASK-024]
+    acceptance:
+      - "GameConsumer in apps/onuw/consumers.py extends AsyncJsonWebsocketConsumer"
+      - "WebSocket route: ws/game/<uuid:game_id>/ registered in apps/onuw/routing.py"
+      - "On connect: validates user is a player in this game, joins game-specific channel group (game_<game_id>), joins player-specific channel (game_<game_id>_player_<user_id>)"
+      - "Player-specific channel enables sending messages to individual players without broadcasting"
+      - "Event handlers for: wave_start, wave_result, phase_change, action_prompt (player-specific), action_result (player-specific)"
+      - "On disconnect: leaves groups"
+      - "Rejects connection if user is not in the game (close code 4003)"
+      - "config/asgi.py updated to include onuw routing"
+      - "just check passes"
+    tests: integration
+    test_details:
+      - "test player can connect to game WebSocket"
+      - "test non-player is rejected with 4003"
+      - "test player receives messages sent to their player-specific channel"
+      - "test player does NOT receive messages sent to another player's channel"
+
+  - id: TASK-021
+    title: "Night action submission endpoint"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-002, TASK-010]
+    blocks: [TASK-023]
+    acceptance:
+      - "POST /api/onuw/games/<game_id>/action/ endpoint"
+      - "Request body: {action_type: str, targets: dict} -- e.g. {action_type: 'peek_player', targets: {player_id: 5}}"
+      - "Validates: game is in night phase, it is the correct wave for this player's role, player has not already acted this wave, action_type matches what the player's role allows, targets are valid"
+      - "Stores the action in PlayerRole.night_action_data and sets has_acted=True"
+      - "Does NOT resolve the action immediately -- resolution happens at wave end"
+      - "Returns 200 with {status: 'submitted'}"
+      - "Returns 400 with descriptive error for validation failures"
+      - "Returns 409 if player already submitted for this wave"
+      - "just check passes"
+    tests: integration
+    test_details:
+      - "test seer can submit peek_player action"
+      - "test seer cannot submit swap action (wrong action_type)"
+      - "test player cannot submit action in wrong wave"
+      - "test player cannot submit twice in same wave"
+      - "test action is stored in PlayerRole but not yet resolved"
+      - "test non-player gets 403"
+
+  - id: TASK-022
+    title: "Wave timer and auto-advance system"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-020]
+    blocks: [TASK-023]
+    acceptance:
+      - "When a wave starts, server schedules a timer (configurable duration, default 10s per wave)"
+      - "Timer can use Django Channels' async delayed task or a background task approach"
+      - "When timer fires: collect all submitted actions for the wave, mark non-submitters as skipped, trigger wave resolution"
+      - "If all players in the wave submit before timer expires, wave resolves immediately (early advance)"
+      - "Game model tracks current_wave (int field) to know which wave is active"
+      - "After wave 4 resolves (or earlier if no roles act in remaining waves), game transitions to discussion phase"
+      - "just check passes"
+    tests: integration
+    test_details:
+      - "test wave auto-advances when timer expires (use short timer in test, e.g. 0.1s)"
+      - "test wave advances early when all actors submit"
+      - "test non-submitters are logged as skipped in action_log"
+      - "test game transitions to discussion after all waves complete"
+
+  - id: TASK-023
+    title: "Wire engine to API -- wave resolution and result delivery"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-014, TASK-020, TASK-021, TASK-022]
+    blocks: [TASK-024]
+    acceptance:
+      - "When a wave ends (timer or early advance): loads GameState from DB, collects NightActions from PlayerRole rows, calls engine.resolve_wave(), persists updated GameState back to DB, sends player-scoped results via WebSocket"
+      - "Player-scoped delivery: each player's ActionResult is sent ONLY to their player-specific WebSocket channel, never broadcast"
+      - "GameState persistence: Game model's night_actions_log is updated with the action_log entries, PlayerRole.current_role is updated if swaps occurred"
+      - "Doppelganger handling: after wave 1 resolution, if Doppelganger copied a role with a later wave, that player is added to the actors list for the appropriate wave"
+      - "Function to convert DB state to engine GameState and back (adapter layer)"
+      - "just check passes"
+    tests: integration
+    test_details:
+      - "test Seer submits action, wave resolves, Seer receives peeked role via WebSocket, other players do not"
+      - "test Robber swap is persisted to DB (PlayerRole.current_role updated)"
+      - "test full night with 5 players: each player submits, all waves resolve, each player receives only their own results"
+      - "test Doppelganger copies Seer, then acts as Seer in wave 3"
+
+  - id: TASK-024
+    title: "End-to-end night phase integration test"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-023]
+    blocks: []
+    acceptance:
+      - "Test simulates complete frontend behavior for 5 players through the entire night phase"
+      - "Flow: game starts (from milestone 001) -> each player connects WebSocket -> wave 1 (Doppelganger if present) -> wave 2 (Werewolves see each other) -> wave 3 (Seer peeks, Robber swaps, etc.) -> wave 4 (Insomniac checks) -> game transitions to discussion"
+      - "Each player uses both HTTP (submit action) and WebSocket (receive prompt/result)"
+      - "Verifies hidden information at every step: player A's result is not visible to player B"
+      - "Verifies final game state in DB matches expected state after all swaps"
+      - "Test is marked @pytest.mark.integration"
+      - "just test passes"
+    tests: integration
+    test_details:
+      - "test_full_night_phase_e2e: 5 players, Werewolf/Werewolf/Seer/Robber/Villager + Drunk/Insomniac/Troublemaker center. Werewolves see each other, Seer peeks, Robber swaps. Verify all results and final state."
+
+open_questions:
+  - id: Q-020
+    question: "What mechanism should drive wave timers? Options: (A) asyncio.create_task with sleep in the consumer, (B) Celery/background task, (C) Django Channels delayed messaging. Option A is simplest but ties timer lifecycle to server process. Option C is most natural for Channels."
+    needs: technical_investigation
+  - id: Q-021
+    question: "Should action submission be via HTTP POST or WebSocket message? HTTP is simpler (request/response, automatic auth) and the design doc says 'WebSocket for anything where multiple clients need updates.' A single player submitting an action is request/response, so HTTP seems right. But some implementations use WebSocket for lower latency."
+    needs: user_decision

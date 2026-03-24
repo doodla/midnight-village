@@ -1,0 +1,131 @@
+id: milestone-005
+title: "Results and Win Conditions"
+status: planned
+description: |
+  Implement vote counting, elimination logic, win condition evaluation,
+  and the results reveal. This is the final phase of the game.
+
+  Win condition logic is pure Python (no ORM). It takes votes and final
+  roles as input and returns the winner, eliminated player(s), and
+  per-player win/loss status.
+
+  After this milestone, a complete game can be played from lobby to results.
+  The full-game integration test proves the entire flow works correctly.
+
+success_criteria:
+  - Pure-Python win condition engine handles all ONUW win scenarios
+  - Vote counting correctly identifies eliminated player(s) or no-elimination (tie)
+  - Hunter chain-kill is handled (Hunter dies -> their vote target also dies)
+  - Tanner win condition overrides village win when Tanner is eliminated
+  - No-werewolf scenario handled (village must not kill anyone to win)
+  - Results endpoint reveals all roles, all votes, winner, and elimination details
+  - Full-game integration test covers lobby -> night -> discussion -> voting -> results
+
+tasks:
+  - id: TASK-040
+    title: "Pure-Python vote counting and elimination logic"
+    status: not_started
+    assignee: backend-developer
+    depends_on: []
+    blocks: [TASK-041, TASK-042]
+    acceptance:
+      - "Module at apps/onuw/engine/voting.py (pure Python, no Django imports)"
+      - "Function: count_votes(votes: dict[int, int | None]) -> dict[int, int] -- maps player_id to vote count, ignores None (abstains)"
+      - "Function: determine_elimination(vote_counts: dict[int, int]) -> list[int] -- returns list of eliminated player_ids. Rules: player(s) with most votes are eliminated. If ALL players are tied (everyone has same count), no one is eliminated (returns []). If a subset tie for most, all in that subset are eliminated."
+      - "Function: apply_hunter(eliminated: list[int], player_roles: dict[int, str], votes: dict[int, int | None]) -> list[int] -- if any eliminated player's current_role is Hunter, add their vote target to eliminated list (chain). Returns updated elimination list."
+      - "just check passes"
+    tests: unit
+    test_details:
+      - "test simple majority: 3 votes for player A, 1 each for B and C -> A eliminated"
+      - "test tie for most: 2 votes each for A and B -> both eliminated"
+      - "test all tied: 1 vote each for all -> no one eliminated"
+      - "test all votes for one player -> that player eliminated"
+      - "test abstains (None) are ignored in counting"
+      - "test hunter elimination: Hunter dies, their vote target is added"
+      - "test hunter chain: Hunter votes for another Hunter, both die, second Hunter's target also added"
+      - "test hunter votes for None (abstain) -- no chain kill"
+
+  - id: TASK-041
+    title: "Pure-Python win condition evaluation"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-040]
+    blocks: [TASK-042, TASK-043]
+    acceptance:
+      - "Module at apps/onuw/engine/win_conditions.py (pure Python, no Django imports)"
+      - "Function: evaluate_winner(eliminated: list[int], player_roles: dict[int, str]) -> GameResult"
+      - "GameResult dataclass: winning_team (str: 'village', 'werewolf', 'tanner', 'no_one'), eliminated_players (list[int]), player_outcomes (dict[int, str] -- 'win' or 'lose' per player_id), reason (str -- human-readable explanation)"
+      - "Win condition rules, evaluated in this priority order:"
+      - "  1. If Tanner is in eliminated list -> Tanner wins (winning_team='tanner'). Tanner gets 'win'. Werewolves lose. Village members who voted for Tanner get 'lose'. Other village members get 'lose' too (Tanner winning is exclusive)."
+      - "  2. If any Werewolf is in eliminated list (and Tanner is not) -> Village wins (winning_team='village'). All village team members get 'win'. All werewolf team members get 'lose'. Tanner gets 'lose'."
+      - "  3. If no Werewolf is eliminated AND werewolves exist in the game -> Werewolves win (winning_team='werewolf'). Werewolf team gets 'win'. Village team gets 'lose'. Tanner gets 'lose'."
+      - "  4. If no werewolves exist in the game (all in center) AND no one is eliminated -> Village wins (winning_team='village'). All village members get 'win'."
+      - "  5. If no werewolves exist in the game AND someone is eliminated -> Werewolves win (winning_team='werewolf', even though no werewolves are among players -- village made a mistake). Village gets 'lose'. Tanner gets 'win' if they were eliminated."
+      - "  Note: player_roles here uses CURRENT roles (after swaps), not original roles"
+      - "  Note: Minion wins/loses with the werewolf team"
+      - "just check passes"
+    tests: unit
+    test_details:
+      - "test village wins when werewolf is eliminated"
+      - "test werewolves win when no werewolf is eliminated"
+      - "test tanner wins when tanner is eliminated (overrides village)"
+      - "test no-werewolf game: village wins if no one eliminated"
+      - "test no-werewolf game: village loses if someone eliminated"
+      - "test minion wins with werewolf team"
+      - "test hunter chain kill: werewolf killed by hunter chain still counts as village win"
+      - "test tanner eliminated along with werewolf: tanner wins (priority)"
+      - "test player swapped to werewolf role is treated as werewolf for win conditions"
+
+  - id: TASK-042
+    title: "Results endpoint and role reveal"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-040, TASK-041, TASK-030]
+    blocks: [TASK-043]
+    acceptance:
+      - "When game transitions to results phase: engine computes elimination and win conditions, stores results in Game model (new results JSONField or in settings)"
+      - "GET /api/onuw/games/<game_id>/results/ endpoint"
+      - "Response includes: winning_team, eliminated_players, all players' roles (both original and final), all votes with targets, per-player win/loss outcome, center cards (original and final), night action log (sanitized -- what each role did, not full engine internals)"
+      - "This endpoint reveals ALL information -- the game is over, no hidden info"
+      - "Returns 403 if game is not in results phase (prevents early peeking)"
+      - "Results are also broadcast via WebSocket game_results event to all players"
+      - "just check passes"
+    tests: integration
+    test_details:
+      - "test results endpoint returns full role reveal"
+      - "test results endpoint returns all votes"
+      - "test results endpoint returns winning team and per-player outcomes"
+      - "test results endpoint returns 403 before results phase"
+      - "test results are broadcast via WebSocket"
+
+  - id: TASK-043
+    title: "Full game end-to-end integration test"
+    status: not_started
+    assignee: backend-developer
+    depends_on: [TASK-041, TASK-042, TASK-024, TASK-034]
+    blocks: []
+    acceptance:
+      - "Single test (or small test class) that plays a complete game from lobby to results"
+      - "5 players, known seed so role assignment is deterministic"
+      - "Flow: guest auth x5 -> create lobby -> join x4 -> configure roles (Werewolf, Werewolf, Seer, Robber, Villager + Drunk, Insomniac, Troublemaker center) -> ready up -> start game -> connect WebSockets -> night phase (Werewolves see each other, Seer peeks a player, Robber swaps with someone) -> discussion -> voting (village votes for a werewolf based on Seer info) -> results (village wins)"
+      - "Verifies hidden information at every stage"
+      - "Verifies final results match expected outcome"
+      - "Verifies action log is complete and correct"
+      - "Test is marked @pytest.mark.integration"
+      - "just test passes"
+    tests: integration
+    test_details:
+      - "test_complete_game_village_wins: full flow, deterministic seed, village correctly identifies and eliminates werewolf"
+      - "test_complete_game_werewolves_win: full flow, village votes wrong, werewolves win"
+      - "test_complete_game_tanner_wins: full flow, village votes for tanner"
+
+open_questions:
+  - id: Q-040
+    question: "When Tanner is eliminated alongside a Werewolf (both tied for most votes), who wins? The plan says Tanner win has priority, but some ONUW rules say both win conditions trigger (Tanner wins AND village wins). Need to decide."
+    needs: user_decision
+  - id: Q-041
+    question: "Should the results endpoint include a 'play again' action that resets the lobby to waiting state? Or is that a separate feature?"
+    needs: user_decision
+  - id: Q-042
+    question: "Should win condition evaluation use current_role (after swaps) for determining teams? The official ONUW rules say yes -- if you were swapped to Werewolf, you are now on the werewolf team even if you started as Villager."
+    needs: user_decision
