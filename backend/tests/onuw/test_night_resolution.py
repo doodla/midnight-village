@@ -90,6 +90,53 @@ class TestResolveWave:
         assert new_state.player_roles[2] == "Robber"
         assert new_state.player_roles[3] == "Werewolf"
 
+    def test_spec_example_1_troublemaker_undoes_robber_swap(self):
+        """Spec Example 1: Robber swaps Alice+Bob, Troublemaker re-swaps same pair.
+
+        Initial: Alice(1)=Werewolf, Bob(3)=Robber, Carol(4)=Villager.
+        Robber(Bob) swaps with Alice → Bob=Werewolf, Alice=Robber.
+        Troublemaker(Carol) swaps Alice and Bob → back to original.
+        "The Troublemaker 'undid' the Robber's swap."
+        """
+        state = _make_state(
+            player_roles={
+                1: "Werewolf",
+                2: "Seer",
+                3: "Robber",
+                4: "Troublemaker",
+                5: "Villager",
+            }
+        )
+        actions = [
+            # Robber(3) swaps with player 1 (Werewolf)
+            NightAction(
+                player_id=3,
+                role_acting_as="Robber",
+                action_type="swap_with_player",
+                targets={"player_id": 1},
+            ),
+            # Troublemaker(4) swaps same pair: players 1 and 3
+            NightAction(
+                player_id=4,
+                role_acting_as="Troublemaker",
+                action_type="swap_others",
+                targets={"player_ids": [1, 3]},
+            ),
+        ]
+        new_state, results = resolve_wave(state, actions, wave=3)
+
+        # Robber saw Werewolf when stealing from player 1
+        assert results[0].revealed_info["new_role"] == "Werewolf"
+
+        # After Robber: {1: Robber, 3: Werewolf}
+        # After Troublemaker re-swaps 1↔3: {1: Werewolf, 3: Robber}
+        # Back to original state for players 1 and 3
+        assert new_state.player_roles[1] == "Werewolf"
+        assert new_state.player_roles[3] == "Robber"
+        assert new_state.player_roles[2] == "Seer"
+        assert new_state.player_roles[4] == "Troublemaker"
+        assert new_state.player_roles[5] == "Villager"
+
     def test_skip_action_is_logged(self):
         state = _make_state()
         actions = [
