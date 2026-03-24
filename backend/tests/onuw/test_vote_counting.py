@@ -167,6 +167,24 @@ class TestApplyHunter:
         result = apply_hunter([], player_roles, votes)
         assert result == []
 
+    def test_hunter_dies_in_tie_chain_still_fires(self):
+        """Spec: 'If the Hunter dies in a tie, the ability still triggers.'
+
+        Two players tied at 2 votes each -> both eliminated.
+        Player 1 is Hunter and voted for player 3 -> chain kills player 3.
+        """
+        # Two players tied at 2 votes each -> both eliminated
+        vote_counts = {1: 2, 2: 2}
+        eliminated = determine_elimination(vote_counts)
+        assert sorted(eliminated) == [1, 2]
+
+        # Player 1 is Hunter, voted for player 3
+        player_roles = {1: "Hunter", 2: "Werewolf", 3: "Villager", 4: "Seer"}
+        votes: dict[int, int | None] = {1: 3, 2: 1, 3: 2, 4: 2}
+        result = apply_hunter(eliminated, player_roles, votes)
+        assert 3 in result  # Hunter's target also dies
+        assert sorted(result) == [1, 2, 3]
+
     def test_hunter_circular_chain_terminates(self):
         """Hunter kills Doppelganger-as-Hunter; chain does not recurse back.
 
@@ -179,3 +197,22 @@ class TestApplyHunter:
         votes: dict[int, int | None] = {1: 2, 2: 3, 3: 1}
         result = apply_hunter(eliminated, player_roles, votes, doppelganger_copied)
         assert sorted(result) == [1, 2]
+
+    def test_swapped_hunter_card_new_holder_triggers_chain(self):
+        """Spec: Hunter ability belongs to the card position, not the original player.
+
+        If Robber steals the Hunter card, the Robber now holds Hunter.
+        If the Robber (now Hunter) is eliminated, THEIR vote target dies.
+        The original Hunter player (now Robber) does NOT trigger the chain.
+        """
+        # After night: player 1 holds Robber (was original Hunter),
+        # player 2 holds Hunter (was original Robber who stole it)
+        eliminated = [2]  # Player 2 (now Hunter) eliminated
+        player_roles = {1: "Robber", 2: "Hunter", 3: "Werewolf", 4: "Villager"}
+        votes: dict[int, int | None] = {1: 3, 2: 3, 3: 1, 4: 1}
+
+        result = apply_hunter(eliminated, player_roles, votes)
+        # Player 2's vote target (player 3) should also die
+        assert 3 in result
+        # Player 1 (original Hunter, now Robber) does NOT trigger chain
+        assert sorted(result) == [2, 3]

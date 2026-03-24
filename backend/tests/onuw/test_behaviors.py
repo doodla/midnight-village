@@ -680,6 +680,43 @@ class TestExecuteDoppelganger:
     def test_doppelganger_copies_drunk_followup_in_wave_1(self):
         assert get_doppelganger_followup_wave("Drunk") == 1
 
+    def test_doppelganger_as_lone_werewolf_can_peek_center(self):
+        """Spec: Doppelganger-as-Werewolf, no other Werewolves among players.
+
+        Both real Werewolf cards are in the center. Doppelganger is the lone
+        Werewolf and may peek one center card.
+        """
+        state = _make_state(
+            player_roles={
+                1: "Doppelganger",
+                2: "Seer",
+                3: "Villager",
+                4: "Robber",
+                5: "Minion",
+            },
+            center_cards=["Werewolf", "Werewolf", "Villager"],
+        )
+        # Record that Doppelganger copied Werewolf
+        state = state.with_doppelganger_copy(1, "Werewolf")
+
+        action = NightAction(
+            player_id=1,
+            role_acting_as="Werewolf",
+            action_type="see_team",
+            targets={"center_index": 0},
+        )
+        new_state, result = execute_werewolf(state, action)
+        # No other werewolves among players (both real WW cards in center)
+        assert result.revealed_info["werewolves"] == []
+        # Lone wolf peeked center card 0
+        assert result.revealed_info["center_card"] == {
+            "index": 0,
+            "role": "Werewolf",
+        }
+        # No state mutations from a see_team action
+        assert new_state.player_roles == state.player_roles
+        assert result.state_mutations == []
+
 
 # ── Insomniac Tests ──────────────────────────────────────────────────────────
 

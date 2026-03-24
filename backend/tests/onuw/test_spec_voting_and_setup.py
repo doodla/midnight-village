@@ -20,6 +20,7 @@ import pytest
 from apps.onuw.engine.roles import ROLE_REGISTRY
 from apps.onuw.engine.validation import validate_onuw_settings
 from apps.onuw.engine.voting import apply_hunter, count_votes, determine_elimination
+from apps.onuw.engine.win_conditions import evaluate_winner
 
 pytestmark = pytest.mark.unit
 
@@ -141,7 +142,7 @@ class TestTieAtTwoOrMore:
         vote_counts = {1: 2, 2: 2, 3: 2, 4: 1}
         eliminated = determine_elimination(vote_counts)
         assert eliminated == [1, 2, 3], (
-            "Three players tied at 2 votes with a fourth at 1 — "
+            "Three players tied at 2 votes with a fourth at 1 -- "
             "the three tied players all die."
         )
 
@@ -235,7 +236,7 @@ class TestHunterChainKills:
         )
 
     def test_hunter_not_eliminated_no_chain(self):
-        """Hunter is alive — their ability does not trigger."""
+        """Hunter is alive -- their ability does not trigger."""
         eliminated = [2]  # Non-Hunter player eliminated
         player_roles = {1: "Hunter", 2: "Werewolf", 3: "Villager"}
         votes: dict[int, int | None] = {1: 2, 2: 3, 3: 2}
@@ -298,7 +299,7 @@ class TestSetupValidationMaxPlayers:
             }
         }
         # Total = 2+3+1+1+1+1+1+1+1+1+0 = 13, need 14 for 11 players.
-        # Doesn't matter — the max-player check should fire first or alongside.
+        # Doesn't matter -- the max-player check should fire first or alongside.
         errors = validate_onuw_settings(config, 11)
         assert any(
             "10" in e or "maximum" in e.lower() or "at most" in e.lower()
@@ -588,3 +589,73 @@ class TestVoteToEliminationPipeline:
         final = apply_hunter(eliminated, player_roles, votes)
         # Hunter (1) voted for player 3 (Werewolf). Chain kill adds player 3.
         assert sorted(final) == [1, 3]
+
+
+# ---------------------------------------------------------------------------
+# Complete Resolution Example from spec
+# ---------------------------------------------------------------------------
+
+
+class TestCompleteResolutionExample:
+    """Spec: Complete Resolution Example from voting-and-resolution.md."""
+
+    def test_complete_resolution_example_from_spec(self):
+        """
+        Setup: Alice(1)=Werewolf, Bob(2)=Seer, Carol(3)=Robber, Dave(4)=Villager, Eve(5)=Hunter
+        Center: [Werewolf, Minion, Tanner]
+
+        Night:
+        1. Bob (Seer) peeks Alice -> sees Werewolf
+        2. Carol (Robber) swaps with Alice -> Carol=Werewolf, Alice=Robber
+        3. Eve (Hunter) does not wake
+
+        Final Roles: Alice=Robber, Bob=Seer, Carol=Werewolf, Dave=Villager, Eve=Hunter
+
+        Voting: Alice->Carol, Bob->Alice, Carol->Bob, Dave->Alice, Eve->Alice
+        Alice gets 3 votes, eliminated.
+
+        Alice holds Robber (village), not Hunter -- no chain.
+        Carol (Werewolf) is alive. Werewolf team wins.
+        """
+        # Final roles after all night swaps
+        player_roles = {
+            1: "Robber",  # Alice (was Werewolf, Robber stole it)
+            2: "Seer",  # Bob
+            3: "Werewolf",  # Carol (was Robber, now holds Werewolf)
+            4: "Villager",  # Dave
+            5: "Hunter",  # Eve
+        }
+
+        # Votes: Alice(1)->Carol(3), Bob(2)->Alice(1), Carol(3)->Bob(2),
+        #        Dave(4)->Alice(1), Eve(5)->Alice(1)
+        votes: dict[int, int | None] = {1: 3, 2: 1, 3: 2, 4: 1, 5: 1}
+
+        # Step 1: Tally votes
+        vote_counts = count_votes(votes)
+        assert vote_counts[1] == 3, "Alice should have 3 votes"
+        assert vote_counts[3] == 1, "Carol should have 1 vote"
+        assert vote_counts[2] == 1, "Bob should have 1 vote"
+
+        # Step 2: Determine elimination
+        eliminated = determine_elimination(vote_counts)
+        assert eliminated == [1], (
+            "Alice (player 1) should be the sole elimination with 3 votes"
+        )
+
+        # Step 3: Apply Hunter -- Alice holds Robber, not Hunter. No chain.
+        final_eliminated = apply_hunter(eliminated, player_roles, votes)
+        assert final_eliminated == [1], (
+            "Alice holds Robber, not Hunter. No Hunter chain should trigger."
+        )
+
+        # Step 4: Evaluate winner
+        result = evaluate_winner(final_eliminated, player_roles)
+        assert "werewolf" in result.winning_teams, (
+            "Carol (player 3) holds Werewolf and is alive. Werewolf team wins."
+        )
+        assert "village" not in result.winning_teams, (
+            "No Werewolf was eliminated. Village should not win."
+        )
+        assert "tanner" not in result.winning_teams, (
+            "No Tanner in play among players. Tanner should not win."
+        )

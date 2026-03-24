@@ -292,6 +292,22 @@ class TestEvaluateWinner:
         assert result.player_outcomes[3] == "lose"  # Tanner did not die
         assert result.player_outcomes[1] == "win"
 
+    def test_drunk_swaps_into_werewolf_from_center_werewolf_wins(self):
+        """Spec Example 4: Drunk swaps with Werewolf from center.
+
+        Drunk unknowingly becomes Werewolf. If not eliminated, Werewolf team wins.
+        After night swap: player 1 holds Werewolf (from center), player 2 holds Seer.
+        Village kills the Seer (wrong person), so no Werewolf eliminated.
+        """
+        eliminated = [2]  # Village kills the Seer (wrong person)
+        player_roles = {1: "Werewolf", 2: "Seer", 3: "Villager", 4: "Robber"}
+        result = evaluate_winner(eliminated, player_roles)
+        assert result.winning_teams == ["werewolf"]
+        assert result.player_outcomes[1] == "win"  # Drunk-turned-Werewolf wins
+        assert result.player_outcomes[2] == "lose"  # Seer eliminated, loses
+        assert result.player_outcomes[3] == "lose"  # Villager loses
+        assert result.player_outcomes[4] == "lose"  # Robber loses
+
     def test_result_is_frozen_dataclass(self):
         """GameResult is immutable."""
         result = evaluate_winner([], {1: "Seer", 2: "Villager"})
