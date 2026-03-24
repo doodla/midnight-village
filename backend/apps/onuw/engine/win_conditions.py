@@ -30,7 +30,7 @@ _NEUTRAL_ROLES = frozenset({"Tanner"})
 class GameResult:
     """Immutable result of evaluating win conditions."""
 
-    winning_team: str  # "village", "werewolf", "tanner", "no_one"
+    winning_teams: list[str]  # e.g. ["village"], ["tanner", "village"], []
     eliminated_players: list[int]
     player_outcomes: dict[int, str]  # player_id -> "win" or "lose"
     reason: str  # human-readable explanation
@@ -74,6 +74,31 @@ def get_effective_team(
     return "village"
 
 
+def _get_effective_role(
+    player_id: int,
+    player_roles: dict[int, str],
+    doppelganger_copied: dict[int, str],
+) -> str:
+    """
+    Get a player's effective role, resolving Doppelganger to their copied role.
+    """
+    role = player_roles.get(player_id, "")
+    if role == "Doppelganger":
+        copied = doppelganger_copied.get(player_id)
+        if copied is not None:
+            return copied
+    return role
+
+
+def _is_effective_minion(
+    player_id: int,
+    player_roles: dict[int, str],
+    doppelganger_copied: dict[int, str],
+) -> bool:
+    """Check if a player is effectively a Minion (including Doppelganger-as-Minion)."""
+    return _get_effective_role(player_id, player_roles, doppelganger_copied) == "Minion"
+
+
 def evaluate_winner(
     eliminated: list[int],
     player_roles: dict[int, str],
@@ -82,15 +107,24 @@ def evaluate_winner(
     """
     Evaluate win conditions after elimination is determined.
 
-    Rules (evaluated in priority order):
+    Win conditions are NOT mutually exclusive. Multiple teams can win.
 
-    1. Tanner eliminated -> Tanner wins. Only the Tanner(s) get "win".
-    2. Werewolf eliminated (and Tanner not) -> Village wins.
-    3. No werewolf eliminated AND werewolves exist -> Werewolves win.
-    4. No werewolves in game AND no one eliminated -> Village wins.
-    5. No werewolves in game AND someone eliminated ->
-       If Tanner eliminated: Tanner wins (same as rule 1).
-       Otherwise: no_one wins (village made a mistake).
+    Algorithm:
+    1. Determine effective roles (resolve Doppelganger)
+    2. Identify werewolf_players, tanner_players, minion_players
+    3. Tanner win (independent): if any Tanner is eliminated, "tanner" wins
+    4. Village vs Werewolf:
+       a. If werewolf_players exist:
+          - If any werewolf died -> "village" wins
+          - If no werewolf died AND tanner did NOT die -> "werewolf" wins
+          - If no werewolf died AND tanner died -> werewolves do NOT win
+       b. If no werewolf_players exist:
+          - If no one died -> "village" wins
+          - If Minion exists and a non-Minion/non-Doppelganger-as-Minion died
+            -> "werewolf" wins
+          - If only Minion died -> no team wins
+          - Otherwise (no Minion, someone died) -> no one wins
+    5. Build player_outcomes based on winning_teams
     """
     if doppelganger_copied is None:
         doppelganger_copied = {}
@@ -100,7 +134,7 @@ def evaluate_winner(
     for pid in player_roles:
         player_teams[pid] = get_effective_team(pid, player_roles, doppelganger_copied)
 
-    # Check if any actual werewolf-role player exists (not just Minion)
+    # Identify werewolf-role players (actual Werewolf, not Minion)
     werewolf_role_players = [
         pid for pid, role in player_roles.items() if role == "Werewolf"
     ]
@@ -111,7 +145,14 @@ def evaluate_winner(
 
     werewolves_in_game = len(werewolf_role_players) > 0
 
-    # Check eliminated players' teams
+    # Identify minion players (Minion or Doppelganger-as-Minion)
+    minion_players = [
+        pid
+        for pid in player_roles
+        if _is_effective_minion(pid, player_roles, doppelganger_copied)
+    ]
+
+    # Check eliminated players' effective roles
     eliminated_tanners = [
         pid for pid in eliminated if player_teams.get(pid) == "neutral"
     ]
@@ -127,81 +168,101 @@ def evaluate_winner(
         ):
             eliminated_werewolves.append(pid)
 
-    # Rule 1 & 5b: Tanner eliminated -> Tanner wins
-    if eliminated_tanners:
-        outcomes: dict[int, str] = {}
-        for pid in player_roles:
-            if pid in eliminated_tanners and player_teams.get(pid) == "neutral":
-                outcomes[pid] = "win"
-            else:
-                outcomes[pid] = "lose"
-        return GameResult(
-            winning_team="tanner",
-            eliminated_players=sorted(eliminated),
-            player_outcomes=outcomes,
-            reason="Tanner was eliminated and wins!",
-        )
+    # --- Evaluate winning teams (non-mutually-exclusive) ---
+    winning_teams: list[str] = []
+    reasons: list[str] = []
 
-    # Rule 2: Werewolf eliminated (and Tanner not) -> Village wins
-    if eliminated_werewolves:
-        outcomes = {}
-        for pid in player_roles:
-            team = player_teams[pid]
-            if team == "village":
-                outcomes[pid] = "win"
-            else:
-                outcomes[pid] = "lose"
-        return GameResult(
-            winning_team="village",
-            eliminated_players=sorted(eliminated),
-            player_outcomes=outcomes,
-            reason="A Werewolf was eliminated.",
-        )
+    # Step 3: Tanner win (independent check)
+    tanner_wins = len(eliminated_tanners) > 0
+    if tanner_wins:
+        winning_teams.append("tanner")
+        reasons.append("Tanner was eliminated and wins!")
 
-    # Rule 3: No werewolf eliminated AND werewolves exist -> Werewolves win
+    # Step 4: Village vs Werewolf
     if werewolves_in_game:
-        outcomes = {}
-        for pid in player_roles:
-            team = player_teams[pid]
-            if team == "werewolf":
-                outcomes[pid] = "win"
-            else:
-                outcomes[pid] = "lose"
-        return GameResult(
-            winning_team="werewolf",
-            eliminated_players=sorted(eliminated),
-            player_outcomes=outcomes,
-            reason="No Werewolf was eliminated. Werewolves win!",
-        )
+        # 4a: Werewolves exist among players
+        if eliminated_werewolves:
+            # A werewolf died -> village wins
+            winning_teams.append("village")
+            reasons.append("A Werewolf was eliminated.")
+        elif not tanner_wins:
+            # No werewolf died AND tanner did NOT die -> werewolves win
+            winning_teams.append("werewolf")
+            reasons.append("No Werewolf was eliminated. Werewolves win!")
+        # else: no werewolf died AND tanner died -> WW blocked, no WW win
+    else:
+        # 4b: No werewolves among players
+        if not eliminated:
+            # No one died -> village wins
+            winning_teams.append("village")
+            reasons.append(
+                "No werewolves in play and no one was eliminated. Village wins!"
+            )
+        elif minion_players:
+            # Minion exists -- check who died
+            # Check if any non-Minion player died
+            eliminated_non_minion = [
+                pid
+                for pid in eliminated
+                if not _is_effective_minion(pid, player_roles, doppelganger_copied)
+                and player_teams.get(pid) != "neutral"  # Tanner is handled separately
+            ]
+            eliminated_only_minions = all(
+                _is_effective_minion(pid, player_roles, doppelganger_copied)
+                for pid in eliminated
+                if player_teams.get(pid) != "neutral"
+            )
 
-    # No werewolves in game
-    # Rule 4: No one eliminated -> Village wins
-    if not eliminated:
-        outcomes = {}
-        for pid in player_roles:
-            team = player_teams[pid]
-            if team in ("village", "neutral"):
-                # In a no-werewolf game, even Tanner is considered
-                # non-werewolf. But Tanner only truly "wins" by dying.
-                # If no one died, Tanner doesn't win but village does.
-                outcomes[pid] = "win" if team == "village" else "lose"
-            else:
-                outcomes[pid] = "lose"
-        return GameResult(
-            winning_team="village",
-            eliminated_players=[],
-            player_outcomes=outcomes,
-            reason="No werewolves in play and no one was eliminated. Village wins!",
-        )
+            if eliminated_non_minion:
+                # A non-Minion/non-Tanner died -> werewolf team wins
+                winning_teams.append("werewolf")
+                reasons.append(
+                    "No werewolves in play, but a non-Minion player was eliminated. "
+                    "Minion wins for the Werewolf team!"
+                )
+            elif eliminated_only_minions and not tanner_wins:
+                # Only Minion(s) died, no Tanner died -> no team wins
+                pass  # No team added
+            # If tanner_wins and only Minions died among non-Tanners,
+            # no additional team wins beyond Tanner
+        else:
+            # No Minion, no Werewolves, someone died
+            if not tanner_wins:
+                # No Tanner died either -> nobody wins
+                pass  # No team added
 
-    # Rule 5a: No werewolves in game AND someone eliminated AND not Tanner
-    # -> no_one wins
-    outcomes = {}
+    # Build reason string
+    reason = (
+        " ".join(reasons)
+        if reasons
+        else (
+            "No werewolves in play, but the village eliminated one of their own. Nobody wins."
+        )
+    )
+
+    # Step 5: Build player outcomes
+    outcomes: dict[int, str] = {}
     for pid in player_roles:
-        outcomes[pid] = "lose"
+        team = player_teams[pid]
+        won = False
+
+        if "village" in winning_teams and team == "village":
+            won = True
+        elif "werewolf" in winning_teams and team == "werewolf":
+            won = True
+        elif (
+            "tanner" in winning_teams
+            and team == "neutral"
+            and pid in eliminated_tanners
+        ):
+            # Tanner only wins if actually eliminated
+            won = True
+
+        outcomes[pid] = "win" if won else "lose"
+
     return GameResult(
-        winning_team="no_one",
+        winning_teams=winning_teams,
         eliminated_players=sorted(eliminated),
         player_outcomes=outcomes,
-        reason="No werewolves in play, but the village eliminated one of their own. Nobody wins.",
+        reason=reason,
     )

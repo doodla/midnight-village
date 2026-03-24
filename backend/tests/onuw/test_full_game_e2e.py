@@ -118,7 +118,7 @@ class TestCompleteGameVillageWins:
         2. Night: Werewolves see each other, Seer peeks werewolf, Robber swaps
         3. Discussion -> Voting
         4. All vote for host (Werewolf) -> auto-reveal -> results
-        5. Verify winning_team="village"
+        5. Verify winning_teams="village"
         6. GET /results/ -> verify full data
         """
         game, users, host, _lobby = self._setup_game()
@@ -242,7 +242,7 @@ class TestCompleteGameVillageWins:
             assert game.phase == Phase.RESULTS
 
             # ── Verify results ─────────────────────────────────────────────
-            assert game.results["winning_team"] == "village"
+            assert game.results["winning_teams"] == ["village"]
             # pyrefly: ignore [missing-attribute]
             assert ww1.id in game.results["eliminated_players"]
 
@@ -267,7 +267,7 @@ class TestCompleteGameVillageWins:
             assert response.status_code == status.HTTP_200_OK  # type: ignore[union-attr]
 
             data = response.data  # type: ignore[union-attr]
-            assert data["winning_team"] == "village"
+            assert data["winning_teams"] == ["village"]
             assert len(data["players"]) == 5
             assert len(data["eliminated_players"]) >= 1
             assert data["center_cards"]["final"] == [
@@ -455,7 +455,7 @@ class TestCompleteGameWerewolvesWin:
             assert game.phase == Phase.RESULTS
 
             # ── Verify werewolves win ──────────────────────────────────────
-            assert game.results["winning_team"] == "werewolf"
+            assert game.results["winning_teams"] == ["werewolf"]
             # pyrefly: ignore [missing-attribute]
             assert villager.id in game.results["eliminated_players"]
 
@@ -477,7 +477,7 @@ class TestCompleteGameWerewolvesWin:
             client.force_authenticate(user=seer)
             response = client.get(results_url)
             assert response.status_code == status.HTTP_200_OK  # type: ignore[union-attr]
-            assert response.data["winning_team"] == "werewolf"  # type: ignore[union-attr]
+            assert response.data["winning_teams"] == ["werewolf"]  # type: ignore[union-attr]
 
 
 class TestCompleteGameTannerWins:
@@ -635,7 +635,7 @@ class TestCompleteGameTannerWins:
             assert game.phase == Phase.RESULTS
 
             # ── Verify Tanner wins ─────────────────────────────────────────
-            assert game.results["winning_team"] == "tanner"
+            assert game.results["winning_teams"] == ["tanner"]
             # pyrefly: ignore [missing-attribute]
             assert tanner.id in game.results["eliminated_players"]
 
@@ -657,7 +657,7 @@ class TestCompleteGameTannerWins:
             client.force_authenticate(user=seer)
             response = client.get(results_url)
             assert response.status_code == status.HTTP_200_OK  # type: ignore[union-attr]
-            assert response.data["winning_team"] == "tanner"  # type: ignore[union-attr]
+            assert response.data["winning_teams"] == ["tanner"]  # type: ignore[union-attr]
 
             # Verify eliminated player details
             eliminated = response.data["eliminated_players"]  # type: ignore[union-attr]

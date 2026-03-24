@@ -217,34 +217,20 @@ def resolve_night(
     for wave in (1, 2, 3, 4):
         wave_actions = list(all_actions.get(wave, []))
 
-        # Inject Doppelganger follow-up actions for this wave
-        if wave > 1 and doppelganger_followups:
-            for doppel_id, info in doppelganger_followups.items():
-                followup_wave = info["followup_wave"]
-                if followup_wave == wave:
-                    # Look for a submitted follow-up action from this Doppelganger
-                    # in the all_actions for this wave
-                    has_followup = any(
-                        a.player_id == doppel_id
-                        and a.role_acting_as == info["copied_role"]
-                        for a in wave_actions
-                    )
-                    if not has_followup:
-                        # No follow-up submitted — skip it
-                        skip_action = NightAction(
-                            player_id=doppel_id,
-                            role_acting_as=str(info["copied_role"]),
-                            action_type="skip",
-                            targets={},
-                        )
-                        wave_actions.append(skip_action)
-
-        current_state, wave_results = resolve_wave(current_state, wave_actions, wave)
-        if wave_results:
-            results_by_wave[wave] = wave_results
-
-        # After wave 1, check for Doppelganger copies that need follow-ups
         if wave == 1:
+            # For wave 1, only process Doppelganger peek actions initially.
+            # Follow-up actions (role_acting_as != "Doppelganger") are
+            # deferred to the second pass after we discover the copied role.
+            doppelganger_peek_actions = [
+                a for a in wave_actions if a.role_acting_as == "Doppelganger"
+            ]
+            current_state, wave_results = resolve_wave(
+                current_state, doppelganger_peek_actions, wave
+            )
+            if wave_results:
+                results_by_wave[wave] = wave_results
+
+            # Discover follow-ups from the Doppelganger copy results
             for (
                 doppel_id,
                 copied_role,
@@ -255,5 +241,67 @@ def resolve_night(
                         "copied_role": copied_role,
                         "followup_wave": followup_wave,
                     }
+
+            # Process any wave 1 follow-ups IMMEDIATELY.
+            # These are discovered after the initial Doppelganger peek,
+            # so we need a second pass through wave 1 to resolve them.
+            wave_1_followups: list[NightAction] = []
+            for doppel_id, info in doppelganger_followups.items():
+                if info["followup_wave"] == 1:
+                    # Find the submitted follow-up action in all_actions[1]
+                    followup_action = None
+                    for a in wave_actions:
+                        if (
+                            a.player_id == doppel_id
+                            and a.role_acting_as == info["copied_role"]
+                        ):
+                            followup_action = a
+                            break
+                    if followup_action is None:
+                        # No follow-up submitted — skip it
+                        followup_action = NightAction(
+                            player_id=doppel_id,
+                            role_acting_as=str(info["copied_role"]),
+                            action_type="skip",
+                            targets={},
+                        )
+                    wave_1_followups.append(followup_action)
+
+            if wave_1_followups:
+                current_state, followup_results = resolve_wave(
+                    current_state, wave_1_followups, 1
+                )
+                if 1 in results_by_wave:
+                    results_by_wave[1].extend(followup_results)
+                else:
+                    results_by_wave[1] = followup_results
+        else:
+            # Inject Doppelganger follow-up actions for waves 2+
+            if doppelganger_followups:
+                for doppel_id, info in doppelganger_followups.items():
+                    followup_wave = info["followup_wave"]
+                    if followup_wave == wave:
+                        # Look for a submitted follow-up action from this
+                        # Doppelganger in the all_actions for this wave
+                        has_followup = any(
+                            a.player_id == doppel_id
+                            and a.role_acting_as == info["copied_role"]
+                            for a in wave_actions
+                        )
+                        if not has_followup:
+                            # No follow-up submitted — skip it
+                            skip_action = NightAction(
+                                player_id=doppel_id,
+                                role_acting_as=str(info["copied_role"]),
+                                action_type="skip",
+                                targets={},
+                            )
+                            wave_actions.append(skip_action)
+
+            current_state, wave_results = resolve_wave(
+                current_state, wave_actions, wave
+            )
+            if wave_results:
+                results_by_wave[wave] = wave_results
 
     return current_state, results_by_wave

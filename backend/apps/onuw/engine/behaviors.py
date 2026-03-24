@@ -20,19 +20,37 @@ RoleBehavior = Callable[[GameState, NightAction], tuple[GameState, ActionResult]
 # ── Wave 2: See-team roles ──────────────────────────────────────────────────
 
 
+def _is_effective_werewolf(pid: int, state: GameState) -> bool:
+    """Check if a player is effectively a Werewolf (including Doppelganger-as-Werewolf)."""
+    role = state.player_roles.get(pid, "")
+    if role == "Werewolf":
+        return True
+    return (
+        role == "Doppelganger" and state.doppelganger_copied_role.get(pid) == "Werewolf"
+    )
+
+
+def _is_effective_mason(pid: int, state: GameState) -> bool:
+    """Check if a player is effectively a Mason (including Doppelganger-as-Mason)."""
+    role = state.player_roles.get(pid, "")
+    if role == "Mason":
+        return True
+    return role == "Doppelganger" and state.doppelganger_copied_role.get(pid) == "Mason"
+
+
 def execute_werewolf(
     state: GameState, action: NightAction
 ) -> tuple[GameState, ActionResult]:
     """
-    Werewolf sees other werewolves.
+    Werewolf sees other werewolves (including Doppelganger-as-Werewolf).
 
     Lone werewolf may optionally peek at one center card.
     """
     player_id = action.player_id
     all_werewolves = [
         pid
-        for pid, role in state.player_roles.items()
-        if role == "Werewolf" and pid != player_id
+        for pid in state.player_roles
+        if pid != player_id and _is_effective_werewolf(pid, state)
     ]
 
     if len(all_werewolves) == 0:
@@ -70,9 +88,11 @@ def execute_werewolf(
 def execute_minion(
     state: GameState, action: NightAction
 ) -> tuple[GameState, ActionResult]:
-    """Minion sees all werewolf player_ids."""
+    """Minion sees all werewolf player_ids (including Doppelganger-as-Werewolf)."""
     player_id = action.player_id
-    werewolves = [pid for pid, role in state.player_roles.items() if role == "Werewolf"]
+    werewolves = [
+        pid for pid in state.player_roles if _is_effective_werewolf(pid, state)
+    ]
 
     return state, ActionResult(
         player_id=player_id,
@@ -84,12 +104,12 @@ def execute_minion(
 def execute_mason(
     state: GameState, action: NightAction
 ) -> tuple[GameState, ActionResult]:
-    """Mason sees other mason player_ids."""
+    """Mason sees other mason player_ids (including Doppelganger-as-Mason)."""
     player_id = action.player_id
     other_masons = [
         pid
-        for pid, role in state.player_roles.items()
-        if role == "Mason" and pid != player_id
+        for pid in state.player_roles
+        if pid != player_id and _is_effective_mason(pid, state)
     ]
 
     return state, ActionResult(
@@ -280,10 +300,10 @@ _DOPPELGANGER_FOLLOWUP_WAVES: dict[str, int] = {
     "Werewolf": 2,
     "Minion": 2,
     "Mason": 2,
-    "Seer": 3,
-    "Robber": 3,
-    "Troublemaker": 3,
-    "Drunk": 3,
+    "Seer": 1,
+    "Robber": 1,
+    "Troublemaker": 1,
+    "Drunk": 1,
     "Insomniac": 4,
 }
 

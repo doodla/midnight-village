@@ -327,8 +327,8 @@ class TestResolveNight:
         w4_results = results_by_wave[4]
         assert w4_results[0].revealed_info["current_role"] == "Insomniac"
 
-    def test_doppelganger_copies_robber_acts_in_wave_3(self):
-        """Doppelganger copies Robber, acts as Robber in wave 3 BEFORE real Robber."""
+    def test_doppelganger_copies_robber_acts_in_wave_1(self):
+        """Doppelganger copies Robber, acts as Robber immediately in wave 1."""
         state = _make_state(
             player_roles={
                 1: "Doppelganger",
@@ -348,6 +348,13 @@ class TestResolveNight:
                     action_type="peek_player",
                     targets={"player_id": 3},
                 ),
+                # Doppelganger-as-Robber swaps with player 2 (Werewolf)
+                NightAction(
+                    player_id=1,
+                    role_acting_as="Robber",
+                    action_type="swap_with_player",
+                    targets={"player_id": 2},
+                ),
             ],
             2: [
                 NightAction(
@@ -358,13 +365,6 @@ class TestResolveNight:
                 ),
             ],
             3: [
-                # Doppelganger-as-Robber swaps with player 2 (Werewolf)
-                NightAction(
-                    player_id=1,
-                    role_acting_as="Robber",
-                    action_type="swap_with_player",
-                    targets={"player_id": 2},
-                ),
                 # Real Robber swaps with player 4 (Villager)
                 NightAction(
                     player_id=3,
@@ -383,37 +383,35 @@ class TestResolveNight:
         }
         final_state, results_by_wave = resolve_night(state, all_actions)
 
-        # Wave 1: Doppelganger copies Robber
+        # Wave 1: Doppelganger copies Robber, then Doppelganger-as-Robber swaps
         assert 1 in results_by_wave
-        assert results_by_wave[1][0].revealed_info["copied_role"] == "Robber"
+        w1_results = results_by_wave[1]
+        assert len(w1_results) == 2
+        assert w1_results[0].revealed_info["copied_role"] == "Robber"
 
-        # Wave 3 canonical order with Doppelganger:
-        # Canonical is: Seer -> Robber -> Troublemaker -> Drunk
-        # But Doppelganger-as-X acts BEFORE the real X.
-        # So: Seer -> Doppelganger-as-Robber -> Robber -> ...
-        # Seer peeks player 2 (Werewolf at this point, before Doppel-Robber swap)
-        # Doppelganger-as-Robber swaps with player 2: gets Werewolf, player 2 gets Doppelganger
-        # Real Robber swaps with player 4: gets Villager, player 4 gets Robber
+        # Doppelganger-as-Robber gets Werewolf from player 2
+        assert w1_results[1].player_id == 1
+        assert w1_results[1].revealed_info["new_role"] == "Werewolf"
+
+        # After Wave 1: player 1 has Werewolf, player 2 has Doppelganger
+
+        # Wave 3 canonical order: Seer -> Robber
+        # Seer peeks player 2 -> sees Doppelganger (post-Wave 1 swap)
+        # Real Robber swaps with player 4 -> gets Villager
 
         w3_results = results_by_wave[3]
 
-        # Seer sees player 2 as Werewolf (before any swaps in this wave)
         seer_result = next(r for r in w3_results if r.player_id == 5)
-        assert seer_result.revealed_info["peeked_role"] == "Werewolf"
+        assert seer_result.revealed_info["peeked_role"] == "Doppelganger"
 
-        # Doppelganger-as-Robber gets Werewolf from player 2
-        doppel_result = next(r for r in w3_results if r.player_id == 1)
-        assert doppel_result.revealed_info["new_role"] == "Werewolf"
-
-        # Real Robber gets Villager from player 4
         robber_result = next(r for r in w3_results if r.player_id == 3)
         assert robber_result.revealed_info["new_role"] == "Villager"
 
         # Final state:
-        # 1: Werewolf (was Doppelganger, swapped via Robber behavior with player 2)
-        # 2: Doppelganger (got Doppelganger from player 1)
-        # 3: Villager (swapped with player 4)
-        # 4: Robber (got Robber from player 3)
+        # 1: Werewolf (Doppelganger-as-Robber swapped with player 2 in Wave 1)
+        # 2: Doppelganger (got Doppelganger from player 1 in Wave 1)
+        # 3: Villager (swapped with player 4 in Wave 3)
+        # 4: Robber (got Robber from player 3 in Wave 3)
         # 5: Seer (unchanged)
         assert final_state.player_roles[1] == "Werewolf"
         assert final_state.player_roles[2] == "Doppelganger"
@@ -570,12 +568,10 @@ class TestResolveNight:
         waves = [entry.wave for entry in final_state.action_log]
         assert waves == sorted(waves)
 
-    def test_doppelganger_copies_troublemaker_and_robber_also_acts(self):
+    def test_doppelganger_copies_troublemaker_acts_in_wave_1_robber_in_wave_3(self):
         """
-        Complex scenario: Doppelganger copies Troublemaker, Robber also acts in wave 3.
-
-        Canonical order for wave 3 with Doppelganger-as-Troublemaker:
-        Seer -> Robber -> Doppelganger-as-Troublemaker -> Troublemaker -> Drunk
+        Complex scenario: Doppelganger copies Troublemaker, acts immediately in wave 1.
+        Robber still acts in wave 3 and sees the post-wave-1 state.
         """
         state = _make_state(
             player_roles={
@@ -594,6 +590,13 @@ class TestResolveNight:
                     role_acting_as="Doppelganger",
                     action_type="peek_player",
                     targets={"player_id": 2},
+                ),
+                # Doppelganger-as-Troublemaker swaps players 3 and 5 immediately
+                NightAction(
+                    player_id=1,
+                    role_acting_as="Troublemaker",
+                    action_type="swap_others",
+                    targets={"player_ids": [3, 5]},
                 ),
             ],
             2: [
@@ -619,13 +622,6 @@ class TestResolveNight:
                     action_type="swap_with_player",
                     targets={"player_id": 4},
                 ),
-                # Doppelganger-as-Troublemaker swaps players 3 and 5
-                NightAction(
-                    player_id=1,
-                    role_acting_as="Troublemaker",
-                    action_type="swap_others",
-                    targets={"player_ids": [3, 5]},
-                ),
                 # Real Troublemaker swaps players 4 and 5
                 NightAction(
                     player_id=2,
@@ -637,14 +633,21 @@ class TestResolveNight:
         }
         final_state, results_by_wave = resolve_night(state, all_actions)
 
-        # Wave 3 canonical order:
-        # 1. Seer peeks player 4 -> Werewolf
-        # 2. Robber swaps with player 4 -> gets Werewolf, player 4 gets Robber
+        # Wave 1:
+        # 1. Doppelganger copies Troublemaker
+        # 2. Doppelganger-as-Troublemaker swaps players 3 and 5
+        #    State after wave 1: {1: Doppelganger, 2: Troublemaker, 3: Seer, 4: Werewolf, 5: Robber}
+        w1_results = results_by_wave[1]
+        assert len(w1_results) == 2
+        assert w1_results[0].revealed_info["copied_role"] == "Troublemaker"
+
+        # Wave 3 canonical order (post-wave-1 state):
+        # Canonical: Seer -> Robber -> Troublemaker
+        # 1. Seer (player 5) peeks player 4 -> Werewolf
+        # 2. Robber (player 3) swaps with player 4 -> gets Werewolf, player 4 gets Seer
+        #    State: {1: Doppelganger, 2: Troublemaker, 3: Werewolf, 4: Seer, 5: Robber}
+        # 3. Real Troublemaker (player 2) swaps 4 and 5
         #    State: {1: Doppelganger, 2: Troublemaker, 3: Werewolf, 4: Robber, 5: Seer}
-        # 3. Doppelganger-as-Troublemaker swaps 3 and 5
-        #    State: {1: Doppelganger, 2: Troublemaker, 3: Seer, 4: Robber, 5: Werewolf}
-        # 4. Real Troublemaker swaps 4 and 5
-        #    State: {1: Doppelganger, 2: Troublemaker, 3: Seer, 4: Werewolf, 5: Robber}
 
         w3_results = results_by_wave[3]
 
@@ -656,9 +659,9 @@ class TestResolveNight:
 
         assert final_state.player_roles[1] == "Doppelganger"
         assert final_state.player_roles[2] == "Troublemaker"
-        assert final_state.player_roles[3] == "Seer"
-        assert final_state.player_roles[4] == "Werewolf"
-        assert final_state.player_roles[5] == "Robber"
+        assert final_state.player_roles[3] == "Werewolf"
+        assert final_state.player_roles[4] == "Robber"
+        assert final_state.player_roles[5] == "Seer"
 
     def test_doppelganger_followup_skipped_when_no_action_submitted(self):
         """If Doppelganger copies a role with an action but submits no follow-up, it's skipped."""
@@ -680,6 +683,7 @@ class TestResolveNight:
                     action_type="peek_player",
                     targets={"player_id": 5},
                 ),
+                # No follow-up from Doppelganger-as-Robber in wave 1
             ],
             2: [
                 NightAction(
@@ -690,7 +694,6 @@ class TestResolveNight:
                 ),
             ],
             3: [
-                # No follow-up from Doppelganger-as-Robber
                 NightAction(
                     player_id=2,
                     role_acting_as="Seer",
@@ -708,12 +711,15 @@ class TestResolveNight:
         _final_state, _results_by_wave = resolve_night(state, all_actions)
 
         # Should not raise. Doppelganger skipped follow-up.
-        # Check that a skip was logged for player 1 in wave 3
-        w3_log_entries = [
-            e for e in _final_state.action_log if e.wave == 3 and e.player_id == 1
+        # Check that a skip was logged for player 1 in wave 1
+        # (Robber follow-up now happens in wave 1, not wave 3)
+        w1_log_entries = [
+            e for e in _final_state.action_log if e.wave == 1 and e.player_id == 1
         ]
-        assert len(w3_log_entries) == 1
-        assert w3_log_entries[0].action_type == "skip"
+        # Should have 2 entries: the Doppelganger peek and the skipped Robber follow-up
+        assert len(w1_log_entries) == 2
+        assert w1_log_entries[0].action_type == "peek_player"
+        assert w1_log_entries[1].action_type == "skip"
 
     def test_doppelganger_copies_insomniac_sees_own_role_in_wave_4(self):
         """Doppelganger copies Insomniac, sees own role in wave 4."""
@@ -826,16 +832,28 @@ class TestGetRequiredActions:
                 5: "Werewolf",
             }
         )
+        # Doppelganger-as-Seer follow-up now happens in wave 1
         prompts = get_required_actions(
+            state,
+            wave=1,
+            doppelganger_info={1: "Seer"},
+        )
+        # Should include player 1 (Doppelganger acts in wave 1) and
+        # Doppelganger-as-Seer follow-up also in wave 1
+        player_ids = {p["player_id"] for p in prompts}
+        assert 1 in player_ids
+
+        # Wave 3 should NOT include Doppelganger-as-Seer follow-up
+        w3_prompts = get_required_actions(
             state,
             wave=3,
             doppelganger_info={1: "Seer"},
         )
-        # Should include player 1 (Doppelganger-as-Seer), player 2 (Seer), player 3 (Robber)
-        player_ids = {p["player_id"] for p in prompts}
-        assert 1 in player_ids
-        assert 2 in player_ids
-        assert 3 in player_ids
+        w3_player_ids = {p["player_id"] for p in w3_prompts}
+        assert 1 not in w3_player_ids
+        # Real Seer and Robber still act in wave 3
+        assert 2 in w3_player_ids
+        assert 3 in w3_player_ids
 
     def test_prompt_includes_valid_targets(self):
         state = _make_state()

@@ -611,7 +611,9 @@ def reveal_votes(game: Game) -> None:
     eliminated = determine_elimination(vote_counts)
 
     # Apply Hunter chain
-    eliminated = apply_hunter(eliminated, current_roles, votes_dict)
+    eliminated = apply_hunter(
+        eliminated, current_roles, votes_dict, doppelganger_copied
+    )
 
     # Compute win conditions
     result = evaluate_winner(eliminated, current_roles, doppelganger_copied)
@@ -620,7 +622,7 @@ def reveal_votes(game: Game) -> None:
     with transaction.atomic():
         game.phase = Phase.RESULTS
         game.results = {
-            "winning_team": result.winning_team,
+            "winning_teams": result.winning_teams,
             "reason": result.reason,
             "eliminated_players": result.eliminated_players,
             "player_outcomes": {str(k): v for k, v in result.player_outcomes.items()},
@@ -634,7 +636,7 @@ def reveal_votes(game: Game) -> None:
             {
                 "type": "game.results",
                 "data": {
-                    "winning_team": result.winning_team,
+                    "winning_teams": result.winning_teams,
                     "reason": result.reason,
                     "eliminated_players": result.eliminated_players,
                 },

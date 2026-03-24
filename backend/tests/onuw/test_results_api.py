@@ -119,7 +119,7 @@ class TestResultsEndpoint:
         data = response.data
 
         # Check required fields exist
-        assert "winning_team" in data
+        assert "winning_teams" in data
         assert "reason" in data
         assert "eliminated_players" in data
         assert "players" in data
@@ -207,8 +207,8 @@ class TestResultsEndpoint:
         assert vote_map[users["p1_rv"].id] == users["host_rv"].id
         assert vote_map[users["p2_rv"].id] == users["host_rv"].id
 
-    def test_results_returns_winning_team(self, api_client, db):
-        """Results include the correct winning team."""
+    def test_results_returns_winning_teams(self, api_client, db):
+        """Results include the correct winning teams."""
         game, users, _host = _create_game_in_results(
             {
                 "host_wt": "Werewolf",
@@ -227,7 +227,7 @@ class TestResultsEndpoint:
         response = api_client.get(_results_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["winning_team"] == "village"
+        assert response.data["winning_teams"] == ["village"]
 
     def test_non_player_gets_403(self, api_client, db):
         """A user not in the game gets 403."""

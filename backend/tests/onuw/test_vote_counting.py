@@ -65,11 +65,15 @@ class TestDetermineElimination:
         eliminated = determine_elimination(vote_counts)
         assert eliminated == [1, 2]
 
-    def test_all_tied_no_elimination(self):
-        """When ALL voted-for players have equal votes, no one is eliminated."""
+    def test_all_tied_at_two_or_more_all_die(self):
+        """When ALL voted-for players tie at 2+ votes, all are eliminated.
+
+        Per spec: "Multiple players tied for most votes (each >= 2): All tied players die."
+        The spec explicitly says a 3-way tie at 2+ → all three die.
+        """
         vote_counts = {1: 2, 2: 2, 3: 2}
         eliminated = determine_elimination(vote_counts)
-        assert eliminated == []
+        assert eliminated == [1, 2, 3]
 
     def test_all_votes_for_one_player(self):
         """Single player with all votes is eliminated (no tie)."""
@@ -109,13 +113,16 @@ class TestApplyHunter:
         assert 2 in result
         assert 1 in result
 
-    def test_hunter_votes_for_another_hunter_chain(self):
-        """Hunter A eliminates Hunter B, Hunter B's target also eliminated."""
+    def test_hunter_kills_target_but_chain_does_not_recurse(self):
+        """Hunter A kills Hunter B, but Hunter B does NOT chain-kill further.
+
+        Per spec: "Hunter chain kills do NOT recurse."
+        """
         eliminated = [1]
         player_roles = {1: "Hunter", 2: "Hunter", 3: "Villager", 4: "Werewolf"}
         votes: dict[int, int | None] = {1: 2, 2: 3, 3: 4, 4: 1}
         result = apply_hunter(eliminated, player_roles, votes)
-        assert sorted(result) == [1, 2, 3]
+        assert sorted(result) == [1, 2]
 
     def test_hunter_abstained_no_chain(self):
         """Eliminated Hunter with None vote target does not chain."""

@@ -33,41 +33,68 @@ def determine_elimination(vote_counts: dict[int, int]) -> list[int]:
         return []
 
     max_votes = max(vote_counts.values())
-    top_players = [pid for pid, count in vote_counts.items() if count == max_votes]
 
-    # If ALL voted-for players have the same count AND there are multiple
-    # recipients, no one is eliminated (complete tie). A single player
-    # receiving all votes is still eliminated.
-    if len(top_players) == len(vote_counts) and len(vote_counts) > 1:
+    # Spec: a player must receive at least 2 votes to be eliminated.
+    if max_votes < 2:
         return []
 
+    top_players = [pid for pid, count in vote_counts.items() if count == max_votes]
+
     return sorted(top_players)
+
+
+def _is_hunter(
+    pid: int,
+    player_roles: dict[int, str],
+    doppelganger_copied: dict[int, str] | None,
+) -> bool:
+    """Check if a player holds an effective Hunter role.
+
+    A player is Hunter if:
+    - Their current role card is "Hunter", OR
+    - Their current role card is "Doppelganger" and they copied "Hunter".
+    """
+    role = player_roles.get(pid, "")
+    if role == "Hunter":
+        return True
+    if (
+        role == "Doppelganger"
+        and doppelganger_copied
+        and doppelganger_copied.get(pid) == "Hunter"
+    ):
+        return True
+    return False
 
 
 def apply_hunter(
     eliminated: list[int],
     player_roles: dict[int, str],
     votes: dict[int, int | None],
+    doppelganger_copied: dict[int, str] | None = None,
 ) -> list[int]:
     """
-    Apply Hunter chain-kill.
+    Apply Hunter chain-kill (no recursion).
 
-    If any eliminated player's current_role is "Hunter", add their vote
-    target to eliminated. Handle chains: if Hunter A kills Hunter B,
-    Hunter B's target is also added. Ignore None vote targets (Hunter
-    abstained). Return updated elimination list (no duplicates).
+    If any eliminated player holds the Hunter role (including
+    Doppelganger-as-Hunter), add their vote target to eliminated.
+
+    Spec: "Hunter chain kills do NOT recurse. If the Hunter kills a
+    Doppelganger-as-Hunter, that second 'Hunter' does not trigger a
+    further chain." Only the initially eliminated Hunters trigger kills;
+    newly added targets never trigger further kills regardless of their
+    role.
+
+    Ignore None vote targets (Hunter abstained).
+    Return updated elimination list (sorted, no duplicates).
     """
     result = set(eliminated)
-    # Process hunters iteratively to handle chains
-    queue = [pid for pid in eliminated if player_roles.get(pid) == "Hunter"]
 
-    while queue:
-        hunter_id = queue.pop(0)
-        target = votes.get(hunter_id)
-        if target is not None and target not in result:
-            result.add(target)
-            # If the newly eliminated player is also a Hunter, chain
-            if player_roles.get(target) == "Hunter":
-                queue.append(target)
+    # Only check the INITIALLY eliminated players for Hunter role.
+    # Do NOT check newly added targets (no recursion).
+    for pid in eliminated:
+        if _is_hunter(pid, player_roles, doppelganger_copied):
+            target = votes.get(pid)
+            if target is not None:
+                result.add(target)
 
     return sorted(result)

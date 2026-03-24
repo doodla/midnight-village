@@ -26,6 +26,9 @@ def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
     if player_count < 3:
         errors.append(f"At least 3 players required, got {player_count}.")
 
+    if player_count > 10:
+        errors.append(f"At most 10 players allowed, got {player_count}.")
+
     roles = settings.get("roles")
     if roles is None:
         errors.append("Settings must include a 'roles' key.")
@@ -56,6 +59,13 @@ def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
             )
 
         total_roles += count
+
+    # Masons must be used in pairs (0 or 2, never 1).
+    mason_count = roles.get("Mason", 0)
+    if mason_count == 1:
+        errors.append(
+            "Masons must be used in pairs — include 0 or 2 Mason cards, not 1."
+        )
 
     expected = player_count + 3
     if total_roles != expected:

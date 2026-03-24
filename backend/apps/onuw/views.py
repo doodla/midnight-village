@@ -591,7 +591,7 @@ class ResultsView(APIView):
         }
 
         response_data = {
-            "winning_team": game.results.get("winning_team", ""),
+            "winning_teams": game.results.get("winning_teams", []),
             "reason": game.results.get("reason", ""),
             "eliminated_players": eliminated_details,
             "players": players_data,

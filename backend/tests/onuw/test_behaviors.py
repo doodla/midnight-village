@@ -621,8 +621,8 @@ class TestExecuteDoppelganger:
         with pytest.raises(ValueError, match="Cannot target yourself"):
             execute_doppelganger(state, action)
 
-    def test_doppelganger_copies_seer_gets_followup_in_wave_3(self):
-        assert get_doppelganger_followup_wave("Seer") == 3
+    def test_doppelganger_copies_seer_gets_followup_in_wave_1(self):
+        assert get_doppelganger_followup_wave("Seer") == 1
 
     def test_doppelganger_copies_werewolf_gets_followup_in_wave_2(self):
         assert get_doppelganger_followup_wave("Werewolf") == 2
@@ -648,14 +648,14 @@ class TestExecuteDoppelganger:
     def test_doppelganger_copies_mason_followup_in_wave_2(self):
         assert get_doppelganger_followup_wave("Mason") == 2
 
-    def test_doppelganger_copies_robber_followup_in_wave_3(self):
-        assert get_doppelganger_followup_wave("Robber") == 3
+    def test_doppelganger_copies_robber_followup_in_wave_1(self):
+        assert get_doppelganger_followup_wave("Robber") == 1
 
-    def test_doppelganger_copies_troublemaker_followup_in_wave_3(self):
-        assert get_doppelganger_followup_wave("Troublemaker") == 3
+    def test_doppelganger_copies_troublemaker_followup_in_wave_1(self):
+        assert get_doppelganger_followup_wave("Troublemaker") == 1
 
-    def test_doppelganger_copies_drunk_followup_in_wave_3(self):
-        assert get_doppelganger_followup_wave("Drunk") == 3
+    def test_doppelganger_copies_drunk_followup_in_wave_1(self):
+        assert get_doppelganger_followup_wave("Drunk") == 1
 
 
 # ── Insomniac Tests ──────────────────────────────────────────────────────────
