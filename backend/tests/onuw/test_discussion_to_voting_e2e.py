@@ -202,10 +202,17 @@ class TestDiscussionToVotingE2E:
 
         vote_url = reverse("onuw:vote", kwargs={"game_id": str(game.id)})
 
-        target = users["p1"]  # Everyone votes for p1
+        # Everyone votes for p1, except p1 who cannot self-vote
+        vote_targets = {
+            "host": users["p1"],
+            "p1": users["host"],
+            "p2": users["p1"],
+            "p3": users["p1"],
+            "p4": users["p1"],
+        }
 
         with _patch_channels():
-            for uname in ["host", "p1", "p2", "p3", "p4"]:
+            for uname, target in vote_targets.items():
                 client.force_authenticate(user=users[uname])
                 response = client.post(
                     vote_url,
@@ -221,7 +228,7 @@ class TestDiscussionToVotingE2E:
         assert game.phase == Phase.RESULTS
 
         # All players should have votes recorded
-        for uname in ["host", "p1", "p2", "p3", "p4"]:
+        for uname, target in vote_targets.items():
             pr = PlayerRole.objects.get(game=game, user=users[uname])
             # pyrefly: ignore [missing-attribute]
             assert pr.vote_target_id == target.id

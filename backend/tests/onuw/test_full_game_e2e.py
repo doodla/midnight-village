@@ -227,12 +227,20 @@ class TestCompleteGameVillageWins:
 
             # ── Voting: All vote for host (Werewolf) ───────────────────────
             # Seer knows host is Werewolf, convinces everyone to vote host
-            for user in [ww1, ww2, seer, robber, villager]:
+            # ww1 cannot self-vote per spec, so ww1 votes for ww2 instead
+            vote_targets = {
+                ww1: ww2,
+                ww2: ww1,
+                seer: ww1,
+                robber: ww1,
+                villager: ww1,
+            }
+            for user, target in vote_targets.items():
                 client.force_authenticate(user=user)
                 response = client.post(
                     vote_url,
                     # pyrefly: ignore [missing-attribute]
-                    {"target_player_id": ww1.id},
+                    {"target_player_id": target.id},
                     format="json",
                 )
                 assert response.status_code == status.HTTP_200_OK  # type: ignore[union-attr]
@@ -242,6 +250,7 @@ class TestCompleteGameVillageWins:
             assert game.phase == Phase.RESULTS
 
             # ── Verify results ─────────────────────────────────────────────
+            # ww1 gets 4 votes, ww2 gets 1 vote -> ww1 eliminated -> village wins
             assert game.results["winning_teams"] == ["village"]
             # pyrefly: ignore [missing-attribute]
             assert ww1.id in game.results["eliminated_players"]
@@ -442,12 +451,20 @@ class TestCompleteGameWerewolvesWin:
             assert game.phase == Phase.VOTING
 
             # ── Voting: All vote for villager (NOT a werewolf) ─────────────
-            for user in [ww1, ww2, seer, robber, villager]:
+            # villager cannot self-vote per spec, so villager votes for seer
+            vote_targets = {
+                ww1: villager,
+                ww2: villager,
+                seer: villager,
+                robber: villager,
+                villager: seer,
+            }
+            for user, target in vote_targets.items():
                 client.force_authenticate(user=user)
                 client.post(
                     vote_url,
                     # pyrefly: ignore [missing-attribute]
-                    {"target_player_id": villager.id},
+                    {"target_player_id": target.id},
                     format="json",
                 )
 
@@ -622,12 +639,20 @@ class TestCompleteGameTannerWins:
             assert game.phase == Phase.VOTING
 
             # ── Voting: All vote for Tanner ────────────────────────────────
-            for user in [ww1, ww2, seer, tanner, villager]:
+            # tanner cannot self-vote per spec, so tanner votes for villager
+            vote_targets = {
+                ww1: tanner,
+                ww2: tanner,
+                seer: tanner,
+                tanner: villager,
+                villager: tanner,
+            }
+            for user, target in vote_targets.items():
                 client.force_authenticate(user=user)
                 client.post(
                     vote_url,
                     # pyrefly: ignore [missing-attribute]
-                    {"target_player_id": tanner.id},
+                    {"target_player_id": target.id},
                     format="json",
                 )
 

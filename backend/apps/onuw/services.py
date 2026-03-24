@@ -503,7 +503,8 @@ def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
     - Game is in VOTING phase
     - Voter is in the game
     - Voter hasn't already voted (has_acted or vote_target is set)
-    - Target is a valid player in the game (self-vote allowed)
+    - Target is not the voter (no self-votes)
+    - Target is a valid player in the game
 
     On success:
     - Sets PlayerRole.vote_target = target user
@@ -526,6 +527,11 @@ def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
 
     if voter_pr.has_acted:
         errors.append("You have already voted.")
+        return errors
+
+    # No self-votes per spec
+    if voter_id == target_player_id:
+        errors.append("You cannot vote for yourself.")
         return errors
 
     # Validate target is a valid player in the game

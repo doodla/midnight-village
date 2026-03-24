@@ -318,8 +318,8 @@ class TestVoting:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_self_vote_is_allowed(self, api_client, db):
-        """Players can vote for themselves."""
+    def test_self_vote_is_rejected(self, api_client, db):
+        """Players cannot vote for themselves (spec: 'No self-votes')."""
         game, users, _host = _create_game(
             {
                 "host_sv": "Werewolf",
@@ -340,12 +340,8 @@ class TestVoting:
                 format="json",
             )
 
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data["status"] == "submitted"
-
-        pr = PlayerRole.objects.get(game=game, user=voter)
-        # pyrefly: ignore [missing-attribute]
-        assert pr.vote_target_id == voter.id
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "cannot vote for yourself" in response.data["detail"][0].lower()
 
     def test_invalid_target_rejected(self, api_client, db):
         """Voting for a player not in the game is rejected."""
@@ -437,10 +433,15 @@ class TestForceReveal:
             phase=Phase.VOTING,
         )
 
-        target = users["host_ar"]
+        # Each player votes for someone other than themselves
+        vote_targets = {
+            "host_ar": users["p1_ar"],
+            "p1_ar": users["host_ar"],
+            "p2_ar": users["host_ar"],
+        }
 
         with _patch_channels():
-            for uname in ["host_ar", "p1_ar", "p2_ar"]:
+            for uname, target in vote_targets.items():
                 api_client.force_authenticate(user=users[uname])
                 response = api_client.post(
                     _vote_url(game.id),
@@ -522,6 +523,7 @@ class TestMeEndpointVotingStatus:
             {
                 "host_mev": "Werewolf",
                 "p1_mev": "Seer",
+                "p2_mev": "Villager",
             },
             center_cards=["Drunk", "Insomniac", "Troublemaker"],
             phase=Phase.VOTING,

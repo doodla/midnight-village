@@ -656,15 +656,19 @@ class TestCombinedEdgeCases:
         A non-Minion player dies. Per spec, the Werewolf team
         (including Doppelganger-as-Minion) should win.
 
+        Doppelganger can only copy a player's card, so a Minion card
+        must exist in player_roles at game start.
+
         This tests the Doppelganger-as-Minion interaction with
         the Minion special case.
         """
         eliminated = [3]  # Villager dies
         player_roles = {
-            1: "Doppelganger",  # copied Minion
+            1: "Doppelganger",  # copied Minion from player 5
             2: "Seer",
             3: "Villager",
             4: "Robber",
+            5: "Minion",  # the card Doppelganger peeked
         }
         doppelganger_copied = {1: "Minion"}
 
@@ -679,9 +683,15 @@ class TestCombinedEdgeCases:
             "Doppelganger-as-Minion should win -- non-Minion died in no-WW game"
         )
 
+        # Minion also wins (Werewolf team wins)
+        assert result.player_outcomes[5] == "win", (
+            "Minion should win -- Werewolf team wins"
+        )
+
         # Village loses
         assert result.player_outcomes[2] == "lose"
         assert result.player_outcomes[3] == "lose"
+        assert result.player_outcomes[4] == "lose"
 
     def test_tanner_and_non_ww_die_no_ww_in_game(self):
         """

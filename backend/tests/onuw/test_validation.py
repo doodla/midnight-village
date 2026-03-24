@@ -122,3 +122,38 @@ class TestValidateOnuwSettings:
         }
         errors = validate_onuw_settings(config, 3)
         assert errors == []
+
+    def test_max_player_count_exceeded(self):
+        """player_count > 10 produces an error."""
+        config = {
+            "roles": {
+                "Werewolf": 2,
+                "Villager": 3,
+                "Seer": 1,
+                "Robber": 1,
+                "Troublemaker": 1,
+                "Drunk": 1,
+                "Insomniac": 1,
+                "Minion": 1,
+                "Tanner": 1,
+                "Hunter": 1,
+            }
+        }
+        errors = validate_onuw_settings(config, 11)
+        assert any("at most" in e.lower() or "10" in e for e in errors)
+
+    def test_single_mason_fails(self):
+        """1 Mason produces an error (must be 0 or 2)."""
+        config = {
+            "roles": {
+                "Werewolf": 2,
+                "Seer": 1,
+                "Robber": 1,
+                "Mason": 1,
+                "Villager": 1,
+                "Troublemaker": 1,
+                "Drunk": 1,
+            }
+        }
+        errors = validate_onuw_settings(config, 5)
+        assert any("mason" in e.lower() or "pair" in e.lower() for e in errors)

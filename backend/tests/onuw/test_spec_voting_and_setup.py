@@ -176,30 +176,30 @@ class TestHunterChainKills:
         """
         Spec: "Hunter chain kills do NOT recurse."
 
-        If the Hunter kills someone who also holds a Hunter card (e.g., via
-        Robber swap creating a second Hunter-card holder), the chain does
-        NOT continue. Only the first Hunter's kill applies.
+        If the Hunter kills a Doppelganger-as-Hunter, the chain does NOT
+        continue. Only the initially eliminated Hunter's kill applies.
 
-        Current code deviation: iteratively chains through all Hunters.
+        Only 1 Hunter card exists in v1; use Doppelganger-as-Hunter for the
+        second Hunter-like player.
         """
         eliminated = [1]
-        # Player 1 is Hunter, votes for player 2 who is also "Hunter"
-        # (e.g., Doppelganger-as-Hunter or swapped into Hunter card).
+        # Player 1 is Hunter, votes for player 2 (Doppelganger-as-Hunter).
         # Player 2 voted for player 3.
         player_roles = {
             1: "Hunter",
-            2: "Hunter",  # Second Hunter-card holder
+            2: "Doppelganger",  # copied Hunter
             3: "Villager",
             4: "Werewolf",
         }
+        doppelganger_copied = {2: "Hunter"}
         votes: dict[int, int | None] = {1: 2, 2: 3, 3: 4, 4: 1}
 
-        result = apply_hunter(eliminated, player_roles, votes)
+        result = apply_hunter(eliminated, player_roles, votes, doppelganger_copied)
         # Spec: Hunter (1) kills their target (2). Stop. No recursion.
-        # Player 2 holds a Hunter card, but the chain does NOT continue.
+        # Player 2 is Doppelganger-as-Hunter, but the chain does NOT continue.
         assert sorted(result) == [1, 2], (
             "Hunter chain must NOT recurse. Player 1 (Hunter) kills player 2. "
-            "Even though player 2 also holds a Hunter card and voted for player 3, "
+            "Even though player 2 is Doppelganger-as-Hunter and voted for player 3, "
             "the chain stops. Player 3 must NOT be killed."
         )
 
@@ -245,22 +245,25 @@ class TestHunterChainKills:
 
     def test_hunter_circular_reference_terminates(self):
         """
-        Two Hunters vote for each other. One dies from voting.
-        Per no-recursion spec, only the first Hunter's target dies.
-        The second Hunter (killed by chain) does NOT trigger further chain.
+        Hunter and Doppelganger-as-Hunter vote for each other. Hunter dies
+        from voting. Per no-recursion spec, only the first Hunter's target
+        dies. The Doppelganger-as-Hunter (killed by chain) does NOT trigger
+        further chain.
+
+        Only 1 Hunter card exists in v1; use Doppelganger-as-Hunter for the
+        second Hunter-like player.
         """
         eliminated = [1]
-        player_roles = {1: "Hunter", 2: "Hunter", 3: "Villager"}
+        player_roles = {1: "Hunter", 2: "Doppelganger", 3: "Villager"}
+        doppelganger_copied = {2: "Hunter"}
         votes: dict[int, int | None] = {1: 2, 2: 1, 3: 1}
 
-        result = apply_hunter(eliminated, player_roles, votes)
-        # Per strict no-recursion: Hunter 1 kills Hunter 2. Stop.
-        # Hunter 2's death does NOT trigger a chain back to player 1.
-        # Player 1 is already dead so it wouldn't matter, but the principle
-        # is that the chain simply doesn't recurse.
+        result = apply_hunter(eliminated, player_roles, votes, doppelganger_copied)
+        # Per strict no-recursion: Hunter 1 kills Doppelganger-as-Hunter 2. Stop.
+        # Player 2's death does NOT trigger a chain back to player 1.
         assert sorted(result) == [1, 2], (
-            "Hunter 1 kills Hunter 2. Chain does not recurse "
-            "(Hunter 2 does not trigger further)."
+            "Hunter 1 kills Doppelganger-as-Hunter 2. Chain does not recurse "
+            "(player 2 does not trigger further)."
         )
 
 
@@ -567,7 +570,8 @@ class TestVoteToEliminationPipeline:
         Hunter is eliminated, chain kills a Werewolf.
         Full pipeline should show both eliminated.
         """
-        votes: dict[int, int | None] = {1: 3, 2: 3, 3: 1, 4: 3, 5: 3}
+        # Players 2-5 vote for player 1 (the Hunter). Hunter votes for player 3.
+        votes: dict[int, int | None] = {1: 3, 2: 1, 3: 1, 4: 1, 5: 1}
         player_roles = {
             1: "Hunter",
             2: "Villager",
@@ -576,10 +580,6 @@ class TestVoteToEliminationPipeline:
             5: "Robber",
         }
 
-        vote_counts = count_votes(votes)
-        # Player 3 gets 4 votes — but wait, let's redo. We want Hunter (1) eliminated.
-        # Redo: players vote for player 1 (the Hunter).
-        votes = {1: 3, 2: 1, 3: 1, 4: 1, 5: 1}
         # Player 1 gets 4 votes, player 3 gets 1 vote.
         vote_counts = count_votes(votes)
         eliminated = determine_elimination(vote_counts)

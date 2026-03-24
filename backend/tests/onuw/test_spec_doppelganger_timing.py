@@ -33,7 +33,7 @@ def _make_state(
     center_cards: list[str] | None = None,
 ) -> GameState:
     """Create a GameState with given roles and sensible center card defaults."""
-    center = center_cards or ["Villager", "Tanner", "Mason"]
+    center = center_cards or ["Villager", "Tanner", "Villager"]
     return GameState(
         player_roles=player_roles,
         center_cards=center,
@@ -341,7 +341,7 @@ class TestDoppelgangerAsDrunkWave1:
                 4: "Werewolf",
                 5: "Villager",
             },
-            center_cards=["Hunter", "Tanner", "Mason"],
+            center_cards=["Hunter", "Tanner", "Villager"],
         )
 
         all_actions: dict[int, list[NightAction]] = {
@@ -378,7 +378,7 @@ class TestDoppelgangerAsDrunkWave1:
                     action_type="peek_center",
                     targets={"center_indices": [0, 1]},
                 ),
-                # Real Drunk swaps with center card 2 (Mason)
+                # Real Drunk swaps with center card 2 (Villager)
                 NightAction(
                     player_id=2,
                     role_acting_as="Drunk",
@@ -408,8 +408,8 @@ class TestDoppelgangerAsDrunkWave1:
         # Final state
         assert final_state.player_roles[1] == "Hunter"
         assert final_state.center_cards[0] == "Doppelganger"
-        # Real Drunk swapped with center 2 (Mason)
-        assert final_state.player_roles[2] == "Mason"
+        # Real Drunk swapped with center 2 (Villager)
+        assert final_state.player_roles[2] == "Villager"
         assert final_state.center_cards[2] == "Drunk"
 
 
@@ -791,16 +791,16 @@ class TestDoppelgangerAsInsomniacWave4:
                 ),
             ],
             4: [
-                # Doppelganger-as-Insomniac sees own role in Wave 4
+                # Real Insomniac sees own role in Wave 4
                 NightAction(
-                    player_id=1,
+                    player_id=2,
                     role_acting_as="Insomniac",
                     action_type="peek_player",
                     targets={},
                 ),
-                # Real Insomniac sees own role in Wave 4
+                # Doppelganger-as-Insomniac sees own role in Wave 4
                 NightAction(
-                    player_id=2,
+                    player_id=1,
                     role_acting_as="Insomniac",
                     action_type="peek_player",
                     targets={},

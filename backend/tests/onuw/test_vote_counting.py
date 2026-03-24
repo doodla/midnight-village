@@ -114,14 +114,17 @@ class TestApplyHunter:
         assert 1 in result
 
     def test_hunter_kills_target_but_chain_does_not_recurse(self):
-        """Hunter A kills Hunter B, but Hunter B does NOT chain-kill further.
+        """Hunter kills Doppelganger-as-Hunter, but chain does NOT recurse.
 
         Per spec: "Hunter chain kills do NOT recurse."
+        Only 1 Hunter card exists in v1; use Doppelganger-as-Hunter for the
+        second Hunter-like player.
         """
         eliminated = [1]
-        player_roles = {1: "Hunter", 2: "Hunter", 3: "Villager", 4: "Werewolf"}
+        player_roles = {1: "Hunter", 2: "Doppelganger", 3: "Villager", 4: "Werewolf"}
+        doppelganger_copied = {2: "Hunter"}
         votes: dict[int, int | None] = {1: 2, 2: 3, 3: 4, 4: 1}
-        result = apply_hunter(eliminated, player_roles, votes)
+        result = apply_hunter(eliminated, player_roles, votes, doppelganger_copied)
         assert sorted(result) == [1, 2]
 
     def test_hunter_abstained_no_chain(self):
@@ -156,9 +159,14 @@ class TestApplyHunter:
         assert result == []
 
     def test_hunter_circular_chain_terminates(self):
-        """Two Hunters targeting each other don't loop infinitely."""
+        """Hunter kills Doppelganger-as-Hunter; chain does not recurse back.
+
+        Only 1 Hunter card exists in v1; use Doppelganger-as-Hunter for the
+        second Hunter-like player.
+        """
         eliminated = [1]
-        player_roles = {1: "Hunter", 2: "Hunter", 3: "Villager"}
-        votes: dict[int, int | None] = {1: 2, 2: 1, 3: 1}
-        result = apply_hunter(eliminated, player_roles, votes)
+        player_roles = {1: "Hunter", 2: "Doppelganger", 3: "Villager"}
+        doppelganger_copied = {2: "Hunter"}
+        votes: dict[int, int | None] = {1: 2, 2: 3, 3: 1}
+        result = apply_hunter(eliminated, player_roles, votes, doppelganger_copied)
         assert sorted(result) == [1, 2]

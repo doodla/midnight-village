@@ -20,7 +20,7 @@ def _make_state(
         4: "Troublemaker",
         5: "Drunk",
     }
-    center = center_cards or ["Villager", "Tanner", "Mason"]
+    center = center_cards or ["Villager", "Tanner", "Villager"]
     return GameState(
         player_roles=roles,
         center_cards=center,
@@ -181,7 +181,7 @@ class TestResolveWaveCanonicalOrder:
                 4: "Troublemaker",
                 5: "Drunk",
             },
-            center_cards=["Werewolf", "Tanner", "Mason"],
+            center_cards=["Werewolf", "Tanner", "Villager"],
         )
         actions = [
             # Drunk swaps with center 0 (should be last)
@@ -231,7 +231,7 @@ class TestResolveWaveCanonicalOrder:
 
         # Drunk swaps with center 0 (Werewolf)
         # After: {1: Villager, 2: Seer, 3: Robber, 4: Troublemaker, 5: Werewolf}
-        # Center: [Drunk, Tanner, Mason]
+        # Center: [Drunk, Tanner, Villager]
         assert results[3].player_id == 5
 
         assert new_state.player_roles[1] == "Villager"
@@ -256,7 +256,7 @@ class TestResolveNight:
                 4: "Troublemaker",
                 5: "Insomniac",
             },
-            center_cards=["Villager", "Drunk", "Mason"],
+            center_cards=["Villager", "Drunk", "Villager"],
         )
         all_actions: dict[int, list[NightAction]] = {
             2: [
@@ -337,7 +337,7 @@ class TestResolveNight:
                 4: "Villager",
                 5: "Seer",
             },
-            center_cards=["Tanner", "Mason", "Drunk"],
+            center_cards=["Tanner", "Villager", "Drunk"],
         )
         all_actions: dict[int, list[NightAction]] = {
             1: [
@@ -520,7 +520,7 @@ class TestResolveNight:
                 4: "Villager",
                 5: "Insomniac",
             },
-            center_cards=["Robber", "Drunk", "Mason"],
+            center_cards=["Robber", "Drunk", "Villager"],
         )
         all_actions: dict[int, list[NightAction]] = {
             1: [
@@ -581,7 +581,7 @@ class TestResolveNight:
                 4: "Werewolf",
                 5: "Seer",
             },
-            center_cards=["Villager", "Drunk", "Mason"],
+            center_cards=["Villager", "Drunk", "Villager"],
         )
         all_actions: dict[int, list[NightAction]] = {
             1: [
@@ -673,7 +673,7 @@ class TestResolveNight:
                 4: "Villager",
                 5: "Robber",
             },
-            center_cards=["Drunk", "Tanner", "Mason"],
+            center_cards=["Drunk", "Tanner", "Villager"],
         )
         all_actions: dict[int, list[NightAction]] = {
             1: [
@@ -731,7 +731,7 @@ class TestResolveNight:
                 4: "Werewolf",
                 5: "Villager",
             },
-            center_cards=["Seer", "Drunk", "Mason"],
+            center_cards=["Seer", "Drunk", "Villager"],
         )
         all_actions: dict[int, list[NightAction]] = {
             1: [
@@ -760,16 +760,16 @@ class TestResolveNight:
                 ),
             ],
             4: [
-                # Doppelganger-as-Insomniac peeks own role
+                # Real Insomniac peeks own role
                 NightAction(
-                    player_id=1,
+                    player_id=2,
                     role_acting_as="Insomniac",
                     action_type="peek_player",
                     targets={},
                 ),
-                # Real Insomniac peeks own role
+                # Doppelganger-as-Insomniac peeks own role
                 NightAction(
-                    player_id=2,
+                    player_id=1,
                     role_acting_as="Insomniac",
                     action_type="peek_player",
                     targets={},

@@ -32,7 +32,7 @@ def _make_state(
         4: "Villager",
         5: "Drunk",
     }
-    center = center_cards or ["Villager", "Tanner", "Mason"]
+    center = center_cards or ["Villager", "Tanner", "Villager"]
     return GameState(
         player_roles=roles,
         center_cards=center,
@@ -321,7 +321,7 @@ class TestExecuteSeer:
         peeked = result.revealed_info["peeked_center"]
         assert len(peeked) == 2
         assert peeked[0] == {"index": 0, "role": "Villager"}
-        assert peeked[1] == {"index": 2, "role": "Mason"}
+        assert peeked[1] == {"index": 2, "role": "Villager"}
 
     def test_seer_cannot_peek_self(self):
         state = _make_state()
