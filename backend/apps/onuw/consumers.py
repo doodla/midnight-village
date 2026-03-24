@@ -110,6 +110,24 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
+    async def vote_submitted(self, event):
+        """Broadcast: a player has submitted their vote (target hidden)."""
+        await self.send_json(
+            {
+                "type": "vote_submitted",
+                "player_id": event["player_id"],
+            }
+        )
+
+    async def vote_reveal(self, event):
+        """Broadcast: all votes revealed simultaneously."""
+        await self.send_json(
+            {
+                "type": "vote_reveal",
+                "votes": event["votes"],
+            }
+        )
+
     # ── Helpers ─────────────────────────────────────────────────────────────
 
     @database_sync_to_async

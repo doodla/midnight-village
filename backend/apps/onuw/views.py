@@ -21,8 +21,11 @@ from .models import Game, Phase, PlayerRole
 from .serializers import GameMeSerializer, GameStartResponseSerializer
 from .services import (
     check_and_maybe_advance,
+    end_discussion,
     get_player_acting_role_for_wave,
+    reveal_votes,
     start_night_phase,
+    submit_vote,
     validate_night_action,
 )
 
@@ -299,3 +302,113 @@ class WaveAdvanceView(APIView):
                 "current_wave": game.current_wave,
             }
         )
+
+
+class EndDiscussionView(APIView):
+    """End discussion early and transition to voting (host only)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, game_id: str) -> Response:
+        # Look up game
+        try:
+            game = Game.objects.select_related("lobby").get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Host-only check
+        if game.lobby.host_id != request.user.id:  # type: ignore[misc]
+            return Response(
+                {"detail": "Only the host can end the discussion."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Game must be in DISCUSSION phase
+        if game.phase != Phase.DISCUSSION:
+            return Response(
+                {"detail": "Game is not in the discussion phase."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        end_discussion(game)
+
+        return Response({"status": "voting_started"})
+
+
+class VoteView(APIView):
+    """Submit a vote during the voting phase."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, game_id: str) -> Response:
+        # Look up game
+        try:
+            game = Game.objects.get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Extract target_player_id from request body
+        # pyrefly: ignore [missing-attribute]
+        target_player_id = request.data.get("target_player_id")
+        if target_player_id is None:
+            return Response(
+                {"detail": "target_player_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            target_player_id = int(target_player_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "target_player_id must be an integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        errors = submit_vote(game, request.user.id, target_player_id)  # type: ignore[misc]
+        if errors:
+            return Response(
+                {"detail": errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({"status": "submitted"})
+
+
+class ForceRevealView(APIView):
+    """Force-reveal all votes (host only). Marks non-voters as abstaining."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, game_id: str) -> Response:
+        # Look up game
+        try:
+            game = Game.objects.select_related("lobby").get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Host-only check
+        if game.lobby.host_id != request.user.id:  # type: ignore[misc]
+            return Response(
+                {"detail": "Only the host can force-reveal votes."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Game must be in VOTING phase
+        if game.phase != Phase.VOTING:
+            return Response(
+                {"detail": "Game is not in the voting phase."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reveal_votes(game)
+
+        return Response({"status": "revealed"})

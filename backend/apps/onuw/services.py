@@ -458,3 +458,138 @@ def validate_night_action(
                 )
 
     return errors
+
+
+# ── Discussion & Voting ────────────────────────────────────────────────────
+
+
+def transition_to_voting(game: Game) -> None:
+    """Transition from discussion to voting phase."""
+    from .engine.phases import validate_phase_transition
+
+    if not validate_phase_transition(game.phase, Phase.VOTING):
+        msg = f"Cannot transition from {game.phase} to voting."
+        raise ValueError(msg)
+
+    with transaction.atomic():
+        game.phase = Phase.VOTING
+        game.save(update_fields=["phase", "updated_at"])
+
+        # Reset has_acted for all players (tracks vote submission)
+        # pyrefly: ignore [missing-attribute]
+        game.player_roles.update(has_acted=False, vote_target=None)
+
+    # Broadcast phase change to all players
+    channel_layer = get_channel_layer()
+    if channel_layer is not None:
+        async_to_sync(channel_layer.group_send)(
+            f"game_{game.id}",
+            {"type": "phase.change", "phase": "voting"},
+        )
+
+
+def end_discussion(game: Game) -> None:
+    """End discussion early (host action). Transitions to voting."""
+    transition_to_voting(game)
+
+
+def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
+    """
+    Submit a vote. Returns list of errors (empty = success).
+
+    Validates:
+    - Game is in VOTING phase
+    - Voter is in the game
+    - Voter hasn't already voted (has_acted or vote_target is set)
+    - Target is a valid player in the game (self-vote allowed)
+
+    On success:
+    - Sets PlayerRole.vote_target = target user
+    - Sets PlayerRole.has_acted = True
+    - Broadcasts vote_submitted (WHO voted, NOT their target) to game group
+    - Checks if all players have voted -> if so, trigger reveal
+    """
+    errors: list[str] = []
+
+    if game.phase != Phase.VOTING:
+        errors.append("Game is not in the voting phase.")
+        return errors
+
+    # Look up voter's PlayerRole
+    try:
+        voter_pr = PlayerRole.objects.get(game=game, user_id=voter_id)
+    except PlayerRole.DoesNotExist:
+        errors.append("You are not a player in this game.")
+        return errors
+
+    if voter_pr.has_acted:
+        errors.append("You have already voted.")
+        return errors
+
+    # Validate target is a valid player in the game
+    # pyrefly: ignore [missing-attribute]
+    game_player_ids = set(game.player_roles.values_list("user_id", flat=True))
+    if target_player_id not in game_player_ids:
+        errors.append("Invalid vote target.")
+        return errors
+
+    # Store vote atomically
+    with transaction.atomic():
+        # pyrefly: ignore [missing-attribute]
+        voter_pr.vote_target_id = target_player_id
+        voter_pr.has_acted = True
+        voter_pr.save(update_fields=["vote_target", "has_acted"])
+
+    # Broadcast vote_submitted (WHO voted, but NOT their target)
+    channel_layer = get_channel_layer()
+    if channel_layer is not None:
+        async_to_sync(channel_layer.group_send)(
+            f"game_{game.id}",
+            {"type": "vote.submitted", "player_id": voter_id},
+        )
+
+    # Check if all players have voted -> auto-reveal
+    # pyrefly: ignore [missing-attribute]
+    total_players = game.player_roles.count()
+    # pyrefly: ignore [missing-attribute]
+    voted_count = game.player_roles.filter(has_acted=True).count()
+
+    if voted_count >= total_players:
+        reveal_votes(game)
+
+    return errors
+
+
+def reveal_votes(game: Game) -> None:
+    """
+    Reveal all votes simultaneously and transition to results.
+
+    Collects all votes (including None for abstainers).
+    Broadcasts vote_reveal event with full vote data.
+    Transitions game to RESULTS phase.
+    """
+    # Collect vote data
+    # pyrefly: ignore [missing-attribute]
+    player_roles = game.player_roles.all()
+    votes = []
+    for pr in player_roles:
+        votes.append(
+            {
+                "player_id": pr.user_id,
+                # pyrefly: ignore [missing-attribute]
+                "target_player_id": pr.vote_target_id,
+            }
+        )
+
+    # Broadcast vote_reveal to all players
+    channel_layer = get_channel_layer()
+    if channel_layer is not None:
+        async_to_sync(channel_layer.group_send)(
+            f"game_{game.id}",
+            {"type": "vote.reveal", "votes": votes},
+        )
+
+    # Transition to results phase
+    with transaction.atomic():
+        game.phase = Phase.RESULTS
+        game.save(update_fields=["phase", "updated_at"])

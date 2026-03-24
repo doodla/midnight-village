@@ -18,10 +18,13 @@ from .behaviors import (
     get_doppelganger_followup_wave,
 )
 from .night import get_required_actions, resolve_night, resolve_wave
+from .phases import ALL_PHASES, VALID_TRANSITIONS, validate_phase_transition
 from .roles import ActionType, RoleDefinition, Team, get_role, get_roles_for_wave
 from .state import ActionLogEntry, ActionResult, GameState, NightAction
 
 __all__ = [
+    "ALL_PHASES",
+    "VALID_TRANSITIONS",
     "ActionLogEntry",
     "ActionResult",
     "ActionType",
@@ -45,4 +48,5 @@ __all__ = [
     "get_roles_for_wave",
     "resolve_night",
     "resolve_wave",
+    "validate_phase_transition",
 ]

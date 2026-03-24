@@ -35,6 +35,7 @@ class GameMeSerializer(serializers.Serializer):
     phase = serializers.CharField()
     current_wave = serializers.IntegerField()
     your_role = serializers.SerializerMethodField()
+    has_voted = serializers.SerializerMethodField()
 
     def get_your_role(self, game: Game) -> dict:
         """Get the requesting player's role data."""
@@ -42,6 +43,23 @@ class GameMeSerializer(serializers.Serializer):
         if player_role is None:
             return {}
         return PlayerRoleMeSerializer(player_role).data
+
+    def get_has_voted(self, game: Game) -> bool:
+        """
+        Whether the player has submitted their vote.
+
+        Only meaningful during the VOTING phase. During other phases,
+        returns False.
+
+        CRITICAL: Do NOT reveal the vote target here. Only reveal
+        whether or not the player has voted.
+        """
+        if game.phase != "voting":
+            return False
+        player_role = self.context.get("player_role")
+        if player_role is None:
+            return False
+        return bool(player_role.has_acted)
 
 
 class GameStartResponseSerializer(serializers.Serializer):

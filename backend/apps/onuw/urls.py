@@ -27,4 +27,19 @@ urlpatterns = [
         views.WaveAdvanceView.as_view(),
         name="wave-advance",
     ),
+    path(
+        "games/<str:game_id>/end-discussion/",
+        views.EndDiscussionView.as_view(),
+        name="end-discussion",
+    ),
+    path(
+        "games/<str:game_id>/vote/",
+        views.VoteView.as_view(),
+        name="vote",
+    ),
+    path(
+        "games/<str:game_id>/reveal-votes/",
+        views.ForceRevealView.as_view(),
+        name="reveal-votes",
+    ),
 ]
