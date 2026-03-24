@@ -1,26 +1,28 @@
 project: midnight-village
 updated: 2026-03-23
 
-current_milestone: milestone-001
-current_milestone_title: "ONUW App Foundation"
+current_milestone: completed
+current_milestone_title: "All ONUW Backend Milestones Complete"
 
 overall_progress:
-  milestones_complete: 0
+  milestones_complete: 5
   milestones_total: 5
-  tasks_complete: 0
+  tasks_complete: 26
   tasks_total: 26
 
 milestone_status:
-  milestone-001: planned
-  milestone-002: planned
-  milestone-003: planned
-  milestone-004: planned
-  milestone-005: planned
+  milestone-001: complete
+  milestone-002: complete
+  milestone-003: complete
+  milestone-004: complete
+  milestone-005: complete
 
 blockers: []
 
 notes: |
-  Core app (auth, lobbies, WebSockets) is fully built and tested.
-  All ONUW backend work starts from milestone-001.
-  Key architectural constraint: game logic layer is pure Python (no Django ORM).
-  Models store state; engine operates on plain data structures.
+  All 5 ONUW backend milestones are complete.
+  367 tests passing, 88.78% coverage.
+  Additional APIs added post-milestone for frontend readiness:
+  - Player list endpoint
+  - Current game lookup (reconnection)
+  - Enhanced /me/ with players list and action prompts
