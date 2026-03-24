@@ -78,8 +78,7 @@ class TestDetermineElimination:
     def test_all_votes_for_one_player(self):
         """Single player with all votes is eliminated (no tie)."""
         vote_counts = {1: 5}
-        # Only one player received votes -- they are eliminated.
-        # The "all tied" rule only applies when 2+ players are tied.
+        # 5 votes >= 2 threshold, single recipient = eliminated.
         eliminated = determine_elimination(vote_counts)
         assert eliminated == [1]
 

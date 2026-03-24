@@ -83,7 +83,7 @@ Each role acts on the **current state** after all preceding roles in this wave h
 
 The canonical Wave 3 order for real role holders remains: `Seer → Robber → Troublemaker → Drunk`.
 
-> **Implementation note:** The current codebase defers Doppelganger Wave 3 follow-ups to Wave 3 (placing them before the real role holder via sort key). This is a known deviation from official rules. The behavioral difference matters for Doppelganger-as-Seer specifically: in the current code she sees post-Wave-2 state, while officially she should see original state. This should be corrected.
+> **Implementation note:** The codebase correctly processes Doppelganger Wave 3 follow-ups in Wave 1 using a two-pass approach: the Doppelganger peek resolves first, then the follow-up action executes immediately within the same Wave 1 pass. This matches the official rules.
 
 ### Wave 4 — Final Checks
 

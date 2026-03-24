@@ -182,6 +182,66 @@ class TestResolveWave:
         assert new_state.player_roles[3] == "Werewolf"
         assert new_state.player_roles[4] == "Troublemaker"
 
+    def test_spec_example_3_seer_info_stale_after_robber_swap(self):
+        """Spec Example 3: Seer sees pre-swap state; info becomes stale.
+
+        Alice(1)=Werewolf, Bob(2)=Seer, Carol(3)=Robber.
+        Seer peeks Alice → sees Werewolf. Robber swaps with Alice →
+        Carol=Werewolf, Alice=Robber. Seer's info is now stale.
+        """
+        state = _make_state(
+            player_roles={1: "Werewolf", 2: "Seer", 3: "Robber"},
+            center_cards=["Villager", "Tanner", "Villager"],
+        )
+        actions = [
+            NightAction(
+                player_id=2,
+                role_acting_as="Seer",
+                action_type="peek_player",
+                targets={"player_id": 1},
+            ),
+            NightAction(
+                player_id=3,
+                role_acting_as="Robber",
+                action_type="swap_with_player",
+                targets={"player_id": 1},
+            ),
+        ]
+        new_state, results = resolve_wave(state, actions, wave=3)
+
+        # Seer saw Werewolf (pre-swap state)
+        assert results[0].revealed_info["peeked_role"] == "Werewolf"
+        # But after the Robber swap, Alice is now Robber — Seer's info is stale
+        assert new_state.player_roles[1] == "Robber"
+        assert new_state.player_roles[3] == "Werewolf"
+
+    def test_spec_example_4_drunk_swaps_into_werewolf_from_center(self):
+        """Spec Example 4: Drunk swaps with Werewolf center card.
+
+        Alice(1)=Drunk, Center=[Werewolf, Villager, Seer].
+        Drunk swaps with center 0 → Alice=Werewolf, Center=[Drunk, ...].
+        Alice doesn't know she's a Werewolf (revealed_info is empty).
+        """
+        state = _make_state(
+            player_roles={1: "Drunk", 2: "Seer", 3: "Villager"},
+            center_cards=["Werewolf", "Villager", "Seer"],
+        )
+        actions = [
+            NightAction(
+                player_id=1,
+                role_acting_as="Drunk",
+                action_type="swap_with_center",
+                targets={"center_index": 0},
+            ),
+        ]
+        new_state, results = resolve_wave(state, actions, wave=3)
+
+        # Drunk learns nothing (blind swap)
+        assert results[0].revealed_info == {}
+        # But state changed: Drunk now holds Werewolf
+        assert new_state.player_roles[1] == "Werewolf"
+        assert new_state.center_cards[0] == "Drunk"
+
     def test_skip_action_is_logged(self):
         state = _make_state()
         actions = [
