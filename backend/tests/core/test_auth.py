@@ -2,7 +2,10 @@
 
 from django.urls import reverse
 
+import pytest
 from rest_framework import status
+
+pytestmark = pytest.mark.integration
 
 
 class TestTokenEndpoints:

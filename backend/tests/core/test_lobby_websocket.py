@@ -8,6 +8,8 @@ from channels.testing import WebsocketCommunicator
 
 from config.asgi import application
 
+pytestmark = pytest.mark.integration
+
 
 @database_sync_to_async
 def create_lobby_with_user():

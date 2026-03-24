@@ -17,6 +17,8 @@ will be tested when such endpoints exist.
 import pytest
 from rest_framework import status
 
+pytestmark = pytest.mark.contract
+
 
 @pytest.mark.django_db
 class TestErrorResponseFormat:

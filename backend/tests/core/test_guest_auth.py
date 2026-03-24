@@ -9,6 +9,7 @@ import pytest
 from rest_framework import status
 
 
+@pytest.mark.unit
 class TestGuestUserModel:
     """Test guest user model fields."""
 
@@ -56,6 +57,7 @@ class TestGuestUserModel:
         assert user.display_name == ""
 
 
+@pytest.mark.unit
 class TestDisplayNameGenerator:
     """Test display name generation."""
 
@@ -84,6 +86,7 @@ class TestDisplayNameGenerator:
             assert len(name) <= 20
 
 
+@pytest.mark.unit
 class TestGuestCreateSerializer:
     """Test guest creation serializer."""
 
@@ -172,6 +175,7 @@ class TestGuestCreateSerializer:
             assert not serializer.is_valid(), f"Should reject '{char}'"
 
 
+@pytest.mark.integration
 class TestGuestRegistrationEndpoint:
     """Test POST /api/auth/guest/ endpoint."""
 
@@ -255,6 +259,7 @@ class TestGuestRegistrationEndpoint:
             pytest.fail("Username should be a valid UUID")
 
 
+@pytest.mark.unit
 class TestUserBriefSerializerWithDisplayName:
     """Test UserBriefSerializer includes display_name."""
 

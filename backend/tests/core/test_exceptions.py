@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from apps.core.exceptions import custom_exception_handler
 
 
+@pytest.mark.unit
 class TestCustomExceptionHandlerUnit:
     """Unit tests for custom_exception_handler function."""
 
@@ -119,6 +120,7 @@ class TestCustomExceptionHandlerUnit:
             assert response_data["error"]["status_code"] == status_code
 
 
+@pytest.mark.integration
 @pytest.mark.django_db
 class TestCustomExceptionHandlerIntegration:
     """Integration tests for the custom DRF exception handler."""

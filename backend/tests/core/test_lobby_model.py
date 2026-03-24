@@ -1,5 +1,9 @@
 """Tests for Lobby model."""
 
+import pytest
+
+pytestmark = pytest.mark.unit
+
 
 class TestLobbyModel:
     """Test Lobby model behavior."""

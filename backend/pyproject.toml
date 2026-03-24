@@ -47,6 +47,11 @@ addopts = [
 ]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "unit: pure unit tests — no HTTP requests, only logic and ORM",
+    "integration: tests that exercise the full HTTP or WebSocket stack",
+    "contract: tests that verify API response shape and schema contracts",
+]
 
 [tool.coverage.run]
 source = ["apps"]

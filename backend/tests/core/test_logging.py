@@ -10,8 +10,12 @@ import logging
 from io import StringIO
 from typing import Any
 
+import pytest
+
 # Import base settings directly to test the production logging configuration
 from config.settings import base as base_settings
+
+pytestmark = pytest.mark.unit
 
 
 def _get_logging_section(key: str) -> dict[str, Any]:

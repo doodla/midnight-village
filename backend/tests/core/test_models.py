@@ -8,6 +8,8 @@ import pytest
 
 User = get_user_model()
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.mark.django_db
 class TestUserModel:

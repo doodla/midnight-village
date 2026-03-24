@@ -2,6 +2,8 @@
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 class TestLobbyMemberModel:
     """Test LobbyMember model behavior."""
