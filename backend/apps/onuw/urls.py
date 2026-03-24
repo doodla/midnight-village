@@ -13,9 +13,19 @@ urlpatterns = [
         name="game-start",
     ),
     path(
+        "me/current-game/",
+        views.CurrentGameView.as_view(),
+        name="current-game",
+    ),
+    path(
         "games/<str:game_id>/me/",
         views.GameMeView.as_view(),
         name="game-me",
+    ),
+    path(
+        "games/<str:game_id>/players/",
+        views.PlayerListView.as_view(),
+        name="player-list",
     ),
     path(
         "games/<str:game_id>/action/",

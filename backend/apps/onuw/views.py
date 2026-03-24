@@ -136,6 +136,9 @@ class GameMeView(APIView):
     Player-scoped game state endpoint.
 
     Returns only the information the requesting player is allowed to see.
+    Includes a list of all players (public info only) and, during night
+    phase, an action_prompt if the player needs to act in the current wave.
+
     CRITICAL: Never include other players' roles, night_action_data, or center cards.
     """
 
@@ -160,9 +163,17 @@ class GameMeView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # Fetch all player roles for the players list (public info only)
+        # pyrefly: ignore [missing-attribute]
+        all_player_roles = list(game.player_roles.select_related("user").all())
+
         serializer = GameMeSerializer(
             game,
-            context={"player_role": player_role, "request": request},
+            context={
+                "player_role": player_role,
+                "all_player_roles": all_player_roles,
+                "request": request,
+            },
         )
         return Response(serializer.data)
 
@@ -412,6 +423,89 @@ class ForceRevealView(APIView):
         reveal_votes(game)
 
         return Response({"status": "revealed"})
+
+
+class PlayerListView(APIView):
+    """
+    List all players in a game with public info only.
+
+    Returns player IDs and display names. During voting phase, also
+    includes has_voted status for each player.
+
+    CRITICAL: Never reveals roles, night_action_data, or vote targets.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, game_id: str) -> Response:
+        # Look up game
+        try:
+            game = Game.objects.get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check caller is a player in this game
+        if not PlayerRole.objects.filter(game=game, user=request.user).exists():
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Fetch all player roles with user info
+        # pyrefly: ignore [missing-attribute]
+        all_prs = game.player_roles.select_related("user").all()
+
+        players = []
+        for pr in all_prs:
+            entry = {
+                "player_id": pr.user_id,
+                "display_name": pr.user.display_name or pr.user.username,
+            }
+            if game.phase == Phase.VOTING:
+                entry["has_voted"] = bool(pr.has_acted)
+            players.append(entry)
+
+        return Response({"players": players})
+
+
+class CurrentGameView(APIView):
+    """
+    Look up the authenticated user's current active game.
+
+    Returns the game ID, phase, and lobby code if the user is currently
+    in an active game (any phase except results). Returns {"game": null}
+    if not in any active game.
+
+    If the user is somehow in multiple active games (should not happen),
+    returns the most recently created one.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        # Find the user's most recent active game (phase != results)
+        active_pr = (
+            PlayerRole.objects.filter(user=request.user)
+            .exclude(game__phase=Phase.RESULTS)
+            .select_related("game", "game__lobby")
+            .order_by("-game__created_at")
+            .first()
+        )
+
+        if active_pr is None:
+            return Response({"game": None})
+
+        game = active_pr.game
+        return Response(
+            {
+                "game_id": str(game.id),
+                "phase": game.phase,
+                "lobby_code": game.lobby.code,
+            }
+        )
 
 
 class ResultsView(APIView):
