@@ -281,17 +281,10 @@ class TestDoppelgangerAsTroublemakerWave1:
                 ),
             ],
             2: [
-                # Werewolf wakes -- but player 3 is no longer Werewolf
-                # (swapped with player 5 in Wave 1). Player 3 now has Villager,
-                # player 5 now has Werewolf.
-                # However, the Werewolf see_team uses current role to find
-                # teammates. Since player 3 STILL has role "Werewolf" assigned
-                # at game start but was swapped... let's trace carefully.
-                # After Wave 1: player 3=Villager, player 5=Werewolf
-                # So player 5 submits see_team as Werewolf? No -- player 3
-                # submitted this action already. The action is pre-submitted.
+                # After Wave 1 swap: player 3=Villager, player 5=Werewolf.
+                # Player 5 now holds Werewolf and acts in Wave 2.
                 NightAction(
-                    player_id=3,
+                    player_id=5,
                     role_acting_as="Werewolf",
                     action_type="see_team",
                     targets={},

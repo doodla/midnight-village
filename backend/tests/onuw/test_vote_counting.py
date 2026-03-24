@@ -216,3 +216,24 @@ class TestApplyHunter:
         assert 3 in result
         # Player 1 (original Hunter, now Robber) does NOT trigger chain
         assert sorted(result) == [2, 3]
+
+    def test_doppelganger_as_hunter_robbed_loses_passive(self):
+        """Spec: Doppelganger-as-Hunter gets robbed, now holds Robber card.
+
+        The passive Hunter ability requires player_roles == "Doppelganger"
+        for doppelganger_copied lookup. Since the Doppelganger was robbed
+        and now holds "Robber", they no longer qualify. No chain kill.
+        """
+        # After night: DG (player 1) copied Hunter, then Robber stole DG's card.
+        # Player 1 now holds "Robber", player 2 holds "Doppelganger".
+        eliminated = [1]
+        player_roles = {1: "Robber", 2: "Doppelganger", 3: "Werewolf", 4: "Villager"}
+        doppelganger_copied = {1: "Hunter"}  # DG copied Hunter, but card is now Robber
+        votes: dict[int, int | None] = {1: 3, 2: 1, 3: 4, 4: 1}
+
+        result = apply_hunter(eliminated, player_roles, votes, doppelganger_copied)
+        # Player 1 holds Robber card — NOT recognized as Hunter
+        assert sorted(result) == [1], (
+            "Doppelganger who was robbed no longer holds Doppelganger card, "
+            "so Hunter passive does not apply"
+        )

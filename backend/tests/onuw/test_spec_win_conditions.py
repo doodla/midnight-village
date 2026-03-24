@@ -357,8 +357,7 @@ class TestDoppelgangerAsHunter:
 
     The current apply_hunter function only checks
     `player_roles.get(pid) == "Hunter"`. It does NOT accept
-    doppelganger_copied and therefore cannot recognize a
-    Doppelganger-as-Hunter. This test documents that gap.
+    doppelganger_copied to detect Doppelganger-as-Hunter.
     """
 
     def test_doppelganger_as_hunter_triggers_chain_kill(self):
@@ -366,14 +365,8 @@ class TestDoppelgangerAsHunter:
         Spec: If a Doppelganger who copied Hunter is eliminated,
         the Doppelganger's vote target also dies.
 
-        Current gap: apply_hunter(eliminated, player_roles, votes)
-        does not accept doppelganger_copied. A Doppelganger-as-Hunter
-        has player_roles[pid] == "Doppelganger", so apply_hunter will
-        NOT detect them as a Hunter.
-
-        This test asserts the correct spec behavior. It will FAIL
-        until apply_hunter is updated to accept and use
-        doppelganger_copied.
+        apply_hunter accepts doppelganger_copied and uses _is_hunter
+        to detect Doppelganger-as-Hunter.
         """
         eliminated = [1]  # Doppelganger-as-Hunter is eliminated
         player_roles = {
@@ -385,20 +378,7 @@ class TestDoppelgangerAsHunter:
         doppelganger_copied = {1: "Hunter"}
         votes: dict[int, int | None] = {1: 2, 2: 3, 3: 1, 4: 1}
 
-        # The spec requires that Doppelganger-as-Hunter's vote target
-        # (player 2, a Werewolf) also dies.
-        #
-        # Current implementation: apply_hunter does not take
-        # doppelganger_copied, so we must build effective_roles manually
-        # to simulate correct behavior.
-        #
-        # Build effective roles: resolve Doppelganger to copied role.
-        effective_roles = dict(player_roles)
-        for pid, copied in doppelganger_copied.items():
-            if effective_roles.get(pid) == "Doppelganger":
-                effective_roles[pid] = copied
-
-        result = apply_hunter(eliminated, effective_roles, votes)
+        result = apply_hunter(eliminated, player_roles, votes, doppelganger_copied)
 
         # Doppelganger-as-Hunter's vote target (player 2) should also die
         assert 2 in result, (
@@ -406,11 +386,10 @@ class TestDoppelgangerAsHunter:
         )
         assert 1 in result, "Doppelganger-as-Hunter should remain in eliminated list"
 
-    def test_apply_hunter_does_not_recognize_raw_doppelganger_role(self):
+    def test_apply_hunter_without_doppelganger_copied_misses_dg_hunter(self):
         """
-        Documents the current limitation: apply_hunter with raw
-        player_roles (where Doppelganger's role is still "Doppelganger")
-        does NOT trigger chain kill. This is a gap.
+        Without doppelganger_copied, apply_hunter cannot detect
+        Doppelganger-as-Hunter. Callers must pass doppelganger_copied.
         """
         eliminated = [1]  # Doppelganger-as-Hunter
         player_roles = {
@@ -420,15 +399,10 @@ class TestDoppelgangerAsHunter:
         }
         votes: dict[int, int | None] = {1: 2, 2: 3, 3: 1}
 
+        # Without doppelganger_copied, the chain kill does not fire
         result = apply_hunter(eliminated, player_roles, votes)
-
-        # With raw roles, Doppelganger is NOT recognized as Hunter.
-        # This documents the current (incorrect) behavior.
-        assert 2 not in result, (
-            "Without doppelganger_copied resolution, chain kill does not trigger "
-            "(this documents current gap -- not desired behavior)"
-        )
-        assert result == [1], "Only the originally eliminated player remains"
+        assert 2 not in result
+        assert result == [1]
 
 
 # ---------------------------------------------------------------------------
@@ -743,3 +717,28 @@ class TestCombinedEdgeCases:
         assert result.player_outcomes[1] == "lose"
         assert result.player_outcomes[2] == "lose"
         assert result.player_outcomes[4] == "lose"
+
+    def test_tanner_dies_no_ww_with_minion_present(self):
+        """
+        No Werewolves among players, Minion present, only Tanner dies.
+        Tanner wins. Minion does NOT win (no non-Minion non-Tanner died).
+        Village loses (someone died).
+        """
+        eliminated = [4]  # Tanner dies
+        player_roles = {
+            1: "Minion",
+            2: "Seer",
+            3: "Villager",
+            4: "Tanner",
+        }
+
+        result = evaluate_winner(eliminated, player_roles)
+
+        assert "tanner" in result.winning_teams
+        assert "werewolf" not in result.winning_teams, (
+            "Minion should NOT win — only Tanner (neutral) died, not a non-Minion villager"
+        )
+        assert result.player_outcomes[4] == "win"  # Tanner wins
+        assert result.player_outcomes[1] == "lose"  # Minion loses
+        assert result.player_outcomes[2] == "lose"  # Village loses
+        assert result.player_outcomes[3] == "lose"  # Village loses
