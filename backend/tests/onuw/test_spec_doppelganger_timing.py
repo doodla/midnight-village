@@ -13,9 +13,9 @@ right after the Doppelganger copies the role. This means:
   - Wave 2 follow-ups (Werewolf, Mason) remain in Wave 2.
   - Wave 4 follow-ups (Insomniac) remain in Wave 4.
 
-The current engine defers Wave 3 follow-ups to Wave 3 (with Doppelganger
-sorted before the real role). These tests encode the CORRECT spec behavior
-and are expected to fail against the current implementation -- this is TDD.
+The engine processes Wave 1 follow-ups immediately within the Wave 1
+resolution pass (two-pass approach: peek first, then follow-up). All
+tests in this file encode the correct spec behavior and pass.
 """
 
 import pytest

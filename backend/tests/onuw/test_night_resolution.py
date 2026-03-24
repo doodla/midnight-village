@@ -137,6 +137,51 @@ class TestResolveWave:
         assert new_state.player_roles[4] == "Troublemaker"
         assert new_state.player_roles[5] == "Villager"
 
+    def test_spec_example_2_robber_then_troublemaker_different_targets(self):
+        """Spec Example 2: Robber swaps with Alice, Troublemaker swaps Alice+Dave.
+
+        Initial: Alice(1)=Werewolf, Bob(3)=Robber, Carol(4)=Troublemaker, Dave(2)=Seer.
+        Robber(Bob) swaps with Alice → Bob=Werewolf, Alice=Robber.
+        Troublemaker(Carol) swaps Alice and Dave → Alice=Seer, Dave=Robber.
+        Final: Alice=Seer, Bob=Werewolf, Carol=Troublemaker, Dave=Robber.
+        """
+        state = _make_state(
+            player_roles={
+                1: "Werewolf",
+                2: "Seer",
+                3: "Robber",
+                4: "Troublemaker",
+            },
+            center_cards=["Villager", "Tanner", "Villager"],
+        )
+        actions = [
+            # Robber(3) swaps with Alice(1)
+            NightAction(
+                player_id=3,
+                role_acting_as="Robber",
+                action_type="swap_with_player",
+                targets={"player_id": 1},
+            ),
+            # Troublemaker(4) swaps Alice(1) and Dave(2)
+            NightAction(
+                player_id=4,
+                role_acting_as="Troublemaker",
+                action_type="swap_others",
+                targets={"player_ids": [1, 2]},
+            ),
+        ]
+        new_state, results = resolve_wave(state, actions, wave=3)
+
+        # Robber saw Werewolf from Alice
+        assert results[0].revealed_info["new_role"] == "Werewolf"
+
+        # After Robber: {1: Robber, 2: Seer, 3: Werewolf, 4: Troublemaker}
+        # After Troublemaker swaps 1↔2: {1: Seer, 2: Robber, 3: Werewolf, 4: TM}
+        assert new_state.player_roles[1] == "Seer"
+        assert new_state.player_roles[2] == "Robber"
+        assert new_state.player_roles[3] == "Werewolf"
+        assert new_state.player_roles[4] == "Troublemaker"
+
     def test_skip_action_is_logged(self):
         state = _make_state()
         actions = [
