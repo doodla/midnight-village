@@ -13,8 +13,6 @@ cd "$REPO_ROOT"
 START_TIME=$(date +%s)
 
 # Step 1: Get review prompt via spec-kitty
-# Use locking because spec-kitty does git commits internally, and parallel
-# calls race on the git index lock.
 acquire_lock
 OUTPUT=$(spec-kitty agent workflow review "$WP_ID" --agent headless-reviewer 2>&1) || {
   release_lock
@@ -41,11 +39,11 @@ log "$WP_ID" "Feedback file: ${FEEDBACK_FILE:-none}"
 # Step 2: Run headless claude for review
 cd "$WORKSPACE_ABS"
 
-REVIEW_RESULT=$(claude -p \
+CLAUDE_STDOUT=""
+if run_claude_session "$WP_ID-review" -p \
   --dangerously-skip-permissions \
   --model "$REVIEW_MODEL" \
   --max-budget-usd "$REVIEW_BUDGET" \
-  --max-turns "$MAX_REVIEW_TURNS" \
   --output-format json \
   --append-system-prompt "You are a STRICT code reviewer for work package $WP_ID.
 Your job is to find problems, not approve quickly. Be rigorous:
@@ -60,16 +58,17 @@ If rejected: Write feedback to ${FEEDBACK_FILE:-/tmp/spec-kitty-review-feedback-
   spec-kitty agent tasks move-task $WP_ID --to planned --review-feedback-file <that-file-path>
 
 You MUST run exactly one of these completion commands." \
-  < "$PROMPT_FILE" \
-  2>/dev/null) || true
+  < "$PROMPT_FILE"; then
+  log "$WP_ID" "Review session completed successfully"
+else
+  log "$WP_ID" "Review session failed (see $LOG_DIR/$WP_ID-review.stderr)"
+fi
 
 cd "$REPO_ROOT"
 
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
-
-COST=$(echo "$REVIEW_RESULT" | jq -r '.cost_usd // "unknown"' 2>/dev/null || echo "unknown")
-log "$WP_ID" "Review claude -p finished (duration=${DURATION}s, cost=\$$COST)"
+log "$WP_ID" "Review duration: ${DURATION}s"
 
 # Step 3: Check result
 LANE=$(get_wp_lane "$WP_ID")
@@ -83,9 +82,8 @@ case "$LANE" in
     log "$WP_ID" "Review REJECTED — feedback embedded in WP prompt"
     exit 2
     ;;
-  doing)
-    log "$WP_ID" "Review incomplete — WP still in doing (reviewer did not run completion command)"
-    # Don't try to force a decision — let the orchestrator handle retry
+  doing|in_progress)
+    log "$WP_ID" "Review incomplete — WP still in $LANE (reviewer did not run completion command)"
     exit 1
     ;;
   for_review)

@@ -1,28 +1,40 @@
 ---
 name: headless-orchestrate
-description: Automate the full spec-kitty work package lifecycle using headless claude -p invocations. Drives all planned WPs through implement → review → done, then accepts and merges the feature.
+description: Automate the full spec-kitty lifecycle after /spec-kitty.specify — plans, generates tasks, implements, reviews, and merges, all via headless claude -p sessions.
 ---
 
 # Headless Spec-Kitty Orchestration
 
-Drive all remaining work packages to completion autonomously via `claude -p` headless sessions. Each WP goes through: implement → review → (retry if rejected) → done. After all WPs are done, the feature is accepted and merged.
+Drive an entire feature from spec to merged code autonomously. After the user runs `/spec-kitty.specify`, this script handles everything else: planning, task breakdown, analysis, implementation, review, acceptance, and merge — all via headless `claude -p` sessions.
 
 ## When to Use
 
-After `/spec-kitty.tasks` has generated work packages and you want to execute them all without interactive sessions.
+After `/spec-kitty.specify` has created a spec.md and you want the rest done without interactive sessions.
+
+Also works if you've already completed some phases (e.g., plan.md already exists) — the `spec-kitty next` state machine picks up where you left off.
 
 ## Prerequisites
 
-- spec-kitty tasks exist (`kitty-specs/*/tasks/WP*.md`)
+- A feature with at least `spec.md` in `kitty-specs/*/`
 - `claude` CLI available and authenticated
 - `spec-kitty` CLI available
 - `jq` available (for JSON parsing)
 
 ## How It Works
 
-The orchestration runs as a bash script that spawns **separate headless `claude -p` sessions** for each implementation and review. Each session is fresh — it gets the full WP prompt from spec-kitty and runs autonomously.
+The orchestration runs in two stages:
 
-### Lifecycle Per WP
+### Stage 1: Planning (via `spec-kitty next` loop)
+
+The script calls `spec-kitty next --agent claude` repeatedly. Each call returns the next planning action (plan, tasks-outline, tasks-packages, tasks-finalize) with a prompt file. The script feeds each prompt to a headless `claude -p` session, reports success, and advances to the next step. This continues until the state machine reaches the `implement` phase.
+
+```
+spec.md → [plan] → [tasks-outline] → [tasks-packages] → [tasks-finalize] → WPs ready
+```
+
+### Stage 2: Implementation (via `orchestrator-api list-ready` polling)
+
+Each round, `orchestrator-api list-ready` returns WPs whose dependencies are all `done`. The orchestrator implements and reviews those WPs, then polls again. This repeats until no WPs remain.
 
 ```
 planned → [implement-wp.sh] → for_review → [review-wp.sh] → done
@@ -30,13 +42,9 @@ planned → [implement-wp.sh] → for_review → [review-wp.sh] → done
                                               planned → retry...
 ```
 
-### Dependency-Driven Execution
-
-WPs are grouped into **waves** based on their dependency graph. A WP only starts when all its dependencies are `done`. Independent WPs within a wave can optionally run in parallel.
-
 ### Analysis Gate
 
-Before any implementation begins, `/spec-kitty.analyze` runs. If CRITICAL or HIGH issues are found, the **same session** continues with `--continue` to fix them in-place (it already has full context of what was wrong). Re-analyzes to confirm. Aborts if issues persist after 2 attempts.
+Between planning and implementation, `/spec-kitty.analyze` runs. If CRITICAL or HIGH issues are found, the **same session** continues with `--resume` to fix them in-place. Re-analyzes to confirm. Aborts if issues persist after 2 attempts.
 
 ## Configuration
 
@@ -45,15 +53,15 @@ All via environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `FEATURE_SLUG` | auto-detected | Feature to orchestrate |
+| `PLANNING_MODEL` | `opus` | Model for planning steps |
 | `IMPL_MODEL` | `sonnet` | Model for implementation |
 | `REVIEW_MODEL` | `sonnet` | Model for review |
 | `ANALYZE_MODEL` | `opus` | Model for analysis gate |
+| `PLANNING_BUDGET` | `5.00` | Max USD per planning session |
 | `IMPL_BUDGET` | `10.00` | Max USD per implementation session |
 | `REVIEW_BUDGET` | `5.00` | Max USD per review session |
 | `MAX_RETRIES` | `2` | Retries after review rejection |
-| `MAX_IMPL_TURNS` | `30` | Max agentic turns for implementation |
-| `MAX_REVIEW_TURNS` | `15` | Max agentic turns for review |
-| `PARALLEL` | `false` | Run WPs within a wave in parallel |
+| `PARALLEL` | `false` | Run WPs within a round in parallel |
 
 ## Running
 
@@ -67,23 +75,61 @@ From the repo root:
 PARALLEL=true IMPL_BUDGET=15.00 .claude/skills/headless-orchestrate/scripts/orchestrate.sh
 
 # Explicit feature
-.claude/skills/headless-orchestrate/scripts/orchestrate.sh 001-frontend-design-system-and-architecture
+.claude/skills/headless-orchestrate/scripts/orchestrate.sh 002-night-phase
 ```
 
 ## What Claude Should Do
 
 When the user invokes `/headless-orchestrate`:
 
-1. Confirm the feature and WP count with the user
+1. Confirm the feature slug with the user
 2. Ask if they want parallel execution or sequential (default: sequential)
 3. Ask about budget caps if they have concerns
-4. Run the script with `run_in_background` or with output piped to a log file:
+4. Run the script with `run_in_background` and `QUIET=true` to suppress stdout:
    ```bash
-   bash .claude/skills/headless-orchestrate/scripts/orchestrate.sh 2>&1 | tail -1
+   QUIET=true bash .claude/skills/headless-orchestrate/scripts/orchestrate.sh FEATURE_SLUG
    ```
-5. **Do NOT dump full script output into the conversation** — it will poison your context. Instead, check progress via `spec-kitty agent tasks status` and read the log file at `logs/orchestration-*.log` for details.
-6. Report progress at wave boundaries by reading the log tail
-7. If the script fails, diagnose from the log file in `logs/`
+
+### CRITICAL: Protecting Your Context Window
+
+The script writes all progress to a log file. Do NOT let verbose output into your context:
+
+- **When the background task completes:** Note the exit code only. IGNORE the stdout in the notification — it duplicates the log file.
+- **To check progress mid-run:** Run `spec-kitty agent tasks status` (compact) or `tail -10 .claude/skills/headless-orchestrate/logs/orchestration-*.log`
+- **To diagnose failures:** Run `tail -30 .claude/skills/headless-orchestrate/logs/orchestration-*.log` — NOT the full file
+- **To check stderr from a failed claude -p session:** Run `tail -20 .claude/skills/headless-orchestrate/logs/WP01-impl.stderr` — NEVER `cat` the full file
+- **NEVER read:** Full log files, full stderr files, or full claude -p output. Use `tail` with a line limit.
+
+### Handling Exit Codes
+
+| Exit code | Meaning | What to do |
+|---|---|---|
+| `0` | Success — feature merged | Run `tail -10` on the log to report completion and total cost |
+| `10` | **Decision needed** — spec-kitty needs user input | Read `logs/decision-needed.json`, present the question, then resume (see below) |
+| `1` | Failure | Run `tail -30` on the log and relevant `.stderr` files to diagnose |
+
+### When the Script Pauses for a Decision (exit 10)
+
+During planning, `spec-kitty next` may return a `decision_required` — a design question that cannot be answered autonomously (e.g., "should we use WebSockets or polling for real-time updates?").
+
+When this happens:
+
+1. Read the decision context (this file is small and safe to read fully):
+   ```bash
+   cat .claude/skills/headless-orchestrate/logs/decision-needed.json
+   ```
+2. Present the question and options to the user naturally in conversation
+3. After the user answers, submit their answer to spec-kitty:
+   ```bash
+   spec-kitty next --agent claude --feature FEATURE_SLUG \
+     --answer "USER_ANSWER" --decision-id "DECISION_ID"
+   ```
+4. Re-run the orchestration script — it will pick up where it left off:
+   ```bash
+   QUIET=true bash .claude/skills/headless-orchestrate/scripts/orchestrate.sh FEATURE_SLUG
+   ```
+
+The script is fully resumable. `spec-kitty next` returns the current state on every call, so re-running after a decision skips all completed planning steps automatically.
 
 ## Scripts
 
@@ -91,15 +137,18 @@ All scripts are in `.claude/skills/headless-orchestrate/scripts/`:
 
 | Script | Purpose |
 |--------|---------|
-| `lib.sh` | Shared utilities (logging, locking, wave computation, JSON parsing) |
-| `orchestrate.sh` | Main loop: preflight → analyze → waves → accept → merge |
-| `analyze.sh` | Analysis gate with same-session fix loop via `--continue` |
+| `lib.sh` | Shared utilities (logging, locking, orchestrator-api wrappers) |
+| `orchestrate.sh` | Main loop: plan → analyze → implement → review → accept → merge |
+| `analyze.sh` | Analysis gate with same-session fix loop via `--resume` |
 | `implement-wp.sh` | Implements a single WP via `claude -p` in its worktree |
 | `review-wp.sh` | Reviews a single WP via `claude -p` with strict reviewer persona |
 
 ## Resumability
 
-The script reads state from `spec-kitty agent tasks list-tasks --json` on every invocation. WPs already in `done` are skipped. Stuck WPs in `doing` (from a previous crashed run) are reset to `planned`. This means you can kill the script and re-run it safely.
+The script is resumable at every phase:
+- **Planning:** `spec-kitty next` returns the current state, so re-running skips completed planning steps
+- **Implementation:** `orchestrator-api list-ready` only returns WPs not yet done; stuck WPs are reset during preflight
+- Kill the script and re-run it safely at any point
 
 ## Parallel Safety
 
@@ -116,15 +165,14 @@ When `PARALLEL=true`, multiple `claude -p` sessions run in separate worktrees (n
 
 ## Cost Estimation
 
-Rough per-WP costs with Sonnet (default):
-- Implementation: $1-5 depending on complexity
-- Review: $0.50-2
-- Total per WP: ~$2-7
-- 6 WPs: ~$12-42
+Rough costs (planning=Opus, impl/review=Sonnet):
+- Planning (4 steps, Opus): ~$5-20
+- Implementation per WP: $1-5
+- Review per WP: $0.50-2
+- Analysis gate: $1-3
+- 6 WPs total: ~$15-50
 
-With Opus (set `IMPL_MODEL=opus REVIEW_MODEL=opus`):
-- Implementation: $3-15
-- Review: $1-5
-- 6 WPs: ~$30-120
+With Opus (set all `*_MODEL=opus`):
+- 6 WPs total: ~$40-150
 
-Use `IMPL_BUDGET` and `REVIEW_BUDGET` to cap per-session spending.
+Use `*_BUDGET` variables to cap per-session spending.

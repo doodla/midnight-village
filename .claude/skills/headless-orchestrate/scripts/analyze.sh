@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Analysis gate: run spec-kitty analyze, fix HIGH/CRITICAL issues via --continue.
+# Analysis gate: run spec-kitty analyze, fix HIGH/CRITICAL issues via --resume.
 # Usage: analyze.sh [FEATURE_SLUG]
 # Exit 0 = clean, Exit 1 = unfixable issues remain
 
@@ -14,7 +14,8 @@ log "ANALYZE" "Running analysis for feature: $FEATURE_SLUG"
 
 cd "$REPO_ROOT"
 
-# Step 1: Run analysis, capture session ID for --continue
+# Step 1: Run analysis, capture session ID for --resume
+ANALYZE_STDERR="$LOG_DIR/analyze-initial.stderr"
 ANALYZE_RESULT=$(claude -p "Run /spec-kitty.analyze for feature $FEATURE_SLUG.
 After the analysis completes, output a summary line in this exact format:
 SEVERITY_SUMMARY: critical=N high=N medium=N low=N
@@ -23,13 +24,24 @@ If there are zero issues at every level, output: SEVERITY_SUMMARY: critical=0 hi
   --dangerously-skip-permissions \
   --model "$FIX_MODEL" \
   --max-budget-usd "$FIX_BUDGET" \
-  --max-turns 10 \
   --output-format json \
-  2>/dev/null) || true
+  2>"$ANALYZE_STDERR") || {
+  log "ANALYZE" "claude -p failed (exit=$?)"
+  if [[ -s "$ANALYZE_STDERR" ]]; then
+    log "ANALYZE" "stderr: $(head -5 "$ANALYZE_STDERR")"
+  fi
+}
 
 # Extract the text result
 RESULT_TEXT=$(echo "$ANALYZE_RESULT" | jq -r '.result // empty' 2>/dev/null)
 SESSION_ID=$(echo "$ANALYZE_RESULT" | jq -r '.session_id // empty' 2>/dev/null)
+
+# Track cost
+ANALYZE_COST=$(echo "$ANALYZE_RESULT" | jq -r '.total_cost_usd // empty' 2>/dev/null)
+if [[ -n "$ANALYZE_COST" ]]; then
+  echo "$ANALYZE_COST" >> "$LOG_DIR/costs.txt"
+  log "ANALYZE" "cost=\$$ANALYZE_COST"
+fi
 
 if [[ -z "$RESULT_TEXT" ]]; then
   log "ANALYZE" "Failed to get analysis output"
@@ -52,15 +64,16 @@ if (( CRITICAL == 0 && HIGH == 0 )); then
   exit 0
 fi
 
-# Step 2: Fix issues using --continue (same session has full context)
+# Step 2: Fix issues using --resume (same session has full context)
 for attempt in $(seq 1 "$MAX_FIX_ATTEMPTS"); do
   log "ANALYZE" "Fix attempt $attempt/$MAX_FIX_ATTEMPTS"
 
   if [[ -z "$SESSION_ID" ]]; then
-    log "ANALYZE" "No session ID from analysis — cannot continue for fix"
+    log "ANALYZE" "No session ID from analysis — cannot resume for fix"
     exit 1
   fi
 
+  FIX_STDERR="$LOG_DIR/analyze-fix-$attempt.stderr"
   FIX_RESULT=$(claude -p "Fix all CRITICAL and HIGH severity issues you found in the analysis.
 Edit the spec.md, plan.md, and/or tasks.md files in-place to resolve the issues.
 Do NOT regenerate tasks with /spec-kitty.tasks -- that would destroy existing work packages.
@@ -69,11 +82,22 @@ SEVERITY_SUMMARY: critical=N high=N medium=N low=N" \
     --dangerously-skip-permissions \
     --resume "$SESSION_ID" \
     --max-budget-usd "$FIX_BUDGET" \
-    --max-turns 15 \
     --output-format json \
-    2>/dev/null) || true
+    2>"$FIX_STDERR") || {
+    log "ANALYZE" "Fix session failed (exit=$?)"
+    if [[ -s "$FIX_STDERR" ]]; then
+      log "ANALYZE" "stderr: $(head -5 "$FIX_STDERR")"
+    fi
+  }
 
   FIX_TEXT=$(echo "$FIX_RESULT" | jq -r '.result // empty' 2>/dev/null)
+
+  # Track cost
+  FIX_COST=$(echo "$FIX_RESULT" | jq -r '.total_cost_usd // empty' 2>/dev/null)
+  if [[ -n "$FIX_COST" ]]; then
+    echo "$FIX_COST" >> "$LOG_DIR/costs.txt"
+    log "ANALYZE" "fix cost=\$$FIX_COST"
+  fi
 
   CRITICAL=$(parse_severity "$FIX_TEXT" "critical")
   HIGH=$(parse_severity "$FIX_TEXT" "high")

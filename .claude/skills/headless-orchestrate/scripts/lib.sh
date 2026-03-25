@@ -13,15 +13,16 @@ export ANALYZE_MODEL="${ANALYZE_MODEL:-opus}"
 export IMPL_BUDGET="${IMPL_BUDGET:-10.00}"
 export REVIEW_BUDGET="${REVIEW_BUDGET:-5.00}"
 export MAX_RETRIES="${MAX_RETRIES:-2}"
-export MAX_IMPL_TURNS="${MAX_IMPL_TURNS:-30}"
-export MAX_REVIEW_TURNS="${MAX_REVIEW_TURNS:-15}"
 export PARALLEL="${PARALLEL:-false}"
+export PLANNING_MODEL="${PLANNING_MODEL:-opus}"
+export PLANNING_BUDGET="${PLANNING_BUDGET:-5.00}"
 export SCRIPTS_DIR="${SCRIPTS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 export LOG_DIR="${LOG_DIR:-$REPO_ROOT/.claude/skills/headless-orchestrate/logs}"
 export LOCK_DIR="$REPO_ROOT/.claude/skills/headless-orchestrate/.state-lock.d"
 
 # --- Logging ---
-LOG_FILE=""
+# Preserve LOG_FILE if already set by parent process (child scripts source this)
+LOG_FILE="${LOG_FILE:-}"
 
 init_log() {
   mkdir -p "$LOG_DIR"
@@ -33,7 +34,18 @@ init_log() {
 log() {
   local tag="$1"; shift
   local msg="[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [$tag] $*"
-  echo "$msg"
+  if [[ "${QUIET:-false}" != "true" ]]; then
+    echo "$msg"
+  fi
+  if [[ -n "${LOG_FILE:-}" ]]; then
+    echo "$msg" >> "$LOG_FILE"
+  fi
+}
+
+# Log to file only (never stdout). Use for routine progress lines.
+logq() {
+  local tag="$1"; shift
+  local msg="[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [$tag] $*"
   if [[ -n "${LOG_FILE:-}" ]]; then
     echo "$msg" >> "$LOG_FILE"
   fi
@@ -42,6 +54,16 @@ log() {
 # --- File Locking (serializes spec-kitty state mutations) ---
 # Uses mkdir for POSIX-portable atomic locking (works on macOS + Linux).
 acquire_lock() {
+  # Check for stale lock from a crashed process
+  if [[ -d "$LOCK_DIR" && -f "$LOCK_DIR/pid" ]]; then
+    local stale_pid
+    stale_pid=$(cat "$LOCK_DIR/pid" 2>/dev/null || echo "")
+    if [[ -n "$stale_pid" ]] && ! kill -0 "$stale_pid" 2>/dev/null; then
+      log "LOCK" "Removing stale lock from dead process $stale_pid"
+      rm -rf "$LOCK_DIR" 2>/dev/null || true
+    fi
+  fi
+
   local deadline=$(($(date +%s) + 30))
   while ! mkdir "$LOCK_DIR" 2>/dev/null; do
     if (( $(date +%s) >= deadline )); then
@@ -50,7 +72,6 @@ acquire_lock() {
     fi
     sleep 0.5
   done
-  # Record PID so stale locks can be detected
   echo $$ > "$LOCK_DIR/pid"
 }
 
@@ -88,14 +109,14 @@ detect_feature() {
   fi
   local json
   json=$(spec-kitty agent tasks list-tasks --json 2>/dev/null) || {
-    log "DETECT" "Failed to list tasks"
+    # Write to stderr — this function is called in $() so stdout = return value
+    echo "[DETECT] Failed to list tasks" >&2
     return 1
   }
-  # Extract feature slug from the first task's path
   local path
   path=$(echo "$json" | jq -r '.tasks[0].path // empty')
   if [[ -z "$path" ]]; then
-    log "DETECT" "No tasks found"
+    echo "[DETECT] No tasks found" >&2
     return 1
   fi
   # Path: .../kitty-specs/SLUG/tasks/WP##-name.md -> extract SLUG
@@ -104,96 +125,77 @@ detect_feature() {
   echo "$FEATURE_SLUG"
 }
 
-# --- WP lane queries ---
-get_all_wp_lanes() {
-  # Outputs JSON: {"WP01": "done", "WP02": "planned", ...}
-  spec-kitty agent tasks list-tasks --json 2>/dev/null \
-    | jq -r '[.tasks[] | {(.work_package_id): .lane}] | add'
+# --- State queries (via orchestrator-api) ---
+get_feature_state_json() {
+  spec-kitty orchestrator-api feature-state --feature "$FEATURE_SLUG" 2>/dev/null
 }
 
 get_wp_lane() {
   local wp_id="$1"
-  spec-kitty agent tasks list-tasks --json 2>/dev/null \
-    | jq -r --arg wp "$wp_id" '.tasks[] | select(.work_package_id == $wp) | .lane'
+  get_feature_state_json \
+    | jq -r --arg wp "$wp_id" '.data.work_packages[] | select(.wp_id == $wp) | .lane'
 }
 
-# --- Dependency parsing + wave computation ---
-compute_waves() {
-  # Reads WP frontmatter, builds dependency graph, outputs waves.
-  # Prints one line per wave: "WP02 WP03" (space-separated WP IDs)
-  local feature_dir="$REPO_ROOT/kitty-specs/$FEATURE_SLUG/tasks"
+get_ready_wps() {
+  local result
+  result=$(spec-kitty orchestrator-api list-ready --feature "$FEATURE_SLUG" 2>&1) || {
+    log "STATE" "list-ready failed: $result"
+    return 1
+  }
+  echo "$result" | jq -r '.data.ready_work_packages[].wp_id'
+}
 
-  # Build deps and lanes as temp files for awk processing
-  local deps_file lanes_file
-  deps_file=$(mktemp)
-  lanes_file=$(mktemp)
-  trap "rm -f \"$deps_file\" \"$lanes_file\"" RETURN
+# --- Run claude -p with stderr capture ---
+# Usage: run_claude_session LABEL [claude -p args...]
+# Returns: exit code. Sets CLAUDE_STDOUT to captured JSON output.
+# Stderr is saved to $LOG_DIR/${LABEL}.stderr
+run_claude_session() {
+  local label="$1"; shift
+  local stderr_file="$LOG_DIR/${label}.stderr"
+  local exit_code=0
 
-  for wp_file in "$feature_dir"/WP*.md; do
-    [[ -f "$wp_file" ]] || continue
-    local wp_id lane dep_line
-    wp_id=$(grep -m1 '^work_package_id:' "$wp_file" | awk '{print $2}' | tr -d '"')
-    lane=$(grep -m1 '^lane:' "$wp_file" | sed 's/lane: *//;s/"//g;s/ *$//')
-    dep_line=$(grep -m1 '^dependencies:' "$wp_file" | sed 's/dependencies: *//;s/\[//;s/\]//;s/,/ /g;s/"//g')
+  CLAUDE_STDOUT=$(claude "$@" 2>"$stderr_file") || exit_code=$?
 
-    echo "$wp_id $dep_line" >> "$deps_file"
-    echo "$wp_id $lane" >> "$lanes_file"
-  done
+  if (( exit_code != 0 )); then
+    log "$label" "claude -p exited with code $exit_code"
+    if [[ -s "$stderr_file" ]]; then
+      log "$label" "stderr: $(head -5 "$stderr_file")"
+    fi
+  fi
 
-  # Topological sort into waves using Python (simpler than bash).
-  # File paths passed as arguments to avoid shell injection in string literals.
-  python3 -c "
-import sys
+  local cost
+  cost=$(echo "$CLAUDE_STDOUT" | jq -r '.total_cost_usd // "unknown"' 2>/dev/null || echo "unknown")
+  log "$label" "cost=\$$cost"
 
-deps = {}
-lanes = {}
+  # Append cost to running total
+  if [[ "$cost" != "unknown" ]]; then
+    echo "$cost" >> "$LOG_DIR/costs.txt"
+  fi
 
-with open(sys.argv[1]) as f:
-    for line in f:
-        parts = line.strip().split()
-        wp = parts[0]
-        deps[wp] = [d for d in parts[1:] if d]
+  return $exit_code
+}
 
-with open(sys.argv[2]) as f:
-    for line in f:
-        parts = line.strip().split()
-        lanes[parts[0]] = parts[1] if len(parts) > 1 else 'planned'
-
-done = {wp for wp, lane in lanes.items() if lane == 'done'}
-remaining = {wp for wp in deps if wp not in done}
-waves = []
-
-while remaining:
-    ready = {wp for wp in remaining if all(d in done for d in deps.get(wp, []))}
-    if not ready:
-        print(f'ERROR: circular or unresolvable deps in: {remaining}', file=sys.stderr)
-        sys.exit(1)
-    waves.append(sorted(ready))
-    done |= ready
-    remaining -= ready
-
-for wave in waves:
-    print(' '.join(wave))
-" "$deps_file" "$lanes_file"
+# --- Cost summary ---
+get_total_cost() {
+  if [[ -f "$LOG_DIR/costs.txt" ]]; then
+    awk '{s+=$1} END {printf "%.2f", s}' "$LOG_DIR/costs.txt"
+  else
+    echo "0.00"
+  fi
 }
 
 # --- Parse spec-kitty workflow output ---
 parse_prompt_file() {
-  # Extracts the temp prompt file path from spec-kitty workflow output.
-  # Matches any absolute path ending in a spec-kitty .md temp file.
   local output="$1"
   echo "$output" | grep -oE '/[^ ]*spec-kitty-[^ ]*\.md' | head -1 || true
 }
 
 parse_workspace_path() {
-  # Extracts the worktree path from spec-kitty workflow output
   local output="$1"
   echo "$output" | grep -oE '\.worktrees/[^ ]+' | head -1 || true
 }
 
 parse_feedback_file() {
-  # Extracts the review feedback file path from spec-kitty review output.
-  # Matches any absolute path ending in a spec-kitty review feedback .md temp file.
   local output="$1"
   echo "$output" | grep -oE '/[^ ]*spec-kitty-review-feedback[^ ]*\.md' | head -1 || true
 }

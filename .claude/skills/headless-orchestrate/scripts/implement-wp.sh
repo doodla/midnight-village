@@ -13,8 +13,6 @@ cd "$REPO_ROOT"
 START_TIME=$(date +%s)
 
 # Step 1: Create worktree and get prompt via spec-kitty
-# Use locking because spec-kitty does git commits internally, and parallel
-# calls race on the git index lock.
 acquire_lock
 OUTPUT=$(spec-kitty agent workflow implement "$WP_ID" --agent headless-impl 2>&1) || {
   release_lock
@@ -44,11 +42,11 @@ log "$WP_ID" "Prompt: $PROMPT_FILE"
 # Step 2: Run headless claude in the worktree
 cd "$WORKSPACE_ABS"
 
-IMPL_RESULT=$(claude -p \
+CLAUDE_STDOUT=""
+if run_claude_session "$WP_ID-impl" -p \
   --dangerously-skip-permissions \
   --model "$IMPL_MODEL" \
   --max-budget-usd "$IMPL_BUDGET" \
-  --max-turns "$MAX_IMPL_TURNS" \
   --output-format json \
   --append-system-prompt "You are implementing work package $WP_ID in a headless session.
 After completing the implementation, you MUST do ALL of these steps:
@@ -58,17 +56,17 @@ After completing the implementation, you MUST do ALL of these steps:
 4. Mark subtasks done: spec-kitty agent tasks mark-status T### T### ... --status done
 5. Move to review: spec-kitty agent tasks move-task $WP_ID --to for_review --note 'Ready for review: <summary>'
 If any step fails, try to fix it. Do not stop until all 5 steps are complete." \
-  < "$PROMPT_FILE" \
-  2>/dev/null) || true
+  < "$PROMPT_FILE"; then
+  log "$WP_ID" "claude -p session completed successfully"
+else
+  log "$WP_ID" "claude -p session failed (see $LOG_DIR/$WP_ID-impl.stderr)"
+fi
 
 cd "$REPO_ROOT"
 
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
-
-# Extract cost from JSON output
-COST=$(echo "$IMPL_RESULT" | jq -r '.cost_usd // "unknown"' 2>/dev/null || echo "unknown")
-log "$WP_ID" "claude -p finished (duration=${DURATION}s, cost=\$$COST)"
+log "$WP_ID" "Implementation duration: ${DURATION}s"
 
 # Step 3: Verify WP reached for_review
 LANE=$(get_wp_lane "$WP_ID")
@@ -78,14 +76,16 @@ if [[ "$LANE" == "for_review" ]]; then
   exit 0
 fi
 
-# Fallback: if WP is still in "doing", the agent didn't complete the lifecycle.
+# Fallback: if WP is still in doing/in_progress, the agent didn't complete the lifecycle.
 # Try to move it ourselves if there are commits in the worktree.
-if [[ "$LANE" == "doing" ]]; then
-  log "$WP_ID" "WP still in doing — checking for commits"
+if [[ "$LANE" == "doing" || "$LANE" == "in_progress" ]]; then
+  log "$WP_ID" "WP still in $LANE — checking for commits"
   COMMITS=$(git -C "$WORKSPACE_ABS" log main..HEAD --oneline 2>/dev/null | wc -l | tr -d ' ')
   if (( COMMITS > 0 )); then
     log "$WP_ID" "Found $COMMITS commits, moving to for_review as fallback"
-    safe_state_cmd spec-kitty agent tasks move-task "$WP_ID" --to for_review \
+    safe_state_cmd spec-kitty orchestrator-api transition \
+      --feature "$FEATURE_SLUG" --wp "$WP_ID" --to for_review \
+      --actor "headless-orchestrator" \
       --note "Moved by orchestrator (agent did not complete lifecycle)" || true
     LANE=$(get_wp_lane "$WP_ID")
     if [[ "$LANE" == "for_review" ]]; then
