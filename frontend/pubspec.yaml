@@ -27,6 +27,9 @@ dependencies:
   freezed_annotation: ^3.1.0
   json_annotation: ^4.9.0
 
+  # SVG support
+  flutter_svg: ^2.0.0
+
   # Logging
   logger: ^2.6.2
 
@@ -49,3 +52,19 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  fonts:
+    - family: PlayfairDisplay
+      fonts:
+        - asset: assets/fonts/playfair-display/PlayfairDisplay.ttf
+        - asset: assets/fonts/playfair-display/PlayfairDisplay.ttf
+          weight: 700
+        - asset: assets/fonts/playfair-display/PlayfairDisplay-Italic.ttf
+          style: italic
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/inter/Inter.ttf
+        - asset: assets/fonts/inter/Inter.ttf
+          weight: 700
+        - asset: assets/fonts/inter/Inter-Italic.ttf
+          style: italic
