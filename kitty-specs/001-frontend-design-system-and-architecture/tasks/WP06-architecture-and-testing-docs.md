@@ -1,8 +1,11 @@
 ---
 work_package_id: WP06
 title: Architecture Playbook & Testing Strategy
-lane: planned
+lane: "doing"
 dependencies: [WP03]
+base_branch: 001-frontend-design-system-and-architecture-WP03
+base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
+created_at: '2026-03-25T03:53:24.953311+00:00'
 subtasks:
 - T031
 - T032
@@ -12,7 +15,7 @@ subtasks:
 phase: Phase D - Documentation
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "36168"
 review_status: ''
 reviewed_by: ''
 history:
