@@ -97,13 +97,13 @@
 **Requirements Refs**: FR-004, FR-005
 
 ### Included Subtasks
-- [ ] T014 [P] Create `MvButton` in `frontend/lib/design_system/components/core/mv_button.dart` (primary, secondary, destructive variants + disabled + loading states)
-- [ ] T015 [P] Create `MvCard` in `frontend/lib/design_system/components/core/mv_card.dart` (child, header, footer, elevation, padding)
-- [ ] T016 [P] Create `MvTextInput` in `frontend/lib/design_system/components/core/mv_text_input.dart` (label, hint, error, obscure, disabled)
-- [ ] T017 [P] Create `MvDialog` in `frontend/lib/design_system/components/core/mv_dialog.dart` (confirmation, info, error named constructors)
-- [ ] T018 [P] Create `MvScaffold` in `frontend/lib/design_system/components/core/mv_scaffold.dart` (app bar, body, bottom bar, responsive padding)
-- [ ] T019 [P] Create `MvLoading` in `frontend/lib/design_system/components/core/mv_loading.dart` (themed loading indicator + optional message)
-- [ ] T020 [P] Create `MvError` in `frontend/lib/design_system/components/core/mv_error.dart` (error message + retry action)
+- [x] T014 [P] Create `MvButton` in `frontend/lib/design_system/components/core/mv_button.dart` (primary, secondary, destructive variants + disabled + loading states)
+- [x] T015 [P] Create `MvCard` in `frontend/lib/design_system/components/core/mv_card.dart` (child, header, footer, elevation, padding)
+- [x] T016 [P] Create `MvTextInput` in `frontend/lib/design_system/components/core/mv_text_input.dart` (label, hint, error, obscure, disabled)
+- [x] T017 [P] Create `MvDialog` in `frontend/lib/design_system/components/core/mv_dialog.dart` (confirmation, info, error named constructors)
+- [x] T018 [P] Create `MvScaffold` in `frontend/lib/design_system/components/core/mv_scaffold.dart` (app bar, body, bottom bar, responsive padding)
+- [x] T019 [P] Create `MvLoading` in `frontend/lib/design_system/components/core/mv_loading.dart` (themed loading indicator + optional message)
+- [x] T020 [P] Create `MvError` in `frontend/lib/design_system/components/core/mv_error.dart` (error message + retry action)
 - [ ] T040 [P] Create `MvEmpty` in `frontend/lib/design_system/components/core/mv_empty.dart` (themed empty state with icon, message + optional action)
 
 ### Implementation Notes
