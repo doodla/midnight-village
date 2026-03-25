@@ -329,3 +329,14 @@ WP01 (Token Foundation) ──→ WP02 (Domain Models) ──┐
 | T038 | Verify cross-theme rendering | WP07 | P3 | No |
 | T039 | Run quality gates + fix issues | WP07 | P3 | No |
 | T040 | MvEmpty empty state component | WP03 | P1 | Yes |
+
+<!-- status-model:start -->
+## Canonical Status (Generated)
+- WP01: done
+- WP02: done
+- WP03: done
+- WP04: done
+- WP05: done
+- WP06: done
+- WP07: done
+<!-- status-model:end -->

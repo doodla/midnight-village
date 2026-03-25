@@ -1,8 +1,11 @@
 ---
 work_package_id: WP07
 title: Integration & Polish
-lane: "done"
+lane: done
 dependencies: [WP05, WP06]
+requirement_refs:
+- FR-003
+- FR-004
 base_branch: 001-frontend-design-system-and-architecture-WP07-merge-base
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
 created_at: '2026-03-25T03:53:28.475739+00:00'
@@ -13,20 +16,17 @@ subtasks:
 - T039
 phase: Phase E - Integration
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "15497"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
+agent: headless-reviewer
+shell_pid: '15497'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
   agent: system
   shell_pid: ''
   action: Prompt generated via /spec-kitty.tasks
-requirement_refs:
-- FR-003
-- FR-004
+review_feedback_file: /private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC
 ---
 
 # Work Package Prompt: WP07 – Integration & Polish

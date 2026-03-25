@@ -1,8 +1,12 @@
 ---
 work_package_id: WP02
 title: Game Domain Models
-lane: "done"
+lane: done
 dependencies: [WP01]
+requirement_refs:
+- FR-006
+- FR-007
+- FR-008
 base_branch: 001-frontend-design-system-and-architecture-WP01
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
 created_at: '2026-03-25T03:53:23.017796+00:00'
@@ -15,21 +19,17 @@ subtasks:
 - T013
 phase: Phase A - Foundation
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "56969"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.kgQbVzeEeS"
+agent: headless-reviewer
+shell_pid: '56969'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
   agent: system
   shell_pid: ''
   action: Prompt generated via /spec-kitty.tasks
-requirement_refs:
-- FR-006
-- FR-007
-- FR-008
+review_feedback_file: /private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.kgQbVzeEeS
 ---
 
 # Work Package Prompt: WP02 – Game Domain Models

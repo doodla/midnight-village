@@ -1,8 +1,14 @@
 ---
 work_package_id: WP06
 title: Architecture Playbook & Testing Strategy
-lane: "done"
+lane: done
 dependencies: [WP03]
+requirement_refs:
+- FR-012
+- FR-013
+- FR-014
+- FR-015
+- FR-016
 base_branch: 001-frontend-design-system-and-architecture-WP03
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
 created_at: '2026-03-25T03:53:24.953311+00:00'
@@ -14,23 +20,17 @@ subtasks:
 - T035
 phase: Phase D - Documentation
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "12404"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
+agent: headless-reviewer
+shell_pid: '12404'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
   agent: system
   shell_pid: ''
   action: Prompt generated via /spec-kitty.tasks
-requirement_refs:
-- FR-012
-- FR-013
-- FR-014
-- FR-015
-- FR-016
+review_feedback_file: /private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC
 ---
 
 # Work Package Prompt: WP06 – Architecture Playbook & Testing Strategy

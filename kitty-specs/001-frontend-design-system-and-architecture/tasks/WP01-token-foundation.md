@@ -1,8 +1,14 @@
 ---
 work_package_id: WP01
 title: Token Foundation & Theme Infrastructure
-lane: "done"
+lane: done
 dependencies: []
+requirement_refs:
+- FR-001
+- FR-002
+- FR-003
+- FR-004
+- FR-020
 base_branch: main
 base_commit: 33943580b08a0e2c5db5032ca50639a911a2bfce
 created_at: '2026-03-25T02:34:24.932401+00:00'
@@ -16,22 +22,16 @@ subtasks:
 - T007
 phase: Phase A - Foundation
 assignee: ''
-agent: "claude-opus"
-shell_pid: "83984"
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+agent: claude-opus
+shell_pid: '83984'
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
   agent: system
   shell_pid: ''
   action: Prompt generated via /spec-kitty.tasks
-requirement_refs:
-- FR-001
-- FR-002
-- FR-003
-- FR-004
-- FR-020
 ---
 
 # Work Package Prompt: WP01 – Token Foundation & Theme Infrastructure

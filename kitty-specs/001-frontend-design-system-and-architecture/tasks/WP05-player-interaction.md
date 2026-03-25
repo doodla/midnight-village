@@ -1,8 +1,15 @@
 ---
 work_package_id: WP05
 title: Game Components – Player Interaction
-lane: "done"
+lane: done
 dependencies: [WP04]
+requirement_refs:
+- FR-006
+- FR-008
+- FR-009
+- FR-010
+- FR-011
+- FR-017
 base_branch: 001-frontend-design-system-and-architecture-WP04
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
 created_at: '2026-03-25T03:53:26.743980+00:00'
@@ -14,24 +21,17 @@ subtasks:
 - T030
 phase: Phase C - Game Components
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "7784"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
+agent: headless-reviewer
+shell_pid: '7784'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
   agent: system
   shell_pid: ''
   action: Prompt generated via /spec-kitty.tasks
-requirement_refs:
-- FR-006
-- FR-008
-- FR-009
-- FR-010
-- FR-011
-- FR-017
+review_feedback_file: /private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC
 ---
 
 # Work Package Prompt: WP05 – Game Components – Player Interaction

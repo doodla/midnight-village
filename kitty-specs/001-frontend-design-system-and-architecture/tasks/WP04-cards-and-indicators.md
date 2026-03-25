@@ -1,8 +1,15 @@
 ---
 work_package_id: WP04
 title: Game Components – Cards & Indicators
-lane: "done"
+lane: done
 dependencies: [WP02, WP03]
+requirement_refs:
+- FR-006
+- FR-007
+- FR-017
+- FR-018
+- FR-019
+- FR-020
 subtasks:
 - T021
 - T022
@@ -11,24 +18,17 @@ subtasks:
 - T025
 phase: Phase C - Game Components
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "2784"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
+agent: headless-reviewer
+shell_pid: '2784'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
   agent: system
   shell_pid: ''
   action: Prompt generated via /spec-kitty.tasks
-requirement_refs:
-- FR-006
-- FR-007
-- FR-017
-- FR-018
-- FR-019
-- FR-020
+review_feedback_file: /private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC
 ---
 
 # Work Package Prompt: WP04 – Game Components – Cards & Indicators
