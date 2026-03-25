@@ -1,8 +1,11 @@
 ---
 work_package_id: WP02
 title: Game Domain Models
-lane: planned
+lane: "doing"
 dependencies: [WP01]
+base_branch: 001-frontend-design-system-and-architecture-WP01
+base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
+created_at: '2026-03-25T03:53:23.017796+00:00'
 subtasks:
 - T008
 - T009
@@ -13,7 +16,7 @@ subtasks:
 phase: Phase A - Foundation
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "35942"
 review_status: ''
 reviewed_by: ''
 history:

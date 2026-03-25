@@ -1,8 +1,11 @@
 ---
 work_package_id: WP03
 title: Core UI Components
-lane: planned
+lane: "doing"
 dependencies: [WP01]
+base_branch: 001-frontend-design-system-and-architecture-WP01
+base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
+created_at: '2026-03-25T03:53:23.020031+00:00'
 subtasks:
 - T014
 - T015
@@ -14,7 +17,7 @@ subtasks:
 phase: Phase B - Core Components
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "35941"
 review_status: ''
 reviewed_by: ''
 history:
