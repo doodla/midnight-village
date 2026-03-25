@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Game Components – Player Interaction
-lane: "doing"
+lane: "done"
 dependencies: [WP04]
 base_branch: 001-frontend-design-system-and-architecture-WP04
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
@@ -396,3 +396,4 @@ Build all player-facing interaction components — the heart of the game UI:
 - 2026-03-25T04:24:27Z – headless-impl – shell_pid=66410 – lane=doing – Started implementation via workflow command
 - 2026-03-25T05:05:49Z – headless-impl – shell_pid=66410 – lane=for_review – Committed by orchestrator fallback, rebased onto WP04
 - 2026-03-25T05:10:24Z – headless-reviewer – shell_pid=7784 – lane=doing – Started review via workflow command
+- 2026-03-25T05:13:45Z – headless-reviewer – shell_pid=7784 – lane=done – Review passed: All 5 components (PlayerCircle, NightActionPrompt, VoteSubmission, VoteReveal, GameResults) implemented correctly. All 7 night action types, all 5 win conditions, vote privacy, token-based styling verified. 152/152 tests pass, flutter analyze clean.
