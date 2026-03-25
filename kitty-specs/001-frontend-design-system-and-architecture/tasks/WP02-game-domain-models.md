@@ -1,7 +1,7 @@
 ---
 work_package_id: WP02
 title: Game Domain Models
-lane: "doing"
+lane: "for_review"
 dependencies: [WP01]
 base_branch: 001-frontend-design-system-and-architecture-WP01
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
@@ -341,3 +341,4 @@ Create all game-specific enums, data models, and asset abstractions used by game
 - 2026-03-25T04:01:50Z – headless-impl – shell_pid=45499 – lane=doing – Started implementation via workflow command
 - 2026-03-25T04:02:01Z – headless-impl – shell_pid=45499 – lane=planned – Reset
 - 2026-03-25T04:09:11Z – headless-impl – shell_pid=51305 – lane=doing – Started implementation via workflow command
+- 2026-03-25T04:10:17Z – headless-impl – shell_pid=51305 – lane=for_review – Ready for review: All 6 subtasks complete. 12 roles with team/color/icon mapping, GamePhase enum, NightActionSelection sealed class (4 variants), PlayerDisplay/PlayerStatus Freezed models, VoteResult/PlayerResult/GameResult Freezed models, ThemeAssets abstraction. flutter analyze passes with no issues.
