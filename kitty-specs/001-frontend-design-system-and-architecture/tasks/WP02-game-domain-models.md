@@ -1,7 +1,7 @@
 ---
 work_package_id: WP02
 title: Game Domain Models
-lane: "doing"
+lane: "planned"
 dependencies: [WP01]
 base_branch: 001-frontend-design-system-and-architecture-WP01
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
@@ -19,7 +19,7 @@ agent: "headless-impl"
 shell_pid: "45499"
 review_status: "has_feedback"
 reviewed_by: "Sridhar Vadlamani"
-review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
+review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.kgQbVzeEeS"
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
@@ -48,9 +48,9 @@ requirement_refs:
 **Reviewed by**: Sridhar Vadlamani
 **Status**: ❌ Changes Requested
 **Date**: 2026-03-25
-**Feedback file**: `/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC`
+**Feedback file**: `/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.kgQbVzeEeS`
 
-Reset from stuck doing state for orchestration re-run.
+Reset from parallel test.
 
 
 ## Objectives & Success Criteria
@@ -339,3 +339,4 @@ Create all game-specific enums, data models, and asset abstractions used by game
 - 2026-03-25T03:53:23Z – headless-impl – shell_pid=35942 – lane=doing – Assigned agent via workflow command
 - 2026-03-25T04:01:31Z – headless-impl – shell_pid=35942 – lane=planned – Reset for re-run
 - 2026-03-25T04:01:50Z – headless-impl – shell_pid=45499 – lane=doing – Started implementation via workflow command
+- 2026-03-25T04:02:01Z – headless-impl – shell_pid=45499 – lane=planned – Reset
