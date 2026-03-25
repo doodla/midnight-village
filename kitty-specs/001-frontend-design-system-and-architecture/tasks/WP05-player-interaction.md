@@ -14,7 +14,7 @@ subtasks:
 - T030
 phase: Phase C - Game Components
 assignee: ''
-agent: ''
+agent: "headless-impl"
 shell_pid: "36491"
 review_status: ''
 reviewed_by: ''
@@ -386,3 +386,4 @@ Build all player-facing interaction components — the heart of the game UI:
 ## Activity Log
 
 - 2026-03-25T01:34:57Z – system – lane=planned – Prompt created.
+- 2026-03-25T03:53:26Z – headless-impl – shell_pid=36491 – lane=doing – Assigned agent via workflow command
