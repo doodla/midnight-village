@@ -213,9 +213,9 @@ A developer writing tests for frontend code follows a documented testing strateg
 
 - **SC-001**: All core UI components render correctly with the default theme and at least one alternate test theme, verified by automated widget tests.
 - **SC-002**: Zero hardcoded color, font-size, or spacing values exist in component code — all visual properties trace back to theme tokens, verifiable by code review.
-- **SC-003**: A developer unfamiliar with the codebase can create a new correctly-structured feature module by following the architecture spec alone, within a single work session.
+- **SC-003**: A developer unfamiliar with the codebase can create a new correctly-structured feature module by following the architecture spec alone, without referring to other feature implementations for guidance.
 - **SC-004**: Widget test coverage for all design system components reaches at least 80%.
-- **SC-005**: All 12 v1 role cards render with correct team-color coding and are visually distinguishable from each other.
+- **SC-005**: All 12 v1 role cards render with correct team-color coding and are distinguishable by a unique (icon, team-color) combination per role, verified by widget test.
 - **SC-006**: Player circle component supports 3 to 10 players with no layout overflow or illegible text on a standard phone screen (360dp width minimum).
 - **SC-007**: Discussion timer text is legible from arm's length — minimum effective display size of 48dp for the time digits.
 - **SC-008**: Theme switching takes effect on all visible components within a single frame rebuild — no visual artifacts or partial-theme states.

@@ -67,7 +67,14 @@ frontend/
 │   │   │   ├── app_tokens.dart        # Abstract contract: AppTokens, AppColorTokens, etc.
 │   │   │   ├── app_tokens_provider.dart  # Riverpod Notifier: ActiveTheme provider
 │   │   │   ├── theme_bridge.dart      # Generates ThemeData from AppTokens for MaterialApp
+│   │   │   ├── theme_assets.dart      # Theme-specific asset paths (icons, card backs)
 │   │   │   └── midnight_village_theme.dart  # Default theme implementation
+│   │   ├── models/
+│   │   │   ├── role.dart              # RoleId, TeamId enums with team color mapping
+│   │   │   ├── game_phase.dart        # GamePhase enum
+│   │   │   ├── night_action.dart      # NightActionType enum, NightActionSelection sealed class
+│   │   │   ├── player_display.dart    # PlayerDisplay, PlayerStatus data models
+│   │   │   └── game_result.dart       # VoteResult, GameResult, PlayerResult models
 │   │   └── components/
 │   │       ├── core/                  # Universal building blocks
 │   │       │   ├── mv_button.dart     # Primary, secondary, destructive buttons
@@ -76,7 +83,8 @@ frontend/
 │   │       │   ├── mv_dialog.dart     # Confirmation, info, error dialogs
 │   │       │   ├── mv_scaffold.dart   # Page layout: app bar, body, bottom bar
 │   │       │   ├── mv_loading.dart    # Loading indicator
-│   │       │   └── mv_error.dart      # Error display with retry
+│   │       │   ├── mv_error.dart      # Error display with retry
+│   │       │   └── mv_empty.dart      # Empty state with message + optional action
 │   │       └── game/                  # Game-specific patterns
 │   │           ├── role_card.dart     # Face-up/face-down, 12 roles, team colors
 │   │           ├── role_token_list.dart # Public info: which roles are in play
