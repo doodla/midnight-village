@@ -1,7 +1,7 @@
 ---
 work_package_id: WP07
 title: Integration & Polish
-lane: "doing"
+lane: "for_review"
 dependencies: [WP05, WP06]
 base_branch: 001-frontend-design-system-and-architecture-WP07-merge-base
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
@@ -220,3 +220,4 @@ Wire the design system into the existing app, migrate the auth screen, create pl
 - 2026-03-25T03:53:28Z – headless-impl – shell_pid=36665 – lane=doing – Assigned agent via workflow command
 - 2026-03-25T04:01:33Z – headless-impl – shell_pid=36665 – lane=planned – Reset for re-run
 - 2026-03-25T04:57:10Z – headless-impl – shell_pid=91612 – lane=doing – Started implementation via workflow command
+- 2026-03-25T05:05:18Z – headless-impl – shell_pid=91612 – lane=for_review – Committed by orchestrator fallback - ready for review
