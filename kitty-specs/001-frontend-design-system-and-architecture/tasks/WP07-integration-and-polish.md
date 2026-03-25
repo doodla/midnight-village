@@ -1,8 +1,11 @@
 ---
 work_package_id: WP07
 title: Integration & Polish
-lane: planned
+lane: "doing"
 dependencies: [WP05, WP06]
+base_branch: 001-frontend-design-system-and-architecture-WP07-merge-base
+base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
+created_at: '2026-03-25T03:53:28.475739+00:00'
 subtasks:
 - T036
 - T037
@@ -11,7 +14,7 @@ subtasks:
 phase: Phase E - Integration
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "36665"
 review_status: ''
 reviewed_by: ''
 history:
