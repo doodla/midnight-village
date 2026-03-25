@@ -136,7 +136,7 @@
 **Requirements Refs**: FR-006, FR-007, FR-017, FR-018, FR-019, FR-020
 
 ### Included Subtasks
-- [ ] T021 Create `RoleCard` in `frontend/lib/design_system/components/game/role_card.dart` (face-up/face-down, team color border, placeholder icon, all 12 roles)
+- [x] T021 Create `RoleCard` in `frontend/lib/design_system/components/game/role_card.dart` (face-up/face-down, team color border, placeholder icon, all 12 roles)
 - [ ] T022 [P] Create `RoleTokenList` in `frontend/lib/design_system/components/game/role_token_list.dart` (horizontal/wrapped role badge list)
 - [ ] T023 [P] Create `CenterCards` in `frontend/lib/design_system/components/game/center_cards.dart` (3 center cards, face-down + partial reveal)
 - [ ] T024 [P] Create `PhaseIndicator` in `frontend/lib/design_system/components/game/phase_indicator.dart` (5 phases, visual differentiation)
