@@ -174,7 +174,7 @@
 ### Included Subtasks
 - [x] T026 Create `PlayerCircle` in `frontend/lib/design_system/components/game/player_circle.dart` (3-10 players, selection modes, status display, self-exclusion, long-name truncation)
 - [x] T027 Create `NightActionPrompt` in `frontend/lib/design_system/components/game/night_action_prompt.dart` (all 7 action types with appropriate UI per type)
-- [ ] T028 Create `VoteSubmission` in `frontend/lib/design_system/components/game/vote_submission.dart` (target selection, vote privacy, locked state)
+- [x] T028 Create `VoteSubmission` in `frontend/lib/design_system/components/game/vote_submission.dart` (target selection, vote privacy, locked state)
 - [ ] T029 [P] Create `VoteReveal` in `frontend/lib/design_system/components/game/vote_reveal.dart` (simultaneous vote display + tally + elimination indicator)
 - [ ] T030 [P] Create `GameResults` in `frontend/lib/design_system/components/game/game_results.dart` (win/loss, team reveals, multi-winner, all role reveals, Doppelganger dual-identity display)
 
