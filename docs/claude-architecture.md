@@ -2,7 +2,7 @@
 
 How the autonomous development system works, why each piece exists, and how they connect.
 
-**Last updated:** 2026-03-23
+**Last updated:** 2026-03-24
 **Update rule:** This document MUST be updated whenever agents, skills, hooks, or the orchestration workflow changes. If you modify anything in `.claude/`, update this doc in the same commit.
 
 ## The Problem
@@ -97,15 +97,18 @@ This system addresses each failure mode with a specific mechanism.
 
 ### Skills — Workflow Coordination
 
-**What:** 3 skills that run in the main conversation context.
+**What:** 4 skills that run in the main conversation context.
 
 | Skill | Purpose |
 |-------|---------|
 | `/orchestrate` | Main loop — assess state, pick round, coordinate agents, manage .plan/ |
 | `/design-review` | Focused design review round with parallel reviewers |
 | `/code-review` | Focused code review round with parallel reviewers |
+| `/headless-orchestrate` | Drives all spec-kitty WPs to completion via headless `claude -p` sessions |
 
 **Why skills and not agents:** Skills run in the main conversation, which is the only context that can spawn agents. An orchestrator-as-agent couldn't coordinate because agents can't spawn other agents. This is a hard constraint of Claude Code's architecture.
+
+**`/headless-orchestrate` details:** Automates the spec-kitty work package lifecycle without interactive sessions. Runs bash scripts that spawn separate `claude -p` processes for each WP implementation and review. Uses Sonnet for implementation/review (cost-effective) and Opus for analysis (needs deeper reasoning). Features: dependency-aware wave execution, analysis gate with same-session fix loop, POSIX-portable locking for parallel safety, automatic retry on review rejection, resumable state. Scripts live in `.claude/skills/headless-orchestrate/scripts/`.
 
 **Why the challenger is in the skill, not a hook:** Hooks can't spawn agents — they can only run commands or prompts. The challenger needs to read files, understand context, and reason deeply. So it's an agent that the skill explicitly invokes at defined checkpoints.
 
