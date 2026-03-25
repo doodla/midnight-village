@@ -1,7 +1,7 @@
 ---
 work_package_id: WP04
 title: Game Components – Cards & Indicators
-lane: "for_review"
+lane: "doing"
 dependencies: [WP02, WP03]
 subtasks:
 - T021
@@ -11,8 +11,8 @@ subtasks:
 - T025
 phase: Phase C - Game Components
 assignee: ''
-agent: "headless-impl"
-shell_pid: "61390"
+agent: "headless-reviewer"
+shell_pid: "2784"
 review_status: "has_feedback"
 reviewed_by: "Sridhar Vadlamani"
 review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
@@ -284,3 +284,4 @@ Build the game-specific display components that show role information and game s
 - 2026-03-25T04:18:24Z – headless-impl – shell_pid=61390 – lane=doing – Started implementation via workflow command
 - 2026-03-25T05:05:17Z – headless-impl – shell_pid=61390 – lane=for_review – Committed by orchestrator fallback - ready for review
 - 2026-03-25T05:05:23Z – headless-impl – shell_pid=61390 – lane=for_review – Committed by orchestrator fallback
+- 2026-03-25T05:06:09Z – headless-reviewer – shell_pid=2784 – lane=doing – Started review via workflow command
