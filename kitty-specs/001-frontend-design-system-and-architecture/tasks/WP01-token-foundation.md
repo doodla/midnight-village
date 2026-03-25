@@ -1,8 +1,11 @@
 ---
 work_package_id: WP01
 title: Token Foundation & Theme Infrastructure
-lane: planned
+lane: "doing"
 dependencies: []
+base_branch: main
+base_commit: 33943580b08a0e2c5db5032ca50639a911a2bfce
+created_at: '2026-03-25T02:34:24.932401+00:00'
 subtasks:
 - T001
 - T002
@@ -14,7 +17,7 @@ subtasks:
 phase: Phase A - Foundation
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "71533"
 review_status: ''
 reviewed_by: ''
 history:
