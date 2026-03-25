@@ -1,7 +1,7 @@
 ---
 work_package_id: WP03
 title: Core UI Components
-lane: "doing"
+lane: "for_review"
 dependencies: [WP01]
 base_branch: 001-frontend-design-system-and-architecture-WP01
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
@@ -349,3 +349,4 @@ class MvXxx extends ConsumerWidget {
 - 2026-03-25T04:01:50Z – headless-impl – shell_pid=45500 – lane=doing – Started implementation via workflow command
 - 2026-03-25T04:02:01Z – headless-impl – shell_pid=45500 – lane=planned – Reset
 - 2026-03-25T04:09:09Z – headless-impl – shell_pid=51125 – lane=doing – Started implementation via workflow command
+- 2026-03-25T04:14:52Z – headless-impl – shell_pid=51125 – lane=for_review – Ready for review: 7 ConsumerWidget components (MvButton, MvCard, MvTextInput, MvDialog, MvScaffold, MvLoading, MvError) — all token-driven, zero hardcoded values, flutter analyze clean
