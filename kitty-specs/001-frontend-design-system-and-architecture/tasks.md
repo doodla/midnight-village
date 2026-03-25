@@ -138,7 +138,7 @@
 ### Included Subtasks
 - [x] T021 Create `RoleCard` in `frontend/lib/design_system/components/game/role_card.dart` (face-up/face-down, team color border, placeholder icon, all 12 roles)
 - [x] T022 [P] Create `RoleTokenList` in `frontend/lib/design_system/components/game/role_token_list.dart` (horizontal/wrapped role badge list)
-- [ ] T023 [P] Create `CenterCards` in `frontend/lib/design_system/components/game/center_cards.dart` (3 center cards, face-down + partial reveal)
+- [x] T023 [P] Create `CenterCards` in `frontend/lib/design_system/components/game/center_cards.dart` (3 center cards, face-down + partial reveal)
 - [ ] T024 [P] Create `PhaseIndicator` in `frontend/lib/design_system/components/game/phase_indicator.dart` (5 phases, visual differentiation)
 - [ ] T025 [P] Create `GameTimer` in `frontend/lib/design_system/components/game/game_timer.dart` (countdown display, urgency color shift, 48dp+ digits)
 
