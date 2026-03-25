@@ -140,7 +140,7 @@
 - [x] T022 [P] Create `RoleTokenList` in `frontend/lib/design_system/components/game/role_token_list.dart` (horizontal/wrapped role badge list)
 - [x] T023 [P] Create `CenterCards` in `frontend/lib/design_system/components/game/center_cards.dart` (3 center cards, face-down + partial reveal)
 - [x] T024 [P] Create `PhaseIndicator` in `frontend/lib/design_system/components/game/phase_indicator.dart` (5 phases, visual differentiation)
-- [ ] T025 [P] Create `GameTimer` in `frontend/lib/design_system/components/game/game_timer.dart` (countdown display, urgency color shift, 48dp+ digits)
+- [x] T025 [P] Create `GameTimer` in `frontend/lib/design_system/components/game/game_timer.dart` (countdown display, urgency color shift, 48dp+ digits)
 
 ### Implementation Notes
 - RoleCard uses `MvCard` internally for the card container. Face-down shows `cardBack` color + card-back pattern. Face-up shows team color border + role icon + role name.
