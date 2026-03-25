@@ -16,7 +16,7 @@ subtasks:
 - T007
 phase: Phase A - Foundation
 assignee: ''
-agent: ''
+agent: "claude-opus"
 shell_pid: "71533"
 review_status: ''
 reviewed_by: ''
@@ -379,3 +379,4 @@ Build the complete theming foundation for Midnight Village:
 ## Activity Log
 
 - 2026-03-25T01:34:57Z – system – lane=planned – Prompt created.
+- 2026-03-25T02:34:25Z – claude-opus – shell_pid=71533 – lane=doing – Assigned agent via workflow command
