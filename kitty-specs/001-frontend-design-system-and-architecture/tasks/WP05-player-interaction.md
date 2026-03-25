@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Game Components – Player Interaction
-lane: "for_review"
+lane: "doing"
 dependencies: [WP04]
 base_branch: 001-frontend-design-system-and-architecture-WP04
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
@@ -14,8 +14,8 @@ subtasks:
 - T030
 phase: Phase C - Game Components
 assignee: ''
-agent: "headless-impl"
-shell_pid: "66410"
+agent: "headless-reviewer"
+shell_pid: "7784"
 review_status: "has_feedback"
 reviewed_by: "Sridhar Vadlamani"
 review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
@@ -395,3 +395,4 @@ Build all player-facing interaction components — the heart of the game UI:
 - 2026-03-25T04:01:32Z – headless-impl – shell_pid=36491 – lane=planned – Reset for re-run
 - 2026-03-25T04:24:27Z – headless-impl – shell_pid=66410 – lane=doing – Started implementation via workflow command
 - 2026-03-25T05:05:49Z – headless-impl – shell_pid=66410 – lane=for_review – Committed by orchestrator fallback, rebased onto WP04
+- 2026-03-25T05:10:24Z – headless-reviewer – shell_pid=7784 – lane=doing – Started review via workflow command
