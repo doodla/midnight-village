@@ -62,12 +62,12 @@
 **Requirements Refs**: FR-006, FR-007, FR-008
 
 ### Included Subtasks
-- [ ] T008 Create `RoleId` enum + `TeamId` enum with team color mapping and display names in `frontend/lib/design_system/models/role.dart`
-- [ ] T009 Create `GamePhase` enum in `frontend/lib/design_system/models/game_phase.dart`
-- [ ] T010 Create `NightActionType` enum + `NightActionSelection` sealed class in `frontend/lib/design_system/models/night_action.dart`
-- [ ] T011 [P] Create `PlayerDisplay` + `PlayerStatus` data models in `frontend/lib/design_system/models/player_display.dart`
-- [ ] T012 [P] Create `VoteResult`, `GameResult`, `PlayerResult` data models in `frontend/lib/design_system/models/game_result.dart`
-- [ ] T013 Create `ThemeAssets` abstraction + `MidnightVillageAssets` with placeholder icon mapping in `frontend/lib/design_system/tokens/theme_assets.dart`
+- [x] T008 Create `RoleId` enum + `TeamId` enum with team color mapping and display names in `frontend/lib/design_system/models/role.dart`
+- [x] T009 Create `GamePhase` enum in `frontend/lib/design_system/models/game_phase.dart`
+- [x] T010 Create `NightActionType` enum + `NightActionSelection` sealed class in `frontend/lib/design_system/models/night_action.dart`
+- [x] T011 [P] Create `PlayerDisplay` + `PlayerStatus` data models in `frontend/lib/design_system/models/player_display.dart`
+- [x] T012 [P] Create `VoteResult`, `GameResult`, `PlayerResult` data models in `frontend/lib/design_system/models/game_result.dart`
+- [x] T013 Create `ThemeAssets` abstraction + `MidnightVillageAssets` with placeholder icon mapping in `frontend/lib/design_system/tokens/theme_assets.dart`
 
 ### Implementation Notes
 - RoleId must map all 12 v1 roles to their team. Doppelganger defaults to Village team.
