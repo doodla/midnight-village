@@ -1,8 +1,11 @@
 ---
 work_package_id: WP05
 title: Game Components – Player Interaction
-lane: planned
+lane: "doing"
 dependencies: [WP04]
+base_branch: 001-frontend-design-system-and-architecture-WP04
+base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
+created_at: '2026-03-25T03:53:26.743980+00:00'
 subtasks:
 - T026
 - T027
@@ -12,7 +15,7 @@ subtasks:
 phase: Phase C - Game Components
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "36491"
 review_status: ''
 reviewed_by: ''
 history:
