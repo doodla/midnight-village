@@ -16,7 +16,7 @@ subtasks:
 - T020
 phase: Phase B - Core Components
 assignee: ''
-agent: ''
+agent: "headless-impl"
 shell_pid: "35941"
 review_status: ''
 reviewed_by: ''
@@ -339,3 +339,4 @@ class MvXxx extends ConsumerWidget {
 ## Activity Log
 
 - 2026-03-25T01:34:57Z – system – lane=planned – Prompt created.
+- 2026-03-25T03:53:23Z – headless-impl – shell_pid=35941 – lane=doing – Assigned agent via workflow command
