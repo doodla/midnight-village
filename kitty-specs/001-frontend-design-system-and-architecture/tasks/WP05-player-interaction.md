@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Game Components – Player Interaction
-lane: "doing"
+lane: "planned"
 dependencies: [WP04]
 base_branch: 001-frontend-design-system-and-architecture-WP04
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
@@ -16,8 +16,9 @@ phase: Phase C - Game Components
 assignee: ''
 agent: "headless-impl"
 shell_pid: "36491"
-review_status: ''
-reviewed_by: ''
+review_status: "has_feedback"
+reviewed_by: "Sridhar Vadlamani"
+review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
@@ -46,9 +47,13 @@ requirement_refs:
 
 ## Review Feedback
 
-*[This section is empty initially.]*
+**Reviewed by**: Sridhar Vadlamani
+**Status**: ❌ Changes Requested
+**Date**: 2026-03-25
+**Feedback file**: `/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC`
 
----
+Reset from stuck doing state for orchestration re-run.
+
 
 ## Objectives & Success Criteria
 
@@ -387,3 +392,4 @@ Build all player-facing interaction components — the heart of the game UI:
 
 - 2026-03-25T01:34:57Z – system – lane=planned – Prompt created.
 - 2026-03-25T03:53:26Z – headless-impl – shell_pid=36491 – lane=doing – Assigned agent via workflow command
+- 2026-03-25T04:01:32Z – headless-impl – shell_pid=36491 – lane=planned – Reset for re-run
