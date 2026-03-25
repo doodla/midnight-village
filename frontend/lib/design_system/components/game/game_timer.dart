@@ -2,66 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 
-/// Countdown timer display for discussion and night action phases.
+/// Seconds threshold below which the timer switches to urgency color.
+const int _kUrgencyThreshold = 10;
+
+/// Shows a countdown timer with an urgency color shift.
 ///
-/// Pure display widget — no countdown logic. Parent provides [remaining]
-/// via a Timer or server-driven state.
-///
-/// Timer text is ≥48dp for readability at arm's length during face-to-face play.
+/// Displays in MM:SS format for durations >= 60 s, and as bare seconds for
+/// sub-60 s. Color shifts from [AppColorTokens.timerNormal] to
+/// [AppColorTokens.timerUrgent] when [timeRemaining] drops to
+/// [_kUrgencyThreshold] seconds or below.
 class GameTimer extends ConsumerWidget {
-  final Duration remaining;
-  final Duration total;
-  final bool showUrgency;
+  final Duration timeRemaining;
 
-  const GameTimer({
-    super.key,
-    required this.remaining,
-    required this.total,
-    this.showUrgency = true,
-  });
-
-  bool get _isUrgent =>
-      showUrgency &&
-      total.inMilliseconds > 0 &&
-      remaining.inMilliseconds <= total.inMilliseconds * 0.2;
+  const GameTimer({super.key, required this.timeRemaining});
 
   String _formatDuration(Duration d) {
-    final minutes = d.inMinutes.clamp(0, 99);
-    final seconds = d.inSeconds.remainder(60).clamp(0, 59);
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+    final int totalSeconds = d.inSeconds < 0 ? 0 : d.inSeconds;
+    if (totalSeconds >= 60) {
+      final int minutes = totalSeconds ~/ 60;
+      final int seconds = totalSeconds % 60;
+      return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return totalSeconds.toString();
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = ref.watch(activeThemeProvider);
-    final timerColor = _isUrgent ? tokens.colors.timerUrgent : tokens.colors.timerNormal;
-    final progress = total.inMilliseconds > 0
-        ? (remaining.inMilliseconds / total.inMilliseconds).clamp(0.0, 1.0)
-        : 0.0;
 
-    return Center(
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: 120.0,
-            height: 120.0,
-            child: CircularProgressIndicator(
-              value: progress,
-              strokeWidth: 4.0,
-              backgroundColor: tokens.colors.outline,
-              color: tokens.colors.primary,
-            ),
-          ),
-          Text(
-            _formatDuration(remaining),
-            style: tokens.typography.displayHeading.copyWith(
-              fontSize: 48.0,
-              color: timerColor,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
+    final bool isUrgent = timeRemaining.inSeconds <= _kUrgencyThreshold;
+    final Color timerColor =
+        isUrgent ? tokens.colors.timerUrgent : tokens.colors.timerNormal;
+
+    return Semantics(
+      label: 'Time remaining: ${_formatDuration(timeRemaining)}',
+      child: Text(
+        _formatDuration(timeRemaining),
+        style: tokens.typography.heading.copyWith(color: timerColor),
+        textAlign: TextAlign.center,
       ),
     );
   }
