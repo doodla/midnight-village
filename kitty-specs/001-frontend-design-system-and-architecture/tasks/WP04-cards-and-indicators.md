@@ -1,7 +1,7 @@
 ---
 work_package_id: WP04
 title: Game Components – Cards & Indicators
-lane: "doing"
+lane: "planned"
 dependencies: [WP02, WP03]
 subtasks:
 - T021
@@ -13,8 +13,9 @@ phase: Phase C - Game Components
 assignee: ''
 agent: "headless-impl"
 shell_pid: "36169"
-review_status: ''
-reviewed_by: ''
+review_status: "has_feedback"
+reviewed_by: "Sridhar Vadlamani"
+review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
@@ -43,9 +44,13 @@ requirement_refs:
 
 ## Review Feedback
 
-*[This section is empty initially.]*
+**Reviewed by**: Sridhar Vadlamani
+**Status**: ❌ Changes Requested
+**Date**: 2026-03-25
+**Feedback file**: `/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC`
 
----
+Reset from stuck doing state for orchestration re-run.
+
 
 ## Objectives & Success Criteria
 
@@ -275,3 +280,4 @@ Build the game-specific display components that show role information and game s
 
 - 2026-03-25T01:34:57Z – system – lane=planned – Prompt created.
 - 2026-03-25T03:53:25Z – headless-impl – shell_pid=36169 – lane=doing – Started implementation via workflow command
+- 2026-03-25T04:01:32Z – headless-impl – shell_pid=36169 – lane=planned – Reset for re-run
