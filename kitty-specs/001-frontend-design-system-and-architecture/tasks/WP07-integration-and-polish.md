@@ -1,7 +1,7 @@
 ---
 work_package_id: WP07
 title: Integration & Polish
-lane: "doing"
+lane: "planned"
 dependencies: [WP05, WP06]
 base_branch: 001-frontend-design-system-and-architecture-WP07-merge-base
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
@@ -15,8 +15,9 @@ phase: Phase E - Integration
 assignee: ''
 agent: "headless-impl"
 shell_pid: "36665"
-review_status: ''
-reviewed_by: ''
+review_status: "has_feedback"
+reviewed_by: "Sridhar Vadlamani"
+review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
@@ -41,9 +42,13 @@ requirement_refs:
 
 ## Review Feedback
 
-*[This section is empty initially.]*
+**Reviewed by**: Sridhar Vadlamani
+**Status**: ❌ Changes Requested
+**Date**: 2026-03-25
+**Feedback file**: `/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC`
 
----
+Reset from stuck doing state for orchestration re-run.
+
 
 ## Objectives & Success Criteria
 
@@ -213,3 +218,4 @@ Wire the design system into the existing app, migrate the auth screen, create pl
 
 - 2026-03-25T01:34:57Z – system – lane=planned – Prompt created.
 - 2026-03-25T03:53:28Z – headless-impl – shell_pid=36665 – lane=doing – Assigned agent via workflow command
+- 2026-03-25T04:01:33Z – headless-impl – shell_pid=36665 – lane=planned – Reset for re-run
