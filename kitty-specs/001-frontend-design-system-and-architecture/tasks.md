@@ -176,7 +176,7 @@
 - [x] T027 Create `NightActionPrompt` in `frontend/lib/design_system/components/game/night_action_prompt.dart` (all 7 action types with appropriate UI per type)
 - [x] T028 Create `VoteSubmission` in `frontend/lib/design_system/components/game/vote_submission.dart` (target selection, vote privacy, locked state)
 - [x] T029 [P] Create `VoteReveal` in `frontend/lib/design_system/components/game/vote_reveal.dart` (simultaneous vote display + tally + elimination indicator)
-- [ ] T030 [P] Create `GameResults` in `frontend/lib/design_system/components/game/game_results.dart` (win/loss, team reveals, multi-winner, all role reveals, Doppelganger dual-identity display)
+- [x] T030 [P] Create `GameResults` in `frontend/lib/design_system/components/game/game_results.dart` (win/loss, team reveals, multi-winner, all role reveals, Doppelganger dual-identity display)
 
 ### Implementation Notes
 - PlayerCircle: Renders players in a grid or circle layout that adapts from 3 to 10 players. Current player is visually marked and non-selectable (cannot self-vote/self-target). Selection state: tappable → selected → confirmed. maxSelections param controls how many targets can be selected.
