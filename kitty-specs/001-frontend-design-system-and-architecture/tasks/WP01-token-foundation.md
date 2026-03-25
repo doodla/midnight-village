@@ -1,7 +1,7 @@
 ---
 work_package_id: WP01
 title: Token Foundation & Theme Infrastructure
-lane: "doing"
+lane: "for_review"
 dependencies: []
 base_branch: main
 base_commit: 33943580b08a0e2c5db5032ca50639a911a2bfce
@@ -380,3 +380,4 @@ Build the complete theming foundation for Midnight Village:
 
 - 2026-03-25T01:34:57Z – system – lane=planned – Prompt created.
 - 2026-03-25T02:34:25Z – claude-opus – shell_pid=71533 – lane=doing – Assigned agent via workflow command
+- 2026-03-25T02:42:40Z – claude-opus – shell_pid=71533 – lane=for_review – Ready for review: Token foundation complete — abstract contracts, Midnight Village theme, Riverpod provider, ThemeData bridge, test infrastructure, app wiring. flutter analyze clean, 104 tests passing.
