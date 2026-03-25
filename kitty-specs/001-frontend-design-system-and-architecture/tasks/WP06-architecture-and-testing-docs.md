@@ -1,7 +1,7 @@
 ---
 work_package_id: WP06
 title: Architecture Playbook & Testing Strategy
-lane: "doing"
+lane: "planned"
 dependencies: [WP03]
 base_branch: 001-frontend-design-system-and-architecture-WP03
 base_commit: 935942f5cd141c469c185ab7eaaf02e89a12078f
@@ -16,8 +16,9 @@ phase: Phase D - Documentation
 assignee: ''
 agent: "headless-impl"
 shell_pid: "36168"
-review_status: ''
-reviewed_by: ''
+review_status: "has_feedback"
+reviewed_by: "Sridhar Vadlamani"
+review_feedback_file: "/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC"
 history:
 - timestamp: '2026-03-25T01:34:57Z'
   lane: planned
@@ -45,9 +46,13 @@ requirement_refs:
 
 ## Review Feedback
 
-*[This section is empty initially.]*
+**Reviewed by**: Sridhar Vadlamani
+**Status**: ❌ Changes Requested
+**Date**: 2026-03-25
+**Feedback file**: `/private/var/folders/h1/g68scqh939n8kgw31xxqvq6r0000gn/T/tmp.Ow1Mk9LkUC`
 
----
+Reset from stuck doing state for orchestration re-run.
+
 
 ## Objectives & Success Criteria
 
@@ -385,3 +390,4 @@ Create two documentation deliverables that enable developers to build new featur
 
 - 2026-03-25T01:34:57Z – system – lane=planned – Prompt created.
 - 2026-03-25T03:53:25Z – headless-impl – shell_pid=36168 – lane=doing – Assigned agent via workflow command
+- 2026-03-25T04:01:33Z – headless-impl – shell_pid=36168 – lane=planned – Reset for re-run
