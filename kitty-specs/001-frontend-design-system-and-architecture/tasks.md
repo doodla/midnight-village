@@ -24,13 +24,13 @@
 **Requirements Refs**: FR-001, FR-002, FR-003, FR-004, FR-020
 
 ### Included Subtasks
-- [ ] T001 Create token abstract contract classes (`AppTokens`, `AppColorTokens`, `AppTypographyTokens`, `AppSpacingTokens`, `AppElevationTokens`) in `frontend/lib/design_system/tokens/app_tokens.dart`
-- [ ] T002 Bundle heading + body fonts in `frontend/assets/fonts/`, add `flutter_svg` dependency, declare fonts and asset paths in `frontend/pubspec.yaml`
-- [ ] T003 Create Midnight Village theme implementation in `frontend/lib/design_system/tokens/midnight_village_theme.dart`
-- [ ] T004 Create Riverpod `activeThemeProvider` notifier in `frontend/lib/design_system/tokens/app_tokens_provider.dart`
-- [ ] T005 Create Material ThemeData bridge (`generateThemeData` function + `activeThemeDataProvider`) in `frontend/lib/design_system/tokens/theme_bridge.dart`
-- [ ] T006 Create test theme (`TestThemeTokens`) + `pumpWithTokens` helper in `frontend/test/design_system/test_helpers/`
-- [ ] T007 Wire token provider + ThemeData into `frontend/lib/app.dart`
+- [x] T001 Create token abstract contract classes (`AppTokens`, `AppColorTokens`, `AppTypographyTokens`, `AppSpacingTokens`, `AppElevationTokens`) in `frontend/lib/design_system/tokens/app_tokens.dart`
+- [x] T002 Bundle heading + body fonts in `frontend/assets/fonts/`, add `flutter_svg` dependency, declare fonts and asset paths in `frontend/pubspec.yaml`
+- [x] T003 Create Midnight Village theme implementation in `frontend/lib/design_system/tokens/midnight_village_theme.dart`
+- [x] T004 Create Riverpod `activeThemeProvider` notifier in `frontend/lib/design_system/tokens/app_tokens_provider.dart`
+- [x] T005 Create Material ThemeData bridge (`generateThemeData` function + `activeThemeDataProvider`) in `frontend/lib/design_system/tokens/theme_bridge.dart`
+- [x] T006 Create test theme (`TestThemeTokens`) + `pumpWithTokens` helper in `frontend/test/design_system/test_helpers/`
+- [x] T007 Wire token provider + ThemeData into `frontend/lib/app.dart`
 
 ### Implementation Notes
 - Token abstract classes must be compile-time enforced — missing tokens won't compile.
