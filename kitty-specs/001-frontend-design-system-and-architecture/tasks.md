@@ -104,7 +104,7 @@
 - [x] T018 [P] Create `MvScaffold` in `frontend/lib/design_system/components/core/mv_scaffold.dart` (app bar, body, bottom bar, responsive padding)
 - [x] T019 [P] Create `MvLoading` in `frontend/lib/design_system/components/core/mv_loading.dart` (themed loading indicator + optional message)
 - [x] T020 [P] Create `MvError` in `frontend/lib/design_system/components/core/mv_error.dart` (error message + retry action)
-- [ ] T040 [P] Create `MvEmpty` in `frontend/lib/design_system/components/core/mv_empty.dart` (themed empty state with icon, message + optional action)
+- [x] T040 [P] Create `MvEmpty` in `frontend/lib/design_system/components/core/mv_empty.dart` (themed empty state with icon, message + optional action)
 
 ### Implementation Notes
 - All components are `ConsumerWidget` reading `activeThemeProvider`.
