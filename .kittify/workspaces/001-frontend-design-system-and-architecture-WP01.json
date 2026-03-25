@@ -1,0 +1,12 @@
+{
+  "wp_id": "WP01",
+  "feature_slug": "001-frontend-design-system-and-architecture",
+  "worktree_path": ".worktrees/001-frontend-design-system-and-architecture-WP01",
+  "branch_name": "001-frontend-design-system-and-architecture-WP01",
+  "base_branch": "main",
+  "base_commit": "33943580b08a0e2c5db5032ca50639a911a2bfce",
+  "dependencies": [],
+  "created_at": "2026-03-25T02:34:24.932401+00:00",
+  "created_by": "implement-command",
+  "vcs_backend": "git"
+}

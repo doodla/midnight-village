@@ -13,10 +13,15 @@ cd "$REPO_ROOT"
 START_TIME=$(date +%s)
 
 # Step 1: Get review prompt via spec-kitty
+# Use locking because spec-kitty does git commits internally, and parallel
+# calls race on the git index lock.
+acquire_lock
 OUTPUT=$(spec-kitty agent workflow review "$WP_ID" --agent headless-reviewer 2>&1) || {
+  release_lock
   log "$WP_ID" "Failed to start review: $OUTPUT"
   exit 1
 }
+release_lock
 
 PROMPT_FILE=$(parse_prompt_file "$OUTPUT")
 WORKSPACE=$(parse_workspace_path "$OUTPUT")
