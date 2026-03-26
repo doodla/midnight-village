@@ -1,7 +1,7 @@
 ---
 work_package_id: WP07
 title: CI Pipeline Integration
-lane: "doing"
+lane: "for_review"
 dependencies: [WP03, WP05, WP06]
 requirement_refs: [FR-010, FR-011]
 planning_base_branch: main
@@ -18,11 +18,11 @@ subtasks:
 - T036
 phase: Phase 2 - Tooling
 assignee: ''
-agent: "headless-impl"
-shell_pid: "53139"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback: "feedback://002-flutter-ui-test-infrastructure/WP07/20260326T062436Z-7a20fc25.md"
+agent: headless-impl
+shell_pid: '53139'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
+review_feedback: feedback://002-flutter-ui-test-infrastructure/WP07/20260326T062436Z-7a20fc25.md
 history:
 - timestamp: '2026-03-25T23:55:37Z'
   lane: planned
@@ -283,3 +283,4 @@ The CLI command updates both frontmatter and activity log automatically.
 - 2026-03-26T06:17:06Z – headless-reviewer – shell_pid=46068 – lane=doing – Started review via workflow command
 - 2026-03-26T06:24:37Z – headless-reviewer – shell_pid=46068 – lane=planned – Moved to planned
 - 2026-03-26T06:24:57Z – headless-impl – shell_pid=53139 – lane=doing – Started implementation via workflow command
+- 2026-03-26T06:25:45Z – headless-impl – shell_pid=53139 – lane=for_review – Ready for review: Fixed artifact upload conditions — added failure() && before step outcome checks so golden diff reports and integration screenshots actually upload when tests fail (GitHub Actions was silently skipping them due to implicit success() prepend)
