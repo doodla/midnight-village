@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Timer Settings Validation & Reconnection
-lane: "doing"
+lane: "for_review"
 dependencies: [WP01]
 requirement_refs: [FR-006, FR-007, FR-008, FR-009, FR-010, FR-012, FR-013]
 planning_base_branch: main
@@ -19,8 +19,8 @@ subtasks:
 - T031
 phase: Phase 3 - Settings & Recovery
 assignee: ''
-agent: "headless-impl"
-shell_pid: "19857"
+agent: headless-impl
+shell_pid: '19857'
 review_status: ''
 reviewed_by: ''
 history:
@@ -288,3 +288,4 @@ cd backend && pytest tests/onuw/ -v  # full suite
 
 - 2026-03-26T08:20:45Z – system – lane=planned – Prompt created.
 - 2026-03-26T09:43:27Z – headless-impl – shell_pid=19857 – lane=doing – Assigned agent via workflow command
+- 2026-03-26T09:51:40Z – headless-impl – shell_pid=19857 – lane=for_review – Ready for review: timer settings validation (T026), deadline in /me/ serializer (T027), startup recovery sweep (T028). All 470 tests pass, 88.89% coverage.
