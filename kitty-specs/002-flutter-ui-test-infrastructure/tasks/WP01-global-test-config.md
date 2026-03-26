@@ -1,12 +1,15 @@
 ---
 work_package_id: WP01
 title: Global Test Configuration & Deterministic Rendering
-lane: planned
+lane: "doing"
 dependencies: []
 requirement_refs: [FR-001, FR-002, FR-003, FR-011, FR-013, FR-016]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: main
+base_commit: 3eda14dd89585fc4ecb5b4f9aab2b044d2f5d8a6
+created_at: '2026-03-26T00:46:26.208182+00:00'
 subtasks:
 - T001
 - T002
@@ -16,7 +19,7 @@ subtasks:
 phase: Phase 0 - Foundation
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "41550"
 review_status: ''
 reviewed_by: ''
 history:
