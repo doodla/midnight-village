@@ -97,12 +97,12 @@
 **Requirements Refs**: FR-001, FR-003, FR-004, FR-005, FR-007, FR-008, FR-009, FR-012
 
 ### Included Subtasks
-- [ ] T013 Modify `transition_to_voting()` in `services.py`: compute `phase_deadline = now + voting_seconds`, store on game, schedule timer callback that calls `reveal_votes()`
-- [ ] T014 Modify `phase.change` event broadcast in `transition_to_voting()` to include `"deadline"` field
-- [ ] T015 Modify `submit_vote()` in `services.py`: when all players have voted, cancel the voting timer before calling `reveal_votes()`
-- [ ] T016 Modify `reveal_votes()` in `services.py`: cancel the voting timer (covers host force-reveal path), clear `phase_deadline` when transitioning to results
-- [ ] T017 Write integration tests for voting timer: auto-reveal fires with abstentions, all-voted cancels timer, host force-reveal cancels timer, deadline=null when voting_seconds=0
-- [ ] T018 Update existing voting tests to account for `deadline` field in `phase_change` events
+- [x] T013 Modify `transition_to_voting()` in `services.py`: compute `phase_deadline = now + voting_seconds`, store on game, schedule timer callback that calls `reveal_votes()`
+- [x] T014 Modify `phase.change` event broadcast in `transition_to_voting()` to include `"deadline"` field
+- [x] T015 Modify `submit_vote()` in `services.py`: when all players have voted, cancel the voting timer before calling `reveal_votes()`
+- [x] T016 Modify `reveal_votes()` in `services.py`: cancel the voting timer (covers host force-reveal path), clear `phase_deadline` when transitioning to results
+- [x] T017 Write integration tests for voting timer: auto-reveal fires with abstentions, all-voted cancels timer, host force-reveal cancels timer, deadline=null when voting_seconds=0
+- [x] T018 Update existing voting tests to account for `deadline` field in `phase_change` events
 
 ### Implementation Notes
 - `transition_to_voting()` currently sets `game.phase = Phase.VOTING` and broadcasts `{"type": "phase.change", "phase": "voting"}` — extend to also set `game.phase_deadline` and include `"deadline"`
@@ -308,5 +308,5 @@ WP01 (P0) ──┬──> WP02 (P1) ──┐
 <!-- status-model:start -->
 ## Canonical Status (Generated)
 - WP01: done
-- WP02: approved
+- WP02: done
 <!-- status-model:end -->
