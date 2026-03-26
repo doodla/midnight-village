@@ -247,12 +247,12 @@
 **Requirements Refs**: FR-014, FR-015, FR-016
 
 ### Included Subtasks
-- [ ] T033 Update spacing token references in all 14 existing widgets: `mv_scaffold.dart`, `mv_card.dart`, `mv_text_input.dart`, `mv_loading.dart`, `mv_error.dart`, `mv_dialog.dart`, `center_cards.dart`, `game_results.dart`, `game_timer.dart`, `night_action_prompt.dart`, `phase_indicator.dart`, `player_circle.dart`, `role_card.dart`, `role_token_list.dart`, `vote_reveal.dart`, `vote_submission.dart` — rename `.s`→`.sm`, `.m`→`.lg`, `.l`→`.xl`, `.xl`→`.xxl`, `.xxl`→`.xxxl`
-- [ ] T034 Update spacing token references in all existing test files: 6 game component tests + 3 golden tests + 3 example tests in `frontend/test/design_system/`
-- [ ] T035 Update `frontend/lib/features/auth/presentation/home_screen.dart` to use Firelit Gothic styling (new typography tokens, PrimaryButton already migrated in WP05)
-- [ ] T036 Remove old font assets from `frontend/assets/fonts/` (PlayfairDisplay, Inter directories/files) and remove font declarations from `pubspec.yaml`
-- [ ] T037 Regenerate golden test images for updated components (player_circle, role_card, and any new golden tests)
-- [ ] T038 Run full quality gate: `just check` (lint + format + typecheck) + `just flutter-test` (all tests green) — verify SC-009
+- [x] T033 Update spacing token references in all 14 existing widgets: `mv_scaffold.dart`, `mv_card.dart`, `mv_text_input.dart`, `mv_loading.dart`, `mv_error.dart`, `mv_dialog.dart`, `center_cards.dart`, `game_results.dart`, `game_timer.dart`, `night_action_prompt.dart`, `phase_indicator.dart`, `player_circle.dart`, `role_card.dart`, `role_token_list.dart`, `vote_reveal.dart`, `vote_submission.dart` — rename `.s`→`.sm`, `.m`→`.lg`, `.l`→`.xl`, `.xl`→`.xxl`, `.xxl`→`.xxxl`
+- [x] T034 Update spacing token references in all existing test files: 6 game component tests + 3 golden tests + 3 example tests in `frontend/test/design_system/`
+- [x] T035 Update `frontend/lib/features/auth/presentation/home_screen.dart` to use Firelit Gothic styling (new typography tokens, PrimaryButton already migrated in WP05)
+- [x] T036 Remove old font assets from `frontend/assets/fonts/` (PlayfairDisplay, Inter directories/files) and remove font declarations from `pubspec.yaml`
+- [x] T037 Regenerate golden test images for updated components (player_circle, role_card, and any new golden tests)
+- [x] T038 Run full quality gate: `just check` (lint + format + typecheck) + `just flutter-test` (all tests green) — verify SC-009
 
 ### Implementation Notes
 - T033 is mechanical: find-and-replace spacing names across all widget files. The compiler enforces completeness since the old names no longer exist in the interface
@@ -374,5 +374,5 @@ WP03 (Themes & Bridge)
 - WP03: done
 - WP04: done
 - WP05: done
-- WP06: approved
+- WP06: done
 <!-- status-model:end -->
