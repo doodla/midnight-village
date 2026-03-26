@@ -28,11 +28,11 @@
 **Requirements Refs**: FR-001, FR-002, FR-003, FR-011, FR-013, FR-016
 
 ### Included Subtasks
-- [ ] T001 Create `frontend/test/flutter_test_config.dart` — global test config that loads bundled fonts (PlayfairDisplay, Inter) via `FontLoader` before any test runs; set as the project-level test configuration file
-- [ ] T002 Create `frontend/test/helpers/golden_test_helper.dart` — `pumpWithGolden` extension on `WidgetTester` that sets fixed screen size (390×844, iPhone 14 logical), injects deterministic theme, and calls `matchesGoldenFile` with platform-aware path
-- [ ] T003 Implement custom `GoldenFileComparator` in golden_test_helper.dart that routes baselines to `test/design_system/goldens/macos/` or `test/design_system/goldens/linux/` based on `Platform.operatingSystem`
-- [ ] T004 Extend existing `pumpWithTokens` in `frontend/test/design_system/test_helpers/pump_with_tokens.dart` to accept optional golden configuration parameters (fixed screen size, deterministic fonts) per FR-013
-- [ ] T005 Add justfile commands to `frontend/justfile`: `flutter-test-golden` (run golden tests via tag), `flutter-golden-update` (regenerate all baselines with `--update-goldens`)
+- [x] T001 Create `frontend/test/flutter_test_config.dart` — global test config that loads bundled fonts (PlayfairDisplay, Inter) via `FontLoader` before any test runs; set as the project-level test configuration file
+- [x] T002 Create `frontend/test/helpers/golden_test_helper.dart` — `pumpWithGolden` extension on `WidgetTester` that sets fixed screen size (390×844, iPhone 14 logical), injects deterministic theme, and calls `matchesGoldenFile` with platform-aware path
+- [x] T003 Implement custom `GoldenFileComparator` in golden_test_helper.dart that routes baselines to `test/design_system/goldens/macos/` or `test/design_system/goldens/linux/` based on `Platform.operatingSystem`
+- [x] T004 Extend existing `pumpWithTokens` in `frontend/test/design_system/test_helpers/pump_with_tokens.dart` to accept optional golden configuration parameters (fixed screen size, deterministic fonts) per FR-013
+- [x] T005 Add justfile commands to `frontend/justfile`: `flutter-test-golden` (run golden tests via tag), `flutter-golden-update` (regenerate all baselines with `--update-goldens`)
 
 ### Implementation Notes
 - `flutter_test_config.dart` must define a top-level `testExecutable` function — Flutter's test runner picks this up automatically
@@ -398,3 +398,8 @@ Phase 3 (Polish):        WP08 ←── all above
 | T037 | Write test README documentation | WP08 | P3 | Yes |
 | T038 | Add descriptive comments to all example tests | WP08 | P3 | No |
 | T039 | Validate living documentation in local + CI | WP08 | P3 | No |
+
+<!-- status-model:start -->
+## Canonical Status (Generated)
+- WP01: for_review
+<!-- status-model:end -->
