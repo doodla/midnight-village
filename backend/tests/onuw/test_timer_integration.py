@@ -21,7 +21,7 @@ from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw import services, timers
 from apps.onuw.models import Game, Phase, PlayerRole
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.uses_timers]
 
 
 # ---------------------------------------------------------------------------

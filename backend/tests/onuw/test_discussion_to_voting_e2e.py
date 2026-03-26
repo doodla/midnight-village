@@ -44,7 +44,11 @@ class TestDiscussionToVotingE2E:
             host=host,
             game_type="onuw",
             max_players=10,
-            settings={"roles": {}, "voting_seconds": 0},
+            settings={
+                "roles": {},
+                "discussion_seconds": 0,
+                "voting_seconds": 0,
+            },
         )
         for user in [host, p1, p2, p3, p4]:
             LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
@@ -117,6 +121,8 @@ class TestDiscussionToVotingE2E:
             assert response.status_code == status.HTTP_200_OK
             # pyrefly: ignore [missing-attribute]
             assert response.data["has_voted"] is False
+            # pyrefly: ignore [missing-attribute]
+            assert response.data["deadline"] is None
 
             # ── Step 3: Host ends discussion ──────────────────────────────
             client.force_authenticate(user=host)
@@ -134,6 +140,8 @@ class TestDiscussionToVotingE2E:
             response = client.get(me_url)
             # pyrefly: ignore [missing-attribute]
             assert response.data["has_voted"] is False
+            # pyrefly: ignore [missing-attribute]
+            assert response.data["deadline"] is None
 
             # ── Step 5: 4 of 5 players submit votes ──────────────────────
             # host, p1, p2, p3 vote for p4 (Villager)
@@ -159,12 +167,16 @@ class TestDiscussionToVotingE2E:
             response = client.get(me_url)
             # pyrefly: ignore [missing-attribute]
             assert response.data["has_voted"] is True
+            # pyrefly: ignore [missing-attribute]
+            assert response.data["deadline"] is None
 
             # p4 (not voted) should show has_voted=False
             client.force_authenticate(user=users["p4"])
             response = client.get(me_url)
             # pyrefly: ignore [missing-attribute]
             assert response.data["has_voted"] is False
+            # pyrefly: ignore [missing-attribute]
+            assert response.data["deadline"] is None
 
             # ── Step 7: Host force-reveals ────────────────────────────────
             client.force_authenticate(user=host)
@@ -264,6 +276,8 @@ class TestDiscussionToVotingE2E:
         assert response.status_code == status.HTTP_200_OK
         # pyrefly: ignore [missing-attribute]
         assert response.data["has_voted"] is True
+        # pyrefly: ignore [missing-attribute]
+        assert response.data["deadline"] is None
 
         # vote_target should not appear anywhere in the response
         # pyrefly: ignore [missing-attribute]

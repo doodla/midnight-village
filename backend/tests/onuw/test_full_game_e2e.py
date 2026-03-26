@@ -77,7 +77,12 @@ class TestCompleteGameVillageWins:
             host=host,
             game_type="onuw",
             max_players=10,
-            settings={"roles": role_config},
+            settings={
+                "roles": role_config,
+                "discussion_seconds": 0,
+                "voting_seconds": 0,
+                "night_wave_seconds": 0,
+            },
         )
         for user in [host, p1, p2, p3, p4]:
             LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
@@ -344,7 +349,12 @@ class TestCompleteGameWerewolvesWin:
             host=host,
             game_type="onuw",
             max_players=10,
-            settings={"roles": role_config},
+            settings={
+                "roles": role_config,
+                "discussion_seconds": 0,
+                "voting_seconds": 0,
+                "night_wave_seconds": 0,
+            },
         )
         for user in [host, p1, p2, p3, p4]:
             LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
@@ -536,7 +546,12 @@ class TestCompleteGameTannerWins:
             host=host,
             game_type="onuw",
             max_players=10,
-            settings={"roles": role_config},
+            settings={
+                "roles": role_config,
+                "discussion_seconds": 0,
+                "voting_seconds": 0,
+                "night_wave_seconds": 0,
+            },
         )
         for user in [host, p1, p2, p3, p4]:
             LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)

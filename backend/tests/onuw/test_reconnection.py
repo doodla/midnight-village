@@ -256,6 +256,8 @@ class TestMeEndpointReconnection:
         response = api_client.get(_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
+        assert "deadline" in response.data
+        assert response.data["deadline"] is None
         assert "players" in response.data
         assert len(response.data["players"]) == 3
 
@@ -286,6 +288,7 @@ class TestMeEndpointReconnection:
         response = api_client.get(_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.data["deadline"] is None
 
         # Convert players list to string and verify no roles leak
         players_str = str(response.data["players"])
@@ -315,6 +318,7 @@ class TestMeEndpointReconnection:
         response = api_client.get(_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
+        assert "deadline" in response.data
         assert response.data["action_prompt"] is not None
 
         prompt = response.data["action_prompt"]
@@ -346,6 +350,7 @@ class TestMeEndpointReconnection:
         response = api_client.get(_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.data["deadline"] is None
         assert response.data["action_prompt"] is None
 
     def test_me_endpoint_no_action_prompt_outside_night(self, api_client, db):
@@ -363,6 +368,7 @@ class TestMeEndpointReconnection:
         response = api_client.get(_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.data["deadline"] is None
         assert response.data["action_prompt"] is None
 
     def test_me_endpoint_no_action_prompt_after_acting(self, api_client, db):
@@ -389,6 +395,7 @@ class TestMeEndpointReconnection:
         response = api_client.get(_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.data["deadline"] is None
         assert response.data["action_prompt"] is None
 
     def test_me_endpoint_players_show_vote_status_during_voting(self, api_client, db):
@@ -412,6 +419,7 @@ class TestMeEndpointReconnection:
         response = api_client.get(_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.data["deadline"] is None
 
         vote_map = {p["player_id"]: p["has_voted"] for p in response.data["players"]}
         assert vote_map[users["mev_p1"].id] is True
