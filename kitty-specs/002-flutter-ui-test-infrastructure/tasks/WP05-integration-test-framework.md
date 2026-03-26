@@ -1,12 +1,15 @@
 ---
 work_package_id: WP05
 title: Integration Test Framework
-lane: planned
+lane: "doing"
 dependencies: [WP02]
 requirement_refs: [FR-004, FR-005, FR-009, FR-011, FR-012]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 002-flutter-ui-test-infrastructure-WP02
+base_commit: aaef6977b04041879d9cb6edcb2aa138876d1b2e
+created_at: '2026-03-26T01:41:34.125117+00:00'
 subtasks:
 - T021
 - T022
@@ -17,7 +20,7 @@ subtasks:
 phase: Phase 1 - Core Layers
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "95105"
 review_status: ''
 reviewed_by: ''
 history:
