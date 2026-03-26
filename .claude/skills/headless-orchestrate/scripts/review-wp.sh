@@ -14,7 +14,7 @@ START_TIME=$(date +%s)
 
 # Step 1: Get review prompt via spec-kitty
 acquire_lock
-OUTPUT=$(spec-kitty agent workflow review "$WP_ID" --feature "$FEATURE_SLUG" --agent headless-reviewer 2>&1) || {
+OUTPUT=$(spec-kitty agent workflow review "$WP_ID" --feature "$FEATURE_SLUG" --agent headless-reviewer 2>>"$LOG_FILE") || {
   release_lock
   log "$WP_ID" "Failed to start review: $OUTPUT"
   exit 1
