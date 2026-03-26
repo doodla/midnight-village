@@ -1,13 +1,16 @@
 ---
 work_package_id: WP03
 title: Theme Implementations & Bridge
-lane: planned
+lane: "doing"
 dependencies:
 - WP01
 requirement_refs: [FR-007, FR-013]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 003-firelit-gothic-design-system-WP01
+base_commit: 5d8b007a13c00f7303b2c81b852502a8631726c2
+created_at: '2026-03-26T09:04:52.593653+00:00'
 subtasks:
 - T013
 - T014
@@ -18,7 +21,7 @@ subtasks:
 phase: Phase 1 - Foundation
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "64952"
 review_status: ''
 reviewed_by: ''
 history:
