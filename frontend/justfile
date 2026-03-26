@@ -35,6 +35,14 @@ test:
 test-cov:
     flutter test --coverage
 
+# Run golden tests only (tagged 'golden')
+flutter-test-golden:
+    flutter test --tags golden
+
+# Update all golden baselines
+flutter-golden-update:
+    flutter test --update-goldens --tags golden
+
 # --- Code Quality ---
 
 # Analyze code
