@@ -19,7 +19,7 @@ subtasks:
 - T031
 phase: Phase 3 - Settings & Recovery
 assignee: ''
-agent: ''
+agent: "headless-impl"
 shell_pid: "19857"
 review_status: ''
 reviewed_by: ''
@@ -287,3 +287,4 @@ cd backend && pytest tests/onuw/ -v  # full suite
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 
 - 2026-03-26T08:20:45Z – system – lane=planned – Prompt created.
+- 2026-03-26T09:43:27Z – headless-impl – shell_pid=19857 – lane=doing – Assigned agent via workflow command
