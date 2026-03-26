@@ -119,7 +119,7 @@ A player who disconnects and reconnects mid-phase sees the current deadline in t
 
 - **Game** (extended): Gains a `phase_deadline` field (nullable DateTimeField) storing the current phase's expiry timestamp.
 - **Lobby settings** (extended): The `settings` JSONField gains optional `discussion_seconds`, `voting_seconds`, and `night_wave_seconds` keys alongside the existing `roles` key.
-- **Background task**: A scheduled task (implementation TBD — Celery, Django Channels delayed send, or threading.Timer) that fires at the deadline and calls the appropriate transition function.
+- **Background task**: A scheduled `threading.Timer` (in-process, no external dependencies) that fires at the deadline and calls the appropriate transition function. Managed by a timer registry in `apps/onuw/timers.py`.
 
 ## Success Criteria *(mandatory)*
 
@@ -136,7 +136,7 @@ A player who disconnects and reconnects mid-phase sees the current deadline in t
 
 ## Assumptions
 
-- A suitable background task mechanism exists or will be introduced (Celery with Redis broker is already available since Redis is used for Django Channels). If Celery is not yet configured, adding it is in scope.
+- The background task mechanism is `threading.Timer` with an in-process registry — no external dependencies like Celery are needed. This was chosen for simplicity given the expected scale (~10 concurrent lobbies).
 - The deadline is a single UTC timestamp, not a duration. The client computes remaining time as `deadline - now`. This avoids clock-sync issues as long as both client and server use UTC.
 - Timer precision of ~1 second is acceptable. The task scheduler does not need sub-second accuracy.
 - The night wave timer is shorter (default 30s) because night actions are simple tap-to-select interactions, not group discussion.
