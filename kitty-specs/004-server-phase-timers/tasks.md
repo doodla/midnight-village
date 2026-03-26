@@ -304,3 +304,8 @@ WP01 (P0) ──┬──> WP02 (P1) ──┐
 | T035 | Update `test_full_game_e2e.py` | WP06 | P1 | Yes |
 | T036 | Update `test_reconnection.py` for deadline field | WP06 | P1 | Yes |
 | T037 | Run `just check` and `just test` — all green | WP06 | P1 | No |
+
+<!-- status-model:start -->
+## Canonical Status (Generated)
+- WP01: for_review
+<!-- status-model:end -->
