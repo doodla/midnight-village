@@ -16,7 +16,7 @@ _lock = threading.Lock()
 
 
 def schedule(
-    key: str, delay_seconds: float, callback: Callable[[], None], *args: Any
+    key: str, delay_seconds: float, callback: Callable[..., None], *args: Any
 ) -> None:
     """
     Schedule a callback to fire after delay_seconds.
