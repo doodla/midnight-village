@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Integration Test Framework
-lane: "planned"
+lane: "doing"
 dependencies: [WP02]
 requirement_refs: [FR-004, FR-005, FR-009, FR-011, FR-012]
 planning_base_branch: main
@@ -19,8 +19,8 @@ subtasks:
 - T026
 phase: Phase 1 - Core Layers
 assignee: ''
-agent: headless-reviewer
-shell_pid: '2309'
+agent: "headless-impl"
+shell_pid: "5214"
 review_status: "has_feedback"
 reviewed_by: "Sridhar Vadlamani"
 review_feedback: "feedback://002-flutter-ui-test-infrastructure/WP05/20260326T015201Z-fd854d8f.md"
@@ -343,3 +343,4 @@ The CLI command updates both frontmatter and activity log automatically.
 - 2026-03-26T01:49:06Z – headless-impl – shell_pid=95105 – lane=for_review – Ready for review: Integration test framework with auth flow test, MockHttpClient wiring via ApiClient(dio:), NavigationAssertions extension, screenshot capture dir, and just flutter-test-integration commands. All 173 unit tests pass, flutter analyze clean.
 - 2026-03-26T01:49:18Z – headless-reviewer – shell_pid=2309 – lane=doing – Started review via workflow command
 - 2026-03-26T01:52:02Z – headless-reviewer – shell_pid=2309 – lane=planned – Moved to planned
+- 2026-03-26T01:52:13Z – headless-impl – shell_pid=5214 – lane=doing – Started implementation via workflow command
