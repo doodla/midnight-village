@@ -1,7 +1,7 @@
 ---
 work_package_id: WP03
 title: Voting Timer Integration
-lane: "doing"
+lane: "for_review"
 dependencies: [WP01]
 requirement_refs: [FR-001, FR-003, FR-004, FR-005, FR-007, FR-008, FR-009, FR-012]
 planning_base_branch: main
@@ -19,8 +19,8 @@ subtasks:
 - T018
 phase: Phase 2 - Timer Integration
 assignee: ''
-agent: "headless-impl"
-shell_pid: "76154"
+agent: headless-impl
+shell_pid: '76154'
 review_status: ''
 reviewed_by: ''
 history:
@@ -271,3 +271,4 @@ cd backend && pytest tests/onuw/ -v  # full suite
 
 - 2026-03-26T08:20:45Z – system – lane=planned – Prompt created.
 - 2026-03-26T09:13:04Z – headless-impl – shell_pid=76154 – lane=doing – Assigned agent via workflow command
+- 2026-03-26T09:20:19Z – headless-impl – shell_pid=76154 – lane=for_review – Ready for review: voting timer integration with deadline broadcast, auto-reveal on expiry, all-voted cancellation, host force-reveal cancellation, and full integration test coverage (368 tests pass, 85% coverage)
