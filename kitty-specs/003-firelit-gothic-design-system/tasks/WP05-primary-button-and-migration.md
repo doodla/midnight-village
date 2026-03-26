@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: PrimaryButton & MvButton Migration
-lane: "for_review"
+lane: "doing"
 dependencies: [WP03]
 requirement_refs: [FR-010, FR-015]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T027
 phase: Phase 2 - Foundation Widgets
 assignee: ''
-agent: headless-impl
-shell_pid: '96057'
+agent: "headless-reviewer"
+shell_pid: "14466"
 review_status: ''
 reviewed_by: ''
 history:
@@ -345,3 +345,4 @@ To change a work package's lane, either:
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T09:25:32Z – headless-impl – shell_pid=96057 – lane=doing – Assigned agent via workflow command
 - 2026-03-26T09:39:24Z – headless-impl – shell_pid=96057 – lane=for_review – Ready for review: PrimaryButton implemented with 9 widget tests covering all 5 states (filled, disabled, loading, outlined, destructive). All 6 MvButton consumers migrated. mv_button.dart deleted. 324 tests pass.
+- 2026-03-26T09:39:39Z – headless-reviewer – shell_pid=14466 – lane=doing – Started review via workflow command
