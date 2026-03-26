@@ -398,3 +398,8 @@ Phase 3 (Polish):        WP08 ←── all above
 | T037 | Write test README documentation | WP08 | P3 | Yes |
 | T038 | Add descriptive comments to all example tests | WP08 | P3 | No |
 | T039 | Validate living documentation in local + CI | WP08 | P3 | No |
+
+<!-- status-model:start -->
+## Canonical Status (Generated)
+- WP01: for_review
+<!-- status-model:end -->
