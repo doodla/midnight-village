@@ -1,7 +1,7 @@
 ---
 work_package_id: WP04
 title: AtmosphericBackground & Decorative Effects
-lane: "doing"
+lane: "for_review"
 dependencies: [WP03]
 requirement_refs: [FR-008, FR-012, FR-006]
 planning_base_branch: main
@@ -17,8 +17,8 @@ subtasks:
 - T022
 phase: Phase 2 - Foundation Widgets
 assignee: ''
-agent: "headless-impl"
-shell_pid: "87147"
+agent: headless-impl
+shell_pid: '87147'
 review_status: ''
 reviewed_by: ''
 history:
@@ -306,3 +306,4 @@ To change a work package's lane, either:
 
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T09:20:41Z – headless-impl – shell_pid=87147 – lane=doing – Assigned agent via workflow command
+- 2026-03-26T09:24:01Z – headless-impl – shell_pid=87147 – lane=for_review – Ready for review: AtmosphericBackground ConsumerWidget with phase backgrounds, candle glow, noise overlay (3% opacity), RepaintBoundary child wrapping. 18 tests cover all 5 GamePhase colors, overlay toggling, decorative effects (AppShadows + AppDecorations). flutter analyze clean for new files.
