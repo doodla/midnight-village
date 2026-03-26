@@ -1,7 +1,7 @@
 ---
 work_package_id: WP01
 title: Token Interfaces & Project Setup
-lane: "for_review"
+lane: "doing"
 dependencies: []
 requirement_refs: [FR-012, FR-013]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T005
 phase: Phase 1 - Foundation
 assignee: ''
-agent: headless-impl
-shell_pid: '34459'
+agent: "headless-reviewer"
+shell_pid: "42001"
 review_status: ''
 reviewed_by: ''
 history:
@@ -257,3 +257,4 @@ To change a work package's lane, either:
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T08:36:54Z – headless-impl – shell_pid=34459 – lane=doing – Assigned agent via workflow command
 - 2026-03-26T08:40:24Z – headless-impl – shell_pid=34459 – lane=for_review – Ready for review: Expanded token interfaces (AppRadiusTokens, AppDecorationTokens, 10 new colors, 4 new typography styles, 7-step spacing rename), AvatarSize enum, noise_grain.png texture, google_fonts + material_symbols_icons deps, Google Fonts test config. Spacing rename intentionally causes compile errors in existing widgets/themes (fixed in WP03/WP07).
+- 2026-03-26T08:40:37Z – headless-reviewer – shell_pid=42001 – lane=doing – Started review via workflow command
