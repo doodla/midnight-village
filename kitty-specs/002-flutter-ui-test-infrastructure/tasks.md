@@ -100,11 +100,11 @@
 **Requirements Refs**: FR-001, FR-002, FR-012
 
 ### Included Subtasks
-- [ ] T011 Write golden test for `MvButton` in `frontend/test/design_system/components/core/mv_button_golden_test.dart` — cover primary, secondary, and disabled variants; use `pumpWithGolden` helper; tag with `@Tags(['golden'])`
-- [ ] T012 [P] Write golden test for `RoleCard` in `frontend/test/design_system/components/game/role_card_golden_test.dart` — cover werewolf role, villager role, and face-down (hidden) states
-- [ ] T013 [P] Write golden test for `PlayerCircle` in `frontend/test/design_system/components/game/player_circle_golden_test.dart` — cover default, selected, and eliminated states
-- [ ] T014 Validate generate/compare/update cycle: generate baselines → verify test passes → modify widget appearance → verify test fails with diff → run `flutter-golden-update` → verify test passes again
-- [ ] T015 Validate determinism: run golden tests twice consecutively, compare baseline files byte-for-byte to confirm identical output
+- [x] T011 Write golden test for `MvButton` in `frontend/test/design_system/components/core/mv_button_golden_test.dart` — cover primary, secondary, and disabled variants; use `pumpWithGolden` helper; tag with `@Tags(['golden'])`
+- [x] T012 [P] Write golden test for `RoleCard` in `frontend/test/design_system/components/game/role_card_golden_test.dart` — cover werewolf role, villager role, and face-down (hidden) states
+- [x] T013 [P] Write golden test for `PlayerCircle` in `frontend/test/design_system/components/game/player_circle_golden_test.dart` — cover default, selected, and eliminated states
+- [x] T014 Validate generate/compare/update cycle: generate baselines → verify test passes → modify widget appearance → verify test fails with diff → run `flutter-golden-update` → verify test passes again
+- [x] T015 Validate determinism: run golden tests twice consecutively, compare baseline files byte-for-byte to confirm identical output
 
 ### Implementation Notes
 - Each golden test file follows the pattern: `@Tags(['golden'])` annotation, `testGoldens('description', (tester) async { ... })` using the `pumpWithGolden` extension
@@ -401,6 +401,6 @@ Phase 3 (Polish):        WP08 ←── all above
 
 <!-- status-model:start -->
 ## Canonical Status (Generated)
-- WP01: approved
-- WP02: approved
+- WP01: done
+- WP02: done
 <!-- status-model:end -->
