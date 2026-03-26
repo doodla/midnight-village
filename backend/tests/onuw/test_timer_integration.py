@@ -159,11 +159,11 @@ class TestWaveTimerLifecycle:
         assert len(wave_events) == 1
         assert wave_events[0]["deadline"] is None
 
-    def test_wave_auto_advances_when_timer_fires(self, db):
+    def test_wave_auto_advances_with_skips(self, db):
         """
         Invoking the timer callback (simulating timer expiry) advances the wave.
 
-        Non-acting players are skipped by advance_wave.
+        Non-acting players are skipped by advance_wave and recorded as "skip" in night_actions_log.
         """
         captured_callbacks: list = []
 
@@ -190,6 +190,15 @@ class TestWaveTimerLifecycle:
         game.refresh_from_db()
         # Wave 2 has been processed — game moved to wave 3 or discussion.
         assert game.current_wave != 2
+
+        # Non-acting players in wave 2 must be recorded as "skip" in the log.
+        log = game.night_actions_log
+        skip_entries = [
+            e for e in log if e.get("action_type") == "skip" and e.get("wave") == 2
+        ]
+        assert len(skip_entries) > 0, (
+            f"Expected at least one 'skip' entry for wave 2, got: {log}"
+        )
 
     def test_all_acted_cancels_wave_timer(self, db):
         """
