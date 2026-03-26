@@ -1,12 +1,15 @@
 ---
 work_package_id: WP02
 title: Mock HTTP & WebSocket Layers
-lane: planned
+lane: "doing"
 dependencies: []
 requirement_refs: [FR-005, FR-006, FR-008]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: main
+base_commit: 21653006791718e234164f7be306de21bc74eabd
+created_at: '2026-03-26T00:57:43.015478+00:00'
 subtasks:
 - T006
 - T007
@@ -16,7 +19,7 @@ subtasks:
 phase: Phase 0 - Foundation
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "53081"
 review_status: ''
 reviewed_by: ''
 history:
