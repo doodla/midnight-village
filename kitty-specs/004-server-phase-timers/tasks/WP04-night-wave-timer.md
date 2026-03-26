@@ -1,7 +1,7 @@
 ---
 work_package_id: WP04
 title: Night Wave Timer Integration
-lane: "doing"
+lane: "approved"
 dependencies: [WP01]
 requirement_refs: [FR-002, FR-003, FR-004, FR-005, FR-007, FR-008, FR-009]
 planning_base_branch: main
@@ -20,10 +20,10 @@ subtasks:
 - T025
 phase: Phase 2 - Timer Integration
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "15453"
-review_status: has_feedback
-reviewed_by: Sridhar Vadlamani
+agent: headless-reviewer
+shell_pid: '15453'
+review_status: "approved"
+reviewed_by: "Sridhar Vadlamani"
 review_feedback: feedback://004-server-phase-timers/WP04/20260326T093809Z-ec422725.md
 history:
 - timestamp: '2026-03-26T08:20:45Z'
@@ -305,3 +305,4 @@ cd backend && pytest tests/onuw/ -v  # full suite
 - 2026-03-26T09:38:18Z – headless-impl – shell_pid=12394 – lane=doing – Started implementation via workflow command
 - 2026-03-26T09:39:52Z – headless-impl – shell_pid=12394 – lane=for_review – Ready for review: added skip assertion to test_wave_auto_advances_with_skips (renamed from test_wave_auto_advances_when_timer_fires) as requested in review feedback. All 462 tests pass, ruff clean.
 - 2026-03-26T09:39:57Z – headless-reviewer – shell_pid=15453 – lane=doing – Started review via workflow command
+- 2026-03-26T09:43:12Z – headless-reviewer – shell_pid=15453 – lane=approved – Review passed: All 8 acceptance criteria met. send_wave_prompts schedules per-wave timers with phase_deadline, advance_wave/check_and_maybe_advance cancel timers correctly, transition_to_discussion clears deadline, wave_start broadcasts deadline field. functools.partial used correctly. 8 integration tests cover all paths, 462/462 tests pass, ruff clean. Previous feedback (skip assertion) addressed.
