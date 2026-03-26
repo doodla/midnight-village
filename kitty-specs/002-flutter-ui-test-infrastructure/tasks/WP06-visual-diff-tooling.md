@@ -1,7 +1,7 @@
 ---
 work_package_id: WP06
 title: Visual Diff Comparison Tooling
-lane: "doing"
+lane: "for_review"
 dependencies: [WP03]
 requirement_refs: [FR-014, FR-015]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T031
 phase: Phase 2 - Tooling
 assignee: ''
-agent: "headless-impl"
-shell_pid: "23484"
+agent: headless-impl
+shell_pid: '23484'
 review_status: ''
 reviewed_by: ''
 history:
@@ -304,3 +304,4 @@ The CLI command updates both frontmatter and activity log automatically.
 
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T02:06:45Z – headless-impl – shell_pid=23484 – lane=doing – Assigned agent via workflow command
+- 2026-03-26T02:13:09Z – headless-impl – shell_pid=23484 – lane=for_review – Ready for review: golden_diff_report.dart CLI tool with pixel-diff overlays, self-contained HTML report (base64 images), and flutter-golden-report/flutter-golden-check justfile commands. All 164 tests pass, flutter analyze clean (only pre-existing warnings).
