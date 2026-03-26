@@ -1,7 +1,7 @@
 ---
 work_package_id: WP06
 title: VillageAppBar & PlayerAvatar Widgets
-lane: "for_review"
+lane: "doing"
 dependencies: [WP03]
 requirement_refs: [FR-009, FR-011]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T032
 phase: Phase 2 - Foundation Widgets
 assignee: ''
-agent: headless-impl
-shell_pid: '20828'
+agent: "headless-reviewer"
+shell_pid: "26793"
 review_status: ''
 reviewed_by: ''
 history:
@@ -434,3 +434,4 @@ To change a work package's lane, either:
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T09:43:43Z – headless-impl – shell_pid=20828 – lane=doing – Assigned agent via workflow command
 - 2026-03-26T09:50:14Z – headless-impl – shell_pid=20828 – lane=for_review – Ready for review: VillageAppBar (4 variants: brand/back/phase/minimal) and PlayerAvatar (3 sizes, deterministic hue, sigil overlay) implemented with 21 passing tests, no analyzer issues
+- 2026-03-26T09:50:23Z – headless-reviewer – shell_pid=26793 – lane=doing – Started review via workflow command
