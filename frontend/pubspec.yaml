@@ -69,18 +69,3 @@ flutter:
     - assets/themes/_placeholder/
     - assets/textures/
 
-  fonts:
-    - family: PlayfairDisplay
-      fonts:
-        - asset: assets/fonts/playfair-display/PlayfairDisplay.ttf
-        - asset: assets/fonts/playfair-display/PlayfairDisplay.ttf
-          weight: 700
-        - asset: assets/fonts/playfair-display/PlayfairDisplay-Italic.ttf
-          style: italic
-    - family: Inter
-      fonts:
-        - asset: assets/fonts/inter/Inter.ttf
-        - asset: assets/fonts/inter/Inter.ttf
-          weight: 700
-        - asset: assets/fonts/inter/Inter-Italic.ttf
-          style: italic

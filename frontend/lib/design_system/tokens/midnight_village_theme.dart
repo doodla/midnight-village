@@ -131,9 +131,10 @@ class MidnightVillageColors implements AppColorTokens {
 class MidnightVillageTypography implements AppTypographyTokens {
   const MidnightVillageTypography();
 
+  // Uses system default fonts — no bundled or network fonts required.
+  // This theme is retained for use in tests where Google Fonts cannot load.
   @override
   TextStyle get displayHeading => const TextStyle(
-    fontFamily: 'PlayfairDisplay',
     fontSize: 32,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.5,
@@ -142,7 +143,6 @@ class MidnightVillageTypography implements AppTypographyTokens {
 
   @override
   TextStyle get heading => const TextStyle(
-    fontFamily: 'PlayfairDisplay',
     fontSize: 24,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.25,
@@ -151,7 +151,6 @@ class MidnightVillageTypography implements AppTypographyTokens {
 
   @override
   TextStyle get subheading => const TextStyle(
-    fontFamily: 'PlayfairDisplay',
     fontSize: 18,
     fontWeight: FontWeight.w500,
     height: 1.4,
@@ -159,7 +158,6 @@ class MidnightVillageTypography implements AppTypographyTokens {
 
   @override
   TextStyle get body => const TextStyle(
-    fontFamily: 'Inter',
     fontSize: 16,
     fontWeight: FontWeight.w400,
     height: 1.5,
@@ -167,7 +165,6 @@ class MidnightVillageTypography implements AppTypographyTokens {
 
   @override
   TextStyle get caption => const TextStyle(
-    fontFamily: 'Inter',
     fontSize: 12,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.4,
@@ -176,7 +173,6 @@ class MidnightVillageTypography implements AppTypographyTokens {
 
   @override
   TextStyle get label => const TextStyle(
-    fontFamily: 'Inter',
     fontSize: 14,
     fontWeight: FontWeight.w500,
     letterSpacing: 0.1,
@@ -186,14 +182,12 @@ class MidnightVillageTypography implements AppTypographyTokens {
   // Extended Firelit Gothic typography
   @override
   TextStyle get timerDigits => const TextStyle(
-    fontFamily: 'Inter',
     fontSize: 48,
     fontWeight: FontWeight.w600,
   );
 
   @override
   TextStyle get lobbyCode => const TextStyle(
-    fontFamily: 'Inter',
     fontSize: 28,
     fontWeight: FontWeight.w500,
     letterSpacing: 8.0,
@@ -201,7 +195,6 @@ class MidnightVillageTypography implements AppTypographyTokens {
 
   @override
   TextStyle get phaseLabel => const TextStyle(
-    fontFamily: 'Inter',
     fontSize: 12,
     fontWeight: FontWeight.w500,
     letterSpacing: 2.0,
@@ -209,7 +202,6 @@ class MidnightVillageTypography implements AppTypographyTokens {
 
   @override
   TextStyle get serifAccent => const TextStyle(
-    fontFamily: 'PlayfairDisplay',
     fontSize: 16,
     fontWeight: FontWeight.w400,
     fontStyle: FontStyle.italic,

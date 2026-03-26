@@ -16,7 +16,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/core/mv_card.dart';
-import 'package:midnight_village/design_system/tokens/midnight_village_theme.dart';
+import 'package:midnight_village/design_system/tokens/firelit_gothic_theme.dart';
 import '../test_helpers/pump_with_tokens.dart';
 import '../test_helpers/test_theme.dart';
 
@@ -24,7 +24,7 @@ void main() {
   // Test with all supported themes.
   // Add new themes here as they are introduced.
   final themes = [
-    const MidnightVillageTheme(), // production theme
+    const FirelitGothicTheme(), // production theme
     const TestThemeTokens(), // distinct values — catches hardcoded colors
   ];
 
