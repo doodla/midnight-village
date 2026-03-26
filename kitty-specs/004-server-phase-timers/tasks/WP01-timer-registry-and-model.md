@@ -1,7 +1,7 @@
 ---
 work_package_id: WP01
 title: Timer Registry & Model Foundation
-lane: "for_review"
+lane: "doing"
 dependencies: []
 requirement_refs: [FR-003, FR-004, FR-005, FR-006, FR-011]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T005
 phase: Phase 1 - Foundation
 assignee: ''
-agent: headless-impl
-shell_pid: '28651'
+agent: "headless-reviewer"
+shell_pid: "39395"
 review_status: ''
 reviewed_by: ''
 history:
@@ -262,3 +262,4 @@ cd backend && pytest tests/onuw/test_timers.py -v
 - 2026-03-26T08:20:45Z – system – lane=planned – Prompt created.
 - 2026-03-26T08:33:10Z – headless-impl – shell_pid=28651 – lane=doing – Assigned agent via workflow command
 - 2026-03-26T08:38:59Z – headless-impl – shell_pid=28651 – lane=for_review – Ready for review: timer registry with schedule/cancel/cancel_all_for_game, make_idempotent_callback with select_for_update, phase_deadline field + migration, 10 tests all passing (454 total, 89.5% coverage)
+- 2026-03-26T08:39:16Z – headless-reviewer – shell_pid=39395 – lane=doing – Started review via workflow command

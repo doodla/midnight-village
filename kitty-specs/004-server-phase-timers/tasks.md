@@ -307,5 +307,5 @@ WP01 (P0) ──┬──> WP02 (P1) ──┐
 
 <!-- status-model:start -->
 ## Canonical Status (Generated)
-- WP01: for_review
+- WP01: in_progress
 <!-- status-model:end -->
