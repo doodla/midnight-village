@@ -51,6 +51,7 @@ markers = [
     "unit: pure unit tests — no HTTP requests, only logic and ORM",
     "integration: tests that exercise the full HTTP or WebSocket stack",
     "contract: tests that verify API response shape and schema contracts",
+    "uses_timers: opt out of the auto-mock that patches timers.schedule to a no-op",
 ]
 
 [tool.coverage.run]

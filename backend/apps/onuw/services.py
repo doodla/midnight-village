@@ -7,12 +7,17 @@ All game state transitions go through this module.
 
 from __future__ import annotations
 
+import functools
+from datetime import timedelta
 from typing import Any
 
 from django.db import transaction
+from django.utils import timezone
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+
+from apps.onuw import timers
 
 from .engine.behaviors import get_doppelganger_followup_wave
 from .engine.night import get_required_actions, resolve_wave
@@ -21,6 +26,11 @@ from .engine.state import ActionResult, GameState, NightAction
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
 from .models import Game, Phase, PlayerRole
+
+
+def get_timer_seconds(game: Game, key: str, default: int) -> int:
+    """Read a timer duration from game settings, returning default if not set."""
+    return game.settings.get(key, default)
 
 
 def build_game_state(game: Game) -> GameState:
@@ -94,11 +104,33 @@ def start_night_phase(game: Game) -> None:
     send_wave_prompts(game, first_wave)
 
 
+def _auto_advance_wave(game: Game, wave_number: int) -> None:
+    """Auto-advance a wave when its timer expires, marking non-actors as skipped."""
+    if game.current_wave != wave_number:
+        return  # Wave already advanced — stale callback.
+    advance_wave(game)
+
+
 def send_wave_prompts(game: Game, wave: int) -> None:
     """
     Send action prompts to players who act in this wave, and
     waiting messages to non-acting players.
+
+    Schedules a wave timer when night_wave_seconds > 0.
     """
+    wave_seconds = get_timer_seconds(game, "night_wave_seconds", 30)
+    if wave_seconds > 0:
+        game.phase_deadline = timezone.now() + timedelta(seconds=wave_seconds)
+        callback = timers.make_idempotent_callback(
+            game.id,
+            Phase.NIGHT,
+            functools.partial(_auto_advance_wave, wave_number=wave),
+        )
+        timers.schedule(f"{game.id}:wave:{wave}", wave_seconds, callback)
+    else:
+        game.phase_deadline = None
+    game.save(update_fields=["phase_deadline", "updated_at"])
+
     channel_layer = get_channel_layer()
     if channel_layer is None:
         return
@@ -111,7 +143,16 @@ def send_wave_prompts(game: Game, wave: int) -> None:
     send = async_to_sync(channel_layer.group_send)
 
     # Broadcast wave_start to all players
-    send(f"game_{game.id}", {"type": "wave.start", "wave": wave})
+    send(
+        f"game_{game.id}",
+        {
+            "type": "wave.start",
+            "wave": wave,
+            "deadline": game.phase_deadline.isoformat()
+            if game.phase_deadline
+            else None,
+        },
+    )
 
     # Send action prompts to acting players (player-specific channels)
     for prompt in prompts:
@@ -145,6 +186,7 @@ def advance_wave(game: Game) -> None:
     then advance to the next wave or transition to discussion.
     """
     wave = game.current_wave
+    timers.cancel(f"{game.id}:wave:{wave}")
     state = build_game_state(game)
 
     # Collect actions from PlayerRole rows
@@ -285,21 +327,41 @@ def send_wave_results(game: Game, results: list[ActionResult], wave: int) -> Non
 
 def transition_to_discussion(game: Game) -> None:
     """Transition the game from night to discussion phase."""
+    discussion_seconds = get_timer_seconds(game, "discussion_seconds", 300)
+
     with transaction.atomic():
         game.phase = Phase.DISCUSSION
         game.current_wave = 0
-        game.save(update_fields=["phase", "current_wave", "updated_at"])
+        if discussion_seconds > 0:
+            game.phase_deadline = timezone.now() + timedelta(seconds=discussion_seconds)
+        else:
+            game.phase_deadline = None
+        game.save(
+            update_fields=["phase", "current_wave", "phase_deadline", "updated_at"]
+        )
 
         # Reset has_acted for voting phase later
         # pyrefly: ignore [missing-attribute]
         game.player_roles.update(has_acted=False)
+
+    if discussion_seconds > 0:
+        callback = timers.make_idempotent_callback(
+            game.id, Phase.DISCUSSION, _auto_transition_to_voting
+        )
+        timers.schedule(f"{game.id}:discussion", discussion_seconds, callback)
 
     # Broadcast phase change to all players
     channel_layer = get_channel_layer()
     if channel_layer is not None:
         async_to_sync(channel_layer.group_send)(
             f"game_{game.id}",
-            {"type": "phase.change", "phase": "discussion"},
+            {
+                "type": "phase.change",
+                "phase": "discussion",
+                "deadline": game.phase_deadline.isoformat()
+                if game.phase_deadline
+                else None,
+            },
         )
 
 
@@ -322,6 +384,7 @@ def check_and_maybe_advance(game: Game) -> None:
     ).count()
 
     if pending == 0:
+        timers.cancel(f"{game.id}:wave:{wave}")
         advance_wave(game)
 
 
@@ -465,6 +528,16 @@ def validate_night_action(
 # ── Discussion & Voting ────────────────────────────────────────────────────
 
 
+def _auto_transition_to_voting(game: Game) -> None:
+    """Auto-transition to voting when discussion timer expires."""
+    transition_to_voting(game)
+
+
+def _auto_reveal_votes(game: Game) -> None:
+    """Auto-reveal votes when the voting timer expires."""
+    reveal_votes(game)
+
+
 def transition_to_voting(game: Game) -> None:
     """Transition from discussion to voting phase."""
     from .engine.phases import validate_phase_transition
@@ -473,25 +546,45 @@ def transition_to_voting(game: Game) -> None:
         msg = f"Cannot transition from {game.phase} to voting."
         raise ValueError(msg)
 
+    voting_seconds = get_timer_seconds(game, "voting_seconds", 120)
+
     with transaction.atomic():
         game.phase = Phase.VOTING
-        game.save(update_fields=["phase", "updated_at"])
+        if voting_seconds > 0:
+            game.phase_deadline = timezone.now() + timedelta(seconds=voting_seconds)
+        else:
+            game.phase_deadline = None
+        game.save(update_fields=["phase", "phase_deadline", "updated_at"])
 
         # Reset has_acted for all players (tracks vote submission)
         # pyrefly: ignore [missing-attribute]
         game.player_roles.update(has_acted=False, vote_target=None)
+
+    if voting_seconds > 0:
+        callback = timers.make_idempotent_callback(
+            game.id, Phase.VOTING, _auto_reveal_votes
+        )
+        timers.schedule(f"{game.id}:voting", voting_seconds, callback)
 
     # Broadcast phase change to all players
     channel_layer = get_channel_layer()
     if channel_layer is not None:
         async_to_sync(channel_layer.group_send)(
             f"game_{game.id}",
-            {"type": "phase.change", "phase": "voting"},
+            {
+                "type": "phase.change",
+                "phase": "voting",
+                "deadline": game.phase_deadline.isoformat()
+                if game.phase_deadline
+                else None,
+            },
         )
 
 
 def end_discussion(game: Game) -> None:
     """End discussion early (host action). Transitions to voting."""
+    timers.cancel(f"{game.id}:discussion")
+    game.phase_deadline = None
     transition_to_voting(game)
 
 
@@ -563,6 +656,7 @@ def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
     voted_count = game.player_roles.filter(has_acted=True).count()
 
     if voted_count >= total_players:
+        timers.cancel(f"{game.id}:voting")
         reveal_votes(game)
 
     return errors
@@ -580,6 +674,10 @@ def reveal_votes(game: Game) -> None:
     Transitions game to RESULTS phase.
     Broadcasts game_results event.
     """
+    # Cancel the voting timer — covers both the host force-reveal and
+    # the all-voted path (double-cancel is safe).
+    timers.cancel(f"{game.id}:voting")
+
     # Collect vote data
     # pyrefly: ignore [missing-attribute]
     player_roles_qs = game.player_roles.all()
@@ -627,13 +725,14 @@ def reveal_votes(game: Game) -> None:
     # Transition to results phase and store results atomically
     with transaction.atomic():
         game.phase = Phase.RESULTS
+        game.phase_deadline = None
         game.results = {
             "winning_teams": result.winning_teams,
             "reason": result.reason,
             "eliminated_players": result.eliminated_players,
             "player_outcomes": {str(k): v for k, v in result.player_outcomes.items()},
         }
-        game.save(update_fields=["phase", "results", "updated_at"])
+        game.save(update_fields=["phase", "phase_deadline", "results", "updated_at"])
 
     # Broadcast game results
     if channel_layer is not None:

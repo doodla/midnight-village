@@ -192,12 +192,13 @@ class TestGameConsumerConnect(TransactionTestCase):
         # Send a broadcast message to all players
         await channel_layer.group_send(
             f"game_{game.id}",
-            {"type": "wave.start", "wave": 2},
+            {"type": "wave.start", "wave": 2, "deadline": None},
         )
 
         response = await communicator.receive_json_from(timeout=2)
         assert response["type"] == "wave_start"
         assert response["wave"] == 2
+        assert "deadline" in response
 
         await communicator.disconnect()
 

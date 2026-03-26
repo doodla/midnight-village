@@ -56,10 +56,22 @@ class GameMeSerializer(serializers.Serializer):
     game_id = serializers.UUIDField(source="id")
     phase = serializers.CharField()
     current_wave = serializers.IntegerField()
+    deadline = serializers.SerializerMethodField()
     your_role = serializers.SerializerMethodField()
     has_voted = serializers.SerializerMethodField()
     players = serializers.SerializerMethodField()
     action_prompt = serializers.SerializerMethodField()
+
+    def get_deadline(self, game: Game) -> str | None:
+        """
+        Return the ISO 8601 deadline for the current phase, or None if untimed.
+
+        Exposes game.phase_deadline so reconnecting clients know how much time
+        remains for the current phase or wave.
+        """
+        if game.phase_deadline is not None:
+            return game.phase_deadline.isoformat()
+        return None
 
     def get_your_role(self, game: Game) -> dict:
         """Get the requesting player's role data."""
