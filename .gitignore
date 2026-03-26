@@ -34,4 +34,10 @@ Thumbs.db
 .kittify/merge-state.json
 .kittify/events/
 .kittify/dossiers/
+.kittify/workspaces/
+.kittify/constitution/context-state.json
+.kittify/constitution/governance.yaml
+.kittify/constitution/directives.yaml
+.kittify/constitution/metadata.yaml
+.kittify/constitution/references.yaml
 kitty-specs/**/.kittify/dossiers/
