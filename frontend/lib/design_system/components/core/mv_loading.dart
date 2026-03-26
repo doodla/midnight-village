@@ -23,7 +23,7 @@ class MvLoading extends ConsumerWidget {
             valueColor: AlwaysStoppedAnimation<Color>(tokens.colors.primary),
           ),
           if (message != null) ...[
-            SizedBox(height: tokens.spacing.m),
+            SizedBox(height: tokens.spacing.md),
             Text(
               message!,
               style: tokens.typography.body.copyWith(

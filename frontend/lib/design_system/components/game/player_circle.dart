@@ -61,8 +61,8 @@ class PlayerCircle extends ConsumerWidget {
 
     return Wrap(
       alignment: WrapAlignment.center,
-      spacing: tokens.spacing.m,
-      runSpacing: tokens.spacing.m,
+      spacing: tokens.spacing.md,
+      runSpacing: tokens.spacing.md,
       children: players.map((player) {
         // A player is effectively tappable when:
         // - there is a tap callback

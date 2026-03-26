@@ -138,7 +138,7 @@ class _NightActionPromptState extends ConsumerState<NightActionPrompt> {
     final tokens = ref.watch(activeThemeProvider);
 
     return Padding(
-      padding: EdgeInsets.all(tokens.spacing.m),
+      padding: EdgeInsets.all(tokens.spacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -157,7 +157,7 @@ class _NightActionPromptState extends ConsumerState<NightActionPrompt> {
           // Bottom: countdown timer.
           GameTimer(timeRemaining: widget.timeRemaining),
 
-          SizedBox(height: tokens.spacing.m),
+          SizedBox(height: tokens.spacing.md),
         ],
       ),
     );
@@ -267,7 +267,7 @@ class _RoleIdentityStrip extends StatelessWidget {
     return Row(
       children: [
         RoleCard(roleId: role, small: true),
-        SizedBox(width: tokens.spacing.m),
+        SizedBox(width: tokens.spacing.md),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,14 +330,14 @@ class _ActionScaffold extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
 
-        SizedBox(height: tokens.spacing.l),
+        SizedBox(height: tokens.spacing.lg),
 
         // Interactive content.
         Expanded(
           child: Center(child: body),
         ),
 
-        SizedBox(height: tokens.spacing.l),
+        SizedBox(height: tokens.spacing.lg),
 
         // Confirm button — disabled until a valid selection exists.
         MvButton(
@@ -348,7 +348,7 @@ class _ActionScaffold extends StatelessWidget {
 
         // Optional skip button.
         if (onSkip != null) ...[
-          SizedBox(height: tokens.spacing.s),
+          SizedBox(height: tokens.spacing.sm),
           MvButton(
             label: 'Skip',
             onPressed: onSkip,
@@ -613,7 +613,7 @@ class _LoneWerewolfMessage extends StatelessWidget {
               size: 48,
               color: tokens.colors.werewolfTeam,
             ),
-            SizedBox(height: tokens.spacing.m),
+            SizedBox(height: tokens.spacing.md),
             Text(
               'No other werewolves.',
               style: tokens.typography.body.copyWith(
@@ -647,8 +647,8 @@ class _TeammateList extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: tokens.spacing.xs),
               child: Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: tokens.spacing.m,
-                  vertical: tokens.spacing.s,
+                  horizontal: tokens.spacing.md,
+                  vertical: tokens.spacing.sm,
                 ),
                 decoration: BoxDecoration(
                   color: tokens.colors.surface,
@@ -663,7 +663,7 @@ class _TeammateList extends StatelessWidget {
                       size: 20,
                       color: tokens.colors.onSurface,
                     ),
-                    SizedBox(width: tokens.spacing.s),
+                    SizedBox(width: tokens.spacing.sm),
                     Text(
                       teammate.displayName,
                       style: tokens.typography.body.copyWith(
@@ -727,7 +727,7 @@ class _AtmosphericWaiting extends StatelessWidget {
               size: 64,
               color: tokens.colors.villageTeam,
             ),
-            SizedBox(height: tokens.spacing.m),
+            SizedBox(height: tokens.spacing.md),
             Text(
               'The village sleeps…',
               style: tokens.typography.subheading.copyWith(

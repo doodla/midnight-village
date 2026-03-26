@@ -153,7 +153,7 @@ class MvDialog extends ConsumerWidget {
             color: tokens.colors.error,
             size: 48,
           ),
-          SizedBox(height: tokens.spacing.s),
+          SizedBox(height: tokens.spacing.sm),
           titleWidget,
         ],
       );

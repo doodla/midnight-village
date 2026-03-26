@@ -21,6 +21,12 @@ class TestThemeTokens implements AppTokens {
 
   @override
   AppElevationTokens get elevation => const TestElevationTokens();
+
+  @override
+  AppRadiusTokens get radius => const TestRadiusTokens();
+
+  @override
+  AppDecorationTokens get decorations => TestDecorationTokens();
 }
 
 class TestColorTokens implements AppColorTokens {
@@ -82,6 +88,37 @@ class TestColorTokens implements AppColorTokens {
 
   @override
   Color get cardBack => const Color(0xFF222222);
+
+  // Extended Firelit Gothic colors
+  @override
+  Color get tertiary => const Color(0xFF00FFFF);
+
+  @override
+  Color get nightBg => const Color(0xFF000011);
+
+  @override
+  Color get lobbyBg => const Color(0xFF000022);
+
+  @override
+  Color get discussionBg => const Color(0xFF000033);
+
+  @override
+  Color get votingBg => const Color(0xFF000044);
+
+  @override
+  Color get resultsBg => const Color(0xFF000055);
+
+  @override
+  Color get surfaceDark => const Color(0xFF111111);
+
+  @override
+  Color get danger => const Color(0xFFFF0000);
+
+  @override
+  Color get warning => const Color(0xFFFF8800);
+
+  @override
+  Color get noDeathBlue => const Color(0xFF0000FF);
 }
 
 class TestTypographyTokens implements AppTypographyTokens {
@@ -110,6 +147,23 @@ class TestTypographyTokens implements AppTypographyTokens {
   @override
   TextStyle get label =>
       const TextStyle(fontSize: 16, fontWeight: FontWeight.w500);
+
+  // Extended Firelit Gothic typography
+  @override
+  TextStyle get timerDigits =>
+      const TextStyle(fontSize: 60, fontWeight: FontWeight.w700);
+
+  @override
+  TextStyle get lobbyCode =>
+      const TextStyle(fontSize: 36, fontWeight: FontWeight.w500);
+
+  @override
+  TextStyle get phaseLabel =>
+      const TextStyle(fontSize: 10, fontWeight: FontWeight.w500);
+
+  @override
+  TextStyle get serifAccent =>
+      const TextStyle(fontSize: 14, fontStyle: FontStyle.italic);
 }
 
 class TestSpacingTokens implements AppSpacingTokens {
@@ -119,19 +173,22 @@ class TestSpacingTokens implements AppSpacingTokens {
   double get xs => 8.0;
 
   @override
-  double get s => 16.0;
+  double get sm => 16.0;
 
   @override
-  double get m => 32.0;
+  double get md => 32.0;
 
   @override
-  double get l => 48.0;
+  double get lg => 48.0;
 
   @override
   double get xl => 64.0;
 
   @override
   double get xxl => 96.0;
+
+  @override
+  double get xxxl => 128.0;
 }
 
 class TestElevationTokens implements AppElevationTokens {
@@ -148,4 +205,58 @@ class TestElevationTokens implements AppElevationTokens {
 
   @override
   double get overlay => 24.0;
+}
+
+class TestRadiusTokens implements AppRadiusTokens {
+  const TestRadiusTokens();
+
+  @override
+  BorderRadius get small => const BorderRadius.all(Radius.circular(2));
+
+  @override
+  BorderRadius get medium => const BorderRadius.all(Radius.circular(4));
+
+  @override
+  BorderRadius get large => const BorderRadius.all(Radius.circular(6));
+
+  @override
+  BorderRadius get xl => const BorderRadius.all(Radius.circular(8));
+
+  @override
+  BorderRadius get full => const BorderRadius.all(Radius.circular(500));
+}
+
+class TestDecorationTokens implements AppDecorationTokens {
+  @override
+  List<BoxShadow> get fireGlow => const [
+    BoxShadow(color: Color(0x1100FF00), blurRadius: 10),
+  ];
+
+  @override
+  List<BoxShadow> get selectionGlow => const [
+    BoxShadow(color: Color(0x11FF00FF), blurRadius: 8),
+  ];
+
+  @override
+  List<BoxShadow> get dangerGlow => const [
+    BoxShadow(color: Color(0x11FF0000), blurRadius: 8),
+  ];
+
+  @override
+  Gradient get visionGlow => const LinearGradient(
+    colors: [Color(0x1100FF00), Colors.transparent],
+  );
+
+  @override
+  Gradient get bloodVignette => const LinearGradient(
+    colors: [Colors.transparent, Color(0x11FF0000)],
+  );
+
+  @override
+  Gradient get candleGlow => const LinearGradient(
+    colors: [Colors.transparent, Color(0xFF111111)],
+  );
+
+  @override
+  String get noiseOverlayAsset => 'assets/textures/noise_grain.png';
 }

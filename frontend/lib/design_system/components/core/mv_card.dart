@@ -32,7 +32,7 @@ class MvCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12.0),
       ),
       child: Padding(
-        padding: padding ?? EdgeInsets.all(tokens.spacing.m),
+        padding: padding ?? EdgeInsets.all(tokens.spacing.md),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

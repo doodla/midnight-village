@@ -19,7 +19,7 @@ class MvError extends ConsumerWidget {
 
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(tokens.spacing.m),
+        padding: EdgeInsets.all(tokens.spacing.md),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -28,7 +28,7 @@ class MvError extends ConsumerWidget {
               color: tokens.colors.error,
               size: 48,
             ),
-            SizedBox(height: tokens.spacing.m),
+            SizedBox(height: tokens.spacing.md),
             Text(
               message,
               style: tokens.typography.body.copyWith(
@@ -37,7 +37,7 @@ class MvError extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
             if (onRetry != null) ...[
-              SizedBox(height: tokens.spacing.m),
+              SizedBox(height: tokens.spacing.md),
               MvButton(
                 label: 'Retry',
                 onPressed: onRetry,

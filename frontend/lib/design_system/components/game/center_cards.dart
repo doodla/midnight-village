@@ -69,7 +69,7 @@ class _CenterCardsState extends ConsumerState<CenterCards> {
 
           return Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: tokens.spacing.s,
+              horizontal: tokens.spacing.sm,
             ),
             child: _CenterCardTile(
               index: index,

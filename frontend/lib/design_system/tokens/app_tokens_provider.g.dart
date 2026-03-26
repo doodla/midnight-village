@@ -41,7 +41,7 @@ final class ActiveThemeProvider
   }
 }
 
-String _$activeThemeHash() => r'7341665b22f1663391d8070def5fb3e515fef359';
+String _$activeThemeHash() => r'01fff0b651316dbf600c725ac0753327845580ad';
 
 abstract class _$ActiveTheme extends $Notifier<AppTokens> {
   AppTokens build();

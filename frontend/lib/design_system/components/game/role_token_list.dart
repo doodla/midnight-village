@@ -34,7 +34,7 @@ class _RoleBadge extends ConsumerWidget {
 
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: tokens.spacing.s,
+        horizontal: tokens.spacing.sm,
         vertical: tokens.spacing.xs,
       ),
       decoration: BoxDecoration(

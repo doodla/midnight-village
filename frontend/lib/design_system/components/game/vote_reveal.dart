@@ -45,7 +45,7 @@ class VoteReveal extends ConsumerWidget {
     }
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(tokens.spacing.m),
+      padding: EdgeInsets.all(tokens.spacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -58,7 +58,7 @@ class VoteReveal extends ConsumerWidget {
               color: tokens.colors.onBackground,
             ),
           ),
-          SizedBox(height: tokens.spacing.s),
+          SizedBox(height: tokens.spacing.sm),
           ...votes.map(
             (vote) => Padding(
               padding: EdgeInsets.only(bottom: tokens.spacing.xs),
@@ -71,7 +71,7 @@ class VoteReveal extends ConsumerWidget {
             ),
           ),
 
-          SizedBox(height: tokens.spacing.l),
+          SizedBox(height: tokens.spacing.lg),
 
           // ----------------------------------------------------------------
           // Tally section
@@ -82,7 +82,7 @@ class VoteReveal extends ConsumerWidget {
               color: tokens.colors.onBackground,
             ),
           ),
-          SizedBox(height: tokens.spacing.s),
+          SizedBox(height: tokens.spacing.sm),
           ...sortedTally.map((entry) {
             final playerName = nameById[entry.key] ?? entry.key;
             final isTopVoted = entry.value == maxVotes && maxVotes > 0;
@@ -119,7 +119,7 @@ class VoteReveal extends ConsumerWidget {
             );
           }),
 
-          SizedBox(height: tokens.spacing.l),
+          SizedBox(height: tokens.spacing.lg),
 
           // ----------------------------------------------------------------
           // Elimination outcome
@@ -140,7 +140,7 @@ class VoteReveal extends ConsumerWidget {
             ),
           ],
 
-          SizedBox(height: tokens.spacing.m),
+          SizedBox(height: tokens.spacing.md),
         ],
       ),
     );

@@ -30,6 +30,10 @@ dependencies:
   # SVG support
   flutter_svg: ^2.0.0
 
+  # Design system fonts
+  google_fonts: ^6.2.1
+  material_symbols_icons: ^4.2800.0
+
   # Logging
   logger: ^2.6.2
 
@@ -63,6 +67,7 @@ flutter:
   assets:
     - assets/themes/midnight-village/
     - assets/themes/_placeholder/
+    - assets/textures/
 
   fonts:
     - family: PlayfairDisplay
