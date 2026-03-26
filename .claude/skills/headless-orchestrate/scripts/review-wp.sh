@@ -14,7 +14,7 @@ START_TIME=$(date +%s)
 
 # Step 1: Get review prompt via spec-kitty
 acquire_lock
-OUTPUT=$(spec-kitty agent workflow review "$WP_ID" --agent headless-reviewer 2>&1) || {
+OUTPUT=$(spec-kitty agent workflow review "$WP_ID" --feature "$FEATURE_SLUG" --agent headless-reviewer 2>&1) || {
   release_lock
   log "$WP_ID" "Failed to start review: $OUTPUT"
   exit 1
@@ -76,6 +76,15 @@ LANE=$(get_wp_lane "$WP_ID")
 case "$LANE" in
   done)
     log "$WP_ID" "Review APPROVED"
+    exit 0
+    ;;
+  approved)
+    log "$WP_ID" "Review APPROVED (in approved lane) — transitioning to done"
+    safe_state_cmd spec-kitty orchestrator-api transition \
+      --feature "$FEATURE_SLUG" --wp "$WP_ID" --to done \
+      --actor "headless-orchestrator" --force \
+      --review-ref "headless-review-approved" \
+      --note "Transitioned from approved to done by headless orchestrator" || true
     exit 0
     ;;
   planned)

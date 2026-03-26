@@ -2,7 +2,7 @@
 
 How the autonomous development system works, why each piece exists, and how they connect.
 
-**Last updated:** 2026-03-24
+**Last updated:** 2026-03-26
 **Update rule:** This document MUST be updated whenever agents, skills, hooks, or the orchestration workflow changes. If you modify anything in `.claude/`, update this doc in the same commit.
 
 ## The Problem
@@ -109,6 +109,15 @@ This system addresses each failure mode with a specific mechanism.
 **Why skills and not agents:** Skills run in the main conversation, which is the only context that can spawn agents. An orchestrator-as-agent couldn't coordinate because agents can't spawn other agents. This is a hard constraint of Claude Code's architecture.
 
 **`/headless-orchestrate` details:** Automates the full spec-kitty lifecycle after `/spec-kitty.specify` — planning, task breakdown, implementation, review, acceptance, and merge. Runs bash scripts that spawn separate `claude -p` processes. Stage 1 (planning) drives the `spec-kitty next` state machine through plan → tasks-outline → tasks-packages → tasks-finalize. Stage 2 (implementation) polls `orchestrator-api list-ready` and runs implement/review per WP. Uses Opus for planning and analysis (needs deeper reasoning), Sonnet for implementation/review (cost-effective). Features: analysis gate with same-session fix loop, POSIX-portable locking for parallel safety, automatic retry on review rejection, fully resumable. Scripts live in `.claude/skills/headless-orchestrate/scripts/`.
+
+**Hardening (2026-03-26):** Several robustness fixes applied during the first real multi-WP orchestration run:
+- **stderr isolation:** All `spec-kitty` CLI calls that capture output now redirect stderr to `$LOG_FILE` instead of `2>&1`. The original pattern caused spec-kitty warnings (e.g., constitution sync) to corrupt JSON output, breaking `jq` parsing. This was the root cause of spurious "invalid JSON" failures.
+- **Infinite loop protection:** Phase 4 execution loop has `MAX_ROUNDS=50` and consecutive failure detection (3 all-fail rounds = abort). Prevents runaway loops when workspace creation fails repeatedly.
+- **Bash 3.2 array safety:** Empty array expansions (`${IMPL_FAILED[@]}`, `${FAILED_WPS[@]}`) guarded with `${arr[@]+x}` pattern for macOS bash compatibility with `set -u`.
+- **Orphan WP recovery:** Phase 3 preflight now handles WPs stranded in `for_review` or `approved` lanes from previous crashed runs — reviews orphans and transitions `approved` → `done`.
+- **Feature slug propagation:** `--feature "$FEATURE_SLUG"` added to `implement-wp.sh` and `review-wp.sh` calls to `spec-kitty agent workflow`, preventing ambiguity when multiple features exist.
+- **Constitution auto-sync:** Phase 0 preflight runs `spec-kitty constitution sync` automatically.
+- **Known issue:** Spec-kitty worktree setup does not symlink `.kittify/constitution/` (filed as [spec-kitty#339](https://github.com/Priivacy-ai/spec-kitty/issues/339)). Workaround: the stderr isolation fix prevents the stale-hash warning from breaking JSON parsing.
 
 **Why the challenger is in the skill, not a hook:** Hooks can't spawn agents — they can only run commands or prompts. The challenger needs to read files, understand context, and reason deeply. So it's an agent that the skill explicitly invokes at defined checkpoints.
 

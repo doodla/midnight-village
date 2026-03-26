@@ -108,7 +108,7 @@ detect_feature() {
     return 0
   fi
   local json
-  json=$(spec-kitty agent tasks list-tasks --json 2>/dev/null) || {
+  json=$(spec-kitty agent tasks list-tasks --json 2>>"${LOG_FILE:-/dev/null}") || {
     # Write to stderr — this function is called in $() so stdout = return value
     echo "[DETECT] Failed to list tasks" >&2
     return 1
@@ -127,7 +127,7 @@ detect_feature() {
 
 # --- State queries (via orchestrator-api) ---
 get_feature_state_json() {
-  spec-kitty orchestrator-api feature-state --feature "$FEATURE_SLUG" 2>/dev/null
+  spec-kitty orchestrator-api feature-state --feature "$FEATURE_SLUG" 2>>"${LOG_FILE:-/dev/null}"
 }
 
 get_wp_lane() {
@@ -138,7 +138,7 @@ get_wp_lane() {
 
 get_ready_wps() {
   local result
-  result=$(spec-kitty orchestrator-api list-ready --feature "$FEATURE_SLUG" 2>&1) || {
+  result=$(spec-kitty orchestrator-api list-ready --feature "$FEATURE_SLUG" 2>>"$LOG_FILE") || {
     log "STATE" "list-ready failed: $result"
     return 1
   }

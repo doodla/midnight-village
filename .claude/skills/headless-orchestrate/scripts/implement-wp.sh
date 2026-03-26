@@ -14,7 +14,7 @@ START_TIME=$(date +%s)
 
 # Step 1: Create worktree and get prompt via spec-kitty
 acquire_lock
-OUTPUT=$(spec-kitty agent workflow implement "$WP_ID" --agent headless-impl 2>&1) || {
+OUTPUT=$(spec-kitty agent workflow implement "$WP_ID" --feature "$FEATURE_SLUG" --agent headless-impl 2>&1) || {
   release_lock
   log "$WP_ID" "Failed to create workspace: $OUTPUT"
   exit 1

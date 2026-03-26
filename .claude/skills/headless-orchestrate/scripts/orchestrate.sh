@@ -36,6 +36,8 @@ if ! command -v spec-kitty &>/dev/null; then
   exit 1
 fi
 
+spec-kitty constitution sync 2>>"$LOG_FILE" | grep -q "synced" && log "ORCHESTRATE" "Constitution synced" || true
+
 # ===============================================================================
 # Phase 1: Planning (drive spec-kitty next through plan → tasks_finalize)
 # ===============================================================================
@@ -66,7 +68,7 @@ while true; do
   if [[ -n "$PREV_RESULT" ]]; then
     NEXT_ARGS+=(--result "$PREV_RESULT")
   fi
-  NEXT_JSON=$(spec-kitty next "${NEXT_ARGS[@]}" 2>&1) || {
+  NEXT_JSON=$(spec-kitty next "${NEXT_ARGS[@]}" 2>>"$LOG_FILE") || {
     log "ORCHESTRATE" "FATAL: spec-kitty next failed: $NEXT_JSON"
     exit 1
   }
@@ -203,6 +205,43 @@ for wp in $STUCK_WPS; do
   }
 done
 
+# Transition orphaned approved WPs to done (from crashed runs)
+APPROVED_WPS=$(echo "$STATE_JSON" \
+  | jq -r '.data.work_packages[] | select(.lane == "approved") | .wp_id')
+
+for wp in $APPROVED_WPS; do
+  log "ORCHESTRATE" "Transitioning orphaned approved WP $wp -> done"
+  safe_state_cmd spec-kitty orchestrator-api transition \
+    --feature "$FEATURE_SLUG" --wp "$wp" --to done \
+    --actor "headless-orchestrator" --force \
+    --review-ref "headless-review-approved" \
+    --note "Orphaned approved WP transitioned to done by headless orchestrator" 2>/dev/null || {
+    log "ORCHESTRATE" "WARNING: Could not transition $wp to done, skipping"
+  }
+done
+
+# Review orphaned for_review WPs (from crashed runs)
+ORPHAN_REVIEW_WPS=$(echo "$STATE_JSON" \
+  | jq -r '.data.work_packages[] | select(.lane == "for_review") | .wp_id')
+
+for wp in $ORPHAN_REVIEW_WPS; do
+  log "ORCHESTRATE" "Reviewing orphaned for_review WP $wp"
+  if "$SCRIPTS_DIR/review-wp.sh" "$wp"; then
+    log "ORCHESTRATE" "Orphaned WP $wp review passed"
+  else
+    review_exit=$?
+    if (( review_exit == 2 )); then
+      log "ORCHESTRATE" "Orphaned WP $wp rejected — will retry in execution phase"
+    else
+      log "ORCHESTRATE" "WARNING: Orphaned WP $wp review failed (exit=$review_exit)"
+    fi
+  fi
+done
+
+# Refresh state after orphan handling
+STATE_JSON=$(get_feature_state_json)
+SUMMARY=$(echo "$STATE_JSON" | jq -r '.data.summary')
+
 # Check if there's work to do
 PLANNED_COUNT=$(echo "$SUMMARY" | jq -r '.planned // 0')
 DONE_COUNT=$(echo "$SUMMARY" | jq -r '.done // 0')
@@ -224,8 +263,16 @@ log "ORCHESTRATE" "Implementation preflight complete: $PLANNED_COUNT planned, $D
 # ===============================================================================
 log "ORCHESTRATE" "=== Phase 4: Execute ==="
 
+MAX_ROUNDS=50
+CONSECUTIVE_FAILURES=0
+MAX_CONSECUTIVE_FAILURES=3
 ROUND=0
 while true; do
+  if (( ROUND >= MAX_ROUNDS )); then
+    log "ORCHESTRATE" "FATAL: Exceeded $MAX_ROUNDS rounds — aborting"
+    FAILED_WPS+=("MAX_ROUNDS_EXCEEDED")
+    break
+  fi
   READY_WPS=$(get_ready_wps)
 
   if [[ -z "$READY_WPS" ]]; then
@@ -277,9 +324,11 @@ while true; do
   review_wps=()
   for wp in "${round_wps[@]}"; do
     impl_failed=false
-    for failed in "${IMPL_FAILED[@]}"; do
-      [[ "$failed" == "$wp" ]] && { impl_failed=true; break; }
-    done
+    if [[ ${IMPL_FAILED[@]+x} ]]; then
+      for failed in "${IMPL_FAILED[@]}"; do
+        [[ "$failed" == "$wp" ]] && { impl_failed=true; break; }
+      done
+    fi
     if $impl_failed; then
       log "$wp" "Skipping review (implementation failed)"
       FAILED_WPS+=("$wp")
@@ -349,6 +398,23 @@ while true; do
     done
   fi
 
+  # Track consecutive failures
+  if [[ ${IMPL_FAILED[@]+x} ]]; then
+    ROUND_FAILURES=${#IMPL_FAILED[@]}
+  else
+    ROUND_FAILURES=0
+  fi
+  if (( ROUND_FAILURES == ${#round_wps[@]} )); then
+    CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
+    log "ORCHESTRATE" "All WPs failed this round (consecutive=$CONSECUTIVE_FAILURES/$MAX_CONSECUTIVE_FAILURES)"
+    if (( CONSECUTIVE_FAILURES >= MAX_CONSECUTIVE_FAILURES )); then
+      log "ORCHESTRATE" "FATAL: $MAX_CONSECUTIVE_FAILURES consecutive all-fail rounds — aborting"
+      break
+    fi
+  else
+    CONSECUTIVE_FAILURES=0
+  fi
+
   log "ORCHESTRATE" "Round $ROUND complete"
   ROUND=$((ROUND + 1))
 done
@@ -358,8 +424,13 @@ done
 # ===============================================================================
 log "ORCHESTRATE" "=== Phase 5: Accept & Merge ==="
 
-if (( ${#FAILED_WPS[@]} > 0 )); then
-  log "ORCHESTRATE" "WARNING: ${#FAILED_WPS[@]} WPs failed: ${FAILED_WPS[*]}"
+if [[ ${FAILED_WPS[@]+x} ]]; then
+  FAILED_COUNT=${#FAILED_WPS[@]}
+else
+  FAILED_COUNT=0
+fi
+if (( FAILED_COUNT > 0 )); then
+  log "ORCHESTRATE" "WARNING: $FAILED_COUNT WPs failed: ${FAILED_WPS[*]}"
   log "ORCHESTRATE" "Cannot accept -- not all WPs completed successfully"
   spec-kitty agent tasks status >> "$LOG_FILE" 2>&1
   exit 1
