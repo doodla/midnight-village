@@ -139,10 +139,10 @@
 **Requirements Refs**: FR-008, FR-012, FR-006
 
 ### Included Subtasks
-- [ ] T019 Write widget tests for `AtmosphericBackground` in `frontend/test/design_system/components/foundation/atmospheric_background_test.dart`: test all 5 phases render correct background color, noise overlay visibility, glow effect visibility, child rendering, token consumption via `TestThemeTokens`
-- [ ] T020 Implement `AtmosphericBackground` ConsumerWidget in `frontend/lib/design_system/components/foundation/atmospheric_background.dart` per contract spec: Stack with solid color → glow gradient → noise overlay → child
-- [ ] T021 Write tests verifying `AppShadows.fireGlow`, `AppDecorations.visionGlow`, `AppDecorations.bloodVignette`, and `AppDecorations.candleGlow` render on containers without errors
-- [ ] T022 Verify all acceptance scenarios for User Story 2 (5 phase backgrounds) and User Story 6 (decorative effects as tokens)
+- [x] T019 Write widget tests for `AtmosphericBackground` in `frontend/test/design_system/components/foundation/atmospheric_background_test.dart`: test all 5 phases render correct background color, noise overlay visibility, glow effect visibility, child rendering, token consumption via `TestThemeTokens`
+- [x] T020 Implement `AtmosphericBackground` ConsumerWidget in `frontend/lib/design_system/components/foundation/atmospheric_background.dart` per contract spec: Stack with solid color → glow gradient → noise overlay → child
+- [x] T021 Write tests verifying `AppShadows.fireGlow`, `AppDecorations.visionGlow`, `AppDecorations.bloodVignette`, and `AppDecorations.candleGlow` render on containers without errors
+- [x] T022 Verify all acceptance scenarios for User Story 2 (5 phase backgrounds) and User Story 6 (decorative effects as tokens)
 
 ### Implementation Notes
 - TEST_FIRST: T019 and T021 write tests before T020 implements the widget
@@ -371,5 +371,5 @@ WP03 (Themes & Bridge)
 ## Canonical Status (Generated)
 - WP01: done
 - WP02: done
-- WP03: approved
+- WP03: done
 <!-- status-model:end -->
