@@ -32,11 +32,11 @@
 **Requirements Refs**: FR-012, FR-013
 
 ### Included Subtasks
-- [ ] T001 Add `google_fonts` and `material_symbols_icons` dependencies to `frontend/pubspec.yaml`
-- [ ] T002 Expand abstract token interfaces in `frontend/lib/design_system/tokens/app_tokens.dart`: add 10 new color getters to `AppColorTokens`, add 4 new typography getters to `AppTypographyTokens`, rename `AppSpacingTokens` to 7-step scale (s→sm, m→lg, l→xl, xl→xxl, xxl→xxxl, add md), create `AppRadiusTokens` interface, create `AppDecorationTokens` interface, add `radius` and `decorations` to `AppTokens` root
-- [ ] T003 [P] Create `AvatarSize` enum in `frontend/lib/design_system/models/avatar_size.dart` with small (32dp), medium (48dp), large (64dp)
-- [ ] T004 [P] Add pre-rendered `noise_grain.png` texture (512x512 tileable) to `frontend/assets/textures/` and register in `pubspec.yaml` assets
-- [ ] T005 [P] Configure `frontend/test/flutter_test_config.dart` to disable Google Fonts runtime fetching (`GoogleFonts.config.allowRuntimeFetching = false`)
+- [x] T001 Add `google_fonts` and `material_symbols_icons` dependencies to `frontend/pubspec.yaml`
+- [x] T002 Expand abstract token interfaces in `frontend/lib/design_system/tokens/app_tokens.dart`: add 10 new color getters to `AppColorTokens`, add 4 new typography getters to `AppTypographyTokens`, rename `AppSpacingTokens` to 7-step scale (s→sm, m→lg, l→xl, xl→xxl, xxl→xxxl, add md), create `AppRadiusTokens` interface, create `AppDecorationTokens` interface, add `radius` and `decorations` to `AppTokens` root
+- [x] T003 [P] Create `AvatarSize` enum in `frontend/lib/design_system/models/avatar_size.dart` with small (32dp), medium (48dp), large (64dp)
+- [x] T004 [P] Add pre-rendered `noise_grain.png` texture (512x512 tileable) to `frontend/assets/textures/` and register in `pubspec.yaml` assets
+- [x] T005 [P] Configure `frontend/test/flutter_test_config.dart` to disable Google Fonts runtime fetching (`GoogleFonts.config.allowRuntimeFetching = false`)
 
 ### Implementation Notes
 - T002 is the critical subtask — it defines the expanded contract that every downstream WP targets
