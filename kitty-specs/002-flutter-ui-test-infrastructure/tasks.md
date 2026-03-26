@@ -64,11 +64,11 @@
 **Requirements Refs**: FR-005, FR-006, FR-008
 
 ### Included Subtasks
-- [ ] T006 [P] Create `frontend/test/helpers/mock_http_client.dart` — custom Dio `Interceptor` that matches request path + method against a registry of canned `Response` objects; throws `UnmockedEndpointException` on any unregistered request (fail loud per spec edge cases)
-- [ ] T007 [P] Create `frontend/test/helpers/mock_websocket.dart` — fake `WebSocketChannel` backed by `StreamController` pairs; exposes `addServerEvent(dynamic data)` for injecting server events and `List<dynamic> sentMessages` for capturing client-sent messages; supports `close()` lifecycle
-- [ ] T008 [P] Create `frontend/test/helpers/timer_control.dart` — utility wrapping `FakeAsync` that allows tests to advance time (e.g., `advanceBy(Duration)`) for countdown and auto-transition testing without real delays
-- [ ] T009 Write tests for mock HTTP in `frontend/test/helpers/mock_http_client_test.dart`: verify canned response return, verify throw on unmocked endpoint, verify path+method matching
-- [ ] T010 Write tests for mock WebSocket in `frontend/test/helpers/mock_websocket_test.dart`: verify event injection reaches stream listeners, verify sent message capture, verify close lifecycle
+- [x] T006 [P] Create `frontend/test/helpers/mock_http_client.dart` — custom Dio `Interceptor` that matches request path + method against a registry of canned `Response` objects; throws `UnmockedEndpointException` on any unregistered request (fail loud per spec edge cases)
+- [x] T007 [P] Create `frontend/test/helpers/mock_websocket.dart` — fake `WebSocketChannel` backed by `StreamController` pairs; exposes `addServerEvent(dynamic data)` for injecting server events and `List<dynamic> sentMessages` for capturing client-sent messages; supports `close()` lifecycle
+- [x] T008 [P] Create `frontend/test/helpers/timer_control.dart` — utility wrapping `FakeAsync` that allows tests to advance time (e.g., `advanceBy(Duration)`) for countdown and auto-transition testing without real delays
+- [x] T009 Write tests for mock HTTP in `frontend/test/helpers/mock_http_client_test.dart`: verify canned response return, verify throw on unmocked endpoint, verify path+method matching
+- [x] T010 Write tests for mock WebSocket in `frontend/test/helpers/mock_websocket_test.dart`: verify event injection reaches stream listeners, verify sent message capture, verify close lifecycle
 - [ ] T010a Write tests for timer control in `frontend/test/helpers/timer_control_test.dart`: verify `advanceBy(Duration)` advances fake time, verify interaction with `Timer` and `Stream.periodic` patterns, verify no real delay occurs
 
 ### Implementation Notes
