@@ -172,12 +172,12 @@
 **Requirements Refs**: FR-004, FR-005, FR-009, FR-011, FR-012
 
 ### Included Subtasks
-- [ ] T021 Add `integration_test` (Flutter SDK) to `frontend/pubspec.yaml` dev_dependencies; create `frontend/integration_test/` directory structure per plan
-- [ ] T022 Create `frontend/integration_test/helpers/integration_test_helper.dart` — app bootstrap utility that initializes `IntegrationTestWidgetsFlutterBinding`, wires mock HTTP client, and provides `launchApp()` function
-- [ ] T023 Create navigation assertion utilities in integration test helper — `expectRoute(String path)`, `waitForNavigation(String path)` that work with GoRouter's `routerDelegate`
-- [ ] T024 Write integration test `frontend/integration_test/auth_flow_test.dart` — launch app → verify welcome screen → enter player name → tap enter → assert home screen reached; uses mock HTTP for auth endpoint
-- [ ] T025 Configure screenshot capture on test failure — save to `frontend/integration_test/screenshots/`; add `screenshots/` to `frontend/.gitignore`
-- [ ] T026 Add `flutter-test-integration` command to `frontend/justfile` — runs integration tests on Chrome headless via `flutter test integration_test/ -d chrome`
+- [x] T021 Add `integration_test` (Flutter SDK) to `frontend/pubspec.yaml` dev_dependencies; create `frontend/integration_test/` directory structure per plan
+- [x] T022 Create `frontend/integration_test/helpers/integration_test_helper.dart` — app bootstrap utility that initializes `IntegrationTestWidgetsFlutterBinding`, wires mock HTTP client, and provides `launchApp()` function
+- [x] T023 Create navigation assertion utilities in integration test helper — `expectRoute(String path)`, `waitForNavigation(String path)` that work with GoRouter's `routerDelegate`
+- [x] T024 Write integration test `frontend/integration_test/auth_flow_test.dart` — launch app → verify welcome screen → enter player name → tap enter → assert home screen reached; uses mock HTTP for auth endpoint
+- [x] T025 Configure screenshot capture on test failure — save to `frontend/integration_test/screenshots/`; add `screenshots/` to `frontend/.gitignore`
+- [x] T026 Add `flutter-test-integration` command to `frontend/justfile` — runs integration tests on Chrome headless via `flutter test integration_test/ -d chrome`
 
 ### Implementation Notes
 - `IntegrationTestWidgetsFlutterBinding.ensureInitialized()` must be called at the start of each integration test file
@@ -404,5 +404,5 @@ Phase 3 (Polish):        WP08 ←── all above
 - WP01: done
 - WP02: done
 - WP03: done
-- WP04: approved
+- WP04: done
 <!-- status-model:end -->
