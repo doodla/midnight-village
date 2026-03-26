@@ -69,7 +69,7 @@
 - [x] T008 [P] Create `frontend/test/helpers/timer_control.dart` — utility wrapping `FakeAsync` that allows tests to advance time (e.g., `advanceBy(Duration)`) for countdown and auto-transition testing without real delays
 - [x] T009 Write tests for mock HTTP in `frontend/test/helpers/mock_http_client_test.dart`: verify canned response return, verify throw on unmocked endpoint, verify path+method matching
 - [x] T010 Write tests for mock WebSocket in `frontend/test/helpers/mock_websocket_test.dart`: verify event injection reaches stream listeners, verify sent message capture, verify close lifecycle
-- [ ] T010a Write tests for timer control in `frontend/test/helpers/timer_control_test.dart`: verify `advanceBy(Duration)` advances fake time, verify interaction with `Timer` and `Stream.periodic` patterns, verify no real delay occurs
+- [x] T010a Write tests for timer control in `frontend/test/helpers/timer_control_test.dart`: verify `advanceBy(Duration)` advances fake time, verify interaction with `Timer` and `Stream.periodic` patterns, verify no real delay occurs
 
 ### Implementation Notes
 - Mock HTTP interceptor pattern: `MockHttpClient.when(method: 'GET', path: '/api/v1/me/').thenReturn(Response(data: {...}, statusCode: 200))`
