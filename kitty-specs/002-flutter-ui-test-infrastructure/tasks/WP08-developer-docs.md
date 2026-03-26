@@ -1,7 +1,7 @@
 ---
 work_package_id: WP08
 title: Developer Documentation & Living Examples
-lane: "doing"
+lane: "for_review"
 dependencies: [WP03, WP04, WP05, WP06, WP07]
 requirement_refs: [FR-012]
 planning_base_branch: main
@@ -16,8 +16,8 @@ subtasks:
 - T039
 phase: Phase 3 - Polish
 assignee: ''
-agent: "headless-impl"
-shell_pid: "31555"
+agent: headless-impl
+shell_pid: '31555'
 review_status: ''
 reviewed_by: ''
 history:
@@ -235,3 +235,4 @@ The CLI command updates both frontmatter and activity log automatically.
 
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T07:12:33Z – headless-impl – shell_pid=31555 – lane=doing – Assigned agent via workflow command
+- 2026-03-26T07:16:52Z – headless-impl – shell_pid=31555 – lane=for_review – Ready for review: frontend/test/README.md created with quick-start commands, three-layer test overview, harness API reference, and troubleshooting guide; descriptive template comments added to all 4 example test files; 193 widget tests pass
