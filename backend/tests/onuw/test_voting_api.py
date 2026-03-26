@@ -40,7 +40,7 @@ def _create_game(
         host=host,
         game_type="onuw",
         max_players=10,
-        settings={"roles": {}},
+        settings={"roles": {}, "voting_seconds": 0},
     )
     for user in users.values():
         LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)

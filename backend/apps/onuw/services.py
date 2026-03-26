@@ -533,6 +533,11 @@ def _auto_transition_to_voting(game: Game) -> None:
     transition_to_voting(game)
 
 
+def _auto_reveal_votes(game: Game) -> None:
+    """Auto-reveal votes when the voting timer expires."""
+    reveal_votes(game)
+
+
 def transition_to_voting(game: Game) -> None:
     """Transition from discussion to voting phase."""
     from .engine.phases import validate_phase_transition
@@ -541,21 +546,38 @@ def transition_to_voting(game: Game) -> None:
         msg = f"Cannot transition from {game.phase} to voting."
         raise ValueError(msg)
 
+    voting_seconds = get_timer_seconds(game, "voting_seconds", 120)
+
     with transaction.atomic():
         game.phase = Phase.VOTING
-        game.phase_deadline = None
+        if voting_seconds > 0:
+            game.phase_deadline = timezone.now() + timedelta(seconds=voting_seconds)
+        else:
+            game.phase_deadline = None
         game.save(update_fields=["phase", "phase_deadline", "updated_at"])
 
         # Reset has_acted for all players (tracks vote submission)
         # pyrefly: ignore [missing-attribute]
         game.player_roles.update(has_acted=False, vote_target=None)
 
+    if voting_seconds > 0:
+        callback = timers.make_idempotent_callback(
+            game.id, Phase.VOTING, _auto_reveal_votes
+        )
+        timers.schedule(f"{game.id}:voting", voting_seconds, callback)
+
     # Broadcast phase change to all players
     channel_layer = get_channel_layer()
     if channel_layer is not None:
         async_to_sync(channel_layer.group_send)(
             f"game_{game.id}",
-            {"type": "phase.change", "phase": "voting"},
+            {
+                "type": "phase.change",
+                "phase": "voting",
+                "deadline": game.phase_deadline.isoformat()
+                if game.phase_deadline
+                else None,
+            },
         )
 
 
@@ -634,6 +656,7 @@ def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
     voted_count = game.player_roles.filter(has_acted=True).count()
 
     if voted_count >= total_players:
+        timers.cancel(f"{game.id}:voting")
         reveal_votes(game)
 
     return errors
@@ -651,6 +674,10 @@ def reveal_votes(game: Game) -> None:
     Transitions game to RESULTS phase.
     Broadcasts game_results event.
     """
+    # Cancel the voting timer — covers both the host force-reveal and
+    # the all-voted path (double-cancel is safe).
+    timers.cancel(f"{game.id}:voting")
+
     # Collect vote data
     # pyrefly: ignore [missing-attribute]
     player_roles_qs = game.player_roles.all()
@@ -698,13 +725,14 @@ def reveal_votes(game: Game) -> None:
     # Transition to results phase and store results atomically
     with transaction.atomic():
         game.phase = Phase.RESULTS
+        game.phase_deadline = None
         game.results = {
             "winning_teams": result.winning_teams,
             "reason": result.reason,
             "eliminated_players": result.eliminated_players,
             "player_outcomes": {str(k): v for k, v in result.player_outcomes.items()},
         }
-        game.save(update_fields=["phase", "results", "updated_at"])
+        game.save(update_fields=["phase", "phase_deadline", "results", "updated_at"])
 
     # Broadcast game results
     if channel_layer is not None:

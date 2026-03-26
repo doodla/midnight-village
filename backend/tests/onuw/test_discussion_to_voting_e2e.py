@@ -44,7 +44,7 @@ class TestDiscussionToVotingE2E:
             host=host,
             game_type="onuw",
             max_players=10,
-            settings={"roles": {}},
+            settings={"roles": {}, "voting_seconds": 0},
         )
         for user in [host, p1, p2, p3, p4]:
             LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
