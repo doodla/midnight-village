@@ -1,7 +1,7 @@
 ---
 work_package_id: WP01
 title: Token Interfaces & Project Setup
-lane: "approved"
+lane: done
 dependencies: []
 requirement_refs: [FR-012, FR-013]
 planning_base_branch: main
@@ -20,8 +20,8 @@ phase: Phase 1 - Foundation
 assignee: ''
 agent: headless-reviewer
 shell_pid: '42001'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-26T08:24:14Z'
   lane: planned

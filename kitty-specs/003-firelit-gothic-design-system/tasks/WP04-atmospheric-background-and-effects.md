@@ -1,7 +1,7 @@
 ---
 work_package_id: WP04
 title: AtmosphericBackground & Decorative Effects
-lane: "approved"
+lane: done
 dependencies: [WP03]
 requirement_refs: [FR-008, FR-012, FR-006]
 planning_base_branch: main
@@ -19,8 +19,8 @@ phase: Phase 2 - Foundation Widgets
 assignee: ''
 agent: headless-reviewer
 shell_pid: '93224'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-26T08:24:14Z'
   lane: planned
