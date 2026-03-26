@@ -1,12 +1,15 @@
 ---
 work_package_id: WP02
 title: Discussion Timer Integration
-lane: planned
+lane: "doing"
 dependencies: [WP01]
 requirement_refs: [FR-001, FR-003, FR-004, FR-005, FR-007, FR-008, FR-009, FR-012]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 004-server-phase-timers-WP01
+base_commit: 035f6f12bca69265e4f4c4d7b4a1708811f076a4
+created_at: '2026-03-26T08:59:20.740481+00:00'
 subtasks:
 - T006
 - T007
@@ -18,7 +21,7 @@ subtasks:
 phase: Phase 2 - Timer Integration
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "58693"
 review_status: ''
 reviewed_by: ''
 history:
