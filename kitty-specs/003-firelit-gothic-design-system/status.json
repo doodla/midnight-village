@@ -1,16 +1,16 @@
 {
-  "event_count": 33,
+  "event_count": 34,
   "feature_slug": "003-firelit-gothic-design-system",
-  "last_event_id": "01KMMV273V13MWW973B2J82GW6",
-  "materialized_at": "2026-03-26T10:29:26.267520+00:00",
+  "last_event_id": "01KMMVB80K87VZJ5RCNFM03MSV",
+  "materialized_at": "2026-03-26T10:34:22.099453+00:00",
   "summary": {
-    "approved": 0,
+    "approved": 1,
     "blocked": 0,
     "canceled": 0,
     "claimed": 0,
     "done": 6,
     "for_review": 0,
-    "in_progress": 1,
+    "in_progress": 0,
     "planned": 0
   },
   "work_packages": {
@@ -57,11 +57,11 @@
       "last_transition_at": "2026-03-26T09:51:48.437207+00:00"
     },
     "WP07": {
-      "actor": "headless-reviewer",
-      "force_count": 3,
-      "lane": "in_progress",
-      "last_event_id": "01KMMV273V13MWW973B2J82GW6",
-      "last_transition_at": "2026-03-26T10:29:26.267195+00:00"
+      "actor": "user",
+      "force_count": 4,
+      "lane": "approved",
+      "last_event_id": "01KMMVB80K87VZJ5RCNFM03MSV",
+      "last_transition_at": "2026-03-26T10:34:22.099052+00:00"
     }
   }
 }
