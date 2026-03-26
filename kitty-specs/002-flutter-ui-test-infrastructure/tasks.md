@@ -408,5 +408,5 @@ Phase 3 (Polish):        WP08 ←── all above
 - WP05: done
 - WP06: done
 - WP07: done
-- WP08: for_review
+- WP08: in_progress
 <!-- status-model:end -->
