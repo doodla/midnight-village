@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:midnight_village/design_system/components/core/mv_button.dart';
+import 'package:midnight_village/design_system/components/core/primary_button.dart';
 import 'package:midnight_village/design_system/components/game/role_card.dart';
 import 'package:midnight_village/design_system/models/game_result.dart';
 import 'package:midnight_village/design_system/models/role.dart';
@@ -69,20 +69,18 @@ class GameResults extends ConsumerWidget {
           // Action buttons
           // ----------------------------------------------------------------
           if (onPlayAgain != null)
-            MvButton(
+            PrimaryButton(
               label: 'Play Again',
               onPressed: onPlayAgain,
-              variant: MvButtonVariant.primary,
             ),
 
           if (onPlayAgain != null && onReturnToLobby != null)
             SizedBox(height: tokens.spacing.sm),
 
           if (onReturnToLobby != null)
-            MvButton(
+            PrimaryButton.outlined(
               label: 'Return to Lobby',
               onPressed: onReturnToLobby,
-              variant: MvButtonVariant.secondary,
             ),
 
           SizedBox(height: tokens.spacing.md),

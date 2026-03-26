@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:midnight_village/design_system/components/core/mv_button.dart';
+import 'package:midnight_village/design_system/components/core/primary_button.dart';
 import 'package:midnight_village/design_system/components/game/game_timer.dart';
 import 'package:midnight_village/design_system/components/game/player_circle.dart';
 import 'package:midnight_village/design_system/models/player_display.dart';
@@ -172,10 +172,9 @@ class _VoteSelectionView extends StatelessWidget {
         SizedBox(height: tokens.spacing.lg),
 
         // Confirm button — disabled until a player is selected.
-        MvButton(
+        PrimaryButton(
           label: 'Lock in your vote',
           onPressed: onConfirm,
-          variant: MvButtonVariant.primary,
         ),
 
         SizedBox(height: tokens.spacing.sm),

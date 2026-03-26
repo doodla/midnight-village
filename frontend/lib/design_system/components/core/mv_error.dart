@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:midnight_village/design_system/components/core/mv_button.dart';
+import 'package:midnight_village/design_system/components/core/primary_button.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 
 /// A centered error display with an icon, message, and optional retry button.
@@ -38,10 +38,10 @@ class MvError extends ConsumerWidget {
             ),
             if (onRetry != null) ...[
               SizedBox(height: tokens.spacing.md),
-              MvButton(
+              PrimaryButton(
                 label: 'Retry',
                 onPressed: onRetry,
-                variant: MvButtonVariant.destructive,
+                isDestructive: true,
               ),
             ],
           ],

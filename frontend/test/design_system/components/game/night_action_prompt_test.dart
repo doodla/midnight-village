@@ -11,7 +11,7 @@ import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
 import '../../../design_system/test_helpers/test_theme.dart';
 
 // Use a tall logical size so the full prompt fits without overflow in tests.
-const _kTestScreenSize = Size(400, 800);
+const _kTestScreenSize = Size(400, 1000);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,10 +83,10 @@ void main() {
       onActionSubmitted: (_) {},
     );
 
-    // The ElevatedButton labelled 'Confirm' should have a null onPressed,
+    // The FilledButton labelled 'Confirm' should have a null onPressed,
     // which Flutter renders as a disabled button.
-    final confirmButton = tester.widget<ElevatedButton>(
-      find.widgetWithText(ElevatedButton, 'Confirm'),
+    final confirmButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Confirm'),
     );
     expect(
       confirmButton.onPressed,
@@ -112,8 +112,8 @@ void main() {
     await tester.tap(find.text('Alice'));
     await tester.pump();
 
-    final confirmButton = tester.widget<ElevatedButton>(
-      find.widgetWithText(ElevatedButton, 'Confirm'),
+    final confirmButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Confirm'),
     );
     expect(
       confirmButton.onPressed,
@@ -140,7 +140,7 @@ void main() {
 
     await tester.tap(find.text('Bob'));
     await tester.pump();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Confirm'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
     await tester.pump();
 
     expect(submitted, isA<PlayerTarget>());
@@ -170,7 +170,7 @@ void main() {
     await tester.tap(find.text('Bob'));
     await tester.pump();
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Confirm'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
     await tester.pump();
 
     expect(submitted, isA<TwoPlayerTargets>());
@@ -195,7 +195,7 @@ void main() {
       onActionSubmitted: (s) => submitted = s,
     );
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Acknowledge'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Acknowledge'));
     await tester.pump();
 
     expect(submitted, isA<NoAction>());

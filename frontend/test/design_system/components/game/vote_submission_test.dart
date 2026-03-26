@@ -74,8 +74,8 @@ void main() {
       onVoteSubmitted: (_) {},
     );
 
-    final confirmButton = tester.widget<ElevatedButton>(
-      find.widgetWithText(ElevatedButton, 'Lock in your vote'),
+    final confirmButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Lock in your vote'),
     );
     expect(
       confirmButton.onPressed,
@@ -100,8 +100,8 @@ void main() {
     await tester.tap(find.text('Alice'));
     await tester.pump();
 
-    final confirmButton = tester.widget<ElevatedButton>(
-      find.widgetWithText(ElevatedButton, 'Lock in your vote'),
+    final confirmButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Lock in your vote'),
     );
     expect(
       confirmButton.onPressed,
@@ -129,7 +129,7 @@ void main() {
     await tester.tap(find.text('Bob'));
     await tester.pump();
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Lock in your vote'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Lock in your vote'));
     await tester.pump();
 
     expect(submittedId, 'p2',
@@ -290,8 +290,8 @@ void main() {
     // Confirm should be enabled.
     expect(
       tester
-          .widget<ElevatedButton>(
-              find.widgetWithText(ElevatedButton, 'Lock in your vote'))
+          .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Lock in your vote'))
           .onPressed,
       isNotNull,
     );
@@ -303,8 +303,8 @@ void main() {
     // Confirm should be disabled again.
     expect(
       tester
-          .widget<ElevatedButton>(
-              find.widgetWithText(ElevatedButton, 'Lock in your vote'))
+          .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Lock in your vote'))
           .onPressed,
       isNull,
       reason: 'Deselecting the player must disable the confirm button again',
