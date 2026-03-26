@@ -19,7 +19,7 @@ subtasks:
 - T018
 phase: Phase 2 - Timer Integration
 assignee: ''
-agent: ''
+agent: "headless-impl"
 shell_pid: "76154"
 review_status: ''
 reviewed_by: ''
@@ -270,3 +270,4 @@ cd backend && pytest tests/onuw/ -v  # full suite
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 
 - 2026-03-26T08:20:45Z – system – lane=planned – Prompt created.
+- 2026-03-26T09:13:04Z – headless-impl – shell_pid=76154 – lane=doing – Assigned agent via workflow command
