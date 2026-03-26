@@ -286,9 +286,9 @@
 **Requirements Refs**: FR-012
 
 ### Included Subtasks
-- [ ] T037 Write `frontend/test/README.md` — comprehensive guide covering: test layer overview (widget/golden/integration), how to write each type, how to run each type locally, how to update golden baselines, how to debug failures, how to use test harnesses
-- [ ] T038 Ensure all example tests (WP03 golden examples, WP04 harness examples, WP05 integration example) include descriptive comments explaining the pattern for copy-paste reuse
-- [ ] T039 Validate living documentation: confirm all example tests pass in both local (`just flutter-test`) and CI environments; add a note in the README about which examples to use as templates
+- [x] T037 Write `frontend/test/README.md` — comprehensive guide covering: test layer overview (widget/golden/integration), how to write each type, how to run each type locally, how to update golden baselines, how to debug failures, how to use test harnesses
+- [x] T038 Ensure all example tests (WP03 golden examples, WP04 harness examples, WP05 integration example) include descriptive comments explaining the pattern for copy-paste reuse
+- [x] T039 Validate living documentation: confirm all example tests pass in both local (`just flutter-test`) and CI environments; add a note in the README about which examples to use as templates
 
 ### Implementation Notes
 - The README should be structured with quick-start snippets at the top (copy-paste friendly) and detailed explanations below
