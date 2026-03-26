@@ -1,7 +1,7 @@
 ---
 work_package_id: WP02
 title: Static Token Constants
-lane: "doing"
+lane: "for_review"
 dependencies: [WP01]
 requirement_refs: [FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-017]
 planning_base_branch: main
@@ -20,8 +20,8 @@ subtasks:
 - T012
 phase: Phase 1 - Foundation
 assignee: ''
-agent: "headless-impl"
-shell_pid: "46560"
+agent: headless-impl
+shell_pid: '46560'
 review_status: ''
 reviewed_by: ''
 history:
@@ -384,3 +384,4 @@ To change a work package's lane, either:
 
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T08:44:18Z – headless-impl – shell_pid=46560 – lane=doing – Assigned agent via workflow command
+- 2026-03-26T09:02:35Z – headless-impl – shell_pid=46560 – lane=for_review – Ready for review: 6 static token classes (AppColors, AppTypography, AppRadius, AppSpacing, AppShadows, AppDecorations) with all Firelit Gothic values from token-map.md. 93 unit tests passing. Also fixed pre-existing WP01 compile errors: full AppTokens interface now implemented in MidnightVillageTheme and TestThemeTokens; spacing field names updated (s/m/l → sm/md/lg) across all components.
