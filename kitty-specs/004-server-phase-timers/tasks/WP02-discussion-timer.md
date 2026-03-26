@@ -1,7 +1,7 @@
 ---
 work_package_id: WP02
 title: Discussion Timer Integration
-lane: "for_review"
+lane: "doing"
 dependencies: [WP01]
 requirement_refs: [FR-001, FR-003, FR-004, FR-005, FR-007, FR-008, FR-009, FR-012]
 planning_base_branch: main
@@ -20,8 +20,8 @@ subtasks:
 - T012
 phase: Phase 2 - Timer Integration
 assignee: ''
-agent: headless-impl
-shell_pid: '58693'
+agent: "headless-reviewer"
+shell_pid: "71390"
 review_status: ''
 reviewed_by: ''
 history:
@@ -300,3 +300,4 @@ cd backend && pytest tests/onuw/ -v  # full suite to verify no regressions
 - 2026-03-26T08:20:45Z – system – lane=planned – Prompt created.
 - 2026-03-26T08:59:20Z – headless-impl – shell_pid=58693 – lane=doing – Assigned agent via workflow command
 - 2026-03-26T09:09:23Z – headless-impl – shell_pid=58693 – lane=for_review – Ready for review: discussion timer integrated — phase_deadline set on transition, auto-transition via idempotent callback, end_discussion cancels timer, phase_change event always includes deadline field, 5 integration tests covering all cases, 459/459 tests passing
+- 2026-03-26T09:09:41Z – headless-reviewer – shell_pid=71390 – lane=doing – Started review via workflow command
