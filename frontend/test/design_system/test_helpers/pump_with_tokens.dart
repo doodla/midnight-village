@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:midnight_village/design_system/tokens/app_tokens.dart';
@@ -14,12 +15,18 @@ extension PumpWithTokens on WidgetTester {
   /// (iPhone 14 dimensions, 3× DPR) for deterministic golden test rendering.
   /// Use [screenSize] to override the default dimensions in golden mode.
   ///
-  /// Existing callers that omit [goldenMode] are unaffected.
+  /// Pass [overrides] to inject additional Riverpod provider overrides on top
+  /// of the default theme override. Higher-level harnesses (e.g.
+  /// [pumpAuthenticated]) use this to compose auth and game-state overrides
+  /// without replacing the theming setup.
+  ///
+  /// Existing callers that omit [goldenMode] and [overrides] are unaffected.
   Future<void> pumpWithTokens(
     Widget widget, {
     AppTokens? theme,
     bool goldenMode = false,
     Size? screenSize,
+    List<Override>? overrides,
   }) async {
     if (goldenMode) {
       const double dpr = 3.0;
@@ -37,6 +44,7 @@ extension PumpWithTokens on WidgetTester {
       ProviderScope(
         overrides: [
           activeThemeProvider.overrideWithValue(effectiveTheme),
+          ...?overrides,
         ],
         child: MaterialApp(
           theme: generateThemeData(effectiveTheme),
