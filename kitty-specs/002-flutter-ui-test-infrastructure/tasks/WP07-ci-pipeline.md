@@ -1,7 +1,7 @@
 ---
 work_package_id: WP07
 title: CI Pipeline Integration
-lane: "approved"
+lane: done
 dependencies: [WP03, WP05, WP06]
 requirement_refs: [FR-010, FR-011]
 planning_base_branch: main
@@ -20,8 +20,8 @@ phase: Phase 2 - Tooling
 assignee: ''
 agent: headless-reviewer
 shell_pid: '58953'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 review_feedback: feedback://002-flutter-ui-test-infrastructure/WP07/20260326T062921Z-02930e7c.md
 history:
 - timestamp: '2026-03-25T23:55:37Z'
