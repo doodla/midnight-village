@@ -1,12 +1,15 @@
 ---
 work_package_id: WP04
 title: Reusable Test Harnesses
-lane: planned
+lane: "doing"
 dependencies: [WP01, WP02]
 requirement_refs: [FR-007, FR-017]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 002-flutter-ui-test-infrastructure-WP04-merge-base
+base_commit: 3f008453aba83782e288a777d41d1e8a405583a3
+created_at: '2026-03-26T01:27:48.218351+00:00'
 subtasks:
 - T016
 - T017
@@ -16,7 +19,7 @@ subtasks:
 phase: Phase 1 - Core Layers
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "83324"
 review_status: ''
 reviewed_by: ''
 history:
