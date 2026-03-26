@@ -1,12 +1,15 @@
 ---
 work_package_id: WP06
 title: VillageAppBar & PlayerAvatar Widgets
-lane: planned
+lane: "doing"
 dependencies: [WP03]
 requirement_refs: [FR-009, FR-011]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 003-firelit-gothic-design-system-WP03
+base_commit: 883dee899fa7b3599f85bd716c8912f1f811663c
+created_at: '2026-03-26T09:43:43.463470+00:00'
 subtasks:
 - T028
 - T029
@@ -16,7 +19,7 @@ subtasks:
 phase: Phase 2 - Foundation Widgets
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "20828"
 review_status: ''
 reviewed_by: ''
 history:
