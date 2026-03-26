@@ -132,13 +132,13 @@
 **Requirements Refs**: FR-002, FR-003, FR-004, FR-005, FR-007, FR-008, FR-009
 
 ### Included Subtasks
-- [ ] T019 Modify `send_wave_prompts()` in `services.py`: compute `phase_deadline = now + night_wave_seconds`, store on game, schedule timer callback, include `"deadline"` in `wave_start` event
-- [ ] T020 Update `wave_start` handler in `consumers.py` to forward the `deadline` field
-- [ ] T021 Modify `advance_wave()` in `services.py`: cancel the wave timer at the start (covers both host force-advance and all-acted paths)
-- [ ] T022 Modify `check_and_maybe_advance()` in `services.py`: cancel the wave timer when auto-advancing after all players acted
-- [ ] T023 When advancing to the next wave, clear old `phase_deadline` and schedule new wave timer; when transitioning to discussion at end of night, clear `phase_deadline` (handled by discussion timer in WP02)
-- [ ] T024 Write integration tests for night wave timer: auto-advance fires with skips, all-acted cancels timer, host force-advance cancels timer, deadline=null when night_wave_seconds=0
-- [ ] T025 Update existing night-phase tests to account for `deadline` field in `wave_start` events
+- [x] T019 Modify `send_wave_prompts()` in `services.py`: compute `phase_deadline = now + night_wave_seconds`, store on game, schedule timer callback, include `"deadline"` in `wave_start` event
+- [x] T020 Update `wave_start` handler in `consumers.py` to forward the `deadline` field
+- [x] T021 Modify `advance_wave()` in `services.py`: cancel the wave timer at the start (covers both host force-advance and all-acted paths)
+- [x] T022 Modify `check_and_maybe_advance()` in `services.py`: cancel the wave timer when auto-advancing after all players acted
+- [x] T023 When advancing to the next wave, clear old `phase_deadline` and schedule new wave timer; when transitioning to discussion at end of night, clear `phase_deadline` (handled by discussion timer in WP02)
+- [x] T024 Write integration tests for night wave timer: auto-advance fires with skips, all-acted cancels timer, host force-advance cancels timer, deadline=null when night_wave_seconds=0
+- [x] T025 Update existing night-phase tests to account for `deadline` field in `wave_start` events
 
 ### Implementation Notes
 - Timer key format: `"{game_id}:wave:{wave_number}"`
@@ -309,5 +309,5 @@ WP01 (P0) ──┬──> WP02 (P1) ──┐
 ## Canonical Status (Generated)
 - WP01: done
 - WP02: done
-- WP03: approved
+- WP03: done
 <!-- status-model:end -->
