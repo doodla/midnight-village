@@ -371,4 +371,5 @@ WP03 (Themes & Bridge)
 ## Canonical Status (Generated)
 - WP01: done
 - WP02: done
+- WP03: for_review
 <!-- status-model:end -->
