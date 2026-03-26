@@ -7,12 +7,17 @@ All game state transitions go through this module.
 
 from __future__ import annotations
 
+import functools
+from datetime import timedelta
 from typing import Any
 
 from django.db import transaction
+from django.utils import timezone
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+
+from apps.onuw import timers
 
 from .engine.behaviors import get_doppelganger_followup_wave
 from .engine.night import get_required_actions, resolve_wave
@@ -21,6 +26,11 @@ from .engine.state import ActionResult, GameState, NightAction
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
 from .models import Game, Phase, PlayerRole
+
+
+def get_timer_seconds(game: Game, key: str, default: int) -> int:
+    """Read a timer duration from game settings, returning default if not set."""
+    return game.settings.get(key, default)
 
 
 def build_game_state(game: Game) -> GameState:
@@ -94,11 +104,33 @@ def start_night_phase(game: Game) -> None:
     send_wave_prompts(game, first_wave)
 
 
+def _auto_advance_wave(game: Game, wave_number: int) -> None:
+    """Auto-advance a wave when its timer expires, marking non-actors as skipped."""
+    if game.current_wave != wave_number:
+        return  # Wave already advanced — stale callback.
+    advance_wave(game)
+
+
 def send_wave_prompts(game: Game, wave: int) -> None:
     """
     Send action prompts to players who act in this wave, and
     waiting messages to non-acting players.
+
+    Schedules a wave timer when night_wave_seconds > 0.
     """
+    wave_seconds = get_timer_seconds(game, "night_wave_seconds", 30)
+    if wave_seconds > 0:
+        game.phase_deadline = timezone.now() + timedelta(seconds=wave_seconds)
+        callback = timers.make_idempotent_callback(
+            game.id,
+            Phase.NIGHT,
+            functools.partial(_auto_advance_wave, wave_number=wave),
+        )
+        timers.schedule(f"{game.id}:wave:{wave}", wave_seconds, callback)
+    else:
+        game.phase_deadline = None
+    game.save(update_fields=["phase_deadline", "updated_at"])
+
     channel_layer = get_channel_layer()
     if channel_layer is None:
         return
@@ -111,7 +143,16 @@ def send_wave_prompts(game: Game, wave: int) -> None:
     send = async_to_sync(channel_layer.group_send)
 
     # Broadcast wave_start to all players
-    send(f"game_{game.id}", {"type": "wave.start", "wave": wave})
+    send(
+        f"game_{game.id}",
+        {
+            "type": "wave.start",
+            "wave": wave,
+            "deadline": game.phase_deadline.isoformat()
+            if game.phase_deadline
+            else None,
+        },
+    )
 
     # Send action prompts to acting players (player-specific channels)
     for prompt in prompts:
@@ -145,6 +186,7 @@ def advance_wave(game: Game) -> None:
     then advance to the next wave or transition to discussion.
     """
     wave = game.current_wave
+    timers.cancel(f"{game.id}:wave:{wave}")
     state = build_game_state(game)
 
     # Collect actions from PlayerRole rows
@@ -288,7 +330,10 @@ def transition_to_discussion(game: Game) -> None:
     with transaction.atomic():
         game.phase = Phase.DISCUSSION
         game.current_wave = 0
-        game.save(update_fields=["phase", "current_wave", "updated_at"])
+        game.phase_deadline = None
+        game.save(
+            update_fields=["phase", "current_wave", "phase_deadline", "updated_at"]
+        )
 
         # Reset has_acted for voting phase later
         # pyrefly: ignore [missing-attribute]
@@ -322,6 +367,7 @@ def check_and_maybe_advance(game: Game) -> None:
     ).count()
 
     if pending == 0:
+        timers.cancel(f"{game.id}:wave:{wave}")
         advance_wave(game)
 
 
