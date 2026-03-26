@@ -248,11 +248,11 @@
 **Requirements Refs**: FR-010, FR-011
 
 ### Included Subtasks
-- [ ] T032 Create or extend CI workflow file to run widget tests (`flutter test`), golden tests (`just flutter-test-golden`), and integration tests (`just flutter-test-integration`) as separate jobs/steps
-- [ ] T033 Configure golden test failure artifact upload — on golden test failure, run `just flutter-golden-report` and upload the HTML report + diff images as build artifacts
-- [ ] T034 Configure integration test failure screenshot upload — on integration test failure, upload `integration_test/screenshots/` contents as build artifacts
-- [ ] T035 Verify golden test platform consistency: generate baselines on Linux CI, confirm they match the `linux/` baseline directory; document the baseline generation workflow for contributors on macOS
-- [ ] T036 Verify CI failure blocks merge: configure branch protection or CI status checks so that any test layer failure prevents merge
+- [x] T032 Create or extend CI workflow file to run widget tests (`flutter test`), golden tests (`just flutter-test-golden`), and integration tests (`just flutter-test-integration`) as separate jobs/steps
+- [x] T033 Configure golden test failure artifact upload — on golden test failure, run `just flutter-golden-report` and upload the HTML report + diff images as build artifacts
+- [x] T034 Configure integration test failure screenshot upload — on integration test failure, upload `integration_test/screenshots/` contents as build artifacts
+- [x] T035 Verify golden test platform consistency: generate baselines on Linux CI, confirm they match the `linux/` baseline directory; document the baseline generation workflow for contributors on macOS
+- [x] T036 Verify CI failure blocks merge: configure branch protection or CI status checks so that any test layer failure prevents merge
 
 ### Implementation Notes
 - CI platform: check if the project uses GitHub Actions, GitLab CI, or another system — adapt the workflow accordingly
