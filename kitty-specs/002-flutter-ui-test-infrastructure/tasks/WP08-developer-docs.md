@@ -1,12 +1,15 @@
 ---
 work_package_id: WP08
 title: Developer Documentation & Living Examples
-lane: planned
+lane: "doing"
 dependencies: [WP03, WP04, WP05, WP06, WP07]
 requirement_refs: [FR-012]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: main
+base_commit: b06b6673254fde884781bab1f508f24806548e06
+created_at: '2026-03-26T07:12:32.788500+00:00'
 subtasks:
 - T037
 - T038
@@ -14,7 +17,7 @@ subtasks:
 phase: Phase 3 - Polish
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "31555"
 review_status: ''
 reviewed_by: ''
 history:
