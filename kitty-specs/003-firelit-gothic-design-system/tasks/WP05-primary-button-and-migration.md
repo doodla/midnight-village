@@ -1,12 +1,15 @@
 ---
 work_package_id: WP05
 title: PrimaryButton & MvButton Migration
-lane: planned
+lane: "doing"
 dependencies: [WP03]
 requirement_refs: [FR-010, FR-015]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 003-firelit-gothic-design-system-WP03
+base_commit: 883dee899fa7b3599f85bd716c8912f1f811663c
+created_at: '2026-03-26T09:25:32.014156+00:00'
 subtasks:
 - T023
 - T024
@@ -16,7 +19,7 @@ subtasks:
 phase: Phase 2 - Foundation Widgets
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "96057"
 review_status: ''
 reviewed_by: ''
 history:
