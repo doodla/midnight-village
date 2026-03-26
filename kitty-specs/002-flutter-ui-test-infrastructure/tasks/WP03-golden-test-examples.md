@@ -1,12 +1,15 @@
 ---
 work_package_id: WP03
 title: Golden Test Examples & Validation
-lane: planned
+lane: "doing"
 dependencies: [WP01]
 requirement_refs: [FR-001, FR-002, FR-012]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 002-flutter-ui-test-infrastructure-WP01
+base_commit: 33c593410764b008553bffaeefecfd8def41d785
+created_at: '2026-03-26T01:21:51.805372+00:00'
 subtasks:
 - T011
 - T012
@@ -16,7 +19,7 @@ subtasks:
 phase: Phase 1 - Core Layers
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "76910"
 review_status: ''
 reviewed_by: ''
 history:
