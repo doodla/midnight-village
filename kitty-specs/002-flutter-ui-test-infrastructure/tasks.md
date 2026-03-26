@@ -211,11 +211,11 @@
 **Requirements Refs**: FR-014, FR-015
 
 ### Included Subtasks
-- [ ] T027 Create `frontend/tool/golden_diff_report.dart` — Dart CLI entry point that scans `test/` for golden test failure outputs (`.png` files in `failures/` directories), identifies baseline vs actual pairs
-- [ ] T028 Implement pixel-diff overlay generation: load baseline and actual images, produce a third image where unchanged pixels are dimmed (50% opacity) and changed pixels are highlighted in magenta (#FF00FF); save as `*_diff.png` alongside the pair
-- [ ] T029 Implement HTML comparison report: generate `golden_diff_report.html` with a summary table listing all failing components, side-by-side thumbnails (baseline / actual / diff overlay), and click-to-expand full-size views
-- [ ] T030 Add `flutter-golden-report` command to `frontend/justfile` — runs `dart run tool/golden_diff_report.dart`; add a combined `flutter-golden-check` command that runs golden tests and then generates the report if any failed
-- [ ] T031 Validate by deliberately breaking a golden baseline (change a color token), running `just flutter-test-golden` (expect failure), then `just flutter-golden-report`, and checking the output HTML and diff images
+- [x] T027 Create `frontend/tool/golden_diff_report.dart` — Dart CLI entry point that scans `test/` for golden test failure outputs (`.png` files in `failures/` directories), identifies baseline vs actual pairs
+- [x] T028 Implement pixel-diff overlay generation: load baseline and actual images, produce a third image where unchanged pixels are dimmed (50% opacity) and changed pixels are highlighted in magenta (#FF00FF); save as `*_diff.png` alongside the pair
+- [x] T029 Implement HTML comparison report: generate `golden_diff_report.html` with a summary table listing all failing components, side-by-side thumbnails (baseline / actual / diff overlay), and click-to-expand full-size views
+- [x] T030 Add `flutter-golden-report` command to `frontend/justfile` — runs `dart run tool/golden_diff_report.dart`; add a combined `flutter-golden-check` command that runs golden tests and then generates the report if any failed
+- [x] T031 Validate by deliberately breaking a golden baseline (change a color token), running `just flutter-test-golden` (expect failure), then `just flutter-golden-report`, and checking the output HTML and diff images
 
 ### Implementation Notes
 - Use `dart:ui` or the `image` package for pixel-level image comparison and overlay generation
@@ -405,5 +405,5 @@ Phase 3 (Polish):        WP08 ←── all above
 - WP02: done
 - WP03: done
 - WP04: done
-- WP05: approved
+- WP05: done
 <!-- status-model:end -->
