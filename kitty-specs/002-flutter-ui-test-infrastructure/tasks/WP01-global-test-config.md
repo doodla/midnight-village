@@ -1,7 +1,7 @@
 ---
 work_package_id: WP01
 title: Global Test Configuration & Deterministic Rendering
-lane: "approved"
+lane: done
 dependencies: []
 requirement_refs: [FR-001, FR-002, FR-003, FR-011, FR-013, FR-016]
 planning_base_branch: main
@@ -20,8 +20,8 @@ phase: Phase 0 - Foundation
 assignee: ''
 agent: headless-reviewer
 shell_pid: '67639'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-25T23:55:37Z'
   lane: planned

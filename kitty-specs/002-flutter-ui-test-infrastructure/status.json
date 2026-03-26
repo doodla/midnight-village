@@ -1,32 +1,32 @@
 {
-  "event_count": 9,
+  "event_count": 11,
   "feature_slug": "002-flutter-ui-test-infrastructure",
-  "last_event_id": "01KMKVGH7F5TN98ZRPM1PMXKS9",
-  "materialized_at": "2026-03-26T01:18:00.943553+00:00",
+  "last_event_id": "01KMKVJ6FDNAKBW54ZGBQ8FHRF",
+  "materialized_at": "2026-03-26T01:18:55.469442+00:00",
   "summary": {
-    "approved": 2,
+    "approved": 0,
     "blocked": 0,
     "canceled": 0,
     "claimed": 0,
-    "done": 0,
+    "done": 2,
     "for_review": 0,
     "in_progress": 0,
     "planned": 0
   },
   "work_packages": {
     "WP01": {
-      "actor": "user",
-      "force_count": 2,
-      "lane": "approved",
-      "last_event_id": "01KMKVD91HZ2RYH6SZ4PY18P7N",
-      "last_transition_at": "2026-03-26T01:16:14.257143+00:00"
+      "actor": "headless-orchestrator",
+      "force_count": 3,
+      "lane": "done",
+      "last_event_id": "01KMKVJ603N6YKDZ64R61RQ8Y4",
+      "last_transition_at": "2026-03-26T01:18:54.979333+00:00"
     },
     "WP02": {
-      "actor": "user",
-      "force_count": 4,
-      "lane": "approved",
-      "last_event_id": "01KMKVGH7F5TN98ZRPM1PMXKS9",
-      "last_transition_at": "2026-03-26T01:18:00.943290+00:00"
+      "actor": "headless-orchestrator",
+      "force_count": 5,
+      "lane": "done",
+      "last_event_id": "01KMKVJ6FDNAKBW54ZGBQ8FHRF",
+      "last_transition_at": "2026-03-26T01:18:55.469248+00:00"
     }
   }
 }
