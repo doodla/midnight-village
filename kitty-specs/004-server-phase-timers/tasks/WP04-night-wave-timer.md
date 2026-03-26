@@ -1,7 +1,7 @@
 ---
 work_package_id: WP04
 title: Night Wave Timer Integration
-lane: "for_review"
+lane: "doing"
 dependencies: [WP01]
 requirement_refs: [FR-002, FR-003, FR-004, FR-005, FR-007, FR-008, FR-009]
 planning_base_branch: main
@@ -20,8 +20,8 @@ subtasks:
 - T025
 phase: Phase 2 - Timer Integration
 assignee: ''
-agent: headless-impl
-shell_pid: '91896'
+agent: "headless-reviewer"
+shell_pid: "8210"
 review_status: ''
 reviewed_by: ''
 history:
@@ -299,3 +299,4 @@ cd backend && pytest tests/onuw/ -v  # full suite
 - 2026-03-26T08:20:45Z – system – lane=planned – Prompt created.
 - 2026-03-26T09:23:39Z – headless-impl – shell_pid=91896 – lane=doing – Assigned agent via workflow command
 - 2026-03-26T09:34:07Z – headless-impl – shell_pid=91896 – lane=for_review – Ready for review: night wave timer integration complete. send_wave_prompts schedules per-wave timer, advance_wave/check_and_maybe_advance cancel it, transition_to_discussion clears deadline. 8 integration tests cover all lifecycle paths. 462/462 tests pass, ruff clean.
+- 2026-03-26T09:34:27Z – headless-reviewer – shell_pid=8210 – lane=doing – Started review via workflow command
