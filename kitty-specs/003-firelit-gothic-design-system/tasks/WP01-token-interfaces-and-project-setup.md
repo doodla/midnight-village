@@ -1,12 +1,15 @@
 ---
 work_package_id: WP01
 title: Token Interfaces & Project Setup
-lane: planned
+lane: "doing"
 dependencies: []
 requirement_refs: [FR-012, FR-013]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: main
+base_commit: 68f428339608aab7cbdb738aeebfdce18afdde05
+created_at: '2026-03-26T08:36:53.810656+00:00'
 subtasks:
 - T001
 - T002
@@ -16,7 +19,7 @@ subtasks:
 phase: Phase 1 - Foundation
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "34459"
 review_status: ''
 reviewed_by: ''
 history:
