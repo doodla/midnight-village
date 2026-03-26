@@ -1,12 +1,15 @@
 ---
 work_package_id: WP06
 title: Visual Diff Comparison Tooling
-lane: planned
+lane: "doing"
 dependencies: [WP03]
 requirement_refs: [FR-014, FR-015]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 002-flutter-ui-test-infrastructure-WP03
+base_commit: 0ca6e54d148cf66481d9081079c92fb4e39c35de
+created_at: '2026-03-26T02:06:45.504261+00:00'
 subtasks:
 - T027
 - T028
@@ -16,7 +19,7 @@ subtasks:
 phase: Phase 2 - Tooling
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "23484"
 review_status: ''
 reviewed_by: ''
 history:
