@@ -1,7 +1,7 @@
 ---
 work_package_id: WP07
 title: Widget Migration, Font Cleanup & Verification
-lane: "for_review"
+lane: "doing"
 dependencies:
 - WP03
 requirement_refs: [FR-014, FR-015, FR-016]
@@ -20,8 +20,8 @@ subtasks:
 - T038
 phase: Phase 3 - Migration & Cleanup
 assignee: ''
-agent: headless-impl
-shell_pid: '29027'
+agent: "headless-reviewer"
+shell_pid: "52665"
 review_status: ''
 reviewed_by: ''
 history:
@@ -262,3 +262,4 @@ To change a work package's lane, either:
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T09:51:50Z – headless-impl – shell_pid=29027 – lane=doing – Assigned agent via workflow command
 - 2026-03-26T10:06:05Z – headless-impl – shell_pid=29027 – lane=for_review – Ready for review: removed bundled PlayfairDisplay/Inter fonts, updated MidnightVillageTheme to system fonts (test-safe), updated flutter_test_config.dart, regenerated all golden images, 326 tests pass
+- 2026-03-26T10:29:26Z – headless-reviewer – shell_pid=52665 – lane=doing – Started review via workflow command
