@@ -370,5 +370,5 @@ WP03 (Themes & Bridge)
 <!-- status-model:start -->
 ## Canonical Status (Generated)
 - WP01: done
-- WP02: in_progress
+- WP02: approved
 <!-- status-model:end -->
