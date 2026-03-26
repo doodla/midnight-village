@@ -11,36 +11,35 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/design_system/components/core/mv_button.dart';
+import 'package:midnight_village/design_system/components/core/primary_button.dart';
 import '../test_helpers/pump_with_tokens.dart';
 
 void main() {
-  group('MvButton', () {
+  group('PrimaryButton', () {
     // Default state: renders label
     testWidgets('renders label text', (tester) async {
       await tester.pumpWithTokens(
-        MvButton(label: 'Join Game', onPressed: () {}),
+        PrimaryButton(label: 'Join Game', onPressed: () {}),
       );
 
       expect(find.text('Join Game'), findsOneWidget);
     });
 
-    // Primary variant: backed by ElevatedButton
-    testWidgets('primary variant uses ElevatedButton', (tester) async {
+    // Default variant: backed by FilledButton
+    testWidgets('default variant uses FilledButton', (tester) async {
       await tester.pumpWithTokens(
-        MvButton(label: 'Test', onPressed: () {}),
+        PrimaryButton(label: 'Test', onPressed: () {}),
       );
 
-      expect(find.byType(ElevatedButton), findsOneWidget);
+      expect(find.byType(FilledButton), findsOneWidget);
     });
 
-    // Secondary variant: backed by OutlinedButton
-    testWidgets('secondary variant uses OutlinedButton', (tester) async {
+    // Outlined variant: backed by OutlinedButton
+    testWidgets('outlined variant uses OutlinedButton', (tester) async {
       await tester.pumpWithTokens(
-        MvButton(
+        PrimaryButton.outlined(
           label: 'Cancel',
           onPressed: () {},
-          variant: MvButtonVariant.secondary,
         ),
       );
 
@@ -50,17 +49,17 @@ void main() {
     // Disabled state: onPressed is null
     testWidgets('is disabled when onPressed is null', (tester) async {
       await tester.pumpWithTokens(
-        const MvButton(label: 'Disabled', onPressed: null),
+        const PrimaryButton(label: 'Disabled', onPressed: null),
       );
 
-      final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
       expect(button.onPressed, isNull);
     });
 
     // Loading state: shows spinner instead of label
     testWidgets('shows spinner when isLoading is true', (tester) async {
       await tester.pumpWithTokens(
-        MvButton(label: 'Loading', onPressed: () {}, isLoading: true),
+        PrimaryButton(label: 'Loading', onPressed: () {}, isLoading: true),
       );
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -72,10 +71,10 @@ void main() {
       var tapped = false;
 
       await tester.pumpWithTokens(
-        MvButton(label: 'Tap Me', onPressed: () => tapped = true),
+        PrimaryButton(label: 'Tap Me', onPressed: () => tapped = true),
       );
 
-      await tester.tap(find.byType(ElevatedButton));
+      await tester.tap(find.byType(FilledButton));
       expect(tapped, isTrue);
     });
   });

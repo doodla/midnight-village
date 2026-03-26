@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:midnight_village/design_system/components/core/mv_button.dart';
+import 'package:midnight_village/design_system/components/core/primary_button.dart';
 import 'package:midnight_village/design_system/components/core/mv_error.dart';
 import 'package:midnight_village/design_system/components/core/mv_loading.dart';
 import 'package:midnight_village/design_system/components/core/mv_scaffold.dart';
@@ -76,7 +76,7 @@ class _WelcomeViewState extends ConsumerState<_WelcomeView> {
           hint: 'Leave blank for random name',
         ),
         SizedBox(height: tokens.spacing.md),
-        MvButton(
+        PrimaryButton(
           label: 'Continue',
           onPressed: _onContinue,
         ),
@@ -112,10 +112,9 @@ class _AuthenticatedView extends ConsumerWidget {
             ),
           ),
           SizedBox(height: tokens.spacing.lg),
-          MvButton(
+          PrimaryButton.outlined(
             label: 'Logout',
             onPressed: () => ref.read(authProvider.notifier).logout(),
-            variant: MvButtonVariant.secondary,
           ),
         ],
       ),

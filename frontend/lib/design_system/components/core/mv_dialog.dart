@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:midnight_village/design_system/components/core/mv_button.dart';
+import 'package:midnight_village/design_system/components/core/primary_button.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 
 /// A themed dialog with title, body text, and action buttons.
@@ -57,15 +57,13 @@ class MvDialog extends ConsumerWidget {
       title: title,
       body: body,
       actions: [
-        MvButton(
+        PrimaryButton.outlined(
           label: cancelLabel,
           onPressed: onCancel,
-          variant: MvButtonVariant.secondary,
         ),
-        MvButton(
+        PrimaryButton(
           label: confirmLabel,
           onPressed: onConfirm,
-          variant: MvButtonVariant.primary,
         ),
       ],
     );
@@ -84,10 +82,9 @@ class MvDialog extends ConsumerWidget {
       title: title,
       body: body,
       actions: [
-        MvButton(
+        PrimaryButton(
           label: dismissLabel,
           onPressed: onDismiss,
-          variant: MvButtonVariant.primary,
         ),
       ],
     );
@@ -107,16 +104,15 @@ class MvDialog extends ConsumerWidget {
     VoidCallback? onRetry,
   }) {
     final actions = <Widget>[
-      MvButton(
+      PrimaryButton.outlined(
         label: dismissLabel,
         onPressed: onDismiss,
-        variant: MvButtonVariant.secondary,
       ),
       if (onRetry != null)
-        MvButton(
+        PrimaryButton(
           label: retryLabel ?? 'Retry',
           onPressed: onRetry,
-          variant: MvButtonVariant.destructive,
+          isDestructive: true,
         ),
     ];
 

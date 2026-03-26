@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:midnight_village/design_system/components/core/mv_button.dart';
+import 'package:midnight_village/design_system/components/core/primary_button.dart';
 import 'package:midnight_village/design_system/components/game/center_cards.dart';
 import 'package:midnight_village/design_system/components/game/game_timer.dart';
 import 'package:midnight_village/design_system/components/game/player_circle.dart';
@@ -340,19 +340,17 @@ class _ActionScaffold extends StatelessWidget {
         SizedBox(height: tokens.spacing.lg),
 
         // Confirm button — disabled until a valid selection exists.
-        MvButton(
+        PrimaryButton(
           label: confirmLabel,
           onPressed: onConfirm,
-          variant: MvButtonVariant.primary,
         ),
 
         // Optional skip button.
         if (onSkip != null) ...[
           SizedBox(height: tokens.spacing.sm),
-          MvButton(
+          PrimaryButton.outlined(
             label: 'Skip',
             onPressed: onSkip,
-            variant: MvButtonVariant.secondary,
           ),
         ],
       ],
