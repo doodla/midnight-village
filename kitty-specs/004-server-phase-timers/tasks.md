@@ -62,13 +62,13 @@
 **Requirements Refs**: FR-001, FR-003, FR-004, FR-005, FR-007, FR-008, FR-009, FR-012
 
 ### Included Subtasks
-- [ ] T006 Add helper `get_timer_seconds(game, key, default)` to `backend/apps/onuw/services.py` (reads from `game.settings`)
-- [ ] T007 Modify `transition_to_discussion()` in `services.py`: compute `phase_deadline = now + discussion_seconds`, store on game, schedule timer callback that calls `transition_to_voting()`
-- [ ] T008 Modify `phase.change` event broadcast in `transition_to_discussion()` to include `"deadline"` field (ISO 8601 or `null`)
-- [ ] T009 Update `phase_change` handler in `backend/apps/onuw/consumers.py` to forward the `deadline` field
-- [ ] T010 Modify `end_discussion()` in `services.py` to cancel the discussion timer before transitioning
-- [ ] T011 Write integration tests in `backend/tests/onuw/test_timer_integration.py` for discussion timer: auto-transition fires, early end-discussion cancels timer, deadline=null when discussion_seconds=0
-- [ ] T012 Update existing tests that assert on `phase_change` event shape to account for the new `deadline` field (add `discussion_seconds: 0` to test fixtures where timers are unwanted)
+- [x] T006 Add helper `get_timer_seconds(game, key, default)` to `backend/apps/onuw/services.py` (reads from `game.settings`)
+- [x] T007 Modify `transition_to_discussion()` in `services.py`: compute `phase_deadline = now + discussion_seconds`, store on game, schedule timer callback that calls `transition_to_voting()`
+- [x] T008 Modify `phase.change` event broadcast in `transition_to_discussion()` to include `"deadline"` field (ISO 8601 or `null`)
+- [x] T009 Update `phase_change` handler in `backend/apps/onuw/consumers.py` to forward the `deadline` field
+- [x] T010 Modify `end_discussion()` in `services.py` to cancel the discussion timer before transitioning
+- [x] T011 Write integration tests in `backend/tests/onuw/test_timer_integration.py` for discussion timer: auto-transition fires, early end-discussion cancels timer, deadline=null when discussion_seconds=0
+- [x] T012 Update existing tests that assert on `phase_change` event shape to account for the new `deadline` field (add `discussion_seconds: 0` to test fixtures where timers are unwanted)
 
 ### Implementation Notes
 - `transition_to_discussion()` currently sets `game.phase = Phase.DISCUSSION` and broadcasts `{"type": "phase.change", "phase": "discussion"}` — extend to also set `game.phase_deadline` and include `"deadline"` in the broadcast
@@ -307,5 +307,5 @@ WP01 (P0) ──┬──> WP02 (P1) ──┐
 
 <!-- status-model:start -->
 ## Canonical Status (Generated)
-- WP01: approved
+- WP01: done
 <!-- status-model:end -->
