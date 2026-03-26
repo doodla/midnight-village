@@ -1,7 +1,7 @@
 ---
 work_package_id: WP06
 title: Visual Diff Comparison Tooling
-lane: "approved"
+lane: done
 dependencies: [WP03]
 requirement_refs: [FR-014, FR-015]
 planning_base_branch: main
@@ -20,8 +20,8 @@ phase: Phase 2 - Tooling
 assignee: ''
 agent: headless-reviewer
 shell_pid: '31935'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-25T23:55:37Z'
   lane: planned

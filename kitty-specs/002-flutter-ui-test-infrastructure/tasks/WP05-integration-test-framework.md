@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Integration Test Framework
-lane: "approved"
+lane: done
 dependencies: [WP02]
 requirement_refs: [FR-004, FR-005, FR-009, FR-011, FR-012]
 planning_base_branch: main
@@ -21,8 +21,8 @@ phase: Phase 1 - Core Layers
 assignee: ''
 agent: headless-reviewer
 shell_pid: '20192'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 review_feedback: feedback://002-flutter-ui-test-infrastructure/WP05/20260326T020133Z-cb72d00f.md
 history:
 - timestamp: '2026-03-25T23:55:37Z'
