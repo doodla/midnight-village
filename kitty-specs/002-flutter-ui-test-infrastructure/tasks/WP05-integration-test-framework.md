@@ -19,7 +19,7 @@ subtasks:
 - T026
 phase: Phase 1 - Core Layers
 assignee: ''
-agent: ''
+agent: "headless-impl"
 shell_pid: "95105"
 review_status: ''
 reviewed_by: ''
@@ -338,3 +338,4 @@ To change a work package's lane, either:
 The CLI command updates both frontmatter and activity log automatically.
 
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
+- 2026-03-26T01:41:34Z – headless-impl – shell_pid=95105 – lane=doing – Assigned agent via workflow command
