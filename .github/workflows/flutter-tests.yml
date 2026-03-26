@@ -11,10 +11,12 @@
 #
 # PLATFORM BASELINES (T035):
 # - macOS: developers generate baselines locally with `just flutter-golden-update`
-# - Linux: CI generates baselines in frontend/test/design_system/goldens/linux/
+# - Linux: CI baselines live in frontend/test/design_system/goldens/linux/
 # Both sets must be committed to the repo.
 #
-# To regenerate Linux baselines:
+# Initial Linux baselines were generated on macOS. Flutter's test renderer uses
+# embedded custom fonts (Inter, PlayfairDisplay), making rendering consistent
+# across platforms. If pixel mismatches appear on CI, regenerate proper baselines:
 #   1. Run this workflow manually via GitHub Actions → "Run workflow"
 #   2. Set "Regenerate golden baselines" to true
 #   3. Download the "linux-golden-baselines" artifact from the completed run
