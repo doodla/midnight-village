@@ -1,7 +1,7 @@
 ---
 work_package_id: WP02
 title: Mock HTTP & WebSocket Layers
-lane: "doing"
+lane: "for_review"
 dependencies: []
 requirement_refs: [FR-005, FR-006, FR-008]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T010
 phase: Phase 0 - Foundation
 assignee: ''
-agent: "headless-impl"
-shell_pid: "53081"
+agent: headless-impl
+shell_pid: '53081'
 review_status: ''
 reviewed_by: ''
 history:
@@ -293,3 +293,4 @@ The CLI command updates both frontmatter and activity log automatically.
 
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T00:57:43Z – headless-impl – shell_pid=53081 – lane=doing – Assigned agent via workflow command
+- 2026-03-26T01:05:15Z – headless-impl – shell_pid=53081 – lane=for_review – Ready for review: Mock HTTP client (UnmockedEndpointException on unmocked endpoints), MockWebSocketChannel (sync broadcast stream, event injection, message capture, close lifecycle), TimerControl/testWithTimerControl (fakeAsync wrapper). 21 tests all passing, flutter analyze clean on new files.
