@@ -2,8 +2,10 @@
   "created_at": "2026-03-26T07:28:11.538919+00:00",
   "feature_number": "003",
   "feature_slug": "003-firelit-gothic-design-system",
-  "friendly_name": "firelit gothic design system",
+  "friendly_name": "Firelit Gothic Design System",
   "mission": "software-dev",
   "slug": "003-firelit-gothic-design-system",
-  "target_branch": "main"
+  "source_description": "Replace the current design token system with the Stitch-specified Firelit Gothic design system and build the P0 foundation components that every screen depends on.",
+  "target_branch": "main",
+  "vcs": "git"
 }
