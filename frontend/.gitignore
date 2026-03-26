@@ -24,7 +24,8 @@ migrate_working_dir/
 #.vscode/
 
 # Integration test artefacts (screenshots captured on failure)
-integration_test/screenshots/
+integration_test/screenshots/*
+!integration_test/screenshots/.gitkeep
 
 # Flutter/Dart/Pub related
 **/doc/api/

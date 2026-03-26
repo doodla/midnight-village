@@ -131,3 +131,11 @@ flutter-test:
 # Analyze Flutter code
 flutter-analyze:
     cd frontend && flutter analyze
+
+# Run Flutter integration tests on Chrome
+flutter-test-integration:
+    cd frontend && flutter test integration_test/ -d chrome
+
+# Run Flutter integration tests in headless mode (CI)
+flutter-test-integration-ci:
+    cd frontend && flutter test integration_test/ -d web-server --headless

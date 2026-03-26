@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/integration_test_helper.dart';
+import 'helpers/navigation_helpers.dart';
 
 void main() {
   IntegrationTestSetup.initialize();
@@ -15,6 +16,9 @@ void main() {
       // (no stored tokens → AuthUnauthenticated).
       expect(find.byType(TextField), findsOneWidget);
       expect(find.widgetWithText(ElevatedButton, 'Continue'), findsOneWidget);
+
+      // Verify we start on the home route.
+      tester.expectRoute('/');
 
       // Enter a display name.
       await tester.enterText(find.byType(TextField), 'TestPlayer');
@@ -30,6 +34,9 @@ void main() {
         find.widgetWithText(ElevatedButton, 'Logout'),
         findsOneWidget,
       );
+
+      // Verify we remain on the home route after authentication.
+      tester.expectRoute('/');
     },
   );
 

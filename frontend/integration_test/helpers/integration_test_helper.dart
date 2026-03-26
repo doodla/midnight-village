@@ -42,6 +42,33 @@ class IntegrationTestSetup {
     mockHttp = MockHttpClient();
   }
 
+  /// Sets up automatic screenshot capture after each test.
+  ///
+  /// Call once per test file (e.g. at the top of `main()`) after [initialize].
+  /// Screenshots are written to `integration_test/screenshots/` when the test
+  /// driver collects them; the directory is preserved in git via `.gitkeep`
+  /// and excluded from tracking via `.gitignore`.
+  ///
+  /// On web, screenshots are captured as PNG bytes via the browser canvas.
+  /// The filename includes a millisecond timestamp to avoid collisions.
+  ///
+  /// Note: To capture only on failure, wrap calls to [launchApp] in try/catch
+  /// and call [captureScreenshot] in the catch block instead.
+  static void setupFailureScreenshots() {
+    tearDown(() async {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      await captureScreenshot('teardown_$timestamp');
+    });
+  }
+
+  /// Captures a screenshot with the given [name].
+  ///
+  /// Returns the PNG bytes. On headless Chrome these bytes are forwarded to
+  /// the integration test driver for storage.
+  static Future<List<int>> captureScreenshot(String name) async {
+    return binding.takeScreenshot(name);
+  }
+
   /// Pumps the full app widget tree with mock HTTP wired in.
   ///
   /// Creates a fresh [MockHttpClient] per launch so mocks do not bleed between
