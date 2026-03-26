@@ -366,3 +366,8 @@ WP03 (Themes & Bridge)
 | T036 | Remove old font assets and pubspec font declarations | WP07 | P1 | Yes |
 | T037 | Regenerate golden test images | WP07 | P1 | No |
 | T038 | Run full quality gate: just check + just flutter-test | WP07 | P1 | No |
+
+<!-- status-model:start -->
+## Canonical Status (Generated)
+- WP01: for_review
+<!-- status-model:end -->
