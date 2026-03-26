@@ -98,6 +98,7 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             {
                 "type": "phase_change",
                 "phase": event["phase"],
+                "deadline": event.get("deadline"),
             }
         )
 

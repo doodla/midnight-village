@@ -7,12 +7,16 @@ All game state transitions go through this module.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 from django.db import transaction
+from django.utils import timezone
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+
+from apps.onuw import timers
 
 from .engine.behaviors import get_doppelganger_followup_wave
 from .engine.night import get_required_actions, resolve_wave
@@ -285,21 +289,41 @@ def send_wave_results(game: Game, results: list[ActionResult], wave: int) -> Non
 
 def transition_to_discussion(game: Game) -> None:
     """Transition the game from night to discussion phase."""
+    discussion_seconds = get_timer_seconds(game, "discussion_seconds", 300)
+
     with transaction.atomic():
         game.phase = Phase.DISCUSSION
         game.current_wave = 0
-        game.save(update_fields=["phase", "current_wave", "updated_at"])
+        if discussion_seconds > 0:
+            game.phase_deadline = timezone.now() + timedelta(seconds=discussion_seconds)
+        else:
+            game.phase_deadline = None
+        game.save(
+            update_fields=["phase", "current_wave", "phase_deadline", "updated_at"]
+        )
 
         # Reset has_acted for voting phase later
         # pyrefly: ignore [missing-attribute]
         game.player_roles.update(has_acted=False)
+
+    if discussion_seconds > 0:
+        callback = timers.make_idempotent_callback(
+            game.id, Phase.DISCUSSION, _auto_transition_to_voting
+        )
+        timers.schedule(f"{game.id}:discussion", discussion_seconds, callback)
 
     # Broadcast phase change to all players
     channel_layer = get_channel_layer()
     if channel_layer is not None:
         async_to_sync(channel_layer.group_send)(
             f"game_{game.id}",
-            {"type": "phase.change", "phase": "discussion"},
+            {
+                "type": "phase.change",
+                "phase": "discussion",
+                "deadline": game.phase_deadline.isoformat()
+                if game.phase_deadline
+                else None,
+            },
         )
 
 
@@ -465,6 +489,16 @@ def validate_night_action(
 # ── Discussion & Voting ────────────────────────────────────────────────────
 
 
+def get_timer_seconds(game: Game, key: str, default: int) -> int:
+    """Read a timer duration from game settings, returning default if not set."""
+    return game.settings.get(key, default)
+
+
+def _auto_transition_to_voting(game: Game) -> None:
+    """Auto-transition to voting when discussion timer expires."""
+    transition_to_voting(game)
+
+
 def transition_to_voting(game: Game) -> None:
     """Transition from discussion to voting phase."""
     from .engine.phases import validate_phase_transition
@@ -475,7 +509,8 @@ def transition_to_voting(game: Game) -> None:
 
     with transaction.atomic():
         game.phase = Phase.VOTING
-        game.save(update_fields=["phase", "updated_at"])
+        game.phase_deadline = None
+        game.save(update_fields=["phase", "phase_deadline", "updated_at"])
 
         # Reset has_acted for all players (tracks vote submission)
         # pyrefly: ignore [missing-attribute]
@@ -492,6 +527,8 @@ def transition_to_voting(game: Game) -> None:
 
 def end_discussion(game: Game) -> None:
     """End discussion early (host action). Transitions to voting."""
+    timers.cancel(f"{game.id}:discussion")
+    game.phase_deadline = None
     transition_to_voting(game)
 
 
