@@ -1,16 +1,16 @@
 {
-  "event_count": 14,
+  "event_count": 15,
   "feature_slug": "004-server-phase-timers",
-  "last_event_id": "01KMMQ472N864MX7NMYX3ED70A",
-  "materialized_at": "2026-03-26T09:20:37.462106+00:00",
+  "last_event_id": "01KMMQ9JZ395DWS1KHFJFZ4DKQ",
+  "materialized_at": "2026-03-26T09:23:33.476094+00:00",
   "summary": {
-    "approved": 0,
+    "approved": 1,
     "blocked": 0,
     "canceled": 0,
     "claimed": 0,
     "done": 2,
     "for_review": 0,
-    "in_progress": 1,
+    "in_progress": 0,
     "planned": 0
   },
   "work_packages": {
@@ -29,11 +29,11 @@
       "last_transition_at": "2026-03-26T09:13:02.079746+00:00"
     },
     "WP03": {
-      "actor": "headless-reviewer",
-      "force_count": 3,
-      "lane": "in_progress",
-      "last_event_id": "01KMMQ472N864MX7NMYX3ED70A",
-      "last_transition_at": "2026-03-26T09:20:37.461862+00:00"
+      "actor": "user",
+      "force_count": 4,
+      "lane": "approved",
+      "last_event_id": "01KMMQ9JZ395DWS1KHFJFZ4DKQ",
+      "last_transition_at": "2026-03-26T09:23:33.475814+00:00"
     }
   }
 }
