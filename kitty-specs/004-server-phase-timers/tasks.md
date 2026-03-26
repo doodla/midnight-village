@@ -168,12 +168,12 @@
 **Requirements Refs**: FR-006, FR-007, FR-008, FR-009, FR-010, FR-012, FR-013
 
 ### Included Subtasks
-- [ ] T026 Add timer duration validation to `validate_onuw_settings()` in `backend/apps/onuw/engine/validation.py`: validate `discussion_seconds`, `voting_seconds`, `night_wave_seconds` as optional non-negative integers with max 600
-- [ ] T027 Add `deadline` field to `GameMeSerializer` in `backend/apps/onuw/serializers.py`: return `game.phase_deadline` as ISO 8601 or `null`
-- [ ] T028 [P] Add startup recovery in `backend/apps/onuw/apps.py`: in `OnuwConfig.ready()`, query games in timed phases past their deadline and transition them; reschedule timers for games with future deadlines
-- [ ] T029 Write unit tests for timer settings validation: valid durations, zero means no timer, negative rejected, over-600 rejected, missing keys use defaults
-- [ ] T030 Write integration tests for reconnection: `/me/` returns deadline during timed phases, returns null during untimed phases
-- [ ] T031 Write integration tests for startup recovery: past-due games transition immediately on startup, future-deadline games get rescheduled
+- [x] T026 Add timer duration validation to `validate_onuw_settings()` in `backend/apps/onuw/engine/validation.py`: validate `discussion_seconds`, `voting_seconds`, `night_wave_seconds` as optional non-negative integers with max 600
+- [x] T027 Add `deadline` field to `GameMeSerializer` in `backend/apps/onuw/serializers.py`: return `game.phase_deadline` as ISO 8601 or `null`
+- [x] T028 [P] Add startup recovery in `backend/apps/onuw/apps.py`: in `OnuwConfig.ready()`, query games in timed phases past their deadline and transition them; reschedule timers for games with future deadlines
+- [x] T029 Write unit tests for timer settings validation: valid durations, zero means no timer, negative rejected, over-600 rejected, missing keys use defaults
+- [x] T030 Write integration tests for reconnection: `/me/` returns deadline during timed phases, returns null during untimed phases
+- [x] T031 Write integration tests for startup recovery: past-due games transition immediately on startup, future-deadline games get rescheduled
 
 ### Implementation Notes
 - Validation is pure Python (no Django imports) in `engine/validation.py` — add to existing `validate_onuw_settings()` function
@@ -310,5 +310,5 @@ WP01 (P0) ──┬──> WP02 (P1) ──┐
 - WP01: done
 - WP02: done
 - WP03: done
-- WP04: approved
+- WP04: done
 <!-- status-model:end -->
