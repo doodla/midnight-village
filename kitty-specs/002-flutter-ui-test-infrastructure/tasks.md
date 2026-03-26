@@ -403,5 +403,5 @@ Phase 3 (Polish):        WP08 ←── all above
 ## Canonical Status (Generated)
 - WP01: done
 - WP02: done
-- WP03: in_progress
+- WP03: approved
 <!-- status-model:end -->
