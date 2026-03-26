@@ -118,7 +118,7 @@ jobs:
           name: golden-diff-report
           path: |
             frontend/test/golden_diff_report/
-            frontend/test/failures/
+            frontend/test/design_system/failures/
           retention-days: 7
           if-no-files-found: ignore
 
