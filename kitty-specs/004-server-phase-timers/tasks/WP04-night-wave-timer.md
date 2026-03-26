@@ -1,7 +1,7 @@
 ---
 work_package_id: WP04
 title: Night Wave Timer Integration
-lane: "doing"
+lane: "for_review"
 dependencies: [WP01]
 requirement_refs: [FR-002, FR-003, FR-004, FR-005, FR-007, FR-008, FR-009]
 planning_base_branch: main
@@ -20,11 +20,11 @@ subtasks:
 - T025
 phase: Phase 2 - Timer Integration
 assignee: ''
-agent: "headless-impl"
-shell_pid: "12394"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback: "feedback://004-server-phase-timers/WP04/20260326T093809Z-ec422725.md"
+agent: headless-impl
+shell_pid: '12394'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
+review_feedback: feedback://004-server-phase-timers/WP04/20260326T093809Z-ec422725.md
 history:
 - timestamp: '2026-03-26T08:20:45Z'
   lane: planned
@@ -303,3 +303,4 @@ cd backend && pytest tests/onuw/ -v  # full suite
 - 2026-03-26T09:34:27Z – headless-reviewer – shell_pid=8210 – lane=doing – Started review via workflow command
 - 2026-03-26T09:38:09Z – headless-reviewer – shell_pid=8210 – lane=planned – Moved to planned
 - 2026-03-26T09:38:18Z – headless-impl – shell_pid=12394 – lane=doing – Started implementation via workflow command
+- 2026-03-26T09:39:52Z – headless-impl – shell_pid=12394 – lane=for_review – Ready for review: added skip assertion to test_wave_auto_advances_with_skips (renamed from test_wave_auto_advances_when_timer_fires) as requested in review feedback. All 462 tests pass, ruff clean.
