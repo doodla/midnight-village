@@ -1,7 +1,7 @@
 ---
 work_package_id: WP03
 title: Golden Test Examples & Validation
-lane: "for_review"
+lane: "doing"
 dependencies: [WP01]
 requirement_refs: [FR-001, FR-002, FR-012]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T015
 phase: Phase 1 - Core Layers
 assignee: ''
-agent: headless-impl
-shell_pid: '76910'
+agent: "headless-reviewer"
+shell_pid: "80589"
 review_status: ''
 reviewed_by: ''
 history:
@@ -248,3 +248,4 @@ The CLI command updates both frontmatter and activity log automatically.
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T01:21:52Z – headless-impl – shell_pid=76910 – lane=doing – Assigned agent via workflow command
 - 2026-03-26T01:25:09Z – headless-impl – shell_pid=76910 – lane=for_review – Ready for review: 3 golden test files for MvButton, RoleCard, PlayerCircle with 9 baselines generated. All 10 golden tests pass, generate/compare/update cycle validated, baselines confirmed byte-identical across runs.
+- 2026-03-26T01:25:21Z – headless-reviewer – shell_pid=80589 – lane=doing – Started review via workflow command
