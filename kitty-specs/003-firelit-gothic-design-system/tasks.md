@@ -66,13 +66,13 @@
 **Requirements Refs**: FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-017
 
 ### Included Subtasks
-- [ ] T006 Write token value unit tests in `frontend/test/design_system/tokens/app_colors_test.dart` and `app_typography_test.dart` verifying hex values and font properties match Stitch spec (SC-001, SC-002)
-- [ ] T007 [P] Create `AppColors` static class in `frontend/lib/design_system/tokens/app_colors.dart` with all Firelit Gothic color constants
-- [ ] T008 [P] Create `AppTypography` static class in `frontend/lib/design_system/tokens/app_typography.dart` using `google_fonts` package (Epilogue, DM Sans, Space Grotesk, Libre Baskerville)
-- [ ] T009 [P] Create `AppRadius` static class in `frontend/lib/design_system/tokens/app_radius.dart` with BorderRadius constants (small 4px, medium 8px, large 12px, xl 16px, full 999px)
-- [ ] T010 [P] Create `AppSpacing` static class in `frontend/lib/design_system/tokens/app_spacing.dart` with 7-step scale (xs 4, sm 8, md 12, lg 16, xl 24, xxl 32, xxxl 48)
-- [ ] T011 [P] Create `AppShadows` static class in `frontend/lib/design_system/tokens/app_shadows.dart` with fireGlow, selectionGlow, dangerGlow presets
-- [ ] T012 [P] Create `AppDecorations` static class in `frontend/lib/design_system/tokens/app_decorations.dart` with visionGlow, bloodVignette, candleGlow gradients and noiseOverlay asset path
+- [x] T006 Write token value unit tests in `frontend/test/design_system/tokens/app_colors_test.dart` and `app_typography_test.dart` verifying hex values and font properties match Stitch spec (SC-001, SC-002)
+- [x] T007 [P] Create `AppColors` static class in `frontend/lib/design_system/tokens/app_colors.dart` with all Firelit Gothic color constants
+- [x] T008 [P] Create `AppTypography` static class in `frontend/lib/design_system/tokens/app_typography.dart` using `google_fonts` package (Epilogue, DM Sans, Space Grotesk, Libre Baskerville)
+- [x] T009 [P] Create `AppRadius` static class in `frontend/lib/design_system/tokens/app_radius.dart` with BorderRadius constants (small 4px, medium 8px, large 12px, xl 16px, full 999px)
+- [x] T010 [P] Create `AppSpacing` static class in `frontend/lib/design_system/tokens/app_spacing.dart` with 7-step scale (xs 4, sm 8, md 12, lg 16, xl 24, xxl 32, xxxl 48)
+- [x] T011 [P] Create `AppShadows` static class in `frontend/lib/design_system/tokens/app_shadows.dart` with fireGlow, selectionGlow, dangerGlow presets
+- [x] T012 [P] Create `AppDecorations` static class in `frontend/lib/design_system/tokens/app_decorations.dart` with visionGlow, bloodVignette, candleGlow gradients and noiseOverlay asset path
 
 ### Implementation Notes
 - TEST_FIRST: T006 writes tests before T007-T012 create the implementations
@@ -369,5 +369,5 @@ WP03 (Themes & Bridge)
 
 <!-- status-model:start -->
 ## Canonical Status (Generated)
-- WP01: approved
+- WP01: done
 <!-- status-model:end -->
