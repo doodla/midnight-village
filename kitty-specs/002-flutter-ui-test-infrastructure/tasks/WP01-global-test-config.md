@@ -1,7 +1,7 @@
 ---
 work_package_id: WP01
 title: Global Test Configuration & Deterministic Rendering
-lane: "for_review"
+lane: "doing"
 dependencies: []
 requirement_refs: [FR-001, FR-002, FR-003, FR-011, FR-013, FR-016]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T005
 phase: Phase 0 - Foundation
 assignee: ''
-agent: headless-impl
-shell_pid: '41550'
+agent: "headless-reviewer"
+shell_pid: "67639"
 review_status: ''
 reviewed_by: ''
 history:
@@ -243,3 +243,4 @@ The CLI command updates both frontmatter and activity log automatically.
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T00:46:26Z – headless-impl – shell_pid=41550 – lane=doing – Assigned agent via workflow command
 - 2026-03-26T00:53:22Z – headless-impl – shell_pid=41550 – lane=for_review – Ready for review: global test config with font loading, PlatformGoldenFileComparator routing baselines to macos/linux dirs, pumpWithGolden extension, goldenMode flag on pumpWithTokens, justfile commands, smoke tests — 155 tests pass
+- 2026-03-26T01:13:44Z – headless-reviewer – shell_pid=67639 – lane=doing – Started review via workflow command

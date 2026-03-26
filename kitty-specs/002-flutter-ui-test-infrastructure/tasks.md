@@ -401,6 +401,6 @@ Phase 3 (Polish):        WP08 ←── all above
 
 <!-- status-model:start -->
 ## Canonical Status (Generated)
-- WP01: for_review
+- WP01: in_progress
 - WP02: for_review
 <!-- status-model:end -->
