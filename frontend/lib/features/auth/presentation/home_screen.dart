@@ -75,7 +75,7 @@ class _WelcomeViewState extends ConsumerState<_WelcomeView> {
           label: 'Display name',
           hint: 'Leave blank for random name',
         ),
-        SizedBox(height: tokens.spacing.m),
+        SizedBox(height: tokens.spacing.md),
         MvButton(
           label: 'Continue',
           onPressed: _onContinue,
@@ -104,14 +104,14 @@ class _AuthenticatedView extends ConsumerWidget {
               color: tokens.colors.onBackground,
             ),
           ),
-          SizedBox(height: tokens.spacing.s),
+          SizedBox(height: tokens.spacing.sm),
           Text(
             '(token stored ✓)',
             style: tokens.typography.caption.copyWith(
               color: tokens.colors.disabled,
             ),
           ),
-          SizedBox(height: tokens.spacing.l),
+          SizedBox(height: tokens.spacing.lg),
           MvButton(
             label: 'Logout',
             onPressed: () => ref.read(authProvider.notifier).logout(),

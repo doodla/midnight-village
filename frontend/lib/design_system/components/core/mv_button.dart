@@ -68,8 +68,8 @@ class MvButton extends ConsumerWidget {
         disabledForegroundColor: tokens.colors.onDisabled,
         textStyle: tokens.typography.label,
         padding: EdgeInsets.symmetric(
-          horizontal: tokens.spacing.m,
-          vertical: tokens.spacing.s,
+          horizontal: tokens.spacing.md,
+          vertical: tokens.spacing.sm,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
@@ -90,8 +90,8 @@ class MvButton extends ConsumerWidget {
         disabledForegroundColor: tokens.colors.onDisabled,
         textStyle: tokens.typography.label,
         padding: EdgeInsets.symmetric(
-          horizontal: tokens.spacing.m,
-          vertical: tokens.spacing.s,
+          horizontal: tokens.spacing.md,
+          vertical: tokens.spacing.sm,
         ),
         side: BorderSide(
           color: onPressed != null

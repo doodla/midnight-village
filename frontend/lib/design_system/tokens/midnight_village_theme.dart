@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'app_colors.dart';
+import 'app_decorations.dart';
+import 'app_radius.dart';
+import 'app_shadows.dart';
+import 'app_spacing.dart';
 import 'app_tokens.dart';
 
 /// Default "Midnight Village" theme — warm firelight ambers/oranges,
@@ -21,6 +26,12 @@ class MidnightVillageTheme implements AppTokens {
 
   @override
   AppElevationTokens get elevation => const MidnightVillageElevation();
+
+  @override
+  AppRadiusTokens get radius => const MidnightVillageRadius();
+
+  @override
+  AppDecorationTokens get decorations => MidnightVillageDecorations();
 }
 
 class MidnightVillageColors implements AppColorTokens {
@@ -28,62 +39,93 @@ class MidnightVillageColors implements AppColorTokens {
 
   // Standard semantic colors
   @override
-  Color get primary => const Color(0xFFE8A849); // firelight gold
+  Color get primary => AppColors.emberRed;
 
   @override
-  Color get onPrimary => const Color(0xFF1A1207); // dark brown on amber
+  Color get onPrimary => AppColors.parchment;
 
   @override
-  Color get secondary => const Color(0xFF8B9D83); // muted sage
+  Color get secondary => AppColors.tallowGold;
 
   @override
-  Color get onSecondary => const Color(0xFFF0EDE6); // light cream on sage
+  Color get onSecondary => AppColors.voidBlack;
 
   @override
-  Color get surface => const Color(0xFF1E2A3A); // dark blue-grey card
+  Color get surface => AppColors.surface;
 
   @override
-  Color get onSurface => const Color(0xFFE8E4DD); // light cream text
+  Color get onSurface => AppColors.parchment;
 
   @override
-  Color get background => const Color(0xFF0F1923); // deep night sky
+  Color get background => AppColors.voidBlack;
 
   @override
-  Color get onBackground => const Color(0xFFE8E4DD); // light cream text
+  Color get onBackground => AppColors.parchment;
 
   @override
-  Color get error => const Color(0xFFCF6679); // muted rose red
+  Color get error => AppColors.danger;
 
   @override
-  Color get onError => const Color(0xFF1A0A0E); // dark on error
+  Color get onError => AppColors.parchment;
 
   @override
-  Color get outline => const Color(0xFF374A5E); // subtle blue-grey border
+  Color get outline => AppColors.outline;
 
   @override
-  Color get disabled => const Color(0xFF4A5568); // grey
+  Color get disabled => const Color(0xFF4A5568);
 
   @override
-  Color get onDisabled => const Color(0xFF8A95A5); // muted text on disabled
+  Color get onDisabled => AppColors.parchmentMuted;
 
   // Game-specific semantic colors
   @override
-  Color get werewolfTeam => const Color(0xFFB33A3A); // deep crimson
+  Color get werewolfTeam => AppColors.teamWerewolf;
 
   @override
-  Color get villageTeam => const Color(0xFF4A90D9); // soft blue
+  Color get villageTeam => AppColors.teamVillage;
 
   @override
-  Color get independentTeam => const Color(0xFFC4A35A); // muted gold
+  Color get independentTeam => AppColors.teamIndependent;
 
   @override
-  Color get timerNormal => const Color(0xFFB8C8DB); // calm blue-white
+  Color get timerNormal => AppColors.parchment;
 
   @override
-  Color get timerUrgent => const Color(0xFFE85A3A); // warning red-orange
+  Color get timerUrgent => AppColors.danger;
 
   @override
-  Color get cardBack => const Color(0xFF0A1320); // darker navy
+  Color get cardBack => AppColors.voidBlack;
+
+  // Extended Firelit Gothic colors
+  @override
+  Color get tertiary => AppColors.moonSage;
+
+  @override
+  Color get nightBg => AppColors.nightBg;
+
+  @override
+  Color get lobbyBg => AppColors.lobbyBg;
+
+  @override
+  Color get discussionBg => AppColors.discussionBg;
+
+  @override
+  Color get votingBg => AppColors.votingBg;
+
+  @override
+  Color get resultsBg => AppColors.resultsBg;
+
+  @override
+  Color get surfaceDark => AppColors.surfaceDark;
+
+  @override
+  Color get danger => AppColors.danger;
+
+  @override
+  Color get warning => AppColors.warning;
+
+  @override
+  Color get noDeathBlue => AppColors.noDeathBlue;
 }
 
 class MidnightVillageTypography implements AppTypographyTokens {
@@ -140,28 +182,63 @@ class MidnightVillageTypography implements AppTypographyTokens {
     letterSpacing: 0.1,
     height: 1.4,
   );
+
+  // Extended Firelit Gothic typography
+  @override
+  TextStyle get timerDigits => const TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 48,
+    fontWeight: FontWeight.w600,
+  );
+
+  @override
+  TextStyle get lobbyCode => const TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 28,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 8.0,
+  );
+
+  @override
+  TextStyle get phaseLabel => const TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 2.0,
+  );
+
+  @override
+  TextStyle get serifAccent => const TextStyle(
+    fontFamily: 'PlayfairDisplay',
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    fontStyle: FontStyle.italic,
+  );
 }
 
 class MidnightVillageSpacing implements AppSpacingTokens {
   const MidnightVillageSpacing();
 
   @override
-  double get xs => 4.0;
+  double get xs => AppSpacing.xs;
 
   @override
-  double get s => 8.0;
+  double get sm => AppSpacing.sm;
 
   @override
-  double get m => 16.0;
+  double get md => AppSpacing.md;
 
   @override
-  double get l => 24.0;
+  double get lg => AppSpacing.lg;
 
   @override
-  double get xl => 32.0;
+  double get xl => AppSpacing.xl;
 
   @override
-  double get xxl => 48.0;
+  double get xxl => AppSpacing.xxl;
+
+  @override
+  double get xxxl => AppSpacing.xxxl;
 }
 
 class MidnightVillageElevation implements AppElevationTokens {
@@ -178,4 +255,46 @@ class MidnightVillageElevation implements AppElevationTokens {
 
   @override
   double get overlay => 12.0;
+}
+
+class MidnightVillageRadius implements AppRadiusTokens {
+  const MidnightVillageRadius();
+
+  @override
+  BorderRadius get small => AppRadius.small;
+
+  @override
+  BorderRadius get medium => AppRadius.medium;
+
+  @override
+  BorderRadius get large => AppRadius.large;
+
+  @override
+  BorderRadius get xl => AppRadius.xl;
+
+  @override
+  BorderRadius get full => AppRadius.full;
+}
+
+class MidnightVillageDecorations implements AppDecorationTokens {
+  @override
+  List<BoxShadow> get fireGlow => AppShadows.fireGlow;
+
+  @override
+  List<BoxShadow> get selectionGlow => AppShadows.selectionGlow;
+
+  @override
+  List<BoxShadow> get dangerGlow => AppShadows.dangerGlow;
+
+  @override
+  Gradient get visionGlow => AppDecorations.visionGlow;
+
+  @override
+  Gradient get bloodVignette => AppDecorations.bloodVignette;
+
+  @override
+  Gradient get candleGlow => AppDecorations.candleGlow;
+
+  @override
+  String get noiseOverlayAsset => AppDecorations.noiseOverlayAsset;
 }

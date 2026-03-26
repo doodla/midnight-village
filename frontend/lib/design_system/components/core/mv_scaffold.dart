@@ -60,7 +60,7 @@ class MvScaffold extends ConsumerWidget {
                   constraints: const BoxConstraints(maxWidth: 600),
                   child: Padding(
                     padding: EdgeInsets.symmetric(
-                      horizontal: tokens.spacing.l,
+                      horizontal: tokens.spacing.lg,
                     ),
                     child: body,
                   ),
@@ -69,7 +69,7 @@ class MvScaffold extends ConsumerWidget {
             }
             return Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: tokens.spacing.m,
+                horizontal: tokens.spacing.md,
               ),
               child: body,
             );

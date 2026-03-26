@@ -88,7 +88,7 @@ class _VoteSubmissionState extends ConsumerState<VoteSubmission> {
     final tokens = ref.watch(activeThemeProvider);
 
     return Padding(
-      padding: EdgeInsets.all(tokens.spacing.m),
+      padding: EdgeInsets.all(tokens.spacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -112,7 +112,7 @@ class _VoteSubmissionState extends ConsumerState<VoteSubmission> {
           // Timer is always visible — other players may still be voting.
           GameTimer(timeRemaining: widget.timeRemaining),
 
-          SizedBox(height: tokens.spacing.m),
+          SizedBox(height: tokens.spacing.md),
         ],
       ),
     );
@@ -169,7 +169,7 @@ class _VoteSelectionView extends StatelessWidget {
           ),
         ),
 
-        SizedBox(height: tokens.spacing.l),
+        SizedBox(height: tokens.spacing.lg),
 
         // Confirm button — disabled until a player is selected.
         MvButton(
@@ -178,7 +178,7 @@ class _VoteSelectionView extends StatelessWidget {
           variant: MvButtonVariant.primary,
         ),
 
-        SizedBox(height: tokens.spacing.s),
+        SizedBox(height: tokens.spacing.sm),
 
         // Warning text below the button.
         Text(
@@ -230,7 +230,7 @@ class _VoteLockedView extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
 
-          SizedBox(height: tokens.spacing.s),
+          SizedBox(height: tokens.spacing.sm),
 
           Text(
             'Your vote has been submitted.',

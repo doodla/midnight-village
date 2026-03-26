@@ -35,7 +35,7 @@ class GameResults extends ConsumerWidget {
     final tokens = ref.watch(activeThemeProvider);
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(tokens.spacing.m),
+      padding: EdgeInsets.all(tokens.spacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -44,7 +44,7 @@ class GameResults extends ConsumerWidget {
           // ----------------------------------------------------------------
           _WinAnnouncement(winningTeams: result.winningTeams),
 
-          SizedBox(height: tokens.spacing.l),
+          SizedBox(height: tokens.spacing.lg),
 
           // ----------------------------------------------------------------
           // Player reveal list
@@ -55,15 +55,15 @@ class GameResults extends ConsumerWidget {
               color: tokens.colors.onBackground,
             ),
           ),
-          SizedBox(height: tokens.spacing.s),
+          SizedBox(height: tokens.spacing.sm),
           ...result.players.map(
             (player) => Padding(
-              padding: EdgeInsets.only(bottom: tokens.spacing.s),
+              padding: EdgeInsets.only(bottom: tokens.spacing.sm),
               child: _PlayerResultRow(player: player),
             ),
           ),
 
-          SizedBox(height: tokens.spacing.l),
+          SizedBox(height: tokens.spacing.lg),
 
           // ----------------------------------------------------------------
           // Action buttons
@@ -76,7 +76,7 @@ class GameResults extends ConsumerWidget {
             ),
 
           if (onPlayAgain != null && onReturnToLobby != null)
-            SizedBox(height: tokens.spacing.s),
+            SizedBox(height: tokens.spacing.sm),
 
           if (onReturnToLobby != null)
             MvButton(
@@ -85,7 +85,7 @@ class GameResults extends ConsumerWidget {
               variant: MvButtonVariant.secondary,
             ),
 
-          SizedBox(height: tokens.spacing.m),
+          SizedBox(height: tokens.spacing.md),
         ],
       ),
     );
@@ -160,7 +160,7 @@ class _PlayerResultRow extends ConsumerWidget {
     final roleLabel = _buildRoleLabel(player);
 
     return Container(
-      padding: EdgeInsets.all(tokens.spacing.s),
+      padding: EdgeInsets.all(tokens.spacing.sm),
       decoration: BoxDecoration(
         color: tokens.colors.surface,
         borderRadius: BorderRadius.circular(8.0),
@@ -181,12 +181,12 @@ class _PlayerResultRow extends ConsumerWidget {
             ),
           ),
 
-          SizedBox(width: tokens.spacing.s),
+          SizedBox(width: tokens.spacing.sm),
 
           // Small RoleCard (face-up with final role).
           RoleCard(roleId: player.finalRole, small: true),
 
-          SizedBox(width: tokens.spacing.s),
+          SizedBox(width: tokens.spacing.sm),
 
           // Name + role text + eliminated indicator.
           Expanded(
