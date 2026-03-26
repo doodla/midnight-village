@@ -6,20 +6,24 @@ import 'logging_interceptor.dart';
 /// Low-level HTTP client wrapper around Dio.
 ///
 /// No authentication - used for public endpoints like guest registration.
+///
+/// The [dio] parameter allows injecting a pre-configured Dio instance, which
+/// is used in integration tests to wire in a [MockHttpClient].
 class ApiClient {
-  ApiClient({String? baseUrl})
-    : _dio = Dio(
-        BaseOptions(
-          baseUrl: baseUrl ?? Env.apiUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        ),
-      ) {
-    if (Env.isDev) {
+  ApiClient({String? baseUrl, Dio? dio})
+    : _dio = dio ??
+          Dio(
+            BaseOptions(
+              baseUrl: baseUrl ?? Env.apiUrl,
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 10),
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+            ),
+          ) {
+    if (dio == null && Env.isDev) {
       _dio.interceptors.add(LoggingInterceptor());
     }
   }
