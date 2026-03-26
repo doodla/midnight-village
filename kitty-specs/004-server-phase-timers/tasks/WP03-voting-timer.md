@@ -1,7 +1,7 @@
 ---
 work_package_id: WP03
 title: Voting Timer Integration
-lane: "approved"
+lane: done
 dependencies: [WP01]
 requirement_refs: [FR-001, FR-003, FR-004, FR-005, FR-007, FR-008, FR-009, FR-012]
 planning_base_branch: main
@@ -21,8 +21,8 @@ phase: Phase 2 - Timer Integration
 assignee: ''
 agent: headless-reviewer
 shell_pid: '86804'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-26T08:20:45Z'
   lane: planned

@@ -311,5 +311,5 @@ WP01 (P0) ──┬──> WP02 (P1) ──┐
 - WP02: done
 - WP03: done
 - WP04: done
-- WP05: approved
+- WP05: done
 <!-- status-model:end -->

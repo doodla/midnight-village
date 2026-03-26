@@ -1,7 +1,7 @@
 ---
 work_package_id: WP01
 title: Timer Registry & Model Foundation
-lane: "approved"
+lane: done
 dependencies: []
 requirement_refs: [FR-003, FR-004, FR-005, FR-006, FR-011]
 planning_base_branch: main
@@ -20,8 +20,8 @@ phase: Phase 1 - Foundation
 assignee: ''
 agent: headless-reviewer
 shell_pid: '39395'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-26T08:20:45Z'
   lane: planned

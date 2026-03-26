@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Timer Settings Validation & Reconnection
-lane: "approved"
+lane: done
 dependencies: [WP01]
 requirement_refs: [FR-006, FR-007, FR-008, FR-009, FR-010, FR-012, FR-013]
 planning_base_branch: main
@@ -21,8 +21,8 @@ phase: Phase 3 - Settings & Recovery
 assignee: ''
 agent: headless-reviewer
 shell_pid: '29459'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-26T08:20:45Z'
   lane: planned
