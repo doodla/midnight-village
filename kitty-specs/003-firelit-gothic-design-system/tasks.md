@@ -173,11 +173,11 @@
 **Requirements Refs**: FR-010, FR-015
 
 ### Included Subtasks
-- [ ] T023 Write widget tests for `PrimaryButton` in `frontend/test/design_system/components/core/primary_button_test.dart`: test filled/disabled/loading/outlined/destructive states, full-width behavior, token consumption, onPressed callback
-- [ ] T024 Implement `PrimaryButton` ConsumerWidget in `frontend/lib/design_system/components/core/primary_button.dart` per contract spec: filled with ember red, outlined named constructor, isLoading spinner, isDestructive error color
-- [ ] T025 Replace all `MvButton` usages with `PrimaryButton` in: `home_screen.dart`, `vote_submission.dart`, `night_action_prompt.dart`, `game_results.dart`, `mv_error.dart`, `mv_dialog.dart`
-- [ ] T026 Remove `frontend/lib/design_system/components/core/mv_button.dart` and `frontend/test/design_system/components/core/mv_button_golden_test.dart`
-- [ ] T027 Verify all existing tests that touch replaced components still pass
+- [x] T023 Write widget tests for `PrimaryButton` in `frontend/test/design_system/components/core/primary_button_test.dart`: test filled/disabled/loading/outlined/destructive states, full-width behavior, token consumption, onPressed callback
+- [x] T024 Implement `PrimaryButton` ConsumerWidget in `frontend/lib/design_system/components/core/primary_button.dart` per contract spec: filled with ember red, outlined named constructor, isLoading spinner, isDestructive error color
+- [x] T025 Replace all `MvButton` usages with `PrimaryButton` in: `home_screen.dart`, `vote_submission.dart`, `night_action_prompt.dart`, `game_results.dart`, `mv_error.dart`, `mv_dialog.dart`
+- [x] T026 Remove `frontend/lib/design_system/components/core/mv_button.dart` and `frontend/test/design_system/components/core/mv_button_golden_test.dart`
+- [x] T027 Verify all existing tests that touch replaced components still pass
 
 ### Implementation Notes
 - TEST_FIRST: T023 writes tests before T024 implements the widget
@@ -372,5 +372,5 @@ WP03 (Themes & Bridge)
 - WP01: done
 - WP02: done
 - WP03: done
-- WP04: approved
+- WP04: done
 <!-- status-model:end -->
