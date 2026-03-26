@@ -102,12 +102,12 @@
 **Requirements Refs**: FR-007, FR-013
 
 ### Included Subtasks
-- [ ] T013 Write theme tests in `frontend/test/design_system/tokens/firelit_gothic_theme_test.dart`: verify FirelitGothicTheme returns correct values, verify completeness (all getters return non-null), verify bridge produces valid ThemeData
-- [ ] T014 Create `FirelitGothicTheme` in `frontend/lib/design_system/tokens/firelit_gothic_theme.dart` implementing expanded `AppTokens` with internal `FirelitGothicColors`, `FirelitGothicTypography`, `FirelitGothicSpacing`, `FirelitGothicElevation`, `FirelitGothicRadius`, `FirelitGothicDecorations` classes referencing static constants from WP02
-- [ ] T015 Update `MidnightVillageTheme` in `frontend/lib/design_system/tokens/midnight_village_theme.dart` to implement all expanded interface getters (10 new color getters, 4 new typography getters, renamed spacing, new radius/decorations groups)
-- [ ] T016 Update `TestThemeTokens` in `frontend/test/design_system/test_helpers/test_theme.dart` to implement expanded interfaces with visually distinct test values
-- [ ] T017 Expand `ThemeBridge.generateThemeData` in `frontend/lib/design_system/tokens/theme_bridge.dart` to map expanded ColorScheme (tertiary, surface variants), expanded TextTheme (timerDigits→labelLarge, lobbyCode→labelMedium, phaseLabel→labelSmall), and component themes (cardTheme, filledButtonTheme, outlinedButtonTheme, inputDecorationTheme, dividerTheme, appBarTheme)
-- [ ] T018 Update `frontend/lib/design_system/tokens/app_tokens_provider.dart` to default to `FirelitGothicTheme`; run `just flutter-build-runner` to regenerate provider code
+- [x] T013 Write theme tests in `frontend/test/design_system/tokens/firelit_gothic_theme_test.dart`: verify FirelitGothicTheme returns correct values, verify completeness (all getters return non-null), verify bridge produces valid ThemeData
+- [x] T014 Create `FirelitGothicTheme` in `frontend/lib/design_system/tokens/firelit_gothic_theme.dart` implementing expanded `AppTokens` with internal `FirelitGothicColors`, `FirelitGothicTypography`, `FirelitGothicSpacing`, `FirelitGothicElevation`, `FirelitGothicRadius`, `FirelitGothicDecorations` classes referencing static constants from WP02
+- [x] T015 Update `MidnightVillageTheme` in `frontend/lib/design_system/tokens/midnight_village_theme.dart` to implement all expanded interface getters (10 new color getters, 4 new typography getters, renamed spacing, new radius/decorations groups)
+- [x] T016 Update `TestThemeTokens` in `frontend/test/design_system/test_helpers/test_theme.dart` to implement expanded interfaces with visually distinct test values
+- [x] T017 Expand `ThemeBridge.generateThemeData` in `frontend/lib/design_system/tokens/theme_bridge.dart` to map expanded ColorScheme (tertiary, surface variants), expanded TextTheme (timerDigits→labelLarge, lobbyCode→labelMedium, phaseLabel→labelSmall), and component themes (cardTheme, filledButtonTheme, outlinedButtonTheme, inputDecorationTheme, dividerTheme, appBarTheme)
+- [x] T018 Update `frontend/lib/design_system/tokens/app_tokens_provider.dart` to default to `FirelitGothicTheme`; run `just flutter-build-runner` to regenerate provider code
 
 ### Implementation Notes
 - TEST_FIRST: T013 writes tests before T014-T018 create implementations
@@ -370,5 +370,5 @@ WP03 (Themes & Bridge)
 <!-- status-model:start -->
 ## Canonical Status (Generated)
 - WP01: done
-- WP02: approved
+- WP02: done
 <!-- status-model:end -->
