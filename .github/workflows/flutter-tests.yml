@@ -1,0 +1,167 @@
+# Flutter Test CI Pipeline
+#
+# Runs widget tests, golden tests, and integration tests on every push and PR.
+# All three test layers run as independent jobs — a failure in one does NOT
+# skip the others. The merge is blocked if any job fails.
+#
+# BRANCH PROTECTION SETUP (T036):
+# Configure in GitHub Settings → Branches → main → Require status checks:
+#   Required checks: "Widget Tests", "Golden Tests", "Integration Tests"
+# Each job is a separate required check so any single failure blocks the merge.
+#
+# PLATFORM BASELINES (T035):
+# - macOS: developers generate baselines locally with `just flutter-golden-update`
+# - Linux: CI baselines live in frontend/test/design_system/goldens/linux/
+# Both sets must be committed to the repo.
+#
+# Initial Linux baselines were generated on macOS. Flutter's test renderer uses
+# embedded custom fonts (Inter, PlayfairDisplay), making rendering consistent
+# across platforms. If pixel mismatches appear on CI, regenerate proper baselines:
+#   1. Run this workflow manually via GitHub Actions → "Run workflow"
+#   2. Set "Regenerate golden baselines" to true
+#   3. Download the "linux-golden-baselines" artifact from the completed run
+#   4. Extract to frontend/test/design_system/goldens/linux/ and commit
+
+name: Flutter Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      update_goldens:
+        description: "Regenerate golden baselines"
+        type: boolean
+        default: false
+
+jobs:
+  # ─── Widget Tests ──────────────────────────────────────────────────────────
+  widget-tests:
+    name: Widget Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # Pin to stable channel matching pubspec.yaml sdk: ^3.10.4
+          channel: "stable"
+          cache: true
+          cache-key: flutter-stable-${{ runner.os }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Excludes golden-tagged tests to avoid running them in this job
+      - name: Widget tests
+        run: flutter test --exclude-tags golden
+
+  # ─── Golden Tests ──────────────────────────────────────────────────────────
+  golden-tests:
+    name: Golden Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+          cache-key: flutter-stable-${{ runner.os }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Regenerate Linux baselines when workflow_dispatch with update_goldens=true
+      - name: Regenerate Linux golden baselines
+        if: inputs.update_goldens == true
+        run: flutter test --update-goldens --tags golden
+
+      - name: Upload regenerated Linux baselines
+        if: inputs.update_goldens == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-golden-baselines
+          path: frontend/test/design_system/goldens/linux/
+          retention-days: 30
+
+      # Uses linux/ baselines on CI; macos/ baselines used locally
+      - name: Golden tests
+        id: golden-tests
+        run: just flutter-test-golden
+
+      - name: Generate golden diff report
+        if: failure() && steps.golden-tests.outcome == 'failure'
+        run: just flutter-golden-report
+
+      - name: Upload golden diff artifacts
+        if: failure() && steps.golden-tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diff-report
+          path: |
+            frontend/test/golden_diff_report/
+            frontend/test/design_system/failures/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ─── Integration Tests ─────────────────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+          cache-key: flutter-stable-${{ runner.os }}
+
+      - name: Install Chrome (for integration tests)
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Runs headless via web-server device (no Chrome window needed)
+      - name: Integration tests
+        id: integration-tests
+        run: just test-integration-ci
+
+      - name: Upload integration test screenshots
+        if: failure() && steps.integration-tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-screenshots
+          path: frontend/integration_test/screenshots/
+          retention-days: 7
+          if-no-files-found: ignore
