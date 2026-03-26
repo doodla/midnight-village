@@ -1,7 +1,7 @@
 ---
 work_package_id: WP07
 title: CI Pipeline Integration
-lane: "doing"
+lane: "for_review"
 dependencies: [WP03, WP05, WP06]
 requirement_refs: [FR-010, FR-011]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T036
 phase: Phase 2 - Tooling
 assignee: ''
-agent: "headless-impl"
-shell_pid: "21141"
+agent: headless-impl
+shell_pid: '21141'
 review_status: ''
 reviewed_by: ''
 history:
@@ -270,3 +270,4 @@ The CLI command updates both frontmatter and activity log automatically.
 
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T05:59:29Z – headless-impl – shell_pid=21141 – lane=doing – Assigned agent via workflow command
+- 2026-03-26T06:00:55Z – headless-impl – shell_pid=21141 – lane=for_review – Ready for review: GitHub Actions workflow running widget, golden, and integration tests with artifact uploads on failure and branch protection documentation
