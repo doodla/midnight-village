@@ -1,7 +1,7 @@
 ---
 work_package_id: WP04
 title: Reusable Test Harnesses
-lane: "for_review"
+lane: "doing"
 dependencies: [WP01, WP02]
 requirement_refs: [FR-007, FR-017]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T020
 phase: Phase 1 - Core Layers
 assignee: ''
-agent: headless-impl
-shell_pid: '83324'
+agent: "headless-reviewer"
+shell_pid: "92304"
 review_status: ''
 reviewed_by: ''
 history:
@@ -328,3 +328,4 @@ The CLI command updates both frontmatter and activity log automatically.
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 - 2026-03-26T01:27:48Z – headless-impl – shell_pid=83324 – lane=doing – Assigned agent via workflow command
 - 2026-03-26T01:38:41Z – headless-impl – shell_pid=83324 – lane=for_review – Ready for review: pumpApp, pumpAuthenticated, pumpWithGameState harnesses + 3 example test files. All 187 tests pass, flutter analyze clean.
+- 2026-03-26T01:38:59Z – headless-reviewer – shell_pid=92304 – lane=doing – Started review via workflow command
