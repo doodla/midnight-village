@@ -1,8 +1,8 @@
 {
-  "event_count": 26,
+  "event_count": 27,
   "feature_slug": "002-flutter-ui-test-infrastructure",
-  "last_event_id": "01KMKX9T7TNZZNPZR1PJ993DJZ",
-  "materialized_at": "2026-03-26T01:49:17.947269+00:00",
+  "last_event_id": "01KMKXETEGWXJZ0T3ZMS242R1E",
+  "materialized_at": "2026-03-26T01:52:02.000416+00:00",
   "summary": {
     "approved": 0,
     "blocked": 0,
@@ -10,8 +10,8 @@
     "claimed": 0,
     "done": 4,
     "for_review": 0,
-    "in_progress": 1,
-    "planned": 0
+    "in_progress": 0,
+    "planned": 1
   },
   "work_packages": {
     "WP01": {
@@ -43,11 +43,11 @@
       "last_transition_at": "2026-03-26T01:41:32.600156+00:00"
     },
     "WP05": {
-      "actor": "headless-reviewer",
+      "actor": "user",
       "force_count": 2,
-      "lane": "in_progress",
-      "last_event_id": "01KMKX9T7TNZZNPZR1PJ993DJZ",
-      "last_transition_at": "2026-03-26T01:49:17.946946+00:00"
+      "lane": "planned",
+      "last_event_id": "01KMKXETEGWXJZ0T3ZMS242R1E",
+      "last_transition_at": "2026-03-26T01:52:02.000112+00:00"
     }
   }
 }
