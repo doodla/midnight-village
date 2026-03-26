@@ -135,11 +135,11 @@
 **Requirements Refs**: FR-007, FR-017
 
 ### Included Subtasks
-- [ ] T016 Create `frontend/test/helpers/pump_app.dart` — `pumpApp` extension on `WidgetTester` that boots the full `MidnightVillageApp` wrapped in `ProviderScope` with mock HTTP client, mock WebSocket, and configurable route overrides
-- [ ] T017 Create `frontend/test/helpers/test_harness.dart` — `pumpAuthenticated(widget)` extension that pre-loads auth providers (token storage, user state) with valid test credentials; `pumpWithGameState(widget, {required GamePhase phase, required List<Player> players})` extension for game scenarios
-- [ ] T018 Write harness-backed widget test in `frontend/test/helpers/examples/authenticated_harness_test.dart` — demonstrate authenticated state setup in ≤5 lines, render a widget that requires auth, assert on content
-- [ ] T019 Write harness-backed widget test in `frontend/test/helpers/examples/game_state_harness_test.dart` — configure voting phase with 5 players, render a game widget, assert on player names and phase indicator
-- [ ] T020 Write test in `frontend/test/helpers/examples/websocket_harness_test.dart` — use mock WebSocket via harness to emit a `phase_change` event, verify UI updates accordingly
+- [x] T016 Create `frontend/test/helpers/pump_app.dart` — `pumpApp` extension on `WidgetTester` that boots the full `MidnightVillageApp` wrapped in `ProviderScope` with mock HTTP client, mock WebSocket, and configurable route overrides
+- [x] T017 Create `frontend/test/helpers/test_harness.dart` — `pumpAuthenticated(widget)` extension that pre-loads auth providers (token storage, user state) with valid test credentials; `pumpWithGameState(widget, {required GamePhase phase, required List<Player> players})` extension for game scenarios
+- [x] T018 Write harness-backed widget test in `frontend/test/helpers/examples/authenticated_harness_test.dart` — demonstrate authenticated state setup in ≤5 lines, render a widget that requires auth, assert on content
+- [x] T019 Write harness-backed widget test in `frontend/test/helpers/examples/game_state_harness_test.dart` — configure voting phase with 5 players, render a game widget, assert on player names and phase indicator
+- [x] T020 Write test in `frontend/test/helpers/examples/websocket_harness_test.dart` — use mock WebSocket via harness to emit a `phase_change` event, verify UI updates accordingly
 
 ### Implementation Notes
 - Harnesses compose on top of `pumpWithTokens` (not replace it) — each extension calls `pumpWithTokens` internally and adds provider overrides
