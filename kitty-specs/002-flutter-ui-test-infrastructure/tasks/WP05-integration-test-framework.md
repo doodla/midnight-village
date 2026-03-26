@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Integration Test Framework
-lane: "doing"
+lane: "approved"
 dependencies: [WP02]
 requirement_refs: [FR-004, FR-005, FR-009, FR-011, FR-012]
 planning_base_branch: main
@@ -19,10 +19,10 @@ subtasks:
 - T026
 phase: Phase 1 - Core Layers
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "20192"
-review_status: has_feedback
-reviewed_by: Sridhar Vadlamani
+agent: headless-reviewer
+shell_pid: '20192'
+review_status: "approved"
+reviewed_by: "Sridhar Vadlamani"
 review_feedback: feedback://002-flutter-ui-test-infrastructure/WP05/20260326T020133Z-cb72d00f.md
 history:
 - timestamp: '2026-03-25T23:55:37Z'
@@ -350,3 +350,4 @@ The CLI command updates both frontmatter and activity log automatically.
 - 2026-03-26T02:01:44Z – headless-impl – shell_pid=18132 – lane=doing – Started implementation via workflow command
 - 2026-03-26T02:03:16Z – headless-impl – shell_pid=18132 – lane=for_review – Ready for review: switched integration tests from flutter test to flutter drive (flutter test does not support web devices in Flutter 3.38.5), added test_driver/integration_test.dart, called setupFailureScreenshots() in auth_flow_test.dart, documented httpMocks key format constraint
 - 2026-03-26T02:03:23Z – headless-reviewer – shell_pid=20192 – lane=doing – Started review via workflow command
+- 2026-03-26T02:06:38Z – headless-reviewer – shell_pid=20192 – lane=approved – Review passed: All 6 subtasks complete. integration_test SDK dependency correct, MockHttpClient wired via ApiClient DI, NavigationAssertions extension (expectRoute/waitForNavigation/expectScreen) work with GoRouter, two auth flow integration tests written, screenshot capture configured, flutter-test-integration commands in root and frontend justfiles. 173 unit tests pass, flutter analyze clean.
