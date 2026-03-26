@@ -43,6 +43,14 @@ flutter-test-golden:
 flutter-golden-update:
     flutter test --update-goldens --tags golden
 
+# Generate visual diff report from golden test failures
+flutter-golden-report *ARGS:
+    dart run tool/golden_diff_report.dart {{ARGS}}
+
+# Run golden tests and generate diff report if any fail
+flutter-golden-check:
+    just flutter-test-golden || just flutter-golden-report
+
 # --- Code Quality ---
 
 # Analyze code
