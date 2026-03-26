@@ -1,0 +1,98 @@
+# Flutter Test CI Pipeline
+#
+# Runs widget tests, golden tests, and integration tests on every push and PR.
+# Blocks merge if any test layer fails (configure branch protection separately).
+#
+# BRANCH PROTECTION SETUP (T036):
+# Configure in GitHub Settings → Branches → main → Require status checks:
+#   Required check: "flutter-tests"
+# This prevents merging to main when any test layer fails.
+#
+# PLATFORM BASELINES (T035):
+# - macOS: developers generate baselines locally with `just flutter-golden-update`
+# - Linux: CI generates baselines in frontend/test/design_system/goldens/linux/
+# Both sets must be committed to the repo.
+#
+# To regenerate Linux baselines:
+#   1. Add a workflow_dispatch trigger or run via gh workflow run
+#   2. Push with --update-goldens to generate fresh linux/ baselines
+#   3. Download the artifact and commit the baselines
+
+name: Flutter Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  flutter-tests:
+    name: Flutter Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install just (task runner used by project)
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # Pin to stable channel matching pubspec.yaml sdk: ^3.10.4
+          channel: "stable"
+          cache: true
+          cache-key: flutter-stable-${{ runner.os }}
+
+      - name: Install Chrome (for integration tests)
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # --- Widget tests ---
+      # Excludes golden-tagged tests to avoid running them twice
+      - name: Widget tests
+        run: flutter test --exclude-tags golden
+
+      # --- Golden tests ---
+      # Uses linux/ baselines on CI; macos/ baselines used locally
+      - name: Golden tests
+        run: just flutter-test-golden
+
+      - name: Generate golden diff report
+        if: failure()
+        run: just flutter-golden-report
+
+      - name: Upload golden diff artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diff-report
+          path: |
+            frontend/test/golden_diff_report/
+            frontend/test/failures/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # --- Integration tests ---
+      # Runs headless via web-server device (no Chrome window needed)
+      - name: Integration tests
+        run: just test-integration-ci
+
+      - name: Upload integration test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-screenshots
+          path: frontend/integration_test/screenshots/
+          retention-days: 7
+          if-no-files-found: ignore
