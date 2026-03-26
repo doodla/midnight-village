@@ -35,6 +35,14 @@ test:
 test-cov:
     flutter test --coverage
 
+# Run integration tests on Chrome (requires Chrome installed)
+test-integration:
+    flutter test integration_test/ -d chrome
+
+# Run integration tests in headless mode for CI (uses web server device)
+test-integration-ci:
+    flutter test integration_test/ -d web-server --headless
+
 # --- Code Quality ---
 
 # Analyze code
