@@ -114,36 +114,29 @@ frontend_just := "just --justfile frontend/justfile --working-directory frontend
 
 # Run Flutter app (web)
 flutter-run:
-    cd frontend && flutter run -d chrome --web-port=3000
+    {{frontend_just}} run
 
 # Run Flutter code generation
 flutter-build-runner:
-    cd frontend && dart run build_runner build --delete-conflicting-outputs
+    {{frontend_just}} gen
 
 # Run Flutter code generation (watch mode)
 flutter-watch:
-    cd frontend && dart run build_runner watch --delete-conflicting-outputs
+    {{frontend_just}} watch
 
 # Run Flutter tests
 flutter-test:
-    cd frontend && flutter test
+    {{frontend_just}} test
 
 # Analyze Flutter code
 flutter-analyze:
-    cd frontend && flutter analyze
+    {{frontend_just}} analyze
 
 # Run Flutter integration tests on Chrome
 # Uses flutter drive because flutter test does not support web devices
 flutter-test-integration:
-    cd frontend && flutter drive \
-      --driver=test_driver/integration_test.dart \
-      --target=integration_test/auth_flow_test.dart \
-      -d chrome
+    {{frontend_just}} test-integration
 
 # Run Flutter integration tests in headless mode (CI)
 flutter-test-integration-ci:
-    cd frontend && flutter drive \
-      --driver=test_driver/integration_test.dart \
-      --target=integration_test/auth_flow_test.dart \
-      -d web-server \
-      --headless
+    {{frontend_just}} test-integration-ci
