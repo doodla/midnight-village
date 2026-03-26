@@ -76,6 +76,8 @@ class IntegrationTestSetup {
   /// merges in any [httpMocks] provided by the caller.
   ///
   /// [httpMocks] keys use the format `"METHOD:path"`, e.g. `"POST:/auth/guest/"`.
+  /// Keys must contain exactly one colon separating method and path — paths
+  /// containing colons (e.g. full URLs) are not supported by this helper.
   static Future<void> launchApp(
     WidgetTester tester, {
     Map<String, Response<dynamic>>? httpMocks,

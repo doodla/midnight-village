@@ -6,6 +6,7 @@ import 'helpers/navigation_helpers.dart';
 
 void main() {
   IntegrationTestSetup.initialize();
+  IntegrationTestSetup.setupFailureScreenshots();
 
   testWidgets(
     'Auth flow: launch → unauthenticated welcome → enter name → authenticated',

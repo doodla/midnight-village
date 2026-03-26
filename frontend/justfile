@@ -36,12 +36,20 @@ test-cov:
     flutter test --coverage
 
 # Run integration tests on Chrome (requires Chrome installed)
+# Uses flutter drive because flutter test does not support web devices
 test-integration:
-    flutter test integration_test/ -d chrome
+    flutter drive \
+      --driver=test_driver/integration_test.dart \
+      --target=integration_test/auth_flow_test.dart \
+      -d chrome
 
-# Run integration tests in headless mode for CI (uses web server device)
+# Run integration tests in headless mode for CI
 test-integration-ci:
-    flutter test integration_test/ -d web-server --headless
+    flutter drive \
+      --driver=test_driver/integration_test.dart \
+      --target=integration_test/auth_flow_test.dart \
+      -d web-server \
+      --headless
 
 # --- Code Quality ---
 

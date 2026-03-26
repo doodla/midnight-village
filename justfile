@@ -133,9 +133,17 @@ flutter-analyze:
     cd frontend && flutter analyze
 
 # Run Flutter integration tests on Chrome
+# Uses flutter drive because flutter test does not support web devices
 flutter-test-integration:
-    cd frontend && flutter test integration_test/ -d chrome
+    cd frontend && flutter drive \
+      --driver=test_driver/integration_test.dart \
+      --target=integration_test/auth_flow_test.dart \
+      -d chrome
 
 # Run Flutter integration tests in headless mode (CI)
 flutter-test-integration-ci:
-    cd frontend && flutter test integration_test/ -d web-server --headless
+    cd frontend && flutter drive \
+      --driver=test_driver/integration_test.dart \
+      --target=integration_test/auth_flow_test.dart \
+      -d web-server \
+      --headless
