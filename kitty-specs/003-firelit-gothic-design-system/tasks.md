@@ -210,11 +210,11 @@
 **Requirements Refs**: FR-009, FR-011
 
 ### Included Subtasks
-- [ ] T028 Write widget tests for `VillageAppBar` in `frontend/test/design_system/components/foundation/village_app_bar_test.dart`: test brand/back/phase/minimal variants, trailing widget rendering, back arrow Navigator.pop behavior, gold phase label typography
-- [ ] T029 Implement `VillageAppBar` ConsumerWidget in `frontend/lib/design_system/components/foundation/village_app_bar.dart` with 4 named constructors (brand, back, phase, minimal), implementing `PreferredSizeWidget`
-- [ ] T030 Write widget tests for `PlayerAvatar` in `frontend/test/design_system/components/foundation/player_avatar_test.dart`: test initials extraction (single word, two words, empty string), deterministic hue (same name → same color), 3 sizes (32/48/64dp), sigil overlay, token consumption
-- [ ] T031 Implement `PlayerAvatar` ConsumerWidget in `frontend/lib/design_system/components/foundation/player_avatar.dart` with deterministic hue algorithm (hashCode → HSL with muted saturation/lightness)
-- [ ] T032 Verify all acceptance scenarios for User Story 3 (4 app bar variants) and User Story 5 (avatar sizes, deterministic colors, sigil)
+- [x] T028 Write widget tests for `VillageAppBar` in `frontend/test/design_system/components/foundation/village_app_bar_test.dart`: test brand/back/phase/minimal variants, trailing widget rendering, back arrow Navigator.pop behavior, gold phase label typography
+- [x] T029 Implement `VillageAppBar` ConsumerWidget in `frontend/lib/design_system/components/foundation/village_app_bar.dart` with 4 named constructors (brand, back, phase, minimal), implementing `PreferredSizeWidget`
+- [x] T030 Write widget tests for `PlayerAvatar` in `frontend/test/design_system/components/foundation/player_avatar_test.dart`: test initials extraction (single word, two words, empty string), deterministic hue (same name → same color), 3 sizes (32/48/64dp), sigil overlay, token consumption
+- [x] T031 Implement `PlayerAvatar` ConsumerWidget in `frontend/lib/design_system/components/foundation/player_avatar.dart` with deterministic hue algorithm (hashCode → HSL with muted saturation/lightness)
+- [x] T032 Verify all acceptance scenarios for User Story 3 (4 app bar variants) and User Story 5 (avatar sizes, deterministic colors, sigil)
 
 ### Implementation Notes
 - TEST_FIRST: T028/T030 write tests before T029/T031 implement widgets
@@ -373,5 +373,5 @@ WP03 (Themes & Bridge)
 - WP02: done
 - WP03: done
 - WP04: done
-- WP05: approved
+- WP05: done
 <!-- status-model:end -->
