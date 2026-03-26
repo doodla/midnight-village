@@ -28,11 +28,11 @@
 **Requirements Refs**: FR-003, FR-004, FR-005, FR-006, FR-011
 
 ### Included Subtasks
-- [ ] T001 Add `phase_deadline = models.DateTimeField(null=True, blank=True)` to `Game` model in `backend/apps/onuw/models.py`
-- [ ] T002 Generate and verify the Django migration for the new field
-- [ ] T003 Create `backend/apps/onuw/timers.py` with the timer registry: `_registry` dict, `schedule(key, delay_seconds, callback, *args)`, `cancel(key)`, `cancel_all_for_game(game_id)` functions
-- [ ] T004 Implement idempotency in timer callbacks — wrap with `select_for_update` pattern so if the game phase has already changed, the callback is a no-op
-- [ ] T005 Write unit tests in `backend/tests/onuw/test_timers.py` covering: schedule fires callback, cancel prevents firing, cancel_all clears all timers for a game, double-cancel is safe, idempotent callback pattern
+- [x] T001 Add `phase_deadline = models.DateTimeField(null=True, blank=True)` to `Game` model in `backend/apps/onuw/models.py`
+- [x] T002 Generate and verify the Django migration for the new field
+- [x] T003 Create `backend/apps/onuw/timers.py` with the timer registry: `_registry` dict, `schedule(key, delay_seconds, callback, *args)`, `cancel(key)`, `cancel_all_for_game(game_id)` functions
+- [x] T004 Implement idempotency in timer callbacks — wrap with `select_for_update` pattern so if the game phase has already changed, the callback is a no-op
+- [x] T005 Write unit tests in `backend/tests/onuw/test_timers.py` covering: schedule fires callback, cancel prevents firing, cancel_all clears all timers for a game, double-cancel is safe, idempotent callback pattern
 
 ### Implementation Notes
 - Timer registry is a module-level `dict[str, threading.Timer]` — simple, no external deps
