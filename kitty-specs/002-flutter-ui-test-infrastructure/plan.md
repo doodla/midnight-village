@@ -26,7 +26,7 @@ Build production-grade UI testing infrastructure for the Midnight Village Flutte
 | Gate | Status | Notes |
 |------|--------|-------|
 | Tests verify behavior, not implementation | PASS | Harnesses test rendering and interaction outcomes, not internal state |
-| No hardcoded values — use design tokens | PASS | Golden tests use deterministic theme via existing `TestThemeTokens` |
+| No hardcoded values — use design tokens | PASS | Golden tests use production `MidnightVillageTheme()` with deterministic font loading for visual accuracy; widget tests use `TestThemeTokens` for isolation |
 | Riverpod patterns with code generation | PASS | Harnesses wrap `ProviderScope` with overrides, following existing `pumpWithTokens` pattern |
 | 80% coverage target | PASS | Infrastructure itself is tested via example tests that exercise each layer |
 | No over-engineering | PASS | Extends existing `pumpWithTokens` rather than replacing; uses Flutter built-in golden support |

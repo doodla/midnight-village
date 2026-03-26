@@ -69,6 +69,7 @@
 - [ ] T008 [P] Create `frontend/test/helpers/timer_control.dart` — utility wrapping `FakeAsync` that allows tests to advance time (e.g., `advanceBy(Duration)`) for countdown and auto-transition testing without real delays
 - [ ] T009 Write tests for mock HTTP in `frontend/test/helpers/mock_http_client_test.dart`: verify canned response return, verify throw on unmocked endpoint, verify path+method matching
 - [ ] T010 Write tests for mock WebSocket in `frontend/test/helpers/mock_websocket_test.dart`: verify event injection reaches stream listeners, verify sent message capture, verify close lifecycle
+- [ ] T010a Write tests for timer control in `frontend/test/helpers/timer_control_test.dart`: verify `advanceBy(Duration)` advances fake time, verify interaction with `Timer` and `Stream.periodic` patterns, verify no real delay occurs
 
 ### Implementation Notes
 - Mock HTTP interceptor pattern: `MockHttpClient.when(method: 'GET', path: '/api/v1/me/').thenReturn(Response(data: {...}, statusCode: 200))`
@@ -78,7 +79,7 @@
 
 ### Parallel Opportunities
 - T006, T007, and T008 are fully independent (different files, different concerns) — all three can proceed in parallel
-- T009 depends on T006; T010 depends on T007
+- T009 depends on T006; T010 depends on T007; T010a depends on T008
 
 ### Dependencies
 - None (can proceed in parallel with WP01)
@@ -367,6 +368,7 @@ Phase 3 (Polish):        WP08 ←── all above
 | T008 | Create timer_control.dart (FakeAsync wrapper) | WP02 | P0 | Yes |
 | T009 | Tests for mock HTTP client | WP02 | P0 | No |
 | T010 | Tests for mock WebSocket | WP02 | P0 | No |
+| T010a | Tests for timer control | WP02 | P0 | No |
 | T011 | Golden test for MvButton (3 variants) | WP03 | P1 | No |
 | T012 | Golden test for RoleCard (3 states) | WP03 | P1 | Yes |
 | T013 | Golden test for PlayerCircle (3 states) | WP03 | P1 | Yes |
