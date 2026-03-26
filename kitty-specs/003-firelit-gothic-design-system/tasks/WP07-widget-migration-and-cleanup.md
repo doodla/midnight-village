@@ -20,7 +20,7 @@ subtasks:
 - T038
 phase: Phase 3 - Migration & Cleanup
 assignee: ''
-agent: ''
+agent: "headless-impl"
 shell_pid: "29027"
 review_status: ''
 reviewed_by: ''
@@ -260,3 +260,4 @@ To change a work package's lane, either:
 2. **Use CLI**: `spec-kitty agent tasks move-task WP07 --to <lane> --note "message"` (recommended)
 
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
+- 2026-03-26T09:51:50Z – headless-impl – shell_pid=29027 – lane=doing – Assigned agent via workflow command
