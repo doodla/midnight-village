@@ -35,6 +35,11 @@ class Game(models.Model):
         choices=Phase.choices,
         default=Phase.LOBBY,
     )
+    phase_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the current phase timer expires; None for untimed phases",
+    )
     current_wave = models.PositiveIntegerField(
         default=0,
         help_text="0 = not in night phase, 1-4 = active wave number",
