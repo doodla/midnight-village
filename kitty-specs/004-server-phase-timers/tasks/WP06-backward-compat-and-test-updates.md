@@ -1,12 +1,15 @@
 ---
 work_package_id: WP06
 title: Backward Compatibility & Existing Test Updates
-lane: planned
+lane: "doing"
 dependencies: [WP02, WP03, WP04]
 requirement_refs: [FR-009, FR-012]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 004-server-phase-timers-WP04
+base_commit: 12bc673d08738df378766c0644c6d2ef4b4e14d4
+created_at: '2026-03-26T16:44:48.487428+00:00'
 subtasks:
 - T032
 - T033
@@ -17,7 +20,7 @@ subtasks:
 phase: Phase 4 - Stabilization
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "44600"
 review_status: ''
 reviewed_by: ''
 history:
