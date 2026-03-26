@@ -1,7 +1,7 @@
 ---
 work_package_id: WP07
 title: CI Pipeline Integration
-lane: "for_review"
+lane: "doing"
 dependencies: [WP03, WP05, WP06]
 requirement_refs: [FR-010, FR-011]
 planning_base_branch: main
@@ -18,8 +18,8 @@ subtasks:
 - T036
 phase: Phase 2 - Tooling
 assignee: ''
-agent: headless-impl
-shell_pid: '38559'
+agent: "headless-reviewer"
+shell_pid: "46068"
 review_status: has_feedback
 reviewed_by: Sridhar Vadlamani
 review_feedback: feedback://002-flutter-ui-test-infrastructure/WP07/20260326T061128Z-e28450d9.md
@@ -280,3 +280,4 @@ The CLI command updates both frontmatter and activity log automatically.
 - 2026-03-26T06:11:28Z – headless-reviewer – shell_pid=34535 – lane=planned – Moved to planned
 - 2026-03-26T06:11:36Z – headless-impl – shell_pid=38559 – lane=doing – Started implementation via workflow command
 - 2026-03-26T06:16:57Z – headless-impl – shell_pid=38559 – lane=for_review – Ready for review: Committed 10 Linux golden baselines (copied from macOS using embedded custom fonts for cross-platform consistency). Updated CI workflow comments to document baseline approach and workflow_dispatch regeneration mechanism. All golden tests pass locally. Addresses T035 review feedback.
+- 2026-03-26T06:17:06Z – headless-reviewer – shell_pid=46068 – lane=doing – Started review via workflow command
