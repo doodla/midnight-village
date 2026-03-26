@@ -1,12 +1,13 @@
 # Flutter Test CI Pipeline
 #
 # Runs widget tests, golden tests, and integration tests on every push and PR.
-# Blocks merge if any test layer fails (configure branch protection separately).
+# All three test layers run as independent jobs — a failure in one does NOT
+# skip the others. The merge is blocked if any job fails.
 #
 # BRANCH PROTECTION SETUP (T036):
 # Configure in GitHub Settings → Branches → main → Require status checks:
-#   Required check: "flutter-tests"
-# This prevents merging to main when any test layer fails.
+#   Required checks: "Widget Tests", "Golden Tests", "Integration Tests"
+# Each job is a separate required check so any single failure blocks the merge.
 #
 # PLATFORM BASELINES (T035):
 # - macOS: developers generate baselines locally with `just flutter-golden-update`
@@ -14,9 +15,10 @@
 # Both sets must be committed to the repo.
 #
 # To regenerate Linux baselines:
-#   1. Add a workflow_dispatch trigger or run via gh workflow run
-#   2. Push with --update-goldens to generate fresh linux/ baselines
-#   3. Download the artifact and commit the baselines
+#   1. Run this workflow manually via GitHub Actions → "Run workflow"
+#   2. Set "Regenerate golden baselines" to true
+#   3. Download the "linux-golden-baselines" artifact from the completed run
+#   4. Extract to frontend/test/design_system/goldens/linux/ and commit
 
 name: Flutter Tests
 
@@ -25,10 +27,17 @@ on:
     branches: ["**"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      update_goldens:
+        description: "Regenerate golden baselines"
+        type: boolean
+        default: false
 
 jobs:
-  flutter-tests:
-    name: Flutter Tests
+  # ─── Widget Tests ──────────────────────────────────────────────────────────
+  widget-tests:
+    name: Widget Tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -38,14 +47,97 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Install just (task runner used by project)
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # Pin to stable channel matching pubspec.yaml sdk: ^3.10.4
+          channel: "stable"
+          cache: true
+          cache-key: flutter-stable-${{ runner.os }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Excludes golden-tagged tests to avoid running them in this job
+      - name: Widget tests
+        run: flutter test --exclude-tags golden
+
+  # ─── Golden Tests ──────────────────────────────────────────────────────────
+  golden-tests:
+    name: Golden Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Install just
         uses: extractions/setup-just@v2
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          # Pin to stable channel matching pubspec.yaml sdk: ^3.10.4
+          channel: "stable"
+          cache: true
+          cache-key: flutter-stable-${{ runner.os }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Regenerate Linux baselines when workflow_dispatch with update_goldens=true
+      - name: Regenerate Linux golden baselines
+        if: inputs.update_goldens == true
+        run: flutter test --update-goldens --tags golden
+
+      - name: Upload regenerated Linux baselines
+        if: inputs.update_goldens == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-golden-baselines
+          path: frontend/test/design_system/goldens/linux/
+          retention-days: 30
+
+      # Uses linux/ baselines on CI; macos/ baselines used locally
+      - name: Golden tests
+        id: golden-tests
+        run: just flutter-test-golden
+
+      - name: Generate golden diff report
+        if: steps.golden-tests.outcome == 'failure'
+        run: just flutter-golden-report
+
+      - name: Upload golden diff artifacts
+        if: steps.golden-tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diff-report
+          path: |
+            frontend/test/golden_diff_report/
+            frontend/test/failures/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ─── Integration Tests ─────────────────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
           channel: "stable"
           cache: true
           cache-key: flutter-stable-${{ runner.os }}
@@ -58,38 +150,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # --- Widget tests ---
-      # Excludes golden-tagged tests to avoid running them twice
-      - name: Widget tests
-        run: flutter test --exclude-tags golden
-
-      # --- Golden tests ---
-      # Uses linux/ baselines on CI; macos/ baselines used locally
-      - name: Golden tests
-        run: just flutter-test-golden
-
-      - name: Generate golden diff report
-        if: failure()
-        run: just flutter-golden-report
-
-      - name: Upload golden diff artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: golden-diff-report
-          path: |
-            frontend/test/golden_diff_report/
-            frontend/test/failures/
-          retention-days: 7
-          if-no-files-found: ignore
-
-      # --- Integration tests ---
       # Runs headless via web-server device (no Chrome window needed)
       - name: Integration tests
+        id: integration-tests
         run: just test-integration-ci
 
       - name: Upload integration test screenshots
-        if: failure()
+        if: steps.integration-tests.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: integration-test-screenshots
