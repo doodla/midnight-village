@@ -29,4 +29,15 @@ class User {
   final String displayName;
 
   Map<String, dynamic> toJson() => _$UserToJson(this);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is User &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          displayName == other.displayName;
+
+  @override
+  int get hashCode => id.hashCode ^ displayName.hashCode;
 }

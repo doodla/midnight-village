@@ -32,7 +32,7 @@ class FirelitGothicTheme implements AppTokens {
   AppRadiusTokens get radius => const FirelitGothicRadius();
 
   @override
-  AppDecorationTokens get decorations => FirelitGothicDecorations();
+  AppDecorationTokens get decorations => const FirelitGothicDecorations();
 }
 
 class FirelitGothicColors implements AppColorTokens {
@@ -268,6 +268,8 @@ class FirelitGothicRadius implements AppRadiusTokens {
 }
 
 class FirelitGothicDecorations implements AppDecorationTokens {
+  const FirelitGothicDecorations();
+
   @override
   List<BoxShadow> get fireGlow => AppShadows.fireGlow;
 

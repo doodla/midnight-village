@@ -11,9 +11,15 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
         self.lobby_code = self.scope["url_route"]["kwargs"]["code"]
         self.lobby_group_name = f"lobby_{self.lobby_code}"
 
-        # Check if lobby exists
-        lobby_exists = await self.lobby_exists(self.lobby_code)
-        if not lobby_exists:
+        # Authenticate
+        user = self.scope.get("user")
+        if user is None or user.is_anonymous:
+            await self.close(code=4001)
+            return
+
+        # Check lobby exists and user is a member
+        is_member = await self._check_lobby_membership(self.lobby_code, user.id)
+        if not is_member:
             await self.close(code=4004)
             return
 
@@ -37,9 +43,10 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
             )
 
     async def receive_json(self, content, **kwargs):
-        """Handle incoming WebSocket messages."""
-        # For now, just echo back - game-specific handling comes later
-        await self.send_json({"type": "echo", "data": content})
+        """Reject client-sent messages — lobby actions go through HTTP API."""
+        await self.send_json(
+            {"type": "error", "detail": "Use the HTTP API for lobby actions."}
+        )
 
     # Event handlers for channel layer messages
 
@@ -81,7 +88,8 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def lobby_exists(self, code):
-        from apps.core.models import Lobby
+    def _check_lobby_membership(self, code, user_id):
+        """Check if lobby exists and user is a member."""
+        from apps.core.models import LobbyMember
 
-        return Lobby.objects.filter(code=code).exists()
+        return LobbyMember.objects.filter(lobby__code=code, user_id=user_id).exists()

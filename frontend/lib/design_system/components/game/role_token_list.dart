@@ -39,7 +39,7 @@ class _RoleBadge extends ConsumerWidget {
       ),
       decoration: BoxDecoration(
         color: tokens.colors.surface,
-        borderRadius: BorderRadius.circular(16.0),
+        borderRadius: tokens.radius.xl,
         border: Border.all(color: teamColor, width: 1.5),
       ),
       child: Row(

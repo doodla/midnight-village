@@ -7,7 +7,6 @@ Tests the pure Python phase logic with no Django dependencies.
 import pytest
 
 from apps.onuw.engine.phases import (
-    ALL_PHASES,
     VALID_TRANSITIONS,
     validate_phase_transition,
 )
@@ -76,7 +75,7 @@ class TestPhaseTransitionValidation:
 
     def test_self_transition_is_invalid(self):
         """A phase cannot transition to itself."""
-        for phase in ALL_PHASES:
+        for phase in VALID_TRANSITIONS:
             assert validate_phase_transition(phase, phase) is False
 
     def test_unknown_phase_returns_false(self):
@@ -91,24 +90,15 @@ class TestPhaseTransitionValidation:
 class TestPhaseDefinitions:
     """Tests for the phase definitions themselves."""
 
-    def test_all_phases_have_defined_transitions(self):
-        """Every phase in ALL_PHASES has an entry in VALID_TRANSITIONS."""
-        for phase in ALL_PHASES:
-            assert phase in VALID_TRANSITIONS
-
-    def test_all_phases_list_matches_transitions_keys(self):
-        """ALL_PHASES matches the keys of VALID_TRANSITIONS."""
-        assert set(ALL_PHASES) == set(VALID_TRANSITIONS.keys())
-
     def test_results_is_terminal(self):
         """Results phase has no valid transitions (terminal state)."""
         assert VALID_TRANSITIONS["results"] == []
 
     def test_five_phases_defined(self):
         """There are exactly 5 phases defined."""
-        assert len(ALL_PHASES) == 5
+        assert len(VALID_TRANSITIONS) == 5
 
     def test_phase_names(self):
         """All expected phase names are present."""
         expected = {"lobby", "night", "discussion", "voting", "results"}
-        assert set(ALL_PHASES) == expected
+        assert set(VALID_TRANSITIONS.keys()) == expected

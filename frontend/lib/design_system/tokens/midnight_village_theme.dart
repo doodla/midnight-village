@@ -31,7 +31,7 @@ class MidnightVillageTheme implements AppTokens {
   AppRadiusTokens get radius => const MidnightVillageRadius();
 
   @override
-  AppDecorationTokens get decorations => MidnightVillageDecorations();
+  AppDecorationTokens get decorations => const MidnightVillageDecorations();
 }
 
 class MidnightVillageColors implements AppColorTokens {
@@ -96,7 +96,7 @@ class MidnightVillageColors implements AppColorTokens {
   @override
   Color get cardBack => AppColors.voidBlack;
 
-  // Extended Firelit Gothic colors
+  // Extended Midnight Village colors
   @override
   Color get tertiary => AppColors.moonSage;
 
@@ -269,6 +269,8 @@ class MidnightVillageRadius implements AppRadiusTokens {
 }
 
 class MidnightVillageDecorations implements AppDecorationTokens {
+  const MidnightVillageDecorations();
+
   @override
   List<BoxShadow> get fireGlow => AppShadows.fireGlow;
 

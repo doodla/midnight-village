@@ -316,7 +316,7 @@ class TestVoting:
                 format="json",
             )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_self_vote_is_rejected(self, api_client, db):
         """Players cannot vote for themselves (spec: 'No self-votes')."""

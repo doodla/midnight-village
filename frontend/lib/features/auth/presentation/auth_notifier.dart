@@ -12,24 +12,24 @@ import '../domain/auth_state.dart';
 part 'auth_notifier.g.dart';
 
 /// Provides the API client.
-@riverpod
+@Riverpod(keepAlive: true)
 ApiClient apiClient(Ref ref) => ApiClient();
 
 /// Provides the token storage.
-@riverpod
+@Riverpod(keepAlive: true)
 TokenStorage tokenStorage(Ref ref) => TokenStorage();
 
 /// Provides the user storage.
-@riverpod
+@Riverpod(keepAlive: true)
 UserStorage userStorage(Ref ref) => UserStorage();
 
 /// Provides the auth service.
-@riverpod
+@Riverpod(keepAlive: true)
 AuthService authService(Ref ref) =>
     AuthService(apiClient: ref.watch(apiClientProvider));
 
 /// Provides the auth repository.
-@riverpod
+@Riverpod(keepAlive: true)
 AuthRepository authRepository(Ref ref) => AuthRepository(
   authService: ref.watch(authServiceProvider),
   tokenStorage: ref.watch(tokenStorageProvider),
@@ -37,7 +37,7 @@ AuthRepository authRepository(Ref ref) => AuthRepository(
 );
 
 /// Manages authentication state.
-@riverpod
+@Riverpod(keepAlive: true)
 class AuthNotifier extends _$AuthNotifier {
   @override
   AuthState build() {

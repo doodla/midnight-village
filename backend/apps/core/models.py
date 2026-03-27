@@ -95,7 +95,11 @@ class LobbyMember(models.Model):
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = (("lobby", "user"),)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lobby", "user"], name="unique_lobby_member"
+            )
+        ]
         ordering = ("joined_at",)
 
     def __str__(self) -> str:

@@ -371,21 +371,30 @@ def check_and_maybe_advance(game: Game) -> None:
 
     If everyone has acted, advance the wave. This is called after
     each action submission to auto-advance when ready.
+
+    Uses select_for_update on the Game row to prevent double-fire
+    when two players submit simultaneously.
     """
-    wave = game.current_wave
-    actor_ids = get_wave_actors(game, wave)
-    if not actor_ids:
-        advance_wave(game)
-        return
+    with transaction.atomic():
+        game = Game.objects.select_for_update().get(id=game.id)
+        if game.phase != Phase.NIGHT:
+            # Already advanced by another concurrent request
+            return
 
-    # Check if any actors are still pending
-    pending = PlayerRole.objects.filter(
-        game=game, user_id__in=actor_ids, has_acted=False
-    ).count()
+        wave = game.current_wave
+        actor_ids = get_wave_actors(game, wave)
+        if not actor_ids:
+            advance_wave(game)
+            return
 
-    if pending == 0:
-        timers.cancel(f"{game.id}:wave:{wave}")
-        advance_wave(game)
+        # Check if any actors are still pending
+        pending = PlayerRole.objects.filter(
+            game=game, user_id__in=actor_ids, has_acted=False
+        ).count()
+
+        if pending == 0:
+            timers.cancel(f"{game.id}:wave:{wave}")
+            advance_wave(game)
 
 
 def get_player_acting_role_for_wave(pr: PlayerRole, wave: int) -> str | None:
@@ -435,10 +444,7 @@ def validate_night_action(
     role_def = get_role(acting_role)
     allowed_types = [at.value for at in role_def.action_types]
     if action_type not in allowed_types:
-        errors.append(
-            f"Action type '{action_type}' is not allowed for {acting_role}. "
-            f"Allowed: {allowed_types}"
-        )
+        errors.append("Invalid action type for this wave.")
         return errors
 
     # Get all player IDs in this game (for target validation)
@@ -611,37 +617,40 @@ def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
         errors.append("Game is not in the voting phase.")
         return errors
 
-    # Look up voter's PlayerRole
-    try:
-        voter_pr = PlayerRole.objects.get(game=game, user_id=voter_id)
-    except PlayerRole.DoesNotExist:
-        errors.append("You are not a player in this game.")
-        return errors
-
-    if voter_pr.has_acted:
-        errors.append("You have already voted.")
-        return errors
-
-    # No self-votes per spec
-    if voter_id == target_player_id:
-        errors.append("You cannot vote for yourself.")
-        return errors
-
-    # Validate target is a valid player in the game
-    # pyrefly: ignore [missing-attribute]
-    game_player_ids = set(game.player_roles.values_list("user_id", flat=True))
-    if target_player_id not in game_player_ids:
-        errors.append("Invalid vote target.")
-        return errors
-
-    # Store vote atomically
+    # Lock the voter's PlayerRole row to prevent TOCTOU race on has_acted.
     with transaction.atomic():
+        try:
+            voter_pr = PlayerRole.objects.select_for_update().get(
+                game=game, user_id=voter_id
+            )
+        except PlayerRole.DoesNotExist:
+            errors.append("You are not a player in this game.")
+            return errors
+
+        if voter_pr.has_acted:
+            errors.append("You have already voted.")
+            return errors
+
+        # No self-votes per spec
+        if voter_id == target_player_id:
+            errors.append("You cannot vote for yourself.")
+            return errors
+
+        # Validate target is a valid player in the game
+        # pyrefly: ignore [missing-attribute]
+        game_player_ids = set(game.player_roles.values_list("user_id", flat=True))
+        if target_player_id not in game_player_ids:
+            errors.append("Invalid vote target.")
+            return errors
+
+        # Store vote
         # pyrefly: ignore [missing-attribute]
         voter_pr.vote_target_id = target_player_id
         voter_pr.has_acted = True
         voter_pr.save(update_fields=["vote_target", "has_acted"])
 
-    # Broadcast vote_submitted (WHO voted, but NOT their target)
+    # Broadcast and auto-reveal OUTSIDE the transaction to avoid
+    # holding the row lock during channel operations.
     channel_layer = get_channel_layer()
     if channel_layer is not None:
         async_to_sync(channel_layer.group_send)(
@@ -649,15 +658,22 @@ def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
             {"type": "vote.submitted", "player_id": voter_id},
         )
 
-    # Check if all players have voted -> auto-reveal
-    # pyrefly: ignore [missing-attribute]
-    total_players = game.player_roles.count()
-    # pyrefly: ignore [missing-attribute]
-    voted_count = game.player_roles.filter(has_acted=True).count()
+    # Check if all players have voted -> auto-reveal.
+    # Lock the Game row to prevent double-fire when two players
+    # submit simultaneously and both see all votes in.
+    with transaction.atomic():
+        game = Game.objects.select_for_update().get(id=game.id)
+        if game.phase != Phase.VOTING:
+            # Already revealed by another concurrent request
+            return errors
+        # pyrefly: ignore [missing-attribute]
+        total_players = game.player_roles.count()
+        # pyrefly: ignore [missing-attribute]
+        voted_count = game.player_roles.filter(has_acted=True).count()
 
-    if voted_count >= total_players:
-        timers.cancel(f"{game.id}:voting")
-        reveal_votes(game)
+        if voted_count >= total_players:
+            timers.cancel(f"{game.id}:voting")
+            reveal_votes(game)
 
     return errors
 

@@ -1,9 +1,12 @@
 """Core app serializers."""
 
-import regex
+import re
+
 from rest_framework import serializers
 
 from .models import Lobby, LobbyMember, User
+
+DISPLAY_NAME_PATTERN = re.compile(r"^[\w]+( [\w]+)*$", re.UNICODE)
 
 
 class UserBriefSerializer(serializers.ModelSerializer):
@@ -82,10 +85,8 @@ class GuestCreateSerializer(serializers.Serializer):
                 "Display name contains invalid characters."
             )
 
-        # Check pattern: Unicode letters/numbers with single spaces between words
-        # Use regex library for proper Unicode support
-        pattern = regex.compile(r"^[\p{L}\p{N}]+( [\p{L}\p{N}]+)*$")
-        if not pattern.match(value):
+        # Check pattern: alphanumeric with single spaces between words
+        if not DISPLAY_NAME_PATTERN.match(value):
             raise serializers.ValidationError(
                 "Display name can only contain letters, numbers, and single spaces."
             )

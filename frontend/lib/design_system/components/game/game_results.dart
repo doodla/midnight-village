@@ -161,7 +161,7 @@ class _PlayerResultRow extends ConsumerWidget {
       padding: EdgeInsets.all(tokens.spacing.sm),
       decoration: BoxDecoration(
         color: tokens.colors.surface,
-        borderRadius: BorderRadius.circular(8.0),
+        borderRadius: tokens.radius.medium,
         border: player.isWinner
             ? Border.all(color: tokens.colors.primary, width: 2.0)
             : Border.all(color: tokens.colors.outline, width: 1.0),

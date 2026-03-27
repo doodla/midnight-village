@@ -110,8 +110,7 @@ class TestLobbyToGameFlow:
             assert "your_role" in resp
             role_data = resp["your_role"]
             assert "original_role" in role_data
-            assert "current_role" in role_data
-            assert role_data["original_role"] == role_data["current_role"]
+            assert "current_role" not in role_data  # Hidden before results phase
             roles_seen.append(role_data["original_role"])
 
         # All roles are valid

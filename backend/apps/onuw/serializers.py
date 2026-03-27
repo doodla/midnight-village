@@ -6,26 +6,7 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import Game, Phase, PlayerRole
-
-
-class PlayerRoleMeSerializer(serializers.ModelSerializer):
-    """
-    Player-scoped serializer for a player's own role.
-
-    CRITICAL: This serializer only exposes the requesting player's own role
-    information. It must NEVER include other players' roles, night_action_data,
-    or center cards.
-    """
-
-    class Meta:
-        model = PlayerRole
-        fields = [
-            "original_role",
-            "current_role",
-            "has_acted",
-            "night_action_data",
-        ]
+from .models import Game, Phase
 
 
 class PlayerPublicSerializer(serializers.Serializer):
@@ -36,12 +17,6 @@ class PlayerPublicSerializer(serializers.Serializer):
 
     player_id = serializers.IntegerField()
     display_name = serializers.CharField()
-
-
-class PlayerPublicWithVoteStatusSerializer(PlayerPublicSerializer):
-    """Player public info plus has_voted flag (used during voting phase)."""
-
-    has_voted = serializers.BooleanField()
 
 
 class GameMeSerializer(serializers.Serializer):
@@ -74,11 +49,29 @@ class GameMeSerializer(serializers.Serializer):
         return None
 
     def get_your_role(self, game: Game) -> dict:
-        """Get the requesting player's role data."""
+        """
+        Get the requesting player's role data, scoped by game phase.
+
+        During RESULTS phase, reveal both original and current role plus
+        night action data so the player can see what happened.
+
+        During all other phases, only reveal original_role and has_acted.
+        Players learn night action outcomes through WebSocket action_result
+        events, NOT through this endpoint. current_role is hidden because
+        a player should not know if they were swapped by Troublemaker/Robber
+        unless their own role tells them.
+        """
         player_role = self.context.get("player_role")
         if player_role is None:
             return {}
-        return PlayerRoleMeSerializer(player_role).data
+        data: dict[str, Any] = {
+            "original_role": player_role.original_role,
+            "has_acted": player_role.has_acted,
+        }
+        if game.phase == Phase.RESULTS:
+            data["current_role"] = player_role.current_role
+            data["night_action_data"] = player_role.night_action_data
+        return data
 
     def get_has_voted(self, game: Game) -> bool:
         """
@@ -143,13 +136,13 @@ class GameMeSerializer(serializers.Serializer):
             return None
 
         # Build the prompt with valid targets
-        from .engine.night import _build_prompt
+        from .engine.night import build_prompt
         from .engine.roles import get_role
         from .services import build_game_state
 
         role_def = get_role(acting_role)
         state = build_game_state(game)
-        prompt = _build_prompt(
+        prompt = build_prompt(
             state, player_role.user_id, acting_role, role_def.action_types
         )
         return {
@@ -157,20 +150,6 @@ class GameMeSerializer(serializers.Serializer):
             "action_types": prompt["action_types"],
             "valid_targets": prompt["valid_targets"],
         }
-
-
-class PlayerListSerializer(serializers.Serializer):
-    """Serializer for the player list endpoint response."""
-
-    players = serializers.ListField()
-
-
-class CurrentGameSerializer(serializers.Serializer):
-    """Serializer for the current game lookup response."""
-
-    game_id = serializers.UUIDField()
-    phase = serializers.CharField()
-    lobby_code = serializers.CharField()
 
 
 class GameStartResponseSerializer(serializers.Serializer):

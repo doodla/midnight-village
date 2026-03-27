@@ -17,15 +17,14 @@ from .behaviors import (
     execute_werewolf,
     get_doppelganger_followup_wave,
 )
-from .night import get_required_actions, resolve_night, resolve_wave
-from .phases import ALL_PHASES, VALID_TRANSITIONS, validate_phase_transition
+from .night import build_prompt, get_required_actions, resolve_night, resolve_wave
+from .phases import VALID_TRANSITIONS, validate_phase_transition
 from .roles import ActionType, RoleDefinition, Team, get_role, get_roles_for_wave
 from .state import ActionLogEntry, ActionResult, GameState, NightAction
 from .voting import apply_hunter, count_votes, determine_elimination
 from .win_conditions import GameResult, evaluate_winner, get_effective_team
 
 __all__ = [
-    "ALL_PHASES",
     "VALID_TRANSITIONS",
     "ActionLogEntry",
     "ActionResult",
@@ -36,6 +35,7 @@ __all__ = [
     "RoleDefinition",
     "Team",
     "apply_hunter",
+    "build_prompt",
     "count_votes",
     "determine_elimination",
     "evaluate_winner",

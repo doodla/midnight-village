@@ -13,13 +13,22 @@ pytestmark = pytest.mark.integration
 
 @database_sync_to_async
 def create_lobby_with_user():
-    """Create a lobby and return the code and user."""
-    from apps.core.models import Lobby, User
+    """Create a lobby with host as a member and return the code and user."""
+    from apps.core.models import Lobby, LobbyMember, User
 
     username = f"wsuser_{uuid.uuid4().hex[:8]}"
     user = User.objects.create_user(username=username, password="pass")
     lobby = Lobby.objects.create(host=user, game_type="onuw")
+    LobbyMember.objects.create(lobby=lobby, user=user)
     return lobby.code, user
+
+
+def _make_communicator(path, user):
+    """Create a WebSocket communicator with auth scope."""
+    communicator = WebsocketCommunicator(application, path)
+    communicator.scope["headers"] = [(b"origin", b"http://testserver")]
+    communicator.scope["user"] = user
+    return communicator
 
 
 class TestLobbyWebSocket:
@@ -27,14 +36,10 @@ class TestLobbyWebSocket:
 
     @pytest.mark.django_db(transaction=True)
     async def test_connect_to_lobby(self):
-        """Users can connect to a lobby WebSocket."""
-        code, _user = await create_lobby_with_user()
+        """Authenticated lobby members can connect to a lobby WebSocket."""
+        code, user = await create_lobby_with_user()
 
-        communicator = WebsocketCommunicator(
-            application,
-            f"/ws/lobby/{code}/",
-        )
-        communicator.scope["headers"] = [(b"origin", b"http://testserver")]
+        communicator = _make_communicator(f"/ws/lobby/{code}/", user)
         connected, _close_code = await communicator.connect()
 
         assert connected
@@ -42,13 +47,46 @@ class TestLobbyWebSocket:
         await communicator.disconnect()
 
     @pytest.mark.django_db(transaction=True)
+    async def test_connect_unauthenticated_fails(self):
+        """Unauthenticated users cannot connect to a lobby WebSocket."""
+        from django.contrib.auth.models import AnonymousUser
+
+        code, _user = await create_lobby_with_user()
+
+        communicator = _make_communicator(f"/ws/lobby/{code}/", AnonymousUser())
+        connected, close_code = await communicator.connect()
+
+        assert not connected or close_code == 4001
+
+        await communicator.disconnect()
+
+    @pytest.mark.django_db(transaction=True)
     async def test_connect_to_nonexistent_lobby_fails(self):
         """Connecting to nonexistent lobby closes connection."""
-        communicator = WebsocketCommunicator(
-            application,
-            "/ws/lobby/XXXXXX/",
-        )
-        communicator.scope["headers"] = [(b"origin", b"http://testserver")]
+        _code, user = await create_lobby_with_user()
+
+        communicator = _make_communicator("/ws/lobby/XXXXXX/", user)
+        connected, close_code = await communicator.connect()
+
+        assert not connected or close_code == 4004
+
+        await communicator.disconnect()
+
+    @pytest.mark.django_db(transaction=True)
+    async def test_non_member_cannot_connect(self):
+        """Non-members cannot connect to a lobby WebSocket."""
+        from apps.core.models import User
+
+        code, _host = await create_lobby_with_user()
+
+        @database_sync_to_async
+        def create_non_member():
+            return User.objects.create_user(
+                username=f"outsider_{uuid.uuid4().hex[:8]}", password="pass"
+            )
+
+        outsider = await create_non_member()
+        communicator = _make_communicator(f"/ws/lobby/{code}/", outsider)
         connected, close_code = await communicator.connect()
 
         assert not connected or close_code == 4004
@@ -60,14 +98,10 @@ class TestLobbyWebSocket:
         """Connected clients receive player_joined events."""
         from apps.core.models import LobbyMember, User
 
-        code, _host = await create_lobby_with_user()
+        code, host = await create_lobby_with_user()
 
         # Connect as host
-        communicator = WebsocketCommunicator(
-            application,
-            f"/ws/lobby/{code}/",
-        )
-        communicator.scope["headers"] = [(b"origin", b"http://testserver")]
+        communicator = _make_communicator(f"/ws/lobby/{code}/", host)
         await communicator.connect()
 
         # Another player joins

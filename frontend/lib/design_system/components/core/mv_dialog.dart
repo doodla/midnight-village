@@ -166,7 +166,7 @@ class MvDialog extends ConsumerWidget {
       ),
       actions: actions,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
+        borderRadius: tokens.radius.large,
       ),
       elevation: tokens.elevation.overlay,
     );

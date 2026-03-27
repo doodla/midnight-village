@@ -9,8 +9,15 @@ class Env {
   static bool get isDev => _env == 'dev';
   static bool get isProd => _env == 'prod';
 
-  static String get apiUrl => switch (_env) {
-    'prod' => 'https://TODO_PROD_DOMAIN/api',
-    _ => 'http://localhost:8000/api',
-  };
+  static String get apiUrl {
+    final result = switch (_env) {
+      'prod' => 'https://TODO_PROD_DOMAIN/api',
+      _ => 'http://localhost:8000/api',
+    };
+    assert(
+      result != 'https://TODO_PROD_DOMAIN/api',
+      'Production API URL not configured',
+    );
+    return result;
+  }
 }

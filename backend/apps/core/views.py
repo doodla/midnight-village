@@ -12,7 +12,9 @@ from rest_framework.generics import CreateAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Lobby, LobbyMember, User
@@ -36,6 +38,7 @@ class GuestCreateView(APIView):
     """Create a guest account with optional display name."""
 
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle]
 
     def post(self, request):
         serializer = GuestCreateSerializer(data=request.data)
@@ -174,8 +177,13 @@ class LobbyLeaveView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # If host leaves, delete the lobby
+        # If host leaves, delete the lobby — but only if no game is in progress
         if lobby.host == request.user:
+            if lobby.status == Lobby.Status.IN_GAME:
+                return Response(
+                    {"detail": "Cannot leave while a game is in progress."},
+                    status=status.HTTP_409_CONFLICT,
+                )
             lobby.delete()
             return Response({"detail": "Lobby deleted."}, status=status.HTTP_200_OK)
 
@@ -233,3 +241,28 @@ class LobbyReadyView(APIView):
 
         serializer = LobbySerializer(lobby)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class LogoutView(APIView):
+    """Blacklist a refresh token to log out."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get("refresh")
+        if not refresh_token:
+            return Response(
+                {"detail": "Refresh token is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except TokenError:
+            return Response(
+                {"detail": "Invalid or expired token."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(
+            {"detail": "Successfully logged out."}, status=status.HTTP_200_OK
+        )

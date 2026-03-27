@@ -250,7 +250,7 @@ class TestGameMe:
         assert response.data["game_id"] == str(game.id)
         assert response.data["phase"] == "night"
         assert response.data["your_role"]["original_role"] == "Seer"
-        assert response.data["your_role"]["current_role"] == "Seer"
+        assert "current_role" not in response.data["your_role"]  # Hidden before results
         assert response.data["your_role"]["has_acted"] is False
 
     def test_player_cannot_see_other_player_role(self, api_client, db):

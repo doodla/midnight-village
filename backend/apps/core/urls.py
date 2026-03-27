@@ -24,4 +24,5 @@ urlpatterns = [
     path(
         "lobbies/<str:code>/ready/", views.LobbyReadyView.as_view(), name="lobby-ready"
     ),
+    path("auth/logout/", views.LogoutView.as_view(), name="logout"),
 ]

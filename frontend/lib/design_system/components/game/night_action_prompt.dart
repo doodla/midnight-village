@@ -650,7 +650,7 @@ class _TeammateList extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: tokens.colors.surface,
-                  borderRadius: BorderRadius.circular(8.0),
+                  borderRadius: tokens.radius.medium,
                   border: Border.all(color: tokens.colors.outline),
                 ),
                 child: Row(

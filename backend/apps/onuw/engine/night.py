@@ -48,7 +48,7 @@ def get_required_actions(
         if role_name in wave_role_names:
             role_def = get_role(role_name)
             prompts.append(
-                _build_prompt(state, player_id, role_name, role_def.action_types)
+                build_prompt(state, player_id, role_name, role_def.action_types)
             )
 
     # Check for Doppelganger follow-up actions
@@ -58,15 +58,13 @@ def get_required_actions(
             if followup_wave == wave:
                 copied_def = get_role(copied_role)
                 prompts.append(
-                    _build_prompt(
-                        state, doppel_id, copied_role, copied_def.action_types
-                    )
+                    build_prompt(state, doppel_id, copied_role, copied_def.action_types)
                 )
 
     return prompts
 
 
-def _build_prompt(
+def build_prompt(
     state: GameState,
     player_id: int,
     role_acting_as: str,

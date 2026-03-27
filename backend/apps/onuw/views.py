@@ -164,7 +164,6 @@ class GameMeView(APIView):
             )
 
         # Fetch all player roles for the players list (public info only)
-        # pyrefly: ignore [missing-attribute]
         all_player_roles = list(game.player_roles.select_related("user").all())
 
         serializer = GameMeSerializer(
@@ -200,52 +199,54 @@ class NightActionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 3. Look up PlayerRole (403 if not in game)
-        try:
-            pr = PlayerRole.objects.get(game=game, user=request.user)
-        except PlayerRole.DoesNotExist:
-            return Response(
-                {"detail": "You are not a player in this game."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # 4. Check player hasn't already acted this wave
-        if pr.has_acted:
-            return Response(
-                {"detail": "You have already acted this wave."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # 5. Determine what role they're acting as this wave
-        wave = game.current_wave
-        acting_role = get_player_acting_role_for_wave(pr, wave)
-        if acting_role is None:
-            return Response(
-                {"detail": "You do not act in the current wave."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # 6. Extract and validate action
-        # pyrefly: ignore [missing-attribute]
-        action_type = request.data.get("action_type")
-        # pyrefly: ignore [missing-attribute]
-        targets = request.data.get("targets", {})
-
-        if not action_type:
-            return Response(
-                {"detail": "action_type is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        errors = validate_night_action(game, pr, action_type, targets)
-        if errors:
-            return Response(
-                {"detail": errors},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # 7. Store action in night_action_data, set has_acted=True
+        # 3-7. Lock PlayerRole row, validate, and store action atomically
+        # to prevent TOCTOU race on has_acted check.
         with transaction.atomic():
+            # Lock the player role row
+            try:
+                pr = PlayerRole.objects.select_for_update().get(
+                    game=game, user=request.user
+                )
+            except PlayerRole.DoesNotExist:
+                return Response(
+                    {"detail": "You are not a player in this game."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            # 4. Check player hasn't already acted this wave
+            if pr.has_acted:
+                return Response(
+                    {"detail": "You have already acted this wave."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 5. Determine what role they're acting as this wave
+            wave = game.current_wave
+            acting_role = get_player_acting_role_for_wave(pr, wave)
+            if acting_role is None:
+                return Response(
+                    {"detail": "You do not act in the current wave."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 6. Extract and validate action
+            action_type = request.data.get("action_type")
+            targets = request.data.get("targets", {})
+
+            if not action_type:
+                return Response(
+                    {"detail": "action_type is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            errors = validate_night_action(game, pr, action_type, targets)
+            if errors:
+                return Response(
+                    {"detail": errors},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 7. Store action in night_action_data, set has_acted=True
             # Preserve previously stored data (copied_role, wave_N_result keys)
             preserved = {
                 k: v
@@ -365,7 +366,6 @@ class VoteView(APIView):
             )
 
         # Extract target_player_id from request body
-        # pyrefly: ignore [missing-attribute]
         target_player_id = request.data.get("target_player_id")
         if target_player_id is None:
             return Response(
@@ -379,6 +379,13 @@ class VoteView(APIView):
             return Response(
                 {"detail": "target_player_id must be an integer."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check player membership (403) before delegating to service
+        if not PlayerRole.objects.filter(game=game, user=request.user).exists():
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         errors = submit_vote(game, request.user.id, target_player_id)  # type: ignore[misc]
@@ -455,7 +462,6 @@ class PlayerListView(APIView):
             )
 
         # Fetch all player roles with user info
-        # pyrefly: ignore [missing-attribute]
         all_prs = game.player_roles.select_related("user").all()
 
         players = []
@@ -549,7 +555,6 @@ class ResultsView(APIView):
             )
 
         # Build full results response
-        # pyrefly: ignore [missing-attribute]
         player_roles_qs = game.player_roles.select_related("user", "vote_target").all()
 
         # Build eliminated player details
@@ -566,7 +571,6 @@ class ResultsView(APIView):
                 "outcome": game.results.get("player_outcomes", {}).get(
                     str(pr.user_id), "lose"
                 ),
-                # pyrefly: ignore [missing-attribute]
                 "vote_target_id": pr.vote_target_id,
             }
             players_data.append(player_info)

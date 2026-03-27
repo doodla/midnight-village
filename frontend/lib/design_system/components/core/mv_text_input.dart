@@ -51,23 +51,23 @@ class MvTextInput extends ConsumerWidget {
         filled: true,
         fillColor: tokens.colors.surface,
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: tokens.radius.medium,
           borderSide: BorderSide(color: tokens.colors.outline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: tokens.radius.medium,
           borderSide: BorderSide(color: tokens.colors.primary, width: 2.0),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: tokens.radius.medium,
           borderSide: BorderSide(color: tokens.colors.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: tokens.radius.medium,
           borderSide: BorderSide(color: tokens.colors.error, width: 2.0),
         ),
         disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: tokens.radius.medium,
           borderSide: BorderSide(color: tokens.colors.disabled),
         ),
       ),

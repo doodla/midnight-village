@@ -25,7 +25,7 @@ final class ApiClientProvider
         argument: null,
         retry: null,
         name: r'apiClientProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -52,7 +52,7 @@ final class ApiClientProvider
   }
 }
 
-String _$apiClientHash() => r'61d47ad220d8fd27b1a1258e8d30e08859d61652';
+String _$apiClientHash() => r'90c807f03b90249684265cc91739139c2c89eeb9';
 
 /// Provides the token storage.
 
@@ -71,7 +71,7 @@ final class TokenStorageProvider
         argument: null,
         retry: null,
         name: r'tokenStorageProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -98,7 +98,7 @@ final class TokenStorageProvider
   }
 }
 
-String _$tokenStorageHash() => r'a343b29554a438d4c009482b846b166c123898b0';
+String _$tokenStorageHash() => r'a42816fb1cf5af728e44ff5c48bfcaf5dc6b12aa';
 
 /// Provides the user storage.
 
@@ -117,7 +117,7 @@ final class UserStorageProvider
         argument: null,
         retry: null,
         name: r'userStorageProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -144,7 +144,7 @@ final class UserStorageProvider
   }
 }
 
-String _$userStorageHash() => r'e5932af3471f8473654d9f4dbc5f0f6a4dd12f20';
+String _$userStorageHash() => r'ee46eb5d1e89c58e6e430d8f0dbfc73d34944924';
 
 /// Provides the auth service.
 
@@ -163,7 +163,7 @@ final class AuthServiceProvider
         argument: null,
         retry: null,
         name: r'authServiceProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -190,7 +190,7 @@ final class AuthServiceProvider
   }
 }
 
-String _$authServiceHash() => r'40aa2776e9d8741250ee13e12e003d9bc34a8806';
+String _$authServiceHash() => r'36a036816d4bcbf1c7e30dce4d5ccfd86fd0fd70';
 
 /// Provides the auth repository.
 
@@ -209,7 +209,7 @@ final class AuthRepositoryProvider
         argument: null,
         retry: null,
         name: r'authRepositoryProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -236,7 +236,7 @@ final class AuthRepositoryProvider
   }
 }
 
-String _$authRepositoryHash() => r'db5d2ac600df259007e580ed2d170d5c684f50b9';
+String _$authRepositoryHash() => r'3fc53b3196d5cb69a7db30e12341aa211c42203d';
 
 /// Manages authentication state.
 
@@ -253,7 +253,7 @@ final class AuthNotifierProvider
         argument: null,
         retry: null,
         name: r'authProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -274,7 +274,7 @@ final class AuthNotifierProvider
   }
 }
 
-String _$authNotifierHash() => r'8e45886cc025f471417770d1f12cfdddfda93d92';
+String _$authNotifierHash() => r'a2605a8118fbed7a272e0563871f20d4f32b777c';
 
 /// Manages authentication state.
 

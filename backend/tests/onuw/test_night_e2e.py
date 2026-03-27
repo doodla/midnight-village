@@ -243,28 +243,14 @@ class TestNightPhaseE2E:
         # ── Step 8: Verify /me/ endpoint for each player ──────────────
         me_url = reverse("onuw:game-me", kwargs={"game_id": str(game.id)})
 
-        # Check each player sees their own data
-        for player_user, expected_current_role in [
-            (ww1, "Robber"),
-            (ww2, "Werewolf"),
-            (seer, "Seer"),
-            (robber, "Werewolf"),
-            (villager, "Villager"),
-        ]:
+        # Check each player sees their own data (current_role hidden before results)
+        for player_user in all_players:
             client.force_authenticate(user=player_user)
             response = client.get(me_url)
-            # pyrefly: ignore [missing-attribute]
             assert response.status_code == status.HTTP_200_OK
-            # pyrefly: ignore [missing-attribute]
             assert response.data["phase"] == "discussion"
-            assert (
-                # pyrefly: ignore [missing-attribute]
-                response.data["your_role"]["current_role"] == expected_current_role
-            ), (
-                f"Player {player_user.username} expected {expected_current_role}, "
-                # pyrefly: ignore [missing-attribute]
-                f"got {response.data['your_role']['current_role']}"
-            )
+            assert "original_role" in response.data["your_role"]
+            assert "current_role" not in response.data["your_role"]
 
         # ── Step 9: Verify hidden information isolation ───────────────
         # Each player's /me/ should ONLY contain their own role info
@@ -275,26 +261,12 @@ class TestNightPhaseE2E:
             # pyrefly: ignore [missing-attribute]
             responses_by_player[player_user.id] = response.data
 
-        # Seer's response should have peek result but NOT Robber's swap result
-        seer_resp = responses_by_player[seer.id]
-        seer_night_data = seer_resp["your_role"]["night_action_data"]
-        assert "wave_3_result" in seer_night_data
-        assert "peeked_role" in seer_night_data["wave_3_result"]
-        # The Seer should NOT see the Robber's "new_role" result
-        assert "new_role" not in seer_night_data.get("wave_3_result", {})
-
-        # Robber's response should have swap result but NOT Seer's peek result
-        robber_resp = responses_by_player[robber.id]
-        robber_night_data = robber_resp["your_role"]["night_action_data"]
-        assert "wave_3_result" in robber_night_data
-        assert "new_role" in robber_night_data["wave_3_result"]
-        assert "peeked_role" not in robber_night_data.get("wave_3_result", {})
-
-        # Villager should have no night action results
-        villager_resp = responses_by_player[villager.id]
-        villager_night_data = villager_resp["your_role"]["night_action_data"]
-        assert "wave_2_result" not in villager_night_data
-        assert "wave_3_result" not in villager_night_data
+        # night_action_data should NOT be exposed during discussion phase
+        # (it contains internal engine state; results are delivered via WebSocket)
+        for player_id, resp in responses_by_player.items():
+            assert "night_action_data" not in resp["your_role"], (
+                f"Player {player_id} should not see night_action_data during discussion"
+            )
 
         # No player response should contain center_cards
         for resp in responses_by_player.values():

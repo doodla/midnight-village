@@ -47,8 +47,10 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_discard(self.player_group, self.channel_name)
 
     async def receive_json(self, content, **kwargs):
-        """Handle incoming WebSocket messages. Game actions come via HTTP."""
-        await self.send_json({"type": "echo", "data": content})
+        """Reject client-sent messages — game actions go through HTTP API."""
+        await self.send_json(
+            {"type": "error", "detail": "Use the HTTP API for game actions."}
+        )
 
     # ── Event handlers ──────────────────────────────────────────────────────
 

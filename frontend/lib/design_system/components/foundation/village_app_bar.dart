@@ -76,7 +76,7 @@ class VillageAppBar extends ConsumerWidget implements PreferredSizeWidget {
         _VillageAppBarVariant.brand => const Icon(Icons.castle),
         _VillageAppBarVariant.back => IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(context).maybePop(),
           ),
         _ => null,
       };

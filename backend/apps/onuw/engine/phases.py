@@ -12,8 +12,6 @@ VALID_TRANSITIONS: dict[str, list[str]] = {
     "results": [],  # terminal
 }
 
-ALL_PHASES: list[str] = list(VALID_TRANSITIONS.keys())
-
 
 def validate_phase_transition(current: str, target: str) -> bool:
     """Check if a phase transition is valid."""
