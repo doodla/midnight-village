@@ -1,14 +1,14 @@
 {
-  "event_count": 30,
+  "event_count": 32,
   "feature_slug": "004-server-phase-timers",
-  "last_event_id": "01KMMS16MAZZ2C14ATNHHFHDX4",
-  "materialized_at": "2026-03-26T09:53:55.850430+00:00",
+  "last_event_id": "01KMNHCZE1YKBKYFYK8Q3K73PN",
+  "materialized_at": "2026-03-26T16:59:47.521689+00:00",
   "summary": {
     "approved": 0,
     "blocked": 0,
     "canceled": 0,
     "claimed": 0,
-    "done": 5,
+    "done": 6,
     "for_review": 0,
     "in_progress": 0,
     "planned": 0
@@ -48,6 +48,13 @@
       "lane": "done",
       "last_event_id": "01KMMS16MAZZ2C14ATNHHFHDX4",
       "last_transition_at": "2026-03-26T09:53:55.850138+00:00"
+    },
+    "WP06": {
+      "actor": "headless-orchestrator",
+      "force_count": 2,
+      "lane": "done",
+      "last_event_id": "01KMNHCZE1YKBKYFYK8Q3K73PN",
+      "last_transition_at": "2026-03-26T16:59:47.521412+00:00"
     }
   }
 }
