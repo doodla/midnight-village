@@ -153,6 +153,25 @@ A player can create a new lobby from the home screen. The app navigates to the l
 
 ---
 
+### User Story 7 - Configure Roles Before Starting (Priority: P2)
+
+The host selects which roles to include in the game before starting. The lobby screen offers preset recommended setups by player count (from the official rules) and allows manual adjustment with +/- controls per role. The total card count is validated (must equal player count + 3) and Masons must be 0 or 2.
+
+**Why this priority**: Without this, every game uses the same roles. Configuration is what gives ONUW its replayability. P2 because a hardcoded default setup is playable — just less fun.
+
+**Independent Test**: Create a lobby with 5 players, select the "Intermediate" preset (Werewolf, Werewolf, Seer, Robber, Troublemaker, Drunk, Insomniac, Villager), start the game, verify the roles in play match the selection.
+
+**Acceptance Scenarios**:
+
+1. **Given** the host on the lobby screen, **When** they view the role configuration area, **Then** they see a list of all 12 v1 roles with the current count for each and +/- controls.
+2. **Given** the host, **When** they select a recommended preset for their player count, **Then** the role counts auto-populate to match the preset.
+3. **Given** the host with an invalid configuration (total cards != player count + 3), **When** they attempt to start, **Then** the start button is disabled and a validation message explains the issue.
+4. **Given** the host sets Mason count to 1, **When** they view the configuration, **Then** a validation message explains Masons must be used in pairs (0 or 2).
+5. **Given** the host with a valid configuration, **When** they start the game, **Then** the role settings are sent to the backend and the game uses the selected roles.
+6. **Given** a non-host player in the lobby, **When** the host changes role configuration, **Then** all players see the updated `RoleTokenList` in real time.
+
+---
+
 ### Edge Cases
 
 - What happens when the WebSocket connection drops mid-game? The reconnection overlay appears, the app attempts automatic reconnection with exponential backoff, and on success re-fetches game state via the `/me/` endpoint.
@@ -182,7 +201,7 @@ A player can create a new lobby from the home screen. The app navigates to the l
 
 **Screens (new UI)**
 
-- **FR-008**: The app MUST provide a lobby screen showing: lobby code (prominent, shareable), player list with ready-state indicators, host start button (disabled until all ready), leave button, and `RoleTokenList` summary.
+- **FR-008**: The app MUST provide a lobby screen showing: lobby code (prominent, shareable), player list with ready-state indicators, host start button (disabled until all ready), leave button, role configuration (host only), and `RoleTokenList` summary visible to all players.
 - **FR-009**: The app MUST provide a game container screen that renders the correct sub-view based on the current game phase, with animated transitions between phases and a `PhaseIndicator` showing progress.
 - **FR-010**: The app MUST show a role reveal view at game start — the player's assigned role with a card-flip animation — before transitioning to the first night wave.
 - **FR-011**: The app MUST show a night waiting view with atmospheric text and a countdown timer when a player has no action in the current wave.
@@ -195,6 +214,7 @@ A player can create a new lobby from the home screen. The app navigates to the l
 - **FR-015**: The app MUST submit votes via POST to `/api/onuw/games/<id>/vote/` with the target player ID.
 - **FR-016**: The app MUST handle lobby CRUD — create (POST `/api/lobbies/`), join (POST `/api/lobbies/<code>/join/`), leave (POST `/api/lobbies/<code>/leave/`), ready (POST `/api/lobbies/<code>/ready/`), and start (POST `/api/onuw/lobbies/<code>/start/`).
 - **FR-017**: The app MUST display countdown timers driven by the server-provided deadline (not client-side duration), computed as `deadline - DateTime.now()`.
+- **FR-020**: The host MUST be able to configure roles in the lobby — selecting from 12 v1 roles with +/- count controls, choosing from recommended presets by player count, with client-side validation (total = player count + 3, Masons 0 or 2).
 
 **Routing & Security**
 
@@ -227,7 +247,7 @@ A player can create a new lobby from the home screen. The app navigates to the l
 - Timer display uses the server-provided UTC deadline, not client-side duration tracking, to avoid clock drift.
 - The app connects to one WebSocket at a time — lobby WebSocket while in lobby, game WebSocket while in game. No simultaneous connections needed.
 - The app supports only one active game per user at a time, matching the backend constraint.
-- Role configuration UI (selecting which roles to include in a game) is out of scope for this feature — the lobby uses default or pre-configured role sets. Role configuration is a separate future feature.
+- Role configuration offers preset recommended setups and manual +/- controls. Advanced features like custom role creation, saved configurations, or role descriptions/tooltips are out of scope.
 - The role reveal animation is a brief interstitial (3–5 seconds), not a full screen the player interacts with.
 
 ## Reference Documents
