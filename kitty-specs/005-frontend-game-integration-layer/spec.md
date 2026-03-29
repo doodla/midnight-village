@@ -251,6 +251,13 @@ A player who closes the app or loses connection mid-game can reopen the app and 
 - **FR-018**: The app MUST route between home, lobby, game, and results screens using GoRouter with auth guards.
 - **FR-019**: The app MUST never display another player's role, night action data, or vote target before the results phase.
 
+**Backend (required changes to the existing Django backend)**
+
+- **FR-030**: The backend MUST provide a `PATCH /api/lobbies/<code>/` endpoint that allows the host to update lobby settings (specifically the `roles` configuration) after creation. Non-host players MUST receive a 403. The endpoint MUST validate settings the same way `GameStartView` does. Required for US2 (role configuration in the lobby).
+- **FR-031**: The `LobbyConsumer` MUST have a `game_started` handler that forwards the `game.started` event to all connected WebSocket clients. Currently the `GameStartView` broadcasts this event to the lobby channel group, but no handler exists on `LobbyConsumer` to dispatch it. Without this, non-host players have no real-time notification that the game started. Required for US3 AS4.
+- **FR-032**: The `GameMeSerializer` MUST include a `roles_in_game` field containing the list of role names and counts from the game's settings. Currently `game.settings["roles"]` is not serialized. Required for FR-012 (showing `RoleTokenList` in the discussion phase). The frontend will also cache this at game start, but having it in the serializer supports reconnection (US7).
+- **FR-033**: The results endpoint (`GET /api/onuw/games/<id>/results/`) MUST include per-player `elimination_reason` distinguishing vote elimination from Hunter chain kills (e.g., `"vote"` vs `"hunter_chain"`). Currently `eliminated_players` is a flat list of IDs with no reason. Required for US6 AS5 (Hunter chain kill display).
+
 ### Key Entities
 
 - **AuthState**: Tracks authentication status (unauthenticated, loading, authenticated with tokens, error). Already exists — extended with token interceptor integration.
@@ -269,15 +276,12 @@ A player who closes the app or loses connection mid-game can reopen the app and 
 - **SC-005**: All existing frontend tests continue to pass.
 - **SC-006**: New integration tests verify the lobby join → game start → role reveal → night action → discussion → vote → results flow.
 - **SC-007**: All new screens use the design token system — no hardcoded colors, spacing, or typography values.
+- **SC-008**: All existing backend tests continue to pass after FR-030 through FR-033. New backend tests cover the lobby PATCH endpoint, `game_started` handler, `roles_in_game` serialization, and `elimination_reason` in results.
 
 ## Assumptions
 
-- The backend API contract is mostly stable. The following backend changes are prerequisites for this feature:
-  - **PATCH `/api/lobbies/<code>/`** endpoint to update lobby settings (currently only settable at creation). Required for US7 role configuration.
-  - **`game_started` handler** on `LobbyConsumer` to dispatch the `game.started` event to WebSocket clients. Currently the event is sent but no handler exists to forward it.
-  - **Roles-in-game data** exposed via `GameMeSerializer` (e.g., a `roles_in_game` field). Currently `game.settings["roles"]` is not serialized. Required for FR-012 (`RoleTokenList` in discussion phase). **Fallback if not implemented**: the frontend caches the lobby's role config in the game state provider when transitioning from lobby to game. This is the recommended approach even if the backend adds the field, since it avoids a redundant data transfer.
-  - **Elimination reason** per player in the results endpoint response (e.g., `"elimination_reason": "vote"` vs `"hunter_chain"`). Currently `eliminated_players` is a flat list of IDs. Required for US4 AS5 (Hunter chain kill distinction).
-  - **`PlayerResult` model extension**: The existing `PlayerResult` Freezed model needs a `voteTargetName` field (or equivalent) to display vote targets in the results screen per US4 AS2. The backend results endpoint provides `vote_target_id` per player.
+- The backend is mostly complete but requires 4 changes (FR-030 through FR-033). These are small, scoped additions — not architectural changes. All existing backend tests must continue to pass.
+- The existing `PlayerResult` Freezed model needs a `voteTargetName` field (or equivalent) to display vote targets in the results screen per US6 AS2. The backend results endpoint already provides `vote_target_id` per player — this is a frontend model change, covered by FR-028.
 - The `web_socket_channel` Dart package is the WebSocket client (already in pubspec.yaml or will be added).
 - Timer display uses the server-provided UTC deadline, not client-side duration tracking, to avoid clock drift.
 - The app connects to one WebSocket at a time — lobby WebSocket while in lobby, game WebSocket while in game. No simultaneous connections needed.
