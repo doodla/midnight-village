@@ -11,22 +11,22 @@ This feature spans both **new screen construction** and **integration plumbing**
 
 ### Existing Components (wire up, do not rebuild)
 
-| Component | What it does | Used in |
-|-----------|-------------|---------|
-| `NightActionPrompt` | Night action **submission** only — takes a single `NightActionType`, renders selection UI, fires `onActionSubmitted`. Has no result display state. Has no multi-action-type choice. `seeTeam` path has no center card picker (lone Werewolf gap). `_PeekCenterAction` hardcodes 2-card selection (lone Werewolf needs 1). Empty teammate lists for Mason/Minion show misleading text. | Night phase (action selection step only) |
-| `VoteSubmission` | Vote target selection, privacy-safe post-vote confirmation | Voting phase |
-| `VoteReveal` | Vote tally, per-player vote arrows, elimination outcome | Voting → Results transition |
-| `GameResults` | Winning teams, per-player role reveals with swap arrows, play again / return | Results phase |
-| `GameTimer` | Countdown from a `Duration`, urgency color at <10s | Night, discussion, voting |
-| `PhaseIndicator` | Horizontal stepper for lobby → night → discussion → voting → results | Game container |
-| `RoleCard` | Role display (face-up/face-down, normal/small) | Night action results, results |
-| `CenterCards` | Center card selection grid (3 positions) | Seer peek-center action |
-| `PlayerCircle` | Player grid with tap-to-select and multi-select | Night actions, voting |
-| `RoleTokenList` | Compact badges showing which roles are in the game | Lobby, discussion |
-| `PlayerAvatar` | Avatar with deterministic color, status indicator | Everywhere |
-| `AtmosphericBackground` | Phase-aware background (dark void for night, warm for discussion) | All screens |
-| `VillageAppBar` | App bar with brand/back/phase/minimal variants | All screens |
-| `PrimaryButton`, `MvCard`, `MvDialog`, `MvTextInput`, `MvScaffold`, `MvLoading`, `MvError` | Core UI primitives | Everywhere |
+| Component | What it does | Limitations / gaps | Used in |
+|-----------|-------------|-------------------|---------|
+| `NightActionPrompt` | Night action **submission** only — takes a single `NightActionType`, renders selection UI, fires `onActionSubmitted(NightActionSelection)`. Manages selection state internally. Shows `_RoleIdentityStrip` at top with role name + small `RoleCard`. | No result display state (submission only). No multi-action-type choice (takes one `actionType`). `_SeeTeamAction` has no center card picker for lone Werewolf. `_PeekCenterAction` hardcodes "Choose 2 center cards" and validates `length == 2`. `_SeeTeamAction` shows misleading text for empty Mason ("These are your fellow masons") and empty Minion ("These are the werewolves") teammate lists — only lone Werewolf has special empty-state handling. | Night phase (action selection step only) |
+| `VoteSubmission` | Vote target selection via `PlayerCircle`, privacy-safe post-vote confirmation via `isLocked` flag. Takes `players`, `timeRemaining`, `onVoteSubmitted`, `isLocked`. | No vote progress indicator (who has voted). The `isLocked` state shows generic "Vote submitted" — no count of remaining voters. | Voting phase |
+| `VoteReveal` | Vote tally and elimination outcome. Takes `List<VoteResult>` (with names), pre-computed `Map<String, int>` tally, and `List<String>` eliminatedPlayerIds. | When `eliminatedPlayerIds` is empty, shows "No one was eliminated!" — there is no "loading/resolving" state. If rendered before elimination data arrives, the message is misleading. Either don't render until data arrives, or modify the widget to accept a nullable elimination list. | Voting → Results transition |
+| `GameResults` | Winning teams (`_WinAnnouncement`), per-player role reveals (`_PlayerResultRow` with role swap arrows), play again / return buttons. Takes `GameResult`. | `PlayerResult` model has no `voteTargetName` — per-player vote targets not displayed. No center cards section. No elimination reason (vote vs Hunter chain) — just "(eliminated)". `_WinAnnouncement` handles empty teams ("Nobody wins!") and multiple winners correctly. `_buildRoleLabel` handles Doppelganger and swapped roles correctly. | Results phase |
+| `GameTimer` | Displays a `Duration` in MM:SS or bare seconds. Urgency color at <=10s. | Stateless — no internal tick. Parent must provide updated `Duration` every second (e.g., via a Riverpod timer provider computing `deadline - now`). | Night, discussion, voting |
+| `PhaseIndicator` | Horizontal stepper for all 5 phases with past/current/future styling. | None — works as-is. | Game container |
+| `RoleCard` | Role display. `roleId: null` = face-down (card back). `small: true` = compact variant. | None — works as-is. | Night results, role reveal, results |
+| `CenterCards` | Row of face-down center cards with tap-to-select. Takes `cardCount`, `maxSelections` (1 or 2), `onSelectionChanged`. | Already supports `maxSelections: 1` — usable for lone Werewolf directly. The hardcoded "2 cards" issue is in `_PeekCenterAction` (NightActionPrompt's wrapper), not in `CenterCards` itself. | Seer peek-center, lone Werewolf peek, Drunk swap |
+| `PlayerCircle` | Player avatar grid with selection. Handles current-player exclusion, max-selections cap, eliminated/disconnected status badges. Adaptive layout for 3–10 players. | None — works as-is. | Night actions, voting |
+| `RoleTokenList` | Compact role badges showing which roles are in the game. Takes `List<RoleId>`. | None — works as-is. | Lobby, discussion |
+| `PlayerAvatar` | Circular avatar with initials, deterministic color, status indicators (eliminated X overlay, disconnected wifi-off badge, current-player person badge, selected checkmark). | None — works as-is. | Everywhere |
+| `AtmosphericBackground` | Phase-aware background gradient. | None — works as-is. | All screens |
+| `VillageAppBar` | App bar with brand/back/phase/minimal variants. | None — works as-is. | All screens |
+| `PrimaryButton`, `MvCard`, `MvDialog`, `MvTextInput`, `MvScaffold`, `MvLoading`, `MvError` | Core UI primitives. | None — work as-is. | Everywhere |
 
 ### New Screens to Build
 
@@ -146,7 +146,7 @@ After the night phase, the game container transitions to the discussion phase vi
 3. **Given** the discussion timer expires, **When** the server transitions to voting, **Then** the game container transitions to show `VoteSubmission` with selectable player targets.
 4. **Given** a player in the voting phase, **When** they select a target and confirm, **Then** the app sends a POST to `/api/onuw/games/<id>/vote/` and `VoteSubmission` shows the privacy-safe confirmation.
 5. **Given** the voting phase, **When** the server broadcasts `vote_submitted` events, **Then** the app shows a vote progress indicator ("3 of 5 voted") without revealing who voted for whom. Each player's voted status is visible (checkmark or similar).
-6. **Given** all votes are in (or the voting timer expires), **When** the server broadcasts `vote_reveal` (containing vote pairs only, no elimination data), **Then** the app enriches the raw vote IDs with player names from its local player list, computes the vote tally, and renders `VoteReveal` with votes and tally. The elimination section shows "Resolving..." (not "No one was eliminated!") until the `game_results` event arrives shortly after with eliminated player IDs, at which point the elimination section updates. Players who abstained (disconnected or timed out) show "Abstained" instead of a vote target. If `game_results` is not received within 5 seconds of `vote_reveal`, the app falls back to fetching results via `GET /api/onuw/games/<id>/results/`.
+6. **Given** all votes are in (or the voting timer expires), **When** the server broadcasts `vote_reveal` (containing vote pairs only, no elimination data), **Then** the app enriches the raw vote IDs with player names from its local player list and computes the vote tally. The game container first shows the votes and tally only (not yet `VoteReveal`, since that widget shows "No one was eliminated!" when given an empty list — which would be misleading). When the `game_results` event arrives shortly after with eliminated player IDs, the game container renders the full `VoteReveal` with votes, tally, and elimination data. Players who abstained (disconnected or timed out) show "Abstained" instead of a vote target. If `game_results` is not received within 5 seconds of `vote_reveal`, the app falls back to fetching results via `GET /api/onuw/games/<id>/results/`.
 
 ---
 
@@ -241,7 +241,7 @@ A player who closes the app or loses connection mid-game can reopen the app and 
 - **FR-021**: For roles with multiple action types (Seer: peek_player or peek_center), the app MUST present a pre-action choice screen (e.g., two buttons: "Look at one player's card" / "Look at two center cards") before rendering the `NightActionPrompt` with the chosen action type. This also applies to Doppelganger-as-Seer.
 - **FR-022**: After a player submits a night action, the app MUST display the `action_result` revealed information (peeked roles, new role, teammate list) using appropriate UI until the wave completes.
 - **FR-023**: The Doppelganger's multi-step night flow MUST be handled — first prompt (peek player), result display (copied role), then conditional second prompt if the copied role has an immediate action. During follow-up prompts, the role identity strip should show the copied role name (from the `action_prompt.role_acting_as` field), not "Doppelganger."
-- **FR-026**: The lone Werewolf's compound interaction MUST be handled — first display the empty teammate list, then offer an optional 1-center-card picker (note: the existing `_PeekCenterAction` widget selects 2 cards; this flow needs a 1-card variant or parameterized selection count). The entire flow submits as a single `see_team` action with an optional `center_index` target. The player may skip the center peek.
+- **FR-026**: The lone Werewolf's compound interaction MUST be handled — first display the empty teammate list via `NightActionPrompt`'s `seeTeam` path, then transition to an optional 1-center-card picker. The `CenterCards` widget already supports `maxSelections: 1` — use it directly (not through `_PeekCenterAction` which hardcodes 2). The entire flow submits as a single `see_team` action with an optional `center_index` target. The player may skip the center peek.
 - **FR-024**: The app MUST fetch full game results from `GET /api/onuw/games/<id>/results/` when the results phase begins, since the `game_results` WebSocket event contains only summary data. Vote target IDs from the response MUST be mapped to display names using the local player list for the `GameResults` widget.
 - **FR-025**: During the voting phase, the app MUST show vote progress (how many players have voted) updated via `vote_submitted` WebSocket events, without revealing vote targets.
 - **FR-027**: Upon receiving the `game_started` event on the lobby WebSocket, the app MUST: extract the game ID, disconnect the lobby WebSocket, connect the game WebSocket at `ws://<host>/ws/game/<game_id>/`, and fetch initial game state via `GET /games/<id>/me/`. If the game WebSocket connection fails, the app retries with exponential backoff while showing the reconnection overlay.
