@@ -68,7 +68,7 @@ A player creates a new lobby from the home screen. The app navigates to the lobb
 
 ### User Story 2 - Configure Roles Before Starting (Priority: P1)
 
-The host selects which roles to include in the game before starting. The lobby screen offers preset recommended setups by player count (from the official rules) and allows manual adjustment with +/- controls per role. The total card count is validated (must equal player count + 3) and Masons must be 0 or 2.
+The host selects which roles to include in the game before starting. The lobby screen offers preset recommended setups by player count (from the official rules) and allows manual adjustment with +/- controls per role. The total card count is validated (must equal player count + 3). Roles that require pairs (Masons) increment/decrement by 2.
 
 **Why this priority**: Without this, every game uses the same roles. Configuration is what gives ONUW its replayability and is part of the core lobby setup flow.
 
@@ -79,7 +79,7 @@ The host selects which roles to include in the game before starting. The lobby s
 1. **Given** the host on the lobby screen, **When** they view the role configuration area, **Then** they see a list of all 12 v1 roles with the current count for each and +/- controls.
 2. **Given** the host, **When** they select a recommended preset for their player count, **Then** the role counts auto-populate to match the preset.
 3. **Given** the host with an invalid configuration (total cards != player count + 3), **When** they attempt to start, **Then** the start button is disabled and a validation message explains the issue.
-4. **Given** the host sets Mason count to 1, **When** they view the configuration, **Then** a validation message explains Masons must be used in pairs (0 or 2).
+4. **Given** the host taps "+" on Mason, **When** the count updates, **Then** it jumps from 0 to 2 (not 1). Tapping "-" jumps from 2 to 0. The Mason control never allows a count of 1.
 5. **Given** the host with a valid configuration, **When** they start the game, **Then** the role settings are sent to the backend and the game uses the selected roles.
 6. **Given** a non-host player in the lobby, **When** the host changes role configuration, **Then** all players see the updated `RoleTokenList` in real time.
 
@@ -235,7 +235,7 @@ A player who closes the app or loses connection mid-game can reopen the app and 
 - **FR-015**: The app MUST submit votes via POST to `/api/onuw/games/<id>/vote/` with the target player ID.
 - **FR-016**: The app MUST handle lobby CRUD — create (POST `/api/lobbies/`), join (POST `/api/lobbies/<code>/join/`), leave (POST `/api/lobbies/<code>/leave/`), ready (POST `/api/lobbies/<code>/ready/`), and start (POST `/api/onuw/lobbies/<code>/start/`).
 - **FR-017**: The app MUST display countdown timers driven by the server-provided deadline (not client-side duration), computed as `deadline - DateTime.now()`.
-- **FR-020**: The host MUST be able to configure roles in the lobby — selecting from 12 v1 roles with +/- count controls, choosing from recommended presets by player count, with client-side validation (total = player count + 3, Masons 0 or 2).
+- **FR-020**: The host MUST be able to configure roles in the lobby — selecting from 12 v1 roles with +/- count controls, choosing from recommended presets by player count, with client-side validation (total = player count + 3). Paired roles (Masons) MUST increment/decrement by 2, making an invalid count of 1 impossible.
 - **FR-021**: For roles with multiple action types (Seer: peek_player or peek_center), the app MUST present a pre-action choice screen (e.g., two buttons: "Look at one player's card" / "Look at two center cards") before rendering the `NightActionPrompt` with the chosen action type. This also applies to Doppelganger-as-Seer.
 - **FR-022**: After a player submits a night action, the app MUST display the `action_result` revealed information (peeked roles, new role, teammate list) using appropriate UI until the wave completes.
 - **FR-023**: The Doppelganger's multi-step night flow MUST be handled — first prompt (peek player), result display (copied role), then conditional second prompt if the copied role has an immediate action. During follow-up prompts, the role identity strip should show the copied role name (from the `action_prompt.role_acting_as` field), not "Doppelganger."
