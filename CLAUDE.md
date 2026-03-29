@@ -42,6 +42,17 @@ Design constraints (verified by tests):
 - API responses are player-scoped — never return another player's hidden info
 - No hidden information leaks in error messages, WebSocket events, or validation responses
 
+## Game Specs
+
+The authoritative ONUW game rules live in `docs/specs/onuw/`. Read these before implementing or reviewing any game mechanic:
+
+- `overview.md` — Setup, game flow, phases, teams, information architecture
+- `roles.md` — All 12 v1 roles (team, wave, action, special rules)
+- `night-phase.md` — Wake order, wave system, action types, timer model, optionality
+- `voting-and-resolution.md` — Discussion, voting, death threshold, Hunter chain, win conditions
+- `doppelganger.md` — Complete Doppelganger interaction matrix for all 12 copied roles
+- `recommended-setups.md` — Curated role combinations by player count
+
 ## Autonomous Development
 
 If you modify anything in `.claude/` (agents, skills, hooks, settings), you MUST update `docs/claude-architecture.md` in the same commit.
