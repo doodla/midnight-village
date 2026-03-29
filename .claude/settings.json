@@ -6,8 +6,32 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -c '{hookSpecificOutput:{hookEventName:\"PreToolUse\",updatedInput:{command:(.tool_input.command + \"; cd /Users/doodla/Code/midnight-village\")}}}'",
-            "statusMessage": "Resetting CWD to project root after command..."
+            "command": ".claude/hooks/pre-commit-gate.sh",
+            "timeout": 120000
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-edit-format.sh",
+            "timeout": 10000,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/verify-done.sh",
+            "timeout": 120000
           }
         ]
       }
