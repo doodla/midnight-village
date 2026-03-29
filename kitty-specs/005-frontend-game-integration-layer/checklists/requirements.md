@@ -28,9 +28,12 @@
 - [x] User scenarios cover primary flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
 - [x] No implementation details leak into specification
+- [x] UI inventory clearly distinguishes existing components from new screens
+- [x] New screens have design direction and composition notes
 
 ## Notes
 
-- The spec references specific API endpoints (e.g., `/api/onuw/games/<id>/action/`) — these are the existing backend contract, not implementation prescriptions. They define WHAT the frontend must communicate with, not HOW.
+- The spec references specific API endpoints and widget names — these are the existing backend contract and existing component library, used to bound scope and clarify what's new vs what's reused.
 - Role configuration UI is explicitly out of scope (documented in Assumptions).
-- The spec uses "Riverpod" and "Dio" in Key Entities and Assumptions — these are the established project patterns from prior features, used to bound scope, not to prescribe implementation.
+- FR-008 through FR-013 explicitly call out the 6 new screens/views that must be built, with design direction in the UI Inventory section.
+- SC-007 enforces design system compliance for all new UI.
