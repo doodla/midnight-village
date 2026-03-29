@@ -49,11 +49,47 @@ All new screens MUST:
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Join a Lobby and Start a Game (Priority: P1)
+### User Story 1 - Create a Lobby (Priority: P1)
+
+A player creates a new lobby from the home screen. The app navigates to the lobby screen showing the generated code and the host as the first player. The host waits for others to join.
+
+**Why this priority**: The host flow is the first thing that happens — someone must create a lobby before anyone can join. The lobby screen is entirely new UI.
+
+**Independent Test**: Create a lobby, verify the lobby code is displayed, verify the host sees themselves in the player list.
+
+**Acceptance Scenarios**:
+
+1. **Given** an authenticated player, **When** they tap "Create Lobby", **Then** the app sends a POST to `/api/lobbies/` and navigates to the lobby screen showing the generated code.
+2. **Given** the lobby screen, **When** the host views it, **Then** they see the lobby code prominently (for sharing), themselves in the player list, and a start button (disabled until all ready).
+3. **Given** the lobby, **When** the host taps start with not all players ready, **Then** the start button remains disabled.
+4. **Given** an unauthenticated player, **When** they attempt any lobby action, **Then** they are redirected to the auth screen.
+
+---
+
+### User Story 2 - Configure Roles Before Starting (Priority: P1)
+
+The host selects which roles to include in the game before starting. The lobby screen offers preset recommended setups by player count (from the official rules) and allows manual adjustment with +/- controls per role. The total card count is validated (must equal player count + 3) and Masons must be 0 or 2.
+
+**Why this priority**: Without this, every game uses the same roles. Configuration is what gives ONUW its replayability and is part of the core lobby setup flow.
+
+**Independent Test**: Create a lobby with 5 players, select the "Intermediate" preset (Werewolf, Werewolf, Seer, Robber, Troublemaker, Drunk, Insomniac, Villager), start the game, verify the roles in play match the selection.
+
+**Acceptance Scenarios**:
+
+1. **Given** the host on the lobby screen, **When** they view the role configuration area, **Then** they see a list of all 12 v1 roles with the current count for each and +/- controls.
+2. **Given** the host, **When** they select a recommended preset for their player count, **Then** the role counts auto-populate to match the preset.
+3. **Given** the host with an invalid configuration (total cards != player count + 3), **When** they attempt to start, **Then** the start button is disabled and a validation message explains the issue.
+4. **Given** the host sets Mason count to 1, **When** they view the configuration, **Then** a validation message explains Masons must be used in pairs (0 or 2).
+5. **Given** the host with a valid configuration, **When** they start the game, **Then** the role settings are sent to the backend and the game uses the selected roles.
+6. **Given** a non-host player in the lobby, **When** the host changes role configuration, **Then** all players see the updated `RoleTokenList` in real time.
+
+---
+
+### User Story 3 - Join a Lobby and Start a Game (Priority: P1)
 
 A player opens the app, enters a lobby code, joins the lobby, and sees other players arriving in real time. The host starts the game and all players see a dramatic role reveal before entering the night phase.
 
-**Why this priority**: Without lobby join and game start, nothing else works. This is the entry point for every game session. The lobby screen is entirely new UI — no lobby components exist today.
+**Why this priority**: Without lobby join and game start, no one can play. This is the entry point for every non-host player.
 
 **Independent Test**: Create a guest account, create a lobby, have a second player join by code, toggle ready, start the game — verify both players see their role reveal and then the night phase.
 
@@ -63,14 +99,13 @@ A player opens the app, enters a lobby code, joins the lobby, and sees other pla
 2. **Given** a player in a lobby, **When** another player joins, **Then** the lobby screen updates in real time (via WebSocket `player_joined` event) without a manual refresh.
 3. **Given** a player in a lobby, **When** they toggle their ready state, **Then** all players see the updated ready status in real time via `player_ready` event.
 4. **Given** the host with all players ready, **When** the host taps start, **Then** the host's start POST returns a game ID. All players learn the game has started via a lobby WebSocket event. If the WebSocket notification is missed (e.g., brief disconnect), the app falls back to polling `GET /api/onuw/me/current-game/`. All players see a role reveal animation ("You are the Seer") and transition to the night phase.
-5. **Given** an unauthenticated player, **When** they attempt any lobby action, **Then** they are redirected to the auth screen.
-6. **Given** the host, **When** they view the lobby, **Then** they see a start control that is disabled until all players are ready.
-7. **Given** a non-host player in the lobby, **When** they tap "Leave", **Then** a POST to `/api/lobbies/<code>/leave/` is sent and they return to the home screen. Other players see the departure in real time via the `player_left` event.
-8. **Given** a lobby WebSocket event (`player_joined` or `player_left`) that carries only a username, **When** the event is received, **Then** the app re-fetches the full lobby state from `GET /api/lobbies/<code>/` to get complete player data (IDs, ready states).
+5. **Given** the host, **When** they view the lobby, **Then** they see a start control that is disabled until all players are ready.
+6. **Given** a non-host player in the lobby, **When** they tap "Leave", **Then** a POST to `/api/lobbies/<code>/leave/` is sent and they return to the home screen. Other players see the departure in real time via the `player_left` event.
+7. **Given** a lobby WebSocket event (`player_joined` or `player_left`) that carries only a username, **When** the event is received, **Then** the app re-fetches the full lobby state from `GET /api/lobbies/<code>/` to get complete player data (IDs, ready states).
 
 ---
 
-### User Story 2 - Play Through the Night Phase (Priority: P1)
+### User Story 4 - Play Through the Night Phase (Priority: P1)
 
 During the night phase, the game container screen shows the `PhaseIndicator` at night stage. Players who have an action this wave see the `NightActionPrompt`. Players who don't have an action see the night waiting view ("The village sleeps..."). After submitting an action, players see their result briefly, then return to waiting until the next wave or phase transition.
 
@@ -89,12 +124,12 @@ During the night phase, the game container screen shows the `PhaseIndicator` at 
 7. **Given** the Minion or lone Mason, **When** the see-team result shows an empty teammate list (no Werewolves for Minion, no other Mason for lone Mason), **Then** the result display shows an appropriate message ("No werewolves among players" for Minion, "No other Masons among players" for Mason) rather than an empty list with misleading context.
 8. **Given** a Doppelganger-as-Werewolf and a real Werewolf in the game, **When** the Werewolf wave starts, **Then** the real Werewolf sees the Doppelganger player in their teammate list, and the Doppelganger sees the real Werewolf. Same applies for Doppelganger-as-Mason with real Masons.
 9. **Given** a player with no action this wave (Villager), **When** a `wave_waiting` event is received, **Then** they see the night waiting view with atmospheric text and a `GameTimer` countdown.
-9. **Given** a wave completes, **When** the server broadcasts `wave_complete`, **Then** the game container advances to the next wave's view or transitions to discussion.
-10. **Given** a player who does not act before the wave timer expires, **When** the server auto-advances, **Then** the player's action is skipped and the game proceeds.
+10. **Given** a wave completes, **When** the server broadcasts `wave_complete`, **Then** the game container advances to the next wave's view or transitions to discussion.
+11. **Given** a player who does not act before the wave timer expires, **When** the server auto-advances, **Then** the player's action is skipped and the game proceeds.
 
 ---
 
-### User Story 3 - Discuss and Vote (Priority: P1)
+### User Story 5 - Discuss and Vote (Priority: P1)
 
 After the night phase, the game container transitions to the discussion phase view — a warm-lit screen with a prominent countdown timer, the roles in play (`RoleTokenList`), and host controls. When discussion ends, the container transitions to the `VoteSubmission` widget. After all votes, the `VoteReveal` widget shows results.
 
@@ -113,7 +148,7 @@ After the night phase, the game container transitions to the discussion phase vi
 
 ---
 
-### User Story 4 - See Game Results (Priority: P1)
+### User Story 6 - See Game Results (Priority: P1)
 
 After voting resolution, the game container transitions to the results phase. The `GameResults` widget shows who won, who was eliminated, all role reveals, and vote targets. Players can return to the home screen.
 
@@ -136,7 +171,7 @@ After voting resolution, the game container transitions to the results phase. Th
 
 ---
 
-### User Story 5 - Reconnect Mid-Game (Priority: P2)
+### User Story 7 - Reconnect Mid-Game (Priority: P2)
 
 A player who closes the app or loses connection mid-game can reopen the app and resume from where they left off. The reconnection overlay shows while re-establishing the WebSocket, then dismisses into the correct phase view.
 
@@ -152,41 +187,6 @@ A player who closes the app or loses connection mid-game can reopen the app and 
 4. **Given** a WebSocket disconnection mid-game, **When** the connection drops, **Then** the reconnection overlay appears. When the connection is restored, the overlay dismisses and the player resumes receiving events.
 5. **Given** a reconnected player during the night phase who already submitted their action this wave, **When** the `/me/` endpoint returns `has_acted: true` with no action prompt, **Then** they see the night waiting view (not their previous action result — the result was a one-time WebSocket event).
 6. **Given** a reconnected player during the voting phase who has already voted, **When** the `/me/` endpoint returns `has_voted: true`, **Then** they see the `VoteSubmission` locked view with vote progress updated from the per-player `has_voted` flags in the players list.
-
----
-
-### User Story 6 - Create a Lobby (Priority: P2)
-
-A player can create a new lobby from the home screen. The app navigates to the lobby screen showing the generated code and the host as the first player. The host waits for others to join.
-
-**Why this priority**: Slightly lower priority than joining because only the host needs this flow.
-
-**Independent Test**: Create a lobby, verify the lobby code is displayed, verify the host sees themselves in the player list.
-
-**Acceptance Scenarios**:
-
-1. **Given** an authenticated player, **When** they tap "Create Lobby", **Then** the app sends a POST to `/api/lobbies/` and navigates to the lobby screen showing the generated code.
-2. **Given** the lobby screen, **When** the host views it, **Then** they see the lobby code prominently (for sharing), themselves in the player list, and a start button (disabled until all ready).
-3. **Given** the lobby, **When** the host taps start with not all players ready, **Then** the start button remains disabled.
-
----
-
-### User Story 7 - Configure Roles Before Starting (Priority: P2)
-
-The host selects which roles to include in the game before starting. The lobby screen offers preset recommended setups by player count (from the official rules) and allows manual adjustment with +/- controls per role. The total card count is validated (must equal player count + 3) and Masons must be 0 or 2.
-
-**Why this priority**: Without this, every game uses the same roles. Configuration is what gives ONUW its replayability. P2 because a hardcoded default setup is playable — just less fun.
-
-**Independent Test**: Create a lobby with 5 players, select the "Intermediate" preset (Werewolf, Werewolf, Seer, Robber, Troublemaker, Drunk, Insomniac, Villager), start the game, verify the roles in play match the selection.
-
-**Acceptance Scenarios**:
-
-1. **Given** the host on the lobby screen, **When** they view the role configuration area, **Then** they see a list of all 12 v1 roles with the current count for each and +/- controls.
-2. **Given** the host, **When** they select a recommended preset for their player count, **Then** the role counts auto-populate to match the preset.
-3. **Given** the host with an invalid configuration (total cards != player count + 3), **When** they attempt to start, **Then** the start button is disabled and a validation message explains the issue.
-4. **Given** the host sets Mason count to 1, **When** they view the configuration, **Then** a validation message explains Masons must be used in pairs (0 or 2).
-5. **Given** the host with a valid configuration, **When** they start the game, **Then** the role settings are sent to the backend and the game uses the selected roles.
-6. **Given** a non-host player in the lobby, **When** the host changes role configuration, **Then** all players see the updated `RoleTokenList` in real time.
 
 ---
 
