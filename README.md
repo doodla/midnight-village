@@ -1,23 +1,22 @@
 # Midnight Village
 
-A multiplayer social deduction game built with Django.
+A multiplayer social deduction game platform. Players sit together in person and use their phones for secret role actions and voting.
+
+**First game:** One Night Ultimate Werewolf (ONUW) — a single-night variant where roles may swap during the night, then players discuss and vote to find the werewolf.
 
 ## Repository Structure
 
 ```
 midnight-village/
-├── backend/         # Django API server
-├── docs/            # Developer documentation
-└── specs/           # Feature specifications
+├── backend/         # Django API server (Python, DRF, Channels)
+├── frontend/        # Flutter client (web, iOS, Android)
+└── docs/            # Developer documentation
 ```
 
 ## Quick Links
 
-- [Backend Quickstart](backend/README.md) - Get the API running in 5 minutes
-- [Architecture](docs/architecture.md) - System design and patterns
-- [API Patterns](docs/api-patterns.md) - API conventions
-- [Contributing](docs/contributing.md) - Development workflow
-- [Feature Specs](specs/) - Feature specifications and design documents
+- [Backend Quickstart](backend/README.md) — Get the API running
+- [Frontend Quickstart](frontend/README.md) — Get the Flutter app running
 
 ## First Time Setup
 
@@ -27,35 +26,26 @@ midnight-village/
 - PostgreSQL 14+
 - [uv](https://docs.astral.sh/uv/) package manager
 - [just](https://just.systems/) command runner
+- [Flutter](https://flutter.dev/) SDK (for frontend)
 
 ### Backend Setup
 
 ```bash
-# Clone the repository
 git clone <repo-url>
 cd midnight-village
 
-# Install dependencies (from repo root)
-just install
-
-# Configure environment
+just install        # Install dependencies
 cp backend/.env.example backend/.env
 # Edit .env with your database credentials
 
-# Run migrations and start server
-just migrate
-just dev
+just migrate        # Run migrations
+just dev            # Start server at http://localhost:8000
 ```
-
-The API will be available at http://localhost:8000
 
 ### Verify Installation
 
 ```bash
-# Health check
 curl http://localhost:8000/api/health/
-
-# Run tests
 just test
 ```
 
@@ -66,31 +56,18 @@ just test
 Pre-commit hooks run automatically on commit. To run manually:
 
 ```bash
-# Run all quality checks (lint, format check, typecheck)
-just check
-
-# Fix auto-fixable issues
-just fix
+just check          # Lint + format check + typecheck
+just fix            # Auto-fix lint + format
 ```
 
 ### Running Tests
 
 ```bash
-just test              # All tests
-just test-unit         # Unit tests only
-just test-integration  # Integration tests only
-just test-cov          # Tests with coverage report
+just test           # All tests
+just test-unit      # Unit tests only
+just test-cov       # Tests with coverage report
 ```
-
-## Project Status
-
-- [x] Backend project scaffold
-- [x] Custom User model
-- [x] Health check endpoint
-- [x] Quality tooling (Ruff, Pyrefly, pre-commit)
-- [ ] Game logic implementation
-- [ ] Frontend client
 
 ## License
 
-Proprietary - All rights reserved.
+Proprietary — All rights reserved.
