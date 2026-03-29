@@ -83,8 +83,9 @@ During the night phase, the game container screen shows the `PhaseIndicator` at 
 3. **Given** a lone Werewolf (no other Werewolves among players), **When** their wave starts, **Then** after seeing they have no teammates, they are offered an optional center card peek (one card). They may acknowledge without peeking (skip the peek).
 4. **Given** a player with an optional action (Seer, Robber, Troublemaker, lone Werewolf), **When** their prompt is shown, **Then** they see a "Skip" option alongside the confirm button. Given a player with a mandatory action (Drunk, Doppelganger initial peek), **When** their prompt is shown, **Then** no skip option is available.
 5. **Given** a player submits a night action, **When** the server responds with an `action_result` event containing `revealed_info`, **Then** the app displays the result: the Seer sees the peeked role(s) via `RoleCard`, the Robber sees their new role, the Insomniac sees their current card, Werewolves/Masons/Minion see a teammate list. The result is shown until the wave completes.
-6. **Given** the Doppelganger, **When** their wave starts, **Then** the app presents a peek-player prompt (mandatory). After submitting, the `action_result` reveals the copied role. If the copied role has an immediate follow-up action (Seer, Robber, Troublemaker, Drunk), the app presents a second prompt for that action within the same wave. If the copied role acts in a later wave (Werewolf, Mason, Minion, Insomniac), the Doppelganger returns to waiting and is re-prompted when that wave arrives.
-7. **Given** a player with no action this wave (Villager), **When** a wave is active, **Then** they see the night waiting view with atmospheric text and a `GameTimer` countdown.
+6. **Given** the Doppelganger, **When** their wave starts, **Then** the app presents a peek-player prompt (mandatory). After submitting, the `action_result` reveals the copied role. If the copied role has an immediate follow-up action (Seer, Robber, Troublemaker, Drunk), the app presents a second prompt for that action within the same wave. If the copied role acts in a later wave (Werewolf, Mason, Minion, Insomniac), the Doppelganger returns to waiting and is re-prompted when that wave arrives. For Doppelganger-as-Insomniac (wave 4 follow-up), the result is a self-peek showing the player's current card — which may differ from the copied role if swapped. The display should clearly communicate "This is your current card."
+7. **Given** the Minion, **When** the see-team result shows no Werewolves among players (all Werewolf cards in center), **Then** the result display shows an appropriate message ("No werewolves among players") rather than an empty teammate list with misleading context.
+8. **Given** a player with no action this wave (Villager), **When** a wave is active, **Then** they see the night waiting view with atmospheric text and a `GameTimer` countdown.
 8. **Given** a wave completes, **When** the server broadcasts `wave_complete`, **Then** the game container advances to the next wave's view or transitions to discussion.
 9. **Given** a player who does not act before the wave timer expires, **When** the server auto-advances, **Then** the player's action is skipped and the game proceeds.
 
@@ -105,7 +106,7 @@ After the night phase, the game container transitions to the discussion phase vi
 3. **Given** the discussion timer expires, **When** the server transitions to voting, **Then** the game container transitions to show `VoteSubmission` with selectable player targets.
 4. **Given** a player in the voting phase, **When** they select a target and confirm, **Then** the app sends a POST to `/api/onuw/games/<id>/vote/` and `VoteSubmission` shows the privacy-safe confirmation.
 5. **Given** the voting phase, **When** the server broadcasts `vote_submitted` events, **Then** the app shows a vote progress indicator ("3 of 5 voted") without revealing who voted for whom. Each player's voted status is visible (checkmark or similar).
-6. **Given** all votes are in (or the voting timer expires), **When** the server broadcasts `vote_reveal` with vote data, **Then** the app enriches the raw vote IDs with player names from its local player list, computes the vote tally, and renders the `VoteReveal` widget. Elimination is determined server-side and included in the event or fetched via the results endpoint.
+6. **Given** all votes are in (or the voting timer expires), **When** the server broadcasts `vote_reveal` (containing vote pairs only, no elimination data), **Then** the app enriches the raw vote IDs with player names from its local player list, computes the vote tally, and renders `VoteReveal` initially with votes and tally but no elimination info. When the `game_results` event arrives shortly after (containing eliminated player IDs), the `VoteReveal` updates to show eliminations. This two-step render avoids blocking on the second event.
 
 ---
 
@@ -122,7 +123,9 @@ After voting resolution, the game container transitions to the results phase. Th
 1. **Given** the game transitions to results, **When** the `game_results` WebSocket event arrives (which contains only winning teams and eliminated player IDs), **Then** the app fetches the full results from `GET /api/onuw/games/<id>/results/` to obtain per-player role data, vote targets, and outcome details, and renders the `GameResults` widget.
 2. **Given** the results screen, **When** a player views it, **Then** they see each player's original role, final role (if swapped), vote target, and whether they won or lost.
 3. **Given** a game where no werewolves are among players and no one is eliminated, **When** the results screen is shown, **Then** the village wins and the results display explains "No werewolves were among the players — village wins by keeping the peace."
-4. **Given** the results screen, **When** a player taps "Return to Lobby" or "Play Again", **Then** they navigate back to the home screen.
+4. **Given** a game where no werewolves are among players and a non-Minion player is eliminated with no Minion in play, **When** the results screen is shown, **Then** no team wins and the results display shows "Nobody wins."
+5. **Given** the Hunter is eliminated, **When** the results screen is shown, **Then** the player killed by the Hunter's chain ability is visually distinguished from vote-eliminated players (e.g., "Eliminated by Hunter" label) so players understand why a player with few or zero votes died.
+6. **Given** the results screen, **When** a player taps "Return to Lobby" or "Play Again", **Then** they navigate back to the home screen.
 
 ---
 
@@ -226,6 +229,7 @@ The host selects which roles to include in the game before starting. The lobby s
 - **FR-021**: For roles with multiple action types (Seer: peek_player or peek_center), the app MUST present the choice before showing the selection UI for the chosen action type.
 - **FR-022**: After a player submits a night action, the app MUST display the `action_result` revealed information (peeked roles, new role, teammate list) using appropriate UI until the wave completes.
 - **FR-023**: The Doppelganger's multi-step night flow MUST be handled — first prompt (peek player), result display (copied role), then conditional second prompt if the copied role has an immediate action.
+- **FR-026**: The lone Werewolf's compound interaction MUST be handled — first display the empty teammate list, then offer an optional 1-center-card picker. The entire flow submits as a single `see_team` action with an optional `center_index` target. The player may skip the center peek.
 - **FR-024**: The app MUST fetch full game results from `GET /api/onuw/games/<id>/results/` when the results phase begins, since the `game_results` WebSocket event contains only summary data.
 - **FR-025**: During the voting phase, the app MUST show vote progress (how many players have voted) updated via `vote_submitted` WebSocket events, without revealing vote targets.
 
@@ -255,7 +259,10 @@ The host selects which roles to include in the game before starting. The lobby s
 
 ## Assumptions
 
-- The backend API contract is stable — all endpoints and WebSocket events documented in the backend codebase are the source of truth. No backend changes are needed for this feature.
+- The backend API contract is mostly stable. The following backend changes are prerequisites for this feature:
+  - **PATCH `/api/lobbies/<code>/`** endpoint to update lobby settings (currently only settable at creation). Required for US7 role configuration.
+  - **`game_started` handler** on `LobbyConsumer` to dispatch the `game.started` event to WebSocket clients. Currently the event is sent but no handler exists to forward it.
+  - **Roles-in-game data** exposed via `GameMeSerializer` (e.g., a `roles_in_game` field). Currently `game.settings["roles"]` is not serialized. Required for FR-012 (`RoleTokenList` in discussion phase). Alternative: the frontend caches the lobby's role config before game start.
 - The `web_socket_channel` Dart package is the WebSocket client (already in pubspec.yaml or will be added).
 - Timer display uses the server-provided UTC deadline, not client-side duration tracking, to avoid clock drift.
 - The app connects to one WebSocket at a time — lobby WebSocket while in lobby, game WebSocket while in game. No simultaneous connections needed.
