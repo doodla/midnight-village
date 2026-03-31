@@ -219,7 +219,7 @@ Notes:
 
 ### Lobby WebSocket
 
-**URL**: `ws://<host>/ws/lobbies/<code>/?token=<jwt>`
+**URL**: `ws://<host>/ws/lobby/<code>/?token=<jwt>`
 **Direction**: Server → Client only (client sends no messages; all actions via HTTP)
 **Group**: `lobby_{code}` (broadcast to all lobby members)
 
@@ -257,7 +257,7 @@ Notes:
 
 ### Game WebSocket
 
-**URL**: `ws://<host>/ws/games/<game_id>/?token=<jwt>`
+**URL**: `ws://<host>/ws/game/<game_id>/?token=<jwt>`
 **Direction**: Server → Client only
 **Groups**:
 - `game_{game_id}` — broadcast to all players
