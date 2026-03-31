@@ -13,7 +13,7 @@ created_at: '2026-03-31T14:34:15.619502+00:00'
 subtasks: [T015, T016, T017]
 phase: Phase 0.5
 assignee: ''
-agent: ''
+agent: "headless-impl"
 shell_pid: "91469"
 review_status: ''
 reviewed_by: ''
@@ -158,3 +158,4 @@ cd frontend && just gen      # After adding route annotations
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
+- 2026-03-31T14:34:15Z – headless-impl – shell_pid=91469 – lane=doing – Assigned agent via workflow command
