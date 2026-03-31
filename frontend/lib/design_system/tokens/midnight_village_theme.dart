@@ -150,18 +150,12 @@ class MidnightVillageTypography implements AppTypographyTokens {
   );
 
   @override
-  TextStyle get subheading => const TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w500,
-    height: 1.4,
-  );
+  TextStyle get subheading =>
+      const TextStyle(fontSize: 18, fontWeight: FontWeight.w500, height: 1.4);
 
   @override
-  TextStyle get body => const TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w400,
-    height: 1.5,
-  );
+  TextStyle get body =>
+      const TextStyle(fontSize: 16, fontWeight: FontWeight.w400, height: 1.5);
 
   @override
   TextStyle get caption => const TextStyle(
@@ -181,10 +175,8 @@ class MidnightVillageTypography implements AppTypographyTokens {
 
   // Extended Firelit Gothic typography
   @override
-  TextStyle get timerDigits => const TextStyle(
-    fontSize: 48,
-    fontWeight: FontWeight.w600,
-  );
+  TextStyle get timerDigits =>
+      const TextStyle(fontSize: 48, fontWeight: FontWeight.w600);
 
   @override
   TextStyle get lobbyCode => const TextStyle(

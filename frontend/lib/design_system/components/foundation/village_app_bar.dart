@@ -25,36 +25,36 @@ class VillageAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final Widget? trailing;
 
   const VillageAppBar.brand({super.key, this.trailing})
-      : _variant = _VillageAppBarVariant.brand,
-        _title = null,
-        _label = null,
-        _roleName = null,
-        _icon = null;
+    : _variant = _VillageAppBarVariant.brand,
+      _title = null,
+      _label = null,
+      _roleName = null,
+      _icon = null;
 
   const VillageAppBar.back({super.key, required String title, this.trailing})
-      : _variant = _VillageAppBarVariant.back,
-        _title = title,
-        _label = null,
-        _roleName = null,
-        _icon = null;
+    : _variant = _VillageAppBarVariant.back,
+      _title = title,
+      _label = null,
+      _roleName = null,
+      _icon = null;
 
   const VillageAppBar.phase({super.key, required String label, this.trailing})
-      : _variant = _VillageAppBarVariant.phase,
-        _title = null,
-        _label = label,
-        _roleName = null,
-        _icon = null;
+    : _variant = _VillageAppBarVariant.phase,
+      _title = null,
+      _label = label,
+      _roleName = null,
+      _icon = null;
 
   const VillageAppBar.minimal({
     super.key,
     required String roleName,
     IconData? icon,
     this.trailing,
-  })  : _variant = _VillageAppBarVariant.minimal,
-        _title = null,
-        _label = null,
-        _roleName = roleName,
-        _icon = icon;
+  }) : _variant = _VillageAppBarVariant.minimal,
+       _title = null,
+       _label = null,
+       _roleName = roleName,
+       _icon = icon;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -73,32 +73,33 @@ class VillageAppBar extends ConsumerWidget implements PreferredSizeWidget {
   }
 
   Widget? _buildLeading(BuildContext context) => switch (_variant) {
-        _VillageAppBarVariant.brand => const Icon(Icons.castle),
-        _VillageAppBarVariant.back => IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-        _ => null,
-      };
+    _VillageAppBarVariant.brand => const Icon(Icons.castle),
+    _VillageAppBarVariant.back => IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () => Navigator.of(context).maybePop(),
+    ),
+    _ => null,
+  };
 
   Widget? _buildTitle(AppTokens tokens) => switch (_variant) {
-        _VillageAppBarVariant.brand => const Text('Midnight Village'),
-        _VillageAppBarVariant.back => Text(_title ?? ''),
-        _VillageAppBarVariant.phase => Text(
-            _label ?? '',
-            style: tokens.typography.phaseLabel.copyWith(
-              color: tokens.colors.secondary,
-            ),
-          ),
-        _VillageAppBarVariant.minimal => _icon != null
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(_icon),
-                  SizedBox(width: tokens.spacing.xs),
-                  Text(_roleName ?? ''),
-                ],
-              )
-            : Text(_roleName ?? ''),
-      };
+    _VillageAppBarVariant.brand => const Text('Midnight Village'),
+    _VillageAppBarVariant.back => Text(_title ?? ''),
+    _VillageAppBarVariant.phase => Text(
+      _label ?? '',
+      style: tokens.typography.phaseLabel.copyWith(
+        color: tokens.colors.secondary,
+      ),
+    ),
+    _VillageAppBarVariant.minimal =>
+      _icon != null
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_icon),
+                SizedBox(width: tokens.spacing.xs),
+                Text(_roleName ?? ''),
+              ],
+            )
+          : Text(_roleName ?? ''),
+  };
 }

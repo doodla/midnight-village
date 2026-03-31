@@ -64,13 +64,10 @@ class _CenterCardsState extends ConsumerState<CenterCards> {
         children: List.generate(widget.cardCount, (index) {
           final bool isSelected = _selectedIndices.contains(index);
           final bool canTap =
-              widget.onSelectionChanged != null &&
-              (isSelected || !maxReached);
+              widget.onSelectionChanged != null && (isSelected || !maxReached);
 
           return Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: tokens.spacing.sm,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: tokens.spacing.sm),
             child: _CenterCardTile(
               index: index,
               isSelected: isSelected,
@@ -103,10 +100,12 @@ class _CenterCardTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color borderColor =
-        isSelected ? tokens.colors.primary : tokens.colors.outline;
-    final double borderWidth =
-        isSelected ? _kSelectedBorderWidth : _kDefaultBorderWidth;
+    final Color borderColor = isSelected
+        ? tokens.colors.primary
+        : tokens.colors.outline;
+    final double borderWidth = isSelected
+        ? _kSelectedBorderWidth
+        : _kDefaultBorderWidth;
     final double opacity = (!canTap && !isSelected) ? 0.45 : 1.0;
 
     final String label = 'Card ${index + 1}${isSelected ? ', selected' : ''}';

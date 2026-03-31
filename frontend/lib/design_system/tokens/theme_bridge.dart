@@ -13,23 +13,24 @@ ThemeData generateThemeData(AppTokens tokens) {
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: colors.primary,
-      brightness: Brightness.dark,
-    ).copyWith(
-      primary: colors.primary,
-      onPrimary: colors.onPrimary,
-      secondary: colors.secondary,
-      onSecondary: colors.onSecondary,
-      tertiary: colors.tertiary,
-      surface: colors.surface,
-      onSurface: colors.onSurface,
-      error: colors.error,
-      onError: colors.onError,
-      outline: colors.outline,
-      surfaceContainerHighest: colors.surface,
-      surfaceContainerLow: colors.surfaceDark,
-    ),
+    colorScheme:
+        ColorScheme.fromSeed(
+          seedColor: colors.primary,
+          brightness: Brightness.dark,
+        ).copyWith(
+          primary: colors.primary,
+          onPrimary: colors.onPrimary,
+          secondary: colors.secondary,
+          onSecondary: colors.onSecondary,
+          tertiary: colors.tertiary,
+          surface: colors.surface,
+          onSurface: colors.onSurface,
+          error: colors.error,
+          onError: colors.onError,
+          outline: colors.outline,
+          surfaceContainerHighest: colors.surface,
+          surfaceContainerLow: colors.surfaceDark,
+        ),
     scaffoldBackgroundColor: colors.background,
     textTheme: TextTheme(
       displayLarge: typography.displayHeading,
@@ -70,10 +71,7 @@ ThemeData generateThemeData(AppTokens tokens) {
         borderSide: BorderSide(color: colors.outline),
       ),
     ),
-    dividerTheme: DividerThemeData(
-      color: colors.outline,
-      thickness: 1,
-    ),
+    dividerTheme: DividerThemeData(color: colors.outline, thickness: 1),
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,

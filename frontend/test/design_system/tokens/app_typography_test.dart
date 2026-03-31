@@ -15,22 +15,16 @@ import 'package:midnight_village/design_system/tokens/app_typography.dart';
 
 TextTheme _buildTextTheme() {
   late TextTheme result;
-  runZonedGuarded(
-    () => result = AppTypography.textTheme,
-    (error, stack) {
-      // Suppress google_fonts asset/CDN loading errors — they happen async
-      // after the TextStyle is already returned with correct properties.
-    },
-  );
+  runZonedGuarded(() => result = AppTypography.textTheme, (error, stack) {
+    // Suppress google_fonts asset/CDN loading errors — they happen async
+    // after the TextStyle is already returned with correct properties.
+  });
   return result;
 }
 
 TextStyle _buildDisplaySerif() {
   late TextStyle result;
-  runZonedGuarded(
-    () => result = AppTypography.displaySerif,
-    (error, stack) {},
-  );
+  runZonedGuarded(() => result = AppTypography.displaySerif, (error, stack) {});
   return result;
 }
 

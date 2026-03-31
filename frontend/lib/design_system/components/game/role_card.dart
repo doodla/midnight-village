@@ -70,8 +70,9 @@ class RoleCard extends ConsumerWidget {
             padding: EdgeInsets.symmetric(horizontal: tokens.spacing.xs),
             child: Text(
               role.displayName,
-              style: (small ? tokens.typography.caption : tokens.typography.label)
-                  .copyWith(color: teamColor),
+              style:
+                  (small ? tokens.typography.caption : tokens.typography.label)
+                      .copyWith(color: teamColor),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,

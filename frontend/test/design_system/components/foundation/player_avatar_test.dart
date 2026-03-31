@@ -48,9 +48,12 @@ void main() {
         theme: testTheme,
       );
 
-      final containers1 = tester.widgetList<Container>(find.byType(Container)).toList();
+      final containers1 = tester
+          .widgetList<Container>(find.byType(Container))
+          .toList();
       final circle1 = containers1.firstWhere(
-        (c) => c.decoration is BoxDecoration &&
+        (c) =>
+            c.decoration is BoxDecoration &&
             (c.decoration! as BoxDecoration).shape == BoxShape.circle,
       );
       final color1 = (circle1.decoration! as BoxDecoration).color;
@@ -60,9 +63,12 @@ void main() {
         theme: testTheme,
       );
 
-      final containers2 = tester.widgetList<Container>(find.byType(Container)).toList();
+      final containers2 = tester
+          .widgetList<Container>(find.byType(Container))
+          .toList();
       final circle2 = containers2.firstWhere(
-        (c) => c.decoration is BoxDecoration &&
+        (c) =>
+            c.decoration is BoxDecoration &&
             (c.decoration! as BoxDecoration).shape == BoxShape.circle,
       );
       final color2 = (circle2.decoration! as BoxDecoration).color;

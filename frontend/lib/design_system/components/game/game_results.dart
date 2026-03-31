@@ -69,10 +69,7 @@ class GameResults extends ConsumerWidget {
           // Action buttons
           // ----------------------------------------------------------------
           if (onPlayAgain != null)
-            PrimaryButton(
-              label: 'Play Again',
-              onPressed: onPlayAgain,
-            ),
+            PrimaryButton(label: 'Play Again', onPressed: onPlayAgain),
 
           if (onPlayAgain != null && onReturnToLobby != null)
             SizedBox(height: tokens.spacing.sm),
@@ -173,10 +170,7 @@ class _PlayerResultRow extends ConsumerWidget {
           Container(
             width: 10.0,
             height: 10.0,
-            decoration: BoxDecoration(
-              color: teamColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: teamColor, shape: BoxShape.circle),
           ),
 
           SizedBox(width: tokens.spacing.sm),
@@ -220,9 +214,7 @@ class _PlayerResultRow extends ConsumerWidget {
                 // Role display line.
                 Text(
                   roleLabel,
-                  style: tokens.typography.caption.copyWith(
-                    color: teamColor,
-                  ),
+                  style: tokens.typography.caption.copyWith(color: teamColor),
                 ),
               ],
             ),

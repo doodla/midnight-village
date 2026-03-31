@@ -31,9 +31,7 @@ Future<void> _pumpVoteSubmission(
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [
-        activeThemeProvider.overrideWithValue(_testTheme),
-      ],
+      overrides: [activeThemeProvider.overrideWithValue(_testTheme)],
       child: MaterialApp(
         theme: generateThemeData(_testTheme),
         home: Scaffold(
@@ -51,10 +49,10 @@ Future<void> _pumpVoteSubmission(
 
 /// Three generic non-current, selectable players.
 List<PlayerDisplay> _threePlayers() => const [
-      PlayerDisplay(id: 'p1', displayName: 'Alice'),
-      PlayerDisplay(id: 'p2', displayName: 'Bob'),
-      PlayerDisplay(id: 'p3', displayName: 'Carol'),
-    ];
+  PlayerDisplay(id: 'p1', displayName: 'Alice'),
+  PlayerDisplay(id: 'p2', displayName: 'Bob'),
+  PlayerDisplay(id: 'p3', displayName: 'Carol'),
+];
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -65,9 +63,9 @@ void main() {
   // Confirm button is disabled when no player is selected
   // -------------------------------------------------------------------------
 
-  testWidgets(
-      'confirm button is disabled when no player is selected',
-      (tester) async {
+  testWidgets('confirm button is disabled when no player is selected', (
+    tester,
+  ) async {
     await _pumpVoteSubmission(
       tester,
       players: _threePlayers(),
@@ -88,9 +86,9 @@ void main() {
   // Confirm button becomes enabled after a player is selected
   // -------------------------------------------------------------------------
 
-  testWidgets(
-      'confirm button is enabled after tapping a player',
-      (tester) async {
+  testWidgets('confirm button is enabled after tapping a player', (
+    tester,
+  ) async {
     await _pumpVoteSubmission(
       tester,
       players: _threePlayers(),
@@ -115,57 +113,65 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets(
-      'confirm button calls onVoteSubmitted with the selected player ID',
-      (tester) async {
-    String? submittedId;
+    'confirm button calls onVoteSubmitted with the selected player ID',
+    (tester) async {
+      String? submittedId;
 
-    await _pumpVoteSubmission(
-      tester,
-      players: _threePlayers(),
-      onVoteSubmitted: (id) => submittedId = id,
-    );
+      await _pumpVoteSubmission(
+        tester,
+        players: _threePlayers(),
+        onVoteSubmitted: (id) => submittedId = id,
+      );
 
-    // Select Bob (id: 'p2').
-    await tester.tap(find.text('Bob'));
-    await tester.pump();
+      // Select Bob (id: 'p2').
+      await tester.tap(find.text('Bob'));
+      await tester.pump();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Lock in your vote'));
-    await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Lock in your vote'));
+      await tester.pump();
 
-    expect(submittedId, 'p2',
-        reason: 'onVoteSubmitted must receive the ID of the selected player');
-  });
+      expect(
+        submittedId,
+        'p2',
+        reason: 'onVoteSubmitted must receive the ID of the selected player',
+      );
+    },
+  );
 
   // -------------------------------------------------------------------------
   // isLocked=true shows "Vote submitted" message and check icon
   // -------------------------------------------------------------------------
 
   testWidgets(
-      'isLocked=true shows "Vote submitted" message and check_circle icon',
-      (tester) async {
-    await _pumpVoteSubmission(
-      tester,
-      players: _threePlayers(),
-      onVoteSubmitted: (_) {},
-      isLocked: true,
-    );
+    'isLocked=true shows "Vote submitted" message and check_circle icon',
+    (tester) async {
+      await _pumpVoteSubmission(
+        tester,
+        players: _threePlayers(),
+        onVoteSubmitted: (_) {},
+        isLocked: true,
+      );
 
-    // The generic confirmation message must be visible.
-    expect(find.text('Vote submitted'), findsOneWidget);
-    expect(find.text('Your vote has been submitted.'), findsOneWidget);
+      // The generic confirmation message must be visible.
+      expect(find.text('Vote submitted'), findsOneWidget);
+      expect(find.text('Your vote has been submitted.'), findsOneWidget);
 
-    // The check_circle icon must appear with the primary test token color.
-    // TestColorTokens.primary = Color(0xFF00FF00)
-    final checkIconFinder = find.byWidgetPredicate((widget) {
-      if (widget is Icon && widget.icon == Icons.check_circle) {
-        return widget.color == const Color(0xFF00FF00);
-      }
-      return false;
-    });
-    expect(checkIconFinder, findsOneWidget,
+      // The check_circle icon must appear with the primary test token color.
+      // TestColorTokens.primary = Color(0xFF00FF00)
+      final checkIconFinder = find.byWidgetPredicate((widget) {
+        if (widget is Icon && widget.icon == Icons.check_circle) {
+          return widget.color == const Color(0xFF00FF00);
+        }
+        return false;
+      });
+      expect(
+        checkIconFinder,
+        findsOneWidget,
         reason:
-            'check_circle icon with primary token color must be visible after vote is locked');
-  });
+            'check_circle icon with primary token color must be visible after vote is locked',
+      );
+    },
+  );
 
   // -------------------------------------------------------------------------
   // isLocked=true does NOT show player names prominently
@@ -177,9 +183,9 @@ void main() {
   // any Text with a font size >= body (18 pt in the test theme).
   // -------------------------------------------------------------------------
 
-  testWidgets(
-      'isLocked=true does not display any player name in large text',
-      (tester) async {
+  testWidgets('isLocked=true does not display any player name in large text', (
+    tester,
+  ) async {
     await _pumpVoteSubmission(
       tester,
       players: _threePlayers(),
@@ -215,9 +221,9 @@ void main() {
   // Timer is visible in the pre-vote state
   // -------------------------------------------------------------------------
 
-  testWidgets(
-      'timer is visible in pre-vote state (isLocked=false)',
-      (tester) async {
+  testWidgets('timer is visible in pre-vote state (isLocked=false)', (
+    tester,
+  ) async {
     await _pumpVoteSubmission(
       tester,
       players: _threePlayers(),
@@ -227,17 +233,20 @@ void main() {
     );
 
     // GameTimer formats 2 minutes as "02:00".
-    expect(find.text('02:00'), findsOneWidget,
-        reason: 'Timer must be visible in pre-vote state');
+    expect(
+      find.text('02:00'),
+      findsOneWidget,
+      reason: 'Timer must be visible in pre-vote state',
+    );
   });
 
   // -------------------------------------------------------------------------
   // Timer is visible in the post-vote (locked) state
   // -------------------------------------------------------------------------
 
-  testWidgets(
-      'timer is visible in post-vote state (isLocked=true)',
-      (tester) async {
+  testWidgets('timer is visible in post-vote state (isLocked=true)', (
+    tester,
+  ) async {
     await _pumpVoteSubmission(
       tester,
       players: _threePlayers(),
@@ -247,17 +256,20 @@ void main() {
     );
 
     // Timer must still be shown so players know the phase has not ended.
-    expect(find.text('02:00'), findsOneWidget,
-        reason: 'Timer must remain visible after vote is locked');
+    expect(
+      find.text('02:00'),
+      findsOneWidget,
+      reason: 'Timer must remain visible after vote is locked',
+    );
   });
 
   // -------------------------------------------------------------------------
   // Player circle shows all players in pre-vote state
   // -------------------------------------------------------------------------
 
-  testWidgets(
-      'player circle shows all player names in pre-vote state',
-      (tester) async {
+  testWidgets('player circle shows all player names in pre-vote state', (
+    tester,
+  ) async {
     await _pumpVoteSubmission(
       tester,
       players: _threePlayers(),
@@ -275,39 +287,42 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets(
-      'tapping the selected player again deselects and disables confirm',
-      (tester) async {
-    await _pumpVoteSubmission(
-      tester,
-      players: _threePlayers(),
-      onVoteSubmitted: (_) {},
-    );
+    'tapping the selected player again deselects and disables confirm',
+    (tester) async {
+      await _pumpVoteSubmission(
+        tester,
+        players: _threePlayers(),
+        onVoteSubmitted: (_) {},
+      );
 
-    // Select Alice.
-    await tester.tap(find.text('Alice'));
-    await tester.pump();
+      // Select Alice.
+      await tester.tap(find.text('Alice'));
+      await tester.pump();
 
-    // Confirm should be enabled.
-    expect(
-      tester
-          .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Lock in your vote'))
-          .onPressed,
-      isNotNull,
-    );
+      // Confirm should be enabled.
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Lock in your vote'),
+            )
+            .onPressed,
+        isNotNull,
+      );
 
-    // Tap Alice again to deselect.
-    await tester.tap(find.text('Alice'));
-    await tester.pump();
+      // Tap Alice again to deselect.
+      await tester.tap(find.text('Alice'));
+      await tester.pump();
 
-    // Confirm should be disabled again.
-    expect(
-      tester
-          .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Lock in your vote'))
-          .onPressed,
-      isNull,
-      reason: 'Deselecting the player must disable the confirm button again',
-    );
-  });
+      // Confirm should be disabled again.
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Lock in your vote'),
+            )
+            .onPressed,
+        isNull,
+        reason: 'Deselecting the player must disable the confirm button again',
+      );
+    },
+  );
 }

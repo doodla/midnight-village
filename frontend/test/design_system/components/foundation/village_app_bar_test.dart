@@ -13,8 +13,9 @@ void main() {
 
   group('VillageAppBar', () {
     group('brand variant', () {
-      testWidgets('shows castle icon and Midnight Village title',
-          (tester) async {
+      testWidgets('shows castle icon and Midnight Village title', (
+        tester,
+      ) async {
         await tester.pumpWithTokens(
           Scaffold(appBar: VillageAppBar.brand()),
           theme: testTheme,
@@ -26,9 +27,7 @@ void main() {
       testWidgets('renders trailing widget when provided', (tester) async {
         await tester.pumpWithTokens(
           Scaffold(
-            appBar: VillageAppBar.brand(
-              trailing: const Icon(Icons.settings),
-            ),
+            appBar: VillageAppBar.brand(trailing: const Icon(Icons.settings)),
           ),
           theme: testTheme,
         );
@@ -145,10 +144,7 @@ void main() {
 
     testWidgets('does not overflow at 320dp width', (tester) async {
       await tester.pumpWithTokens(
-        SizedBox(
-          width: 320,
-          child: Scaffold(appBar: VillageAppBar.brand()),
-        ),
+        SizedBox(width: 320, child: Scaffold(appBar: VillageAppBar.brand())),
         theme: testTheme,
       );
       expect(tester.takeException(), isNull);

@@ -61,13 +61,15 @@ void main() {
         );
       });
 
-      test('throws ArgumentError when displayName is tabs and newlines only',
-          () {
-        expect(
-          () => User(id: 1, displayName: '\t\n  '),
-          throwsA(isA<ArgumentError>()),
-        );
-      });
+      test(
+        'throws ArgumentError when displayName is tabs and newlines only',
+        () {
+          expect(
+            () => User(id: 1, displayName: '\t\n  '),
+            throwsA(isA<ArgumentError>()),
+          );
+        },
+      );
     });
 
     group('fromJson', () {
@@ -83,19 +85,13 @@ void main() {
       test('throws ArgumentError for invalid id in JSON', () {
         final json = {'id': 0, 'display_name': 'JsonUser'};
 
-        expect(
-          () => User.fromJson(json),
-          throwsA(isA<ArgumentError>()),
-        );
+        expect(() => User.fromJson(json), throwsA(isA<ArgumentError>()));
       });
 
       test('throws ArgumentError for empty displayName in JSON', () {
         final json = {'id': 1, 'display_name': ''};
 
-        expect(
-          () => User.fromJson(json),
-          throwsA(isA<ArgumentError>()),
-        );
+        expect(() => User.fromJson(json), throwsA(isA<ArgumentError>()));
       });
     });
 

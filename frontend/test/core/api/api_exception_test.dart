@@ -16,14 +16,20 @@ void main() {
 
     test('UnhandledHttpException toString', () {
       const exception = UnhandledHttpException(418, 'I am a teapot');
-      expect(exception.toString(), 'UnhandledHttpException: 418 - I am a teapot');
+      expect(
+        exception.toString(),
+        'UnhandledHttpException: 418 - I am a teapot',
+      );
       expect(exception.statusCode, 418);
       expect(exception.message, 'I am a teapot');
     });
 
     test('MalformedResponseException toString', () {
       const exception = MalformedResponseException('Missing field: foo');
-      expect(exception.toString(), 'MalformedResponseException: Missing field: foo');
+      expect(
+        exception.toString(),
+        'MalformedResponseException: Missing field: foo',
+      );
       expect(exception.message, 'Missing field: foo');
     });
   });
@@ -46,8 +52,7 @@ void main() {
       expect(exception.firstErrorFor('email'), 'Authentication failed');
     });
 
-    test('returns first available error when field and detail not present',
-        () {
+    test('returns first available error when field and detail not present', () {
       const exception = ValidationException({
         'password': ['Password too weak'],
       });
@@ -140,7 +145,9 @@ void main() {
       final exception = mapDioException(
         createDioException(
           statusCode: 400,
-          data: {'email': ['Invalid']},
+          data: {
+            'email': ['Invalid'],
+          },
         ),
       );
 
@@ -149,17 +156,13 @@ void main() {
     });
 
     test('maps 401 to UnauthorizedException', () {
-      final exception = mapDioException(
-        createDioException(statusCode: 401),
-      );
+      final exception = mapDioException(createDioException(statusCode: 401));
 
       expect(exception, isA<UnauthorizedException>());
     });
 
     test('maps 403 to ForbiddenException', () {
-      final exception = mapDioException(
-        createDioException(statusCode: 403),
-      );
+      final exception = mapDioException(createDioException(statusCode: 403));
 
       expect(exception, isA<ForbiddenException>());
     });
@@ -181,26 +184,20 @@ void main() {
     });
 
     test('maps 429 to RateLimitException', () {
-      final exception = mapDioException(
-        createDioException(statusCode: 429),
-      );
+      final exception = mapDioException(createDioException(statusCode: 429));
 
       expect(exception, isA<RateLimitException>());
     });
 
     test('maps 500 to ServerException', () {
-      final exception = mapDioException(
-        createDioException(statusCode: 500),
-      );
+      final exception = mapDioException(createDioException(statusCode: 500));
 
       expect(exception, isA<ServerException>());
       expect((exception as ServerException).statusCode, 500);
     });
 
     test('maps 503 to ServerException', () {
-      final exception = mapDioException(
-        createDioException(statusCode: 503),
-      );
+      final exception = mapDioException(createDioException(statusCode: 503));
 
       expect(exception, isA<ServerException>());
       expect((exception as ServerException).statusCode, 503);
@@ -222,10 +219,9 @@ void main() {
         );
 
         expect(exception, isA<ValidationException>());
-        expect(
-          (exception as ValidationException).errors,
-          {'detail': ['Bad request']},
-        );
+        expect((exception as ValidationException).errors, {
+          'detail': ['Bad request'],
+        });
       });
 
       test('parses list values in map', () {
@@ -239,25 +235,21 @@ void main() {
         );
 
         expect(exception, isA<ValidationException>());
-        expect(
-          (exception as ValidationException).errors['email'],
-          ['Error 1', 'Error 2'],
-        );
+        expect((exception as ValidationException).errors['email'], [
+          'Error 1',
+          'Error 2',
+        ]);
       });
 
       test('parses string value as single-item list', () {
         final exception = mapDioException(
-          createDioException(
-            statusCode: 400,
-            data: {'email': 'Invalid email'},
-          ),
+          createDioException(statusCode: 400, data: {'email': 'Invalid email'}),
         );
 
         expect(exception, isA<ValidationException>());
-        expect(
-          (exception as ValidationException).errors['email'],
-          ['Invalid email'],
-        );
+        expect((exception as ValidationException).errors['email'], [
+          'Invalid email',
+        ]);
       });
 
       test('handles null data gracefully', () {
@@ -275,10 +267,9 @@ void main() {
         );
 
         expect(exception, isA<ValidationException>());
-        expect(
-          (exception as ValidationException).errors,
-          {'detail': ['12345']},
-        );
+        expect((exception as ValidationException).errors, {
+          'detail': ['12345'],
+        });
       });
     });
   });

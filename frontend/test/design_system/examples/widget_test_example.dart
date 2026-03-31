@@ -37,10 +37,7 @@ void main() {
     // Outlined variant: backed by OutlinedButton
     testWidgets('outlined variant uses OutlinedButton', (tester) async {
       await tester.pumpWithTokens(
-        PrimaryButton.outlined(
-          label: 'Cancel',
-          onPressed: () {},
-        ),
+        PrimaryButton.outlined(label: 'Cancel', onPressed: () {}),
       );
 
       expect(find.byType(OutlinedButton), findsOneWidget);

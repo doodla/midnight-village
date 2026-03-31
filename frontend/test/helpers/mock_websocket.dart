@@ -51,9 +51,9 @@ abstract interface class WebSocketChannelInterface {
 /// ```
 class MockWebSocketChannel implements WebSocketChannelInterface {
   MockWebSocketChannel()
-      // sync: true ensures addServerEvent() delivers events synchronously to
-      // listeners, making test assertions deterministic without extra awaits.
-      : _controller = StreamController<dynamic>.broadcast(sync: true);
+    // sync: true ensures addServerEvent() delivers events synchronously to
+    // listeners, making test assertions deterministic without extra awaits.
+    : _controller = StreamController<dynamic>.broadcast(sync: true);
 
   final StreamController<dynamic> _controller;
 

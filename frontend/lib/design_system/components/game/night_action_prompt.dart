@@ -148,9 +148,7 @@ class _NightActionPromptState extends ConsumerState<NightActionPrompt> {
           SizedBox(height: _kSectionGap),
 
           // Middle: action-specific UI — expands to fill available space.
-          Expanded(
-            child: _buildActionArea(tokens),
-          ),
+          Expanded(child: _buildActionArea(tokens)),
 
           SizedBox(height: _kTimerGap),
 
@@ -171,9 +169,7 @@ class _NightActionPromptState extends ConsumerState<NightActionPrompt> {
           tokens: tokens,
           onPlayerSelected: _onSinglePlayerSelected,
           onConfirm: _selectedPlayerId != null
-              ? () => widget.onActionSubmitted(
-                    PlayerTarget(_selectedPlayerId!),
-                  )
+              ? () => widget.onActionSubmitted(PlayerTarget(_selectedPlayerId!))
               : null,
           onSkip: widget.onSkip,
         );
@@ -185,8 +181,8 @@ class _NightActionPromptState extends ConsumerState<NightActionPrompt> {
           onSelectionChanged: _onCardSelectionChanged,
           onConfirm: _selectedCardIndices.length == 2
               ? () => widget.onActionSubmitted(
-                    CenterTargets(List.of(_selectedCardIndices)),
-                  )
+                  CenterTargets(List.of(_selectedCardIndices)),
+                )
               : null,
           onSkip: widget.onSkip,
         );
@@ -197,9 +193,7 @@ class _NightActionPromptState extends ConsumerState<NightActionPrompt> {
           tokens: tokens,
           onPlayerSelected: _onSinglePlayerSelected,
           onConfirm: _selectedPlayerId != null
-              ? () => widget.onActionSubmitted(
-                    PlayerTarget(_selectedPlayerId!),
-                  )
+              ? () => widget.onActionSubmitted(PlayerTarget(_selectedPlayerId!))
               : null,
           onSkip: widget.onSkip,
         );
@@ -211,8 +205,8 @@ class _NightActionPromptState extends ConsumerState<NightActionPrompt> {
           onSelectionChanged: _onCardSelectionChanged,
           onConfirm: _selectedCardIndices.length == 1
               ? () => widget.onActionSubmitted(
-                    CenterTargets(List.of(_selectedCardIndices)),
-                  )
+                  CenterTargets(List.of(_selectedCardIndices)),
+                )
               : null,
           onSkip: widget.onSkip,
         );
@@ -224,11 +218,11 @@ class _NightActionPromptState extends ConsumerState<NightActionPrompt> {
           onPlayerSelected: _onTwoPlayersSelected,
           onConfirm: _selectedPlayerIds.length == 2
               ? () => widget.onActionSubmitted(
-                    TwoPlayerTargets(
-                      _selectedPlayerIds[0],
-                      _selectedPlayerIds[1],
-                    ),
-                  )
+                  TwoPlayerTargets(
+                    _selectedPlayerIds[0],
+                    _selectedPlayerIds[1],
+                  ),
+                )
               : null,
           onSkip: widget.onSkip,
         );
@@ -333,25 +327,17 @@ class _ActionScaffold extends StatelessWidget {
         SizedBox(height: tokens.spacing.lg),
 
         // Interactive content.
-        Expanded(
-          child: Center(child: body),
-        ),
+        Expanded(child: Center(child: body)),
 
         SizedBox(height: tokens.spacing.lg),
 
         // Confirm button — disabled until a valid selection exists.
-        PrimaryButton(
-          label: confirmLabel,
-          onPressed: onConfirm,
-        ),
+        PrimaryButton(label: confirmLabel, onPressed: onConfirm),
 
         // Optional skip button.
         if (onSkip != null) ...[
           SizedBox(height: tokens.spacing.sm),
-          PrimaryButton.outlined(
-            label: 'Skip',
-            onPressed: onSkip,
-          ),
+          PrimaryButton.outlined(label: 'Skip', onPressed: onSkip),
         ],
       ],
     );
@@ -576,8 +562,7 @@ class _SeeTeamAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String promptText = _promptText();
-    final bool isLoneWerewolf =
-        role == RoleId.werewolf && teammates.isEmpty;
+    final bool isLoneWerewolf = role == RoleId.werewolf && teammates.isEmpty;
 
     return _ActionScaffold(
       promptText: promptText,

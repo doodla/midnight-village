@@ -31,7 +31,9 @@ class MvScaffold extends ConsumerWidget {
     final tokens = ref.watch(activeThemeProvider);
 
     final showAppBar =
-        title != null || showBackButton || (actions != null && actions!.isNotEmpty);
+        title != null ||
+        showBackButton ||
+        (actions != null && actions!.isNotEmpty);
 
     return Scaffold(
       backgroundColor: tokens.colors.background,
@@ -68,9 +70,7 @@ class MvScaffold extends ConsumerWidget {
               );
             }
             return Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: tokens.spacing.md,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: tokens.spacing.md),
               child: body,
             );
           },

@@ -41,7 +41,9 @@ void main() {
         expect(find.text('Game Content'), findsOneWidget);
       });
 
-      testWidgets('renders with header and footer with ${theme.name}', (tester) async {
+      testWidgets('renders with header and footer with ${theme.name}', (
+        tester,
+      ) async {
         await tester.pumpWithTokens(
           const MvCard(
             header: Text('Header'),

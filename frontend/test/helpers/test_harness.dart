@@ -89,9 +89,7 @@ extension TestHarnessExtension on WidgetTester {
       widget,
       overrides: [
         authProvider.overrideWithValue(
-          AuthState.authenticated(
-            User(id: userId, displayName: playerName),
-          ),
+          AuthState.authenticated(User(id: userId, displayName: playerName)),
         ),
         ...?overrides,
       ],

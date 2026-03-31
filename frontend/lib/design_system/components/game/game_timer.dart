@@ -31,8 +31,9 @@ class GameTimer extends ConsumerWidget {
     final tokens = ref.watch(activeThemeProvider);
 
     final bool isUrgent = timeRemaining.inSeconds <= _kUrgencyThreshold;
-    final Color timerColor =
-        isUrgent ? tokens.colors.timerUrgent : tokens.colors.timerNormal;
+    final Color timerColor = isUrgent
+        ? tokens.colors.timerUrgent
+        : tokens.colors.timerNormal;
 
     return Semantics(
       label: 'Time remaining: ${_formatDuration(timeRemaining)}',

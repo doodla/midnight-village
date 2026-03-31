@@ -23,11 +23,7 @@ class MvError extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.error_outline,
-              color: tokens.colors.error,
-              size: 48,
-            ),
+            Icon(Icons.error_outline, color: tokens.colors.error, size: 48),
             SizedBox(height: tokens.spacing.md),
             Text(
               message,

@@ -27,7 +27,9 @@ class UserStorage {
 
     final userId = int.tryParse(userIdStr);
     if (userId == null) {
-      logger.w('UserStorage.getUser: stored userId "$userIdStr" is not an integer, clearing corrupted data');
+      logger.w(
+        'UserStorage.getUser: stored userId "$userIdStr" is not an integer, clearing corrupted data',
+      );
       await clear();
       return null;
     }
@@ -35,7 +37,9 @@ class UserStorage {
     try {
       return User(id: userId, displayName: displayName);
     } on ArgumentError catch (e) {
-      logger.w('UserStorage.getUser: invalid stored data: $e, clearing corrupted data');
+      logger.w(
+        'UserStorage.getUser: invalid stored data: $e, clearing corrupted data',
+      );
       await clear();
       return null;
     }
@@ -52,7 +56,11 @@ class UserStorage {
       throw ArgumentError.value(id, 'id', 'must be positive');
     }
     if (displayName.trim().isEmpty) {
-      throw ArgumentError.value(displayName, 'displayName', 'must not be empty');
+      throw ArgumentError.value(
+        displayName,
+        'displayName',
+        'must not be empty',
+      );
     }
 
     try {

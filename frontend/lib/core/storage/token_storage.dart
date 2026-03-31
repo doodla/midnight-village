@@ -16,13 +16,17 @@ class TokenStorage {
 
   Future<String?> get accessToken async {
     final token = await _storage.read(key: _accessTokenKey);
-    logger.d('TokenStorage.accessToken: ${token != null ? "present" : "absent"}');
+    logger.d(
+      'TokenStorage.accessToken: ${token != null ? "present" : "absent"}',
+    );
     return token;
   }
 
   Future<String?> get refreshToken async {
     final token = await _storage.read(key: _refreshTokenKey);
-    logger.d('TokenStorage.refreshToken: ${token != null ? "present" : "absent"}');
+    logger.d(
+      'TokenStorage.refreshToken: ${token != null ? "present" : "absent"}',
+    );
     return token;
   }
 
@@ -70,6 +74,9 @@ class TokenStorage {
     ]);
     final access = results[0];
     final refresh = results[1];
-    return access != null && access.isNotEmpty && refresh != null && refresh.isNotEmpty;
+    return access != null &&
+        access.isNotEmpty &&
+        refresh != null &&
+        refresh.isNotEmpty;
   }
 }

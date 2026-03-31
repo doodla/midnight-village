@@ -37,11 +37,7 @@ class PhaseIndicator extends ConsumerWidget {
         final isPast = phaseIndex < currentIndex;
         final isCurrent = phaseIndex == currentIndex;
 
-        return _PhaseStep(
-          phase: phase,
-          isPast: isPast,
-          isCurrent: isCurrent,
-        );
+        return _PhaseStep(phase: phase, isPast: isPast, isCurrent: isCurrent);
       }),
     );
   }
@@ -69,7 +65,10 @@ class _PhaseStep extends ConsumerWidget {
     if (isCurrent) {
       dotColor = tokens.colors.primary;
       labelColor = tokens.colors.primary;
-      labelStyle = tokens.typography.label.copyWith(color: labelColor, fontWeight: FontWeight.w700);
+      labelStyle = tokens.typography.label.copyWith(
+        color: labelColor,
+        fontWeight: FontWeight.w700,
+      );
     } else if (isPast) {
       dotColor = tokens.colors.primary;
       labelColor = tokens.colors.disabled;

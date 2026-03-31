@@ -149,8 +149,6 @@ class VoteReveal extends ConsumerWidget {
   /// Returns a comma-separated string of eliminated player names.
   /// Falls back to the raw ID if the name is not found in [nameById].
   String _eliminatedNames(Map<String, String> nameById) {
-    return eliminatedPlayerIds
-        .map((id) => nameById[id] ?? id)
-        .join(', ');
+    return eliminatedPlayerIds.map((id) => nameById[id] ?? id).join(', ');
   }
 }

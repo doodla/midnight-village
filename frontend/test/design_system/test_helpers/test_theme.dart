@@ -243,19 +243,16 @@ class TestDecorationTokens implements AppDecorationTokens {
   ];
 
   @override
-  Gradient get visionGlow => const LinearGradient(
-    colors: [Color(0x1100FF00), Colors.transparent],
-  );
+  Gradient get visionGlow =>
+      const LinearGradient(colors: [Color(0x1100FF00), Colors.transparent]);
 
   @override
-  Gradient get bloodVignette => const LinearGradient(
-    colors: [Colors.transparent, Color(0x11FF0000)],
-  );
+  Gradient get bloodVignette =>
+      const LinearGradient(colors: [Colors.transparent, Color(0x11FF0000)]);
 
   @override
-  Gradient get candleGlow => const LinearGradient(
-    colors: [Colors.transparent, Color(0xFF111111)],
-  );
+  Gradient get candleGlow =>
+      const LinearGradient(colors: [Colors.transparent, Color(0xFF111111)]);
 
   @override
   String get noiseOverlayAsset => 'assets/textures/noise_grain.png';

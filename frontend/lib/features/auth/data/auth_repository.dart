@@ -76,7 +76,11 @@ class AuthRepository {
       await _cleanupSession();
       return null;
     } catch (e, stack) {
-      logger.e('Session restore failed (unexpected)', error: e, stackTrace: stack);
+      logger.e(
+        'Session restore failed (unexpected)',
+        error: e,
+        stackTrace: stack,
+      );
       // Attempt cleanup but log if it also fails
       try {
         await _cleanupSession();
@@ -131,9 +135,6 @@ class AuthRepository {
 
   /// Internal helper to clean up session data.
   Future<void> _cleanupSession() async {
-    await Future.wait([
-      _tokenStorage.deleteTokens(),
-      _userStorage.clear(),
-    ]);
+    await Future.wait([_tokenStorage.deleteTokens(), _userStorage.clear()]);
   }
 }
