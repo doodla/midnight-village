@@ -67,10 +67,10 @@
 **Requirements Refs**: FR-001, FR-002, SC-004
 
 ### Included Subtasks
-- [ ] T006 Create `AuthInterceptor` in `frontend/lib/core/api/auth_interceptor.dart` — `QueuedInterceptorsWrapper` that adds `Authorization: Bearer <token>` header, handles 401 with refresh retry, signals auth failure
-- [ ] T007 Create `AuthenticatedClient` in `frontend/lib/core/api/authenticated_client.dart` — Dio wrapper with `AuthInterceptor` attached, exposes get/post/patch/delete matching `ApiClient` surface
-- [ ] T008 Create `authenticatedClientProvider` in `frontend/lib/features/auth/presentation/auth_notifier.dart` — `@Riverpod(keepAlive: true)` provider wiring `TokenStorage` and unauthenticated `ApiClient` for refresh calls
-- [ ] T009 Tests in `frontend/test/core/api/auth_interceptor_test.dart` — mock HTTP responses to verify bearer token injection, 401 refresh flow, concurrent request queueing, refresh failure redirect
+- [x] T006 Create `AuthInterceptor` in `frontend/lib/core/api/auth_interceptor.dart` — `QueuedInterceptorsWrapper` that adds `Authorization: Bearer <token>` header, handles 401 with refresh retry, signals auth failure
+- [x] T007 Create `AuthenticatedClient` in `frontend/lib/core/api/authenticated_client.dart` — Dio wrapper with `AuthInterceptor` attached, exposes get/post/patch/delete matching `ApiClient` surface
+- [x] T008 Create `authenticatedClientProvider` in `frontend/lib/features/auth/presentation/auth_notifier.dart` — `@Riverpod(keepAlive: true)` provider wiring `TokenStorage` and unauthenticated `ApiClient` for refresh calls
+- [x] T009 Tests in `frontend/test/core/api/auth_interceptor_test.dart` — mock HTTP responses to verify bearer token injection, 401 refresh flow, concurrent request queueing, refresh failure redirect
 
 ### Implementation Notes
 - Research decision R1 applies: Separate `AuthenticatedClient` avoids circular dependency. The unauthenticated `ApiClient` (existing) handles token refresh calls.
