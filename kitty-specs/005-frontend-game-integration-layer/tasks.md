@@ -614,4 +614,5 @@ Phase 3 (Polish):
 <!-- status-model:start -->
 ## Canonical Status (Generated)
 - WP01: for_review
+- WP02: for_review
 <!-- status-model:end -->
