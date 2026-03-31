@@ -441,11 +441,11 @@
 **Requirements Refs**: FR-005, FR-013, SC-003
 
 ### Included Subtasks
-- [ ] T051 Build `ReconnectionOverlay` in `frontend/lib/features/game/presentation/reconnection_overlay.dart` — semi-transparent overlay with `MvLoading` spinner, "Reconnecting..." text, auto-dismisses when `WebSocketConnectionState` returns to `connected`, must not block underlying state updates
-- [ ] T052 Implement app startup game detection — on app launch (or auth state change to authenticated), call `GET /api/onuw/me/current-game/`. If response has `game_id`, navigate to `/game/:id`. If `null`, show home screen. Wire into auth redirect guard (WP04).
-- [ ] T053 Handle reconnection state restoration — after WS reconnects, `GameNotifier.build()` re-fetches game state via `GET /onuw/games/<id>/me/`. Timer syncs from server deadline. Correct phase/sub-view restored from response. Already-acted players see waiting view (no replay of one-time action_result events).
-- [ ] T054 Wire reconnection overlay to `WebSocketConnectionState` stream — overlay shows when state is `disconnected` or `reconnecting`, hides when `connected`. If phase changed during disconnect, overlay dismisses into new phase view.
-- [ ] T055 Tests in `frontend/test/features/game/presentation/reconnection_overlay_test.dart` and `frontend/test/features/game/presentation/game_resume_test.dart`
+- [x] T051 Build `ReconnectionOverlay` in `frontend/lib/features/game/presentation/reconnection_overlay.dart` — semi-transparent overlay with `MvLoading` spinner, "Reconnecting..." text, auto-dismisses when `WebSocketConnectionState` returns to `connected`, must not block underlying state updates
+- [x] T052 Implement app startup game detection — on app launch (or auth state change to authenticated), call `GET /api/onuw/me/current-game/`. If response has `game_id`, navigate to `/game/:id`. If `null`, show home screen. Wire into auth redirect guard (WP04).
+- [x] T053 Handle reconnection state restoration — after WS reconnects, `GameNotifier.build()` re-fetches game state via `GET /onuw/games/<id>/me/`. Timer syncs from server deadline. Correct phase/sub-view restored from response. Already-acted players see waiting view (no replay of one-time action_result events).
+- [x] T054 Wire reconnection overlay to `WebSocketConnectionState` stream — overlay shows when state is `disconnected` or `reconnecting`, hides when `connected`. If phase changed during disconnect, overlay dismisses into new phase view.
+- [x] T055 Tests in `frontend/test/features/game/presentation/reconnection_overlay_test.dart` and `frontend/test/features/game/presentation/game_resume_test.dart`
 
 ### Implementation Notes
 - `ReconnectionOverlay` is a positioned overlay on top of the game container — it doesn't replace the screen. Underlying widgets continue to update state from re-fetched data.
