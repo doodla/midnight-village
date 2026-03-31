@@ -245,17 +245,17 @@
 
 ### Included Subtasks
 - [ ] T028 [P] Create game domain models in `frontend/lib/features/game/domain/` — `GameSessionState`, `YourRole`, `GamePlayer` in `game_session_state.dart`; `ActionPrompt`, `ActionResult`, `NightSubView` enum in `night_state.dart`; `VoteProgress`, `VoteRevealData` in `voting_state.dart`. All per data-model.md.
-- [ ] T029 Create `GameService` in `frontend/lib/features/game/data/game_service.dart` — `getGameState(gameId)` GET, `submitAction(gameId, actionType, targets)` POST, `submitVote(gameId, targetPlayerId)` POST, `endDiscussion(gameId)` POST, `fetchResults(gameId)` GET. Uses `AuthenticatedClient`.
-- [ ] T030 Create `GameNotifier` in `frontend/lib/features/game/presentation/game_notifier.dart` — `@riverpod` `AsyncNotifier` family provider keyed by game ID. Handles WS events: `wave_start`, `wave_complete`, `phase_change`, `action_prompt`, `action_result`, `wave_waiting`, `vote_submitted`, `vote_reveal`, `game_results`. Manages `NightSubView` state machine. Exposes methods: `submitAction`, `submitVote`, `endDiscussion`, `fetchResults`.
+- [ ] T029 Create `GameService` in `frontend/lib/features/game/data/game_service.dart` — `getGameState(gameId)` GET, `submitAction(gameId, actionType, targets)` POST, `submitVote(gameId, targetPlayerId)` POST, `endDiscussion(gameId)` POST, `fetchResults(gameId)` GET. Uses `AuthenticatedClient`. Handle 409 responses as success for both `submitAction` and `submitVote` (action already recorded).
+- [ ] T030 Create `GameNotifier` in `frontend/lib/features/game/presentation/game_notifier.dart` — `@riverpod` `AsyncNotifier` family provider keyed by game ID. Handles WS events: `wave_start`, `wave_complete`, `phase_change`, `action_prompt`, `action_result`, `wave_waiting`, `vote_submitted`, `vote_reveal`, `game_results`. Manages `NightSubView` state machine. For Insomniac `action_prompt` (self-targeted peek with no player choice), auto-submit the action without rendering a prompt. Exposes methods: `submitAction`, `submitVote`, `endDiscussion`, `fetchResults`.
 - [ ] T031 [P] Create `TimerProvider` in `frontend/lib/features/game/presentation/timer_provider.dart` — `@riverpod` stream provider that takes `DateTime? deadline`, ticks every second, yields remaining `Duration`, yields `Duration.zero` when expired
 - [ ] T032 Build `GameContainerScreen` in `frontend/lib/features/game/presentation/game_container_screen.dart` — phase-switching shell rendering correct sub-view based on `gameState.phase` and `nightSubView`. Shows `PhaseIndicator` at top, `VillageAppBar` (phase variant), `AtmosphericBackground`. Animated transitions between phases.
-- [ ] T033 Tests: `frontend/test/features/game/domain/game_models_test.dart`, `frontend/test/features/game/data/game_service_test.dart`, `frontend/test/features/game/presentation/game_notifier_test.dart` (WS event handling), `frontend/test/features/game/presentation/timer_provider_test.dart` (with `fake_async`), `frontend/test/features/game/presentation/game_container_screen_test.dart`
+- [ ] T033 Tests: `frontend/test/features/game/domain/game_models_test.dart`, `frontend/test/features/game/data/game_service_test.dart`, `frontend/test/features/game/presentation/game_notifier_test.dart` (WS event handling, Insomniac auto-submit, 409 handling), `frontend/test/features/game/presentation/timer_provider_test.dart` (with `fake_async`), `frontend/test/features/game/presentation/game_container_screen_test.dart`. Include FR-019 security assertions: verify game container never exposes other players' roles, night action data, or vote targets before results phase.
 
 ### Implementation Notes
 - Research decisions R3 (AsyncNotifier), R6 (night sub-view state machine), R7 (extend existing models) apply.
 - `GameNotifier` is the most complex piece. WS event → state mutation mapping:
   - `wave_start` → update `currentWave`, `deadline`; set `nightSubView` based on whether `action_prompt` arrives
-  - `action_prompt` → if `actionTypes.length > 1`: `seerChoice`; if single: `actionPrompt`; update `roleActingAs` for Doppelganger
+  - `action_prompt` → if `actionTypes.length > 1`: `seerChoice`; if single: `actionPrompt`; update `roleActingAs` for Doppelganger. For Insomniac (self-targeted peek, no choice), auto-submit without rendering prompt
   - `action_result` → `actionResult` sub-view, store `lastActionResult`
   - `wave_complete` → clear prompt/result, `nightSubView = waiting`
   - `phase_change` → update `phase`, `deadline`
@@ -292,7 +292,7 @@
 **Requirements Refs**: FR-010, FR-011, FR-021, FR-022, FR-023, FR-026
 
 ### Included Subtasks
-- [ ] T034 [P] Build `RoleRevealView` in `frontend/lib/features/game/presentation/role_reveal_view.dart` — face-down-to-face-up `RoleCard` flip animation, "You are the **[Role]**" typography, 3–5s auto-advance timer, `AtmosphericBackground` (night)
+- [ ] T034 [P] Build `RoleRevealView` in `frontend/lib/features/game/presentation/role_reveal_view.dart` — face-down-to-face-up `RoleCard` flip animation, "You are the **[Role]**" typography, 4s auto-advance timer, `AtmosphericBackground` (night)
 - [ ] T035 [P] Build `NightWaitingView` in `frontend/lib/features/game/presentation/night_waiting_view.dart` — "The village sleeps..." atmospheric text, `GameTimer` countdown, subtle breathing/pulse animation, `AtmosphericBackground` (night/deep void)
 - [ ] T036 [P] Build `SeerChoiceView` in `frontend/lib/features/game/presentation/seer_choice_view.dart` — "Look at one player's card" / "Look at two center cards" buttons, role identity strip (from `NightActionPrompt` pattern), calls GameNotifier to set chosen action type
 - [ ] T037 Build `NightResultView` in `frontend/lib/features/game/presentation/night_result_view.dart` — displays `ActionResult.revealedInfo` per action type: peek_player (target name + `RoleCard`), peek_center (`RoleCard`(s)), swap_with_player ("You are now [role]" + `RoleCard`), swap_with_center (confirmation), swap_others (confirmation with names), see_team (teammate list or empty-state message per role)
@@ -402,6 +402,35 @@
 
 ---
 
+## Work Package WP-INT: End-to-End Integration Tests (Priority: P1) 🎯 MVP
+
+**Goal**: Write integration tests that verify the complete game flow from lobby creation through results, satisfying SC-006.
+**Independent Test**: Integration tests pass, covering the full lobby join → game start → role reveal → night action → discussion → vote → results path with mocked backend.
+**Prompt**: `/tasks/WP-INT-integration-tests.md`
+**Estimated Prompt Size**: ~300 lines
+
+**Requirements Refs**: SC-006, FR-019
+
+### Included Subtasks
+- [ ] T056 Write end-to-end integration tests in `frontend/test/integration/full_game_flow_test.dart` — test the complete flow: create lobby → join → configure roles → start → role reveal → night action prompt → action submission → action result → discussion → vote → vote reveal → results. Use mock HTTP and WebSocket to simulate backend. Verify FR-019: no hidden information (other players' roles, night action data, vote targets) is exposed before the results phase.
+
+### Implementation Notes
+- Use mock `GameService`, `LobbyService`, and `ReconnectingWebSocket` to simulate the full server interaction.
+- Test covers SC-006 acceptance criteria: lobby join → game start → role reveal → night action → discussion → vote → results.
+- Include FR-019 security assertions: at each phase, assert that the widget tree does not contain another player's role or vote target before results.
+- TEST_FIRST: This is a test-only work package.
+
+### Parallel Opportunities
+- Can run in parallel with WP11 once WP08–WP10 are complete.
+
+### Dependencies
+- Depends on WP06 (lobby screen), WP08 (night views), WP09 (discussion/voting), WP10 (results).
+
+### Risks & Mitigations
+- Risk: Integration test maintenance burden. Mitigation: Test the happy path only; leave edge cases to unit tests in individual WPs.
+
+---
+
 ## Work Package WP11: Reconnection & Game Resume (Priority: P2)
 
 **Goal**: Build the reconnection overlay and app startup game detection so players can close and reopen the app mid-game and resume seamlessly.
@@ -460,13 +489,16 @@ Phase 2 (Feature UIs) — depend on their data layer:
   WP09 (Discussion/Voting) ← WP07    ─┼─ parallelizable
   WP10 (Results)           ← WP07    ─┘
 
+Phase 2.5 (Integration):
+  WP-INT (Integration Tests) ← WP06, WP08, WP09, WP10
+
 Phase 3 (Polish):
   WP11 (Reconnection)      ← WP03, WP07
 ```
 
-- **Parallelization**: WP01+WP02+WP03 are fully parallel. WP05+WP07 are parallel once WP02+WP03 complete. WP08+WP09+WP10 are parallel once WP07 completes.
-- **Critical path**: WP02 → WP07 → WP08/WP09/WP10 (auth → game core → phase views).
-- **MVP Scope**: WP01–WP10 (all P0 + P1 packages). WP11 is P2 enhancement.
+- **Parallelization**: WP01+WP02+WP03 are fully parallel. WP05+WP07 are parallel once WP02+WP03 complete. WP08+WP09+WP10 are parallel once WP07 completes. WP-INT runs after Phase 2 views complete.
+- **Critical path**: WP02 → WP07 → WP08/WP09/WP10 → WP-INT (auth → game core → phase views → integration tests).
+- **MVP Scope**: WP01–WP10 + WP-INT (all P0 + P1 packages). WP11 is P2 enhancement.
 
 ---
 
@@ -492,7 +524,7 @@ Phase 3 (Polish):
 | FR-016 | WP05 | Lobby CRUD via LobbyService |
 | FR-017 | WP07 | TimerProvider deadline-driven countdown |
 | FR-018 | WP04 | GoRouter routes with auth guards |
-| FR-019 | Cross-cutting | Server-authoritative constraint — all WPs |
+| FR-019 | WP07, WP-INT | Server-authoritative constraint — security assertions in T033, integration test in T056 |
 | FR-020 | WP05, WP06 | RoleConfig logic + UI controls |
 | FR-021 | WP08 | SeerChoiceView pre-action screen |
 | FR-022 | WP08 | NightResultView per action type |
@@ -512,7 +544,7 @@ Phase 3 (Polish):
 | SC-003 | WP11 | <5s reconnection recovery |
 | SC-004 | WP02 | Transparent token refresh |
 | SC-005 | Cross-cutting | Existing tests must pass |
-| SC-006 | WP01–WP10 | Integration tests for full flow |
+| SC-006 | WP-INT | Integration tests for full flow (T056) |
 | SC-007 | WP06, WP08, WP09, WP10 | Design token compliance |
 | SC-008 | WP01 | Backend test coverage for new changes |
 
@@ -572,6 +604,7 @@ Phase 3 (Polish):
 | T048 | Results data mapping | WP10 | P1 | No |
 | T049 | Win condition edge cases | WP10 | P1 | No |
 | T050 | Results tests + existing test updates | WP10 | P1 | No |
+| T056 | End-to-end integration tests (SC-006, FR-019) | WP-INT | P1 | No |
 | T051 | ReconnectionOverlay widget | WP11 | P2 | Yes |
 | T052 | App startup game detection | WP11 | P2 | Yes |
 | T053 | Reconnection state restoration | WP11 | P2 | No |
