@@ -30,11 +30,11 @@
 **Requirements Refs**: FR-030, FR-031, FR-032, FR-033, SC-008
 
 ### Included Subtasks
-- [ ] T001 [P] Add PATCH method to `LobbyDetailView` in `backend/apps/core/views.py` — host-only settings update (roles config), 403 for non-host, validate same as `GameStartView`, broadcast `lobby_update` WS event
-- [ ] T002 [P] Add `game_started` handler to `LobbyConsumer` in `backend/apps/core/consumers.py` — forward `game.started` channel event to all connected WS clients (~5 lines)
-- [ ] T003 [P] Add `roles_in_game` SerializerMethodField to `GameMeSerializer` in `backend/apps/onuw/serializers.py` — serialize `game.settings["roles"]` as list of `{role, count}` objects
-- [ ] T004 [P] Add per-player `elimination_reason` to results endpoint in `backend/apps/onuw/views.py` — distinguish `"vote"` from `"hunter_chain"` in `eliminated_players` response
-- [ ] T005 Tests for all four changes in `backend/tests/unit/core/` and `backend/tests/unit/onuw/`
+- [x] T001 [P] Add PATCH method to `LobbyDetailView` in `backend/apps/core/views.py` — host-only settings update (roles config), 403 for non-host, validate same as `GameStartView`, broadcast `lobby_update` WS event
+- [x] T002 [P] Add `game_started` handler to `LobbyConsumer` in `backend/apps/core/consumers.py` — forward `game.started` channel event to all connected WS clients (~5 lines)
+- [x] T003 [P] Add `roles_in_game` SerializerMethodField to `GameMeSerializer` in `backend/apps/onuw/serializers.py` — serialize `game.settings["roles"]` as list of `{role, count}` objects
+- [x] T004 [P] Add per-player `elimination_reason` to results endpoint in `backend/apps/onuw/views.py` — distinguish `"vote"` from `"hunter_chain"` in `eliminated_players` response
+- [x] T005 Tests for all four changes in `backend/tests/unit/core/` and `backend/tests/unit/onuw/`
 
 ### Implementation Notes
 - All four changes are independent and parallelizable — different files, no shared state.
