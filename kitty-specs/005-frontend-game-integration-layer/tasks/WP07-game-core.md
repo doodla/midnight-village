@@ -1,18 +1,21 @@
 ---
 work_package_id: WP07
 title: Game Core — Domain, Service & Container
-lane: planned
+lane: "doing"
 dependencies:
 - WP02
 requirement_refs: [FR-007, FR-009, FR-014, FR-017, FR-023]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 005-frontend-game-integration-layer-WP02
+base_commit: cafb0c799c5e735ea80dcec8d4cd1a16e42d9114
+created_at: '2026-03-31T14:38:17.610303+00:00'
 subtasks: [T028, T029, T030, T031, T032, T033]
 phase: Phase 1 - Feature Data Layers
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "95895"
 review_status: ''
 reviewed_by: ''
 history:
