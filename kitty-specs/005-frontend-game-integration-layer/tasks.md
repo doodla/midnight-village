@@ -613,7 +613,7 @@ Phase 3 (Polish):
 
 <!-- status-model:start -->
 ## Canonical Status (Generated)
-- WP01: approved
+- WP01: done
 - WP02: in_progress
-- WP03: for_review
+- WP03: in_progress
 <!-- status-model:end -->

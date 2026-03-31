@@ -1,7 +1,7 @@
 ---
 work_package_id: WP03
 title: WebSocket Infrastructure
-lane: "for_review"
+lane: "doing"
 dependencies: []
 requirement_refs: [FR-003, FR-004]
 planning_base_branch: main
@@ -13,8 +13,8 @@ created_at: '2026-03-31T07:54:14.006315+00:00'
 subtasks: [T010, T011, T012, T013, T014]
 phase: Phase 0 - Foundation
 assignee: ''
-agent: headless-impl
-shell_pid: '56963'
+agent: "headless-reviewer"
+shell_pid: "84765"
 review_status: ''
 reviewed_by: ''
 history:
@@ -220,3 +220,4 @@ flutter pub get              # After adding web_socket_channel dependency
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
 - 2026-03-31T07:54:14Z – headless-impl – shell_pid=56963 – lane=doing – Assigned agent via workflow command
 - 2026-03-31T14:22:33Z – headless-impl – shell_pid=56963 – lane=for_review – Ready for review: WebSocket infrastructure complete. ReconnectingWebSocket with exponential backoff (1s→30s cap), JWT query param auth, Riverpod provider with dispose, wsUrl in Env, web_socket_channel dep. MockWebSocketChannel updated to import from lib/. 11 unit tests via fake_async all passing.
+- 2026-03-31T14:27:24Z – headless-reviewer – shell_pid=84765 – lane=doing – Started review via workflow command
