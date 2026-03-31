@@ -1,7 +1,7 @@
 ---
 work_package_id: WP07
 title: Game Core — Domain, Service & Container
-lane: doing
+lane: planned
 dependencies:
 - WP02
 requirement_refs: [FR-007, FR-009, FR-014, FR-017, FR-023]
