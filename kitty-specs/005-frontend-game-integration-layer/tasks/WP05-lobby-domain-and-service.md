@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Lobby Domain & Service
-lane: "planned"
+lane: "for_review"
 dependencies:
 - WP02
 requirement_refs: [FR-006, FR-016, FR-020, FR-027, FR-029]
@@ -16,9 +16,9 @@ phase: Phase 1 - Feature Data Layers
 assignee: ''
 agent: headless-reviewer
 shell_pid: '14117'
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback: "feedback://005-frontend-game-integration-layer/WP05/20260331T173445Z-0a351572.md"
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
+review_feedback: feedback://005-frontend-game-integration-layer/WP05/20260331T173445Z-0a351572.md
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
@@ -245,3 +245,4 @@ cd frontend && just gen
 - 2026-03-31T17:24:48Z – headless-impl – shell_pid=67159 – lane=for_review – Ready for review: LobbyPlayer/LobbyState Freezed models with custom fromJson for nested backend format, RoleConfig validation with presets from recommended-setups.md, LobbyService HTTP CRUD, LobbyNotifier AsyncNotifier with HTTP+WS coordination. 65 new tests all passing, 0 regressions.
 - 2026-03-31T17:31:32Z – headless-reviewer – shell_pid=14117 – lane=doing – Started review via workflow command
 - 2026-03-31T17:34:45Z – headless-reviewer – shell_pid=14117 – lane=planned – Moved to planned
+- 2026-03-31T17:49:42Z – headless-reviewer – shell_pid=14117 – lane=for_review – Addressed review: removed unused helpers, fixed analyzer warnings

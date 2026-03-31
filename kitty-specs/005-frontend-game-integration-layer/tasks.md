@@ -617,7 +617,7 @@ Phase 3 (Polish):
 - WP02: done
 - WP03: done
 - WP04: done
-- WP05: planned
+- WP05: for_review
 - WP07: planned
 - WP11: planned
 <!-- status-model:end -->
