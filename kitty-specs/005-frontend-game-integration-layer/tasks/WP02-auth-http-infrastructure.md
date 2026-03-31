@@ -1,7 +1,7 @@
 ---
 work_package_id: WP02
 title: Auth & HTTP Infrastructure
-lane: "for_review"
+lane: "doing"
 dependencies: []
 requirement_refs:
 - FR-001
@@ -15,8 +15,8 @@ created_at: '2026-03-31T07:54:12.337072+00:00'
 subtasks: [T006, T007, T008, T009]
 phase: Phase 0 - Foundation
 assignee: ''
-agent: headless-impl
-shell_pid: '56820'
+agent: "headless-reviewer"
+shell_pid: "82114"
 review_status: ''
 reviewed_by: ''
 history:
@@ -198,3 +198,4 @@ To change a work package's lane, either:
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
 - 2026-03-31T07:54:12Z – headless-impl – shell_pid=56820 – lane=doing – Assigned agent via workflow command
 - 2026-03-31T14:20:09Z – headless-impl – shell_pid=56820 – lane=for_review – Ready for review: AuthInterceptor (QueuedInterceptorsWrapper, bearer token injection, 401 refresh with concurrent-request detection), AuthenticatedClient (get/post/patch/delete), authenticatedClientProvider (keepAlive, onAuthFailure via ref.invalidate). 8 tests all pass. flutter analyze clean.
+- 2026-03-31T14:25:23Z – headless-reviewer – shell_pid=82114 – lane=doing – Started review via workflow command

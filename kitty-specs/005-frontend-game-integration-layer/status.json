@@ -1,16 +1,16 @@
 {
-  "event_count": 7,
+  "event_count": 8,
   "feature_slug": "005-frontend-game-integration-layer",
-  "last_event_id": "01KN24E5YNPEM9TEQ5A71E1VEM",
-  "materialized_at": "2026-03-31T14:23:23.094302+00:00",
+  "last_event_id": "01KN24HVNYS1ZPDQSV5T54JE3T",
+  "materialized_at": "2026-03-31T14:25:23.647025+00:00",
   "summary": {
     "approved": 0,
     "blocked": 0,
     "canceled": 0,
     "claimed": 0,
     "done": 0,
-    "for_review": 2,
-    "in_progress": 1,
+    "for_review": 1,
+    "in_progress": 2,
     "planned": 0
   },
   "work_packages": {
@@ -22,11 +22,11 @@
       "last_transition_at": "2026-03-31T14:23:23.093978+00:00"
     },
     "WP02": {
-      "actor": "user",
-      "force_count": 2,
-      "lane": "for_review",
-      "last_event_id": "01KN2488YXH1BQXD5Q3C0XQPNM",
-      "last_transition_at": "2026-03-31T14:20:09.565872+00:00"
+      "actor": "headless-reviewer",
+      "force_count": 3,
+      "lane": "in_progress",
+      "last_event_id": "01KN24HVNYS1ZPDQSV5T54JE3T",
+      "last_transition_at": "2026-03-31T14:25:23.646794+00:00"
     },
     "WP03": {
       "actor": "user",
