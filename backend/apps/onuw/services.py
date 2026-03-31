@@ -728,12 +728,20 @@ def reveal_votes(game: Game) -> None:
 
     # Compute elimination
     vote_counts = count_votes(votes_dict)
-    eliminated = determine_elimination(vote_counts)
+    vote_eliminated = determine_elimination(vote_counts)
 
-    # Apply Hunter chain
+    # Apply Hunter chain — adds hunter targets on top of vote-eliminated
     eliminated = apply_hunter(
-        eliminated, current_roles, votes_dict, doppelganger_copied
+        vote_eliminated, current_roles, votes_dict, doppelganger_copied
     )
+
+    # Build elimination_reasons: vote for vote-eliminated, hunter_chain for the rest
+    vote_eliminated_set = set(vote_eliminated)
+    elimination_reasons: dict[str, str] = {}
+    for pid in eliminated:
+        elimination_reasons[str(pid)] = (
+            "vote" if pid in vote_eliminated_set else "hunter_chain"
+        )
 
     # Compute win conditions
     result = evaluate_winner(eliminated, current_roles, doppelganger_copied)
@@ -746,6 +754,7 @@ def reveal_votes(game: Game) -> None:
             "winning_teams": result.winning_teams,
             "reason": result.reason,
             "eliminated_players": result.eliminated_players,
+            "elimination_reasons": elimination_reasons,
             "player_outcomes": {str(k): v for k, v in result.player_outcomes.items()},
         }
         game.save(update_fields=["phase", "phase_deadline", "results", "updated_at"])

@@ -36,6 +36,7 @@ class GameMeSerializer(serializers.Serializer):
     has_voted = serializers.SerializerMethodField()
     players = serializers.SerializerMethodField()
     action_prompt = serializers.SerializerMethodField()
+    roles_in_game = serializers.SerializerMethodField()
 
     def get_deadline(self, game: Game) -> str | None:
         """
@@ -150,6 +151,16 @@ class GameMeSerializer(serializers.Serializer):
             "action_types": prompt["action_types"],
             "valid_targets": prompt["valid_targets"],
         }
+
+    def get_roles_in_game(self, game: Game) -> list[dict[str, Any]]:
+        """
+        Return the list of roles in this game with their counts.
+
+        Allows clients to display all roles that are in play during
+        the discussion phase (RoleTokenList).
+        """
+        roles: dict[str, int] = game.settings.get("roles", {})
+        return [{"role": role, "count": count} for role, count in roles.items()]
 
 
 class GameStartResponseSerializer(serializers.Serializer):

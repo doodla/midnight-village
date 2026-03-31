@@ -87,6 +87,15 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
+    async def game_started(self, event):
+        """Handle game started event — forward to all lobby WebSocket clients."""
+        await self.send_json(
+            {
+                "type": "game_started",
+                "game_id": event["game_id"],
+            }
+        )
+
     @database_sync_to_async
     def _check_lobby_membership(self, code, user_id):
         """Check if lobby exists and user is a member."""

@@ -254,7 +254,7 @@ class TestGameMe:
         assert response.data["your_role"]["has_acted"] is False
 
     def test_player_cannot_see_other_player_role(self, api_client, db):
-        """Player A's /me/ response does not contain Player B's role."""
+        """Player A's /me/ response does not reveal per-player role assignments."""
         game, players = self._create_started_game()
         player_a = players[0]  # Seer
 
@@ -262,14 +262,17 @@ class TestGameMe:
         url = reverse("onuw:game-me", kwargs={"game_id": str(game.id)})
         response = api_client.get(url)
 
-        response_str = str(response.data)
-        # Player B is Robber, Player D is Werewolf - should not appear
+        # Own role is Seer — must be visible
         assert response.data["your_role"]["original_role"] == "Seer"
-        # Ensure other player roles are not present in the response
-        # Only Seer should appear (player A's role)
-        assert "Robber" not in response_str
-        assert "Werewolf" not in response_str
-        assert "Troublemaker" not in response_str
+
+        # No player in the players list should expose a role field
+        for player_entry in response.data["players"]:
+            assert "original_role" not in player_entry
+            assert "current_role" not in player_entry
+            assert "role" not in player_entry
+
+        # current_role must be hidden (only revealed at RESULTS phase)
+        assert "current_role" not in response.data["your_role"]
 
     def test_center_cards_not_visible(self, api_client, db):
         """Center cards are never exposed through the /me/ endpoint."""

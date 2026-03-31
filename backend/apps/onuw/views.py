@@ -559,6 +559,9 @@ class ResultsView(APIView):
 
         # Build eliminated player details
         eliminated_ids = set(game.results.get("eliminated_players", []))
+        elimination_reasons: dict[str, str] = game.results.get(
+            "elimination_reasons", {}
+        )
         eliminated_details = []
         players_data = []
 
@@ -581,6 +584,7 @@ class ResultsView(APIView):
                         "player_id": pr.user_id,
                         "display_name": pr.user.display_name or pr.user.username,
                         "role": pr.current_role,
+                        "elimination_reason": elimination_reasons.get(str(pr.user_id)),
                     }
                 )
 
