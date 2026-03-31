@@ -1,7 +1,7 @@
 ---
 work_package_id: WP03
 title: WebSocket Infrastructure
-lane: "approved"
+lane: done
 dependencies: []
 requirement_refs: [FR-003, FR-004]
 planning_base_branch: main
@@ -15,8 +15,8 @@ phase: Phase 0 - Foundation
 assignee: ''
 agent: headless-reviewer
 shell_pid: '84765'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned

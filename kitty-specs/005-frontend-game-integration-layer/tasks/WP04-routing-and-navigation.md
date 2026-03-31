@@ -1,7 +1,7 @@
 ---
 work_package_id: WP04
 title: Routing & Navigation
-lane: "approved"
+lane: done
 dependencies: [WP02]
 requirement_refs: [FR-018, FR-019]
 planning_base_branch: main
@@ -15,8 +15,8 @@ phase: Phase 0.5
 assignee: ''
 agent: headless-reviewer
 shell_pid: '18606'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
