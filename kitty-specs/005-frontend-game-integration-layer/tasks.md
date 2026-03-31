@@ -139,9 +139,9 @@
 **Requirements Refs**: FR-018, FR-019
 
 ### Included Subtasks
-- [ ] T015 Add `LobbyRoute` (path: `/lobby/:code`) and `GameRoute` (path: `/game/:gameId`) to `frontend/lib/core/router/routes.dart` — `@TypedGoRoute` code-gen pattern matching existing `HomeRoute`
-- [ ] T016 Add auth redirect guard to `frontend/lib/core/router/app_router.dart` — `GoRouter.redirect` callback reads `authNotifierProvider`, redirects unauthenticated users to `/`, redirects authenticated users with active game (from `/me/current-game/`) to `/game/:id`
-- [ ] T017 Tests in `frontend/test/core/router/routes_test.dart` — verify route resolution, auth redirect for unauthenticated users, active-game redirect on startup
+- [x] T015 Add `LobbyRoute` (path: `/lobby/:code`) and `GameRoute` (path: `/game/:gameId`) to `frontend/lib/core/router/routes.dart` — `@TypedGoRoute` code-gen pattern matching existing `HomeRoute`
+- [x] T016 Add auth redirect guard to `frontend/lib/core/router/app_router.dart` — `GoRouter.redirect` callback reads `authNotifierProvider`, redirects unauthenticated users to `/`, redirects authenticated users with active game (from `/me/current-game/`) to `/game/:id`
+- [x] T017 Tests in `frontend/test/core/router/routes_test.dart` — verify route resolution, auth redirect for unauthenticated users, active-game redirect on startup
 
 ### Implementation Notes
 - Research decision R4 applies: TypedGoRoute pattern matches existing `HomeRoute` in `routes.dart`.
@@ -615,5 +615,5 @@ Phase 3 (Polish):
 ## Canonical Status (Generated)
 - WP01: done
 - WP02: done
-- WP03: approved
+- WP03: done
 <!-- status-model:end -->
