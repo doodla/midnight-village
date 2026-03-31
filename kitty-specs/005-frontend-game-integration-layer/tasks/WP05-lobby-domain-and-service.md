@@ -1,18 +1,21 @@
 ---
 work_package_id: WP05
 title: Lobby Domain & Service
-lane: planned
+lane: "doing"
 dependencies:
 - WP02
 requirement_refs: [FR-006, FR-016, FR-020, FR-027, FR-029]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 005-frontend-game-integration-layer-WP02
+base_commit: cafb0c799c5e735ea80dcec8d4cd1a16e42d9114
+created_at: '2026-03-31T14:36:16.247320+00:00'
 subtasks: [T018, T019, T020, T021, T022]
 phase: Phase 1 - Feature Data Layers
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "93451"
 review_status: ''
 reviewed_by: ''
 history:
