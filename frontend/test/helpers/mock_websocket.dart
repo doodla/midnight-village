@@ -1,23 +1,9 @@
 import 'dart:async';
 
-/// Minimal interface for a WebSocket channel.
-///
-/// [MockWebSocketChannel] implements this interface so test harnesses can
-/// depend on it. When the app adds real WebSocket support, the production
-/// implementation should adopt the same interface.
-abstract interface class WebSocketChannelInterface {
-  /// The stream of messages received from the server.
-  Stream<dynamic> get stream;
+import 'package:midnight_village/core/websocket/websocket_channel.dart';
 
-  /// Sends [data] to the server.
-  void send(dynamic data);
-
-  /// Closes the channel with an optional [code] and [reason].
-  Future<void> close([int? code, String? reason]);
-
-  /// Whether the channel has been closed.
-  bool get isClosed;
-}
+export 'package:midnight_village/core/websocket/websocket_channel.dart'
+    show WebSocketChannelInterface;
 
 /// Fake WebSocket channel for use in tests.
 ///

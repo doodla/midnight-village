@@ -1,0 +1,402 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
+import 'package:midnight_village/features/lobby/data/lobby_service.dart';
+import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
+import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
+import 'package:mocktail/mocktail.dart';
+
+import '../../../helpers/mock_websocket.dart';
+
+/// Drains the microtask queue by awaiting multiple zero-delay futures.
+/// This is needed when an async operation is triggered from a synchronous
+/// callback (like a WebSocket stream listener).
+Future<void> _pumpEventQueue() async {
+  // Multiple rounds to drain async chains
+  for (var i = 0; i < 5; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+class MockLobbyService extends Mock implements LobbyService {}
+
+class MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
+
+/// Canonical test lobby state.
+LobbyState _testLobbyState({
+  String code = 'ABC123',
+  int hostId = 1,
+  List<LobbyPlayer>? players,
+  String status = 'waiting',
+  Map<String, int>? roleConfig,
+}) {
+  return LobbyState(
+    code: code,
+    hostId: hostId,
+    players:
+        players ??
+        [
+          LobbyPlayer(
+            id: 1,
+            displayName: 'Alice',
+            isReady: true,
+            joinedAt: DateTime.utc(2026, 3, 31),
+          ),
+          LobbyPlayer(
+            id: 2,
+            displayName: 'Bob',
+            isReady: false,
+            joinedAt: DateTime.utc(2026, 3, 31, 0, 1),
+          ),
+        ],
+    status: status,
+    maxPlayers: 10,
+    roleConfig: roleConfig ?? {'werewolf': 2, 'seer': 1},
+  );
+}
+
+void main() {
+  late MockLobbyService mockService;
+  late MockWebSocketChannel mockWebSocket;
+  late ProviderContainer container;
+
+  setUp(() {
+    mockService = MockLobbyService();
+    mockWebSocket = MockWebSocketChannel();
+
+    // Default: fetchLobby returns test lobby state
+    when(
+      () => mockService.fetchLobby('ABC123'),
+    ).thenAnswer((_) async => _testLobbyState());
+  });
+
+  ProviderContainer createContainer() {
+    final c = ProviderContainer(
+      overrides: [
+        lobbyServiceProvider.overrideWithValue(mockService),
+        lobbyWebSocketFactoryProvider.overrideWithValue(
+          (code) => mockWebSocket,
+        ),
+        // Override authenticatedClientProvider since lobbyServiceProvider
+        // is already overridden and won't use it.
+        authenticatedClientProvider.overrideWithValue(
+          MockAuthenticatedClient(),
+        ),
+      ],
+    );
+    addTearDown(c.dispose);
+    return c;
+  }
+
+  group('LobbyNotifier', () {
+    group('build', () {
+      test('fetches initial lobby state and connects WebSocket', () async {
+        container = createContainer();
+
+        // Read the provider to trigger build
+        final future = container.read(lobbyProvider('ABC123').future);
+        final lobby = await future;
+
+        expect(lobby.code, 'ABC123');
+        expect(lobby.players, hasLength(2));
+        verify(() => mockService.fetchLobby('ABC123')).called(1);
+      });
+
+      test('sets error state when fetchLobby fails', () async {
+        when(
+          () => mockService.fetchLobby('ABC123'),
+        ).thenThrow(Exception('Network error'));
+
+        container = createContainer();
+
+        // The provider should be in an error state
+        await expectLater(
+          container.read(lobbyProvider('ABC123').future),
+          throwsA(anything),
+        );
+      });
+    });
+
+    group('WebSocket events', () {
+      test('player_joined triggers re-fetch of lobby state', () async {
+        container = createContainer();
+
+        // Keep a listener alive so the auto-dispose provider stays active
+        final sub = container.listen(lobbyProvider('ABC123'), (_, __) {});
+        addTearDown(sub.close);
+
+        // Wait for initial build
+        await container.read(lobbyProvider('ABC123').future);
+
+        // Set up re-fetch with updated players
+        final refetchCompleter = Completer<LobbyState>();
+        final updatedState = _testLobbyState(
+          players: [
+            LobbyPlayer(
+              id: 1,
+              displayName: 'Alice',
+              isReady: true,
+              joinedAt: DateTime.utc(2026, 3, 31),
+            ),
+            LobbyPlayer(
+              id: 2,
+              displayName: 'Bob',
+              isReady: false,
+              joinedAt: DateTime.utc(2026, 3, 31, 0, 1),
+            ),
+            LobbyPlayer(
+              id: 3,
+              displayName: 'Charlie',
+              isReady: false,
+              joinedAt: DateTime.utc(2026, 3, 31, 0, 2),
+            ),
+          ],
+        );
+        when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
+          final result = updatedState;
+          if (!refetchCompleter.isCompleted) {
+            refetchCompleter.complete(result);
+          }
+          return result;
+        });
+
+        // Simulate player_joined event
+        mockWebSocket.addServerEvent(
+          json.encode({'type': 'player_joined', 'username': 'charlie'}),
+        );
+
+        // Wait for the re-fetch to complete
+        await refetchCompleter.future;
+        await Future<void>.delayed(Duration.zero);
+
+        final state = container.read(lobbyProvider('ABC123'));
+        expect(state.value?.players, hasLength(3));
+      });
+
+      test('player_left triggers re-fetch of lobby state', () async {
+        container = createContainer();
+
+        final sub = container.listen(lobbyProvider('ABC123'), (_, __) {});
+        addTearDown(sub.close);
+
+        await container.read(lobbyProvider('ABC123').future);
+
+        final refetchCompleter = Completer<LobbyState>();
+        final updatedState = _testLobbyState(
+          players: [
+            LobbyPlayer(
+              id: 1,
+              displayName: 'Alice',
+              isReady: true,
+              joinedAt: DateTime.utc(2026, 3, 31),
+            ),
+          ],
+        );
+        when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
+          final result = updatedState;
+          if (!refetchCompleter.isCompleted) {
+            refetchCompleter.complete(result);
+          }
+          return result;
+        });
+
+        mockWebSocket.addServerEvent(
+          json.encode({'type': 'player_left', 'username': 'bob'}),
+        );
+
+        await refetchCompleter.future;
+        await Future<void>.delayed(Duration.zero);
+
+        final state = container.read(lobbyProvider('ABC123'));
+        expect(state.value?.players, hasLength(1));
+      });
+
+      test(
+        'player_ready updates player isReady in-place without re-fetch',
+        () async {
+          container = createContainer();
+          await container.read(lobbyProvider('ABC123').future);
+
+          // Reset verification count from initial fetch
+          clearInteractions(mockService);
+
+          mockWebSocket.addServerEvent(
+            json.encode({
+              'type': 'player_ready',
+              'username': 'Bob',
+              'is_ready': true,
+            }),
+          );
+
+          final state = container.read(lobbyProvider('ABC123'));
+          final bob = state.value?.players.firstWhere(
+            (p) => p.displayName == 'Bob',
+          );
+          expect(bob?.isReady, isTrue);
+
+          // No re-fetch should have occurred
+          verifyNever(() => mockService.fetchLobby(any()));
+        },
+      );
+
+      test('lobby_update updates role configuration', () async {
+        container = createContainer();
+        await container.read(lobbyProvider('ABC123').future);
+
+        mockWebSocket.addServerEvent(
+          json.encode({
+            'type': 'lobby_update',
+            'data': {
+              'settings': {
+                'roles': {
+                  'werewolf': 2,
+                  'seer': 1,
+                  'robber': 1,
+                  'troublemaker': 1,
+                  'villager': 3,
+                },
+              },
+            },
+          }),
+        );
+
+        final state = container.read(lobbyProvider('ABC123'));
+        expect(state.value?.roleConfig, {
+          'werewolf': 2,
+          'seer': 1,
+          'robber': 1,
+          'troublemaker': 1,
+          'villager': 3,
+        });
+      });
+
+      test('game_started extracts game_id and updates status', () async {
+        container = createContainer();
+        await container.read(lobbyProvider('ABC123').future);
+
+        mockWebSocket.addServerEvent(
+          json.encode({
+            'type': 'game_started',
+            'game_id': '550e8400-e29b-41d4-a716-446655440000',
+          }),
+        );
+
+        final notifier = container.read(lobbyProvider('ABC123').notifier);
+        expect(notifier.gameId, '550e8400-e29b-41d4-a716-446655440000');
+
+        final state = container.read(lobbyProvider('ABC123'));
+        expect(state.value?.status, 'in_game');
+      });
+
+      test('handles Map messages (not just JSON strings)', () async {
+        container = createContainer();
+        await container.read(lobbyProvider('ABC123').future);
+        clearInteractions(mockService);
+
+        // Send as Map directly (some WS implementations do this)
+        mockWebSocket.addServerEvent({
+          'type': 'player_ready',
+          'username': 'Bob',
+          'is_ready': true,
+        });
+
+        final state = container.read(lobbyProvider('ABC123'));
+        final bob = state.value?.players.firstWhere(
+          (p) => p.displayName == 'Bob',
+        );
+        expect(bob?.isReady, isTrue);
+      });
+
+      test('ignores unknown event types without error', () async {
+        container = createContainer();
+        await container.read(lobbyProvider('ABC123').future);
+
+        // Should not throw
+        mockWebSocket.addServerEvent(
+          json.encode({'type': 'unknown_event', 'data': 'something'}),
+        );
+
+        final state = container.read(lobbyProvider('ABC123'));
+        expect(state.value, isNotNull);
+      });
+    });
+
+    group('public methods', () {
+      test('toggleReady calls service.toggleReady', () async {
+        container = createContainer();
+        await container.read(lobbyProvider('ABC123').future);
+
+        when(() => mockService.toggleReady('ABC123')).thenAnswer((_) async {});
+
+        final notifier = container.read(lobbyProvider('ABC123').notifier);
+        await notifier.toggleReady();
+
+        verify(() => mockService.toggleReady('ABC123')).called(1);
+      });
+
+      test('startGame calls service.startGame and returns game ID', () async {
+        container = createContainer();
+        await container.read(lobbyProvider('ABC123').future);
+
+        when(
+          () => mockService.startGame('ABC123'),
+        ).thenAnswer((_) async => '550e8400-e29b-41d4-a716-446655440000');
+
+        final notifier = container.read(lobbyProvider('ABC123').notifier);
+        final gameId = await notifier.startGame();
+
+        expect(gameId, '550e8400-e29b-41d4-a716-446655440000');
+      });
+
+      test('leave calls service.leaveLobby', () async {
+        container = createContainer();
+        await container.read(lobbyProvider('ABC123').future);
+
+        when(() => mockService.leaveLobby('ABC123')).thenAnswer((_) async {});
+
+        final notifier = container.read(lobbyProvider('ABC123').notifier);
+        await notifier.leave();
+
+        verify(() => mockService.leaveLobby('ABC123')).called(1);
+      });
+
+      test('updateRoleConfig calls service and updates state', () async {
+        container = createContainer();
+        await container.read(lobbyProvider('ABC123').future);
+
+        final newRoles = {'werewolf': 2, 'seer': 1, 'robber': 1};
+        final updatedState = _testLobbyState(roleConfig: newRoles);
+        when(
+          () => mockService.updateRoleConfig('ABC123', newRoles),
+        ).thenAnswer((_) async => updatedState);
+
+        final notifier = container.read(lobbyProvider('ABC123').notifier);
+        await notifier.updateRoleConfig(newRoles);
+
+        final state = container.read(lobbyProvider('ABC123'));
+        expect(state.value?.roleConfig, newRoles);
+      });
+    });
+
+    group('dispose', () {
+      test('closes WebSocket on provider disposal', () async {
+        container = createContainer();
+        await container.read(lobbyProvider('ABC123').future);
+
+        expect(mockWebSocket.isClosed, isFalse);
+
+        // Invalidate the provider to trigger dispose
+        container.invalidate(lobbyProvider('ABC123'));
+
+        // Allow microtasks to complete
+        await Future<void>.delayed(Duration.zero);
+
+        expect(mockWebSocket.isClosed, isTrue);
+      });
+    });
+  });
+}
