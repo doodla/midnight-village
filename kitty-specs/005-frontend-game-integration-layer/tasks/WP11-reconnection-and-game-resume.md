@@ -1,7 +1,7 @@
 ---
 work_package_id: WP11
 title: Reconnection & Game Resume
-lane: "doing"
+lane: "planned"
 dependencies:
 - WP03
 requirement_refs:
@@ -16,10 +16,11 @@ created_at: '2026-03-31T17:09:36.788841+00:00'
 subtasks: [T051, T052, T053, T054, T055]
 phase: Phase 3 - Polish
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "19354"
-review_status: ''
-reviewed_by: ''
+agent: headless-reviewer
+shell_pid: '19354'
+review_status: "has_feedback"
+reviewed_by: "Sridhar Vadlamani"
+review_feedback: "feedback://005-frontend-game-integration-layer/WP11/20260331T173932Z-487e0eed.md"
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
@@ -202,3 +203,4 @@ cd frontend && just check
 - 2026-03-31T14:40:18Z – headless-impl – shell_pid=99269 – lane=doing – Assigned agent via workflow command
 - 2026-03-31T17:18:47Z – headless-impl – shell_pid=89103 – lane=for_review – Ready for review: ReconnectionOverlay widget, ReconnectionNotifier state machine, GameResumeService with caching, GameContainerScreen wiring, 26 passing tests
 - 2026-03-31T17:35:32Z – headless-reviewer – shell_pid=19354 – lane=doing – Started review via workflow command
+- 2026-03-31T17:39:32Z – headless-reviewer – shell_pid=19354 – lane=planned – Moved to planned
