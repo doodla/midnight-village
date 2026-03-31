@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../config/env.dart';
 import 'auth_interceptor.dart';
@@ -32,6 +33,12 @@ class AuthenticatedClient {
       _dio.interceptors.add(LoggingInterceptor());
     }
   }
+
+  /// Test-only constructor that accepts a pre-configured [Dio] without
+  /// requiring an [AuthInterceptor]. The caller is responsible for
+  /// setting up any interceptors on [dio].
+  @visibleForTesting
+  AuthenticatedClient.forTesting({required Dio dio}) : _dio = dio;
 
   final Dio _dio;
 
