@@ -1,7 +1,7 @@
 ---
 work_package_id: WP04
 title: Routing & Navigation
-lane: "for_review"
+lane: "doing"
 dependencies: [WP02]
 requirement_refs: [FR-018, FR-019]
 planning_base_branch: main
@@ -13,8 +13,8 @@ created_at: '2026-03-31T14:34:15.619502+00:00'
 subtasks: [T015, T016, T017]
 phase: Phase 0.5
 assignee: ''
-agent: headless-impl
-shell_pid: '91469'
+agent: "headless-reviewer"
+shell_pid: "18606"
 review_status: ''
 reviewed_by: ''
 history:
@@ -160,3 +160,4 @@ cd frontend && just gen      # After adding route annotations
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
 - 2026-03-31T14:34:15Z – headless-impl – shell_pid=91469 – lane=doing – Assigned agent via workflow command
 - 2026-03-31T14:53:41Z – headless-impl – shell_pid=91469 – lane=for_review – Ready for review: LobbyRoute + GameRoute typed routes with code-gen, appRouterProvider Riverpod provider with async auth redirect guard (unauthenticated protection + active game resume), 7 passing tests
+- 2026-03-31T14:54:25Z – headless-reviewer – shell_pid=18606 – lane=doing – Started review via workflow command
