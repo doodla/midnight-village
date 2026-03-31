@@ -102,11 +102,11 @@
 **Requirements Refs**: FR-003, FR-004
 
 ### Included Subtasks
-- [ ] T010 Promote `WebSocketChannelInterface` from `frontend/test/helpers/mock_websocket.dart` to `frontend/lib/core/websocket/websocket_channel.dart` — add `WebSocketConnectionState` enum and `WebSocketEvent` Freezed model
-- [ ] T011 Create `ReconnectingWebSocket` in `frontend/lib/core/websocket/reconnecting_websocket.dart` — implements `WebSocketChannelInterface`, wraps `web_socket_channel`, adds exponential backoff (1s→2s→4s→8s→max 30s), JWT query param injection, connection state stream
-- [ ] T012 Add `wsUrl` getter to `frontend/lib/core/config/env.dart` — derive from existing `apiUrl` pattern (http→ws, https→wss)
-- [ ] T013 Create `webSocketConnectionProvider` as `@riverpod` function in `frontend/lib/core/websocket/` — manages lifecycle, `ref.onDispose` closes connection
-- [ ] T014 Tests in `frontend/test/core/websocket/reconnecting_websocket_test.dart` — mock `web_socket_channel`, test connection lifecycle, backoff timing (with `fake_async`), state transitions, JWT injection on reconnect
+- [x] T010 Promote `WebSocketChannelInterface` from `frontend/test/helpers/mock_websocket.dart` to `frontend/lib/core/websocket/websocket_channel.dart` — add `WebSocketConnectionState` enum and `WebSocketEvent` Freezed model
+- [x] T011 Create `ReconnectingWebSocket` in `frontend/lib/core/websocket/reconnecting_websocket.dart` — implements `WebSocketChannelInterface`, wraps `web_socket_channel`, adds exponential backoff (1s→2s→4s→8s→max 30s), JWT query param injection, connection state stream
+- [x] T012 Add `wsUrl` getter to `frontend/lib/core/config/env.dart` — derive from existing `apiUrl` pattern (http→ws, https→wss)
+- [x] T013 Create `webSocketConnectionProvider` as `@riverpod` function in `frontend/lib/core/websocket/` — manages lifecycle, `ref.onDispose` closes connection
+- [x] T014 Tests in `frontend/test/core/websocket/reconnecting_websocket_test.dart` — mock `web_socket_channel`, test connection lifecycle, backoff timing (with `fake_async`), state transitions, JWT injection on reconnect
 
 ### Implementation Notes
 - Research decision R2 applies: `WebSocketChannelInterface` is the canonical interface. Production and test both implement it.
