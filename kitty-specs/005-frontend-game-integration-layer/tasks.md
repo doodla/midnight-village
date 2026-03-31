@@ -610,3 +610,8 @@ Phase 3 (Polish):
 | T053 | Reconnection state restoration | WP11 | P2 | No |
 | T054 | Wire overlay to WS state | WP11 | P2 | No |
 | T055 | Reconnection + game resume tests | WP11 | P2 | No |
+
+<!-- status-model:start -->
+## Canonical Status (Generated)
+- WP01: for_review
+<!-- status-model:end -->
