@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Lobby Domain & Service
-lane: "for_review"
+lane: "doing"
 dependencies:
 - WP02
 requirement_refs: [FR-006, FR-016, FR-020, FR-027, FR-029]
@@ -14,8 +14,8 @@ created_at: '2026-03-31T17:09:34.360544+00:00'
 subtasks: [T018, T019, T020, T021, T022]
 phase: Phase 1 - Feature Data Layers
 assignee: ''
-agent: headless-impl
-shell_pid: '67159'
+agent: "headless-reviewer"
+shell_pid: "14117"
 review_status: ''
 reviewed_by: ''
 history:
@@ -242,3 +242,4 @@ cd frontend && just gen
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
 - 2026-03-31T14:36:16Z – headless-impl – shell_pid=93451 – lane=doing – Assigned agent via workflow command
 - 2026-03-31T17:24:48Z – headless-impl – shell_pid=67159 – lane=for_review – Ready for review: LobbyPlayer/LobbyState Freezed models with custom fromJson for nested backend format, RoleConfig validation with presets from recommended-setups.md, LobbyService HTTP CRUD, LobbyNotifier AsyncNotifier with HTTP+WS coordination. 65 new tests all passing, 0 regressions.
+- 2026-03-31T17:31:32Z – headless-reviewer – shell_pid=14117 – lane=doing – Started review via workflow command
