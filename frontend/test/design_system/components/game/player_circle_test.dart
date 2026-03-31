@@ -14,7 +14,7 @@ void main() {
   const testTheme = TestThemeTokens();
 
   /// Build a minimal list of players suitable for most tests.
-  List<PlayerDisplay> _buildPlayers({
+  List<PlayerDisplay> buildPlayers({
     String currentPlayerId = 'p1',
     List<String> selectedIds = const [],
     List<String> nonSelectableIds = const [],
@@ -39,13 +39,10 @@ void main() {
 
   testWidgets('tap callback fires with the tapped player ID', (tester) async {
     final tapped = <String>[];
-    final players = _buildPlayers();
+    final players = buildPlayers();
 
     await tester.pumpWithTokens(
-      PlayerCircle(
-        players: players,
-        onPlayerSelected: tapped.add,
-      ),
+      PlayerCircle(players: players, onPlayerSelected: tapped.add),
       theme: testTheme,
     );
 
@@ -62,13 +59,10 @@ void main() {
 
   testWidgets('tapping current player does not fire callback', (tester) async {
     final tapped = <String>[];
-    final players = _buildPlayers(currentPlayerId: 'p1');
+    final players = buildPlayers(currentPlayerId: 'p1');
 
     await tester.pumpWithTokens(
-      PlayerCircle(
-        players: players,
-        onPlayerSelected: tapped.add,
-      ),
+      PlayerCircle(players: players, onPlayerSelected: tapped.add),
       theme: testTheme,
     );
 
@@ -84,63 +78,72 @@ void main() {
   // ---------------------------------------------------------------------------
 
   testWidgets(
-      'maxSelections: 1 — tapping another player when one already selected does nothing',
-      (tester) async {
-    final tapped = <String>[];
-    // p2 is already selected.
-    final players = _buildPlayers(selectedIds: ['p2']);
+    'maxSelections: 1 — tapping another player when one already selected does nothing',
+    (tester) async {
+      final tapped = <String>[];
+      // p2 is already selected.
+      final players = buildPlayers(selectedIds: ['p2']);
 
-    await tester.pumpWithTokens(
-      PlayerCircle(
-        players: players,
-        onPlayerSelected: tapped.add,
-        maxSelections: 1,
-      ),
-      theme: testTheme,
-    );
+      await tester.pumpWithTokens(
+        PlayerCircle(
+          players: players,
+          onPlayerSelected: tapped.add,
+          maxSelections: 1,
+        ),
+        theme: testTheme,
+      );
 
-    // p3 is unselected and the max is reached — tap should be ignored.
-    await tester.tap(find.text('Player p3'));
-    await tester.pump();
+      // p3 is unselected and the max is reached — tap should be ignored.
+      await tester.tap(find.text('Player p3'));
+      await tester.pump();
 
-    expect(tapped, isEmpty,
-        reason: 'max selections reached; p3 tap must be swallowed');
-  });
+      expect(
+        tapped,
+        isEmpty,
+        reason: 'max selections reached; p3 tap must be swallowed',
+      );
+    },
+  );
 
   // ---------------------------------------------------------------------------
   // Test 4: showStatus: true renders eliminated overlay (error-colored icon)
   // ---------------------------------------------------------------------------
 
-  testWidgets('showStatus: true renders an error-colored icon for eliminated player',
-      (tester) async {
-    final players = _buildPlayers(
-      statuses: {'p2': PlayerStatus.eliminated},
-    );
+  testWidgets(
+    'showStatus: true renders an error-colored icon for eliminated player',
+    (tester) async {
+      final players = buildPlayers(statuses: {'p2': PlayerStatus.eliminated});
 
-    await tester.pumpWithTokens(
-      PlayerCircle(players: players, showStatus: true),
-      theme: testTheme,
-    );
+      await tester.pumpWithTokens(
+        PlayerCircle(players: players, showStatus: true),
+        theme: testTheme,
+      );
 
-    // The eliminated overlay uses Icons.close with the error color.
-    final closeIconFinder = find.byWidgetPredicate((widget) {
-      if (widget is Icon && widget.icon == Icons.close) {
-        // TestColorTokens.error = Color(0xFFFF0000)
-        return widget.color == const Color(0xFFFF0000);
-      }
-      return false;
-    });
+      // The eliminated overlay uses Icons.close with the error color.
+      final closeIconFinder = find.byWidgetPredicate((widget) {
+        if (widget is Icon && widget.icon == Icons.close) {
+          // TestColorTokens.error = Color(0xFFFF0000)
+          return widget.color == const Color(0xFFFF0000);
+        }
+        return false;
+      });
 
-    expect(closeIconFinder, findsOneWidget,
-        reason: 'eliminated player should show error-colored close icon');
-  });
+      expect(
+        closeIconFinder,
+        findsOneWidget,
+        reason: 'eliminated player should show error-colored close icon',
+      );
+    },
+  );
 
   // ---------------------------------------------------------------------------
   // Test 5: current player is NOT dimmed (full opacity, not _kDimOpacity)
   // ---------------------------------------------------------------------------
 
-  testWidgets('current player slot has full opacity, not dimmed', (tester) async {
-    final players = _buildPlayers(currentPlayerId: 'p1');
+  testWidgets('current player slot has full opacity, not dimmed', (
+    tester,
+  ) async {
+    final players = buildPlayers(currentPlayerId: 'p1');
 
     await tester.pumpWithTokens(
       PlayerCircle(
@@ -172,8 +175,11 @@ void main() {
           .isNotEmpty;
 
       if (containsCurrentPlayer) {
-        expect(op.opacity, isNot(kDimOpacity),
-            reason: 'current player must not be dimmed with _kDimOpacity');
+        expect(
+          op.opacity,
+          isNot(kDimOpacity),
+          reason: 'current player must not be dimmed with _kDimOpacity',
+        );
       }
     }
   });

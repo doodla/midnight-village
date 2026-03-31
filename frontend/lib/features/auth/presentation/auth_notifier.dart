@@ -2,6 +2,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_exception.dart';
+import '../../../core/api/auth_interceptor.dart';
+import '../../../core/api/authenticated_client.dart';
+import '../../../core/config/env.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/storage/user_storage.dart';
@@ -35,6 +38,22 @@ AuthRepository authRepository(Ref ref) => AuthRepository(
   tokenStorage: ref.watch(tokenStorageProvider),
   userStorage: ref.watch(userStorageProvider),
 );
+
+/// Provides the authenticated HTTP client with JWT injection and auto-refresh.
+///
+/// Uses [AuthInterceptor] to add bearer tokens to every request and handle
+/// 401 responses by refreshing the access token. On refresh failure, the
+/// interceptor signals auth failure by invalidating [authProvider], which
+/// resets auth state to unauthenticated.
+@Riverpod(keepAlive: true)
+AuthenticatedClient authenticatedClient(Ref ref) {
+  final interceptor = AuthInterceptor(
+    tokenStorage: ref.watch(tokenStorageProvider),
+    unauthenticatedClient: ref.watch(apiClientProvider),
+    onAuthFailure: () => ref.invalidate(authProvider),
+  );
+  return AuthenticatedClient(baseUrl: Env.apiUrl, interceptor: interceptor);
+}
 
 /// Manages authentication state.
 @Riverpod(keepAlive: true)
@@ -85,7 +104,10 @@ class AuthNotifier extends _$AuthNotifier {
     } on ValidationException catch (e) {
       logger.w('Validation error during guest creation', error: e);
       state = AuthState.error(
-        e.firstErrorFor('display_name', fallback: 'Validation failed. Please check your input.'),
+        e.firstErrorFor(
+          'display_name',
+          fallback: 'Validation failed. Please check your input.',
+        ),
       );
     } on NetworkException catch (e) {
       logger.e('Network error during guest creation', error: e);
@@ -94,8 +116,14 @@ class AuthNotifier extends _$AuthNotifier {
       logger.e('API error during guest creation', error: e);
       state = const AuthState.error('Something went wrong. Please try again.');
     } catch (e, stack) {
-      logger.e('Unexpected error during guest creation', error: e, stackTrace: stack);
-      state = const AuthState.error('An unexpected error occurred. Please try again.');
+      logger.e(
+        'Unexpected error during guest creation',
+        error: e,
+        stackTrace: stack,
+      );
+      state = const AuthState.error(
+        'An unexpected error occurred. Please try again.',
+      );
     }
   }
 
