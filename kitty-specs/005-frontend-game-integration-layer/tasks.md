@@ -171,11 +171,11 @@
 **Requirements Refs**: FR-006, FR-016, FR-020, FR-027, FR-029
 
 ### Included Subtasks
-- [ ] T018 [P] Create `LobbyPlayer` and `LobbyState` Freezed models in `frontend/lib/features/lobby/domain/lobby_state.dart` — fields per data-model.md, `fromJson` factories, run code-gen
-- [ ] T019 [P] Create `RoleConfig` utility class in `frontend/lib/features/lobby/domain/role_config.dart` — `isValid(roles, playerCount)`, `stepSize(role)` (Mason=2), `maxCount(role)`, `presetsForPlayerCount(count)` from `docs/specs/onuw/recommended-setups.md`
-- [ ] T020 Create `LobbyService` in `frontend/lib/features/lobby/data/lobby_service.dart` — create (POST `/lobbies/`), join (POST `/lobbies/<code>/join/`), leave (POST `/lobbies/<code>/leave/`), ready (POST `/lobbies/<code>/ready/`), updateRoleConfig (PATCH `/lobbies/<code>/`), start (POST `/onuw/lobbies/<code>/start/`), fetch (GET `/lobbies/<code>/`)
-- [ ] T021 Create `LobbyNotifier` in `frontend/lib/features/lobby/presentation/lobby_notifier.dart` — `@riverpod` `AsyncNotifier` family provider keyed by lobby code. `build()` fetches lobby + connects WS. Handles events: `player_joined`→re-fetch, `player_left`→re-fetch, `player_ready`→update flag, `lobby_update`→update settings, `game_started`→extract game_id and navigate
-- [ ] T022 Tests: `frontend/test/features/lobby/domain/lobby_state_test.dart`, `frontend/test/features/lobby/domain/role_config_test.dart`, `frontend/test/features/lobby/data/lobby_service_test.dart`, `frontend/test/features/lobby/presentation/lobby_notifier_test.dart`
+- [x] T018 [P] Create `LobbyPlayer` and `LobbyState` Freezed models in `frontend/lib/features/lobby/domain/lobby_state.dart` — fields per data-model.md, `fromJson` factories, run code-gen
+- [x] T019 [P] Create `RoleConfig` utility class in `frontend/lib/features/lobby/domain/role_config.dart` — `isValid(roles, playerCount)`, `stepSize(role)` (Mason=2), `maxCount(role)`, `presetsForPlayerCount(count)` from `docs/specs/onuw/recommended-setups.md`
+- [x] T020 Create `LobbyService` in `frontend/lib/features/lobby/data/lobby_service.dart` — create (POST `/lobbies/`), join (POST `/lobbies/<code>/join/`), leave (POST `/lobbies/<code>/leave/`), ready (POST `/lobbies/<code>/ready/`), updateRoleConfig (PATCH `/lobbies/<code>/`), start (POST `/onuw/lobbies/<code>/start/`), fetch (GET `/lobbies/<code>/`)
+- [x] T021 Create `LobbyNotifier` in `frontend/lib/features/lobby/presentation/lobby_notifier.dart` — `@riverpod` `AsyncNotifier` family provider keyed by lobby code. `build()` fetches lobby + connects WS. Handles events: `player_joined`→re-fetch, `player_left`→re-fetch, `player_ready`→update flag, `lobby_update`→update settings, `game_started`→extract game_id and navigate
+- [x] T022 Tests: `frontend/test/features/lobby/domain/lobby_state_test.dart`, `frontend/test/features/lobby/domain/role_config_test.dart`, `frontend/test/features/lobby/data/lobby_service_test.dart`, `frontend/test/features/lobby/presentation/lobby_notifier_test.dart`
 
 ### Implementation Notes
 - Follows existing `features/auth/data-domain-presentation/` pattern established in the auth feature.
