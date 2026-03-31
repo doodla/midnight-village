@@ -15,7 +15,7 @@ created_at: '2026-03-31T07:54:12.337072+00:00'
 subtasks: [T006, T007, T008, T009]
 phase: Phase 0 - Foundation
 assignee: ''
-agent: ''
+agent: "headless-impl"
 shell_pid: "56820"
 review_status: ''
 reviewed_by: ''
@@ -196,3 +196,4 @@ To change a work package's lane, either:
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
+- 2026-03-31T07:54:12Z – headless-impl – shell_pid=56820 – lane=doing – Assigned agent via workflow command
