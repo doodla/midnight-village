@@ -1,7 +1,7 @@
 ---
 work_package_id: WP02
 title: Auth & HTTP Infrastructure
-lane: planned
+lane: "doing"
 dependencies: []
 requirement_refs:
 - FR-001
@@ -9,11 +9,14 @@ requirement_refs:
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: main
+base_commit: c3720b001a02ccd65be982cbf757f51c821bbe20
+created_at: '2026-03-31T07:54:12.337072+00:00'
 subtasks: [T006, T007, T008, T009]
 phase: Phase 0 - Foundation
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "56820"
 review_status: ''
 reviewed_by: ''
 history:
