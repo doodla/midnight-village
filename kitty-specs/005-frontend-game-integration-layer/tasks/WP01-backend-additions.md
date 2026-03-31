@@ -1,7 +1,7 @@
 ---
 work_package_id: WP01
 title: Backend Additions
-lane: "for_review"
+lane: "doing"
 dependencies: []
 requirement_refs:
 - FR-030
@@ -17,8 +17,8 @@ created_at: '2026-03-31T07:54:10.651157+00:00'
 subtasks: [T001, T002, T003, T004, T005]
 phase: Phase 0 - Foundation
 assignee: ''
-agent: headless-impl
-shell_pid: '56648'
+agent: "headless-reviewer"
+shell_pid: "79747"
 review_status: ''
 reviewed_by: ''
 history:
@@ -217,3 +217,4 @@ To change a work package's lane, either:
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
 - 2026-03-31T07:54:10Z – headless-impl – shell_pid=56648 – lane=doing – Assigned agent via workflow command
 - 2026-03-31T14:09:49Z – headless-impl – shell_pid=56648 – lane=for_review – Ready for review: PATCH /lobbies/<code>/ (FR-030), game_started WS handler (FR-031), roles_in_game serializer field (FR-032), elimination_reason in results (FR-033). 495 tests pass, 88.92% coverage, lint+format clean.
+- 2026-03-31T14:23:23Z – headless-reviewer – shell_pid=79747 – lane=doing – Started review via workflow command
