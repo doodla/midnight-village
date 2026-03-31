@@ -1,7 +1,7 @@
 ---
 work_package_id: WP07
 title: Game Core — Domain, Service & Container
-lane: "doing"
+lane: "planned"
 dependencies:
 - WP02
 requirement_refs: [FR-007, FR-009, FR-014, FR-017, FR-023]
@@ -14,10 +14,11 @@ created_at: '2026-03-31T17:09:35.424030+00:00'
 subtasks: [T028, T029, T030, T031, T032, T033]
 phase: Phase 1 - Feature Data Layers
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "16462"
-review_status: ''
-reviewed_by: ''
+agent: headless-reviewer
+shell_pid: '16462'
+review_status: "has_feedback"
+reviewed_by: "Sridhar Vadlamani"
+review_feedback: "feedback://005-frontend-game-integration-layer/WP07/20260331T173702Z-005af141.md"
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
@@ -317,3 +318,4 @@ cd frontend && just gen
 - 2026-03-31T14:38:17Z – headless-impl – shell_pid=95895 – lane=doing – Assigned agent via workflow command
 - 2026-03-31T17:30:12Z – headless-impl – shell_pid=89103 – lane=for_review – Ready for review: All 6 subtasks complete. Domain models with snake_case JSON, GameService with 409 idempotency, GameNotifier handling all 9 WS events, TimerProvider, GameContainerScreen with phase switching. 67 tests passing, zero analysis issues.
 - 2026-03-31T17:33:32Z – headless-reviewer – shell_pid=16462 – lane=doing – Started review via workflow command
+- 2026-03-31T17:37:03Z – headless-reviewer – shell_pid=16462 – lane=planned – Moved to planned
