@@ -12,16 +12,6 @@ import 'package:mocktail/mocktail.dart';
 
 import '../../../helpers/mock_websocket.dart';
 
-/// Drains the microtask queue by awaiting multiple zero-delay futures.
-/// This is needed when an async operation is triggered from a synchronous
-/// callback (like a WebSocket stream listener).
-Future<void> _pumpEventQueue() async {
-  // Multiple rounds to drain async chains
-  for (var i = 0; i < 5; i++) {
-    await Future<void>.delayed(Duration.zero);
-  }
-}
-
 class MockLobbyService extends Mock implements LobbyService {}
 
 class MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
@@ -126,7 +116,7 @@ void main() {
         container = createContainer();
 
         // Keep a listener alive so the auto-dispose provider stays active
-        final sub = container.listen(lobbyProvider('ABC123'), (_, __) {});
+        final sub = container.listen(lobbyProvider('ABC123'), (_, _) {});
         addTearDown(sub.close);
 
         // Wait for initial build
@@ -180,7 +170,7 @@ void main() {
       test('player_left triggers re-fetch of lobby state', () async {
         container = createContainer();
 
-        final sub = container.listen(lobbyProvider('ABC123'), (_, __) {});
+        final sub = container.listen(lobbyProvider('ABC123'), (_, _) {});
         addTearDown(sub.close);
 
         await container.read(lobbyProvider('ABC123').future);
