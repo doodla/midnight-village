@@ -19,32 +19,75 @@ fi
 
 cd "$CWD" || exit 0
 
-# Check if backend directory exists (might be running from root or backend/)
-BACKEND_DIR="$CWD"
-if [ -d "$CWD/backend" ]; then
-  BACKEND_DIR="$CWD/backend"
+# Determine what's staged
+STAGED_FILES=$(git diff --cached --name-only 2>/dev/null)
+
+HAS_BACKEND=$(echo "$STAGED_FILES" | grep -v '^frontend/' | grep -v '^$' | head -1)
+HAS_FRONTEND=$(echo "$STAGED_FILES" | grep '^frontend/' | head -1)
+
+FAILED=0
+
+# --- Backend checks ---
+if [ -n "$HAS_BACKEND" ]; then
+  BACKEND_DIR="$CWD"
+  if [ -d "$CWD/backend" ]; then
+    BACKEND_DIR="$CWD/backend"
+  fi
+
+  cd "$BACKEND_DIR" || exit 0
+
+  CHECK_OUTPUT=$(just check 2>&1)
+  if [ $? -ne 0 ]; then
+    echo "BLOCKED: Backend \`just check\` is failing. Fix lint/format/type errors before committing." >&2
+    echo "" >&2
+    echo "$CHECK_OUTPUT" | tail -20 >&2
+    FAILED=1
+  fi
+
+  TEST_OUTPUT=$(just test 2>&1)
+  if [ $? -ne 0 ]; then
+    echo "BLOCKED: Backend tests are failing. Fix them before committing." >&2
+    echo "" >&2
+    echo "$TEST_OUTPUT" | tail -20 >&2
+    FAILED=1
+  fi
 fi
 
-# Run quality checks
-cd "$BACKEND_DIR" || exit 0
+# --- Frontend checks ---
+if [ -n "$HAS_FRONTEND" ]; then
+  FRONTEND_DIR="$CWD"
+  if [ -d "$CWD/frontend" ]; then
+    FRONTEND_DIR="$CWD/frontend"
+  fi
 
-CHECK_OUTPUT=$(just check 2>&1)
-CHECK_EXIT=$?
+  cd "$FRONTEND_DIR" || exit 0
 
-if [ $CHECK_EXIT -ne 0 ]; then
-  echo "BLOCKED: \`just check\` is failing. Fix lint/format/type errors before committing." >&2
-  echo "" >&2
-  echo "$CHECK_OUTPUT" | tail -20 >&2
-  exit 2
+  ANALYZE_OUTPUT=$(just analyze 2>&1)
+  if [ $? -ne 0 ]; then
+    echo "BLOCKED: Frontend \`just analyze\` is failing. Fix analysis errors before committing." >&2
+    echo "" >&2
+    echo "$ANALYZE_OUTPUT" | tail -20 >&2
+    FAILED=1
+  fi
+
+  FORMAT_OUTPUT=$(just format-check 2>&1)
+  if [ $? -ne 0 ]; then
+    echo "BLOCKED: Frontend formatting check is failing. Run \`dart format\` before committing." >&2
+    echo "" >&2
+    echo "$FORMAT_OUTPUT" | tail -20 >&2
+    FAILED=1
+  fi
+
+  FTEST_OUTPUT=$(just test 2>&1)
+  if [ $? -ne 0 ]; then
+    echo "BLOCKED: Frontend tests are failing. Fix them before committing." >&2
+    echo "" >&2
+    echo "$FTEST_OUTPUT" | tail -20 >&2
+    FAILED=1
+  fi
 fi
 
-TEST_OUTPUT=$(just test 2>&1)
-TEST_EXIT=$?
-
-if [ $TEST_EXIT -ne 0 ]; then
-  echo "BLOCKED: Tests are failing. Fix them before committing." >&2
-  echo "" >&2
-  echo "$TEST_OUTPUT" | tail -20 >&2
+if [ $FAILED -ne 0 ]; then
   exit 2
 fi
 
