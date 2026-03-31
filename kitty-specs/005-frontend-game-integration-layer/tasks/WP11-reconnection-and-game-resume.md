@@ -1,7 +1,7 @@
 ---
 work_package_id: WP11
 title: Reconnection & Game Resume
-lane: planned
+lane: "doing"
 dependencies:
 - WP03
 requirement_refs:
@@ -12,12 +12,12 @@ merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
 base_branch: 005-frontend-game-integration-layer-WP03
 base_commit: 4c22703786ff7c9f6f7e8e9ea26cfc37f60c8e29
-created_at: '2026-03-31T14:40:18.260859+00:00'
+created_at: '2026-03-31T17:09:36.788841+00:00'
 subtasks: [T051, T052, T053, T054, T055]
 phase: Phase 3 - Polish
 assignee: ''
-agent: "headless-impl"
-shell_pid: "99269"
+agent: headless-impl
+shell_pid: "89103"
 review_status: ''
 reviewed_by: ''
 history:
