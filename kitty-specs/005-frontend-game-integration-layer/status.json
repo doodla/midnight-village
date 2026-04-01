@@ -1,17 +1,17 @@
 {
-  "event_count": 39,
+  "event_count": 41,
   "feature_slug": "005-frontend-game-integration-layer",
-  "last_event_id": "01KN397NBDJGQZ1A3JYMDH1H6K",
-  "materialized_at": "2026-04-01T01:06:26.798102+00:00",
+  "last_event_id": "01KN39EX9M0GBYACZM74KZ5QAT",
+  "materialized_at": "2026-04-01T01:10:24.309161+00:00",
   "summary": {
-    "approved": 1,
+    "approved": 0,
     "blocked": 0,
     "canceled": 0,
     "claimed": 0,
-    "done": 4,
+    "done": 5,
     "for_review": 0,
-    "in_progress": 2,
-    "planned": 0
+    "in_progress": 1,
+    "planned": 1
   },
   "work_packages": {
     "WP01": {
@@ -50,18 +50,18 @@
       "last_transition_at": "2026-04-01T01:00:15.537811+00:00"
     },
     "WP07": {
-      "actor": "user",
-      "force_count": 6,
-      "lane": "approved",
-      "last_event_id": "01KN397NBDJGQZ1A3JYMDH1H6K",
-      "last_transition_at": "2026-04-01T01:06:26.797737+00:00"
+      "actor": "headless-orchestrator",
+      "force_count": 7,
+      "lane": "done",
+      "last_event_id": "01KN398CDPDTTMZ4D3RFYQ1DJT",
+      "last_transition_at": "2026-04-01T01:06:50.422506+00:00"
     },
     "WP11": {
-      "actor": "headless-reviewer",
+      "actor": "user",
       "force_count": 5,
-      "lane": "in_progress",
-      "last_event_id": "01KN393NMQRBDH9SVK96GE2XX6",
-      "last_transition_at": "2026-04-01T01:04:16.023991+00:00"
+      "lane": "planned",
+      "last_event_id": "01KN39EX9M0GBYACZM74KZ5QAT",
+      "last_transition_at": "2026-04-01T01:10:24.308757+00:00"
     }
   }
 }
