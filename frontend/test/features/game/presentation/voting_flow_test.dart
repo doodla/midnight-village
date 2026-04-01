@@ -373,6 +373,77 @@ void main() {
     );
   });
 
+  group('Vote progress — per-player voted indicators', () {
+    Map<String, dynamic> votingPhaseJson3Players() => {
+      'game_id': 'test-game-id',
+      'phase': 'voting',
+      'current_wave': 0,
+      'deadline': null,
+      'your_role': {'original_role': 'seer', 'has_acted': false},
+      'has_voted': false,
+      'players': [
+        {'player_id': 1, 'display_name': 'Alice'},
+        {'player_id': 2, 'display_name': 'Bob'},
+        {'player_id': 3, 'display_name': 'Charlie'},
+      ],
+      'roles_in_game': [],
+    };
+
+    testWidgets(
+      'after vote_submitted for player 1, Alice shows voted indicator but not Bob or Charlie',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final http = MockHttpClient();
+        final ws = MockWebSocketChannel();
+
+        http
+            .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
+            .thenReturn(
+              Response(
+                requestOptions: RequestOptions(
+                  path: '/onuw/games/test-game-id/me/',
+                ),
+                statusCode: 200,
+                data: votingPhaseJson3Players(),
+              ),
+            );
+
+        final client = AuthenticatedClient.forTesting(dio: http.dio);
+
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            authenticatedClientProvider.overrideWithValue(client),
+            gameServiceProvider.overrideWithValue(GameService(client: client)),
+            gameWebSocketStreamProvider.overrideWith(
+              (ref, gameId) => ws.stream,
+            ),
+          ],
+        );
+
+        await tester.pumpAndSettle();
+
+        // No one has voted yet — no "voted" indicators.
+        expect(find.bySemanticsLabel('Alice voted'), findsNothing);
+        expect(find.bySemanticsLabel('Bob voted'), findsNothing);
+        expect(find.bySemanticsLabel('Charlie voted'), findsNothing);
+
+        // Inject vote_submitted event for player 1 (Alice).
+        ws.addServerEvent(
+          jsonEncode({'type': 'vote_submitted', 'player_id': 1}),
+        );
+        await tester.pump();
+
+        // Alice's indicator updates; Bob and Charlie remain unchanged.
+        expect(find.bySemanticsLabel('Alice voted'), findsOneWidget);
+        expect(find.bySemanticsLabel('Bob voted'), findsNothing);
+        expect(find.bySemanticsLabel('Charlie voted'), findsNothing);
+
+        handle.dispose();
+      },
+    );
+  });
+
   group('Voting phase — vote_submitted WS event integration', () {
     /// Default voting-phase JSON returned by the mock /me/ endpoint.
     Map<String, dynamic> votingPhaseJson() => {

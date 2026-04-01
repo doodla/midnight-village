@@ -6,6 +6,8 @@ import '../../../design_system/components/core/mv_loading.dart';
 import '../../../design_system/components/game/phase_indicator.dart';
 import '../../../design_system/components/game/vote_submission.dart';
 import '../../../design_system/components/foundation/atmospheric_background.dart';
+import '../../../design_system/components/foundation/player_avatar.dart';
+import '../../../design_system/models/avatar_size.dart';
 import '../../../design_system/models/game_phase.dart';
 import '../../../design_system/models/player_display.dart';
 import '../../../design_system/tokens/app_tokens_provider.dart';
@@ -222,6 +224,31 @@ class _VotingActiveView extends ConsumerWidget {
               color: tokens.colors.onBackground,
             ),
             textAlign: TextAlign.center,
+          ),
+        ),
+
+        // Per-player voted indicators — checkmark badge for each player who
+        // has voted. No vote targets revealed (only boolean voted status).
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: tokens.spacing.md),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: tokens.spacing.sm,
+            runSpacing: tokens.spacing.xs,
+            children: players.map((player) {
+              final voted = voteProgress.playerVoted[player.playerId] ?? false;
+              return Semantics(
+                label: voted
+                    ? '${player.displayName} voted'
+                    : player.displayName,
+                excludeSemantics: true,
+                child: PlayerAvatar(
+                  displayName: player.displayName,
+                  size: AvatarSize.small,
+                  sigil: voted ? Icons.check : null,
+                ),
+              );
+            }).toList(),
           ),
         ),
 
