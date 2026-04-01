@@ -354,3 +354,79 @@ class TestDoppelgangerWave1Followup:
         # Game should advance past wave 1 (to wave 2 for Werewolves)
         game.refresh_from_db()
         assert game.current_wave > 1 or game.phase != Phase.NIGHT
+
+
+class TestDoppelgangerFollowupTimeout:
+    """Timer-based timeout of Doppelganger follow-up actions."""
+
+    def test_followup_timer_callback_advances_wave(self, db):
+        """
+        When Doppelganger times out on their wave-1 follow-up action,
+        the timer callback must advance the wave without crashing.
+
+        Regression: functools.partial in _send_doppelganger_followup_prompt
+        pre-bound both positional args to _auto_advance_wave. When
+        make_idempotent_callback's wrapper passed a fresh Game instance,
+        it became a third positional arg, causing TypeError.
+        """
+        from apps.onuw import timers
+
+        game, users_by_role, action_url = _setup_doppelganger_game(
+            role_assignments=["Doppelganger", "Seer", "Werewolf", "Villager"],
+            center_cards=["Robber", "Drunk", "Troublemaker"],
+        )
+
+        doppel = users_by_role["Doppelganger"][0]
+        seer = users_by_role["Seer"][0]
+
+        with _patch_channels():
+            from apps.onuw.services import start_night_phase
+
+            start_night_phase(game)
+
+        game.refresh_from_db()
+        assert game.current_wave == 1
+
+        # Cancel the initial wave timer so it doesn't interfere.
+        timers.cancel(f"{game.id}:wave:1")
+
+        # Submit the initial Doppelganger peek — copies Seer.
+        # Capture the follow-up timer callback instead of scheduling it.
+        captured: dict[str, tuple] = {}
+
+        def capture_schedule(key, delay, callback, *args):
+            captured[key] = (callback, args)
+
+        client = APIClient()
+        client.force_authenticate(user=doppel)
+
+        with (
+            _patch_channels(),
+            patch.object(timers, "schedule", side_effect=capture_schedule),
+        ):
+            response = client.post(
+                action_url,
+                {"action_type": "peek_player", "targets": {"player_id": seer.id}},
+                format="json",
+            )
+        assert response.status_code == status.HTTP_200_OK
+
+        # Game should still be in wave 1 (awaiting follow-up).
+        game.refresh_from_db()
+        assert game.current_wave == 1
+
+        # The follow-up timer should have been scheduled.
+        timer_key = f"{game.id}:wave:1"
+        assert timer_key in captured, (
+            f"Expected follow-up timer {timer_key}, got {list(captured.keys())}"
+        )
+
+        # Invoke the callback directly (simulating timeout expiry).
+        # With the bug, this raises TypeError.
+        callback, args = captured[timer_key]
+        with _patch_channels():
+            callback(*args)
+
+        # Game should have advanced past wave 1.
+        game.refresh_from_db()
+        assert game.current_wave > 1 or game.phase != Phase.NIGHT

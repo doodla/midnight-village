@@ -432,7 +432,7 @@ def _send_doppelganger_followup_prompt(
     wave_seconds = get_timer_seconds(game, "night_wave_seconds", 30)
     if wave_seconds > 0:
         callback = timers.make_idempotent_callback(
-            game.id, Phase.NIGHT, functools.partial(_auto_advance_wave, game, 1)
+            game.id, Phase.NIGHT, functools.partial(_auto_advance_wave, wave_number=1)
         )
         timers.schedule(f"{game.id}:wave:1", wave_seconds, callback)
 
