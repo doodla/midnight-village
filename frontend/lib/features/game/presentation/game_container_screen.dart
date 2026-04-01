@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../auth/domain/auth_state.dart';
+import '../../auth/presentation/auth_notifier.dart';
 import '../../../design_system/components/core/mv_error.dart';
 import '../../../design_system/components/core/mv_loading.dart';
 import '../../../design_system/components/foundation/atmospheric_background.dart';
@@ -383,7 +385,15 @@ class _VotingActiveView extends ConsumerWidget {
     final votedCount = voteProgress.playerVoted.values.where((v) => v).length;
     final totalPlayers = players.length;
 
+    // Exclude the current player from vote targets (spec: no self-votes).
+    final authState = ref.watch(authProvider);
+    final currentUserId = switch (authState) {
+      AuthAuthenticated(:final user) => user.id,
+      _ => null,
+    };
+
     final playerDisplays = players
+        .where((p) => p.playerId != currentUserId)
         .map(
           (p) => PlayerDisplay(
             id: p.playerId.toString(),

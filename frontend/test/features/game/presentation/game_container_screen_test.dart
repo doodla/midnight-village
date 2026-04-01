@@ -3,8 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/game/center_cards.dart';
 import 'package:midnight_village/design_system/components/game/night_action_prompt.dart';
+import 'package:midnight_village/design_system/components/game/vote_submission.dart';
+import 'package:midnight_village/features/auth/domain/auth_state.dart';
+import 'package:midnight_village/features/auth/domain/user.dart';
+import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
+import 'package:midnight_village/features/game/domain/voting_state.dart';
 import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
@@ -497,6 +502,130 @@ void main() {
           expect(find.text('Bob'), findsOneWidget);
         },
       );
+    });
+
+    // -----------------------------------------------------------------------
+    // Voting phase: self-vote exclusion
+    // -----------------------------------------------------------------------
+
+    group('voting phase self-vote exclusion', () {
+      // Use a tall logical size so VoteSubmission (which uses Expanded) fits.
+      const testScreenSize = Size(400, 900);
+
+      testWidgets(
+        'current player is excluded from VoteSubmission selectable targets',
+        (tester) async {
+          tester.view.physicalSize =
+              testScreenSize * tester.view.devicePixelRatio;
+          addTearDown(tester.view.resetPhysicalSize);
+
+          // Alice (id=1) is the current authenticated user.
+          // The voting view should NOT include Alice in the selectable list.
+          final state = GameSessionState(
+            gameId: 'test-game-id',
+            phase: 'voting',
+            yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
+            players: const [
+              GamePlayer(playerId: 1, displayName: 'Alice'),
+              GamePlayer(playerId: 2, displayName: 'Bob'),
+              GamePlayer(playerId: 3, displayName: 'Carol'),
+            ],
+            voteProgress: const VoteProgress(),
+          );
+
+          await tester.pumpWithTokens(
+            const GameContainerScreen(gameId: 'test-game-id'),
+            overrides: [
+              gameProvider(
+                'test-game-id',
+              ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+              authProvider.overrideWithValue(
+                AuthState.authenticated(User(id: 1, displayName: 'Alice')),
+              ),
+            ],
+          );
+
+          // The VoteSubmission renders player names as Text widgets inside
+          // PlayerCircle. The vote progress section uses PlayerAvatar
+          // (initials only, no Text with full name).
+          //
+          // After the fix, Alice must NOT appear as a selectable target.
+          // Bob and Carol must still appear.
+          final voteSubmissionFinder = find.byType(VoteSubmission);
+          expect(
+            voteSubmissionFinder,
+            findsOneWidget,
+            reason: 'VoteSubmission must be rendered in voting phase',
+          );
+
+          // Find text widgets that are descendants of VoteSubmission.
+          expect(
+            find.descendant(
+              of: voteSubmissionFinder,
+              matching: find.text('Alice'),
+            ),
+            findsNothing,
+            reason:
+                'Current player (Alice) must not appear as a vote target in VoteSubmission',
+          );
+          expect(
+            find.descendant(
+              of: voteSubmissionFinder,
+              matching: find.text('Bob'),
+            ),
+            findsOneWidget,
+            reason: 'Other player (Bob) must appear as a vote target',
+          );
+          expect(
+            find.descendant(
+              of: voteSubmissionFinder,
+              matching: find.text('Carol'),
+            ),
+            findsOneWidget,
+            reason: 'Other player (Carol) must appear as a vote target',
+          );
+        },
+      );
+
+      testWidgets('current player still appears in vote progress avatars', (
+        tester,
+      ) async {
+        tester.view.physicalSize =
+            testScreenSize * tester.view.devicePixelRatio;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final state = GameSessionState(
+          gameId: 'test-game-id',
+          phase: 'voting',
+          yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
+          players: const [
+            GamePlayer(playerId: 1, displayName: 'Alice'),
+            GamePlayer(playerId: 2, displayName: 'Bob'),
+            GamePlayer(playerId: 3, displayName: 'Carol'),
+          ],
+          voteProgress: const VoteProgress(),
+        );
+
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            gameProvider(
+              'test-game-id',
+            ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+            authProvider.overrideWithValue(
+              AuthState.authenticated(User(id: 1, displayName: 'Alice')),
+            ),
+          ],
+        );
+
+        // The vote progress section shows all 3 players — verify all
+        // 3 contribute to the "X of Y voted" count.
+        expect(
+          find.text('0 of 3 voted'),
+          findsOneWidget,
+          reason: 'Vote progress must count all players including current user',
+        );
+      });
     });
   });
 }
