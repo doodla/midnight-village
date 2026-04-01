@@ -41,7 +41,9 @@ class VoteReveal extends ConsumerWidget {
     final Map<String, String> nameById = {};
     for (final v in votes) {
       nameById[v.voterId] = v.voterName;
-      nameById[v.targetId] = v.targetName;
+      if (v.targetId != null && v.targetName != null) {
+        nameById[v.targetId!] = v.targetName!;
+      }
     }
 
     return SingleChildScrollView(
@@ -63,7 +65,9 @@ class VoteReveal extends ConsumerWidget {
             (vote) => Padding(
               padding: EdgeInsets.only(bottom: tokens.spacing.xs),
               child: Text(
-                '${vote.voterName} voted for ${vote.targetName}',
+                vote.targetName != null
+                    ? '${vote.voterName} voted for ${vote.targetName}'
+                    : '${vote.voterName} abstained',
                 style: tokens.typography.body.copyWith(
                   color: tokens.colors.onBackground,
                 ),

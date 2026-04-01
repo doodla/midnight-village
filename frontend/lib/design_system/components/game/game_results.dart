@@ -199,10 +199,16 @@ class _PlayerResultRow extends ConsumerWidget {
                     ),
                     if (player.isEliminated) ...[
                       SizedBox(width: tokens.spacing.xs),
-                      Text(
-                        '(eliminated)',
-                        style: tokens.typography.caption.copyWith(
-                          color: tokens.colors.error,
+                      Flexible(
+                        child: Text(
+                          player.eliminationReason ==
+                                  EliminationReason.hunterChain
+                              ? '(eliminated by Hunter)'
+                              : '(eliminated)',
+                          style: tokens.typography.caption.copyWith(
+                            color: tokens.colors.error,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../design_system/components/core/mv_error.dart';
 import '../../../design_system/components/core/mv_loading.dart';
 import '../../../design_system/components/foundation/atmospheric_background.dart';
 import '../../../design_system/components/foundation/player_avatar.dart';
+import '../../../design_system/components/game/game_results.dart';
 import '../../../design_system/components/game/night_action_prompt.dart';
 import '../../../design_system/components/game/phase_indicator.dart';
 import '../../../design_system/components/game/vote_submission.dart';
 import '../../../design_system/models/avatar_size.dart';
 import '../../../design_system/models/game_phase.dart';
+import '../../../design_system/models/game_result.dart';
 import '../../../design_system/models/night_action.dart';
 import '../../../design_system/models/player_display.dart';
 import '../../../design_system/models/role.dart';
@@ -108,10 +111,7 @@ class GameContainerScreen extends ConsumerWidget {
             ref.read(gameProvider(gameId).notifier).endDiscussion(),
       ),
       'voting' => _buildVotingView(ref, gameState),
-      'results' => const _PlaceholderView(
-        key: ValueKey('results'),
-        label: 'Results',
-      ),
+      'results' => _buildResultsView(context, gameState.results),
       _ => _PlaceholderView(
         key: ValueKey('unknown-${gameState.phase}'),
         label: 'Unknown phase: ${gameState.phase}',
@@ -168,14 +168,12 @@ class GameContainerScreen extends ConsumerWidget {
     final playerRole = _parseRoleId(gameState.yourRole.originalRole);
     final notifier = ref.read(gameProvider(gameId).notifier);
 
-    // For seeTeam, filter players to teammates only (from validTargets).
     final players = _buildPlayerDisplayList(
       actionType: actionType,
       prompt: prompt,
       allPlayers: gameState.players,
     );
 
-    // Read current timer value from the deadline-based timer provider.
     final timerAsync = ref.watch(gameTimerProvider(gameState.deadline));
     final timeRemaining = timerAsync.asData?.value ?? Duration.zero;
 
@@ -191,7 +189,6 @@ class GameContainerScreen extends ConsumerWidget {
     );
   }
 
-  /// Builds the player display list for the given action type.
   List<PlayerDisplay> _buildPlayerDisplayList({
     required NightActionType actionType,
     required ActionPrompt prompt,
@@ -215,7 +212,6 @@ class GameContainerScreen extends ConsumerWidget {
     displayName: player.displayName,
   );
 
-  /// Translates a [NightActionSelection] to [GameNotifier.submitAction] params.
   void _handleActionSubmitted(
     NightActionSelection selection,
     String actionTypeStr,
@@ -239,7 +235,20 @@ class GameContainerScreen extends ConsumerWidget {
     notifier.submitAction(actionTypeStr, targets);
   }
 
-  /// Builds the voting phase view.
+  Widget _buildResultsView(BuildContext context, GameResult? results) {
+    if (results == null) {
+      return const _PlaceholderView(
+        key: ValueKey('results-loading'),
+        label: 'Loading results...',
+      );
+    }
+    return GameResults(
+      key: const ValueKey('results'),
+      result: results,
+      onReturnToLobby: () => context.go('/'),
+    );
+  }
+
   Widget _buildVotingView(WidgetRef ref, GameSessionState gameState) {
     if (gameState.voteRevealData != null) {
       return _VoteRevealIntermediateView(
@@ -257,7 +266,6 @@ class GameContainerScreen extends ConsumerWidget {
     );
   }
 
-  /// Parses a phase string from the server into a [GamePhase] enum.
   GamePhase _parseGamePhase(String phase) {
     return switch (phase) {
       'night' => GamePhase.night,
@@ -269,7 +277,6 @@ class GameContainerScreen extends ConsumerWidget {
   }
 }
 
-/// Parses a server-provided role string to a [RoleId].
 RoleId _parseRoleId(String role) => switch (role.toLowerCase()) {
   'werewolf' => RoleId.werewolf,
   'minion' => RoleId.minion,
@@ -286,7 +293,6 @@ RoleId _parseRoleId(String role) => switch (role.toLowerCase()) {
   _ => RoleId.villager,
 };
 
-/// Maps an action type string from the server to [NightActionType].
 NightActionType _parseActionType(String type) => switch (type) {
   'peek_player' => NightActionType.peekPlayer,
   'peek_center' => NightActionType.peekCenter,
@@ -298,10 +304,9 @@ NightActionType _parseActionType(String type) => switch (type) {
 };
 
 // ---------------------------------------------------------------------------
-// Voting active view — VoteSubmission + progress indicator
+// Voting active view
 // ---------------------------------------------------------------------------
 
-/// Shown during the voting phase before votes are revealed.
 class _VotingActiveView extends ConsumerWidget {
   final GameSessionState gameState;
   final void Function(int targetPlayerId) onVoteSubmitted;
@@ -336,7 +341,6 @@ class _VotingActiveView extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Vote progress indicator — shows count without revealing targets.
         Padding(
           padding: EdgeInsets.symmetric(
             horizontal: tokens.spacing.md,
@@ -350,9 +354,6 @@ class _VotingActiveView extends ConsumerWidget {
             textAlign: TextAlign.center,
           ),
         ),
-
-        // Per-player voted indicators — checkmark badge for each player who
-        // has voted. No vote targets revealed (only boolean voted status).
         Padding(
           padding: EdgeInsets.symmetric(horizontal: tokens.spacing.md),
           child: Wrap(
@@ -375,8 +376,6 @@ class _VotingActiveView extends ConsumerWidget {
             }).toList(),
           ),
         ),
-
-        // VoteSubmission widget wired to game notifier.
         Expanded(
           child: VoteSubmission(
             players: playerDisplays,
@@ -394,10 +393,9 @@ class _VotingActiveView extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Vote reveal intermediate view — tally before elimination data arrives
+// Vote reveal intermediate view
 // ---------------------------------------------------------------------------
 
-/// Shown after the `vote_reveal` WebSocket event, before `game_results`.
 class _VoteRevealIntermediateView extends ConsumerWidget {
   final VoteRevealData voteRevealData;
   final List<GamePlayer> players;
@@ -412,7 +410,6 @@ class _VoteRevealIntermediateView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = ref.watch(activeThemeProvider);
 
-    // Build ID → name lookup from the player list.
     final nameById = <String, String>{
       for (final p in players) p.playerId.toString(): p.displayName,
     };
@@ -429,8 +426,6 @@ class _VoteRevealIntermediateView extends ConsumerWidget {
             ),
           ),
           SizedBox(height: _kTallyHeaderGap),
-
-          // Per-voter entry: "Alice voted for Bob" or "Alice abstained".
           ...voteRevealData.votes.entries.map((entry) {
             final voterName = nameById[entry.key] ?? entry.key;
             if (entry.value == null) {
@@ -456,10 +451,7 @@ class _VoteRevealIntermediateView extends ConsumerWidget {
               ),
             );
           }),
-
           SizedBox(height: tokens.spacing.lg),
-
-          // Tally section.
           Text(
             'Tally',
             style: tokens.typography.heading.copyWith(
@@ -467,7 +459,6 @@ class _VoteRevealIntermediateView extends ConsumerWidget {
             ),
           ),
           SizedBox(height: _kTallyHeaderGap),
-
           ...(voteRevealData.tally.entries.toList()
                 ..sort((a, b) => b.value.compareTo(a.value)))
               .map((entry) {
@@ -494,10 +485,7 @@ class _VoteRevealIntermediateView extends ConsumerWidget {
                   ),
                 );
               }),
-
           SizedBox(height: tokens.spacing.md),
-
-          // Calculating results indicator.
           Text(
             'Calculating results...',
             style: tokens.typography.caption.copyWith(
@@ -512,10 +500,9 @@ class _VoteRevealIntermediateView extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Placeholder view (used for phases not yet implemented)
+// Placeholder view
 // ---------------------------------------------------------------------------
 
-/// Placeholder view for phases not yet implemented (e.g. results).
 class _PlaceholderView extends StatelessWidget {
   const _PlaceholderView({super.key, required this.label});
 

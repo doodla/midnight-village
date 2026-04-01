@@ -3,13 +3,20 @@ import 'package:midnight_village/design_system/models/role.dart';
 
 part 'game_result.freezed.dart';
 
+/// Why a player was eliminated.
+enum EliminationReason { vote, hunterChain }
+
 @freezed
 abstract class VoteResult with _$VoteResult {
   const factory VoteResult({
     required String voterId,
     required String voterName,
-    required String targetId,
-    required String targetName,
+
+    /// Null for abstaining players.
+    String? targetId,
+
+    /// Null for abstaining players.
+    String? targetName,
   }) = _VoteResult;
 }
 
@@ -23,6 +30,15 @@ abstract class PlayerResult with _$PlayerResult {
     required TeamId team,
     required bool isEliminated,
     required bool isWinner,
+
+    /// Who this player voted for (null for abstainers).
+    String? voteTargetId,
+
+    /// Display name of the vote target (null for abstainers).
+    String? voteTargetName,
+
+    /// How this player was eliminated (null if not eliminated).
+    EliminationReason? eliminationReason,
   }) = _PlayerResult;
 }
 
@@ -31,5 +47,11 @@ abstract class GameResult with _$GameResult {
   const factory GameResult({
     required List<TeamId> winningTeams,
     required List<PlayerResult> players,
+
+    /// Per-player vote pairs. Uses @Default([]) for backward compat.
+    @Default([]) List<VoteResult> votes,
+
+    /// Final center card identities. Uses @Default([]) for backward compat.
+    @Default([]) List<RoleId> centerCards,
   }) = _GameResult;
 }

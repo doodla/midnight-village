@@ -62,6 +62,14 @@ const _voteCarolAlice = VoteResult(
   targetName: 'Alice',
 );
 
+/// An abstaining voter (no target).
+const _voteAliceAbstain = VoteResult(
+  voterId: 'p1',
+  voterName: 'Alice',
+  targetId: null,
+  targetName: null,
+);
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -201,5 +209,21 @@ void main() {
     await _pump(tester, votes: [], tally: {}, eliminatedPlayerIds: []);
 
     expect(find.text('No one was eliminated!'), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // Abstainer: shows "{VoterName} abstained" instead of "voted for"
+  // -------------------------------------------------------------------------
+
+  testWidgets('abstainer shows "{VoterName} abstained"', (tester) async {
+    await _pump(
+      tester,
+      votes: [_voteAliceAbstain],
+      tally: {},
+      eliminatedPlayerIds: [],
+    );
+
+    expect(find.text('Alice abstained'), findsOneWidget);
+    expect(find.textContaining('voted for'), findsNothing);
   });
 }

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/logging/app_logger.dart';
+import '../../../design_system/models/game_result.dart';
+import '../../../design_system/models/role.dart';
 import '../data/game_service.dart';
 import '../domain/game_session_state.dart';
 import '../domain/night_state.dart';
@@ -360,17 +362,88 @@ class GameNotifier extends _$GameNotifier {
     if (!ref.mounted) return;
     try {
       final service = ref.read(gameServiceProvider);
-      await service.fetchResults(gameId);
+      final data = await service.fetchResults(gameId);
       if (!ref.mounted) return;
-      // Results are stored on the server -- for now, just transition to
-      // results phase. The GameContainerScreen will show a results view
-      // that fetches the full data.
-      _updateState((state) {
-        return state.copyWith(phase: 'results');
+
+      // Map the raw results JSON to a GameResult model.
+      final currentPlayers = state.value?.players ?? [];
+      final gameResult = _parseGameResult(data, currentPlayers);
+
+      _updateState((s) {
+        return s.copyWith(phase: 'results', results: gameResult);
       });
     } catch (e) {
       logger.e('GameNotifier: Failed to fetch results fallback', error: e);
     }
+  }
+
+  /// Maps raw results JSON from the server to a [GameResult] model.
+  GameResult _parseGameResult(
+    Map<String, dynamic> data,
+    List<GamePlayer> players,
+  ) {
+    // Build a player-ID-to-display-name lookup for vote target names.
+    final playerNames = {
+      for (final p in players) p.playerId.toString(): p.displayName,
+    };
+
+    final winningTeams = (data['winning_teams'] as List<dynamic>? ?? [])
+        .map((t) => _parseTeamId(t as String))
+        .whereType<TeamId>()
+        .toList();
+
+    final centerCards = (data['center_cards'] as List<dynamic>? ?? [])
+        .map((r) => _parseRoleId(r as String))
+        .whereType<RoleId>()
+        .toList();
+
+    final playerResults = (data['players'] as List<dynamic>? ?? []).map((raw) {
+      final p = raw as Map<String, dynamic>;
+      final playerId = p['player_id'];
+      final playerIdStr = playerId?.toString() ?? '';
+      final voteTargetId = p['vote_target_id'];
+      final voteTargetIdStr = voteTargetId?.toString();
+      return PlayerResult(
+        id: playerIdStr,
+        displayName: p['display_name'] as String? ?? '',
+        originalRole:
+            _parseRoleId(p['original_role'] as String? ?? '') ??
+            RoleId.villager,
+        finalRole:
+            _parseRoleId(p['final_role'] as String? ?? '') ?? RoleId.villager,
+        team: _parseTeamId(p['team'] as String? ?? '') ?? TeamId.village,
+        isEliminated: p['is_eliminated'] as bool? ?? false,
+        isWinner: (p['outcome'] as String?) == 'win',
+        voteTargetId: voteTargetIdStr,
+        voteTargetName: voteTargetIdStr != null
+            ? playerNames[voteTargetIdStr]
+            : null,
+        eliminationReason: _parseEliminationReason(
+          p['elimination_reason'] as String?,
+        ),
+      );
+    }).toList();
+
+    final voteResults = (data['votes'] as List<dynamic>? ?? []).map((raw) {
+      final v = raw as Map<String, dynamic>;
+      final targetId = v['target_id'];
+      final targetIdStr = targetId?.toString();
+      return VoteResult(
+        voterId: v['voter_id'].toString(),
+        voterName: v['voter_name'] as String? ?? '',
+        targetId: targetIdStr,
+        targetName: targetIdStr != null
+            ? (v['target_name'] as String? ?? playerNames[targetIdStr])
+            : null,
+      );
+    }).toList();
+
+    return GameResult(
+      winningTeams: winningTeams,
+      players: playerResults,
+      votes: voteResults,
+      centerCards: centerCards,
+    );
   }
 
   /// Safely updates the current state if it's in the data state.
@@ -383,6 +456,39 @@ class GameNotifier extends _$GameNotifier {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Result parsing helpers (module-level for testability)
+// ---------------------------------------------------------------------------
+
+RoleId? _parseRoleId(String roleStr) => switch (roleStr) {
+  'werewolf' => RoleId.werewolf,
+  'minion' => RoleId.minion,
+  'villager' => RoleId.villager,
+  'seer' => RoleId.seer,
+  'robber' => RoleId.robber,
+  'troublemaker' => RoleId.troublemaker,
+  'drunk' => RoleId.drunk,
+  'insomniac' => RoleId.insomniac,
+  'mason' => RoleId.mason,
+  'hunter' => RoleId.hunter,
+  'tanner' => RoleId.tanner,
+  'doppelganger' => RoleId.doppelganger,
+  _ => null,
+};
+
+TeamId? _parseTeamId(String teamStr) => switch (teamStr) {
+  'werewolf' => TeamId.werewolf,
+  'village' => TeamId.village,
+  'independent' => TeamId.independent,
+  _ => null,
+};
+
+EliminationReason? _parseEliminationReason(String? reason) => switch (reason) {
+  'vote' => EliminationReason.vote,
+  'hunter_chain' => EliminationReason.hunterChain,
+  _ => null,
+};
 
 /// Provides the WebSocket stream for a given game ID.
 ///

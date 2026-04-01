@@ -284,21 +284,25 @@ void main() {
       expect(find.text('0 of 2 voted'), findsOneWidget);
     });
 
-    testWidgets('shows results phase placeholder', (tester) async {
-      final state = _makeState(phase: 'results');
-      await tester.pumpWithTokens(
-        const GameContainerScreen(gameId: 'test-game-id'),
-        overrides: [
-          gameProvider(
-            'test-game-id',
-          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
-        ],
-      );
+    testWidgets(
+      'shows "Loading results..." when results is null in results phase',
+      (tester) async {
+        final state = _makeState(phase: 'results');
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            gameProvider(
+              'test-game-id',
+            ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+          ],
+        );
 
-      // "Results" appears twice: once in the PhaseIndicator label
-      // and once as the placeholder view text.
-      expect(find.text('Results'), findsNWidgets(2));
-    });
+        // PhaseIndicator still shows 'Results' label.
+        expect(find.text('Results'), findsOneWidget);
+        // Placeholder shown while waiting for results data.
+        expect(find.text('Loading results...'), findsOneWidget);
+      },
+    );
 
     testWidgets('shows PhaseIndicator when in data state', (tester) async {
       final state = _makeState(phase: 'discussion');

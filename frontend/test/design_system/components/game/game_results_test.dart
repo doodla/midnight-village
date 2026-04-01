@@ -444,4 +444,93 @@ void main() {
       reason: 'Unchanged role must not show arrow',
     );
   });
+
+  // -------------------------------------------------------------------------
+  // Hunter chain elimination: shows "(eliminated by Hunter)"
+  // -------------------------------------------------------------------------
+
+  testWidgets('hunter chain elimination shows "(eliminated by Hunter)"', (
+    tester,
+  ) async {
+    final hunterVictim = const PlayerResult(
+      id: 'p6',
+      displayName: 'Frank',
+      originalRole: RoleId.villager,
+      finalRole: RoleId.villager,
+      team: TeamId.village,
+      isEliminated: true,
+      isWinner: false,
+      eliminationReason: EliminationReason.hunterChain,
+    );
+
+    await _pump(
+      tester,
+      result: GameResult(
+        winningTeams: const [TeamId.village],
+        players: [hunterVictim],
+      ),
+    );
+
+    expect(find.text('(eliminated by Hunter)'), findsOneWidget);
+    expect(find.text('(eliminated)'), findsNothing);
+  });
+
+  // -------------------------------------------------------------------------
+  // Standard elimination: shows "(eliminated)" not "(eliminated by Hunter)"
+  // -------------------------------------------------------------------------
+
+  testWidgets('vote elimination shows "(eliminated)" not hunter label', (
+    tester,
+  ) async {
+    final eliminatedByVote = const PlayerResult(
+      id: 'p7',
+      displayName: 'Grace',
+      originalRole: RoleId.werewolf,
+      finalRole: RoleId.werewolf,
+      team: TeamId.werewolf,
+      isEliminated: true,
+      isWinner: false,
+      eliminationReason: EliminationReason.vote,
+    );
+
+    await _pump(
+      tester,
+      result: GameResult(
+        winningTeams: const [TeamId.village],
+        players: [eliminatedByVote],
+      ),
+    );
+
+    expect(find.text('(eliminated)'), findsOneWidget);
+    expect(find.text('(eliminated by Hunter)'), findsNothing);
+  });
+
+  // -------------------------------------------------------------------------
+  // votes and centerCards fields: GameResult with new fields renders without error
+  // -------------------------------------------------------------------------
+
+  testWidgets('GameResult with votes and centerCards renders correctly', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      result: GameResult(
+        winningTeams: const [TeamId.village],
+        players: [_villagerPlayer(isEliminated: true)],
+        votes: const [
+          VoteResult(
+            voterId: 'p1',
+            voterName: 'Alice',
+            targetId: 'p2',
+            targetName: 'Bob',
+          ),
+        ],
+        centerCards: const [RoleId.werewolf, RoleId.villager],
+      ),
+    );
+
+    // Widget still renders correctly with new fields.
+    expect(find.text('Village wins!'), findsOneWidget);
+    expect(find.text('(eliminated)'), findsOneWidget);
+  });
 }
