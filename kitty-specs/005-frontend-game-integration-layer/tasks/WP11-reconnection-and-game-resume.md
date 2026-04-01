@@ -1,7 +1,7 @@
 ---
 work_package_id: WP11
 title: Reconnection & Game Resume
-lane: "doing"
+lane: "for_review"
 dependencies:
 - WP03
 requirement_refs:
@@ -16,11 +16,11 @@ created_at: '2026-03-31T17:09:36.788841+00:00'
 subtasks: [T051, T052, T053, T054, T055]
 phase: Phase 3 - Polish
 assignee: ''
-agent: "headless-impl"
-shell_pid: "26617"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback: "feedback://005-frontend-game-integration-layer/WP11/20260401T021249Z-83e2fe55.md"
+agent: headless-impl
+shell_pid: '26617'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
+review_feedback: feedback://005-frontend-game-integration-layer/WP11/20260401T021249Z-83e2fe55.md
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
@@ -216,3 +216,4 @@ cd frontend && just check
 - 2026-04-01T02:07:42Z – headless-reviewer – shell_pid=13489 – lane=doing – Started review via workflow command
 - 2026-04-01T02:12:49Z – headless-reviewer – shell_pid=13489 – lane=planned – Moved to planned
 - 2026-04-01T02:16:19Z – headless-impl – shell_pid=26617 – lane=doing – Started implementation via workflow command
+- 2026-04-01T02:19:13Z – headless-impl – shell_pid=26617 – lane=for_review – Addressed review feedback: replaced unauthenticated ApiClient with AuthenticatedClient in GameResumeService and provider, removed stale TODO, updated tests. 506 tests pass, flutter analyze clean.
