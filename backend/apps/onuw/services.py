@@ -19,7 +19,10 @@ from channels.layers import get_channel_layer
 
 from apps.onuw import timers
 
-from .engine.behaviors import get_doppelganger_followup_wave
+from .engine.behaviors import (
+    get_doppelganger_followup_wave,
+    is_effective_werewolf,
+)
 from .engine.night import get_required_actions, resolve_wave
 from .engine.roles import get_role
 from .engine.state import ActionResult, GameState, NightAction
@@ -758,8 +761,20 @@ def validate_night_action(
                 errors.append("Must target 2 different players.")
 
     elif action_type == "see_team":
-        # No targets required. Lone werewolf may optionally peek center.
+        # No targets required. Only a lone Werewolf may optionally peek center.
         if targets.get("center_index") is not None:
+            # Verify the player is acting as Werewolf and is the only one.
+            if acting_role != "Werewolf":
+                errors.append("Only a lone Werewolf may peek at a center card.")
+            else:
+                state = build_game_state(game)
+                other_werewolves = [
+                    pid
+                    for pid in state.player_roles
+                    if pid != pr.user_id and is_effective_werewolf(pid, state)
+                ]
+                if other_werewolves:
+                    errors.append("Only a lone Werewolf may peek at a center card.")
             idx = int(targets["center_index"])
             if idx < 0 or idx >= len(game.center_cards):
                 errors.append(
