@@ -159,11 +159,26 @@ class GameNotifier extends _$GameNotifier {
   }
 
   /// Stores the action result and transitions to actionResult sub-view.
+  ///
+  /// Injects `action_type` and `role_acting_as` into [ActionResult.revealedInfo]
+  /// so [NightResultView] can determine display logic without needing extra params.
   void _handleActionResult(Map<String, dynamic> data) {
     _updateState((state) {
+      final revealedInfo = Map<String, dynamic>.from(
+        data['revealed_info'] as Map,
+      );
+      // Inject action_type from the WS event top-level field.
+      if (data['action_type'] is String) {
+        revealedInfo['action_type'] = data['action_type'];
+      }
+      // Inject role_acting_as from current actionPrompt for see_team display.
+      if (state.actionPrompt != null &&
+          !revealedInfo.containsKey('role_acting_as')) {
+        revealedInfo['role_acting_as'] = state.actionPrompt!.roleActingAs;
+      }
       final result = ActionResult(
         wave: data['wave'] as int,
-        revealedInfo: Map<String, dynamic>.from(data['revealed_info'] as Map),
+        revealedInfo: revealedInfo,
       );
       return state.copyWith(
         lastActionResult: result,
@@ -191,18 +206,25 @@ class GameNotifier extends _$GameNotifier {
   }
 
   /// Updates phase and deadline on phase transition.
+  ///
+  /// Transitions to [NightSubView.roleReveal] when entering the night phase
+  /// for the first time. The role reveal auto-advance timer runs client-side
+  /// and transitions via [onRoleRevealComplete].
   void _handlePhaseChange(Map<String, dynamic> data) {
     _updateState((state) {
       final phase = data['phase'] as String;
       final deadlineStr = data['deadline'] as String?;
       final deadline = deadlineStr != null ? DateTime.parse(deadlineStr) : null;
+      final nightSubView = phase == 'night'
+          ? NightSubView.roleReveal
+          : NightSubView.waiting;
       return state.copyWith(
         phase: phase,
         deadline: deadline,
         // Reset night-specific state on phase change.
         actionPrompt: null,
         lastActionResult: null,
-        nightSubView: NightSubView.waiting,
+        nightSubView: nightSubView,
       );
     });
   }
@@ -259,6 +281,46 @@ class GameNotifier extends _$GameNotifier {
   // ---------------------------------------------------------------------------
   // Exposed action methods
   // ---------------------------------------------------------------------------
+
+  /// Called by [RoleRevealView] after the 4-second auto-advance timer fires.
+  ///
+  /// Transitions to the appropriate night sub-view based on whether an action
+  /// prompt is available.
+  void onRoleRevealComplete() {
+    _updateState((state) {
+      if (state.actionPrompt != null) {
+        final subView = state.actionPrompt!.actionTypes.length > 1
+            ? NightSubView.seerChoice
+            : NightSubView.actionPrompt;
+        return state.copyWith(nightSubView: subView);
+      }
+      return state.copyWith(nightSubView: NightSubView.waiting);
+    });
+  }
+
+  /// Called by [SeerChoiceView] when the player picks peek_player or peek_center.
+  ///
+  /// Narrows the action prompt to the selected action type and transitions to
+  /// [NightSubView.actionPrompt].
+  void selectSeerChoice(String actionType) {
+    _updateState((state) {
+      if (state.actionPrompt == null) return state;
+      return state.copyWith(
+        actionPrompt: state.actionPrompt!.copyWith(actionTypes: [actionType]),
+        nightSubView: NightSubView.actionPrompt,
+      );
+    });
+  }
+
+  /// Called by [NightResultView] when a lone-werewolf see_team result is shown.
+  ///
+  /// Transitions to [NightSubView.loneWerewolfPeek] so the player can
+  /// optionally peek at one center card.
+  void transitionToLoneWerewolfPeek() {
+    _updateState((state) {
+      return state.copyWith(nightSubView: NightSubView.loneWerewolfPeek);
+    });
+  }
 
   /// Submits a night action.
   Future<void> submitAction(

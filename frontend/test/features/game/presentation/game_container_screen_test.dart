@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/components/game/center_cards.dart';
 import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
 import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
@@ -12,6 +13,8 @@ import '../../../design_system/test_helpers/pump_with_tokens.dart';
 GameSessionState _makeState({
   String phase = 'night',
   NightSubView nightSubView = NightSubView.waiting,
+  ActionPrompt? actionPrompt,
+  ActionResult? lastActionResult,
 }) => GameSessionState(
   gameId: 'test-game-id',
   phase: phase,
@@ -21,6 +24,8 @@ GameSessionState _makeState({
     GamePlayer(playerId: 2, displayName: 'Bob'),
   ],
   nightSubView: nightSubView,
+  actionPrompt: actionPrompt,
+  lastActionResult: lastActionResult,
 );
 
 void main() {
@@ -54,7 +59,9 @@ void main() {
       expect(find.text('Retry'), findsOneWidget);
     });
 
-    testWidgets('shows night waiting placeholder', (tester) async {
+    testWidgets('shows night waiting view for NightSubView.waiting', (
+      tester,
+    ) async {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.waiting,
@@ -68,13 +75,22 @@ void main() {
         ],
       );
 
-      expect(find.text('Night Waiting'), findsOneWidget);
+      // NightWaitingView renders "The village sleeps…"
+      expect(find.text('The village sleeps\u2026'), findsOneWidget);
     });
 
-    testWidgets('shows seer choice placeholder', (tester) async {
+    testWidgets('shows seer choice view for NightSubView.seerChoice', (
+      tester,
+    ) async {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.seerChoice,
+        actionPrompt: const ActionPrompt(
+          roleActingAs: 'Seer',
+          actionTypes: ['peek_player', 'peek_center'],
+          validTargets: {},
+          wave: 1,
+        ),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -85,30 +101,21 @@ void main() {
         ],
       );
 
-      expect(find.text('Seer Choice'), findsOneWidget);
+      // SeerChoiceView renders two choice buttons.
+      expect(find.text('Look at a player\'s card'), findsOneWidget);
+      expect(find.text('Look at two center cards'), findsOneWidget);
     });
 
-    testWidgets('shows night action placeholder', (tester) async {
-      final state = _makeState(
-        phase: 'night',
-        nightSubView: NightSubView.actionPrompt,
-      );
-      await tester.pumpWithTokens(
-        const GameContainerScreen(gameId: 'test-game-id'),
-        overrides: [
-          gameProvider(
-            'test-game-id',
-          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
-        ],
-      );
-
-      expect(find.text('Night Action'), findsOneWidget);
-    });
-
-    testWidgets('shows action result placeholder', (tester) async {
+    testWidgets('shows action result view for NightSubView.actionResult', (
+      tester,
+    ) async {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.actionResult,
+        lastActionResult: const ActionResult(
+          wave: 1,
+          revealedInfo: {'action_type': 'swap_with_center', 'card_index': 2},
+        ),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -119,10 +126,13 @@ void main() {
         ],
       );
 
-      expect(find.text('Action Result'), findsOneWidget);
+      // NightResultView for swap_with_center shows confirmation text.
+      expect(find.textContaining('center card'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('shows lone werewolf peek placeholder', (tester) async {
+    testWidgets('shows lone werewolf view for NightSubView.loneWerewolfPeek', (
+      tester,
+    ) async {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.loneWerewolfPeek,
@@ -136,7 +146,28 @@ void main() {
         ],
       );
 
-      expect(find.text('Lone Werewolf Peek'), findsOneWidget);
+      // LoneWerewolfPeekView renders CenterCards.
+      expect(find.byType(CenterCards), findsOneWidget);
+    });
+
+    testWidgets('shows role reveal view for NightSubView.roleReveal', (
+      tester,
+    ) async {
+      final state = _makeState(
+        phase: 'night',
+        nightSubView: NightSubView.roleReveal,
+      );
+      await tester.pumpWithTokens(
+        const GameContainerScreen(gameId: 'test-game-id'),
+        overrides: [
+          gameProvider(
+            'test-game-id',
+          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+        ],
+      );
+
+      // RoleRevealView renders "You are the" text.
+      expect(find.text('You are the'), findsOneWidget);
     });
 
     testWidgets('shows discussion phase placeholder', (tester) async {
@@ -198,6 +229,27 @@ void main() {
       expect(find.text('Disc.'), findsOneWidget);
       expect(find.text('Night'), findsOneWidget);
     });
+
+    testWidgets(
+      'falls back to waiting view when actionPrompt missing for seerChoice',
+      (tester) async {
+        final state = _makeState(
+          phase: 'night',
+          nightSubView: NightSubView.seerChoice,
+          // No actionPrompt provided — should fall back to waiting view.
+        );
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            gameProvider(
+              'test-game-id',
+            ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+          ],
+        );
+
+        expect(find.text('The village sleeps\u2026'), findsOneWidget);
+      },
+    );
   });
 }
 
