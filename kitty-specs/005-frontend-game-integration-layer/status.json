@@ -1,14 +1,14 @@
 {
-  "event_count": 57,
+  "event_count": 58,
   "feature_slug": "005-frontend-game-integration-layer",
-  "last_event_id": "01KN3B464104AVN8RHDKJJMYGR",
-  "materialized_at": "2026-04-01T01:39:30.050535+00:00",
+  "last_event_id": "01KN3B4VY15QKP4YPKYG0Z9DH6",
+  "materialized_at": "2026-04-01T01:39:52.385669+00:00",
   "summary": {
-    "approved": 1,
+    "approved": 0,
     "blocked": 0,
     "canceled": 0,
     "claimed": 0,
-    "done": 6,
+    "done": 7,
     "for_review": 0,
     "in_progress": 0,
     "planned": 2
@@ -50,11 +50,11 @@
       "last_transition_at": "2026-04-01T01:12:15.887561+00:00"
     },
     "WP06": {
-      "actor": "user",
-      "force_count": 6,
-      "lane": "approved",
-      "last_event_id": "01KN3B464104AVN8RHDKJJMYGR",
-      "last_transition_at": "2026-04-01T01:39:30.049665+00:00"
+      "actor": "headless-orchestrator",
+      "force_count": 7,
+      "lane": "done",
+      "last_event_id": "01KN3B4VY15QKP4YPKYG0Z9DH6",
+      "last_transition_at": "2026-04-01T01:39:52.385209+00:00"
     },
     "WP07": {
       "actor": "headless-orchestrator",
