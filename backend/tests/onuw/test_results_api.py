@@ -448,3 +448,53 @@ class TestResultsEndpoint:
         players_by_id = {p["player_id"]: p for p in response.data["players"]}
 
         assert players_by_id[users["host_dt"].id]["team"] == "werewolf"
+
+
+class TestLobbyLifecycleOnGameEnd:
+    """Tests for lobby status transition when a game reaches results."""
+
+    def test_lobby_transitions_to_finished_on_reveal(self, db):
+        """reveal_votes sets the lobby status to FINISHED atomically."""
+        game, _users, _ = _create_game_in_results(
+            {
+                "alice_lf": "Werewolf",
+                "bob_lf": "Seer",
+                "carol_lf": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            votes={
+                "alice_lf": "bob_lf",
+                "bob_lf": "alice_lf",
+                "carol_lf": "alice_lf",
+            },
+        )
+
+        lobby = game.lobby
+        lobby.refresh_from_db()
+        assert lobby.status == Lobby.Status.FINISHED
+
+    def test_lobby_finished_blocks_new_game_start(self, api_client, db):
+        """A FINISHED lobby cannot start a new game."""
+        game, _users, host = _create_game_in_results(
+            {
+                "host_fg": "Werewolf",
+                "p1_fg": "Seer",
+                "p2_fg": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            votes={
+                "host_fg": "p1_fg",
+                "p1_fg": "host_fg",
+                "p2_fg": "host_fg",
+            },
+        )
+
+        lobby = game.lobby
+        lobby.refresh_from_db()
+        assert lobby.status == Lobby.Status.FINISHED
+
+        # Attempting to start a new game from a finished lobby should fail
+        api_client.force_authenticate(user=host)
+        url = reverse("onuw:game-start", kwargs={"code": lobby.code})
+        response = api_client.post(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST

@@ -733,3 +733,37 @@ class TestVotingTimerLifecycle:
         timer_key = f"{game.id}:voting"
         with timers._lock:
             assert timer_key not in timers._registry
+
+    def test_reveal_votes_cleans_up_all_game_timers(self, db):
+        """
+        reveal_votes calls cancel_all_for_game to clean up any stray timers
+        (e.g. from a wave that was never properly cancelled).
+        """
+        game, users, _host = _make_game_with_players(player_count=3, voting_seconds=300)
+
+        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+            services.transition_to_voting(game)
+
+        # Manually inject a stale wave timer to simulate an orphaned timer
+        stale_key = f"{game.id}:wave:2"
+        timers.schedule(stale_key, 9999, lambda: None)
+
+        with timers._lock:
+            assert stale_key in timers._registry
+
+        # Submit all votes to trigger auto-reveal
+        usernames = list(users.keys())
+        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+            for i, name in enumerate(usernames):
+                target = users[usernames[(i + 1) % len(usernames)]].id
+                services.submit_vote(game, users[name].id, target)
+
+        game.refresh_from_db()
+        assert game.phase == Phase.RESULTS
+
+        # The stale timer should have been cleaned up by cancel_all_for_game
+        with timers._lock:
+            assert stale_key not in timers._registry
+            # No game timers should remain
+            game_keys = [k for k in timers._registry if k.startswith(f"{game.id}:")]
+            assert game_keys == []

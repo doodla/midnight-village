@@ -1031,7 +1031,8 @@ def reveal_votes(game: Game) -> None:
     # Compute win conditions
     result = evaluate_winner(eliminated, current_roles, doppelganger_copied)
 
-    # Transition to results phase and store results atomically
+    # Transition to results phase, store results, and finalize the lobby
+    # atomically so game and lobby state are always consistent.
     with transaction.atomic():
         game.phase = Phase.RESULTS
         game.phase_deadline = None
@@ -1043,6 +1044,15 @@ def reveal_votes(game: Game) -> None:
             "player_outcomes": {str(k): v for k, v in result.player_outcomes.items()},
         }
         game.save(update_fields=["phase", "phase_deadline", "results", "updated_at"])
+
+        from apps.core.models import Lobby
+
+        Lobby.objects.filter(id=game.lobby_id).update(status=Lobby.Status.FINISHED)
+
+    # Clean up all remaining timers for this game (safety net — individual
+    # timers are cancelled at each phase transition, but this catches any
+    # that were missed due to unusual flow).
+    timers.cancel_all_for_game(str(game.id))
 
     # Broadcast game results
     if channel_layer is not None:
