@@ -1,17 +1,20 @@
 ---
 work_package_id: WP08
 title: Night Phase Views
-lane: planned
+lane: "doing"
 dependencies: [WP07]
 requirement_refs: [FR-010, FR-011, FR-021, FR-022, FR-023, FR-026]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 005-frontend-game-integration-layer-WP07
+base_commit: 79976d3d3a2e2d4758e9ba041d57052947d6c577
+created_at: '2026-04-01T01:14:35.139737+00:00'
 subtasks: [T034, T035, T036, T037, T038, T039, T040]
 phase: Phase 2 - Feature UIs
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "29155"
 review_status: ''
 reviewed_by: ''
 history:
