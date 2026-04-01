@@ -24,7 +24,7 @@ from .engine.behaviors import (
     is_effective_werewolf,
 )
 from .engine.night import get_required_actions, resolve_wave
-from .engine.roles import get_role
+from .engine.roles import ActionType, get_role
 from .engine.state import ActionResult, GameState, NightAction
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
@@ -234,6 +234,27 @@ def start_night_phase(game: Game) -> None:
     send_wave_prompts(game, first_wave)
 
 
+def _timeout_action_type(role_acting_as: str) -> str:
+    """Determine the action type for a player who didn't submit before the timer.
+
+    Automatic roles (Insomniac, see_team roles) are auto-resolved rather than
+    skipped, because their actions require no player choice — the information
+    is revealed automatically per the ONUW rules. Skipping these would lose
+    information the player is entitled to (e.g., Insomniac not seeing their
+    current card after swaps).
+
+    Roles with meaningful player choices (Seer, Robber, Troublemaker, Drunk,
+    Doppelganger) are skipped — the player forfeited their choice by not
+    submitting.
+    """
+    role_def = get_role(role_acting_as)
+    if role_def.action_types == (ActionType.NONE,):
+        return "none"
+    if role_def.action_types == (ActionType.SEE_TEAM,):
+        return "see_team"
+    return "skip"
+
+
 def _auto_advance_wave(game: Game, wave_number: int) -> None:
     """Auto-advance a wave when its timer expires, marking non-actors as skipped."""
     if game.current_wave != wave_number:
@@ -336,13 +357,14 @@ def advance_wave(game: Game) -> None:
                 )
             )
         else:
-            # Player did not submit -- mark as skip
+            # Player did not submit — auto-resolve or skip.
             role_acting_as = _determine_acting_role(pr, wave)
+            action_type = _timeout_action_type(role_acting_as)
             night_actions.append(
                 NightAction(
                     player_id=pr.user_id,
                     role_acting_as=role_acting_as,
-                    action_type="skip",
+                    action_type=action_type,
                     targets={},
                 )
             )

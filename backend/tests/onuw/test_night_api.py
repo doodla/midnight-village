@@ -466,3 +466,140 @@ class TestWaveAdvancement:
             )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestTimeoutAutoResolution:
+    """Tests that automatic roles (Insomniac, see_team) are auto-resolved
+    rather than skipped when the wave timer expires without player submission.
+
+    Per ONUW rules, these actions require no player choice — the information
+    is revealed automatically. Skipping them on timeout would lose information
+    the player is entitled to see.
+    """
+
+    def test_insomniac_sees_current_role_on_timeout(self, api_client, db):
+        """When the wave timer expires without the Insomniac submitting,
+        they should still see their current role (auto-resolved, not skipped).
+
+        Before this fix, a timed-out Insomniac would get empty revealed_info,
+        losing the only chance to learn whether their card was swapped.
+        """
+        game, users = _create_game(
+            {
+                "host_ito": "Villager",
+                "p1_ito": "Insomniac",
+                "p2_ito": "Villager",
+                "p3_ito": "Villager",
+                "p4_ito": "Villager",
+            },
+            center_cards=["Werewolf", "Seer", "Robber"],
+            current_wave=4,
+        )
+
+        # Force-advance wave 4 WITHOUT the Insomniac submitting
+        api_client.force_authenticate(user=users["host_ito"])
+        with _patch_channels():
+            response = api_client.post(_advance_url(game.id), format="json")
+        assert response.status_code == status.HTTP_200_OK
+
+        # Insomniac should have auto-resolved result with their current role
+        insomniac_pr = PlayerRole.objects.get(game=game, user=users["p1_ito"])
+        assert "wave_4_result" in insomniac_pr.night_action_data
+        assert (
+            insomniac_pr.night_action_data["wave_4_result"]["current_role"]
+            == "Insomniac"
+        )
+
+    def test_insomniac_auto_resolve_logged_as_none_not_skip(self, api_client, db):
+        """Auto-resolved Insomniac action is logged as 'none', not 'skip'."""
+        game, users = _create_game(
+            {
+                "host_ial": "Villager",
+                "p1_ial": "Insomniac",
+                "p2_ial": "Villager",
+                "p3_ial": "Villager",
+                "p4_ial": "Villager",
+            },
+            center_cards=["Werewolf", "Seer", "Robber"],
+            current_wave=4,
+        )
+
+        api_client.force_authenticate(user=users["host_ial"])
+        with _patch_channels():
+            api_client.post(_advance_url(game.id), format="json")
+
+        game.refresh_from_db()
+        wave_4_entries = [e for e in game.night_actions_log if e["wave"] == 4]
+        assert len(wave_4_entries) == 1
+        assert wave_4_entries[0]["action_type"] == "none"
+
+    def test_werewolf_sees_teammates_on_timeout(self, api_client, db):
+        """When the wave timer expires without a Werewolf submitting,
+        they should still see their teammates (auto-resolved see_team)."""
+        game, users = _create_game(
+            {
+                "host_wto": "Werewolf",
+                "p1_wto": "Werewolf",
+                "p2_wto": "Villager",
+                "p3_wto": "Villager",
+                "p4_wto": "Villager",
+            },
+            center_cards=["Seer", "Robber", "Drunk"],
+            current_wave=2,
+        )
+
+        # Neither Werewolf submits. Host force-advances.
+        api_client.force_authenticate(user=users["host_wto"])
+        with _patch_channels():
+            api_client.post(_advance_url(game.id), format="json")
+
+        # Both Werewolves should have auto-resolved results with teammate info
+        pr_ww1 = PlayerRole.objects.get(game=game, user=users["host_wto"])
+        assert "wave_2_result" in pr_ww1.night_action_data
+        assert "werewolves" in pr_ww1.night_action_data["wave_2_result"]
+        assert (
+            users["p1_wto"].id
+            in pr_ww1.night_action_data["wave_2_result"]["werewolves"]
+        )
+
+        pr_ww2 = PlayerRole.objects.get(game=game, user=users["p1_wto"])
+        assert "wave_2_result" in pr_ww2.night_action_data
+        assert (
+            users["host_wto"].id
+            in pr_ww2.night_action_data["wave_2_result"]["werewolves"]
+        )
+
+    def test_seer_still_skipped_on_timeout(self, api_client, db):
+        """Roles with meaningful choices (Seer) are still skipped on timeout,
+        because the player forfeited their choice by not submitting."""
+        game, users = _create_game(
+            {
+                "host_sst": "Werewolf",
+                "p1_sst": "Seer",
+                "p2_sst": "Robber",
+                "p3_sst": "Villager",
+                "p4_sst": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            current_wave=3,
+        )
+
+        # Nobody submits in wave 3. Host force-advances.
+        api_client.force_authenticate(user=users["host_sst"])
+        with _patch_channels():
+            api_client.post(_advance_url(game.id), format="json")
+
+        # Seer should have been skipped (no result stored)
+        pr_seer = PlayerRole.objects.get(game=game, user=users["p1_sst"])
+        # Skip actions have empty revealed_info, so no wave_3_result is stored
+        assert "wave_3_result" not in pr_seer.night_action_data
+
+        # Action log should record "skip" for the Seer
+        game.refresh_from_db()
+        seer_entries = [
+            e
+            for e in game.night_actions_log
+            if e["player_id"] == users["p1_sst"].id and e["wave"] == 3
+        ]
+        assert len(seer_entries) == 1
+        assert seer_entries[0]["action_type"] == "skip"
