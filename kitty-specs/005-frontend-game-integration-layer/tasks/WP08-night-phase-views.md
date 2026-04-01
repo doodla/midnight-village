@@ -1,7 +1,7 @@
 ---
 work_package_id: WP08
 title: Night Phase Views
-lane: planned
+lane: "for_review"
 dependencies: [WP07]
 requirement_refs: [FR-010, FR-011, FR-021, FR-022, FR-023, FR-026]
 planning_base_branch: main
@@ -241,3 +241,4 @@ cd frontend && just gen
 - 2026-04-01T02:05:41Z – headless-reviewer – shell_pid=10412 – lane=doing – Started review via workflow command
 - 2026-04-01T02:10:47Z – headless-reviewer – shell_pid=10412 – lane=planned – Moved to planned
 - 2026-04-01T02:11:32Z – headless-impl – shell_pid=19015 – lane=doing – Started implementation via workflow command
+- 2026-04-01T02:18:19Z – headless-impl – shell_pid=19015 – lane=for_review – Addressed review feedback: added RoleCard to SeerChoiceView identity strip, replaced hardcoded icon size 64 with tokens.spacing.xxxl, added NightSubView.actionPrompt container test. 488 tests pass, analyzer clean.
