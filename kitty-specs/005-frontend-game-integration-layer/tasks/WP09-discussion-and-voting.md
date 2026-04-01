@@ -1,7 +1,7 @@
 ---
 work_package_id: WP09
 title: Discussion & Voting
-lane: "approved"
+lane: done
 dependencies: [WP07]
 requirement_refs: [FR-012, FR-015, FR-025]
 planning_base_branch: main
@@ -15,8 +15,8 @@ phase: Phase 2 - Feature UIs
 assignee: ''
 agent: headless-reviewer
 shell_pid: '51844'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 review_feedback: feedback://005-frontend-game-integration-layer/WP09/20260401T022709Z-0f55de6e.md
 history:
 - timestamp: '2026-03-31T07:30:22Z'
