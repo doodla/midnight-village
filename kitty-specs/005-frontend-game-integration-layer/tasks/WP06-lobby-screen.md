@@ -1,7 +1,7 @@
 ---
 work_package_id: WP06
 title: Lobby Screen
-lane: "doing"
+lane: in_progress
 dependencies: [WP05]
 requirement_refs:
 - FR-008
@@ -16,8 +16,8 @@ created_at: '2026-04-01T01:12:34.541175+00:00'
 subtasks: [T023, T024, T025, T026, T027]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "69381"
+agent: headless-reviewer
+shell_pid: '69381'
 review_status: has_feedback
 reviewed_by: Sridhar Vadlamani
 review_feedback: feedback://005-frontend-game-integration-layer/WP06/20260401T012937Z-4d8fc181.md
