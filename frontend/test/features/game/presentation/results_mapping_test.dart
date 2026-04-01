@@ -65,6 +65,7 @@ _createTestSetup({required Map<String, dynamic> resultsJson}) {
     overrides: [
       authenticatedClientProvider.overrideWithValue(client),
       gameServiceProvider.overrideWithValue(GameService(client: client)),
+      gameWebSocketProvider.overrideWith((ref, gameId) => null),
       gameWebSocketStreamProvider.overrideWith((ref, gameId) => ws.stream),
     ],
   );

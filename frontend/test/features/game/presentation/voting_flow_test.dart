@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/core/websocket/websocket_channel.dart';
 import 'package:midnight_village/design_system/components/game/vote_submission.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/data/game_service.dart';
@@ -336,8 +337,12 @@ void main() {
           overrides: [
             authenticatedClientProvider.overrideWithValue(client),
             gameServiceProvider.overrideWithValue(GameService(client: client)),
+            gameWebSocketProvider.overrideWith((ref, gameId) => null),
             gameWebSocketStreamProvider.overrideWith(
               (ref, gameId) => ws.stream,
+            ),
+            gameConnectionStateProvider.overrideWith(
+              (ref, gameId) => Stream.value(WebSocketConnectionState.connected),
             ),
           ],
         );
@@ -415,8 +420,12 @@ void main() {
           overrides: [
             authenticatedClientProvider.overrideWithValue(client),
             gameServiceProvider.overrideWithValue(GameService(client: client)),
+            gameWebSocketProvider.overrideWith((ref, gameId) => null),
             gameWebSocketStreamProvider.overrideWith(
               (ref, gameId) => ws.stream,
+            ),
+            gameConnectionStateProvider.overrideWith(
+              (ref, gameId) => Stream.value(WebSocketConnectionState.connected),
             ),
           ],
         );
@@ -486,8 +495,12 @@ void main() {
           overrides: [
             authenticatedClientProvider.overrideWithValue(client),
             gameServiceProvider.overrideWithValue(GameService(client: client)),
+            gameWebSocketProvider.overrideWith((ref, gameId) => null),
             gameWebSocketStreamProvider.overrideWith(
               (ref, gameId) => ws.stream,
+            ),
+            gameConnectionStateProvider.overrideWith(
+              (ref, gameId) => Stream.value(WebSocketConnectionState.connected),
             ),
           ],
         );

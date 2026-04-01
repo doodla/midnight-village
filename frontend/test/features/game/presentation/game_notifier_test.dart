@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
+import 'package:midnight_village/core/websocket/websocket_channel.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/data/game_service.dart';
 import 'package:midnight_village/features/game/domain/game_session_state.dart';
@@ -59,6 +62,7 @@ _createTestSetup({Map<String, dynamic>? gameMeJson}) {
     overrides: [
       authenticatedClientProvider.overrideWithValue(client),
       gameServiceProvider.overrideWithValue(GameService(client: client)),
+      gameWebSocketProvider.overrideWith((ref, gameId) => null),
       gameWebSocketStreamProvider.overrideWith((ref, gameId) => ws.stream),
     ],
   );
@@ -779,4 +783,320 @@ void main() {
       },
     );
   });
+
+  group('GameNotifier refreshState', () {
+    test('re-fetches state from server and re-hydrates', () async {
+      final (:container, :http, :ws) = _createTestSetup();
+      addTearDown(container.dispose);
+
+      final state = await _readGameState(container);
+      expect(state.phase, 'night');
+      expect(state.players.length, 3);
+
+      // Advance the server state — the game has moved to discussion phase.
+      http
+          .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(
+                path: '/onuw/games/test-game-id/me/',
+              ),
+              statusCode: 200,
+              data: {
+                ..._defaultGameMeJson(phase: 'discussion'),
+                'deadline': '2026-03-31T06:15:00.000Z',
+              },
+            ),
+          );
+
+      // Call refreshState.
+      await container
+          .read(gameProvider('test-game-id').notifier)
+          .refreshState();
+      await Future<void>.delayed(Duration.zero);
+
+      final refreshed = container.read(gameProvider('test-game-id')).value!;
+      expect(refreshed.phase, 'discussion');
+      expect(refreshed.deadline, isNotNull);
+    });
+
+    test('re-hydrates voting phase with vote progress', () async {
+      final (:container, :http, :ws) = _createTestSetup();
+      addTearDown(container.dispose);
+
+      await _readGameState(container);
+
+      // Server now shows voting phase with some votes in.
+      http
+          .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(
+                path: '/onuw/games/test-game-id/me/',
+              ),
+              statusCode: 200,
+              data: {
+                ..._defaultGameMeJson(phase: 'voting'),
+                'has_voted': true,
+                'players': [
+                  {'player_id': 1, 'display_name': 'Alice', 'has_voted': true},
+                  {'player_id': 2, 'display_name': 'Bob', 'has_voted': true},
+                  {
+                    'player_id': 3,
+                    'display_name': 'Charlie',
+                    'has_voted': false,
+                  },
+                ],
+              },
+            ),
+          );
+
+      await container
+          .read(gameProvider('test-game-id').notifier)
+          .refreshState();
+      await Future<void>.delayed(Duration.zero);
+
+      final refreshed = container.read(gameProvider('test-game-id')).value!;
+      expect(refreshed.phase, 'voting');
+      expect(refreshed.voteProgress.currentPlayerVoted, true);
+      expect(refreshed.voteProgress.playerVoted[1], true);
+      expect(refreshed.voteProgress.playerVoted[2], true);
+      expect(refreshed.voteProgress.playerVoted[3], false);
+    });
+
+    test('fetches results when refreshing into results phase', () async {
+      final (:container, :http, :ws) = _createTestSetup();
+      addTearDown(container.dispose);
+
+      await _readGameState(container);
+
+      // Server has moved to results.
+      http
+          .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(
+                path: '/onuw/games/test-game-id/me/',
+              ),
+              statusCode: 200,
+              data: _defaultGameMeJson(phase: 'results'),
+            ),
+          );
+      http
+          .when(method: 'GET', path: '/onuw/games/test-game-id/results/')
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(
+                path: '/onuw/games/test-game-id/results/',
+              ),
+              statusCode: 200,
+              data: {
+                'winning_teams': ['village'],
+                'players': [
+                  {
+                    'player_id': 1,
+                    'display_name': 'Alice',
+                    'original_role': 'Seer',
+                    'final_role': 'Seer',
+                    'team': 'village',
+                    'is_eliminated': false,
+                    'outcome': 'win',
+                    'vote_target_id': 2,
+                  },
+                ],
+                'center_cards': ['Drunk', 'Minion', 'Villager'],
+              },
+            ),
+          );
+
+      await container
+          .read(gameProvider('test-game-id').notifier)
+          .refreshState();
+      await Future<void>.delayed(Duration.zero);
+
+      final refreshed = container.read(gameProvider('test-game-id')).value!;
+      expect(refreshed.phase, 'results');
+      expect(refreshed.results, isNotNull);
+      expect(refreshed.results!.winningTeams.length, 1);
+    });
+  });
+
+  group('GameNotifier reconnection-triggered refresh', () {
+    test(
+      'refreshes state when WebSocket reconnects after disconnect',
+      () async {
+        final http = MockHttpClient();
+        final ws = MockWebSocketChannel();
+        final connectionController =
+            StreamController<WebSocketConnectionState>.broadcast(sync: true);
+
+        // Register the /me/ endpoint — initial load returns night phase.
+        http
+            .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
+            .thenReturn(
+              Response(
+                requestOptions: RequestOptions(
+                  path: '/onuw/games/test-game-id/me/',
+                ),
+                statusCode: 200,
+                data: _defaultGameMeJson(),
+              ),
+            );
+
+        final client = AuthenticatedClient.forTesting(dio: http.dio);
+
+        // Create a mock ReconnectingWebSocket that exposes controllable
+        // connectionState and message streams.
+        final mockRws = _MockReconnectingWebSocket(
+          stream: ws.stream,
+          connectionState: connectionController.stream,
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            authenticatedClientProvider.overrideWithValue(client),
+            gameServiceProvider.overrideWithValue(GameService(client: client)),
+            gameWebSocketProvider.overrideWith((ref, gameId) => mockRws),
+            gameWebSocketStreamProvider.overrideWith(
+              (ref, gameId) => ws.stream,
+            ),
+          ],
+        );
+        addTearDown(() {
+          container.dispose();
+          connectionController.close();
+        });
+
+        // Load initial state.
+        final state = await _readGameState(container);
+        expect(state.phase, 'night');
+
+        // Server state has advanced to discussion while we were disconnected.
+        http
+            .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
+            .thenReturn(
+              Response(
+                requestOptions: RequestOptions(
+                  path: '/onuw/games/test-game-id/me/',
+                ),
+                statusCode: 200,
+                data: _defaultGameMeJson(phase: 'discussion'),
+              ),
+            );
+
+        // Simulate disconnect then reconnect.
+        connectionController.add(WebSocketConnectionState.disconnected);
+        await Future<void>.delayed(Duration.zero);
+        connectionController.add(WebSocketConnectionState.reconnecting);
+        await Future<void>.delayed(Duration.zero);
+        connectionController.add(WebSocketConnectionState.connected);
+
+        // Allow the async refreshState chain to fully complete.
+        // refreshState() awaits service.getGameState() which is async, so we
+        // need enough microtask cycles for the Dio mock to resolve and the
+        // state assignment to fire.
+        for (var i = 0; i < 10; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        final refreshed = container.read(gameProvider('test-game-id')).value!;
+        expect(refreshed.phase, 'discussion');
+      },
+    );
+
+    test('initial connection does not trigger refresh', () async {
+      final http = MockHttpClient();
+      final ws = MockWebSocketChannel();
+      final connectionController =
+          StreamController<WebSocketConnectionState>.broadcast(sync: true);
+
+      http
+          .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(
+                path: '/onuw/games/test-game-id/me/',
+              ),
+              statusCode: 200,
+              data: _defaultGameMeJson(),
+            ),
+          );
+
+      final client = AuthenticatedClient.forTesting(dio: http.dio);
+
+      final mockRws = _MockReconnectingWebSocket(
+        stream: ws.stream,
+        connectionState: connectionController.stream,
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          authenticatedClientProvider.overrideWithValue(client),
+          gameServiceProvider.overrideWithValue(GameService(client: client)),
+          gameWebSocketProvider.overrideWith((ref, gameId) => mockRws),
+          gameWebSocketStreamProvider.overrideWith((ref, gameId) => ws.stream),
+        ],
+      );
+      addTearDown(() {
+        container.dispose();
+        connectionController.close();
+      });
+
+      await _readGameState(container);
+
+      // Change the server response to detect if a second fetch happens.
+      http
+          .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(
+                path: '/onuw/games/test-game-id/me/',
+              ),
+              statusCode: 200,
+              data: _defaultGameMeJson(phase: 'discussion'),
+            ),
+          );
+
+      // Simulate initial connection (no prior disconnect).
+      connectionController.add(WebSocketConnectionState.connected);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      // State should NOT have changed — no refresh was triggered.
+      final state = container.read(gameProvider('test-game-id')).value!;
+      expect(state.phase, 'night');
+    });
+  });
+}
+
+/// Minimal mock of [ReconnectingWebSocket] for testing reconnection behavior.
+///
+/// Provides controllable [stream] and [connectionState] streams without
+/// requiring a real network connection.
+class _MockReconnectingWebSocket implements ReconnectingWebSocket {
+  _MockReconnectingWebSocket({
+    required this.stream,
+    required this.connectionState,
+  });
+
+  @override
+  final Stream<dynamic> stream;
+
+  @override
+  final Stream<WebSocketConnectionState> connectionState;
+
+  @override
+  void send(dynamic data) {}
+
+  @override
+  Future<void> close([int? code, String? reason]) async {}
+
+  @override
+  bool get isClosed => false;
+
+  @override
+  Future<void> connect() async {}
+
+  @override
+  void dispose() {}
 }

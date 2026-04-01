@@ -20,11 +20,13 @@ import '../../../design_system/tokens/app_tokens_provider.dart';
 import '../domain/game_session_state.dart';
 import '../domain/night_state.dart';
 import '../domain/voting_state.dart';
+import '../../../core/websocket/websocket_channel.dart';
 import 'discussion_view.dart';
 import 'game_notifier.dart';
 import 'lone_werewolf_peek_view.dart';
 import 'night_result_view.dart';
 import 'night_waiting_view.dart';
+import 'reconnection_overlay.dart';
 import 'role_reveal_view.dart';
 import 'seer_choice_view.dart';
 import 'timer_provider.dart';
@@ -55,6 +57,16 @@ class GameContainerScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncState = ref.watch(gameProvider(gameId));
 
+    // Watch connection state to drive the reconnection overlay.
+    final connAsync = ref.watch(gameConnectionStateProvider(gameId));
+    final showOverlay =
+        connAsync.whenOrNull(
+          data: (connState) =>
+              connState == WebSocketConnectionState.disconnected ||
+              connState == WebSocketConnectionState.reconnecting,
+        ) ??
+        false;
+
     return asyncState.when(
       loading: () => const Scaffold(body: MvLoading()),
       error: (error, stack) => Scaffold(
@@ -67,27 +79,32 @@ class GameContainerScreen extends ConsumerWidget {
         final gamePhase = _parseGamePhase(gameState.phase);
 
         return Scaffold(
-          body: AtmosphericBackground(
-            phase: gamePhase,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: PhaseIndicator(currentPhase: gamePhase),
+          body: Stack(
+            children: [
+              AtmosphericBackground(
+                phase: gamePhase,
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 8.0,
+                        ),
+                        child: PhaseIndicator(currentPhase: gamePhase),
+                      ),
+                      Expanded(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 400),
+                          child: _buildPhaseView(context, ref, gameState),
+                        ),
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 400),
-                      child: _buildPhaseView(context, ref, gameState),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              ReconnectionOverlay(isVisible: showOverlay),
+            ],
           ),
         );
       },

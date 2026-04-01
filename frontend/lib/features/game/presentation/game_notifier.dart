@@ -7,6 +7,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/config/env.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
+import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/models/game_result.dart';
 import '../../../design_system/models/role.dart';
 import '../../auth/presentation/auth_notifier.dart';
@@ -29,7 +30,9 @@ part 'game_notifier.g.dart';
 @riverpod
 class GameNotifier extends _$GameNotifier {
   StreamSubscription<dynamic>? _wsSubscription;
+  StreamSubscription<WebSocketConnectionState>? _connectionSubscription;
   Timer? _resultsTimeout;
+  bool _wasDisconnected = false;
 
   /// WebSocket stream injected for testability.
   /// In production this comes from a ReconnectingWebSocket provider.
@@ -52,8 +55,19 @@ class GameNotifier extends _$GameNotifier {
       );
     }
 
+    // Listen to connection state for reconnection-triggered refresh.
+    // When the WebSocket reconnects after a disconnect, re-fetch authoritative
+    // state from the server to recover any events missed while disconnected.
+    final ws = ref.read(gameWebSocketProvider(gameId));
+    if (ws != null) {
+      _connectionSubscription = ws.connectionState.listen(
+        _handleConnectionStateChange,
+      );
+    }
+
     ref.onDispose(() {
       _wsSubscription?.cancel();
+      _connectionSubscription?.cancel();
       _resultsTimeout?.cancel();
     });
 
@@ -393,6 +407,63 @@ class GameNotifier extends _$GameNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // Reconnection handling
+  // ---------------------------------------------------------------------------
+
+  /// Handles WebSocket connection state transitions.
+  ///
+  /// When the connection is re-established after a disconnect, triggers
+  /// [refreshState] to re-fetch authoritative game state from the server,
+  /// recovering any events missed during the disconnection window.
+  void _handleConnectionStateChange(WebSocketConnectionState connState) {
+    if (connState == WebSocketConnectionState.connected && _wasDisconnected) {
+      _wasDisconnected = false;
+      logger.d('GameNotifier: Reconnected — refreshing state from server');
+      refreshState();
+    } else if (connState == WebSocketConnectionState.disconnected ||
+        connState == WebSocketConnectionState.reconnecting) {
+      _wasDisconnected = true;
+    }
+  }
+
+  /// Re-fetches authoritative game state from the server and re-hydrates
+  /// all frontend-only display state.
+  ///
+  /// Called automatically on WebSocket reconnection. Can also be called
+  /// manually if the caller suspects stale state.
+  Future<void> refreshState() async {
+    if (!ref.mounted) return;
+    try {
+      final service = ref.read(gameServiceProvider);
+      final freshState = await service.getGameState(gameId);
+      if (!ref.mounted) return;
+
+      var hydrated = _hydrateInitialState(freshState);
+
+      // If we reconnected into results phase, fetch full results.
+      if (hydrated.phase == 'results') {
+        try {
+          final data = await service.fetchResults(gameId);
+          if (!ref.mounted) return;
+          final gameResult = _parseGameResult(data, hydrated.players);
+          hydrated = hydrated.copyWith(results: gameResult);
+        } catch (e) {
+          logger.e(
+            'GameNotifier: Failed to fetch results on refresh',
+            error: e,
+          );
+        }
+      }
+
+      if (ref.mounted) {
+        state = AsyncData(hydrated);
+      }
+    } catch (e) {
+      logger.e('GameNotifier: Failed to refresh state', error: e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Internal helpers
   // ---------------------------------------------------------------------------
 
@@ -530,14 +601,15 @@ EliminationReason? _parseEliminationReason(String? reason) => switch (reason) {
   _ => null,
 };
 
-/// Provides the WebSocket stream for a given game ID.
+/// Provides the [ReconnectingWebSocket] instance for a given game ID.
 ///
-/// Constructs a [ReconnectingWebSocket] targeting `ws/game/<gameId>/`.
-/// In tests, override this provider with a MockWebSocketChannel.stream.
+/// Exposes the full instance so callers can access both [stream] (for game
+/// events) and [connectionState] (for reconnection tracking / overlay).
 ///
-/// Returns null when no WebSocket is available (e.g., in unit tests that
-/// test individual event handlers by calling them directly).
-final gameWebSocketStreamProvider = Provider.family<Stream<dynamic>?, String>((
+/// In tests, override [gameWebSocketStreamProvider] and
+/// [gameConnectionStateProvider] instead — those are the consumer-facing
+/// providers.
+final gameWebSocketProvider = Provider.family<ReconnectingWebSocket?, String>((
   ref,
   gameId,
 ) {
@@ -546,5 +618,34 @@ final gameWebSocketStreamProvider = Provider.family<Stream<dynamic>?, String>((
   final ws = ReconnectingWebSocket(url: url, tokenStorage: tokenStorage);
   unawaited(ws.connect());
   ref.onDispose(ws.dispose);
-  return ws.stream;
+  return ws;
+}, name: 'gameWebSocketProvider');
+
+/// Provides the WebSocket message stream for a given game ID.
+///
+/// Delegates to [gameWebSocketProvider]. In tests, override this provider
+/// with a MockWebSocketChannel.stream.
+///
+/// Returns null when no WebSocket is available (e.g., in unit tests that
+/// test individual event handlers by calling them directly).
+final gameWebSocketStreamProvider = Provider.family<Stream<dynamic>?, String>((
+  ref,
+  gameId,
+) {
+  return ref.watch(gameWebSocketProvider(gameId))?.stream;
 }, name: 'gameWebSocketStreamProvider');
+
+/// Provides the WebSocket connection state stream for a given game ID.
+///
+/// Used by [GameContainerScreen] to drive the [ReconnectionOverlay].
+/// Returns a stream of [WebSocketConnectionState] values.
+///
+/// In tests, override this provider to inject connection state transitions.
+final gameConnectionStateProvider =
+    StreamProvider.family<WebSocketConnectionState, String>((ref, gameId) {
+      final ws = ref.watch(gameWebSocketProvider(gameId));
+      if (ws == null) {
+        return Stream.value(WebSocketConnectionState.connected);
+      }
+      return ws.connectionState;
+    }, name: 'gameConnectionStateProvider');
