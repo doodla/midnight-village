@@ -620,7 +620,7 @@ Phase 3 (Polish):
 - WP05: done
 - WP06: done
 - WP07: done
-- WP08: in_progress
+- WP08: planned
 - WP09: planned
 - WP10: done
 - WP11: in_progress
