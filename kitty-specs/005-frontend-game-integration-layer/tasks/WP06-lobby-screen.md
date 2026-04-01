@@ -1,7 +1,7 @@
 ---
 work_package_id: WP06
 title: Lobby Screen
-lane: "doing"
+lane: "for_review"
 dependencies: [WP05]
 requirement_refs:
 - FR-008
@@ -16,8 +16,8 @@ created_at: '2026-04-01T01:12:34.541175+00:00'
 subtasks: [T023, T024, T025, T026, T027]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: "headless-impl"
-shell_pid: "26409"
+agent: headless-impl
+shell_pid: '26409'
 review_status: ''
 reviewed_by: ''
 history:
@@ -205,3 +205,4 @@ cd frontend && just gen
 
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
 - 2026-04-01T01:12:34Z – headless-impl – shell_pid=26409 – lane=doing – Assigned agent via workflow command
+- 2026-04-01T01:25:31Z – headless-impl – shell_pid=26409 – lane=for_review – Ready for review: lobby screen with role config controls, host-only start gating, atmospheric layout, and 24 widget tests covering all interactive states
