@@ -23,8 +23,9 @@ void main() {
       expect(find.byType(GameTimer), findsOneWidget);
     });
 
-    testWidgets('does not display GameTimer when deadline is null',
-        (tester) async {
+    testWidgets('does not display GameTimer when deadline is null', (
+      tester,
+    ) async {
       await tester.pumpWithTokens(const NightWaitingView(deadline: null));
 
       expect(find.byType(GameTimer), findsNothing);

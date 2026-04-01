@@ -8,7 +8,10 @@ void main() {
   group('LoneWerewolfPeekView', () {
     testWidgets('displays the lone werewolf prompt text', (tester) async {
       await tester.pumpWithTokens(
-        LoneWerewolfPeekView(centerCardCount: 3, onSubmit: (action, targets) async {}),
+        LoneWerewolfPeekView(
+          centerCardCount: 3,
+          onSubmit: (action, targets) async {},
+        ),
       );
 
       expect(find.textContaining('lone Werewolf'), findsAtLeastNWidgets(1));
@@ -16,7 +19,10 @@ void main() {
 
     testWidgets('displays CenterCards with 3 cards', (tester) async {
       await tester.pumpWithTokens(
-        LoneWerewolfPeekView(centerCardCount: 3, onSubmit: (action, targets) async {}),
+        LoneWerewolfPeekView(
+          centerCardCount: 3,
+          onSubmit: (action, targets) async {},
+        ),
       );
 
       expect(find.byType(CenterCards), findsOneWidget);
@@ -24,7 +30,10 @@ void main() {
 
     testWidgets('displays Peek and Skip buttons', (tester) async {
       await tester.pumpWithTokens(
-        LoneWerewolfPeekView(centerCardCount: 3, onSubmit: (action, targets) async {}),
+        LoneWerewolfPeekView(
+          centerCardCount: 3,
+          onSubmit: (action, targets) async {},
+        ),
       );
 
       expect(find.text('Peek'), findsOneWidget);
@@ -35,7 +44,10 @@ void main() {
       tester,
     ) async {
       await tester.pumpWithTokens(
-        LoneWerewolfPeekView(centerCardCount: 3, onSubmit: (action, targets) async {}),
+        LoneWerewolfPeekView(
+          centerCardCount: 3,
+          onSubmit: (action, targets) async {},
+        ),
       );
 
       // Initially, no card selected — Peek button should be disabled.
@@ -108,7 +120,10 @@ void main() {
 
     testWidgets('CenterCards has maxSelections of 1', (tester) async {
       await tester.pumpWithTokens(
-        LoneWerewolfPeekView(centerCardCount: 3, onSubmit: (action, targets) async {}),
+        LoneWerewolfPeekView(
+          centerCardCount: 3,
+          onSubmit: (action, targets) async {},
+        ),
       );
 
       final centerCards = tester.widget<CenterCards>(find.byType(CenterCards));
