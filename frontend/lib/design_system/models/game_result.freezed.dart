@@ -574,7 +574,8 @@ as EliminationReason?,
 /// @nodoc
 mixin _$GameResult {
 
- List<TeamId> get winningTeams; List<PlayerResult> get players;/// Per-player vote pairs. Uses @Default([]) for backward compat.
+ List<TeamId> get winningTeams; List<PlayerResult> get players;/// Human-readable explanation of why the winning team(s) won.
+ String get reason;/// Per-player vote pairs. Uses @Default([]) for backward compat.
  List<VoteResult> get votes;/// Final center card identities. Uses @Default([]) for backward compat.
  List<RoleId> get centerCards;
 /// Create a copy of GameResult
@@ -587,16 +588,16 @@ $GameResultCopyWith<GameResult> get copyWith => _$GameResultCopyWithImpl<GameRes
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is GameResult&&const DeepCollectionEquality().equals(other.winningTeams, winningTeams)&&const DeepCollectionEquality().equals(other.players, players)&&const DeepCollectionEquality().equals(other.votes, votes)&&const DeepCollectionEquality().equals(other.centerCards, centerCards));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is GameResult&&const DeepCollectionEquality().equals(other.winningTeams, winningTeams)&&const DeepCollectionEquality().equals(other.players, players)&&(identical(other.reason, reason) || other.reason == reason)&&const DeepCollectionEquality().equals(other.votes, votes)&&const DeepCollectionEquality().equals(other.centerCards, centerCards));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(winningTeams),const DeepCollectionEquality().hash(players),const DeepCollectionEquality().hash(votes),const DeepCollectionEquality().hash(centerCards));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(winningTeams),const DeepCollectionEquality().hash(players),reason,const DeepCollectionEquality().hash(votes),const DeepCollectionEquality().hash(centerCards));
 
 @override
 String toString() {
-  return 'GameResult(winningTeams: $winningTeams, players: $players, votes: $votes, centerCards: $centerCards)';
+  return 'GameResult(winningTeams: $winningTeams, players: $players, reason: $reason, votes: $votes, centerCards: $centerCards)';
 }
 
 
@@ -607,7 +608,7 @@ abstract mixin class $GameResultCopyWith<$Res>  {
   factory $GameResultCopyWith(GameResult value, $Res Function(GameResult) _then) = _$GameResultCopyWithImpl;
 @useResult
 $Res call({
- List<TeamId> winningTeams, List<PlayerResult> players, List<VoteResult> votes, List<RoleId> centerCards
+ List<TeamId> winningTeams, List<PlayerResult> players, String reason, List<VoteResult> votes, List<RoleId> centerCards
 });
 
 
@@ -624,11 +625,12 @@ class _$GameResultCopyWithImpl<$Res>
 
 /// Create a copy of GameResult
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? winningTeams = null,Object? players = null,Object? votes = null,Object? centerCards = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? winningTeams = null,Object? players = null,Object? reason = null,Object? votes = null,Object? centerCards = null,}) {
   return _then(_self.copyWith(
 winningTeams: null == winningTeams ? _self.winningTeams : winningTeams // ignore: cast_nullable_to_non_nullable
 as List<TeamId>,players: null == players ? _self.players : players // ignore: cast_nullable_to_non_nullable
-as List<PlayerResult>,votes: null == votes ? _self.votes : votes // ignore: cast_nullable_to_non_nullable
+as List<PlayerResult>,reason: null == reason ? _self.reason : reason // ignore: cast_nullable_to_non_nullable
+as String,votes: null == votes ? _self.votes : votes // ignore: cast_nullable_to_non_nullable
 as List<VoteResult>,centerCards: null == centerCards ? _self.centerCards : centerCards // ignore: cast_nullable_to_non_nullable
 as List<RoleId>,
   ));
@@ -715,10 +717,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<TeamId> winningTeams,  List<PlayerResult> players,  List<VoteResult> votes,  List<RoleId> centerCards)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<TeamId> winningTeams,  List<PlayerResult> players,  String reason,  List<VoteResult> votes,  List<RoleId> centerCards)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GameResult() when $default != null:
-return $default(_that.winningTeams,_that.players,_that.votes,_that.centerCards);case _:
+return $default(_that.winningTeams,_that.players,_that.reason,_that.votes,_that.centerCards);case _:
   return orElse();
 
 }
@@ -736,10 +738,10 @@ return $default(_that.winningTeams,_that.players,_that.votes,_that.centerCards);
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<TeamId> winningTeams,  List<PlayerResult> players,  List<VoteResult> votes,  List<RoleId> centerCards)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<TeamId> winningTeams,  List<PlayerResult> players,  String reason,  List<VoteResult> votes,  List<RoleId> centerCards)  $default,) {final _that = this;
 switch (_that) {
 case _GameResult():
-return $default(_that.winningTeams,_that.players,_that.votes,_that.centerCards);case _:
+return $default(_that.winningTeams,_that.players,_that.reason,_that.votes,_that.centerCards);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -756,10 +758,10 @@ return $default(_that.winningTeams,_that.players,_that.votes,_that.centerCards);
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<TeamId> winningTeams,  List<PlayerResult> players,  List<VoteResult> votes,  List<RoleId> centerCards)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<TeamId> winningTeams,  List<PlayerResult> players,  String reason,  List<VoteResult> votes,  List<RoleId> centerCards)?  $default,) {final _that = this;
 switch (_that) {
 case _GameResult() when $default != null:
-return $default(_that.winningTeams,_that.players,_that.votes,_that.centerCards);case _:
+return $default(_that.winningTeams,_that.players,_that.reason,_that.votes,_that.centerCards);case _:
   return null;
 
 }
@@ -771,7 +773,7 @@ return $default(_that.winningTeams,_that.players,_that.votes,_that.centerCards);
 
 
 class _GameResult implements GameResult {
-  const _GameResult({required final  List<TeamId> winningTeams, required final  List<PlayerResult> players, final  List<VoteResult> votes = const [], final  List<RoleId> centerCards = const []}): _winningTeams = winningTeams,_players = players,_votes = votes,_centerCards = centerCards;
+  const _GameResult({required final  List<TeamId> winningTeams, required final  List<PlayerResult> players, this.reason = '', final  List<VoteResult> votes = const [], final  List<RoleId> centerCards = const []}): _winningTeams = winningTeams,_players = players,_votes = votes,_centerCards = centerCards;
   
 
  final  List<TeamId> _winningTeams;
@@ -788,6 +790,8 @@ class _GameResult implements GameResult {
   return EqualUnmodifiableListView(_players);
 }
 
+/// Human-readable explanation of why the winning team(s) won.
+@override@JsonKey() final  String reason;
 /// Per-player vote pairs. Uses @Default([]) for backward compat.
  final  List<VoteResult> _votes;
 /// Per-player vote pairs. Uses @Default([]) for backward compat.
@@ -817,16 +821,16 @@ _$GameResultCopyWith<_GameResult> get copyWith => __$GameResultCopyWithImpl<_Gam
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GameResult&&const DeepCollectionEquality().equals(other._winningTeams, _winningTeams)&&const DeepCollectionEquality().equals(other._players, _players)&&const DeepCollectionEquality().equals(other._votes, _votes)&&const DeepCollectionEquality().equals(other._centerCards, _centerCards));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GameResult&&const DeepCollectionEquality().equals(other._winningTeams, _winningTeams)&&const DeepCollectionEquality().equals(other._players, _players)&&(identical(other.reason, reason) || other.reason == reason)&&const DeepCollectionEquality().equals(other._votes, _votes)&&const DeepCollectionEquality().equals(other._centerCards, _centerCards));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_winningTeams),const DeepCollectionEquality().hash(_players),const DeepCollectionEquality().hash(_votes),const DeepCollectionEquality().hash(_centerCards));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_winningTeams),const DeepCollectionEquality().hash(_players),reason,const DeepCollectionEquality().hash(_votes),const DeepCollectionEquality().hash(_centerCards));
 
 @override
 String toString() {
-  return 'GameResult(winningTeams: $winningTeams, players: $players, votes: $votes, centerCards: $centerCards)';
+  return 'GameResult(winningTeams: $winningTeams, players: $players, reason: $reason, votes: $votes, centerCards: $centerCards)';
 }
 
 
@@ -837,7 +841,7 @@ abstract mixin class _$GameResultCopyWith<$Res> implements $GameResultCopyWith<$
   factory _$GameResultCopyWith(_GameResult value, $Res Function(_GameResult) _then) = __$GameResultCopyWithImpl;
 @override @useResult
 $Res call({
- List<TeamId> winningTeams, List<PlayerResult> players, List<VoteResult> votes, List<RoleId> centerCards
+ List<TeamId> winningTeams, List<PlayerResult> players, String reason, List<VoteResult> votes, List<RoleId> centerCards
 });
 
 
@@ -854,11 +858,12 @@ class __$GameResultCopyWithImpl<$Res>
 
 /// Create a copy of GameResult
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? winningTeams = null,Object? players = null,Object? votes = null,Object? centerCards = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? winningTeams = null,Object? players = null,Object? reason = null,Object? votes = null,Object? centerCards = null,}) {
   return _then(_GameResult(
 winningTeams: null == winningTeams ? _self._winningTeams : winningTeams // ignore: cast_nullable_to_non_nullable
 as List<TeamId>,players: null == players ? _self._players : players // ignore: cast_nullable_to_non_nullable
-as List<PlayerResult>,votes: null == votes ? _self._votes : votes // ignore: cast_nullable_to_non_nullable
+as List<PlayerResult>,reason: null == reason ? _self.reason : reason // ignore: cast_nullable_to_non_nullable
+as String,votes: null == votes ? _self._votes : votes // ignore: cast_nullable_to_non_nullable
 as List<VoteResult>,centerCards: null == centerCards ? _self._centerCards : centerCards // ignore: cast_nullable_to_non_nullable
 as List<RoleId>,
   ));

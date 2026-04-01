@@ -549,9 +549,12 @@ class GameNotifier extends _$GameNotifier {
       );
     }).toList();
 
+    final reason = data['reason'] as String? ?? '';
+
     return GameResult(
       winningTeams: winningTeams,
       players: playerResults,
+      reason: reason,
       votes: voteResults,
       centerCards: centerCards,
     );

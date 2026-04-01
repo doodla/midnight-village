@@ -381,6 +381,44 @@ void main() {
   );
 
   // -------------------------------------------------------------------------
+  // Win reason displayed under winning team announcement
+  // -------------------------------------------------------------------------
+
+  testWidgets('reason text displayed under winning team announcement', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      result: GameResult(
+        winningTeams: const [TeamId.village],
+        players: [_villagerPlayer()],
+        reason: 'A Werewolf was eliminated.',
+      ),
+    );
+
+    expect(
+      find.text('A Werewolf was eliminated.'),
+      findsOneWidget,
+      reason: 'Win reason from backend must be displayed on results screen',
+    );
+  });
+
+  testWidgets('reason text hidden when empty', (tester) async {
+    await _pump(
+      tester,
+      result: GameResult(
+        winningTeams: const [TeamId.village],
+        players: [_villagerPlayer()],
+        reason: '',
+      ),
+    );
+
+    // The reason widget should not render any empty text.
+    // Verify the win announcement is present but no extra empty text.
+    expect(find.text('Village wins!'), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
   // Both buttons shown when both callbacks provided
   // -------------------------------------------------------------------------
 

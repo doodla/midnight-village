@@ -534,4 +534,39 @@ void main() {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // reason field mapping
+  // ---------------------------------------------------------------------------
+
+  group('reason field mapping', () {
+    test('reason string from backend is stored in GameResult', () async {
+      final (:container, :http, :ws) = _createTestSetup(
+        resultsJson: {
+          'winning_teams': ['village'],
+          'reason': 'A Werewolf was eliminated.',
+          'players': [],
+        },
+      );
+      addTearDown(container.dispose);
+
+      final results = await _triggerResultsFetch(container, ws);
+      expect(results, isNotNull);
+      expect(results!.reason, 'A Werewolf was eliminated.');
+    });
+
+    test('missing reason field defaults to empty string', () async {
+      final (:container, :http, :ws) = _createTestSetup(
+        resultsJson: {
+          'winning_teams': ['village'],
+          'players': [],
+        },
+      );
+      addTearDown(container.dispose);
+
+      final results = await _triggerResultsFetch(container, ws);
+      expect(results, isNotNull);
+      expect(results!.reason, '');
+    });
+  });
 }

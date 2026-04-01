@@ -48,6 +48,9 @@ abstract class GameResult with _$GameResult {
     required List<TeamId> winningTeams,
     required List<PlayerResult> players,
 
+    /// Human-readable explanation of why the winning team(s) won.
+    @Default('') String reason,
+
     /// Per-player vote pairs. Uses @Default([]) for backward compat.
     @Default([]) List<VoteResult> votes,
 

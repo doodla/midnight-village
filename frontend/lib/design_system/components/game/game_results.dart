@@ -44,6 +44,16 @@ class GameResults extends ConsumerWidget {
           // ----------------------------------------------------------------
           _WinAnnouncement(winningTeams: result.winningTeams),
 
+          if (result.reason.isNotEmpty) ...[
+            SizedBox(height: tokens.spacing.sm),
+            Text(
+              result.reason,
+              style: tokens.typography.body.copyWith(
+                color: tokens.colors.onBackground.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+
           SizedBox(height: tokens.spacing.lg),
 
           // ----------------------------------------------------------------
