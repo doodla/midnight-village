@@ -1,7 +1,7 @@
 ---
 work_package_id: WP11
 title: Reconnection & Game Resume
-lane: "doing"
+lane: "planned"
 dependencies:
 - WP03
 requirement_refs:
@@ -16,11 +16,11 @@ created_at: '2026-03-31T17:09:36.788841+00:00'
 subtasks: [T051, T052, T053, T054, T055]
 phase: Phase 3 - Polish
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "64709"
-review_status: has_feedback
-reviewed_by: Sridhar Vadlamani
-review_feedback: feedback://005-frontend-game-integration-layer/WP11/20260401T011024Z-118d4eb3.md
+agent: headless-reviewer
+shell_pid: '64709'
+review_status: "has_feedback"
+reviewed_by: "Sridhar Vadlamani"
+review_feedback: "feedback://005-frontend-game-integration-layer/WP11/20260401T013752Z-405af267.md"
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
@@ -210,3 +210,4 @@ cd frontend && just check
 - 2026-04-01T01:20:36Z – headless-impl – shell_pid=37495 – lane=doing – Started implementation via workflow command
 - 2026-04-01T01:31:30Z – headless-impl – shell_pid=37495 – lane=for_review – Ready for review: addressed all 5 feedback issues — getGameState (T053 critical), WebSocket full URL, MvLoading in overlay, AuthenticatedClient TODO comment, added GameStateResponse tests + getGameState HTTP tests + router redirect widget tests. 420 tests pass.
 - 2026-04-01T01:34:33Z – headless-reviewer – shell_pid=64709 – lane=doing – Started review via workflow command
+- 2026-04-01T01:37:52Z – headless-reviewer – shell_pid=64709 – lane=planned – Moved to planned
