@@ -4,17 +4,11 @@ import 'app_colors.dart';
 
 abstract final class AppDecorations {
   static final visionGlow = RadialGradient(
-    colors: [
-      AppColors.tallowGold.withValues(alpha: 0.1),
-      Colors.transparent,
-    ],
+    colors: [AppColors.tallowGold.withValues(alpha: 0.1), Colors.transparent],
   );
 
   static final bloodVignette = RadialGradient(
-    colors: [
-      Colors.transparent,
-      AppColors.emberRed.withValues(alpha: 0.15),
-    ],
+    colors: [Colors.transparent, AppColors.emberRed.withValues(alpha: 0.15)],
   );
 
   static final candleGlow = RadialGradient(

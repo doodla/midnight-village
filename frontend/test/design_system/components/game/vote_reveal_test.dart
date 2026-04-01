@@ -103,7 +103,9 @@ void main() {
   // Tally: most-voted player uses primary token color
   // -------------------------------------------------------------------------
 
-  testWidgets('most-voted player name uses primary token color', (tester) async {
+  testWidgets('most-voted player name uses primary token color', (
+    tester,
+  ) async {
     await _pump(
       tester,
       votes: [_voteAliceBob, _voteBobBob, _voteCarolAlice],
@@ -129,8 +131,9 @@ void main() {
   // Elimination: eliminated player shown in error color
   // -------------------------------------------------------------------------
 
-  testWidgets('elimination shows eliminated player in error color',
-      (tester) async {
+  testWidgets('elimination shows eliminated player in error color', (
+    tester,
+  ) async {
     await _pump(
       tester,
       votes: [_voteAliceBob, _voteBobBob],
@@ -159,24 +162,27 @@ void main() {
   // Elimination: "No one was eliminated!" when empty
   // -------------------------------------------------------------------------
 
-  testWidgets('"No one was eliminated!" shown when eliminatedPlayerIds is empty',
-      (tester) async {
-    await _pump(
-      tester,
-      votes: [_voteAliceBob],
-      tally: {'p2': 1},
-      eliminatedPlayerIds: [],
-    );
+  testWidgets(
+    '"No one was eliminated!" shown when eliminatedPlayerIds is empty',
+    (tester) async {
+      await _pump(
+        tester,
+        votes: [_voteAliceBob],
+        tally: {'p2': 1},
+        eliminatedPlayerIds: [],
+      );
 
-    expect(find.text('No one was eliminated!'), findsOneWidget);
-  });
+      expect(find.text('No one was eliminated!'), findsOneWidget);
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Elimination: "No one was eliminated!" NOT shown when someone is eliminated
   // -------------------------------------------------------------------------
 
-  testWidgets('"No one was eliminated!" absent when a player is eliminated',
-      (tester) async {
+  testWidgets('"No one was eliminated!" absent when a player is eliminated', (
+    tester,
+  ) async {
     await _pump(
       tester,
       votes: [_voteAliceBob],
@@ -192,12 +198,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders correctly with no votes', (tester) async {
-    await _pump(
-      tester,
-      votes: [],
-      tally: {},
-      eliminatedPlayerIds: [],
-    );
+    await _pump(tester, votes: [], tally: {}, eliminatedPlayerIds: []);
 
     expect(find.text('No one was eliminated!'), findsOneWidget);
   });

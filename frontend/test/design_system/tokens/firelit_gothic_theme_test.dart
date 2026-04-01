@@ -18,24 +18,18 @@ import '../test_helpers/test_theme.dart';
 
 TextStyle _getTypographyStyle(TextStyle Function() builder) {
   late TextStyle result;
-  runZonedGuarded(
-    () => result = builder(),
-    (error, stack) {
-      // Suppress google_fonts asset/CDN loading errors — they happen async
-      // after the TextStyle is already returned with correct properties.
-    },
-  );
+  runZonedGuarded(() => result = builder(), (error, stack) {
+    // Suppress google_fonts asset/CDN loading errors — they happen async
+    // after the TextStyle is already returned with correct properties.
+  });
   return result;
 }
 
 ThemeData _buildThemeData(FirelitGothicTheme theme) {
   late ThemeData result;
-  runZonedGuarded(
-    () => result = generateThemeData(theme),
-    (error, stack) {
-      // Suppress google_fonts asset/CDN loading errors.
-    },
-  );
+  runZonedGuarded(() => result = generateThemeData(theme), (error, stack) {
+    // Suppress google_fonts asset/CDN loading errors.
+  });
   return result;
 }
 

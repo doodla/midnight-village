@@ -61,12 +61,14 @@ void main() {
       // Assert on the exact payload the widget sent.
       expect(mockWs.sentMessages, hasLength(1));
       final sent =
-          jsonDecode(mockWs.sentMessages.first as String) as Map<String, dynamic>;
+          jsonDecode(mockWs.sentMessages.first as String)
+              as Map<String, dynamic>;
       expect(sent['type'], equals('submit_vote'));
     });
 
-    testWidgets('server errors surface to the UI without crashing',
-        (tester) async {
+    testWidgets('server errors surface to the UI without crashing', (
+      tester,
+    ) async {
       final mockWs = MockWebSocketChannel();
 
       await tester.pumpWithGameState(
@@ -94,7 +96,11 @@ void main() {
       );
 
       // night → discussion → voting
-      for (final phase in [GamePhase.night, GamePhase.discussion, GamePhase.voting]) {
+      for (final phase in [
+        GamePhase.night,
+        GamePhase.discussion,
+        GamePhase.voting,
+      ]) {
         mockWs.addServerEvent(
           jsonEncode({'type': 'phase_change', 'phase': phase.name}),
         );

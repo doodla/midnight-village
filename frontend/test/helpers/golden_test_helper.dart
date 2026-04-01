@@ -30,10 +30,10 @@ class PlatformGoldenFileComparator extends LocalFileComparator {
     // e.g., 'goldens/button.png' → 'goldens/macos/button.png'
     final String path = versioned.path;
     final int lastSlash = path.lastIndexOf('/');
-    final String dir =
-        lastSlash >= 0 ? path.substring(0, lastSlash + 1) : '';
-    final String filename =
-        lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+    final String dir = lastSlash >= 0 ? path.substring(0, lastSlash + 1) : '';
+    final String filename = lastSlash >= 0
+        ? path.substring(lastSlash + 1)
+        : path;
 
     return versioned.replace(path: '$dir$platform/$filename');
   }
@@ -87,9 +87,6 @@ extension GoldenTestExtension on WidgetTester {
     );
     await pumpAndSettle();
 
-    await expectLater(
-      find.byType(MaterialApp),
-      matchesGoldenFile(goldenName),
-    );
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile(goldenName));
   }
 }

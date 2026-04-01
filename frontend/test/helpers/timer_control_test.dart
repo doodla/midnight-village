@@ -8,7 +8,9 @@ import '../../test/helpers/timer_control.dart';
 void main() {
   group('TimerControl', () {
     group('advanceBy', () {
-      testWithTimerControl('advances fake time by the given Duration', (control) {
+      testWithTimerControl('advances fake time by the given Duration', (
+        control,
+      ) {
         var fired = false;
         Timer(const Duration(seconds: 5), () => fired = true);
 
@@ -21,17 +23,19 @@ void main() {
     });
 
     group('advanceBySeconds', () {
-      testWithTimerControl('advances fake time by the given number of seconds',
-          (control) {
-        var fired = false;
-        Timer(const Duration(seconds: 3), () => fired = true);
+      testWithTimerControl(
+        'advances fake time by the given number of seconds',
+        (control) {
+          var fired = false;
+          Timer(const Duration(seconds: 3), () => fired = true);
 
-        control.advanceBySeconds(2);
-        expect(fired, isFalse);
+          control.advanceBySeconds(2);
+          expect(fired, isFalse);
 
-        control.advanceBySeconds(1);
-        expect(fired, isTrue);
-      });
+          control.advanceBySeconds(1);
+          expect(fired, isTrue);
+        },
+      );
     });
 
     group('Timer.periodic compatibility', () {
@@ -43,8 +47,9 @@ void main() {
         expect(ticks, equals(3));
       });
 
-      testWithTimerControl('does not fire Timer.periodic before interval',
-          (control) {
+      testWithTimerControl('does not fire Timer.periodic before interval', (
+        control,
+      ) {
         var ticks = 0;
         Timer.periodic(const Duration(seconds: 2), (_) => ticks++);
 
@@ -57,8 +62,9 @@ void main() {
     });
 
     group('Stream.periodic compatibility', () {
-      testWithTimerControl('emits Stream.periodic events on each tick',
-          (control) {
+      testWithTimerControl('emits Stream.periodic events on each tick', (
+        control,
+      ) {
         var ticks = 0;
         Stream.periodic(const Duration(seconds: 1)).listen((_) => ticks++);
 
@@ -68,14 +74,16 @@ void main() {
     });
 
     group('flushMicrotasks', () {
-      testWithTimerControl('processes pending microtasks without advancing clock',
-          (control) {
-        var completed = false;
-        Future.value(42).then((_) => completed = true);
+      testWithTimerControl(
+        'processes pending microtasks without advancing clock',
+        (control) {
+          var completed = false;
+          Future.value(42).then((_) => completed = true);
 
-        control.flushMicrotasks();
-        expect(completed, isTrue);
-      });
+          control.flushMicrotasks();
+          expect(completed, isTrue);
+        },
+      );
     });
 
     group('no real wall-clock delay', () {

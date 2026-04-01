@@ -20,8 +20,9 @@ void main() {
       (i) => PlayerInfo(id: 'id-$i', name: 'Player $i'),
     );
 
-    testWidgets('provides voting phase and 5 players to the widget tree',
-        (tester) async {
+    testWidgets('provides voting phase and 5 players to the widget tree', (
+      tester,
+    ) async {
       // One call configures phase, players, and auth.
       await tester.pumpWithGameState(
         const _GameStateWidget(),
@@ -50,8 +51,9 @@ void main() {
       expect(find.textContaining('3 players'), findsOneWidget);
     });
 
-    testWidgets('each game phase can be independently configured',
-        (tester) async {
+    testWidgets('each game phase can be independently configured', (
+      tester,
+    ) async {
       for (final phase in GamePhase.values) {
         // Pump a fresh widget for each phase.
         await tester.pumpWidget(const SizedBox.shrink());

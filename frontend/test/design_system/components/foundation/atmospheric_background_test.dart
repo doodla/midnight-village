@@ -12,10 +12,7 @@ void main() {
   const testTheme = TestThemeTokens();
 
   group('AtmosphericBackground – phase backgrounds', () {
-    Future<void> pumpPhase(
-      WidgetTester tester,
-      GamePhase phase,
-    ) async {
+    Future<void> pumpPhase(WidgetTester tester, GamePhase phase) async {
       await tester.pumpWithTokens(
         AtmosphericBackground(
           phase: phase,
@@ -107,9 +104,7 @@ void main() {
 
       // Noise overlay is wrapped in Opacity
       expect(
-        find.byWidgetPredicate(
-          (w) => w is Opacity && w.opacity == 0.03,
-        ),
+        find.byWidgetPredicate((w) => w is Opacity && w.opacity == 0.03),
         findsOneWidget,
         reason: 'Noise overlay should be present with 3% opacity',
       );
@@ -127,9 +122,7 @@ void main() {
       );
 
       expect(
-        find.byWidgetPredicate(
-          (w) => w is Opacity && w.opacity == 0.03,
-        ),
+        find.byWidgetPredicate((w) => w is Opacity && w.opacity == 0.03),
         findsNothing,
         reason: 'Noise overlay should be absent when disabled',
       );
@@ -228,7 +221,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('AppShadows.selectionGlow renders on container', (tester) async {
+    testWidgets('AppShadows.selectionGlow renders on container', (
+      tester,
+    ) async {
       await tester.pumpWithTokens(
         Container(
           decoration: const BoxDecoration(boxShadow: AppShadows.selectionGlow),
@@ -250,7 +245,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('AppDecorations.visionGlow renders on container', (tester) async {
+    testWidgets('AppDecorations.visionGlow renders on container', (
+      tester,
+    ) async {
       await tester.pumpWithTokens(
         Container(
           foregroundDecoration: BoxDecoration(
@@ -263,7 +260,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('AppDecorations.bloodVignette renders on container', (tester) async {
+    testWidgets('AppDecorations.bloodVignette renders on container', (
+      tester,
+    ) async {
       await tester.pumpWithTokens(
         Container(
           foregroundDecoration: BoxDecoration(
@@ -276,7 +275,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('AppDecorations.candleGlow renders on container', (tester) async {
+    testWidgets('AppDecorations.candleGlow renders on container', (
+      tester,
+    ) async {
       await tester.pumpWithTokens(
         Container(
           foregroundDecoration: BoxDecoration(

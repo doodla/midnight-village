@@ -238,6 +238,74 @@ final class AuthRepositoryProvider
 
 String _$authRepositoryHash() => r'3fc53b3196d5cb69a7db30e12341aa211c42203d';
 
+/// Provides the authenticated HTTP client with JWT injection and auto-refresh.
+///
+/// Uses [AuthInterceptor] to add bearer tokens to every request and handle
+/// 401 responses by refreshing the access token. On refresh failure, the
+/// interceptor signals auth failure by invalidating [authProvider], which
+/// resets auth state to unauthenticated.
+
+@ProviderFor(authenticatedClient)
+const authenticatedClientProvider = AuthenticatedClientProvider._();
+
+/// Provides the authenticated HTTP client with JWT injection and auto-refresh.
+///
+/// Uses [AuthInterceptor] to add bearer tokens to every request and handle
+/// 401 responses by refreshing the access token. On refresh failure, the
+/// interceptor signals auth failure by invalidating [authProvider], which
+/// resets auth state to unauthenticated.
+
+final class AuthenticatedClientProvider
+    extends
+        $FunctionalProvider<
+          AuthenticatedClient,
+          AuthenticatedClient,
+          AuthenticatedClient
+        >
+    with $Provider<AuthenticatedClient> {
+  /// Provides the authenticated HTTP client with JWT injection and auto-refresh.
+  ///
+  /// Uses [AuthInterceptor] to add bearer tokens to every request and handle
+  /// 401 responses by refreshing the access token. On refresh failure, the
+  /// interceptor signals auth failure by invalidating [authProvider], which
+  /// resets auth state to unauthenticated.
+  const AuthenticatedClientProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'authenticatedClientProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$authenticatedClientHash();
+
+  @$internal
+  @override
+  $ProviderElement<AuthenticatedClient> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  AuthenticatedClient create(Ref ref) {
+    return authenticatedClient(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AuthenticatedClient value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AuthenticatedClient>(value),
+    );
+  }
+}
+
+String _$authenticatedClientHash() =>
+    r'2beb9e2c0819d46ac09a2438cc0a757dfbab0ec3';
+
 /// Manages authentication state.
 
 @ProviderFor(AuthNotifier)

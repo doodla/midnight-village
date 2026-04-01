@@ -54,8 +54,7 @@ class PlayerCircle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = ref.watch(activeThemeProvider);
 
-    final int selectedCount =
-        players.where((p) => p.isSelected).length;
+    final int selectedCount = players.where((p) => p.isSelected).length;
     final bool maxReached =
         maxSelections != null && selectedCount >= maxSelections!;
 
@@ -69,7 +68,8 @@ class PlayerCircle extends ConsumerWidget {
         // - the player is not the current user
         // - the player is marked selectable
         // - max selections has not been reached (unless already selected)
-        final bool canTap = onPlayerSelected != null &&
+        final bool canTap =
+            onPlayerSelected != null &&
             !player.isCurrentPlayer &&
             player.isSelectable &&
             (!maxReached || player.isSelected);
@@ -79,9 +79,7 @@ class PlayerCircle extends ConsumerWidget {
           tokens: tokens,
           canTap: canTap,
           showStatus: showStatus,
-          onTap: canTap
-              ? () => onPlayerSelected?.call(player.id)
-              : null,
+          onTap: canTap ? () => onPlayerSelected?.call(player.id) : null,
         );
       }).toList(),
     );
@@ -113,7 +111,8 @@ class _PlayerSlot extends StatelessWidget {
         (!canTap && !player.isSelected);
 
     return Semantics(
-      label: '${player.displayName}${player.isCurrentPlayer ? ', you' : ''}${player.isSelected ? ', selected' : ''}',
+      label:
+          '${player.displayName}${player.isCurrentPlayer ? ', you' : ''}${player.isSelected ? ', selected' : ''}',
       button: canTap,
       onTapHint: canTap ? 'select player' : null,
       child: GestureDetector(
@@ -130,11 +129,7 @@ class _PlayerSlot extends StatelessWidget {
                 showStatus: showStatus,
               ),
               SizedBox(height: tokens.spacing.xs),
-              _PlayerName(
-                player: player,
-                tokens: tokens,
-                isDimmed: isDimmed,
-              ),
+              _PlayerName(player: player, tokens: tokens, isDimmed: isDimmed),
             ],
           ),
         ),
@@ -322,10 +317,7 @@ class _PlayerAvatar extends StatelessWidget {
           height: _kAvatarSize,
           child: Stack(
             clipBehavior: Clip.none,
-            children: [
-              avatar,
-              ...overlays,
-            ],
+            children: [avatar, ...overlays],
           ),
         );
       }
@@ -345,13 +337,7 @@ class _PlayerAvatar extends StatelessWidget {
         return SizedBox(
           width: _kAvatarSize,
           height: _kAvatarSize,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              avatar,
-              ...badges,
-            ],
-          ),
+          child: Stack(clipBehavior: Clip.none, children: [avatar, ...badges]),
         );
       }
     }

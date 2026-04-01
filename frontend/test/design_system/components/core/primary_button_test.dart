@@ -25,8 +25,9 @@ void main() {
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('loading shows CircularProgressIndicator and hides label',
-        (tester) async {
+    testWidgets('loading shows CircularProgressIndicator and hides label', (
+      tester,
+    ) async {
       await tester.pumpWithTokens(
         PrimaryButton(label: 'Joining...', onPressed: () {}, isLoading: true),
       );
@@ -81,8 +82,7 @@ void main() {
       );
 
       expect(find.byType(FilledButton), findsOneWidget);
-      final button =
-          tester.widget<FilledButton>(find.byType(FilledButton));
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
       final bgColor = button.style?.backgroundColor?.resolve({});
       expect(bgColor, equals(testTokens.colors.primary));
     });
@@ -90,16 +90,11 @@ void main() {
     testWidgets('destructive uses error color from tokens', (tester) async {
       const testTokens = TestThemeTokens();
       await tester.pumpWithTokens(
-        PrimaryButton(
-          label: 'Destroy',
-          onPressed: () {},
-          isDestructive: true,
-        ),
+        PrimaryButton(label: 'Destroy', onPressed: () {}, isDestructive: true),
         theme: testTokens,
       );
 
-      final button =
-          tester.widget<FilledButton>(find.byType(FilledButton));
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
       final bgColor = button.style?.backgroundColor?.resolve({});
       expect(bgColor, equals(testTokens.colors.error));
     });

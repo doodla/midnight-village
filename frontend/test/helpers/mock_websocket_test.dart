@@ -68,7 +68,12 @@ void main() {
     test('sent messages are captured in sentMessages', () {
       ws.send({'action': 'vote', 'target': 'player_2'});
 
-      expect(ws.sentMessages, equals([{'action': 'vote', 'target': 'player_2'}]));
+      expect(
+        ws.sentMessages,
+        equals([
+          {'action': 'vote', 'target': 'player_2'},
+        ]),
+      );
     });
 
     test('multiple sent messages are captured in order', () {
@@ -76,7 +81,14 @@ void main() {
       ws.send({'type': 'player_action'});
       ws.send(42);
 
-      expect(ws.sentMessages, equals(['ping', {'type': 'player_action'}, 42]));
+      expect(
+        ws.sentMessages,
+        equals([
+          'ping',
+          {'type': 'player_action'},
+          42,
+        ]),
+      );
     });
 
     test('sentMessages is empty when no messages have been sent', () {
@@ -96,27 +108,26 @@ void main() {
       expect(ws.isClosed, isTrue);
     });
 
-    test('events before close are received; events after close are ignored',
-        () async {
-      final received = <dynamic>[];
-      final sub = ws.stream.listen(received.add);
+    test(
+      'events before close are received; events after close are ignored',
+      () async {
+        final received = <dynamic>[];
+        final sub = ws.stream.listen(received.add);
 
-      ws.addServerEvent('before');
-      await ws.close();
-      ws.addServerEvent('after'); // silently ignored
+        ws.addServerEvent('before');
+        await ws.close();
+        ws.addServerEvent('after'); // silently ignored
 
-      await Future.microtask(() {});
+        await Future.microtask(() {});
 
-      expect(received, equals(['before']));
-      await sub.cancel();
-    });
+        expect(received, equals(['before']));
+        await sub.cancel();
+      },
+    );
 
     test('stream emits done event when closed', () async {
       final doneCompleter = Completer<void>();
-      ws.stream.listen(
-        (_) {},
-        onDone: doneCompleter.complete,
-      );
+      ws.stream.listen((_) {}, onDone: doneCompleter.complete);
 
       await ws.close();
       await doneCompleter.future; // Completes when stream signals done

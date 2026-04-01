@@ -88,10 +88,10 @@ class PlayerAvatar extends ConsumerWidget {
   }
 
   double get _fontSize => switch (size) {
-        AvatarSize.small => 14,
-        AvatarSize.medium => 18,
-        AvatarSize.large => 24,
-      };
+    AvatarSize.small => 14,
+    AvatarSize.medium => 18,
+    AvatarSize.large => 24,
+  };
 
   Widget _buildSigil(AppTokens tokens) {
     final sigilSize = size.pixels * 0.3;

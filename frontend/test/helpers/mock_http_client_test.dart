@@ -14,104 +14,127 @@ void main() {
     test('returns canned response for registered GET endpoint', () async {
       client
           .when(method: 'GET', path: '/api/v1/me/')
-          .thenReturn(Response(
-            requestOptions: RequestOptions(path: '/api/v1/me/'),
-            statusCode: 200,
-            data: {'id': 42, 'username': 'alice'},
-          ));
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(path: '/api/v1/me/'),
+              statusCode: 200,
+              data: {'id': 42, 'username': 'alice'},
+            ),
+          );
 
-      final response = await client.dio.get<Map<String, dynamic>>('/api/v1/me/');
+      final response = await client.dio.get<Map<String, dynamic>>(
+        '/api/v1/me/',
+      );
 
       expect(response.statusCode, equals(200));
       expect(response.data, equals({'id': 42, 'username': 'alice'}));
     });
 
-    test('throws DioException wrapping UnmockedEndpointException for unregistered endpoint',
-        () async {
-      Object? caught;
-      try {
-        await client.dio.get('/api/v1/unknown/');
-      } catch (e) {
-        caught = e;
-      }
+    test(
+      'throws DioException wrapping UnmockedEndpointException for unregistered endpoint',
+      () async {
+        Object? caught;
+        try {
+          await client.dio.get('/api/v1/unknown/');
+        } catch (e) {
+          caught = e;
+        }
 
-      expect(caught, isA<DioException>());
-      final dioException = caught as DioException;
-      expect(dioException.error, isA<UnmockedEndpointException>());
+        expect(caught, isA<DioException>());
+        final dioException = caught as DioException;
+        expect(dioException.error, isA<UnmockedEndpointException>());
 
-      final unmocked = dioException.error as UnmockedEndpointException;
-      expect(unmocked.method, equals('GET'));
-      expect(unmocked.path, equals('/api/v1/unknown/'));
-    });
+        final unmocked = dioException.error as UnmockedEndpointException;
+        expect(unmocked.method, equals('GET'));
+        expect(unmocked.path, equals('/api/v1/unknown/'));
+      },
+    );
 
-    test('UnmockedEndpointException includes method and path in message',
-        () async {
-      Object? caught;
-      try {
-        await client.dio.post('/api/v1/games/', data: {});
-      } catch (e) {
-        caught = e;
-      }
+    test(
+      'UnmockedEndpointException includes method and path in message',
+      () async {
+        Object? caught;
+        try {
+          await client.dio.post('/api/v1/games/', data: {});
+        } catch (e) {
+          caught = e;
+        }
 
-      final unmocked = (caught as DioException).error as UnmockedEndpointException;
-      expect(
-        unmocked.toString(),
-        contains('POST'),
-      );
-      expect(
-        unmocked.toString(),
-        contains('/api/v1/games/'),
-      );
-    });
+        final unmocked =
+            (caught as DioException).error as UnmockedEndpointException;
+        expect(unmocked.toString(), contains('POST'));
+        expect(unmocked.toString(), contains('/api/v1/games/'));
+      },
+    );
 
-    test('GET and POST on the same path return independent responses', () async {
-      client
-          .when(method: 'GET', path: '/api/v1/games/')
-          .thenReturn(Response(
-            requestOptions: RequestOptions(path: '/api/v1/games/'),
-            statusCode: 200,
-            data: [{'id': 1}],
-          ));
-      client
-          .when(method: 'POST', path: '/api/v1/games/')
-          .thenReturn(Response(
-            requestOptions: RequestOptions(path: '/api/v1/games/'),
-            statusCode: 201,
-            data: {'id': 99, 'created': true},
-          ));
+    test(
+      'GET and POST on the same path return independent responses',
+      () async {
+        client
+            .when(method: 'GET', path: '/api/v1/games/')
+            .thenReturn(
+              Response(
+                requestOptions: RequestOptions(path: '/api/v1/games/'),
+                statusCode: 200,
+                data: [
+                  {'id': 1},
+                ],
+              ),
+            );
+        client
+            .when(method: 'POST', path: '/api/v1/games/')
+            .thenReturn(
+              Response(
+                requestOptions: RequestOptions(path: '/api/v1/games/'),
+                statusCode: 201,
+                data: {'id': 99, 'created': true},
+              ),
+            );
 
-      final getResponse = await client.dio.get('/api/v1/games/');
-      final postResponse = await client.dio.post('/api/v1/games/', data: {});
+        final getResponse = await client.dio.get('/api/v1/games/');
+        final postResponse = await client.dio.post('/api/v1/games/', data: {});
 
-      expect(getResponse.statusCode, equals(200));
-      expect(getResponse.data, equals([{'id': 1}]));
+        expect(getResponse.statusCode, equals(200));
+        expect(
+          getResponse.data,
+          equals([
+            {'id': 1},
+          ]),
+        );
 
-      expect(postResponse.statusCode, equals(201));
-      expect(postResponse.data, equals({'id': 99, 'created': true}));
-    });
+        expect(postResponse.statusCode, equals(201));
+        expect(postResponse.data, equals({'id': 99, 'created': true}));
+      },
+    );
 
     test('multiple endpoints each return their own response', () async {
       client
           .when(method: 'GET', path: '/api/v1/me/')
-          .thenReturn(Response(
-            requestOptions: RequestOptions(path: '/api/v1/me/'),
-            statusCode: 200,
-            data: {'user': 'alice'},
-          ));
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(path: '/api/v1/me/'),
+              statusCode: 200,
+              data: {'user': 'alice'},
+            ),
+          );
       client
           .when(method: 'GET', path: '/api/v1/lobbies/')
-          .thenReturn(Response(
-            requestOptions: RequestOptions(path: '/api/v1/lobbies/'),
-            statusCode: 200,
-            data: {'lobbies': []},
-          ));
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(path: '/api/v1/lobbies/'),
+              statusCode: 200,
+              data: {'lobbies': []},
+            ),
+          );
       client
           .when(method: 'GET', path: '/api/v1/games/42/')
-          .thenReturn(Response(
-            requestOptions: RequestOptions(path: '/api/v1/games/42/'),
-            statusCode: 200,
-            data: {'id': 42, 'phase': 'lobby'},
-          ));
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(path: '/api/v1/games/42/'),
+              statusCode: 200,
+              data: {'id': 42, 'phase': 'lobby'},
+            ),
+          );
 
       final me = await client.dio.get('/api/v1/me/');
       final lobbies = await client.dio.get('/api/v1/lobbies/');
@@ -125,11 +148,13 @@ void main() {
     test('registered path does not match different path', () async {
       client
           .when(method: 'GET', path: '/api/v1/me/')
-          .thenReturn(Response(
-            requestOptions: RequestOptions(path: '/api/v1/me/'),
-            statusCode: 200,
-            data: {},
-          ));
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(path: '/api/v1/me/'),
+              statusCode: 200,
+              data: {},
+            ),
+          );
 
       // Different path should throw
       expect(

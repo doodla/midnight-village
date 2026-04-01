@@ -23,9 +23,9 @@ class TimerControl {
     required void Function(Duration) elapse,
     required void Function() flushMicrotasks,
     required void Function() flushTimers,
-  })  : _elapse = elapse,
-        _flushMicrotasks = flushMicrotasks,
-        _flushTimers = flushTimers;
+  }) : _elapse = elapse,
+       _flushMicrotasks = flushMicrotasks,
+       _flushTimers = flushTimers;
 
   final void Function(Duration) _elapse;
   final void Function() _flushMicrotasks;

@@ -57,14 +57,8 @@ class MvDialog extends ConsumerWidget {
       title: title,
       body: body,
       actions: [
-        PrimaryButton.outlined(
-          label: cancelLabel,
-          onPressed: onCancel,
-        ),
-        PrimaryButton(
-          label: confirmLabel,
-          onPressed: onConfirm,
-        ),
+        PrimaryButton.outlined(label: cancelLabel, onPressed: onCancel),
+        PrimaryButton(label: confirmLabel, onPressed: onConfirm),
       ],
     );
   }
@@ -81,12 +75,7 @@ class MvDialog extends ConsumerWidget {
       key: key,
       title: title,
       body: body,
-      actions: [
-        PrimaryButton(
-          label: dismissLabel,
-          onPressed: onDismiss,
-        ),
-      ],
+      actions: [PrimaryButton(label: dismissLabel, onPressed: onDismiss)],
     );
   }
 
@@ -104,10 +93,7 @@ class MvDialog extends ConsumerWidget {
     VoidCallback? onRetry,
   }) {
     final actions = <Widget>[
-      PrimaryButton.outlined(
-        label: dismissLabel,
-        onPressed: onDismiss,
-      ),
+      PrimaryButton.outlined(label: dismissLabel, onPressed: onDismiss),
       if (onRetry != null)
         PrimaryButton(
           label: retryLabel ?? 'Retry',
@@ -135,20 +121,14 @@ class MvDialog extends ConsumerWidget {
 
     Widget titleWidget = Text(
       title,
-      style: tokens.typography.heading.copyWith(
-        color: tokens.colors.onSurface,
-      ),
+      style: tokens.typography.heading.copyWith(color: tokens.colors.onSurface),
     );
 
     if (_showErrorIcon) {
       titleWidget = Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.error_outline,
-            color: tokens.colors.error,
-            size: 48,
-          ),
+          Icon(Icons.error_outline, color: tokens.colors.error, size: 48),
           SizedBox(height: tokens.spacing.sm),
           titleWidget,
         ],
@@ -160,14 +140,10 @@ class MvDialog extends ConsumerWidget {
       title: titleWidget,
       content: Text(
         body,
-        style: tokens.typography.body.copyWith(
-          color: tokens.colors.onSurface,
-        ),
+        style: tokens.typography.body.copyWith(color: tokens.colors.onSurface),
       ),
       actions: actions,
-      shape: RoundedRectangleBorder(
-        borderRadius: tokens.radius.large,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: tokens.radius.large),
       elevation: tokens.elevation.overlay,
     );
   }

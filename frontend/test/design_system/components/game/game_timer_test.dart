@@ -12,8 +12,9 @@ void main() {
   // MM:SS formatting
   // -------------------------------------------------------------------------
 
-  testWidgets('renders "01:05" for Duration(minutes: 1, seconds: 5)',
-      (tester) async {
+  testWidgets('renders "01:05" for Duration(minutes: 1, seconds: 5)', (
+    tester,
+  ) async {
     await tester.pumpWithTokens(
       GameTimer(timeRemaining: const Duration(minutes: 1, seconds: 5)),
       theme: testTheme,
@@ -88,8 +89,9 @@ void main() {
   // Negative durations clamp to "0"
   // -------------------------------------------------------------------------
 
-  testWidgets('does not display negative values — shows "0" for -5s',
-      (tester) async {
+  testWidgets('does not display negative values — shows "0" for -5s', (
+    tester,
+  ) async {
     await tester.pumpWithTokens(
       GameTimer(timeRemaining: const Duration(seconds: -5)),
       theme: testTheme,

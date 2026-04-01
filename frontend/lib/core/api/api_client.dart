@@ -11,7 +11,8 @@ import 'logging_interceptor.dart';
 /// is used in integration tests to wire in a [MockHttpClient].
 class ApiClient {
   ApiClient({String? baseUrl, Dio? dio})
-    : _dio = dio ??
+    : _dio =
+          dio ??
           Dio(
             BaseOptions(
               baseUrl: baseUrl ?? Env.apiUrl,

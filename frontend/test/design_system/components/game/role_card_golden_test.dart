@@ -13,9 +13,7 @@ void main() {
     testWidgets('werewolf role renders correctly', (tester) async {
       await tester.pumpWithGolden(
         const Scaffold(
-          body: Center(
-            child: RoleCard(roleId: RoleId.werewolf),
-          ),
+          body: Center(child: RoleCard(roleId: RoleId.werewolf)),
         ),
         'goldens/role_card_werewolf.png',
       );
@@ -24,9 +22,7 @@ void main() {
     testWidgets('villager role renders correctly', (tester) async {
       await tester.pumpWithGolden(
         const Scaffold(
-          body: Center(
-            child: RoleCard(roleId: RoleId.villager),
-          ),
+          body: Center(child: RoleCard(roleId: RoleId.villager)),
         ),
         'goldens/role_card_villager.png',
       );
@@ -34,11 +30,7 @@ void main() {
 
     testWidgets('face-down state renders correctly', (tester) async {
       await tester.pumpWithGolden(
-        const Scaffold(
-          body: Center(
-            child: RoleCard(roleId: null),
-          ),
-        ),
+        const Scaffold(body: Center(child: RoleCard(roleId: null))),
         'goldens/role_card_face_down.png',
       );
     });

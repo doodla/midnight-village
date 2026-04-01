@@ -34,8 +34,8 @@ class PrimaryButton extends ConsumerWidget {
     this.onPressed,
     this.isLoading = false,
     this.icon,
-  })  : _isOutlined = true,
-        isDestructive = false;
+  }) : _isOutlined = true,
+       isDestructive = false;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,17 +51,14 @@ class PrimaryButton extends ConsumerWidget {
             foregroundColor: tokens.colors.onSurface,
             side: BorderSide(color: tokens.colors.outline),
             minimumSize: const Size.fromHeight(48),
-            shape: RoundedRectangleBorder(
-              borderRadius: tokens.radius.medium,
-            ),
+            shape: RoundedRectangleBorder(borderRadius: tokens.radius.medium),
           ),
           child: _buildChild(tokens),
         ),
       );
     }
 
-    final bgColor =
-        isDestructive ? tokens.colors.error : tokens.colors.primary;
+    final bgColor = isDestructive ? tokens.colors.error : tokens.colors.primary;
     return SizedBox(
       width: double.infinity,
       child: FilledButton(
@@ -72,9 +69,7 @@ class PrimaryButton extends ConsumerWidget {
           disabledBackgroundColor: tokens.colors.disabled,
           disabledForegroundColor: tokens.colors.onDisabled,
           minimumSize: const Size.fromHeight(56),
-          shape: RoundedRectangleBorder(
-            borderRadius: tokens.radius.medium,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: tokens.radius.medium),
         ),
         child: _buildChild(tokens),
       ),

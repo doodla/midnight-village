@@ -28,9 +28,7 @@ class MvCard extends ConsumerWidget {
     return Card(
       color: tokens.colors.surface,
       elevation: elevation ?? tokens.elevation.raised,
-      shape: RoundedRectangleBorder(
-        borderRadius: tokens.radius.large,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: tokens.radius.large),
       child: Padding(
         padding: padding ?? EdgeInsets.all(tokens.spacing.md),
         child: Column(

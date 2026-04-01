@@ -27,5 +27,7 @@ abstract final class AppColors {
   // Semantic
   static const danger = Color(0xFFE05A3A); // timer danger pulse
   static const warning = Color(0xFFD47A3A); // timer warning
-  static const noDeathBlue = Color(0xFF6B7B8B); // "No One Dies" — only cold color
+  static const noDeathBlue = Color(
+    0xFF6B7B8B,
+  ); // "No One Dies" — only cold color
 }

@@ -172,10 +172,7 @@ class _VoteSelectionView extends StatelessWidget {
         SizedBox(height: tokens.spacing.lg),
 
         // Confirm button — disabled until a player is selected.
-        PrimaryButton(
-          label: 'Lock in your vote',
-          onPressed: onConfirm,
-        ),
+        PrimaryButton(label: 'Lock in your vote', onPressed: onConfirm),
 
         SizedBox(height: tokens.spacing.sm),
 

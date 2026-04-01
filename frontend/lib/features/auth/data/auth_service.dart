@@ -65,10 +65,7 @@ class AuthService {
         throw MalformedResponseException('Invalid user data types: $e');
       }
 
-      return (
-        tokens: (access: access, refresh: refresh),
-        user: parsedUser,
-      );
+      return (tokens: (access: access, refresh: refresh), user: parsedUser);
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -101,7 +98,9 @@ class AuthService {
       final refresh = data['refresh'];
       final newRefreshToken = refresh is String ? refresh : refreshToken;
       if (refresh is! String) {
-        logger.d('AuthService.refreshToken: API did not return new refresh token, reusing original');
+        logger.d(
+          'AuthService.refreshToken: API did not return new refresh token, reusing original',
+        );
       }
       return (access: access, refresh: newRefreshToken);
     } on DioException catch (e) {

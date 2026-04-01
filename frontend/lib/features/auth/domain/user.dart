@@ -18,7 +18,11 @@ class User {
       throw ArgumentError.value(id, 'id', 'must be positive');
     }
     if (displayName.trim().isEmpty) {
-      throw ArgumentError.value(displayName, 'displayName', 'must not be empty');
+      throw ArgumentError.value(
+        displayName,
+        'displayName',
+        'must not be empty',
+      );
     }
   }
 

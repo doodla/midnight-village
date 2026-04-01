@@ -76,10 +76,7 @@ class _WelcomeViewState extends ConsumerState<_WelcomeView> {
           hint: 'Leave blank for random name',
         ),
         SizedBox(height: tokens.spacing.md),
-        PrimaryButton(
-          label: 'Continue',
-          onPressed: _onContinue,
-        ),
+        PrimaryButton(label: 'Continue', onPressed: _onContinue),
       ],
     );
   }

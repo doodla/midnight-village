@@ -16,8 +16,9 @@ import '../test_harness.dart';
 /// no notifier lifecycle to manage.
 void main() {
   group('pumpAuthenticated harness', () {
-    testWidgets('provides authenticated user state to the widget tree',
-        (tester) async {
+    testWidgets('provides authenticated user state to the widget tree', (
+      tester,
+    ) async {
       // 3-line setup — the harness handles all auth plumbing.
       await tester.pumpAuthenticated(
         const _UserNameWidget(),
@@ -27,15 +28,17 @@ void main() {
       expect(find.text('TestHero'), findsOneWidget);
     });
 
-    testWidgets('defaults to "TestPlayer" when no playerName is supplied',
-        (tester) async {
+    testWidgets('defaults to "TestPlayer" when no playerName is supplied', (
+      tester,
+    ) async {
       await tester.pumpAuthenticated(const _UserNameWidget());
 
       expect(find.text('TestPlayer'), findsOneWidget);
     });
 
-    testWidgets('accepts extra overrides for test-specific customisation',
-        (tester) async {
+    testWidgets('accepts extra overrides for test-specific customisation', (
+      tester,
+    ) async {
       // Stack additional provider overrides on top of the auth harness.
       // Use the overrides list for OTHER providers (not authProvider itself —
       // pumpAuthenticated already manages that).

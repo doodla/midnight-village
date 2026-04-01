@@ -8,9 +8,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 void main() {
   group('Font rendering smoke tests', () {
-    testWidgets(
-        'renders Epilogue text without font-loading errors',
-        (tester) async {
+    testWidgets('renders Epilogue text without font-loading errors', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -25,8 +25,9 @@ void main() {
       expect(find.text('Midnight Village'), findsOneWidget);
     });
 
-    testWidgets('renders DM Sans text without font-loading errors',
-        (tester) async {
+    testWidgets('renders DM Sans text without font-loading errors', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -41,8 +42,9 @@ void main() {
       expect(find.text('Body text in DM Sans'), findsOneWidget);
     });
 
-    testWidgets('renders Space Grotesk text without font-loading errors',
-        (tester) async {
+    testWidgets('renders Space Grotesk text without font-loading errors', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

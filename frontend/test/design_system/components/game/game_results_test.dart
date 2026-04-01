@@ -22,7 +22,8 @@ Future<void> _pump(
   VoidCallback? onPlayAgain,
   VoidCallback? onReturnToLobby,
 }) async {
-  tester.view.physicalSize = const Size(400, 900) * tester.view.devicePixelRatio;
+  tester.view.physicalSize =
+      const Size(400, 900) * tester.view.devicePixelRatio;
   addTearDown(tester.view.resetPhysicalSize);
 
   await tester.pumpWidget(
@@ -46,55 +47,55 @@ Future<void> _pump(
 // Sample player helpers
 // ---------------------------------------------------------------------------
 
-PlayerResult _werewolfPlayer({bool isWinner = true}) => const PlayerResult(
-      id: 'p1',
-      displayName: 'Alice',
-      originalRole: RoleId.werewolf,
-      finalRole: RoleId.werewolf,
-      team: TeamId.werewolf,
-      isEliminated: false,
-      isWinner: true,
-    );
+PlayerResult _werewolfPlayer() => const PlayerResult(
+  id: 'p1',
+  displayName: 'Alice',
+  originalRole: RoleId.werewolf,
+  finalRole: RoleId.werewolf,
+  team: TeamId.werewolf,
+  isEliminated: false,
+  isWinner: true,
+);
 
 PlayerResult _villagerPlayer({bool isEliminated = false}) => PlayerResult(
-      id: 'p2',
-      displayName: 'Bob',
-      originalRole: RoleId.villager,
-      finalRole: RoleId.villager,
-      team: TeamId.village,
-      isEliminated: isEliminated,
-      isWinner: false,
-    );
+  id: 'p2',
+  displayName: 'Bob',
+  originalRole: RoleId.villager,
+  finalRole: RoleId.villager,
+  team: TeamId.village,
+  isEliminated: isEliminated,
+  isWinner: false,
+);
 
-PlayerResult _tannerPlayer({bool isWinner = true}) => const PlayerResult(
-      id: 'p3',
-      displayName: 'Carol',
-      originalRole: RoleId.tanner,
-      finalRole: RoleId.tanner,
-      team: TeamId.independent,
-      isEliminated: true,
-      isWinner: true,
-    );
+PlayerResult _tannerPlayer() => const PlayerResult(
+  id: 'p3',
+  displayName: 'Carol',
+  originalRole: RoleId.tanner,
+  finalRole: RoleId.tanner,
+  team: TeamId.independent,
+  isEliminated: true,
+  isWinner: true,
+);
 
 PlayerResult _robberSwappedToWerewolf() => const PlayerResult(
-      id: 'p4',
-      displayName: 'Dave',
-      originalRole: RoleId.robber,
-      finalRole: RoleId.werewolf,
-      team: TeamId.werewolf,
-      isEliminated: false,
-      isWinner: false,
-    );
+  id: 'p4',
+  displayName: 'Dave',
+  originalRole: RoleId.robber,
+  finalRole: RoleId.werewolf,
+  team: TeamId.werewolf,
+  isEliminated: false,
+  isWinner: false,
+);
 
 PlayerResult _doppelgangerAsVillager() => const PlayerResult(
-      id: 'p5',
-      displayName: 'Eve',
-      originalRole: RoleId.doppelganger,
-      finalRole: RoleId.villager,
-      team: TeamId.village,
-      isEliminated: false,
-      isWinner: false,
-    );
+  id: 'p5',
+  displayName: 'Eve',
+  originalRole: RoleId.doppelganger,
+  finalRole: RoleId.villager,
+  team: TeamId.village,
+  isEliminated: false,
+  isWinner: false,
+);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -105,8 +106,9 @@ void main() {
   // Werewolf win: werewolfTeam color
   // -------------------------------------------------------------------------
 
-  testWidgets('werewolf win shows "Werewolves win!" in werewolfTeam color',
-      (tester) async {
+  testWidgets('werewolf win shows "Werewolves win!" in werewolfTeam color', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -122,17 +124,20 @@ void main() {
           widget.style?.color == const Color(0xFFFF4444);
     });
 
-    expect(finder, findsOneWidget,
-        reason:
-            '"Werewolves win!" must appear with werewolfTeam token color');
+    expect(
+      finder,
+      findsOneWidget,
+      reason: '"Werewolves win!" must appear with werewolfTeam token color',
+    );
   });
 
   // -------------------------------------------------------------------------
   // Village win: villageTeam color
   // -------------------------------------------------------------------------
 
-  testWidgets('village win shows "Village wins!" in villageTeam color',
-      (tester) async {
+  testWidgets('village win shows "Village wins!" in villageTeam color', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -148,16 +153,20 @@ void main() {
           widget.style?.color == const Color(0xFF4444FF);
     });
 
-    expect(finder, findsOneWidget,
-        reason: '"Village wins!" must appear with villageTeam token color');
+    expect(
+      finder,
+      findsOneWidget,
+      reason: '"Village wins!" must appear with villageTeam token color',
+    );
   });
 
   // -------------------------------------------------------------------------
   // Tanner win: independentTeam color
   // -------------------------------------------------------------------------
 
-  testWidgets('tanner win shows "Tanner wins!" in independentTeam color',
-      (tester) async {
+  testWidgets('tanner win shows "Tanner wins!" in independentTeam color', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -173,22 +182,23 @@ void main() {
           widget.style?.color == const Color(0xFFFFFF00);
     });
 
-    expect(finder, findsOneWidget,
-        reason:
-            '"Tanner wins!" must appear with independentTeam token color');
+    expect(
+      finder,
+      findsOneWidget,
+      reason: '"Tanner wins!" must appear with independentTeam token color',
+    );
   });
 
   // -------------------------------------------------------------------------
   // No winners: "Nobody wins!" in onSurface color
   // -------------------------------------------------------------------------
 
-  testWidgets('"Nobody wins!" shown when winningTeams is empty', (tester) async {
+  testWidgets('"Nobody wins!" shown when winningTeams is empty', (
+    tester,
+  ) async {
     await _pump(
       tester,
-      result: GameResult(
-        winningTeams: const [],
-        players: [_villagerPlayer()],
-      ),
+      result: GameResult(winningTeams: const [], players: [_villagerPlayer()]),
     );
 
     // TestColorTokens.onSurface = Color(0xFFFFFFFF)
@@ -198,17 +208,21 @@ void main() {
           widget.style?.color == const Color(0xFFFFFFFF);
     });
 
-    expect(finder, findsOneWidget,
-        reason:
-            '"Nobody wins!" must appear in onSurface color when there are no winners');
+    expect(
+      finder,
+      findsOneWidget,
+      reason:
+          '"Nobody wins!" must appear in onSurface color when there are no winners',
+    );
   });
 
   // -------------------------------------------------------------------------
   // Role swap: "OriginalRole → FinalRole" format
   // -------------------------------------------------------------------------
 
-  testWidgets('role swap is shown as "OriginalRole → FinalRole"',
-      (tester) async {
+  testWidgets('role swap is shown as "OriginalRole → FinalRole"', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -228,8 +242,9 @@ void main() {
   // Doppelganger: "Doppelganger (as FinalRole)" format
   // -------------------------------------------------------------------------
 
-  testWidgets('doppelganger shows "Doppelganger (as FinalRole)"',
-      (tester) async {
+  testWidgets('doppelganger shows "Doppelganger (as FinalRole)"', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -249,8 +264,9 @@ void main() {
   // Eliminated player: shows "(eliminated)" marker
   // -------------------------------------------------------------------------
 
-  testWidgets('eliminated player shows "(eliminated)" indicator',
-      (tester) async {
+  testWidgets('eliminated player shows "(eliminated)" indicator', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -270,8 +286,9 @@ void main() {
   // Non-eliminated player: no "(eliminated)" marker
   // -------------------------------------------------------------------------
 
-  testWidgets('non-eliminated player does not show "(eliminated)" indicator',
-      (tester) async {
+  testWidgets('non-eliminated player does not show "(eliminated)" indicator', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -291,8 +308,9 @@ void main() {
   // "Play Again" button shown when onPlayAgain provided
   // -------------------------------------------------------------------------
 
-  testWidgets('"Play Again" button is shown when onPlayAgain is provided',
-      (tester) async {
+  testWidgets('"Play Again" button is shown when onPlayAgain is provided', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -309,8 +327,9 @@ void main() {
   // "Play Again" button NOT shown when onPlayAgain is null
   // -------------------------------------------------------------------------
 
-  testWidgets('"Play Again" button is hidden when onPlayAgain is null',
-      (tester) async {
+  testWidgets('"Play Again" button is hidden when onPlayAgain is null', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -327,43 +346,47 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets(
-      '"Return to Lobby" button is shown when onReturnToLobby is provided',
-      (tester) async {
-    await _pump(
-      tester,
-      result: GameResult(
-        winningTeams: const [TeamId.village],
-        players: [_villagerPlayer()],
-      ),
-      onReturnToLobby: () {},
-    );
+    '"Return to Lobby" button is shown when onReturnToLobby is provided',
+    (tester) async {
+      await _pump(
+        tester,
+        result: GameResult(
+          winningTeams: const [TeamId.village],
+          players: [_villagerPlayer()],
+        ),
+        onReturnToLobby: () {},
+      );
 
-    expect(find.text('Return to Lobby'), findsOneWidget);
-  });
+      expect(find.text('Return to Lobby'), findsOneWidget);
+    },
+  );
 
   // -------------------------------------------------------------------------
   // "Return to Lobby" button NOT shown when onReturnToLobby is null
   // -------------------------------------------------------------------------
 
-  testWidgets('"Return to Lobby" button is hidden when onReturnToLobby is null',
-      (tester) async {
-    await _pump(
-      tester,
-      result: GameResult(
-        winningTeams: const [TeamId.village],
-        players: [_villagerPlayer()],
-      ),
-    );
+  testWidgets(
+    '"Return to Lobby" button is hidden when onReturnToLobby is null',
+    (tester) async {
+      await _pump(
+        tester,
+        result: GameResult(
+          winningTeams: const [TeamId.village],
+          players: [_villagerPlayer()],
+        ),
+      );
 
-    expect(find.text('Return to Lobby'), findsNothing);
-  });
+      expect(find.text('Return to Lobby'), findsNothing);
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Both buttons shown when both callbacks provided
   // -------------------------------------------------------------------------
 
-  testWidgets('both buttons shown when both callbacks are provided',
-      (tester) async {
+  testWidgets('both buttons shown when both callbacks are provided', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -382,8 +405,9 @@ void main() {
   // Multiple winning teams displayed on separate lines
   // -------------------------------------------------------------------------
 
-  testWidgets('multiple winning teams each shown on separate lines',
-      (tester) async {
+  testWidgets('multiple winning teams each shown on separate lines', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -400,8 +424,9 @@ void main() {
   // Same role: just role name shown (no arrow)
   // -------------------------------------------------------------------------
 
-  testWidgets('unchanged role shows just role name without arrow',
-      (tester) async {
+  testWidgets('unchanged role shows just role name without arrow', (
+    tester,
+  ) async {
     await _pump(
       tester,
       result: GameResult(
@@ -413,7 +438,10 @@ void main() {
     // "Villager" appears at least once (in the caption role label and/or RoleCard).
     expect(find.text('Villager'), findsWidgets);
     // No arrow notation must appear anywhere.
-    expect(find.textContaining('→'), findsNothing,
-        reason: 'Unchanged role must not show arrow');
+    expect(
+      find.textContaining('→'),
+      findsNothing,
+      reason: 'Unchanged role must not show arrow',
+    );
   });
 }

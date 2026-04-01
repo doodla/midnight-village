@@ -14,7 +14,7 @@ class App extends ConsumerWidget {
       title: 'Midnight Village',
       debugShowCheckedModeBanner: false,
       theme: ref.watch(activeThemeDataProvider),
-      routerConfig: appRouter,
+      routerConfig: ref.watch(appRouterProvider),
     );
   }
 }

@@ -121,13 +121,19 @@ ApiException mapDioException(DioException e) {
 Map<String, List<String>> _parseValidationErrors(dynamic data) {
   // Handle string error messages (some APIs return plain text)
   if (data is String && data.isNotEmpty) {
-    return {'detail': [data]};
+    return {
+      'detail': [data],
+    };
   }
 
   if (data is! Map<String, dynamic>) {
     if (data != null) {
-      logger.w('_parseValidationErrors: unexpected data type ${data.runtimeType}, preserving as detail');
-      return {'detail': [data.toString()]};
+      logger.w(
+        '_parseValidationErrors: unexpected data type ${data.runtimeType}, preserving as detail',
+      );
+      return {
+        'detail': [data.toString()],
+      };
     }
     return {};
   }
@@ -140,7 +146,9 @@ Map<String, List<String>> _parseValidationErrors(dynamic data) {
       errors[key] = [value];
     } else {
       // Log unexpected types to help detect API contract changes
-      logger.d('_parseValidationErrors: ignoring non-string value for key "$key": $value (${value.runtimeType})');
+      logger.d(
+        '_parseValidationErrors: ignoring non-string value for key "$key": $value (${value.runtimeType})',
+      );
     }
   });
   return errors;
