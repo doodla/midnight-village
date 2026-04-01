@@ -1,7 +1,7 @@
 ---
 work_package_id: WP11
 title: Reconnection & Game Resume
-lane: "planned"
+lane: "doing"
 dependencies:
 - WP03
 requirement_refs:
@@ -16,8 +16,8 @@ created_at: '2026-03-31T17:09:36.788841+00:00'
 subtasks: [T051, T052, T053, T054, T055]
 phase: Phase 3 - Polish
 assignee: ''
-agent: headless-reviewer
-shell_pid: '16602'
+agent: "headless-impl"
+shell_pid: "37495"
 review_status: "has_feedback"
 reviewed_by: "Sridhar Vadlamani"
 review_feedback: "feedback://005-frontend-game-integration-layer/WP11/20260401T011024Z-118d4eb3.md"
@@ -207,3 +207,4 @@ cd frontend && just check
 - 2026-04-01T00:59:35Z – headless-reviewer – shell_pid=19354 – lane=for_review – Addressed review: wired startup detection, connected needsStateRefresh
 - 2026-04-01T01:04:16Z – headless-reviewer – shell_pid=16602 – lane=doing – Started review via workflow command
 - 2026-04-01T01:10:24Z – headless-reviewer – shell_pid=16602 – lane=planned – Moved to planned
+- 2026-04-01T01:20:36Z – headless-impl – shell_pid=37495 – lane=doing – Started implementation via workflow command
