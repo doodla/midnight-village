@@ -1,7 +1,6 @@
 // frontend/test/helpers/game_test_setup_test.dart
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/features/game/domain/night_state.dart';
 
 import 'game_events.dart';
 import 'game_state_factory.dart';
@@ -119,6 +118,42 @@ void main() {
         '/onuw/games/test-game-id/end-discussion/',
       );
       expect(response.statusCode, 200);
+    });
+  });
+
+  group('pumpGameFlow', () {
+    testWidgets('pumps GameContainerScreen with mocked notifier', (
+      tester,
+    ) async {
+      final setup = await tester.pumpGameFlow();
+      addTearDown(setup.dispose);
+
+      // Default state is night phase — should show "The village sleeps…"
+      expect(find.text('The village sleeps\u2026'), findsOneWidget);
+    });
+
+    testWidgets('accepts custom gameMeJson', (tester) async {
+      final setup = await tester.pumpGameFlow(
+        gameMeJson: GameMeJsonBuilder()
+            .withSeerPrompt(wave: 1, playerTargets: [2, 3])
+            .build(),
+      );
+      addTearDown(setup.dispose);
+
+      // Seer choice view should be shown.
+      expect(find.text("Look at a player's card"), findsOneWidget);
+    });
+
+    testWidgets('ws events update the widget tree', (tester) async {
+      final setup = await tester.pumpGameFlow();
+      addTearDown(setup.dispose);
+
+      // Inject phase change to discussion.
+      setup.ws.addServerEvent(GameEvents.phaseChange(phase: 'discussion'));
+      await tester.pump();
+
+      // Discussion view shows timer '0' for null deadline.
+      expect(find.text('0'), findsOneWidget);
     });
   });
 }

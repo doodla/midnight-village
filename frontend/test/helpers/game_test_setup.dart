@@ -1,9 +1,18 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
+import 'package:midnight_village/design_system/tokens/midnight_village_theme.dart';
+import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
+import 'package:midnight_village/features/auth/domain/auth_state.dart';
+import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/data/game_service.dart';
 import 'package:midnight_village/features/game/domain/game_session_state.dart';
+import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
 import 'game_state_factory.dart';
@@ -140,5 +149,60 @@ class GameTestSetup {
   void dispose() {
     _subscription?.close();
     container.dispose();
+  }
+}
+
+/// Extension for pumping [GameContainerScreen] with full mock wiring.
+extension GameFlowTestExtension on WidgetTester {
+  /// Pumps [GameContainerScreen] with mocked [GameNotifier] backed by real
+  /// HTTP/WS mocks. Returns the [GameTestSetup] for event injection and
+  /// state inspection.
+  Future<GameTestSetup> pumpGameFlow({
+    String gameId = 'test-game-id',
+    Map<String, dynamic>? gameMeJson,
+    String playerName = 'TestPlayer',
+    int userId = 1,
+    List<Override>? extraOverrides,
+  }) async {
+    final setup = GameTestSetup.create(gameMeJson: gameMeJson, gameId: gameId);
+
+    final theme = const MidnightVillageTheme();
+
+    await pumpWidget(
+      ProviderScope(
+        overrides: [
+          activeThemeProvider.overrideWithValue(theme),
+          authProvider.overrideWithValue(
+            AuthState.authenticated(User(id: userId, displayName: playerName)),
+          ),
+          authenticatedClientProvider.overrideWithValue(
+            AuthenticatedClient.forTesting(dio: setup.http.dio),
+          ),
+          gameServiceProvider.overrideWithValue(
+            GameService(
+              client: AuthenticatedClient.forTesting(dio: setup.http.dio),
+            ),
+          ),
+          gameWebSocketProvider.overrideWith((ref, gameId) => null),
+          gameWebSocketStreamProvider.overrideWith(
+            (ref, gameId) => setup.ws.stream,
+          ),
+          ...?extraOverrides,
+        ],
+        child: MaterialApp(
+          theme: generateThemeData(theme),
+          home: GameContainerScreen(gameId: gameId),
+        ),
+      ),
+    );
+
+    // Let the async provider resolve. pumpAndSettle() cannot be used here
+    // because NightWaitingView has an infinite pulse animation that never
+    // settles. Instead, use pump() calls to drain the microtask queue and
+    // rebuild the widget tree after the Future resolves.
+    await pump();
+    await pump(const Duration(milliseconds: 50));
+
+    return setup;
   }
 }
