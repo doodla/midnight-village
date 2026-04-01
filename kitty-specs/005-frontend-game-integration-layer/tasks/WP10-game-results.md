@@ -1,7 +1,7 @@
 ---
 work_package_id: WP10
 title: Game Results
-lane: "for_review"
+lane: "doing"
 dependencies: [WP07]
 requirement_refs:
 - FR-024
@@ -15,8 +15,8 @@ created_at: '2026-04-01T01:18:36.122623+00:00'
 subtasks: [T046, T047, T048, T049, T050]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: headless-impl
-shell_pid: '34379'
+agent: "headless-impl"
+shell_pid: "81504"
 review_status: ''
 reviewed_by: ''
 history:
@@ -218,3 +218,4 @@ cd frontend && just gen
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
 - 2026-04-01T01:18:36Z – headless-impl – shell_pid=34379 – lane=doing – Assigned agent via workflow command
 - 2026-04-01T01:42:16Z – headless-impl – shell_pid=34379 – lane=for_review – Ready for review: GameResult models extended with EliminationReason, nullable vote targets, votes/centerCards lists; _parseGameResult maps ResultsResponse JSON to models; GameContainerScreen renders GameResults on results phase with Return to Home nav; Hunter chain elimination label; abstainer display in VoteReveal; 463 tests passing including 13 new results mapping tests
+- 2026-04-01T01:43:53Z – headless-impl – shell_pid=81504 – lane=doing – Started implementation via workflow command
