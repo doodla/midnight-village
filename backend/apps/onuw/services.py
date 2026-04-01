@@ -786,8 +786,10 @@ def validate_night_action(
         # No targets required. Only a lone Werewolf may optionally peek center.
         if targets.get("center_index") is not None:
             # Verify the player is acting as Werewolf and is the only one.
+            # Error messages MUST be generic — role-specific messages leak
+            # hidden information through the API response.
             if acting_role != "Werewolf":
-                errors.append("Only a lone Werewolf may peek at a center card.")
+                errors.append("Center card peek is not available.")
             else:
                 state = build_game_state(game)
                 other_werewolves = [
@@ -796,7 +798,7 @@ def validate_night_action(
                     if pid != pr.user_id and is_effective_werewolf(pid, state)
                 ]
                 if other_werewolves:
-                    errors.append("Only a lone Werewolf may peek at a center card.")
+                    errors.append("Center card peek is not available.")
             idx = int(targets["center_index"])
             if idx < 0 or idx >= len(game.center_cards):
                 errors.append(

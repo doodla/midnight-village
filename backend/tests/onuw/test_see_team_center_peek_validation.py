@@ -84,7 +84,7 @@ class TestSeeTeamCenterPeekValidation:
         errors = validate_night_action(game, pr, "see_team", {"center_index": 0})
 
         assert len(errors) > 0
-        assert any("lone" in e.lower() or "center" in e.lower() for e in errors)
+        assert "Center card peek is not available." in errors
 
     def test_mason_rejects_center_index(self, db):
         """Masons use see_team but must not be allowed center_index."""
@@ -104,10 +104,7 @@ class TestSeeTeamCenterPeekValidation:
         errors = validate_night_action(game, pr, "see_team", {"center_index": 1})
 
         assert len(errors) > 0
-        assert any(
-            "lone" in e.lower() or "center" in e.lower() or "werewolf" in e.lower()
-            for e in errors
-        )
+        assert "Center card peek is not available." in errors
 
     def test_minion_rejects_center_index(self, db):
         """Minion uses see_team but must not be allowed center_index."""
@@ -127,10 +124,7 @@ class TestSeeTeamCenterPeekValidation:
         errors = validate_night_action(game, pr, "see_team", {"center_index": 0})
 
         assert len(errors) > 0
-        assert any(
-            "lone" in e.lower() or "center" in e.lower() or "werewolf" in e.lower()
-            for e in errors
-        )
+        assert "Center card peek is not available." in errors
 
     def test_lone_werewolf_allows_center_index(self, db):
         """A lone werewolf (no other werewolves among players) may peek center."""
@@ -231,4 +225,98 @@ class TestSeeTeamCenterPeekValidation:
         errors = validate_night_action(game, pr, "see_team", {"center_index": 0})
 
         assert len(errors) > 0
-        assert any("lone" in e.lower() or "center" in e.lower() for e in errors)
+        assert "Center card peek is not available." in errors
+
+
+# Role names that MUST NOT appear in any validation error message returned
+# to a client.  These are hidden information — the role name itself is secret.
+_ROLE_NAMES = {
+    "werewolf",
+    "villager",
+    "seer",
+    "robber",
+    "troublemaker",
+    "drunk",
+    "insomniac",
+    "minion",
+    "tanner",
+    "hunter",
+    "mason",
+    "doppelganger",
+}
+
+
+class TestErrorMessagesDontLeakRoleInfo:
+    """Regression: validation error messages must never contain role names.
+
+    Per CLAUDE.md: "Error messages must not leak role information. Validation
+    errors for night actions must use generic messages ('invalid action') not
+    role-specific ones ('Seer cannot do that')."
+    """
+
+    def _assert_no_role_names(self, errors: list[str]) -> None:
+        for msg in errors:
+            for role in _ROLE_NAMES:
+                assert role not in msg.lower(), (
+                    f"Error message leaks role name '{role}': {msg!r}"
+                )
+
+    def test_mason_center_peek_error_is_generic(self, db):
+        """Mason rejected from center peek — error must not mention 'Werewolf'."""
+        game, users = _create_game(
+            {
+                "alice": "Mason",
+                "bob": "Mason",
+                "carol": "Werewolf",
+                "dave": "Villager",
+                "eve": "Seer",
+            },
+            center_cards=["Robber", "Drunk", "Villager"],
+            current_wave=2,
+        )
+        pr = PlayerRole.objects.get(game=game, user=users["alice"])
+
+        errors = validate_night_action(game, pr, "see_team", {"center_index": 0})
+
+        assert len(errors) > 0
+        self._assert_no_role_names(errors)
+
+    def test_minion_center_peek_error_is_generic(self, db):
+        """Minion rejected from center peek — error must not mention 'Werewolf'."""
+        game, users = _create_game(
+            {
+                "alice": "Minion",
+                "bob": "Werewolf",
+                "carol": "Seer",
+                "dave": "Villager",
+                "eve": "Robber",
+            },
+            center_cards=["Troublemaker", "Drunk", "Villager"],
+            current_wave=2,
+        )
+        pr = PlayerRole.objects.get(game=game, user=users["alice"])
+
+        errors = validate_night_action(game, pr, "see_team", {"center_index": 0})
+
+        assert len(errors) > 0
+        self._assert_no_role_names(errors)
+
+    def test_multi_werewolf_center_peek_error_is_generic(self, db):
+        """Non-lone werewolf rejected — error must not mention 'Werewolf'."""
+        game, users = _create_game(
+            {
+                "alice": "Werewolf",
+                "bob": "Werewolf",
+                "carol": "Seer",
+                "dave": "Villager",
+                "eve": "Robber",
+            },
+            center_cards=["Troublemaker", "Drunk", "Villager"],
+            current_wave=2,
+        )
+        pr = PlayerRole.objects.get(game=game, user=users["alice"])
+
+        errors = validate_night_action(game, pr, "see_team", {"center_index": 0})
+
+        assert len(errors) > 0
+        self._assert_no_role_names(errors)
