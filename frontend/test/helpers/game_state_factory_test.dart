@@ -115,4 +115,73 @@ void main() {
       expect(state.voteRevealData!.tally['3'], 2);
     });
   });
+
+  group('GameMeJsonBuilder', () {
+    test('defaults produce valid server-format JSON', () {
+      final json = GameMeJsonBuilder().build();
+
+      expect(json['game_id'], 'test-game-id');
+      expect(json['phase'], 'night');
+      expect(json['current_wave'], 1);
+      expect(json['deadline'], isNull);
+      expect(json['your_role']['original_role'], 'seer');
+      expect(json['your_role']['has_acted'], false);
+      expect((json['players'] as List).length, 3);
+      expect(json['players'][0]['player_id'], 1);
+      expect(json['players'][0]['display_name'], 'Alice');
+      expect((json['roles_in_game'] as List).length, 2);
+    });
+
+    test('inPhase sets the phase in JSON', () {
+      final json = GameMeJsonBuilder().inPhase('voting').build();
+      expect(json['phase'], 'voting');
+    });
+
+    test('withRole sets your_role in JSON', () {
+      final json = GameMeJsonBuilder()
+          .withRole('werewolf', hasActed: true)
+          .build();
+      expect(json['your_role']['original_role'], 'werewolf');
+      expect(json['your_role']['has_acted'], true);
+    });
+
+    test('hasVoted sets has_voted in JSON', () {
+      final json = GameMeJsonBuilder().inPhase('voting').hasVoted(true).build();
+      expect(json['has_voted'], true);
+    });
+
+    test('withSeerPrompt includes action_prompt in JSON', () {
+      final json = GameMeJsonBuilder()
+          .withSeerPrompt(wave: 2, playerTargets: [2, 3])
+          .build();
+      expect(json['action_prompt'], isNotNull);
+      expect(json['action_prompt']['role_acting_as'], 'Seer');
+      expect(json['action_prompt']['action_types'], [
+        'peek_player',
+        'peek_center',
+      ]);
+      expect(json['action_prompt']['wave'], 2);
+    });
+
+    test('asHost sets is_host in JSON', () {
+      final json = GameMeJsonBuilder().asHost().build();
+      expect(json['is_host'], true);
+    });
+
+    test('withPlayersHavingVoted sets has_voted on individual players', () {
+      final json = GameMeJsonBuilder().inPhase('voting').withPlayersHavingVoted(
+        {1: true, 2: false, 3: true},
+      ).build();
+      final players = json['players'] as List<Map<String, dynamic>>;
+      expect(players[0]['has_voted'], true);
+      expect(players[1]['has_voted'], false);
+      expect(players[2]['has_voted'], true);
+    });
+
+    test('asResponse wraps JSON in a Dio Response', () {
+      final response = GameMeJsonBuilder().asResponse();
+      expect(response.statusCode, 200);
+      expect(response.data!['game_id'], 'test-game-id');
+    });
+  });
 }

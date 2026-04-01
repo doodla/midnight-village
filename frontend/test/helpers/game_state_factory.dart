@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
 import 'package:midnight_village/features/game/domain/voting_state.dart';
@@ -156,6 +157,145 @@ class GameStateBuilder {
       voteRevealData: _voteRevealData,
       isHost: _isHost,
       rolesInGame: _rolesInGame,
+    );
+  }
+}
+
+/// Fluent builder for the JSON map returned by `GET /onuw/games/{id}/me/`.
+///
+/// Same defaults as [GameStateBuilder] but produces the snake_case wire format
+/// that [GameService.getGameState] parses. Use with [MockHttpClient.thenReturn].
+///
+/// Call [asResponse] for a ready-to-use Dio [Response] wrapper.
+class GameMeJsonBuilder {
+  String _gameId = 'test-game-id';
+  String _phase = 'night';
+  int _currentWave = 1;
+  String? _deadline;
+  String _originalRole = 'seer';
+  bool _hasActed = false;
+  bool _hasVoted = false;
+  bool _isHost = false;
+  Map<String, dynamic>? _actionPrompt;
+  List<Map<String, dynamic>> _players = [
+    {'player_id': 1, 'display_name': 'Alice'},
+    {'player_id': 2, 'display_name': 'Bob'},
+    {'player_id': 3, 'display_name': 'Charlie'},
+  ];
+  List<Map<String, dynamic>> _rolesInGame = [
+    {'role': 'werewolf', 'count': 2},
+    {'role': 'seer', 'count': 1},
+  ];
+
+  GameMeJsonBuilder inPhase(String phase) {
+    _phase = phase;
+    return this;
+  }
+
+  GameMeJsonBuilder withGameId(String gameId) {
+    _gameId = gameId;
+    return this;
+  }
+
+  GameMeJsonBuilder withWave(int wave) {
+    _currentWave = wave;
+    return this;
+  }
+
+  GameMeJsonBuilder withDeadline(String deadline) {
+    _deadline = deadline;
+    return this;
+  }
+
+  GameMeJsonBuilder withRole(String role, {bool hasActed = false}) {
+    _originalRole = role;
+    _hasActed = hasActed;
+    return this;
+  }
+
+  GameMeJsonBuilder hasVoted(bool voted) {
+    _hasVoted = voted;
+    return this;
+  }
+
+  GameMeJsonBuilder asHost() {
+    _isHost = true;
+    return this;
+  }
+
+  GameMeJsonBuilder withPlayers(List<Map<String, dynamic>> players) {
+    _players = players;
+    return this;
+  }
+
+  GameMeJsonBuilder withPlayersHavingVoted(Map<int, bool> playerVotes) {
+    _players = _players.map((p) {
+      final id = p['player_id'] as int;
+      if (playerVotes.containsKey(id)) {
+        return {...p, 'has_voted': playerVotes[id]};
+      }
+      return p;
+    }).toList();
+    return this;
+  }
+
+  GameMeJsonBuilder withSeerPrompt({
+    int wave = 1,
+    List<int> playerTargets = const [2, 3],
+    List<int> centerTargets = const [0, 1, 2],
+  }) {
+    _actionPrompt = {
+      'role_acting_as': 'Seer',
+      'action_types': ['peek_player', 'peek_center'],
+      'valid_targets': {
+        'peek_player': {'players': playerTargets},
+        'peek_center': {'card_indices': centerTargets},
+      },
+      'wave': wave,
+    };
+    return this;
+  }
+
+  GameMeJsonBuilder withActionPrompt(Map<String, dynamic> prompt) {
+    _actionPrompt = prompt;
+    return this;
+  }
+
+  GameMeJsonBuilder withRolesInGame(List<Map<String, dynamic>> roles) {
+    _rolesInGame = roles;
+    return this;
+  }
+
+  Map<String, dynamic> build() {
+    final json = <String, dynamic>{
+      'game_id': _gameId,
+      'phase': _phase,
+      'current_wave': _currentWave,
+      'deadline': _deadline,
+      'your_role': {'original_role': _originalRole, 'has_acted': _hasActed},
+      'players': _players,
+      'roles_in_game': _rolesInGame,
+      'is_host': _isHost,
+    };
+    if (_hasVoted || _phase == 'voting') {
+      json['has_voted'] = _hasVoted;
+    }
+    if (_actionPrompt != null) {
+      json['action_prompt'] = _actionPrompt;
+    }
+    return json;
+  }
+
+  /// Wraps [build] output in a Dio [Response] ready for [MockHttpClient.thenReturn].
+  Response<Map<String, dynamic>> asResponse({
+    String? path,
+    int statusCode = 200,
+  }) {
+    final effectivePath = path ?? '/onuw/games/$_gameId/me/';
+    return Response(
+      requestOptions: RequestOptions(path: effectivePath),
+      statusCode: statusCode,
+      data: build(),
     );
   }
 }
