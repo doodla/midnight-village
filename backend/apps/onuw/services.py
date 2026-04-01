@@ -351,6 +351,21 @@ def advance_wave(game: Game) -> None:
     # Send player-scoped results via WebSocket
     send_wave_results(game, results, night_actions, wave)
 
+    # Doppelganger wave-1 follow-up: after the initial peek resolves,
+    # check if the copied role requires an immediate follow-up action
+    # (Seer, Robber, Troublemaker, Drunk, Minion all follow up in wave 1).
+    # If so, stay in wave 1 and prompt the follow-up before advancing.
+    if wave == 1:
+        just_resolved_initial = any(
+            a.role_acting_as == "Doppelganger" for a in night_actions
+        )
+        if just_resolved_initial:
+            followup = _get_doppelganger_wave1_followup(game)
+            if followup is not None:
+                doppel_id, copied_role = followup
+                _send_doppelganger_followup_prompt(game, doppel_id, copied_role)
+                return
+
     # Advance to next wave or end night
     next_wave = get_next_active_wave(game, wave)
     if next_wave is not None:
@@ -363,6 +378,63 @@ def advance_wave(game: Game) -> None:
         send_wave_prompts(game, next_wave)
     else:
         transition_to_discussion(game)
+
+
+def _get_doppelganger_wave1_followup(game: Game) -> tuple[int, str] | None:
+    """Check if a Doppelganger copied a role with a wave-1 follow-up.
+
+    Returns (doppelganger_user_id, copied_role) if a follow-up is needed,
+    or None if there's nothing to follow up on.
+    """
+    state = build_game_state(game)
+    for doppel_id, copied_role in state.doppelganger_copied_role.items():
+        followup_wave = get_doppelganger_followup_wave(copied_role)
+        if followup_wave == 1:
+            return (doppel_id, copied_role)
+    return None
+
+
+def _send_doppelganger_followup_prompt(
+    game: Game, doppel_id: int, copied_role: str
+) -> None:
+    """Send a follow-up action prompt to the Doppelganger and reset has_acted.
+
+    After the Doppelganger's initial peek resolves and the copied role has a
+    wave-1 follow-up, we stay in wave 1 and prompt the follow-up action.
+    """
+    from .engine.night import build_prompt
+    from .engine.roles import get_role
+
+    # Reset has_acted so the Doppelganger can submit the follow-up
+    with transaction.atomic():
+        PlayerRole.objects.filter(game=game, user_id=doppel_id).update(has_acted=False)
+
+    # Build and send the follow-up prompt
+    state = build_game_state(game)
+    role_def = get_role(copied_role)
+    prompt = build_prompt(state, doppel_id, copied_role, role_def.action_types)
+
+    channel_layer = get_channel_layer()
+    if channel_layer is not None:
+        send = async_to_sync(channel_layer.group_send)
+        send(
+            f"game_{game.id}_player_{doppel_id}",
+            {
+                "type": "action.prompt",
+                "wave": 1,
+                "role_acting_as": prompt["role_acting_as"],
+                "action_types": prompt["action_types"],
+                "valid_targets": prompt["valid_targets"],
+            },
+        )
+
+    # Schedule a timer for the follow-up action
+    wave_seconds = get_timer_seconds(game, "night_wave_seconds", 30)
+    if wave_seconds > 0:
+        callback = timers.make_idempotent_callback(
+            game.id, Phase.NIGHT, functools.partial(_auto_advance_wave, game, 1)
+        )
+        timers.schedule(f"{game.id}:wave:1", wave_seconds, callback)
 
 
 def _determine_acting_role(pr: PlayerRole, wave: int) -> str:
@@ -548,13 +620,33 @@ def get_player_acting_role_for_wave(pr: PlayerRole, wave: int) -> str | None:
 
     Uses the role registry to check wave assignments, plus Doppelganger
     follow-up logic.
+
+    For wave 1: if the Doppelganger has already completed the initial peek
+    (wave_1_result exists) and the copied role has a wave-1 follow-up,
+    returns the copied role so the follow-up action can be validated.
     """
+    # Check Doppelganger wave-1 follow-up BEFORE the base role check.
+    # After the initial peek resolves, the Doppelganger needs to submit
+    # a follow-up action as the copied role (e.g., Seer peek_center).
+    # Without this, the base check returns "Doppelganger" which only
+    # allows peek_player, rejecting other action types.
+    if (
+        wave == 1
+        and pr.original_role == "Doppelganger"
+        and pr.night_action_data.get("copied_role")
+        and "wave_1_result" in pr.night_action_data
+    ):
+        copied = pr.night_action_data["copied_role"]
+        followup = get_doppelganger_followup_wave(copied)
+        if followup == 1:
+            return copied
+
     # Check if their current role acts in this wave
     role_def = get_role(pr.current_role)
     if role_def.wave == wave:
         return pr.current_role
 
-    # Check Doppelganger follow-up
+    # Check Doppelganger follow-up for waves 2+
     if pr.original_role == "Doppelganger" and pr.night_action_data.get("copied_role"):
         copied = pr.night_action_data["copied_role"]
         followup = get_doppelganger_followup_wave(copied)
