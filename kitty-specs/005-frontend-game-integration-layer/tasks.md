@@ -412,7 +412,7 @@
 **Requirements Refs**: SC-006, FR-019
 
 ### Included Subtasks
-- [ ] T056 Write end-to-end integration tests in `frontend/test/integration/full_game_flow_test.dart` — test the complete flow: create lobby → join → configure roles → start → role reveal → night action prompt → action submission → action result → discussion → vote → vote reveal → results. Use mock HTTP and WebSocket to simulate backend. Verify FR-019: no hidden information (other players' roles, night action data, vote targets) is exposed before the results phase.
+- [x] T056 Write end-to-end integration tests in `frontend/test/integration/full_game_flow_test.dart` — test the complete flow: create lobby → join → configure roles → start → role reveal → night action prompt → action submission → action result → discussion → vote → vote reveal → results. Use mock HTTP and WebSocket to simulate backend. Verify FR-019: no hidden information (other players' roles, night action data, vote targets) is exposed before the results phase.
 
 ### Implementation Notes
 - Use mock `GameService`, `LobbyService`, and `ReconnectingWebSocket` to simulate the full server interaction.
