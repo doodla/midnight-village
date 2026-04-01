@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../design_system/components/core/mv_error.dart';
 import '../../../design_system/components/core/mv_loading.dart';
 import '../../../design_system/components/foundation/atmospheric_background.dart';
+import '../../../design_system/components/game/game_results.dart';
 import '../../../design_system/components/game/phase_indicator.dart';
 import '../../../design_system/models/game_phase.dart';
+import '../../../design_system/models/game_result.dart';
 import '../domain/night_state.dart';
 import 'game_notifier.dart';
 
@@ -53,8 +56,10 @@ class GameContainerScreen extends ConsumerWidget {
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 400),
                       child: _buildPhaseView(
+                        context,
                         gameState.phase,
                         gameState.nightSubView,
+                        gameState.results,
                       ),
                     ),
                   ),
@@ -68,11 +73,12 @@ class GameContainerScreen extends ConsumerWidget {
   }
 
   /// Builds the appropriate view for the current phase and night sub-view.
-  ///
-  /// Initially renders placeholder widgets for views not yet built (WP08,
-  /// WP09, WP10). These will be replaced with real implementations in
-  /// subsequent work packages.
-  Widget _buildPhaseView(String phase, NightSubView nightSubView) {
+  Widget _buildPhaseView(
+    BuildContext context,
+    String phase,
+    NightSubView nightSubView,
+    GameResult? results,
+  ) {
     return switch (phase) {
       'night' => _buildNightView(nightSubView),
       'discussion' => const _PlaceholderView(
@@ -83,15 +89,26 @@ class GameContainerScreen extends ConsumerWidget {
         key: ValueKey('voting'),
         label: 'Voting Phase',
       ),
-      'results' => const _PlaceholderView(
-        key: ValueKey('results'),
-        label: 'Results',
-      ),
+      'results' => _buildResultsView(context, results),
       _ => _PlaceholderView(
         key: ValueKey('unknown-$phase'),
         label: 'Unknown phase: $phase',
       ),
     };
+  }
+
+  Widget _buildResultsView(BuildContext context, GameResult? results) {
+    if (results == null) {
+      return const _PlaceholderView(
+        key: ValueKey('results-loading'),
+        label: 'Loading results...',
+      );
+    }
+    return GameResults(
+      key: const ValueKey('results'),
+      result: results,
+      onReturnToLobby: () => context.go('/'),
+    );
   }
 
   Widget _buildNightView(NightSubView subView) {
