@@ -1,7 +1,7 @@
 ---
 work_package_id: WP06
 title: Lobby Screen
-lane: in_progress
+lane: "approved"
 dependencies: [WP05]
 requirement_refs:
 - FR-008
@@ -18,8 +18,8 @@ phase: Phase 2 - Feature UIs
 assignee: ''
 agent: headless-reviewer
 shell_pid: '69381'
-review_status: has_feedback
-reviewed_by: Sridhar Vadlamani
+review_status: "approved"
+reviewed_by: "Sridhar Vadlamani"
 review_feedback: feedback://005-frontend-game-integration-layer/WP06/20260401T012937Z-4d8fc181.md
 history:
 - timestamp: '2026-03-31T07:30:22Z'
@@ -212,3 +212,4 @@ cd frontend && just gen
 - 2026-04-01T01:30:20Z – headless-impl – shell_pid=56158 – lane=doing – Started implementation via workflow command
 - 2026-04-01T01:35:49Z – headless-impl – shell_pid=56158 – lane=for_review – Addressed review feedback: added player-count>10 test, removed no-op SC-007 test, removed letterSpacing override (SC-007 fix), documented hardcoded icon sizes and touch targets
 - 2026-04-01T01:37:11Z – headless-reviewer – shell_pid=69381 – lane=doing – Started review via workflow command
+- 2026-04-01T01:39:30Z – headless-reviewer – shell_pid=69381 – lane=approved – Review passed: all 468 tests pass, analyzer clean, all T023-T027 subtasks fully implemented, Mason step-by-2 tested, start button three-condition gating verified, previous feedback addressed
