@@ -335,11 +335,11 @@
 **Requirements Refs**: FR-012, FR-015, FR-025
 
 ### Included Subtasks
-- [ ] T041 Build `DiscussionView` in `frontend/lib/features/game/presentation/discussion_view.dart` — prominent `GameTimer` countdown, `RoleTokenList` showing roles in play (from `gameState.rolesInGame`), host "End Discussion" `PrimaryButton` with `MvDialog` confirmation, `AtmosphericBackground` (discussion phase), warm-lit aesthetic
-- [ ] T042 Wire `VoteSubmission` widget to `GameNotifier` — on `onVoteSubmitted` callback, call `gameNotifier.submitVote(targetPlayerId)`, handle 409 as success, show locked state after submission
-- [ ] T043 Implement vote progress display — derive from `VoteProgress.playerVoted` map, show "X of Y voted" text and per-player voted indicators (checkmark badges on `PlayerCircle`), update on `vote_submitted` WS events
-- [ ] T044 Implement vote reveal flow — on `vote_reveal` WS event: map voter/target IDs to display names from local player list, compute tally, show votes+tally first (not VoteReveal widget yet). On `game_results` event (or 5s timeout → REST fallback): render full `VoteReveal` with elimination data. Handle abstainers (null target → "Abstained").
-- [ ] T045 Widget tests in `frontend/test/features/game/presentation/discussion_view_test.dart` and `frontend/test/features/game/presentation/voting_flow_test.dart`
+- [x] T041 Build `DiscussionView` in `frontend/lib/features/game/presentation/discussion_view.dart` — prominent `GameTimer` countdown, `RoleTokenList` showing roles in play (from `gameState.rolesInGame`), host "End Discussion" `PrimaryButton` with `MvDialog` confirmation, `AtmosphericBackground` (discussion phase), warm-lit aesthetic
+- [x] T042 Wire `VoteSubmission` widget to `GameNotifier` — on `onVoteSubmitted` callback, call `gameNotifier.submitVote(targetPlayerId)`, handle 409 as success, show locked state after submission
+- [x] T043 Implement vote progress display — derive from `VoteProgress.playerVoted` map, show "X of Y voted" text and per-player voted indicators (checkmark badges on `PlayerCircle`), update on `vote_submitted` WS events
+- [x] T044 Implement vote reveal flow — on `vote_reveal` WS event: map voter/target IDs to display names from local player list, compute tally, show votes+tally first (not VoteReveal widget yet). On `game_results` event (or 5s timeout → REST fallback): render full `VoteReveal` with elimination data. Handle abstainers (null target → "Abstained").
+- [x] T045 Widget tests in `frontend/test/features/game/presentation/discussion_view_test.dart` and `frontend/test/features/game/presentation/voting_flow_test.dart`
 
 ### Implementation Notes
 - Discussion view composes: `GameTimer`, `RoleTokenList`, `PhaseIndicator`, `AtmosphericBackground`, `PrimaryButton`.
