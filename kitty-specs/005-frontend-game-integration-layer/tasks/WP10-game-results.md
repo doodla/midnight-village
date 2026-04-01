@@ -1,7 +1,7 @@
 ---
 work_package_id: WP10
 title: Game Results
-lane: planned
+lane: "doing"
 dependencies: [WP07]
 requirement_refs:
 - FR-024
@@ -9,11 +9,14 @@ requirement_refs:
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 005-frontend-game-integration-layer-WP07
+base_commit: 79976d3d3a2e2d4758e9ba041d57052947d6c577
+created_at: '2026-04-01T01:18:36.122623+00:00'
 subtasks: [T046, T047, T048, T049, T050]
 phase: Phase 2 - Feature UIs
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "34379"
 review_status: ''
 reviewed_by: ''
 history:
