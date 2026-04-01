@@ -1,7 +1,7 @@
 ---
 work_package_id: WP09
 title: Discussion & Voting
-lane: "doing"
+lane: "for_review"
 dependencies: [WP07]
 requirement_refs: [FR-012, FR-015, FR-025]
 planning_base_branch: main
@@ -13,8 +13,8 @@ created_at: '2026-04-01T01:16:35.542049+00:00'
 subtasks: [T041, T042, T043, T044, T045]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: "headless-impl"
-shell_pid: "31797"
+agent: headless-impl
+shell_pid: '31797'
 review_status: ''
 reviewed_by: ''
 history:
@@ -209,3 +209,4 @@ cd frontend && just check
 
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
 - 2026-04-01T01:16:35Z – headless-impl – shell_pid=31797 – lane=doing – Assigned agent via workflow command
+- 2026-04-01T01:31:11Z – headless-impl – shell_pid=31797 – lane=for_review – Ready for review: DiscussionView with timer/roles/host controls, voting phase wiring with VoteSubmission, vote progress display, intermediate vote tally, 5-second fallback. 463 tests pass, no analyzer warnings.
