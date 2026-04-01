@@ -292,13 +292,13 @@
 **Requirements Refs**: FR-010, FR-011, FR-021, FR-022, FR-023, FR-026
 
 ### Included Subtasks
-- [ ] T034 [P] Build `RoleRevealView` in `frontend/lib/features/game/presentation/role_reveal_view.dart` — face-down-to-face-up `RoleCard` flip animation, "You are the **[Role]**" typography, 4s auto-advance timer, `AtmosphericBackground` (night)
-- [ ] T035 [P] Build `NightWaitingView` in `frontend/lib/features/game/presentation/night_waiting_view.dart` — "The village sleeps..." atmospheric text, `GameTimer` countdown, subtle breathing/pulse animation, `AtmosphericBackground` (night/deep void)
-- [ ] T036 [P] Build `SeerChoiceView` in `frontend/lib/features/game/presentation/seer_choice_view.dart` — "Look at one player's card" / "Look at two center cards" buttons, role identity strip (from `NightActionPrompt` pattern), calls GameNotifier to set chosen action type
-- [ ] T037 Build `NightResultView` in `frontend/lib/features/game/presentation/night_result_view.dart` — displays `ActionResult.revealedInfo` per action type: peek_player (target name + `RoleCard`), peek_center (`RoleCard`(s)), swap_with_player ("You are now [role]" + `RoleCard`), swap_with_center (confirmation), swap_others (confirmation with names), see_team (teammate list or empty-state message per role)
-- [ ] T038 Build `LoneWerewolfPeekView` in `frontend/lib/features/game/presentation/lone_werewolf_peek_view.dart` — `CenterCards` with `maxSelections: 1`, skip button, submits `see_team` action with optional `center_index` target
-- [ ] T039 Wire night sub-views to `GameContainerScreen` — map `NightSubView` enum to view widgets, handle transitions between sub-views, wire `NightActionPrompt` (existing) to `GameNotifier.submitAction`
-- [ ] T040 Widget tests in `frontend/test/features/game/presentation/` — one test file per view, test role reveal animation timing, night result display per action type, Seer choice button callbacks, lone Werewolf skip flow
+- [x] T034 [P] Build `RoleRevealView` in `frontend/lib/features/game/presentation/role_reveal_view.dart` — face-down-to-face-up `RoleCard` flip animation, "You are the **[Role]**" typography, 4s auto-advance timer, `AtmosphericBackground` (night)
+- [x] T035 [P] Build `NightWaitingView` in `frontend/lib/features/game/presentation/night_waiting_view.dart` — "The village sleeps..." atmospheric text, `GameTimer` countdown, subtle breathing/pulse animation, `AtmosphericBackground` (night/deep void)
+- [x] T036 [P] Build `SeerChoiceView` in `frontend/lib/features/game/presentation/seer_choice_view.dart` — "Look at one player's card" / "Look at two center cards" buttons, role identity strip (from `NightActionPrompt` pattern), calls GameNotifier to set chosen action type
+- [x] T037 Build `NightResultView` in `frontend/lib/features/game/presentation/night_result_view.dart` — displays `ActionResult.revealedInfo` per action type: peek_player (target name + `RoleCard`), peek_center (`RoleCard`(s)), swap_with_player ("You are now [role]" + `RoleCard`), swap_with_center (confirmation), swap_others (confirmation with names), see_team (teammate list or empty-state message per role)
+- [x] T038 Build `LoneWerewolfPeekView` in `frontend/lib/features/game/presentation/lone_werewolf_peek_view.dart` — `CenterCards` with `maxSelections: 1`, skip button, submits `see_team` action with optional `center_index` target
+- [x] T039 Wire night sub-views to `GameContainerScreen` — map `NightSubView` enum to view widgets, handle transitions between sub-views, wire `NightActionPrompt` (existing) to `GameNotifier.submitAction`
+- [x] T040 Widget tests in `frontend/test/features/game/presentation/` — one test file per view, test role reveal animation timing, night result display per action type, Seer choice button callbacks, lone Werewolf skip flow
 
 ### Implementation Notes
 - Compose existing components: `RoleCard`, `GameTimer`, `CenterCards`, `AtmosphericBackground`, `PrimaryButton`, `PlayerAvatar`.
