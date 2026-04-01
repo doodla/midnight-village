@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Lobby Domain & Service
-lane: "doing"
+lane: "approved"
 dependencies:
 - WP02
 requirement_refs: [FR-006, FR-016, FR-020, FR-027, FR-029]
@@ -14,10 +14,10 @@ created_at: '2026-03-31T17:09:34.360544+00:00'
 subtasks: [T018, T019, T020, T021, T022]
 phase: Phase 1 - Feature Data Layers
 assignee: ''
-agent: "headless-reviewer"
-shell_pid: "9294"
-review_status: has_feedback
-reviewed_by: Sridhar Vadlamani
+agent: headless-reviewer
+shell_pid: '9294'
+review_status: "approved"
+reviewed_by: "Sridhar Vadlamani"
 review_feedback: feedback://005-frontend-game-integration-layer/WP05/20260331T173445Z-0a351572.md
 history:
 - timestamp: '2026-03-31T07:30:22Z'
@@ -247,3 +247,4 @@ cd frontend && just gen
 - 2026-03-31T17:34:45Z – headless-reviewer – shell_pid=14117 – lane=planned – Moved to planned
 - 2026-03-31T17:49:42Z – headless-reviewer – shell_pid=14117 – lane=for_review – Addressed review: removed unused helpers, fixed analyzer warnings
 - 2026-04-01T01:00:15Z – headless-reviewer – shell_pid=9294 – lane=doing – Started review via workflow command
+- 2026-04-01T01:12:01Z – headless-reviewer – shell_pid=9294 – lane=approved – Review passed: all 444 tests pass, analyzer clean, T018-T022 fully implemented. Models parse backend nested JSON correctly, RoleConfig validation matches game rules, LobbyNotifier WS event handling per spec, ref.onDispose closes WebSocket.
