@@ -1,7 +1,7 @@
 ---
 work_package_id: WP08
 title: Night Phase Views
-lane: "for_review"
+lane: "doing"
 dependencies: [WP07]
 requirement_refs: [FR-010, FR-011, FR-021, FR-022, FR-023, FR-026]
 planning_base_branch: main
@@ -13,8 +13,8 @@ created_at: '2026-04-01T01:14:35.139737+00:00'
 subtasks: [T034, T035, T036, T037, T038, T039, T040]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: headless-impl
-shell_pid: '19015'
+agent: "headless-reviewer"
+shell_pid: "31817"
 review_status: has_feedback
 reviewed_by: Sridhar Vadlamani
 review_feedback: feedback://005-frontend-game-integration-layer/WP08/20260401T021047Z-a6c6c7cc.md
@@ -242,3 +242,4 @@ cd frontend && just gen
 - 2026-04-01T02:10:47Z – headless-reviewer – shell_pid=10412 – lane=planned – Moved to planned
 - 2026-04-01T02:11:32Z – headless-impl – shell_pid=19015 – lane=doing – Started implementation via workflow command
 - 2026-04-01T02:18:19Z – headless-impl – shell_pid=19015 – lane=for_review – Addressed review feedback: added RoleCard to SeerChoiceView identity strip, replaced hardcoded icon size 64 with tokens.spacing.xxxl, added NightSubView.actionPrompt container test. 488 tests pass, analyzer clean.
+- 2026-04-01T02:18:53Z – headless-reviewer – shell_pid=31817 – lane=doing – Started review via workflow command
