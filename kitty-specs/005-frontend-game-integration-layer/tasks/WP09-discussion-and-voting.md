@@ -1,7 +1,7 @@
 ---
 work_package_id: WP09
 title: Discussion & Voting
-lane: "doing"
+lane: planned
 dependencies: [WP07]
 requirement_refs: [FR-012, FR-015, FR-025]
 planning_base_branch: main
@@ -13,11 +13,11 @@ created_at: '2026-04-01T01:16:35.542049+00:00'
 subtasks: [T041, T042, T043, T044, T045]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: "headless-impl"
-shell_pid: "77691"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback: "feedback://005-frontend-game-integration-layer/WP09/20260401T013847Z-9c2f11bc.md"
+agent: headless-impl
+shell_pid: '77691'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
+review_feedback: feedback://005-frontend-game-integration-layer/WP09/20260401T013847Z-9c2f11bc.md
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
