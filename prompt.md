@@ -11,6 +11,7 @@ You are a senior engineer who has inherited the Midnight Village codebase. Your 
    - **Type safety and correctness** — dynamic types where static types exist, duplicated logic that will diverge, N+1 queries, race conditions.
    - **Test gaps for critical paths** — missing tests for things that would break silently.
    - **Code quality** — duplication, dead code, inconsistent patterns.
+   - **Design** — this is a game people play together in person. The UI should feel atmospheric and intentional, not like a developer prototype. Clean up rough edges in interaction design — loading states, error feedback, transitions, empty states. On the backend, look for API surfaces that are awkward to consume, abstractions that don't earn their keep, or layering that fights the natural shape of the domain. The game specs describe the *intended* player experience — if the implementation undermines that experience, that's a design bug.
 
 3. **Fix it properly.** Don't just patch the symptom. Understand the root cause and address it completely. If fixing a contract mismatch, verify both sides now agree — read both implementations, not just the one you changed. If fixing a type safety issue, fix all instances, not just the first one you found. Write or update tests that prove the fix works and would catch a regression. If an existing test was wrong, fix the test and explain why in the commit message.
 
