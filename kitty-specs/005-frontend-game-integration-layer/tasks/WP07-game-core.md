@@ -1,7 +1,7 @@
 ---
 work_package_id: WP07
 title: Game Core — Domain, Service & Container
-lane: "for_review"
+lane: "doing"
 dependencies:
 - WP02
 requirement_refs: [FR-007, FR-009, FR-014, FR-017, FR-023]
@@ -14,8 +14,8 @@ created_at: '2026-03-31T17:09:35.424030+00:00'
 subtasks: [T028, T029, T030, T031, T032, T033]
 phase: Phase 1 - Feature Data Layers
 assignee: ''
-agent: headless-reviewer
-shell_pid: '16462'
+agent: "headless-reviewer"
+shell_pid: "13289"
 review_status: has_feedback
 reviewed_by: Sridhar Vadlamani
 review_feedback: feedback://005-frontend-game-integration-layer/WP07/20260331T173702Z-005af141.md
@@ -320,3 +320,4 @@ cd frontend && just gen
 - 2026-03-31T17:33:32Z – headless-reviewer – shell_pid=16462 – lane=doing – Started review via workflow command
 - 2026-03-31T17:37:03Z – headless-reviewer – shell_pid=16462 – lane=planned – Moved to planned
 - 2026-04-01T00:59:34Z – headless-reviewer – shell_pid=16462 – lane=for_review – Addressed review: added roleReveal, has_voted, fixed analyzer
+- 2026-04-01T01:02:15Z – headless-reviewer – shell_pid=13289 – lane=doing – Started review via workflow command
