@@ -1,7 +1,7 @@
 ---
 work_package_id: WP11
 title: Reconnection & Game Resume
-lane: planned
+lane: "for_review"
 dependencies:
 - WP03
 requirement_refs:
@@ -208,3 +208,4 @@ cd frontend && just check
 - 2026-04-01T01:04:16Z – headless-reviewer – shell_pid=16602 – lane=doing – Started review via workflow command
 - 2026-04-01T01:10:24Z – headless-reviewer – shell_pid=16602 – lane=planned – Moved to planned
 - 2026-04-01T01:20:36Z – headless-impl – shell_pid=37495 – lane=doing – Started implementation via workflow command
+- 2026-04-01T01:31:30Z – headless-impl – shell_pid=37495 – lane=for_review – Ready for review: addressed all 5 feedback issues — getGameState (T053 critical), WebSocket full URL, MvLoading in overlay, AuthenticatedClient TODO comment, added GameStateResponse tests + getGameState HTTP tests + router redirect widget tests. 420 tests pass.
