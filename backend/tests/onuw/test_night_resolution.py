@@ -942,6 +942,66 @@ class TestResolveNight:
         real_insomniac = next(r for r in w4_results if r.player_id == 2)
         assert real_insomniac.revealed_info["current_role"] == "Insomniac"
 
+    def test_troublemaker_swaps_insomniac_original_insomniac_wakes_in_wave_4(self):
+        """After Troublemaker swaps Insomniac with another player,
+        the original Insomniac (not the new card holder) wakes in wave 4
+        and sees their swapped role."""
+        state = _make_state(
+            player_roles={
+                1: "Insomniac",
+                2: "Werewolf",
+                3: "Troublemaker",
+                4: "Villager",
+                5: "Seer",
+            },
+            center_cards=["Drunk", "Tanner", "Mason"],
+        )
+        all_actions: dict[int, list[NightAction]] = {
+            2: [
+                NightAction(
+                    player_id=2,
+                    role_acting_as="Werewolf",
+                    action_type="see_team",
+                    targets={},
+                ),
+            ],
+            3: [
+                # Seer peeks, Troublemaker swaps Insomniac with Villager
+                NightAction(
+                    player_id=5,
+                    role_acting_as="Seer",
+                    action_type="peek_player",
+                    targets={"player_id": 2},
+                ),
+                NightAction(
+                    player_id=3,
+                    role_acting_as="Troublemaker",
+                    action_type="swap_others",
+                    targets={"player_ids": [1, 4]},
+                ),
+            ],
+            4: [
+                # Original Insomniac (player 1) wakes
+                NightAction(
+                    player_id=1,
+                    role_acting_as="Insomniac",
+                    action_type="none",
+                    targets={},
+                ),
+            ],
+        }
+        final_state, results_by_wave = resolve_night(state, all_actions)
+
+        # After Troublemaker swap: player 1 = Villager, player 4 = Insomniac
+        assert final_state.player_roles[1] == "Villager"
+        assert final_state.player_roles[4] == "Insomniac"
+
+        # Wave 4: original Insomniac (player 1) sees Villager
+        w4_results = results_by_wave[4]
+        assert len(w4_results) == 1
+        assert w4_results[0].player_id == 1
+        assert w4_results[0].revealed_info["current_role"] == "Villager"
+
 
 # ── get_required_actions Tests ───────────────────────────────────────────────
 
@@ -1124,3 +1184,88 @@ class TestGetRequiredActions:
         prompts = get_required_actions(state, wave=2)
         mason = next(p for p in prompts if p["player_id"] == 1)
         assert 2 in mason["valid_targets"]["see_team"]
+
+    def test_wave_4_uses_original_role_after_troublemaker_swap(self):
+        """After Troublemaker swaps Insomniac away, original Insomniac still wakes in wave 4."""
+        # Post-swap state: original Insomniac (player 1) now holds Villager,
+        # player 4 now holds Insomniac.  Wave 4 should prompt player 1, not player 4.
+        state = GameState(
+            player_roles={
+                1: "Villager",  # was Insomniac, swapped by Troublemaker
+                2: "Werewolf",
+                3: "Troublemaker",
+                4: "Insomniac",  # was Villager, received Insomniac card
+                5: "Seer",
+            },
+            center_cards=["Drunk", "Tanner", "Mason"],
+            original_roles={
+                1: "Insomniac",
+                2: "Werewolf",
+                3: "Troublemaker",
+                4: "Villager",
+                5: "Seer",
+            },
+        )
+        prompts = get_required_actions(state, wave=4)
+        player_ids = {p["player_id"] for p in prompts}
+        # Original Insomniac (player 1) should be prompted
+        assert 1 in player_ids
+        # Player 4 (who now holds Insomniac card) should NOT be prompted
+        assert 4 not in player_ids
+
+    def test_wave_4_insomniac_sees_swapped_role(self):
+        """Original Insomniac sees their current (swapped) role in wave 4."""
+        state = GameState(
+            player_roles={
+                1: "Villager",  # was Insomniac, swapped by Troublemaker
+                2: "Werewolf",
+                3: "Troublemaker",
+                4: "Insomniac",  # was Villager
+                5: "Seer",
+            },
+            center_cards=["Drunk", "Tanner", "Mason"],
+            original_roles={
+                1: "Insomniac",
+                2: "Werewolf",
+                3: "Troublemaker",
+                4: "Villager",
+                5: "Seer",
+            },
+        )
+        actions = [
+            NightAction(
+                player_id=1,
+                role_acting_as="Insomniac",
+                action_type="none",
+                targets={},
+            ),
+        ]
+        _new_state, results = resolve_wave(state, actions, wave=4)
+        assert len(results) == 1
+        assert results[0].player_id == 1
+        # Player 1 learns their current card is Villager (they were swapped)
+        assert results[0].revealed_info["current_role"] == "Villager"
+
+    def test_wave_4_uses_original_role_after_robber_swap(self):
+        """After Robber steals Insomniac card, original Insomniac still wakes in wave 4."""
+        state = GameState(
+            player_roles={
+                1: "Robber",  # was Insomniac, Robber stole it
+                2: "Werewolf",
+                3: "Insomniac",  # was Robber, now holds Insomniac
+                4: "Villager",
+                5: "Seer",
+            },
+            center_cards=["Drunk", "Tanner", "Mason"],
+            original_roles={
+                1: "Insomniac",
+                2: "Werewolf",
+                3: "Robber",
+                4: "Villager",
+                5: "Seer",
+            },
+        )
+        prompts = get_required_actions(state, wave=4)
+        player_ids = {p["player_id"] for p in prompts}
+        assert 1 in player_ids
+        assert 3 not in player_ids

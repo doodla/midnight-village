@@ -472,12 +472,18 @@ def _determine_acting_role(pr: PlayerRole, wave: int) -> str:
     Handles Doppelganger follow-up: if the player is originally
     Doppelganger and copied a role whose follow-up wave matches,
     they act as that copied role.
+
+    Wave 4 uses original_role: the Insomniac wakes based on their dealt
+    card, not whatever they hold after swaps.
     """
     if pr.original_role == "Doppelganger" and pr.night_action_data.get("copied_role"):
         copied = pr.night_action_data["copied_role"]
         followup = get_doppelganger_followup_wave(copied)
         if followup == wave:
             return copied
+
+    if wave == 4:
+        return pr.original_role
 
     return pr.current_role
 
@@ -669,10 +675,17 @@ def get_player_acting_role_for_wave(pr: PlayerRole, wave: int) -> str | None:
         if followup == 1:
             return copied
 
-    # Check if their current role acts in this wave
-    role_def = get_role(pr.current_role)
-    if role_def.wave == wave:
-        return pr.current_role
+    # Wave 4 (Insomniac) uses original role: the player who was DEALT the
+    # Insomniac card wakes to check their card, regardless of swaps.
+    if wave == 4:
+        role_def = get_role(pr.original_role)
+        if role_def.wave == 4:
+            return pr.original_role
+    else:
+        # Check if their current role acts in this wave
+        role_def = get_role(pr.current_role)
+        if role_def.wave == wave:
+            return pr.current_role
 
     # Check Doppelganger follow-up for waves 2+
     if pr.original_role == "Doppelganger" and pr.night_action_data.get("copied_role"):

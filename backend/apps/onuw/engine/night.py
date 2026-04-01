@@ -69,13 +69,22 @@ def get_required_actions(
 
     doppelganger_info maps doppelganger player_id -> copied_role for
     scheduling follow-up actions.
+
+    Wave 4 (Insomniac) uses original_roles: in the physical game the
+    narrator calls "Insomniac, wake up" and the player who was DEALT the
+    Insomniac card opens their eyes, regardless of swaps.  Using
+    current roles would prompt whoever now holds the Insomniac card
+    instead, leaking swap information to the wrong player.
     """
     prompts: list[dict[str, Any]] = []
     wave_roles = get_roles_for_wave(wave)
     wave_role_names = {r.name for r in wave_roles}
 
-    # Find players whose current role acts in this wave
-    for player_id, role_name in state.player_roles.items():
+    # Wave 4 uses original roles — the Insomniac wakes based on their
+    # dealt card, not whatever card is in front of them after swaps.
+    roles_source = state.original_roles if wave == 4 else state.player_roles
+
+    for player_id, role_name in roles_source.items():
         if role_name in wave_role_names:
             role_def = get_role(role_name)
             prompts.append(
