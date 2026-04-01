@@ -171,6 +171,21 @@ void main() {
       expect(state.phase, 'night');
       expect(updated.phase, 'discussion');
     });
+
+    test('fromJson parses is_host true from backend response', () {
+      final json = validGameMeResponse();
+      json['is_host'] = true;
+      final state = GameSessionState.fromJson(json);
+      expect(state.isHost, true);
+    });
+
+    test('fromJson defaults isHost to false when is_host absent from response', () {
+      // Simulates backend that does not yet include is_host (defensive default).
+      final json = validGameMeResponse();
+      json.remove('is_host');
+      final state = GameSessionState.fromJson(json);
+      expect(state.isHost, false);
+    });
   });
 
   group('ActionPrompt', () {
