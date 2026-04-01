@@ -210,6 +210,26 @@ class GameContainerScreen extends ConsumerWidget {
             .toList();
       }
     }
+
+    // For player-targeting actions, filter to only the valid targets sent by
+    // the server. This excludes the acting player (you can't peek at yourself,
+    // swap with yourself, etc.).
+    const playerTargetingActions = {
+      NightActionType.peekPlayer,
+      NightActionType.swapWithPlayer,
+      NightActionType.swapOthers,
+    };
+    if (playerTargetingActions.contains(actionType)) {
+      final validIds = prompt.validTargets['player_ids'];
+      if (validIds is List) {
+        final validIdSet = validIds.map((e) => e.toString()).toSet();
+        return allPlayers
+            .where((p) => validIdSet.contains(p.playerId.toString()))
+            .map(_playerToDisplay)
+            .toList();
+      }
+    }
+
     return allPlayers.map(_playerToDisplay).toList();
   }
 

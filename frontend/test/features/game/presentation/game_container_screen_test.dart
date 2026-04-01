@@ -340,6 +340,164 @@ void main() {
         expect(find.text('The village sleeps\u2026'), findsOneWidget);
       },
     );
+
+    group('night action target filtering', () {
+      testWidgets('peek_player only shows players from valid_targets', (
+        tester,
+      ) async {
+        // Alice (1) is the Seer; Bob (2) and Charlie (3) are valid targets.
+        // Alice should NOT appear as a selectable target.
+        final state = GameSessionState(
+          gameId: 'test-game-id',
+          phase: 'night',
+          yourRole: const YourRole(originalRole: 'seer', hasActed: false),
+          players: const [
+            GamePlayer(playerId: 1, displayName: 'Alice'),
+            GamePlayer(playerId: 2, displayName: 'Bob'),
+            GamePlayer(playerId: 3, displayName: 'Charlie'),
+          ],
+          nightSubView: NightSubView.actionPrompt,
+          actionPrompt: const ActionPrompt(
+            roleActingAs: 'Seer',
+            actionTypes: ['peek_player'],
+            validTargets: {
+              'player_ids': [2, 3],
+              'center_indices': [0, 1, 2],
+            },
+            wave: 3,
+          ),
+        );
+
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            gameProvider(
+              'test-game-id',
+            ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+          ],
+        );
+
+        expect(find.byType(NightActionPrompt), findsOneWidget);
+        expect(find.text('Bob'), findsOneWidget);
+        expect(find.text('Charlie'), findsOneWidget);
+        expect(find.text('Alice'), findsNothing);
+      });
+
+      testWidgets('swap_with_player only shows players from valid_targets', (
+        tester,
+      ) async {
+        final state = GameSessionState(
+          gameId: 'test-game-id',
+          phase: 'night',
+          yourRole: const YourRole(originalRole: 'robber', hasActed: false),
+          players: const [
+            GamePlayer(playerId: 1, displayName: 'Alice'),
+            GamePlayer(playerId: 2, displayName: 'Bob'),
+            GamePlayer(playerId: 3, displayName: 'Charlie'),
+          ],
+          nightSubView: NightSubView.actionPrompt,
+          actionPrompt: const ActionPrompt(
+            roleActingAs: 'Robber',
+            actionTypes: ['swap_with_player'],
+            validTargets: {
+              'player_ids': [2, 3],
+            },
+            wave: 3,
+          ),
+        );
+
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            gameProvider(
+              'test-game-id',
+            ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+          ],
+        );
+
+        expect(find.byType(NightActionPrompt), findsOneWidget);
+        expect(find.text('Bob'), findsOneWidget);
+        expect(find.text('Charlie'), findsOneWidget);
+        expect(find.text('Alice'), findsNothing);
+      });
+
+      testWidgets('swap_others only shows players from valid_targets', (
+        tester,
+      ) async {
+        final state = GameSessionState(
+          gameId: 'test-game-id',
+          phase: 'night',
+          yourRole: const YourRole(
+            originalRole: 'troublemaker',
+            hasActed: false,
+          ),
+          players: const [
+            GamePlayer(playerId: 1, displayName: 'Alice'),
+            GamePlayer(playerId: 2, displayName: 'Bob'),
+            GamePlayer(playerId: 3, displayName: 'Charlie'),
+          ],
+          nightSubView: NightSubView.actionPrompt,
+          actionPrompt: const ActionPrompt(
+            roleActingAs: 'Troublemaker',
+            actionTypes: ['swap_others'],
+            validTargets: {
+              'player_ids': [2, 3],
+            },
+            wave: 3,
+          ),
+        );
+
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            gameProvider(
+              'test-game-id',
+            ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+          ],
+        );
+
+        expect(find.byType(NightActionPrompt), findsOneWidget);
+        expect(find.text('Bob'), findsOneWidget);
+        expect(find.text('Charlie'), findsOneWidget);
+        expect(find.text('Alice'), findsNothing);
+      });
+
+      testWidgets(
+        'falls back to all players when player_ids missing from valid_targets',
+        (tester) async {
+          final state = GameSessionState(
+            gameId: 'test-game-id',
+            phase: 'night',
+            yourRole: const YourRole(originalRole: 'seer', hasActed: false),
+            players: const [
+              GamePlayer(playerId: 1, displayName: 'Alice'),
+              GamePlayer(playerId: 2, displayName: 'Bob'),
+            ],
+            nightSubView: NightSubView.actionPrompt,
+            actionPrompt: const ActionPrompt(
+              roleActingAs: 'Seer',
+              actionTypes: ['peek_player'],
+              validTargets: {},
+              wave: 3,
+            ),
+          );
+
+          await tester.pumpWithTokens(
+            const GameContainerScreen(gameId: 'test-game-id'),
+            overrides: [
+              gameProvider(
+                'test-game-id',
+              ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+            ],
+          );
+
+          // Without player_ids, falls back to showing all players.
+          expect(find.byType(NightActionPrompt), findsOneWidget);
+          expect(find.text('Alice'), findsOneWidget);
+          expect(find.text('Bob'), findsOneWidget);
+        },
+      );
+    });
   });
 }
 
