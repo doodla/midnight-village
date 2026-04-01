@@ -36,6 +36,21 @@ class GameResult:
     reason: str  # human-readable explanation
 
 
+def _get_card_copied_role(doppelganger_copied: dict[int, str]) -> str | None:
+    """Get the role that the Doppelganger card copied.
+
+    The copied role is a property of the CARD, not the player who
+    originally held it. There is at most one Doppelganger card in
+    any ONUW game, so the dict has at most one entry.
+
+    Returns None if no Doppelganger copy occurred (card was in the
+    center or never dealt).
+    """
+    if not doppelganger_copied:
+        return None
+    return next(iter(doppelganger_copied.values()))
+
+
 def get_effective_team(
     player_id: int,
     player_roles: dict[int, str],
@@ -44,26 +59,21 @@ def get_effective_team(
     """
     Get a player's effective team based on their current role.
 
-    If a player's current_role is "Doppelganger" (meaning they are the
-    original Doppelganger and were never swapped away from that card),
-    use their copied role for team determination.
-
-    If someone was swapped TO a "Doppelganger" card (and is NOT the
-    original Doppelganger), treat them as village team since
-    Doppelganger's base team is village.
+    The copied role is a property of the Doppelganger CARD. Any player
+    currently holding that card inherits the copied role's team — whether
+    they are the original Doppelganger or received the card via swap.
     """
     role = player_roles.get(player_id, "")
 
     if role == "Doppelganger":
-        # This is someone holding the Doppelganger card.
-        # If they are the original Doppelganger, use copied role.
-        copied = doppelganger_copied.get(player_id)
+        # This player holds the Doppelganger card. The card's copied
+        # role determines team, regardless of who originally copied.
+        copied = _get_card_copied_role(doppelganger_copied)
         if copied is not None:
             role = copied
         else:
-            # Non-original player swapped to Doppelganger card, or
-            # original Doppelganger who didn't copy (shouldn't happen in
-            # normal play). Treat as village.
+            # Doppelganger card with no copy (e.g. swapped in from center
+            # where no Doppelganger was dealt). Base team is village.
             return "village"
 
     if role in _WEREWOLF_TEAM_ROLES:
@@ -80,11 +90,14 @@ def _get_effective_role(
     doppelganger_copied: dict[int, str],
 ) -> str:
     """
-    Get a player's effective role, resolving Doppelganger to their copied role.
+    Get a player's effective role, resolving Doppelganger to the card's copied role.
+
+    The copied role is a property of the Doppelganger CARD. Any player
+    currently holding that card inherits the copied role.
     """
     role = player_roles.get(player_id, "")
     if role == "Doppelganger":
-        copied = doppelganger_copied.get(player_id)
+        copied = _get_card_copied_role(doppelganger_copied)
         if copied is not None:
             return copied
     return role
@@ -134,14 +147,15 @@ def evaluate_winner(
     for pid in player_roles:
         player_teams[pid] = get_effective_team(pid, player_roles, doppelganger_copied)
 
-    # Identify werewolf-role players (actual Werewolf, not Minion)
+    # Identify werewolf-role players using effective role resolution.
+    # This correctly handles: real Werewolf cards, Doppelganger card
+    # that copied Werewolf (regardless of who now holds it), and
+    # ignores the original Doppelganger if their card was swapped away.
     werewolf_role_players = [
-        pid for pid, role in player_roles.items() if role == "Werewolf"
+        pid
+        for pid in player_roles
+        if _get_effective_role(pid, player_roles, doppelganger_copied) == "Werewolf"
     ]
-    # Also check doppelganger-as-werewolf
-    for pid, copied in doppelganger_copied.items():
-        if copied == "Werewolf" and pid not in werewolf_role_players:
-            werewolf_role_players.append(pid)
 
     werewolves_in_game = len(werewolf_role_players) > 0
 
@@ -157,16 +171,10 @@ def evaluate_winner(
         pid for pid in eliminated if player_teams.get(pid) == "neutral"
     ]
     eliminated_werewolves = [
-        pid for pid in eliminated if player_roles.get(pid) == "Werewolf"
+        pid
+        for pid in eliminated
+        if _get_effective_role(pid, player_roles, doppelganger_copied) == "Werewolf"
     ]
-    # Also count doppelganger-as-werewolf in eliminated werewolves
-    for pid in eliminated:
-        if (
-            player_roles.get(pid) == "Doppelganger"
-            and doppelganger_copied.get(pid) == "Werewolf"
-            and pid not in eliminated_werewolves
-        ):
-            eliminated_werewolves.append(pid)
 
     # --- Evaluate winning teams (non-mutually-exclusive) ---
     winning_teams: list[str] = []

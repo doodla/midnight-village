@@ -308,6 +308,83 @@ class TestEvaluateWinner:
         assert result.player_outcomes[3] == "lose"  # Villager loses
         assert result.player_outcomes[4] == "lose"  # Robber loses
 
+    def test_doppelganger_as_werewolf_swapped_away_no_werewolves_in_play(self):
+        """When Doppelganger-as-Werewolf is swapped to a non-Doppelganger card,
+        and no real Werewolf cards are held by players, the game should use
+        the 'no werewolves in play' branch — not the 'werewolves exist' branch.
+
+        Bug: werewolf_role_players included the original Doppelganger based on
+        doppelganger_copied even after their card was swapped away.
+        """
+        # Doppelganger (1) copied Werewolf, then Robber (2) stole the Doppelganger card.
+        # After swap: player 1 holds Robber, player 2 holds Doppelganger-that-copied-Werewolf.
+        eliminated: list[int] = []
+        player_roles = {
+            1: "Robber",  # was Doppelganger, now holds Robber card
+            2: "Doppelganger",  # was Robber, now holds Doppelganger card
+            3: "Villager",
+        }
+        doppelganger_copied = {1: "Werewolf"}  # player 1 originally copied Werewolf
+        result = evaluate_winner(eliminated, player_roles, doppelganger_copied)
+
+        # Player 2 now holds the Doppelganger card that copied Werewolf.
+        # This means a werewolf IS in play (player 2). No one was eliminated,
+        # so the werewolf team should win.
+        assert "werewolf" in result.winning_teams
+        # Player 2 holds the werewolf-team card — they should win.
+        assert result.player_outcomes[2] == "win"
+        # Player 1 holds the Robber card — village team, should lose.
+        assert result.player_outcomes[1] == "lose"
+
+    def test_doppelganger_card_holder_inherits_copied_team(self):
+        """A player who receives the Doppelganger card via swap inherits the
+        copied role's team. The copied role is a property of the CARD, not
+        the original player.
+
+        Spec: 'Any player holding the Doppelganger card has the copied role
+        as their effective role.'
+        """
+        # Troublemaker swapped Doppelganger (1) and Villager (3).
+        # Doppelganger originally copied Werewolf.
+        player_roles = {
+            1: "Villager",  # was Doppelganger, now holds Villager card
+            2: "Seer",
+            3: "Doppelganger",  # was Villager, now holds Doppelganger card
+        }
+        doppelganger_copied = {1: "Werewolf"}
+        # Player 3 now holds the werewolf-team card.
+        team = get_effective_team(3, player_roles, doppelganger_copied)
+        assert team == "werewolf"
+
+    def test_doppelganger_swapped_away_original_is_new_team(self):
+        """The original Doppelganger who was swapped away uses their new card's team."""
+        # Doppelganger (1) copied Werewolf, Robber (2) stole the Doppelganger card.
+        player_roles = {
+            1: "Robber",  # was Doppelganger, now holds Robber card
+            2: "Doppelganger",  # was Robber, now holds Doppelganger card
+        }
+        doppelganger_copied = {1: "Werewolf"}
+        # Player 1 holds Robber card = village team.
+        team = get_effective_team(1, player_roles, doppelganger_copied)
+        assert team == "village"
+
+    def test_doppelganger_card_eliminated_counts_as_copied_role(self):
+        """If the player holding the Doppelganger-that-copied-Werewolf card
+        is eliminated, it counts as eliminating a werewolf."""
+        # After swap: player 2 holds the Doppelganger card (copied Werewolf).
+        eliminated = [2]
+        player_roles = {
+            1: "Robber",
+            2: "Doppelganger",
+            3: "Villager",
+        }
+        doppelganger_copied = {1: "Werewolf"}
+        result = evaluate_winner(eliminated, player_roles, doppelganger_copied)
+
+        # A "werewolf" was eliminated (player 2 holds the werewolf-team card).
+        assert "village" in result.winning_teams
+        assert "werewolf" not in result.winning_teams
+
     def test_result_is_frozen_dataclass(self):
         """GameResult is immutable."""
         result = evaluate_winner([], {1: "Seer", 2: "Villager"})
