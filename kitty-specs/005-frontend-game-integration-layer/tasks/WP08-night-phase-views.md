@@ -1,7 +1,7 @@
 ---
 work_package_id: WP08
 title: Night Phase Views
-lane: "doing"
+lane: planned
 dependencies: [WP07]
 requirement_refs: [FR-010, FR-011, FR-021, FR-022, FR-023, FR-026]
 planning_base_branch: main
@@ -13,11 +13,11 @@ created_at: '2026-04-01T01:14:35.139737+00:00'
 subtasks: [T034, T035, T036, T037, T038, T039, T040]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: "headless-impl"
-shell_pid: "19015"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback: "feedback://005-frontend-game-integration-layer/WP08/20260401T021047Z-a6c6c7cc.md"
+agent: headless-impl
+shell_pid: '19015'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
+review_feedback: feedback://005-frontend-game-integration-layer/WP08/20260401T021047Z-a6c6c7cc.md
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
