@@ -17,6 +17,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.onuw.engine.validation import validate_onuw_settings
+
 from .models import Lobby, LobbyMember, User
 from .name_generator import generate_display_name
 from .serializers import GuestCreateSerializer, LobbyCreateSerializer, LobbySerializer
@@ -97,12 +99,54 @@ class LobbyCreateView(CreateAPIView):
 
 
 class LobbyDetailView(RetrieveAPIView):
-    """Retrieve a lobby by code."""
+    """Retrieve or update (host-only) a lobby by code."""
 
     serializer_class = LobbySerializer
     permission_classes = [IsAuthenticated]
     lookup_field = "code"
     queryset = Lobby.objects.all()
+
+    def patch(self, request: Request, code: str) -> Response:
+        """Update lobby settings (host only). Validates and broadcasts lobby_update."""
+        try:
+            lobby = Lobby.objects.get(code=code)
+        except Lobby.DoesNotExist:
+            return Response(
+                {"detail": "Lobby not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if lobby.host_id != request.user.id:  # type: ignore[misc]
+            return Response(
+                {"detail": "Only the host can update lobby settings."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        new_settings = request.data.get("settings")
+        if new_settings is None:
+            return Response(
+                {"detail": "settings field is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        player_count = lobby.players.count()  # type: ignore[misc]
+        errors = validate_onuw_settings(new_settings, player_count)
+        if errors:
+            return Response({"detail": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        lobby.settings = new_settings
+        lobby.save(update_fields=["settings", "updated_at"])
+
+        channel_layer = get_channel_layer()
+        if channel_layer is not None:
+            serializer = LobbySerializer(lobby)
+            async_to_sync(channel_layer.group_send)(
+                f"lobby_{lobby.code}",
+                {"type": "lobby.update", "data": serializer.data},
+            )
+
+        serializer = LobbySerializer(lobby)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class LobbyJoinView(APIView):
