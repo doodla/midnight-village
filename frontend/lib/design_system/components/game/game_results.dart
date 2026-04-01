@@ -63,6 +63,28 @@ class GameResults extends ConsumerWidget {
             ),
           ),
 
+          // ----------------------------------------------------------------
+          // Center cards
+          // ----------------------------------------------------------------
+          if (result.centerCards.isNotEmpty) ...[
+            SizedBox(height: tokens.spacing.lg),
+            Text(
+              'Center Cards',
+              style: tokens.typography.heading.copyWith(
+                color: tokens.colors.onBackground,
+              ),
+            ),
+            SizedBox(height: tokens.spacing.sm),
+            Wrap(
+              spacing: tokens.spacing.sm,
+              runSpacing: tokens.spacing.sm,
+              children: [
+                for (final roleId in result.centerCards)
+                  RoleCard(roleId: roleId, small: true),
+              ],
+            ),
+          ],
+
           SizedBox(height: tokens.spacing.lg),
 
           // ----------------------------------------------------------------
@@ -222,6 +244,25 @@ class _PlayerResultRow extends ConsumerWidget {
                   roleLabel,
                   style: tokens.typography.caption.copyWith(color: teamColor),
                 ),
+
+                // Vote target line.
+                if (player.voteTargetName != null) ...[
+                  SizedBox(height: tokens.spacing.xs),
+                  Text(
+                    'Voted for ${player.voteTargetName}',
+                    style: tokens.typography.caption.copyWith(
+                      color: tokens.colors.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ] else if (player.voteTargetId == null) ...[
+                  SizedBox(height: tokens.spacing.xs),
+                  Text(
+                    'Abstained',
+                    style: tokens.typography.caption.copyWith(
+                      color: tokens.colors.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

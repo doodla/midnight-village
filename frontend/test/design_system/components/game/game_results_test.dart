@@ -533,4 +533,151 @@ void main() {
     expect(find.text('Village wins!'), findsOneWidget);
     expect(find.text('(eliminated)'), findsOneWidget);
   });
+
+  // -------------------------------------------------------------------------
+  // Center cards section: displays center card roles
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'center cards section shows role cards when centerCards present',
+    (tester) async {
+      await _pump(
+        tester,
+        result: GameResult(
+          winningTeams: const [TeamId.village],
+          players: [_villagerPlayer()],
+          centerCards: const [RoleId.werewolf, RoleId.seer, RoleId.tanner],
+        ),
+      );
+
+      expect(
+        find.text('Center Cards'),
+        findsOneWidget,
+        reason:
+            '"Center Cards" heading must appear when centerCards is non-empty',
+      );
+
+      // Each center card renders a small RoleCard with the role's displayName.
+      expect(find.text('Werewolf'), findsOneWidget);
+      expect(find.text('Seer'), findsOneWidget);
+      expect(find.text('Tanner'), findsOneWidget);
+    },
+  );
+
+  testWidgets('center cards section hidden when centerCards is empty', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      result: GameResult(
+        winningTeams: const [TeamId.village],
+        players: [_villagerPlayer()],
+        centerCards: const [],
+      ),
+    );
+
+    expect(
+      find.text('Center Cards'),
+      findsNothing,
+      reason:
+          '"Center Cards" heading must not appear when centerCards is empty',
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Vote target display: shows who each player voted for
+  // -------------------------------------------------------------------------
+
+  testWidgets('player row shows "Voted for" when voteTargetName is present', (
+    tester,
+  ) async {
+    const playerWithVote = PlayerResult(
+      id: 'p1',
+      displayName: 'Alice',
+      originalRole: RoleId.werewolf,
+      finalRole: RoleId.werewolf,
+      team: TeamId.werewolf,
+      isEliminated: false,
+      isWinner: true,
+      voteTargetId: 'p2',
+      voteTargetName: 'Bob',
+    );
+
+    await _pump(
+      tester,
+      result: GameResult(
+        winningTeams: const [TeamId.werewolf],
+        players: [playerWithVote],
+      ),
+    );
+
+    expect(
+      find.text('Voted for Bob'),
+      findsOneWidget,
+      reason: 'Player row must show vote target name',
+    );
+  });
+
+  testWidgets('player row shows "Abstained" when vote target is null', (
+    tester,
+  ) async {
+    const abstainer = PlayerResult(
+      id: 'p1',
+      displayName: 'Alice',
+      originalRole: RoleId.villager,
+      finalRole: RoleId.villager,
+      team: TeamId.village,
+      isEliminated: false,
+      isWinner: false,
+      voteTargetId: null,
+      voteTargetName: null,
+    );
+
+    await _pump(
+      tester,
+      result: GameResult(
+        winningTeams: const [TeamId.village],
+        players: [abstainer],
+      ),
+    );
+
+    expect(
+      find.text('Abstained'),
+      findsOneWidget,
+      reason: 'Player row must show "Abstained" when vote target is null',
+    );
+  });
+
+  testWidgets(
+    'player row shows "Voted for" with target ID when name is missing',
+    (tester) async {
+      // voteTargetId is set but voteTargetName is null — this means
+      // the frontend couldn't resolve the name. Should show neither
+      // "Voted for" nor "Abstained" since a target WAS chosen.
+      const playerWithIdOnly = PlayerResult(
+        id: 'p1',
+        displayName: 'Alice',
+        originalRole: RoleId.villager,
+        finalRole: RoleId.villager,
+        team: TeamId.village,
+        isEliminated: false,
+        isWinner: false,
+        voteTargetId: 'p2',
+        voteTargetName: null,
+      );
+
+      await _pump(
+        tester,
+        result: GameResult(
+          winningTeams: const [TeamId.village],
+          players: [playerWithIdOnly],
+        ),
+      );
+
+      // Neither "Voted for" nor "Abstained" should appear — the player
+      // voted but the name couldn't be resolved.
+      expect(find.textContaining('Voted for'), findsNothing);
+      expect(find.text('Abstained'), findsNothing);
+    },
+  );
 }
