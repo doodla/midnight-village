@@ -1,7 +1,7 @@
 ---
 work_package_id: WP11
 title: Reconnection & Game Resume
-lane: in_progress
+lane: "planned"
 dependencies:
 - WP03
 requirement_refs:
@@ -18,9 +18,9 @@ phase: Phase 3 - Polish
 assignee: ''
 agent: headless-reviewer
 shell_pid: '13489'
-review_status: has_feedback
-reviewed_by: Sridhar Vadlamani
-review_feedback: feedback://005-frontend-game-integration-layer/WP11/20260401T013752Z-405af267.md
+review_status: "has_feedback"
+reviewed_by: "Sridhar Vadlamani"
+review_feedback: "feedback://005-frontend-game-integration-layer/WP11/20260401T021249Z-83e2fe55.md"
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
@@ -214,3 +214,4 @@ cd frontend && just check
 - 2026-04-01T01:45:53Z – headless-impl – shell_pid=84613 – lane=doing – Started implementation via workflow command
 - 2026-04-01T02:04:04Z – headless-impl – shell_pid=84613 – lane=for_review – Ready for review: Merged WP07 (GameNotifier), wired rebuildFromState for real state restoration, added widget-level tests verifying overlay behavior and all T053 reconnection scenarios. 506 tests pass, flutter analyze clean.
 - 2026-04-01T02:07:42Z – headless-reviewer – shell_pid=13489 – lane=doing – Started review via workflow command
+- 2026-04-01T02:12:49Z – headless-reviewer – shell_pid=13489 – lane=planned – Moved to planned
