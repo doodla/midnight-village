@@ -1,7 +1,7 @@
 ---
 work_package_id: WP11
 title: Reconnection & Game Resume
-lane: "doing"
+lane: planned
 dependencies:
 - WP03
 requirement_refs:
@@ -16,11 +16,11 @@ created_at: '2026-03-31T17:09:36.788841+00:00'
 subtasks: [T051, T052, T053, T054, T055]
 phase: Phase 3 - Polish
 assignee: ''
-agent: "headless-impl"
-shell_pid: "37495"
-review_status: "has_feedback"
-reviewed_by: "Sridhar Vadlamani"
-review_feedback: "feedback://005-frontend-game-integration-layer/WP11/20260401T011024Z-118d4eb3.md"
+agent: headless-impl
+shell_pid: '37495'
+review_status: has_feedback
+reviewed_by: Sridhar Vadlamani
+review_feedback: feedback://005-frontend-game-integration-layer/WP11/20260401T011024Z-118d4eb3.md
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
