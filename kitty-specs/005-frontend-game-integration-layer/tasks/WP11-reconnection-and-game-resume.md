@@ -1,7 +1,7 @@
 ---
 work_package_id: WP11
 title: Reconnection & Game Resume
-lane: "approved"
+lane: done
 dependencies:
 - WP03
 requirement_refs:
@@ -18,8 +18,8 @@ phase: Phase 3 - Polish
 assignee: ''
 agent: headless-reviewer
 shell_pid: '36214'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 review_feedback: feedback://005-frontend-game-integration-layer/WP11/20260401T021249Z-83e2fe55.md
 history:
 - timestamp: '2026-03-31T07:30:22Z'
