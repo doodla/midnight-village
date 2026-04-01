@@ -1,17 +1,20 @@
 ---
 work_package_id: WP09
 title: Discussion & Voting
-lane: planned
+lane: "doing"
 dependencies: [WP07]
 requirement_refs: [FR-012, FR-015, FR-025]
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 005-frontend-game-integration-layer-WP07
+base_commit: 79976d3d3a2e2d4758e9ba041d57052947d6c577
+created_at: '2026-04-01T01:16:35.542049+00:00'
 subtasks: [T041, T042, T043, T044, T045]
 phase: Phase 2 - Feature UIs
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "31797"
 review_status: ''
 reviewed_by: ''
 history:
