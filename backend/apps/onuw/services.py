@@ -697,19 +697,14 @@ def reveal_votes(game: Game) -> None:
     # Collect vote data
     # pyrefly: ignore [missing-attribute]
     player_roles_qs = game.player_roles.all()
-    votes_broadcast: list[dict[str, Any]] = []
+    votes_broadcast: dict[str, int | None] = {}
     votes_dict: dict[int, int | None] = {}
     current_roles: dict[int, str] = {}
     doppelganger_copied: dict[int, str] = {}
 
     for pr in player_roles_qs:
-        votes_broadcast.append(
-            {
-                "player_id": pr.user_id,
-                # pyrefly: ignore [missing-attribute]
-                "target_player_id": pr.vote_target_id,
-            }
-        )
+        # pyrefly: ignore [missing-attribute]
+        votes_broadcast[str(pr.user_id)] = pr.vote_target_id
         # pyrefly: ignore [missing-attribute]
         votes_dict[pr.user_id] = pr.vote_target_id
         current_roles[pr.user_id] = pr.current_role

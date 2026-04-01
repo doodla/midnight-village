@@ -501,17 +501,14 @@ class TestForceReveal:
 
             votes = reveal_calls[0][0][1]["votes"]
 
-            # Should have 3 vote entries
+            # Should have 3 vote entries (keyed by string player ID)
             assert len(votes) == 3
 
-            # Build a map of player_id -> target
-            vote_map = {v["player_id"]: v["target_player_id"] for v in votes}
-
             # Host voted for p1
-            assert vote_map[host.id] == users["p1_nv"].id
+            assert votes[str(host.id)] == users["p1_nv"].id
             # p1 and p2 did not vote -> null targets
-            assert vote_map[users["p1_nv"].id] is None
-            assert vote_map[users["p2_nv"].id] is None
+            assert votes[str(users["p1_nv"].id)] is None
+            assert votes[str(users["p2_nv"].id)] is None
 
 
 class TestMeEndpointVotingStatus:
