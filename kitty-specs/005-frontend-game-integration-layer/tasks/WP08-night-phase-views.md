@@ -1,7 +1,7 @@
 ---
 work_package_id: WP08
 title: Night Phase Views
-lane: "for_review"
+lane: "doing"
 dependencies: [WP07]
 requirement_refs: [FR-010, FR-011, FR-021, FR-022, FR-023, FR-026]
 planning_base_branch: main
@@ -13,8 +13,8 @@ created_at: '2026-04-01T01:14:35.139737+00:00'
 subtasks: [T034, T035, T036, T037, T038, T039, T040]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: headless-impl
-shell_pid: '29155'
+agent: "headless-reviewer"
+shell_pid: "88440"
 review_status: ''
 reviewed_by: ''
 history:
@@ -234,3 +234,4 @@ cd frontend && just gen
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
 - 2026-04-01T01:14:35Z – headless-impl – shell_pid=29155 – lane=doing – Assigned agent via workflow command
 - 2026-04-01T01:43:16Z – headless-impl – shell_pid=29155 – lane=for_review – All 5 night phase views implemented and wired: RoleRevealView (4s auto-advance), NightWaitingView (atmospheric), SeerChoiceView (peek_player/peek_center choice), NightResultView (8 action-type variants with empty-state messages), LoneWerewolfPeekView (optional center card peek). NightActionPrompt wired via _handleActionSubmitted. 486 tests pass, analyzer clean.
+- 2026-04-01T01:48:38Z – headless-reviewer – shell_pid=88440 – lane=doing – Started review via workflow command
