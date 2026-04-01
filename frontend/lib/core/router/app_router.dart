@@ -62,7 +62,7 @@ GoRouter appRouter(Ref ref) {
           );
           final data = response.data;
           if (data is Map<String, dynamic>) {
-            final gameId = data['id']?.toString();
+            final gameId = data['game_id']?.toString();
             if (gameId != null) {
               cachedActiveGameId = gameId;
               return '/game/$gameId';

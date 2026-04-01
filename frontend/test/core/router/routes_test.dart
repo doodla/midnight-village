@@ -108,17 +108,14 @@ void main() {
     testWidgets('authenticated user at / with no active game stays on /', (
       tester,
     ) async {
-      // No active game — API throws 404.
+      // No active game — backend returns {"game": null} with 200.
       when(
         () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
-      ).thenThrow(
-        DioException(
+      ).thenAnswer(
+        (_) async => Response<Map<String, dynamic>>(
+          data: <String, dynamic>{'game': null},
+          statusCode: 200,
           requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
-          response: Response(
-            requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
-            statusCode: 404,
-          ),
-          type: DioExceptionType.badResponse,
         ),
       );
 
@@ -131,13 +128,35 @@ void main() {
     });
 
     testWidgets(
+      'authenticated user at / stays on / when current-game API fails',
+      (tester) async {
+        // Network error — router should catch and not redirect.
+        when(
+          () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
+        ).thenThrow(
+          DioException(
+            requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
+            type: DioExceptionType.connectionError,
+          ),
+        );
+
+        final router = await pumpRouterApp(
+          tester,
+          authState: AuthState.authenticated(User(id: 1, displayName: 'Alice')),
+        );
+
+        expect(router.routerDelegate.currentConfiguration.uri.path, '/');
+      },
+    );
+
+    testWidgets(
       'authenticated user at / with active game is redirected to /game/:id',
       (tester) async {
         when(
           () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
         ).thenAnswer(
           (_) async => Response<Map<String, dynamic>>(
-            data: <String, dynamic>{'id': 'game-123'},
+            data: <String, dynamic>{'game_id': 'game-123'},
             statusCode: 200,
             requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
           ),
