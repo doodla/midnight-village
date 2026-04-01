@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/home_screen.dart';
+import '../../features/game/presentation/game_container_screen.dart';
+import '../../features/lobby/presentation/lobby_screen.dart';
 
 part 'routes.g.dart';
 
@@ -15,8 +17,6 @@ class HomeRoute extends GoRouteData with $HomeRoute {
 }
 
 /// Lobby route — join or wait in a game lobby identified by [code].
-///
-/// Real lobby screen is wired in WP06.
 @TypedGoRoute<LobbyRoute>(path: '/lobby/:code')
 class LobbyRoute extends GoRouteData with $LobbyRoute {
   const LobbyRoute({required this.code});
@@ -25,12 +25,10 @@ class LobbyRoute extends GoRouteData with $LobbyRoute {
 
   @override
   Widget build(BuildContext context, GoRouterState state) =>
-      Scaffold(body: Center(child: Text('Lobby: $code')));
+      LobbyScreen(code: code);
 }
 
 /// Game route — active game screen identified by [gameId].
-///
-/// Real game container is wired in WP07.
 @TypedGoRoute<GameRoute>(path: '/game/:gameId')
 class GameRoute extends GoRouteData with $GameRoute {
   const GameRoute({required this.gameId});
@@ -39,5 +37,5 @@ class GameRoute extends GoRouteData with $GameRoute {
 
   @override
   Widget build(BuildContext context, GoRouterState state) =>
-      Scaffold(body: Center(child: Text('Game: $gameId')));
+      GameContainerScreen(gameId: gameId);
 }

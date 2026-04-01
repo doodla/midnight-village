@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:midnight_village/design_system/components/core/primary_button.dart';
 import 'package:midnight_village/design_system/components/core/mv_error.dart';
 import 'package:midnight_village/design_system/components/core/mv_loading.dart';
@@ -7,6 +8,7 @@ import 'package:midnight_village/design_system/components/core/mv_scaffold.dart'
 import 'package:midnight_village/design_system/components/core/mv_text_input.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 
+import '../../lobby/presentation/lobby_notifier.dart';
 import '../domain/auth_state.dart';
 import 'auth_notifier.dart';
 
@@ -82,39 +84,82 @@ class _WelcomeViewState extends ConsumerState<_WelcomeView> {
   }
 }
 
-class _AuthenticatedView extends ConsumerWidget {
+class _AuthenticatedView extends ConsumerStatefulWidget {
   const _AuthenticatedView({required this.displayName});
 
   final String displayName;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AuthenticatedView> createState() => _AuthenticatedViewState();
+}
+
+class _AuthenticatedViewState extends ConsumerState<_AuthenticatedView> {
+  final _joinController = TextEditingController();
+  bool _isCreating = false;
+
+  @override
+  void dispose() {
+    _joinController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _createLobby() async {
+    setState(() => _isCreating = true);
+    try {
+      final service = ref.read(lobbyServiceProvider);
+      final lobby = await service.createLobby();
+      if (mounted) context.go('/lobby/${lobby.code}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to create lobby: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isCreating = false);
+    }
+  }
+
+  void _joinLobby() {
+    final code = _joinController.text.trim().toUpperCase();
+    if (code.isEmpty) return;
+    context.go('/lobby/$code');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tokens = ref.watch(activeThemeProvider);
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            'Hello, $displayName!',
-            style: tokens.typography.heading.copyWith(
-              color: tokens.colors.onBackground,
-            ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Hello, ${widget.displayName}!',
+          style: tokens.typography.heading.copyWith(
+            color: tokens.colors.onBackground,
           ),
-          SizedBox(height: tokens.spacing.sm),
-          Text(
-            '(token stored ✓)',
-            style: tokens.typography.caption.copyWith(
-              color: tokens.colors.disabled,
-            ),
-          ),
-          SizedBox(height: tokens.spacing.lg),
-          PrimaryButton.outlined(
-            label: 'Logout',
-            onPressed: () => ref.read(authProvider.notifier).logout(),
-          ),
-        ],
-      ),
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: tokens.spacing.lg),
+        PrimaryButton(
+          label: _isCreating ? 'Creating...' : 'Create Game',
+          onPressed: _isCreating ? null : _createLobby,
+        ),
+        SizedBox(height: tokens.spacing.lg),
+        MvTextInput(
+          controller: _joinController,
+          label: 'Lobby code',
+          hint: 'Enter code to join',
+        ),
+        SizedBox(height: tokens.spacing.sm),
+        PrimaryButton.outlined(label: 'Join Game', onPressed: _joinLobby),
+        SizedBox(height: tokens.spacing.xl),
+        PrimaryButton.outlined(
+          label: 'Logout',
+          onPressed: () => ref.read(authProvider.notifier).logout(),
+        ),
+      ],
     );
   }
 }
