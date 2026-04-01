@@ -219,7 +219,7 @@ class GameContainerScreen extends ConsumerWidget {
   ) {
     final targets = switch (selection) {
       PlayerTarget(:final playerId) => <String, dynamic>{
-        'target_player_id': int.tryParse(playerId) ?? playerId,
+        'player_id': int.tryParse(playerId) ?? playerId,
       },
       CenterTargets(:final indices) when indices.length == 1 =>
         <String, dynamic>{'center_index': indices.first},
@@ -227,8 +227,10 @@ class GameContainerScreen extends ConsumerWidget {
         'center_indices': indices,
       },
       TwoPlayerTargets(:final player1Id, :final player2Id) => <String, dynamic>{
-        'player1_id': int.tryParse(player1Id) ?? player1Id,
-        'player2_id': int.tryParse(player2Id) ?? player2Id,
+        'player_ids': [
+          int.tryParse(player1Id) ?? player1Id,
+          int.tryParse(player2Id) ?? player2Id,
+        ],
       },
       NoAction() => <String, dynamic>{},
     };

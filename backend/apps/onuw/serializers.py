@@ -164,6 +164,7 @@ class GameMeSerializer(serializers.Serializer):
             "role_acting_as": prompt["role_acting_as"],
             "action_types": prompt["action_types"],
             "valid_targets": prompt["valid_targets"],
+            "wave": game.current_wave,
         }
 
     def get_roles_in_game(self, game: Game) -> list[dict[str, Any]]:

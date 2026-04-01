@@ -326,6 +326,7 @@ class TestMeEndpointReconnection:
         assert "peek_player" in prompt["action_types"]
         assert "peek_center" in prompt["action_types"]
         assert "valid_targets" in prompt
+        assert prompt["wave"] == 3
 
     def test_me_endpoint_no_action_prompt_when_not_acting(self, api_client, db):
         """
