@@ -1,7 +1,7 @@
 ---
 work_package_id: WP05
 title: Lobby Domain & Service
-lane: "for_review"
+lane: "doing"
 dependencies:
 - WP02
 requirement_refs: [FR-006, FR-016, FR-020, FR-027, FR-029]
@@ -14,8 +14,8 @@ created_at: '2026-03-31T17:09:34.360544+00:00'
 subtasks: [T018, T019, T020, T021, T022]
 phase: Phase 1 - Feature Data Layers
 assignee: ''
-agent: headless-reviewer
-shell_pid: '14117'
+agent: "headless-reviewer"
+shell_pid: "9294"
 review_status: has_feedback
 reviewed_by: Sridhar Vadlamani
 review_feedback: feedback://005-frontend-game-integration-layer/WP05/20260331T173445Z-0a351572.md
@@ -246,3 +246,4 @@ cd frontend && just gen
 - 2026-03-31T17:31:32Z – headless-reviewer – shell_pid=14117 – lane=doing – Started review via workflow command
 - 2026-03-31T17:34:45Z – headless-reviewer – shell_pid=14117 – lane=planned – Moved to planned
 - 2026-03-31T17:49:42Z – headless-reviewer – shell_pid=14117 – lane=for_review – Addressed review: removed unused helpers, fixed analyzer warnings
+- 2026-04-01T01:00:15Z – headless-reviewer – shell_pid=9294 – lane=doing – Started review via workflow command
