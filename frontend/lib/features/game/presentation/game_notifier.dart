@@ -57,23 +57,43 @@ class GameNotifier extends _$GameNotifier {
       _resultsTimeout?.cancel();
     });
 
-    // Derive initial nightSubView from the fetched state.
-    return _deriveNightSubView(initialState);
+    // Hydrate frontend-only display state from the server response.
+    return _hydrateInitialState(initialState);
   }
 
-  /// Derives the appropriate [NightSubView] from the initial server state.
-  GameSessionState _deriveNightSubView(GameSessionState state) {
-    if (state.phase != 'night') return state;
+  /// Hydrates frontend-only display state from the initial REST response.
+  ///
+  /// Night phase: derives the correct [NightSubView].
+  /// Voting phase: populates [VoteProgress] from the server-provided
+  /// [GamePlayer.hasVoted] field so reconnecting clients see accurate
+  /// vote progress.
+  GameSessionState _hydrateInitialState(GameSessionState state) {
+    var result = state;
 
-    if (state.actionPrompt != null) {
-      final prompt = state.actionPrompt!;
-      if (prompt.actionTypes.length > 1) {
-        return state.copyWith(nightSubView: NightSubView.seerChoice);
+    if (result.phase == 'night') {
+      if (result.actionPrompt != null) {
+        final subView = result.actionPrompt!.actionTypes.length > 1
+            ? NightSubView.seerChoice
+            : NightSubView.actionPrompt;
+        result = result.copyWith(nightSubView: subView);
+      } else {
+        result = result.copyWith(nightSubView: NightSubView.waiting);
       }
-      return state.copyWith(nightSubView: NightSubView.actionPrompt);
     }
 
-    return state.copyWith(nightSubView: NightSubView.waiting);
+    if (result.phase == 'voting') {
+      final playerVoted = <int, bool>{
+        for (final p in result.players) p.playerId: p.hasVoted,
+      };
+      result = result.copyWith(
+        voteProgress: VoteProgress(
+          playerVoted: playerVoted,
+          currentPlayerVoted: result.hasVoted,
+        ),
+      );
+    }
+
+    return result;
   }
 
   // ---------------------------------------------------------------------------

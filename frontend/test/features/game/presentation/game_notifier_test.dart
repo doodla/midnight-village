@@ -125,6 +125,57 @@ void main() {
     });
   });
 
+  group('GameNotifier initial load in voting phase', () {
+    test('hydrates voteProgress from server has_voted data', () async {
+      final (:container, :http, :ws) = _createTestSetup(
+        gameMeJson: {
+          ..._defaultGameMeJson(phase: 'voting'),
+          'has_voted': false,
+          'players': [
+            {'player_id': 1, 'display_name': 'Alice', 'has_voted': true},
+            {'player_id': 2, 'display_name': 'Bob', 'has_voted': true},
+            {'player_id': 3, 'display_name': 'Charlie', 'has_voted': false},
+          ],
+        },
+      );
+      addTearDown(container.dispose);
+
+      final state = await _readGameState(container);
+      expect(state.voteProgress.playerVoted[1], true);
+      expect(state.voteProgress.playerVoted[2], true);
+      expect(state.voteProgress.playerVoted[3], false);
+      expect(state.voteProgress.currentPlayerVoted, false);
+    });
+
+    test('hydrates currentPlayerVoted when player already voted', () async {
+      final (:container, :http, :ws) = _createTestSetup(
+        gameMeJson: {
+          ..._defaultGameMeJson(phase: 'voting'),
+          'has_voted': true,
+          'players': [
+            {'player_id': 1, 'display_name': 'Alice', 'has_voted': true},
+            {'player_id': 2, 'display_name': 'Bob', 'has_voted': false},
+            {'player_id': 3, 'display_name': 'Charlie', 'has_voted': false},
+          ],
+        },
+      );
+      addTearDown(container.dispose);
+
+      final state = await _readGameState(container);
+      expect(state.voteProgress.currentPlayerVoted, true);
+      expect(state.voteProgress.playerVoted[1], true);
+    });
+
+    test('leaves voteProgress empty when not in voting phase', () async {
+      final (:container, :http, :ws) = _createTestSetup();
+      addTearDown(container.dispose);
+
+      final state = await _readGameState(container);
+      expect(state.voteProgress.playerVoted, isEmpty);
+      expect(state.voteProgress.currentPlayerVoted, false);
+    });
+  });
+
   group('GameNotifier WS event: wave_start', () {
     test('updates currentWave and deadline', () async {
       final (:container, :http, :ws) = _createTestSetup();
