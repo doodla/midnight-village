@@ -209,11 +209,11 @@
 **Requirements Refs**: FR-008, FR-020, FR-029, SC-007
 
 ### Included Subtasks
-- [ ] T023 Build lobby screen layout in `frontend/lib/features/lobby/presentation/lobby_screen.dart` — lobby code display (prominent, shareable), player list with `PlayerAvatar` and ready-state indicators, `RoleTokenList` summary, leave button
-- [ ] T024 Build role configuration UI section — per-role +/- controls using `RoleConfig.stepSize` and `maxCount`, preset selector dropdown by player count, total card count validation display (must = player count + 3)
-- [ ] T025 Wire lobby screen to `LobbyNotifier` — `ref.watch(lobbyNotifierProvider(code))` for state, call notifier methods for create/join/leave/ready/start actions
-- [ ] T026 Implement host-only controls — start button (disabled until: all players ready + valid role config + player count 3–10), role config section visible only to host
-- [ ] T027 Widget tests in `frontend/test/features/lobby/presentation/lobby_screen_test.dart` — use `pumpAuthenticated` harness, mock `LobbyNotifier`, test all interactive states
+- [x] T023 Build lobby screen layout in `frontend/lib/features/lobby/presentation/lobby_screen.dart` — lobby code display (prominent, shareable), player list with `PlayerAvatar` and ready-state indicators, `RoleTokenList` summary, leave button
+- [x] T024 Build role configuration UI section — per-role +/- controls using `RoleConfig.stepSize` and `maxCount`, preset selector dropdown by player count, total card count validation display (must = player count + 3)
+- [x] T025 Wire lobby screen to `LobbyNotifier` — `ref.watch(lobbyNotifierProvider(code))` for state, call notifier methods for create/join/leave/ready/start actions
+- [x] T026 Implement host-only controls — start button (disabled until: all players ready + valid role config + player count 3–10), role config section visible only to host
+- [x] T027 Widget tests in `frontend/test/features/lobby/presentation/lobby_screen_test.dart` — use `pumpAuthenticated` harness, mock `LobbyNotifier`, test all interactive states
 
 ### Implementation Notes
 - Compose existing design system components: `AtmosphericBackground` (lobby phase), `VillageAppBar` (brand variant), `PlayerAvatar`, `RoleTokenList`, `PrimaryButton`, `MvTextInput`.
