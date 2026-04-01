@@ -117,6 +117,7 @@ class GameContainerScreen extends ConsumerWidget {
       NightSubView.seerChoice when gameState.actionPrompt != null =>
         SeerChoiceView(
           key: const ValueKey('night-seer-choice'),
+          roleId: _parseRoleId(gameState.actionPrompt!.roleActingAs),
           roleActingAs: gameState.actionPrompt!.roleActingAs,
           onActionTypeSelected: notifier.selectSeerChoice,
         ),

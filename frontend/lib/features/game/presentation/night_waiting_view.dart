@@ -57,7 +57,7 @@ class _NightWaitingViewState extends ConsumerState<NightWaitingView>
                 Opacity(opacity: _pulseAnimation.value, child: child),
             child: Icon(
               Icons.nights_stay_outlined,
-              size: 64,
+              size: tokens.spacing.xxxl,
               color: tokens.colors.villageTeam,
             ),
           ),

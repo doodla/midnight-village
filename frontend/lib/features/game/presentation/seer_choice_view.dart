@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:midnight_village/design_system/components/core/primary_button.dart';
+import 'package:midnight_village/design_system/components/game/role_card.dart';
+import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 
 /// Pre-action choice screen for the Seer (and Doppelganger-as-Seer).
@@ -13,6 +15,9 @@ import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 /// selected action type string and the [GameContainerScreen] transitions to
 /// [NightSubView.actionPrompt] via [GameNotifier.selectSeerChoice].
 class SeerChoiceView extends ConsumerWidget {
+  /// The role to display in the identity strip card.
+  final RoleId roleId;
+
   /// The role label for the identity strip (e.g. "Seer" or "Doppelganger").
   final String roleActingAs;
 
@@ -21,6 +26,7 @@ class SeerChoiceView extends ConsumerWidget {
 
   const SeerChoiceView({
     super.key,
+    required this.roleId,
     required this.roleActingAs,
     required this.onActionTypeSelected,
   });
@@ -35,13 +41,19 @@ class SeerChoiceView extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Role identity strip.
-          Text(
-            roleActingAs,
-            style: tokens.typography.subheading.copyWith(
-              color: tokens.colors.villageTeam,
-            ),
-            textAlign: TextAlign.center,
+          // Role identity strip: small card + role name label.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              RoleCard(roleId: roleId, small: true),
+              SizedBox(width: tokens.spacing.md),
+              Text(
+                roleActingAs,
+                style: tokens.typography.subheading.copyWith(
+                  color: tokens.colors.villageTeam,
+                ),
+              ),
+            ],
           ),
           SizedBox(height: tokens.spacing.sm),
           Text(

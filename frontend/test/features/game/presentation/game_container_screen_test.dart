@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/game/center_cards.dart';
+import 'package:midnight_village/design_system/components/game/night_action_prompt.dart';
 import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
 import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
@@ -104,6 +105,31 @@ void main() {
       // SeerChoiceView renders two choice buttons.
       expect(find.text('Look at a player\'s card'), findsOneWidget);
       expect(find.text('Look at two center cards'), findsOneWidget);
+    });
+
+    testWidgets('shows NightActionPrompt for NightSubView.actionPrompt', (
+      tester,
+    ) async {
+      final state = _makeState(
+        phase: 'night',
+        nightSubView: NightSubView.actionPrompt,
+        actionPrompt: const ActionPrompt(
+          roleActingAs: 'Seer',
+          actionTypes: ['peek_player'],
+          validTargets: {},
+          wave: 1,
+        ),
+      );
+      await tester.pumpWithTokens(
+        const GameContainerScreen(gameId: 'test-game-id'),
+        overrides: [
+          gameProvider(
+            'test-game-id',
+          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+        ],
+      );
+
+      expect(find.byType(NightActionPrompt), findsOneWidget);
     });
 
     testWidgets('shows action result view for NightSubView.actionResult', (
