@@ -1,7 +1,7 @@
 ---
 work_package_id: WP06
 title: Lobby Screen
-lane: planned
+lane: "doing"
 dependencies: [WP05]
 requirement_refs:
 - FR-008
@@ -10,11 +10,14 @@ requirement_refs:
 planning_base_branch: main
 merge_target_branch: main
 branch_strategy: Planning artifacts for this feature were generated on main. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into main unless the human explicitly redirects the landing branch.
+base_branch: 005-frontend-game-integration-layer-WP05
+base_commit: 0b5eb30163d00a7b466d5d4a3a38e50ba4116f68
+created_at: '2026-04-01T01:12:34.541175+00:00'
 subtasks: [T023, T024, T025, T026, T027]
 phase: Phase 2 - Feature UIs
 assignee: ''
 agent: ''
-shell_pid: ''
+shell_pid: "26409"
 review_status: ''
 reviewed_by: ''
 history:
