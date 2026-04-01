@@ -20,7 +20,7 @@ RoleBehavior = Callable[[GameState, NightAction], tuple[GameState, ActionResult]
 # ── Wave 2: See-team roles ──────────────────────────────────────────────────
 
 
-def _is_effective_werewolf(pid: int, state: GameState) -> bool:
+def is_effective_werewolf(pid: int, state: GameState) -> bool:
     """Check if a player is effectively a Werewolf (including Doppelganger-as-Werewolf)."""
     role = state.player_roles.get(pid, "")
     if role == "Werewolf":
@@ -30,7 +30,7 @@ def _is_effective_werewolf(pid: int, state: GameState) -> bool:
     )
 
 
-def _is_effective_mason(pid: int, state: GameState) -> bool:
+def is_effective_mason(pid: int, state: GameState) -> bool:
     """Check if a player is effectively a Mason (including Doppelganger-as-Mason)."""
     role = state.player_roles.get(pid, "")
     if role == "Mason":
@@ -50,7 +50,7 @@ def execute_werewolf(
     all_werewolves = [
         pid
         for pid in state.player_roles
-        if pid != player_id and _is_effective_werewolf(pid, state)
+        if pid != player_id and is_effective_werewolf(pid, state)
     ]
 
     if len(all_werewolves) == 0:
@@ -97,7 +97,7 @@ def execute_minion(
     """Minion sees all werewolf player_ids (including Doppelganger-as-Werewolf)."""
     player_id = action.player_id
     werewolves = [
-        pid for pid in state.player_roles if _is_effective_werewolf(pid, state)
+        pid for pid in state.player_roles if is_effective_werewolf(pid, state)
     ]
 
     return state, ActionResult(
@@ -115,7 +115,7 @@ def execute_mason(
     other_masons = [
         pid
         for pid in state.player_roles
-        if pid != player_id and _is_effective_mason(pid, state)
+        if pid != player_id and is_effective_mason(pid, state)
     ]
 
     return state, ActionResult(

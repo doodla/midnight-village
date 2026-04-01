@@ -11,7 +11,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from .behaviors import execute_action, get_doppelganger_followup_wave
+from .behaviors import (
+    execute_action,
+    get_doppelganger_followup_wave,
+    is_effective_mason,
+    is_effective_werewolf,
+)
 from .roles import ActionType, get_role, get_roles_for_wave
 from .state import ActionLogEntry, ActionResult, GameState, NightAction
 
@@ -23,6 +28,32 @@ _WAVE_3_CANONICAL_ORDER: list[str] = [
     "Troublemaker",
     "Drunk",
 ]
+
+
+def _compute_see_team_targets(
+    state: GameState, player_id: int, role_acting_as: str
+) -> list[int]:
+    """Compute teammate IDs visible to a see_team actor.
+
+    - Werewolf sees other effective Werewolves (excludes self)
+    - Mason sees other effective Masons (excludes self)
+    - Minion sees all effective Werewolves (does not exclude self — Minion is never a Werewolf)
+    """
+    if role_acting_as == "Werewolf":
+        return [
+            pid
+            for pid in state.player_roles
+            if pid != player_id and is_effective_werewolf(pid, state)
+        ]
+    if role_acting_as == "Mason":
+        return [
+            pid
+            for pid in state.player_roles
+            if pid != player_id and is_effective_mason(pid, state)
+        ]
+    if role_acting_as == "Minion":
+        return [pid for pid in state.player_roles if is_effective_werewolf(pid, state)]
+    return []
 
 
 def get_required_actions(
@@ -86,7 +117,9 @@ def build_prompt(
         elif at == ActionType.SWAP_OTHERS:
             valid_targets["player_ids"] = other_players
         elif at == ActionType.SEE_TEAM:
-            pass  # no targets needed
+            valid_targets["see_team"] = _compute_see_team_targets(
+                state, player_id, role_acting_as
+            )
         elif at == ActionType.NONE:
             pass  # no targets needed
 

@@ -1015,3 +1015,112 @@ class TestGetRequiredActions:
         assert "center_indices" in seer_prompt["valid_targets"]
         # Seer cannot target self
         assert 2 not in seer_prompt["valid_targets"]["player_ids"]
+
+    def test_see_team_werewolf_sees_other_werewolves(self):
+        state = _make_state(
+            player_roles={
+                1: "Werewolf",
+                2: "Werewolf",
+                3: "Minion",
+                4: "Villager",
+                5: "Seer",
+            }
+        )
+        prompts = get_required_actions(state, wave=2)
+        ww1 = next(p for p in prompts if p["player_id"] == 1)
+        assert ww1["valid_targets"]["see_team"] == [2]
+        ww2 = next(p for p in prompts if p["player_id"] == 2)
+        assert ww2["valid_targets"]["see_team"] == [1]
+
+    def test_see_team_lone_werewolf_sees_empty(self):
+        state = _make_state(
+            player_roles={
+                1: "Werewolf",
+                2: "Minion",
+                3: "Mason",
+                4: "Villager",
+                5: "Seer",
+            }
+        )
+        prompts = get_required_actions(state, wave=2)
+        ww = next(p for p in prompts if p["player_id"] == 1)
+        assert ww["valid_targets"]["see_team"] == []
+
+    def test_see_team_minion_sees_werewolves(self):
+        state = _make_state(
+            player_roles={
+                1: "Werewolf",
+                2: "Werewolf",
+                3: "Minion",
+                4: "Villager",
+                5: "Seer",
+            }
+        )
+        prompts = get_required_actions(state, wave=2)
+        minion = next(p for p in prompts if p["player_id"] == 3)
+        assert sorted(minion["valid_targets"]["see_team"]) == [1, 2]
+
+    def test_see_team_mason_sees_other_masons(self):
+        state = _make_state(
+            player_roles={
+                1: "Werewolf",
+                2: "Mason",
+                3: "Mason",
+                4: "Villager",
+                5: "Seer",
+            }
+        )
+        prompts = get_required_actions(state, wave=2)
+        mason2 = next(p for p in prompts if p["player_id"] == 2)
+        assert mason2["valid_targets"]["see_team"] == [3]
+        mason3 = next(p for p in prompts if p["player_id"] == 3)
+        assert mason3["valid_targets"]["see_team"] == [2]
+
+    def test_see_team_doppelganger_as_werewolf_included(self):
+        """Doppelganger who copied Werewolf appears in werewolf see_team lists."""
+        state = GameState(
+            player_roles={
+                1: "Werewolf",
+                2: "Doppelganger",
+                3: "Mason",
+                4: "Villager",
+                5: "Seer",
+            },
+            center_cards=["Villager", "Tanner", "Villager"],
+            original_roles={
+                1: "Werewolf",
+                2: "Doppelganger",
+                3: "Mason",
+                4: "Villager",
+                5: "Seer",
+            },
+            doppelganger_copied_role={2: "Werewolf"},
+        )
+        prompts = get_required_actions(state, wave=2)
+        ww = next(p for p in prompts if p["player_id"] == 1)
+        # Werewolf should see the Doppelganger-as-Werewolf as a teammate
+        assert 2 in ww["valid_targets"]["see_team"]
+
+    def test_see_team_doppelganger_as_mason_included(self):
+        """Doppelganger who copied Mason appears in mason see_team lists."""
+        state = GameState(
+            player_roles={
+                1: "Mason",
+                2: "Doppelganger",
+                3: "Werewolf",
+                4: "Villager",
+                5: "Seer",
+            },
+            center_cards=["Villager", "Tanner", "Villager"],
+            original_roles={
+                1: "Mason",
+                2: "Doppelganger",
+                3: "Werewolf",
+                4: "Villager",
+                5: "Seer",
+            },
+            doppelganger_copied_role={2: "Mason"},
+        )
+        prompts = get_required_actions(state, wave=2)
+        mason = next(p for p in prompts if p["player_id"] == 1)
+        assert 2 in mason["valid_targets"]["see_team"]
