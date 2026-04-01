@@ -82,6 +82,7 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             {
                 "type": "action_result",
                 "wave": event["wave"],
+                "action_type": event.get("action_type"),
                 "revealed_info": event["revealed_info"],
             }
         )

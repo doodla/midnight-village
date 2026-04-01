@@ -33,6 +33,130 @@ def get_timer_seconds(game: Game, key: str, default: int) -> int:
     return game.settings.get(key, default)
 
 
+def _get_player_names(game: Game) -> dict[int, str]:
+    """Build a player_id -> display_name lookup for the game."""
+    # pyrefly: ignore [missing-attribute]
+    return {
+        pr.user_id: pr.user.display_name or pr.user.username
+        for pr in game.player_roles.select_related("user").all()
+    }
+
+
+def _client_action_type(action: NightAction) -> str:
+    """Map engine action to the action_type string the frontend expects.
+
+    The Insomniac role uses peek_player in the engine (since it peeks at
+    its own card), but the frontend routes on "insomniac" to display the
+    correct result view.
+    """
+    if action.role_acting_as == "Insomniac":
+        return "insomniac"
+    return action.action_type
+
+
+def _transform_revealed_info(
+    action: NightAction,
+    result: ActionResult,
+    player_names: dict[int, str],
+) -> dict[str, Any]:
+    """Transform engine revealed_info into the format the frontend expects.
+
+    The engine returns raw data (player IDs, internal key names). The frontend
+    expects display names and a consistent key schema per action type.
+    """
+    raw = result.revealed_info
+    action_type = action.action_type
+    targets = action.targets
+
+    # Insomniac sees their current role (may have changed via swap).
+    if action.role_acting_as == "Insomniac":
+        current = raw.get("current_role", "")
+        return {
+            "current_role": current.lower() if isinstance(current, str) else current
+        }
+
+    if action_type == "peek_player":
+        # Seer peek at a player, or Doppelganger copy.
+        target_id = int(targets.get("player_id", 0))
+        target_name = player_names.get(target_id, "Unknown")
+        # Engine uses "peeked_role" for Seer, "copied_role" for Doppelganger.
+        role = raw.get("peeked_role") or raw.get("copied_role", "")
+        out: dict[str, Any] = {
+            "target_name": target_name,
+            "role": role.lower() if isinstance(role, str) else role,
+        }
+        # Preserve copied_role for Doppelganger follow-up logic.
+        if "copied_role" in raw:
+            out["copied_role"] = raw["copied_role"]
+        return out
+
+    if action_type == "peek_center":
+        # Seer peek at 2 center cards.
+        peeked = raw.get("peeked_center", [])
+        roles = [
+            entry["role"].lower()
+            for entry in peeked
+            if isinstance(entry, dict) and "role" in entry
+        ]
+        return {"roles": roles}
+
+    if action_type == "swap_with_player":
+        # Robber swaps with target, learns their role.
+        target_id = int(targets.get("player_id", 0))
+        target_name = player_names.get(target_id, "Unknown")
+        new_role = raw.get("new_role", "")
+        return {
+            "target_name": target_name,
+            "new_role": new_role.lower() if isinstance(new_role, str) else new_role,
+        }
+
+    if action_type == "swap_with_center":
+        # Drunk swaps with a center card, learns nothing.
+        center_index = targets.get("center_index")
+        return {"card_index": int(center_index) if center_index is not None else 0}
+
+    if action_type == "swap_others":
+        # Troublemaker swaps two other players, learns nothing.
+        player_ids = targets.get("player_ids", [])
+        name1 = (
+            player_names.get(int(player_ids[0]), "Unknown")
+            if len(player_ids) > 0
+            else "Unknown"
+        )
+        name2 = (
+            player_names.get(int(player_ids[1]), "Unknown")
+            if len(player_ids) > 1
+            else "Unknown"
+        )
+        return {"player1_name": name1, "player2_name": name2}
+
+    if action_type == "see_team":
+        # Werewolf, Mason, or Minion see teammates.
+        # Engine sends "werewolves" for Werewolf/Minion, "masons" for Mason.
+        teammate_ids: list[int] = raw.get("werewolves", raw.get("masons", []))
+        teammate_names = [player_names.get(pid, "Unknown") for pid in teammate_ids]
+        see_team_out: dict[str, Any] = {
+            "teammate_names": teammate_names,
+            "role_acting_as": action.role_acting_as,
+        }
+        # Lone werewolf center card peek (optional).
+        if "center_card" in raw:
+            cc = raw["center_card"]
+            see_team_out["center_card"] = {
+                "index": cc["index"],
+                "role": cc["role"].lower()
+                if isinstance(cc.get("role"), str)
+                else cc.get("role", ""),
+            }
+        return see_team_out
+
+    if action_type == "skip":
+        return {}
+
+    # Unknown action — pass through as-is.
+    return dict(raw)
+
+
 def build_game_state(game: Game) -> GameState:
     """
     Build an engine GameState from DB models.
@@ -225,7 +349,7 @@ def advance_wave(game: Game) -> None:
         persist_wave_results(game, new_state, results, wave)
 
     # Send player-scoped results via WebSocket
-    send_wave_results(game, results, wave)
+    send_wave_results(game, results, night_actions, wave)
 
     # Advance to next wave or end night
     next_wave = get_next_active_wave(game, wave)
@@ -302,22 +426,42 @@ def persist_wave_results(
             pr.save(update_fields=["night_action_data"])
 
 
-def send_wave_results(game: Game, results: list[ActionResult], wave: int) -> None:
-    """Send player-scoped results via WebSocket."""
+def send_wave_results(
+    game: Game,
+    results: list[ActionResult],
+    night_actions: list[NightAction],
+    wave: int,
+) -> None:
+    """Send player-scoped results via WebSocket.
+
+    Transforms the engine's raw revealed_info into the client-friendly
+    format the frontend expects (display names, consistent keys, action_type).
+    """
     channel_layer = get_channel_layer()
     if channel_layer is None:
         return
 
     send = async_to_sync(channel_layer.group_send)
+    player_names = _get_player_names(game)
+    action_map = {a.player_id: a for a in night_actions}
 
     # Send each player their own result only
     for result in results:
+        action = action_map.get(result.player_id)
+        if action is not None:
+            client_info = _transform_revealed_info(action, result, player_names)
+            action_type = _client_action_type(action)
+        else:
+            client_info = result.revealed_info
+            action_type = "unknown"
+
         send(
             f"game_{game.id}_player_{result.player_id}",
             {
                 "type": "action.result",
                 "wave": wave,
-                "revealed_info": result.revealed_info,
+                "action_type": action_type,
+                "revealed_info": client_info,
             },
         )
 
