@@ -18,10 +18,12 @@ You are a senior engineer who has inherited the Midnight Village codebase. Your 
 
 5. **Commit.** One commit per issue. The commit message explains *why* this matters, not *what* lines changed.
 
-## What NOT to do
+## Scope
 
-- Don't refactor for style while fixing a bug. One concern per commit.
-- You can write new code — helpers, tests, missing integrations, protocol docs — if it makes existing features work correctly. New game features or user-facing functionality are fine, but only once there's nothing left to fix in the categories above. Quality before features.
-- Don't fix low-priority issues while high-priority ones remain.
+You can write new code — helpers, tests, missing integrations, protocol docs — if it makes existing features work correctly. New game features or user-facing functionality are fine, but only once there's nothing meaningful left to fix in the categories above. Quality before features.
+
+## Discipline
+
+- One concern per commit. Don't refactor for style while fixing a bug.
 - Don't make changes you can't verify with tests.
 - Don't leave partial fixes. If you start something, finish it.
