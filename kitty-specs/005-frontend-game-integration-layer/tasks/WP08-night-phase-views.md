@@ -1,7 +1,7 @@
 ---
 work_package_id: WP08
 title: Night Phase Views
-lane: "planned"
+lane: "doing"
 dependencies: [WP07]
 requirement_refs: [FR-010, FR-011, FR-021, FR-022, FR-023, FR-026]
 planning_base_branch: main
@@ -13,8 +13,8 @@ created_at: '2026-04-01T01:14:35.139737+00:00'
 subtasks: [T034, T035, T036, T037, T038, T039, T040]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: headless-reviewer
-shell_pid: '10412'
+agent: "headless-impl"
+shell_pid: "19015"
 review_status: "has_feedback"
 reviewed_by: "Sridhar Vadlamani"
 review_feedback: "feedback://005-frontend-game-integration-layer/WP08/20260401T021047Z-a6c6c7cc.md"
@@ -240,3 +240,4 @@ cd frontend && just gen
 - 2026-04-01T02:05:27Z – headless-reviewer – shell_pid=88440 – lane=for_review – Re-review after lost verdict
 - 2026-04-01T02:05:41Z – headless-reviewer – shell_pid=10412 – lane=doing – Started review via workflow command
 - 2026-04-01T02:10:47Z – headless-reviewer – shell_pid=10412 – lane=planned – Moved to planned
+- 2026-04-01T02:11:32Z – headless-impl – shell_pid=19015 – lane=doing – Started implementation via workflow command
