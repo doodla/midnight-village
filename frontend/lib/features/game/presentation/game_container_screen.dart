@@ -140,13 +140,19 @@ class GameContainerScreen extends ConsumerWidget {
           onActionTypeSelected: notifier.selectSeerChoice,
         ),
       NightSubView.actionPrompt when gameState.actionPrompt != null =>
-        _buildActionPromptView(gameState, ref),
+        _isLoneWerewolfPrompt(gameState.actionPrompt!)
+            ? LoneWerewolfPeekView(
+                key: const ValueKey('night-lone-werewolf-pre-submit'),
+                centerCardCount: _kCenterCardCount,
+                onSubmit: (actionType, targets) =>
+                    notifier.submitAction(actionType, targets),
+              )
+            : _buildActionPromptView(gameState, ref),
       NightSubView.actionResult when gameState.lastActionResult != null =>
         NightResultView(
           key: const ValueKey('night-action-result'),
           result: gameState.lastActionResult!,
           players: gameState.players,
-          onLoneWerewolfDetected: notifier.transitionToLoneWerewolfPeek,
         ),
       NightSubView.loneWerewolfPeek => LoneWerewolfPeekView(
         key: const ValueKey('night-lone-werewolf'),
@@ -294,6 +300,16 @@ RoleId _parseRoleId(String role) => switch (role.toLowerCase()) {
   'doppelganger' => RoleId.doppelganger,
   _ => RoleId.villager,
 };
+
+/// Returns true when the action prompt is for a lone Werewolf (or
+/// Doppelganger-as-Werewolf) who has no teammates and should be offered
+/// the center card peek UI *before* submitting their action.
+bool _isLoneWerewolfPrompt(ActionPrompt prompt) {
+  if (prompt.actionTypes.firstOrNull != 'see_team') return false;
+  if (prompt.roleActingAs.toLowerCase() != 'werewolf') return false;
+  final targets = prompt.validTargets['see_team'];
+  return targets is List && targets.isEmpty;
+}
 
 NightActionType _parseActionType(String type) => switch (type) {
   'peek_player' => NightActionType.peekPlayer,

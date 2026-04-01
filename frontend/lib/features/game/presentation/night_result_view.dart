@@ -12,9 +12,10 @@ import 'package:midnight_village/features/game/domain/night_state.dart';
 /// to show. The `action_type` key is injected by [GameNotifier._handleActionResult]
 /// from the WebSocket event.
 ///
-/// When the result is a lone-werewolf `see_team` result (empty teammates for
-/// Werewolf role), [onLoneWerewolfDetected] is called immediately in [build],
-/// so the container can transition to [NightSubView.loneWerewolfPeek].
+/// The lone werewolf center card peek is handled *before* action submission
+/// (routed via [_isLoneWerewolfPrompt] in [GameContainerScreen]), so the
+/// result displayed here will already contain the peeked center card if one
+/// was selected.
 class NightResultView extends ConsumerWidget {
   /// The action result to display.
   final ActionResult result;
@@ -22,17 +23,10 @@ class NightResultView extends ConsumerWidget {
   /// All players in the game — used to resolve display names when needed.
   final List<GamePlayer> players;
 
-  /// Called when a lone-werewolf see_team result is detected.
-  ///
-  /// The [GameContainerScreen] wires this to
-  /// [GameNotifier.transitionToLoneWerewolfPeek].
-  final VoidCallback? onLoneWerewolfDetected;
-
   const NightResultView({
     super.key,
     required this.result,
     required this.players,
-    this.onLoneWerewolfDetected,
   });
 
   @override
@@ -59,11 +53,7 @@ class NightResultView extends ConsumerWidget {
       'swap_with_player' => _SwapWithPlayerResult(info: info, tokens: tokens),
       'swap_with_center' => _SwapWithCenterResult(info: info, tokens: tokens),
       'swap_others' => _SwapOthersResult(info: info, tokens: tokens),
-      'see_team' => _SeeTeamResult(
-        info: info,
-        tokens: tokens,
-        onLoneWerewolfDetected: onLoneWerewolfDetected,
-      ),
+      'see_team' => _SeeTeamResult(info: info, tokens: tokens),
       'insomniac' => _InsomniacResult(info: info, tokens: tokens),
       _ => _UnknownResult(actionType: actionType, tokens: tokens),
     };
@@ -266,33 +256,38 @@ class _SwapOthersResult extends StatelessWidget {
 class _SeeTeamResult extends StatelessWidget {
   final Map<String, dynamic> info;
   final dynamic tokens;
-  final VoidCallback? onLoneWerewolfDetected;
 
-  const _SeeTeamResult({
-    required this.info,
-    required this.tokens,
-    this.onLoneWerewolfDetected,
-  });
+  const _SeeTeamResult({required this.info, required this.tokens});
 
   @override
   Widget build(BuildContext context) {
     final roleActingAs = info['role_acting_as'] as String? ?? '';
     final teammateNames =
         (info['teammate_names'] as List<dynamic>?)?.cast<String>() ?? [];
+    final centerCard = info['center_card'] as Map<String, dynamic>?;
 
     final roleUpper = roleActingAs.toUpperCase();
     final isWerewolf = roleUpper.contains('WEREWOLF');
     final isMason = roleUpper.contains('MASON');
-    // Minion is the default if not werewolf or mason.
 
     if (isWerewolf && teammateNames.isEmpty) {
-      // Lone Werewolf — trigger transition callback after build.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        onLoneWerewolfDetected?.call();
-      });
+      // Lone Werewolf result — show peeked center card if available.
+      if (centerCard != null) {
+        final roleStr = centerCard['role'] as String?;
+        final roleId = roleStr != null ? _parseRoleId(roleStr) : null;
+        final index = centerCard['index'] as int?;
+        final label = index != null
+            ? 'Center card ${index + 1}'
+            : 'Center card';
+        return _buildLoneWerewolfPeekResult(
+          label: label,
+          roleId: roleId,
+          tokens: tokens,
+        );
+      }
       return _buildTeamDisplay(
-        headingText: 'You are the lone Werewolf!',
-        subText: 'You may peek at one center card.',
+        headingText: 'You are the lone Werewolf.',
+        subText: 'You chose not to peek.',
         names: const [],
         tokens: tokens,
       );
@@ -338,6 +333,43 @@ class _SeeTeamResult extends StatelessWidget {
       subText: null,
       names: teammateNames,
       tokens: tokens,
+    );
+  }
+
+  Widget _buildLoneWerewolfPeekResult({
+    required String label,
+    required RoleId? roleId,
+    required dynamic tokens,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'You peeked at a center card',
+          style: tokens.typography.subheading.copyWith(
+            color: tokens.colors.onBackground,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: tokens.spacing.xl),
+        RoleCard(roleId: roleId),
+        if (roleId != null) ...[
+          SizedBox(height: tokens.spacing.md),
+          Text(
+            roleId.displayName,
+            style: tokens.typography.body.copyWith(
+              color: roleId.teamColor(tokens.colors),
+            ),
+          ),
+        ],
+        SizedBox(height: tokens.spacing.sm),
+        Text(
+          label,
+          style: tokens.typography.caption.copyWith(
+            color: tokens.colors.onBackground.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
     );
   }
 

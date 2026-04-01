@@ -117,7 +117,9 @@ void main() {
   });
 
   group('NightResultView — see_team (lone Werewolf)', () {
-    testWidgets('shows lone werewolf message', (tester) async {
+    testWidgets('shows skip message when no center card peeked', (
+      tester,
+    ) async {
       await tester.pumpWithTokens(
         NightResultView(
           result: _makeResult('see_team', {
@@ -129,42 +131,23 @@ void main() {
       );
 
       expect(find.textContaining('lone Werewolf'), findsOneWidget);
+      expect(find.textContaining('chose not to peek'), findsOneWidget);
     });
 
-    testWidgets('calls onLoneWerewolfDetected when lone werewolf', (
-      tester,
-    ) async {
-      bool detected = false;
+    testWidgets('shows peeked center card when present', (tester) async {
       await tester.pumpWithTokens(
         NightResultView(
           result: _makeResult('see_team', {
             'role_acting_as': 'Werewolf',
             'teammate_names': [],
+            'center_card': {'index': 0, 'role': 'tanner'},
           }),
           players: _players,
-          onLoneWerewolfDetected: () => detected = true,
         ),
       );
 
-      expect(detected, isTrue);
-    });
-
-    testWidgets('does not call onLoneWerewolfDetected when has teammates', (
-      tester,
-    ) async {
-      bool detected = false;
-      await tester.pumpWithTokens(
-        NightResultView(
-          result: _makeResult('see_team', {
-            'role_acting_as': 'Werewolf',
-            'teammate_names': ['Bob'],
-          }),
-          players: _players,
-          onLoneWerewolfDetected: () => detected = true,
-        ),
-      );
-
-      expect(detected, isFalse);
+      expect(find.textContaining('peeked'), findsOneWidget);
+      expect(find.byType(RoleCard), findsAtLeastNWidgets(1));
     });
   });
 
