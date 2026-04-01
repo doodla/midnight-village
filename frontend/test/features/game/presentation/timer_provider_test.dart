@@ -9,7 +9,7 @@ void main() {
       addTearDown(container.dispose);
 
       // Listen to keep the provider alive.
-      final sub = container.listen(gameTimerProvider(null), (_, __) {});
+      final sub = container.listen(gameTimerProvider(null), (_, _) {});
       addTearDown(sub.close);
 
       // A null-deadline timer produces an empty stream.
@@ -24,7 +24,7 @@ void main() {
       addTearDown(container.dispose);
 
       // Keep the provider alive with a subscription.
-      final sub = container.listen(gameTimerProvider(pastDeadline), (_, __) {});
+      final sub = container.listen(gameTimerProvider(pastDeadline), (_, _) {});
       addTearDown(sub.close);
 
       // Wait for the stream to emit.
@@ -42,7 +42,7 @@ void main() {
       // Keep the provider alive.
       final sub = container.listen(
         gameTimerProvider(futureDeadline),
-        (_, __) {},
+        (_, _) {},
       );
       addTearDown(sub.close);
 

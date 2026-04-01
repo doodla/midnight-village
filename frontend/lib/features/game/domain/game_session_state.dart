@@ -54,6 +54,7 @@ abstract class GameSessionState with _$GameSessionState {
     DateTime? deadline,
     @JsonKey(name: 'your_role') required YourRole yourRole,
     required List<GamePlayer> players,
+    @JsonKey(name: 'has_voted') @Default(false) bool hasVoted,
     @JsonKey(name: 'action_prompt') ActionPrompt? actionPrompt,
     @JsonKey(name: 'last_action_result') ActionResult? lastActionResult,
 

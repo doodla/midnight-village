@@ -79,7 +79,7 @@ void main() {
   });
 
   group('GameSessionState', () {
-    Map<String, dynamic> _validGameMeResponse() => {
+    Map<String, dynamic> validGameMeResponse() => {
       'game_id': '550e8400-e29b-41d4-a716-446655440000',
       'phase': 'night',
       'current_wave': 2,
@@ -113,7 +113,7 @@ void main() {
     };
 
     test('fromJson parses full GameMeResponse format', () {
-      final state = GameSessionState.fromJson(_validGameMeResponse());
+      final state = GameSessionState.fromJson(validGameMeResponse());
       expect(state.gameId, '550e8400-e29b-41d4-a716-446655440000');
       expect(state.phase, 'night');
       expect(state.currentWave, 2);
@@ -128,35 +128,35 @@ void main() {
     });
 
     test('fromJson handles null action_prompt', () {
-      final json = _validGameMeResponse();
+      final json = validGameMeResponse();
       json.remove('action_prompt');
       final state = GameSessionState.fromJson(json);
       expect(state.actionPrompt, isNull);
     });
 
     test('fromJson handles null deadline', () {
-      final json = _validGameMeResponse();
+      final json = validGameMeResponse();
       json['deadline'] = null;
       final state = GameSessionState.fromJson(json);
       expect(state.deadline, isNull);
     });
 
     test('fromJson defaults currentWave to 0 when missing', () {
-      final json = _validGameMeResponse();
+      final json = validGameMeResponse();
       json.remove('current_wave');
       final state = GameSessionState.fromJson(json);
       expect(state.currentWave, 0);
     });
 
     test('fromJson defaults rolesInGame to empty list when missing', () {
-      final json = _validGameMeResponse();
+      final json = validGameMeResponse();
       json.remove('roles_in_game');
       final state = GameSessionState.fromJson(json);
       expect(state.rolesInGame, isEmpty);
     });
 
     test('frontend-only fields have correct defaults', () {
-      final state = GameSessionState.fromJson(_validGameMeResponse());
+      final state = GameSessionState.fromJson(validGameMeResponse());
       // These fields are not in the JSON -- they default correctly.
       expect(state.nightSubView, NightSubView.waiting);
       expect(state.voteProgress.playerVoted, isEmpty);
@@ -166,7 +166,7 @@ void main() {
     });
 
     test('copyWith preserves immutability', () {
-      final state = GameSessionState.fromJson(_validGameMeResponse());
+      final state = GameSessionState.fromJson(validGameMeResponse());
       final updated = state.copyWith(phase: 'discussion');
       expect(state.phase, 'night');
       expect(updated.phase, 'discussion');
@@ -285,12 +285,13 @@ void main() {
 
   group('NightSubView enum', () {
     test('has all expected values', () {
-      expect(NightSubView.values, hasLength(5));
+      expect(NightSubView.values, hasLength(6));
       expect(NightSubView.values, contains(NightSubView.waiting));
       expect(NightSubView.values, contains(NightSubView.seerChoice));
       expect(NightSubView.values, contains(NightSubView.actionPrompt));
       expect(NightSubView.values, contains(NightSubView.actionResult));
       expect(NightSubView.values, contains(NightSubView.loneWerewolfPeek));
+      expect(NightSubView.values, contains(NightSubView.roleReveal));
     });
   });
 }

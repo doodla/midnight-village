@@ -116,6 +116,10 @@ class GameContainerScreen extends ConsumerWidget {
         key: ValueKey('night-lone-werewolf'),
         label: 'Lone Werewolf Peek',
       ),
+      NightSubView.roleReveal => const _PlaceholderView(
+        key: ValueKey('night-role-reveal'),
+        label: 'Role Reveal',
+      ),
     };
   }
 

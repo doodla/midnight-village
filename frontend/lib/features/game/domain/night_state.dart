@@ -24,6 +24,9 @@ enum NightSubView {
 
   /// Lone werewolf may optionally peek at one center card.
   loneWerewolfPeek,
+
+  /// Role reveal screen shown at the start of night before any actions.
+  roleReveal,
 }
 
 /// Action prompt received via WebSocket `action_prompt` event or from

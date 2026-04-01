@@ -69,7 +69,7 @@ _createTestSetup({Map<String, dynamic>? gameMeJson}) {
 /// Reads the game state, keeping the provider alive.
 Future<GameSessionState> _readGameState(ProviderContainer container) async {
   // Keep the provider alive with a subscription.
-  final sub = container.listen(gameProvider('test-game-id'), (_, __) {});
+  container.listen(gameProvider('test-game-id'), (_, _) {});
   final state = await container.read(gameProvider('test-game-id').future);
   // Don't close the subscription -- let the caller's addTearDown handle it.
   return state;
