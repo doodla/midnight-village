@@ -58,7 +58,24 @@ class GameNotifier extends _$GameNotifier {
     });
 
     // Hydrate frontend-only display state from the server response.
-    return _hydrateInitialState(initialState);
+    var hydrated = _hydrateInitialState(initialState);
+
+    // If reconnecting to results phase, fetch results immediately since the
+    // game_results WebSocket event was already sent before we connected.
+    if (hydrated.phase == 'results') {
+      try {
+        final data = await service.fetchResults(gameId);
+        final gameResult = _parseGameResult(data, hydrated.players);
+        hydrated = hydrated.copyWith(results: gameResult);
+      } catch (e) {
+        logger.e(
+          'GameNotifier: Failed to fetch results on reconnect',
+          error: e,
+        );
+      }
+    }
+
+    return hydrated;
   }
 
   /// Hydrates frontend-only display state from the initial REST response.

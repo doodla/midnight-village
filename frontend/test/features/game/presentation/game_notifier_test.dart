@@ -176,6 +176,101 @@ void main() {
     });
   });
 
+  group('GameNotifier initial load in results phase', () {
+    test(
+      'fetches results via REST when reconnecting to results phase',
+      () async {
+        final (:container, :http, :ws) = _createTestSetup(
+          gameMeJson: _defaultGameMeJson(phase: 'results'),
+        );
+        addTearDown(container.dispose);
+
+        // Register the results endpoint.
+        http
+            .when(method: 'GET', path: '/onuw/games/test-game-id/results/')
+            .thenReturn(
+              Response(
+                requestOptions: RequestOptions(
+                  path: '/onuw/games/test-game-id/results/',
+                ),
+                statusCode: 200,
+                data: {
+                  'winning_teams': ['village'],
+                  'players': [
+                    {
+                      'player_id': 1,
+                      'display_name': 'Alice',
+                      'original_role': 'Seer',
+                      'final_role': 'Seer',
+                      'team': 'village',
+                      'is_eliminated': false,
+                      'outcome': 'win',
+                      'vote_target_id': 3,
+                    },
+                    {
+                      'player_id': 2,
+                      'display_name': 'Bob',
+                      'original_role': 'Werewolf',
+                      'final_role': 'Werewolf',
+                      'team': 'werewolf',
+                      'is_eliminated': true,
+                      'outcome': 'lose',
+                      'elimination_reason': 'vote',
+                      'vote_target_id': 1,
+                    },
+                    {
+                      'player_id': 3,
+                      'display_name': 'Charlie',
+                      'original_role': 'Villager',
+                      'final_role': 'Villager',
+                      'team': 'village',
+                      'is_eliminated': false,
+                      'outcome': 'win',
+                      'vote_target_id': 2,
+                    },
+                  ],
+                  'center_cards': ['Drunk', 'Minion', 'Villager'],
+                },
+              ),
+            );
+
+        final state = await _readGameState(container);
+        expect(state.phase, 'results');
+        expect(state.results, isNotNull);
+        expect(state.results!.winningTeams.length, 1);
+        expect(state.results!.players.length, 3);
+        expect(state.results!.centerCards.length, 3);
+      },
+    );
+
+    test('survives results fetch failure on reconnect', () async {
+      final (:container, :http, :ws) = _createTestSetup(
+        gameMeJson: _defaultGameMeJson(phase: 'results'),
+      );
+      addTearDown(container.dispose);
+
+      // Do NOT register the results endpoint — MockHttpClient will reject it
+      // with an UnmockedEndpointException, simulating a network failure.
+
+      final state = await _readGameState(container);
+      // State should still load (phase=results, results=null).
+      expect(state.phase, 'results');
+      expect(state.results, isNull);
+    });
+
+    test('does not fetch results for non-results phases', () async {
+      final (:container, :http, :ws) = _createTestSetup();
+      addTearDown(container.dispose);
+
+      // Do NOT register the results endpoint -- if it's called, MockHttpClient
+      // will throw an UnmockedEndpointException.
+
+      final state = await _readGameState(container);
+      expect(state.phase, 'night');
+      expect(state.results, isNull);
+    });
+  });
+
   group('GameNotifier WS event: wave_start', () {
     test('updates currentWave and deadline', () async {
       final (:container, :http, :ws) = _createTestSetup();
