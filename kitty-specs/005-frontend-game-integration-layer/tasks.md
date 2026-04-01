@@ -373,11 +373,11 @@
 **Requirements Refs**: FR-024, FR-028, SC-007
 
 ### Included Subtasks
-- [ ] T046 Update existing Freezed models in `frontend/lib/design_system/models/game_result.dart` — `VoteResult`: make `targetId`/`targetName` nullable (`String?`); `PlayerResult`: add `voteTargetId` (`String?`), `voteTargetName` (`String?`), `eliminationReason` (`EliminationReason?`); `GameResult`: add `votes` (`List<VoteResult>`), `centerCards` (`List<RoleId>`). Use `@Default([])` for new list fields to maintain backward compat.
-- [ ] T047 Wire `GameResults` widget to results endpoint — on results phase, `GameNotifier` fetches `GET /onuw/games/<id>/results/` and maps response to `GameResult` model. Map `vote_target_id` to display names from local player list. Add "Return to Home" navigation via `context.go('/')`.
-- [ ] T048 Implement results data mapping — `elimination_reason` string → `EliminationReason` enum, center card role strings → `RoleId` values, per-player outcome mapping. Handle Doppelganger display ("Doppelganger (as [role])").
-- [ ] T049 Handle win condition edge cases — no werewolves + no elimination → village wins message; no werewolves + non-Minion eliminated → nobody wins; Minion-only werewolf team win; Tanner self-elimination win; multiple winners (Tanner + Village); Hunter chain display with "Eliminated by Hunter" label
-- [ ] T050 Update existing tests in `frontend/test/design_system/components/game/game_results_test.dart` and `frontend/test/design_system/components/game/vote_reveal_test.dart` for nullable fields. Add new tests for results data mapping and win condition edge cases.
+- [x] T046 Update existing Freezed models in `frontend/lib/design_system/models/game_result.dart` — `VoteResult`: make `targetId`/`targetName` nullable (`String?`); `PlayerResult`: add `voteTargetId` (`String?`), `voteTargetName` (`String?`), `eliminationReason` (`EliminationReason?`); `GameResult`: add `votes` (`List<VoteResult>`), `centerCards` (`List<RoleId>`). Use `@Default([])` for new list fields to maintain backward compat.
+- [x] T047 Wire `GameResults` widget to results endpoint — on results phase, `GameNotifier` fetches `GET /onuw/games/<id>/results/` and maps response to `GameResult` model. Map `vote_target_id` to display names from local player list. Add "Return to Home" navigation via `context.go('/')`.
+- [x] T048 Implement results data mapping — `elimination_reason` string → `EliminationReason` enum, center card role strings → `RoleId` values, per-player outcome mapping. Handle Doppelganger display ("Doppelganger (as [role])").
+- [x] T049 Handle win condition edge cases — no werewolves + no elimination → village wins message; no werewolves + non-Minion eliminated → nobody wins; Minion-only werewolf team win; Tanner self-elimination win; multiple winners (Tanner + Village); Hunter chain display with "Eliminated by Hunter" label
+- [x] T050 Update existing tests in `frontend/test/design_system/components/game/game_results_test.dart` and `frontend/test/design_system/components/game/vote_reveal_test.dart` for nullable fields. Add new tests for results data mapping and win condition edge cases.
 
 ### Implementation Notes
 - Research decision R7: Extend existing models in-place. Using `@Default([])` for new `votes` and `centerCards` list fields avoids breaking existing test factories.
@@ -618,7 +618,7 @@ Phase 3 (Polish):
 - WP03: done
 - WP04: done
 - WP05: done
-- WP06: approved
+- WP06: done
 - WP07: done
 - WP09: planned
 - WP11: planned
