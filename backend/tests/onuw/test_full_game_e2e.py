@@ -284,7 +284,7 @@ class TestCompleteGameVillageWins:
             assert data["winning_teams"] == ["village"]
             assert len(data["players"]) == 5
             assert len(data["eliminated_players"]) >= 1
-            assert data["center_cards"]["final"] == [
+            assert data["center_cards"] == [
                 "Drunk",
                 "Insomniac",
                 "Troublemaker",

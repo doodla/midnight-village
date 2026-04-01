@@ -295,3 +295,156 @@ class TestResultsEndpoint:
         ww_entry = next(e for e in eliminated if e["player_id"] == users["host_ep"].id)
         assert ww_entry["role"] == "Werewolf"
         assert ww_entry["display_name"] == "host_ep"
+
+    def test_players_include_team_field(self, api_client, db):
+        """Each player in results includes their effective team."""
+        game, users, _host = _create_game_in_results(
+            {
+                "host_tf": "Werewolf",
+                "p1_tf": "Seer",
+                "p2_tf": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            votes={
+                "host_tf": "p1_tf",
+                "p1_tf": "host_tf",
+                "p2_tf": "host_tf",
+            },
+        )
+
+        api_client.force_authenticate(user=users["p1_tf"])
+        response = api_client.get(_results_url(game.id))
+
+        assert response.status_code == status.HTTP_200_OK
+        players_by_id = {p["player_id"]: p for p in response.data["players"]}
+
+        assert players_by_id[users["host_tf"].id]["team"] == "werewolf"
+        assert players_by_id[users["p1_tf"].id]["team"] == "village"
+        assert players_by_id[users["p2_tf"].id]["team"] == "village"
+
+    def test_players_include_is_eliminated_field(self, api_client, db):
+        """Each player in results includes is_eliminated boolean."""
+        game, users, _host = _create_game_in_results(
+            {
+                "host_ie": "Werewolf",
+                "p1_ie": "Seer",
+                "p2_ie": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            votes={
+                "host_ie": "p1_ie",
+                "p1_ie": "host_ie",
+                "p2_ie": "host_ie",
+            },
+        )
+
+        api_client.force_authenticate(user=users["p1_ie"])
+        response = api_client.get(_results_url(game.id))
+
+        assert response.status_code == status.HTTP_200_OK
+        players_by_id = {p["player_id"]: p for p in response.data["players"]}
+
+        # host_ie (Werewolf) got 2 votes and was eliminated
+        assert players_by_id[users["host_ie"].id]["is_eliminated"] is True
+        assert players_by_id[users["p1_ie"].id]["is_eliminated"] is False
+        assert players_by_id[users["p2_ie"].id]["is_eliminated"] is False
+
+    def test_players_include_elimination_reason(self, api_client, db):
+        """Eliminated players include elimination_reason, others have null."""
+        game, users, _host = _create_game_in_results(
+            {
+                "host_er": "Werewolf",
+                "p1_er": "Seer",
+                "p2_er": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            votes={
+                "host_er": "p1_er",
+                "p1_er": "host_er",
+                "p2_er": "host_er",
+            },
+        )
+
+        api_client.force_authenticate(user=users["p1_er"])
+        response = api_client.get(_results_url(game.id))
+
+        assert response.status_code == status.HTTP_200_OK
+        players_by_id = {p["player_id"]: p for p in response.data["players"]}
+
+        assert players_by_id[users["host_er"].id]["elimination_reason"] == "vote"
+        assert players_by_id[users["p1_er"].id]["elimination_reason"] is None
+        assert players_by_id[users["p2_er"].id]["elimination_reason"] is None
+
+    def test_center_cards_is_flat_list(self, api_client, db):
+        """center_cards is a flat list of role strings, not a nested dict."""
+        game, users, _host = _create_game_in_results(
+            {
+                "host_cc": "Werewolf",
+                "p1_cc": "Seer",
+                "p2_cc": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            votes={
+                "host_cc": "p1_cc",
+                "p1_cc": "host_cc",
+                "p2_cc": "host_cc",
+            },
+        )
+
+        api_client.force_authenticate(user=users["p1_cc"])
+        response = api_client.get(_results_url(game.id))
+
+        assert response.status_code == status.HTTP_200_OK
+        center = response.data["center_cards"]
+        assert isinstance(center, list)
+        assert all(isinstance(card, str) for card in center)
+        assert len(center) == 3
+
+    def test_doppelganger_team_uses_copied_role(self, api_client, db):
+        """Doppelganger-as-Werewolf reports werewolf team."""
+        game, users, _host = _create_game_in_results(
+            {
+                "host_dt": "Doppelganger",
+                "p1_dt": "Seer",
+                "p2_dt": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            votes={
+                "host_dt": "p1_dt",
+                "p1_dt": "host_dt",
+                "p2_dt": "host_dt",
+            },
+        )
+
+        # Simulate that Doppelganger copied Werewolf
+        pr = PlayerRole.objects.get(game=game, user=users["host_dt"])
+        pr.night_action_data = {"copied_role": "Werewolf"}
+        pr.save(update_fields=["night_action_data"])
+
+        # Re-run reveal to recompute with doppelganger info
+        game.phase = Phase.VOTING
+        game.save(update_fields=["phase"])
+        for voter_name, target_name in {
+            "host_dt": "p1_dt",
+            "p1_dt": "host_dt",
+            "p2_dt": "host_dt",
+        }.items():
+            vpr = PlayerRole.objects.get(game=game, user=users[voter_name])
+            vpr.vote_target = users[target_name]
+            vpr.has_acted = True
+            vpr.save(update_fields=["vote_target", "has_acted"])
+
+        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+            from apps.onuw.services import reveal_votes
+
+            reveal_votes(game)
+
+        game.refresh_from_db()
+
+        api_client.force_authenticate(user=users["p1_dt"])
+        response = api_client.get(_results_url(game.id))
+
+        assert response.status_code == status.HTTP_200_OK
+        players_by_id = {p["player_id"]: p for p in response.data["players"]}
+
+        assert players_by_id[users["host_dt"].id]["team"] == "werewolf"

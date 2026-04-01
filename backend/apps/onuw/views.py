@@ -562,15 +562,34 @@ class ResultsView(APIView):
         elimination_reasons: dict[str, str] = game.results.get(
             "elimination_reasons", {}
         )
+
+        # Build role/team lookup for effective team computation
+        current_roles: dict[int, str] = {}
+        doppelganger_copied: dict[int, str] = {}
+        for pr in player_roles_qs:
+            current_roles[pr.user_id] = pr.current_role
+            if pr.original_role == "Doppelganger" and pr.night_action_data.get(
+                "copied_role"
+            ):
+                doppelganger_copied[pr.user_id] = pr.night_action_data["copied_role"]
+
+        from .engine.win_conditions import get_effective_team
+
         eliminated_details = []
         players_data = []
 
         for pr in player_roles_qs:
+            is_eliminated = pr.user_id in eliminated_ids
             player_info = {
                 "player_id": pr.user_id,
                 "display_name": pr.user.display_name or pr.user.username,
                 "original_role": pr.original_role,
                 "final_role": pr.current_role,
+                "team": get_effective_team(
+                    pr.user_id, current_roles, doppelganger_copied
+                ),
+                "is_eliminated": is_eliminated,
+                "elimination_reason": elimination_reasons.get(str(pr.user_id)),
                 "outcome": game.results.get("player_outcomes", {}).get(
                     str(pr.user_id), "lose"
                 ),
@@ -578,7 +597,7 @@ class ResultsView(APIView):
             }
             players_data.append(player_info)
 
-            if pr.user_id in eliminated_ids:
+            if is_eliminated:
                 eliminated_details.append(
                     {
                         "player_id": pr.user_id,
@@ -588,22 +607,12 @@ class ResultsView(APIView):
                     }
                 )
 
-        # Build center cards info
-        # Original center cards are stored in the game settings via
-        # the initial assignment. We reconstruct from night_actions_log
-        # or just show final state. For simplicity, we store original
-        # center cards in the settings at game start, and final center
-        # cards in game.center_cards.
-        center_cards_data = {
-            "final": list(game.center_cards),
-        }
-
         response_data = {
             "winning_teams": game.results.get("winning_teams", []),
             "reason": game.results.get("reason", ""),
             "eliminated_players": eliminated_details,
             "players": players_data,
-            "center_cards": center_cards_data,
+            "center_cards": list(game.center_cards),
             "night_actions_log": list(game.night_actions_log),
         }
 
