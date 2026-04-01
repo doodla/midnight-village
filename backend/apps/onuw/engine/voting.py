@@ -52,17 +52,21 @@ def _is_hunter(
 
     A player is Hunter if:
     - Their current role card is "Hunter", OR
-    - Their current role card is "Doppelganger" and they copied "Hunter".
+    - Their current role card is "Doppelganger" and the Doppelganger card
+      copied "Hunter". The copied role is a property of the CARD, not the
+      player — any player currently holding the Doppelganger card inherits
+      the copied role's passive abilities (like Hunter chain-kill).
     """
     role = player_roles.get(pid, "")
     if role == "Hunter":
         return True
-    if (
-        role == "Doppelganger"
-        and doppelganger_copied
-        and doppelganger_copied.get(pid) == "Hunter"
-    ):
-        return True
+    if role == "Doppelganger" and doppelganger_copied:
+        # The copied role belongs to the Doppelganger CARD. There is at most
+        # one Doppelganger card in any ONUW game, so get the single value
+        # regardless of which player originally copied it.
+        copied = next(iter(doppelganger_copied.values()), None)
+        if copied == "Hunter":
+            return True
     return False
 
 

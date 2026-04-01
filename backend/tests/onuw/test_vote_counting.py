@@ -236,3 +236,62 @@ class TestApplyHunter:
             "Doppelganger who was robbed no longer holds Doppelganger card, "
             "so Hunter passive does not apply"
         )
+
+    def test_swapped_doppelganger_as_hunter_new_holder_triggers_chain(self):
+        """Spec: Hunter ability belongs to the card position, not the player.
+
+        Doppelganger copies Hunter in wave 1. Troublemaker swaps DG card to
+        another player in wave 3. The new holder of the Doppelganger-as-Hunter
+        card is eliminated and THEIR vote target should also die.
+
+        The copied role is a property of the CARD. The doppelganger_copied
+        dict is keyed by the original Doppelganger's player_id, but after
+        a swap, a different player holds the card. The _is_hunter function
+        must recognize the new holder as Hunter via the card property.
+        """
+        # After night: DG (player 1) copied Hunter, Troublemaker swapped
+        # player 1 and player 2. Player 2 now holds "Doppelganger" card.
+        eliminated = [2]  # Player 2 (now holds DG-as-Hunter) eliminated
+        player_roles = {
+            1: "Villager",
+            2: "Doppelganger",
+            3: "Werewolf",
+            4: "Troublemaker",
+        }
+        doppelganger_copied = {1: "Hunter"}  # Keyed by original DG player
+        votes: dict[int, int | None] = {1: 3, 2: 3, 3: 1, 4: 1}
+
+        result = apply_hunter(eliminated, player_roles, votes, doppelganger_copied)
+        # Player 2 holds the Doppelganger card that copied Hunter.
+        # Their vote target (player 3) should also die via Hunter chain.
+        assert 3 in result, (
+            "New holder of Doppelganger-as-Hunter card should trigger "
+            "Hunter chain kill on their vote target"
+        )
+        assert sorted(result) == [2, 3]
+
+    def test_swapped_doppelganger_as_hunter_original_holder_no_chain(self):
+        """Complement to the above: original DG player lost the card, no chain.
+
+        After the swap, the original Doppelganger holds a different card.
+        Even though doppelganger_copied is keyed by their ID, they should
+        NOT trigger Hunter chain because they no longer hold the DG card.
+        """
+        # Same setup: DG (player 1) copied Hunter, Troublemaker swapped 1 and 2.
+        # Player 1 now holds "Villager", Player 2 holds "Doppelganger".
+        eliminated = [1]  # Original DG (now Villager) eliminated
+        player_roles = {
+            1: "Villager",
+            2: "Doppelganger",
+            3: "Werewolf",
+            4: "Troublemaker",
+        }
+        doppelganger_copied = {1: "Hunter"}
+        votes: dict[int, int | None] = {1: 3, 2: 1, 3: 4, 4: 1}
+
+        result = apply_hunter(eliminated, player_roles, votes, doppelganger_copied)
+        # Player 1 holds Villager card — NOT Hunter
+        assert sorted(result) == [1], (
+            "Original Doppelganger who was swapped away no longer holds "
+            "the DG card and should not trigger Hunter chain"
+        )
