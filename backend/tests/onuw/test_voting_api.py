@@ -192,7 +192,7 @@ class TestVoting:
         assert pr.vote_target_id == target.id
 
     def test_player_cannot_vote_twice(self, api_client, db):
-        """A player who has already voted cannot vote again."""
+        """A duplicate vote returns 409 Conflict so the frontend treats it as idempotent."""
         game, users, _host = _create_game(
             {
                 "host_vt": "Werewolf",
@@ -216,13 +216,18 @@ class TestVoting:
             )
             assert response.status_code == status.HTTP_200_OK
 
-            # Second vote should fail
+            # Second vote returns 409 (not 400) for idempotent handling
             response = api_client.post(
                 _vote_url(game.id),
                 {"target_player_id": users["p2_vt"].id},
                 format="json",
             )
-            assert response.status_code == status.HTTP_400_BAD_REQUEST
+            assert response.status_code == status.HTTP_409_CONFLICT
+
+            # Original vote preserved — retry didn't change the target
+            pr = PlayerRole.objects.get(game=game, user=voter)
+            # pyrefly: ignore [missing-attribute]
+            assert pr.vote_target_id == target.id
 
     def test_player_cannot_vote_in_wrong_phase(self, api_client, db):
         """Cannot vote when game is not in voting phase."""

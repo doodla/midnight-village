@@ -20,6 +20,7 @@ from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
 from .serializers import GameMeSerializer, GameStartResponseSerializer
 from .services import (
+    AlreadyActedError,
     check_and_maybe_advance,
     end_discussion,
     get_player_acting_role_for_wave,
@@ -213,11 +214,13 @@ class NightActionView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            # 4. Check player hasn't already acted this wave
+            # 4. Check player hasn't already acted this wave.
+            # Return 409 Conflict (not 400) so the frontend can treat
+            # duplicate submissions as idempotent success.
             if pr.has_acted:
                 return Response(
                     {"detail": "You have already acted this wave."},
-                    status=status.HTTP_400_BAD_REQUEST,
+                    status=status.HTTP_409_CONFLICT,
                 )
 
             # 5. Determine what role they're acting as this wave
@@ -388,7 +391,13 @@ class VoteView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        errors = submit_vote(game, request.user.id, target_player_id)  # type: ignore[misc]
+        try:
+            errors = submit_vote(game, request.user.id, target_player_id)  # type: ignore[misc]
+        except AlreadyActedError:
+            return Response(
+                {"detail": "You have already voted."},
+                status=status.HTTP_409_CONFLICT,
+            )
         if errors:
             return Response(
                 {"detail": errors},

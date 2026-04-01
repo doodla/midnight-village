@@ -28,6 +28,10 @@ from .engine.win_conditions import evaluate_winner
 from .models import Game, Phase, PlayerRole
 
 
+class AlreadyActedError(Exception):
+    """Raised when a player tries to act again after already submitting."""
+
+
 def get_timer_seconds(game: Game, key: str, default: int) -> int:
     """Read a timer duration from game settings, returning default if not set."""
     return game.settings.get(key, default)
@@ -864,8 +868,7 @@ def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
             return errors
 
         if voter_pr.has_acted:
-            errors.append("You have already voted.")
-            return errors
+            raise AlreadyActedError("You have already voted.")
 
         # No self-votes per spec
         if voter_id == target_player_id:

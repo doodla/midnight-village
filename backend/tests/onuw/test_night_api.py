@@ -186,8 +186,8 @@ class TestNightActionSubmission:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_player_cannot_submit_twice_same_wave(self, api_client, db):
-        """A player cannot submit twice in the same wave."""
+    def test_duplicate_action_returns_409(self, api_client, db):
+        """A duplicate action returns 409 Conflict so the frontend treats it as idempotent."""
         game, users = _create_game(
             {
                 "host_seer4": "Seer",
@@ -216,7 +216,7 @@ class TestNightActionSubmission:
             )
             assert response.status_code == status.HTTP_200_OK
 
-            # Second submission should fail
+            # Second submission returns 409 (not 400) for idempotent handling
             response = api_client.post(
                 _action_url(game.id),
                 {
@@ -225,7 +225,12 @@ class TestNightActionSubmission:
                 },
                 format="json",
             )
-            assert response.status_code == status.HTTP_400_BAD_REQUEST
+            assert response.status_code == status.HTTP_409_CONFLICT
+
+            # Original action preserved — retry didn't clobber it
+            pr = PlayerRole.objects.get(game=game, user=seer_user)
+            assert pr.has_acted is True
+            assert pr.night_action_data["action_type"] == "peek_player"
 
     def test_non_player_gets_403(self, api_client, db):
         """A user not in the game gets 403."""
