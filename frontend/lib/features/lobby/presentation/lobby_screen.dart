@@ -224,10 +224,11 @@ class _LobbyCodeSection extends StatelessWidget {
                   lobbyCode,
                   style: tokens.typography.lobbyCode.copyWith(
                     color: tokens.colors.onSurface,
-                    letterSpacing: 4.0,
+                    // letterSpacing comes from the lobbyCode token (8.0)
                   ),
                 ),
                 SizedBox(width: tokens.spacing.sm),
+                // Icon size 20 matches body text scale; no AppTokens icon-size token exists.
                 Icon(Icons.copy, size: 20, color: tokens.colors.disabled),
               ],
             ),
@@ -295,6 +296,7 @@ class _PlayerRow extends StatelessWidget {
               ),
             ),
           ),
+          // Icon size 20 matches body text scale; no AppTokens icon-size token exists.
           if (player.isReady)
             Icon(Icons.check_circle, color: tokens.colors.villageTeam, size: 20)
           else
@@ -497,6 +499,7 @@ class _RoleConfigSectionState extends ConsumerState<_RoleConfigSection> {
           ),
           child: Row(
             children: [
+              // Icon size 16 matches caption text scale; no AppTokens icon-size token exists.
               Icon(
                 validationError != null ? Icons.warning : Icons.check,
                 size: 16,
@@ -541,6 +544,9 @@ class _RoleConfigSectionState extends ConsumerState<_RoleConfigSection> {
                     ),
                   ),
                 ),
+                // iconSize 20 matches body text scale; no AppTokens icon-size token exists.
+                // BoxConstraints 36×36 is the accessibility minimum touch target;
+                // no AppTokens touch-target token exists.
                 IconButton(
                   icon: const Icon(Icons.remove),
                   onPressed: canDec ? () => _decrement(role) : null,

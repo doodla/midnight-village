@@ -206,17 +206,6 @@ void main() {
         // Ready players should have a check icon, not-ready should not
         expect(find.byIcon(Icons.check_circle), findsWidgets);
       });
-
-      testWidgets('uses tokens for spacing — no hardcoded values', (
-        tester,
-      ) async {
-        final notifier = FakeLobbyNotifier(initialState: _makeState());
-        await _pump(tester, notifier: notifier);
-        // Implicit: if screen renders without exception, design tokens are used.
-        // Verify no raw Color(...) constructors are present in widget tree by
-        // checking the widget renders at all.
-        expect(find.byType(LobbyScreen), findsOneWidget);
-      });
     });
 
     group('T025 – notifier wiring', () {
@@ -595,6 +584,36 @@ void main() {
               ),
             ],
             roleConfig: _validRoleConfig(2), // 2 players — invalid
+          ),
+        );
+        await _pump(tester, notifier: notifier, userId: 1);
+
+        final startButton = tester.widget<FilledButton>(
+          find.ancestor(
+            of: find.text('Start Game'),
+            matching: find.byType(FilledButton),
+          ),
+        );
+        expect(startButton.onPressed, isNull);
+      });
+
+      testWidgets('start button disabled when player count above 10', (
+        tester,
+      ) async {
+        final players = List.generate(
+          11,
+          (i) => LobbyPlayer(
+            id: i + 1,
+            displayName: 'Player ${i + 1}',
+            isReady: true,
+            joinedAt: DateTime.utc(2026),
+          ),
+        );
+        final notifier = FakeLobbyNotifier(
+          initialState: _makeState(
+            hostId: 1,
+            players: players,
+            roleConfig: _validRoleConfig(11), // 11 players — out of range
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);
