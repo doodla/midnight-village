@@ -315,3 +315,27 @@ class TestGameMe:
         response = api_client.get(url)
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_host_sees_is_host_true(self, api_client, db):
+        """The lobby host receives is_host=True in the /me/ response."""
+        game, all_players = self._create_started_game()
+        host = all_players[0]  # host is always first in all_players
+
+        api_client.force_authenticate(user=host)
+        url = reverse("onuw:game-me", kwargs={"game_id": str(game.id)})
+        response = api_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["is_host"] is True
+
+    def test_non_host_sees_is_host_false(self, api_client, db):
+        """A non-host player receives is_host=False in the /me/ response."""
+        game, all_players = self._create_started_game()
+        non_host = all_players[1]  # any player other than the host
+
+        api_client.force_authenticate(user=non_host)
+        url = reverse("onuw:game-me", kwargs={"game_id": str(game.id)})
+        response = api_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["is_host"] is False

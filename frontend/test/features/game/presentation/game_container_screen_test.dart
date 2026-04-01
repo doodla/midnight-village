@@ -196,7 +196,9 @@ void main() {
       expect(find.text('You are the'), findsOneWidget);
     });
 
-    testWidgets('shows discussion phase placeholder', (tester) async {
+    testWidgets('shows discussion view with timer in discussion phase', (
+      tester,
+    ) async {
       final state = _makeState(phase: 'discussion');
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -207,10 +209,67 @@ void main() {
         ],
       );
 
-      expect(find.text('Discussion Phase'), findsOneWidget);
+      // DiscussionView renders GameTimer (shows '0' for Duration.zero with null deadline).
+      expect(find.text('0'), findsOneWidget);
     });
 
-    testWidgets('shows voting phase placeholder', (tester) async {
+    testWidgets(
+      'shows End Discussion button in discussion phase when isHost is true',
+      (tester) async {
+        // Verifies the full wiring: GameSessionState.isHost=true
+        // → GameContainerScreen passes it to DiscussionView → button visible.
+        final state = GameSessionState(
+          gameId: 'test-game-id',
+          phase: 'discussion',
+          yourRole: const YourRole(originalRole: 'seer', hasActed: false),
+          players: const [
+            GamePlayer(playerId: 1, displayName: 'Alice'),
+            GamePlayer(playerId: 2, displayName: 'Bob'),
+          ],
+          isHost: true,
+        );
+
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            gameProvider(
+              'test-game-id',
+            ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+          ],
+        );
+
+        expect(find.text('End Discussion'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'hides End Discussion button in discussion phase when isHost is false',
+      (tester) async {
+        final state = GameSessionState(
+          gameId: 'test-game-id',
+          phase: 'discussion',
+          yourRole: const YourRole(originalRole: 'seer', hasActed: false),
+          players: const [
+            GamePlayer(playerId: 1, displayName: 'Alice'),
+            GamePlayer(playerId: 2, displayName: 'Bob'),
+          ],
+          isHost: false,
+        );
+
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            gameProvider(
+              'test-game-id',
+            ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+          ],
+        );
+
+        expect(find.text('End Discussion'), findsNothing);
+      },
+    );
+
+    testWidgets('shows vote progress in voting phase', (tester) async {
       final state = _makeState(phase: 'voting');
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -221,7 +280,8 @@ void main() {
         ],
       );
 
-      expect(find.text('Voting Phase'), findsOneWidget);
+      // _VotingActiveView renders vote progress text.
+      expect(find.text('0 of 2 voted'), findsOneWidget);
     });
 
     testWidgets('shows results phase placeholder', (tester) async {

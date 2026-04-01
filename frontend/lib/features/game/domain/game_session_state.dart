@@ -77,6 +77,9 @@ abstract class GameSessionState with _$GameSessionState {
 
     /// Full game results fetched from REST after game_results event.
     @JsonKey(includeFromJson: false, includeToJson: false) GameResult? results,
+
+    /// Whether the current player is the game host (from server response).
+    @JsonKey(name: 'is_host') @Default(false) bool isHost,
   }) = _GameSessionState;
 
   factory GameSessionState.fromJson(Map<String, dynamic> json) =>
