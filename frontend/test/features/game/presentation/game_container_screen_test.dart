@@ -139,7 +139,9 @@ void main() {
       expect(find.text('Lone Werewolf Peek'), findsOneWidget);
     });
 
-    testWidgets('shows discussion phase placeholder', (tester) async {
+    testWidgets('shows discussion view with timer in discussion phase', (
+      tester,
+    ) async {
       final state = _makeState(phase: 'discussion');
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -150,10 +152,11 @@ void main() {
         ],
       );
 
-      expect(find.text('Discussion Phase'), findsOneWidget);
+      // DiscussionView renders GameTimer (shows '0' for Duration.zero with null deadline).
+      expect(find.text('0'), findsOneWidget);
     });
 
-    testWidgets('shows voting phase placeholder', (tester) async {
+    testWidgets('shows vote progress in voting phase', (tester) async {
       final state = _makeState(phase: 'voting');
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -164,7 +167,8 @@ void main() {
         ],
       );
 
-      expect(find.text('Voting Phase'), findsOneWidget);
+      // _VotingActiveView renders vote progress text.
+      expect(find.text('0 of 2 voted'), findsOneWidget);
     });
 
     testWidgets('shows results phase placeholder', (tester) async {
