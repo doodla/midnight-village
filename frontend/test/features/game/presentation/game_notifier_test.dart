@@ -522,6 +522,46 @@ void main() {
     );
   });
 
+  group('GameNotifier vote_reveal 5-second timeout', () {
+    test('marks voteRevealData when vote_reveal event is received', () async {
+      // Verifies the intermediate state before the timeout fires.
+      // The widget-test coverage for the 5-second fallback is in
+      // voting_flow_test.dart (testWidgets advances fake time via tester.pump).
+      final (:container, :http, :ws) = _createTestSetup();
+      addTearDown(container.dispose);
+
+      http
+          .when(method: 'GET', path: '/onuw/games/test-game-id/results/')
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(
+                path: '/onuw/games/test-game-id/results/',
+              ),
+              statusCode: 200,
+              data: {
+                'winning_teams': ['village'],
+                'players': [],
+              },
+            ),
+          );
+
+      await _readGameState(container);
+
+      ws.addServerEvent(
+        jsonEncode({
+          'type': 'vote_reveal',
+          'votes': {'1': 2, '2': 3},
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(gameProvider('test-game-id')).value!;
+      expect(state.voteRevealData, isNotNull);
+      expect(state.voteRevealData!.votes['1'], 2);
+      expect(state.voteRevealData!.votes['2'], 3);
+    });
+  });
+
   group('GameNotifier Doppelganger multi-step', () {
     test(
       'action_result followed by another action_prompt in same wave',
