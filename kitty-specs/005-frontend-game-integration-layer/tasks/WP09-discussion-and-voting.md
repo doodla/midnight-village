@@ -1,7 +1,7 @@
 ---
 work_package_id: WP09
 title: Discussion & Voting
-lane: "for_review"
+lane: "doing"
 dependencies: [WP07]
 requirement_refs: [FR-012, FR-015, FR-025]
 planning_base_branch: main
@@ -13,8 +13,8 @@ created_at: '2026-04-01T01:16:35.542049+00:00'
 subtasks: [T041, T042, T043, T044, T045]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: headless-impl
-shell_pid: '45485'
+agent: "headless-reviewer"
+shell_pid: "51844"
 review_status: has_feedback
 reviewed_by: Sridhar Vadlamani
 review_feedback: feedback://005-frontend-game-integration-layer/WP09/20260401T022709Z-0f55de6e.md
@@ -220,3 +220,4 @@ cd frontend && just check
 - 2026-04-01T02:27:09Z – headless-reviewer – shell_pid=40094 – lane=planned – Moved to planned
 - 2026-04-01T02:27:44Z – headless-impl – shell_pid=45485 – lane=doing – Started implementation via workflow command
 - 2026-04-01T02:32:30Z – headless-impl – shell_pid=45485 – lane=for_review – Addressed review feedback: added per-player PlayerAvatar voted indicators with checkmark sigil to _VotingActiveView; Semantics labels enable WS integration test verifying indicator appears for voted player but not others. 471 tests pass, no analyzer warnings.
+- 2026-04-01T02:33:42Z – headless-reviewer – shell_pid=51844 – lane=doing – Started review via workflow command
