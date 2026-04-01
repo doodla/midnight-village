@@ -95,13 +95,13 @@ List<LobbyPlayer> _defaultPlayers({bool allReady = false}) => [
 Map<String, int> _validRoleConfig(int playerCount) {
   final total = playerCount + 3;
   return {
-    'werewolf': 2,
-    'seer': 1,
-    'robber': 1,
-    'troublemaker': 1,
-    if (total == 6) 'villager': 1,
-    if (total == 7) 'villager': 2,
-    if (total == 8) 'villager': 3,
+    'Werewolf': 2,
+    'Seer': 1,
+    'Robber': 1,
+    'Troublemaker': 1,
+    if (total == 6) 'Villager': 1,
+    if (total == 7) 'Villager': 2,
+    if (total == 8) 'Villager': 3,
   };
 }
 
@@ -291,7 +291,7 @@ void main() {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
             hostId: 1,
-            roleConfig: {'werewolf': 1, 'seer': 1, 'robber': 1, 'villager': 1},
+            roleConfig: {'Werewolf': 1, 'Seer': 1, 'Robber': 1, 'Villager': 1},
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);
@@ -309,14 +309,14 @@ void main() {
 
         // updateRoleConfig should have been called
         expect(notifier.lastRoleConfig, isNotNull);
-        expect(notifier.lastRoleConfig!['werewolf'], 2);
+        expect(notifier.lastRoleConfig!['Werewolf'], 2);
       });
 
       testWidgets('decrement button decreases role count', (tester) async {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
             hostId: 1,
-            roleConfig: {'werewolf': 2, 'seer': 1, 'robber': 1, 'villager': 1},
+            roleConfig: {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 1},
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);
@@ -332,14 +332,14 @@ void main() {
         await _scrollAndTap(tester, removeButton);
 
         expect(notifier.lastRoleConfig, isNotNull);
-        expect(notifier.lastRoleConfig!['werewolf'], 1);
+        expect(notifier.lastRoleConfig!['Werewolf'], 1);
       });
 
       testWidgets('Mason increments by 2', (tester) async {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
             hostId: 1,
-            roleConfig: {'werewolf': 2, 'seer': 1, 'robber': 1, 'mason': 0},
+            roleConfig: {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Mason': 0},
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);
@@ -355,14 +355,14 @@ void main() {
         await _scrollAndTap(tester, addButton);
 
         expect(notifier.lastRoleConfig, isNotNull);
-        expect(notifier.lastRoleConfig!['mason'], 2);
+        expect(notifier.lastRoleConfig!['Mason'], 2);
       });
 
       testWidgets('Mason decrements by 2', (tester) async {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
             hostId: 1,
-            roleConfig: {'werewolf': 2, 'seer': 1, 'robber': 1, 'mason': 2},
+            roleConfig: {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Mason': 2},
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);
@@ -378,7 +378,7 @@ void main() {
         await _scrollAndTap(tester, removeButton);
 
         expect(notifier.lastRoleConfig, isNotNull);
-        expect(notifier.lastRoleConfig!['mason'], 0);
+        expect(notifier.lastRoleConfig!['Mason'], 0);
       });
 
       testWidgets('preset selection populates role counts', (tester) async {
@@ -386,7 +386,7 @@ void main() {
           initialState: _makeState(
             hostId: 1,
             players: _defaultPlayers(),
-            roleConfig: {'werewolf': 1},
+            roleConfig: {'Werewolf': 1},
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);
@@ -402,8 +402,8 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(notifier.lastRoleConfig, isNotNull);
-        expect(notifier.lastRoleConfig!['werewolf'], 2);
-        expect(notifier.lastRoleConfig!['seer'], 1);
+        expect(notifier.lastRoleConfig!['Werewolf'], 2);
+        expect(notifier.lastRoleConfig!['Seer'], 1);
       });
 
       testWidgets('shows validation error when role count is wrong', (
@@ -413,7 +413,7 @@ void main() {
           initialState: _makeState(
             hostId: 1,
             players: _defaultPlayers(), // 3 players need 6 cards
-            roleConfig: {'werewolf': 1}, // only 1 card — invalid
+            roleConfig: {'Werewolf': 1}, // only 1 card — invalid
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);
@@ -507,7 +507,7 @@ void main() {
                 joinedAt: DateTime.utc(2026),
               ),
             ],
-            roleConfig: {'werewolf': 1}, // Invalid — wrong card count
+            roleConfig: {'Werewolf': 1}, // Invalid — wrong card count
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);

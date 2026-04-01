@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:midnight_village/design_system/components/core/primary_button.dart';
 import 'package:midnight_village/design_system/components/core/mv_error.dart';
 import 'package:midnight_village/design_system/components/core/mv_loading.dart';
-import 'package:midnight_village/design_system/components/core/mv_scaffold.dart';
 import 'package:midnight_village/design_system/components/core/mv_text_input.dart';
+import 'package:midnight_village/design_system/components/foundation/atmospheric_background.dart';
+import 'package:midnight_village/design_system/components/foundation/village_app_bar.dart';
+import 'package:midnight_village/design_system/models/game_phase.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 
 import '../../lobby/presentation/lobby_notifier.dart';
@@ -25,18 +27,42 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final tokens = ref.watch(activeThemeProvider);
 
-    return MvScaffold(
-      title: 'Midnight Village',
-      body: switch (authState) {
-        AuthInitial() => const MvLoading(),
-        AuthLoading() => const MvLoading(message: 'Creating account...'),
-        AuthAuthenticated(:final user) => _AuthenticatedView(
-          displayName: user.displayName,
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: const VillageAppBar.brand(),
+      body: AtmosphericBackground(
+        phase: GamePhase.lobby,
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final padding = constraints.maxWidth >= 600
+                  ? tokens.spacing.lg
+                  : tokens.spacing.md;
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: padding),
+                    child: switch (authState) {
+                      AuthInitial() => const MvLoading(),
+                      AuthLoading() => const MvLoading(
+                        message: 'Creating account...',
+                      ),
+                      AuthAuthenticated(:final user) => _AuthenticatedView(
+                        displayName: user.displayName,
+                      ),
+                      AuthUnauthenticated() => const _WelcomeView(),
+                      AuthError(:final message) => _ErrorView(message: message),
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
         ),
-        AuthUnauthenticated() => const _WelcomeView(),
-        AuthError(:final message) => _ErrorView(message: message),
-      },
+      ),
     );
   }
 }
@@ -120,10 +146,20 @@ class _AuthenticatedViewState extends ConsumerState<_AuthenticatedView> {
     }
   }
 
-  void _joinLobby() {
+  Future<void> _joinLobby() async {
     final code = _joinController.text.trim().toUpperCase();
     if (code.isEmpty) return;
-    context.go('/lobby/$code');
+    try {
+      final service = ref.read(lobbyServiceProvider);
+      await service.joinLobby(code);
+      if (mounted) context.go('/lobby/$code');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to join lobby: $e')));
+      }
+    }
   }
 
   @override

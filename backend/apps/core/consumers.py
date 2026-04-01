@@ -74,6 +74,7 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
             {
                 "type": "player_ready",
                 "username": event["username"],
+                "user_id": event["user_id"],
                 "is_ready": event["is_ready"],
             }
         )

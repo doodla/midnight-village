@@ -326,7 +326,9 @@ class _RoleTokenListSection extends ConsumerWidget {
     final roles = <RoleId>[];
     for (final entry in roleConfig.entries) {
       try {
-        final roleId = RoleId.values.firstWhere((r) => r.name == entry.key);
+        final roleId = RoleId.values.firstWhere(
+          (r) => r.name == entry.key || r.displayName == entry.key,
+        );
         for (var i = 0; i < entry.value; i++) {
           roles.add(roleId);
         }
@@ -392,24 +394,22 @@ class _RoleConfigSectionState extends ConsumerState<_RoleConfigSection> {
   Map<RoleId, int> get _roleIdMap => _toRoleIdMap(_currentRoles);
 
   void _increment(RoleId role) {
-    final current = _currentRoles[role.name] ?? 0;
+    final key = role.displayName;
+    final current = _currentRoles[key] ?? 0;
     final step = RoleConfig.stepSize(role);
     final max = RoleConfig.maxCount(role);
     if (current + step <= max) {
-      setState(
-        () => _currentRoles = {..._currentRoles, role.name: current + step},
-      );
+      setState(() => _currentRoles = {..._currentRoles, key: current + step});
       widget.onRolesChanged(_currentRoles);
     }
   }
 
   void _decrement(RoleId role) {
-    final current = _currentRoles[role.name] ?? 0;
+    final key = role.displayName;
+    final current = _currentRoles[key] ?? 0;
     final step = RoleConfig.stepSize(role);
     if (current - step >= 0) {
-      setState(
-        () => _currentRoles = {..._currentRoles, role.name: current - step},
-      );
+      setState(() => _currentRoles = {..._currentRoles, key: current - step});
       widget.onRolesChanged(_currentRoles);
     }
   }
@@ -526,7 +526,7 @@ class _RoleConfigSectionState extends ConsumerState<_RoleConfigSection> {
 
         // Per-role rows
         ...RoleId.values.map((role) {
-          final count = _currentRoles[role.name] ?? 0;
+          final count = _currentRoles[role.displayName] ?? 0;
           final max = RoleConfig.maxCount(role);
           final step = RoleConfig.stepSize(role);
           final canInc = count + step <= max;
@@ -596,7 +596,9 @@ Map<RoleId, int> _toRoleIdMap(Map<String, int> roles) {
   final result = <RoleId, int>{};
   for (final entry in roles.entries) {
     try {
-      final roleId = RoleId.values.firstWhere((r) => r.name == entry.key);
+      final roleId = RoleId.values.firstWhere(
+        (r) => r.name == entry.key || r.displayName == entry.key,
+      );
       result[roleId] = entry.value;
     } catch (_) {
       // Ignore unknown role names
@@ -606,5 +608,7 @@ Map<RoleId, int> _toRoleIdMap(Map<String, int> roles) {
 }
 
 Map<String, int> _toStringMap(Map<RoleId, int> roles) {
-  return {for (final entry in roles.entries) entry.key.name: entry.value};
+  return {
+    for (final entry in roles.entries) entry.key.displayName: entry.value,
+  };
 }

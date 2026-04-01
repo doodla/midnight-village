@@ -339,7 +339,12 @@ class TestLobbyBroadcasts:
                 )
                 mock_async_to_sync.return_value.assert_called_once_with(
                     f"lobby_{lobby.code}",
-                    {"type": "player.ready", "username": "player", "is_ready": True},
+                    {
+                        "type": "player.ready",
+                        "username": "player",
+                        "user_id": player.id,
+                        "is_ready": True,
+                    },
                 )
 
     def test_broadcasts_handle_no_channel_layer(self, api_client, db):

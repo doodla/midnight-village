@@ -17,8 +17,6 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.onuw.engine.validation import validate_onuw_settings
-
 from .models import Lobby, LobbyMember, User
 from .name_generator import generate_display_name
 from .serializers import GuestCreateSerializer, LobbyCreateSerializer, LobbySerializer
@@ -129,10 +127,16 @@ class LobbyDetailView(RetrieveAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        player_count = lobby.players.count()  # type: ignore[misc]
+        # Validate role settings if provided.
+        from apps.onuw.engine.validation import validate_onuw_settings
+
+        player_count = lobby.players.count()
         errors = validate_onuw_settings(new_settings, player_count)
         if errors:
-            return Response({"detail": errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         lobby.settings = new_settings
         lobby.save(update_fields=["settings", "updated_at"])
@@ -279,6 +283,7 @@ class LobbyReadyView(APIView):
                 {
                     "type": "player.ready",
                     "username": request.user.username,
+                    "user_id": request.user.id,
                     "is_ready": membership.is_ready,
                 },
             )

@@ -20,4 +20,16 @@ class Env {
     );
     return result;
   }
+
+  static String get wsBaseUrl {
+    final result = switch (_env) {
+      'prod' => 'wss://TODO_PROD_DOMAIN',
+      _ => 'ws://localhost:8000',
+    };
+    assert(
+      result != 'wss://TODO_PROD_DOMAIN',
+      'Production WebSocket URL not configured',
+    );
+    return result;
+  }
 }

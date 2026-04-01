@@ -3,7 +3,9 @@ import 'dart:convert';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../data/lobby_service.dart';
@@ -31,13 +33,13 @@ typedef LobbyWebSocketFactory =
 /// Provider for the WebSocket factory. Override in tests with a mock.
 @riverpod
 LobbyWebSocketFactory lobbyWebSocketFactory(Ref ref) {
-  // Default implementation throws -- must be overridden in production
-  // (with ReconnectingWebSocket from WP03) or in tests (with MockWebSocketChannel).
-  throw UnimplementedError(
-    'lobbyWebSocketFactory must be overridden. '
-    'In production, override with ReconnectingWebSocket factory. '
-    'In tests, override with MockWebSocketChannel factory.',
-  );
+  final tokenStorage = ref.watch(tokenStorageProvider);
+  return (String lobbyCode) {
+    final url = '${Env.wsBaseUrl}/ws/lobby/$lobbyCode/';
+    final ws = ReconnectingWebSocket(url: url, tokenStorage: tokenStorage);
+    unawaited(ws.connect());
+    return ws;
+  };
 }
 
 /// Manages lobby state for a given lobby code.
@@ -154,18 +156,20 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   /// Update a player's ready state in-place.
   ///
-  /// The `player_ready` event has complete data (`username`, `is_ready`),
+  /// The `player_ready` event has complete data (`user_id`, `is_ready`),
   /// so we can update locally without re-fetching.
   void _onPlayerReady(Map<String, dynamic> message) {
-    final username = message['username'] as String?;
+    final userId = message['user_id'];
     final isReady = message['is_ready'] as bool?;
-    if (username == null || isReady == null) return;
+    if (userId == null || isReady == null) return;
 
     final current = state.value;
     if (current == null) return;
 
+    final targetId = userId is int ? userId : int.tryParse(userId.toString());
+
     final updatedPlayers = current.players.map((player) {
-      if (player.displayName == username) {
+      if (player.id == targetId) {
         return player.copyWith(isReady: isReady);
       }
       return player;

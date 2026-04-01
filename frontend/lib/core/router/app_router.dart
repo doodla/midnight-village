@@ -37,6 +37,11 @@ GoRouter appRouter(Ref ref) {
       final path = state.uri.path;
       final isAuthenticated = authState is AuthAuthenticated;
 
+      // While auth is still loading, don't redirect — wait for resolution.
+      if (authState is AuthInitial || authState is AuthLoading) {
+        return null;
+      }
+
       // Redirect unauthenticated users away from protected routes.
       if (!isAuthenticated) {
         if (path.startsWith('/lobby/') || path.startsWith('/game/')) {

@@ -4,9 +4,12 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../design_system/models/game_result.dart';
 import '../../../design_system/models/role.dart';
+import '../../auth/presentation/auth_notifier.dart';
 import '../data/game_service.dart';
 import '../domain/game_session_state.dart';
 import '../domain/night_state.dart';
@@ -492,7 +495,7 @@ EliminationReason? _parseEliminationReason(String? reason) => switch (reason) {
 
 /// Provides the WebSocket stream for a given game ID.
 ///
-/// In production, this will be backed by ReconnectingWebSocket from WP03.
+/// Constructs a [ReconnectingWebSocket] targeting `ws/game/<gameId>/`.
 /// In tests, override this provider with a MockWebSocketChannel.stream.
 ///
 /// Returns null when no WebSocket is available (e.g., in unit tests that
@@ -501,6 +504,10 @@ final gameWebSocketStreamProvider = Provider.family<Stream<dynamic>?, String>((
   ref,
   gameId,
 ) {
-  // Placeholder -- will be wired to ReconnectingWebSocket in WP08.
-  return null;
+  final tokenStorage = ref.watch(tokenStorageProvider);
+  final url = '${Env.wsBaseUrl}/ws/game/$gameId/';
+  final ws = ReconnectingWebSocket(url: url, tokenStorage: tokenStorage);
+  unawaited(ws.connect());
+  ref.onDispose(ws.dispose);
+  return ws.stream;
 }, name: 'gameWebSocketStreamProvider');

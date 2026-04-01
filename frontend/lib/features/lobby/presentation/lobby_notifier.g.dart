@@ -105,7 +105,7 @@ final class LobbyWebSocketFactoryProvider
 }
 
 String _$lobbyWebSocketFactoryHash() =>
-    r'f3879c8d0a6a78420fbc6b2610d1406a2ee1ed44';
+    r'f1af3ee144b21f66c266c979c159d664df5adbbe';
 
 /// Manages lobby state for a given lobby code.
 ///

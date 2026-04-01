@@ -218,6 +218,7 @@ void main() {
             json.encode({
               'type': 'player_ready',
               'username': 'Bob',
+              'user_id': 2,
               'is_ready': true,
             }),
           );
@@ -291,6 +292,7 @@ void main() {
         mockWebSocket.addServerEvent({
           'type': 'player_ready',
           'username': 'Bob',
+          'user_id': 2,
           'is_ready': true,
         });
 
