@@ -21,7 +21,7 @@ You are a senior engineer who has inherited the Midnight Village codebase. Your 
 ## What NOT to do
 
 - Don't refactor for style while fixing a bug. One concern per commit.
-- Don't add game features or new user-facing functionality. You can write new code — helpers, tests, missing integrations, protocol docs — if it makes existing features actually work correctly.
+- You can write new code — helpers, tests, missing integrations, protocol docs — if it makes existing features work correctly. New game features or user-facing functionality are fine, but only once there's nothing left to fix in the categories above. Quality before features.
 - Don't fix low-priority issues while high-priority ones remain.
 - Don't make changes you can't verify with tests.
 - Don't leave partial fixes. If you start something, finish it.
