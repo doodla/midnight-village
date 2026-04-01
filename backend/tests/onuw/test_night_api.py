@@ -372,6 +372,41 @@ class TestWaveAdvancement:
         game.refresh_from_db()
         assert game.current_wave == 3
 
+    def test_force_advance_is_noop_if_timer_already_advanced(self, api_client, db):
+        """If the wave timer already advanced the wave, the host force-advance
+        is a no-op (400). This prevents duplicate wave processing that could
+        overwrite log entries and reset has_acted for the next wave."""
+        game, users = _create_game(
+            {
+                "host_race_fa": "Werewolf",
+                "p1_race_fa": "Werewolf",
+                "p2_race_fa": "Seer",
+                "p3_race_fa": "Robber",
+                "p4_race_fa": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            current_wave=2,
+        )
+
+        api_client.force_authenticate(user=users["host_race_fa"])
+
+        # Simulate: the timer callback fires and transitions to discussion
+        # before the host request acquires the lock.
+        game.phase = Phase.DISCUSSION
+        game.current_wave = 0
+        game.save(update_fields=["phase", "current_wave"])
+
+        with _patch_channels():
+            response = api_client.post(
+                _advance_url(game.id),
+                format="json",
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # Phase should still be DISCUSSION, not re-processed
+        game.refresh_from_db()
+        assert game.phase == Phase.DISCUSSION
+
     def test_game_transitions_to_discussion_after_all_waves(self, api_client, db):
         """Game transitions to discussion when no more active waves remain."""
         # Use only roles that act in wave 2 (no wave 3 or 4 roles)

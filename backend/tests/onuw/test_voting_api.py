@@ -156,6 +156,35 @@ class TestEndDiscussion:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_end_discussion_is_noop_if_timer_already_transitioned(self, api_client, db):
+        """If the discussion timer already transitioned to voting, the host
+        request is a no-op (400). This prevents duplicate transitions from
+        resetting votes submitted in the race window."""
+        game, _users, host = _create_game(
+            {
+                "host_race_ed": "Werewolf",
+                "p1_race_ed": "Seer",
+                "p2_race_ed": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            phase=Phase.DISCUSSION,
+        )
+
+        api_client.force_authenticate(user=host)
+
+        # Simulate: the timer callback fires and transitions to VOTING
+        # before the host request acquires the lock.
+        game.phase = Phase.VOTING
+        game.save(update_fields=["phase"])
+
+        with _patch_channels():
+            response = api_client.post(_end_discussion_url(game.id))
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # Phase should still be VOTING, not re-transitioned
+        game.refresh_from_db()
+        assert game.phase == Phase.VOTING
+
 
 class TestVoting:
     """Tests for POST /api/onuw/games/<game_id>/vote/."""
@@ -425,6 +454,41 @@ class TestForceReveal:
             response = api_client.post(_reveal_url(game.id))
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_force_reveal_is_noop_if_timer_already_revealed(self, api_client, db):
+        """If the voting timer already revealed votes and transitioned to
+        results, the host force-reveal is a no-op (400). This prevents
+        duplicate vote_reveal and game_results WebSocket events."""
+        game, _users, host = _create_game(
+            {
+                "host_race_fr": "Werewolf",
+                "p1_race_fr": "Seer",
+                "p2_race_fr": "Villager",
+            },
+            center_cards=["Drunk", "Insomniac", "Troublemaker"],
+            phase=Phase.VOTING,
+        )
+
+        api_client.force_authenticate(user=host)
+
+        # Simulate: the timer callback fires and transitions to RESULTS
+        # before the host request acquires the lock.
+        game.phase = Phase.RESULTS
+        game.results = {
+            "winning_teams": ["werewolf"],
+            "reason": "No Werewolf was eliminated.",
+            "eliminated_players": [],
+            "player_outcomes": {},
+        }
+        game.save(update_fields=["phase", "results"])
+
+        with _patch_channels():
+            response = api_client.post(_reveal_url(game.id))
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # Phase should still be RESULTS, not re-processed
+        game.refresh_from_db()
+        assert game.phase == Phase.RESULTS
 
     def test_all_votes_triggers_auto_reveal(self, api_client, db):
         """When all players have voted, reveal is triggered automatically."""

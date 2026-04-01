@@ -21,6 +21,7 @@ from .models import Game, Phase, PlayerRole
 from .serializers import GameMeSerializer, GameStartResponseSerializer
 from .services import (
     AlreadyActedError,
+    advance_wave,
     check_and_maybe_advance,
     end_discussion,
     get_player_acting_role_for_wave,
@@ -280,9 +281,9 @@ class WaveAdvanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request: Request, game_id: str) -> Response:
-        # Look up game
+        # Look up game (unlocked read for 404 and auth checks)
         try:
-            game = Game.objects.get(id=game_id)
+            game = Game.objects.select_related("lobby").get(id=game_id)
         except (Game.DoesNotExist, ValueError, ValidationError):
             return Response(
                 {"detail": "Game not found."},
@@ -296,16 +297,18 @@ class WaveAdvanceView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Game must be in NIGHT phase
-        if game.phase != Phase.NIGHT:
-            return Response(
-                {"detail": "Game is not in the night phase."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        from .services import advance_wave
-
-        advance_wave(game)
+        # Acquire row lock and re-check phase to prevent race with timer
+        # callbacks. Without this, concurrent timer + host requests can
+        # double-process a wave, duplicating log entries and resetting
+        # has_acted for the next wave (losing already-submitted actions).
+        with transaction.atomic():
+            game = Game.objects.select_for_update().get(id=game_id)
+            if game.phase != Phase.NIGHT:
+                return Response(
+                    {"detail": "Game is not in the night phase."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            advance_wave(game)
 
         # Refresh to get updated state
         game.refresh_from_db()
@@ -325,7 +328,7 @@ class EndDiscussionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request: Request, game_id: str) -> Response:
-        # Look up game
+        # Look up game (unlocked read for 404 and auth checks)
         try:
             game = Game.objects.select_related("lobby").get(id=game_id)
         except (Game.DoesNotExist, ValueError, ValidationError):
@@ -341,14 +344,18 @@ class EndDiscussionView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Game must be in DISCUSSION phase
-        if game.phase != Phase.DISCUSSION:
-            return Response(
-                {"detail": "Game is not in the discussion phase."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        end_discussion(game)
+        # Acquire row lock and re-check phase to prevent race with the
+        # discussion timer callback. Without this, both paths can call
+        # transition_to_voting, and the second resets has_acted/vote_target
+        # for all players — deleting any votes submitted in the window.
+        with transaction.atomic():
+            game = Game.objects.select_for_update().get(id=game_id)
+            if game.phase != Phase.DISCUSSION:
+                return Response(
+                    {"detail": "Game is not in the discussion phase."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            end_discussion(game)
 
         return Response({"status": "voting_started"})
 
@@ -413,7 +420,7 @@ class ForceRevealView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request: Request, game_id: str) -> Response:
-        # Look up game
+        # Look up game (unlocked read for 404 and auth checks)
         try:
             game = Game.objects.select_related("lobby").get(id=game_id)
         except (Game.DoesNotExist, ValueError, ValidationError):
@@ -429,14 +436,18 @@ class ForceRevealView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Game must be in VOTING phase
-        if game.phase != Phase.VOTING:
-            return Response(
-                {"detail": "Game is not in the voting phase."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        reveal_votes(game)
+        # Acquire row lock and re-check phase to prevent race with the
+        # voting timer callback. Without this, both paths can call
+        # reveal_votes, producing duplicate vote_reveal and game_results
+        # WebSocket events.
+        with transaction.atomic():
+            game = Game.objects.select_for_update().get(id=game_id)
+            if game.phase != Phase.VOTING:
+                return Response(
+                    {"detail": "Game is not in the voting phase."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            reveal_votes(game)
 
         return Response({"status": "revealed"})
 
