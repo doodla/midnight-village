@@ -1,7 +1,7 @@
 ---
 work_package_id: WP10
 title: Game Results
-lane: "approved"
+lane: done
 dependencies: [WP07]
 requirement_refs:
 - FR-024
@@ -17,8 +17,8 @@ phase: Phase 2 - Feature UIs
 assignee: ''
 agent: headless-reviewer
 shell_pid: '92125'
-review_status: "approved"
-reviewed_by: "Sridhar Vadlamani"
+review_status: approved
+reviewed_by: Sridhar Vadlamani
 history:
 - timestamp: '2026-03-31T07:30:22Z'
   lane: planned
