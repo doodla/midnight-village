@@ -15,7 +15,7 @@ created_at: '2026-04-01T01:18:36.122623+00:00'
 subtasks: [T046, T047, T048, T049, T050]
 phase: Phase 2 - Feature UIs
 assignee: ''
-agent: ''
+agent: "headless-impl"
 shell_pid: "34379"
 review_status: ''
 reviewed_by: ''
@@ -216,3 +216,4 @@ cd frontend && just gen
 **Valid lanes**: `planned`, `doing`, `for_review`, `done`
 
 - 2026-03-31T07:30:22Z – system – lane=planned – Prompt created.
+- 2026-04-01T01:18:36Z – headless-impl – shell_pid=34379 – lane=doing – Assigned agent via workflow command
