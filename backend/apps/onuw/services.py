@@ -49,9 +49,8 @@ def _get_player_names(game: Game) -> dict[int, str]:
 def _client_action_type(action: NightAction) -> str:
     """Map engine action to the action_type string the frontend expects.
 
-    The Insomniac role uses peek_player in the engine (since it peeks at
-    its own card), but the frontend routes on "insomniac" to display the
-    correct result view.
+    The Insomniac automatically checks its own card (no target selection).
+    The frontend routes on "insomniac" to display the correct result view.
     """
     if action.role_acting_as == "Insomniac":
         return "insomniac"

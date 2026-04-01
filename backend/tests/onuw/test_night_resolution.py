@@ -443,7 +443,7 @@ class TestResolveNight:
                 NightAction(
                     player_id=5,
                     role_acting_as="Insomniac",
-                    action_type="peek_player",
+                    action_type="none",
                     targets={},
                 ),
             ],
@@ -703,7 +703,7 @@ class TestResolveNight:
                 NightAction(
                     player_id=5,
                     role_acting_as="Insomniac",
-                    action_type="peek_player",
+                    action_type="none",
                     targets={},
                 ),
             ],
@@ -916,14 +916,14 @@ class TestResolveNight:
                 NightAction(
                     player_id=2,
                     role_acting_as="Insomniac",
-                    action_type="peek_player",
+                    action_type="none",
                     targets={},
                 ),
                 # Doppelganger-as-Insomniac peeks own role
                 NightAction(
                     player_id=1,
                     role_acting_as="Insomniac",
-                    action_type="peek_player",
+                    action_type="none",
                     targets={},
                 ),
             ],

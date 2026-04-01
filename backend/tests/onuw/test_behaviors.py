@@ -776,7 +776,7 @@ class TestExecuteInsomniac:
         action = NightAction(
             player_id=4,
             role_acting_as="Insomniac",
-            action_type="peek_player",
+            action_type="none",
             targets={},
         )
         _, result = execute_insomniac(state, action)
@@ -800,7 +800,7 @@ class TestExecuteInsomniac:
         action = NightAction(
             player_id=4,
             role_acting_as="Insomniac",
-            action_type="peek_player",
+            action_type="none",
             targets={},
         )
         _, result = execute_insomniac(swapped_state, action)
@@ -819,7 +819,7 @@ class TestExecuteInsomniac:
         action = NightAction(
             player_id=4,
             role_acting_as="Insomniac",
-            action_type="peek_player",
+            action_type="none",
             targets={},
         )
         new_state, result = execute_insomniac(state, action)

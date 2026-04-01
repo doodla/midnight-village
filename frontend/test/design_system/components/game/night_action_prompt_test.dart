@@ -238,4 +238,57 @@ void main() {
 
     expect(skipped, isTrue);
   });
+
+  // -------------------------------------------------------------------------
+  // none (Insomniac): shows Insomniac-specific prompt
+  // -------------------------------------------------------------------------
+
+  testWidgets('none + Insomniac — shows Insomniac prompt text', (tester) async {
+    await _pumpPrompt(
+      tester,
+      actionType: NightActionType.none,
+      playerRole: RoleId.insomniac,
+      onActionSubmitted: (_) {},
+    );
+
+    expect(find.textContaining('Wake up'), findsOneWidget);
+    expect(
+      find.widgetWithText(FilledButton, 'Look at my card'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('none + Insomniac — fires NoAction on confirm', (tester) async {
+    NightActionSelection? submitted;
+
+    await _pumpPrompt(
+      tester,
+      actionType: NightActionType.none,
+      playerRole: RoleId.insomniac,
+      onActionSubmitted: (s) => submitted = s,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Look at my card'));
+    await tester.pump();
+
+    expect(submitted, isA<NoAction>());
+  });
+
+  // -------------------------------------------------------------------------
+  // none (non-Insomniac): shows generic waiting prompt
+  // -------------------------------------------------------------------------
+
+  testWidgets('none + non-Insomniac — shows generic waiting text', (
+    tester,
+  ) async {
+    await _pumpPrompt(
+      tester,
+      actionType: NightActionType.none,
+      playerRole: RoleId.villager,
+      onActionSubmitted: (_) {},
+    );
+
+    expect(find.textContaining('Close your eyes'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
+  });
 }

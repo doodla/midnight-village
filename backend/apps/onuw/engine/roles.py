@@ -114,7 +114,7 @@ INSOMNIAC = _register(
         name="Insomniac",
         team=Team.VILLAGE,
         wave=4,
-        action_types=(ActionType.PEEK_PLAYER,),
+        action_types=(ActionType.NONE,),
         max_count=1,
     )
 )

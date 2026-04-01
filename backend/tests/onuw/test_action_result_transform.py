@@ -33,7 +33,7 @@ class TestClientActionType:
         action = NightAction(
             player_id=1,
             role_acting_as="Insomniac",
-            action_type="peek_player",
+            action_type="none",
             targets={},
         )
         assert _client_action_type(action) == "insomniac"
@@ -42,7 +42,7 @@ class TestClientActionType:
         action = NightAction(
             player_id=1,
             role_acting_as="Insomniac",
-            action_type="peek_player",
+            action_type="none",
             targets={},
         )
         assert _client_action_type(action) == "insomniac"
@@ -338,7 +338,7 @@ class TestTransformInsomniac:
         action = NightAction(
             player_id=1,
             role_acting_as="Insomniac",
-            action_type="peek_player",
+            action_type="none",
             targets={},
         )
         result = ActionResult(
@@ -353,7 +353,7 @@ class TestTransformInsomniac:
         action = NightAction(
             player_id=1,
             role_acting_as="Insomniac",
-            action_type="peek_player",
+            action_type="none",
             targets={},
         )
         result = ActionResult(

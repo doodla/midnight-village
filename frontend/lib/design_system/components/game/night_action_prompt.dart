@@ -237,8 +237,13 @@ class _NightActionPromptState extends ConsumerState<NightActionPrompt> {
         );
 
       case NightActionType.none:
+        final isInsomniac = widget.playerRole == RoleId.insomniac;
         return _WaitingAction(
           tokens: tokens,
+          promptText: isInsomniac
+              ? 'Wake up and look at your card.'
+              : 'The night is in progress. Close your eyes and wait.',
+          confirmLabel: isInsomniac ? 'Look at my card' : 'Continue',
           onContinue: () => widget.onActionSubmitted(NoAction()),
           onSkip: widget.onSkip,
         );
@@ -669,11 +674,15 @@ class _TeammateList extends StatelessWidget {
 
 class _WaitingAction extends StatelessWidget {
   final AppTokens tokens;
+  final String promptText;
+  final String confirmLabel;
   final VoidCallback onContinue;
   final VoidCallback? onSkip;
 
   const _WaitingAction({
     required this.tokens,
+    required this.promptText,
+    required this.confirmLabel,
     required this.onContinue,
     required this.onSkip,
   });
@@ -681,8 +690,8 @@ class _WaitingAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ActionScaffold(
-      promptText: 'The night is in progress. Close your eyes and wait.',
-      confirmLabel: 'Continue',
+      promptText: promptText,
+      confirmLabel: confirmLabel,
       onConfirm: onContinue,
       onSkip: onSkip,
       tokens: tokens,

@@ -80,7 +80,7 @@ class TestRoleRegistry:
         role = get_role("Insomniac")
         assert role.team == Team.VILLAGE
         assert role.wave == 4
-        assert role.action_types == (ActionType.PEEK_PLAYER,)
+        assert role.action_types == (ActionType.NONE,)
         assert role.max_count == 1
 
     def test_minion_definition(self):
