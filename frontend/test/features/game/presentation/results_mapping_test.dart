@@ -427,4 +427,110 @@ void main() {
       },
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Title Case role names (backend sends Title Case, frontend expects lowercase)
+  // ---------------------------------------------------------------------------
+
+  group('Title Case role name handling', () {
+    test('Title Case role names parse correctly in player results', () async {
+      final (:container, :http, :ws) = _createTestSetup(
+        resultsJson: {
+          'winning_teams': ['village'],
+          'players': [
+            {
+              'player_id': 1,
+              'display_name': 'Alice',
+              'original_role': 'Werewolf',
+              'final_role': 'Robber',
+              'team': 'werewolf',
+              'is_eliminated': true,
+              'outcome': 'loss',
+            },
+            {
+              'player_id': 2,
+              'display_name': 'Bob',
+              'original_role': 'Troublemaker',
+              'final_role': 'Troublemaker',
+              'team': 'village',
+              'is_eliminated': false,
+              'outcome': 'win',
+            },
+          ],
+        },
+      );
+      addTearDown(container.dispose);
+
+      final results = await _triggerResultsFetch(container, ws);
+      expect(results, isNotNull);
+      expect(results!.players[0].originalRole, RoleId.werewolf);
+      expect(results.players[0].finalRole, RoleId.robber);
+      expect(results.players[1].originalRole, RoleId.troublemaker);
+    });
+
+    test('Title Case center cards parse correctly', () async {
+      final (:container, :http, :ws) = _createTestSetup(
+        resultsJson: {
+          'winning_teams': ['village'],
+          'players': [],
+          'center_cards': ['Werewolf', 'Seer', 'Villager'],
+        },
+      );
+      addTearDown(container.dispose);
+
+      final results = await _triggerResultsFetch(container, ws);
+      expect(results, isNotNull);
+      expect(
+        results!.centerCards,
+        equals([RoleId.werewolf, RoleId.seer, RoleId.villager]),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Backend team name conventions (neutral/tanner → independent)
+  // ---------------------------------------------------------------------------
+
+  group('backend team name mapping', () {
+    test('"neutral" team maps to TeamId.independent', () async {
+      final (:container, :http, :ws) = _createTestSetup(
+        resultsJson: {
+          'winning_teams': ['village'],
+          'players': [
+            {
+              'player_id': 1,
+              'display_name': 'Alice',
+              'original_role': 'tanner',
+              'final_role': 'tanner',
+              'team': 'neutral',
+              'is_eliminated': false,
+              'outcome': 'loss',
+            },
+          ],
+        },
+      );
+      addTearDown(container.dispose);
+
+      final results = await _triggerResultsFetch(container, ws);
+      expect(results, isNotNull);
+      expect(results!.players.first.team, TeamId.independent);
+    });
+
+    test('"tanner" in winning_teams maps to TeamId.independent', () async {
+      final (:container, :http, :ws) = _createTestSetup(
+        resultsJson: {
+          'winning_teams': ['tanner', 'village'],
+          'players': [],
+        },
+      );
+      addTearDown(container.dispose);
+
+      final results = await _triggerResultsFetch(container, ws);
+      expect(results, isNotNull);
+      expect(
+        results!.winningTeams,
+        equals([TeamId.independent, TeamId.village]),
+      );
+    });
+  });
 }

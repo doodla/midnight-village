@@ -464,7 +464,7 @@ class GameNotifier extends _$GameNotifier {
 // Result parsing helpers (module-level for testability)
 // ---------------------------------------------------------------------------
 
-RoleId? _parseRoleId(String roleStr) => switch (roleStr) {
+RoleId? _parseRoleId(String roleStr) => switch (roleStr.toLowerCase()) {
   'werewolf' => RoleId.werewolf,
   'minion' => RoleId.minion,
   'villager' => RoleId.villager,
@@ -480,10 +480,10 @@ RoleId? _parseRoleId(String roleStr) => switch (roleStr) {
   _ => null,
 };
 
-TeamId? _parseTeamId(String teamStr) => switch (teamStr) {
+TeamId? _parseTeamId(String teamStr) => switch (teamStr.toLowerCase()) {
   'werewolf' => TeamId.werewolf,
   'village' => TeamId.village,
-  'independent' => TeamId.independent,
+  'independent' || 'neutral' || 'tanner' => TeamId.independent,
   _ => null,
 };
 

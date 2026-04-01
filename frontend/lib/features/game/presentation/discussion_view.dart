@@ -91,7 +91,12 @@ class DiscussionView extends ConsumerWidget {
   /// to a flat list of [RoleId] enum values for [RoleTokenList].
   List<RoleId> _toRoleIdList(List<RoleInGame> roles) {
     return roles.expand((r) {
-      final roleId = RoleId.values.byName(r.role);
+      final lower = r.role.toLowerCase();
+      final roleId = RoleId.values.cast<RoleId?>().firstWhere(
+        (v) => v!.name == lower,
+        orElse: () => null,
+      );
+      if (roleId == null) return <RoleId>[];
       return List.generate(r.count, (_) => roleId);
     }).toList();
   }
