@@ -41,3 +41,4 @@ Thumbs.db
 .kittify/constitution/metadata.yaml
 .kittify/constitution/references.yaml
 kitty-specs/**/.kittify/dossiers/
+.agents/

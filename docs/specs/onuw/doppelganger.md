@@ -262,18 +262,23 @@ The Doppelganger would see "Doppelganger" and do nothing further. No recursive c
 
 ## Team Resolution Rule
 
-**A player's team is always determined by the physical card currently in front of them at the end of the night.** This applies to the Doppelganger the same as any other player. The copied role only matters for:
-- Night actions (what the Doppelganger does during the night)
-- Passive abilities (Hunter's chain-kill, Tanner's win condition) — these follow the `doppelganger_copied_role` metadata since the physical card still says "Doppelganger"
+**A player's team is always determined by the physical card currently in front of them at the end of the night.** This applies to the Doppelganger the same as any other player.
+
+The Doppelganger card is special: it **becomes** the copied role for all game resolution purposes. Any player holding the Doppelganger card at the end of the night has the team and role of whatever the Doppelganger originally copied. The physical card still says "Doppelganger," but the server resolves it to the copied role for:
+- **Team determination** — the card's team matches the copied role's team
+- **Passive abilities** (Hunter's chain-kill, Tanner's win condition) — tracked via `doppelganger_copied_role` metadata on the card
+- **Win condition evaluation** — the algorithm resolves "Doppelganger" → copied role for any holder
+
+**Exception:** If the Doppelganger card was never used to peek (e.g., it started in the center and was taken by the Drunk), the card has no copied role and defaults to Village team.
 
 ### Doppelganger Is Robbed
 
 If the Robber targets the Doppelganger during Wave 3:
-- The Robber takes the "Doppelganger" card and sees "Doppelganger"
+- The Robber takes the "Doppelganger" card and sees "Doppelganger" (the printed card face)
 - The Doppelganger now has the "Robber" card in front of her
 - The Doppelganger's team for win conditions is **Village** (Robber card = Village team)
-- The Robber's team for win conditions is **Village** (Doppelganger card = Village team, base team)
-- The Doppelganger's `doppelganger_copied_role` is still whatever she copied in Wave 1 — this is used only for passive ability checks (Hunter/Tanner)
+- The Robber's team for win conditions **matches whatever the Doppelganger copied** (the Doppelganger card carries the copied role). If the Doppelganger copied Werewolf, the Robber is now on the Werewolf team.
+- The `doppelganger_copied_role` is a property of the **card**, not the player — it follows the card to whoever holds it
 
 ### Doppelganger Is Troublemaker'd
 
@@ -281,13 +286,14 @@ If the Troublemaker swaps the Doppelganger with another player:
 - The Doppelganger's physical card ("Doppelganger") moves to the other player's position
 - The other player's card moves to the Doppelganger's position
 - The Doppelganger's **team for win conditions** is determined by whichever card is now in front of her (not the copied role)
-- The **copied role information** (night actions, passive abilities) stays with the Doppelganger player, not the card
+- The other player's **team for win conditions** is determined by the Doppelganger card they now hold — which means the **copied role's team** (e.g., if the Doppelganger copied Werewolf, the other player is now on the Werewolf team)
+- The **copied role information** (night actions, passive abilities) is a property of the Doppelganger card — it follows the card, not the original Doppelganger player
 
 ### Doppelganger-as-Robber Steals, Then Gets Robbed
 
-1. Wave 1: Doppelganger copies Robber, steals Alice's Werewolf card → Doppelganger now has Werewolf card, Alice has Doppelganger card
+1. Wave 1: Doppelganger copies Robber, steals Alice's Werewolf card → Doppelganger now has Werewolf card, Alice has Doppelganger card (which carries copied role = Robber)
 2. Wave 3: Real Robber steals from Doppelganger → Robber gets Werewolf card, Doppelganger gets Robber card
-3. Final: Doppelganger holds Robber card → Village team. Robber holds Werewolf card → Werewolf team.
+3. Final: Doppelganger holds Robber card → Village team. Robber holds Werewolf card → Werewolf team. Alice holds Doppelganger card (copied Robber) → Village team.
 
 ## Summary Table
 

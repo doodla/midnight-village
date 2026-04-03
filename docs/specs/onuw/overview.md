@@ -136,8 +136,9 @@ The following rules must be enforced server-side during game setup (lobby → ga
 | Constraint | Rule |
 |------------|------|
 | Player count | 3–10 players |
-| Card count | player_count + 3 (or +4 if Alpha Wolf is in play) |
+| Card count | player_count + 3 |
 | Masons | Must be used in pairs — cannot include just 1 Mason card |
-| Alpha Wolf | Requires at least one other Werewolf-type card (Werewolf, Mystic Wolf, or Dream Wolf) for the Center Werewolf position |
 | Role uniqueness | Most roles have max 1 card; Werewolf has max 2, Villager has max 3, Mason has exactly 0 or 2 |
 | Minimum roles | At least player_count + 3 total cards must be selected |
+
+For expansion-specific setup constraints (Alpha Wolf's +4 card count, Center Werewolf card requirement), see [daybreak-overview.md](daybreak-overview.md).

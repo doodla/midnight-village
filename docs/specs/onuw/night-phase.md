@@ -211,6 +211,8 @@ The official rulebook uses specific language to indicate whether each role's act
 | Doppelganger initial peek | **Mandatory** | "Wake up and look at..." | Must look at a card |
 | Doppelganger follow-up | **Mandatory** | "Do it now" (imperative) | Must perform copied action |
 
+**Note on Doppelganger follow-up optionality:** The base game narrator script uses imperative language ("do it now"), and community consensus treats the follow-up as mandatory. However, the Daybreak expansion rulebook uses "may" for analogous Doppelganger follow-ups (e.g., "Doppelganger-Apprentice Seer **may** immediately view one center card"), suggesting the designer's intent may be to inherit the copied role's optionality. No official errata or designer ruling resolves this ambiguity. This spec treats the follow-up as mandatory per the base game text.
+
 In the digital implementation, optional actions can be submitted as a "skip" (or allowed to time out). Mandatory actions should be enforced — the client must submit a valid action before the timer expires. If a mandatory action times out, it is still skipped (graceful degradation) but this is a timeout, not a legitimate choice.
 
 ## Timer Model (Digital Implementation)
