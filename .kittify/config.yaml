@@ -1,9 +1,0 @@
-vcs:
-  type: git
-agents:
-  available:
-  - claude
-project:
-  uuid: e855e957-4e91-43c4-b836-8f8dcb4f2a95
-  slug: midnight-village
-  node_id: 4e7a3f54f0d6

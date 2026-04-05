@@ -15,30 +15,3 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Added by Spec Kitty CLI (auto-managed)
-.claude/
-.codex/
-.opencode/
-.windsurf/
-.gemini/
-.cursor/
-.qwen/
-.kilocode/
-.augment/
-.roo/
-.amazonq/
-.github/copilot/
-.kittify/.dashboard
-.kittify/missions/__pycache__/
-.kittify/runtime/
-.kittify/merge-state.json
-.kittify/events/
-.kittify/dossiers/
-.kittify/workspaces/
-.kittify/constitution/context-state.json
-.kittify/constitution/governance.yaml
-.kittify/constitution/directives.yaml
-.kittify/constitution/metadata.yaml
-.kittify/constitution/references.yaml
-kitty-specs/**/.kittify/dossiers/
-.agents/
