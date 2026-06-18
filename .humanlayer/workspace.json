@@ -1,0 +1,21 @@
+{
+  "disabled": false,
+  "pathTemplate": "~/.humanlayer/workspaces/{{ TASKSLUG }}/{{ REPOBASENAME }}",
+  "branchTemplate": "{{ TASKSLUG }}",
+  "sourceRef": "HEAD",
+  "setupCommand": "just install && (cd frontend && flutter pub get)",
+  "copyGlobs": [
+    ".env",
+    ".env.local",
+    "backend/.env",
+    ".claude/settings.local.json",
+    ".humanlayer/workspace.local.json"
+  ],
+  "repos": [
+    {
+      "localPath": ".",
+      "description": "Midnight Village (Django + Flutter monorepo)",
+      "primary": true
+    }
+  ]
+}

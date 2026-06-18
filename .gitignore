@@ -15,3 +15,6 @@ Thumbs.db
 *.tmp
 *.temp
 
+
+# Riptide workspace local overrides
+.humanlayer/workspace.local.json
