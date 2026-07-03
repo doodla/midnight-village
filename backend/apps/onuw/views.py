@@ -2,6 +2,7 @@
 
 import secrets
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
@@ -15,6 +16,7 @@ from rest_framework.views import APIView
 
 from apps.core.models import Lobby
 
+from .debug import ForcedAssignmentError, parse_forced_assignment
 from .engine.assignment import assign_roles
 from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
@@ -80,13 +82,43 @@ class GameStartView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Generate a random seed for deterministic assignment
-        seed = secrets.randbits(63)
-
-        # Assign roles
         player_ids = [m.user_id for m in members]
         role_counts = lobby.settings["roles"]
-        player_id_to_role, center_cards = assign_roles(role_counts, player_ids, seed)
+
+        # DEBUG-only assignment override. Honored ONLY when settings.DEBUG is
+        # True; in production the `debug` key is ignored entirely, so it cannot
+        # be used to control role assignment.
+        debug = request.data.get("debug") if settings.DEBUG else None
+        if isinstance(debug, dict) and "forced_assignment" in debug:
+            try:
+                player_id_to_role, center_cards = parse_forced_assignment(
+                    debug["forced_assignment"], role_counts, player_ids
+                )
+            except ForcedAssignmentError as exc:
+                # 400, non-leaky message, create nothing.
+                return Response(
+                    {"detail": str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # random_seed is non-nullable; a value is recorded but unused when
+            # the assignment is explicit.
+            seed = secrets.randbits(63)
+        else:
+            # Random assignment — from a DEBUG-supplied fixed seed when given
+            # (reproducible), otherwise a fresh random seed.
+            if isinstance(debug, dict) and "seed" in debug:
+                try:
+                    seed = int(debug["seed"])
+                except (TypeError, ValueError):
+                    return Response(
+                        {"detail": "Invalid seed."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
+                seed = secrets.randbits(63)
+            player_id_to_role, center_cards = assign_roles(
+                role_counts, player_ids, seed
+            )
 
         # Atomically create game state and update lobby
         with transaction.atomic():

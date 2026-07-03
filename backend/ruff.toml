@@ -42,6 +42,8 @@ ignore = [
 "**/settings/*.py" = ["F401", "F403", "S105"]
 "**/tests/*.py" = ["S101", "S105", "S106"]
 "**/tests/**/*.py" = ["S101", "S105", "S106"]
+# tools/ are dev CLIs: print IS their output, and they fetch from localhost.
+"tools/*.py" = ["T201", "S310"]
 
 [lint.isort]
 known-first-party = ["apps", "config"]

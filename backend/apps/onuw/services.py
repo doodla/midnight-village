@@ -510,6 +510,7 @@ def persist_wave_results(
                     "targets": entry.targets,
                     "result": entry.result,
                     "timestamp_order": entry.timestamp_order,
+                    "role_acting_as": entry.role_acting_as,
                 }
             )
     game.night_actions_log = log
