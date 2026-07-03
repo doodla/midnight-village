@@ -27,13 +27,13 @@ watch:
 
 # --- Testing ---
 
-# Run all tests
+# Run all tests (excludes the live-backend e2e harness — see test-harness)
 test:
-    flutter test
+    flutter test --exclude-tags e2e
 
-# Run tests with coverage
+# Run tests with coverage (excludes the live-backend e2e harness)
 test-cov:
-    flutter test --coverage
+    flutter test --coverage --exclude-tags e2e
 
 # Run golden tests only (tagged 'golden')
 flutter-test-golden:
@@ -58,6 +58,13 @@ test-integration-ci:
       --target=integration_test/auth_flow_test.dart \
       -d web-server \
       --headless
+
+# Boot the real backend harness, run the deterministic integration harness
+# (API + UI runners) headless on the host VM against it, write PNG filmstrips +
+# machine-readable failures.jsonl, and exit non-zero on any failure. The script
+# tears the backend down on exit. See docs/dev/debug-harness/contract.md §D5.
+test-harness:
+    tool/run_harness.sh
 
 # Generate visual diff report from golden test failures
 flutter-golden-report *ARGS:
