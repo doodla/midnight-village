@@ -1,0 +1,5 @@
+{
+  "players": ["Alice", "Bob", "Carol", "Dave", "Eve"],
+  "roles":   {"Alice": "Werewolf", "Bob": "Seer", "Carol": "Robber", "Dave": "Villager", "Eve": "Villager"},
+  "center":  ["Werewolf", "Troublemaker", "Minion"]
+}

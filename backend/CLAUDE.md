@@ -74,3 +74,7 @@ just check             # All of the above
 ```
 
 Pre-commit hooks must be run from the **repo root** (not `backend/`), because `.pre-commit-config.yaml` lives at the root and scopes to `backend/` files via the `files: ^backend/` pattern.
+
+## Debug / Harness (DEBUG-only)
+
+For the integration harness there are `DEBUG`-gated affordances (all 403 in production, each with a rejection test): a forced-assignment / seed override on game start (`GameStartView`), a `debug-state` full-state oracle, and a `debug-fire-timer` hook — see `apps/onuw/debug.py` + `debug_views.py`. Boot the harness backend with `just harness-serve` (`config.settings.harness`: `DEBUG=True`, throwaway DB `midnight_village_harness`, `127.0.0.1:8001`). `tools/game_driver.py` is a CLI that drives a whole ONUW game through these. Full docs: `docs/dev/debug-harness/`.

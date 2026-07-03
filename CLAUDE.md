@@ -29,6 +29,15 @@ just test-cov          # Tests with coverage report
 
 All root commands delegate to `backend/justfile` or `frontend/justfile`. Run `just --list` for the full set. See `backend/CLAUDE.md` and `frontend/CLAUDE.md` for component-specific commands.
 
+## Dev & Test Harness
+
+Beyond `just check`/`test` (which mock the HTTP/WS seam), there is a deterministic harness for driving the **whole ONUW multiplayer flow against a real backend**, plus a single-agent game driver. Full docs: `docs/dev/debug-harness/` (`contract.md`, `game-driver.md`).
+
+- `cd backend && just harness-serve` — boot a throwaway DEBUG backend on `127.0.0.1:8001` (forced role assignment, a full-state oracle, fire-timer hook — all `DEBUG`-only, 403 in prod).
+- `cd frontend && just test-harness` — deterministic e2e integration harness: real widget tree ↔ real backend, per-player PNG filmstrips (`frontend/test_e2e/`; not part of `just test`).
+- `backend/tools/game_driver.py` — one agent drives an entire game via the real player API + oracle and verifies outcomes against the rules.
+- `/debug` route (dev-only, gated by `Env.isDev`) — debug toolbar: spin up a table, switch player perspectives, god panel, auto-drive.
+
 ## Code Style
 
 - **Tests:** Descriptive names (`test_seer_can_view_one_center_card`), seed ALL randomness, test multi-player scenarios not just single player.
