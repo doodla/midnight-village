@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../features/auth/domain/auth_state.dart';
 import '../../features/auth/presentation/auth_notifier.dart';
+import '../../features/debug/presentation/debug_toolbar_screen.dart';
 import '../config/env.dart';
 import 'routes.dart';
 
@@ -29,7 +30,16 @@ GoRouter appRouter(Ref ref) {
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
-    routes: $appRoutes,
+    routes: [
+      ...$appRoutes,
+      // DEBUG-ONLY developer toolbar. Registered only when const Env.isDev is
+      // true, so the route (and DebugToolbarScreen) tree-shake out of prod.
+      if (Env.isDev)
+        GoRoute(
+          path: '/debug',
+          builder: (context, state) => const DebugToolbarScreen(),
+        ),
+    ],
     debugLogDiagnostics: Env.isDev,
     refreshListenable: notifier,
     redirect: (context, state) async {
