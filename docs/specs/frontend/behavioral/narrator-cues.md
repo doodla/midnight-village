@@ -24,6 +24,8 @@ The narrator is a **pluggable persona**. This cue sheet defines:
 
 The actual voice, tone, and phrasing are a persona layer. Swapping personas (game host, character voices, etc.) changes how the text is delivered but never changes the semantic content or trigger conditions.
 
+**Version 1 scope:** One persona ships: the default "gothic storyteller". The cue sheet, the audio folder layout and the code keep the persona slot, so more voices can be added later without structural change. No persona picker is shown in version 1.
+
 ### Concealment Principle
 
 **Narrator cues play for ALL roles selected in the game setup, regardless of whether a role card ended up with a player or in the center.** This prevents information leakage. If Werewolf is in the game, the Werewolf wake cue plays even if both Werewolf cards are in the center. Players cannot deduce center card identities from which narrator cues are heard.

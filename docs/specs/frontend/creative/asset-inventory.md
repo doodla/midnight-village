@@ -481,7 +481,7 @@ assets/
 | Background illustrations | 4 | SVG | Manual vector design |
 | Textures | 4 | PNG | Procedural generation |
 | UI illustrations | 8 | SVG (+ 1 animated) | Manual vector design |
-| Narrator audio slots | 25 | OGG + MP3 | Voice recording per persona |
+| Narrator audio slots | 25 | OGG + MP3 | Voice recording per persona (version 1: the default persona only) |
 | Ambient soundscapes | 5 | OGG + MP3 | Sound design / composition |
 | UI sound effects | 16 | OGG + MP3 | Sound design / foley |
 | Animation sequences | 10 | Code (Flutter) | Implementation |

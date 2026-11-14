@@ -111,6 +111,8 @@ The narrator is a **pluggable persona slot**. The spec defines:
 
 The actual voice, tone, and phrasing are a persona layer. The system should support swapping personas (gothic storyteller, game host, character voices like Rick Sanchez or Darth Vader) without changing the cue sheet.
 
+**Version 1 scope:** One persona ships, the default "gothic storyteller". The slot stays in the design so more can be added later.
+
 ### Narrator Cue Sheet (to be fully enumerated in the screen specs)
 
 Key cue points include:

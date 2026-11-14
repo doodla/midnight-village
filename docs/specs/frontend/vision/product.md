@@ -257,7 +257,7 @@ These were discussed and intentionally excluded:
 - **Contextual onboarding hints:** First-time tooltips on key interactions, disappear after use.
 - **Tap-to-reveal guardrails:** Sensitive info (role, night results) hidden by default during in-person play.
 - **Night waiting fidgets:** Ambient fidget interactions (embers, smoke, candle).
-- **Narrator cue system:** Pluggable persona with defined cue points.
+- **Narrator cue system:** Pluggable persona with defined cue points. Version 1 ships one persona.
 - **Custom role art:** Generated via Imagen with defined art direction constraints.
 - **Haptic feedback system:** Subtle confirmation patterns tied to game beats.
 - **Particle/ambient motion system:** Floating embers, dust, fog across all screens.
