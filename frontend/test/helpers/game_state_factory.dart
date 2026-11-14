@@ -120,7 +120,7 @@ class GameStateBuilder {
 
   GameStateBuilder withActionPrompt(ActionPrompt prompt) {
     _actionPrompt = prompt;
-    _nightSubView = prompt.actionTypes.length > 1
+    _nightSubView = prompt.needsActionChoice
         ? NightSubView.seerChoice
         : NightSubView.actionPrompt;
     return this;

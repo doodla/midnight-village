@@ -1,18 +1,32 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/game/night_action_prompt.dart';
+import 'package:midnight_village/features/game/presentation/night_result_view.dart';
 import 'package:midnight_village/features/game/presentation/seer_choice_view.dart';
 
 import '../../../helpers/game_events.dart';
 import '../../../helpers/game_state_factory.dart';
 import '../../../helpers/game_test_setup.dart';
 
+/// Lets a real (mock) HTTP submit finish, then settles the phase animation.
+Future<void> _settleSubmit(WidgetTester tester) async {
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 20)),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 401));
+  // The state change lands during the pump above; the cross-fade then runs.
+  await tester.pump(const Duration(milliseconds: 401));
+}
+
 void main() {
-  group('Night multi-wave progression', () {
+  group('Night two-window progression', () {
     testWidgets(
-      'wave 1 action → wave 2 action → phase transition to discussion',
+      'window 1 look then follow-up, window 2 submit then wait, results together, discussion',
       (tester) async {
+        // A Doppelganger who copies the Seer: look (window 1), follow-up as
+        // Seer (window 1), then she waits through window 2 like everyone else.
         final setup = await tester.pumpGameFlow(
-          gameMeJson: GameMeJsonBuilder().withRole('seer').build(),
+          gameMeJson: GameMeJsonBuilder().withRole('doppelganger').build(),
         );
         addTearDown(setup.dispose);
         setup.registerActionSubmit();
@@ -20,129 +34,166 @@ void main() {
         // --- Initial state: night waiting ---
         expect(find.text('The village sleeps\u2026'), findsOneWidget);
 
-        // --- Wave 1 starts ---
+        // --- Window 1 opens and she is prompted for the look ---
         setup.ws.addServerEvent(GameEvents.waveStart(wave: 1));
-        await tester.pump();
-
-        // Still waiting — no prompt yet.
-        expect(find.text('The village sleeps\u2026'), findsOneWidget);
-
-        // --- Action prompt for Seer (wave 1, multi-action) ---
         setup.ws.addServerEvent(
           GameEvents.actionPrompt(
-            role: 'Seer',
-            actionTypes: ['peek_player', 'peek_center'],
+            role: 'Doppelganger',
+            actionTypes: ['peek_player'],
             validTargets: {
-              'peek_player': {
-                'players': [2, 3],
-              },
-              'peek_center': {
-                'card_indices': [0, 1, 2],
-              },
+              'player_ids': [2, 3],
             },
             wave: 1,
           ),
         );
         await tester.pump();
-
-        // SeerChoiceView shown with two options.
-        expect(find.byType(SeerChoiceView), findsOneWidget);
-        expect(find.text("Look at a player's card"), findsOneWidget);
-        expect(find.text('Look at two center cards'), findsOneWidget);
-
-        // --- Tap "Look at a player's card" ---
-        await tester.tap(find.text("Look at a player's card"));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-
-        // NightActionPrompt shown for peek_player.
         expect(find.byType(NightActionPrompt), findsOneWidget);
 
-        // --- Action result (wave 1, peek_player, reveals Werewolf) ---
+        // --- Her look result arrives at once, then the follow-up prompt ---
         setup.ws.addServerEvent(
           GameEvents.actionResult(
             wave: 1,
             revealedInfo: {
-              'action_type': 'peek_player',
-              'target_player_id': 2,
-              'role': 'Werewolf',
+              'target_name': 'Bob',
+              'role': 'seer',
+              'copied_role': 'Seer',
             },
             actionType: 'peek_player',
           ),
         );
+        setup.ws.addServerEvent(
+          GameEvents.actionPrompt(
+            role: 'Seer',
+            actionTypes: ['peek_player', 'peek_center', 'skip'],
+            validTargets: {
+              'player_ids': [2, 3],
+              'center_indices': [0, 1, 2],
+            },
+            wave: 1,
+          ),
+        );
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 401));
 
-        // Result view shows the revealed role.
-        expect(find.textContaining('Werewolf'), findsAtLeastNWidgets(1));
+        // The result is readable: not replaced by the follow-up choice.
+        expect(find.byType(NightResultView), findsOneWidget);
+        expect(find.byType(SeerChoiceView), findsNothing);
+        expect(find.text('Continue'), findsOneWidget);
 
-        // --- Wave 1 complete → back to waiting ---
+        // --- Continue goes to the Seer choice, with a Skip for "do nothing" ---
+        await tester.tap(find.text('Continue'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 401));
+        expect(find.byType(SeerChoiceView), findsOneWidget);
+        expect(find.text('Skip'), findsOneWidget);
+
+        // --- Tap Skip: the server takes `skip`, she now just waits ---
+        await tester.tap(find.text('Skip'));
+        await _settleSubmit(tester);
+        expect(find.byType(SeerChoiceView), findsNothing);
+        expect(find.text('The village sleeps\u2026'), findsOneWidget);
+        expect(
+          setup.http.requests.last.path,
+          '/onuw/games/test-game-id/action/',
+        );
+        expect(setup.http.requests.last.data, {
+          'action_type': 'skip',
+          'targets': <String, dynamic>{},
+        });
+
+        // --- Window 1 closes (her follow-up result), window 2 opens ---
+        setup.ws.addServerEvent(
+          GameEvents.actionResult(
+            wave: 1,
+            revealedInfo: {},
+            actionType: 'skip',
+          ),
+        );
         setup.ws.addServerEvent(GameEvents.waveComplete(wave: 1));
-        await tester.pump();
-
-        expect(find.text('The village sleeps\u2026'), findsOneWidget);
-
-        // --- Wave 2 starts ---
         setup.ws.addServerEvent(GameEvents.waveStart(wave: 2));
+        // She has nothing to do in window 2.
+        setup.ws.addServerEvent(GameEvents.waveWaiting(wave: 2));
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 401));
 
-        // Still waiting.
-        expect(find.text('The village sleeps\u2026'), findsOneWidget);
+        // Her last result is still on screen: window 2 did not wipe it.
+        expect(find.byType(NightResultView), findsOneWidget);
+        expect(find.text('You did nothing.'), findsOneWidget);
 
-        // --- Action prompt for Robber (wave 2, single action) ---
+        // --- Window 2 closes; the night ends and the discussion opens ---
+        setup.ws.addServerEvent(GameEvents.waveComplete(wave: 2));
+        setup.ws.addServerEvent(GameEvents.phaseChange(phase: 'discussion'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 401));
+
+        // The result is shown first, with a way on to the discussion.
+        expect(find.text('Roles in this game'), findsNothing);
+        expect(find.text('Continue to discussion'), findsOneWidget);
+
+        await tester.tap(find.text('Continue to discussion'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 401));
+        expect(find.text('Roles in this game'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'submit then wait: no result until the window closes, results arrive together',
+      (tester) async {
+        final setup = await tester.pumpGameFlow(
+          gameMeJson: GameMeJsonBuilder().withRole('robber').build(),
+        );
+        addTearDown(setup.dispose);
+        setup.registerActionSubmit();
+
+        // Window 2 opens; the Robber may rob someone or skip.
+        setup.ws.addServerEvent(GameEvents.waveStart(wave: 2));
         setup.ws.addServerEvent(
           GameEvents.actionPrompt(
             role: 'Robber',
-            actionTypes: ['swap_with_player'],
+            actionTypes: ['swap_with_player', 'skip'],
             validTargets: {
-              'swap_with_player': {
-                'players': [1, 3],
-              },
+              'player_ids': [2, 3],
             },
             wave: 2,
           ),
         );
         await tester.pump();
 
-        // Single action → NightActionPrompt shown directly (no choice screen).
+        // One real action plus skip is NOT a choice screen: straight to the
+        // action prompt, with the "do nothing" control.
+        expect(find.byType(SeerChoiceView), findsNothing);
         expect(find.byType(NightActionPrompt), findsOneWidget);
-        expect(find.text("Look at a player's card"), findsNothing);
+        expect(find.text('Skip'), findsOneWidget);
 
-        // --- Action result (wave 2, swap_with_player) ---
+        // Pick Bob and confirm.
+        await tester.tap(find.text('Bob'));
+        await tester.pump();
+        await tester.tap(find.text('Confirm'));
+        await _settleSubmit(tester);
+
+        // Submitted: she waits. Nothing is revealed while others still choose.
+        expect(find.byType(NightActionPrompt), findsNothing);
+        expect(find.byType(NightResultView), findsNothing);
+        expect(find.text('The village sleeps\u2026'), findsOneWidget);
+        expect(setup.http.requests.last.data, {
+          'action_type': 'swap_with_player',
+          'targets': {'player_id': 2},
+        });
+
+        // The window closes: result, wave_complete, then the discussion.
         setup.ws.addServerEvent(
           GameEvents.actionResult(
             wave: 2,
-            revealedInfo: {
-              'action_type': 'swap_with_player',
-              'target_player_id': 3,
-              'new_role': 'Villager',
-            },
+            revealedInfo: {'target_name': 'Bob', 'new_role': 'villager'},
             actionType: 'swap_with_player',
           ),
         );
-        await tester.pump();
-
-        // Result view is shown (NightResultView replaced the action prompt).
-        // Pump past the AnimatedSwitcher 400ms transition so the outgoing
-        // NightActionPrompt is fully removed from the widget tree.
-        await tester.pump(const Duration(milliseconds: 401));
-        expect(find.byType(NightActionPrompt), findsNothing);
-
-        // --- Wave 2 complete → back to waiting ---
         setup.ws.addServerEvent(GameEvents.waveComplete(wave: 2));
         await tester.pump();
-
-        expect(find.text('The village sleeps\u2026'), findsOneWidget);
-
-        // --- Phase change to discussion ---
-        setup.ws.addServerEvent(GameEvents.phaseChange(phase: 'discussion'));
-        await tester.pump();
-
-        // AnimatedSwitcher 400ms transition clears the outgoing NightWaitingView.
         await tester.pump(const Duration(milliseconds: 401));
-
-        // Night waiting text is gone; discussion view is present.
-        expect(find.text('The village sleeps\u2026'), findsNothing);
-        expect(find.text('Roles in this game'), findsOneWidget);
+        expect(find.byType(NightResultView), findsOneWidget);
+        expect(find.byType(NightActionPrompt), findsNothing);
       },
     );
 

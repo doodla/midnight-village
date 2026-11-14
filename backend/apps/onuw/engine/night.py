@@ -242,6 +242,7 @@ def resolve_wave(
                 targets={},
                 result={},
                 timestamp_order=timestamp_order,
+                role_acting_as=action.role_acting_as,
             )
             current_state = current_state.with_log_entry(log_entry)
             results.append(
@@ -264,6 +265,7 @@ def resolve_wave(
             targets=dict(action.targets),
             result=dict(result.revealed_info),
             timestamp_order=timestamp_order,
+            role_acting_as=action.role_acting_as,
         )
         current_state = new_state.with_log_entry(log_entry)
         results.append(result)

@@ -1,6 +1,7 @@
 # Flutter Test CI Pipeline
 #
 # Runs widget tests, golden tests, and integration tests on every push and PR.
+# Flutter is pinned to one exact version in every job (see flutter-version).
 # All three test layers run as independent jobs — a failure in one does NOT
 # skip the others. The merge is blocked if any job fails.
 #
@@ -52,10 +53,14 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          # Pin to stable channel matching pubspec.yaml sdk: ^3.10.4
+          # Pinned to the exact version frontend/pubspec.lock was resolved with.
+          # A floating "stable" moves on without warning and, once it passed what
+          # the lockfile supports, failed `flutter pub get` in every job. Bump it
+          # here (all three jobs) together with the lockfile.
+          flutter-version: "3.38.10"
           channel: "stable"
           cache: true
-          cache-key: flutter-stable-${{ runner.os }}
+          cache-key: flutter-3.38.10-${{ runner.os }}
 
       - name: Install dependencies
         run: flutter pub get
@@ -82,9 +87,10 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: "3.38.10"
           channel: "stable"
           cache: true
-          cache-key: flutter-stable-${{ runner.os }}
+          cache-key: flutter-3.38.10-${{ runner.os }}
 
       - name: Install dependencies
         run: flutter pub get
@@ -140,14 +146,31 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: "3.38.10"
           channel: "stable"
           cache: true
-          cache-key: flutter-stable-${{ runner.os }}
+          cache-key: flutter-3.38.10-${{ runner.os }}
 
-      - name: Install Chrome (for integration tests)
+      # `flutter drive` on the web needs a WebDriver server listening on :4444.
+      # Installing Chrome alone is not enough: without a matching chromedriver
+      # the run stops with "Unable to start a WebDriver session for web testing".
+      - name: Install Chrome and a matching ChromeDriver
+        id: setup-chrome
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: stable
+          install-chromedriver: true
+
+      - name: Start ChromeDriver
+        run: |
+          "${{ steps.setup-chrome.outputs.chromedriver-path }}" --port=4444 > chromedriver.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4444/status > /dev/null; then
+              echo "ChromeDriver is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "ChromeDriver did not start"; cat chromedriver.log; exit 1
 
       - name: Install dependencies
         run: flutter pub get
@@ -156,6 +179,15 @@ jobs:
       - name: Integration tests
         id: integration-tests
         run: just test-integration-ci
+
+      - name: Upload ChromeDriver log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chromedriver-log
+          path: frontend/chromedriver.log
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Upload integration test screenshots
         if: failure() && steps.integration-tests.outcome == 'failure'

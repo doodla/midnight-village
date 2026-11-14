@@ -20,6 +20,11 @@ class ActionLogEntry:
     targets: dict[str, Any]
     result: dict[str, Any]
     timestamp_order: int  # ordering within wave
+    # The role the player acted AS for this entry (Doppelganger-aware). Captured
+    # at action time — current_role may differ later once the player's own card
+    # is swapped, so this must not be recomputed from current state afterward.
+    # "" only for legacy/synthetic entries that predate this field.
+    role_acting_as: str = ""
 
 
 @dataclass(frozen=True)

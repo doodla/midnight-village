@@ -63,6 +63,11 @@ test-integration:
 test-contract:
     {{backend_just}} test-contract
 
+# Boot the harness backend, then run the end-to-end harness (API + UI runners)
+# against it and tear it down (needs Postgres; see docs/dev/debug-harness/)
+test-harness:
+    {{frontend_just}} test-harness
+
 # --- Code Quality ---
 
 # Run backend linting

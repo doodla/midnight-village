@@ -11,6 +11,7 @@ import '../../../core/storage/user_storage.dart';
 import '../data/auth_repository.dart';
 import '../data/auth_service.dart';
 import '../domain/auth_state.dart';
+import '../domain/user.dart';
 
 part 'auth_notifier.g.dart';
 
@@ -125,6 +126,40 @@ class AuthNotifier extends _$AuthNotifier {
         'An unexpected error occurred. Please try again.',
       );
     }
+  }
+
+  /// DEBUG-ONLY perspective switch: adopts [user]'s session directly from a
+  /// previously-issued access token, with NO refresh round-trip.
+  ///
+  /// The production restore path ([AuthRepository.tryRestoreSession]) refreshes,
+  /// and the backend has `ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION`, so
+  /// refreshing blacklists the stored token and breaks re-switching to the same
+  /// player. Reusing the original access token avoids rotation entirely.
+  ///
+  /// Writes [accessToken]/[refreshToken] and [user] to storage so that the
+  /// shared [AuthInterceptor] (and any provider that reads [TokenStorage], e.g.
+  /// the game WebSocket) picks up the new identity, then sets
+  /// [AuthState.authenticated] directly.
+  ///
+  /// Gated by [Env.isDev] — a no-op in prod. The debug toolbar / harness is the
+  /// only caller. This is intentionally NOT routed through `tryRestoreSession`.
+  Future<void> adoptSession(
+    User user, {
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    if (!Env.isDev) return;
+
+    final tokenStorage = ref.read(tokenStorageProvider);
+    final userStorage = ref.read(userStorageProvider);
+
+    await tokenStorage.saveTokens(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    );
+    await userStorage.saveUser(id: user.id, displayName: user.displayName);
+
+    state = AuthState.authenticated(user);
   }
 
   /// Logs out the current user.

@@ -98,17 +98,36 @@ class GameNotifier extends _$GameNotifier {
   /// Voting phase: populates [VoteProgress] from the server-provided
   /// [GamePlayer.hasVoted] field so reconnecting clients see accurate
   /// vote progress.
-  GameSessionState _hydrateInitialState(GameSessionState state) {
+  ///
+  /// [carriedResult] is a night result the player has been shown but not yet
+  /// dismissed. The server does not send it again, so a refresh keeps the one
+  /// already on screen.
+  GameSessionState _hydrateInitialState(
+    GameSessionState state, {
+    ActionResult? carriedResult,
+  }) {
     var result = state;
+
+    if (carriedResult != null &&
+        (result.phase == 'night' || result.phase == 'discussion')) {
+      result = result.copyWith(lastActionResult: carriedResult);
+    }
 
     if (result.phase == 'night') {
       if (result.actionPrompt != null) {
-        final subView = result.actionPrompt!.actionTypes.length > 1
-            ? NightSubView.seerChoice
-            : NightSubView.actionPrompt;
-        result = result.copyWith(nightSubView: subView);
+        result = result.copyWith(
+          nightSubView: result.lastActionResult != null
+              ? NightSubView.actionResult
+              : _subViewForPrompt(result.actionPrompt!),
+        );
       } else {
-        result = result.copyWith(nightSubView: NightSubView.waiting);
+        // Either nothing to do this window, or already submitted and waiting
+        // for the window to close: the server sends no result until then.
+        result = result.copyWith(
+          nightSubView: result.lastActionResult != null
+              ? NightSubView.actionResult
+              : NightSubView.waiting,
+        );
       }
     }
 
@@ -176,7 +195,11 @@ class GameNotifier extends _$GameNotifier {
   // Event handlers (each is a discrete, testable method)
   // ---------------------------------------------------------------------------
 
-  /// Updates currentWave and deadline when a new night wave starts.
+  /// Updates currentWave and deadline when a night window opens.
+  ///
+  /// The night has two windows (1 = Doppelganger, 2 = everyone else). A result
+  /// the player has not dismissed yet (the Doppelganger's look, shown before
+  /// window 2 opens) stays on screen: only a prompt or the player replaces it.
   void _handleWaveStart(Map<String, dynamic> data) {
     _updateState((state) {
       final wave = data['wave'] as int;
@@ -186,13 +209,22 @@ class GameNotifier extends _$GameNotifier {
         currentWave: wave,
         deadline: deadline,
         actionPrompt: null,
-        lastActionResult: null,
       );
     });
   }
 
-  /// Sets nightSubView based on the number of action types in the prompt.
-  /// If actionTypes.length > 1: seerChoice. If 1: actionPrompt.
+  /// Chooses the sub-view for a prompt: the Seer's pick between looking at a
+  /// player or at the center when several real actions are offered, else the
+  /// action screen. A lone action plus `skip` is not a choice.
+  NightSubView _subViewForPrompt(ActionPrompt prompt) =>
+      prompt.needsActionChoice
+      ? NightSubView.seerChoice
+      : NightSubView.actionPrompt;
+
+  /// Stores the prompt and shows it, unless the player is still reading a
+  /// result: the Doppelganger's look result arrives immediately followed by her
+  /// follow-up prompt in the same window, and must stay readable until she
+  /// taps Continue.
   void _handleActionPrompt(Map<String, dynamic> data) {
     _updateState((state) {
       final prompt = ActionPrompt(
@@ -202,22 +234,25 @@ class GameNotifier extends _$GameNotifier {
         wave: data['wave'] as int,
       );
 
-      final subView = prompt.actionTypes.length > 1
-          ? NightSubView.seerChoice
-          : NightSubView.actionPrompt;
+      final readingResult =
+          state.lastActionResult != null &&
+          state.nightSubView == NightSubView.actionResult;
 
       return state.copyWith(
         actionPrompt: prompt,
-        nightSubView: subView,
-        lastActionResult: null,
+        nightSubView: readingResult
+            ? NightSubView.actionResult
+            : _subViewForPrompt(prompt),
       );
     });
   }
 
   /// Stores the action result and transitions to actionResult sub-view.
   ///
-  /// Injects `action_type` and `role_acting_as` into [ActionResult.revealedInfo]
-  /// so [NightResultView] can determine display logic without needing extra params.
+  /// Results arrive when a window closes (all players' together), except the
+  /// Doppelganger's look, which arrives on submit. Injects `action_type` (and,
+  /// for see_team, `role_acting_as`) into [ActionResult.revealedInfo] so
+  /// [NightResultView] can determine display logic without needing extra params.
   void _handleActionResult(Map<String, dynamic> data) {
     _updateState((state) {
       final revealedInfo = Map<String, dynamic>.from(
@@ -227,8 +262,10 @@ class GameNotifier extends _$GameNotifier {
       if (data['action_type'] is String) {
         revealedInfo['action_type'] = data['action_type'];
       }
-      // Inject role_acting_as from current actionPrompt for see_team display.
-      if (state.actionPrompt != null &&
+      // Inject role_acting_as from current actionPrompt for see_team display
+      // (the server includes it; this covers an older payload).
+      if (revealedInfo['action_type'] == 'see_team' &&
+          state.actionPrompt != null &&
           !revealedInfo.containsKey('role_acting_as')) {
         revealedInfo['role_acting_as'] = state.actionPrompt!.roleActingAs;
       }
@@ -243,21 +280,29 @@ class GameNotifier extends _$GameNotifier {
     });
   }
 
-  /// Clears action prompt/result and sets nightSubView to waiting.
+  /// A window closed: clear the prompt. The result that arrived just before
+  /// stays on screen (it is the player's night information); anyone without one
+  /// goes back to waiting.
   void _handleWaveComplete(Map<String, dynamic> data) {
     _updateState((state) {
       return state.copyWith(
         actionPrompt: null,
-        lastActionResult: null,
-        nightSubView: NightSubView.waiting,
+        nightSubView: state.lastActionResult != null
+            ? NightSubView.actionResult
+            : NightSubView.waiting,
       );
     });
   }
 
-  /// Player has no action this wave -- show waiting view.
+  /// Player has no action this window -- show waiting view (or keep the result
+  /// they are still reading).
   void _handleWaveWaiting(Map<String, dynamic> data) {
     _updateState((state) {
-      return state.copyWith(nightSubView: NightSubView.waiting);
+      return state.copyWith(
+        nightSubView: state.lastActionResult != null
+            ? NightSubView.actionResult
+            : NightSubView.waiting,
+      );
     });
   }
 
@@ -266,6 +311,10 @@ class GameNotifier extends _$GameNotifier {
   /// Transitions to [NightSubView.roleReveal] when entering the night phase
   /// for the first time. The role reveal auto-advance timer runs client-side
   /// and transitions via [onRoleRevealComplete].
+  ///
+  /// Night results all arrive as window 2 closes, immediately followed by the
+  /// move to discussion. A result the player has not dismissed survives that one
+  /// transition so [GameContainerScreen] can show it before the discussion.
   void _handlePhaseChange(Map<String, dynamic> data) {
     _updateState((state) {
       final phase = data['phase'] as String;
@@ -274,12 +323,14 @@ class GameNotifier extends _$GameNotifier {
       final nightSubView = phase == 'night'
           ? NightSubView.roleReveal
           : NightSubView.waiting;
+      final keepResult =
+          phase == 'discussion' && state.lastActionResult != null;
       return state.copyWith(
         phase: phase,
         deadline: deadline,
         // Reset night-specific state on phase change.
         actionPrompt: null,
-        lastActionResult: null,
+        lastActionResult: keepResult ? state.lastActionResult : null,
         nightSubView: nightSubView,
       );
     });
@@ -345,10 +396,9 @@ class GameNotifier extends _$GameNotifier {
   void onRoleRevealComplete() {
     _updateState((state) {
       if (state.actionPrompt != null) {
-        final subView = state.actionPrompt!.actionTypes.length > 1
-            ? NightSubView.seerChoice
-            : NightSubView.actionPrompt;
-        return state.copyWith(nightSubView: subView);
+        return state.copyWith(
+          nightSubView: _subViewForPrompt(state.actionPrompt!),
+        );
       }
       return state.copyWith(nightSubView: NightSubView.waiting);
     });
@@ -357,13 +407,41 @@ class GameNotifier extends _$GameNotifier {
   /// Called by [SeerChoiceView] when the player picks peek_player or peek_center.
   ///
   /// Narrows the action prompt to the selected action type and transitions to
-  /// [NightSubView.actionPrompt].
+  /// [NightSubView.actionPrompt]. `skip` stays on the prompt when the server
+  /// offered it, so the "do nothing" control remains on the next screen.
   void selectSeerChoice(String actionType) {
     _updateState((state) {
-      if (state.actionPrompt == null) return state;
+      final prompt = state.actionPrompt;
+      if (prompt == null) return state;
       return state.copyWith(
-        actionPrompt: state.actionPrompt!.copyWith(actionTypes: [actionType]),
+        actionPrompt: prompt.copyWith(
+          actionTypes: [
+            actionType,
+            if (prompt.canSkip) ActionPromptChoices.skipType,
+          ],
+        ),
         nightSubView: NightSubView.actionPrompt,
+      );
+    });
+  }
+
+  /// Called when the player taps Continue on a night result.
+  ///
+  /// During the night this moves on to a prompt that is waiting for them (the
+  /// Doppelganger's follow-up) or back to waiting. After the night it clears the
+  /// result so the discussion shows.
+  void dismissNightResult() {
+    _updateState((state) {
+      final prompt = state.actionPrompt;
+      if (state.phase == 'night' && prompt != null) {
+        return state.copyWith(
+          lastActionResult: null,
+          nightSubView: _subViewForPrompt(prompt),
+        );
+      }
+      return state.copyWith(
+        lastActionResult: null,
+        nightSubView: NightSubView.waiting,
       );
     });
   }
@@ -378,13 +456,32 @@ class GameNotifier extends _$GameNotifier {
     });
   }
 
-  /// Submits a night action.
+  /// Submits a night action (`skip` with empty targets is "do nothing").
+  ///
+  /// The server accepts it and the window stays open until it closes: no result
+  /// comes back yet (only the Doppelganger's look does). Once accepted the
+  /// player is shown waiting, unless a newer event already replaced the prompt
+  /// (her follow-up). If the server rejects it, the error propagates and the
+  /// prompt stays so the player can try again.
   Future<void> submitAction(
     String actionType,
     Map<String, dynamic> targets,
   ) async {
     final service = ref.read(gameServiceProvider);
+    final submitted = state.value?.actionPrompt;
     await service.submitAction(gameId, actionType, targets);
+    if (!ref.mounted || submitted == null) return;
+    _updateState((s) {
+      if (s.phase == 'night' && s.actionPrompt == submitted) {
+        return s.copyWith(
+          actionPrompt: null,
+          nightSubView: s.lastActionResult != null
+              ? NightSubView.actionResult
+              : NightSubView.waiting,
+        );
+      }
+      return s;
+    });
   }
 
   /// Submits a vote for a target player.
@@ -438,7 +535,10 @@ class GameNotifier extends _$GameNotifier {
       final freshState = await service.getGameState(gameId);
       if (!ref.mounted) return;
 
-      var hydrated = _hydrateInitialState(freshState);
+      var hydrated = _hydrateInitialState(
+        freshState,
+        carriedResult: state.value?.lastActionResult,
+      );
 
       // If we reconnected into results phase, fetch full results.
       if (hydrated.phase == 'results') {

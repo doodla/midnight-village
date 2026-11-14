@@ -121,6 +121,15 @@ class GameContainerScreen extends ConsumerWidget {
   ) {
     return switch (gameState.phase) {
       'night' => _buildNightView(gameState, ref),
+      // The night's results arrive just before the move to discussion. A result
+      // the player has not dismissed is shown first, then the discussion.
+      'discussion' when gameState.lastActionResult != null => NightResultView(
+        key: const ValueKey('night-action-result'),
+        result: gameState.lastActionResult!,
+        players: gameState.players,
+        continueLabel: 'Continue to discussion',
+        onContinue: ref.read(gameProvider(gameId).notifier).dismissNightResult,
+      ),
       'discussion' => DiscussionView(
         key: const ValueKey('discussion'),
         deadline: gameState.deadline,
@@ -157,6 +166,9 @@ class GameContainerScreen extends ConsumerWidget {
           roleId: _parseRoleId(gameState.actionPrompt!.roleActingAs),
           roleActingAs: gameState.actionPrompt!.roleActingAs,
           onActionTypeSelected: notifier.selectSeerChoice,
+          onSkip: gameState.actionPrompt!.canSkip
+              ? () => notifier.submitAction(ActionPromptChoices.skipType, {})
+              : null,
         ),
       NightSubView.actionPrompt when gameState.actionPrompt != null =>
         _isLoneWerewolfPrompt(gameState.actionPrompt!)
@@ -172,6 +184,11 @@ class GameContainerScreen extends ConsumerWidget {
           key: const ValueKey('night-action-result'),
           result: gameState.lastActionResult!,
           players: gameState.players,
+          // Something is waiting for the player after this result (the
+          // Doppelganger's follow-up prompt): let them read it first.
+          onContinue: gameState.actionPrompt != null
+              ? notifier.dismissNightResult
+              : null,
         ),
       NightSubView.loneWerewolfPeek => LoneWerewolfPeekView(
         key: const ValueKey('night-lone-werewolf'),
@@ -189,7 +206,8 @@ class GameContainerScreen extends ConsumerWidget {
 
   Widget _buildActionPromptView(GameSessionState gameState, WidgetRef ref) {
     final prompt = gameState.actionPrompt!;
-    final actionType = _parseActionType(prompt.actionTypes.first);
+    final primaryType = prompt.primaryType;
+    final actionType = _parseActionType(primaryType);
     final playerRole = _parseRoleId(gameState.yourRole.originalRole);
     final notifier = ref.read(gameProvider(gameId).notifier);
 
@@ -210,7 +228,11 @@ class GameContainerScreen extends ConsumerWidget {
       centerCardCount: _kCenterCardCount,
       timeRemaining: timeRemaining,
       onActionSubmitted: (selection) =>
-          _handleActionSubmitted(selection, prompt.actionTypes.first, notifier),
+          _handleActionSubmitted(selection, primaryType, notifier),
+      // "Do nothing": only where the server offered `skip` in the prompt.
+      onSkip: prompt.canSkip
+          ? () => notifier.submitAction(ActionPromptChoices.skipType, {})
+          : null,
     );
   }
 

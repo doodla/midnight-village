@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from . import views
+from . import debug_views, views
 
 app_name = "onuw"
 
@@ -56,5 +56,17 @@ urlpatterns = [
         "games/<str:game_id>/results/",
         views.ResultsView.as_view(),
         name="results",
+    ),
+    # DEBUG-gated developer-harness surfaces. Both return 403 when
+    # settings.DEBUG is False (see apps.onuw.debug.debug_disabled_response).
+    path(
+        "games/<str:game_id>/debug-state/",
+        debug_views.DebugStateView.as_view(),
+        name="debug-state",
+    ),
+    path(
+        "games/<str:game_id>/debug-fire-timer/",
+        debug_views.DebugFireTimerView.as_view(),
+        name="debug-fire-timer",
     ),
 ]

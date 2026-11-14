@@ -27,13 +27,13 @@ watch:
 
 # --- Testing ---
 
-# Run all tests
+# Run all tests (excludes the live-backend e2e harness — see test-harness)
 test:
-    flutter test
+    flutter test --exclude-tags e2e
 
-# Run tests with coverage
+# Run tests with coverage (excludes the live-backend e2e harness)
 test-cov:
-    flutter test --coverage
+    flutter test --coverage --exclude-tags e2e
 
 # Run golden tests only (tagged 'golden')
 flutter-test-golden:
@@ -59,6 +59,14 @@ test-integration-ci:
       -d web-server \
       --headless
 
+# Boot the real backend harness, replay the reference games through it (API
+# runner: all of them; UI runner: a representative subset through the real widget
+# tree), write PNG filmstrips + machine-readable failures.jsonl, and exit non-zero
+# on any failure. The script tears the backend down on exit. Also available from
+# the repo root. See docs/dev/debug-harness/.
+test-harness:
+    tool/run_harness.sh
+
 # Generate visual diff report from golden test failures
 flutter-golden-report *ARGS:
     dart run tool/golden_diff_report.dart {{ARGS}}
@@ -77,9 +85,9 @@ analyze:
 format:
     dart format lib test
 
-# Check formatting
+# Check formatting (--output=none: report only, never rewrite files)
 format-check:
-    dart format --set-exit-if-changed lib test
+    dart format --output=none --set-exit-if-changed lib test
 
 # --- Build ---
 

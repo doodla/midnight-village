@@ -24,11 +24,16 @@ class SeerChoiceView extends ConsumerWidget {
   /// Called with the selected action type string (`peek_player` or `peek_center`).
   final ValueChanged<String> onActionTypeSelected;
 
+  /// Called when the player chooses to do nothing. Non-null only when the
+  /// server offered `skip` for this prompt; a "Skip" (do nothing) button is then shown.
+  final VoidCallback? onSkip;
+
   const SeerChoiceView({
     super.key,
     required this.roleId,
     required this.roleActingAs,
     required this.onActionTypeSelected,
+    this.onSkip,
   });
 
   @override
@@ -73,6 +78,10 @@ class SeerChoiceView extends ConsumerWidget {
             label: 'Look at two center cards',
             onPressed: () => onActionTypeSelected('peek_center'),
           ),
+          if (onSkip != null) ...[
+            SizedBox(height: tokens.spacing.md),
+            PrimaryButton.outlined(label: 'Skip', onPressed: onSkip),
+          ],
         ],
       ),
     );

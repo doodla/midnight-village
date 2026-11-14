@@ -1,0 +1,70 @@
+# Backend CI Pipeline
+#
+# Lint, format check, type check and the full test suite for the Django backend,
+# against a real PostgreSQL (the tests require it for parity with production).
+# Runs the same commands as a developer does before committing:
+#   just check   (ruff lint + ruff format --check + pyrefly)
+#   just test    (pytest; coverage floor enforced by pyproject.toml)
+#
+# BRANCH PROTECTION: add the check "Backend Checks" next to the Flutter ones.
+
+name: Backend Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  backend:
+    name: Backend Checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # config/settings/test.py reads these (no .env file exists in CI). pytest-django
+    # creates its own throwaway test database, so the postgres superuser is enough.
+    env:
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: localhost
+      DB_PORT: "5432"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      # uv installs the Python in backend/.python-version on demand.
+      - name: Install dependencies
+        run: just install
+
+      - name: Lint, format check, type check
+        run: just check
+
+      - name: Tests
+        run: just test

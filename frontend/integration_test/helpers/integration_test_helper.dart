@@ -6,9 +6,9 @@ import 'package:midnight_village/app.dart';
 import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 
-import '../../test/helpers/mock_http_client.dart';
+import 'mock_http_client.dart';
 
-export '../../test/helpers/mock_http_client.dart' show MockHttpClient;
+export 'mock_http_client.dart' show MockHttpClient;
 
 /// Bootstrap utility for integration tests.
 ///

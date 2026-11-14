@@ -1,0 +1,6 @@
+{
+  "players": ["Alice", "Bob", "Carol", "Dave"],
+  "roles":   {"Alice": "Doppelganger", "Bob": "Seer", "Carol": "Werewolf", "Dave": "Villager"},
+  "center":  ["Werewolf", "Robber", "Drunk"],
+  "timers":  {"night_doppelganger_window_seconds": 0, "night_min_window_seconds": 0}
+}

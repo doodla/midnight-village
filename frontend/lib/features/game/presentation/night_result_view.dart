@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:midnight_village/design_system/components/core/primary_button.dart';
 import 'package:midnight_village/design_system/components/game/role_card.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
@@ -23,10 +24,21 @@ class NightResultView extends ConsumerWidget {
   /// All players in the game — used to resolve display names when needed.
   final List<GamePlayer> players;
 
+  /// When non-null a button is shown that calls it. Used while the player has
+  /// something after the result (the Doppelganger's follow-up prompt, or the
+  /// discussion once the night is over), so the result stays readable until
+  /// they are ready.
+  final VoidCallback? onContinue;
+
+  /// Label for the [onContinue] button.
+  final String continueLabel;
+
   const NightResultView({
     super.key,
     required this.result,
     required this.players,
+    this.onContinue,
+    this.continueLabel = 'Continue',
   });
 
   @override
@@ -35,9 +47,22 @@ class NightResultView extends ConsumerWidget {
     final info = result.revealedInfo;
     final actionType = info['action_type'] as String? ?? '';
 
+    final content = Center(
+      child: _buildContent(context, actionType, info, tokens),
+    );
+
     return Padding(
       padding: EdgeInsets.all(tokens.spacing.lg),
-      child: Center(child: _buildContent(context, actionType, info, tokens)),
+      child: onContinue == null
+          ? content
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: SingleChildScrollView(child: content)),
+                SizedBox(height: tokens.spacing.md),
+                PrimaryButton(label: continueLabel, onPressed: onContinue),
+              ],
+            ),
     );
   }
 
@@ -55,6 +80,7 @@ class NightResultView extends ConsumerWidget {
       'swap_others' => _SwapOthersResult(info: info, tokens: tokens),
       'see_team' => _SeeTeamResult(info: info, tokens: tokens),
       'insomniac' => _InsomniacResult(info: info, tokens: tokens),
+      'skip' => _SkipResult(tokens: tokens),
       _ => _UnknownResult(actionType: actionType, tokens: tokens),
     };
   }
@@ -456,6 +482,27 @@ class _InsomniacResult extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// skip result (an explicit "do nothing", or an action the window closed on)
+// ---------------------------------------------------------------------------
+
+class _SkipResult extends StatelessWidget {
+  final dynamic tokens;
+
+  const _SkipResult({required this.tokens});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'You did nothing.',
+      style: tokens.typography.subheading.copyWith(
+        color: tokens.colors.onBackground,
+      ),
+      textAlign: TextAlign.center,
     );
   }
 }

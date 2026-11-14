@@ -95,6 +95,39 @@ void main() {
       expect(selected, 'peek_center');
     });
 
+    testWidgets('shows no Skip button unless the server offered skip', (
+      tester,
+    ) async {
+      await tester.pumpWithTokens(
+        SeerChoiceView(
+          roleId: RoleId.seer,
+          roleActingAs: 'Seer',
+          onActionTypeSelected: (_) {},
+        ),
+      );
+
+      expect(find.text('Skip'), findsNothing);
+    });
+
+    testWidgets('Skip button calls onSkip when provided', (tester) async {
+      var skipped = 0;
+      String? selected;
+      await tester.pumpWithTokens(
+        SeerChoiceView(
+          roleId: RoleId.seer,
+          roleActingAs: 'Seer',
+          onActionTypeSelected: (type) => selected = type,
+          onSkip: () => skipped++,
+        ),
+      );
+
+      await tester.tap(find.text('Skip'));
+      await tester.pump();
+
+      expect(skipped, 1);
+      expect(selected, isNull);
+    });
+
     testWidgets('displays "Choose your action" prompt text', (tester) async {
       await tester.pumpWithTokens(
         SeerChoiceView(

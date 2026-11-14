@@ -164,6 +164,33 @@ void main() {
     });
   });
 
+  group('MockHttpClient.requests', () {
+    test('records each request with its method, path and body', () async {
+      final client = MockHttpClient();
+      client
+          .when(method: 'POST', path: '/api/v1/act/')
+          .thenReturn(
+            Response(
+              requestOptions: RequestOptions(path: '/api/v1/act/'),
+              statusCode: 200,
+              data: {},
+            ),
+          );
+
+      await client.dio.post('/api/v1/act/', data: {'a': 1});
+      await expectLater(
+        client.dio.get('/api/v1/unmocked/'),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(client.requests.map((r) => '${r.method} ${r.path}'), [
+        'POST /api/v1/act/',
+        'GET /api/v1/unmocked/',
+      ]);
+      expect(client.requests.first.data, {'a': 1});
+    });
+  });
+
   group('UnmockedEndpointException', () {
     test('toString includes method and path', () {
       const ex = UnmockedEndpointException('GET', '/api/v1/me/');
