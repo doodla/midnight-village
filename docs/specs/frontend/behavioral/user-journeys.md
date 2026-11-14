@@ -32,9 +32,9 @@ The host is the stage manager. They create the game, configure the experience, s
 |----------|-------|--------------------------|----------------|-------------|
 | J-host-01 | Welcome | Sees misty village illustration on `AppColors.phaseLobby` background. Name input field with `AppTextStyles.bodyLarge` placeholder "Your name". Single CTA: "Enter the Village" in `AppColors.bloodEmber` with `AppGlows.cta` pulse. Spends <10s here. | Invitation, anticipation | `Ambience.lobby` fades in on screen load |
 | J-host-02 | Home | Greeting with player name in `AppTextStyles.heading1`. Two cards on `AppColors.surface`: "Create Game" and "Join Game". Online player count displayed in `AppTextStyles.label` with `AppColors.parchmentMuted`. | Choosing your table | -- |
-| J-host-03 | Lobby (empty) | Lobby created. Hero lobby code in `AppTextStyles.codeDisplay` on `AppColors.surface`, tap-to-copy. Player list shows only the host (with `AppColors.tallowGold` 2dp host border ring on avatar). "Configure Roles" and "Start Game" (disabled) visible. | Preparing the table | `AppHaptics.tapLight` on lobby creation |
-| J-host-04 | Lobby (configuring) | Role picker bottom sheet. Roles listed with count steppers (+/-). Current card count shown as `AppTextStyles.label`: "Cards: 8/8" (player_count + 3). Validation banners in `AppColors.bloodEmber` background tint for invalid configs (e.g., odd Mason count, wrong card total). | Building the experience | `AppHaptics.selectionClick` on each stepper tap |
-| J-host-05 | Lobby (gathering) | Players arrive -- each triggers a player card entry animation (UI-13, 50ms stagger). Ready states shown per player (`AppColors.moonlitSage` text for ready, `AppColors.parchmentMuted` text for not ready). "Start Game" CTA enables when player_count >= 3 AND all players ready AND card count == player_count + 3. | Anticipation builds with each arrival | `AppHaptics.tapLight` per player join |
+| J-host-03 | Lobby (empty) | Lobby created. Hero lobby code in `AppTextStyles.codeDisplay` on `AppColors.surface`, tap-to-copy. Player list shows only the host (with `AppColors.tallowGold` 2dp host border ring on avatar). "Configure Roles" visible ("Start Game" lives on Game Settings, S04b). | Preparing the table | `AppHaptics.tapLight` on lobby creation |
+| J-host-04 | Lobby (configuring) | Full-screen Role Selection (S04), followed by Game Settings (S04b). Roles listed with count steppers (+/-). Current card count shown as `AppTextStyles.label`: "Cards: 8/8" (player_count + 3). Validation banners in `AppColors.bloodEmber` background tint for invalid configs (e.g., odd Mason count, wrong card total). | Building the experience | `AppHaptics.selectionClick` on each stepper tap |
+| J-host-05 | Lobby (gathering) | Players arrive -- each triggers a player card entry animation (UI-13, 50ms stagger). Ready states shown per player (`AppColors.moonlitSage` text for ready, `AppColors.parchmentMuted` text for not ready). "Start Game" CTA (on S04b) enables when player_count >= 3 AND card count == player_count + 3; players being ready is not required (see `lobby.md` Start Game preconditions). | Anticipation builds with each arrival | `AppHaptics.tapLight` per player join |
 | J-host-06 | Night (role reveal) | Same as any player: receives face-down card, taps to reveal (M-01). The host is a player during the game. No host controls during role reveal. | Personal secret moment | M-01 full sequence |
 | J-host-07 | Night (action/waiting) | If host's role has a night action: action UI per role type. If no action: night waiting screen with fidgets and wave progress dots. No host controls during night. | Mystery, mischief, or cozy waiting | Per role action + fidget haptics/sounds |
 | J-host-08 | Discussion | Big countdown timer in `AppTextStyles.timerDisplay` with color ramp. Role reminder (tap-to-reveal, UI-21/22). Roles-in-play collapsible list. **Host exclusive:** "End Discussion" button on `AppColors.surface` card, styled with `AppColors.bloodEmber` text, appears only for host. | Social energy + shepherd control | `AppHaptics.tapMedium` on "End Discussion" |
@@ -50,9 +50,9 @@ The host is the stage manager. They create the game, configure the experience, s
 |------------|-----------|----------|---------------------|
 | J-host-01 | Taps "Enter the Village" with valid name | J-host-02 | `AppDurations.standard` (300ms) crossfade, `AppCurves.enter` |
 | J-host-02 | Taps "Create Game" | J-host-03 | `AppDurations.standard` (300ms), lobby code animates in with `AppCurves.enter` |
-| J-host-03 | Taps "Configure Roles" | J-host-04 | Bottom sheet slide up (UI-08) |
-| J-host-04 | Closes role picker (swipe down or tap scrim) | J-host-05 | Bottom sheet dismiss (UI-09) |
-| J-host-05 | Taps "Start Game" (enabled) | J-host-06 | T-01 game start cinematic (2500ms) |
+| J-host-03 | Taps "Configure Roles" | J-host-04 | Screen slide in from right (300ms, `AppCurves.enter`) |
+| J-host-04 | Leaves role selection (back navigation) | J-host-05 | Screen slide out to right (300ms, `AppCurves.exit`) |
+| J-host-05 | Taps "Start Game" (enabled) on Game Settings (S04b) | J-host-06 | T-01 game start cinematic (2500ms) |
 | J-host-06 | Role reveal complete (card flipped + settle) | J-host-07 | `AppDurations.crossfade` (400ms) into night action or waiting (UI-01) |
 | J-host-07 | All night waves complete | J-host-08 | T-02 Night -> Discussion (2500ms) |
 | J-host-08 | Timer expires OR host taps "End Discussion" | J-host-09 | T-03 Discussion -> Voting (2000ms) |
@@ -66,8 +66,8 @@ The host is the stage manager. They create the game, configure the experience, s
 
 | Phase | Control | Appearance | Behavior |
 |-------|---------|------------|----------|
-| Lobby | "Configure Roles" | `AppColors.surface` card, `AppTextStyles.labelLarge` | Opens role picker bottom sheet |
-| Lobby | "Start Game" | `AppColors.bloodEmber` CTA with `AppGlows.cta` pulse when enabled; disabled state at `AppOpacity.disabled` | Sends game start to server; triggers T-01 |
+| Lobby | "Configure Roles" | `AppColors.surface` card, `AppTextStyles.labelLarge` | Opens full-screen Role Selection (S04) |
+| Lobby (S04b Game Settings) | "Start Game" | `AppColors.bloodEmber` CTA with `AppGlows.cta` pulse when enabled; disabled state at `AppOpacity.disabled` | Sends game start to server; triggers T-01 |
 | Discussion | "End Discussion" | `AppColors.surface` card with `AppColors.bloodEmber` text, `AppTextStyles.labelLarge` | Sends early-end to server; triggers T-03 |
 | Voting | "End Voting" | Same styling as "End Discussion" | Finalizes all current selections; triggers T-04 |
 | Results | "Play Again" | `AppColors.bloodEmber` CTA with `AppGlows.cta` | Returns group to lobby with same players; triggers T-07 |
@@ -146,24 +146,12 @@ First-time use is a **state**, not a separate persona. Contextual hints appear o
 
 ### Hint Triggers
 
-| Moment | Hint Content | Style | Dismissal | Appears When |
-|--------|-------------|-------|-----------|-------------|
-| Welcome screen | None. The CTA "Enter the Village" is self-explanatory. | -- | -- | -- |
-| First lobby join | "Share this code with friends to invite them" | Tooltip (UI-06) anchored below lobby code | Tap anywhere (UI-07) | First time seeing lobby code |
-| First role reveal (card face-down) | "Tap the card to reveal your secret role" | `AppTextStyles.body` below card in `AppColors.parchmentMuted`, fades in with card (M-01 Phase 1) | Auto-dismissed on card tap | First role reveal ever |
-| First role reveal (card face-up) | "Keep your role secret! Others can't see your screen." | Tooltip (UI-06) above role name, appears 800ms after card flip settle | Tap anywhere, auto-dismiss after 4000ms | First role reveal ever |
-| First night action (Seer choice) | "Choose how to use your power" | Tooltip (UI-06) anchored to choice cards | Tap anywhere | First time seeing Seer choice UI |
-| First night action (player selection) | "Tap a player to select them" | Tooltip (UI-06) anchored to player grid | Auto-dismiss on first selection | First time seeing night action player grid |
-| First night action (center cards) | "Tap a card to peek" | Tooltip (UI-06) anchored to center card slots | Auto-dismiss on first selection | First time seeing center card selection |
-| First discussion phase | "Discuss with the other players! Your role reminder is hidden below." | Tooltip (UI-06) anchored to tap-to-reveal area | Tap anywhere, auto-dismiss after 4000ms | First discussion phase ever |
-| First voting phase | "Tap a player to cast your vote. You can change your mind until time runs out." | Tooltip (UI-06) anchored to player grid | Auto-dismiss on first selection | First voting phase ever |
-| First voting (fluid model) | "Your current pick is your vote when the timer ends. No need to confirm." | Tooltip (UI-06) appears 3s after first selection | Tap anywhere, auto-dismiss after 4000ms | First vote selection ever |
-| First results screen | "Tap the player table to see what happened during the night" | Tooltip (UI-06) anchored to collapsed player table | Tap anywhere | First results screen ever |
+The hint catalogue (IDs, target elements, text, priority) and the trigger/dismissal rules are owned by `cross-cutting.md` section 6 (P-ONBOARD). They are not repeated here.
 
 ### First-Time Principles
 
 1. **Never block.** Hints are tooltips, not modals. The player can always ignore them and proceed.
-2. **One hint at a time.** If multiple hints would trigger simultaneously, show only the most contextually important one. Priority order matches the table above (top = highest priority).
+2. **One hint at a time.** If multiple hints would trigger simultaneously, show only the most contextually important one. Priority follows the Priority column of the Hint Catalog in `cross-cutting.md` (P-ONBOARD).
 3. **Disappear forever.** Each hint ID is stored in local storage after first display. It never shows again on that device.
 4. **Don't explain the game.** Hints explain the *interface*, not the *strategy*. "Tap a player to select them" is interface. "The Seer should peek at suspected Werewolves" is strategy and should never appear.
 5. **Role description on reveal card is sufficient.** The role reveal card (M-01) includes a brief description of what the role does. No additional role tutorial is needed.
@@ -277,20 +265,13 @@ Remote play (players on a video call instead of in the same room) is explicitly 
 
 ## Errors
 
+Error headlines, subtitles, display variants and recovery are owned by the Error String Catalog in `cross-cutting.md` section 1 (P-ERR), plus each screen spec's own Errors section. They are not repeated here. The rows below are journey-level errors that have no entry in that catalog:
+
 | Error | In-World Headline | Clear Subtitle | Recovery | Phase |
 |-------|-------------------|----------------|----------|-------|
-| Invalid lobby code | "The tavern door is barred..." | No lobby found with code [CODE] | Tap to re-enter code. Auto-focus input field. | Join |
-| Lobby full | "The village is full..." | This lobby has reached its maximum capacity | Return to Home. Try a different code. | Join |
 | Lobby closed | "The tavern has gone dark..." | This lobby no longer exists | Return to Home. | Join |
-| Game already started | "The ritual has begun..." | This game is already in progress | Return to Home. Cannot late-join. | Join |
-| Connection lost | "The spirits are restless..." | Connection lost. Reconnecting... | Auto-reconnect with exponential backoff. Manual "Try Again" after 10s. | Any |
 | Reconnection failed | "The fog is too thick..." | Unable to reconnect to the game | "Return to Village" button -> Home screen | Any |
-| Server error | "Dark forces are at work..." | Something went wrong. Please try again. | "Try Again" button retries last action. Error toast (UI-15/16) auto-dismisses after 4s. | Any |
-| Invalid role config | "The village cannot be formed..." | [Specific validation message, e.g., "Need exactly 8 cards for 5 players"] | Validation banner on role picker. Host adjusts configuration. | Lobby (config) |
 | Host ended game | "The tavern keeper has called last orders..." | [Host Name] ended the game | Auto-return to Home after 3s or tap to dismiss | Results |
-| Host ended game | "The candle has gone out..." | The game has ended. | All players return to Home after 3s. | Any (in-game) |
-| Name too short | "Every villager needs a name..." | Name must be at least 2 characters | Input field shows validation state (`AppColors.bloodEmber` border) | Welcome |
-| Name already taken (in lobby) | "Another villager answers to that name..." | A player named [NAME] is already in this lobby | Input field clears. Player enters a different name. | Join -> Lobby |
 
 ---
 
@@ -317,7 +298,7 @@ Information that is hidden behind a tap-to-reveal overlay (UI-21/22) to prevent 
 
 | Content | Screen | Reveal Duration | Auto-Hide |
 |---------|--------|----------------|-----------|
-| Own role reminder | Discussion, Voting | Tap to show | 3000ms auto-hide (UI-22) |
+| Own role reminder | Discussion | Tap to show | 3000ms auto-hide (UI-22) |
 | Own vote selection | Voting | Tap to show | 3000ms auto-hide |
 | Night action result summary | Discussion | Tap to show | 3000ms auto-hide |
 

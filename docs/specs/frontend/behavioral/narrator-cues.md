@@ -37,7 +37,7 @@ The server controls what each player's UI shows. The narrator audio is a shared 
 | Context | Timing Rule |
 |---------|-------------|
 | Wake cue -> action window | Cue plays, then server opens the action timer for that role's wave |
-| Action window -> close cue | Server fires close cue when all expected actions are submitted OR wave timer expires |
+| Action window -> close cue | Server fires close cue when all expected actions are submitted OR wave timer expires, but never before the 8-second minimum wave duration (see `night-actions.md` wave timing floor) |
 | Close cue -> next wake cue | T-08 wave transition (800ms) per `sound-and-motion.md` |
 | Phase transition cues | Embedded in T-01 through T-07 timelines per `sound-and-motion.md` |
 

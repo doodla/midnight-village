@@ -204,14 +204,14 @@ If more than one player disconnects simultaneously, the overlay shows all discon
 
 **Core rule:** Nothing is permanent until the host or the timer says so.
 
-All player selections -- votes, night action targets, ready states -- are **mutable** until the phase ends. There is no "confirm and lock" step. The player's current selection is their submission when the phase finalizes.
+All player selections -- votes, night action targets, ready states -- are **mutable** until they are finalized. Votes and ready states have no "confirm and lock" step: the player's current selection is their submission when the phase finalizes. Night action targets are changeable until the player taps Confirm or the wave timer expires with a valid selection (see Night Action Target Selection below).
 
 #### How It Works
 
 | Phase | Selection Type | Mutable Until | Finalization Trigger |
 |-------|---------------|---------------|---------------------|
 | Lobby | Ready/unready toggle | Game start | Host presses "Start Game" |
-| Night action | Target selection (player or center card) | Wave timer expires or host advances | Timer expiry or all expected actions submitted |
+| Night action | Target selection (player or center card) | Player taps Confirm, wave timer expires or host advances | Player taps Confirm, or timer expiry with a valid selection. The wave itself advances when all expected actions are in or the timer expires, but never before the 8-second minimum (see `night-actions.md` wave timing floor). |
 | Voting | Vote target | Voting timer expires or host ends voting | Timer expiry or host advance |
 
 #### Visual Feedback for Fluid Selections
@@ -236,13 +236,13 @@ During voting, players can see **that** other players have made a selection, but
 
 #### Deselection
 
-Players can deselect by tapping their current selection a second time. This returns them to the "no selection" state. In voting, this means they will have no vote if the timer expires (equivalent to abstaining, which the digital implementation allows as a timeout behavior).
+Players can deselect by tapping their current selection a second time. This returns them to the "no selection" state. In voting, if the timer then expires with no selection, no vote is counted for that player. This is a timeout, not an allowed choice: per `docs/specs/onuw/voting-and-resolution.md`, every player must vote and there is no abstaining.
 
 #### Edge Cases
 
 | Scenario | Behavior |
 |----------|----------|
-| Player makes no selection before timer expires | Action is skipped. Logged as `"skip"`. For voting, vote is not counted. |
+| Player makes no selection before timer expires | Action is skipped. Logged as `"skip"`. For voting, no vote is counted for that player. |
 | Host ends phase while player is mid-selection | Current selection at the moment of host advance is the final selection. If no selection was made, it is a skip. |
 | Player's device goes to sleep during selection | WebSocket heartbeat detects inactivity. First missed heartbeat triggers immediate game pause. If the player wakes the device and reconnects, selection state is preserved client-side. |
 | Server rejects a selection (e.g., invalid target) | Toast error: "The spirits reject your offering..." / "Invalid target. Choose again." Selection reverts to previous state. |
@@ -422,7 +422,7 @@ No tutorial game. No heavy onboarding flow. Instead, the app uses contextual hin
 | H-05 | Voting | Player grid | "Tap a player to vote for them. You can change your mind." | 1 |
 | H-06 | Voting | Vote counter | "Your vote is private until the reveal" | 2 |
 | H-07 | Lobby (host) | Role picker | "Choose which roles to include in this game" | 1 |
-| H-08 | Lobby (host) | Start game button | "Start when all players are ready" | 2 |
+| H-08 | Game Settings (host, S04b) | Start game button | "Start the game when everyone has joined" | 2 |
 | H-09 | Night Waiting | Fidget area | "Touch the screen to play with the fire" | 3 |
 | H-10 | Results | Player table | "Tap a player to see what happened during the night" | 2 |
 
@@ -451,7 +451,7 @@ Arrow pointer: 8dp equilateral triangle in `AppColors.surfaceElevated`, position
 | `hint.voting_select` | Tap a player to vote for them. You can change your mind. |
 | `hint.voting_private` | Your vote is private until the reveal |
 | `hint.host_roles` | Choose which roles to include in this game |
-| `hint.host_start` | Start when all players are ready |
+| `hint.host_start` | Start the game when everyone has joined |
 | `hint.fidget` | Touch the screen to play with the fire |
 | `hint.results_table` | Tap a player to see what happened during the night |
 
@@ -469,7 +469,7 @@ Loading states maintain the Firelit Gothic atmosphere. No spinners, no progress 
 |---------|------------------|-----------------|-------|
 | Screen loading (full) | 2-3 `AppColors.surface` rounded rectangles stacked vertically (`AppRadius.lg`, full content width, heights: 120dp, 80dp, 80dp). All shimmer. | Phase-appropriate particles active. | Content fades in over placeholder with `AppDurations.crossfade` (400ms). |
 | Player grid loading | Grid of circular placeholders at `AppDimensions.avatarMd` (48dp). Number matches expected player count. All shimmer. | Active. | Players appear with stagger animation UI-13 as they load. |
-| Card loading | Single card-shaped placeholder at role card dimensions (240dp x 320dp), `AppRadius.xxl` (24dp). Shimmer. | Active. | Card content fades in over placeholder. |
+| Card loading | Single card-shaped placeholder at role card dimensions (300dp x 400dp), `AppRadius.xxl` (24dp). Shimmer. | Active. | Card content fades in over placeholder. |
 | Action result loading | Inline placeholder within action area. Single rounded rectangle, shimmer. | Active. | Result content replaces placeholder. |
 
 #### Accessibility for Loading

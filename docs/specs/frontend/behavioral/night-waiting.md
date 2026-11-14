@@ -55,7 +55,7 @@ This invariant is the single most important requirement of this screen. Every de
 │  └─────────────────────────────┘    │
 │                                     │
 │  ┌─────────────────────────────┐    │
-│  │  Wave ● ● ○ ○   Timer 0:42 │    │  <- Wave progress + timer
+│  │  Wave ● ● ○ ○   Timer 0:07 │    │  <- Wave progress + timer
 │  └─────────────────────────────┘    │     AppColors.surface
 │                                     │     AppRadius.md (8dp)
 └─────────────────────────────────────┘
@@ -130,7 +130,7 @@ This invariant is the single most important requirement of this screen. Every de
 
 ```
 ┌─────────────────────────────────────┐
-│  ● ● ○ ○           0:42            │
+│  ● ● ○ ○           0:07            │
 │  W1 W2 W3 W4       timer           │
 └─────────────────────────────────────┘
 ```
@@ -307,7 +307,7 @@ All animations reference `sound-and-motion.md` by ID.
 |-------------------|-----|
 | Which player is currently acting | Concealment invariant. No visual, timing, or audio difference reveals the active player. |
 | What action the active player is performing | Concealment invariant. |
-| When the active player submits their action | Wave advancement occurs only at timer expiry or when all expected actions are submitted, subject to the 8-second minimum wave duration floor. Early submission does not trigger early transition. |
+| When the active player submits their action | A wave advances when all expected actions are in or the timer expires, but never before the 8-second minimum (see `night-actions.md` wave timing floor). |
 | How many actions are expected in the current wave | Wave dots represent wave groups, not individual roles. A 4-role Wave 3 has the same 1 dot as a 1-role Wave 2. |
 
 ### Concealment Verification Checklist

@@ -85,11 +85,11 @@ These are the information visibility states that the system moves through. Each 
 | IA-LOBBY | Game created, players joining | Tier 1: lobby code, player list, ready states, roles in play. Host also sees role config controls (S04) and timer configuration (S04b: preset selector + per-phase sliders). Timer preset and per-phase values are host-only during setup. No Tier 2 or Tier 3 data exists yet. | `Ambience.lobby` |
 | IA-ROLE-REVEAL | Night phase begins, cards dealt | Tier 1: phase indicator, wave progress. Tier 2: own role card (tap-to-reveal protected, face-down until player taps). | `SoundCues.waxSealBreak` on flip, `AppHaptics.dramaticReveal` |
 | IA-NIGHT-ACTIVE | Player's wave is called, player has an action | Tier 1: wave indicator, timer. Tier 2: night action prompt, action targets, action results after submission. | Per-wave narrator cue, `AppHaptics.narratorBeat` |
-| IA-NIGHT-WAITING | Player has no action this wave, or wave is not theirs | Tier 1: wave indicator, timer. Tier 2: none new (prior night results remain accessible via tap-to-reveal). Fidget interactions active. | Fidget sounds/haptics on interaction |
+| IA-NIGHT-WAITING | Player has no action this wave, or wave is not theirs | Tier 1: wave indicator, timer. Tier 2: none new (prior night results are NOT displayed on the waiting screen; see `night-waiting.md`). Fidget interactions active. | Fidget sounds/haptics on interaction |
 | IA-NIGHT-RESULT | Player's action has resolved | Tier 1: wave indicator. Tier 2: action result displayed (card peek, swap confirmation, teammate list). Tap-to-reveal protected. | `SoundCues.cardPeek`, `AppHaptics.tapMedium` |
 | IA-DISCUSSION | All night waves complete | Tier 1: timer (color-ramping), roles in play list. Tier 2: role reminder (tap-to-reveal), night results (tap-to-reveal). No new info from server. | `Ambience.discussion`, timer warning sounds |
 | IA-VOTING | Discussion ends | Tier 1: player grid, vote counter ("X/Y have chosen"), timer. Tier 2: own current selection (tap-to-reveal). Other players show checkmark (voted) or empty (not yet voted). | `Ambience.voting`, `AppHaptics.selectionClick` on vote change |
-| IA-VOTE-REVEAL | All votes in or timer expires | Tier 1: all vote targets revealed simultaneously (progressive tally build). Tier 2: none new. | `SoundCues.tallyTick` per vote, `AppHaptics.tallyTick` |
+| IA-VOTE-REVEAL | Voting timer expires or host ends voting | Tier 1: all vote targets revealed simultaneously (progressive tally build). Tier 2: none new. | `SoundCues.tallyTick` per vote, `AppHaptics.tallyTick` |
 | IA-ELIMINATION | Vote tally complete | Tier 1: eliminated player name + revealed role. Hunter chain if applicable. "No one dies" variant. | `SoundCues.eliminationReveal` or `SoundCues.noElimination` |
 | IA-RESULTS | Elimination sequence complete | Tier 1: winning team, all eliminated players' roles. Tier 2: personal win/loss. Progressive disclosure: player table -> full autopsy (Tier 3 data: complete night log, all original/final roles). | `SoundCues.winFanfare`/`SoundCues.lossSomber` |
 
@@ -107,7 +107,7 @@ These are the information visibility states that the system moves through. Each 
 | IA-NIGHT-WAITING | All waves complete | IA-DISCUSSION | T-02 (Night -> Discussion, 2500ms cinematic) |
 | IA-NIGHT-ACTIVE | All waves complete (player was last active) | IA-DISCUSSION | T-02 |
 | IA-DISCUSSION | Timer expires or host ends early | IA-VOTING | T-03 (Discussion -> Voting, 2000ms) |
-| IA-VOTING | All votes in or timer expires | IA-VOTE-REVEAL | T-04 (Voting -> Vote Reveal, 1200ms) |
+| IA-VOTING | Timer expires or host ends voting | IA-VOTE-REVEAL | T-04 (Voting -> Vote Reveal, 1200ms) |
 | IA-VOTE-REVEAL | Tally build complete | IA-ELIMINATION | T-05 (Vote Reveal -> Elimination, 1500ms) |
 | IA-ELIMINATION | Elimination sequence complete | IA-RESULTS | T-06 (Elimination -> Results, 1500ms) |
 | IA-RESULTS | Host or player taps "Play Again" | IA-LOBBY | T-07 (Results -> Lobby, 1000ms) |
@@ -119,7 +119,7 @@ These are the information visibility states that the system moves through. Each 
 | Element | Event | Result | Haptic | Sound |
 |---------|-------|--------|--------|-------|
 | Role card (face-down) | Tap | Card flips to reveal role (Tier 2 data disclosed). Irreversible. | `AppHaptics.dramaticReveal` | `SoundCues.waxSealBreak` |
-| Role reminder (Discussion/Voting) | Tap | Shows own original role for 3 seconds, then auto-hides (UI-21/UI-22). Tap-to-reveal guardrail. | `AppHaptics.tapLight` | none |
+| Role reminder (Discussion) | Tap | Shows own original role for 3 seconds, then auto-hides (UI-21/UI-22). Tap-to-reveal guardrail. | `AppHaptics.tapLight` | none |
 | Night result reminder | Tap | Shows night action result for 3 seconds, then auto-hides. Tap-to-reveal guardrail. | `AppHaptics.tapLight` | none |
 | Vote selection reminder (Voting) | Tap | Shows current vote target for 3 seconds, then auto-hides. Tap-to-reveal guardrail. | `AppHaptics.tapLight` | none |
 | Night action target (player grid) | Tap | Selects player as action target. Selection is fluid — tap another to change. Selection glow (UI-04). | `AppHaptics.selectionClick` | none |
@@ -161,7 +161,7 @@ How information gained in one phase carries into the next. This is critical for 
 
 | Information | Available During Voting | Display Method |
 |-------------|------------------------|----------------|
-| Own original role | Yes — tap-to-reveal role reminder | Same as Discussion |
+| Own original role | No — not displayed on the Voting screen (see `day-phase.md`) | — |
 | Night action results | Yes — tap-to-reveal night result | Same as Discussion |
 | Discussion claims (verbal) | Not tracked by the app | Players talk in person; the app does not record claims |
 
@@ -214,7 +214,7 @@ Different roles produce wildly different night experiences. The UI must handle a
 | Drunk | Wave 3: select one center card | Which center card to take | None (swap is blind) | `swap_with_center` |
 | Werewolf (lone) | Wave 2: optionally select one center card | Which center card to peek (optional) | One center card identity | `peek_center` |
 
-**UI:** Player grid or center card slots with selection glow. Fluid selection — tap to select, tap another to change, timer expires to finalize. Robber sees result card flip after swap. Troublemaker and Drunk see confirmation only (no card reveal).
+**UI:** Player grid or center card slots with selection glow. Fluid selection — tap to select, tap another to change; the selection is changeable until the player taps Confirm or the timer expires with a valid selection. Robber sees result card flip after swap. Troublemaker and Drunk see confirmation only (no card reveal).
 
 **Citation:** roles.md — Robber: "You may exchange your card with another player's card, and then view your new card." Troublemaker: "You may exchange cards between two other players." Drunk: "Exchange your card with a card from the center." (Note: Drunk is mandatory; Robber and Troublemaker are optional per onuw/night-phase.md action optionality table.)
 
@@ -270,7 +270,7 @@ In-person play means other players can see your phone screen. Sensitive informat
 
 | Protected Information | Screen(s) | Default State | Reveal Gesture | Reveal Duration | Auto-Hide |
 |----------------------|-----------|---------------|---------------|----------------|-----------|
-| Own role card (after initial reveal) | Discussion, Voting | Hidden — shows card back | Tap role reminder area | 3000ms | Yes (UI-22: 200ms fade out) |
+| Own role card (after initial reveal) | Discussion | Hidden — shows card back | Tap role reminder area | 3000ms | Yes (UI-22: 200ms fade out) |
 | Night action results | Discussion, Voting | Hidden — shows "Tap to recall" label | Tap night result area | 3000ms | Yes |
 | Current vote selection | Voting | Hidden — shows neutral "You've voted" checkmark | Tap vote reminder area | 3000ms | Yes |
 
@@ -337,7 +337,7 @@ Animation choreography is defined in `sound-and-motion.md`. This document refere
 
 | Key | Default Text | Notes |
 |-----|-------------|-------|
-| `info.tapToRevealRole` | "Tap to view your role" | Tap-to-reveal prompt, Discussion/Voting |
+| `info.tapToRevealRole` | "Tap to view your role" | Tap-to-reveal prompt, Discussion |
 | `info.tapToRecallResult` | "Tap to recall" | Tap-to-reveal prompt for night result |
 | `info.tapToViewVote` | "Tap to view your vote" | Tap-to-reveal prompt for vote selection |
 | `info.votedIndicator` | "You've voted" | Neutral indicator shown when vote is concealed |
@@ -389,7 +389,7 @@ Summary of information tiers visible on each major screen, for quick reference b
 |--------|-----------------|----------------------|---------------------|------------|---------------|
 | Role Reveal | Phase indicator | Own role (after card flip) | — | — | Card flip is the reveal gesture |
 | Night (Active) | Wave indicator, timer | Action prompt, action result | — | — | Action result auto-displayed |
-| Night (Waiting) | Wave indicator, timer | Prior night results (if any) | — | — | Night results: tap-to-reveal |
+| Night (Waiting) | Wave indicator, timer | — (prior night results not displayed) | — | — | None |
 | Discussion | Timer, roles in play | Own role, night results | — | End Discussion | Role + night results: tap-to-reveal |
 | Voting | Timer, player grid, vote counter | Own vote selection | — | End Voting | Vote selection: tap-to-reveal |
 | Vote Reveal | Full vote tally | — | — | — | None (all public) |

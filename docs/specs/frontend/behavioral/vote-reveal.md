@@ -154,7 +154,7 @@ This spec covers the Vote Reveal screen (S13) and the Elimination screen (S14). 
 
 ### S13: Vote Reveal
 
-- All votes submitted OR voting timer expired
+- Voting timer expired OR host ended voting (see `day-phase.md`)
 - T-04 (Voting -> Vote Reveal) transition has completed
 - Vote data received from server (all vote targets)
 
@@ -211,7 +211,7 @@ This spec covers the Vote Reveal screen (S13) and the Elimination screen (S14). 
 
 | From State | Condition | To (screen/state) | Animation |
 |------------|-----------|-------------------|-----------|
-| Voting (any VOTE-*) | All votes in or timer expires | TALLY-LOCK | T-04 (1200ms). Votes lock. Grid reconfigures to tally. |
+| Voting (any VOTE-*) | Timer expires or host ends voting | TALLY-LOCK | T-04 (1200ms). Votes lock. Grid reconfigures to tally. |
 | TALLY-COMPLETE | Tally build done | ELIM-VERDICT | T-05 (1500ms). Highest bar highlighted. Tally exits. |
 | ELIM-COMPLETE (elimination) | Elimination sequence done | Results (S15) | T-06 (1500ms). Blood vignette fades out. Results UI fades in. |
 | ELIM-COMPLETE (no elimination) | No-death sequence done | Results (S15) | T-06 (1500ms). No-death wash fades out. Results UI fades in. |

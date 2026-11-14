@@ -338,7 +338,7 @@ After choosing Option A, renders the player selection grid. After choosing Optio
 
 **Robber card slide:** After the Robber's peek card flip, the peeked card animates from the target's grid position to the player's position (300ms, `AppCurves.dramatic`) to visually represent the swap. Per sound-and-motion.md M-02 Robber note.
 
-**Troublemaker two-target selection:** Player selects first target (glow applied), then second target (both glowed). Both selections are fluid until timer expires. Deselecting one target returns to single-selection state.
+**Troublemaker two-target selection:** Player selects first target (glow applied), then second target (both glowed). Both selections are fluid until the player taps Confirm or the timer expires. Deselecting one target returns to single-selection state.
 
 **Drunk mandatory action:** If timer expires without selection, action is skipped as a timeout (not a legitimate choice). Server logs as timeout. See P-ERR `action.timeout` toast.
 
@@ -654,7 +654,7 @@ The host has NO additional information or controls during the night. The host is
 | Screen reader: card face-up | `Semantics(liveRegion: true)`. Card becomes a static container post-flip. Role name, team, and description are separate semantic children so users can re-read each field independently. Full announcement: "Your role is [Role Name]. [Team Name] team. [Role description]." |
 | Screen reader: team badge | `Semantics(label: "[Team Name] team")` on the team badge pill. Redundant with flip announcement but navigable independently. |
 | Reduced motion: card flip | Cross-fade front/back over 300ms instead of 3D rotation. Per M-01 reduced motion. Team glow appears instantly. |
-| Minimum touch target | Card is 240dp x 320dp — exceeds `AppDimensions.touchTargetMin` (48dp). |
+| Minimum touch target | Card is 300dp x 400dp — exceeds `AppDimensions.touchTargetMin` (48dp). |
 | Team identification (color-blind) | Team badge uses text label ("Village", "Werewolf", "Independent") + team icon + team color. Never color alone. |
 
 ### Night Actions (S06-S08)

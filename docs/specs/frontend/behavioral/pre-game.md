@@ -347,7 +347,7 @@ Illustrations render as SVG, bottom-anchored, bleeding off bottom and sides. Lay
 
 ## Narrator Cues
 
-No narrator cues fire on pre-game screens. The first narrator cue is NC-OPEN during T-01 (Lobby -> Night).
+No narrator cues fire on pre-game screens. The first narrator cue is NC-GAME-START during T-01 (Lobby -> Night), followed by NC-OPEN (see `narrator-cues.md`).
 
 ---
 

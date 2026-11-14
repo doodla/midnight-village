@@ -79,14 +79,8 @@ Host UX is first-class: controls are themed, contextual, and integrated — not 
 │  ┌─────────────────────────────┐    │
 │  │  Configure Roles  ▸        │    │  <- Opens S04
 │  └─────────────────────────────┘    │     AppColors.surface card
-│                                     │
-│  ┌─────────────────────────────┐    │
-│  │  Start Game                 │    │  <- Primary CTA
-│  └─────────────────────────────┘    │     AppColors.bloodEmber bg
-│                                     │     AppGlows.cta pulse (UI-17)
-│                                     │     Disabled until valid config
-│                                     │     + ≥3 players.
-│                                     │     Also accessible via S04b.
+│                                     │     Start Game is on S04b
+│                                     │     (Game Settings), not here.
 └─────────────────────────────────────┘
 ```
 
@@ -246,12 +240,12 @@ Host UX is first-class: controls are themed, contextual, and integrated — not 
 | LOBBY-PLAYER-JOIN | Server notifies new player joined | Player appears in list with stagger animation (UI-13, 300ms). Player count increments. | `AppHaptics.tapLight` (H-01) |
 | LOBBY-PLAYER-LEAVE | Server notifies player left | Player row fades out (200ms, `AppCurves.exit`). List reflows. Player count decrements. | None |
 | LOBBY-READY-TOGGLE | Player taps ready toggle | Own ready state toggles. Toggle animates (UI-14, scale 1.0->1.08->1.0, 200ms, `AppCurves.bounce`). Server notified. | `AppHaptics.selectionClick` (H-04) |
-| LOBBY-ALL-READY | All players are ready | Visual emphasis on "Start Game" (host) — CTA glow intensifies. Non-host: "Waiting for host to start." | None |
+| LOBBY-ALL-READY | All players are ready | Informational only — ready states do not gate "Start Game" (which lives on S04b). Non-host: "Waiting for host to start." | None |
 | LOBBY-CODE-COPIED | Player taps lobby code | Code copied to clipboard. Brief "Copied!" toast below code area (auto-dismiss 2s). | `AppHaptics.tapLight` (H-01) |
 | LOBBY-CONFIG-OPEN | Host taps "Configure Roles" | Role selection screen (S04) slides in from right or appears as full-screen overlay. | `AppHaptics.tapLight` (H-01) |
-| LOBBY-GAME-START | Host taps "Start Game", server confirms | T-01 cinematic (2500ms) fires. All players transition to night phase. | `AppHaptics.phaseShift` (H-06), `SoundCues.gameStart` (S-01) |
+| LOBBY-GAME-START | Host taps "Start Game" on S04b, server confirms | T-01 cinematic (2500ms) fires. All players transition to night phase. | `AppHaptics.phaseShift` (H-06), `SoundCues.gameStart` (S-01) |
 | LOBBY-HOST-BADGE | Always visible | Host player row has `AppColors.tallowGold` 2dp border + ★ icon. | None |
-| LOBBY-DISCONNECT | Player disconnect | P-DISCONNECT overlay. Not game-blocking in lobby — disconnected player is removed after timeout. No game pause. | `SoundCues.disconnect` (S-14) |
+| LOBBY-DISCONNECT | Player disconnect | No overlay in the lobby. The player's row shows as disconnected in the list (avatar disconnected state per art-direction.md); the player is removed after timeout. No game pause. | None |
 | LOBBY-LOADING | Lobby data loading | Shimmer on player list (P-LOADING). Code placeholder shimmers. | None |
 | LOBBY-HINT-HOST | Host first time | Hint H-07: "Choose which roles to include in this game." Points to "Configure Roles." | None |
 
@@ -314,7 +308,7 @@ Host UX is first-class: controls are themed, contextual, and integrated — not 
 | ROLE-* | Host taps "Next: Game Settings" | SETTINGS-* (S04b) | Screen slide in from right (300ms, `AppCurves.enter`) |
 | SETTINGS-* | Host taps back / swipe back | ROLE-* (S04) | Screen slide out to right (300ms, `AppCurves.exit`) |
 | SETTINGS-* | Host taps "Start Game" + server confirms | Night phase (S05) | T-01 cinematic (2500ms) |
-| LOBBY-* | Host taps "Start Game" + server confirms | Night phase (S05) | T-01 cinematic (2500ms) |
+| LOBBY-* (non-host players) | Host taps "Start Game" on S04b + server confirms | Night phase (S05) | T-01 cinematic (2500ms) |
 | LOBBY-* | Host leaves | Home (S02) for host; all others see "innkeeper departed" overlay | Host: slide out. Others: P-ERR overlay. |
 
 ---
@@ -329,21 +323,10 @@ Host UX is first-class: controls are themed, contextual, and integrated — not 
 | Ready toggle (not ready) | Tap | Toggle to ready. Toggle visual: fill animates to `AppColors.moonlitSage`, scale pop (UI-14). "Ready" text replaces "Waiting." Server notified. | `AppHaptics.selectionClick` (H-04) | None |
 | Ready toggle (ready) | Tap | Toggle to not ready. Toggle visual: fill animates to empty, "Waiting" text. Server notified. | `AppHaptics.selectionClick` (H-04) | None |
 | "Configure Roles" (host) | Tap | Navigate to S04 role selection. | `AppHaptics.tapLight` (H-01) | None |
-| "Start Game" (host, enabled) | Tap | Server validates config. If valid: T-01 fires. If invalid: toast with specific error. Button disables during validation. | `AppHaptics.tapMedium` (H-02) | `SoundCues.gameStart` (S-01) on success |
-| "Start Game" (host, disabled) | Tap | No action. Button visually disabled (`AppOpacity.disabled`, 0.38). Tooltip: reason for disability ("Need at least 3 players" or "Invalid role configuration"). | None | None |
 | Player row | — | Not interactive (no tap action on other players). Display only. | — | — |
 | Hint H-07 | Tap | Dismiss permanently. | None | None |
-| Hint H-08 | Tap | Dismiss permanently. | None | None |
 
-**Start Game preconditions (all must be true for button to enable):**
-
-| Condition | Error if Unmet |
-|-----------|---------------|
-| ≥ 3 players in lobby | "Need at least 3 players to start" |
-| ≤ 10 players in lobby | "Maximum 10 players" |
-| Card count = player_count + 3 | "Need {N} role cards ({players} players + 3 center)" |
-| Mason count is 0 or 2 | "Masons must be in pairs" |
-| At least one role selected | "Select at least one role" |
+"Start Game" is not on S03 — see S04b: Game Settings below.
 
 ### S04: Role Selection
 
@@ -361,8 +344,6 @@ Host UX is first-class: controls are themed, contextual, and integrated — not 
 
 | Interaction | Failure | Result |
 |-------------|---------|--------|
-| Start Game | Server rejects (race condition, player left between tap and validation) | Toast: "A villager slipped away..." / "Player count changed. Check your configuration." Button re-enables. |
-| Start Game | Server timeout | Toast: P-ERR network timeout. Button re-enables. |
 | Role config save | Server offline | Config cached client-side. Synced on reconnect. Lobby shows cached config. |
 | Stepper at max | Tap + | Button disabled (`AppOpacity.disabled`). No action. |
 | Stepper at min | Tap - | Button disabled. No action. |
@@ -378,11 +359,12 @@ Host UX is first-class: controls are themed, contextual, and integrated — not 
 | Timer slider | Drag | Value updates in real time. Display shows formatted value (e.g., "5:00", "60s"). If values no longer match any preset, "Custom" badge appears in `AppColors.tallowGold` with `AppTextStyles.label`. If values match a preset exactly, badge hides and that preset re-highlights. Values saved to local storage on release. | `AppHaptics.selectionClick` (H-04) on release | None |
 | "Start Game" (enabled) | Tap | Server validates config (roles + timers). If valid: T-01 fires. If invalid: toast with specific error. Button disables during validation. | `AppHaptics.tapMedium` (H-02) | `SoundCues.gameStart` (S-01) on success |
 | "Start Game" (disabled) | Tap | No action. Button visually disabled (`AppOpacity.disabled`, 0.38). Tooltip: reason for disability ("Need at least 3 players" or "Invalid role configuration"). | None | None |
+| Hint H-08 | Tap | Dismiss permanently. | None | None |
 | Back navigation | Swipe right or system back | Returns to S04 (Role Selection). Timer config preserved. | None | None |
 
 **Start Game preconditions (all must be true for button to enable):**
 
-Same as S03 lobby Start Game preconditions — the button has moved from S03 to S04b, but the conditions are identical:
+The Start Game button lives only on S04b (it was moved here from S03). Players' ready states are not a precondition:
 
 | Condition | Error if Unmet |
 |-----------|---------------|
@@ -542,7 +524,7 @@ The role list is a scrollable `ListView` with team-section headers, not a fixed 
 
 ## Narrator Cues
 
-No narrator cues fire during the lobby phase. The first narrator cue is NC-OPEN, which fires during the T-01 (Lobby -> Night) transition after the host starts the game.
+No narrator cues fire during the lobby phase. The first narrator cue is NC-GAME-START, which fires during the T-01 (Lobby -> Night) transition after the host starts the game; NC-OPEN follows it (see `narrator-cues.md`).
 
 ---
 
@@ -558,7 +540,7 @@ No narrator cues fire during the lobby phase. The first narrator cue is NC-OPEN,
 | Player kicked | "You've been shown the door..." | The host removed you from the lobby. | Overlay card. "Return to Home" button. |
 | Start game — server reject | "A villager slipped away..." | Player count changed. Check your configuration. | Toast. Button re-enables. Host adjusts. |
 | Config save failed | (silent) | (retry) | Client retries silently. Config cached locally. |
-| Player disconnect in lobby | (no game-blocking overlay) | (silent removal) | Disconnected player removed from list after timeout. Toast: "{name} left the tavern." Not game-blocking (no game in progress). |
+| Player disconnect in lobby | (no overlay) | (silent removal) | Player shows as disconnected in the list, then is removed after timeout. Toast: "{name} left the tavern." Not game-blocking (no game in progress). |
 
 ---
 
@@ -613,9 +595,6 @@ No narrator cues fire during the lobby phase. The first narrator cue is NC-OPEN,
 | `lobby.ready_toggle_on` | Ready! | Toggle active state |
 | `lobby.ready_toggle_off` | Tap to Ready Up | Toggle inactive state |
 | `lobby.configure_roles` | Configure Roles | Host button |
-| `lobby.start_game` | Start Game | Host CTA |
-| `lobby.start_disabled_players` | Need at least 3 players to start | Disabled reason |
-| `lobby.start_disabled_config` | Invalid role configuration | Disabled reason |
 | `lobby.empty_headline` | "The tavern awaits..." | Empty state (P-EMPTY) |
 | `lobby.empty_subtitle` | Share the lobby code to invite players. | Empty state |
 | `lobby.player_joined` | {name} joined the village | Toast (optional) |
@@ -702,7 +681,6 @@ No narrator cues fire during the lobby phase. The first narrator cue is NC-OPEN,
 | Screen reader: player leave | "{name} left the tavern." via `liveRegion: polite`. |
 | Screen reader: player row | "[Name], [ready/waiting]. [Host indicator if applicable]." |
 | Screen reader: ready toggle | "Ready toggle. Currently [ready/waiting]. Double-tap to change." On toggle: "You are now [ready/waiting]." |
-| Screen reader: Start Game (host) | "Start Game. [Enabled/Disabled]. [Reason if disabled]." |
 | Touch targets | Ready toggle: full row width, 64dp height. Lobby code: full card area. |
 | Color-blind: ready state | "Ready" text in `AppColors.moonlitSage` + the word "Ready." "Waiting" in `AppColors.parchmentMuted` + the word "Waiting." Text carries meaning, not color alone. |
 | Color-blind: host badge | ★ icon + "Host" text + gold border. Triple redundancy. |
@@ -729,7 +707,7 @@ No narrator cues fire during the lobby phase. The first narrator cue is NC-OPEN,
 | Screen reader: customize expander | `Semantics(label: "Customize timers. [Collapsed/Expanded]. Double-tap to [expand/collapse].")` |
 | Screen reader: sliders | Each: `Semantics(label: "[Timer name]. Currently [value]. Minimum [min], maximum [max]. Adjust with swipe.")`. On change: new value announced via `liveRegion: polite`. |
 | Screen reader: custom badge | "Custom settings active. Values differ from [preset name] preset." announced via `liveRegion: polite` when badge appears. |
-| Screen reader: Start Game | Same as S03 Start Game accessibility. `Semantics(label: "Start Game. [Enabled/Disabled]. [Reason if disabled].")` |
+| Screen reader: Start Game | `Semantics(label: "Start Game. [Enabled/Disabled]. [Reason if disabled].")` |
 | Touch targets | Preset cards: full card area, minimum 48dp height. Slider track: full width, 48dp touch area. Expander: full width, 48dp height. |
 | Color-blind: preset selection | Selected preset has `AppColors.tallowGold` border + `AppGlows.selection` glow + text reinforcement. Not color-only. |
 | Color-blind: custom badge | "Custom" text label. Not color-only. |

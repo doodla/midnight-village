@@ -80,7 +80,7 @@ This spec covers the Results screen (S15): win/loss announcement, player results
 │  │                             │    │
 │  │   Voted for: Alice          │    │  <- Expanded detail
 │  │   Received: 2 votes         │    │
-│  │   Night: Robbed Alice       │    │
+│  │   Night: Robbed Bob         │    │
 │  │   (took Werewolf card)      │    │
 │  └─────────────────────────────┘    │
 │  ┌─────────────────────────────┐    │
@@ -144,24 +144,18 @@ This spec covers the Results screen (S15): win/loss announcement, player results
 │                                     │
 │  Night Log                          │  <- AppTextStyles.heading2
 │                                     │
-│  1. Doppelganger (Carol) peeked     │  <- Chronological log
-│     at Dave's card: Villager        │     AppTextStyles.body
-│                                     │     Numbered steps
-│  2. Werewolves woke up:             │     AppColors.surface cards
-│     Bob (Werewolf)                  │     per entry
-│     No other Werewolves found.      │
-│     Bob peeked center card 2:       │
-│     Tanner                          │
+│  1. Werewolves woke up:             │  <- Chronological log
+│     Bob (Werewolf)                  │     AppTextStyles.body
+│     No other Werewolves found.      │     Numbered steps
+│     Bob peeked center card 2:       │     AppColors.surface cards
+│     Tanner                          │     per entry
 │                                     │
-│  3. Seer (Alice) peeked at          │
+│  2. Seer (Alice) peeked at          │
 │     Bob's card: Werewolf            │
 │                                     │
-│  4. Robber (Carol) swapped with     │
+│  3. Robber (Carol) swapped with     │
 │     Bob: Carol got Werewolf,        │
 │     Bob got Robber                  │
-│                                     │
-│  5. Insomniac (Eve) checked card:   │
-│     Still Hunter                    │
 │                                     │
 │  [Back to results]                  │
 │                                     │
@@ -326,7 +320,7 @@ This spec covers the Results screen (S15): win/loss announcement, player results
 | Scenario | Behavior | Result |
 |----------|----------|--------|
 | Host taps "Play Again" | T-07 transition. ALL players in the session return to lobby. Previous role configuration and timer settings are retained (same roles pre-selected, same timer preset or custom values on S04b). Player list reflects who is still in the session. | Lobby with same group, same game config. Host can adjust roles and timers before starting. |
-| Host leaves during debrief | All remaining players see "The innkeeper has departed..." overlay with "Return to Home" button. Session closes. | All players return to home. No automatic host transfer during debrief (unlike mid-game disconnect where host transfers after timeout). |
+| Host leaves during debrief | All remaining players see "The innkeeper has departed..." overlay with "Return to Home" button. Session closes. | All players return to home. There is no host transfer anywhere: mid-game, a host disconnect starts the 5-minute candle countdown and its expiry ends the game (see `cross-cutting.md` P-DISCONNECT). |
 | Player taps "Leave Game" | Player exits. Other players see "{name} has left the village" toast. Player count in the session decreases. | If host later taps "Play Again," lobby loads without the departed player. |
 | Player declines rematch (leaves before host hits Play Again) | Same as "Leave Game." No special UI. | Lobby shows reduced player count. |
 | Partial group rematch | Host taps "Play Again." Some players have left. Lobby loads with remaining players only. | Host sees fewer players. Role config may become invalid (too few players for selected roles). Host must adjust. Validation banners (P-ERR inline) fire if config is invalid. |
@@ -411,12 +405,12 @@ Each entry is a numbered card:
 
 ```
 ┌─────────────────────────────────────┐
-│  1. Wave 1 — Doppelganger          │  <- AppTextStyles.heading3
+│  3. Wave 3 — Robber                │  <- AppTextStyles.heading3
 │                                     │     Wave + role header
-│  Carol peeked at Dave's card:       │  <- AppTextStyles.body
-│  Villager                           │
-│  Carol is now the Villager          │  <- Team change note
-│  (Village team)                     │     (if applicable)
+│  Carol swapped with Bob.            │  <- AppTextStyles.body
+│  Carol got Werewolf. Bob got Robber.│
+│  Carol is now on the Werewolf team  │  <- Team change note
+│                                     │     (if applicable)
 └─────────────────────────────────────┘
 ```
 
@@ -452,7 +446,7 @@ Each entry is a numbered card:
 **Autopsy Variants:**
 - When zero Werewolves are among players (all Werewolf cards in center), the Werewolf wave autopsy entry reads: "Werewolves woke: no Werewolves among players." The narrator cue still fired for concealment.
 
-**Doppelganger card convention:** The autopsy displays the Doppelganger card as its effective copied role, not as "Doppelganger." When Carol holds the Doppelganger card that copied Robber, swap entries show "Carol got Doppelganger (as Robber)" — making clear both the physical card identity and the effective role. The parenthetical "(as {role})" distinguishes Doppelganger cards from actual role cards throughout the autopsy.
+**Doppelganger card convention:** The autopsy displays the Doppelganger card as its effective copied role, not as "Doppelganger." When a player holds the Doppelganger card that copied Robber, swap entries show "{Player} got Doppelganger (as Robber)" — making clear both the physical card identity and the effective role. The parenthetical "(as {role})" distinguishes Doppelganger cards from actual role cards throughout the autopsy.
 
 ---
 
