@@ -1,6 +1,6 @@
-# Frontend Spec — Reference Scenarios
+# Reference Games
 
-> Ordered by complexity. Each scenario has a complete game state trace and identifies which spec edge cases it exercises. Use these to validate specs, test implementations, and verify the results screen handles every outcome correctly.
+> Ordered by complexity. Each scenario has a complete game state trace and identifies which spec edge cases it exercises. Use these to test the rules engine and to check that the results screen handles every outcome correctly.
 
 ---
 
@@ -324,55 +324,7 @@ Village votes Alice. Alice=4 votes. Eliminated.
 
 ---
 
-## Scenario 9: The Disconnect Nightmare
-
-**Complexity:** Very High — tests disconnect handling at worst possible moments.
-
-**Setup:** 5 players — Alice (host)=Seer, Bob=Werewolf, Carol=Robber, Dave=Villager, Eve=Villager
-**Center:** Werewolf, Minion, Drunk
-
-### Timeline
-
-| Time | Event | Active Phase |
-|------|-------|-------------|
-| 0:00 | Game starts normally. T-01 cinematic, role reveal. | Night |
-| 0:45 | W2: Bob (Werewolf) begins center peek action. | Night W2 |
-| 0:48 | **Bob disconnects** mid-night-action (before submitting peek). | Night W2 |
-| 0:56 | Bob reconnects (8s later). Sub-threshold — no game pause triggered. | Night W2 |
-| — | Night completes normally. Alice peeks Dave (Villager). Carol robs Bob (gets Werewolf). | Night W3 |
-| 3:00 | Discussion starts. | Discussion |
-| 4:15 | **Alice (HOST) disconnects.** | Discussion |
-| 4:27 | Alice reconnects (12s later). Sub-threshold. Discussion timer never paused. | Discussion |
-| 5:00 | Voting starts. | Voting |
-| 5:45 | Dave selects Carol as vote target (fluid selection). | Voting |
-| 5:47 | **Dave disconnects** with 15s left on voting timer. | Voting |
-| 6:02 | Voting timer expires. Dave's fluid selection (Carol) auto-finalizes. | Vote Reveal |
-| 6:07 | Dave's disconnect confirmed at 20s. T-09 overlay. Tally pauses. | Vote Reveal |
-| 6:07+ | Host drops Dave after timeout. Tally resumes. | Vote Reveal |
-
-### Open Design Questions
-These are unresolved in the current specs (see `gaps.md` C-1 through C-3, M-9 through M-13 in this directory):
-
-1. **Sub-threshold disconnect during active action** — Bob's wave timer may expire before anyone detects the disconnect. His action is silently skipped.
-2. **Sub-threshold reconnection** — Bob returns to a changed state with no feedback or explanation.
-3. **Host sub-threshold disconnect** — Invisible to other players. Discussion timer continues. No game pause.
-4. **Fluid selection auto-finalization** — Dave's selection counts as his vote when the timer expires, even though he's offline.
-5. **Dropped player in tally** — Unspecified: greyed out, omitted, or shown normally?
-6. **Dropped player in results** — Unspecified: appearance, win/loss status, night action summary.
-
-### Edge Cases Exercised
-- Sub-threshold disconnect (<20s) — invisible to other players
-- Disconnect during active night action — timer may expire during outage
-- Host disconnect during timed phase — discussion timer behavior
-- Disconnect during voting with fluid selection — auto-finalization of absent player's vote
-- Confirmed disconnect during theatrical sequence (vote tally)
-- Player drop mid-tally — resume behavior
-- Dropped player in results table
-- Race condition: game timer < disconnect detection threshold
-
----
-
-## Scenario 10: The Kitchen Sink — Maximum Complexity
+## Scenario 9: The Kitchen Sink — Maximum Complexity
 
 **Complexity:** Extreme — every complex mechanic in one game.
 
@@ -449,5 +401,4 @@ Dave accuses Bob. Carol deflects. Grace acts suspicious. Bob claims Villager.
 | 6 | No-Werewolf Minion | High | Minion special rule, unknowing winner, zero WW thumbs |
 | 7 | Doppelganger-as-Minion | High | W1 special script, two Minion-seers, narrator timing |
 | 8 | Drunk Into Werewolf | Medium | Blind swap, unknowing team change, stale Seer peek |
-| 9 | Disconnect Nightmare | Very High | Sub-threshold disconnect, timer races, dropped player |
-| 10 | Kitchen Sink | Extreme | All mechanics simultaneously, 3 deaths, dual winners |
+| 9 | Kitchen Sink | Extreme | All mechanics simultaneously, 3 deaths, dual winners |

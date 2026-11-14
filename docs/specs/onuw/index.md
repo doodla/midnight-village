@@ -13,6 +13,7 @@ These specs cover the 12 roles targeted for initial implementation.
 | [night-phase.md](night-phase.md) | Wake order, wave system, narrator scripts, action types, timer model, optionality |
 | [voting-and-resolution.md](voting-and-resolution.md) | Discussion, voting mechanics, death threshold, win conditions, algorithm |
 | [doppelganger.md](doppelganger.md) | Complete Doppelganger interaction matrix for all 12 copied roles |
+| [reference-games.md](reference-games.md) | Nine complete games traced from deal to result, for testing the engine and the results screen |
 
 ## Daybreak Expansion (Future Scope)
 
