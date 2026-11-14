@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/components/core/primary_button.dart';
 
 import 'helpers/integration_test_helper.dart';
 import 'helpers/navigation_helpers.dart';
@@ -16,7 +17,7 @@ void main() {
       // After launch the app settles to the unauthenticated welcome view
       // (no stored tokens → AuthUnauthenticated).
       expect(find.byType(TextField), findsOneWidget);
-      expect(find.widgetWithText(ElevatedButton, 'Continue'), findsOneWidget);
+      expect(find.widgetWithText(PrimaryButton, 'Continue'), findsOneWidget);
 
       // Verify we start on the home route.
       tester.expectRoute('/');
@@ -26,15 +27,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap the Continue button to trigger guest account creation.
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Continue'));
       await tester.pumpAndSettle();
 
       // The mock returns display_name = 'TestPlayer' — verify authenticated view.
       expect(find.textContaining('Hello, TestPlayer!'), findsOneWidget);
-      expect(
-        find.widgetWithText(ElevatedButton, 'Logout'),
-        findsOneWidget,
-      );
+      expect(find.widgetWithText(PrimaryButton, 'Logout'), findsOneWidget);
 
       // Verify we remain on the home route after authentication.
       tester.expectRoute('/');
@@ -47,7 +45,7 @@ void main() {
       await IntegrationTestSetup.launchApp(tester);
 
       // Skip entering a name — tap Continue with empty field.
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Continue'));
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Continue'));
       await tester.pumpAndSettle();
 
       // Mock always returns 'TestPlayer' — just verify we reached authenticated state.
