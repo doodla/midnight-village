@@ -53,9 +53,14 @@ def _setup_doppelganger_game(role_assignments: list[str], center_cards: list[str
         host=host,
         game_type="onuw",
         max_players=10,
-        # Minimum window length 0: a window closes as soon as its last actor
-        # submits (the minimum length has its own tests).
-        settings={"roles": role_config, "night_min_window_seconds": 0},
+        # Minimum window length 0 and a Doppelganger window length of 0 (fixed
+        # length off): a window closes as soon as its last actor submits. The
+        # minimum and the fixed length have their own tests.
+        settings={
+            "roles": role_config,
+            "night_min_window_seconds": 0,
+            "night_doppelganger_window_seconds": 0,
+        },
     )
     for user in users:
         LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
@@ -359,17 +364,18 @@ class TestDoppelgangerWave1Followup:
 
 
 class TestDoppelgangerFollowupTimeout:
-    """Timer-based timeout of Doppelganger follow-up actions."""
+    """The window-1 timer closes the window even if the follow-up is never submitted."""
 
-    def test_followup_timer_callback_advances_wave(self, db):
+    def test_window_timer_closes_window_1_without_the_follow_up(
+        self, db, django_capture_on_commit_callbacks
+    ):
         """
-        When Doppelganger times out on their wave-1 follow-up action,
-        the timer callback must advance the wave without crashing.
+        Window 1 has ONE timer, scheduled when it opens and never moved. If the
+        Doppelganger copies a Seer but never submits the follow-up, that timer's
+        callback closes the window: the follow-up is skipped and window 2 opens.
 
-        Regression: functools.partial in _send_doppelganger_followup_prompt
-        pre-bound both positional args to _auto_advance_wave. When
-        make_idempotent_callback's wrapper passed a fresh Game instance,
-        it became a third positional arg, causing TypeError.
+        Regression: a callback built with functools.partial must keep working
+        when make_idempotent_callback passes it a fresh Game instance.
         """
         from apps.onuw import timers
 
@@ -377,34 +383,43 @@ class TestDoppelgangerFollowupTimeout:
             role_assignments=["Doppelganger", "Seer", "Werewolf", "Villager"],
             center_cards=["Robber", "Drunk", "Troublemaker"],
         )
+        Game.objects.filter(id=game.id).update(
+            settings={
+                "roles": {},
+                "night_min_window_seconds": 0,
+                "night_doppelganger_window_seconds": 10,
+            }
+        )
+        game.refresh_from_db()
 
         doppel = users_by_role["Doppelganger"][0]
         seer = users_by_role["Seer"][0]
 
-        with _patch_channels():
-            from apps.onuw.services import start_night_phase
-
-            start_night_phase(game)
-
-        game.refresh_from_db()
-        assert game.current_wave == 1
-
-        # Cancel the initial wave timer so it doesn't interfere.
-        timers.cancel(f"{game.id}:wave:1")
-
-        # Submit the initial Doppelganger peek — copies Seer.
-        # Capture the follow-up timer callback instead of scheduling it.
-        captured: dict[str, tuple] = {}
+        scheduled: list[tuple[str, float, object]] = []
 
         def capture_schedule(key, delay, callback, *args):
-            captured[key] = (callback, args)
+            scheduled.append((key, delay, callback))
 
         client = APIClient()
         client.force_authenticate(user=doppel)
+        timer_key = f"{game.id}:wave:1"
 
         with (
             _patch_channels(),
             patch.object(timers, "schedule", side_effect=capture_schedule),
+            django_capture_on_commit_callbacks(execute=True),
+        ):
+            from apps.onuw.services import start_night_phase
+
+            start_night_phase(game)
+
+        assert [(k, d) for k, d, _ in scheduled] == [(timer_key, 10)]
+
+        # The look is submitted; the follow-up is never submitted.
+        with (
+            _patch_channels(),
+            patch.object(timers, "schedule", side_effect=capture_schedule),
+            django_capture_on_commit_callbacks(execute=True),
         ):
             response = client.post(
                 action_url,
@@ -413,22 +428,20 @@ class TestDoppelgangerFollowupTimeout:
             )
         assert response.status_code == status.HTTP_200_OK
 
-        # Game should still be in wave 1 (awaiting follow-up).
+        # Still window 1, and nothing was rescheduled for the follow-up.
         game.refresh_from_db()
         assert game.current_wave == 1
+        assert len(scheduled) == 1
 
-        # The follow-up timer should have been scheduled.
-        timer_key = f"{game.id}:wave:1"
-        assert timer_key in captured, (
-            f"Expected follow-up timer {timer_key}, got {list(captured.keys())}"
-        )
+        callback = scheduled[0][2]
+        with _patch_channels(), django_capture_on_commit_callbacks(execute=True):
+            callback()  # type: ignore[operator]
 
-        # Invoke the callback directly (simulating timeout expiry).
-        # With the bug, this raises TypeError.
-        callback, args = captured[timer_key]
-        with _patch_channels():
-            callback(*args)
-
-        # Game should have advanced past wave 1.
         game.refresh_from_db()
-        assert game.current_wave > 1 or game.phase != Phase.NIGHT
+        assert game.current_wave == 2
+        skipped = [
+            e
+            for e in game.night_actions_log
+            if e["player_id"] == doppel.id and e["action_type"] == "skip"
+        ]
+        assert len(skipped) == 1

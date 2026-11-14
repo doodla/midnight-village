@@ -83,7 +83,7 @@ Decisions that shape those screens:
 
 **Decided: one shared window.** The server is still built the old way, one group of roles at a time, until this is done.
 
-1. **Doppelganger window**, only if that card is in the deck. The Doppelganger looks at a player, copies the role, and if that role acts (Seer, Robber, Troublemaker, Drunk) does the action straight away.
+1. **Doppelganger window**, only if that card is in the deck. The Doppelganger looks at a player, copies the role, and if that role acts (Seer, Robber, Troublemaker, Drunk) does the action straight away. This window always lasts the same 10 seconds, whatever she does and even if the card is in the center, so its length gives nothing away. Anything she has not done in that time is skipped.
 2. **Shared window.** Every player chooses at once. Players with no action get something to tap.
    - When the window closes the server works through the choices in the official order: team views, Seer, Robber, Troublemaker, Drunk.
    - Only then is each player shown their result: Werewolves, Minion and Masons their team, a lone Werewolf the center card they picked, the Seer what they looked at, the Robber the card they took. Nobody is shown a result while others are still choosing. (A player's own team is known from the deal, so Werewolves and Masons may be shown it when the window opens.)

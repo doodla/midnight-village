@@ -8,6 +8,59 @@ from __future__ import annotations
 
 from .roles import ROLE_REGISTRY
 
+# Every timer setting the server reads, in seconds. 0 disables that timer
+# (night_doppelganger_window_seconds: see services._fixed_window_seconds).
+TIMER_SETTING_KEYS: tuple[str, ...] = (
+    "night_wave_seconds",
+    "night_min_window_seconds",
+    "night_doppelganger_window_seconds",
+    "discussion_seconds",
+    "voting_seconds",
+)
+MAX_TIMER_SECONDS = 3600
+
+
+def is_valid_timer_value(value: object) -> bool:
+    """True if value is an integer number of seconds in [0, MAX_TIMER_SECONDS]."""
+    return (
+        isinstance(value, int)
+        and not isinstance(value, bool)
+        and 0 <= value <= MAX_TIMER_SECONDS
+    )
+
+
+def validate_timer_settings(settings: dict) -> list[str]:
+    """
+    Validate the timer keys of a settings dict (absent keys are fine).
+
+    Each must be an integer from 0 to MAX_TIMER_SECONDS, and
+    night_min_window_seconds must not exceed night_wave_seconds when the
+    latter is set above 0 (the minimum length of a window cannot be longer
+    than its maximum). These are host-facing settings, so errors are explicit.
+    """
+    errors: list[str] = []
+    for key in TIMER_SETTING_KEYS:
+        if key not in settings:
+            continue
+        if not is_valid_timer_value(settings[key]):
+            errors.append(
+                f"{key!r} must be a whole number of seconds from 0 to "
+                f"{MAX_TIMER_SECONDS}."
+            )
+
+    wave_max = settings.get("night_wave_seconds")
+    window_min = settings.get("night_min_window_seconds")
+    if (
+        is_valid_timer_value(wave_max)
+        and is_valid_timer_value(window_min)
+        and wave_max > 0  # type: ignore[operator]
+        and window_min > wave_max  # type: ignore[operator]
+    ):
+        errors.append(
+            "'night_min_window_seconds' must not be longer than 'night_wave_seconds'."
+        )
+    return errors
+
 
 def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
     """
@@ -21,7 +74,10 @@ def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
     Returns:
         List of error messages. Empty list means valid.
     """
-    errors: list[str] = []
+    if not isinstance(settings, dict):
+        return ["Settings must be an object."]
+
+    errors: list[str] = validate_timer_settings(settings)
 
     if player_count < 3:
         errors.append(f"At least 3 players required, got {player_count}.")

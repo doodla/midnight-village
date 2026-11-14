@@ -13,10 +13,12 @@ once and resolves when it closes. Covered here:
 - teams come from DEALT cards (a stolen Werewolf card does not move the wake-up)
 """
 
+import logging
 from datetime import timedelta
 from typing import Any
 from unittest.mock import patch
 
+from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 
@@ -54,9 +56,11 @@ class Night:
         settings: dict[str, Any],
         recorder: _Recorder,
         scheduled: list[tuple[str, float, Any]],
+        capture_on_commit: Any,
     ) -> None:
         self.recorder = recorder
         self.scheduled = scheduled
+        self._capture_on_commit = capture_on_commit
         self.users = {
             name: User.objects.create_user(username=f"nw_{name}", password="pass")
             for name in roles
@@ -91,8 +95,13 @@ class Night:
 
     # -- driving the game ---------------------------------------------------
 
+    def committed(self) -> Any:
+        """Run the block, then run its on-commit callbacks (a real commit)."""
+        return self._capture_on_commit(execute=True)
+
     def start(self) -> None:
-        services.start_night_phase(self.game)
+        with self.committed():
+            services.start_night_phase(self.game)
         self.game.refresh_from_db()
 
     def post(
@@ -100,27 +109,34 @@ class Night:
     ) -> Any:
         self.client.force_authenticate(user=self.users[name])
         url = reverse("onuw:night-action", kwargs={"game_id": str(self.game.id)})
-        return self.client.post(
-            url,
-            {"action_type": action_type, "targets": targets or {}},
-            format="json",
-        )
+        with self.committed():
+            return self.client.post(
+                url,
+                {"action_type": action_type, "targets": targets or {}},
+                format="json",
+            )
 
     def host_close_window(self) -> Any:
         self.client.force_authenticate(user=self.host)
         url = reverse("onuw:wave-advance", kwargs={"game_id": str(self.game.id)})
-        return self.client.post(url, format="json")
+        with self.committed():
+            return self.client.post(url, format="json")
 
     def fire_timer(self, window: int) -> None:
         """Run the most recently scheduled callback for a window (timer expiry)."""
         key = f"{self.game.id}:wave:{window}"
         callbacks = [cb for k, _, cb in self.scheduled if k == key]
         assert callbacks, f"no timer scheduled for window {window}"
-        callbacks[-1]()
+        with self.committed():
+            callbacks[-1]()
         self.game.refresh_from_db()
 
     def timer_delays(self, window: int) -> list[float]:
         key = f"{self.game.id}:wave:{window}"
+        return [delay for k, delay, _ in self.scheduled if k == key]
+
+    def timer_delays_for(self, name: str) -> list[float]:
+        key = f"{self.game.id}:{name}"
         return [delay for k, delay, _ in self.scheduled if k == key]
 
     def pretend_window_opened(self, seconds_ago: float) -> None:
@@ -161,7 +177,7 @@ class Night:
 
 
 @pytest.fixture
-def make_night(db):
+def make_night(db, django_capture_on_commit_callbacks):
     """Factory for a Night; channel layer and timers are recorded, not run."""
     recorder = _Recorder()
     scheduled: list[tuple[str, float, Any]] = []
@@ -181,13 +197,22 @@ def make_night(db):
             center: list[str] | None = None,
             **settings: Any,
         ) -> Night:
-            merged = {"roles": {}, "night_min_window_seconds": 0, **settings}
+            # Defaults: no minimum length and no fixed Doppelganger window, so
+            # windows close as soon as there is nothing left to wait for. Tests
+            # of those rules set them explicitly.
+            merged = {
+                "roles": {},
+                "night_min_window_seconds": 0,
+                "night_doppelganger_window_seconds": 0,
+                **settings,
+            }
             return Night(
                 roles,
                 center or ["Villager", "Tanner", "Hunter"],
                 merged,
                 recorder,
                 scheduled,
+                django_capture_on_commit_callbacks,
             )
 
         yield factory
@@ -916,3 +941,432 @@ class TestDealtCardsDecideWhoWakes:
         assert (
             night.events_to("d", "action.prompt")[-1]["wave"] == 1
         )  # none in window 2
+
+
+# ── Window 1 has a fixed length ──────────────────────────────────────────────
+
+
+class TestFixedDoppelgangerWindow:
+    """Window 1 lasts exactly night_doppelganger_window_seconds, whatever happens.
+
+    Its length must not say whether the Doppelganger is in play, whether she
+    copied anything, or whether she has a follow-up. One timer is scheduled when
+    it opens and nothing moves it.
+    """
+
+    SECONDS = 10
+
+    def _night(self, make_night, roles, center=None):
+        return make_night(
+            roles,
+            center=center,
+            night_doppelganger_window_seconds=self.SECONDS,
+            night_wave_seconds=30,
+            night_min_window_seconds=0,
+        )
+
+    def _assert_one_untouched_timer(self, night: Night, deadline) -> None:
+        assert night.timer_delays(1) == [self.SECONDS]
+        assert night.refresh().phase_deadline == deadline
+        assert night.game.current_wave == 1
+
+    def test_default_length_is_ten_seconds(self, make_night) -> None:
+        night = make_night({"a": "Villager", "b": "Villager", "c": "Villager"})
+        night.game.settings = {}
+
+        assert services._fixed_window_seconds(night.game, 1) == 10
+        assert services._fixed_window_seconds(night.game, 2) == 0
+
+    def test_deadline_announced_at_the_start_is_the_real_close_time(
+        self, make_night
+    ) -> None:
+        night = self._night(
+            make_night,
+            {"d": "Doppelganger", "s": "Seer", "v": "Villager"},
+        )
+        night.start()
+
+        start = night.broadcasts("wave.start")[0]
+        game = night.refresh()
+        assert game.night_window_opened_at is not None
+        expected = game.night_window_opened_at + timedelta(seconds=self.SECONDS)
+        assert game.phase_deadline == expected
+        assert start["deadline"] == expected.isoformat()
+        assert night.timer_delays(1) == [self.SECONDS]
+
+    def test_card_in_the_center_nobody_can_act_still_lasts_the_full_length(
+        self, make_night
+    ) -> None:
+        night = self._night(
+            make_night,
+            {"a": "Villager", "b": "Seer", "c": "Werewolf"},
+            center=["Doppelganger", "Robber", "Tanner"],
+        )
+        night.start()
+        deadline = night.game.phase_deadline
+
+        self._assert_one_untouched_timer(night, deadline)
+        night.fire_timer(1)
+        assert night.game.current_wave == 2
+
+    def test_look_at_a_role_with_no_follow_up_does_not_close_it_early(
+        self, make_night
+    ) -> None:
+        night = self._night(
+            make_night,
+            {"d": "Doppelganger", "v1": "Villager", "w": "Werewolf", "v2": "Villager"},
+        )
+        night.start()
+        deadline = night.game.phase_deadline
+
+        night.post("d", "peek_player", {"player_id": night.users["v1"].id})
+
+        # The look is resolved and delivered at once ...
+        assert len(night.events_to("d", "action.result")) == 1
+        # ... but the window runs to its fixed length, like every other case.
+        self._assert_one_untouched_timer(night, deadline)
+        night.fire_timer(1)
+        assert night.game.current_wave == 2
+
+    def test_follow_up_neither_extends_nor_shortens_it(self, make_night) -> None:
+        night = self._night(
+            make_night,
+            {"d": "Doppelganger", "s": "Seer", "w": "Werewolf", "v": "Villager"},
+        )
+        night.start()
+        deadline = night.game.phase_deadline
+
+        night.post("d", "peek_player", {"player_id": night.users["s"].id})
+        # The follow-up prompt goes out at once, with no new timer or deadline.
+        prompt = night.events_to("d", "action.prompt")[-1]
+        assert prompt["role_acting_as"] == "Seer"
+        self._assert_one_untouched_timer(night, deadline)
+
+        night.post("d", "peek_player", {"player_id": night.users["w"].id})
+        # Everything submitted: still no early close, and the follow-up's
+        # result is held until the window closes.
+        self._assert_one_untouched_timer(night, deadline)
+        assert len(night.events_to("d", "action.result")) == 1
+
+        night.fire_timer(1)
+
+        assert night.game.current_wave == 2
+        results = night.events_to("d", "action.result")
+        assert [e["action_type"] for e in results] == ["peek_player", "peek_player"]
+        assert results[1]["revealed_info"]["role"] == "werewolf"
+
+    def test_follow_up_not_submitted_is_skipped_when_the_timer_fires(
+        self, make_night
+    ) -> None:
+        night = self._night(
+            make_night,
+            {"d": "Doppelganger", "r": "Robber", "w": "Werewolf", "v": "Villager"},
+        )
+        night.start()
+        night.post("d", "peek_player", {"player_id": night.users["r"].id})
+
+        night.fire_timer(1)
+
+        assert night.game.current_wave == 2
+        assert night.role_of("d").current_role == "Doppelganger"  # nothing taken
+        entries = [
+            e
+            for e in night.game.night_actions_log
+            if e["player_id"] == night.users["d"].id
+        ]
+        assert [e["action_type"] for e in entries] == ["peek_player", "skip"]
+
+    def test_look_not_submitted_is_skipped_when_the_timer_fires(
+        self, make_night
+    ) -> None:
+        night = self._night(
+            make_night, {"d": "Doppelganger", "s": "Seer", "v": "Villager"}
+        )
+        night.start()
+
+        night.fire_timer(1)
+
+        assert night.game.current_wave == 2
+        assert "copied_role" not in night.role_of("d").night_action_data
+
+    def test_host_may_still_close_it_immediately(self, make_night) -> None:
+        night = self._night(
+            make_night, {"d": "Doppelganger", "s": "Seer", "v": "Villager"}
+        )
+        night.start()
+
+        assert night.host_close_window().status_code == status.HTTP_200_OK
+
+        assert night.refresh().current_wave == 2
+
+    def test_window_2_is_not_fixed_and_keeps_its_own_timer(self, make_night) -> None:
+        night = self._night(
+            make_night, {"d": "Doppelganger", "s": "Seer", "v": "Villager"}
+        )
+        night.start()
+        night.fire_timer(1)
+
+        assert night.timer_delays(2) == [30]  # night_wave_seconds, not the fixed length
+
+    def test_zero_turns_the_fixed_length_off(self, make_night) -> None:
+        # 0: window 1 closes like window 2, as soon as its actors are done
+        # (no sooner than the minimum, no later than night_wave_seconds).
+        night = make_night(
+            {"d": "Doppelganger", "v1": "Villager", "v2": "Villager"},
+            night_doppelganger_window_seconds=0,
+            night_wave_seconds=30,
+            night_min_window_seconds=0,
+        )
+        night.start()
+        assert night.timer_delays(1) == [30]
+
+        night.post("d", "peek_player", {"player_id": night.users["v1"].id})
+
+        # Window 1 closed at once (window 2 then had nobody to wait for).
+        assert [e["wave"] for e in night.broadcasts("wave.start")] == [1, 2]
+        assert [e["wave"] for e in night.broadcasts("wave.complete")] == [1, 2]
+
+
+# ── Side effects wait for the commit ─────────────────────────────────────────
+
+
+class TestSideEffectsWaitForCommit:
+    def test_nothing_is_sent_or_scheduled_until_the_transaction_commits(
+        self, make_night, django_capture_on_commit_callbacks
+    ) -> None:
+        night = make_night({"s": "Seer", "r": "Robber", "v": "Villager"})
+
+        with django_capture_on_commit_callbacks(execute=False) as callbacks:
+            services.start_night_phase(night.game)
+
+        # The window is open in the database, but nobody was told yet and no
+        # timer exists.
+        assert night.refresh().current_wave == 2
+        assert night.recorder.events == []
+        assert night.scheduled == []
+        assert callbacks
+
+        for callback in callbacks:  # the commit happens
+            callback()
+
+        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+        assert [k for k, _, _ in night.scheduled] == [f"{night.game.id}:wave:2"]
+
+    def test_closing_a_window_sends_results_only_after_the_commit(
+        self, make_night, django_capture_on_commit_callbacks
+    ) -> None:
+        night = make_night({"s": "Seer", "r": "Robber", "v": "Villager"})
+        night.start()
+        night.post("s", "skip")
+        sent_before = len(night.recorder.events)
+
+        with django_capture_on_commit_callbacks(execute=False) as callbacks:
+            services.advance_wave(night.game)
+
+        assert night.refresh().phase == Phase.DISCUSSION
+        assert len(night.recorder.events) == sent_before  # nothing yet
+        for callback in callbacks:
+            callback()
+        types = [e["type"] for _, e in night.recorder.events[sent_before:]]
+        assert types.index("action.result") < types.index("wave.complete")
+        assert types.index("wave.complete") < types.index("phase.change")
+
+    def test_a_failure_while_opening_the_next_window_changes_and_sends_nothing(
+        self, make_night, django_capture_on_commit_callbacks
+    ) -> None:
+        night = make_night(
+            {"d": "Doppelganger", "s": "Seer", "v": "Villager"},
+            night_doppelganger_window_seconds=10,
+        )
+        night.start()
+        events_before = len(night.recorder.events)
+        scheduled_before = len(night.scheduled)
+
+        with (
+            patch("apps.onuw.timers.cancel") as cancel,
+            patch(
+                "apps.onuw.services.send_wave_prompts", side_effect=RuntimeError("boom")
+            ),
+            django_capture_on_commit_callbacks(execute=True) as callbacks,
+            pytest.raises(RuntimeError),
+            transaction.atomic(),
+        ):
+            services.advance_wave(night.game)
+
+        # Rolled back: still window 1, no log, nothing sent, timer untouched.
+        assert callbacks == []
+        game = night.refresh()
+        assert game.current_wave == 1
+        assert game.night_actions_log == []
+        assert len(night.recorder.events) == events_before
+        assert len(night.scheduled) == scheduled_before
+        cancel.assert_not_called()
+
+    def test_failed_timer_callback_is_logged_and_the_night_is_left_as_it_was(
+        self, make_night, caplog
+    ) -> None:
+        night = make_night({"s": "Seer", "r": "Robber", "v": "Villager"})
+        night.start()
+        callback = night.scheduled[-1][2]
+
+        with (
+            patch("apps.onuw.services.advance_wave", side_effect=RuntimeError("boom")),
+            caplog.at_level(logging.ERROR, logger="apps.onuw.timers"),
+        ):
+            callback()  # must not raise inside the timer thread
+
+        assert "Timer callback failed" in caplog.text
+        assert "boom" in caplog.text
+        game = night.refresh()
+        assert (game.phase, game.current_wave) == (Phase.NIGHT, 2)
+
+        # The host can still carry on.
+        assert night.host_close_window().status_code == status.HTTP_200_OK
+        assert night.refresh().phase == Phase.DISCUSSION
+
+
+# ── Malformed input is a 400 ─────────────────────────────────────────────────
+
+BAD_VALUES = [
+    pytest.param("abc", id="word"),
+    pytest.param("3", id="numeric-string"),
+    pytest.param(None, id="null"),
+    pytest.param(True, id="true"),
+    pytest.param(False, id="false"),
+    pytest.param(1.5, id="float"),
+    pytest.param([0], id="list"),
+    pytest.param([[0]], id="nested-list"),
+    pytest.param({"a": 1}, id="object"),
+]
+
+
+class TestMalformedTargetsAreRejected:
+    ROLES = {
+        "seer": "Seer",
+        "robber": "Robber",
+        "trouble": "Troublemaker",
+        "drunk": "Drunk",
+        "wolf": "Werewolf",
+        "villager": "Villager",
+    }
+
+    def _cases(self, night: Night, bad: Any) -> list[tuple[str, str, dict[str, Any]]]:
+        good = night.users["villager"].id
+        return [
+            ("seer", "peek_player", {"player_id": bad}),
+            ("seer", "peek_center", {"center_indices": [bad, 1]}),
+            ("seer", "peek_center", {"center_indices": [0, bad]}),
+            ("seer", "peek_center", {"center_indices": bad}),
+            ("robber", "swap_with_player", {"player_id": bad}),
+            ("trouble", "swap_others", {"player_ids": [bad, good]}),
+            ("trouble", "swap_others", {"player_ids": [good, bad]}),
+            ("trouble", "swap_others", {"player_ids": bad}),
+            ("drunk", "swap_with_center", {"center_index": bad}),
+            # null center_index just means "no peek": valid for a lone Werewolf.
+            *([("wolf", "see_team", {"center_index": bad})] if bad is not None else []),
+        ]
+
+    @pytest.mark.parametrize("bad", BAD_VALUES)
+    def test_wrong_typed_target_values_get_a_400_not_a_500(
+        self, make_night, bad: Any
+    ) -> None:
+        night = make_night(self.ROLES)
+        night.start()
+
+        for who, action_type, targets in self._cases(night, bad):
+            response = night.post(who, action_type, targets)
+            assert response.status_code == status.HTTP_400_BAD_REQUEST, (
+                who,
+                action_type,
+                targets,
+                response.data,
+            )
+            assert not night.role_of(who).has_acted
+
+        # Nothing was recorded, and the window still works afterwards.
+        assert night.refresh().phase == Phase.NIGHT
+        ok = night.post("seer", "peek_player", {"player_id": night.users["wolf"].id})
+        assert ok.status_code == status.HTTP_200_OK
+
+    def test_malformed_values_get_the_generic_message(self, make_night) -> None:
+        night = make_night(self.ROLES)
+        night.start()
+
+        response = night.post("seer", "peek_player", {"player_id": "abc"})
+
+        assert response.data["detail"] == [services.MALFORMED_TARGET]
+
+    def test_malformed_look_target_is_rejected_for_the_doppelganger(
+        self, make_night
+    ) -> None:
+        night = make_night({"d": "Doppelganger", "s": "Seer", "v": "Villager"})
+        night.start()
+
+        for bad in ("abc", None, True, [1], {"a": 1}):
+            response = night.post("d", "peek_player", {"player_id": bad})
+            assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert night.refresh().current_wave == 1
+        assert not night.role_of("d").has_acted
+
+    def test_non_object_targets_and_non_string_action_types_are_rejected(
+        self, make_night
+    ) -> None:
+        night = make_night(self.ROLES)
+        night.start()
+        night.client.force_authenticate(user=night.users["seer"])
+        url = reverse("onuw:night-action", kwargs={"game_id": str(night.game.id)})
+
+        for payload in (
+            {"action_type": "peek_player", "targets": [1]},
+            {"action_type": "peek_player", "targets": "x"},
+            {"action_type": ["peek_player"], "targets": {}},
+            {"action_type": {"a": 1}, "targets": {}},
+        ):
+            with night.committed():
+                response = night.client.post(url, payload, format="json")
+            assert response.status_code == status.HTTP_400_BAD_REQUEST, payload
+
+
+# ── Bad stored timer values cannot break a night ─────────────────────────────
+
+
+class TestBadStoredTimerValues:
+    @pytest.mark.parametrize("bad", ["abc", -5, 99999, None, True, 2.5, [3], {"a": 1}])
+    def test_get_timer_seconds_falls_back_to_the_default(
+        self, make_night, bad: Any
+    ) -> None:
+        night = make_night({"a": "Villager", "b": "Villager", "c": "Villager"})
+        night.game.settings = {"night_wave_seconds": bad}
+
+        assert services.get_timer_seconds(night.game, "night_wave_seconds", 30) == 30
+        assert services.get_timer_seconds(night.game, "voting_seconds", 120) == 120
+
+    def test_valid_values_are_used_and_a_non_object_row_falls_back(
+        self, make_night
+    ) -> None:
+        night = make_night({"a": "Villager", "b": "Villager", "c": "Villager"})
+        night.game.settings = {"night_wave_seconds": 0, "voting_seconds": 45}
+        assert services.get_timer_seconds(night.game, "night_wave_seconds", 30) == 0
+        assert services.get_timer_seconds(night.game, "voting_seconds", 120) == 45
+
+        night.game.settings = ["not", "an", "object"]
+        assert services.get_timer_seconds(night.game, "voting_seconds", 120) == 120
+
+    def test_a_whole_night_runs_on_garbage_timer_settings(self, make_night) -> None:
+        night = make_night(
+            {"d": "Doppelganger", "s": "Seer", "v": "Villager"},
+            night_wave_seconds="abc",
+            night_min_window_seconds=-3,
+            night_doppelganger_window_seconds=[1],
+            discussion_seconds="soon",
+        )
+        night.start()
+
+        assert night.timer_delays(1) == [10]  # default fixed length
+        night.host_close_window()
+        assert night.refresh().current_wave == 2
+        assert night.timer_delays(2) == [30]  # default maximum
+        night.host_close_window()
+
+        assert night.refresh().phase == Phase.DISCUSSION
+        assert night.timer_delays_for("discussion") == [300]

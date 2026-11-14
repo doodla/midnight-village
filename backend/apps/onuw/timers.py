@@ -7,9 +7,12 @@ Thread safety is ensured by a module-level Lock guarding all registry mutations.
 Key format convention: "{game_id}:discussion", "{game_id}:voting", "{game_id}:wave:{n}"
 """
 
+import logging
 import threading
 from collections.abc import Callable
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _registry: dict[str, threading.Timer] = {}
 _lock = threading.Lock()
@@ -69,6 +72,10 @@ def make_idempotent_callback(
 
     Uses select_for_update() to serialise concurrent callbacks — if two timer threads
     race, only one proceeds. The other will find the phase already changed and return.
+
+    Exceptions are logged (with the game id and phase) rather than left to die in
+    the timer thread. A failed callback rolls its transaction back, so the game
+    is left exactly as it was and the host can still advance it.
     """
 
     def _callback() -> None:
@@ -77,13 +84,20 @@ def make_idempotent_callback(
 
         from apps.onuw.models import Game
 
-        with transaction.atomic():
-            try:
-                game = Game.objects.select_for_update().get(id=game_id)
-            except Game.DoesNotExist:
-                return  # Game was deleted — nothing to do.
-            if game.phase != expected_phase:
-                return  # Phase already advanced — stale callback, skip.
-            action(game)
+        try:
+            with transaction.atomic():
+                try:
+                    game = Game.objects.select_for_update().get(id=game_id)
+                except Game.DoesNotExist:
+                    return  # Game was deleted — nothing to do.
+                if game.phase != expected_phase:
+                    return  # Phase already advanced — stale callback, skip.
+                action(game)
+        except Exception:
+            logger.exception(
+                "Timer callback failed for game %s (expected phase %s)",
+                game_id,
+                expected_phase,
+            )
 
     return _callback

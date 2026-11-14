@@ -8,6 +8,7 @@ All game state transitions go through this module.
 from __future__ import annotations
 
 import functools
+from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
 
@@ -31,6 +32,7 @@ from .engine.night import (
 )
 from .engine.roles import ActionType, get_role, window_for_order_group
 from .engine.state import ActionResult, GameState, NightAction
+from .engine.validation import is_valid_timer_value
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
 from .models import Game, Phase, PlayerRole
@@ -48,15 +50,69 @@ DEFAULT_NIGHT_WAVE_SECONDS = 30
 # Default minimum length of a night window (seconds). A window never closes
 # sooner than this after it opened, so a fast window gives nothing away.
 DEFAULT_NIGHT_MIN_WINDOW_SECONDS = 8
+# Exact length of window 1 (the Doppelganger's), whatever happens in it. 0
+# turns the fixed length off: window 1 then behaves like any other window.
+DEFAULT_NIGHT_DOPPELGANGER_WINDOW_SECONDS = 10
 
 
 def get_timer_seconds(game: Game, key: str, default: int) -> int:
-    """Read a timer duration from game settings, returning default if not set."""
-    return game.settings.get(key, default)
+    """Read a timer duration from game settings.
+
+    Returns default if the key is not set or the stored value is not a valid
+    number of seconds (settings are validated on the way in, but a bad row must
+    never be able to crash a window close).
+    """
+    stored = (
+        game.settings.get(key, default) if isinstance(game.settings, dict) else default
+    )
+    return stored if is_valid_timer_value(stored) else default
 
 
 def _window_timer_key(game: Game, window: int) -> str:
     return f"{game.id}:wave:{window}"
+
+
+# ── Side effects run only after the transaction commits ──────────────────────
+#
+# Night transitions change the database inside the caller's atomic block (timer
+# thread, host request, submission). WebSocket sends and timer changes must not
+# happen until that block has committed: otherwise a rollback would leave
+# players told about a window that never opened (and its timer cancelled), and
+# a client reacting to wave.start could read the old window from GET /me/.
+# transaction.on_commit runs at once when there is no open transaction.
+
+
+def _after_commit(func: Callable[[], None]) -> None:
+    """Run func once the outermost atomic block commits (robust: log, don't abort)."""
+    transaction.on_commit(func, robust=True)
+
+
+def _send_after_commit(messages: list[tuple[str, dict[str, Any]]]) -> None:
+    """Send channel messages (group, event) once the transaction commits.
+
+    The payloads are built by the caller inside the transaction, so they
+    describe the state that is about to be committed.
+    """
+    channel_layer = get_channel_layer()
+    if channel_layer is None or not messages:
+        return
+
+    def _send() -> None:
+        send = async_to_sync(channel_layer.group_send)
+        for group, event in messages:
+            send(group, event)
+
+    _after_commit(_send)
+
+
+def _schedule_after_commit(
+    key: str, delay: float, callback: Callable[[], None]
+) -> None:
+    _after_commit(lambda: timers.schedule(key, delay, callback))
+
+
+def _cancel_after_commit(key: str) -> None:
+    _after_commit(lambda: timers.cancel(key))
 
 
 def _get_player_names(game: Game) -> dict[int, str]:
@@ -277,14 +333,36 @@ def _min_close_delay(game: Game) -> float:
     return max(0.0, (ready_at - timezone.now()).total_seconds())
 
 
+def _fixed_window_seconds(game: Game, window: int) -> int:
+    """Exact length of a fixed-length window in seconds, or 0 if it is not fixed.
+
+    Window 1 (the Doppelganger's) lasts exactly night_doppelganger_window_seconds
+    whenever it runs, so its length says nothing about whether the Doppelganger
+    is in play, copied a role, or has a follow-up. Setting it to 0 turns the
+    fixed length off: window 1 then closes like window 2 (when its actors are
+    done, no sooner than night_min_window_seconds, no later than
+    night_wave_seconds).
+    """
+    if window != 1:
+        return 0
+    return get_timer_seconds(
+        game,
+        "night_doppelganger_window_seconds",
+        DEFAULT_NIGHT_DOPPELGANGER_WINDOW_SECONDS,
+    )
+
+
 def _close_or_defer(game: Game) -> None:
     """Close the current window now, or at its minimum length if that is later.
 
     Called with the Game row locked once every actor in the window is done.
     Rescheduling replaces the window's maximum timer under the same key; the
-    callback is idempotent per window.
+    callback is idempotent per window. A fixed-length window (window 1) never
+    closes because its actors are done: only its own timer closes it.
     """
     window = game.current_wave
+    if _fixed_window_seconds(game, window) > 0:
+        return
     delay = _min_close_delay(game)
     if delay > 0:
         callback = timers.make_idempotent_callback(
@@ -292,7 +370,7 @@ def _close_or_defer(game: Game) -> None:
             Phase.NIGHT,
             functools.partial(_auto_advance_wave, wave_number=window),
         )
-        timers.schedule(_window_timer_key(game, window), delay, callback)
+        _schedule_after_commit(_window_timer_key(game, window), delay, callback)
         return
     advance_wave(game)
 
@@ -330,74 +408,67 @@ def send_wave_prompts(game: Game, wave: int) -> None:
     Open the timing of a night window and prompt every actor in it at once.
 
     ``wave`` is the window number. Records when the window opened (the minimum
-    length is measured from here), schedules the maximum-length timer when
-    night_wave_seconds > 0, broadcasts wave.start, sends each actor their
-    action.prompt, and tells everyone else wave.waiting.
+    length is measured from here) and its deadline, then, once the transaction
+    commits: schedules the window's one timer (night_wave_seconds, or exactly
+    night_doppelganger_window_seconds for window 1), broadcasts wave.start,
+    sends each actor their action.prompt, and tells everyone else wave.waiting.
+    A timer of 0 seconds means no timer and no deadline.
     """
-    wave_seconds = get_timer_seconds(
+    seconds = _fixed_window_seconds(game, wave) or get_timer_seconds(
         game, "night_wave_seconds", DEFAULT_NIGHT_WAVE_SECONDS
     )
     opened_at = timezone.now()
     game.night_window_opened_at = opened_at
-    if wave_seconds > 0:
-        game.phase_deadline = opened_at + timedelta(seconds=wave_seconds)
+    game.phase_deadline = (
+        opened_at + timedelta(seconds=seconds) if seconds > 0 else None
+    )
+    game.save(update_fields=["phase_deadline", "night_window_opened_at", "updated_at"])
+
+    if seconds > 0:
         callback = timers.make_idempotent_callback(
             game.id,
             Phase.NIGHT,
             functools.partial(_auto_advance_wave, wave_number=wave),
         )
-        timers.schedule(_window_timer_key(game, wave), wave_seconds, callback)
-    else:
-        game.phase_deadline = None
-    game.save(update_fields=["phase_deadline", "night_window_opened_at", "updated_at"])
-
-    channel_layer = get_channel_layer()
-    if channel_layer is None:
-        return
+        _schedule_after_commit(_window_timer_key(game, wave), seconds, callback)
 
     state = build_game_state(game)
     doppelganger_info = state.doppelganger_copied_role if wave > 1 else None
     prompts = get_required_actions_for_window(state, wave, doppelganger_info)
     acting_player_ids = {p["player_id"] for p in prompts}
 
-    send = async_to_sync(channel_layer.group_send)
-
-    # Broadcast wave_start to all players
-    send(
-        f"game_{game.id}",
-        {
-            "type": "wave.start",
-            "wave": wave,
-            "deadline": game.phase_deadline.isoformat()
-            if game.phase_deadline
-            else None,
-        },
-    )
-
-    # Send action prompts to acting players (player-specific channels)
-    for prompt in prompts:
-        pid = prompt["player_id"]
-        send(
-            f"game_{game.id}_player_{pid}",
+    # wave.start to everyone; prompts to actors; waiting to everyone else.
+    messages: list[tuple[str, dict[str, Any]]] = [
+        (
+            f"game_{game.id}",
             {
-                "type": "action.prompt",
+                "type": "wave.start",
                 "wave": wave,
-                "role_acting_as": prompt["role_acting_as"],
-                "action_types": prompt["action_types"],
-                "valid_targets": prompt["valid_targets"],
+                "deadline": game.phase_deadline.isoformat()
+                if game.phase_deadline
+                else None,
             },
         )
-
-    # Send waiting messages to non-acting players
-    for pid in state.player_roles:
-        if pid not in acting_player_ids:
-            send(
-                f"game_{game.id}_player_{pid}",
+    ]
+    for prompt in prompts:
+        messages.append(
+            (
+                f"game_{game.id}_player_{prompt['player_id']}",
                 {
-                    "type": "wave.waiting",
+                    "type": "action.prompt",
                     "wave": wave,
+                    "role_acting_as": prompt["role_acting_as"],
+                    "action_types": prompt["action_types"],
+                    "valid_targets": prompt["valid_targets"],
                 },
             )
+        )
+    for pid in state.player_roles:
+        if pid not in acting_player_ids:
+            messages.append(
+                (f"game_{game.id}_player_{pid}", {"type": "wave.waiting", "wave": wave})
+            )
+    _send_after_commit(messages)
 
 
 def _doppelganger_player_role(game: Game) -> PlayerRole | None:
@@ -444,33 +515,25 @@ def _resolve_doppelganger_look(game: Game) -> bool:
         return False
 
     # Prompt the follow-up (Seer, Robber, Troublemaker, Drunk, Minion) at once.
+    # No timer is scheduled or moved: window 1 has the one timer set when it
+    # opened, so nothing about the follow-up is visible in the window's timing.
     with transaction.atomic():
         PlayerRole.objects.filter(game=game, user_id=pr.user_id).update(has_acted=False)
     prompt = build_role_prompt(build_game_state(game), pr.user_id, copied)
-
-    channel_layer = get_channel_layer()
-    if channel_layer is not None:
-        async_to_sync(channel_layer.group_send)(
-            f"game_{game.id}_player_{pr.user_id}",
-            {
-                "type": "action.prompt",
-                "wave": 1,
-                "role_acting_as": prompt["role_acting_as"],
-                "action_types": prompt["action_types"],
-                "valid_targets": prompt["valid_targets"],
-            },
-        )
-
-    # Fresh maximum for the follow-up. phase_deadline is left alone on purpose:
-    # changing it would show the whole table that a follow-up exists.
-    wave_seconds = get_timer_seconds(
-        game, "night_wave_seconds", DEFAULT_NIGHT_WAVE_SECONDS
+    _send_after_commit(
+        [
+            (
+                f"game_{game.id}_player_{pr.user_id}",
+                {
+                    "type": "action.prompt",
+                    "wave": 1,
+                    "role_acting_as": prompt["role_acting_as"],
+                    "action_types": prompt["action_types"],
+                    "valid_targets": prompt["valid_targets"],
+                },
+            )
+        ]
     )
-    if wave_seconds > 0:
-        callback = timers.make_idempotent_callback(
-            game.id, Phase.NIGHT, functools.partial(_auto_advance_wave, wave_number=1)
-        )
-        timers.schedule(_window_timer_key(game, 1), wave_seconds, callback)
     return True
 
 
@@ -529,7 +592,7 @@ def advance_wave(game: Game) -> None:
     _close_or_defer.
     """
     window = game.current_wave
-    timers.cancel(_window_timer_key(game, window))
+    _cancel_after_commit(_window_timer_key(game, window))
     state = build_game_state(game)
     night_actions = _collect_window_actions(game, window)
 
@@ -605,26 +668,20 @@ def persist_wave_results(
             pr.save(update_fields=["night_action_data"])
 
 
-def send_action_results(
+def _action_result_messages(
     game: Game,
     results: list[ActionResult],
     night_actions: list[NightAction],
     wave: int,
-) -> None:
-    """Send each player their own result via WebSocket (action.result only).
+) -> list[tuple[str, dict[str, Any]]]:
+    """Build each player's own action.result (and no one else's).
 
     Transforms the engine's raw revealed_info into the client-friendly
     format the frontend expects (display names, consistent keys, action_type).
     """
-    channel_layer = get_channel_layer()
-    if channel_layer is None:
-        return
-
-    send = async_to_sync(channel_layer.group_send)
     player_names = _get_player_names(game)
     action_map = {a.player_id: a for a in night_actions}
-
-    # Send each player their own result only
+    messages: list[tuple[str, dict[str, Any]]] = []
     for result in results:
         action = action_map.get(result.player_id)
         if action is not None:
@@ -633,16 +690,30 @@ def send_action_results(
         else:
             client_info = result.revealed_info
             action_type = "unknown"
-
-        send(
-            f"game_{game.id}_player_{result.player_id}",
-            {
-                "type": "action.result",
-                "wave": wave,
-                "action_type": action_type,
-                "revealed_info": client_info,
-            },
+        messages.append(
+            (
+                f"game_{game.id}_player_{result.player_id}",
+                {
+                    "type": "action.result",
+                    "wave": wave,
+                    "action_type": action_type,
+                    "revealed_info": client_info,
+                },
+            )
         )
+    return messages
+
+
+def send_action_results(
+    game: Game,
+    results: list[ActionResult],
+    night_actions: list[NightAction],
+    wave: int,
+) -> None:
+    """Send each player their own result (action.result only) after commit."""
+    if get_channel_layer() is None:
+        return
+    _send_after_commit(_action_result_messages(game, results, night_actions, wave))
 
 
 def send_wave_results(
@@ -651,14 +722,12 @@ def send_wave_results(
     night_actions: list[NightAction],
     wave: int,
 ) -> None:
-    """Window closed: send every player their result, then broadcast wave.complete."""
-    channel_layer = get_channel_layer()
-    if channel_layer is None:
+    """Window closed: after commit, send every player their result, then wave.complete."""
+    if get_channel_layer() is None:
         return
-    send_action_results(game, results, night_actions, wave)
-    async_to_sync(channel_layer.group_send)(
-        f"game_{game.id}", {"type": "wave.complete", "wave": wave}
-    )
+    messages = _action_result_messages(game, results, night_actions, wave)
+    messages.append((f"game_{game.id}", {"type": "wave.complete", "wave": wave}))
+    _send_after_commit(messages)
 
 
 def transition_to_discussion(game: Game) -> None:
@@ -691,21 +760,23 @@ def transition_to_discussion(game: Game) -> None:
         callback = timers.make_idempotent_callback(
             game.id, Phase.DISCUSSION, _auto_transition_to_voting
         )
-        timers.schedule(f"{game.id}:discussion", discussion_seconds, callback)
+        _schedule_after_commit(f"{game.id}:discussion", discussion_seconds, callback)
 
     # Broadcast phase change to all players
-    channel_layer = get_channel_layer()
-    if channel_layer is not None:
-        async_to_sync(channel_layer.group_send)(
-            f"game_{game.id}",
-            {
-                "type": "phase.change",
-                "phase": "discussion",
-                "deadline": game.phase_deadline.isoformat()
-                if game.phase_deadline
-                else None,
-            },
-        )
+    _send_after_commit(
+        [
+            (
+                f"game_{game.id}",
+                {
+                    "type": "phase.change",
+                    "phase": "discussion",
+                    "deadline": game.phase_deadline.isoformat()
+                    if game.phase_deadline
+                    else None,
+                },
+            )
+        ]
+    )
 
 
 def check_and_maybe_advance(game: Game) -> None:
@@ -715,7 +786,8 @@ def check_and_maybe_advance(game: Game) -> None:
     The window still lasts at least its minimum length: if everyone is done
     early, the close is scheduled for when the minimum is reached. The
     Doppelganger's look is the one step resolved at once (she needs it to
-    choose her follow-up).
+    choose her follow-up). Window 1 has a fixed length and is never closed
+    from here: only its own timer (or the host) closes it.
 
     Uses select_for_update on the Game row to prevent double-fire
     when two players submit simultaneously.
@@ -729,7 +801,7 @@ def check_and_maybe_advance(game: Game) -> None:
         window = game.current_wave
         if window == 1 and _doppelganger_look_submitted(game):
             if _resolve_doppelganger_look(game):
-                return  # Window stays open for the follow-up.
+                return  # The follow-up prompt went out; the window stays open.
 
         actor_ids = get_wave_actors(game, window)
         pending = PlayerRole.objects.filter(
@@ -771,6 +843,16 @@ def get_player_acting_role_for_wave(pr: PlayerRole, wave: int) -> str | None:
     return None
 
 
+MALFORMED_TARGET = "Invalid target."
+
+
+def _strict_int(value: object) -> int | None:
+    """The value if it is a plain integer, else None (bool, str, float, list, null)."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return None
+
+
 def validate_night_action(
     game: Game,
     pr: PlayerRole,
@@ -803,77 +885,74 @@ def validate_night_action(
     # pyrefly: ignore [missing-attribute]
     game_player_ids = set(game.player_roles.values_list("user_id", flat=True))
 
-    # Validate targets based on action_type
+    # Validate targets based on action_type. Values come from the client, so
+    # anything that is not a plain JSON integer (strings, null, booleans, lists,
+    # floats) is rejected with a generic message, never coerced.
+    center_count = len(game.center_cards)
+
+    def center_error(idx: int) -> str:
+        return f"Invalid center card index: {idx}. Must be 0-{center_count - 1}."
+
     if action_type == "skip":
         # Explicit "do nothing": no targets allowed.
         if targets:
             errors.append("Invalid action.")
 
-    elif action_type == "peek_player":
-        target_id = targets.get("player_id")
-        if target_id is None:
-            errors.append("targets.player_id is required for peek_player.")
-        else:
-            target_id = int(target_id)
-            # pyrefly: ignore [missing-attribute]
-            if target_id == pr.user_id:
-                errors.append("Cannot target yourself.")
-            elif target_id not in game_player_ids:
-                errors.append(f"Invalid target player: {target_id}.")
+    elif action_type in ("peek_player", "swap_with_player"):
+        raw = targets.get("player_id")
+        if raw is None:
+            errors.append(f"targets.player_id is required for {action_type}.")
+        elif (target_id := _strict_int(raw)) is None:
+            errors.append(MALFORMED_TARGET)
+        # pyrefly: ignore [missing-attribute]
+        elif target_id == pr.user_id:
+            errors.append("Cannot target yourself.")
+        elif target_id not in game_player_ids:
+            errors.append(f"Invalid target player: {target_id}.")
 
     elif action_type == "peek_center":
         indices = targets.get("center_indices")
         if not isinstance(indices, list) or len(indices) != 2:
             errors.append("targets.center_indices must be a list of exactly 2 indices.")
         else:
-            for idx in indices:
-                idx_int = int(idx)
-                if idx_int < 0 or idx_int >= len(game.center_cards):
-                    errors.append(
-                        f"Invalid center card index: {idx_int}. "
-                        f"Must be 0-{len(game.center_cards) - 1}."
-                    )
-            if len(indices) == 2 and int(indices[0]) == int(indices[1]):
-                errors.append("Must peek at 2 different center cards.")
-
-    elif action_type == "swap_with_player":
-        target_id = targets.get("player_id")
-        if target_id is None:
-            errors.append("targets.player_id is required for swap_with_player.")
-        else:
-            target_id = int(target_id)
-            # pyrefly: ignore [missing-attribute]
-            if target_id == pr.user_id:
-                errors.append("Cannot target yourself.")
-            elif target_id not in game_player_ids:
-                errors.append(f"Invalid target player: {target_id}.")
+            parsed = [_strict_int(idx) for idx in indices]
+            ints = [idx for idx in parsed if idx is not None]
+            if len(ints) != len(parsed):
+                errors.append(MALFORMED_TARGET)
+            else:
+                for idx_int in ints:
+                    if idx_int < 0 or idx_int >= center_count:
+                        errors.append(center_error(idx_int))
+                if ints[0] == ints[1]:
+                    errors.append("Must peek at 2 different center cards.")
 
     elif action_type == "swap_with_center":
-        center_index = targets.get("center_index")
-        if center_index is None:
+        raw = targets.get("center_index")
+        if raw is None:
             errors.append("targets.center_index is required for swap_with_center.")
-        else:
-            idx = int(center_index)
-            if idx < 0 or idx >= len(game.center_cards):
-                errors.append(
-                    f"Invalid center card index: {idx}. "
-                    f"Must be 0-{len(game.center_cards) - 1}."
-                )
+        elif (idx := _strict_int(raw)) is None:
+            errors.append(MALFORMED_TARGET)
+        elif idx < 0 or idx >= center_count:
+            errors.append(center_error(idx))
 
     elif action_type == "swap_others":
         player_ids = targets.get("player_ids")
         if not isinstance(player_ids, list) or len(player_ids) != 2:
             errors.append("targets.player_ids must be a list of exactly 2 player IDs.")
         else:
-            for pid in player_ids:
-                pid_int = int(pid)
-                # pyrefly: ignore [missing-attribute]
-                if pid_int == pr.user_id:
-                    errors.append("Cannot target yourself in swap_others.")
-                elif pid_int not in game_player_ids:
-                    errors.append(f"Invalid target player: {pid_int}.")
-            if len(player_ids) == 2 and int(player_ids[0]) == int(player_ids[1]):
-                errors.append("Must target 2 different players.")
+            parsed = [_strict_int(pid) for pid in player_ids]
+            ints = [pid for pid in parsed if pid is not None]
+            if len(ints) != len(parsed):
+                errors.append(MALFORMED_TARGET)
+            else:
+                for pid_int in ints:
+                    # pyrefly: ignore [missing-attribute]
+                    if pid_int == pr.user_id:
+                        errors.append("Cannot target yourself in swap_others.")
+                    elif pid_int not in game_player_ids:
+                        errors.append(f"Invalid target player: {pid_int}.")
+                if ints[0] == ints[1]:
+                    errors.append("Must target 2 different players.")
 
     elif action_type == "see_team":
         # No targets required. Only a lone Werewolf may optionally peek center.
@@ -892,12 +971,11 @@ def validate_night_action(
                 ]
                 if other_werewolves:
                     errors.append("Center card peek is not available.")
-            idx = int(targets["center_index"])
-            if idx < 0 or idx >= len(game.center_cards):
-                errors.append(
-                    f"Invalid center card index: {idx}. "
-                    f"Must be 0-{len(game.center_cards) - 1}."
-                )
+            center_idx = _strict_int(targets["center_index"])
+            if center_idx is None:
+                errors.append(MALFORMED_TARGET)
+            elif center_idx < 0 or center_idx >= center_count:
+                errors.append(center_error(center_idx))
 
     return errors
 
