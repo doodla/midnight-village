@@ -146,13 +146,9 @@ The night action UI framework must be flexible enough to handle all of these thr
 **Night Waiting (Critical Design Space):**
 - **Everyone must have their phone out and be visibly interacting.**
 - This is the primary information-leakage prevention mechanism. If only the active player is tapping, their identity is exposed.
-- Content layer: medieval facts, rotating lore snippets, village rumors.
 - Interactive layer: ambient fidget elements (poke embers, swirl smoke, play with a candle flame). Fun and benign.
-- Live quiz: low-stakes trivia that everyone participates in simultaneously. No pressure.
-- Multiplayer mini-games: a future extension point. Spec the slot.
-- Server-driven content (trivia/facts served from backend, AI-generated library later).
 - Wave progress indicator (dot system showing which wave is active).
-- Feel: campfire stories while waiting for your turn. Cozy, engaging, concealing.
+- Feel: sitting by the fire while waiting for your turn. Cozy, concealing.
 
 ### Discussion Phase
 
@@ -260,7 +256,7 @@ These were discussed and intentionally excluded:
 - **Post-game debrief:** Linger on results, explore the night log, then play again.
 - **Contextual onboarding hints:** First-time tooltips on key interactions, disappear after use.
 - **Tap-to-reveal guardrails:** Sensitive info (role, night results) hidden by default during in-person play.
-- **Night waiting engagement layer:** Medieval trivia, live quiz, ambient fidget interactions.
+- **Night waiting fidgets:** Ambient fidget interactions (embers, smoke, candle).
 - **Narrator cue system:** Pluggable persona with defined cue points.
 - **Custom role art:** Generated via Imagen with defined art direction constraints.
 - **Haptic feedback system:** Subtle confirmation patterns tied to game beats.

@@ -100,7 +100,7 @@ Applied as overlays on interactive elements. All use the element's own color mod
 | Headlines & Display | Epilogue | `AppFonts.headline` | `google_fonts: epilogue` | Serif-gothic gravitas, architectural | Headings and display text only. Never for body paragraphs. |
 | Body & UI | DM Sans | `AppFonts.body` | `google_fonts: dm_sans` | Clean readability, neutral warmth | Default for all readable text. Regular (400), Medium (500), Bold (700). |
 | Labels & Data | Space Grotesk | `AppFonts.label` | `google_fonts: space_grotesk` | Game UI precision, monospaced feel | Timers, lobby codes, labels, counters, badges. Medium (500), Bold (700). |
-| Atmospheric | Libre Baskerville | `AppFonts.flavor` | `google_fonts: libre_baskerville` | Italic warmth, storytelling | Always italic. Narrator text, flavor text, lore snippets. Never for UI controls. |
+| Atmospheric | Libre Baskerville | `AppFonts.flavor` | `google_fonts: libre_baskerville` | Italic warmth, storytelling | Always italic. Narrator text, flavor text. Never for UI controls. |
 
 ### Type Scale
 
@@ -125,7 +125,7 @@ Every text style in the system. "Height" is computed line-height in dp; "height 
 | Timer Compact | `AppTextStyles.timerCompact` | Space Grotesk | 700 | 24 | 32 | 1.33 | 1 | Inline timer, wave timer |
 | Code Display | `AppTextStyles.codeDisplay` | Space Grotesk | 700 | 48 | 56 | 1.17 | 10 | Lobby code — big, bold, dramatically letter-spaced |
 | Narrator | `AppTextStyles.narrator` | Libre Baskerville | 400i | 22 | 32 | 1.45 | 0.3 | Narrator overlay text ("Night falls on the village...") |
-| Flavor | `AppTextStyles.flavor` | Libre Baskerville | 400i | 16 | 24 | 1.50 | 0.15 | Atmospheric descriptions, lore snippets, error headlines |
+| Flavor | `AppTextStyles.flavor` | Libre Baskerville | 400i | 16 | 24 | 1.50 | 0.15 | Atmospheric descriptions, error headlines |
 | Flavor Small | `AppTextStyles.flavorSmall` | Libre Baskerville | 400i | 14 | 22 | 1.57 | 0.15 | Minor atmospheric text, card flavor text |
 
 ---

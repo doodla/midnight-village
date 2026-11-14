@@ -9,7 +9,7 @@
 | phase     | night |
 | route     | /game/:gameId |
 
-This spec covers the complete night phase experience: Role Reveal (S05), Night Actions by role category (S06-S08), and Night Results (S10). Night Waiting engagement (S09) is specified separately in `night-waiting.md`.
+This spec covers the complete night phase experience: Role Reveal (S05), Night Actions by role category (S06-S08), and Night Results (S10). Night Waiting (S09) is specified separately in `night-waiting.md`.
 
 The night phase is the most complex screen in the game. It must handle 5 categories of role experience through a composable action framework, not per-role screen design.
 
@@ -637,11 +637,11 @@ Per `information-architecture.md`, the night phase manages Tier 1 (public) and T
 **Every player's visible screen state during the night must be indistinguishable between "I have an action this wave" and "I am waiting this wave" to an outside observer.**
 
 This is enforced by:
-1. Night waiting engagement layer (see `night-waiting.md`) ensures all phones show activity.
+1. Night waiting fidget interactions (see `night-waiting.md`) ensure all phones show activity.
 2. Narrator cues play for all roles in the game setup (concealment principle from `narrator-cues.md`).
 3. Wave transitions look the same for all players (T-08 animation plays for everyone).
 4. No sound or haptic from action UIs leaks to indicate a specific player is acting (fidget sounds on waiting provide cover noise).
-5. **Wave timing floor:** The server MUST enforce a minimum wave duration of **8 seconds** regardless of how quickly actions are submitted. If a wave has only one actor and they submit in 2 seconds, the wave still runs for at least 8 seconds. This serves dual purpose: concealment (prevents timing side-channels from fast-completing single-actor waves) and content pacing (ensures night-waiting content has time to resolve — see `night-waiting.md`). The host-configured "Night Action" timer (from S04b Game Settings) sets the MAXIMUM wave duration. The 8-second floor applies even if all actors in the wave submit instantly, regardless of host config.
+5. **Wave timing floor:** The server MUST enforce a minimum wave duration of **8 seconds** regardless of how quickly actions are submitted. If a wave has only one actor and they submit in 2 seconds, the wave still runs for at least 8 seconds. This serves concealment: it prevents timing side-channels from fast-completing single-actor waves. The host-configured "Night Action" timer (from S04b Game Settings) sets the MAXIMUM wave duration. The 8-second floor applies even if all actors in the wave submit instantly, regardless of host config.
 
 **Concealment Timing Constraint:** The server holds a minimum of **5 seconds** between wake and close cues for every role call, even when no player has an active action for that role. This prevents timing-based deduction of which roles have active players. A wave containing Seer, Robber, Troublemaker, and Drunk — where only the Seer has an active player — still takes at least 20 seconds (4 role calls x 5 seconds minimum each).
 
@@ -723,8 +723,6 @@ The concealment invariant ("all players look busy") is inherently visual. For sc
 | Element | Alternative for Screen Reader Users |
 |---------|-------------------------------------|
 | Fidget interactions (F-01, F-02, F-03) | Accessible via double-tap on fidget zone. Screen reader users hear `SoundCues.fidgetEmber`/`SoundCues.fidgetSmoke` and feel `AppHaptics.fidgetResponse`. The haptic/audio IS the fidget for them. |
-| Medieval facts / lore snippets | Announced via `liveRegion: polite` when rotating (5s interval). Primary engagement content for screen reader users. |
-| Trivia questions | Full screen reader support: question read aloud, answer choices navigable via standard controls, submission announced. |
 | Wave progress | "Night phase, wave [N] of [total] in progress" — announced on wave change via `liveRegion: assertive`. |
 | Haptic concealment | Fidget haptic/audio responses are indistinguishable from night action confirmation haptics to other people in the room. Imperfect but acceptable for v1. |
 

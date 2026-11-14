@@ -85,7 +85,7 @@ These are the information visibility states that the system moves through. Each 
 | IA-LOBBY | Game created, players joining | Tier 1: lobby code, player list, ready states, roles in play. Host also sees role config controls (S04) and timer configuration (S04b: preset selector + per-phase sliders). Timer preset and per-phase values are host-only during setup. No Tier 2 or Tier 3 data exists yet. | `Ambience.lobby` |
 | IA-ROLE-REVEAL | Night phase begins, cards dealt | Tier 1: phase indicator, wave progress. Tier 2: own role card (tap-to-reveal protected, face-down until player taps). | `SoundCues.waxSealBreak` on flip, `AppHaptics.dramaticReveal` |
 | IA-NIGHT-ACTIVE | Player's wave is called, player has an action | Tier 1: wave indicator, timer. Tier 2: night action prompt, action targets, action results after submission. | Per-wave narrator cue, `AppHaptics.narratorBeat` |
-| IA-NIGHT-WAITING | Player has no action this wave, or wave is not theirs | Tier 1: wave indicator, timer. Tier 2: none new (prior night results remain accessible via tap-to-reveal). Waiting content layer active. | Fidget sounds/haptics on interaction |
+| IA-NIGHT-WAITING | Player has no action this wave, or wave is not theirs | Tier 1: wave indicator, timer. Tier 2: none new (prior night results remain accessible via tap-to-reveal). Fidget interactions active. | Fidget sounds/haptics on interaction |
 | IA-NIGHT-RESULT | Player's action has resolved | Tier 1: wave indicator. Tier 2: action result displayed (card peek, swap confirmation, teammate list). Tap-to-reveal protected. | `SoundCues.cardPeek`, `AppHaptics.tapMedium` |
 | IA-DISCUSSION | All night waves complete | Tier 1: timer (color-ramping), roles in play list. Tier 2: role reminder (tap-to-reveal), night results (tap-to-reveal). No new info from server. | `Ambience.discussion`, timer warning sounds |
 | IA-VOTING | Discussion ends | Tier 1: player grid, vote counter ("X/Y have chosen"), timer. Tier 2: own current selection (tap-to-reveal). Other players show checkmark (voted) or empty (not yet voted). | `Ambience.voting`, `AppHaptics.selectionClick` on vote change |
@@ -153,7 +153,7 @@ How information gained in one phase carries into the next. This is critical for 
 | Drunk swap target | Yes — tap-to-reveal night result card | Shows "You swapped with center card [position]" (no role info — swap was blind) |
 | Insomniac's current card | Yes — tap-to-reveal night result card | Shows "Your card is now: [Role]" |
 | Doppelganger copied role | Yes — tap-to-reveal night result card | Shows "You copied [Player]: [Role]" plus follow-up result if applicable |
-| No night action (Villager, Hunter, Tanner) | N/A — no information gained | Content card shows rotating facts/lore from shared content system instead of tap-to-reveal. Maintains layout parity. |
+| No night action (Villager, Hunter, Tanner) | N/A — no information gained | Same tap-to-reveal card as every other role; revealed text is "You slept through the night." Maintains layout parity. |
 
 **Design rationale:** Team-identification information (Werewolf, Mason, Minion) is NOT re-shown as a reminder because it reveals critical strategic information if seen by another player glancing at the phone. The player is expected to remember their teammates. Peek-type information (Seer, Robber, Insomniac, Doppelganger) IS available via tap-to-reveal because it can be complex (card names, multiple targets) and forgetting it degrades the game experience.
 
@@ -188,7 +188,7 @@ Different roles produce wildly different night experiences. The UI must handle a
 |-------|-----------------|-------------------|
 | Villager, Tanner, Hunter | Never called during any wave. Full night spent in waiting state. | None beyond their original role card. |
 
-**UI:** Night waiting layer only. Wave indicator shows progress. Fidget interactions active. Content layer (trivia, lore) active. No action prompt ever appears. During discussion and voting phases, these roles see a rotating fact/lore content card in place of the night results tap-to-reveal area, maintaining layout parity with roles that have night results to display.
+**UI:** Night waiting layer only. Wave indicator shows progress. Fidget interactions active. No action prompt ever appears. During discussion and voting phases, these roles see the same night results tap-to-reveal card as every other role (revealed text: "You slept through the night."), maintaining layout parity with roles that have night results to display.
 
 **Citation:** roles.md — Villager: "The Villager never wakes during the night." Hunter: "The Hunter never wakes during the night." Tanner: "The Tanner never wakes during the night."
 
@@ -284,7 +284,7 @@ In-person play means other players can see your phone screen. Sensitive informat
 | Player names and avatars | Public Tier 1 info |
 | Timer | Public Tier 1 info |
 | Vote counter ("X/Y have chosen") | Public Tier 1 info — counts, not targets |
-| Night waiting content (trivia, fidgets) | Not game-relevant |
+| Night waiting fidget effects | Not game-relevant |
 | Results table (after game) | All info is disclosed post-game |
 | Phase indicators | Public Tier 1 info |
 

@@ -36,7 +36,7 @@ docs/specs/frontend/
                                    section 14) as a state/sub-component of the Home screen
     lobby.md                    -- S03 Lobby, S04 Role Selection screens
     night-phase.md              -- S05 Role Reveal, S06-S08 Night Actions, S10 Night Results
-    night-waiting.md            -- S09 Night Waiting engagement layer (trivia, fidget, quiz)
+    night-waiting.md            -- S09 Night Waiting screen (fidget, wave progress)
     day-phase.md                -- S11 Discussion, S12 Voting screens
     vote-reveal.md              -- S13 Vote Reveal, S14 Elimination screens
     results.md                  -- S15 Results, debrief, play again flow

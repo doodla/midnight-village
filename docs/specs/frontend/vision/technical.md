@@ -252,7 +252,6 @@ Phone-first spec with tablet adaptation notes per screen. Not pixel-precise brea
 The UI must handle **3-20+ players** gracefully. This is critical for future Mafia support.
 - Player grids need to scale beyond 2 columns
 - Vote reveals and result tables need to handle large player counts
-- Night waiting content must work regardless of how many players are active
 
 ### Game Extensibility
 
@@ -263,7 +262,6 @@ The UI must handle **3-20+ players** gracefully. This is critical for future Maf
 ### Content Extensibility
 
 - Narrator persona system is pluggable.
-- Night waiting content (trivia, quizzes, mini-games) is server-driven.
 - Role definitions, wave configurations, and action types come from the backend.
 
 ---

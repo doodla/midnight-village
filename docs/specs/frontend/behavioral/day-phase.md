@@ -37,11 +37,6 @@ This spec covers the Discussion screen (S11) and the Voting screen (S12). These 
 │  │ [eye icon] Tap to recall    │    │  <- Night results reminder
 │  │ what you learned             │    │     Tap-to-reveal (P-REVEAL)
 │  └─────────────────────────────┘    │     Same treatment
-│                                     │     VARIANT: No-action roles
-│                                     │     (Villager, Hunter, Tanner)
-│                                     │     show rotating fact/lore
-│                                     │     content card instead
-│                                     │     (see Night Results Variants)
 │                                     │
 │  ┌─────────────────────────────┐    │
 │  │ ▸ Roles in play (8)        │    │  <- Collapsible list
@@ -78,22 +73,7 @@ The second card in the discussion layout varies by role category:
 
 **Standard (roles with night results):** Tap-to-reveal card showing night action results. Auto-hide: 3000ms.
 
-**No-action roles (Villager, Hunter, Tanner):** Rotating fact/lore content card from the shared content system (same as `night-waiting.md`). Not tap-to-reveal — content is always visible and rotates every 5 seconds. This maintains visual and layout parity across all roles without showing an empty or disabled element.
-
-```
-┌─────────────────────────────────────┐
-│                                     │
-│  "Did you know?"                    │  <- AppTextStyles.label
-│                                     │     AppColors.parchmentMuted
-│  In medieval villages, the          │
-│  night watch was often the          │  <- AppTextStyles.body
-│  most unpopular duty assigned       │     AppColors.parchment
-│  by the village reeve.              │
-│                                     │
-└─────────────────────────────────────┘
-```
-
-Treatment: `AppColors.surface` background, `AppRadius.lg` (12dp), `AppShadows.card`, `AppSpacing.base` (16dp) padding. Content crossfades every 5 seconds (UI-01, 400ms). Same visual treatment as night-waiting.md content cards.
+**No-action roles (Villager, Hunter, Tanner):** The same tap-to-reveal card as every other role. Revealed text: "You slept through the night." Auto-hide: 3000ms. Every player sees an identical closed card, so the layout never reveals who had a night action.
 
 **Doppelganger (multi-result):** Tap-to-reveal card showing both peek result and follow-up result stacked vertically with a subtle 1dp `AppColors.outlineSubtle` divider between them. Auto-hide: **5000ms** (extended from 3000ms to allow reading both results).
 
@@ -247,7 +227,6 @@ Treatment: `AppColors.surface` background, `AppRadius.lg` (12dp), `AppShadows.ca
 | DISC-HOST-ADVANCE | Host taps "End Discussion" | T-03 transition fires immediately. Timer stops. All players transition to voting. | `AppHaptics.tapMedium` (H-02), per T-03 timeline |
 | DISC-TIMER-EXPIRED | Timer reaches 0:00 | T-03 transition fires. All players transition to voting. | Per T-03 timeline |
 | DISC-DISCONNECT | Player disconnect detected | P-DISCONNECT overlay (T-09). Timer pauses. | `SoundCues.disconnect` (S-14), `AppHaptics.tapMedium` (H-02) |
-| DISC-CONTENT-ROTATE | 5s timer (no-action roles only) | Fact/lore content card crossfades to next item (UI-01, 400ms). Same content system as night waiting. | None |
 | DISC-LOADING | Discussion data loading | Shimmer on timer area, placeholder for role reminder (P-LOADING). | None |
 
 ### S12: Voting States
@@ -408,7 +387,7 @@ All animations reference `sound-and-motion.md` by ID.
 | `discussion.role_reminder` | Tap to remember your role | Tap-to-reveal placeholder |
 | `discussion.night_results` | Tap to recall what you learned | Tap-to-reveal placeholder |
 | `discussion.roles_header` | Roles in play ({count}) | Collapsible list header |
-| `discussion.content_card_label` | Did you know? | Label for no-action role content card (also "Village Lore", "Village Rumor" per content type) |
+| `discussion.no_action_result` | You slept through the night. | Revealed text for no-action roles (Villager, Hunter, Tanner) |
 | `discussion.host_end` | End Discussion | Host control button |
 
 ### S12: Voting

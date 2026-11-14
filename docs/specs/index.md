@@ -24,7 +24,7 @@ This is the root entry point for all game and frontend specifications. Agents sh
 | What info a player can see | `frontend/behavioral/information-architecture.md` |
 | Error handling, disconnect, connectivity | `frontend/behavioral/cross-cutting.md` |
 | Night action screens (role reveal, actions) | `frontend/behavioral/night-actions.md` |
-| Night waiting engagement layer | `frontend/behavioral/night-waiting.md` |
+| Night waiting screen | `frontend/behavioral/night-waiting.md` |
 | Discussion and voting screens | `frontend/behavioral/day-phase.md` |
 | Vote reveal and elimination | `frontend/behavioral/vote-reveal.md` |
 | Results, debrief, play again | `frontend/behavioral/results.md` |

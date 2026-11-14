@@ -115,11 +115,9 @@ When the host disconnects, a different flow activates:
    - Timer displayed below candle in `AppTextStyles.timerCompact`.
    - "The innkeeper has stepped away..." in `AppTextStyles.flavor`, `AppColors.parchmentMuted`.
    - "Game will end if they don't return" in `AppTextStyles.bodySmall`.
-   - Quiz/mini-game content area below the candle (shared content system from `night-waiting.md`, but with a longer-form content pool suitable for up to 5 minutes).
 
 2. If host reconnects:
-   - If a mini-game round is in progress, it finishes naturally (up to 15 seconds max).
-   - Then: "The innkeeper has returned!" message (800ms).
+   - "The innkeeper has returned!" message (800ms).
    - Game resumes from where it paused.
 
 3. If 5-minute countdown expires:
@@ -175,11 +173,6 @@ If more than one player disconnects simultaneously, the overlay shows all discon
 │         └──┬──┘                     │
 │           4:32                      │  <- AppTextStyles.timerCompact
 │                                     │
-│  ┌─────────────────────────────┐    │
-│  │  [Quiz / Mini-game content] │    │  <- Shared content system
-│  │  from night-waiting pool    │    │     Rotating every 10-15s
-│  │                             │    │     (longer than night's 5s)
-│  └─────────────────────────────┘    │
 │                                     │
 └─────────────────────────────────────┘
 ```
@@ -552,7 +545,7 @@ The primary experience is in-person (same room). However, players may also play 
 |---------|-----------|--------|-------------|
 | Discussion | Players talk face-to-face | Players use external voice/video (Zoom, FaceTime) | No in-app voice. Discussion screen unchanged. |
 | Tap-to-reveal necessity | High -- someone might glance at your phone | Low -- no one can see your phone | Tap-to-reveal stays as default. Players can optionally disable it (future setting). |
-| Night waiting concealment | Critical -- everyone must look busy | Less important -- no one can see each other's phones | Waiting engagement layer still active (good for fun), but concealment invariant is less load-bearing. |
+| Night waiting concealment | Critical -- everyone must look busy | Less important -- no one can see each other's phones | Fidget interactions still active (good for fun), but concealment invariant is less load-bearing. |
 | Lobby code sharing | Say it out loud / show phone | Copy and paste via chat | Tap-to-copy on lobby code is essential. |
 | Audio overlap | Narrator audio plays in the room via all phones | Narrator audio plays through each player's device independently, overlapping with video call audio | Players should mute narrator audio or use headphones. Future: single-device narrator mode. |
 | Timer visibility | Glanceable from across the table | Must check own phone | Timer is prominent on all relevant screens (already specified). |
