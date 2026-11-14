@@ -79,7 +79,24 @@ Decisions that shape those screens:
 - **The Doppelganger is in version 1.** It needs its own versions of screens 6 and 7 for each role it can copy, and its result must say what it became.
 - **Home screen extras.** Online count and recent games are in version 1. Photo avatars are last.
 
-## 5. When a phone drops or locks
+## 5. How the night runs
+
+**Decided: one shared window.** The server is still built the old way, one group of roles at a time, until this is done.
+
+1. **Doppelganger window**, only if that card is in the deck. The Doppelganger looks at a player, copies the role, and if that role acts (Seer, Robber, Troublemaker, Drunk) does the action straight away.
+2. **Shared window.** Every player chooses at once. Players with no action get something to tap.
+   - Shown at once: Werewolves, Minion and Masons see their team; a lone Werewolf sees the center card they pick; the Seer sees what they looked at; the Robber sees the card they took.
+   - Everything shown is read from the table as it stood when the window opened.
+   - When the window closes the server applies the swaps in the official order: Robber, then Troublemaker, then Drunk.
+3. **Dawn.** The Insomniac (and a Doppelganger who copied it) is shown their own card. Every phone shows a dawn screen so theirs does not stand out.
+
+Who wakes as a Werewolf or Mason is decided by the card a player was **dealt**, plus a Doppelganger who copied that role. A player who was handed a Werewolf card during the night does not wake as one, and a player whose Werewolf card was taken still does.
+
+This was tested before it was chosen: 200,000 random games across all 12 roles, every card the Doppelganger can copy, and 3 to 10 players gave identical cards and identical views under the shared window and under the role-by-role night. The games in `../onuw/reference-games.md` agree too.
+
+The Daybreak expansion is not covered. Some of its roles put something on the table that others must see before choosing, and each of those would need its own window first.
+
+## 6. When a phone drops or locks
 
 - Keep the screen awake during a game.
 - Wait 20 to 30 seconds before treating a player as gone.
@@ -87,38 +104,39 @@ Decisions that shape those screens:
 - At night and during the vote, the game waits for a missing player only up to that grace period.
 - The host can carry on without a player who has left.
 
-## 6. Sound
+## 7. Sound
 
 - **No narrator voice in version 1.** The narrator's lines appear as text.
 - The design keeps one narrator slot so a single voice can be added later. When it is, it plays from the host's phone only and its lines contain no player names.
 - No sound effect or vibration may reveal who acted (rule 3).
 
-## 7. Left out on purpose
+## 8. Left out on purpose
 
 - Trivia, quizzes, rumours and mini-games while waiting.
 - Tablet and landscape layouts.
 - A settings screen for the app (volume and the like).
 - Remote play as a designed mode. It may work, but nothing is built for it.
 
-## 8. Still to decide
+## 9. Still to decide
 
 | Question | Until decided |
 |---|---|
-| **How the night runs.** One role at a time as now, or everyone acting in one shared window with the server applying actions in the official order. The shared window is faster and hides who acted, and needs a change to the server's night engine. | Role by role, as built. |
 | **"I'm staying" button** for non-host players after a game, with a count for the host. | Not built. Host's "Play again" only. |
 | **Game length controls.** Three pace presets, or separate timer sliders. | Three presets. |
 | **Minion when only the Tanner dies** and no player is a Werewolf. The rules file says both yes and no. | The Tanner wins alone, as the code does now. |
 | **A Drunk who runs out of time.** The card game says the Drunk must swap. | No swap, as the code does now. |
 
-## 9. What this needs from the server
+## 10. What this needs from the server
 
 None of this exists yet.
 
+- The shared-window night (section 5), replacing the four separate steps.
+- **A fix that is needed either way:** the engine works out the Werewolf and Mason teams from the cards players hold now, not the cards they were dealt. After the Doppelganger swaps cards this shows players the wrong team, and it wrongly refuses a lone Werewolf's look at the center. About 1 game in 60 in random play; reference games 4, D2 and D3 trigger it.
 - Play again: a lobby that can hold more than one game.
 - Countdowns that survive a server restart.
 - Noticing a dropped player, the grace period, and continuing without them.
 - Lock-in voting, with the reveal when all are locked.
 - A "do nothing" night action.
-- Every night step the same minimum length, and no step skipped, so timing gives nothing away.
+- A minimum length for each night window, so a fast window gives nothing away.
 - Something to tap at night for players with no action.
 - Online player count and each player's recent games.
