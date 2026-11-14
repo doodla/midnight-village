@@ -1,8 +1,21 @@
 """
-Pure-Python wave resolution engine for ONUW night phase.
+Pure-Python night resolution engine for ONUW.
 
-Processes night actions wave by wave, handling canonical ordering within
-waves and Doppelganger follow-up actions.
+The night runs in two windows (see roles.NIGHT_WINDOW_ORDER_GROUPS):
+
+* Window 1 - the Doppelganger alone: the look, then the immediate follow-up
+  if the copied role is Seer, Robber, Troublemaker, Drunk or Minion.
+* Window 2 - everyone else at once.  When the window closes the order groups
+  are resolved in order, each step seeing the table after the previous one:
+  team views (group 2), Seer -> Robber -> Troublemaker -> Drunk (group 3),
+  then Insomniac (group 4).
+
+"Wave" in this module means the *order group* (``RoleDefinition.wave``), the
+position in the official wake order.  Action-log entries are tagged with it so
+the night log stays in wake order.
+
+Who acts is always decided from the DEALT cards (``state.original_roles``)
+plus Doppelganger follow-ups, never from the cards held mid-night.
 
 NO Django imports allowed in this module. This is pure game logic.
 """
@@ -17,7 +30,13 @@ from .behaviors import (
     is_effective_mason,
     is_effective_werewolf,
 )
-from .roles import ActionType, get_role, get_roles_for_wave
+from .roles import (
+    ActionType,
+    get_role,
+    get_roles_for_wave,
+    order_groups_for_window,
+    window_for_order_group,
+)
 from .state import ActionLogEntry, ActionResult, GameState, NightAction
 
 # Canonical ordering for wave 3 roles.
@@ -62,7 +81,7 @@ def get_required_actions(
     doppelganger_info: dict[int, str] | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Return list of action prompts for players who need to act in this wave.
+    Return list of action prompts for players who need to act in this order group.
 
     Each dict: {"player_id": int, "role_acting_as": str,
                 "action_types": [...], "valid_targets": {...}}
@@ -70,37 +89,46 @@ def get_required_actions(
     doppelganger_info maps doppelganger player_id -> copied_role for
     scheduling follow-up actions.
 
-    Wave 4 (Insomniac) uses original_roles: in the physical game the
-    narrator calls "Insomniac, wake up" and the player who was DEALT the
-    Insomniac card opens their eyes, regardless of swaps.  Using
-    current roles would prompt whoever now holds the Insomniac card
-    instead, leaking swap information to the wrong player.
+    Who acts is decided from the DEALT cards (state.original_roles) in every
+    group: in the physical game the narrator calls "Seer, wake up" and the
+    player who was dealt the Seer card opens their eyes, whatever has been
+    swapped since.  Using the cards held now would prompt whoever happens to
+    hold the Seer card instead, and leak swap information.
     """
     prompts: list[dict[str, Any]] = []
     wave_roles = get_roles_for_wave(wave)
     wave_role_names = {r.name for r in wave_roles}
 
-    # Wave 4 uses original roles — the Insomniac wakes based on their
-    # dealt card, not whatever card is in front of them after swaps.
-    roles_source = state.original_roles if wave == 4 else state.player_roles
-
-    for player_id, role_name in roles_source.items():
+    for player_id, role_name in state.original_roles.items():
         if role_name in wave_role_names:
-            role_def = get_role(role_name)
-            prompts.append(
-                build_prompt(state, player_id, role_name, role_def.action_types)
-            )
+            prompts.append(build_role_prompt(state, player_id, role_name))
 
     # Check for Doppelganger follow-up actions
     if doppelganger_info:
         for doppel_id, copied_role in doppelganger_info.items():
             followup_wave = get_doppelganger_followup_wave(copied_role)
             if followup_wave == wave:
-                copied_def = get_role(copied_role)
-                prompts.append(
-                    build_prompt(state, doppel_id, copied_role, copied_def.action_types)
-                )
+                prompts.append(build_role_prompt(state, doppel_id, copied_role))
 
+    return prompts
+
+
+def get_required_actions_for_window(
+    state: GameState,
+    window: int,
+    doppelganger_info: dict[int, str] | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Prompts for everyone who acts in a night window, in wake order.
+
+    Window 1 is the Doppelganger's look.  Window 2 prompts every remaining
+    actor at once: dealt Werewolves, Minion, Masons, Seer, Robber,
+    Troublemaker, Drunk, Insomniac, and a Doppelganger who copied Werewolf,
+    Mason or Insomniac (supplied through doppelganger_info).
+    """
+    prompts: list[dict[str, Any]] = []
+    for group in order_groups_for_window(window):
+        prompts.extend(get_required_actions(state, group, doppelganger_info))
     return prompts
 
 
@@ -129,7 +157,7 @@ def build_prompt(
             valid_targets["see_team"] = _compute_see_team_targets(
                 state, player_id, role_acting_as
             )
-        elif at == ActionType.NONE:
+        elif at in (ActionType.NONE, ActionType.SKIP):
             pass  # no targets needed
 
     return {
@@ -138,6 +166,18 @@ def build_prompt(
         "action_types": [at.value for at in action_types],
         "valid_targets": valid_targets,
     }
+
+
+def build_role_prompt(
+    state: GameState, player_id: int, role_acting_as: str
+) -> dict[str, Any]:
+    """Build the prompt for a player acting as ``role_acting_as``.
+
+    Uses the role's prompt action types, which include the explicit ``skip``
+    choice for roles whose action is optional (Seer, Robber, Troublemaker).
+    """
+    role_def = get_role(role_acting_as)
+    return build_prompt(state, player_id, role_acting_as, role_def.prompt_action_types)
 
 
 def _sort_wave_3_actions_with_state(
@@ -232,116 +272,144 @@ def resolve_wave(
     return current_state, results
 
 
+def action_order_group(action: NightAction) -> int:
+    """Order group (wake-order position) of the role an action is performed as.
+
+    A Doppelganger follow-up belongs to the group of the copied role (e.g. a
+    Doppelganger-as-Werewolf sees her team with the Werewolves in group 2).
+    """
+    group = get_role(action.role_acting_as).wave
+    if group is None:
+        raise ValueError(f"Role {action.role_acting_as!r} has no night action.")
+    return group
+
+
+def _skip_for(player_id: int, role_acting_as: str) -> NightAction:
+    return NightAction(
+        player_id=player_id,
+        role_acting_as=role_acting_as,
+        action_type="skip",
+        targets={},
+    )
+
+
+def _resolve_window_by_group(
+    state: GameState, actions: list[NightAction], window: int
+) -> tuple[GameState, dict[int, list[ActionResult]]]:
+    """Resolve a window, returning results keyed by order group."""
+    if window == 1:
+        return _resolve_doppelganger_window(state, actions)
+
+    groups = order_groups_for_window(window)
+    for action in actions:
+        if action_order_group(action) not in groups:
+            raise ValueError(f"Action does not belong to night window {window}.")
+
+    current_state = state
+    results_by_group: dict[int, list[ActionResult]] = {}
+    for group in groups:
+        group_actions = [a for a in actions if action_order_group(a) == group]
+        # A Doppelganger who copied a role in this group and submitted nothing
+        # is skipped (no error), exactly like any other missing action.
+        for doppel_id, copied in state.doppelganger_copied_role.items():
+            if get_doppelganger_followup_wave(copied) == group and not any(
+                a.player_id == doppel_id and a.role_acting_as == copied
+                for a in group_actions
+            ):
+                group_actions.append(_skip_for(doppel_id, copied))
+        current_state, group_results = resolve_wave(current_state, group_actions, group)
+        if group_results:
+            results_by_group[group] = group_results
+    return current_state, results_by_group
+
+
+def _resolve_doppelganger_window(
+    state: GameState, actions: list[NightAction]
+) -> tuple[GameState, dict[int, list[ActionResult]]]:
+    """Window 1: the look, then the immediate follow-up if there is one.
+
+    ``actions`` may hold the look (role_acting_as == "Doppelganger"), the
+    follow-up (role_acting_as == the copied role), or both.  The look always
+    resolves first.  A follow-up the copied role calls for (Seer, Robber,
+    Troublemaker, Drunk, Minion) that was not submitted is skipped.  The copy
+    may already be recorded in ``state`` when the look was resolved earlier.
+    """
+    results: list[ActionResult] = []
+    looks = [a for a in actions if a.role_acting_as == "Doppelganger"]
+    followups = [a for a in actions if a.role_acting_as != "Doppelganger"]
+
+    current_state, look_results = resolve_wave(state, looks, 1)
+    results.extend(look_results)
+
+    pending: list[NightAction] = []
+    for doppel_id, copied in current_state.doppelganger_copied_role.items():
+        if get_doppelganger_followup_wave(copied) != 1:
+            continue
+        submitted = next(
+            (
+                a
+                for a in followups
+                if a.player_id == doppel_id and a.role_acting_as == copied
+            ),
+            None,
+        )
+        pending.append(submitted or _skip_for(doppel_id, copied))
+
+    if pending:
+        current_state, followup_results = resolve_wave(current_state, pending, 1)
+        results.extend(followup_results)
+
+    return current_state, ({1: results} if results else {})
+
+
+def resolve_window(
+    state: GameState, actions: list[NightAction], window: int
+) -> tuple[GameState, list[ActionResult]]:
+    """
+    Close a night window: resolve every action in it and return the new table.
+
+    Window 1: the Doppelganger's look, then her immediate follow-up.
+    Window 2: team views (group 2), then Seer -> Robber -> Troublemaker ->
+    Drunk (group 3, Doppelganger before the real role), then Insomniac
+    (group 4).  Each step sees the table after the previous one, so the
+    Insomniac sees every swap made in the same window and the Seer sees the
+    table before the Robber moves.
+
+    Results are returned in resolution order.  Log entries are tagged with
+    their order group.  Callers deliver results to players only after this
+    returns, i.e. when the window has closed.
+    """
+    new_state, by_group = _resolve_window_by_group(state, actions, window)
+    flat: list[ActionResult] = []
+    for group in sorted(by_group):
+        flat.extend(by_group[group])
+    return new_state, flat
+
+
 def resolve_night(
     state: GameState,
     all_actions: dict[int, list[NightAction]],
 ) -> tuple[GameState, dict[int, list[ActionResult]]]:
     """
-    Process the entire night phase (waves 1-4).
+    Process the entire night (window 1, then window 2).
 
-    all_actions: maps wave number to list of actions for that wave.
+    all_actions: maps order group (1-4) to the actions for that group.
+    Window 1 takes group 1 (the look and any immediate follow-up); window 2
+    takes groups 2-4.
 
-    Returns (final_state, results_by_wave).
-
-    Handles Doppelganger follow-ups: after wave 1, if Doppelganger
-    copied a role with a later wave action, adds the Doppelganger's
-    follow-up action to the appropriate wave's action list.
+    Returns (final_state, results_by_order_group).
     """
+    window_actions: dict[int, list[NightAction]] = {1: [], 2: []}
+    for group, group_actions in all_actions.items():
+        window_actions[window_for_order_group(group)].extend(group_actions)
+
     current_state = state
-    results_by_wave: dict[int, list[ActionResult]] = {}
+    results_by_group: dict[int, list[ActionResult]] = {}
+    for window in (1, 2):
+        current_state, by_group = _resolve_window_by_group(
+            current_state, window_actions[window], window
+        )
+        for group, group_results in by_group.items():
+            results_by_group.setdefault(group, []).extend(group_results)
 
-    # Track Doppelganger follow-ups discovered during wave 1
-    doppelganger_followups: dict[int, dict[str, Any]] = {}
-    # Maps wave_number -> list of follow-up NightActions to inject
-
-    for wave in (1, 2, 3, 4):
-        wave_actions = list(all_actions.get(wave, []))
-
-        if wave == 1:
-            # For wave 1, only process Doppelganger peek actions initially.
-            # Follow-up actions (role_acting_as != "Doppelganger") are
-            # deferred to the second pass after we discover the copied role.
-            doppelganger_peek_actions = [
-                a for a in wave_actions if a.role_acting_as == "Doppelganger"
-            ]
-            current_state, wave_results = resolve_wave(
-                current_state, doppelganger_peek_actions, wave
-            )
-            if wave_results:
-                results_by_wave[wave] = wave_results
-
-            # Discover follow-ups from the Doppelganger copy results
-            for (
-                doppel_id,
-                copied_role,
-            ) in current_state.doppelganger_copied_role.items():
-                followup_wave = get_doppelganger_followup_wave(copied_role)
-                if followup_wave is not None:
-                    doppelganger_followups[doppel_id] = {
-                        "copied_role": copied_role,
-                        "followup_wave": followup_wave,
-                    }
-
-            # Process any wave 1 follow-ups IMMEDIATELY.
-            # These are discovered after the initial Doppelganger peek,
-            # so we need a second pass through wave 1 to resolve them.
-            wave_1_followups: list[NightAction] = []
-            for doppel_id, info in doppelganger_followups.items():
-                if info["followup_wave"] == 1:
-                    # Find the submitted follow-up action in all_actions[1]
-                    followup_action = None
-                    for a in wave_actions:
-                        if (
-                            a.player_id == doppel_id
-                            and a.role_acting_as == info["copied_role"]
-                        ):
-                            followup_action = a
-                            break
-                    if followup_action is None:
-                        # No follow-up submitted — skip it
-                        followup_action = NightAction(
-                            player_id=doppel_id,
-                            role_acting_as=str(info["copied_role"]),
-                            action_type="skip",
-                            targets={},
-                        )
-                    wave_1_followups.append(followup_action)
-
-            if wave_1_followups:
-                current_state, followup_results = resolve_wave(
-                    current_state, wave_1_followups, 1
-                )
-                if 1 in results_by_wave:
-                    results_by_wave[1].extend(followup_results)
-                else:
-                    results_by_wave[1] = followup_results
-        else:
-            # Inject Doppelganger follow-up actions for waves 2+
-            if doppelganger_followups:
-                for doppel_id, info in doppelganger_followups.items():
-                    followup_wave = info["followup_wave"]
-                    if followup_wave == wave:
-                        # Look for a submitted follow-up action from this
-                        # Doppelganger in the all_actions for this wave
-                        has_followup = any(
-                            a.player_id == doppel_id
-                            and a.role_acting_as == info["copied_role"]
-                            for a in wave_actions
-                        )
-                        if not has_followup:
-                            # No follow-up submitted — skip it
-                            skip_action = NightAction(
-                                player_id=doppel_id,
-                                role_acting_as=str(info["copied_role"]),
-                                action_type="skip",
-                                targets={},
-                            )
-                            wave_actions.append(skip_action)
-
-            current_state, wave_results = resolve_wave(
-                current_state, wave_actions, wave
-            )
-            if wave_results:
-                results_by_wave[wave] = wave_results
-
-    return current_state, results_by_wave
+    return current_state, results_by_group

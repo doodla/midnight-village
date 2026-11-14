@@ -42,7 +42,15 @@ class Game(models.Model):
     )
     current_wave = models.PositiveIntegerField(
         default=0,
-        help_text="0 = not in night phase, 1-4 = active wave number",
+        help_text=(
+            "0 = not in night phase, 1-2 = active night window "
+            "(1 = Doppelganger, 2 = everyone else at once)"
+        ),
+    )
+    night_window_opened_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the current night window opened; enforces the minimum length",
     )
     random_seed = models.BigIntegerField()
     night_actions_log = models.JSONField(default=list, blank=True)

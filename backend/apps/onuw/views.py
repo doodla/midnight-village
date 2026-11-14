@@ -201,9 +201,20 @@ class NightActionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 3-7. Lock PlayerRole row, validate, and store action atomically
-        # to prevent TOCTOU race on has_acted check.
+        # 3-7. Lock the Game row, then the PlayerRole row, and validate and
+        # store the action atomically. The Game lock (same order as the timer
+        # callbacks and check_and_maybe_advance: Game, then PlayerRole) makes
+        # current_wave consistent and keeps a submission from landing in the
+        # middle of a window closing. The PlayerRole lock prevents the TOCTOU
+        # race on has_acted.
         with transaction.atomic():
+            game = Game.objects.select_for_update().get(id=game.id)
+            if game.phase != Phase.NIGHT:
+                return Response(
+                    {"detail": "Game is not in the night phase."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Lock the player role row
             try:
                 pr = PlayerRole.objects.select_for_update().get(
@@ -215,7 +226,7 @@ class NightActionView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            # 4. Check player hasn't already acted this wave.
+            # 4. Check player hasn't already acted this window.
             # Return 409 Conflict (not 400) so the frontend can treat
             # duplicate submissions as idempotent success.
             if pr.has_acted:
@@ -224,7 +235,7 @@ class NightActionView(APIView):
                     status=status.HTTP_409_CONFLICT,
                 )
 
-            # 5. Determine what role they're acting as this wave
+            # 5. Determine what role they're acting as this window
             wave = game.current_wave
             acting_role = get_player_acting_role_for_wave(pr, wave)
             if acting_role is None:
@@ -235,11 +246,19 @@ class NightActionView(APIView):
 
             # 6. Extract and validate action
             action_type = request.data.get("action_type")
-            targets = request.data.get("targets", {})
+            targets = request.data.get("targets")
+            if targets is None:
+                targets = {}
 
             if not action_type:
                 return Response(
                     {"detail": "action_type is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not isinstance(action_type, str) or not isinstance(targets, dict):
+                return Response(
+                    {"detail": ["Invalid action."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -276,7 +295,7 @@ class NightActionView(APIView):
 
 
 class WaveAdvanceView(APIView):
-    """Force-advance the current wave (host only). Marks non-submitters as skipped."""
+    """Close the current night window now (host only). Marks non-submitters as skipped."""
 
     permission_classes = [IsAuthenticated]
 

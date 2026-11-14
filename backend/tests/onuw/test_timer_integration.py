@@ -44,12 +44,15 @@ def clean_timer_registry():
     _clear_registry()
 
 
-def _make_night_game(night_wave_seconds=30, wave=2):
+def _make_night_game(night_wave_seconds=30, wave=2, night_min_window_seconds=0):
     """
-    Create a 3-player game in NIGHT phase at the given wave.
+    Create a 3-player game in NIGHT phase at the given night window.
 
-    Players: Werewolf (acts in wave 2), Seer (acts in wave 3), Villager (no actions)
+    Players: Werewolf and Seer (both act in window 2), Villager (no actions)
     Center cards: Robber, Drunk, Villager
+
+    The minimum window length defaults to 0 here so a window can close as soon
+    as it is ready; the minimum has its own tests (test_night_windows.py).
     """
     host = User.objects.create_user(username="wt_host", password="pass")
     p1 = User.objects.create_user(username="wt_p1", password="pass")
@@ -62,6 +65,7 @@ def _make_night_game(night_wave_seconds=30, wave=2):
         settings={
             "roles": {"Werewolf": 1, "Seer": 1, "Villager": 1},
             "night_wave_seconds": night_wave_seconds,
+            "night_min_window_seconds": night_min_window_seconds,
         },
     )
     game = Game.objects.create(
@@ -251,8 +255,9 @@ class TestWaveTimerLifecycle:
             captured_callbacks[0]()
 
         game.refresh_from_db()
-        # Wave 2 has been processed -- game moved to wave 3 or discussion.
-        assert game.current_wave != 2
+        # Window 2 has been closed -- the night is over.
+        assert game.phase == Phase.DISCUSSION
+        assert game.current_wave == 0
 
         # The Werewolf's see_team action was auto-resolved (not skipped).
         log = game.night_actions_log
@@ -264,7 +269,9 @@ class TestWaveTimerLifecycle:
         """
         check_and_maybe_advance() cancels the wave timer when all actors submit.
         """
-        game, werewolf_user, _, _ = _make_night_game(night_wave_seconds=300, wave=2)
+        game, werewolf_user, seer_user, _ = _make_night_game(
+            night_wave_seconds=300, wave=2
+        )
 
         # Schedule a real wave timer via send_wave_prompts.
         with patch("apps.onuw.services.get_channel_layer", return_value=None):
@@ -274,13 +281,22 @@ class TestWaveTimerLifecycle:
         with timers._lock:
             assert timer_key in timers._registry
 
-        # Mark the Werewolf as having acted.
+        # Mark every actor in the window (Werewolf and Seer) as having acted.
         PlayerRole.objects.filter(game=game, user=werewolf_user).update(
             has_acted=True,
             night_action_data={
                 "wave": 2,
                 "role_acting_as": "Werewolf",
                 "action_type": "see_team",
+                "targets": {},
+            },
+        )
+        PlayerRole.objects.filter(game=game, user=seer_user).update(
+            has_acted=True,
+            night_action_data={
+                "wave": 2,
+                "role_acting_as": "Seer",
+                "action_type": "skip",
                 "targets": {},
             },
         )
@@ -346,35 +362,37 @@ class TestWaveTimerLifecycle:
 
     def test_wave_transition_reschedules_timer(self, db):
         """
-        Each wave gets its own timer key.
+        Each window gets its own timer key.
 
-        Advancing from wave 2 to wave 3 schedules a new timer for wave 3.
+        Closing window 1 opens window 2 and schedules a new timer for it.
         """
         scheduled_keys: list = []
 
         def fake_schedule(key, delay, callback, *args):
             scheduled_keys.append(key)
 
-        game, *_ = _make_night_game(night_wave_seconds=300, wave=2)
+        game, *_ = _make_night_game(night_wave_seconds=300, wave=1)
 
         with (
             patch("apps.onuw.services.get_channel_layer", return_value=None),
             patch("apps.onuw.timers.schedule", side_effect=fake_schedule),
         ):
-            # Wave 2 starts -- schedules wave:2 timer.
-            services.send_wave_prompts(game, 2)
-            assert any(str(game.id) + ":wave:2" in k for k in scheduled_keys)
+            # Window 1 starts -- schedules wave:1 timer.
+            services.send_wave_prompts(game, 1)
+            assert any(str(game.id) + ":wave:1" in k for k in scheduled_keys)
 
-            # Advance to wave 3 -- advance_wave calls send_wave_prompts for wave 3.
+            # Close window 1 -- advance_wave opens window 2 via send_wave_prompts.
             services.advance_wave(game)
 
         wave_keys = [k for k in scheduled_keys if ":wave:" in k]
         assert len(wave_keys) >= 2, (
-            f"Expected timers for at least 2 waves, got: {wave_keys}"
+            f"Expected timers for at least 2 windows, got: {wave_keys}"
         )
-        # Verify distinct wave keys
+        # Verify distinct window keys
+        assert any(":wave:1" in k for k in wave_keys)
         assert any(":wave:2" in k for k in wave_keys)
-        assert any(":wave:3" in k for k in wave_keys)
+        game.refresh_from_db()
+        assert game.current_wave == 2
 
 
 # ---------------------------------------------------------------------------

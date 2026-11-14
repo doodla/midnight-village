@@ -85,9 +85,9 @@ Decisions that shape those screens:
 
 1. **Doppelganger window**, only if that card is in the deck. The Doppelganger looks at a player, copies the role, and if that role acts (Seer, Robber, Troublemaker, Drunk) does the action straight away.
 2. **Shared window.** Every player chooses at once. Players with no action get something to tap.
-   - Shown at once: Werewolves, Minion and Masons see their team; a lone Werewolf sees the center card they pick; the Seer sees what they looked at; the Robber sees the card they took.
-   - Everything shown is read from the table as it stood when the window opened.
-   - When the window closes the server applies the swaps in the official order: Robber, then Troublemaker, then Drunk.
+   - When the window closes the server works through the choices in the official order: team views, Seer, Robber, Troublemaker, Drunk.
+   - Only then is each player shown their result: Werewolves, Minion and Masons their team, a lone Werewolf the center card they picked, the Seer what they looked at, the Robber the card they took. Nobody is shown a result while others are still choosing. (A player's own team is known from the deal, so Werewolves and Masons may be shown it when the window opens.)
+   - A window never closes sooner than 8 seconds after it opens, even if everyone has chosen, and it always runs, even if nobody at the table has a choice.
 3. **Dawn.** The Insomniac (and a Doppelganger who copied it) is shown their own card. Every phone shows a dawn screen so theirs does not stand out.
 
 Who wakes as a Werewolf or Mason is decided by the card a player was **dealt**, plus a Doppelganger who copied that role. A player who was handed a Werewolf card during the night does not wake as one, and a player whose Werewolf card was taken still does.

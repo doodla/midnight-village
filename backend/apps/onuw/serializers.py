@@ -151,15 +151,11 @@ class GameMeSerializer(serializers.Serializer):
             return None
 
         # Build the prompt with valid targets
-        from .engine.night import build_prompt
-        from .engine.roles import get_role
+        from .engine.night import build_role_prompt
         from .services import build_game_state
 
-        role_def = get_role(acting_role)
         state = build_game_state(game)
-        prompt = build_prompt(
-            state, player_role.user_id, acting_role, role_def.action_types
-        )
+        prompt = build_role_prompt(state, player_role.user_id, acting_role)
         return {
             "role_acting_as": prompt["role_acting_as"],
             "action_types": prompt["action_types"],

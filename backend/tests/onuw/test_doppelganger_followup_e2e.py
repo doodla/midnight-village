@@ -1,9 +1,9 @@
 """
 End-to-end integration tests for Doppelganger wave-1 follow-up actions.
 
-When the Doppelganger copies a role with a wave-1 follow-up (Seer, Robber,
-Troublemaker, Drunk, Minion), the game must stay in wave 1 after the initial
-peek so the Doppelganger can submit the follow-up action before advancing.
+When the Doppelganger copies a role with an immediate follow-up (Seer, Robber,
+Troublemaker, Drunk, Minion), the game must stay in window 1 after the initial
+look so the Doppelganger can submit the follow-up action before the window closes.
 
 This tests the service layer's wave management, not the pure engine (which
 is covered by test_spec_doppelganger_timing.py).
@@ -53,7 +53,9 @@ def _setup_doppelganger_game(role_assignments: list[str], center_cards: list[str
         host=host,
         game_type="onuw",
         max_players=10,
-        settings={"roles": role_config},
+        # Minimum window length 0: a window closes as soon as its last actor
+        # submits (the minimum length has its own tests).
+        settings={"roles": role_config, "night_min_window_seconds": 0},
     )
     for user in users:
         LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)

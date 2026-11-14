@@ -23,6 +23,7 @@ def _create_game(
     phase: str = Phase.NIGHT,
     current_wave: int = 2,
     host_username: str = "host_na",
+    extra_settings: dict | None = None,
 ):
     """
     Create a game with specific role assignments.
@@ -31,8 +32,11 @@ def _create_game(
         players_roles: Mapping of username -> role name.
         center_cards: List of 3 center card role names.
         phase: Game phase.
-        current_wave: Current wave number.
+        current_wave: Current night window (1 = Doppelganger, 2 = everyone else).
         host_username: Username for the host (first player).
+        extra_settings: Game settings merged over the defaults. The default sets
+            ``night_min_window_seconds`` to 0 so a window closes as soon as its
+            last actor submits (the minimum length has its own tests).
 
     Returns:
         (game, users_dict) where users_dict maps username -> User.
@@ -49,6 +53,8 @@ def _create_game(
         max_players=10,
         settings={"roles": {}},
     )
+    game_settings = {"roles": {}, "night_min_window_seconds": 0}
+    game_settings.update(extra_settings or {})
     for user in users.values():
         LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
     lobby.status = Lobby.Status.IN_GAME
@@ -59,7 +65,7 @@ def _create_game(
         phase=phase,
         current_wave=current_wave,
         random_seed=42,
-        settings=lobby.settings,
+        settings=game_settings,
         center_cards=center_cards,
     )
 
@@ -101,7 +107,7 @@ class TestNightActionSubmission:
                 "p4_drunk": "Drunk",
             },
             center_cards=["Troublemaker", "Insomniac", "Villager"],
-            current_wave=3,
+            current_wave=2,
         )
 
         seer_user = users["host_seer"]
@@ -138,7 +144,7 @@ class TestNightActionSubmission:
                 "p4_drunk2": "Drunk",
             },
             center_cards=["Troublemaker", "Insomniac", "Villager"],
-            current_wave=3,
+            current_wave=2,
         )
 
         seer_user = users["host_seer2"]
@@ -158,7 +164,7 @@ class TestNightActionSubmission:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_player_cannot_submit_in_wrong_wave(self, api_client, db):
-        """A Werewolf cannot submit in wave 3 (they act in wave 2)."""
+        """A Werewolf cannot submit in window 1 (they act in window 2)."""
         game, users = _create_game(
             {
                 "host_ww3": "Werewolf",
@@ -168,7 +174,7 @@ class TestNightActionSubmission:
                 "p4_drunk3": "Drunk",
             },
             center_cards=["Troublemaker", "Insomniac", "Villager"],
-            current_wave=3,
+            current_wave=1,
         )
 
         ww_user = users["host_ww3"]
@@ -197,7 +203,7 @@ class TestNightActionSubmission:
                 "p4_drunk4": "Drunk",
             },
             center_cards=["Troublemaker", "Insomniac", "Villager"],
-            current_wave=3,
+            current_wave=2,
         )
 
         seer_user = users["host_seer4"]
@@ -243,7 +249,7 @@ class TestNightActionSubmission:
                 "p4_np": "Drunk",
             },
             center_cards=["Troublemaker", "Insomniac", "Villager"],
-            current_wave=3,
+            current_wave=2,
         )
         outsider = User.objects.create_user(username="outsider_na", password="pass")
         api_client.force_authenticate(user=outsider)
@@ -294,8 +300,9 @@ class TestNightActionSubmission:
 class TestWaveAdvancement:
     """Tests for auto-advance and force-advance mechanics."""
 
-    def test_wave_advances_when_all_actors_submit(self, api_client, db):
-        """Wave auto-advances when all expected actors have submitted."""
+    def test_window_closes_when_all_actors_submit(self, api_client, db):
+        """Window 2 closes only once EVERY actor in it has submitted, and no
+        result is stored or delivered before that."""
         game, users = _create_game(
             {
                 "host_aa": "Werewolf",
@@ -308,36 +315,42 @@ class TestWaveAdvancement:
             current_wave=2,
         )
 
+        def submit(name, payload):
+            api_client.force_authenticate(user=users[name])
+            response = api_client.post(_action_url(game.id), payload, format="json")
+            assert response.status_code == status.HTTP_200_OK
+
         with _patch_channels():
-            # Werewolf 1 submits
-            api_client.force_authenticate(user=users["host_aa"])
-            response = api_client.post(
-                _action_url(game.id),
-                {"action_type": "see_team", "targets": {}},
-                format="json",
+            submit("host_aa", {"action_type": "see_team", "targets": {}})
+            submit("p1_aa", {"action_type": "see_team", "targets": {}})
+            submit(
+                "p2_aa",
+                {
+                    "action_type": "peek_player",
+                    "targets": {"player_id": users["p4_aa"].id},
+                },
             )
-            assert response.status_code == status.HTTP_200_OK
 
-            # Werewolf 2 submits -- wave should auto-advance
-            api_client.force_authenticate(user=users["p1_aa"])
-            response = api_client.post(
-                _action_url(game.id),
-                {"action_type": "see_team", "targets": {}},
-                format="json",
-            )
-            assert response.status_code == status.HTTP_200_OK
+            # The Robber has not submitted: the window is still open and
+            # nobody has a stored result yet.
+            game.refresh_from_db()
+            assert game.phase == Phase.NIGHT
+            assert game.current_wave == 2
+            pr_ww1 = PlayerRole.objects.get(game=game, user=users["host_aa"])
+            assert "wave_2_result" not in pr_ww1.night_action_data
 
-        # Game should have advanced to wave 3 (Seer and Robber act)
+            submit("p3_aa", {"action_type": "skip", "targets": {}})
+
         game.refresh_from_db()
-        assert game.current_wave == 3
+        assert game.phase == Phase.DISCUSSION
+        assert game.current_wave == 0
 
-        # Both werewolves should have results stored
+        # Both werewolves have results stored for window 2
         pr_ww1 = PlayerRole.objects.get(game=game, user=users["host_aa"])
-        assert "wave_2_result" in pr_ww1.night_action_data
         assert "werewolves" in pr_ww1.night_action_data["wave_2_result"]
 
     def test_host_can_force_advance_wave(self, api_client, db):
-        """Host can force-advance the wave, skipping non-submitters."""
+        """Host can close the window, auto-resolving non-submitters."""
         game, users = _create_game(
             {
                 "host_fa": "Werewolf",
@@ -368,9 +381,13 @@ class TestWaveAdvancement:
             assert response.status_code == status.HTTP_200_OK
             assert response.data["status"] == "advanced"
 
-        # Wave should have advanced (Werewolf 2 skipped)
+        # The host closed the window: everyone who had not submitted got their
+        # automatic action, and the night is over.
         game.refresh_from_db()
-        assert game.current_wave == 3
+        assert game.phase == Phase.DISCUSSION
+        assert game.current_wave == 0
+        pr_ww2 = PlayerRole.objects.get(game=game, user=users["p1_fa"])
+        assert "werewolves" in pr_ww2.night_action_data["wave_2_result"]
 
     def test_force_advance_is_noop_if_timer_already_advanced(self, api_client, db):
         """If the wave timer already advanced the wave, the host force-advance
@@ -493,10 +510,10 @@ class TestTimeoutAutoResolution:
                 "p4_ito": "Villager",
             },
             center_cards=["Werewolf", "Seer", "Robber"],
-            current_wave=4,
+            current_wave=2,
         )
 
-        # Force-advance wave 4 WITHOUT the Insomniac submitting
+        # Force-close the window WITHOUT the Insomniac submitting
         api_client.force_authenticate(user=users["host_ito"])
         with _patch_channels():
             response = api_client.post(_advance_url(game.id), format="json")
@@ -504,9 +521,9 @@ class TestTimeoutAutoResolution:
 
         # Insomniac should have auto-resolved result with their current role
         insomniac_pr = PlayerRole.objects.get(game=game, user=users["p1_ito"])
-        assert "wave_4_result" in insomniac_pr.night_action_data
+        assert "wave_2_result" in insomniac_pr.night_action_data
         assert (
-            insomniac_pr.night_action_data["wave_4_result"]["current_role"]
+            insomniac_pr.night_action_data["wave_2_result"]["current_role"]
             == "Insomniac"
         )
 
@@ -521,7 +538,7 @@ class TestTimeoutAutoResolution:
                 "p4_ial": "Villager",
             },
             center_cards=["Werewolf", "Seer", "Robber"],
-            current_wave=4,
+            current_wave=2,
         )
 
         api_client.force_authenticate(user=users["host_ial"])
@@ -581,10 +598,10 @@ class TestTimeoutAutoResolution:
                 "p4_sst": "Villager",
             },
             center_cards=["Drunk", "Insomniac", "Troublemaker"],
-            current_wave=3,
+            current_wave=2,
         )
 
-        # Nobody submits in wave 3. Host force-advances.
+        # Nobody submits. Host closes the window.
         api_client.force_authenticate(user=users["host_sst"])
         with _patch_channels():
             api_client.post(_advance_url(game.id), format="json")
@@ -592,7 +609,7 @@ class TestTimeoutAutoResolution:
         # Seer should have been skipped (no result stored)
         pr_seer = PlayerRole.objects.get(game=game, user=users["p1_sst"])
         # Skip actions have empty revealed_info, so no wave_3_result is stored
-        assert "wave_3_result" not in pr_seer.night_action_data
+        assert "wave_2_result" not in pr_seer.night_action_data
 
         # Action log should record "skip" for the Seer
         game.refresh_from_db()

@@ -6,13 +6,14 @@ Understand these mechanics before implementing any game feature.
 
 **Game flow:** Lobby → Night → Discussion → Voting → Results
 
-**Night phase runs in waves:**
-1. **Doppelganger** — copies a player's role, may act again in that role's wave
-2. **Werewolves, Minion, Masons** — see each other (no state changes)
-3. **Seer, Robber, Troublemaker, Drunk** — independent actions, resolve simultaneously
-4. **Insomniac, Doppelganger-as-Insomniac** — see own final role after all swaps
+**Night phase runs in two windows** (`Game.current_wave` holds the window number: 1 or 2, 0 outside night). `RoleDefinition.wave` is the *order group* (position in the wake order), not a phase of the game; action-log entries are tagged with it so the log stays in wake order.
+1. **Window 1 — Doppelganger alone.** Runs whenever the Doppelganger card is in the deck (dealt or in the center), even if nobody can act. The look resolves at once (she needs it to choose); a follow-up as Seer/Robber/Troublemaker/Drunk/Minion resolves when the window closes.
+2. **Window 2 — everyone else at once.** Always runs, even if nobody has a choice. Every actor is prompted together: dealt Werewolves, Minion, Masons, Seer, Robber, Troublemaker, Drunk, Insomniac, and a Doppelganger who copied Werewolf/Mason/Insomniac. Nothing is sent to anyone until the window closes; then the engine resolves, each step seeing the table after the previous one: team views (group 2), Seer -> Robber -> Troublemaker -> Drunk (group 3, Doppelganger before the real role), Insomniac (group 4). Engine entry points: `get_required_actions_for_window`, `resolve_window` (`resolve_night` still takes actions keyed by order group 1-4).
+- **Timing:** a window closes when its last actor submits, but never sooner than `night_min_window_seconds` (default 8) after it opened (the close is scheduled for that moment); `night_wave_seconds` (default 30) is the maximum. Host "advance" closes the window immediately.
+- **Dealt-card rule:** who wakes as a Werewolf or Mason, who acts in every step, and who a Minion sees is decided by the card DEALT (`state.original_roles`) plus a Doppelganger who copied that role, never the card held mid-night. A stolen Werewolf card does not make the thief a Werewolf; the player it was taken from still wakes (and can be the "lone" Werewolf). Winning is still decided by the card held at the end.
+- **Results** are stored per window (`night_action_data["wave_<window>_result"]`); a player gets at most one in window 2.
 
-**Action types:** `peek_player`, `peek_center`, `swap_with_player`, `swap_with_center`, `swap_others`, `see_team`, `none`
+**Action types:** `peek_player`, `peek_center`, `swap_with_player`, `swap_with_center`, `swap_others`, `see_team`, `none`, `skip` (explicit "do nothing": Seer, Robber, Troublemaker only, including a Doppelganger follow-up as one of them; advertised in the prompt's `action_types`; never for the Drunk, the Doppelganger's first look, or view-only roles)
 
 **v1 roles (12):** Werewolf, Villager, Seer, Robber, Troublemaker, Drunk, Insomniac, Minion, Tanner, Hunter, Mason, Doppelganger
 
@@ -26,9 +27,9 @@ Understand these mechanics before implementing any game feature.
 **Critical edge cases:**
 - Player disconnects mid-action → action skipped after timer
 - Timer expires with no submission → action skipped
-- Doppelganger copies a role with a night action → acts again in that wave
+- Doppelganger copies a role with a night action → acts again (Seer/Robber/Troublemaker/Drunk/Minion immediately in window 1; Werewolf/Mason/Insomniac in window 2)
 - All votes tied → no one dies
-- Robber swaps then Troublemaker swaps the same player → order matters (wave ordering resolves this)
+- Robber swaps then Troublemaker swaps the same player → order matters (resolution order within window 2 settles this)
 
 ## Silent Failure Modes
 

@@ -23,8 +23,13 @@ from .engine.behaviors import (
     get_doppelganger_followup_wave,
     is_effective_werewolf,
 )
-from .engine.night import get_required_actions, resolve_wave
-from .engine.roles import ActionType, get_role
+from .engine.night import (
+    build_role_prompt,
+    get_required_actions_for_window,
+    resolve_wave,
+    resolve_window,
+)
+from .engine.roles import ActionType, get_role, window_for_order_group
 from .engine.state import ActionResult, GameState, NightAction
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
@@ -35,9 +40,23 @@ class AlreadyActedError(Exception):
     """Raised when a player tries to act again after already submitting."""
 
 
+# Night windows: 1 = Doppelganger alone, 2 = everyone else at once.
+NIGHT_WINDOWS = (1, 2)
+
+# Default maximum length of a night window (seconds). 0 disables the timer.
+DEFAULT_NIGHT_WAVE_SECONDS = 30
+# Default minimum length of a night window (seconds). A window never closes
+# sooner than this after it opened, so a fast window gives nothing away.
+DEFAULT_NIGHT_MIN_WINDOW_SECONDS = 8
+
+
 def get_timer_seconds(game: Game, key: str, default: int) -> int:
     """Read a timer duration from game settings, returning default if not set."""
     return game.settings.get(key, default)
+
+
+def _window_timer_key(game: Game, window: int) -> str:
+    return f"{game.id}:wave:{window}"
 
 
 def _get_player_names(game: Game) -> dict[int, str]:
@@ -192,46 +211,90 @@ def build_game_state(game: Game) -> GameState:
 
 
 def get_wave_actors(game: Game, wave: int) -> list[int]:
-    """Return user_ids of players who should act in the given wave."""
+    """Return user_ids of players who should act in the given night window."""
     state = build_game_state(game)
     doppelganger_info = state.doppelganger_copied_role if wave > 1 else None
-    prompts = get_required_actions(state, wave, doppelganger_info)
+    prompts = get_required_actions_for_window(state, wave, doppelganger_info)
     return [p["player_id"] for p in prompts]
 
 
-def get_next_active_wave(game: Game, after_wave: int) -> int | None:
-    """
-    Find the next wave (after after_wave) that has actors.
-
-    Returns None if no more waves need processing.
-    """
-    state = build_game_state(game)
-    for wave in range(after_wave + 1, 5):  # waves 1-4
-        doppelganger_info = state.doppelganger_copied_role if wave > 1 else None
-        prompts = get_required_actions(state, wave, doppelganger_info)
-        if prompts:
-            return wave
-    return None
+def _doppelganger_in_deck(game: Game) -> bool:
+    """True if the Doppelganger card is in the deck: dealt to a player or in the center."""
+    # pyrefly: ignore [missing-attribute]
+    dealt = game.player_roles.filter(original_role="Doppelganger").exists()
+    return dealt or "Doppelganger" in game.center_cards
 
 
 def start_night_phase(game: Game) -> None:
     """
-    Initialize the night phase: find the first active wave, set current_wave,
-    and send prompts to players.
+    Open the night.
 
-    Called after the game is created. If no night actions exist at all,
-    transitions directly to discussion.
+    Window 1 (Doppelganger) runs whenever the Doppelganger card is in the deck,
+    dealt or in the center, even if nobody can act in it (so a missing
+    Doppelganger cannot be told from a present one by timing). Window 2 always
+    runs. A window is never skipped because it has no actors.
     """
-    first_wave = get_next_active_wave(game, 0)
-    if first_wave is None:
-        # No night actions at all -- skip straight to discussion
-        transition_to_discussion(game)
+    first_window = 1 if _doppelganger_in_deck(game) else 2
+    with transaction.atomic():
+        locked = Game.objects.select_for_update().get(id=game.id)
+        _open_window(locked, first_window)
+    game.refresh_from_db()
+
+
+def _open_window(game: Game, window: int) -> None:
+    """Open a night window: record it, prompt its actors, and arrange its close."""
+    with transaction.atomic():
+        game.current_wave = window
+        game.save(update_fields=["current_wave", "updated_at"])
+        # Fresh window: nobody has acted in it yet.
+        # pyrefly: ignore [missing-attribute]
+        game.player_roles.update(has_acted=False)
+
+    send_wave_prompts(game, window)
+
+    # With nobody to wait for, the window still lasts its minimum length.
+    if not get_wave_actors(game, window):
+        _close_or_defer(game)
+
+
+def _min_close_delay(game: Game) -> float:
+    """Seconds until the current window may close (0 if its minimum has passed).
+
+    The minimum never exceeds the window's maximum (night_wave_seconds).
+    """
+    min_seconds = get_timer_seconds(
+        game, "night_min_window_seconds", DEFAULT_NIGHT_MIN_WINDOW_SECONDS
+    )
+    max_seconds = get_timer_seconds(
+        game, "night_wave_seconds", DEFAULT_NIGHT_WAVE_SECONDS
+    )
+    if max_seconds > 0:
+        min_seconds = min(min_seconds, max_seconds)
+    opened_at = game.night_window_opened_at
+    if min_seconds <= 0 or opened_at is None:
+        return 0.0
+    ready_at = opened_at + timedelta(seconds=min_seconds)
+    return max(0.0, (ready_at - timezone.now()).total_seconds())
+
+
+def _close_or_defer(game: Game) -> None:
+    """Close the current window now, or at its minimum length if that is later.
+
+    Called with the Game row locked once every actor in the window is done.
+    Rescheduling replaces the window's maximum timer under the same key; the
+    callback is idempotent per window.
+    """
+    window = game.current_wave
+    delay = _min_close_delay(game)
+    if delay > 0:
+        callback = timers.make_idempotent_callback(
+            game.id,
+            Phase.NIGHT,
+            functools.partial(_auto_advance_wave, wave_number=window),
+        )
+        timers.schedule(_window_timer_key(game, window), delay, callback)
         return
-
-    game.current_wave = first_wave
-    game.save(update_fields=["current_wave", "updated_at"])
-
-    send_wave_prompts(game, first_wave)
+    advance_wave(game)
 
 
 def _timeout_action_type(role_acting_as: str) -> str:
@@ -264,23 +327,29 @@ def _auto_advance_wave(game: Game, wave_number: int) -> None:
 
 def send_wave_prompts(game: Game, wave: int) -> None:
     """
-    Send action prompts to players who act in this wave, and
-    waiting messages to non-acting players.
+    Open the timing of a night window and prompt every actor in it at once.
 
-    Schedules a wave timer when night_wave_seconds > 0.
+    ``wave`` is the window number. Records when the window opened (the minimum
+    length is measured from here), schedules the maximum-length timer when
+    night_wave_seconds > 0, broadcasts wave.start, sends each actor their
+    action.prompt, and tells everyone else wave.waiting.
     """
-    wave_seconds = get_timer_seconds(game, "night_wave_seconds", 30)
+    wave_seconds = get_timer_seconds(
+        game, "night_wave_seconds", DEFAULT_NIGHT_WAVE_SECONDS
+    )
+    opened_at = timezone.now()
+    game.night_window_opened_at = opened_at
     if wave_seconds > 0:
-        game.phase_deadline = timezone.now() + timedelta(seconds=wave_seconds)
+        game.phase_deadline = opened_at + timedelta(seconds=wave_seconds)
         callback = timers.make_idempotent_callback(
             game.id,
             Phase.NIGHT,
             functools.partial(_auto_advance_wave, wave_number=wave),
         )
-        timers.schedule(f"{game.id}:wave:{wave}", wave_seconds, callback)
+        timers.schedule(_window_timer_key(game, wave), wave_seconds, callback)
     else:
         game.phase_deadline = None
-    game.save(update_fields=["phase_deadline", "updated_at"])
+    game.save(update_fields=["phase_deadline", "night_window_opened_at", "updated_at"])
 
     channel_layer = get_channel_layer()
     if channel_layer is None:
@@ -288,7 +357,7 @@ def send_wave_prompts(game: Game, wave: int) -> None:
 
     state = build_game_state(game)
     doppelganger_info = state.doppelganger_copied_role if wave > 1 else None
-    prompts = get_required_actions(state, wave, doppelganger_info)
+    prompts = get_required_actions_for_window(state, wave, doppelganger_info)
     acting_player_ids = {p["player_id"] for p in prompts}
 
     send = async_to_sync(channel_layer.group_send)
@@ -331,122 +400,58 @@ def send_wave_prompts(game: Game, wave: int) -> None:
             )
 
 
-def advance_wave(game: Game) -> None:
-    """
-    Resolve the current wave, persist results, send player-scoped results,
-    then advance to the next wave or transition to discussion.
-    """
-    wave = game.current_wave
-    timers.cancel(f"{game.id}:wave:{wave}")
-    state = build_game_state(game)
-
-    # Collect actions from PlayerRole rows
-    night_actions: list[NightAction] = []
-    actor_ids = set(get_wave_actors(game, wave))
-
+def _doppelganger_player_role(game: Game) -> PlayerRole | None:
+    """The PlayerRole of the player who was dealt the Doppelganger, if any."""
     # pyrefly: ignore [missing-attribute]
-    for pr in game.player_roles.filter(user_id__in=actor_ids):
-        if pr.has_acted and pr.night_action_data.get("wave") == wave:
-            role_acting_as = pr.night_action_data.get("role_acting_as", pr.current_role)
-            night_actions.append(
-                NightAction(
-                    player_id=pr.user_id,
-                    role_acting_as=role_acting_as,
-                    action_type=pr.night_action_data["action_type"],
-                    targets=pr.night_action_data.get("targets", {}),
-                )
-            )
-        else:
-            # Player did not submit — auto-resolve or skip.
-            role_acting_as = _determine_acting_role(pr, wave)
-            action_type = _timeout_action_type(role_acting_as)
-            night_actions.append(
-                NightAction(
-                    player_id=pr.user_id,
-                    role_acting_as=role_acting_as,
-                    action_type=action_type,
-                    targets={},
-                )
-            )
-
-    # Resolve the wave through the engine
-    new_state, results = resolve_wave(state, night_actions, wave)
-
-    # Persist results atomically
-    with transaction.atomic():
-        persist_wave_results(game, new_state, results, wave)
-
-    # Send player-scoped results via WebSocket
-    send_wave_results(game, results, night_actions, wave)
-
-    # Doppelganger wave-1 follow-up: after the initial peek resolves,
-    # check if the copied role requires an immediate follow-up action
-    # (Seer, Robber, Troublemaker, Drunk, Minion all follow up in wave 1).
-    # If so, stay in wave 1 and prompt the follow-up before advancing.
-    if wave == 1:
-        just_resolved_initial = any(
-            a.role_acting_as == "Doppelganger" for a in night_actions
-        )
-        if just_resolved_initial:
-            followup = _get_doppelganger_wave1_followup(game)
-            if followup is not None:
-                doppel_id, copied_role = followup
-                _send_doppelganger_followup_prompt(game, doppel_id, copied_role)
-                return
-
-    # Advance to next wave or end night
-    next_wave = get_next_active_wave(game, wave)
-    if next_wave is not None:
-        with transaction.atomic():
-            game.current_wave = next_wave
-            game.save(update_fields=["current_wave", "updated_at"])
-            # Reset has_acted for all players for the new wave
-            # pyrefly: ignore [missing-attribute]
-            game.player_roles.update(has_acted=False)
-        send_wave_prompts(game, next_wave)
-    else:
-        transition_to_discussion(game)
+    return game.player_roles.filter(original_role="Doppelganger").first()
 
 
-def _get_doppelganger_wave1_followup(game: Game) -> tuple[int, str] | None:
-    """Check if a Doppelganger copied a role with a wave-1 follow-up.
+def _doppelganger_look_submitted(game: Game) -> bool:
+    """True if the Doppelganger submitted the look and it is not resolved yet."""
+    pr = _doppelganger_player_role(game)
+    if pr is None or not pr.has_acted:
+        return False
+    data = pr.night_action_data
+    return data.get("role_acting_as") == "Doppelganger" and "copied_role" not in data
 
-    Returns (doppelganger_user_id, copied_role) if a follow-up is needed,
-    or None if there's nothing to follow up on.
+
+def _resolve_doppelganger_look(game: Game) -> bool:
+    """Resolve the Doppelganger's look as soon as she submits it.
+
+    The look is the one result delivered before its window closes: she needs
+    it to choose her follow-up. It goes only to her. Returns True if the copied
+    role calls for an immediate follow-up, in which case the follow-up prompt
+    has been sent and the window stays open for it.
     """
+    pr = _doppelganger_player_role(game)
+    if pr is None:
+        return False
+    data = pr.night_action_data
+    look = NightAction(
+        player_id=pr.user_id,
+        role_acting_as="Doppelganger",
+        action_type=data["action_type"],
+        targets=data.get("targets", {}),
+    )
     state = build_game_state(game)
-    for doppel_id, copied_role in state.doppelganger_copied_role.items():
-        followup_wave = get_doppelganger_followup_wave(copied_role)
-        if followup_wave == 1:
-            return (doppel_id, copied_role)
-    return None
-
-
-def _send_doppelganger_followup_prompt(
-    game: Game, doppel_id: int, copied_role: str
-) -> None:
-    """Send a follow-up action prompt to the Doppelganger and reset has_acted.
-
-    After the Doppelganger's initial peek resolves and the copied role has a
-    wave-1 follow-up, we stay in wave 1 and prompt the follow-up action.
-    """
-    from .engine.night import build_prompt
-    from .engine.roles import get_role
-
-    # Reset has_acted so the Doppelganger can submit the follow-up
+    new_state, results = resolve_wave(state, [look], 1)
     with transaction.atomic():
-        PlayerRole.objects.filter(game=game, user_id=doppel_id).update(has_acted=False)
+        persist_wave_results(game, new_state, results, 1)
+    send_action_results(game, results, [look], 1)
 
-    # Build and send the follow-up prompt
-    state = build_game_state(game)
-    role_def = get_role(copied_role)
-    prompt = build_prompt(state, doppel_id, copied_role, role_def.action_types)
+    copied = new_state.doppelganger_copied_role.get(pr.user_id)
+    if copied is None or get_doppelganger_followup_wave(copied) != 1:
+        return False
+
+    # Prompt the follow-up (Seer, Robber, Troublemaker, Drunk, Minion) at once.
+    with transaction.atomic():
+        PlayerRole.objects.filter(game=game, user_id=pr.user_id).update(has_acted=False)
+    prompt = build_role_prompt(build_game_state(game), pr.user_id, copied)
 
     channel_layer = get_channel_layer()
     if channel_layer is not None:
-        send = async_to_sync(channel_layer.group_send)
-        send(
-            f"game_{game.id}_player_{doppel_id}",
+        async_to_sync(channel_layer.group_send)(
+            f"game_{game.id}_player_{pr.user_id}",
             {
                 "type": "action.prompt",
                 "wave": 1,
@@ -456,36 +461,99 @@ def _send_doppelganger_followup_prompt(
             },
         )
 
-    # Schedule a timer for the follow-up action
-    wave_seconds = get_timer_seconds(game, "night_wave_seconds", 30)
+    # Fresh maximum for the follow-up. phase_deadline is left alone on purpose:
+    # changing it would show the whole table that a follow-up exists.
+    wave_seconds = get_timer_seconds(
+        game, "night_wave_seconds", DEFAULT_NIGHT_WAVE_SECONDS
+    )
     if wave_seconds > 0:
         callback = timers.make_idempotent_callback(
             game.id, Phase.NIGHT, functools.partial(_auto_advance_wave, wave_number=1)
         )
-        timers.schedule(f"{game.id}:wave:1", wave_seconds, callback)
+        timers.schedule(_window_timer_key(game, 1), wave_seconds, callback)
+    return True
 
 
-def _determine_acting_role(pr: PlayerRole, wave: int) -> str:
+def _collect_window_actions(game: Game, window: int) -> list[NightAction]:
+    """Gather the window's actions: what each actor submitted, else their default.
+
+    A player who submitted nothing gets the automatic action for their role:
+    team views and the Insomniac's look still happen (they need no choice),
+    anything with a choice is skipped.
     """
-    Determine what role a player is acting as in a given wave.
+    # pyrefly: ignore [missing-attribute]
+    player_roles = {pr.user_id: pr for pr in game.player_roles.all()}
+    actions: list[NightAction] = []
+    for pid in get_wave_actors(game, window):
+        pr = player_roles[pid]
+        role_acting_as = _determine_acting_role(pr, window)
+        if role_acting_as is None:
+            continue  # Already fully resolved earlier (the Doppelganger's look).
+        data = pr.night_action_data
+        if (
+            pr.has_acted
+            and data.get("wave") == window
+            and data.get("role_acting_as") == role_acting_as
+        ):
+            actions.append(
+                NightAction(
+                    player_id=pid,
+                    role_acting_as=role_acting_as,
+                    action_type=data["action_type"],
+                    targets=data.get("targets", {}),
+                )
+            )
+        else:
+            actions.append(
+                NightAction(
+                    player_id=pid,
+                    role_acting_as=role_acting_as,
+                    action_type=_timeout_action_type(role_acting_as),
+                    targets={},
+                )
+            )
+    return actions
 
-    Handles Doppelganger follow-up: if the player is originally
-    Doppelganger and copied a role whose follow-up wave matches,
-    they act as that copied role.
 
-    Wave 4 uses original_role: the Insomniac wakes based on their dealt
-    card, not whatever they hold after swaps.
+def advance_wave(game: Game) -> None:
     """
-    if pr.original_role == "Doppelganger" and pr.night_action_data.get("copied_role"):
-        copied = pr.night_action_data["copied_role"]
-        followup = get_doppelganger_followup_wave(copied)
-        if followup == wave:
-            return copied
+    Close the current night window.
 
-    if wave == 4:
-        return pr.original_role
+    Resolves the whole window through the engine (window 2: team views, then
+    Seer, Robber, Troublemaker, Drunk, then Insomniac, each seeing the table
+    after the previous step), persists the results, and only then sends each
+    player their own result. Then opens window 2 or moves on to discussion.
 
-    return pr.current_role
+    Closing here ignores the minimum length: the host and the maximum timer
+    both come through this function. The minimum is enforced by
+    _close_or_defer.
+    """
+    window = game.current_wave
+    timers.cancel(_window_timer_key(game, window))
+    state = build_game_state(game)
+    night_actions = _collect_window_actions(game, window)
+
+    new_state, results = resolve_window(state, night_actions, window)
+
+    with transaction.atomic():
+        persist_wave_results(game, new_state, results, window)
+
+    send_wave_results(game, results, night_actions, window)
+
+    if window < NIGHT_WINDOWS[-1]:
+        _open_window(game, window + 1)
+    else:
+        transition_to_discussion(game)
+
+
+def _determine_acting_role(pr: PlayerRole, wave: int) -> str | None:
+    """
+    Role a player acts as in a night window, or None if they do not act in it.
+
+    Decided from the DEALT card (original_role), never the card held now;
+    a Doppelganger acts as the role she copied.
+    """
+    return get_player_acting_role_for_wave(pr, wave)
 
 
 def persist_wave_results(
@@ -494,24 +562,29 @@ def persist_wave_results(
     results: list[ActionResult],
     wave: int,
 ) -> None:
-    """Write engine results back to DB within an atomic transaction."""
+    """Write engine results back to DB within an atomic transaction.
+
+    ``wave`` is the night window. Results are stored per window
+    (``wave_<window>_result``); a player gets at most one in window 2. Log
+    entries keep the order group they were resolved in, so the night log stays
+    in wake order.
+    """
     # Update center cards
     game.center_cards = new_state.center_cards
 
-    # Append action log entries for this wave
+    # Append the action log entries produced by this resolution
     log = list(game.night_actions_log)
     for entry in new_state.action_log:
-        if entry.wave == wave:
-            log.append(
-                {
-                    "wave": entry.wave,
-                    "player_id": entry.player_id,
-                    "action_type": entry.action_type,
-                    "targets": entry.targets,
-                    "result": entry.result,
-                    "timestamp_order": entry.timestamp_order,
-                }
-            )
+        log.append(
+            {
+                "wave": entry.wave,
+                "player_id": entry.player_id,
+                "action_type": entry.action_type,
+                "targets": entry.targets,
+                "result": entry.result,
+                "timestamp_order": entry.timestamp_order,
+            }
+        )
     game.night_actions_log = log
     game.save(update_fields=["center_cards", "night_actions_log", "updated_at"])
 
@@ -532,13 +605,13 @@ def persist_wave_results(
             pr.save(update_fields=["night_action_data"])
 
 
-def send_wave_results(
+def send_action_results(
     game: Game,
     results: list[ActionResult],
     night_actions: list[NightAction],
     wave: int,
 ) -> None:
-    """Send player-scoped results via WebSocket.
+    """Send each player their own result via WebSocket (action.result only).
 
     Transforms the engine's raw revealed_info into the client-friendly
     format the frontend expects (display names, consistent keys, action_type).
@@ -571,8 +644,21 @@ def send_wave_results(
             },
         )
 
-    # Broadcast wave_complete to all players
-    send(f"game_{game.id}", {"type": "wave.complete", "wave": wave})
+
+def send_wave_results(
+    game: Game,
+    results: list[ActionResult],
+    night_actions: list[NightAction],
+    wave: int,
+) -> None:
+    """Window closed: send every player their result, then broadcast wave.complete."""
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+    send_action_results(game, results, night_actions, wave)
+    async_to_sync(channel_layer.group_send)(
+        f"game_{game.id}", {"type": "wave.complete", "wave": wave}
+    )
 
 
 def transition_to_discussion(game: Game) -> None:
@@ -582,12 +668,19 @@ def transition_to_discussion(game: Game) -> None:
     with transaction.atomic():
         game.phase = Phase.DISCUSSION
         game.current_wave = 0
+        game.night_window_opened_at = None
         if discussion_seconds > 0:
             game.phase_deadline = timezone.now() + timedelta(seconds=discussion_seconds)
         else:
             game.phase_deadline = None
         game.save(
-            update_fields=["phase", "current_wave", "phase_deadline", "updated_at"]
+            update_fields=[
+                "phase",
+                "current_wave",
+                "night_window_opened_at",
+                "phase_deadline",
+                "updated_at",
+            ]
         )
 
         # Reset has_acted for voting phase later
@@ -617,10 +710,12 @@ def transition_to_discussion(game: Game) -> None:
 
 def check_and_maybe_advance(game: Game) -> None:
     """
-    Check if all actors for the current wave have submitted.
+    After a submission, close the window if every actor in it has submitted.
 
-    If everyone has acted, advance the wave. This is called after
-    each action submission to auto-advance when ready.
+    The window still lasts at least its minimum length: if everyone is done
+    early, the close is scheduled for when the minimum is reached. The
+    Doppelganger's look is the one step resolved at once (she needs it to
+    choose her follow-up).
 
     Uses select_for_update on the Game row to prevent double-fire
     when two players submit simultaneously.
@@ -631,69 +726,48 @@ def check_and_maybe_advance(game: Game) -> None:
             # Already advanced by another concurrent request
             return
 
-        wave = game.current_wave
-        actor_ids = get_wave_actors(game, wave)
-        if not actor_ids:
-            advance_wave(game)
-            return
+        window = game.current_wave
+        if window == 1 and _doppelganger_look_submitted(game):
+            if _resolve_doppelganger_look(game):
+                return  # Window stays open for the follow-up.
 
-        # Check if any actors are still pending
+        actor_ids = get_wave_actors(game, window)
         pending = PlayerRole.objects.filter(
             game=game, user_id__in=actor_ids, has_acted=False
         ).count()
 
         if pending == 0:
-            timers.cancel(f"{game.id}:wave:{wave}")
-            advance_wave(game)
+            _close_or_defer(game)
 
 
 def get_player_acting_role_for_wave(pr: PlayerRole, wave: int) -> str | None:
     """
-    Determine what role this player acts as in the given wave, or None if
-    they do not act.
+    Role this player acts as in the given night window, or None if they do
+    not act in it.
 
-    Uses the role registry to check wave assignments, plus Doppelganger
-    follow-up logic.
+    Decided from the DEALT card (original_role), never the card held now: the
+    player dealt the Seer wakes as the Seer whatever has been swapped since.
 
-    For wave 1: if the Doppelganger has already completed the initial peek
-    (wave_1_result exists) and the copied role has a wave-1 follow-up,
-    returns the copied role so the follow-up action can be validated.
+    Window 1: the Doppelganger's look; once she has copied, her immediate
+    follow-up if the copied role has one (Seer, Robber, Troublemaker, Drunk,
+    Minion). Window 2: every other actor, plus a Doppelganger who copied
+    Werewolf, Mason or Insomniac.
     """
-    # Check Doppelganger wave-1 follow-up BEFORE the base role check.
-    # After the initial peek resolves, the Doppelganger needs to submit
-    # a follow-up action as the copied role (e.g., Seer peek_center).
-    # Without this, the base check returns "Doppelganger" which only
-    # allows peek_player, rejecting other action types.
-    if (
-        wave == 1
-        and pr.original_role == "Doppelganger"
-        and pr.night_action_data.get("copied_role")
-        and "wave_1_result" in pr.night_action_data
-    ):
-        copied = pr.night_action_data["copied_role"]
+    dealt = pr.original_role
+    if dealt == "Doppelganger":
+        copied = pr.night_action_data.get("copied_role")
+        if wave == 1 and not copied:
+            return "Doppelganger"
+        if not copied:
+            return None
         followup = get_doppelganger_followup_wave(copied)
-        if followup == 1:
+        if followup is not None and window_for_order_group(followup) == wave:
             return copied
+        return None
 
-    # Wave 4 (Insomniac) uses original role: the player who was DEALT the
-    # Insomniac card wakes to check their card, regardless of swaps.
-    if wave == 4:
-        role_def = get_role(pr.original_role)
-        if role_def.wave == 4:
-            return pr.original_role
-    else:
-        # Check if their current role acts in this wave
-        role_def = get_role(pr.current_role)
-        if role_def.wave == wave:
-            return pr.current_role
-
-    # Check Doppelganger follow-up for waves 2+
-    if pr.original_role == "Doppelganger" and pr.night_action_data.get("copied_role"):
-        copied = pr.night_action_data["copied_role"]
-        followup = get_doppelganger_followup_wave(copied)
-        if followup == wave:
-            return copied
-
+    order_group = get_role(dealt).wave
+    if order_group is not None and window_for_order_group(order_group) == wave:
+        return dealt
     return None
 
 
@@ -719,8 +793,9 @@ def validate_night_action(
 
     # Validate action_type is allowed for this role
     role_def = get_role(acting_role)
-    allowed_types = [at.value for at in role_def.action_types]
+    allowed_types = [at.value for at in role_def.prompt_action_types]
     if action_type not in allowed_types:
+        # Generic on purpose: never name a role or what it may do.
         errors.append("Invalid action type for this wave.")
         return errors
 
@@ -729,7 +804,12 @@ def validate_night_action(
     game_player_ids = set(game.player_roles.values_list("user_id", flat=True))
 
     # Validate targets based on action_type
-    if action_type == "peek_player":
+    if action_type == "skip":
+        # Explicit "do nothing": no targets allowed.
+        if targets:
+            errors.append("Invalid action.")
+
+    elif action_type == "peek_player":
         target_id = targets.get("player_id")
         if target_id is None:
             errors.append("targets.player_id is required for peek_player.")
