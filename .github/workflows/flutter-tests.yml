@@ -37,11 +37,17 @@ on:
         type: boolean
         default: false
 
+# A newer push to the same branch cancels the run still in progress.
+concurrency:
+  group: flutter-tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ─── Widget Tests ──────────────────────────────────────────────────────────
   widget-tests:
     name: Widget Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -73,6 +79,7 @@ jobs:
   golden-tests:
     name: Golden Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -132,6 +139,7 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -178,6 +186,7 @@ jobs:
       # Runs headless via web-server device (no Chrome window needed)
       - name: Integration tests
         id: integration-tests
+        timeout-minutes: 8
         run: just test-integration-ci
 
       - name: Upload ChromeDriver log
