@@ -287,7 +287,7 @@ Answers: **"How must it work?"**
 
 - **Platform capabilities:** Implementation-ready specs for shared systems -- narrator cue framework, haptic engine, animation system, particle system, asset pipeline, dev harness, connectivity/pause system. Includes interfaces, data types, contracts, and data flow.
 - **Accessibility requirements:** Screen reader support, color-blind safety, reduced motion, dynamic text, contrast ratios, touch targets. Per-screen callouts.
-- **Responsive rules:** Phone-first layouts with tablet adaptation notes. Player count scaling (3-20+). Portrait + landscape. Max content widths, grid scaling principles.
+- **Responsive rules:** Phone-only, portrait-only layouts for version 1. Player count scaling (3-20+). Max content widths, grid scaling principles.
 - **Extensibility contracts:** How new roles, game types, narrator personas, and themes plug in without structural changes. Data-driven rendering requirements.
 - **Dev harness spec:** Role switcher, state injection, screen gallery, narrator preview.
 

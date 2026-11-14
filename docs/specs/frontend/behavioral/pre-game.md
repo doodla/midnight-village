@@ -55,10 +55,6 @@ Most players spend less than 10 seconds on Welcome. The Home screen is the persi
 └─────────────────────────────────────┘
 ```
 
-**Tablet:** Content centered within `AppDimensions.maxContentWidth` (480dp). Title and illustration have `AppSpacing.xxxxxxl` (80dp) top margin. More breathing room overall.
-
-**Landscape:** Title and tagline shift to left half. Name input and CTA on right half.
-
 ---
 
 ### S02: Home
@@ -110,10 +106,6 @@ Most players spend less than 10 seconds on Welcome. The Home screen is the persi
 │                                     │
 └─────────────────────────────────────┘
 ```
-
-**Tablet:** Content centered within `AppDimensions.maxContentWidth` (480dp). Create and Join cards can sit side-by-side on wide screens.
-
-**Landscape:** Create/Join cards in left column. Game history in right column.
 
 ---
 

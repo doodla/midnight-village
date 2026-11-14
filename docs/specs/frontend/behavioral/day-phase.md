@@ -63,10 +63,6 @@ This spec covers the Discussion screen (S11) and the Voting screen (S12). These 
 └─────────────────────────────────────┘
 ```
 
-**Tablet:** Timer enlarges. Content centered within `AppDimensions.maxContentWidth` (480dp). Additional breathing room above timer (`AppSpacing.xxxxxxl`, 80dp).
-
-**Landscape:** Timer shifts to left half. Role reminder + roles list on right half.
-
 ### Night Results Card Variants
 
 The second card in the discussion layout varies by role category:
@@ -179,8 +175,6 @@ The second card in the discussion layout varies by role category:
 | 5-9 | 3 | Standard grid |
 | 10-19 | 4 | Compact grid, avatars shrink to `AppDimensions.avatarSm` (32dp) if needed |
 | 20+ | 4, scrollable | Future Mafia support |
-
-**Tablet:** Grid expands to 4 columns at 5+ players. Larger avatars. Content within `AppDimensions.maxContentWidth` (480dp).
 
 ---
 

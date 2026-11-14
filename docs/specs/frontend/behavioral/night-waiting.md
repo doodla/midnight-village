@@ -61,10 +61,6 @@ This invariant is the single most important requirement of this screen. Every de
 └─────────────────────────────────────┘
 ```
 
-**Tablet:** Resting text centered within `AppDimensions.maxContentWidth` (480dp). Fidget zone extends full screen width.
-
-**Landscape:** Resting text on left half. Fidget zone fills right half. Wave indicator spans full width at bottom.
-
 ---
 
 ## Preconditions

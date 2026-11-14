@@ -81,10 +81,6 @@ This spec covers the Vote Reveal screen (S13) and the Elimination screen (S14). 
 | 3-10 players | Shown — small avatar at each vote segment | Enough space; adds drama seeing WHO voted for whom |
 | 11+ players | Hidden — dots only | Too many avatars at small size; voter identity available in results table |
 
-**Tablet:** Container centered at `AppDimensions.maxContentWidth` (480dp). Rows have more breathing room (`AppSpacing.md`, 12dp gap).
-
-**Landscape:** Bar chart extends full width minus screen padding. Rows are wider, bars more readable.
-
 ---
 
 ### S14: Elimination Announcement

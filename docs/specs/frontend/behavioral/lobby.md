@@ -168,10 +168,6 @@ Host UX is first-class: controls are themed, contextual, and integrated — not 
 └─────────────────────────────────────┘
 ```
 
-**Tablet:** Content centered within `AppDimensions.maxContentWidth` (480dp). Role rows wider with more description text visible.
-
-**Landscape:** Role list in scrollable left column. Validation + card counter in sticky right column.
-
 ---
 
 ### S04b: Game Settings — Host Only
@@ -226,10 +222,6 @@ Host UX is first-class: controls are themed, contextual, and integrated — not 
 │                                     │     + ≥3 players
 └─────────────────────────────────────┘
 ```
-
-**Tablet:** Content centered within `AppDimensions.maxContentWidth` (480dp). Preset cards wider with more breathing room.
-
-**Landscape:** Preset selector in left column. Customize expander + sliders in right column. Start Game CTA spans full width below.
 
 ---
 

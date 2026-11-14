@@ -157,7 +157,7 @@ Base unit: 4dp. All spacing values are multiples or halves of the base unit.
 | Name | Dart Reference | Value (dp) | Usage | Constraints |
 |------|---------------|------------|-------|-------------|
 | Screen Padding | `AppDimensions.screenPadding` | 16 | Horizontal padding from screen edge | Applied to all scrollable content. Never place content edge-to-edge. |
-| Max Content Width | `AppDimensions.maxContentWidth` | 480 | Maximum width for content on tablets/web | Centers content with padding on screens wider than 480dp. Preserves intimate mobile feel. |
+| Max Content Width | `AppDimensions.maxContentWidth` | 480 | Maximum width for content on wide screens | Centers content with padding on screens wider than 480dp. Preserves intimate mobile feel. |
 | Touch Target Min | `AppDimensions.touchTargetMin` | 48 | Minimum interactive area size | Every tappable element must meet this. Visual size can be smaller if hit area is padded. |
 | Avatar Small | `AppDimensions.avatarSm` | 32 | Lists, compact player displays | |
 | Avatar Medium | `AppDimensions.avatarMd` | 48 | Player grids, voting grid, player cards | |

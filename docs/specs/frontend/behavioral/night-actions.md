@@ -68,10 +68,6 @@ The night phase is the most complex screen in the game. It must handle 5 categor
 └─────────────────────────────────────┘
 ```
 
-**Tablet:** Card scales to max 300dp width / 400dp height per art-direction.md. Additional breathing room (`AppSpacing.xxxxl`, 48dp) above and below card. Content centered within `AppDimensions.maxContentWidth` (480dp).
-
-**Landscape:** Card repositioned to left half of screen. Right half reserved for role info text (name, team, description) to avoid scrolling.
-
 ---
 
 ### S06-S08: Night Action — Player Selection Grid
@@ -144,8 +140,6 @@ The night phase is the most complex screen in the game. It must handle 5 categor
 | 5-9 | 3 | Standard grid |
 | 10-19 | 4 | Compact grid, avatars shrink to `AppDimensions.avatarSm` (32dp) if needed |
 | 20+ | 4, scrollable | Future Mafia support |
-
-**Tablet:** Grid expands to 4 columns at 5+ players. Larger avatars (`AppDimensions.avatarLg`, 64dp). Content within `AppDimensions.maxContentWidth` (480dp).
 
 ---
 
@@ -272,8 +266,6 @@ After choosing Option A, renders the player selection grid. After choosing Optio
 │  └─────────────────────────────┘    │
 └─────────────────────────────────────┘
 ```
-
-**Tablet / Landscape:** Same adaptations as Role Reveal — card centered within max content width, additional breathing room.
 
 ---
 
@@ -672,7 +664,7 @@ The host has NO additional information or controls during the night. The host is
 | Property | Value |
 |----------|-------|
 | Grid semantics | `Semantics(role: grid)` on the container. Each player cell is a `gridcell`. |
-| Navigation mode | Row-by-row (left-to-right, top-to-bottom). 2-column grid on phone, 3-column on tablet. |
+| Navigation mode | Row-by-row (left-to-right, top-to-bottom). 2-column grid. |
 | Cell label (unselected) | "[Player Name], not selected. Double tap to select as target." |
 | Cell label (selected) | "[Player Name], selected." |
 | Selection announcement | On select: "Selected [Player Name]." On deselect (switching): "Deselected [Previous Name]. Selected [New Name]." Both via `liveRegion`. |

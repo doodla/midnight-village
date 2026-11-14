@@ -192,10 +192,6 @@ This spec covers the Results screen (S15): win/loss announcement, player results
 └─────────────────────────────────────┘
 ```
 
-**Tablet:** Content centered within `AppDimensions.maxContentWidth` (480dp). Player table rows have more breathing room. Headline has `AppSpacing.xxxxxxl` (80dp) top margin.
-
-**Landscape:** Headline shifts to left half. Player table occupies right half. Autopsy is full-width bottom sheet.
-
 ---
 
 ## Preconditions

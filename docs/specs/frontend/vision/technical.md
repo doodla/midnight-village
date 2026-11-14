@@ -237,16 +237,14 @@ Testing a multiplayer social deduction game requires seeing the experience from 
 
 ### Device Support
 
-- **Primary:** Mobile phones (360-430dp width). Portrait + landscape.
-- **Secondary:** Tablets. Adaptive layouts that use extra space (larger cards, more breathing room, same content).
-- **Tertiary:** Web/desktop. Mobile-first, web-aware. Note where web would differ (hover states, wider layouts, keyboard shortcuts) but don't design a separate desktop experience.
+- **Version 1:** Mobile phones only (360-430dp width), portrait only. This includes a phone's browser.
+- **Wider screens:** No separate layout. The phone layout is shown centered at the max content width.
+- **Later:** Tablet and landscape layouts are out of scope for now.
 
 ### Responsive Strategy
 
-Phone-first spec with tablet adaptation notes per screen. Not pixel-precise breakpoints across all sizes -- principle-based adaptation:
-- Max content width on large screens
-- Breathing room scales up
-- Grid columns can increase on tablets
+Phone-only spec for version 1:
+- Max content width on large screens (the phone layout, centered)
 - Touch targets maintain minimum size
 
 ### Player Count Scaling
@@ -306,7 +304,7 @@ For anything with states, transitions, and interactions: screen specs, user jour
 
 ## Layout
 <!-- REQUIRED for screens. ASCII wireframe showing structure. -->
-<!-- Label every region. Note tablet/landscape adaptations. -->
+<!-- Label every region. -->
 ┌─────────────────────────────┐
 │  [appbar region]            │
 │─────────────────────────────│
@@ -315,8 +313,6 @@ For anything with states, transitions, and interactions: screen specs, user jour
 │  [footer region]            │
 └─────────────────────────────┘
 
-Tablet: [adaptation notes]
-Landscape: [adaptation notes]
 
 ## Preconditions
 <!-- REQUIRED. What must be true for this object to be active. -->
