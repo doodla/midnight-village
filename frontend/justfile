@@ -57,7 +57,8 @@ test-integration-ci:
       --driver=test_driver/integration_test.dart \
       --target=integration_test/auth_flow_test.dart \
       -d web-server \
-      --headless
+      --headless \
+      ${CHROME_EXECUTABLE:+--chrome-binary="$CHROME_EXECUTABLE"}
 
 # Boot the real backend harness, replay the reference games through it (API
 # runner: all of them; UI runner: a representative subset through the real widget

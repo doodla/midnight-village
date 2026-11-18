@@ -187,6 +187,10 @@ jobs:
       - name: Integration tests
         id: integration-tests
         timeout-minutes: 8
+        # Use the Chrome installed above, not the runner's own copy. The driver
+        # only talks to the Chrome version it was installed with.
+        env:
+          CHROME_EXECUTABLE: ${{ steps.setup-chrome.outputs.chrome-path }}
         run: just test-integration-ci
 
       - name: Upload ChromeDriver log
