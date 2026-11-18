@@ -29,13 +29,18 @@ class LobbyRoute extends GoRouteData with $LobbyRoute {
 }
 
 /// Game route — active game screen identified by [gameId].
+///
+/// [lobby] is the code of the table the game belongs to (`?lobby=CODE`). The
+/// game's own state may not say, and the results screen needs it to start
+/// another game or leave the table.
 @TypedGoRoute<GameRoute>(path: '/game/:gameId')
 class GameRoute extends GoRouteData with $GameRoute {
-  const GameRoute({required this.gameId});
+  const GameRoute({required this.gameId, this.lobby});
 
   final String gameId;
+  final String? lobby;
 
   @override
   Widget build(BuildContext context, GoRouterState state) =>
-      GameContainerScreen(gameId: gameId);
+      GameContainerScreen(gameId: gameId, lobbyCode: lobby);
 }

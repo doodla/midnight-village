@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/router/routes.dart';
 import '../../../design_system/components/core/mv_error.dart';
 import '../../../design_system/components/core/mv_loading.dart';
 import '../../../design_system/components/core/primary_button.dart';
@@ -40,11 +41,12 @@ class LobbyScreen extends ConsumerStatefulWidget {
 class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   @override
   Widget build(BuildContext context) {
-    ref.listen(lobbyProvider(widget.code), (_, next) {
-      if (next.value?.status == 'in_game') {
-        final gameId = ref.read(lobbyProvider(widget.code).notifier).gameId;
-        if (gameId != null && mounted) {
-          context.go('/game/$gameId');
+    // A table runs several games in a row: open whichever one starts next.
+    ref.listen(lobbyProvider(widget.code), (previous, next) {
+      final started = next.value?.startedGameId;
+      if (started != null && started != previous?.value?.startedGameId) {
+        if (mounted) {
+          GameRoute(gameId: started, lobby: widget.code).go(context);
         }
       }
     });

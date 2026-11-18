@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/api/api_exception.dart';
+import '../../../core/logging/app_logger.dart';
+import '../../../core/router/routes.dart';
+import '../../../core/wakelock/wakelock_service.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../../design_system/components/core/mv_error.dart';
@@ -18,11 +24,13 @@ import '../../../design_system/models/game_result.dart';
 import '../../../design_system/models/night_action.dart';
 import '../../../design_system/models/player_display.dart';
 import '../../../design_system/models/role.dart';
+import '../../../design_system/tokens/app_tokens.dart';
 import '../../../design_system/tokens/app_tokens_provider.dart';
 import '../domain/game_session_state.dart';
 import '../domain/night_state.dart';
 import '../domain/voting_state.dart';
 import '../../../core/websocket/websocket_channel.dart';
+import 'away_notice.dart';
 import 'discussion_view.dart';
 import 'game_notifier.dart';
 import 'lone_werewolf_peek_view.dart';
@@ -50,13 +58,76 @@ const double _kTallyHeaderGap = 8.0;
 /// Phase transitions are driven by WebSocket events via [GameNotifier].
 /// The [NightSubView] enum gives fine-grained control over which night view
 /// to show.
-class GameContainerScreen extends ConsumerWidget {
-  const GameContainerScreen({super.key, required this.gameId});
+class GameContainerScreen extends ConsumerStatefulWidget {
+  const GameContainerScreen({super.key, required this.gameId, this.lobbyCode});
 
   final String gameId;
 
+  /// Code of the table this game is played at, when the route knows it. The
+  /// results screen needs it to start another game or leave the table.
+  final String? lobbyCode;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GameContainerScreen> createState() =>
+      _GameContainerScreenState();
+}
+
+class _GameContainerScreenState extends ConsumerState<GameContainerScreen>
+    with WidgetsBindingObserver {
+  late final WakelockService _wakelock;
+
+  String get gameId => widget.gameId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Keep the screen awake for as long as a game is on screen (the role
+    // reveal through the results); it is released in dispose.
+    _wakelock = ref.read(wakelockServiceProvider);
+    _keepAwake(_wakelock.enable);
+    WidgetsBinding.instance.addObserver(this);
+    ref.read(gameProvider(gameId).notifier).lobbyCodeHint = widget.lobbyCode;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _keepAwake(_wakelock.disable);
+    super.dispose();
+  }
+
+  /// Runs a wakelock call without waiting; a platform that refuses is no
+  /// reason to disturb the game.
+  void _keepAwake(Future<void> Function() call) {
+    unawaited(
+      call().catchError((Object e) {
+        logger.d('Wakelock call failed (ignored): $e');
+      }),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    // The platform drops the wake lock when the app is backgrounded, and
+    // events may have been missed meanwhile: take the lock again and re-read
+    // the game from the server.
+    _keepAwake(_wakelock.enable);
+    unawaited(ref.read(gameProvider(gameId).notifier).refreshState());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // The table has moved on to another game (the host's "Play again", here or
+    // on another phone): leave for its lobby. This screen, and with it the
+    // finished game's state, goes away; the next game opens clean.
+    ref.listen(gameProvider(gameId), (previous, next) {
+      final code = next.value?.playAgainLobbyCode;
+      if (code != null && code != previous?.value?.playAgainLobbyCode) {
+        context.go(LobbyRoute(code: code).location);
+      }
+    });
+
     final asyncState = ref.watch(gameProvider(gameId));
 
     // Watch connection state to drive the reconnection overlay.
@@ -123,13 +194,12 @@ class GameContainerScreen extends ConsumerWidget {
       'night' => _buildNightView(gameState, ref),
       // The night's results arrive just before the move to discussion. A result
       // the player has not dismissed is shown first, then the discussion.
-      'discussion' when gameState.lastActionResult != null => NightResultView(
-        key: const ValueKey('night-action-result'),
-        result: gameState.lastActionResult!,
-        players: gameState.players,
-        continueLabel: 'Continue to discussion',
-        onContinue: ref.read(gameProvider(gameId).notifier).dismissNightResult,
-      ),
+      'discussion' when gameState.lastActionResult != null =>
+        _buildNightResultAfterNight(
+          ref,
+          gameState,
+          lastLabel: 'Continue to discussion',
+        ),
       'discussion' => DiscussionView(
         key: const ValueKey('discussion'),
         deadline: gameState.deadline,
@@ -138,13 +208,44 @@ class GameContainerScreen extends ConsumerWidget {
         onEndDiscussion: () =>
             ref.read(gameProvider(gameId).notifier).endDiscussion(),
       ),
+      // A night result missed while the phone was away, shown before the vote.
+      'voting' when gameState.lastActionResult != null =>
+        _buildNightResultAfterNight(
+          ref,
+          gameState,
+          lastLabel: 'Continue to the vote',
+        ),
       'voting' => _buildVotingView(ref, gameState),
-      'results' => _buildResultsView(context, gameState.results),
+      'results' => _ResultsView(
+        key: const ValueKey('results'),
+        gameId: gameId,
+        results: gameState.results,
+        isHost: gameState.isHost,
+      ),
       _ => _PlaceholderView(
         key: ValueKey('unknown-${gameState.phase}'),
         label: 'Unknown phase: ${gameState.phase}',
       ),
     };
+  }
+
+  /// A night result shown after the night is over (discussion or vote): the
+  /// player reads it, then continues. Missed results queued behind it come one
+  /// after another.
+  Widget _buildNightResultAfterNight(
+    WidgetRef ref,
+    GameSessionState gameState, {
+    required String lastLabel,
+  }) {
+    return NightResultView(
+      key: const ValueKey('night-action-result'),
+      result: gameState.lastActionResult!,
+      players: gameState.players,
+      continueLabel: gameState.pendingNightResults.isNotEmpty
+          ? 'Next'
+          : lastLabel,
+      onContinue: ref.read(gameProvider(gameId).notifier).dismissNightResult,
+    );
   }
 
   Widget _buildNightView(GameSessionState gameState, WidgetRef ref) {
@@ -159,6 +260,9 @@ class GameContainerScreen extends ConsumerWidget {
       NightSubView.waiting => NightWaitingView(
         key: const ValueKey('night-waiting'),
         deadline: gameState.deadline,
+        // Public to the table: who has dropped. Only the host gets a way on.
+        awayNames: [for (final p in gameState.awayPlayers) p.displayName],
+        onContinueWithoutThem: gameState.isHost ? notifier.advanceNight : null,
       ),
       NightSubView.seerChoice when gameState.actionPrompt != null =>
         SeerChoiceView(
@@ -185,8 +289,12 @@ class GameContainerScreen extends ConsumerWidget {
           result: gameState.lastActionResult!,
           players: gameState.players,
           // Something is waiting for the player after this result (the
-          // Doppelganger's follow-up prompt): let them read it first.
-          onContinue: gameState.actionPrompt != null
+          // Doppelganger's follow-up prompt, results missed while away, or a
+          // window that has since moved on): let them read it first.
+          onContinue:
+              gameState.actionPrompt != null ||
+                  gameState.pendingNightResults.isNotEmpty ||
+                  gameState.lastActionResult!.wave < gameState.currentWave
               ? notifier.dismissNightResult
               : null,
         ),
@@ -304,20 +412,6 @@ class GameContainerScreen extends ConsumerWidget {
     notifier.submitAction(actionTypeStr, targets);
   }
 
-  Widget _buildResultsView(BuildContext context, GameResult? results) {
-    if (results == null) {
-      return const _PlaceholderView(
-        key: ValueKey('results-loading'),
-        label: 'Loading results...',
-      );
-    }
-    return GameResults(
-      key: const ValueKey('results'),
-      result: results,
-      onReturnToLobby: () => context.go('/'),
-    );
-  }
-
   Widget _buildVotingView(WidgetRef ref, GameSessionState gameState) {
     if (gameState.voteRevealData != null) {
       return _VoteRevealIntermediateView(
@@ -332,6 +426,9 @@ class GameContainerScreen extends ConsumerWidget {
       gameState: gameState,
       onVoteSubmitted: (targetPlayerId) =>
           ref.read(gameProvider(gameId).notifier).submitVote(targetPlayerId),
+      onRevealVotesNow: gameState.isHost
+          ? ref.read(gameProvider(gameId).notifier).revealVotesNow
+          : null,
     );
   }
 
@@ -390,10 +487,14 @@ class _VotingActiveView extends ConsumerWidget {
   final GameSessionState gameState;
   final void Function(int targetPlayerId) onVoteSubmitted;
 
+  /// The host's "Reveal votes now". Null for everyone else.
+  final Future<void> Function()? onRevealVotesNow;
+
   const _VotingActiveView({
     super.key,
     required this.gameState,
     required this.onVoteSubmitted,
+    this.onRevealVotesNow,
   });
 
   @override
@@ -421,49 +522,92 @@ class _VotingActiveView extends ConsumerWidget {
             id: p.playerId.toString(),
             displayName: p.displayName,
             isSelectable: true,
+            status: p.connected
+                ? PlayerStatus.active
+                : PlayerStatus.disconnected,
           ),
         )
         .toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: tokens.spacing.md,
-            vertical: _kVoteProgressGap,
-          ),
-          child: Text(
-            '$votedCount of $totalPlayers voted',
-            style: tokens.typography.subheading.copyWith(
-              color: tokens.colors.onBackground,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: tokens.spacing.md),
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: tokens.spacing.sm,
-            runSpacing: tokens.spacing.xs,
-            children: players.map((player) {
-              final voted = voteProgress.playerVoted[player.playerId] ?? false;
-              return Semantics(
-                label: voted
-                    ? '${player.displayName} voted'
-                    : player.displayName,
-                excludeSemantics: true,
-                child: PlayerAvatar(
-                  displayName: player.displayName,
-                  size: AvatarSize.small,
-                  sigil: voted ? Icons.check : null,
+    // The game waits only for players who are away and have not voted. Public
+    // information: it says nothing about roles.
+    final awayNotVoted = [
+      for (final p in players)
+        if (!p.connected && !(voteProgress.playerVoted[p.playerId] ?? false))
+          p.displayName,
+    ];
+
+    // Scrolls when the extra lines (someone away, the host's button) and a
+    // large text size leave too little room; otherwise the vote fills the
+    // screen as before.
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: tokens.spacing.md,
+                  vertical: _kVoteProgressGap,
                 ),
-              );
-            }).toList(),
+                child: Text(
+                  '$votedCount of $totalPlayers voted',
+                  style: tokens.typography.subheading.copyWith(
+                    color: tokens.colors.onBackground,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              if (awayNotVoted.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: tokens.spacing.md,
+                    right: tokens.spacing.md,
+                    bottom: tokens.spacing.sm,
+                  ),
+                  child: AwayNotice(names: awayNotVoted),
+                ),
+              if (onRevealVotesNow != null && gameState.hasAwayPlayers)
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: tokens.spacing.md,
+                    right: tokens.spacing.md,
+                    bottom: tokens.spacing.sm,
+                  ),
+                  child: HostContinueControl(
+                    label: 'Reveal votes now',
+                    onPressed: onRevealVotesNow!,
+                  ),
+                ),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: tokens.spacing.md),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: tokens.spacing.sm,
+                  runSpacing: tokens.spacing.xs,
+                  children: players.map((player) {
+                    final voted =
+                        voteProgress.playerVoted[player.playerId] ?? false;
+                    return Semantics(
+                      label: voted
+                          ? '${player.displayName} voted'
+                          : player.displayName,
+                      excludeSemantics: true,
+                      child: PlayerAvatar(
+                        displayName: player.displayName,
+                        size: AvatarSize.small,
+                        sigil: voted ? Icons.check : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
           ),
         ),
-        Expanded(
+        SliverFillRemaining(
+          hasScrollBody: false,
           child: VoteSubmission(
             players: playerDisplays,
             timeRemaining: timeRemaining,
@@ -583,6 +727,104 @@ class _VoteRevealIntermediateView extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Results view
+// ---------------------------------------------------------------------------
+
+/// The results, with what happens next: the host starts another game ("Play
+/// again"), everyone can leave the table, and the others are told they are
+/// waiting for the host.
+class _ResultsView extends ConsumerStatefulWidget {
+  const _ResultsView({
+    super.key,
+    required this.gameId,
+    required this.results,
+    required this.isHost,
+  });
+
+  final String gameId;
+  final GameResult? results;
+  final bool isHost;
+
+  @override
+  ConsumerState<_ResultsView> createState() => _ResultsViewState();
+}
+
+class _ResultsViewState extends ConsumerState<_ResultsView> {
+  bool _starting = false;
+  String? _error;
+
+  Future<void> _playAgain() async {
+    setState(() {
+      _starting = true;
+      _error = null;
+    });
+    try {
+      // On success the notifier points the screen at the lobby.
+      await ref.read(gameProvider(widget.gameId).notifier).playAgain();
+    } catch (e) {
+      if (mounted) setState(() => _error = _playAgainMessage(e));
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+
+  String _playAgainMessage(Object e) => switch (e) {
+    ForbiddenException() => 'Only the host can start another game.',
+    UnhandledHttpException(statusCode: 409) =>
+      'The game is not finished yet. Try again in a moment.',
+    _ => 'Could not start another game. Try again.',
+  };
+
+  Future<void> _leave() async {
+    try {
+      await ref.read(gameProvider(widget.gameId).notifier).leaveTable();
+    } catch (e) {
+      // Leaving is what the player wants either way; the table sorts itself
+      // out on the server.
+      logger.w('Leaving the table failed', error: e);
+    }
+    if (mounted) context.go('/');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final results = widget.results;
+    if (results == null) {
+      return const _PlaceholderView(
+        key: ValueKey('results-loading'),
+        label: 'Loading results...',
+      );
+    }
+    final tokens = ref.watch(activeThemeProvider);
+    return GameResults(
+      result: results,
+      onPlayAgain: widget.isHost && !_starting ? _playAgain : null,
+      returnLabel: 'Leave',
+      onReturnToLobby: _leave,
+      footer: _buildFooter(tokens),
+    );
+  }
+
+  Widget? _buildFooter(AppTokens tokens) {
+    if (_error != null) {
+      return Text(
+        _error!,
+        key: const ValueKey('play-again-error'),
+        style: tokens.typography.body.copyWith(color: tokens.colors.error),
+      );
+    }
+    if (!widget.isHost) {
+      return Text(
+        'Waiting for the host to start another game.',
+        key: const ValueKey('waiting-for-host'),
+        style: tokens.typography.body.copyWith(color: tokens.colors.onDisabled),
+      );
+    }
+    return null;
   }
 }
 

@@ -57,6 +57,10 @@ LobbyWebSocketFactory lobbyWebSocketFactory(Ref ref) {
 /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
+///
+/// A table runs several games one after another: every start sets a new
+/// [LobbyState.startedGameId], and a lobby opened while a game is already
+/// running (the start event came before the socket was up) looks the game up.
 @riverpod
 class LobbyNotifier extends _$LobbyNotifier {
   StreamSubscription<dynamic>? _wsSubscription;
@@ -77,6 +81,8 @@ class LobbyNotifier extends _$LobbyNotifier {
 
     // Clean up on dispose
     ref.onDispose(_dispose);
+
+    if (lobbyState.status == 'in_game') unawaited(_findRunningGame());
 
     return lobbyState;
   }
@@ -144,7 +150,9 @@ class LobbyNotifier extends _$LobbyNotifier {
     try {
       final service = ref.read(lobbyServiceProvider);
       final newState = await service.fetchLobby(code);
-      state = AsyncData(newState);
+      state = AsyncData(
+        newState.copyWith(startedGameId: state.value?.startedGameId),
+      );
     } catch (e, stack) {
       logger.e(
         'Error re-fetching lobby after player change',
@@ -200,13 +208,29 @@ class LobbyNotifier extends _$LobbyNotifier {
   /// invalidated by navigation, triggering dispose and WS cleanup.
   void _onGameStarted(Map<String, dynamic> message) {
     final id = message['game_id'] as String?;
-    if (id != null) {
-      gameId = id;
-      // Trigger a state update so listeners re-evaluate
-      final current = state.value;
-      if (current != null) {
-        state = AsyncData(current.copyWith(status: 'in_game'));
-      }
+    if (id != null) _applyStartedGame(id);
+  }
+
+  /// Records the started game and flips the table to in-game so listeners
+  /// (the lobby screen) open it.
+  void _applyStartedGame(String id) {
+    gameId = id;
+    final current = state.value;
+    if (current != null) {
+      state = AsyncData(current.copyWith(status: 'in_game', startedGameId: id));
+    }
+  }
+
+  /// A lobby opened while its game is already running missed `game_started`.
+  Future<void> _findRunningGame() async {
+    // Let build finish first.
+    await Future<void>.delayed(Duration.zero);
+    if (!ref.mounted) return;
+    try {
+      final id = await ref.read(lobbyServiceProvider).activeGameIdAt(code);
+      if (id != null && ref.mounted && gameId == null) _applyStartedGame(id);
+    } catch (e) {
+      logger.d('Could not look up the running game ($e)');
     }
   }
 
@@ -229,7 +253,10 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<String> startGame() async {
     try {
       final service = ref.read(lobbyServiceProvider);
-      return await service.startGame(code);
+      final id = await service.startGame(code);
+      // The host does not have to wait for the lobby event to open the game.
+      if (ref.mounted) _applyStartedGame(id);
+      return id;
     } catch (e, stack) {
       logger.e('Error starting game', error: e, stackTrace: stack);
       rethrow;
@@ -252,7 +279,9 @@ class LobbyNotifier extends _$LobbyNotifier {
     try {
       final service = ref.read(lobbyServiceProvider);
       final newState = await service.updateRoleConfig(code, roles);
-      state = AsyncData(newState);
+      state = AsyncData(
+        newState.copyWith(startedGameId: state.value?.startedGameId),
+      );
     } catch (e, stack) {
       logger.e('Error updating role config', error: e, stackTrace: stack);
       rethrow;

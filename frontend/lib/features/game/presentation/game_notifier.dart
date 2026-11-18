@@ -11,6 +11,7 @@ import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/models/game_result.dart';
 import '../../../design_system/models/role.dart';
 import '../../auth/presentation/auth_notifier.dart';
+import '../../lobby/presentation/lobby_notifier.dart';
 import '../data/game_service.dart';
 import '../domain/game_session_state.dart';
 import '../domain/night_state.dart';
@@ -33,6 +34,13 @@ class GameNotifier extends _$GameNotifier {
   StreamSubscription<WebSocketConnectionState>? _connectionSubscription;
   Timer? _resultsTimeout;
   bool _wasDisconnected = false;
+
+  /// Lobby code the screen knew when it opened (from the route), used when the
+  /// server's state does not carry one.
+  String? lobbyCodeHint;
+
+  /// The table this game belongs to: the server's, else the route's hint.
+  String? get lobbyCode => state.value?.lobbyCode ?? lobbyCodeHint;
 
   /// WebSocket stream injected for testability.
   /// In production this comes from a ReconnectingWebSocket provider.
@@ -72,7 +80,7 @@ class GameNotifier extends _$GameNotifier {
     });
 
     // Hydrate frontend-only display state from the server response.
-    var hydrated = _hydrateInitialState(initialState);
+    var hydrated = _hydrateInitialState(await _withPresence(initialState));
 
     // If reconnecting to results phase, fetch results immediately since the
     // game_results WebSocket event was already sent before we connected.
@@ -87,6 +95,7 @@ class GameNotifier extends _$GameNotifier {
           error: e,
         );
       }
+      unawaited(_checkTableMovedOn());
     }
 
     return hydrated;
@@ -99,19 +108,30 @@ class GameNotifier extends _$GameNotifier {
   /// [GamePlayer.hasVoted] field so reconnecting clients see accurate
   /// vote progress.
   ///
-  /// [carriedResult] is a night result the player has been shown but not yet
-  /// dismissed. The server does not send it again, so a refresh keeps the one
-  /// already on screen.
+  /// [previous] is the state this refresh replaces. The server does not send a
+  /// result the player has already been shown again, so a refresh keeps the one
+  /// already on screen (and the queue behind it), and remembers which results
+  /// were shown so a closed window's result is surfaced exactly once.
   GameSessionState _hydrateInitialState(
     GameSessionState state, {
-    ActionResult? carriedResult,
+    GameSessionState? previous,
   }) {
     var result = state;
 
-    if (carriedResult != null &&
-        (result.phase == 'night' || result.phase == 'discussion')) {
+    if (previous != null) {
+      result = result.copyWith(
+        shownNightResults: previous.shownNightResults,
+        pendingNightResults: previous.pendingNightResults,
+        playAgainLobbyCode: previous.playAgainLobbyCode,
+      );
+    }
+
+    final carriedResult = previous?.lastActionResult;
+    if (carriedResult != null && _showsNightResults(result.phase)) {
       result = result.copyWith(lastActionResult: carriedResult);
     }
+
+    result = _surfaceMissedNightResults(result);
 
     if (result.phase == 'night') {
       if (result.actionPrompt != null) {
@@ -144,6 +164,95 @@ class GameNotifier extends _$GameNotifier {
     }
 
     return result;
+  }
+
+  /// Phases in which a night result may be put in front of the player.
+  static bool _showsNightResults(String phase) =>
+      phase == 'night' || phase == 'discussion' || phase == 'voting';
+
+  /// Puts results of closed night windows the player has not been shown in
+  /// front of them, the same way the `action_result` event does.
+  ///
+  /// The server lists only windows that already closed; as a second check, a
+  /// result for a window this state still has open (`wave >= currentWave`
+  /// during the night) is never shown from here. Results already shown are
+  /// skipped. When a result is on screen the rest queue up behind it.
+  GameSessionState _surfaceMissedNightResults(GameSessionState state) {
+    if (!_showsNightResults(state.phase) || state.nightResults.isEmpty) {
+      return state;
+    }
+    final closed = state.nightResults
+        .where((r) => state.phase != 'night' || r.wave < state.currentWave)
+        .toList();
+    final unseen = _unseenResults(closed, state.shownNightResults);
+    if (unseen.isEmpty) return state;
+
+    final shown = [...state.shownNightResults, ...unseen];
+    if (state.lastActionResult != null) {
+      return state.copyWith(
+        shownNightResults: shown,
+        pendingNightResults: [...state.pendingNightResults, ...unseen],
+      );
+    }
+    return state.copyWith(
+      shownNightResults: shown,
+      lastActionResult: unseen.first,
+      pendingNightResults: [...state.pendingNightResults, ...unseen.skip(1)],
+    );
+  }
+
+  /// [closed] without the results already in [shown] (each shown result
+  /// accounts for one equal entry).
+  List<ActionResult> _unseenResults(
+    List<ActionResult> closed,
+    List<ActionResult> shown,
+  ) {
+    final remaining = [...shown];
+    final unseen = <ActionResult>[];
+    for (final result in closed) {
+      final i = remaining.indexWhere((s) => _sameResult(s, result));
+      if (i >= 0) {
+        remaining.removeAt(i);
+      } else {
+        unseen.add(result);
+      }
+    }
+    return unseen;
+  }
+
+  /// Whether two results are the same night information. `role_acting_as` is
+  /// ignored: the socket path may add it from the prompt, a state fetch may not.
+  bool _sameResult(ActionResult a, ActionResult b) {
+    if (a.wave != b.wave) return false;
+    ActionResult core(ActionResult r) => ActionResult(
+      wave: r.wave,
+      revealedInfo: Map<String, dynamic>.of(r.revealedInfo)
+        ..remove('role_acting_as'),
+    );
+    // Generated equality compares the info map deeply.
+    return core(a) == core(b);
+  }
+
+  /// Merges the public `connected` flags from the player list into [state].
+  /// Presence is a courtesy: when the call fails everyone stays connected.
+  Future<GameSessionState> _withPresence(GameSessionState state) async {
+    try {
+      final presence = await ref
+          .read(gameServiceProvider)
+          .fetchPresence(gameId);
+      if (presence.isEmpty) return state;
+      return state.copyWith(
+        players: [
+          for (final p in state.players)
+            presence.containsKey(p.playerId)
+                ? p.copyWith(connected: presence[p.playerId]!)
+                : p,
+        ],
+      );
+    } catch (e) {
+      logger.d('GameNotifier: presence unavailable ($e)');
+      return state;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -186,6 +295,10 @@ class GameNotifier extends _$GameNotifier {
         _handleVoteReveal(event);
       case 'game_results':
         _handleGameResults(event);
+      case 'player_presence':
+        _handlePlayerPresence(event);
+      case 'play_again':
+        _handlePlayAgain(event);
       default:
         logger.d('GameNotifier: Unhandled WS event type: $type');
     }
@@ -255,26 +368,25 @@ class GameNotifier extends _$GameNotifier {
   /// [NightResultView] can determine display logic without needing extra params.
   void _handleActionResult(Map<String, dynamic> data) {
     _updateState((state) {
-      final revealedInfo = Map<String, dynamic>.from(
-        data['revealed_info'] as Map,
-      );
-      // Inject action_type from the WS event top-level field.
-      if (data['action_type'] is String) {
-        revealedInfo['action_type'] = data['action_type'];
+      final ActionResult result;
+      try {
+        result = actionResultFromServer(
+          data,
+          // The server includes it; this covers an older payload.
+          fallbackRoleActingAs: state.actionPrompt?.roleActingAs,
+        );
+      } on FormatException catch (e) {
+        logger.w('GameNotifier: Malformed action_result: $e');
+        return state;
       }
-      // Inject role_acting_as from current actionPrompt for see_team display
-      // (the server includes it; this covers an older payload).
-      if (revealedInfo['action_type'] == 'see_team' &&
-          state.actionPrompt != null &&
-          !revealedInfo.containsKey('role_acting_as')) {
-        revealedInfo['role_acting_as'] = state.actionPrompt!.roleActingAs;
+      // Already put in front of the player (surfaced from a state fetch that
+      // got there first): do not show it a second time.
+      if (state.shownNightResults.any((s) => _sameResult(s, result))) {
+        return state;
       }
-      final result = ActionResult(
-        wave: data['wave'] as int,
-        revealedInfo: revealedInfo,
-      );
       return state.copyWith(
         lastActionResult: result,
+        shownNightResults: [...state.shownNightResults, result],
         nightSubView: NightSubView.actionResult,
       );
     });
@@ -331,6 +443,7 @@ class GameNotifier extends _$GameNotifier {
         // Reset night-specific state on phase change.
         actionPrompt: null,
         lastActionResult: keepResult ? state.lastActionResult : null,
+        pendingNightResults: keepResult ? state.pendingNightResults : const [],
         nightSubView: nightSubView,
       );
     });
@@ -385,6 +498,50 @@ class GameNotifier extends _$GameNotifier {
     _fetchResultsFallback();
   }
 
+  /// Updates one player's `connected` flag. Public to the whole table, so it
+  /// says nothing about roles or who has acted.
+  void _handlePlayerPresence(Map<String, dynamic> data) {
+    final playerId = data['player_id'];
+    final connected = data['connected'];
+    if (playerId is! int || connected is! bool) return;
+    _updateState((state) {
+      if (!state.players.any((p) => p.playerId == playerId)) return state;
+      return state.copyWith(
+        players: [
+          for (final p in state.players)
+            p.playerId == playerId ? p.copyWith(connected: connected) : p,
+        ],
+      );
+    });
+  }
+
+  /// The host started another game at this table: the screen leaves for the
+  /// lobby. Nothing of the finished game is kept (this provider is disposed
+  /// with the screen), so the next `game_started` opens a fresh game.
+  void _handlePlayAgain(Map<String, dynamic> data) {
+    final code = data['lobby_code'];
+    if (code is! String || code.isEmpty) return;
+    _updateState((state) => state.copyWith(playAgainLobbyCode: code));
+  }
+
+  /// Opens the table's lobby on this screen when the table has already gone
+  /// back to waiting (a `play_again` this phone missed, or an old results link
+  /// reopened). A table still "in game" is left alone.
+  Future<void> _checkTableMovedOn() async {
+    // Let the state settle first: this runs from build.
+    await Future<void>.delayed(Duration.zero);
+    if (!ref.mounted) return;
+    final code = lobbyCode;
+    if (code == null) return;
+    try {
+      final lobby = await ref.read(lobbyServiceProvider).fetchLobby(code);
+      if (!ref.mounted || lobby.status != 'waiting') return;
+      _updateState((s) => s.copyWith(playAgainLobbyCode: lobby.code));
+    } catch (e) {
+      logger.d('GameNotifier: could not check the table ($e)');
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Exposed action methods
   // ---------------------------------------------------------------------------
@@ -432,6 +589,14 @@ class GameNotifier extends _$GameNotifier {
   /// result so the discussion shows.
   void dismissNightResult() {
     _updateState((state) {
+      // Missed results queued behind this one come first, one at a time.
+      final pending = state.pendingNightResults;
+      if (pending.isNotEmpty) {
+        return state.copyWith(
+          lastActionResult: pending.first,
+          pendingNightResults: pending.sublist(1),
+        );
+      }
       final prompt = state.actionPrompt;
       if (state.phase == 'night' && prompt != null) {
         return state.copyWith(
@@ -503,6 +668,39 @@ class GameNotifier extends _$GameNotifier {
     await service.endDiscussion(gameId);
   }
 
+  /// Closes the current night window now (host only): "Continue without them".
+  Future<void> advanceNight() async {
+    await ref.read(gameServiceProvider).advanceNight(gameId);
+  }
+
+  /// Reveals the votes now (host only); anyone who has not voted abstains.
+  Future<void> revealVotesNow() async {
+    await ref.read(gameServiceProvider).revealVotes(gameId);
+  }
+
+  /// Takes the table back to the lobby for another game (host only).
+  ///
+  /// On success the screen is told to leave for the lobby, the same as when the
+  /// `play_again` event arrives. Errors propagate so the screen can say so.
+  Future<void> playAgain() async {
+    final code = lobbyCode;
+    if (code == null) {
+      throw StateError('The table for this game is not known');
+    }
+    final lobby = await ref.read(lobbyServiceProvider).playAgain(code);
+    if (!ref.mounted) return;
+    _updateState((state) => state.copyWith(playAgainLobbyCode: lobby.code));
+  }
+
+  /// Leaves the table (the lobby this game was played at).
+  ///
+  /// Without a known table there is nothing to leave on the server.
+  Future<void> leaveTable() async {
+    final code = lobbyCode;
+    if (code == null) return;
+    await ref.read(lobbyServiceProvider).leaveLobby(code);
+  }
+
   // ---------------------------------------------------------------------------
   // Reconnection handling
   // ---------------------------------------------------------------------------
@@ -532,13 +730,12 @@ class GameNotifier extends _$GameNotifier {
     if (!ref.mounted) return;
     try {
       final service = ref.read(gameServiceProvider);
-      final freshState = await service.getGameState(gameId);
+      final freshState = await _withPresence(
+        await service.getGameState(gameId),
+      );
       if (!ref.mounted) return;
 
-      var hydrated = _hydrateInitialState(
-        freshState,
-        carriedResult: state.value?.lastActionResult,
-      );
+      var hydrated = _hydrateInitialState(freshState, previous: state.value);
 
       // If we reconnected into results phase, fetch full results.
       if (hydrated.phase == 'results') {
@@ -557,6 +754,7 @@ class GameNotifier extends _$GameNotifier {
 
       if (ref.mounted) {
         state = AsyncData(hydrated);
+        if (hydrated.phase == 'results') unawaited(_checkTableMovedOn());
       }
     } catch (e) {
       logger.e('GameNotifier: Failed to refresh state', error: e);

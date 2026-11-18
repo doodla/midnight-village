@@ -96,6 +96,23 @@ abstract final class GameEvents {
     return jsonEncode({'type': 'game_results'});
   }
 
+  /// A player's phone connected or dropped (public to the whole table).
+  static String playerPresence({
+    required int playerId,
+    required bool connected,
+  }) {
+    return jsonEncode({
+      'type': 'player_presence',
+      'player_id': playerId,
+      'connected': connected,
+    });
+  }
+
+  /// The host took the table back to the lobby for another game.
+  static String playAgain({required String lobbyCode}) {
+    return jsonEncode({'type': 'play_again', 'lobby_code': lobbyCode});
+  }
+
   // ---------------------------------------------------------------------------
   // Lobby events
   // ---------------------------------------------------------------------------

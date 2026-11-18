@@ -122,6 +122,10 @@ String _$lobbyWebSocketFactoryHash() =>
 /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
+///
+/// A table runs several games one after another: every start sets a new
+/// [LobbyState.startedGameId], and a lobby opened while a game is already
+/// running (the start event came before the socket was up) looks the game up.
 
 @ProviderFor(LobbyNotifier)
 const lobbyProvider = LobbyNotifierFamily._();
@@ -141,6 +145,10 @@ const lobbyProvider = LobbyNotifierFamily._();
 /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
+///
+/// A table runs several games one after another: every start sets a new
+/// [LobbyState.startedGameId], and a lobby opened while a game is already
+/// running (the start event came before the socket was up) looks the game up.
 final class LobbyNotifierProvider
     extends $AsyncNotifierProvider<LobbyNotifier, LobbyState> {
   /// Manages lobby state for a given lobby code.
@@ -158,6 +166,10 @@ final class LobbyNotifierProvider
   /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
   /// - `lobby_update` -> update settings (role configuration changed by host)
   /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
+  ///
+  /// A table runs several games one after another: every start sets a new
+  /// [LobbyState.startedGameId], and a lobby opened while a game is already
+  /// running (the start event came before the socket was up) looks the game up.
   const LobbyNotifierProvider._({
     required LobbyNotifierFamily super.from,
     required String super.argument,
@@ -194,7 +206,7 @@ final class LobbyNotifierProvider
   }
 }
 
-String _$lobbyNotifierHash() => r'526a237afe09c5e453c2776bea9f497bd0c1b4e2';
+String _$lobbyNotifierHash() => r'6e2eb475248cdd6703e17d57c9f7a318157cacb1';
 
 /// Manages lobby state for a given lobby code.
 ///
@@ -211,6 +223,10 @@ String _$lobbyNotifierHash() => r'526a237afe09c5e453c2776bea9f497bd0c1b4e2';
 /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
+///
+/// A table runs several games one after another: every start sets a new
+/// [LobbyState.startedGameId], and a lobby opened while a game is already
+/// running (the start event came before the socket was up) looks the game up.
 
 final class LobbyNotifierFamily extends $Family
     with
@@ -245,6 +261,10 @@ final class LobbyNotifierFamily extends $Family
   /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
   /// - `lobby_update` -> update settings (role configuration changed by host)
   /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
+  ///
+  /// A table runs several games one after another: every start sets a new
+  /// [LobbyState.startedGameId], and a lobby opened while a game is already
+  /// running (the start event came before the socket was up) looks the game up.
 
   LobbyNotifierProvider call(String code) =>
       LobbyNotifierProvider._(argument: code, from: this);
@@ -268,6 +288,10 @@ final class LobbyNotifierFamily extends $Family
 /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
+///
+/// A table runs several games one after another: every start sets a new
+/// [LobbyState.startedGameId], and a lobby opened while a game is already
+/// running (the start event came before the socket was up) looks the game up.
 
 abstract class _$LobbyNotifier extends $AsyncNotifier<LobbyState> {
   late final _$args = ref.$arg as String;

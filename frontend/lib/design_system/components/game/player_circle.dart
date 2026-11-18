@@ -130,6 +130,16 @@ class _PlayerSlot extends StatelessWidget {
               ),
               SizedBox(height: tokens.spacing.xs),
               _PlayerName(player: player, tokens: tokens, isDimmed: isDimmed),
+              // A phone that has dropped: a quiet mark by the name.
+              if (showStatus && player.status == PlayerStatus.disconnected)
+                Text(
+                  'away',
+                  style: tokens.typography.caption.copyWith(
+                    color: tokens.colors.onDisabled,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                ),
             ],
           ),
         ),

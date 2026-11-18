@@ -31,6 +31,11 @@ void main() {
       expect(route.location, '/game/550e8400-uuid');
     });
 
+    test('GameRoute carries the table code as ?lobby=', () {
+      const route = GameRoute(gameId: 'g1', lobby: 'ABC123');
+      expect(route.location, '/game/g1?lobby=ABC123');
+    });
+
     test('/ resolves to HomeRoute', () {
       const route = HomeRoute();
       expect(route.location, '/');
@@ -171,6 +176,64 @@ void main() {
           router.routerDelegate.currentConfiguration.uri.path,
           '/game/game-123',
         );
+      },
+    );
+
+    testWidgets('the redirect into the active game carries its table code', (
+      tester,
+    ) async {
+      when(
+        () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
+      ).thenAnswer(
+        (_) async => Response<Map<String, dynamic>>(
+          data: <String, dynamic>{
+            'game_id': 'game-123',
+            'lobby_code': 'ABC123',
+          },
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
+        ),
+      );
+
+      final router = await pumpRouterApp(
+        tester,
+        authState: AuthState.authenticated(User(id: 1, displayName: 'Alice')),
+      );
+
+      final uri = router.routerDelegate.currentConfiguration.uri;
+      expect(uri.path, '/game/game-123');
+      expect(uri.queryParameters['lobby'], 'ABC123');
+    });
+
+    testWidgets(
+      'a player who left a finished game is not sent back into it from /',
+      (tester) async {
+        Response<Map<String, dynamic>> answer(Map<String, dynamic> data) =>
+            Response<Map<String, dynamic>>(
+              data: data,
+              statusCode: 200,
+              requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
+            );
+        when(
+          () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
+        ).thenAnswer((_) async => answer({'game_id': 'game-123'}));
+        final router = await pumpRouterApp(
+          tester,
+          authState: AuthState.authenticated(User(id: 1, displayName: 'Alice')),
+        );
+        expect(
+          router.routerDelegate.currentConfiguration.uri.path,
+          '/game/game-123',
+        );
+
+        // The game is over; the server no longer lists it as active.
+        when(
+          () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
+        ).thenAnswer((_) async => answer({'game': null}));
+        router.go('/');
+        await tester.pumpAndSettle();
+
+        expect(router.routerDelegate.currentConfiguration.uri.path, '/');
       },
     );
   });

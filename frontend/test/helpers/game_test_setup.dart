@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 import 'package:midnight_village/design_system/tokens/midnight_village_theme.dart';
 import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
@@ -15,6 +16,7 @@ import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
+import 'fake_wakelock_service.dart';
 import 'game_state_factory.dart';
 import 'mock_http_client.dart';
 import 'mock_websocket.dart';
@@ -57,6 +59,19 @@ class GameTestSetup {
             requestOptions: RequestOptions(path: '/onuw/games/$gameId/me/'),
             statusCode: 200,
             data: json,
+          ),
+        );
+
+    // Everyone connected, unless a test says otherwise (registerPresence).
+    http
+        .when(method: 'GET', path: '/onuw/games/$gameId/players/')
+        .thenReturn(
+          Response(
+            requestOptions: RequestOptions(
+              path: '/onuw/games/$gameId/players/',
+            ),
+            statusCode: 200,
+            data: <String, dynamic>{'players': <dynamic>[]},
           ),
         );
 
@@ -146,6 +161,49 @@ class GameTestSetup {
         );
   }
 
+  /// Replaces the `/me/` response (a later fetch sees the new state).
+  void registerGameMe(Map<String, dynamic> json) {
+    registerGet('/onuw/games/$gameId/me/', json);
+  }
+
+  /// The player list's `connected` flags, keyed by player id.
+  void registerPresence(Map<int, bool> connected) {
+    registerGet('/onuw/games/$gameId/players/', {
+      'players': [
+        for (final e in connected.entries)
+          {
+            'player_id': e.key,
+            'display_name': 'P${e.key}',
+            'connected': e.value,
+          },
+      ],
+    });
+  }
+
+  void registerGet(String path, dynamic data, {int statusCode = 200}) {
+    http
+        .when(method: 'GET', path: path)
+        .thenReturn(
+          Response(
+            requestOptions: RequestOptions(path: path),
+            statusCode: statusCode,
+            data: data,
+          ),
+        );
+  }
+
+  void registerPost(String path, {dynamic data, int statusCode = 200}) {
+    http
+        .when(method: 'POST', path: path)
+        .thenReturn(
+          Response(
+            requestOptions: RequestOptions(path: path),
+            statusCode: statusCode,
+            data: data ?? <String, dynamic>{},
+          ),
+        );
+  }
+
   void dispose() {
     _subscription?.close();
     container.dispose();
@@ -162,6 +220,7 @@ extension GameFlowTestExtension on WidgetTester {
     Map<String, dynamic>? gameMeJson,
     String playerName = 'TestPlayer',
     int userId = 1,
+    FakeWakelockService? wakelock,
     List<Override>? extraOverrides,
   }) async {
     final setup = GameTestSetup.create(gameMeJson: gameMeJson, gameId: gameId);
@@ -186,6 +245,10 @@ extension GameFlowTestExtension on WidgetTester {
           gameWebSocketProvider.overrideWith((ref, gameId) => null),
           gameWebSocketStreamProvider.overrideWith(
             (ref, gameId) => setup.ws.stream,
+          ),
+          // Never touch the wakelock plugin from a widget test.
+          wakelockServiceProvider.overrideWithValue(
+            wakelock ?? FakeWakelockService(),
           ),
           ...?extraOverrides,
         ],

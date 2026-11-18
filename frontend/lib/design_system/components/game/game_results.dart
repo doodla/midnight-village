@@ -23,11 +23,19 @@ class GameResults extends ConsumerWidget {
   /// If non-null, renders a "Return to Lobby" secondary button that calls this.
   final VoidCallback? onReturnToLobby;
 
+  /// Label of the [onReturnToLobby] button.
+  final String returnLabel;
+
+  /// Shown just above the buttons (a status line or an error), if any.
+  final Widget? footer;
+
   const GameResults({
     super.key,
     required this.result,
     this.onPlayAgain,
     this.onReturnToLobby,
+    this.returnLabel = 'Return to Lobby',
+    this.footer,
   });
 
   @override
@@ -97,6 +105,8 @@ class GameResults extends ConsumerWidget {
 
           SizedBox(height: tokens.spacing.lg),
 
+          if (footer != null) ...[footer!, SizedBox(height: tokens.spacing.sm)],
+
           // ----------------------------------------------------------------
           // Action buttons
           // ----------------------------------------------------------------
@@ -108,7 +118,7 @@ class GameResults extends ConsumerWidget {
 
           if (onReturnToLobby != null)
             PrimaryButton.outlined(
-              label: 'Return to Lobby',
+              label: returnLabel,
               onPressed: onReturnToLobby,
             ),
 

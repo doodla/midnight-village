@@ -42,6 +42,11 @@ abstract class LobbyState with _$LobbyState {
     required String status,
     required int maxPlayers,
     @Default({}) Map<String, int> roleConfig,
+
+    /// The game this table has just started (from `game_started`, or found in
+    /// the player's current game). The screen opens it. A table can run
+    /// several games one after another, so each start sets a new id.
+    String? startedGameId,
   }) = _LobbyState;
 
   /// Parses the backend's LobbyResponse format.

@@ -62,14 +62,18 @@ RouteBase get $gameRoute =>
     GoRouteData.$route(path: '/game/:gameId', factory: $GameRoute._fromState);
 
 mixin $GameRoute on GoRouteData {
-  static GameRoute _fromState(GoRouterState state) =>
-      GameRoute(gameId: state.pathParameters['gameId']!);
+  static GameRoute _fromState(GoRouterState state) => GameRoute(
+    gameId: state.pathParameters['gameId']!,
+    lobby: state.uri.queryParameters['lobby'],
+  );
 
   GameRoute get _self => this as GameRoute;
 
   @override
-  String get location =>
-      GoRouteData.$location('/game/${Uri.encodeComponent(_self.gameId)}');
+  String get location => GoRouteData.$location(
+    '/game/${Uri.encodeComponent(_self.gameId)}',
+    queryParams: {if (_self.lobby != null) 'lobby': _self.lobby},
+  );
 
   @override
   void go(BuildContext context) => context.go(location);

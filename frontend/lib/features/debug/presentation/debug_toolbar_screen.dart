@@ -7,6 +7,7 @@ import '../../../core/debug/debug_models.dart';
 import '../../../core/debug/debug_oracle.dart';
 import '../../../core/debug/debug_providers.dart';
 import '../../../core/debug/debug_table_controller.dart';
+import '../../../core/router/routes.dart';
 import '../../../design_system/models/role.dart';
 import '../../lobby/domain/role_config.dart';
 
@@ -314,7 +315,8 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
     );
   }
 
-  void _openGame(DebugTable table) => context.go('/game/${table.gameId}');
+  void _openGame(DebugTable table) =>
+      GameRoute(gameId: table.gameId, lobby: table.lobbyCode).go(context);
 
   // ---------------------------------------------------------------------------
   // God panel (live oracle)

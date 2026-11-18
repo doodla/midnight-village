@@ -177,6 +177,8 @@ class GameMeJsonBuilder {
   bool _hasVoted = false;
   bool _isHost = false;
   Map<String, dynamic>? _actionPrompt;
+  List<Map<String, dynamic>>? _nightResults;
+  String? _lobbyCode;
   List<Map<String, dynamic>> _players = [
     {'player_id': 1, 'display_name': 'Alice'},
     {'player_id': 2, 'display_name': 'Bob'},
@@ -261,6 +263,28 @@ class GameMeJsonBuilder {
     return this;
   }
 
+  /// Adds `night_results` in the server's shape: `wave`, `action_type`,
+  /// `revealed_info` per closed window.
+  GameMeJsonBuilder withNightResults(List<Map<String, dynamic>> results) {
+    _nightResults = results;
+    return this;
+  }
+
+  /// Marks the players in [ids] as not connected (`connected: false`).
+  GameMeJsonBuilder withPlayersAway(Set<int> ids) {
+    _players = _players
+        .map(
+          (p) => ids.contains(p['player_id']) ? {...p, 'connected': false} : p,
+        )
+        .toList();
+    return this;
+  }
+
+  GameMeJsonBuilder withLobbyCode(String code) {
+    _lobbyCode = code;
+    return this;
+  }
+
   GameMeJsonBuilder withRolesInGame(List<Map<String, dynamic>> roles) {
     _rolesInGame = roles;
     return this;
@@ -282,6 +306,12 @@ class GameMeJsonBuilder {
     }
     if (_actionPrompt != null) {
       json['action_prompt'] = _actionPrompt;
+    }
+    if (_nightResults != null) {
+      json['night_results'] = _nightResults;
+    }
+    if (_lobbyCode != null) {
+      json['lobby_code'] = _lobbyCode;
     }
     return json;
   }
