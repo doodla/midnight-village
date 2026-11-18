@@ -25,10 +25,12 @@ class Game(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    lobby = models.OneToOneField(
+    # A table (lobby) can hold many games over a night: "play again" deals a new
+    # Game on the same lobby. The lobby's current game is its newest one.
+    lobby = models.ForeignKey(
         "core.Lobby",
         on_delete=models.CASCADE,
-        related_name="game",
+        related_name="games",
     )
     phase = models.CharField(
         max_length=20,
@@ -113,6 +115,21 @@ class PlayerRole(models.Model):
         related_name="voted_by",
     )
     has_acted = models.BooleanField(default=False)
+    connections = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            "Open game WebSockets for this player (a player may have several). "
+            "Reset to 0 when the server starts: no socket survives a restart."
+        ),
+    )
+    disconnected_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "When the player's last socket closed (or the server restarted); "
+            "None while connected or if they never connected."
+        ),
+    )
 
     class Meta:
         unique_together = (("game", "user"),)

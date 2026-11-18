@@ -292,6 +292,29 @@ class LobbyReadyView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class LobbyPlayAgainView(APIView):
+    """Reopen a lobby after its game has finished so the host can deal again.
+
+    Host only (403). The lobby's newest game must be in the results phase
+    (409 otherwise, including while a game is running). Members and settings
+    (the deck) are kept; the lobby goes back to ``waiting`` with everyone
+    ready. Returns the lobby, same body as the lobby detail. The finished game
+    and its results stay readable.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, code):
+        # ONUW owns the rules of a game's life; core only routes the request.
+        from apps.onuw.services import PlayAgainError, play_again
+
+        try:
+            lobby = play_again(code, request.user.id)
+        except PlayAgainError as exc:
+            return Response({"detail": exc.detail}, status=exc.status_code)
+        return Response(LobbySerializer(lobby).data, status=status.HTTP_200_OK)
+
+
 class LogoutView(APIView):
     """Blacklist a refresh token to log out."""
 

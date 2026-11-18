@@ -138,7 +138,7 @@ class TestPlayerList:
 
         # Verify individual player entries only contain expected keys
         for p in response.data["players"]:
-            assert set(p.keys()) == {"player_id", "display_name"}
+            assert set(p.keys()) == {"player_id", "display_name", "connected"}
 
     def test_player_list_shows_vote_status_during_voting(self, api_client, db):
         """During voting phase, each player entry includes has_voted status."""
@@ -173,7 +173,12 @@ class TestPlayerList:
         for p in response.data["players"]:
             assert "has_voted" in p
             assert "vote_target" not in p
-            assert set(p.keys()) == {"player_id", "display_name", "has_voted"}
+            assert set(p.keys()) == {
+                "player_id",
+                "display_name",
+                "connected",
+                "has_voted",
+            }
 
     def test_non_player_gets_403(self, api_client, db):
         """A user not in the game gets 403 when requesting player list."""

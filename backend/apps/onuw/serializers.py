@@ -29,6 +29,9 @@ class GameMeSerializer(serializers.Serializer):
     """
 
     game_id = serializers.UUIDField(source="id")
+    # The table's code, in every phase: the results screen needs it to play again
+    # or leave.
+    lobby_code = serializers.CharField(source="lobby.code", read_only=True)
     phase = serializers.CharField()
     current_wave = serializers.IntegerField()
     deadline = serializers.SerializerMethodField()
@@ -38,6 +41,7 @@ class GameMeSerializer(serializers.Serializer):
     players = serializers.SerializerMethodField()
     action_prompt = serializers.SerializerMethodField()
     roles_in_game = serializers.SerializerMethodField()
+    night_results = serializers.SerializerMethodField()
 
     def get_deadline(self, game: Game) -> str | None:
         """
@@ -162,6 +166,26 @@ class GameMeSerializer(serializers.Serializer):
             "valid_targets": prompt["valid_targets"],
             "wave": game.current_wave,
         }
+
+    def get_night_results(self, game: Game) -> list[dict[str, Any]]:
+        """
+        The requesting player's own night results for every closed window.
+
+        Lets a phone that was offline when a window closed catch up: each entry
+        has the same shape as the ``action_result`` socket event (``wave``,
+        ``action_type``, ``revealed_info``) and is built by the same transform.
+        Only this player's results, and nothing about a window still open.
+        """
+        player_role = self.context.get("player_role")
+        if player_role is None:
+            return []
+        from .services import night_results_for_player
+
+        names = {
+            pr.user_id: pr.user.display_name or pr.user.username
+            for pr in self.context.get("all_player_roles", [])
+        }
+        return night_results_for_player(game, player_role.user_id, names)
 
     def get_roles_in_game(self, game: Game) -> list[dict[str, Any]]:
         """

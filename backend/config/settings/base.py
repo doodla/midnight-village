@@ -158,5 +158,9 @@ LOGGING = {
     },
 }
 
+# Rebuild the timers of games in progress when the server starts (the in-memory
+# timer registry is lost with the process). Off in the test settings.
+ONUW_RECOVER_TIMERS_ON_START = True
+
 # Channels configuration
 ASGI_APPLICATION = "config.asgi.application"

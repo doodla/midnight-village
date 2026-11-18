@@ -1,5 +1,6 @@
 """ONUW app views."""
 
+import logging
 import secrets
 
 from django.conf import settings
@@ -26,12 +27,15 @@ from .services import (
     advance_wave,
     check_and_maybe_advance,
     end_discussion,
+    ensure_timers,
     get_player_acting_role_for_wave,
     reveal_votes,
     start_night_phase,
     submit_vote,
     validate_night_action,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class GameStartView(APIView):
@@ -40,15 +44,46 @@ class GameStartView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request: Request, code: str) -> Response:
-        # Look up lobby
-        try:
-            lobby = Lobby.objects.select_related("host").get(code=code)
-        except Lobby.DoesNotExist:
-            return Response(
-                {"detail": "Lobby not found."},
-                status=status.HTTP_404_NOT_FOUND,
+        # The lobby row is locked from the status check to the game's creation:
+        # a lobby can hold many games (play again), so nothing else stops a
+        # double tap on Start from dealing two games on one table. The second
+        # request waits for the lock, then sees the lobby is no longer waiting.
+        with transaction.atomic():
+            try:
+                lobby = Lobby.objects.select_for_update().get(code=code)
+            except Lobby.DoesNotExist:
+                return Response(
+                    {"detail": "Lobby not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            outcome = self._deal(request, lobby)
+            if isinstance(outcome, Response):
+                return outcome
+            game = outcome
+
+        # Broadcast game_started event
+        channel_layer = get_channel_layer()
+        if channel_layer is not None:
+            async_to_sync(channel_layer.group_send)(
+                f"lobby_{lobby.code}",
+                {
+                    "type": "game.started",
+                    "game_id": str(game.id),
+                    "phase": game.phase,
+                },
             )
 
+        # Initialize the night phase (find first wave, send prompts)
+        start_night_phase(game)
+
+        serializer = GameStartResponseSerializer(
+            {"game_id": game.id, "phase": game.phase}
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def _deal(self, request: Request, lobby: Lobby) -> "Response | Game":
+        """Validate and create the game. The caller holds the lobby row lock
+        inside an atomic block. Returns an error Response or the new Game."""
         # Host-only check
         if lobby.host_id != request.user.id:  # type: ignore[misc]
             return Response(
@@ -120,49 +155,30 @@ class GameStartView(APIView):
                 role_counts, player_ids, seed
             )
 
-        # Atomically create game state and update lobby
-        with transaction.atomic():
-            lobby.status = Lobby.Status.IN_GAME
-            lobby.save(update_fields=["status", "updated_at"])
+        # Create game state and update lobby (same transaction as the checks)
+        lobby.status = Lobby.Status.IN_GAME
+        lobby.save(update_fields=["status", "updated_at"])
 
-            game = Game.objects.create(
-                lobby=lobby,
-                phase=Phase.NIGHT,
-                random_seed=seed,
-                settings=lobby.settings,
-                center_cards=center_cards,
-            )
-
-            player_roles = [
-                PlayerRole(
-                    game=game,
-                    user_id=player_id,
-                    original_role=role_name,
-                    current_role=role_name,
-                )
-                for player_id, role_name in player_id_to_role.items()
-            ]
-            PlayerRole.objects.bulk_create(player_roles)
-
-        # Broadcast game_started event
-        channel_layer = get_channel_layer()
-        if channel_layer is not None:
-            async_to_sync(channel_layer.group_send)(
-                f"lobby_{lobby.code}",
-                {
-                    "type": "game.started",
-                    "game_id": str(game.id),
-                    "phase": game.phase,
-                },
-            )
-
-        # Initialize the night phase (find first wave, send prompts)
-        start_night_phase(game)
-
-        serializer = GameStartResponseSerializer(
-            {"game_id": game.id, "phase": game.phase}
+        game = Game.objects.create(
+            lobby=lobby,
+            phase=Phase.NIGHT,
+            random_seed=seed,
+            settings=lobby.settings,
+            center_cards=center_cards,
         )
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        player_roles = [
+            PlayerRole(
+                game=game,
+                user_id=player_id,
+                original_role=role_name,
+                current_role=role_name,
+            )
+            for player_id, role_name in player_id_to_role.items()
+        ]
+        PlayerRole.objects.bulk_create(player_roles)
+
+        return game
 
 
 class GameMeView(APIView):
@@ -181,7 +197,7 @@ class GameMeView(APIView):
     def get(self, request: Request, game_id: str) -> Response:
         # Look up game
         try:
-            game = Game.objects.get(id=game_id)
+            game = Game.objects.select_related("lobby").get(id=game_id)
         except (Game.DoesNotExist, ValueError, ValidationError):
             return Response(
                 {"detail": "Game not found."},
@@ -199,6 +215,13 @@ class GameMeView(APIView):
 
         # Fetch all player roles for the players list (public info only)
         all_player_roles = list(game.player_roles.select_related("user").all())
+
+        # Re-create any timer this game should have but this process lost (a
+        # restart). Cheap when they are all registered; never blocks the read.
+        try:
+            ensure_timers(game, all_player_roles)
+        except Exception:
+            logger.exception("ensure_timers failed for game %s", game.id)
 
         serializer = GameMeSerializer(
             game,
@@ -507,8 +530,8 @@ class PlayerListView(APIView):
     """
     List all players in a game with public info only.
 
-    Returns player IDs and display names. During voting phase, also
-    includes has_voted status for each player.
+    Returns player IDs, display names and whether each player is connected.
+    During voting phase, also includes has_voted status for each player.
 
     CRITICAL: Never reveals roles, night_action_data, or vote targets.
     """
@@ -540,6 +563,8 @@ class PlayerListView(APIView):
             entry = {
                 "player_id": pr.user_id,
                 "display_name": pr.user.display_name or pr.user.username,
+                # Presence is public: is any of their sockets open right now?
+                "connected": pr.connections > 0,
             }
             if game.phase == Phase.VOTING:
                 entry["has_voted"] = bool(pr.has_acted)

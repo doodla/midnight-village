@@ -2,6 +2,8 @@
 
 from django.urls import path
 
+from apps.core.views import LobbyPlayAgainView
+
 from . import debug_views, views
 
 app_name = "onuw"
@@ -11,6 +13,13 @@ urlpatterns = [
         "lobbies/<str:code>/start/",
         views.GameStartView.as_view(),
         name="game-start",
+    ),
+    # Same view as core's lobbies/<code>/play-again/, under the ONUW prefix next
+    # to "start" so a client may use either.
+    path(
+        "lobbies/<str:code>/play-again/",
+        LobbyPlayAgainView.as_view(),
+        name="lobby-play-again",
     ),
     path(
         "me/current-game/",

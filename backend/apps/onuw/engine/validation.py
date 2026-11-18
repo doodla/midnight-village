@@ -16,16 +16,23 @@ TIMER_SETTING_KEYS: tuple[str, ...] = (
     "night_doppelganger_window_seconds",
     "discussion_seconds",
     "voting_seconds",
+    "disconnect_grace_seconds",
 )
 MAX_TIMER_SECONDS = 3600
+# Per-setting ceilings that are lower than MAX_TIMER_SECONDS. The disconnect
+# grace period is how long the game waits for a dropped phone; 0 turns it off.
+TIMER_SETTING_MAX_SECONDS: dict[str, int] = {"disconnect_grace_seconds": 60}
 
 
-def is_valid_timer_value(value: object) -> bool:
-    """True if value is an integer number of seconds in [0, MAX_TIMER_SECONDS]."""
+def max_seconds_for(key: str) -> int:
+    """Largest allowed value (seconds) of a timer setting."""
+    return TIMER_SETTING_MAX_SECONDS.get(key, MAX_TIMER_SECONDS)
+
+
+def is_valid_timer_value(value: object, maximum: int = MAX_TIMER_SECONDS) -> bool:
+    """True if value is an integer number of seconds in [0, maximum]."""
     return (
-        isinstance(value, int)
-        and not isinstance(value, bool)
-        and 0 <= value <= MAX_TIMER_SECONDS
+        isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= maximum
     )
 
 
@@ -33,7 +40,8 @@ def validate_timer_settings(settings: dict) -> list[str]:
     """
     Validate the timer keys of a settings dict (absent keys are fine).
 
-    Each must be an integer from 0 to MAX_TIMER_SECONDS, and
+    Each must be an integer from 0 to MAX_TIMER_SECONDS (0 to 60 for
+    disconnect_grace_seconds), and
     night_min_window_seconds must not exceed night_wave_seconds when the
     latter is set above 0 (the minimum length of a window cannot be longer
     than its maximum). These are host-facing settings, so errors are explicit.
@@ -42,10 +50,10 @@ def validate_timer_settings(settings: dict) -> list[str]:
     for key in TIMER_SETTING_KEYS:
         if key not in settings:
             continue
-        if not is_valid_timer_value(settings[key]):
+        maximum = max_seconds_for(key)
+        if not is_valid_timer_value(settings[key], maximum):
             errors.append(
-                f"{key!r} must be a whole number of seconds from 0 to "
-                f"{MAX_TIMER_SECONDS}."
+                f"{key!r} must be a whole number of seconds from 0 to {maximum}."
             )
 
     wave_max = settings.get("night_wave_seconds")

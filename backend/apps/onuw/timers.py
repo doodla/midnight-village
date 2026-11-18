@@ -4,7 +4,12 @@ In-process timer registry for ONUW phase transitions.
 Uses threading.Timer from the standard library (no external dependencies).
 Thread safety is ensured by a module-level Lock guarding all registry mutations.
 
-Key format convention: "{game_id}:discussion", "{game_id}:voting", "{game_id}:wave:{n}"
+Key format convention: "{game_id}:discussion", "{game_id}:voting",
+"{game_id}:wave:{n}" and "{game_id}:grace:{user_id}" (a dropped player's grace period).
+
+The registry lives in one process and is lost on restart; the stored deadlines
+on Game are the source of truth and services.recover_timers() / ensure_timers()
+rebuild the timers from them.
 """
 
 import logging
@@ -46,6 +51,17 @@ def cancel(key: str) -> None:
         if key in _registry:
             _registry[key].cancel()
             del _registry[key]
+
+
+def is_scheduled(key: str) -> bool:
+    """True if a timer under key is registered and has neither fired nor been cancelled.
+
+    A Timer stays in the registry after it fires, so presence alone is not
+    enough. Cheap: one dict lookup under the lock, no database access.
+    """
+    with _lock:
+        timer = _registry.get(key)
+        return timer is not None and timer.is_alive() and not timer.finished.is_set()
 
 
 def cancel_all_for_game(game_id: int | str) -> None:

@@ -41,10 +41,21 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
 
         await self.accept()
 
+        # Presence: count this socket (a player may have several open). After
+        # accept, so the group already includes this client and it hears its
+        # own "connected" event.
+        await self._register_presence()
+        self._presence_counted = True
+
     async def disconnect(self, code):
         if self.channel_layer is not None and hasattr(self, "game_group"):
             await self.channel_layer.group_discard(self.game_group, self.channel_name)
             await self.channel_layer.group_discard(self.player_group, self.channel_name)
+        # Only a socket that was counted can be uncounted (a rejected
+        # connection also reaches disconnect).
+        if getattr(self, "_presence_counted", False):
+            self._presence_counted = False
+            await self._unregister_presence()
 
     async def receive_json(self, content, **kwargs):
         """Reject client-sent messages — game actions go through HTTP API."""
@@ -133,6 +144,25 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
+    async def player_presence(self, event):
+        """Broadcast: a player's connection changed (public information)."""
+        await self.send_json(
+            {
+                "type": "player_presence",
+                "player_id": event["player_id"],
+                "connected": event["connected"],
+            }
+        )
+
+    async def play_again(self, event):
+        """Broadcast: the host reopened the lobby for another game."""
+        await self.send_json(
+            {
+                "type": "play_again",
+                "lobby_code": event["lobby_code"],
+            }
+        )
+
     async def game_results(self, event):
         """Broadcast: game results after vote resolution."""
         await self.send_json(
@@ -143,6 +173,18 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
         )
 
     # ── Helpers ─────────────────────────────────────────────────────────────
+
+    @database_sync_to_async
+    def _register_presence(self):
+        from . import services
+
+        services.register_connection(self.game_id, self.user_id)
+
+    @database_sync_to_async
+    def _unregister_presence(self):
+        from . import services
+
+        services.unregister_connection(self.game_id, self.user_id)
 
     @database_sync_to_async
     def _is_player(self, game_id, user_id):

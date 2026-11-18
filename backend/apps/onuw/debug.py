@@ -161,11 +161,8 @@ def build_debug_state(game: Game) -> dict[str, Any]:
                 "current_role": pr.current_role,
                 "doppelganger_copied_role": doppelganger_copied.get(pr.user_id),
                 "team": _team_token(pr.user_id, current_roles, doppelganger_copied),
-                # No DB-backed per-player connection state exists; connection is
-                # tracked only via channel-group membership in the consumer,
-                # which a sync HTTP view cannot observe. The oracle reports
-                # presence in the game, not live socket state.
-                "connected": True,
+                # Real presence: any game socket open for this player right now.
+                "connected": pr.connections > 0,
             }
         )
         # EVERY player is a key; null = has not voted / abstained.
@@ -243,8 +240,9 @@ def fire_timer(game: Game, key_suffix: str) -> tuple[bool, str]:
     ``current``. ``wave:{n}`` is night window ``n`` (1 or 2); firing it closes
     that window now (the same close as the window's own timer, so it ignores
     ``night_min_window_seconds`` and, for window 1, the fixed length).
-    ``current`` resolves to the single registry key under the game's prefix and
-    is rejected if there are zero or more than one. A window with no timer
+    ``current`` resolves to the single phase / window timer under the game's
+    prefix (grace timers are ignored) and is rejected if there are zero or more
+    than one. A window with no timer
     (its timer setting is 0) has nothing to fire: use the host's advance-wave.
 
     The registry stores ``threading.Timer`` objects, not callbacks. We cancel
@@ -267,7 +265,12 @@ def fire_timer(game: Game, key_suffix: str) -> tuple[bool, str]:
 
     if key_suffix == "current":
         with timers._lock:
-            matching = [k for k in timers._registry if k.startswith(prefix)]
+            # Grace timers (a dropped player's countdown) are not phase timers.
+            matching = [
+                k
+                for k in timers._registry
+                if k.startswith(prefix) and ":grace:" not in k
+            ]
         if len(matching) != 1:
             raise ForcedAssignmentError(
                 f"'current' requires exactly one pending timer, found {len(matching)}."

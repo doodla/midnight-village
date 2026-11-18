@@ -48,6 +48,9 @@ CORS_ALLOWED_ORIGINS = os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
 CORS_ALLOWED_ORIGINS = [o for o in CORS_ALLOWED_ORIGINS if o]  # Filter empty strings
 
 # Channels - Use Redis for production to support multiple processes/servers
+# NOTE: this does NOT make the game multi-process safe. Game timers and presence
+# are held per process (apps/onuw/timers.py) and start-up recovery resets every
+# running game's presence, so run exactly ONE server process (see backend/CLAUDE.md).
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",

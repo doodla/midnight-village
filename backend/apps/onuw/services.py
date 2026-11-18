@@ -8,16 +8,20 @@ All game state transitions go through this module.
 from __future__ import annotations
 
 import functools
+import logging
+import threading
 from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
 
-from django.db import transaction
+from django.conf import settings as django_settings
+from django.db import DatabaseError, transaction
 from django.utils import timezone
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
+from apps.core.models import Lobby, LobbyMember
 from apps.onuw import timers
 
 from .engine.behaviors import (
@@ -32,10 +36,12 @@ from .engine.night import (
 )
 from .engine.roles import ActionType, get_role, window_for_order_group
 from .engine.state import ActionResult, GameState, NightAction
-from .engine.validation import is_valid_timer_value
+from .engine.validation import is_valid_timer_value, max_seconds_for
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
 from .models import Game, Phase, PlayerRole
+
+logger = logging.getLogger(__name__)
 
 
 class AlreadyActedError(Exception):
@@ -53,6 +59,17 @@ DEFAULT_NIGHT_MIN_WINDOW_SECONDS = 8
 # Exact length of window 1 (the Doppelganger's), whatever happens in it. 0
 # turns the fixed length off: window 1 then behaves like any other window.
 DEFAULT_NIGHT_DOPPELGANGER_WINDOW_SECONDS = 10
+# How long a player's phone may be disconnected before the game stops waiting
+# for them at night and in the vote (0 turns the feature off).
+DEFAULT_DISCONNECT_GRACE_SECONDS = 25
+
+# Phases that run on a clock (and so need a timer to move on).
+TIMED_PHASES = (Phase.NIGHT, Phase.DISCUSSION, Phase.VOTING)
+
+# After a restart no phone is connected yet. A deadline that is overdue, or less
+# than this many seconds away, is moved to this long from now when its timer is
+# rebuilt, so phones can reconnect before the vote is revealed or the night closes.
+RECOVERY_RECONNECT_ALLOWANCE_SECONDS = 15
 
 
 def get_timer_seconds(game: Game, key: str, default: int) -> int:
@@ -65,7 +82,7 @@ def get_timer_seconds(game: Game, key: str, default: int) -> int:
     stored = (
         game.settings.get(key, default) if isinstance(game.settings, dict) else default
     )
-    return stored if is_valid_timer_value(stored) else default
+    return stored if is_valid_timer_value(stored, max_seconds_for(key)) else default
 
 
 def _window_timer_key(game: Game, window: int) -> str:
@@ -238,6 +255,79 @@ def _transform_revealed_info(
     return dict(raw)
 
 
+def client_action_result(
+    action: NightAction,
+    revealed_info: dict[str, Any],
+    player_names: dict[int, str],
+) -> tuple[str, dict[str, Any]]:
+    """The (action_type, revealed_info) pair a player is shown for one result.
+
+    The single place that turns an engine result into what the client sees. It
+    feeds both the ``action.result`` socket event and the ``night_results`` list
+    in ``GET /me/``, so the two cannot drift apart.
+    """
+    result = ActionResult(
+        player_id=action.player_id, revealed_info=revealed_info, state_mutations=[]
+    )
+    return (
+        _client_action_type(action),
+        _transform_revealed_info(action, result, player_names),
+    )
+
+
+def night_results_for_player(
+    game: Game, user_id: int, player_names: dict[int, str]
+) -> list[dict[str, Any]]:
+    """The caller's own night results for every window that has closed.
+
+    Rebuilt from the stored night log with the same transform the
+    ``action.result`` socket event uses, so a phone that was offline when a
+    window closed shows exactly what it would have received. One entry per
+    result, in window order (a Doppelganger with a follow-up gets two in
+    window 1: the copy, then the follow-up). Entries with nothing to show
+    (a skipped action) are left out.
+
+    Only this player's own entries are read, and a window that is still open
+    contributes nothing: nothing reaches a player before its window closes
+    (the Doppelganger's look, which is sent early because she needs it to
+    choose her follow-up, is held back here until window 1 closes).
+    """
+    if game.phase == Phase.NIGHT:
+        closed_before = game.current_wave  # windows 1..current_wave-1 have closed
+    elif game.phase in (Phase.DISCUSSION, Phase.VOTING, Phase.RESULTS):
+        closed_before = NIGHT_WINDOWS[-1] + 1
+    else:
+        return []
+
+    entries: list[tuple[int, dict[str, Any]]] = []
+    for entry in game.night_actions_log:
+        if entry.get("player_id") != user_id or not entry.get("result"):
+            continue
+        try:
+            window = window_for_order_group(entry["wave"])
+        except (KeyError, ValueError):
+            continue
+        if window >= closed_before:
+            continue
+        action = NightAction(
+            player_id=user_id,
+            role_acting_as=entry.get("role_acting_as", ""),
+            action_type=entry.get("action_type", ""),
+            targets=entry.get("targets", {}),
+        )
+        action_type, revealed = client_action_result(
+            action, entry["result"], player_names
+        )
+        entries.append(
+            (
+                window,
+                {"wave": window, "action_type": action_type, "revealed_info": revealed},
+            )
+        )
+    entries.sort(key=lambda item: item[0])  # stable: keeps wake order within a window
+    return [payload for _, payload in entries]
+
+
 def build_game_state(game: Game) -> GameState:
     """
     Build an engine GameState from DB models.
@@ -293,7 +383,10 @@ def start_night_phase(game: Game) -> None:
     first_window = 1 if _doppelganger_in_deck(game) else 2
     with transaction.atomic():
         locked = Game.objects.select_for_update().get(id=game.id)
-        _open_window(locked, first_window)
+        if locked.phase == Phase.NIGHT and locked.current_wave == 0:
+            _open_window(locked, first_window)
+        # else: already opened (start-up recovery or a lazy ensure_timers got
+        # there first); opening twice would re-prompt everyone.
     game.refresh_from_db()
 
 
@@ -308,8 +401,9 @@ def _open_window(game: Game, window: int) -> None:
 
     send_wave_prompts(game, window)
 
-    # With nobody to wait for, the window still lasts its minimum length.
-    if not get_wave_actors(game, window):
+    # With nobody to wait for (no actors, or every actor's phone has been gone
+    # past the grace period), the window still lasts its minimum length.
+    if _night_ready_to_close(game):
         _close_or_defer(game)
 
 
@@ -368,7 +462,7 @@ def _close_or_defer(game: Game) -> None:
         callback = timers.make_idempotent_callback(
             game.id,
             Phase.NIGHT,
-            functools.partial(_auto_advance_wave, wave_number=window),
+            functools.partial(_auto_advance_wave, wave_number=window, deferred=True),
         )
         _schedule_after_commit(_window_timer_key(game, window), delay, callback)
         return
@@ -396,11 +490,41 @@ def _timeout_action_type(role_acting_as: str) -> str:
     return "skip"
 
 
-def _auto_advance_wave(game: Game, wave_number: int) -> None:
-    """Auto-advance a wave when its timer expires, marking non-actors as skipped."""
+def _auto_advance_wave(game: Game, wave_number: int, deferred: bool = False) -> None:
+    """Auto-advance a wave when its timer expires, marking non-actors as skipped.
+
+    ``deferred`` marks the early close scheduled for a window's minimum length
+    (everyone it waited for was done). Anything may have happened since: a
+    player treated as gone may have reconnected. So it re-checks, under the
+    lock, that the window may still close; if not, the window's normal deadline
+    timer is put back instead. A deadline that has been reached always closes.
+    In the ordinary case (still ready) this closes at exactly the same moment.
+    """
     if game.current_wave != wave_number:
         return  # Wave already advanced — stale callback.
+    if deferred:
+        deadline = game.phase_deadline
+        deadline_reached = deadline is not None and timezone.now() >= deadline
+        if not deadline_reached and not _night_ready_to_close(game):
+            _restore_deadline_timer(game)
+            return
     advance_wave(game)
+
+
+def _restore_deadline_timer(game: Game) -> None:
+    """Re-arm the open night window's own deadline timer (after a deferred
+    close turned out to be premature). No deadline means no timer: the host or
+    the players moving it are all that is left, as before."""
+    if game.phase_deadline is None:
+        return
+    window = game.current_wave
+    delay = max(0.0, (game.phase_deadline - timezone.now()).total_seconds())
+    callback = timers.make_idempotent_callback(
+        game.id,
+        Phase.NIGHT,
+        functools.partial(_auto_advance_wave, wave_number=window),
+    )
+    _schedule_after_commit(_window_timer_key(game, window), delay, callback)
 
 
 def send_wave_prompts(game: Game, wave: int) -> None:
@@ -686,8 +810,9 @@ def _action_result_messages(
     for result in results:
         action = action_map.get(result.player_id)
         if action is not None:
-            client_info = _transform_revealed_info(action, result, player_names)
-            action_type = _client_action_type(action)
+            action_type, client_info = client_action_result(
+                action, result.revealed_info, player_names
+            )
         else:
             client_info = result.revealed_info
             action_type = "unknown"
@@ -780,15 +905,30 @@ def transition_to_discussion(game: Game) -> None:
     )
 
 
+def _advance_if_ready(game: Game) -> None:
+    """Close the open night window if there is nothing left to wait for.
+
+    The caller holds the Game row lock and has checked the phase is night.
+    The Doppelganger's look is resolved at once (she needs it to choose her
+    follow-up). Window 1 has a fixed length and is never closed from here:
+    only its own timer (or the host) closes it.
+    """
+    window = game.current_wave
+    if window == 1 and _doppelganger_look_submitted(game):
+        if _resolve_doppelganger_look(game):
+            return  # The follow-up prompt went out; the window stays open.
+
+    if _night_ready_to_close(game):
+        _close_or_defer(game)
+
+
 def check_and_maybe_advance(game: Game) -> None:
     """
-    After a submission, close the window if every actor in it has submitted.
+    After a submission, close the window if everyone it waits for has submitted.
 
     The window still lasts at least its minimum length: if everyone is done
-    early, the close is scheduled for when the minimum is reached. The
-    Doppelganger's look is the one step resolved at once (she needs it to
-    choose her follow-up). Window 1 has a fixed length and is never closed
-    from here: only its own timer (or the host) closes it.
+    early, the close is scheduled for when the minimum is reached. See
+    _night_ready_to_close for who the window waits for.
 
     Uses select_for_update on the Game row to prevent double-fire
     when two players submit simultaneously.
@@ -798,19 +938,7 @@ def check_and_maybe_advance(game: Game) -> None:
         if game.phase != Phase.NIGHT:
             # Already advanced by another concurrent request
             return
-
-        window = game.current_wave
-        if window == 1 and _doppelganger_look_submitted(game):
-            if _resolve_doppelganger_look(game):
-                return  # The follow-up prompt went out; the window stays open.
-
-        actor_ids = get_wave_actors(game, window)
-        pending = PlayerRole.objects.filter(
-            game=game, user_id__in=actor_ids, has_acted=False
-        ).count()
-
-        if pending == 0:
-            _close_or_defer(game)
+        _advance_if_ready(game)
 
 
 def get_player_acting_role_for_wave(pr: PlayerRole, wave: int) -> str | None:
@@ -1020,26 +1148,32 @@ def transition_to_voting(game: Game) -> None:
         callback = timers.make_idempotent_callback(
             game.id, Phase.VOTING, _auto_reveal_votes
         )
-        timers.schedule(f"{game.id}:voting", voting_seconds, callback)
+        _schedule_after_commit(f"{game.id}:voting", voting_seconds, callback)
+
+    # A phone that dropped during the talk is already on the clock: the vote
+    # stops waiting for it when its grace period ends.
+    _schedule_grace_timers_after_commit(game)
 
     # Broadcast phase change to all players
-    channel_layer = get_channel_layer()
-    if channel_layer is not None:
-        async_to_sync(channel_layer.group_send)(
-            f"game_{game.id}",
-            {
-                "type": "phase.change",
-                "phase": "voting",
-                "deadline": game.phase_deadline.isoformat()
-                if game.phase_deadline
-                else None,
-            },
-        )
+    _send_after_commit(
+        [
+            (
+                f"game_{game.id}",
+                {
+                    "type": "phase.change",
+                    "phase": "voting",
+                    "deadline": game.phase_deadline.isoformat()
+                    if game.phase_deadline
+                    else None,
+                },
+            )
+        ]
+    )
 
 
 def end_discussion(game: Game) -> None:
     """End discussion early (host action). Transitions to voting."""
-    timers.cancel(f"{game.id}:discussion")
+    _cancel_after_commit(f"{game.id}:discussion")
     game.phase_deadline = None
     transition_to_voting(game)
 
@@ -1100,12 +1234,9 @@ def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
 
     # Broadcast and auto-reveal OUTSIDE the transaction to avoid
     # holding the row lock during channel operations.
-    channel_layer = get_channel_layer()
-    if channel_layer is not None:
-        async_to_sync(channel_layer.group_send)(
-            f"game_{game.id}",
-            {"type": "vote.submitted", "player_id": voter_id},
-        )
+    _send_after_commit(
+        [(f"game_{game.id}", {"type": "vote.submitted", "player_id": voter_id})]
+    )
 
     # Check if all players have voted -> auto-reveal.
     # Lock the Game row to prevent double-fire when two players
@@ -1115,13 +1246,9 @@ def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
         if game.phase != Phase.VOTING:
             # Already revealed by another concurrent request
             return errors
-        # pyrefly: ignore [missing-attribute]
-        total_players = game.player_roles.count()
-        # pyrefly: ignore [missing-attribute]
-        voted_count = game.player_roles.filter(has_acted=True).count()
-
-        if voted_count >= total_players:
-            timers.cancel(f"{game.id}:voting")
+        # Reveal once everyone has voted, or everyone still being waited for
+        # has (a player gone past the grace period counts as a non-voter).
+        if _votes_ready(game):
             reveal_votes(game)
 
     return errors
@@ -1140,8 +1267,9 @@ def reveal_votes(game: Game) -> None:
     Broadcasts game_results event.
     """
     # Cancel the voting timer — covers both the host force-reveal and
-    # the all-voted path (double-cancel is safe).
-    timers.cancel(f"{game.id}:voting")
+    # the all-voted path (double-cancel is safe). After commit, like every
+    # other side effect, so a rollback leaves the vote running.
+    _cancel_after_commit(f"{game.id}:voting")
 
     # Collect vote data
     # pyrefly: ignore [missing-attribute]
@@ -1162,13 +1290,9 @@ def reveal_votes(game: Game) -> None:
         ):
             doppelganger_copied[pr.user_id] = pr.night_action_data["copied_role"]
 
-    # Broadcast vote_reveal to all players
-    channel_layer = get_channel_layer()
-    if channel_layer is not None:
-        async_to_sync(channel_layer.group_send)(
-            f"game_{game.id}",
-            {"type": "vote.reveal", "votes": votes_broadcast},
-        )
+    messages: list[tuple[str, dict[str, Any]]] = [
+        (f"game_{game.id}", {"type": "vote.reveal", "votes": votes_broadcast})
+    ]
 
     # Compute elimination
     vote_counts = count_votes(votes_dict)
@@ -1204,18 +1328,17 @@ def reveal_votes(game: Game) -> None:
         }
         game.save(update_fields=["phase", "phase_deadline", "results", "updated_at"])
 
-        from apps.core.models import Lobby
-
         Lobby.objects.filter(id=game.lobby_id).update(status=Lobby.Status.FINISHED)
 
     # Clean up all remaining timers for this game (safety net — individual
     # timers are cancelled at each phase transition, but this catches any
-    # that were missed due to unusual flow).
-    timers.cancel_all_for_game(str(game.id))
+    # that were missed due to unusual flow, and the grace timers).
+    game_id = str(game.id)
+    _after_commit(lambda: timers.cancel_all_for_game(game_id))
 
-    # Broadcast game results
-    if channel_layer is not None:
-        async_to_sync(channel_layer.group_send)(
+    # Broadcast the reveal, then the results, once the transition has committed.
+    messages.append(
+        (
             f"game_{game.id}",
             {
                 "type": "game.results",
@@ -1226,3 +1349,583 @@ def reveal_votes(game: Game) -> None:
                 },
             },
         )
+    )
+    _send_after_commit(messages)
+
+
+# ── Presence: dropped phones ────────────────────────────────────────────────
+#
+# Each open game WebSocket counts as one connection for its player
+# (PlayerRole.connections); the last one closing stamps disconnected_at. Presence
+# is public ("player_presence" events, "connected" in the player list).
+#
+# A player whose phone has been gone for the grace period (disconnect_grace_seconds,
+# default 25, 0 = off) is "gone": at night and in the vote the game stops waiting
+# for them and treats them exactly as it treats a timeout / a non-voter. The
+# talk (discussion) never waits for anyone and is not affected.
+#
+# Hidden-information rule: while a player is inside their grace period the night
+# window waits for them WHETHER OR NOT THEY HAVE AN ACTION. If it waited only for
+# a dropped player who still had to act, the moment the window closed would tell
+# the table whether that player was an actor, i.e. something about their card.
+
+
+def _grace_seconds(game: Game) -> int:
+    return get_timer_seconds(
+        game, "disconnect_grace_seconds", DEFAULT_DISCONNECT_GRACE_SECONDS
+    )
+
+
+def _seconds_disconnected(pr: PlayerRole, now: Any) -> float | None:
+    """Seconds since the player's last socket closed, or None if connected /
+    never connected."""
+    if pr.connections > 0 or pr.disconnected_at is None:
+        return None
+    return (now - pr.disconnected_at).total_seconds()
+
+
+def _is_gone(pr: PlayerRole, grace: int, now: Any) -> bool:
+    """True once the player has been disconnected for at least the grace period."""
+    if grace <= 0:
+        return False
+    away = _seconds_disconnected(pr, now)
+    return away is not None and away >= grace
+
+
+def _is_recently_dropped(pr: PlayerRole, grace: int, now: Any) -> bool:
+    """True while the player is disconnected but still inside the grace period."""
+    if grace <= 0:
+        return False
+    away = _seconds_disconnected(pr, now)
+    return away is not None and away < grace
+
+
+def _grace_timer_key(game_id: Any, user_id: int) -> str:
+    return f"{game_id}:grace:{user_id}"
+
+
+def _night_ready_to_close(game: Game, *, ignore_recent_drops: bool = False) -> bool:
+    """True when the open night window has nothing left to wait for.
+
+    Every actor has acted, except actors whose phone has been gone past the
+    grace period (treated as a timeout, through the normal close path, so the
+    minimum window length still applies). A player still inside their grace
+    period holds the window open whatever their role (see the note above), and
+    so does an empty table: if every phone is gone nobody is there to be told,
+    so only the window's own deadline (or the host) closes it.
+
+    ``ignore_recent_drops`` is for rebuilding timers after a restart, where
+    every player has just been stamped disconnected only because no socket
+    survived: that is not a real drop and must not defer a close that was
+    already due.
+    """
+    # pyrefly: ignore [missing-attribute]
+    prs = list(game.player_roles.all())
+    actor_ids = set(get_wave_actors(game, game.current_wave))
+    grace = _grace_seconds(game)
+    now = timezone.now()
+    if not ignore_recent_drops and any(
+        _is_recently_dropped(pr, grace, now) for pr in prs
+    ):
+        return False
+    if prs and all(_is_gone(pr, grace, now) for pr in prs):
+        return False
+    return all(
+        pr.has_acted or _is_gone(pr, grace, now)
+        for pr in prs
+        if pr.user_id in actor_ids
+    )
+
+
+def _votes_ready(game: Game) -> bool:
+    """True when the vote can be revealed: everyone has voted, or everyone the
+    vote still waits for has (a player gone past the grace period is a non-voter,
+    exactly as at the voting deadline). Needs someone present to be told."""
+    # pyrefly: ignore [missing-attribute]
+    prs = list(game.player_roles.all())
+    if all(pr.has_acted for pr in prs):
+        return True
+    grace = _grace_seconds(game)
+    now = timezone.now()
+    present = [pr for pr in prs if not _is_gone(pr, grace, now)]
+    return bool(present) and all(pr.has_acted for pr in present)
+
+
+def _evaluate_presence(game: Game) -> None:
+    """Re-check whether the night window / the vote can now proceed.
+
+    The caller holds the Game row lock. Called when a grace period ends.
+    """
+    if game.phase == Phase.NIGHT and game.current_wave in NIGHT_WINDOWS:
+        _advance_if_ready(game)
+    elif game.phase == Phase.VOTING and _votes_ready(game):
+        reveal_votes(game)
+
+
+def _grace_expired(game_id: Any, user_id: int) -> None:
+    """Timer callback: a dropped player's grace period has run out."""
+    try:
+        with transaction.atomic():
+            try:
+                game = Game.objects.select_for_update().get(id=game_id)
+            except Game.DoesNotExist:
+                return
+            if game.phase not in (Phase.NIGHT, Phase.VOTING):
+                return  # Nothing waits for anyone in the talk, or the game is over.
+            pr = PlayerRole.objects.filter(game=game, user_id=user_id).first()
+            if pr is None:
+                return
+            away = _seconds_disconnected(pr, timezone.now())
+            if away is None:
+                return  # Reconnected (or never dropped): keep waiting for them.
+            remaining = _grace_seconds(game) - away
+            if remaining > 0:
+                # Fired a hair early (timer and wall clocks differ): try again.
+                _schedule_after_commit(
+                    _grace_timer_key(game_id, user_id),
+                    remaining,
+                    functools.partial(_grace_expired, game_id, user_id),
+                )
+                return
+            _evaluate_presence(game)
+    except Exception:
+        logger.exception(
+            "Grace-period callback failed for game %s player %s", game_id, user_id
+        )
+
+
+def _grace_timer_plan(
+    game: Game, prs: list[PlayerRole], *, include_expired: bool
+) -> list[tuple[int, float]]:
+    """(user_id, delay) for each disconnected player who needs a grace timer.
+
+    A player still inside their grace period is timed for the rest of it. One
+    already past it is timed for "now" when include_expired is set, so a lost
+    timer cannot leave the game waiting for someone it has stopped waiting for.
+    """
+    grace = _grace_seconds(game)
+    if grace <= 0 or game.phase not in (Phase.NIGHT, Phase.VOTING):
+        return []
+    now = timezone.now()
+    plan: list[tuple[int, float]] = []
+    for pr in prs:
+        away = _seconds_disconnected(pr, now)
+        if away is None:
+            continue
+        remaining = grace - away
+        if remaining > 0:
+            plan.append((pr.user_id, remaining))
+        elif include_expired:
+            plan.append((pr.user_id, 0.0))
+    return plan
+
+
+def _schedule_grace_timers_after_commit(game: Game) -> None:
+    """Time the grace period of every player who is already disconnected.
+
+    Used when voting opens: a phone that dropped during the talk had no timer.
+    """
+    # pyrefly: ignore [missing-attribute]
+    prs = list(game.player_roles.filter(connections=0, disconnected_at__isnull=False))
+    for user_id, delay in _grace_timer_plan(game, prs, include_expired=False):
+        _schedule_after_commit(
+            _grace_timer_key(game.id, user_id),
+            delay,
+            functools.partial(_grace_expired, game.id, user_id),
+        )
+
+
+def _lock_game_and_player(
+    game_id: Any, user_id: int
+) -> tuple[Game | None, PlayerRole | None]:
+    """Lock the Game row, then the player's row (the order used everywhere)."""
+    game = Game.objects.select_for_update().filter(id=game_id).first()
+    if game is None:
+        return None, None
+    pr = (
+        PlayerRole.objects.select_for_update()
+        .filter(game=game, user_id=user_id)
+        .first()
+    )
+    return game, pr
+
+
+def register_connection(game_id: Any, user_id: int) -> None:
+    """A game socket opened for this player (sync; call from the consumer).
+
+    Counts the connection under row locks. The first socket cancels any grace
+    timer, tells the table the player is back, and (at night or in the vote)
+    re-checks whether the game can now proceed: the player holding a night
+    window open by being inside their grace period no longer does.
+    """
+    with transaction.atomic():
+        game, pr = _lock_game_and_player(game_id, user_id)
+        if game is None or pr is None:
+            return
+        came_back = pr.connections == 0
+        pr.connections += 1
+        fields = ["connections"]
+        if came_back:
+            pr.disconnected_at = None
+            fields.append("disconnected_at")
+        pr.save(update_fields=fields)
+        if not came_back:
+            return
+
+        _cancel_after_commit(_grace_timer_key(game_id, user_id))
+        _send_after_commit(
+            [
+                (
+                    f"game_{game_id}",
+                    {
+                        "type": "player.presence",
+                        "player_id": user_id,
+                        "connected": True,
+                    },
+                )
+            ]
+        )
+        if game.phase in (Phase.NIGHT, Phase.VOTING):
+            try:
+                with transaction.atomic():  # a savepoint: never costs the connect
+                    _evaluate_presence(game)
+            except Exception:
+                logger.exception("Presence check failed for game %s", game_id)
+
+
+def unregister_connection(game_id: Any, user_id: int) -> None:
+    """A game socket closed for this player (sync; call from the consumer).
+
+    Never takes the count below zero. When the last socket closes, stamps
+    disconnected_at, tells the table, and (at night or in the vote) starts the
+    grace timer.
+    """
+    with transaction.atomic():
+        game, pr = _lock_game_and_player(game_id, user_id)
+        if game is None or pr is None or pr.connections == 0:
+            return
+        pr.connections -= 1
+        if pr.connections > 0:
+            pr.save(update_fields=["connections"])
+            return
+        pr.disconnected_at = timezone.now()
+        pr.save(update_fields=["connections", "disconnected_at"])
+
+        _send_after_commit(
+            [
+                (
+                    f"game_{game_id}",
+                    {
+                        "type": "player.presence",
+                        "player_id": user_id,
+                        "connected": False,
+                    },
+                )
+            ]
+        )
+        grace = _grace_seconds(game)
+        if game.phase in (Phase.NIGHT, Phase.VOTING) and grace > 0:
+            _schedule_after_commit(
+                _grace_timer_key(game_id, user_id),
+                grace,
+                functools.partial(_grace_expired, game_id, user_id),
+            )
+
+
+# ── Restart recovery ────────────────────────────────────────────────────────
+#
+# Timers live in this process's memory; the stored deadlines are the source of
+# truth. recover_timers() runs once at server start and ensure_timers() runs
+# lazily whenever a player fetches their game state, so a game recovers even
+# if start-up recovery missed it. Both are idempotent and safe in several
+# worker processes at once: a timer that fires in two workers is harmless
+# because every callback takes the Game row lock and re-checks the phase (and,
+# at night, the window number) before doing anything.
+
+
+def _grant_reconnect_allowance(game: Game) -> None:
+    """Give a rebuilt timer room for phones to reconnect.
+
+    If the game's deadline is overdue or closer than the allowance, move it to
+    now + RECOVERY_RECONNECT_ALLOWANCE_SECONDS and persist it (so clients show
+    the right countdown), updating ``game`` in place. The extension depends only
+    on the clock and the stored deadline, never on what any player did, so it is
+    the same for every game state (including the fixed Doppelganger window,
+    whose length therefore still says nothing about her). Compare-and-set: if
+    another worker already moved it, take its value.
+    """
+    deadline = game.phase_deadline
+    if deadline is None:
+        return
+    now = timezone.now()
+    floor = now + timedelta(seconds=RECOVERY_RECONNECT_ALLOWANCE_SECONDS)
+    if deadline >= floor:
+        return
+    moved = Game.objects.filter(
+        id=game.id,
+        phase=game.phase,
+        current_wave=game.current_wave,
+        phase_deadline=deadline,
+    ).update(phase_deadline=floor, updated_at=now)
+    if moved:
+        game.phase_deadline = floor
+    else:
+        game.phase_deadline = (
+            Game.objects.filter(id=game.id)
+            .values_list("phase_deadline", flat=True)
+            .first()
+        )
+
+
+def _night_timer_plan(game: Game) -> tuple[float, Callable[[], None]] | None:
+    """(delay, callback) for the open night window's one timer, or None.
+
+    Normally the window's deadline. If everyone it waits for is done and the
+    window may close, the close is due at its minimum length instead (that is
+    what the lost "deferred close" timer was for; it re-checks when it fires);
+    a window whose minimum has passed is due at once. A fixed-length window (Doppelganger) only ever has
+    its deadline. A window with no deadline and nothing to close has no timer:
+    only the host moves it.
+    """
+    window = game.current_wave
+    deadline_delay: float | None = None
+    if game.phase_deadline is not None:
+        deadline_delay = max(
+            0.0, (game.phase_deadline - timezone.now()).total_seconds()
+        )
+    ready_delay: float | None = None
+    if _fixed_window_seconds(game, window) == 0 and _night_ready_to_close(
+        game, ignore_recent_drops=True
+    ):
+        ready_delay = _min_close_delay(game)
+    delays = [d for d in (deadline_delay, ready_delay) if d is not None]
+    if not delays:
+        return None
+    delay = min(delays)
+    # The early (minimum-length) close re-checks readiness when it fires; the
+    # deadline timer closes unconditionally.
+    closes_early = ready_delay is not None and (
+        deadline_delay is None or ready_delay < deadline_delay
+    )
+    callback = timers.make_idempotent_callback(
+        game.id,
+        Phase.NIGHT,
+        functools.partial(
+            _auto_advance_wave, wave_number=window, deferred=closes_early
+        ),
+    )
+    return delay, callback
+
+
+def _phase_timer_plan(game: Game) -> tuple[str, float, Callable[[], None]] | None:
+    """(key, delay, callback) for the timer the game's stored state calls for.
+
+    Only asked for when the timer is missing (after a restart, or lost), so an
+    overdue / nearly due deadline is first given the reconnect allowance.
+    """
+    _grant_reconnect_allowance(game)
+    if game.phase == Phase.NIGHT and game.current_wave in NIGHT_WINDOWS:
+        key = _window_timer_key(game, game.current_wave)
+        plan = _night_timer_plan(game)
+        return None if plan is None else (key, plan[0], plan[1])
+    if game.phase_deadline is None:
+        return None
+    delay = max(0.0, (game.phase_deadline - timezone.now()).total_seconds())
+    if game.phase == Phase.DISCUSSION:
+        return (
+            f"{game.id}:discussion",
+            delay,
+            timers.make_idempotent_callback(
+                game.id, Phase.DISCUSSION, _auto_transition_to_voting
+            ),
+        )
+    if game.phase == Phase.VOTING:
+        return (
+            f"{game.id}:voting",
+            delay,
+            timers.make_idempotent_callback(game.id, Phase.VOTING, _auto_reveal_votes),
+        )
+    return None
+
+
+def ensure_timers(game: Game, player_roles: list[PlayerRole] | None = None) -> None:
+    """Make sure the timers the game's stored state calls for are registered.
+
+    Re-creates, if missing: the phase / night-window timer (an overdue deadline
+    fires promptly, not never), the deferred "everyone has acted but the
+    minimum length has not passed" close, and the grace timers of dropped
+    players. Cheap when the timers are already registered: no database access
+    beyond ``player_roles`` if given. (A night that never opened its first
+    window is only repaired by recover_timers at start-up, never lazily.)
+    """
+    if game.phase not in TIMED_PHASES:
+        return
+    if game.phase == Phase.NIGHT and game.current_wave not in NIGHT_WINDOWS:
+        return
+
+    plan_key = (
+        _window_timer_key(game, game.current_wave)
+        if game.phase == Phase.NIGHT
+        else f"{game.id}:{game.phase}"
+    )
+    if not timers.is_scheduled(plan_key):
+        plan = _phase_timer_plan(game)
+        if plan is not None:
+            key, delay, callback = plan
+            timers.schedule(key, delay, callback)
+
+    if game.phase in (Phase.NIGHT, Phase.VOTING):
+        prs = (
+            player_roles
+            if player_roles is not None
+            # pyrefly: ignore [missing-attribute]
+            else list(game.player_roles.all())
+        )
+        for user_id, delay in _grace_timer_plan(game, prs, include_expired=True):
+            key = _grace_timer_key(game.id, user_id)
+            if not timers.is_scheduled(key):
+                timers.schedule(
+                    key, delay, functools.partial(_grace_expired, game.id, user_id)
+                )
+
+
+def recover_timers() -> int:
+    """Rebuild every running game's timers after a server start. Returns the
+    number of games looked at.
+
+    No socket survives a restart, so stored connection counts are stale: they
+    are reset to 0 and every player of a game in progress is stamped
+    disconnected "now", which starts their grace period; clients reconnect and
+    cancel it. Then each game in night / discussion / voting gets its timers
+    back via ensure_timers (a night stuck before its first window is opened).
+    """
+    now = timezone.now()
+    with transaction.atomic():
+        PlayerRole.objects.filter(connections__gt=0).update(
+            connections=0, disconnected_at=now
+        )
+        reset = PlayerRole.objects.filter(game__phase__in=TIMED_PHASES).update(
+            connections=0, disconnected_at=now
+        )
+    logger.info(
+        "Start-up recovery: presence was reset for %d player(s) in running games "
+        "(no socket survives a restart; they are on their grace period until they "
+        "reconnect). Only ONE server process is supported: timers and presence are "
+        "per-process, so starting a second process would mark live players as gone.",
+        reset,
+    )
+    count = 0
+    for game in Game.objects.filter(phase__in=TIMED_PHASES):
+        count += 1
+        try:
+            if game.phase == Phase.NIGHT and game.current_wave == 0:
+                # Crashed between creating the game and opening its first
+                # window: open it now (a no-op if another worker already did).
+                start_night_phase(game)
+            else:
+                ensure_timers(game)
+        except Exception:
+            logger.exception("Could not recover timers for game %s", game.id)
+    return count
+
+
+def run_startup_recovery() -> None:
+    """Recover timers once, at real server start (called from the ASGI module).
+
+    Skipped when ONUW_RECOVER_TIMERS_ON_START is False (the test settings), and
+    never allowed to stop the server from starting: an unmigrated or
+    unreachable database just means there is nothing to recover yet.
+
+    The work runs in a short-lived thread that is joined here. An ASGI server
+    may import the application inside a running event loop, where Django
+    refuses synchronous database access (SynchronousOnlyOperation); a plain
+    thread has no running loop, so this works the same either way. The thread's
+    own database connections are closed when it ends.
+    """
+    if not getattr(django_settings, "ONUW_RECOVER_TIMERS_ON_START", True):
+        return
+
+    def _run() -> None:
+        from django.db import connections
+
+        try:
+            recovered = recover_timers()
+        except DatabaseError:
+            logger.warning("Timer recovery skipped: database not ready.", exc_info=True)
+        except Exception:
+            logger.exception("Timer recovery failed.")
+        else:
+            logger.info("Timer recovery looked at %d running game(s).", recovered)
+        finally:
+            connections.close_all()
+
+    thread = threading.Thread(target=_run, name="onuw-timer-recovery", daemon=True)
+    thread.start()
+    thread.join(timeout=60)
+    if thread.is_alive():
+        logger.warning("Timer recovery is still running after 60 seconds; carrying on.")
+
+
+# ── Play again ──────────────────────────────────────────────────────────────
+
+
+class PlayAgainError(Exception):
+    """Play again refused. ``status_code`` is the HTTP status to answer with."""
+
+    def __init__(self, status_code: int, detail: str) -> None:
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+
+
+def latest_game(lobby: Lobby) -> Game | None:
+    """The lobby's current game: its newest one."""
+    # pyrefly: ignore [missing-attribute]
+    return lobby.games.order_by("-created_at", "-id").first()
+
+
+def play_again(code: str, user_id: int) -> Lobby:
+    """Reopen a lobby whose game has finished, for the host to deal again.
+
+    Keeps the members and the lobby's settings (the deck); sets the lobby back
+    to waiting with everyone ready so the host can start straight away (anyone
+    can still un-ready or leave). Atomic. After commit, tells the old game's
+    players (``play.again``) and the lobby screens (``lobby.update``). The old
+    game and its results are left untouched. A repeated request while the lobby
+    is already waiting is a no-op that returns the lobby.
+
+    Raises PlayAgainError: 404 unknown lobby, 403 not the host, 409 the lobby's
+    newest game is not in the results phase.
+    """
+    from apps.core.serializers import LobbySerializer
+
+    with transaction.atomic():
+        try:
+            lobby = Lobby.objects.select_for_update().get(code=code)
+        except Lobby.DoesNotExist:
+            raise PlayAgainError(404, "Lobby not found.") from None
+        if lobby.host_id != user_id:
+            raise PlayAgainError(403, "Only the host can start another game.")
+        game = latest_game(lobby)
+        if game is None or game.phase != Phase.RESULTS:
+            raise PlayAgainError(409, "The game is not finished yet.")
+        if lobby.status == Lobby.Status.WAITING:
+            return lobby  # Already reopened (a double tap).
+
+        lobby.status = Lobby.Status.WAITING
+        lobby.save(update_fields=["status", "updated_at"])
+        LobbyMember.objects.filter(lobby=lobby).update(is_ready=True)
+
+        _send_after_commit(
+            [
+                (
+                    f"game_{game.id}",
+                    {"type": "play.again", "lobby_code": lobby.code},
+                ),
+                (
+                    f"lobby_{lobby.code}",
+                    {"type": "lobby.update", "data": LobbySerializer(lobby).data},
+                ),
+            ]
+        )
+    return lobby

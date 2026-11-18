@@ -128,15 +128,20 @@ The Daybreak expansion is not covered. Some of its roles put something on the ta
 
 ## 10. What this needs from the server
 
-None of this exists yet.
+Built (see `backend/CLAUDE.md` and `docs/dev/debug-harness/contract.md`):
 
 - The shared-window night (section 5), replacing the four separate steps.
-- **A fix that is needed either way:** the engine works out the Werewolf and Mason teams from the cards players hold now, not the cards they were dealt. After the Doppelganger swaps cards this shows players the wrong team, and it wrongly refuses a lone Werewolf's look at the center. About 1 game in 60 in random play; reference games 4, D2 and D3 trigger it.
-- Play again: a lobby that can hold more than one game.
-- Countdowns that survive a server restart.
-- Noticing a dropped player, the grace period, and continuing without them.
-- Lock-in voting, with the reveal when all are locked.
+- The Werewolf / Mason team fix: teams come from the cards dealt, not the cards held.
+- **Play again:** a lobby can hold more than one game. `POST /api/lobbies/<code>/play-again/` (host only, after the results); the game socket sends `play_again`.
+- **Countdowns survive a server restart:** timers are rebuilt from the stored deadlines at start-up and whenever a player fetches the game.
+- **Dropped players:** the server counts each player's open sockets, sends `player_presence` and shows `connected` in the player list. The grace period is the `disconnect_grace_seconds` setting (default 25 seconds, 0 to 60, 0 turns it off). Night and the vote carry on without a player gone longer than that; the talk never waits.
+- **A missed night result:** `GET /me/` has `night_results`, so a phone that was offline when a window closed shows what it would have been told.
 - A "do nothing" night action.
 - A minimum length for each night window, so a fast window gives nothing away.
+
+Not built yet (or not touched by the work above):
+
+- Lock-in voting, with the reveal when all are locked. (Today a vote is final once sent and the votes are revealed when every player still being waited for has voted.)
 - Something to tap at night for players with no action.
 - Online player count and each player's recent games.
+- Passing the host role on. A host whose phone is gone cannot use the host buttons (end the talk, show the votes, play again); the timers still move the night and the vote.

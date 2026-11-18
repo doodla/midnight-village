@@ -51,6 +51,32 @@ sections below say otherwise, this list wins:
   runner shows one player's real widget tree with a live WebSocket, taps that player's
   steps, and drives the rest through the API.
 
+### Updates since: restart recovery, play again, presence, missed results
+
+- **Oracle `players[].connected`** is now real: `true` while any game WebSocket is open for
+  that player. API-only players (no socket) therefore read `false`; the UI runner's one
+  live socket reads `true`. (It used to be a constant `true`.)
+- **`debug-fire-timer` `current`** ignores grace timers (`<game>:grace:<user>`, a dropped
+  player's countdown); it still needs exactly one phase / window timer. Timers are rebuilt
+  from stored deadlines at server start (`runserver` under daphne imports `config.asgi`,
+  which runs the recovery), so a restarted harness backend resumes any game left running
+  in its throwaway DB. Presence is reset then: every player of a running game is
+  "disconnected" until their socket reconnects, with `disconnect_grace_seconds` (default 25,
+  0-60, 0 = off; send it with the other timer settings) as the clock.
+- **`GET .../games/<id>/me/`** also has `lobby_code` (every phase). After a restart a deadline
+  that is overdue or under 15 s away is moved to now + 15 s (persisted in `deadline`) so phones
+  can reconnect first.
+- **`GET .../games/<id>/me/`** has `night_results`: the caller's own results for windows
+  that have closed, `[{"wave", "action_type", "revealed_info"}]` in the same shape as the
+  `action_result` socket event; empty while the window is open.
+- **Play again:** `POST /api/lobbies/<code>/play-again/` (alias
+  `/api/onuw/lobbies/<code>/play-again/`), host only, newest game must be in `results`;
+  a lobby holds many games (`Game.lobby` is a ForeignKey), so the harness can run several
+  games on one table. Socket events: game group `{"type": "play_again", "lobby_code"}`,
+  lobby group `lobby_update`. Presence event on the game group:
+  `{"type": "player_presence", "player_id", "connected"}`; the player list
+  (`GET .../games/<id>/players/`) has `connected` per player.
+
 ## 1. Goal
 
 Give an autonomous agent (and a human) a fast, deterministic way to drive the
