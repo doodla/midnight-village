@@ -355,8 +355,9 @@ Future<void> _game8Insomniac(_UiRun r) async {
 }
 
 // -----------------------------------------------------------------------------
-// Game 21: nobody acts. The Seer taps Skip (the explicit "do nothing"), the
-// Drunk never answers, the window closes by its timer.
+// Game 21: nobody acts. The Seer taps Skip (the explicit "do nothing") and so
+// does everyone else who may. The Drunk is in the center: a Drunk at the table
+// can never do nothing (the server swaps for one who runs out of time).
 // -----------------------------------------------------------------------------
 Future<void> _game21SeerDoesNothing(_UiRun r) async {
   const bob = 1; // Seer
@@ -370,11 +371,6 @@ Future<void> _game21SeerDoesNothing(_UiRun r) async {
   await r.shoot('bob-skipped-waiting');
 
   await r.restOfNight();
-  expect(
-    r.runner.windowsClosedByTimer,
-    contains(2),
-    reason: 'the Drunk never answered, so the window closed by its timer',
-  );
   await r.ui.pumpUntil(
     () => r.shows('You did nothing.'),
     reason: 'the do-nothing result after the window closed',

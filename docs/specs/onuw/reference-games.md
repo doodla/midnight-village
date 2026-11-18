@@ -698,11 +698,11 @@ Votes: Alice → Bob, Bob → Alice, Carol → Alice, Dave → Alice, Eve → Al
 
 ## Game 21: Nobody acts
 
-Every player with a choice lets the clock run out. No cards move. The Drunk does not swap (see the open ruling in the design brief).
+Every player with a choice lets the clock run out. No cards move. The Drunk is in the center this time: a Drunk at the table who runs out of time must still swap, with a center card the server picks (see the Drunk in `roles.md`), so a table where nobody moves cannot include a dealt Drunk.
 
-**Players (5):** Alice = Werewolf, Bob = Seer, Carol = Robber, Dave = Troublemaker, Eve = Drunk
+**Players (5):** Alice = Werewolf, Bob = Seer, Carol = Robber, Dave = Troublemaker, Eve = Villager
 
-**Center:** Werewolf, Insomniac, Villager
+**Center:** Werewolf, Insomniac, Drunk
 
 ### Night
 
@@ -710,7 +710,6 @@ Every player with a choice lets the clock run out. No cards move. The Drunk does
 2. **Seer.** Bob does nothing.
 3. **Robber.** Carol does nothing.
 4. **Troublemaker.** Dave does nothing.
-5. **Drunk.** Eve does nothing.
 
 ### Cards at dawn
 
@@ -720,7 +719,7 @@ Every player with a choice lets the clock run out. No cards move. The Drunk does
 | Bob | Seer | Seer | Village |
 | Carol | Robber | Robber | Village |
 | Dave | Troublemaker | Troublemaker | Village |
-| Eve | Drunk | Drunk | Village |
+| Eve | Villager | Villager | Village |
 
 ### Vote and result
 

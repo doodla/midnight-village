@@ -644,12 +644,14 @@ class TestSkip:
     def test_skipping_changes_nothing_and_is_logged(self, make_night) -> None:
         night = make_night(self.ROLES)
         night.start()
-        before = {n: night.role_of(n).current_role for n in self.ROLES}
+        # (The Drunk is left out: one who never acts is swapped by the server.)
+        others = [n for n in self.ROLES if n != "drunk"]
+        before = {n: night.role_of(n).current_role for n in others}
         for who in ("seer", "robber", "trouble"):
             night.post(who, "skip")
         night.host_close_window()
 
-        assert {n: night.role_of(n).current_role for n in self.ROLES} == before
+        assert {n: night.role_of(n).current_role for n in others} == before
         night.refresh()
         skippers = {night.users[n].id for n in ("seer", "robber", "trouble")}
         skips = [

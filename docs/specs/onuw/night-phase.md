@@ -213,7 +213,9 @@ The official rulebook uses specific language to indicate whether each role's act
 
 **Note on Doppelganger follow-up optionality:** The base game narrator script uses imperative language ("do it now"), and community consensus treats the follow-up as mandatory. However, the Daybreak expansion rulebook uses "may" for analogous Doppelganger follow-ups (e.g., "Doppelganger-Apprentice Seer **may** immediately view one center card"), suggesting the designer's intent may be to inherit the copied role's optionality. No official errata or designer ruling resolves this ambiguity. This spec treats the follow-up as mandatory per the base game text.
 
-In the digital implementation, optional actions can be submitted as a "skip" (or allowed to time out). Mandatory actions should be enforced — the client must submit a valid action before the timer expires. If a mandatory action times out, it is still skipped (graceful degradation) but this is a timeout, not a legitimate choice.
+In the digital implementation, optional actions can be submitted as a "skip" (or allowed to time out). Mandatory actions should be enforced — the client must submit a valid action before the timer expires. If a mandatory action times out, the server carries it out so the card game's rule still holds: the **Drunk** (and a Doppelganger who copied the Drunk) who runs out of time, or whose phone has been gone past the grace period, **still swaps**, with a center card the server picks. The Doppelganger's first look is the one mandatory action that is skipped on timeout (nothing was copied, so there is no follow-up).
+
+**Drunk on timeout.** The center card is chosen by a dedicated RNG seeded from the game seed, the fixed label `drunk-timeout` and the player's id (so it does not depend on timing or on anything else that happened, and a replay reproduces it). The swap resolves when the window closes, exactly where a chosen swap would, and the Drunk is sent the same result as for a chosen swap (the center slot, never the card). It is logged in the night actions log as an ordinary `swap_with_center` entry carrying `"made_by_server": true`. The action prompt never offers the Drunk a "skip" (`action_types` is only `swap_with_center`) and the server refuses one.
 
 ## Timer Model (Digital Implementation)
 
@@ -221,7 +223,7 @@ In the physical game, the narrator counts to approximately 10 after each role ca
 
 - Each wave has a configurable timer (default: ~7–10 seconds per role)
 - Players without actions during a wave see a "waiting" screen
-- If a player does not submit an action before the timer expires, their action is **skipped** (logged as `"skip"`, no state change)
+- If a player does not submit an action before the timer expires, their action is **skipped** (logged as `"skip"`, no state change), except the Drunk, whose swap the server makes (see Action Optionality)
 - The server progresses to the next wave automatically when the timer expires or all expected actions are received
 - The Doppelganger may need extra time since they must peek first and then potentially perform a follow-up action
 

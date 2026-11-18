@@ -20,6 +20,6 @@ final List<ReferenceGame> allScenarios = ReferenceGame.loadAll()
 /// - `5`  Hunter chain + Tanner block (the full results screen)
 /// - `8`  the Drunk and the Insomniac: results in window 2 arrive together and
 ///        the Insomniac's is the changed card
-/// - `21` nobody acts: Seer/Robber/Troublemaker "do nothing" (`skip`), the
-///        Drunk times out, the window closes by timer
+/// - `21` nobody acts: Seer/Robber/Troublemaker "do nothing" (`skip`); the
+///        Drunk is in the center, since a Drunk at the table must swap
 const Set<String> uiCriticalIds = {'1', '4', '5', '8', '21'};

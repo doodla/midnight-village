@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import random
 import threading
 from collections.abc import Callable
 from datetime import timedelta
@@ -469,6 +470,47 @@ def _close_or_defer(game: Game) -> None:
     advance_wave(game)
 
 
+def drunk_timeout_center_index(
+    random_seed: int, player_id: int, center_size: int
+) -> int:
+    """The center card the server swaps a timed-out Drunk with.
+
+    Deterministic and independent of timing or of any other event: a dedicated
+    RNG seeded from the game seed, a fixed label and the player id, so a replay
+    of the same game reproduces it.
+    """
+    rng = random.Random(f"{random_seed}:drunk-timeout:{player_id}")  # noqa: S311 (seeded, not secret)
+    return rng.randrange(center_size)
+
+
+def _timeout_action(game: Game, player_id: int, role_acting_as: str) -> NightAction:
+    """What happens for a player who submitted nothing before the window closed.
+
+    The Drunk (and a Doppelganger who copied the Drunk) MUST swap, so the
+    server swaps with a seeded random center card and marks it
+    ``made_by_server`` in the log. It looks exactly like a chosen swap to
+    everyone else: it resolves when the window closes and the Drunk is sent the
+    same result. Everything else is the automatic or skipped default.
+    """
+    if role_acting_as == "Drunk" and game.center_cards:
+        index = drunk_timeout_center_index(
+            game.random_seed, player_id, len(game.center_cards)
+        )
+        return NightAction(
+            player_id=player_id,
+            role_acting_as=role_acting_as,
+            action_type="swap_with_center",
+            targets={"center_index": index},
+            made_by_server=True,
+        )
+    return NightAction(
+        player_id=player_id,
+        role_acting_as=role_acting_as,
+        action_type=_timeout_action_type(role_acting_as),
+        targets={},
+    )
+
+
 def _timeout_action_type(role_acting_as: str) -> str:
     """Determine the action type for a player who didn't submit before the timer.
 
@@ -478,9 +520,9 @@ def _timeout_action_type(role_acting_as: str) -> str:
     information the player is entitled to (e.g., Insomniac not seeing their
     current card after swaps).
 
-    Roles with meaningful player choices (Seer, Robber, Troublemaker, Drunk,
-    Doppelganger) are skipped — the player forfeited their choice by not
-    submitting.
+    Roles with an optional choice (Seer, Robber, Troublemaker, Doppelganger's
+    look) are skipped — the player forfeited it by not submitting. The Drunk is
+    never skipped: see _timeout_action, which swaps for them.
     """
     role_def = get_role(role_acting_as)
     if role_def.action_types == (ActionType.NONE,):
@@ -691,14 +733,7 @@ def _collect_window_actions(game: Game, window: int) -> list[NightAction]:
                 )
             )
         else:
-            actions.append(
-                NightAction(
-                    player_id=pid,
-                    role_acting_as=role_acting_as,
-                    action_type=_timeout_action_type(role_acting_as),
-                    targets={},
-                )
-            )
+            actions.append(_timeout_action(game, pid, role_acting_as))
     return actions
 
 
@@ -771,6 +806,8 @@ def persist_wave_results(
                 "result": entry.result,
                 "timestamp_order": entry.timestamp_order,
                 "role_acting_as": entry.role_acting_as,
+                # Only present when the server moved for a player who timed out.
+                **({"made_by_server": True} if entry.made_by_server else {}),
             }
         )
     game.night_actions_log = log

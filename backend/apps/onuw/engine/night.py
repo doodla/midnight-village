@@ -266,6 +266,7 @@ def resolve_wave(
             result=dict(result.revealed_info),
             timestamp_order=timestamp_order,
             role_acting_as=action.role_acting_as,
+            made_by_server=action.made_by_server,
         )
         current_state = new_state.with_log_entry(log_entry)
         results.append(result)
