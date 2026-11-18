@@ -112,7 +112,7 @@ Win conditions are **not mutually exclusive** — multiple teams can win in the 
 | No one dies | Village wins |
 | Someone dies (non-Minion, non-Tanner) | Village loses (someone died). See Minion special rules below. |
 | Only the Minion dies | No team wins (Village fails no-death condition; Minion fails someone-else-dies condition) |
-| Tanner dies | Tanner wins; Village loses (someone died) |
+| Tanner dies | Tanner wins; Village loses (someone died). If only the Tanner dies, the Minion does **not** win (see Minion special rules) |
 
 #### Scenario C: No Werewolf Cards in Game at All
 
@@ -131,7 +131,8 @@ The Minion has unique win conditions:
 | Werewolves among players, no Werewolf dies | Yes (wins with Werewolf team) |
 | Werewolves among players, a Werewolf dies | No (loses with Werewolf team) |
 | Minion dies but no Werewolf dies | Yes (Werewolf team still wins) |
-| No Werewolves among players, a non-Minion/non-Doppelganger-as-Minion player dies | Yes |
+| No Werewolves among players, a non-Minion/non-Doppelganger-as-Minion, non-Tanner player dies | Yes |
+| No Werewolves among players, only the Tanner dies | No (**decided 18 Nov 2026:** the Tanner wins alone; a Tanner death blocks the Werewolf team, and the Minion wins or loses with that team) |
 | No Werewolves among players, only Minion dies | No |
 | No Werewolves among players, no one dies | No (Village wins) |
 

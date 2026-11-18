@@ -103,6 +103,7 @@ The Daybreak expansion is not covered. Some of its roles put something on the ta
 - Never pause the talk. It happens at the table, not on the phones.
 - At night and during the vote, the game waits for a missing player only up to that grace period.
 - The host can carry on without a player who has left.
+- If the host's phone drops for a minute, the host role passes to the next player who is connected, and goes back to the original host the moment they rejoin. It works in a game and at the table between games.
 
 ## 7. Sound
 
@@ -121,10 +122,14 @@ The Daybreak expansion is not covered. Some of its roles put something on the ta
 
 | Question | Until decided |
 |---|---|
-| **"I'm staying" button** for non-host players after a game, with a count for the host. | Not built. Host's "Play again" only. |
 | **Game length controls.** Three pace presets, or separate timer sliders. | Three presets. |
-| **Minion when only the Tanner dies** and no player is a Werewolf. The rules file says both yes and no. | The Tanner wins alone, as the code does now. |
-| **A Drunk who runs out of time.** The card game says the Drunk must swap. | No swap, as the code does now. |
+
+Decided on 18 November 2026:
+
+- **After a game** the host's "Play again" is the only way to restart. There is no "I'm staying" button.
+- **Minion when only the Tanner dies** and no player is a Werewolf: the Tanner wins alone.
+- **A Drunk who runs out of time** (or whose phone dropped): the server swaps their card with a random center card, as the card game requires. The pick is seeded and logged.
+- **Hosting:** Vercel. The server must therefore work as short-lived copies: no countdowns or presence held in memory.
 
 ## 10. What this needs from the server
 
@@ -134,6 +139,7 @@ Built (see `backend/CLAUDE.md` and `docs/dev/debug-harness/contract.md`):
 - The Werewolf / Mason team fix: teams come from the cards dealt, not the cards held.
 - **Play again:** a lobby can hold more than one game. `POST /api/lobbies/<code>/play-again/` (host only, after the results); the game socket sends `play_again`.
 - **Countdowns survive a server restart:** timers are rebuilt from the stored deadlines at start-up and whenever a player fetches the game.
+- **The host role passes on:** after a minute without the host's phone (`host_handover_seconds`, 0 to 600, 0 turns it off) the next connected player becomes the acting host; the original host gets it back the moment they reconnect. The server sends `host_changed`; the lobby and `/me/` say who holds the role.
 - **Dropped players:** the server counts each player's open sockets, sends `player_presence` and shows `connected` in the player list. The grace period is the `disconnect_grace_seconds` setting (default 25 seconds, 0 to 60, 0 turns it off). Night and the vote carry on without a player gone longer than that; the talk never waits.
 - **A missed night result:** `GET /me/` has `night_results`, so a phone that was offline when a window closed shows what it would have been told.
 - A "do nothing" night action.
@@ -144,4 +150,3 @@ Not built yet (or not touched by the work above):
 - Lock-in voting, with the reveal when all are locked. (Today a vote is final once sent and the votes are revealed when every player still being waited for has voted.)
 - Something to tap at night for players with no action.
 - Online player count and each player's recent games.
-- Passing the host role on. A host whose phone is gone cannot use the host buttons (end the talk, show the votes, play again); the timers still move the night and the vote.

@@ -220,21 +220,20 @@ void main() {
       expect(find.text('LOBBY SCREEN $_code'), findsOneWidget);
     });
 
-    testWidgets('says plainly that only the host can, on a 403', (
-      tester,
-    ) async {
-      final p = await _pumpResults(tester);
-      _rejectPostsWith(p.setup, 403);
+    testWidgets(
+      'says plainly that the player is no longer the host, on a 403',
+      (tester) async {
+        final p = await _pumpResults(tester);
+        _rejectPostsWith(p.setup, 403);
 
-      await _tap(tester, 'Play Again');
-      await _settle(tester);
+        await _tap(tester, 'Play Again');
+        await _settle(tester);
 
-      expect(
-        find.text('Only the host can start another game.'),
-        findsOneWidget,
-      );
-      expect(p.location, startsWith('/game/'));
-    });
+        // A 403 here means the host role has just moved to someone else.
+        expect(find.text('You are no longer the host.'), findsWidgets);
+        expect(p.location, startsWith('/game/'));
+      },
+    );
 
     testWidgets('says the game is not over yet, on a 409', (tester) async {
       final p = await _pumpResults(tester);

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_exception.dart';
+import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/wakelock/wakelock_service.dart';
@@ -129,6 +130,10 @@ class _GameContainerScreenState extends ConsumerState<GameContainerScreen>
     });
 
     final asyncState = ref.watch(gameProvider(gameId));
+    final viewerId = switch (ref.watch(authProvider)) {
+      AuthAuthenticated(:final user) => user.id,
+      _ => null,
+    };
 
     // Watch connection state to drive the reconnection overlay.
     final connAsync = ref.watch(gameConnectionStateProvider(gameId));
@@ -166,6 +171,8 @@ class _GameContainerScreenState extends ConsumerState<GameContainerScreen>
                         ),
                         child: PhaseIndicator(currentPhase: gamePhase),
                       ),
+                      // Who is hosting, when that has just changed.
+                      HostNoticeLine(text: _hostLine(gameState, viewerId)),
                       Expanded(
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 400),
@@ -182,6 +189,33 @@ class _GameContainerScreenState extends ConsumerState<GameContainerScreen>
         );
       },
     );
+  }
+
+  /// The quiet line about the host: a refused host action first, else the
+  /// latest host change ("Ben is hosting while Ana is away").
+  String? _hostLine(GameSessionState state, int? viewerId) {
+    if (state.hostActionNotice != null) return state.hostActionNotice;
+    final change = state.hostNotice;
+    if (change == null) return null;
+    String? originalName;
+    for (final p in state.players) {
+      if (p.playerId == change.originalHostId) originalName = p.displayName;
+    }
+    return hostChangeLine(
+      change: change,
+      viewerId: viewerId,
+      originalHostName: originalName,
+    );
+  }
+
+  /// Ends the talk (host). A refusal because the role moved is already said
+  /// in the host line, so it needs no error of its own.
+  Future<void> _endDiscussion() async {
+    try {
+      await ref.read(gameProvider(gameId).notifier).endDiscussion();
+    } on NoLongerHostException {
+      // The notifier has refreshed state and set the plain line.
+    }
   }
 
   /// Builds the appropriate view for the current phase and night sub-view.
@@ -205,8 +239,7 @@ class _GameContainerScreenState extends ConsumerState<GameContainerScreen>
         deadline: gameState.deadline,
         rolesInGame: gameState.rolesInGame,
         isHost: gameState.isHost,
-        onEndDiscussion: () =>
-            ref.read(gameProvider(gameId).notifier).endDiscussion(),
+        onEndDiscussion: _endDiscussion,
       ),
       // A night result missed while the phone was away, shown before the vote.
       'voting' when gameState.lastActionResult != null =>
@@ -773,6 +806,7 @@ class _ResultsViewState extends ConsumerState<_ResultsView> {
   }
 
   String _playAgainMessage(Object e) => switch (e) {
+    NoLongerHostException() => kNoLongerHostMessage,
     ForbiddenException() => 'Only the host can start another game.',
     UnhandledHttpException(statusCode: 409) =>
       'The game is not finished yet. Try again in a moment.',

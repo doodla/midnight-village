@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/host/host_change.dart';
 import '../../../core/router/routes.dart';
 import '../../../design_system/components/core/mv_error.dart';
 import '../../../design_system/components/core/mv_loading.dart';
@@ -16,6 +17,7 @@ import '../../../design_system/models/game_phase.dart';
 import '../../../design_system/models/role.dart';
 import '../../../design_system/tokens/app_tokens_provider.dart';
 import '../../auth/domain/auth_state.dart';
+import '../../game/presentation/away_notice.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../domain/lobby_state.dart';
 import '../domain/role_config.dart';
@@ -135,6 +137,9 @@ class _LobbyContent extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _LobbyCodeSection(lobbyCode: lobby.code, tokens: tokens),
+          // Who is hosting, while that is not the person who set the table up
+          // (and for a moment after it changes back).
+          HostNoticeLine(text: _hostLine(lobby, currentUserId)),
           SizedBox(height: tokens.spacing.xl),
           _PlayerListSection(players: lobby.players, tokens: tokens),
           SizedBox(height: tokens.spacing.xl),
@@ -142,7 +147,8 @@ class _LobbyContent extends ConsumerWidget {
             _RoleConfigSection(
               roles: lobby.roleConfig,
               playerCount: playerCount,
-              onRolesChanged: (newRoles) => notifier.updateRoleConfig(newRoles),
+              onRolesChanged: (newRoles) =>
+                  _hostAction(() => notifier.updateRoleConfig(newRoles)),
               tokens: tokens,
             )
           else
@@ -151,7 +157,9 @@ class _LobbyContent extends ConsumerWidget {
           if (isHost) ...[
             PrimaryButton(
               label: 'Start Game',
-              onPressed: canStart ? () => notifier.startGame() : null,
+              onPressed: canStart
+                  ? () => _hostAction(() => notifier.startGame())
+                  : null,
             ),
             SizedBox(height: tokens.spacing.md),
           ] else ...[
@@ -182,6 +190,48 @@ class _LobbyContent extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Runs a host-only call. A refusal because the role just moved is already
+/// said in the host line (the lobby has been read again), so it needs no
+/// error of its own.
+Future<void> _hostAction(Future<void> Function() call) async {
+  try {
+    await call();
+  } on NoLongerHostException {
+    // Nothing more to do: the line is in the lobby state.
+  }
+}
+
+/// The host line: a refused host action, else "X is hosting while Y is away"
+/// for as long as someone is acting as host, else "Y is hosting again" for a
+/// few seconds after the role returned.
+String? _hostLine(LobbyState lobby, int? viewerId) {
+  if (lobby.hostActionNotice != null) return lobby.hostActionNotice;
+  String? nameOf(int? id) {
+    for (final p in lobby.players) {
+      if (p.id == id) return p.displayName;
+    }
+    return null;
+  }
+
+  if (lobby.isActingHost) {
+    return hostChangeLine(
+      change: HostChange(
+        hostId: lobby.hostId,
+        hostName: lobby.hostName ?? nameOf(lobby.hostId) ?? 'Someone',
+        originalHostId: lobby.originalHostId ?? lobby.hostId,
+        reason: HostChangeReason.handover,
+      ),
+      viewerId: viewerId,
+      originalHostName: nameOf(lobby.originalHostId),
+    );
+  }
+  final returned = lobby.returnedNotice;
+  if (returned != null) {
+    return hostChangeLine(change: returned, viewerId: viewerId);
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------

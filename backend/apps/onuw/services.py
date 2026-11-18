@@ -1550,18 +1550,20 @@ def _lock_game_and_player(
     return game, pr
 
 
-def register_connection(game_id: Any, user_id: int) -> None:
+def register_connection(game_id: Any, user_id: int) -> bool:
     """A game socket opened for this player (sync; call from the consumer).
 
     Counts the connection under row locks. The first socket cancels any grace
     timer, tells the table the player is back, and (at night or in the vote)
     re-checks whether the game can now proceed: the player holding a night
     window open by being inside their grace period no longer does.
+
+    Returns True if the player just went from offline to online.
     """
     with transaction.atomic():
         game, pr = _lock_game_and_player(game_id, user_id)
         if game is None or pr is None:
-            return
+            return False
         came_back = pr.connections == 0
         pr.connections += 1
         fields = ["connections"]
@@ -1570,7 +1572,7 @@ def register_connection(game_id: Any, user_id: int) -> None:
             fields.append("disconnected_at")
         pr.save(update_fields=fields)
         if not came_back:
-            return
+            return False
 
         _cancel_after_commit(_grace_timer_key(game_id, user_id))
         _send_after_commit(
@@ -1591,23 +1593,24 @@ def register_connection(game_id: Any, user_id: int) -> None:
                     _evaluate_presence(game)
             except Exception:
                 logger.exception("Presence check failed for game %s", game_id)
+        return True
 
 
-def unregister_connection(game_id: Any, user_id: int) -> None:
+def unregister_connection(game_id: Any, user_id: int) -> bool:
     """A game socket closed for this player (sync; call from the consumer).
 
     Never takes the count below zero. When the last socket closes, stamps
     disconnected_at, tells the table, and (at night or in the vote) starts the
-    grace timer.
+    grace timer. Returns True if the player just went from online to offline.
     """
     with transaction.atomic():
         game, pr = _lock_game_and_player(game_id, user_id)
         if game is None or pr is None or pr.connections == 0:
-            return
+            return False
         pr.connections -= 1
         if pr.connections > 0:
             pr.save(update_fields=["connections"])
-            return
+            return False
         pr.disconnected_at = timezone.now()
         pr.save(update_fields=["connections", "disconnected_at"])
 
@@ -1630,6 +1633,7 @@ def unregister_connection(game_id: Any, user_id: int) -> None:
                 grace,
                 functools.partial(_grace_expired, game_id, user_id),
             )
+        return True
 
 
 # ── Restart recovery ────────────────────────────────────────────────────────
@@ -1804,6 +1808,14 @@ def recover_timers() -> int:
         PlayerRole.objects.filter(connections__gt=0).update(
             connections=0, disconnected_at=now
         )
+        # Lobby presence (host handover) is just as stale: nobody is connected,
+        # and the host's handover clock starts now.
+        LobbyMember.objects.filter(connections__gt=0).update(
+            connections=0, disconnected_at=now
+        )
+        LobbyMember.objects.filter(
+            lobby__status__in=(Lobby.Status.WAITING, Lobby.Status.IN_GAME)
+        ).update(connections=0, disconnected_at=now)
         reset = PlayerRole.objects.filter(game__phase__in=TIMED_PHASES).update(
             connections=0, disconnected_at=now
         )
@@ -1814,6 +1826,9 @@ def recover_timers() -> int:
         "per-process, so starting a second process would mark live players as gone.",
         reset,
     )
+    from . import host
+
+    host.ensure_timers_after_restart()
     count = 0
     for game in Game.objects.filter(phase__in=TIMED_PHASES):
         count += 1
@@ -1904,7 +1919,7 @@ def play_again(code: str, user_id: int) -> Lobby:
             lobby = Lobby.objects.select_for_update().get(code=code)
         except Lobby.DoesNotExist:
             raise PlayAgainError(404, "Lobby not found.") from None
-        if lobby.host_id != user_id:
+        if not lobby.is_host(user_id):
             raise PlayAgainError(403, "Only the host can start another game.")
         game = latest_game(lobby)
         if game is None or game.phase != Phase.RESULTS:

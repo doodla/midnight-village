@@ -85,7 +85,7 @@ class GameStartView(APIView):
         """Validate and create the game. The caller holds the lobby row lock
         inside an atomic block. Returns an error Response or the new Game."""
         # Host-only check
-        if lobby.host_id != request.user.id:  # type: ignore[misc]
+        if not lobby.is_host(request.user.id):  # type: ignore[misc]
             return Response(
                 {"detail": "Only the host can start the game."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -365,7 +365,7 @@ class WaveAdvanceView(APIView):
             )
 
         # Host-only check
-        if game.lobby.host_id != request.user.id:  # type: ignore[misc]
+        if not game.lobby.is_host(request.user.id):  # type: ignore[misc]
             return Response(
                 {"detail": "Only the host can force-advance the wave."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -412,7 +412,7 @@ class EndDiscussionView(APIView):
             )
 
         # Host-only check
-        if game.lobby.host_id != request.user.id:  # type: ignore[misc]
+        if not game.lobby.is_host(request.user.id):  # type: ignore[misc]
             return Response(
                 {"detail": "Only the host can end the discussion."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -504,7 +504,7 @@ class ForceRevealView(APIView):
             )
 
         # Host-only check
-        if game.lobby.host_id != request.user.id:  # type: ignore[misc]
+        if not game.lobby.is_host(request.user.id):  # type: ignore[misc]
             return Response(
                 {"detail": "Only the host can force-reveal votes."},
                 status=status.HTTP_403_FORBIDDEN,

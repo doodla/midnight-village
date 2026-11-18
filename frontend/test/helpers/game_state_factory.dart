@@ -179,6 +179,7 @@ class GameMeJsonBuilder {
   Map<String, dynamic>? _actionPrompt;
   List<Map<String, dynamic>>? _nightResults;
   String? _lobbyCode;
+  int? _hostId;
   List<Map<String, dynamic>> _players = [
     {'player_id': 1, 'display_name': 'Alice'},
     {'player_id': 2, 'display_name': 'Bob'},
@@ -280,6 +281,12 @@ class GameMeJsonBuilder {
     return this;
   }
 
+  /// The effective host's player id (`host_id`).
+  GameMeJsonBuilder withHostId(int id) {
+    _hostId = id;
+    return this;
+  }
+
   GameMeJsonBuilder withLobbyCode(String code) {
     _lobbyCode = code;
     return this;
@@ -312,6 +319,9 @@ class GameMeJsonBuilder {
     }
     if (_lobbyCode != null) {
       json['lobby_code'] = _lobbyCode;
+    }
+    if (_hostId != null) {
+      json['host_id'] = _hostId;
     }
     return json;
   }

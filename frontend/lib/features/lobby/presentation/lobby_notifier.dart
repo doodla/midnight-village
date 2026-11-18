@@ -3,7 +3,9 @@ import 'dart:convert';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/api/api_exception.dart';
 import '../../../core/config/env.dart';
+import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
@@ -64,6 +66,8 @@ LobbyWebSocketFactory lobbyWebSocketFactory(Ref ref) {
 @riverpod
 class LobbyNotifier extends _$LobbyNotifier {
   StreamSubscription<dynamic>? _wsSubscription;
+  StreamSubscription<WebSocketConnectionState>? _connectionSubscription;
+  Timer? _noticeTimer;
   WebSocketChannelInterface? _webSocket;
 
   /// The game ID from a `game_started` event. Consumers watch this to navigate.
@@ -97,6 +101,21 @@ class LobbyNotifier extends _$LobbyNotifier {
           logger.w('Lobby WebSocket error', error: error);
         },
       );
+      // After a dropped connection comes back, read the lobby again: events
+      // (including a host change) may have been missed meanwhile.
+      final ws = _webSocket;
+      if (ws is ReconnectingWebSocket) {
+        var wasDown = false;
+        _connectionSubscription = ws.connectionState.listen((s) {
+          if (s == WebSocketConnectionState.connected && wasDown) {
+            wasDown = false;
+            unawaited(refreshLobby());
+          } else if (s == WebSocketConnectionState.disconnected ||
+              s == WebSocketConnectionState.reconnecting) {
+            wasDown = true;
+          }
+        });
+      }
     } catch (e) {
       logger.w('Failed to connect lobby WebSocket', error: e);
       // Non-fatal: lobby still works via HTTP, just without real-time updates.
@@ -133,6 +152,8 @@ class LobbyNotifier extends _$LobbyNotifier {
           _onLobbyUpdate(message);
         case 'game_started':
           _onGameStarted(message);
+        case 'host_changed':
+          _onHostChanged(message);
         default:
           logger.d('Unhandled lobby WS event type: $type');
       }
@@ -150,15 +171,87 @@ class LobbyNotifier extends _$LobbyNotifier {
     try {
       final service = ref.read(lobbyServiceProvider);
       final newState = await service.fetchLobby(code);
-      state = AsyncData(
-        newState.copyWith(startedGameId: state.value?.startedGameId),
-      );
+      if (!ref.mounted) return;
+      state = AsyncData(_adopt(newState));
     } catch (e, stack) {
       logger.e(
         'Error re-fetching lobby after player change',
         error: e,
         stackTrace: stack,
       );
+    }
+  }
+
+  /// Reads the lobby again from the server. The host (the effective host) is
+  /// whatever the server says, so a missed `host_changed` heals here.
+  Future<void> refreshLobby() => _onPlayerListChanged();
+
+  /// A freshly fetched lobby, keeping what only this phone knows: the game it
+  /// has been told to open and the host lines.
+  LobbyState _adopt(LobbyState fresh) {
+    final current = state.value;
+    if (current == null) return fresh;
+    final returned = current.returnedNotice;
+    return fresh.copyWith(
+      startedGameId: current.startedGameId,
+      // The "hosting again" line outlives a refetch only while the server
+      // agrees the original host is back.
+      returnedNotice: returned != null && fresh.hostId == returned.hostId
+          ? returned
+          : null,
+      hostActionNotice: current.hostActionNotice,
+    );
+  }
+
+  /// The host role moved. The new host is known straight away, so host-only
+  /// controls (deal, deck) follow it without a refetch.
+  void _onHostChanged(Map<String, dynamic> message) {
+    final change = HostChange.fromEvent(message);
+    final current = state.value;
+    if (change == null || current == null) return;
+    state = AsyncData(
+      current.copyWith(
+        hostId: change.hostId,
+        hostName: change.hostName,
+        originalHostId: change.originalHostId,
+        isActingHost: change.reason == HostChangeReason.handover,
+        returnedNotice: change.reason == HostChangeReason.returned
+            ? change
+            : null,
+        hostActionNotice: null,
+      ),
+    );
+    _noticeTimer?.cancel();
+    if (change.reason == HostChangeReason.returned) {
+      _noticeTimer = Timer(kHostNoticeDuration, () {
+        if (!ref.mounted) return;
+        final s = state.value;
+        if (s != null && s.returnedNotice == change) {
+          state = AsyncData(s.copyWith(returnedNotice: null));
+        }
+      });
+    }
+  }
+
+  /// Runs a host-only call. A 403 means the role has just moved: the lobby is
+  /// read again, a plain line says so, and [NoLongerHostException] is thrown
+  /// (instead of an error dump).
+  Future<T> _hostAction<T>(Future<T> Function() call) async {
+    try {
+      return await call();
+    } on ForbiddenException {
+      await refreshLobby();
+      final s = state.value;
+      if (ref.mounted && s != null) {
+        state = AsyncData(s.copyWith(hostActionNotice: kNoLongerHostMessage));
+        _noticeTimer?.cancel();
+        _noticeTimer = Timer(kHostNoticeDuration, () {
+          if (!ref.mounted) return;
+          final c = state.value;
+          if (c != null) state = AsyncData(c.copyWith(hostActionNotice: null));
+        });
+      }
+      throw const NoLongerHostException();
     }
   }
 
@@ -253,7 +346,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<String> startGame() async {
     try {
       final service = ref.read(lobbyServiceProvider);
-      final id = await service.startGame(code);
+      final id = await _hostAction(() => service.startGame(code));
       // The host does not have to wait for the lobby event to open the game.
       if (ref.mounted) _applyStartedGame(id);
       return id;
@@ -278,10 +371,10 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<void> updateRoleConfig(Map<String, int> roles) async {
     try {
       final service = ref.read(lobbyServiceProvider);
-      final newState = await service.updateRoleConfig(code, roles);
-      state = AsyncData(
-        newState.copyWith(startedGameId: state.value?.startedGameId),
+      final newState = await _hostAction(
+        () => service.updateRoleConfig(code, roles),
       );
+      state = AsyncData(_adopt(newState));
     } catch (e, stack) {
       logger.e('Error updating role config', error: e, stackTrace: stack);
       rethrow;
@@ -289,6 +382,9 @@ class LobbyNotifier extends _$LobbyNotifier {
   }
 
   void _dispose() {
+    _noticeTimer?.cancel();
+    _connectionSubscription?.cancel();
+    _connectionSubscription = null;
     _wsSubscription?.cancel();
     _webSocket?.close();
     _wsSubscription = null;

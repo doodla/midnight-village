@@ -47,6 +47,7 @@ class GameTestSetup {
   factory GameTestSetup.create({
     Map<String, dynamic>? gameMeJson,
     String gameId = 'test-game-id',
+    int userId = 1,
   }) {
     final http = MockHttpClient();
     final ws = MockWebSocketChannel();
@@ -79,6 +80,9 @@ class GameTestSetup {
 
     final container = ProviderContainer(
       overrides: [
+        authProvider.overrideWithValue(
+          AuthState.authenticated(User(id: userId, displayName: 'P$userId')),
+        ),
         authenticatedClientProvider.overrideWithValue(client),
         gameServiceProvider.overrideWithValue(GameService(client: client)),
         gameWebSocketProvider.overrideWith((ref, gameId) => null),
@@ -223,7 +227,11 @@ extension GameFlowTestExtension on WidgetTester {
     FakeWakelockService? wakelock,
     List<Override>? extraOverrides,
   }) async {
-    final setup = GameTestSetup.create(gameMeJson: gameMeJson, gameId: gameId);
+    final setup = GameTestSetup.create(
+      gameMeJson: gameMeJson,
+      gameId: gameId,
+      userId: userId,
+    );
 
     final theme = const MidnightVillageTheme();
 

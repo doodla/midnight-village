@@ -4,13 +4,17 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/api/api_exception.dart';
 import '../../../core/config/env.dart';
+import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/models/game_result.dart';
 import '../../../design_system/models/role.dart';
+import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
+import '../../lobby/domain/lobby_state.dart';
 import '../../lobby/presentation/lobby_notifier.dart';
 import '../data/game_service.dart';
 import '../domain/game_session_state.dart';
@@ -33,6 +37,7 @@ class GameNotifier extends _$GameNotifier {
   StreamSubscription<dynamic>? _wsSubscription;
   StreamSubscription<WebSocketConnectionState>? _connectionSubscription;
   Timer? _resultsTimeout;
+  Timer? _hostNoticeTimer;
   bool _wasDisconnected = false;
 
   /// Lobby code the screen knew when it opened (from the route), used when the
@@ -77,6 +82,7 @@ class GameNotifier extends _$GameNotifier {
       _wsSubscription?.cancel();
       _connectionSubscription?.cancel();
       _resultsTimeout?.cancel();
+      _hostNoticeTimer?.cancel();
     });
 
     // Hydrate frontend-only display state from the server response.
@@ -123,8 +129,12 @@ class GameNotifier extends _$GameNotifier {
         shownNightResults: previous.shownNightResults,
         pendingNightResults: previous.pendingNightResults,
         playAgainLobbyCode: previous.playAgainLobbyCode,
+        hostNotice: previous.hostNotice,
+        hostActionNotice: previous.hostActionNotice,
       );
     }
+
+    result = _followEffectiveHost(result);
 
     final carriedResult = previous?.lastActionResult;
     if (carriedResult != null && _showsNightResults(result.phase)) {
@@ -163,6 +173,38 @@ class GameNotifier extends _$GameNotifier {
       );
     }
 
+    return result;
+  }
+
+  /// The player id of the signed-in player, or null when not known.
+  int? _viewerId() {
+    try {
+      final auth = ref.read(authProvider);
+      return auth is AuthAuthenticated ? auth.user.id : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// When the server names the effective host (`host_id`), "am I the host"
+  /// follows it, on every fetch, so a missed `host_changed` heals. Without a
+  /// `host_id` the server's own `is_host` stands. A "hosting while ... is
+  /// away" line is dropped once the server shows the role back with its
+  /// original host.
+  GameSessionState _followEffectiveHost(GameSessionState state) {
+    var result = state;
+    final hostId = result.hostId;
+    final me = hostId != null ? _viewerId() : null;
+    if (hostId != null && me != null) {
+      result = result.copyWith(isHost: hostId == me);
+    }
+    final notice = result.hostNotice;
+    if (hostId != null &&
+        notice != null &&
+        notice.reason == HostChangeReason.handover &&
+        hostId == notice.originalHostId) {
+      result = result.copyWith(hostNotice: null);
+    }
     return result;
   }
 
@@ -299,6 +341,8 @@ class GameNotifier extends _$GameNotifier {
         _handlePlayerPresence(event);
       case 'play_again':
         _handlePlayAgain(event);
+      case 'host_changed':
+        _handleHostChanged(event);
       default:
         logger.d('GameNotifier: Unhandled WS event type: $type');
     }
@@ -445,6 +489,12 @@ class GameNotifier extends _$GameNotifier {
         lastActionResult: keepResult ? state.lastActionResult : null,
         pendingNightResults: keepResult ? state.pendingNightResults : const [],
         nightSubView: nightSubView,
+        // "Hosting again" and "no longer the host" are for the moment; a
+        // handover line stays until the role returns.
+        hostNotice: state.hostNotice?.reason == HostChangeReason.returned
+            ? null
+            : state.hostNotice,
+        hostActionNotice: null,
       );
     });
   }
@@ -513,6 +563,52 @@ class GameNotifier extends _$GameNotifier {
         ],
       );
     });
+  }
+
+  /// The host role moved (the original host's phone dropped, or came back).
+  /// Updates who the host is straight away, so host-only controls appear for
+  /// the new host and disappear for the old one without a refetch.
+  void _handleHostChanged(Map<String, dynamic> data) {
+    final change = HostChange.fromEvent(data);
+    if (change == null) return;
+    final me = _viewerId();
+    _updateState(
+      (state) => state.copyWith(
+        hostId: change.hostId,
+        isHost: me != null ? change.hostId == me : state.isHost,
+        hostNotice: change,
+        hostActionNotice: null,
+      ),
+    );
+    _hostNoticeTimer?.cancel();
+    if (change.reason == HostChangeReason.returned) {
+      _hostNoticeTimer = Timer(kHostNoticeDuration, () {
+        if (!ref.mounted) return;
+        _updateState(
+          (s) => s.hostNotice == change ? s.copyWith(hostNotice: null) : s,
+        );
+      });
+    }
+  }
+
+  /// Runs a host-only call. When the server refuses because the role has just
+  /// moved (403), state is re-read from the server, a plain line says so, and
+  /// [NoLongerHostException] is thrown (instead of an error dump).
+  Future<void> _hostAction(Future<void> Function() call) async {
+    try {
+      await call();
+    } on ForbiddenException {
+      await refreshState();
+      if (ref.mounted) {
+        _updateState((s) => s.copyWith(hostActionNotice: kNoLongerHostMessage));
+        _hostNoticeTimer?.cancel();
+        _hostNoticeTimer = Timer(kHostNoticeDuration, () {
+          if (!ref.mounted) return;
+          _updateState((s) => s.copyWith(hostActionNotice: null));
+        });
+      }
+      throw const NoLongerHostException();
+    }
   }
 
   /// The host started another game at this table: the screen leaves for the
@@ -665,17 +761,17 @@ class GameNotifier extends _$GameNotifier {
   /// Ends the discussion phase (host only).
   Future<void> endDiscussion() async {
     final service = ref.read(gameServiceProvider);
-    await service.endDiscussion(gameId);
+    await _hostAction(() => service.endDiscussion(gameId));
   }
 
   /// Closes the current night window now (host only): "Continue without them".
   Future<void> advanceNight() async {
-    await ref.read(gameServiceProvider).advanceNight(gameId);
+    await _hostAction(() => ref.read(gameServiceProvider).advanceNight(gameId));
   }
 
   /// Reveals the votes now (host only); anyone who has not voted abstains.
   Future<void> revealVotesNow() async {
-    await ref.read(gameServiceProvider).revealVotes(gameId);
+    await _hostAction(() => ref.read(gameServiceProvider).revealVotes(gameId));
   }
 
   /// Takes the table back to the lobby for another game (host only).
@@ -687,7 +783,10 @@ class GameNotifier extends _$GameNotifier {
     if (code == null) {
       throw StateError('The table for this game is not known');
     }
-    final lobby = await ref.read(lobbyServiceProvider).playAgain(code);
+    late final LobbyState lobby;
+    await _hostAction(() async {
+      lobby = await ref.read(lobbyServiceProvider).playAgain(code);
+    });
     if (!ref.mounted) return;
     _updateState((state) => state.copyWith(playAgainLobbyCode: lobby.code));
   }

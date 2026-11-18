@@ -108,6 +108,22 @@ abstract final class GameEvents {
     });
   }
 
+  /// The host role moved (works on the lobby and the game channel alike).
+  static String hostChanged({
+    required int hostId,
+    required String hostName,
+    required int originalHostId,
+    String reason = 'handover',
+  }) {
+    return jsonEncode({
+      'type': 'host_changed',
+      'host_id': hostId,
+      'host_name': hostName,
+      'original_host_id': originalHostId,
+      'reason': reason,
+    });
+  }
+
   /// The host took the table back to the lobby for another game.
   static String playAgain({required String lobbyCode}) {
     return jsonEncode({'type': 'play_again', 'lobby_code': lobbyCode});

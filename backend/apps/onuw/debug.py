@@ -147,7 +147,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
         ):
             doppelganger_copied[pr.user_id] = pr.night_action_data["copied_role"]
 
-    host_id = game.lobby.host_id
+    host_id = game.lobby.effective_host_id
 
     players: list[dict[str, Any]] = []
     votes: dict[str, int | None] = {}

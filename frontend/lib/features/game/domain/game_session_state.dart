@@ -1,6 +1,7 @@
 // ignore_for_file: invalid_annotation_target
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../../core/host/host_change.dart';
 import '../../../design_system/models/game_result.dart';
 import 'night_state.dart';
 import 'voting_state.dart';
@@ -84,6 +85,20 @@ abstract class GameSessionState with _$GameSessionState {
 
     /// Whether the current player is the game host (from server response).
     @JsonKey(name: 'is_host') @Default(false) bool isHost,
+
+    /// The effective (current) host's player id, when the server says. When
+    /// present, [isHost] follows it, and `host_changed` events update both.
+    @JsonKey(name: 'host_id') int? hostId,
+
+    /// The latest host change, for the quiet line everyone sees ("Ben is
+    /// hosting while Ana is away").
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    HostChange? hostNotice,
+
+    /// A plain line about a host action that was refused because the role had
+    /// just moved ("You are no longer the host.").
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    String? hostActionNotice,
 
     /// Code of the table (lobby) this game belongs to, when the server says.
     @JsonKey(name: 'lobby_code') String? lobbyCode,

@@ -778,9 +778,9 @@ Votes: Alice → Grace, Dave → Grace, Eve → Grace, Frank → Grace, Bob → 
 
 ---
 
-## Game 23: Open ruling: only the Tanner dies, no Werewolf at the table, a Minion is
+## Game 23: Ruling: only the Tanner dies, no Werewolf at the table, a Minion is
 
-Records what the code does today in a case the rules leave unclear: the Tanner wins alone and the Minion does not. See the design brief's open questions.
+The decided ruling for a case the rulebook leaves unclear: the Tanner wins alone and the Minion does not.
 
 **Players (4):** Alice = Minion, Bob = Tanner, Carol = Seer, Dave = Villager
 
@@ -1003,4 +1003,4 @@ Nothing further happens. Listed so that every card the Doppelganger can copy has
 
 - **A phone drops mid-game.** The earlier game for this assumed pause rules that have since changed. It needs writing once the new rules (grace period, continue without a player) are built.
 - **A Hunter whose target is already dying in the same tie.** No extra effect by the rules; not yet traced.
-- **Only the Tanner dies with no Werewolf at the table and a Minion present.** Game 23 records today's behaviour. The ruling is still open.
+- **Only the Tanner dies with no Werewolf at the table and a Minion present.** Game 23 covers it. Decided: the Tanner wins alone.

@@ -17,11 +17,17 @@ TIMER_SETTING_KEYS: tuple[str, ...] = (
     "discussion_seconds",
     "voting_seconds",
     "disconnect_grace_seconds",
+    "host_handover_seconds",
 )
 MAX_TIMER_SECONDS = 3600
 # Per-setting ceilings that are lower than MAX_TIMER_SECONDS. The disconnect
 # grace period is how long the game waits for a dropped phone; 0 turns it off.
-TIMER_SETTING_MAX_SECONDS: dict[str, int] = {"disconnect_grace_seconds": 60}
+# host_handover_seconds is how long the host's phone may be away before the
+# host role passes on (0 turns it off).
+TIMER_SETTING_MAX_SECONDS: dict[str, int] = {
+    "disconnect_grace_seconds": 60,
+    "host_handover_seconds": 600,
+}
 
 
 def max_seconds_for(key: str) -> int:
@@ -41,7 +47,7 @@ def validate_timer_settings(settings: dict) -> list[str]:
     Validate the timer keys of a settings dict (absent keys are fine).
 
     Each must be an integer from 0 to MAX_TIMER_SECONDS (0 to 60 for
-    disconnect_grace_seconds), and
+    disconnect_grace_seconds, 0 to 600 for host_handover_seconds), and
     night_min_window_seconds must not exceed night_wave_seconds when the
     latter is set above 0 (the minimum length of a window cannot be longer
     than its maximum). These are host-facing settings, so errors are explicit.

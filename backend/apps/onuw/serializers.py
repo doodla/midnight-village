@@ -37,6 +37,7 @@ class GameMeSerializer(serializers.Serializer):
     deadline = serializers.SerializerMethodField()
     your_role = serializers.SerializerMethodField()
     is_host = serializers.SerializerMethodField()
+    host_id = serializers.SerializerMethodField()
     has_voted = serializers.SerializerMethodField()
     players = serializers.SerializerMethodField()
     action_prompt = serializers.SerializerMethodField()
@@ -54,9 +55,14 @@ class GameMeSerializer(serializers.Serializer):
             return game.phase_deadline.isoformat()
         return None
 
+    def get_host_id(self, game: Game) -> int:
+        """Who holds the host role now (the acting host while the owner is away)."""
+        return game.lobby.effective_host_id
+
     def get_is_host(self, game: Game) -> bool:
         """
-        Whether the requesting player is the lobby host.
+        Whether the requesting player is the effective host (the owner, or the
+        acting host while the owner's phone is away).
 
         Controls host-only actions such as ending the discussion phase early.
         Returns False when the request context is unavailable (e.g. tests
@@ -65,7 +71,7 @@ class GameMeSerializer(serializers.Serializer):
         request = self.context.get("request")
         if request is None:
             return False
-        return game.lobby.host_id == request.user.id
+        return game.lobby.is_host(request.user.id)
 
     def get_your_role(self, game: Game) -> dict:
         """

@@ -63,6 +63,13 @@ sections below say otherwise, this list wins:
   in its throwaway DB. Presence is reset then: every player of a running game is
   "disconnected" until their socket reconnects, with `disconnect_grace_seconds` (default 25,
   0-60, 0 = off; send it with the other timer settings) as the clock.
+- **Host handover:** `Lobby.host` is the owner; `Lobby.acting_host` holds the role while the
+  owner's phone is away longer than `host_handover_seconds` (default 60, 0-600, 0 = off; send
+  it with the other timer settings, `0` to keep a harness table's host fixed). The oracle's
+  `players[].is_host` and every host endpoint use the effective host. Sockets: `host_changed`
+  on the lobby and game sockets; lobby detail `host` = effective host plus `original_host_id`,
+  `is_acting_host`; `/me/` `host_id`. API-only harness players never open sockets, so no
+  handover happens for them.
 - **`GET .../games/<id>/me/`** also has `lobby_code` (every phase). After a restart a deadline
   that is overdue or under 15 s away is moved to now + 15 s (persisted in `deadline`) so phones
   can reconnect first.

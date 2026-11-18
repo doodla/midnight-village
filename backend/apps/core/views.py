@@ -4,6 +4,8 @@ Core app views.
 
 import uuid
 
+from django.db import transaction
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import status
@@ -114,7 +116,7 @@ class LobbyDetailView(RetrieveAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if lobby.host_id != request.user.id:  # type: ignore[misc]
+        if not lobby.is_host(request.user.id):  # type: ignore[misc]
             return Response(
                 {"detail": "Only the host can update lobby settings."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -235,9 +237,17 @@ class LobbyLeaveView(APIView):
             lobby.delete()
             return Response({"detail": "Lobby deleted."}, status=status.HTTP_200_OK)
 
-        # Otherwise just remove the player
+        # Otherwise just remove the player. If they hold the acting-host role
+        # it passes to the next connected member (or back to the owner). Lock
+        # order: Lobby, then the member (see apps.onuw.host).
         username = request.user.username
-        membership.delete()
+        with transaction.atomic():
+            locked = Lobby.objects.select_for_update().get(pk=lobby.pk)
+            membership.delete()
+            if locked.acting_host_id == request.user.id:  # type: ignore[misc]
+                from apps.onuw.host import member_leaving
+
+                member_leaving(locked, request.user.id)  # type: ignore[misc]
 
         # Broadcast player left event (only for non-host)
         channel_layer = get_channel_layer()

@@ -48,6 +48,16 @@ class Lobby(models.Model):
         on_delete=models.CASCADE,
         related_name="hosted_lobbies",
     )
+    # The original host (the owner). Never changed by a handover.
+    # While the owner's phone is away, `acting_host` holds the role (see
+    # apps.onuw.host); every host-only check goes through is_host().
+    acting_host = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="acting_hosted_lobbies",
+    )
     game_type = models.CharField(max_length=50)
     status = models.CharField(
         max_length=20,
@@ -77,6 +87,20 @@ class Lobby(models.Model):
                 raise ValueError("Could not generate unique lobby code")
         super().save(*args, **kwargs)
 
+    @property
+    def effective_host_id(self) -> int:
+        """Who holds the host role now: the acting host if one is set, else the owner."""
+        return self.acting_host_id or self.host_id  # type: ignore[attr-defined]
+
+    @property
+    def effective_host(self):
+        """The User who holds the host role now."""
+        return self.acting_host if self.acting_host_id else self.host  # type: ignore[attr-defined]
+
+    def is_host(self, user_id: int | None) -> bool:
+        """The ONE host-permission check: is this user the effective host?"""
+        return user_id is not None and user_id == self.effective_host_id
+
 
 class LobbyMember(models.Model):
     """A player in a lobby."""
@@ -92,6 +116,10 @@ class LobbyMember(models.Model):
         related_name="lobby_memberships",
     )
     is_ready = models.BooleanField(default=False)
+    # Open lobby WebSockets for this member (several are possible). Used only to
+    # decide host handover; reset to 0 on server start (no socket survives it).
+    connections = models.PositiveIntegerField(default=0)
+    disconnected_at = models.DateTimeField(null=True, blank=True)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/host/host_change.dart';
 import '../../../design_system/components/core/primary_button.dart';
 import '../../../design_system/tokens/app_tokens_provider.dart';
 
@@ -64,16 +65,23 @@ class HostContinueControl extends ConsumerStatefulWidget {
 class _HostContinueControlState extends ConsumerState<HostContinueControl> {
   bool _busy = false;
   bool _failed = false;
+  bool _noLongerHost = false;
 
   Future<void> _press() async {
     setState(() {
       _busy = true;
       _failed = false;
+      _noLongerHost = false;
     });
     try {
       await widget.onPressed();
-    } catch (_) {
-      if (mounted) setState(() => _failed = true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _failed = true;
+          _noLongerHost = e is NoLongerHostException;
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -94,7 +102,9 @@ class _HostContinueControlState extends ConsumerState<HostContinueControl> {
         if (_failed) ...[
           SizedBox(height: tokens.spacing.xs),
           Text(
-            'That did not work. Try again.',
+            _noLongerHost
+                ? kNoLongerHostMessage
+                : 'That did not work. Try again.',
             key: const ValueKey('host-continue-error'),
             style: tokens.typography.caption.copyWith(
               color: tokens.colors.error,
@@ -103,6 +113,35 @@ class _HostContinueControlState extends ConsumerState<HostContinueControl> {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// One quiet line about who is hosting ("Ben is hosting while Ana is away"),
+/// styled like [AwayNotice]. Renders nothing when [text] is null.
+class HostNoticeLine extends ConsumerWidget {
+  const HostNoticeLine({super.key, required this.text});
+
+  final String? text;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = this.text;
+    if (text == null) return const SizedBox.shrink();
+    final tokens = ref.watch(activeThemeProvider);
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.spacing.md,
+        vertical: tokens.spacing.xs,
+      ),
+      child: Text(
+        text,
+        key: const ValueKey('host-notice'),
+        style: tokens.typography.caption.copyWith(
+          color: tokens.colors.onDisabled,
+        ),
+        textAlign: TextAlign.center,
+      ),
     );
   }
 }

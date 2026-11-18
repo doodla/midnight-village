@@ -63,8 +63,12 @@ def _timer(night: Night, suffix: str) -> tuple[float, Any]:
 
 
 def _phase_timer_keys(night: Night) -> list[str]:
-    """Keys of the scheduled phase / window timers (not grace timers)."""
-    return [k for k, _, _ in night.scheduled if ":grace:" not in k]
+    """Keys of the scheduled phase / window timers (not grace or host timers)."""
+    return [
+        k
+        for k, _, _ in night.scheduled
+        if ":grace:" not in k and not k.startswith("lobby:")
+    ]
 
 
 ALLOWANCE = services.RECOVERY_RECONNECT_ALLOWANCE_SECONDS
@@ -472,7 +476,7 @@ class TestDiscussionAndVotingRecovery:
 
         _recover(night)
 
-        assert night.scheduled == []
+        assert _phase_timer_keys(night) == []
 
 
 # ── Idempotence, lazy repair, start-up hook ──────────────────────────────────

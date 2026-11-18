@@ -1,7 +1,21 @@
 """ONUW game WebSocket consumer."""
 
+import logging
+
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+
+logger = logging.getLogger(__name__)
+
+
+def _host_presence(game_id, user_id, connected: bool) -> None:
+    """Tell host handover about a game socket opening / closing (never fatal)."""
+    from . import host
+
+    try:
+        host.game_presence_changed(game_id, user_id, connected)
+    except Exception:
+        logger.exception("Host handover check failed for game %s", game_id)
 
 
 class GameConsumer(AsyncJsonWebsocketConsumer):
@@ -154,6 +168,18 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
+    async def host_changed(self, event):
+        """Broadcast: the host role passed on, or went back to the owner."""
+        await self.send_json(
+            {
+                "type": "host_changed",
+                "host_id": event["host_id"],
+                "host_name": event["host_name"],
+                "original_host_id": event["original_host_id"],
+                "reason": event["reason"],
+            }
+        )
+
     async def play_again(self, event):
         """Broadcast: the host reopened the lobby for another game."""
         await self.send_json(
@@ -178,13 +204,15 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
     def _register_presence(self):
         from . import services
 
-        services.register_connection(self.game_id, self.user_id)
+        if services.register_connection(self.game_id, self.user_id):
+            _host_presence(self.game_id, self.user_id, True)
 
     @database_sync_to_async
     def _unregister_presence(self):
         from . import services
 
-        services.unregister_connection(self.game_id, self.user_id)
+        if services.unregister_connection(self.game_id, self.user_id):
+            _host_presence(self.game_id, self.user_id, False)
 
     @database_sync_to_async
     def _is_player(self, game_id, user_id):

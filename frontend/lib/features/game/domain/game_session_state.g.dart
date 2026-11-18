@@ -62,6 +62,7 @@ _GameSessionState _$GameSessionStateFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const [],
       isHost: json['is_host'] as bool? ?? false,
+      hostId: (json['host_id'] as num?)?.toInt(),
       lobbyCode: json['lobby_code'] as String?,
     );
 
@@ -78,5 +79,6 @@ Map<String, dynamic> _$GameSessionStateToJson(_GameSessionState instance) =>
       'last_action_result': instance.lastActionResult,
       'roles_in_game': instance.rolesInGame,
       'is_host': instance.isHost,
+      'host_id': instance.hostId,
       'lobby_code': instance.lobbyCode,
     };
