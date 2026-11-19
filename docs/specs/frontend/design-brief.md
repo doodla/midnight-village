@@ -2,7 +2,7 @@
 
 This is the whole design reference for the app. It replaces the earlier set of 19 design files, which were deleted because they contradicted each other and described a look that was not chosen. Game rules live in `../onuw/`. Where this brief and the rules disagree, the rules win.
 
-Mock screens: https://claude.ai/artifact/AQ2LuLA5KkRPXHiZoGb6j9 (page "Round 3", rows A, D and E). The mocks are the reference for look and layout. They are pictures, not the app.
+Mock screens: `../../design/mocks/` in this repository (all 11 screens, with the art in `../../design/art/`), and the canvas they came from, https://claude.ai/artifact/AQ2LuLA5KkRPXHiZoGb6j9 (page "Round 4"). The mocks are the reference for look and layout. They are pictures, not the app.
 
 ## 1. What the app is
 
@@ -32,7 +32,7 @@ A phone companion for One Night Ultimate Werewolf played around one table. Each 
 Rules for the look:
 
 - Night screens are dark, day screens are light. Anyone can tell the phase from across the table.
-- Two colours do most of the work. No pastel player colours. A player is a name and an ink-outlined initial.
+- Two colours do most of the work. No pastel player colours. A player is a name and a **token**: a small round cut-paper emblem (crow, key, moth, bell, thorn and so on) given at the table, so people are recognisable at a glance without colour.
 - Timers should come from the world (a candle burning down, the pale sun climbing over the rooftops) with the number kept small beside it.
 - Drifting specks are kept, redrawn as paper scraps and ash. Never more than 60 on screen at once. Test early on a mid-range Android phone in the browser and lower the count there if it stutters.
 - **One layout, two skins.** Build every screen once. A skin may change art, colours and type only, so "Night print" can be added later without rebuilding screens.
@@ -78,6 +78,16 @@ Decisions that shape those screens:
 - **Play again.** The host taps it and everyone still connected returns to the lobby with the same players and the same deck. Anyone else taps "Leave".
 - **The Doppelganger is in version 1.** It needs its own versions of screens 6 and 7 for each role it can copy, and its result must say what it became.
 - **Home screen extras.** Online count and recent games are in version 1. Photo avatars are last.
+
+### Decided in the second mock round (19 November 2026)
+
+- **Pictures over lists.** Wherever a player picks a card or a person, they tap a picture: role cards in the deck builder, face-down cards with the owner's token at night, token rows in the vote. Names always stay visible.
+- **Build the deck** is a grid of the 12 role portraits. Tap adds or removes; chosen cards are lit with a count, the rest dimmed. **Press and hold a role card** to open a sheet that explains it (portrait, team, what it does, how it wins).
+- **Pace** lives on the deck screen: talk, vote, night and Doppelganger window lengths. The server already takes these as table settings.
+- **Night, your action** shows the other players' face-down cards and the three center cards; the player taps the card to look at or swap.
+- **No explanatory copy.** Screens say what to do in a few words. Lines that explain the design to the player are cut.
+- **Type scale.** Headings 26 to 36, timers 64 to 84, labels 12 uppercase, body 15 to 17. Nothing larger.
+- **The count** shows who voted for whom as the voters' tokens beside the accused.
 
 ## 5. How the night runs
 

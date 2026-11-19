@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shadow paper: join</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#e9e2d0}a:hover{color:#e3a13a}
+button{cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #14172f; color: #e9e2d0; font-family: 'Figtree', system-ui, sans-serif; padding: 0 24px 30px; display: flex; flex-direction: column; gap: 18px; position: relative; overflow: hidden">
+<img alt="" aria-hidden="true" src="/_blob/5ac03d8b4d2d2e7b8917e84084a1a776" style="position: absolute; left: 0; top: 0; width: 390px; height: 330px; object-fit: cover; object-position: 50% 12%">
+<div aria-hidden="true" style="position: absolute; left: 0; top: 160px; width: 390px; height: 170px; background: linear-gradient(rgba(20,23,47,0), #14172f)"></div>
+<div style="position: relative; margin-top: 282px; display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Gloock', serif; font-weight: 400; font-size: 46px; line-height: 1; letter-spacing: -0.02em">Midnight Village</h1>
+<p style="margin: 0; font-size: 16px; font-weight: 500; color: #aab0cf">One table. One night. Somebody is the Werewolf.</p>
+</div>
+<div style="position: relative; display: flex; flex-direction: column; gap: 8px">
+<label for="nm" style="font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #aab0cf">Your name</label>
+<input id="nm" type="text" value="Ana" style="height: 56px; box-sizing: border-box; padding: 0 16px; border-radius: 6px; border: 0; background: #e9e2d0; color: #14172f; font-family: 'Gloock', serif; font-weight: 400; font-size: 26px; box-shadow: 4px 4px 0 #07091a">
+</div>
+<div style="position: relative; display: flex; flex-direction: column; gap: 14px">
+<button type="button" style="height: 60px; border-radius: 6px; border: 0; background: #e3a13a; color: #14172f; box-shadow: 6px 6px 0 #5c0f0c; font-family: 'Gloock', serif; font-weight: 400; font-size: 21px">Start a table</button>
+<div style="display: flex; gap: 10px">
+<input type="text" aria-label="Table code" placeholder="Table code" style="flex: 1; min-width: 0; height: 52px; box-sizing: border-box; padding: 0 14px; border-radius: 6px; border: 2px solid #aab0cf; background: transparent; color: #e9e2d0; font-family: 'Figtree', sans-serif; font-weight: 700; font-size: 17px; letter-spacing: 0.12em">
+<button type="button" style="width: 104px; height: 52px; border-radius: 6px; border: 0; background: #e9e2d0; color: #14172f; box-shadow: 4px 4px 0 #07091a; font-family: 'Gloock', serif; font-weight: 400; font-size: 19px">Join</button>
+</div>
+</div>
+<div style="position: relative; margin-top: auto; display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: #aab0cf; border-top: 2px solid #2c3160; padding-top: 14px">
+<span>23 players at 5 tables tonight</span>
+<span>Your last game: the village won · 6 players · yesterday</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
