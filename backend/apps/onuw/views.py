@@ -32,6 +32,7 @@ from .serializers import (
 )
 from .services import (
     AlreadyActedError,
+    acknowledge_night_results,
     advance_wave,
     check_and_maybe_advance,
     end_discussion,
@@ -46,6 +47,8 @@ from .services import (
 )
 
 logger = logging.getLogger(__name__)
+
+MAX_NIGHT_RESULTS_SEEN = 10
 
 
 class GameStartView(APIView):
@@ -375,6 +378,43 @@ class NightActionView(APIView):
         check_and_maybe_advance(game)
 
         return Response({"status": "submitted"})
+
+
+class NightResultsSeenView(APIView):
+    """Acknowledge night results the caller has shown, so a restart does not show
+    them again. ``{"seen": n}`` (a whole number, 0 to 10) answers
+    ``{"night_results_seen": <stored count>}``. The count only goes up and is
+    capped at the results the caller can see; it is the caller's own."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, game_id: str) -> Response:
+        try:
+            game = Game.objects.get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        seen = request.data.get("seen") if isinstance(request.data, dict) else None
+        # A plain JSON integer only: a bool, float or string is never coerced.
+        if type(seen) is not int or not 0 <= seen <= MAX_NIGHT_RESULTS_SEEN:
+            return Response(
+                {
+                    "detail": f"seen must be a whole number from 0 to {MAX_NIGHT_RESULTS_SEEN}.",
+                    "code": "bad_request",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        stored = acknowledge_night_results(game, request.user.id, seen)  # type: ignore[misc]
+        if stored is None:
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response({"night_results_seen": stored})
 
 
 class WaveAdvanceView(APIView):

@@ -18,7 +18,8 @@ from typing import Any
 
 from django.conf import settings as django_settings
 from django.db import DatabaseError, transaction
-from django.db.models.functions import Now
+from django.db.models import F
+from django.db.models.functions import Greatest, Now
 from django.utils import timezone
 
 from channels.layers import get_channel_layer
@@ -317,6 +318,27 @@ def night_results_for_player(
         )
     entries.sort(key=lambda item: item[0])  # stable: keeps wake order within a window
     return [payload for _, payload in entries]
+
+
+def acknowledge_night_results(game: Game, user_id: int, seen: int) -> int | None:
+    """Record that the player has seen their first ``seen`` night results.
+
+    Returns the stored count, or None if the user is not a player of the game.
+    ``seen`` is clamped to the number of results the player can see now (what
+    ``night_results`` lists), so an ack can never cover a result that has not been
+    shown to them yet (the Doppelganger's look reaches her by socket while window 1
+    is open, but is listed only once it closes). The update is ONE statement that
+    only ever raises the count (``GREATEST``): it takes no Game lock, a late or
+    repeated ack changes nothing, and two phones cannot lower each other's.
+    """
+    visible = len(night_results_for_player(game, user_id, _get_player_names(game)))
+    rows = PlayerRole.objects.filter(game=game, user_id=user_id)
+    updated = rows.update(
+        night_results_seen=Greatest(F("night_results_seen"), min(seen, visible))
+    )
+    if not updated:
+        return None
+    return rows.values_list("night_results_seen", flat=True).get()
 
 
 def build_game_state(game: Game) -> GameState:

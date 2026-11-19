@@ -114,6 +114,10 @@ sections below say otherwise, this list wins:
   the caller's newest-joined lobby that is `in_game` or was updated within
   `CORE_TABLE_RESUME_HOURS` (12), and the lobby's newest game if the caller plays in it (also
   between games, when `current-game` is empty). `GET /api/onuw/me/current-game/` is unchanged.
+- **Night results ack.** `GET .../me/` has `night_results_seen` (the caller's own count).
+  `POST /api/onuw/games/<id>/night-results/seen/` with `{"seen": n}` (a JSON integer 0 to 10;
+  400 `bad_request` otherwise) answers `{"night_results_seen": <stored>}`. The count never goes
+  down and is capped at the number of `night_results` the caller can see now.
 
 ## 1. Goal
 

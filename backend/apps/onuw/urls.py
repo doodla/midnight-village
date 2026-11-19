@@ -48,6 +48,11 @@ urlpatterns = [
         name="night-action",
     ),
     path(
+        "games/<str:game_id>/night-results/seen/",
+        views.NightResultsSeenView.as_view(),
+        name="night-results-seen",
+    ),
+    path(
         "games/<str:game_id>/advance-wave/",
         views.WaveAdvanceView.as_view(),
         name="wave-advance",

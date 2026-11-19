@@ -57,6 +57,7 @@ class GameMeSerializer(serializers.Serializer):
     action_prompt = serializers.SerializerMethodField()
     roles_in_game = serializers.SerializerMethodField()
     night_results = serializers.SerializerMethodField()
+    night_results_seen = serializers.SerializerMethodField()
 
     def get_deadline(self, game: Game) -> str | None:
         """
@@ -203,6 +204,15 @@ class GameMeSerializer(serializers.Serializer):
             for pr in self.context.get("all_player_roles", [])
         }
         return night_results_for_player(game, player_role.user_id, names)
+
+    def get_night_results_seen(self, game: Game) -> int:
+        """How many of their ``night_results`` the caller has acknowledged.
+
+        The caller's own count only (``POST night-results/seen/`` raises it), so
+        a restarted app shows just the results it has not shown yet.
+        """
+        player_role = self.context.get("player_role")
+        return 0 if player_role is None else player_role.night_results_seen
 
     def get_roles_in_game(self, game: Game) -> list[dict[str, Any]]:
         """
