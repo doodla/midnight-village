@@ -183,6 +183,11 @@ class DebugTableController {
     return table;
   }
 
+  /// Points the controller at [table] (a later game of the same lobby, after a
+  /// play again), so [driveAs], [playerView], [oracle] and [fireTimer] act on
+  /// that game.
+  void attachTable(DebugTable table) => _table = table;
+
   // ---------------------------------------------------------------------------
   // Perspective + driving
   // ---------------------------------------------------------------------------
@@ -204,7 +209,16 @@ class DebugTableController {
 
   /// Issues [action] AS [player] WITHOUT changing the visible perspective,
   /// via the explicit-per-player-token client.
-  Future<void> driveAs(DebugPlayer player, DebugAction action) async {
+  ///
+  /// STRICT by default: anything the server refuses (including a 409 "already
+  /// acted / already voted") throws, so a runner can never mistake a refused
+  /// move for a made one. The debug toolbar's one-tap helpers re-send moves on
+  /// purpose and pass [lenient] = true to treat a 409 as already done.
+  Future<void> driveAs(
+    DebugPlayer player,
+    DebugAction action, {
+    bool lenient = false,
+  }) async {
     final gameId = _requireTable().gameId;
     switch (action.kind) {
       case DebugActionKind.nightAction:
@@ -212,14 +226,14 @@ class DebugTableController {
           '/onuw/games/$gameId/action/',
           token: player.accessToken,
           data: {'action_type': action.actionType, 'targets': action.targets},
-          idempotent409: true,
+          idempotent409: lenient,
         );
       case DebugActionKind.vote:
         await _client.post(
           '/onuw/games/$gameId/vote/',
           token: player.accessToken,
           data: {'target_player_id': action.voteTargetUserId},
-          idempotent409: true,
+          idempotent409: lenient,
         );
       case DebugActionKind.endDiscussion:
         await _client.post(

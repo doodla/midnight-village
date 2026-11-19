@@ -431,7 +431,7 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
 
   Future<void> _drive(DebugPlayer player, DebugAction action) async {
     await _run('Driving ${action.kind.name}...', () async {
-      await _controller.driveAs(player, action);
+      await _controller.driveAs(player, action, lenient: true);
     });
   }
 
@@ -448,6 +448,7 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
         await _controller.driveAs(
           p,
           DebugAction.vote(voteTargetUserId: table.host.userId),
+          lenient: true,
         );
       }
     });

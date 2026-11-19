@@ -17,11 +17,12 @@ from collections import Counter
 from typing import Any
 
 from django.conf import settings
+from django.db.models import Q
 
 from rest_framework import status
 from rest_framework.response import Response
 
-from apps.core import timers
+from apps.core import host, timers
 from apps.core.models import ScheduledTimer
 from apps.onuw import presence
 
@@ -187,7 +188,30 @@ def build_debug_state(game: Game) -> dict[str, Any]:
         "night_actions_log": night_actions_log,
         "votes": votes,
         "results": results,
+        "pending_timers": _pending_timers(game),
     }
+
+
+def _pending_timers(game: Game) -> list[str]:
+    """Names of the timers pending for ``game``, sorted: the game's own keys
+    without the ``<game id>:`` prefix (``wave:2``, ``discussion``, ``voting``,
+    ``grace:<user id>``) plus ``host_handover`` while its lobby's handover timer
+    is armed. Lets the harness assert that a timer was started or cancelled,
+    which no player-facing response says.
+
+    "Pending" means the ``ScheduledTimer`` row exists: a row that is overdue but
+    not yet fired still shows, and under the queue backend a row is not proof
+    that a message will arrive. The handover timer belongs to the LOBBY, so it
+    also shows on a finished game of the same lobby.
+    """
+    prefix = f"{game.id}:"
+    keys = ScheduledTimer.objects.filter(
+        Q(key__startswith=prefix) | Q(key=host.timer_key(game.lobby))
+    ).values_list("key", flat=True)
+    return sorted(
+        "host_handover" if key.startswith("lobby:") else key.removeprefix(prefix)
+        for key in keys
+    )
 
 
 def _build_night_actions_log(game: Game) -> list[dict[str, Any]]:
@@ -215,6 +239,9 @@ def _build_night_actions_log(game: Game) -> list[dict[str, Any]]:
                 "targets": entry.get("targets", {}),
                 "result": entry.get("result", {}),
                 "timestamp_order": entry.get("timestamp_order"),
+                # True only for a move the server made for a player who timed
+                # out or was gone past the grace period (the Drunk's swap).
+                "made_by_server": bool(entry.get("made_by_server", False)),
             }
         )
     return projected
