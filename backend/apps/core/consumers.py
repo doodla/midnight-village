@@ -2,12 +2,33 @@
 
 import asyncio
 import contextlib
+import logging
 
+from channels.consumer import get_handler_name
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
+logger = logging.getLogger(__name__)
 
-class LobbyConsumer(AsyncJsonWebsocketConsumer):
+
+class TolerantJsonWebsocketConsumer(AsyncJsonWebsocketConsumer):
+    """A consumer that drops group events it has no handler for.
+
+    During a rollout the channel layer can hand an older instance an event type
+    that only the new code knows; Channels would raise and close the player's
+    socket. Here the event is logged at debug level and ignored, so the socket
+    stays open. Only the consumer's own events are affected: its connect,
+    receive and disconnect handlers still dispatch as usual.
+    """
+
+    async def dispatch(self, message):
+        if getattr(self, get_handler_name(message), None) is None:
+            logger.debug("Ignoring event with no handler: %s", message.get("type"))
+            return
+        await super().dispatch(message)
+
+
+class LobbyConsumer(TolerantJsonWebsocketConsumer):
     """WebSocket consumer for lobby real-time updates."""
 
     async def connect(self):
