@@ -96,6 +96,20 @@ sections below say otherwise, this list wins:
   `{"type": "player_presence", "player_id", "connected"}`; the player list
   (`GET .../games/<id>/players/`) has `connected` per player.
 
+### Updates since: tokens and seats (v2 contract S1)
+
+- **Tokens and seats.** Every lobby member has a `token` (one of ten: `crow`, `key`, `moth`,
+  `bell`, `thorn`, `antler`, `hare`, `lantern`, `spindle`, `scythe`), handed out under the Lobby
+  lock in an order seeded by the lobby code. The lobby detail `players[].token`, game `/me/`
+  `players[]`, `GET .../players/` and results `players[]` carry `token` and `seat` (join order,
+  0-based; `null` seat and `""` token only for games dealt before this). The deal snapshots both
+  into `PlayerRole`, so a game keeps them when a member leaves. Players lists come back in seat
+  order. The oracle's `players[]` also has `token` and `seat`, and the oracle has
+  `dealt_center_cards` (`center_cards` is overwritten as the night swaps cards).
+- **Lobby limits.** `max_players` at create is 3 to 10 (400 otherwise); a join to a full lobby
+  is `400 {"detail": "Lobby is full.", "code": "lobby_full"}`. `POST .../ready/` takes
+  `is_ready` as a real boolean only (400 `bad_request` otherwise; absent still toggles).
+
 ## 1. Goal
 
 Give an autonomous agent (and a human) a fast, deterministic way to drive the

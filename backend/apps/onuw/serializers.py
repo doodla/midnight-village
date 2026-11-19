@@ -6,7 +6,21 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import Game, Phase
+from .models import Game, Phase, PlayerRole
+
+
+def player_identity(pr: PlayerRole) -> dict[str, Any]:
+    """A player's public table identity: who they are and where they sit.
+
+    The one place the players lists (``/me/``, ``players/``, results) build it.
+    Needs ``pr.user`` loaded. Never includes a role or a vote.
+    """
+    return {
+        "player_id": pr.user_id,
+        "display_name": pr.user.display_name or pr.user.username,
+        "token": pr.token,
+        "seat": pr.seat,
+    }
 
 
 class PlayerPublicSerializer(serializers.Serializer):
@@ -125,10 +139,7 @@ class GameMeSerializer(serializers.Serializer):
         all_player_roles = self.context.get("all_player_roles", [])
         result: list[dict[str, Any]] = []
         for pr in all_player_roles:
-            entry: dict[str, Any] = {
-                "player_id": pr.user_id,
-                "display_name": pr.user.display_name or pr.user.username,
-            }
+            entry = player_identity(pr)
             if game.phase == Phase.VOTING:
                 entry["has_voted"] = bool(pr.has_acted)
             result.append(entry)

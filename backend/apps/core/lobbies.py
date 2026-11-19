@@ -2,11 +2,59 @@
 
 from __future__ import annotations
 
+import logging
+
 from django.db import transaction
 
-from apps.core import games
+from apps.core import games, tokens
 from apps.core.effects import send_after_commit
 from apps.core.models import Lobby, LobbyMember
+
+logger = logging.getLogger(__name__)
+
+
+class LobbyFullError(Exception):
+    """No seat is left: the lobby is at ``max_players`` or every token is taken."""
+
+
+def _log_token(lobby: Lobby, user_id: int, token: str) -> None:
+    """Tokens are seeded by the lobby code; the log makes a table replayable."""
+    logger.info("lobby %s: user %s takes token %s", lobby.code, user_id, token)
+
+
+def add_member(lobby: Lobby, user_id: int) -> LobbyMember:
+    """Seat a user at the table with the next free token, logged for replay.
+
+    The caller holds the Lobby row lock inside an atomic block, so the capacity
+    check, the token and the insert cannot interleave with another join.
+
+    Raises LobbyFullError.
+    """
+    token = tokens.assign_token(lobby)
+    if token is None or lobby.players.count() >= lobby.max_players:  # type: ignore[attr-defined]
+        raise LobbyFullError
+    member = LobbyMember.objects.create(lobby=lobby, user_id=user_id, token=token)
+    _log_token(lobby, user_id, token)
+    return member
+
+
+def ensure_tokens(lobby: Lobby, members: list[LobbyMember]) -> None:
+    """Give a token to every member who has none (join order); call before a deal.
+
+    A member made by code that predates tokens (a rollout, or a row created
+    outside ``add_member``) is blank. With the Lobby row locked, each takes the
+    next free token in the lobby's order; a legacy table over ten keeps blanks
+    for the members beyond the tenth.
+    """
+    for member in members:
+        if member.token:
+            continue
+        token = tokens.assign_token(lobby)
+        if token is None:
+            return
+        LobbyMember.objects.filter(pk=member.pk).update(token=token)
+        member.token = token
+        _log_token(lobby, member.user_id, token)
 
 
 class PlayAgainError(Exception):

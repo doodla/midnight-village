@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .lobbies import LobbyFullError, add_member
 from .models import Lobby, LobbyMember, User
 from .name_generator import generate_display_name
 from .serializers import GuestCreateSerializer, LobbyCreateSerializer, LobbySerializer
@@ -83,9 +84,10 @@ class LobbyCreateView(CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        lobby = serializer.save(host=self.request.user)
-        # Add host as first player
-        LobbyMember.objects.create(lobby=lobby, user=self.request.user)
+        # The host takes the first seat (and token) in the same transaction.
+        with transaction.atomic():
+            lobby = serializer.save(host=self.request.user)
+            add_member(lobby, self.request.user.id)  # type: ignore[misc]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -161,38 +163,40 @@ class LobbyJoinView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, code):
-        try:
-            lobby = Lobby.objects.get(code=code)
-        except Lobby.DoesNotExist:
-            return Response(
-                {"detail": "Lobby not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        # The Lobby row is locked from the checks to the insert, so two joins
+        # cannot both take the last seat or the same token.
+        with transaction.atomic():
+            try:
+                lobby = Lobby.objects.select_for_update().get(code=code)
+            except Lobby.DoesNotExist:
+                return Response(
+                    {"detail": "Lobby not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
-        # Check if already in lobby
-        if LobbyMember.objects.filter(lobby=lobby, user=request.user).exists():
-            return Response(
-                {"detail": "You are already in this lobby."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if LobbyMember.objects.filter(lobby=lobby, user=request.user).exists():
+                return Response(
+                    {"detail": "You are already in this lobby."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        # Check if lobby is full
-        if lobby.players.count() >= lobby.max_players:  # type: ignore[misc]
-            return Response(
-                {"detail": "Lobby is full."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if lobby.status != Lobby.Status.WAITING:
+                return Response(
+                    {"detail": "Lobby is not accepting players."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        # Check if lobby is still accepting players
-        if lobby.status != Lobby.Status.WAITING:
-            return Response(
-                {"detail": "Lobby is not accepting players."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            try:
+                add_member(lobby, request.user.id)  # type: ignore[misc]
+            except LobbyFullError:
+                return Response(
+                    {"detail": "Lobby is full.", "code": "lobby_full"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        LobbyMember.objects.create(lobby=lobby, user=request.user)
+            data = LobbySerializer(lobby).data
 
-        # Broadcast player joined event
+        # Broadcast player joined event (the join has committed)
         channel_layer = get_channel_layer()
         if channel_layer is not None:
             async_to_sync(channel_layer.group_send)(
@@ -200,8 +204,7 @@ class LobbyJoinView(APIView):
                 {"type": "player.joined", "username": request.user.username},
             )
 
-        serializer = LobbySerializer(lobby)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class LobbyLeaveView(APIView):
@@ -307,8 +310,13 @@ class LobbyReadyView(APIView):
             )
 
         is_ready = request.data.get("is_ready", not membership.is_ready)
+        if not isinstance(is_ready, bool):
+            return Response(
+                {"detail": "is_ready must be true or false.", "code": "bad_request"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         membership.is_ready = is_ready
-        membership.save()
+        membership.save(update_fields=["is_ready"])
 
         # Broadcast player ready state change
         channel_layer = get_channel_layer()

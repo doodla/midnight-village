@@ -117,6 +117,11 @@ class LobbyMember(models.Model):
         related_name="lobby_memberships",
     )
     is_ready = models.BooleanField(default=False)
+    # The member's table token (apps.core.tokens), assigned under the Lobby row
+    # lock when they join; "" for a row made by code that predates tokens (the
+    # database default keeps that code's INSERTs working during a rollout) and
+    # given one at the deal.
+    token = models.CharField(max_length=16, blank=True, default="", db_default="")
     # When this member was noticed to have no open lobby socket (see
     # apps.core.presence); used only to decide host handover.
     disconnected_at = models.DateTimeField(null=True, blank=True)
@@ -126,9 +131,15 @@ class LobbyMember(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["lobby", "user"], name="unique_lobby_member"
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["lobby", "token"],
+                condition=~models.Q(token=""),
+                name="unique_lobby_token",
+            ),
         ]
-        ordering = ("joined_at",)
+        # Join order (seat order); the id breaks a tie in the timestamp.
+        ordering = ("joined_at", "id")
 
     def __str__(self) -> str:
         return f"{self.user.username} in {self.lobby.code}"

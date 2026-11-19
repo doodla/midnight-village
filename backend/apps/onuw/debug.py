@@ -160,6 +160,8 @@ def build_debug_state(game: Game) -> dict[str, Any]:
                 "user_id": pr.user_id,
                 "display_name": pr.user.display_name or pr.user.username,
                 "is_host": pr.user_id == host_id,
+                "token": pr.token,
+                "seat": pr.seat,
                 "original_role": pr.original_role,
                 "current_role": pr.current_role,
                 "doppelganger_copied_role": doppelganger_copied.get(pr.user_id),
@@ -183,6 +185,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
         # 0 on the discussion transition, so this is never null.
         "current_wave": game.current_wave,
         "center_cards": list(game.center_cards),
+        "dealt_center_cards": list(game.dealt_center_cards),
         "players": players,
         "night_actions_log": night_actions_log,
         "votes": votes,

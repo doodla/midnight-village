@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core import timers
+from apps.core.lobbies import ensure_tokens
 from apps.core.models import Lobby
 
 from . import presence
@@ -24,7 +25,11 @@ from .debug import ForcedAssignmentError, parse_forced_assignment
 from .engine.assignment import assign_roles
 from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
-from .serializers import GameMeSerializer, GameStartResponseSerializer
+from .serializers import (
+    GameMeSerializer,
+    GameStartResponseSerializer,
+    player_identity,
+)
 from .services import (
     AlreadyActedError,
     advance_wave,
@@ -100,12 +105,13 @@ class GameStartView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get all players
-        members = lobby.players.select_related("user").all()  # type: ignore[misc]
-        player_count = members.count()
+        # All players, in join order (their seat order).
+        members = list(lobby.players.all())  # type: ignore[misc]
+        player_count = len(members)
+        ensure_tokens(lobby, members)  # a member made before tokens existed
 
         # All players must be ready
-        if members.filter(is_ready=False).exists():
+        if not all(m.is_ready for m in members):
             return Response(
                 {"detail": "Not all players are ready."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -167,14 +173,21 @@ class GameStartView(APIView):
             random_seed=seed,
             settings=lobby.settings,
             center_cards=center_cards,
+            # The night overwrites center_cards as cards are swapped.
+            dealt_center_cards=list(center_cards),
         )
 
+        # Snapshot each member's token and seat (join order) into the game: the
+        # game keeps them even if the member later leaves the lobby.
+        seats = {m.user_id: (seat, m.token) for seat, m in enumerate(members)}
         player_roles = [
             PlayerRole(
                 game=game,
                 user_id=player_id,
                 original_role=role_name,
                 current_role=role_name,
+                seat=seats[player_id][0],
+                token=seats[player_id][1],
             )
             for player_id, role_name in player_id_to_role.items()
         ]
@@ -577,8 +590,7 @@ class PlayerListView(APIView):
         players = []
         for pr in all_prs:
             entry = {
-                "player_id": pr.user_id,
-                "display_name": pr.user.display_name or pr.user.username,
+                **player_identity(pr),
                 # Presence is public: is any of their sockets open right now?
                 "connected": pr.user_id in connected_ids,
             }
@@ -722,8 +734,7 @@ class ResultsView(APIView):
         for pr in player_roles_qs:
             is_eliminated = pr.user_id in eliminated_ids
             player_info = {
-                "player_id": pr.user_id,
-                "display_name": pr.user.display_name or pr.user.username,
+                **player_identity(pr),
                 "original_role": pr.original_role,
                 "final_role": pr.current_role,
                 "team": get_effective_team(
