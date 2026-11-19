@@ -1,3 +1,4 @@
+// OLD LOOK: delete when 06 Night action and 09 Vote are rebuilt
 @Tags(['golden'])
 library;
 

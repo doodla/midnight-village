@@ -1,11 +1,13 @@
+// OLD LOOK: delete when the last old-look screen is rebuilt
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:midnight_village/design_system/tokens/app_tokens.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
-import 'package:midnight_village/design_system/tokens/midnight_village_theme.dart';
-import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
+import '../design_system/test_helpers/midnight_village_theme.dart';
+import 'package:midnight_village/design_system/skin/skin_theme.dart';
+import 'package:midnight_village/design_system/skin/skins/shadow_paper.dart';
 
 /// Renders [widget] at a fixed iPhone 14 screen size (390×844 logical pixels,
 /// 3× device pixel ratio) with the app's deterministic theme, then compares
@@ -46,7 +48,7 @@ extension GoldenTestExtension on WidgetTester {
         overrides: [activeThemeProvider.overrideWithValue(effectiveTheme)],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: generateThemeData(effectiveTheme),
+          theme: skinTheme(shadowPaper),
           home: widget,
         ),
       ),

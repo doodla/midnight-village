@@ -1,3 +1,4 @@
+// OLD LOOK: delete when 05 Night waiting, 06 Night action, 08 Talk and 09 Vote are rebuilt
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/game/game_timer.dart';

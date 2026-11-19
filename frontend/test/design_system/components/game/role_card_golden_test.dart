@@ -1,3 +1,4 @@
+// OLD LOOK: delete when 04 Your card, 06 Night action, 07 What you saw, 10 The count and 11 Results are rebuilt
 @Tags(['golden'])
 library;
 

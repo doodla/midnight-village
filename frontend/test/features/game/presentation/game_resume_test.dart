@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
-import 'package:midnight_village/design_system/tokens/midnight_village_theme.dart';
+import '../../../design_system/test_helpers/midnight_village_theme.dart';
 import 'package:midnight_village/features/game/data/game_resume_service.dart';
 import 'package:midnight_village/features/game/presentation/reconnection_notifier.dart';
 

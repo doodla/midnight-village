@@ -1,5 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:midnight_village/design_system/skin/ground.dart';
+
+import '../test/helpers/component_sheet.dart';
 import 'screen_fixtures.dart';
 
 /// One screen, or one state of a screen, in the gallery.
@@ -26,8 +29,8 @@ class ScreenEntry {
   final String? notBuilt;
 }
 
-/// Every screen and state, in the order of the design brief's table. Adding a
-/// screen or a state is one entry here.
+/// Every screen and state, in the order of the design brief's table, then the
+/// component sheet. Adding a screen or a state is one entry here.
 final screenCatalogue = <ScreenEntry>[
   ScreenEntry(
     '01-join',
@@ -101,4 +104,29 @@ final screenCatalogue = <ScreenEntry>[
   ScreenEntry('09-vote', mock: '09-vote.png', build: pumpVote),
   ScreenEntry('10-the-count', mock: '10-the-count.png', build: pumpCount),
   ScreenEntry('11-results', mock: '11-results.png', build: pumpResults),
+  ...componentSheet,
+];
+
+/// The mock a component page is compared with, where one shows the same
+/// parts on the same ground.
+const _componentMocks = {
+  (ComponentPage.deck, GroundKind.night): '03-deck.png',
+  (ComponentPage.sheet, GroundKind.night): '03b-deck-role-explained.png',
+  (ComponentPage.card, GroundKind.night): '04-your-card.png',
+  (ComponentPage.table, GroundKind.night): '06-night-action.png',
+  (ComponentPage.daylight, GroundKind.day): '08-talk.png',
+  (ComponentPage.players, GroundKind.day): '09-vote.png',
+  (ComponentPage.frame, GroundKind.night): '01-join.png',
+};
+
+/// The primitives (test/helpers/component_sheet.dart), each page on the
+/// night and the day ground: `c-<page>-<ground>`.
+final componentSheet = [
+  for (final page in ComponentPage.values)
+    for (final ground in [GroundKind.night, GroundKind.day])
+      ScreenEntry(
+        'c-${page.name}-${ground.name}',
+        mock: _componentMocks[(page, ground)],
+        build: (tester) => pumpComponentPage(tester, page, ground),
+      ),
 ];

@@ -1,3 +1,4 @@
+// OLD LOOK: delete when 02 Table, 03 Deck and 08 Talk are rebuilt
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:midnight_village/design_system/models/role.dart';

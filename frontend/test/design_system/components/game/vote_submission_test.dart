@@ -1,10 +1,12 @@
+// OLD LOOK: delete when 09 Vote is rebuilt
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/game/vote_submission.dart';
 import 'package:midnight_village/design_system/models/player_display.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
-import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
+import 'package:midnight_village/design_system/skin/skin_theme.dart';
+import 'package:midnight_village/design_system/skin/skins/shadow_paper.dart';
 
 import '../../../design_system/test_helpers/test_theme.dart';
 
@@ -33,7 +35,7 @@ Future<void> _pumpVoteSubmission(
     ProviderScope(
       overrides: [activeThemeProvider.overrideWithValue(_testTheme)],
       child: MaterialApp(
-        theme: generateThemeData(_testTheme),
+        theme: skinTheme(shadowPaper),
         home: Scaffold(
           body: VoteSubmission(
             players: players,

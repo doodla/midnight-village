@@ -15,6 +15,8 @@ void main() {
 const _fontLicences = [
   ('Gloock', 'assets/fonts/gloock/OFL.txt'),
   ('Figtree', 'assets/fonts/figtree/OFL.txt'),
+  ('Rozha One', 'assets/fonts/rozhaone/OFL.txt'),
+  ('Alegreya Sans', 'assets/fonts/alegreyasans/OFL.txt'),
 ];
 
 /// Lists the bundled fonts' licences on the app's licences page, as the SIL

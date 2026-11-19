@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
-import 'design_system/tokens/theme_bridge.dart';
+import 'design_system/skin/skin_choice.dart';
 
 /// Root application widget.
 class App extends ConsumerWidget {
@@ -13,7 +13,7 @@ class App extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Midnight Village',
       debugShowCheckedModeBanner: false,
-      theme: ref.watch(activeThemeDataProvider),
+      theme: ref.watch(appThemeProvider),
       routerConfig: ref.watch(appRouterProvider),
     );
   }

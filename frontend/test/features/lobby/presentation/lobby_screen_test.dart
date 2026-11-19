@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
-import 'package:midnight_village/design_system/tokens/midnight_village_theme.dart';
-import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
+import '../../../design_system/test_helpers/midnight_village_theme.dart';
+import 'package:midnight_village/design_system/skin/skin_theme.dart';
+import 'package:midnight_village/design_system/skin/skins/shadow_paper.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
@@ -141,7 +142,7 @@ Future<void> _pump(
         lobbyProvider(code).overrideWith(() => notifier),
       ],
       child: MaterialApp.router(
-        theme: generateThemeData(const MidnightVillageTheme()),
+        theme: skinTheme(shadowPaper),
         routerConfig: router,
       ),
     ),

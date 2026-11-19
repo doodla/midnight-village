@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/core/debug/debug_providers.dart';
 import 'package:midnight_village/core/debug/debug_table_controller.dart';
+import 'package:midnight_village/design_system/skin/skin_choice.dart';
+import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/features/debug/presentation/debug_toolbar_screen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockController extends Mock implements DebugTableController {}
@@ -42,6 +45,7 @@ void main() {
   });
 
   setUp(() {
+    FlutterSecureStorage.setMockInitialValues({});
     controller = _MockController();
     when(() => controller.isManuallyDisconnected(any())).thenReturn(false);
   });
@@ -143,5 +147,25 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(() => controller.oracle()).called(1);
+  });
+
+  testWidgets('the skin toggle switches the look and remembers it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildApp());
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(DebugToolbarScreen)),
+    );
+    expect(container.read(skinChoiceProvider), SkinId.shadowPaper);
+
+    await tester.ensureVisible(find.text('Night print'));
+    await tester.tap(find.text('Night print'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(skinChoiceProvider), SkinId.nightPrint);
+    expect(
+      await FlutterSecureStorage().read(key: 'skin'),
+      SkinId.nightPrint.name,
+    );
   });
 }

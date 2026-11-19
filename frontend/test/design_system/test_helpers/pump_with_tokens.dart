@@ -1,3 +1,4 @@
+// OLD LOOK: delete when the last old-look screen is rebuilt
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -5,8 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:midnight_village/design_system/tokens/app_tokens.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
-import 'package:midnight_village/design_system/tokens/midnight_village_theme.dart';
-import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
+import 'midnight_village_theme.dart';
+import 'package:midnight_village/design_system/skin/skin_theme.dart';
+import 'package:midnight_village/design_system/skin/skins/shadow_paper.dart';
 
 extension PumpWithTokens on WidgetTester {
   /// Pump [widget] inside a themed [ProviderScope] + [MaterialApp].
@@ -46,10 +48,7 @@ extension PumpWithTokens on WidgetTester {
           activeThemeProvider.overrideWithValue(effectiveTheme),
           ...?overrides,
         ],
-        child: MaterialApp(
-          theme: generateThemeData(effectiveTheme),
-          home: widget,
-        ),
+        child: MaterialApp(theme: skinTheme(shadowPaper), home: widget),
       ),
     );
   }

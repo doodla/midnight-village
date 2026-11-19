@@ -1,3 +1,4 @@
+// OLD LOOK: delete when 02 Table and the game screens (04 to 11) are rebuilt
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/foundation/player_avatar.dart';

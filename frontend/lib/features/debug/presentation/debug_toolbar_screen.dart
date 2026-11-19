@@ -9,6 +9,8 @@ import '../../../core/debug/debug_providers.dart';
 import '../../../core/debug/debug_table_controller.dart';
 import '../../../core/router/routes.dart';
 import '../../../design_system/models/role.dart';
+import '../../../design_system/skin/skin_choice.dart';
+import '../../../design_system/skin/skin_id.dart';
 import '../../lobby/domain/role_config.dart';
 
 /// DEBUG-ONLY developer toolbar (contract §D3), reachable at `/debug` ONLY when
@@ -101,13 +103,35 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
                 _buildGodPanel(),
                 const Divider(height: 32),
                 _buildAutoDrive(_table!),
+                const Divider(height: 32),
               ],
+              _buildSkinSwitch(),
             ],
           ),
         ),
       ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Skin (a per-device look, saved on this device)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildSkinSwitch() => Row(
+    children: [
+      const Text('Skin: '),
+      SegmentedButton<SkinId>(
+        key: const Key('debug-skin'),
+        segments: [
+          for (final id in SkinId.values)
+            ButtonSegment(value: id, label: Text(id.label)),
+        ],
+        selected: {ref.watch(skinChoiceProvider)},
+        onSelectionChanged: (chosen) =>
+            ref.read(skinChoiceProvider.notifier).choose(chosen.single),
+      ),
+    ],
+  );
 
   // ---------------------------------------------------------------------------
   // Table setup
