@@ -108,7 +108,7 @@ ApiException mapDioException(DioException e) {
   }
 
   return switch (statusCode) {
-    400 => ValidationException(_parseValidationErrors(e.response?.data)),
+    400 => ValidationException(parseServerErrors(e.response?.data)),
     401 => const UnauthorizedException(),
     403 => const ForbiddenException(),
     404 => NotFoundException(e.requestOptions.path),
@@ -118,7 +118,10 @@ ApiException mapDioException(DioException e) {
   };
 }
 
-Map<String, List<String>> _parseValidationErrors(dynamic data) {
+/// The messages in an error body the server sent, by field (`detail` for
+/// a message that belongs to no field); the `{"error": {...}}` wrapping of
+/// errors the server raises is unwrapped. Shared by every client.
+Map<String, List<String>> parseServerErrors(dynamic data) {
   // Handle string error messages (some APIs return plain text)
   if (data is String && data.isNotEmpty) {
     return {
@@ -129,7 +132,7 @@ Map<String, List<String>> _parseValidationErrors(dynamic data) {
   if (data is! Map<String, dynamic>) {
     if (data != null) {
       logger.w(
-        '_parseValidationErrors: unexpected data type ${data.runtimeType}, preserving as detail',
+        'parseServerErrors: unexpected data type ${data.runtimeType}, preserving as detail',
       );
       return {
         'detail': [data.toString()],
@@ -145,7 +148,7 @@ Map<String, List<String>> _parseValidationErrors(dynamic data) {
   final wrapped = data['error'];
   if (wrapped is Map<String, dynamic> && wrapped.containsKey('detail')) {
     final detail = wrapped['detail'];
-    return _parseValidationErrors(
+    return parseServerErrors(
       detail is Map<String, dynamic> ? detail : {'detail': detail},
     );
   }
@@ -159,7 +162,7 @@ Map<String, List<String>> _parseValidationErrors(dynamic data) {
     } else {
       // Log unexpected types to help detect API contract changes
       logger.d(
-        '_parseValidationErrors: ignoring non-string value for key "$key": $value (${value.runtimeType})',
+        'parseServerErrors: ignoring non-string value for key "$key": $value (${value.runtimeType})',
       );
     }
   });

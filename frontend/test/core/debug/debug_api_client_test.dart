@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/debug/debug_api_client.dart';
+
+import '../../helpers/contract/contract_samples.dart';
 
 /// A Dio adapter that returns a canned status + JSON body for any request, and
 /// records the last request's headers so we can assert the explicit Bearer.
@@ -135,6 +138,46 @@ void main() {
       await expectLater(
         client.post('/onuw/lobbies/AB/start/', token: 't', data: const {}),
         throwsA(isA<ValidationException>()),
+      );
+    });
+
+    test('reads the field errors the server wraps in "error"', () async {
+      final adapter = _StubAdapter(
+        statusCode: 400,
+        body: jsonEncode(ContractSamples.load('http/auth/guest_invalid_name')),
+      );
+      final client = _clientWith(adapter);
+
+      await expectLater(
+        client.post('/auth/guest/', token: '', data: const {}),
+        throwsA(
+          isA<ValidationException>().having(
+            (e) => e.firstErrorFor('display_name'),
+            'display_name error',
+            'Display name can only contain letters, numbers, and single spaces.',
+          ),
+        ),
+      );
+    });
+
+    test('names the server\'s message for any other refusal', () async {
+      final adapter = _StubAdapter(
+        statusCode: 409,
+        body: jsonEncode(
+          ContractSamples.load('http/lobby/leave_owner_in_game'),
+        ),
+      );
+      final client = _clientWith(adapter);
+
+      await expectLater(
+        client.post('/lobbies/ABC/leave/', token: 't'),
+        throwsA(
+          isA<UnhandledHttpException>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Cannot leave while a game is in progress.'),
+          ),
+        ),
       );
     });
 
