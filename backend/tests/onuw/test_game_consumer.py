@@ -153,6 +153,10 @@ class TestGameConsumerConnect(TransactionTestCase):
         comm_a = _build_communicator(game.id, player_a)
         connected_a, _ = await comm_a.connect()
         assert connected_a is True
+        # Connecting announces the player's own presence to the table; that
+        # broadcast is not what this test is about.
+        presence = await comm_a.receive_json_from(timeout=2)
+        assert presence["type"] == "player_presence"
 
         channel_layer = get_channel_layer()
         assert channel_layer is not None

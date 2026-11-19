@@ -20,22 +20,34 @@ RoleBehavior = Callable[[GameState, NightAction], tuple[GameState, ActionResult]
 # ── Wave 2: See-team roles ──────────────────────────────────────────────────
 
 
-def is_effective_werewolf(pid: int, state: GameState) -> bool:
-    """Check if a player is effectively a Werewolf (including Doppelganger-as-Werewolf)."""
-    role = state.player_roles.get(pid, "")
-    if role == "Werewolf":
+def _dealt_as(pid: int, state: GameState, role: str) -> bool:
+    """True if the player woke as ``role`` tonight.
+
+    Teams are decided by the card a player was DEALT, never the card they hold
+    now: a player who was dealt the role, or who was dealt Doppelganger and
+    copied that role.  A card that changes hands during the night does not
+    change who wakes up as a Werewolf or Mason.
+    """
+    dealt = state.original_roles.get(pid, "")
+    if dealt == role:
         return True
-    return (
-        role == "Doppelganger" and state.doppelganger_copied_role.get(pid) == "Werewolf"
-    )
+    return dealt == "Doppelganger" and state.doppelganger_copied_role.get(pid) == role
+
+
+def is_effective_werewolf(pid: int, state: GameState) -> bool:
+    """Check if a player wakes as a Werewolf (dealt Werewolf, or Doppelganger-as-Werewolf).
+
+    Based on the DEALT card (state.original_roles), not the card held now.
+    """
+    return _dealt_as(pid, state, "Werewolf")
 
 
 def is_effective_mason(pid: int, state: GameState) -> bool:
-    """Check if a player is effectively a Mason (including Doppelganger-as-Mason)."""
-    role = state.player_roles.get(pid, "")
-    if role == "Mason":
-        return True
-    return role == "Doppelganger" and state.doppelganger_copied_role.get(pid) == "Mason"
+    """Check if a player wakes as a Mason (dealt Mason, or Doppelganger-as-Mason).
+
+    Based on the DEALT card (state.original_roles), not the card held now.
+    """
+    return _dealt_as(pid, state, "Mason")
 
 
 def execute_werewolf(
@@ -56,7 +68,8 @@ def execute_werewolf(
     if len(all_werewolves) == 0:
         # Lone werewolf — may peek one center card
         targets = action.targets
-        if targets and "center_index" in targets:
+        # A missing or null center_index means "no peek" (never an error).
+        if targets and targets.get("center_index") is not None:
             idx = int(targets["center_index"])
             if idx < 0 or idx >= len(state.center_cards):
                 raise ValueError(
@@ -78,7 +91,7 @@ def execute_werewolf(
         )
 
     # Multiple werewolves see each other — center peek not allowed
-    if action.targets and "center_index" in action.targets:
+    if action.targets and action.targets.get("center_index") is not None:
         raise ValueError(
             "Only a lone Werewolf may peek at a center card. "
             "Multiple Werewolves are in play."

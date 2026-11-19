@@ -4,6 +4,7 @@ Base Django settings for Midnight Village.
 Common settings shared across all environments.
 """
 
+import os
 from datetime import timedelta
 from pathlib import Path
 
@@ -157,6 +158,27 @@ LOGGING = {
         },
     },
 }
+
+# Rebuild the timers of games in progress when the server starts (the in-memory
+# timer registry is lost with the process). Off in the test settings.
+ONUW_RECOVER_TIMERS_ON_START = True
+
+# How durable timers fire (apps/onuw/timers.py): "memory" = threading.Timer in
+# this process (dev, tests, harness); "vercel_queue" = delayed queue messages
+# handled by apps/onuw/queue_worker.py (no per-process state; see
+# docs/dev/deploy-vercel.md).
+ONUW_TIMER_BACKEND = "memory"
+ONUW_TIMER_QUEUE_TOPIC = "onuw-timers"
+
+# Shared secret of POST/GET /api/onuw/internal/sweep-timers/ (a platform cron;
+# Vercel Cron sends "Authorization: Bearer $CRON_SECRET"). Empty = the endpoint
+# refuses everything.
+ONUW_CRON_SECRET = os.environ.get("CRON_SECRET", "")
+
+# Presence: a socket row is "fresh" while its heartbeat is newer than the stale
+# timeout; consumers beat every heartbeat interval (apps/onuw/presence.py).
+ONUW_PRESENCE_HEARTBEAT_SECONDS = 15
+ONUW_PRESENCE_STALE_SECONDS = 40
 
 # Channels configuration
 ASGI_APPLICATION = "config.asgi.application"

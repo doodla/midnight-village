@@ -8,10 +8,9 @@ isolation.
 Players: Werewolf, Werewolf, Seer, Robber, Villager
 Center:  Drunk, Insomniac, Troublemaker
 
-Night flow:
-  Wave 2: Werewolves see each other
-  Wave 3: Seer peeks a werewolf, Robber swaps with a werewolf
-  No wave 4 actors -> transition to discussion
+Night flow (one shared window, closed when its last actor submits):
+  Werewolves see each other, Seer peeks a werewolf, Robber swaps with a werewolf
+  -> transition to discussion
 """
 
 from unittest.mock import patch
@@ -30,7 +29,7 @@ pytestmark = pytest.mark.integration
 
 def _patch_channels():
     """Mock out channel layer so WebSocket sends are no-ops during tests."""
-    return patch("apps.onuw.services.get_channel_layer", return_value=None)
+    return patch("apps.core.effects.get_channel_layer", return_value=None)
 
 
 class TestNightPhaseE2E:
@@ -66,7 +65,9 @@ class TestNightPhaseE2E:
             host=host,
             game_type="onuw",
             max_players=10,
-            settings={"roles": role_config},
+            # Minimum window length 0: the window closes as soon as its last
+            # actor submits (the minimum length has its own tests).
+            settings={"roles": role_config, "night_min_window_seconds": 0},
         )
         for user in all_users:
             LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
@@ -111,9 +112,9 @@ class TestNightPhaseE2E:
         Complete night phase:
         1. Create game with 5 players
         2. Initialize night phase (find first wave)
-        3. Wave 2: Werewolves submit see_team
-        4. Wave 3: Seer peeks, Robber swaps
-        5. No more waves -> discussion
+        3. Werewolves submit see_team (window stays open: Seer and Robber pending)
+        4. Seer peeks, Robber swaps -> window closes
+        5. Discussion
         6. Verify final state and /me/ responses
         """
         game, users_by_role, _host = self._setup_game()
@@ -135,10 +136,10 @@ class TestNightPhaseE2E:
         # ── Step 1: Verify initial state ──────────────────────────────
         game.refresh_from_db()
         assert game.phase == Phase.NIGHT
-        # First active wave should be 2 (Werewolves)
+        # The shared window
         assert game.current_wave == 2
 
-        # ── Step 2: Wave 2 -- Werewolves see each other ───────────────
+        # ── Step 2: Werewolves see each other ─────────────────────────
         action_url = reverse("onuw:night-action", kwargs={"game_id": str(game.id)})
 
         with _patch_channels():
@@ -153,7 +154,7 @@ class TestNightPhaseE2E:
             # pyrefly: ignore [missing-attribute]
             assert response.status_code == status.HTTP_200_OK
 
-            # Werewolf 2 submits -- should auto-advance
+            # Werewolf 2 submits -- Seer and Robber are still to choose
             client.force_authenticate(user=ww2)
             response = client.post(
                 action_url,
@@ -163,20 +164,14 @@ class TestNightPhaseE2E:
             # pyrefly: ignore [missing-attribute]
             assert response.status_code == status.HTTP_200_OK
 
-        # Wave should have advanced to 3
+        # The window is still open and nobody has been shown anything yet
         game.refresh_from_db()
-        assert game.current_wave == 3
-
-        # Verify werewolf results
+        assert game.phase == Phase.NIGHT
+        assert game.current_wave == 2
         pr_ww1 = PlayerRole.objects.get(game=game, user=ww1)
-        assert "wave_2_result" in pr_ww1.night_action_data
-        assert ww2.id in pr_ww1.night_action_data["wave_2_result"]["werewolves"]
+        assert "wave_2_result" not in pr_ww1.night_action_data
 
-        pr_ww2 = PlayerRole.objects.get(game=game, user=ww2)
-        assert "wave_2_result" in pr_ww2.night_action_data
-        assert ww1.id in pr_ww2.night_action_data["wave_2_result"]["werewolves"]
-
-        # ── Step 3: Wave 3 -- Seer peeks, Robber swaps ───────────────
+        # ── Step 3: Same window -- Seer peeks, Robber swaps ──────────
         with _patch_channels():
             # Seer peeks at Werewolf 1
             client.force_authenticate(user=seer)
@@ -209,8 +204,14 @@ class TestNightPhaseE2E:
         assert game.phase == Phase.DISCUSSION
         assert game.current_wave == 0
 
+        # Verify werewolf results (delivered when the window closed)
+        pr_ww1 = PlayerRole.objects.get(game=game, user=ww1)
+        assert ww2.id in pr_ww1.night_action_data["wave_2_result"]["werewolves"]
+        pr_ww2 = PlayerRole.objects.get(game=game, user=ww2)
+        assert ww1.id in pr_ww2.night_action_data["wave_2_result"]["werewolves"]
+
         # ── Step 5: Verify final roles ────────────────────────────────
-        # Wave 3 canonical order: Seer -> Robber -> Troublemaker -> Drunk
+        # Resolution order: Seer -> Robber -> Troublemaker -> Drunk
         # Seer peeks ww1 -> sees Werewolf (before Robber swap)
         # Robber swaps with ww1 -> Robber gets Werewolf, ww1 gets Robber
         # Final: ww1=Robber, ww2=Werewolf, seer=Seer, robber=Werewolf, villager=Villager
@@ -232,13 +233,13 @@ class TestNightPhaseE2E:
 
         # ── Step 6: Verify Seer's peek result ─────────────────────────
         pr_seer.refresh_from_db()
-        assert "wave_3_result" in pr_seer.night_action_data
-        assert pr_seer.night_action_data["wave_3_result"]["peeked_role"] == "Werewolf"
+        assert "wave_2_result" in pr_seer.night_action_data
+        assert pr_seer.night_action_data["wave_2_result"]["peeked_role"] == "Werewolf"
 
         # ── Step 7: Verify Robber's swap result ───────────────────────
         pr_robber.refresh_from_db()
-        assert "wave_3_result" in pr_robber.night_action_data
-        assert pr_robber.night_action_data["wave_3_result"]["new_role"] == "Werewolf"
+        assert "wave_2_result" in pr_robber.night_action_data
+        assert pr_robber.night_action_data["wave_2_result"]["new_role"] == "Werewolf"
 
         # ── Step 8: Verify /me/ endpoint for each player ──────────────
         me_url = reverse("onuw:game-me", kwargs={"game_id": str(game.id)})
@@ -288,7 +289,7 @@ class TestNightPhaseE2E:
 
             start_night_phase(game)
 
-            # Wave 2
+            # Werewolves
             client = APIClient()
             client.force_authenticate(user=ww1)
             client.post(
@@ -303,7 +304,7 @@ class TestNightPhaseE2E:
                 format="json",
             )
 
-            # Wave 3
+            # Seer and Robber, same window
             client.force_authenticate(user=seer)
             client.post(
                 action_url,
@@ -329,12 +330,16 @@ class TestNightPhaseE2E:
         # Should have 4 entries: 2 werewolves + seer + robber
         assert len(log) == 4
 
-        # Wave 2 entries
+        # The log stays in wake order (entries are tagged with the order group)
+        groups = [e["wave"] for e in log]
+        assert groups == sorted(groups)
+
+        # Order group 2 entries (team views)
         wave_2_entries = [e for e in log if e["wave"] == 2]
         assert len(wave_2_entries) == 2
         assert all(e["action_type"] == "see_team" for e in wave_2_entries)
 
-        # Wave 3 entries
+        # Order group 3 entries (Seer, Robber)
         wave_3_entries = [e for e in log if e["wave"] == 3]
         assert len(wave_3_entries) == 2
         wave_3_types = {e["action_type"] for e in wave_3_entries}

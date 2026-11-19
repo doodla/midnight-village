@@ -8,6 +8,73 @@ from __future__ import annotations
 
 from .roles import ROLE_REGISTRY
 
+# Every timer setting the server reads, in seconds. 0 disables that timer
+# (night_doppelganger_window_seconds: see services._fixed_window_seconds).
+TIMER_SETTING_KEYS: tuple[str, ...] = (
+    "night_wave_seconds",
+    "night_min_window_seconds",
+    "night_doppelganger_window_seconds",
+    "discussion_seconds",
+    "voting_seconds",
+    "disconnect_grace_seconds",
+    "host_handover_seconds",
+)
+MAX_TIMER_SECONDS = 3600
+# Per-setting ceilings that are lower than MAX_TIMER_SECONDS. The disconnect
+# grace period is how long the game waits for a dropped phone; 0 turns it off.
+# host_handover_seconds is how long the host's phone may be away before the
+# host role passes on (0 turns it off).
+TIMER_SETTING_MAX_SECONDS: dict[str, int] = {
+    "disconnect_grace_seconds": 60,
+    "host_handover_seconds": 600,
+}
+
+
+def max_seconds_for(key: str) -> int:
+    """Largest allowed value (seconds) of a timer setting."""
+    return TIMER_SETTING_MAX_SECONDS.get(key, MAX_TIMER_SECONDS)
+
+
+def is_valid_timer_value(value: object, maximum: int = MAX_TIMER_SECONDS) -> bool:
+    """True if value is an integer number of seconds in [0, maximum]."""
+    return (
+        isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= maximum
+    )
+
+
+def validate_timer_settings(settings: dict) -> list[str]:
+    """
+    Validate the timer keys of a settings dict (absent keys are fine).
+
+    Each must be an integer from 0 to MAX_TIMER_SECONDS (0 to 60 for
+    disconnect_grace_seconds, 0 to 600 for host_handover_seconds), and
+    night_min_window_seconds must not exceed night_wave_seconds when the
+    latter is set above 0 (the minimum length of a window cannot be longer
+    than its maximum). These are host-facing settings, so errors are explicit.
+    """
+    errors: list[str] = []
+    for key in TIMER_SETTING_KEYS:
+        if key not in settings:
+            continue
+        maximum = max_seconds_for(key)
+        if not is_valid_timer_value(settings[key], maximum):
+            errors.append(
+                f"{key!r} must be a whole number of seconds from 0 to {maximum}."
+            )
+
+    wave_max = settings.get("night_wave_seconds")
+    window_min = settings.get("night_min_window_seconds")
+    if (
+        is_valid_timer_value(wave_max)
+        and is_valid_timer_value(window_min)
+        and wave_max > 0  # type: ignore[operator]
+        and window_min > wave_max  # type: ignore[operator]
+    ):
+        errors.append(
+            "'night_min_window_seconds' must not be longer than 'night_wave_seconds'."
+        )
+    return errors
+
 
 def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
     """
@@ -21,7 +88,10 @@ def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
     Returns:
         List of error messages. Empty list means valid.
     """
-    errors: list[str] = []
+    if not isinstance(settings, dict):
+        return ["Settings must be an object."]
+
+    errors: list[str] = validate_timer_settings(settings)
 
     if player_count < 3:
         errors.append(f"At least 3 players required, got {player_count}.")

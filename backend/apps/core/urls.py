@@ -24,5 +24,10 @@ urlpatterns = [
     path(
         "lobbies/<str:code>/ready/", views.LobbyReadyView.as_view(), name="lobby-ready"
     ),
+    path(
+        "lobbies/<str:code>/play-again/",
+        views.LobbyPlayAgainView.as_view(),
+        name="lobby-play-again",
+    ),
     path("auth/logout/", views.LogoutView.as_view(), name="logout"),
 ]

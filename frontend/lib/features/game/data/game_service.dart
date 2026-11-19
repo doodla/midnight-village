@@ -6,6 +6,7 @@ import '../../../core/api/authenticated_client.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../domain/game_session_state.dart';
+import '../domain/night_state.dart';
 
 part 'game_service.g.dart';
 
@@ -31,7 +32,33 @@ class GameService {
       if (data == null) {
         throw const MalformedResponseException('Response body is null');
       }
-      return GameSessionState.fromJson(data);
+      // `night_results` mirrors the `action_result` socket event; parse it
+      // here (absent means none) so one bad entry cannot fail the fetch.
+      return GameSessionState.fromJson(
+        data,
+      ).copyWith(nightResults: parseNightResults(data['night_results']));
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// Fetches who is connected, as `player_id -> connected`.
+  ///
+  /// `GET /onuw/games/{id}/players/`
+  /// A player without the flag counts as connected. Presence is a courtesy:
+  /// callers treat a failure as "everyone connected", never as an error.
+  Future<Map<int, bool>> fetchPresence(String gameId) async {
+    try {
+      final response = await _client.get<Map<String, dynamic>>(
+        '/onuw/games/$gameId/players/',
+      );
+      final players = response.data?['players'];
+      if (players is! List) return const {};
+      return {
+        for (final p in players)
+          if (p is Map && p['player_id'] is int)
+            p['player_id'] as int: p['connected'] != false,
+      };
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -91,6 +118,32 @@ class GameService {
     try {
       await _client.post<Map<String, dynamic>>(
         '/onuw/games/$gameId/end-discussion/',
+      );
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// Closes the current night window now (host only).
+  ///
+  /// `POST /onuw/games/{id}/advance-wave/`
+  Future<void> advanceNight(String gameId) async {
+    try {
+      await _client.post<Map<String, dynamic>>(
+        '/onuw/games/$gameId/advance-wave/',
+      );
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// Reveals the votes now (host only); players who have not voted abstain.
+  ///
+  /// `POST /onuw/games/{id}/reveal-votes/`
+  Future<void> revealVotes(String gameId) async {
+    try {
+      await _client.post<Map<String, dynamic>>(
+        '/onuw/games/$gameId/reveal-votes/',
       );
     } on DioException catch (e) {
       throw mapDioException(e);

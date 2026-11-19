@@ -76,7 +76,7 @@ def _create_game_in_results(
             pr.save(update_fields=["vote_target", "has_acted"])
 
     # Trigger reveal_votes to compute win conditions
-    with patch("apps.onuw.services.get_channel_layer", return_value=None):
+    with patch("apps.core.effects.get_channel_layer", return_value=None):
         from apps.onuw.services import reveal_votes
 
         reveal_votes(game)
@@ -90,7 +90,7 @@ def _results_url(game_id):
 
 
 def _patch_channels():
-    return patch("apps.onuw.services.get_channel_layer", return_value=None)
+    return patch("apps.core.effects.get_channel_layer", return_value=None)
 
 
 class TestResultsEndpoint:
@@ -434,7 +434,7 @@ class TestResultsEndpoint:
             vpr.has_acted = True
             vpr.save(update_fields=["vote_target", "has_acted"])
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             from apps.onuw.services import reveal_votes
 
             reveal_votes(game)

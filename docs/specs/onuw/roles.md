@@ -175,7 +175,7 @@ The Seer does **not** move any cards — peek only.
 **What the player sees:** Nothing — the swap is blind. The Drunk has no idea what role they now hold.
 
 **Special rules:**
-- The Drunk's action is **mandatory** — they must swap with a center card
+- The Drunk's action is **mandatory** — they must swap with a center card. A Drunk who runs out of time, or whose phone has dropped past the grace period, is swapped by the server with a center card picked from the game seed and logged as made by the server. They are told nothing different, and no "skip" is offered
 - The Drunk acts **last** in Wave 3 (after Seer, Robber, and Troublemaker)
 - The Drunk's original card goes to the center
 - The Drunk's new role (from the center) determines their team at end of game, but they don't know what it is

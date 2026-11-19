@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../features/auth/domain/auth_state.dart';
 import '../../features/auth/presentation/auth_notifier.dart';
+import '../../features/debug/presentation/debug_toolbar_screen.dart';
 import '../config/env.dart';
 import 'routes.dart';
 
@@ -14,22 +15,29 @@ part 'app_router.g.dart';
 /// Redirect rules:
 /// - Unauthenticated users on `/lobby/*` or `/game/*` are redirected to `/`.
 /// - Authenticated users at `/` with an active game are redirected to
-///   `/game/:id` (result is cached; cache is cleared on auth state changes).
+///   `/game/:id`. The check is made on every visit to `/`: a cached answer
+///   would send a player who just left a finished game back into it.
 @Riverpod(keepAlive: true)
 GoRouter appRouter(Ref ref) {
-  String? cachedActiveGameId;
-
   // Bridge Riverpod auth state changes to GoRouter's refreshListenable so
   // the router re-evaluates its redirect whenever the user logs in or out.
   final notifier = _RouterChangeNotifier();
   ref.listen<AuthState>(authProvider, (_, _) {
-    cachedActiveGameId = null; // Clear cached game on auth change.
     notifier.notify();
   });
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
-    routes: $appRoutes,
+    routes: [
+      ...$appRoutes,
+      // DEBUG-ONLY developer toolbar. Registered only when const Env.isDev is
+      // true, so the route (and DebugToolbarScreen) tree-shake out of prod.
+      if (Env.isDev)
+        GoRoute(
+          path: '/debug',
+          builder: (context, state) => const DebugToolbarScreen(),
+        ),
+    ],
     debugLogDiagnostics: Env.isDev,
     refreshListenable: notifier,
     redirect: (context, state) async {
@@ -52,9 +60,6 @@ GoRouter appRouter(Ref ref) {
 
       // Authenticated user navigating to home — check for an active game.
       if (path == '/') {
-        if (cachedActiveGameId != null) {
-          return '/game/$cachedActiveGameId';
-        }
         try {
           final client = ref.read(authenticatedClientProvider);
           final response = await client.get<Map<String, dynamic>>(
@@ -64,8 +69,10 @@ GoRouter appRouter(Ref ref) {
           if (data is Map<String, dynamic>) {
             final gameId = data['game_id']?.toString();
             if (gameId != null) {
-              cachedActiveGameId = gameId;
-              return '/game/$gameId';
+              return GameRoute(
+                gameId: gameId,
+                lobby: data['lobby_code']?.toString(),
+              ).location;
             }
           }
         } catch (_) {

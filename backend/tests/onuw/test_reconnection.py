@@ -81,7 +81,7 @@ def _me_url(game_id):
 
 def _patch_channels():
     """Context manager to mock out channel layer so WebSocket sends are no-ops."""
-    return patch("apps.onuw.services.get_channel_layer", return_value=None)
+    return patch("apps.core.effects.get_channel_layer", return_value=None)
 
 
 class TestCurrentGame:
@@ -297,7 +297,7 @@ class TestMeEndpointReconnection:
 
     def test_me_endpoint_includes_action_prompt_during_night(self, api_client, db):
         """
-        During night phase, if the player needs to act in the current wave,
+        During night phase, if the player needs to act in the current window,
         the action_prompt field is populated with the prompt data.
         """
         game, users, _host = _create_game(
@@ -310,10 +310,10 @@ class TestMeEndpointReconnection:
             },
             center_cards=["Troublemaker", "Insomniac", "Villager"],
             phase=Phase.NIGHT,
-            current_wave=3,
+            current_wave=2,
         )
 
-        # Seer acts in wave 3
+        # Seer acts in the shared window (window 2)
         api_client.force_authenticate(user=users["meap_p1"])
         response = api_client.get(_me_url(game.id))
 
@@ -326,11 +326,13 @@ class TestMeEndpointReconnection:
         assert "peek_player" in prompt["action_types"]
         assert "peek_center" in prompt["action_types"]
         assert "valid_targets" in prompt
-        assert prompt["wave"] == 3
+        assert prompt["wave"] == 2
+        # Optional actions advertise the explicit "do nothing" choice
+        assert "skip" in prompt["action_types"]
 
     def test_me_endpoint_no_action_prompt_when_not_acting(self, api_client, db):
         """
-        During night phase, if the player does not act in the current wave,
+        During night phase, if the player does not act in the current window,
         action_prompt is None.
         """
         game, users, _host = _create_game(
@@ -343,10 +345,10 @@ class TestMeEndpointReconnection:
             },
             center_cards=["Troublemaker", "Insomniac", "Villager"],
             phase=Phase.NIGHT,
-            current_wave=3,
+            current_wave=2,
         )
 
-        # Villager does NOT act in wave 3
+        # Villager does NOT act in the shared window
         api_client.force_authenticate(user=users["menap_p2"])
         response = api_client.get(_me_url(game.id))
 
@@ -384,7 +386,7 @@ class TestMeEndpointReconnection:
             },
             center_cards=["Troublemaker", "Insomniac", "Villager"],
             phase=Phase.NIGHT,
-            current_wave=3,
+            current_wave=2,
         )
 
         # Mark Seer as having already acted

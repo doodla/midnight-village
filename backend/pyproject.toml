@@ -16,6 +16,11 @@ dependencies = [
     "django-cors-headers>=4.9.0",
 ]
 
+[project.optional-dependencies]
+# Only needed where the timers fire from Vercel Queues (ONUW_TIMER_BACKEND =
+# "vercel_queue"); dev, tests and the debug harness never import it.
+vercel = ["vercel-queue"]
+
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
@@ -83,3 +88,8 @@ missing-attribute = "ignore"
 bad-override = "ignore"
 bad-assignment = "ignore"
 bad-context-manager = "ignore"
+
+# Vercel (see docs/dev/deploy-vercel.md). The queue subscriber receives the
+# durable-timer messages; the app itself is found through ASGI_APPLICATION.
+[[tool.vercel.subscribers]]
+entrypoint = "apps.core.queue_worker"

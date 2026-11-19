@@ -13,7 +13,8 @@ part of 'app_router.dart';
 /// Redirect rules:
 /// - Unauthenticated users on `/lobby/*` or `/game/*` are redirected to `/`.
 /// - Authenticated users at `/` with an active game are redirected to
-///   `/game/:id` (result is cached; cache is cleared on auth state changes).
+///   `/game/:id`. The check is made on every visit to `/`: a cached answer
+///   would send a player who just left a finished game back into it.
 
 @ProviderFor(appRouter)
 const appRouterProvider = AppRouterProvider._();
@@ -23,7 +24,8 @@ const appRouterProvider = AppRouterProvider._();
 /// Redirect rules:
 /// - Unauthenticated users on `/lobby/*` or `/game/*` are redirected to `/`.
 /// - Authenticated users at `/` with an active game are redirected to
-///   `/game/:id` (result is cached; cache is cleared on auth state changes).
+///   `/game/:id`. The check is made on every visit to `/`: a cached answer
+///   would send a player who just left a finished game back into it.
 
 final class AppRouterProvider
     extends $FunctionalProvider<GoRouter, GoRouter, GoRouter>
@@ -33,7 +35,8 @@ final class AppRouterProvider
   /// Redirect rules:
   /// - Unauthenticated users on `/lobby/*` or `/game/*` are redirected to `/`.
   /// - Authenticated users at `/` with an active game are redirected to
-  ///   `/game/:id` (result is cached; cache is cleared on auth state changes).
+  ///   `/game/:id`. The check is made on every visit to `/`: a cached answer
+  ///   would send a player who just left a finished game back into it.
   const AppRouterProvider._()
     : super(
         from: null,
@@ -67,4 +70,4 @@ final class AppRouterProvider
   }
 }
 
-String _$appRouterHash() => r'4af6c7be72ba4af61656dd608fdcc3102e80c12d';
+String _$appRouterHash() => r'394c051a382c019d0c1d571c4d9813d46c75977c';

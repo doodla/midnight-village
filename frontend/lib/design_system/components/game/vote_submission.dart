@@ -164,7 +164,8 @@ class _VoteSelectionView extends StatelessWidget {
               players: players,
               maxSelections: 1,
               onPlayerSelected: onPlayerSelected,
-              showStatus: false,
+              // Shows a dropped phone ("away"); everyone else looks as before.
+              showStatus: true,
             ),
           ),
         ),

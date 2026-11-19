@@ -20,6 +20,14 @@ class ActionLogEntry:
     targets: dict[str, Any]
     result: dict[str, Any]
     timestamp_order: int  # ordering within wave
+    # The role the player acted AS for this entry (Doppelganger-aware). Captured
+    # at action time — current_role may differ later once the player's own card
+    # is swapped, so this must not be recomputed from current state afterward.
+    # "" only for legacy/synthetic entries that predate this field.
+    role_acting_as: str = ""
+    # True when the server made this move for a player who ran out of time (the
+    # Drunk must swap); recorded so a replay can tell it from a chosen move.
+    made_by_server: bool = False
 
 
 @dataclass(frozen=True)
@@ -30,6 +38,7 @@ class NightAction:
     role_acting_as: str  # the role this player is acting as (matters for Doppelganger)
     action_type: str
     targets: dict[str, Any]  # e.g. {"player_id": 3} or {"center_indices": [0, 1]}
+    made_by_server: bool = False  # chosen by the server on timeout, not the player
 
 
 @dataclass(frozen=True)

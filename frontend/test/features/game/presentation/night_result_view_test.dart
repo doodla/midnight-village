@@ -214,6 +214,50 @@ void main() {
     });
   });
 
+  group('NightResultView — skip', () {
+    testWidgets('says the player did nothing', (tester) async {
+      await tester.pumpWithTokens(
+        NightResultView(result: _makeResult('skip', {}), players: _players),
+      );
+
+      expect(find.text('You did nothing.'), findsOneWidget);
+    });
+  });
+
+  group('NightResultView — continue button', () {
+    testWidgets('is absent by default', (tester) async {
+      await tester.pumpWithTokens(
+        NightResultView(
+          result: _makeResult('insomniac', {'current_role': 'villager'}),
+          players: _players,
+        ),
+      );
+
+      expect(find.text('Continue'), findsNothing);
+    });
+
+    testWidgets('shows the label and calls onContinue when tapped', (
+      tester,
+    ) async {
+      var continued = 0;
+      await tester.pumpWithTokens(
+        NightResultView(
+          result: _makeResult('insomniac', {'current_role': 'villager'}),
+          players: _players,
+          continueLabel: 'Continue to discussion',
+          onContinue: () => continued++,
+        ),
+      );
+
+      // The result is still shown next to the button.
+      expect(find.textContaining('card is now'), findsOneWidget);
+      await tester.tap(find.text('Continue to discussion'));
+      await tester.pump();
+
+      expect(continued, 1);
+    });
+  });
+
   group('NightResultView — unknown action type', () {
     testWidgets('renders without crashing for unknown type', (tester) async {
       await tester.pumpWithTokens(

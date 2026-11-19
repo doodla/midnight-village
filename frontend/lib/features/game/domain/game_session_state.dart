@@ -1,6 +1,7 @@
 // ignore_for_file: invalid_annotation_target
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../../core/host/host_change.dart';
 import '../../../design_system/models/game_result.dart';
 import 'night_state.dart';
 import 'voting_state.dart';
@@ -17,6 +18,10 @@ abstract class GamePlayer with _$GamePlayer {
 
     /// Visible in voting phase only.
     @JsonKey(name: 'has_voted') @Default(false) bool hasVoted,
+
+    /// Whether the player's phone is connected. Public to the whole table.
+    /// Absent in the response means connected.
+    @Default(true) bool connected,
   }) = _GamePlayer;
 
   factory GamePlayer.fromJson(Map<String, dynamic> json) =>
@@ -80,8 +85,66 @@ abstract class GameSessionState with _$GameSessionState {
 
     /// Whether the current player is the game host (from server response).
     @JsonKey(name: 'is_host') @Default(false) bool isHost,
+
+    /// The effective (current) host's player id, when the server says. When
+    /// present, [isHost] follows it, and `host_changed` events update both.
+    @JsonKey(name: 'host_id') int? hostId,
+
+    /// The latest host change, for the quiet line everyone sees ("Ben is
+    /// hosting while Ana is away").
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    HostChange? hostNotice,
+
+    /// A plain line about a host action that was refused because the role had
+    /// just moved ("You are no longer the host.").
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    String? hostActionNotice,
+
+    /// Code of the table (lobby) this game belongs to, when the server says.
+    @JsonKey(name: 'lobby_code') String? lobbyCode,
+
+    /// This player's own results for night windows that have already closed,
+    /// in order (from `night_results`). Parsed by [GameService]; the later
+    /// "My night" feature reads it.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default([])
+    List<ActionResult> nightResults,
+
+    /// Night results already put in front of the player (shown, or queued to
+    /// be shown), so the same result is never shown twice whether it arrived
+    /// by the socket or by a state fetch.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default([])
+    List<ActionResult> shownNightResults,
+
+    /// Missed results waiting behind the one on screen; shown one after
+    /// another as the player continues.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default([])
+    List<ActionResult> pendingNightResults,
+
+    /// Set when the server says the table (and with it this game) no longer
+    /// exists, because its last member left. The screen says so and goes home.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default(false)
+    bool tableClosed,
+
+    /// Set when the table has gone back to waiting for another game (the
+    /// `play_again` event, or the host's own play-again call). The screen
+    /// navigates to this lobby.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    String? playAgainLobbyCode,
   }) = _GameSessionState;
 
   factory GameSessionState.fromJson(Map<String, dynamic> json) =>
       _$GameSessionStateFromJson(json);
+}
+
+/// Who is away, from the public `connected` flag.
+extension GamePresence on GameSessionState {
+  /// Players whose phone is not connected, in table order.
+  List<GamePlayer> get awayPlayers =>
+      players.where((p) => !p.connected).toList();
+
+  bool get hasAwayPlayers => players.any((p) => !p.connected);
 }

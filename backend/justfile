@@ -26,6 +26,14 @@ dev:
 serve port="8000":
     uv run python manage.py runserver {{port}}
 
+# Boot the deterministic integration-test harness backend on 127.0.0.1:8001
+# (DEBUG=True, throwaway DB). The frontend test-harness recipe waits for
+# GET /api/health/ -> 200 before running tests against it.
+harness-serve:
+    PGPASSWORD="${DB_PASSWORD:-}" createdb -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" ${DB_USER:+-U "$DB_USER"} midnight_village_harness 2>&1 | grep -v "already exists" || true
+    DJANGO_SETTINGS_MODULE=config.settings.harness uv run python manage.py migrate
+    DJANGO_SETTINGS_MODULE=config.settings.harness uv run python manage.py runserver --noreload 127.0.0.1:8001
+
 # Run Django management command
 manage *args:
     uv run python manage.py {{args}}

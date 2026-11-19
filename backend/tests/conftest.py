@@ -44,7 +44,7 @@ def authenticated_client(api_client: APIClient, user: AbstractUser) -> APIClient
 @pytest.fixture(autouse=True)
 def _auto_mock_timer_schedule(request: pytest.FixtureRequest) -> Generator[None]:
     """
-    Patch ``apps.onuw.timers.schedule`` to be a no-op for ALL tests.
+    Patch ``apps.core.timers.schedule`` to be a no-op for ALL tests.
 
     This prevents real threading.Timer threads from being spawned during the
     test run, avoiding flaky race conditions and leaked threads.
@@ -56,7 +56,7 @@ def _auto_mock_timer_schedule(request: pytest.FixtureRequest) -> Generator[None]
         yield
         return
 
-    with patch("apps.onuw.timers.schedule"):
+    with patch("apps.core.timers.schedule"):
         yield
 
 
@@ -70,7 +70,7 @@ def _auto_clean_timer_registry() -> Generator[None]:
     """
     yield
     # Cleanup runs after every test, regardless of markers.
-    from apps.onuw import timers
+    from apps.core import timers
 
     with timers._lock:
         for timer in timers._registry.values():

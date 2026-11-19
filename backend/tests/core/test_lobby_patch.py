@@ -78,6 +78,51 @@ class TestLobbyPatch:
         lobby.refresh_from_db()
         assert lobby.settings["roles"] == new_roles
 
+    @pytest.mark.parametrize(
+        "bad_settings",
+        [
+            {"night_wave_seconds": "abc"},
+            {"night_wave_seconds": -1},
+            {"voting_seconds": 99999},
+            {"night_doppelganger_window_seconds": None},
+            {"night_wave_seconds": 5, "night_min_window_seconds": 6},
+        ],
+    )
+    def test_patch_rejects_bad_timer_settings(self, api_client, db, bad_settings):
+        """Timer settings must be whole seconds in range (400 with a clear error)."""
+        lobby, host, _ = _create_lobby_with_players(3)
+        api_client.force_authenticate(user=host)
+        roles = {"Werewolf": 2, "Seer": 1, "Villager": 2, "Drunk": 1}
+
+        response = api_client.patch(
+            _lobby_detail_url(lobby.code),
+            {"settings": {"roles": roles, **bad_settings}},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert any("seconds" in e for e in response.data["detail"])
+        lobby.refresh_from_db()
+        assert lobby.settings == {"roles": {}}
+
+    def test_patch_accepts_valid_timer_settings(self, api_client, db):
+        lobby, host, _ = _create_lobby_with_players(3)
+        api_client.force_authenticate(user=host)
+        settings = {
+            "roles": {"Werewolf": 2, "Seer": 1, "Villager": 2, "Drunk": 1},
+            "night_wave_seconds": 30,
+            "night_min_window_seconds": 8,
+            "night_doppelganger_window_seconds": 10,
+        }
+
+        with patch("apps.core.views.get_channel_layer", return_value=None):
+            response = api_client.patch(
+                _lobby_detail_url(lobby.code), {"settings": settings}, format="json"
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["settings"]["night_doppelganger_window_seconds"] == 10
+
     def test_patch_lobby_settings_broadcasts_lobby_update(self, api_client, db):
         """Successful PATCH broadcasts lobby_update WebSocket event."""
         lobby, host, _ = _create_lobby_with_players(3)

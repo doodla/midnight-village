@@ -237,4 +237,95 @@ void main() {
       );
     });
   });
+
+  group('GameService night_results, presence and host calls', () {
+    Response<dynamic> ok(String path, dynamic data) => Response(
+      requestOptions: RequestOptions(path: path),
+      statusCode: 200,
+      data: data,
+    );
+
+    test(
+      'getGameState parses night_results in the action_result shape',
+      () async {
+        final (:service, :http) = _createService();
+        http
+            .when(method: 'GET', path: '/onuw/games/g1/me/')
+            .thenReturn(
+              ok('/onuw/games/g1/me/', {
+                'game_id': 'g1',
+                'phase': 'discussion',
+                'your_role': {'original_role': 'seer', 'has_acted': true},
+                'players': [
+                  {'player_id': 1, 'display_name': 'Alice', 'connected': false},
+                ],
+                'night_results': [
+                  {
+                    'wave': 2,
+                    'action_type': 'peek_center',
+                    'revealed_info': {
+                      'cards': ['werewolf'],
+                    },
+                  },
+                ],
+              }),
+            );
+
+        final state = await service.getGameState('g1');
+
+        expect(state.nightResults, hasLength(1));
+        expect(state.nightResults.single.wave, 2);
+        expect(
+          state.nightResults.single.revealedInfo['action_type'],
+          'peek_center',
+        );
+        expect(state.players.single.connected, isFalse);
+      },
+    );
+
+    test(
+      'fetchPresence maps player ids to connected, absent means connected',
+      () async {
+        final (:service, :http) = _createService();
+        http
+            .when(method: 'GET', path: '/onuw/games/g1/players/')
+            .thenReturn(
+              ok('/onuw/games/g1/players/', {
+                'players': [
+                  {'player_id': 1, 'display_name': 'Alice', 'connected': false},
+                  {'player_id': 2, 'display_name': 'Bob'},
+                ],
+              }),
+            );
+
+        expect(await service.fetchPresence('g1'), {1: false, 2: true});
+      },
+    );
+
+    test('advanceNight posts to advance-wave', () async {
+      final (:service, :http) = _createService();
+      http
+          .when(method: 'POST', path: '/onuw/games/g1/advance-wave/')
+          .thenReturn(
+            ok('/onuw/games/g1/advance-wave/', {'status': 'advanced'}),
+          );
+
+      await service.advanceNight('g1');
+
+      expect(http.requests.single.path, '/onuw/games/g1/advance-wave/');
+    });
+
+    test('revealVotes posts to reveal-votes', () async {
+      final (:service, :http) = _createService();
+      http
+          .when(method: 'POST', path: '/onuw/games/g1/reveal-votes/')
+          .thenReturn(
+            ok('/onuw/games/g1/reveal-votes/', {'status': 'revealed'}),
+          );
+
+      await service.revealVotes('g1');
+
+      expect(http.requests.single.path, '/onuw/games/g1/reveal-votes/');
+    });
+  });
 }

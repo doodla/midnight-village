@@ -2,7 +2,9 @@
 
 from django.urls import path
 
-from . import views
+from apps.core.views import LobbyPlayAgainView
+
+from . import debug_views, views
 
 app_name = "onuw"
 
@@ -11,6 +13,19 @@ urlpatterns = [
         "lobbies/<str:code>/start/",
         views.GameStartView.as_view(),
         name="game-start",
+    ),
+    # Same view as core's lobbies/<code>/play-again/, under the ONUW prefix next
+    # to "start" so a client may use either.
+    path(
+        "lobbies/<str:code>/play-again/",
+        LobbyPlayAgainView.as_view(),
+        name="lobby-play-again",
+    ),
+    # Platform cron: re-publish lost timers (shared-secret protected).
+    path(
+        "internal/sweep-timers/",
+        views.SweepTimersView.as_view(),
+        name="sweep-timers",
     ),
     path(
         "me/current-game/",
@@ -56,5 +71,17 @@ urlpatterns = [
         "games/<str:game_id>/results/",
         views.ResultsView.as_view(),
         name="results",
+    ),
+    # DEBUG-gated developer-harness surfaces. Both return 403 when
+    # settings.DEBUG is False (see apps.onuw.debug.debug_disabled_response).
+    path(
+        "games/<str:game_id>/debug-state/",
+        debug_views.DebugStateView.as_view(),
+        name="debug-state",
+    ),
+    path(
+        "games/<str:game_id>/debug-fire-timer/",
+        debug_views.DebugFireTimerView.as_view(),
+        name="debug-fire-timer",
     ),
 ]

@@ -21,7 +21,7 @@ pytestmark = pytest.mark.integration
 
 def _patch_channels():
     """Mock out channel layer so WebSocket sends are no-ops during tests."""
-    return patch("apps.onuw.services.get_channel_layer", return_value=None)
+    return patch("apps.core.effects.get_channel_layer", return_value=None)
 
 
 class TestCompleteGameVillageWins:
@@ -32,10 +32,10 @@ class TestCompleteGameVillageWins:
     Players: 5 guests
     Roles: Werewolf x2, Seer, Robber, Villager + center: Drunk, Insomniac, Troublemaker
 
-    Night flow:
-      Wave 2: Werewolves see each other
-      Wave 3: Seer peeks at Werewolf (learns role), Robber swaps with Villager
-      No wave 4 -> discussion
+    Night flow (one shared window; it closes when its last actor has submitted):
+      Werewolves see each other, Seer peeks at Werewolf (learns role),
+      Robber swaps with Villager
+      -> discussion
     Discussion: host ends discussion -> voting
     Voting: all vote for a Werewolf -> auto-reveal -> results
     Result: Village wins
@@ -82,6 +82,7 @@ class TestCompleteGameVillageWins:
                 "discussion_seconds": 0,
                 "voting_seconds": 0,
                 "night_wave_seconds": 0,
+                "night_min_window_seconds": 0,
             },
         )
         for user in [host, p1, p2, p3, p4]:
@@ -150,9 +151,9 @@ class TestCompleteGameVillageWins:
 
             game.refresh_from_db()
             assert game.phase == Phase.NIGHT
-            assert game.current_wave == 2  # First active wave: Werewolves
+            assert game.current_wave == 2  # The shared window
 
-            # ── Wave 2: Werewolves see each other ──────────────────────────
+            # ── Shared window: Werewolves see each other ───────────────────
             client.force_authenticate(user=ww1)
             response = client.post(
                 action_url,
@@ -169,16 +170,15 @@ class TestCompleteGameVillageWins:
             )
             assert response.status_code == status.HTTP_200_OK  # type: ignore[union-attr]
 
-            # Should auto-advance to wave 3
+            # The Seer and Robber have not chosen yet: the window is still open
+            # and nobody has been shown anything.
             game.refresh_from_db()
-            assert game.current_wave == 3
-
-            # Verify werewolves saw each other
+            assert game.phase == Phase.NIGHT
+            assert game.current_wave == 2
             pr_ww1 = PlayerRole.objects.get(game=game, user=ww1)
-            # pyrefly: ignore [missing-attribute]
-            assert ww2.id in pr_ww1.night_action_data["wave_2_result"]["werewolves"]
+            assert "wave_2_result" not in pr_ww1.night_action_data
 
-            # ── Wave 3: Seer peeks, Robber swaps ──────────────────────────
+            # ── Same window: Seer peeks, Robber swaps ─────────────────────
             # Seer peeks at ww1 (host) -> learns they are Werewolf
             client.force_authenticate(user=seer)
             response = client.post(
@@ -205,14 +205,19 @@ class TestCompleteGameVillageWins:
             )
             assert response.status_code == status.HTTP_200_OK  # type: ignore[union-attr]
 
-            # No wave 4 actors -> should transition to discussion
+            # Last actor submitted -> window closes -> discussion
             game.refresh_from_db()
             assert game.phase == Phase.DISCUSSION
+
+            # Verify werewolves saw each other
+            pr_ww1 = PlayerRole.objects.get(game=game, user=ww1)
+            # pyrefly: ignore [missing-attribute]
+            assert ww2.id in pr_ww1.night_action_data["wave_2_result"]["werewolves"]
 
             # Verify Seer's peek result
             pr_seer = PlayerRole.objects.get(game=game, user=seer)
             assert (
-                pr_seer.night_action_data["wave_3_result"]["peeked_role"] == "Werewolf"
+                pr_seer.night_action_data["wave_2_result"]["peeked_role"] == "Werewolf"
             )
 
             # Verify roles after Robber swap
@@ -354,6 +359,7 @@ class TestCompleteGameWerewolvesWin:
                 "discussion_seconds": 0,
                 "voting_seconds": 0,
                 "night_wave_seconds": 0,
+                "night_min_window_seconds": 0,
             },
         )
         for user in [host, p1, p2, p3, p4]:
@@ -414,7 +420,7 @@ class TestCompleteGameWerewolvesWin:
 
             start_night_phase(game)
 
-            # ── Wave 2: Werewolves ─────────────────────────────────────────
+            # ── Shared window: Werewolves ──────────────────────────────────
             client.force_authenticate(user=ww1)
             client.post(
                 action_url,
@@ -428,7 +434,7 @@ class TestCompleteGameWerewolvesWin:
                 format="json",
             )
 
-            # ── Wave 3: Seer + Robber ──────────────────────────────────────
+            # ── Same window: Seer + Robber ─────────────────────────────────
             client.force_authenticate(user=seer)
             client.post(
                 action_url,
@@ -551,6 +557,7 @@ class TestCompleteGameTannerWins:
                 "discussion_seconds": 0,
                 "voting_seconds": 0,
                 "night_wave_seconds": 0,
+                "night_min_window_seconds": 0,
             },
         )
         for user in [host, p1, p2, p3, p4]:
@@ -612,7 +619,7 @@ class TestCompleteGameTannerWins:
 
             start_night_phase(game)
 
-            # ── Wave 2: Werewolves see each other ──────────────────────────
+            # ── Shared window: Werewolves see each other ───────────────────
             client.force_authenticate(user=ww1)
             client.post(
                 action_url,
@@ -626,10 +633,11 @@ class TestCompleteGameTannerWins:
                 format="json",
             )
 
-            # ── Wave 3: Seer peeks ─────────────────────────────────────────
-            # Seer should act in wave 3
+            # ── Same window: Seer peeks ────────────────────────────────────
+            # The Seer has not chosen yet, so the window is still open.
             game.refresh_from_db()
-            assert game.current_wave == 3
+            assert game.phase == Phase.NIGHT
+            assert game.current_wave == 2
 
             client.force_authenticate(user=seer)
             client.post(
@@ -642,7 +650,7 @@ class TestCompleteGameTannerWins:
                 format="json",
             )
 
-            # No more wave 3 actors (Robber not in game) -> discussion
+            # Last actor submitted -> window closes -> discussion
             game.refresh_from_db()
             assert game.phase == Phase.DISCUSSION
 

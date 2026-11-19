@@ -68,7 +68,7 @@ class TestRolesInGame:
         game, host = _create_game_with_settings(roles)
 
         api_client.force_authenticate(user=host)
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             response = api_client.get(_game_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
@@ -80,7 +80,7 @@ class TestRolesInGame:
         game, host = _create_game_with_settings(roles)
 
         api_client.force_authenticate(user=host)
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             response = api_client.get(_game_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
@@ -98,7 +98,7 @@ class TestRolesInGame:
         game, host = _create_game_with_settings(roles)
 
         api_client.force_authenticate(user=host)
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             response = api_client.get(_game_me_url(game.id))
 
         roles_in_game = response.data["roles_in_game"]
@@ -112,7 +112,7 @@ class TestRolesInGame:
         game, host = _create_game_with_settings(roles, phase=Phase.DISCUSSION)
 
         api_client.force_authenticate(user=host)
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             response = api_client.get(_game_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
@@ -124,7 +124,7 @@ class TestRolesInGame:
         game, host = _create_game_with_settings(roles, phase=Phase.VOTING)
 
         api_client.force_authenticate(user=host)
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             response = api_client.get(_game_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK

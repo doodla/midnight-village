@@ -4,6 +4,8 @@ Core app views.
 
 import uuid
 
+from django.db import transaction
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import status
@@ -114,7 +116,7 @@ class LobbyDetailView(RetrieveAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if lobby.host_id != request.user.id:  # type: ignore[misc]
+        if not lobby.is_host(request.user.id):  # type: ignore[misc]
             return Response(
                 {"detail": "Only the host can update lobby settings."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -128,10 +130,10 @@ class LobbyDetailView(RetrieveAPIView):
             )
 
         # Validate role settings if provided.
-        from apps.onuw.engine.validation import validate_onuw_settings
+        from apps.core import games
 
         player_count = lobby.players.count()
-        errors = validate_onuw_settings(new_settings, player_count)
+        errors = games.hooks_for(lobby).validate_settings(new_settings, player_count)
         if errors:
             return Response(
                 {"detail": errors},
@@ -225,19 +227,52 @@ class LobbyLeaveView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # If host leaves, delete the lobby — but only if no game is in progress
+        # The owner leaving: never while a game is in progress. Otherwise the
+        # table survives if anyone else is still in it (ownership moves for good
+        # to the next member), and is deleted only when the owner was the last.
         if lobby.host == request.user:
-            if lobby.status == Lobby.Status.IN_GAME:
-                return Response(
-                    {"detail": "Cannot leave while a game is in progress."},
-                    status=status.HTTP_409_CONFLICT,
-                )
-            lobby.delete()
-            return Response({"detail": "Lobby deleted."}, status=status.HTTP_200_OK)
+            from apps.core.host import transfer_ownership
 
-        # Otherwise just remove the player
+            # Lock the lobby row first, like every other writer (Lobby, then its
+            # members and sockets): a presence check or handover running at the
+            # same moment waits for this, then finds the lobby gone (or the new
+            # owner) instead of locking children in the opposite order.
+            with transaction.atomic():
+                locked = Lobby.objects.select_for_update().filter(pk=lobby.pk).first()
+                if locked is None:
+                    return Response(
+                        {"detail": "Lobby deleted."}, status=status.HTTP_200_OK
+                    )
+                if locked.status == Lobby.Status.IN_GAME:
+                    return Response(
+                        {"detail": "Cannot leave while a game is in progress."},
+                        status=status.HTTP_409_CONFLICT,
+                    )
+                username = request.user.username
+                if transfer_ownership(locked, request.user.id) is None:  # type: ignore[misc]
+                    locked.delete()
+                    return Response(
+                        {"detail": "Lobby deleted."}, status=status.HTTP_200_OK
+                    )
+            channel_layer = get_channel_layer()
+            if channel_layer is not None:
+                async_to_sync(channel_layer.group_send)(
+                    f"lobby_{lobby.code}",
+                    {"type": "player.left", "username": username},
+                )
+            return Response({"detail": "Left lobby."}, status=status.HTTP_200_OK)
+
+        # Otherwise just remove the player. If they hold the acting-host role
+        # it passes to the next connected member (or back to the owner). Lock
+        # order: Lobby, then the member (see apps.core.host).
         username = request.user.username
-        membership.delete()
+        with transaction.atomic():
+            locked = Lobby.objects.select_for_update().get(pk=lobby.pk)
+            membership.delete()
+            if locked.acting_host_id == request.user.id:  # type: ignore[misc]
+                from apps.core.host import member_leaving
+
+                member_leaving(locked, request.user.id)  # type: ignore[misc]
 
         # Broadcast player left event (only for non-host)
         channel_layer = get_channel_layer()
@@ -290,6 +325,28 @@ class LobbyReadyView(APIView):
 
         serializer = LobbySerializer(lobby)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class LobbyPlayAgainView(APIView):
+    """Reopen a lobby after its game has finished so the host can deal again.
+
+    Host only (403). The lobby's newest game must be in the results phase
+    (409 otherwise, including while a game is running). Members and settings
+    (the deck) are kept; the lobby goes back to ``waiting`` with everyone
+    ready. Returns the lobby, same body as the lobby detail. The finished game
+    and its results stay readable.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, code):
+        from apps.core.lobbies import PlayAgainError, play_again
+
+        try:
+            lobby = play_again(code, request.user.id)
+        except PlayAgainError as exc:
+            return Response({"detail": exc.detail}, status=exc.status_code)
+        return Response(LobbySerializer(lobby).data, status=status.HTTP_200_OK)
 
 
 class LogoutView(APIView):

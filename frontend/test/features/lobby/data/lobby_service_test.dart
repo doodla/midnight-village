@@ -249,6 +249,86 @@ void main() {
       });
     });
 
+    group('playAgain', () {
+      test(
+        'sends POST to /lobbies/<code>/play-again/ and returns the lobby',
+        () async {
+          when(
+            () => mockClient.post<Map<String, dynamic>>(
+              '/lobbies/ABC123/play-again/',
+            ),
+          ).thenAnswer(
+            (_) async => Response(
+              requestOptions: RequestOptions(
+                path: '/lobbies/ABC123/play-again/',
+              ),
+              data: _lobbyResponseJson(),
+            ),
+          );
+
+          final lobby = await service.playAgain('ABC123');
+
+          expect(lobby.code, 'ABC123');
+          expect(lobby.status, 'waiting');
+          expect(lobby.players, hasLength(1));
+        },
+      );
+
+      test('maps 403 (not the host) to ForbiddenException', () async {
+        when(
+          () => mockClient.post<Map<String, dynamic>>(
+            '/lobbies/ABC123/play-again/',
+          ),
+        ).thenThrow(
+          DioException(
+            requestOptions: RequestOptions(path: '/lobbies/ABC123/play-again/'),
+            response: Response(
+              requestOptions: RequestOptions(
+                path: '/lobbies/ABC123/play-again/',
+              ),
+              statusCode: 403,
+            ),
+            type: DioExceptionType.badResponse,
+          ),
+        );
+
+        await expectLater(
+          () => service.playAgain('ABC123'),
+          throwsA(isA<ForbiddenException>()),
+        );
+      });
+    });
+
+    group('activeGameIdAt', () {
+      Future<String?> lookUp(Map<String, dynamic> body) {
+        when(
+          () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
+            data: body,
+          ),
+        );
+        return service.activeGameIdAt('ABC123');
+      }
+
+      test('returns the game running at this table', () async {
+        expect(
+          await lookUp({
+            'game_id': 'g2',
+            'phase': 'night',
+            'lobby_code': 'ABC123',
+          }),
+          'g2',
+        );
+      });
+
+      test('is null for another table or no game', () async {
+        expect(await lookUp({'game_id': 'g2', 'lobby_code': 'OTHER1'}), isNull);
+        expect(await lookUp({'game': null}), isNull);
+      });
+    });
+
     group('fetchLobby', () {
       test('sends GET to /lobbies/<code>/ and returns LobbyState', () async {
         when(

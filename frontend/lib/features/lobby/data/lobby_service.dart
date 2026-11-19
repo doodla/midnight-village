@@ -111,6 +111,43 @@ class LobbyService {
     }
   }
 
+  /// Takes the table back to waiting after a finished game (host only).
+  ///
+  /// POST /lobbies/<code>/play-again/
+  /// 403 for a non-host, 409 when the game is not in results. Returns the
+  /// lobby (same players, same deck, waiting).
+  Future<LobbyState> playAgain(String code) async {
+    try {
+      final response = await _client.post<Map<String, dynamic>>(
+        '/lobbies/$code/play-again/',
+      );
+      return _parseLobbyResponse(response);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// The id of the game this player is in at table [code], if one is running.
+  ///
+  /// GET /onuw/me/current-game/ -- null when there is none or it belongs to
+  /// another table. Lets a lobby that missed `game_started` find the game.
+  Future<String?> activeGameIdAt(String code) async {
+    try {
+      final response = await _client.get<Map<String, dynamic>>(
+        '/onuw/me/current-game/',
+      );
+      final data = response.data;
+      if (data == null) return null;
+      final game = data['game'] is Map<String, dynamic>
+          ? data['game'] as Map<String, dynamic>
+          : data;
+      if (game['lobby_code']?.toString() != code) return null;
+      return game['game_id']?.toString();
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
   /// Fetches the current lobby state.
   ///
   /// GET /lobbies/<code>/

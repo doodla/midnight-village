@@ -16,6 +16,9 @@ SECRET_KEY = "django-insecure-test-key-not-for-production"
 
 DEBUG = False
 
+# Tests never recover timers at import time (they build their own state).
+ONUW_RECOVER_TIMERS_ON_START = False
+
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
 # Use PostgreSQL for test environment parity (per spec requirement)

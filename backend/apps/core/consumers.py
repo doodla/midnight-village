@@ -1,5 +1,8 @@
 """WebSocket consumers for core app."""
 
+import asyncio
+import contextlib
+
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
@@ -34,13 +37,31 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
 
         await self.accept()
 
+        # Presence, for host handover only (never broadcast). Counted after
+        # accept; a rejected connection is never counted.
+        await self._count_connection(True)
+        self._presence_counted = True
+        from apps.core import presence
+
+        self._heartbeat_task = asyncio.ensure_future(
+            presence.heartbeat_loop(self._beat)
+        )
+
     async def disconnect(self, code):
         # Leave lobby group
-        if self.channel_layer is not None:
+        if self.channel_layer is not None and hasattr(self, "lobby_group_name"):
             await self.channel_layer.group_discard(
                 self.lobby_group_name,
                 self.channel_name,
             )
+        task = getattr(self, "_heartbeat_task", None)
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        if getattr(self, "_presence_counted", False):
+            self._presence_counted = False
+            await self._count_connection(False)
 
     async def receive_json(self, content, **kwargs):
         """Reject client-sent messages — lobby actions go through HTTP API."""
@@ -88,6 +109,18 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
+    async def host_changed(self, event):
+        """The host role passed on, or went back to the owner."""
+        await self.send_json(
+            {
+                "type": "host_changed",
+                "host_id": event["host_id"],
+                "host_name": event["host_name"],
+                "original_host_id": event["original_host_id"],
+                "reason": event["reason"],
+            }
+        )
+
     async def game_started(self, event):
         """Handle game started event — forward to all lobby WebSocket clients."""
         await self.send_json(
@@ -96,6 +129,48 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
                 "game_id": event["game_id"],
             }
         )
+
+    @database_sync_to_async
+    def _count_connection(self, opened: bool):
+        """Count this socket for host handover. Never fatal to the connection."""
+        import logging
+
+        from apps.core import host
+
+        try:
+            if opened:
+                host.register_lobby_connection(
+                    self.lobby_code, self.scope["user"].id, self.channel_name
+                )
+            else:
+                host.unregister_lobby_connection(
+                    self.lobby_code, self.scope["user"].id, self.channel_name
+                )
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Host handover bookkeeping failed for lobby %s", self.lobby_code
+            )
+
+    async def _beat(self):
+        """One heartbeat: refresh this socket's row (its own short DB use)."""
+        # Not thread-sensitive: a pool thread does the beat and releases its
+        # database connection (nothing stays open between beats).
+        await database_sync_to_async(self._refresh_presence, thread_sensitive=False)()
+
+    def _refresh_presence(self):
+        from apps.core import host
+
+        try:
+            return host.refresh_lobby_connection(
+                self.lobby_code, self.scope["user"].id, self.channel_name
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Lobby presence heartbeat failed for %s", self.lobby_code
+            )
+            return False
 
     @database_sync_to_async
     def _check_lobby_membership(self, code, user_id):

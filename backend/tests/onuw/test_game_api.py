@@ -185,10 +185,10 @@ class TestGameStart:
             ),
             patch("apps.onuw.views.async_to_sync") as mock_views_a2s,
             patch(
-                "apps.onuw.services.get_channel_layer",
+                "apps.core.effects.get_channel_layer",
                 return_value=mock_channel_layer,
             ),
-            patch("apps.onuw.services.async_to_sync") as _mock_services_a2s,
+            patch("apps.core.effects.async_to_sync") as _mock_services_a2s,
         ):
             api_client.force_authenticate(user=host)
             url = reverse("onuw:game-start", kwargs={"code": lobby.code})

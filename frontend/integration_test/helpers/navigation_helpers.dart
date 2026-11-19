@@ -15,10 +15,11 @@ extension NavigationAssertions on WidgetTester {
   ///
   /// Reads the route from the nearest [GoRouter] in the widget tree.
   void expectRoute(String path) {
-    final context = element(find.byType(Router<Object>));
+    // GoRouter is provided to the widgets the router builds, not to the
+    // Router widget itself, so look it up from the Navigator beneath it.
+    final context = element(find.byType(Navigator).first);
     final router = GoRouter.of(context);
-    final currentLocation =
-        router.routerDelegate.currentConfiguration.fullPath;
+    final currentLocation = router.routerDelegate.currentConfiguration.fullPath;
     expect(
       currentLocation,
       equals(path),

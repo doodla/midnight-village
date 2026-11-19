@@ -25,10 +25,12 @@ class Game(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    lobby = models.OneToOneField(
+    # A table (lobby) can hold many games over a night: "play again" deals a new
+    # Game on the same lobby. The lobby's current game is its newest one.
+    lobby = models.ForeignKey(
         "core.Lobby",
         on_delete=models.CASCADE,
-        related_name="game",
+        related_name="games",
     )
     phase = models.CharField(
         max_length=20,
@@ -42,7 +44,15 @@ class Game(models.Model):
     )
     current_wave = models.PositiveIntegerField(
         default=0,
-        help_text="0 = not in night phase, 1-4 = active wave number",
+        help_text=(
+            "0 = not in night phase, 1-2 = active night window "
+            "(1 = Doppelganger, 2 = everyone else at once)"
+        ),
+    )
+    night_window_opened_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the current night window opened; enforces the minimum length",
     )
     random_seed = models.BigIntegerField()
     night_actions_log = models.JSONField(default=list, blank=True)
@@ -105,9 +115,49 @@ class PlayerRole(models.Model):
         related_name="voted_by",
     )
     has_acted = models.BooleanField(default=False)
+    disconnected_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "When the player was noticed to have no open socket (last socket "
+            "closed, or its heartbeat went stale); None while connected or if "
+            "they were never seen disconnected. Whether they are connected NOW "
+            "comes from SocketPresence rows."
+        ),
+    )
 
     class Meta:
         unique_together = (("game", "user"),)
 
     def __str__(self) -> str:
         return f"{self.user} as {self.original_role} in {self.game_id}"
+
+
+class SocketPresence(models.Model):
+    """
+    One row per open GAME WebSocket.
+
+    Inserted on connect, deleted on a clean disconnect, and ``last_seen`` is
+    refreshed by the consumer's heartbeat. A user is *connected* to the game
+    while at least one of their rows has a ``last_seen`` inside the staleness
+    timeout (``ONUW_PRESENCE_STALE_SECONDS``). A row whose heartbeat stops
+    (instance killed, no ``disconnect``) simply goes stale; a durable
+    ``presence_check`` timer notices it. Nothing here is ever reset at server
+    start. (Lobby sockets are ``apps.core.models.LobbySocket``.)
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="socket_presences",
+    )
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name="sockets")
+    channel_name = models.CharField(max_length=255, unique=True)
+    connected_at = models.DateTimeField()
+    last_seen = models.DateTimeField()
+
+    class Meta:
+        indexes = [models.Index(fields=["game", "user"])]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} on game {self.game_id} ({self.channel_name[-8:]})"

@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../../core/host/host_change.dart';
+
 part 'lobby_state.freezed.dart';
 
 /// A player in a lobby.
@@ -42,6 +44,33 @@ abstract class LobbyState with _$LobbyState {
     required String status,
     required int maxPlayers,
     @Default({}) Map<String, int> roleConfig,
+
+    /// The game this table has just started (from `game_started`, or found in
+    /// the player's current game). The screen opens it. A table can run
+    /// several games one after another, so each start sets a new id.
+    String? startedGameId,
+
+    /// Display name of the effective host (the lobby's `host`).
+    String? hostName,
+
+    /// The host who set the table up. [hostId] is the effective host, who may
+    /// be someone else while the original host's phone is away.
+    int? originalHostId,
+
+    /// True while someone other than the original host is hosting.
+    @Default(false) bool isActingHost,
+
+    /// The "Ana is hosting again" / "Ben is the host now" line, shown for a few
+    /// seconds after the role returns or is transferred. Frontend only.
+    HostChange? briefHostNotice,
+
+    /// A plain line about a host action refused because the role had moved.
+    /// Frontend only.
+    String? hostActionNotice,
+
+    /// Set when the server says the table no longer exists (its last member
+    /// left). The screen says so and goes home. Frontend only.
+    @Default(false) bool tableClosed,
   }) = _LobbyState;
 
   /// Parses the backend's LobbyResponse format.
@@ -60,6 +89,10 @@ abstract class LobbyState with _$LobbyState {
       status: json['status'] as String,
       maxPlayers: json['max_players'] as int,
       roleConfig: roles?.map((k, v) => MapEntry(k, v as int)) ?? {},
+      // `host` is the effective host. Both extra fields are optional.
+      hostName: host['display_name'] as String?,
+      originalHostId: json['original_host_id'] as int?,
+      isActingHost: json['is_acting_host'] == true,
     );
   }
 }

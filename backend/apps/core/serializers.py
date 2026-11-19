@@ -31,13 +31,19 @@ class LobbySerializer(serializers.ModelSerializer):
     """Serializer for Lobby model."""
 
     players = LobbyMemberSerializer(many=True, read_only=True)
-    host = UserBriefSerializer(read_only=True)
+    # `host` is the EFFECTIVE host (the acting host while the owner is away), so
+    # clients that only read `host` keep working.
+    host = serializers.SerializerMethodField()
+    original_host_id = serializers.IntegerField(source="host_id", read_only=True)
+    is_acting_host = serializers.SerializerMethodField()
 
     class Meta:
         model = Lobby
         fields = [
             "code",
             "host",
+            "original_host_id",
+            "is_acting_host",
             "game_type",
             "status",
             "max_players",
@@ -45,7 +51,13 @@ class LobbySerializer(serializers.ModelSerializer):
             "players",
             "created_at",
         ]
-        read_only_fields = ["code", "host", "status", "created_at"]
+        read_only_fields = ["code", "status", "created_at"]
+
+    def get_host(self, lobby: Lobby) -> dict:
+        return UserBriefSerializer(lobby.effective_host).data
+
+    def get_is_acting_host(self, lobby: Lobby) -> bool:
+        return lobby.acting_host_id is not None
 
 
 class LobbyCreateSerializer(serializers.ModelSerializer):

@@ -85,7 +85,7 @@ def _me_url(game_id):
 
 def _patch_channels():
     """Context manager to mock out channel layer so WebSocket sends are no-ops."""
-    return patch("apps.onuw.services.get_channel_layer", return_value=None)
+    return patch("apps.core.effects.get_channel_layer", return_value=None)
 
 
 class TestEndDiscussion:
@@ -281,7 +281,9 @@ class TestVoting:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_vote_does_not_reveal_target_in_broadcast(self, api_client, db):
+    def test_vote_does_not_reveal_target_in_broadcast(
+        self, api_client, db, django_capture_on_commit_callbacks
+    ):
         """
         The vote_submitted broadcast contains player_id but NOT target_player_id.
         """
@@ -302,16 +304,17 @@ class TestVoting:
         mock_channel_layer = MagicMock()
         with (
             patch(
-                "apps.onuw.services.get_channel_layer",
+                "apps.core.effects.get_channel_layer",
                 return_value=mock_channel_layer,
             ),
-            patch("apps.onuw.services.async_to_sync") as mock_a2s,
+            patch("apps.core.effects.async_to_sync") as mock_a2s,
         ):
-            response = api_client.post(
-                _vote_url(game.id),
-                {"target_player_id": target.id},
-                format="json",
-            )
+            with django_capture_on_commit_callbacks(execute=True):
+                response = api_client.post(
+                    _vote_url(game.id),
+                    {"target_player_id": target.id},
+                    format="json",
+                )
             assert response.status_code == status.HTTP_200_OK
 
             # Find the vote.submitted call
@@ -523,7 +526,9 @@ class TestForceReveal:
         game.refresh_from_db()
         assert game.phase == Phase.RESULTS
 
-    def test_reveal_includes_null_for_non_voters(self, api_client, db):
+    def test_reveal_includes_null_for_non_voters(
+        self, api_client, db, django_capture_on_commit_callbacks
+    ):
         """
         Force-reveal includes null target_player_id for players who did not vote.
         """
@@ -550,13 +555,14 @@ class TestForceReveal:
         mock_channel_layer = MagicMock()
         with (
             patch(
-                "apps.onuw.services.get_channel_layer",
+                "apps.core.effects.get_channel_layer",
                 return_value=mock_channel_layer,
             ),
-            patch("apps.onuw.services.async_to_sync") as mock_a2s,
+            patch("apps.core.effects.async_to_sync") as mock_a2s,
         ):
             api_client.force_authenticate(user=host)
-            response = api_client.post(_reveal_url(game.id))
+            with django_capture_on_commit_callbacks(execute=True):
+                response = api_client.post(_reveal_url(game.id))
             assert response.status_code == status.HTTP_200_OK
 
             # Find the vote.reveal call

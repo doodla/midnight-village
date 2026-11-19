@@ -164,6 +164,7 @@ The Doppelganger is the most complex role in ONUW. This document specifies every
   - Swaps her Doppelganger card with that center card
   - Does **not** view her new card
 - Doppelganger closes eyes
+- If she does not make this choice before window 1 ends (or her phone is gone past the grace period), the server swaps her with a seeded random center card, as for the real Drunk
 - The real Drunk later wakes in Wave 3 and performs their own Drunk action
 
 **Critical timing:** The Doppelganger-as-Drunk swaps in Wave 1. Her Doppelganger card goes to the center. She now holds a center card but doesn't know what it is. The real Drunk in Wave 3 swaps with a (potentially different) center card.

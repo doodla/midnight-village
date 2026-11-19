@@ -161,6 +161,159 @@ void main() {
       expect(find.textContaining('center card'), findsAtLeastNWidgets(1));
     });
 
+    testWidgets('night result with a prompt waiting shows a Continue button', (
+      tester,
+    ) async {
+      final state = _makeState(
+        phase: 'night',
+        nightSubView: NightSubView.actionResult,
+        lastActionResult: const ActionResult(
+          wave: 1,
+          revealedInfo: {'action_type': 'swap_with_center', 'card_index': 2},
+        ),
+        actionPrompt: const ActionPrompt(
+          roleActingAs: 'Seer',
+          actionTypes: ['peek_player', 'peek_center', 'skip'],
+          validTargets: {},
+          wave: 1,
+        ),
+      );
+      await tester.pumpWithTokens(
+        const GameContainerScreen(gameId: 'test-game-id'),
+        overrides: [
+          gameProvider(
+            'test-game-id',
+          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+        ],
+      );
+
+      expect(find.text('Continue'), findsOneWidget);
+    });
+
+    testWidgets('night result with nothing waiting has no Continue button', (
+      tester,
+    ) async {
+      final state = _makeState(
+        phase: 'night',
+        nightSubView: NightSubView.actionResult,
+        lastActionResult: const ActionResult(
+          wave: 2,
+          revealedInfo: {'action_type': 'swap_with_center', 'card_index': 2},
+        ),
+      );
+      await tester.pumpWithTokens(
+        const GameContainerScreen(gameId: 'test-game-id'),
+        overrides: [
+          gameProvider(
+            'test-game-id',
+          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+        ],
+      );
+
+      expect(find.text('Continue'), findsNothing);
+    });
+
+    testWidgets('discussion shows an undismissed night result first', (
+      tester,
+    ) async {
+      final state = _makeState(
+        phase: 'discussion',
+        lastActionResult: const ActionResult(
+          wave: 2,
+          revealedInfo: {'action_type': 'insomniac', 'current_role': 'robber'},
+        ),
+      );
+      await tester.pumpWithTokens(
+        const GameContainerScreen(gameId: 'test-game-id'),
+        overrides: [
+          gameProvider(
+            'test-game-id',
+          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+        ],
+      );
+
+      expect(find.textContaining('card is now'), findsOneWidget);
+      expect(find.text('Continue to discussion'), findsOneWidget);
+      expect(find.text('Roles in this game'), findsNothing);
+    });
+
+    testWidgets('Seer prompt with skip offers a Skip next to the choices', (
+      tester,
+    ) async {
+      final state = _makeState(
+        phase: 'night',
+        nightSubView: NightSubView.seerChoice,
+        actionPrompt: const ActionPrompt(
+          roleActingAs: 'Seer',
+          actionTypes: ['peek_player', 'peek_center', 'skip'],
+          validTargets: {},
+          wave: 2,
+        ),
+      );
+      await tester.pumpWithTokens(
+        const GameContainerScreen(gameId: 'test-game-id'),
+        overrides: [
+          gameProvider(
+            'test-game-id',
+          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+        ],
+      );
+
+      expect(find.text('Skip'), findsOneWidget);
+    });
+
+    testWidgets('prompt without skip shows no Skip button', (tester) async {
+      final state = _makeState(
+        phase: 'night',
+        nightSubView: NightSubView.actionPrompt,
+        actionPrompt: const ActionPrompt(
+          roleActingAs: 'Drunk',
+          actionTypes: ['swap_with_center'],
+          validTargets: {},
+          wave: 2,
+        ),
+      );
+      await tester.pumpWithTokens(
+        const GameContainerScreen(gameId: 'test-game-id'),
+        overrides: [
+          gameProvider(
+            'test-game-id',
+          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+        ],
+      );
+
+      expect(find.byType(NightActionPrompt), findsOneWidget);
+      expect(find.text('Skip'), findsNothing);
+    });
+
+    testWidgets('Robber prompt with skip shows the action prompt and a Skip', (
+      tester,
+    ) async {
+      final state = _makeState(
+        phase: 'night',
+        nightSubView: NightSubView.actionPrompt,
+        actionPrompt: const ActionPrompt(
+          roleActingAs: 'Robber',
+          actionTypes: ['swap_with_player', 'skip'],
+          validTargets: {
+            'player_ids': [2],
+          },
+          wave: 2,
+        ),
+      );
+      await tester.pumpWithTokens(
+        const GameContainerScreen(gameId: 'test-game-id'),
+        overrides: [
+          gameProvider(
+            'test-game-id',
+          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+        ],
+      );
+
+      expect(find.byType(NightActionPrompt), findsOneWidget);
+      expect(find.text('Skip'), findsOneWidget);
+    });
+
     testWidgets('shows lone werewolf view for NightSubView.loneWerewolfPeek', (
       tester,
     ) async {

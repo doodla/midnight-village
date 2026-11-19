@@ -391,23 +391,53 @@ void main() {
   });
 
   group('GameNotifier WS event: wave_complete', () {
-    test('clears prompt and result, sets waiting', () async {
+    test(
+      'clears the prompt and keeps the result the player was shown',
+      () async {
+        final (:container, :http, :ws) = _createTestSetup();
+        addTearDown(container.dispose);
+
+        await _readGameState(container);
+
+        // First send an action_result to set state.
+        ws.addServerEvent(
+          jsonEncode({
+            'type': 'action_result',
+            'wave': 2,
+            'revealed_info': {'action_type': 'peek_player', 'role': 'seer'},
+          }),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        // Then wave_complete. Results arrive as the window closes, so the result
+        // must outlive the wave_complete that follows it.
+        ws.addServerEvent(jsonEncode({'type': 'wave_complete', 'wave': 2}));
+        await Future<void>.delayed(Duration.zero);
+
+        final state = container.read(gameProvider('test-game-id')).value!;
+        expect(state.nightSubView, NightSubView.actionResult);
+        expect(state.actionPrompt, isNull);
+        expect(state.lastActionResult, isNotNull);
+      },
+    );
+
+    test('with no result sets waiting and clears the prompt', () async {
       final (:container, :http, :ws) = _createTestSetup();
       addTearDown(container.dispose);
 
       await _readGameState(container);
-
-      // First send an action_result to set state.
       ws.addServerEvent(
         jsonEncode({
-          'type': 'action_result',
+          'type': 'action_prompt',
           'wave': 2,
-          'revealed_info': {'action_type': 'peek_player', 'role': 'seer'},
+          'role_acting_as': 'Robber',
+          'action_types': ['swap_with_player', 'skip'],
+          'valid_targets': {
+            'player_ids': [2, 3],
+          },
         }),
       );
       await Future<void>.delayed(Duration.zero);
-
-      // Then wave_complete.
       ws.addServerEvent(jsonEncode({'type': 'wave_complete', 'wave': 2}));
       await Future<void>.delayed(Duration.zero);
 
@@ -660,14 +690,15 @@ void main() {
         expect(state.nightSubView, NightSubView.actionResult);
         expect(state.lastActionResult!.revealedInfo['new_role'], 'werewolf');
 
-        // Step 4: wave_complete
+        // Step 4: wave_complete. The result stays: it is what the player
+        // learned, and it arrived only as the window closed.
         ws.addServerEvent(jsonEncode({'type': 'wave_complete', 'wave': 2}));
         await Future<void>.delayed(Duration.zero);
 
         state = container.read(gameProvider('test-game-id')).value!;
-        expect(state.nightSubView, NightSubView.waiting);
+        expect(state.nightSubView, NightSubView.actionResult);
         expect(state.actionPrompt, isNull);
-        expect(state.lastActionResult, isNull);
+        expect(state.lastActionResult!.revealedInfo['new_role'], 'werewolf');
       },
     );
   });
@@ -777,8 +808,20 @@ void main() {
         );
         await Future<void>.delayed(Duration.zero);
 
+        // Her look result stays on screen (with a Continue) instead of being
+        // replaced at once by the follow-up prompt, which is stored for later.
+        state = container.read(gameProvider('test-game-id')).value!;
+        expect(state.nightSubView, NightSubView.actionResult);
+        expect(state.lastActionResult!.revealedInfo['copied_role'], 'seer');
+        expect(state.actionPrompt!.roleActingAs, 'Seer');
+
+        // Continue moves on to the follow-up prompt.
+        container
+            .read(gameProvider('test-game-id').notifier)
+            .dismissNightResult();
         state = container.read(gameProvider('test-game-id')).value!;
         expect(state.nightSubView, NightSubView.seerChoice);
+        expect(state.lastActionResult, isNull);
         expect(state.actionPrompt!.roleActingAs, 'Seer');
       },
     );

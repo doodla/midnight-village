@@ -29,15 +29,20 @@ class GameMeSerializer(serializers.Serializer):
     """
 
     game_id = serializers.UUIDField(source="id")
+    # The table's code, in every phase: the results screen needs it to play again
+    # or leave.
+    lobby_code = serializers.CharField(source="lobby.code", read_only=True)
     phase = serializers.CharField()
     current_wave = serializers.IntegerField()
     deadline = serializers.SerializerMethodField()
     your_role = serializers.SerializerMethodField()
     is_host = serializers.SerializerMethodField()
+    host_id = serializers.SerializerMethodField()
     has_voted = serializers.SerializerMethodField()
     players = serializers.SerializerMethodField()
     action_prompt = serializers.SerializerMethodField()
     roles_in_game = serializers.SerializerMethodField()
+    night_results = serializers.SerializerMethodField()
 
     def get_deadline(self, game: Game) -> str | None:
         """
@@ -50,9 +55,14 @@ class GameMeSerializer(serializers.Serializer):
             return game.phase_deadline.isoformat()
         return None
 
+    def get_host_id(self, game: Game) -> int:
+        """Who holds the host role now (the acting host while the owner is away)."""
+        return game.lobby.effective_host_id
+
     def get_is_host(self, game: Game) -> bool:
         """
-        Whether the requesting player is the lobby host.
+        Whether the requesting player is the effective host (the owner, or the
+        acting host while the owner's phone is away).
 
         Controls host-only actions such as ending the discussion phase early.
         Returns False when the request context is unavailable (e.g. tests
@@ -61,7 +71,7 @@ class GameMeSerializer(serializers.Serializer):
         request = self.context.get("request")
         if request is None:
             return False
-        return game.lobby.host_id == request.user.id
+        return game.lobby.is_host(request.user.id)
 
     def get_your_role(self, game: Game) -> dict:
         """
@@ -151,21 +161,37 @@ class GameMeSerializer(serializers.Serializer):
             return None
 
         # Build the prompt with valid targets
-        from .engine.night import build_prompt
-        from .engine.roles import get_role
+        from .engine.night import build_role_prompt
         from .services import build_game_state
 
-        role_def = get_role(acting_role)
         state = build_game_state(game)
-        prompt = build_prompt(
-            state, player_role.user_id, acting_role, role_def.action_types
-        )
+        prompt = build_role_prompt(state, player_role.user_id, acting_role)
         return {
             "role_acting_as": prompt["role_acting_as"],
             "action_types": prompt["action_types"],
             "valid_targets": prompt["valid_targets"],
             "wave": game.current_wave,
         }
+
+    def get_night_results(self, game: Game) -> list[dict[str, Any]]:
+        """
+        The requesting player's own night results for every closed window.
+
+        Lets a phone that was offline when a window closed catch up: each entry
+        has the same shape as the ``action_result`` socket event (``wave``,
+        ``action_type``, ``revealed_info``) and is built by the same transform.
+        Only this player's results, and nothing about a window still open.
+        """
+        player_role = self.context.get("player_role")
+        if player_role is None:
+            return []
+        from .services import night_results_for_player
+
+        names = {
+            pr.user_id: pr.user.display_name or pr.user.username
+            for pr in self.context.get("all_player_roles", [])
+        }
+        return night_results_for_player(game, player_role.user_id, names)
 
     def get_roles_in_game(self, game: Game) -> list[dict[str, Any]]:
         """
