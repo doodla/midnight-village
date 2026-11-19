@@ -168,8 +168,22 @@ void main() {
         (wires['Bob']!.ofType('action_prompt').last['action_types'] as List),
         containsAll(['peek_player', 'peek_center', 'skip']),
       );
-      // Alice copied the Seer and has nothing to do in window 2.
-      expect(wires['Alice']!.trace.last, 'wave_waiting:2');
+      // Alice copied the Seer and has nothing to do in window 2: she is told to
+      // wait. Her own events travel on a different channel than the table's, so
+      // wait for hers instead of assuming it is already the last one.
+      await wires['Alice']!.waitFor(
+        () => wires['Alice']!.ofType('wave_waiting').any((e) => e['wave'] == 2),
+        reason: 'Alice\'s wave_waiting for window 2',
+        timeout: eventTimeout,
+      );
+      expect(
+        wires['Alice']!.trace,
+        containsAllInOrder([
+          'wave_complete:1',
+          'wave_start:2',
+          'wave_waiting:2',
+        ]),
+      );
 
       // Bob and Carol answer; Dave has not. NO result is sent to anyone yet.
       await controller.driveAs(
