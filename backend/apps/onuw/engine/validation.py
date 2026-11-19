@@ -76,6 +76,18 @@ def validate_timer_settings(settings: dict) -> list[str]:
     return errors
 
 
+# A label for the pace preset the deck screen used; the server never reads it,
+# it only refuses junk so a screen can re-select its preset.
+PACE_LABELS: tuple[str, ...] = ("quick", "normal", "long", "custom")
+
+
+def validate_pace(settings: dict) -> list[str]:
+    """``pace`` (if present) must be one of the preset labels."""
+    if "pace" in settings and settings["pace"] not in PACE_LABELS:
+        return [f"'pace' must be one of: {', '.join(PACE_LABELS)}."]
+    return []
+
+
 def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
     """
     Validate ONUW role configuration.
@@ -91,7 +103,7 @@ def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
     if not isinstance(settings, dict):
         return ["Settings must be an object."]
 
-    errors: list[str] = validate_timer_settings(settings)
+    errors: list[str] = [*validate_timer_settings(settings), *validate_pace(settings)]
 
     if player_count < 3:
         errors.append(f"At least 3 players required, got {player_count}.")

@@ -108,6 +108,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "10/minute",
+        # GET /api/stats/online/ (the home screen polls it; a CDN absorbs most).
+        "online_stats": "60/minute",
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
 }

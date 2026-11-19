@@ -123,6 +123,15 @@ sections below say otherwise, this list wins:
   final, center_moved}`, or `null` if the night cannot be replayed; see `api-contract-v2.md`
   section 4). Built forwards from `Game.dealt_center_cards`; the debug oracle shows it as
   `dealt_center_cards`.
+- **Home extras.** `GET /api/stats/online/` (no auth) answers `{"players", "tables"}` from fresh
+  socket rows, `Cache-Control: public, max-age=15`. `GET /api/onuw/me/recent-games/?limit=`
+  answers the caller's finished games (`game_id`, `ended_at`, `player_count`, `winning_teams`,
+  `you_won`, `token`, `seat`).
+- **Lobby settings PATCH merges.** `PATCH /api/lobbies/<code>/` with `{"settings": {...}}` merges the
+  given keys over the stored settings (the harness and the game driver send complete
+  settings, which still works), refuses with 409 `lobby_in_game` while a game runs, and
+  validates the merged settings (`pace`, if present, is `quick|normal|long|custom`). The ready
+  toggle is also 409 `lobby_in_game` while a game runs.
 
 ## 1. Goal
 

@@ -7,6 +7,7 @@ import secrets
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -717,6 +718,54 @@ class CurrentGameView(APIView):
                 "lobby_code": game.lobby.code,
             }
         )
+
+
+RECENT_GAMES_DEFAULT = 5
+RECENT_GAMES_MAX = 10
+
+
+def _recent_games_limit(raw: str | None) -> int:
+    """``?limit=`` clamped to 1..10; a missing or unreadable value is the default."""
+    try:
+        return max(1, min(int(raw), RECENT_GAMES_MAX))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return RECENT_GAMES_DEFAULT
+
+
+class RecentGamesView(APIView):
+    """The caller's finished games, newest first, with just enough for a list.
+
+    Only games in ``results`` in which the caller played: an unfinished game holds
+    live hidden information and "where am I" covers it. Nothing about anyone
+    else's role, and no lobby code (it would let anyone read the lobby). The full
+    detail stays behind ``results/``, which checks membership.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        limit = _recent_games_limit(request.query_params.get("limit"))
+        mine = (
+            PlayerRole.objects.filter(user=request.user, game__phase=Phase.RESULTS)
+            .select_related("game")
+            .annotate(player_count=Count("game__player_roles"))
+            .order_by("-game__updated_at", "-game_id")[:limit]
+        )
+        games = []
+        for pr in mine:
+            outcomes = pr.game.results.get("player_outcomes", {})
+            games.append(
+                {
+                    "game_id": str(pr.game_id),  # type: ignore[attr-defined]
+                    "ended_at": pr.game.updated_at.isoformat(),
+                    "player_count": pr.player_count,  # type: ignore[attr-defined]
+                    "winning_teams": list(pr.game.results.get("winning_teams", [])),
+                    "you_won": outcomes.get(str(request.user.id)) == "win",
+                    "token": pr.token,
+                    "seat": pr.seat,
+                }
+            )
+        return Response({"games": games})
 
 
 class ResultsView(APIView):

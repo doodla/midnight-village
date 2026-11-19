@@ -33,6 +33,11 @@ urlpatterns = [
         name="current-game",
     ),
     path(
+        "me/recent-games/",
+        views.RecentGamesView.as_view(),
+        name="recent-games",
+    ),
+    path(
         "games/<str:game_id>/me/",
         views.GameMeView.as_view(),
         name="game-me",
