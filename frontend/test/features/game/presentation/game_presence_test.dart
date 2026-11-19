@@ -20,7 +20,7 @@ Future<void> _settle(WidgetTester tester) async {
 
 void main() {
   group('Presence in game state', () {
-    test('everyone counts as connected when the server says nothing', () async {
+    test('everyone is connected when the player list says so', () async {
       final setup = GameTestSetup.create();
       addTearDown(setup.dispose);
 
@@ -42,21 +42,10 @@ void main() {
       expect(state.awayPlayers.map((p) => p.displayName), ['Bob']);
     });
 
-    test('reads connected from /me/ players when they carry it', () async {
-      final setup = GameTestSetup.create(
-        gameMeJson: GameMeJsonBuilder().withPlayersAway({3}).build(),
-      );
-      addTearDown(setup.dispose);
-
-      final state = await setup.readGameState();
-
-      expect(_connected(state, 3), isFalse);
-    });
-
     test('a player list that cannot be fetched leaves everyone connected', () {
-      // No /players/ route is mocked: the call fails and is ignored.
       final setup = GameTestSetup.create();
       addTearDown(setup.dispose);
+      setup.registerGet('/onuw/games/$_gameId/players/', null, statusCode: 500);
 
       expect(
         setup.readGameState().then((s) => s.hasAwayPlayers),
@@ -92,7 +81,10 @@ void main() {
         setup.ws.addServerEvent(
           GameEvents.playerPresence(playerId: 99, connected: false),
         );
-        setup.ws.addServerEvent({'type': 'player_presence', 'player_id': 2});
+        setup.ws.addOffContractEvent({
+          'type': 'player_presence',
+          'player_id': 2,
+        });
 
         expect(setup.currentState.players, before.players);
       },
@@ -127,7 +119,8 @@ void main() {
   group('Night waiting screen', () {
     testWidgets('names the player who is away, for a non-host', (tester) async {
       await tester.pumpGameFlow(
-        gameMeJson: GameMeJsonBuilder().withPlayersAway({2}).build(),
+        gameMeJson: GameMeJsonBuilder().build(),
+        away: {2},
       );
 
       expect(find.text('Waiting for Bob to reconnect'), findsOneWidget);
@@ -148,7 +141,8 @@ void main() {
     testWidgets('the host gets "Continue without them" and it advances the '
         'night', (tester) async {
       final setup = await tester.pumpGameFlow(
-        gameMeJson: GameMeJsonBuilder().asHost().withPlayersAway({3}).build(),
+        gameMeJson: GameMeJsonBuilder().asHost().build(),
+        away: {3},
       );
       setup.registerPost('/onuw/games/$_gameId/advance-wave/');
 
@@ -167,9 +161,14 @@ void main() {
     testWidgets('says so in plain words when the host\'s call fails', (
       tester,
     ) async {
-      // /advance-wave/ is not mocked, so the call is rejected.
-      await tester.pumpGameFlow(
-        gameMeJson: GameMeJsonBuilder().asHost().withPlayersAway({3}).build(),
+      final setup = await tester.pumpGameFlow(
+        gameMeJson: GameMeJsonBuilder().asHost().build(),
+        away: {3},
+      );
+      setup.registerPost(
+        '/onuw/games/$_gameId/advance-wave/',
+        data: {'detail': 'Game is not in the night phase.'},
+        statusCode: 400,
       );
 
       await tester.tap(find.text('Continue without them'));
@@ -220,9 +219,7 @@ void main() {
     testWidgets(
       'marks the player who is away and says who the game waits for',
       (tester) async {
-        await tester.pumpGameFlow(
-          gameMeJson: voting().withPlayersAway({2}).build(),
-        );
+        await tester.pumpGameFlow(gameMeJson: voting().build(), away: {2});
 
         expect(find.text('away'), findsOneWidget);
         expect(find.text('Waiting for Bob to reconnect'), findsOneWidget);
@@ -233,9 +230,8 @@ void main() {
     testWidgets('an away player who has already voted is marked but not '
         'waited for', (tester) async {
       await tester.pumpGameFlow(
-        gameMeJson: voting().withPlayersAway({2}).withPlayersHavingVoted({
-          2: true,
-        }).build(),
+        gameMeJson: voting().withPlayersHavingVoted({2: true}).build(),
+        away: {2},
       );
 
       expect(find.text('away'), findsOneWidget);
@@ -246,7 +242,8 @@ void main() {
       tester,
     ) async {
       final setup = await tester.pumpGameFlow(
-        gameMeJson: voting().asHost().withPlayersAway({3}).build(),
+        gameMeJson: voting().asHost().build(),
+        away: {3},
       );
       setup.registerPost('/onuw/games/$_gameId/reveal-votes/');
 
@@ -281,7 +278,8 @@ void main() {
       });
 
       await tester.pumpGameFlow(
-        gameMeJson: voting().asHost().withPlayersAway({2, 3}).build(),
+        gameMeJson: voting().asHost().build(),
+        away: {2, 3},
       );
 
       expect(find.text('Reveal votes now'), findsOneWidget);
@@ -303,11 +301,8 @@ void main() {
   group('Talk', () {
     testWidgets('shows nothing about presence', (tester) async {
       await tester.pumpGameFlow(
-        gameMeJson: GameMeJsonBuilder()
-            .inPhase('discussion')
-            .asHost()
-            .withPlayersAway({2})
-            .build(),
+        gameMeJson: GameMeJsonBuilder().inPhase('discussion').asHost().build(),
+        away: {2},
       );
 
       expect(find.textContaining('reconnect'), findsNothing);

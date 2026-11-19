@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 
+import '../../../helpers/contract/contract_samples.dart';
+
 void main() {
   group('LobbyPlayer', () {
     test('fromJson parses backend nested player format', () {
@@ -66,87 +68,56 @@ void main() {
   });
 
   group('LobbyState', () {
-    final sampleJson = {
-      'code': 'ABC123',
-      'host': {'id': 1, 'username': 'player1', 'display_name': 'Alice'},
-      'game_type': 'onuw',
-      'status': 'waiting',
-      'max_players': 10,
-      'settings': {
-        'roles': {
-          'werewolf': 2,
-          'seer': 1,
-          'robber': 1,
-          'troublemaker': 1,
-          'villager': 3,
-        },
-      },
-      'players': [
-        {
-          'user': {'id': 1, 'username': 'player1', 'display_name': 'Alice'},
-          'is_ready': true,
-          'joined_at': '2026-03-31T06:00:00Z',
-        },
-        {
-          'user': {'id': 2, 'username': 'player2', 'display_name': 'Bob'},
-          'is_ready': false,
-          'joined_at': '2026-03-31T06:01:00Z',
-        },
-      ],
-      'created_at': '2026-03-31T05:55:00Z',
-    };
+    final sampleJson = ContractSamples.map('http/lobby/detail_waiting');
 
-    test('fromJson parses full backend LobbyResponse', () {
+    test('fromJson parses the lobby the server sends', () {
       final lobby = LobbyState.fromJson(sampleJson);
 
-      expect(lobby.code, 'ABC123');
+      expect(lobby.code, 'K7QX4M');
       expect(lobby.hostId, 1);
+      expect(lobby.hostName, 'Ana');
+      expect(lobby.originalHostId, 1);
+      expect(lobby.isActingHost, isFalse);
       expect(lobby.status, 'waiting');
       expect(lobby.maxPlayers, 10);
-      expect(lobby.players, hasLength(2));
-      expect(lobby.players[0].displayName, 'Alice');
+      expect(lobby.players, hasLength(6));
+      expect(lobby.players[0].displayName, 'Ana');
       expect(lobby.players[0].isReady, isTrue);
-      expect(lobby.players[1].displayName, 'Bob');
-      expect(lobby.players[1].isReady, isFalse);
+      expect(lobby.players[0].joinedAt, DateTime.utc(2026, 11, 19, 20, 51));
     });
 
     test('fromJson extracts role config from nested settings', () {
       final lobby = LobbyState.fromJson(sampleJson);
 
       expect(lobby.roleConfig, {
-        'werewolf': 2,
-        'seer': 1,
-        'robber': 1,
-        'troublemaker': 1,
-        'villager': 3,
+        'Werewolf': 2,
+        'Seer': 1,
+        'Robber': 1,
+        'Troublemaker': 1,
+        'Insomniac': 1,
+        'Villager': 2,
+        'Hunter': 1,
       });
     });
 
-    test('fromJson handles missing settings gracefully', () {
-      final json = Map<String, dynamic>.from(sampleJson);
-      json['settings'] = null;
-
-      final lobby = LobbyState.fromJson(json);
-
-      expect(lobby.roleConfig, isEmpty);
-    });
-
-    test('fromJson handles empty roles in settings', () {
-      final json = Map<String, dynamic>.from(sampleJson);
-      json['settings'] = <String, dynamic>{'roles': null};
-
-      final lobby = LobbyState.fromJson(json);
+    test('a new table has no deck yet', () {
+      final lobby = LobbyState.fromJson(
+        ContractSamples.map('http/lobby/created'),
+      );
 
       expect(lobby.roleConfig, isEmpty);
+      expect(lobby.players, hasLength(1));
     });
 
-    test('fromJson handles empty player list', () {
-      final json = Map<String, dynamic>.from(sampleJson);
-      json['players'] = <dynamic>[];
+    test('fromJson reads an acting host', () {
+      final lobby = LobbyState.fromJson(
+        ContractSamples.map('http/lobby/detail_acting_host'),
+      );
 
-      final lobby = LobbyState.fromJson(json);
-
-      expect(lobby.players, isEmpty);
+      expect(lobby.hostId, 8);
+      expect(lobby.hostName, 'Ben');
+      expect(lobby.originalHostId, 7);
+      expect(lobby.isActingHost, isTrue);
     });
 
     test('copyWith creates modified copy', () {
@@ -154,8 +125,8 @@ void main() {
       final updated = lobby.copyWith(status: 'in_game');
 
       expect(updated.status, 'in_game');
-      expect(updated.code, 'ABC123');
-      expect(updated.players, hasLength(2));
+      expect(updated.code, 'K7QX4M');
+      expect(updated.players, hasLength(6));
     });
 
     test('equality works correctly', () {

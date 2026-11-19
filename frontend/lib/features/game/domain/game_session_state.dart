@@ -20,8 +20,11 @@ abstract class GamePlayer with _$GamePlayer {
     @JsonKey(name: 'has_voted') @Default(false) bool hasVoted,
 
     /// Whether the player's phone is connected. Public to the whole table.
-    /// Absent in the response means connected.
-    @Default(true) bool connected,
+    /// Not part of `/me/`: merged in from `GET .../players/` and kept up to
+    /// date by `player_presence` events.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default(true)
+    bool connected,
   }) = _GamePlayer;
 
   factory GamePlayer.fromJson(Map<String, dynamic> json) =>

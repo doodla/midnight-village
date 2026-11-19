@@ -10,7 +10,6 @@ _GamePlayer _$GamePlayerFromJson(Map<String, dynamic> json) => _GamePlayer(
   playerId: (json['player_id'] as num).toInt(),
   displayName: json['display_name'] as String,
   hasVoted: json['has_voted'] as bool? ?? false,
-  connected: json['connected'] as bool? ?? true,
 );
 
 Map<String, dynamic> _$GamePlayerToJson(_GamePlayer instance) =>
@@ -18,7 +17,6 @@ Map<String, dynamic> _$GamePlayerToJson(_GamePlayer instance) =>
       'player_id': instance.playerId,
       'display_name': instance.displayName,
       'has_voted': instance.hasVoted,
-      'connected': instance.connected,
     };
 
 _YourRole _$YourRoleFromJson(Map<String, dynamic> json) => _YourRole(

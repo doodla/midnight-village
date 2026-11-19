@@ -10,6 +10,7 @@ import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
 class MockLobbyService extends Mock implements LobbyService {}
@@ -45,7 +46,7 @@ LobbyState _testLobbyState({
         ],
     status: status,
     maxPlayers: 10,
-    roleConfig: roleConfig ?? {'werewolf': 2, 'seer': 1},
+    roleConfig: roleConfig ?? {'Werewolf': 2, 'Seer': 1},
   );
 }
 
@@ -155,9 +156,7 @@ void main() {
         });
 
         // Simulate player_joined event
-        mockWebSocket.addServerEvent(
-          json.encode({'type': 'player_joined', 'username': 'charlie'}),
-        );
+        mockWebSocket.addServerEvent(GameEvents.playerJoined());
 
         // Wait for the re-fetch to complete
         await refetchCompleter.future;
@@ -194,9 +193,7 @@ void main() {
           return result;
         });
 
-        mockWebSocket.addServerEvent(
-          json.encode({'type': 'player_left', 'username': 'bob'}),
-        );
+        mockWebSocket.addServerEvent(GameEvents.playerLeft());
 
         await refetchCompleter.future;
         await Future<void>.delayed(Duration.zero);
@@ -215,12 +212,7 @@ void main() {
           clearInteractions(mockService);
 
           mockWebSocket.addServerEvent(
-            json.encode({
-              'type': 'player_ready',
-              'username': 'Bob',
-              'user_id': 2,
-              'is_ready': true,
-            }),
+            GameEvents.playerReady(playerId: 2, isReady: true),
           );
 
           final state = container.read(lobbyProvider('ABC123'));
@@ -239,29 +231,24 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         mockWebSocket.addServerEvent(
-          json.encode({
-            'type': 'lobby_update',
-            'data': {
-              'settings': {
-                'roles': {
-                  'werewolf': 2,
-                  'seer': 1,
-                  'robber': 1,
-                  'troublemaker': 1,
-                  'villager': 3,
-                },
-              },
+          GameEvents.lobbyUpdate(
+            roleConfig: {
+              'Werewolf': 2,
+              'Seer': 1,
+              'Robber': 1,
+              'Troublemaker': 1,
+              'Villager': 3,
             },
-          }),
+          ),
         );
 
         final state = container.read(lobbyProvider('ABC123'));
         expect(state.value?.roleConfig, {
-          'werewolf': 2,
-          'seer': 1,
-          'robber': 1,
-          'troublemaker': 1,
-          'villager': 3,
+          'Werewolf': 2,
+          'Seer': 1,
+          'Robber': 1,
+          'Troublemaker': 1,
+          'Villager': 3,
         });
       });
 
@@ -270,10 +257,9 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         mockWebSocket.addServerEvent(
-          json.encode({
-            'type': 'game_started',
-            'game_id': '550e8400-e29b-41d4-a716-446655440000',
-          }),
+          GameEvents.gameStarted(
+            gameId: '550e8400-e29b-41d4-a716-446655440000',
+          ),
         );
 
         final notifier = container.read(lobbyProvider('ABC123').notifier);
@@ -289,12 +275,9 @@ void main() {
         clearInteractions(mockService);
 
         // Send as Map directly (some WS implementations do this)
-        mockWebSocket.addServerEvent({
-          'type': 'player_ready',
-          'username': 'Bob',
-          'user_id': 2,
-          'is_ready': true,
-        });
+        mockWebSocket.addServerEvent(
+          jsonDecode(GameEvents.playerReady(playerId: 2, isReady: true)),
+        );
 
         final state = container.read(lobbyProvider('ABC123'));
         final bob = state.value?.players.firstWhere(
@@ -308,7 +291,7 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         // Should not throw
-        mockWebSocket.addServerEvent(
+        mockWebSocket.addOffContractEvent(
           json.encode({'type': 'unknown_event', 'data': 'something'}),
         );
 
@@ -360,7 +343,7 @@ void main() {
         container = createContainer();
         await container.read(lobbyProvider('ABC123').future);
 
-        final newRoles = {'werewolf': 2, 'seer': 1, 'robber': 1};
+        final newRoles = {'Werewolf': 2, 'Seer': 1, 'Robber': 1};
         final updatedState = _testLobbyState(roleConfig: newRoles);
         when(
           () => mockService.updateRoleConfig('ABC123', newRoles),

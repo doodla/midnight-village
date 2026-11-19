@@ -1,194 +1,71 @@
-import 'package:dio/dio.dart';
-import 'package:midnight_village/features/game/domain/game_session_state.dart';
-import 'package:midnight_village/features/game/domain/night_state.dart';
-import 'package:midnight_village/features/game/domain/voting_state.dart';
+import 'contract/contract_samples.dart';
+import 'contract/contract_shape.dart';
+import 'contract/server_json.dart';
 
-/// Default players used by both [GameStateBuilder] and [GameMeJsonBuilder].
-const List<GamePlayer> defaultPlayers = [
-  GamePlayer(playerId: 1, displayName: 'Alice'),
-  GamePlayer(playerId: 2, displayName: 'Bob'),
-  GamePlayer(playerId: 3, displayName: 'Charlie'),
-];
+/// The role names the server uses (TitleCase, as dealt).
+const serverRoles = {
+  'Werewolf',
+  'Villager',
+  'Seer',
+  'Robber',
+  'Troublemaker',
+  'Drunk',
+  'Insomniac',
+  'Minion',
+  'Tanner',
+  'Hunter',
+  'Mason',
+  'Doppelganger',
+};
 
-/// Fluent builder for [GameSessionState] objects in tests.
-///
-/// Produces fully constructed domain objects for widget tests that inject
-/// state via provider overrides. For HTTP mock JSON, use [GameMeJsonBuilder].
-///
-/// Defaults: night phase, wave 1, seer role, 3 players (Alice/Bob/Charlie).
-class GameStateBuilder {
-  String _gameId = 'test-game-id';
-  String _phase = 'night';
-  int _currentWave = 1;
-  DateTime? _deadline;
-  String _originalRole = 'seer';
-  bool _hasActed = false;
-  String? _currentRole;
-  List<GamePlayer> _players = defaultPlayers;
-  NightSubView _nightSubView = NightSubView.waiting;
-  ActionPrompt? _actionPrompt;
-  ActionResult? _lastActionResult;
-  bool _hasVoted = false;
-  VoteProgress _voteProgress = const VoteProgress();
-  VoteRevealData? _voteRevealData;
-  bool _isHost = false;
-  List<RoleInGame> _rolesInGame = const [
-    RoleInGame(role: 'werewolf', count: 2),
-    RoleInGame(role: 'seer', count: 1),
-  ];
-
-  GameStateBuilder inPhase(String phase) {
-    _phase = phase;
-    return this;
-  }
-
-  GameStateBuilder withGameId(String gameId) {
-    _gameId = gameId;
-    return this;
-  }
-
-  GameStateBuilder withWave(int wave) {
-    _currentWave = wave;
-    return this;
-  }
-
-  GameStateBuilder withDeadline(DateTime deadline) {
-    _deadline = deadline;
-    return this;
-  }
-
-  GameStateBuilder withRole(
-    String role, {
-    bool hasActed = false,
-    String? currentRole,
-  }) {
-    _originalRole = role;
-    _hasActed = hasActed;
-    _currentRole = currentRole;
-    return this;
-  }
-
-  GameStateBuilder withPlayers(List<GamePlayer> players) {
-    _players = players;
-    return this;
-  }
-
-  GameStateBuilder asHost() {
-    _isHost = true;
-    return this;
-  }
-
-  GameStateBuilder hasVoted(bool voted) {
-    _hasVoted = voted;
-    _voteProgress = _voteProgress.copyWith(currentPlayerVoted: voted);
-    return this;
-  }
-
-  GameStateBuilder withVoteProgress(Map<int, bool> playerVoted) {
-    _voteProgress = VoteProgress(
-      playerVoted: playerVoted,
-      currentPlayerVoted: _voteProgress.currentPlayerVoted,
-    );
-    return this;
-  }
-
-  GameStateBuilder withVoteReveal({
-    required Map<String, int?> votes,
-    required Map<String, int> tally,
-  }) {
-    _voteRevealData = VoteRevealData(votes: votes, tally: tally);
-    return this;
-  }
-
-  GameStateBuilder withSeerPrompt({
-    int wave = 1,
-    List<int> playerTargets = const [2, 3],
-    List<int> centerTargets = const [0, 1, 2],
-  }) {
-    _actionPrompt = ActionPrompt(
-      roleActingAs: 'Seer',
-      actionTypes: const ['peek_player', 'peek_center'],
-      validTargets: {
-        'peek_player': {'players': playerTargets},
-        'peek_center': {'card_indices': centerTargets},
-      },
-      wave: wave,
-    );
-    _nightSubView = NightSubView.seerChoice;
-    return this;
-  }
-
-  GameStateBuilder withActionPrompt(ActionPrompt prompt) {
-    _actionPrompt = prompt;
-    _nightSubView = prompt.needsActionChoice
-        ? NightSubView.seerChoice
-        : NightSubView.actionPrompt;
-    return this;
-  }
-
-  GameStateBuilder withActionResult(ActionResult result) {
-    _lastActionResult = result;
-    _nightSubView = NightSubView.actionResult;
-    return this;
-  }
-
-  GameStateBuilder withRolesInGame(List<RoleInGame> roles) {
-    _rolesInGame = roles;
-    return this;
-  }
-
-  GameSessionState build() {
-    return GameSessionState(
-      gameId: _gameId,
-      phase: _phase,
-      currentWave: _currentWave,
-      deadline: _deadline,
-      yourRole: YourRole(
-        originalRole: _originalRole,
-        hasActed: _hasActed,
-        currentRole: _currentRole,
-      ),
-      players: _players,
-      nightSubView: _nightSubView,
-      actionPrompt: _actionPrompt,
-      lastActionResult: _lastActionResult,
-      hasVoted: _hasVoted,
-      voteProgress: _voteProgress,
-      voteRevealData: _voteRevealData,
-      isHost: _isHost,
-      rolesInGame: _rolesInGame,
+String _serverRole(String role) {
+  if (!serverRoles.contains(role)) {
+    throw ArgumentError.value(
+      role,
+      'role',
+      'not a role name the server sends (it sends TitleCase: $serverRoles)',
     );
   }
+  return role;
 }
 
-/// Fluent builder for the JSON map returned by `GET /onuw/games/{id}/me/`.
+/// `GET /onuw/games/{id}/me/` as the server sends it, for [viewerId].
 ///
-/// Same defaults as [GameStateBuilder] but produces the snake_case wire format
-/// that [GameService.getGameState] parses. Use with [MockHttpClient.thenReturn].
+/// Starts from the server's recorded `/me/` for the phase
+/// (`contract_samples/http/game/me_*.json`) and lets a test choose the values:
+/// who sits at the table, the viewer's role, the window, the prompt, results.
+/// Every key the server always sends is there (`has_voted`, `action_prompt`,
+/// `night_results`, `lobby_code`, `host_id`); keys it never sends (a player's
+/// `connected`, which comes from `GET .../players/`) cannot be added. [build]
+/// checks the result against the samples.
 ///
-/// Call [asResponse] for a ready-to-use Dio [Response] wrapper.
+/// Defaults: night, window 2 (no Doppelganger in the deck, so the night is
+/// window 2 only), viewer 1 holding a Seer with nothing to do yet, three
+/// players (Alice, Bob, Charlie), Bob hosting, no deadline.
 class GameMeJsonBuilder {
   String _gameId = 'test-game-id';
   String _phase = 'night';
-  int _currentWave = 1;
+  int? _wave;
   String? _deadline;
-  String _originalRole = 'seer';
+  int _viewerId = 1;
+  String _role = 'Seer';
   bool _hasActed = false;
+  String? _currentRole;
   bool _hasVoted = false;
-  bool _isHost = false;
-  Map<String, dynamic>? _actionPrompt;
-  List<Map<String, dynamic>>? _nightResults;
-  String? _lobbyCode;
+  Map<int, bool> _playersVoted = const {};
   int? _hostId;
-  List<Map<String, dynamic>> _players = [
-    {'player_id': 1, 'display_name': 'Alice'},
-    {'player_id': 2, 'display_name': 'Bob'},
-    {'player_id': 3, 'display_name': 'Charlie'},
-  ];
-  List<Map<String, dynamic>> _rolesInGame = [
-    {'role': 'werewolf', 'count': 2},
-    {'role': 'seer', 'count': 1},
-  ];
+  bool _viewerHosts = false;
+  String _lobbyCode = 'ABC123';
+  String? _promptKind;
+  List<int>? _promptTeam;
+  List<Map<String, dynamic>> _nightResults = const [];
+  List<Seat> _seats = defaultSeats;
+  Map<String, int> _deck = const {
+    'Werewolf': 2,
+    'Seer': 1,
+    'Robber': 1,
+    'Villager': 2,
+  };
 
   GameMeJsonBuilder inPhase(String phase) {
     _phase = phase;
@@ -200,19 +77,34 @@ class GameMeJsonBuilder {
     return this;
   }
 
+  /// The night window: 1 (the Doppelganger's, only with one in the deck) or 2.
   GameMeJsonBuilder withWave(int wave) {
-    _currentWave = wave;
+    _wave = wave;
     return this;
   }
 
+  /// The current deadline (ISO 8601), as the server sends it.
   GameMeJsonBuilder withDeadline(String deadline) {
     _deadline = deadline;
     return this;
   }
 
-  GameMeJsonBuilder withRole(String role, {bool hasActed = false}) {
-    _originalRole = role;
+  /// Whose `/me/` this is (default 1).
+  GameMeJsonBuilder forViewer(int playerId) {
+    _viewerId = playerId;
+    return this;
+  }
+
+  /// The viewer's dealt card (server casing, e.g. `Robber`); [currentRole] is
+  /// the card held at the end (results only).
+  GameMeJsonBuilder withRole(
+    String role, {
+    bool hasActed = false,
+    String? currentRole,
+  }) {
+    _role = _serverRole(role);
     _hasActed = hasActed;
+    _currentRole = currentRole == null ? null : _serverRole(currentRole);
     return this;
   }
 
@@ -221,69 +113,49 @@ class GameMeJsonBuilder {
     return this;
   }
 
-  GameMeJsonBuilder asHost() {
-    _isHost = true;
-    return this;
-  }
-
-  GameMeJsonBuilder withPlayers(List<Map<String, dynamic>> players) {
-    _players = players;
-    return this;
-  }
-
+  /// Which players have voted (the vote only; the rest have not).
   GameMeJsonBuilder withPlayersHavingVoted(Map<int, bool> playerVotes) {
-    _players = _players.map((p) {
-      final id = p['player_id'] as int;
-      if (playerVotes.containsKey(id)) {
-        return {...p, 'has_voted': playerVotes[id]};
-      }
-      return p;
-    }).toList();
+    _playersVoted = playerVotes;
     return this;
   }
 
-  GameMeJsonBuilder withSeerPrompt({
-    int wave = 1,
-    List<int> playerTargets = const [2, 3],
-    List<int> centerTargets = const [0, 1, 2],
-  }) {
-    _actionPrompt = {
-      'role_acting_as': 'Seer',
-      'action_types': ['peek_player', 'peek_center'],
-      'valid_targets': {
-        'peek_player': {'players': playerTargets},
-        'peek_center': {'card_indices': centerTargets},
-      },
-      'wave': wave,
-    };
+  /// The viewer is the (effective) host.
+  GameMeJsonBuilder asHost() {
+    _hostId = null;
+    _viewerHosts = true;
     return this;
   }
 
-  GameMeJsonBuilder withActionPrompt(Map<String, dynamic> prompt) {
-    _actionPrompt = prompt;
-    return this;
-  }
-
-  /// Adds `night_results` in the server's shape: `wave`, `action_type`,
-  /// `revealed_info` per closed window.
-  GameMeJsonBuilder withNightResults(List<Map<String, dynamic>> results) {
-    _nightResults = results;
-    return this;
-  }
-
-  /// Marks the players in [ids] as not connected (`connected: false`).
-  GameMeJsonBuilder withPlayersAway(Set<int> ids) {
-    _players = _players
-        .map(
-          (p) => ids.contains(p['player_id']) ? {...p, 'connected': false} : p,
-        )
-        .toList();
-    return this;
-  }
-
-  /// The effective host's player id (`host_id`).
+  /// The effective host's player id (`host_id`); `is_host` follows it, as
+  /// on the server.
   GameMeJsonBuilder withHostId(int id) {
     _hostId = id;
+    _viewerHosts = false;
+    return this;
+  }
+
+  int get _host =>
+      _hostId ??
+      (_viewerHosts
+          ? _viewerId
+          : _seats.firstWhere((s) => s.id != _viewerId).id);
+
+  GameMeJsonBuilder withSeats(List<Seat> seats) {
+    _seats = seats;
+    return this;
+  }
+
+  /// The viewer's pending prompt: the server's prompt of [kind] (see
+  /// [promptKinds]) for the current window, aimed at the other players.
+  GameMeJsonBuilder withPrompt(String kind, {List<int>? seeTeam}) {
+    _promptKind = kind;
+    _promptTeam = seeTeam;
+    return this;
+  }
+
+  /// `night_results`: entries from [serverNightResult].
+  GameMeJsonBuilder withNightResults(List<Map<String, dynamic>> results) {
+    _nightResults = results;
     return this;
   }
 
@@ -292,50 +164,88 @@ class GameMeJsonBuilder {
     return this;
   }
 
-  GameMeJsonBuilder withRolesInGame(List<Map<String, dynamic>> roles) {
-    _rolesInGame = roles;
+  /// The deck (`roles_in_game`), role name -> count. The viewer's own card
+  /// is added when missing.
+  GameMeJsonBuilder withDeck(Map<String, int> deck) {
+    deck.keys.forEach(_serverRole);
+    _deck = deck;
     return this;
   }
 
-  Map<String, dynamic> build() {
-    final json = <String, dynamic>{
-      'game_id': _gameId,
-      'phase': _phase,
-      'current_wave': _currentWave,
-      'deadline': _deadline,
-      'your_role': {'original_role': _originalRole, 'has_acted': _hasActed},
-      'players': _players,
-      'roles_in_game': _rolesInGame,
-      'is_host': _isHost,
-    };
-    if (_hasVoted || _phase == 'voting') {
-      json['has_voted'] = _hasVoted;
+  /// The deck, always holding the viewer's own card.
+  Map<String, int> get _dealtDeck => {
+    ..._deck,
+    if (!_deck.containsKey(_role)) _role: 1,
+  };
+
+  int get _window {
+    if (_phase != 'night') return 0;
+    final wave = _wave ?? 2;
+    if (wave == 1 && !_dealtDeck.containsKey('Doppelganger')) {
+      throw StateError(
+        'Window 1 is the Doppelganger\'s: without one in the deck the server '
+        'opens window 2 only (put a Doppelganger in withDeck, or use wave 2).',
+      );
     }
-    if (_actionPrompt != null) {
-      json['action_prompt'] = _actionPrompt;
-    }
-    if (_nightResults != null) {
-      json['night_results'] = _nightResults;
-    }
-    if (_lobbyCode != null) {
-      json['lobby_code'] = _lobbyCode;
-    }
-    if (_hostId != null) {
-      json['host_id'] = _hostId;
-    }
-    return json;
+    return wave;
   }
 
-  /// Wraps [build] output in a Dio [Response] ready for [MockHttpClient.thenReturn].
-  Response<Map<String, dynamic>> asResponse({
-    String? path,
-    int statusCode = 200,
-  }) {
-    final effectivePath = path ?? '/onuw/games/$_gameId/me/';
-    return Response(
-      requestOptions: RequestOptions(path: effectivePath),
-      statusCode: statusCode,
-      data: build(),
-    );
+  Map<String, dynamic> build() {
+    final sample = ContractSamples.map(switch (_phase) {
+      'night' => 'http/game/me_night_no_action',
+      'discussion' => 'http/game/me_discussion',
+      'voting' => 'http/game/me_voting',
+      'results' => 'http/game/me_results',
+      _ => throw ArgumentError.value(_phase, 'phase', 'not a game phase'),
+    });
+    final player = ((sample['players'] as List).first as Map)
+        .cast<String, dynamic>();
+    final role = (sample['your_role'] as Map).cast<String, dynamic>();
+    final window = _window;
+    final promptKind = _promptKind;
+    final json = withValues(sample, {
+      'game_id': _gameId,
+      'lobby_code': _lobbyCode,
+      'phase': _phase,
+      'current_wave': window,
+      'deadline': _deadline,
+      'your_role': withValues(role, {
+        'original_role': _role,
+        'has_acted': _hasActed,
+        if (_phase == 'results') 'current_role': _currentRole ?? _role,
+      }),
+      'is_host': _host == _viewerId,
+      'host_id': _host,
+      'has_voted': _hasVoted,
+      'players': [
+        for (final seat in _seats)
+          withValues(player, {
+            'player_id': seat.id,
+            'display_name': seat.name,
+            if (_phase == 'voting')
+              'has_voted': seat.id == _viewerId
+                  ? _hasVoted
+                  : _playersVoted[seat.id] ?? false,
+          }),
+      ],
+      'action_prompt': promptKind == null
+          ? null
+          : serverPrompt(
+              promptKind,
+              wave: window,
+              playerIds: [
+                for (final s in _seats)
+                  if (s.id != _viewerId) s.id,
+              ],
+              seeTeam: _promptTeam,
+            ),
+      'roles_in_game': [
+        for (final MapEntry(:key, :value) in _dealtDeck.entries)
+          {'role': key, 'count': value},
+      ],
+      'night_results': _nightResults,
+    });
+    checkHttpBody('GET', '/onuw/games/$_gameId/me/', 200, json);
+    return json;
   }
 }

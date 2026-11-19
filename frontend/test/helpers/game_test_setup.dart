@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
@@ -17,6 +18,8 @@ import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
+import 'contract/contract_samples.dart';
+import 'contract/server_json.dart';
 import 'fake_wakelock_service.dart';
 import 'game_state_factory.dart';
 import 'mock_http_client.dart';
@@ -45,64 +48,47 @@ class GameTestSetup {
   });
 
   /// Creates a test setup with the GameNotifier wired to mock HTTP/WS.
+  ///
+  /// [gameMeJson] is the `/me/` answer (default: [GameMeJsonBuilder]). The
+  /// player list (`GET .../players/`, where presence comes from) has the same
+  /// players, all connected but [away]. [socket] stands in for the game's
+  /// reconnecting socket (its connection state), when a test needs one.
   factory GameTestSetup.create({
     Map<String, dynamic>? gameMeJson,
     String gameId = 'test-game-id',
     int userId = 1,
+    Set<int> away = const {},
+    ReconnectingWebSocket? socket,
   }) {
     final http = MockHttpClient();
     final ws = MockWebSocketChannel();
-    final json = gameMeJson ?? GameMeJsonBuilder().build();
-
-    http
-        .when(method: 'GET', path: '/onuw/games/$gameId/me/')
-        .thenReturn(
-          Response(
-            requestOptions: RequestOptions(path: '/onuw/games/$gameId/me/'),
-            statusCode: 200,
-            data: json,
-          ),
-        );
-
-    // The `/me/` players, everyone connected unless a player there is marked
-    // away or a test says otherwise (registerPresence).
-    http
-        .when(method: 'GET', path: '/onuw/games/$gameId/players/')
-        .thenReturn(
-          Response(
-            requestOptions: RequestOptions(
-              path: '/onuw/games/$gameId/players/',
-            ),
-            statusCode: 200,
-            data: <String, dynamic>{
-              'players': [
-                for (final p in (json['players'] as List).cast<Map>())
-                  {...p, 'connected': p['connected'] ?? true},
-              ],
-            },
-          ),
-        );
-
     final client = AuthenticatedClient.forTesting(dio: http.dio);
-
-    final container = ProviderContainer(
-      overrides: [
-        authProvider.overrideWithValue(
-          AuthState.authenticated(User(id: userId, displayName: 'P$userId')),
-        ),
-        authenticatedClientProvider.overrideWithValue(client),
-        gameServiceProvider.overrideWithValue(GameService(client: client)),
-        gameWebSocketProvider.overrideWith((ref, gameId) => null),
-        gameWebSocketStreamProvider.overrideWith((ref, gameId) => ws.stream),
-      ],
-    );
-
-    return GameTestSetup._(
-      container: container,
+    final setup = GameTestSetup._(
+      container: ProviderContainer(
+        overrides: [
+          authProvider.overrideWithValue(
+            AuthState.authenticated(User(id: userId, displayName: 'P$userId')),
+          ),
+          authenticatedClientProvider.overrideWithValue(client),
+          gameServiceProvider.overrideWithValue(GameService(client: client)),
+          gameWebSocketProvider.overrideWith((ref, gameId) => socket),
+          gameWebSocketStreamProvider.overrideWith((ref, gameId) => ws.stream),
+        ],
+      ),
       http: http,
       ws: ws,
       gameId: gameId,
     );
+    final me =
+        gameMeJson ??
+        (GameMeJsonBuilder()
+              ..withGameId(gameId)
+              ..forViewer(userId))
+            .build();
+    setup
+      ..registerGameMe(me)
+      ..registerPlayersOf(me, away: away);
+    return setup;
   }
 
   final ProviderContainer container;
@@ -120,56 +106,55 @@ class GameTestSetup {
   GameSessionState get currentState =>
       container.read(gameProvider(gameId)).value!;
 
-  void registerResults({required Map<String, dynamic> resultsJson}) {
-    http
-        .when(method: 'GET', path: '/onuw/games/$gameId/results/')
-        .thenReturn(
-          Response(
-            requestOptions: RequestOptions(
-              path: '/onuw/games/$gameId/results/',
-            ),
-            statusCode: 200,
-            data: resultsJson,
-          ),
-        );
+  /// `GET .../results/` (default: [serverResults]).
+  void registerResults({Map<String, dynamic>? resultsJson}) {
+    registerGet('/onuw/games/$gameId/results/', resultsJson ?? serverResults());
   }
 
+  /// `GET /lobbies/<code>/`: the table this game is played at, in [status]
+  /// (`finished` once its game is over, `waiting` after play again). A phone
+  /// that opens a finished game checks whether the table has moved on.
+  void registerTable({String code = 'ABC123', String status = 'finished'}) {
+    registerGet('/lobbies/$code/', serverLobby(code: code, status: status));
+  }
+
+  /// `POST .../action/` answering [statusCode] with the server's body for it.
   void registerActionSubmit({int statusCode = 200}) {
-    http
-        .when(method: 'POST', path: '/onuw/games/$gameId/action/')
-        .thenReturn(
-          Response(
-            requestOptions: RequestOptions(path: '/onuw/games/$gameId/action/'),
-            statusCode: statusCode,
-            data: <String, dynamic>{},
-          ),
-        );
+    registerPost(
+      '/onuw/games/$gameId/action/',
+      statusCode: statusCode,
+      data: ContractSamples.map(switch (statusCode) {
+        200 => 'http/game/action_submitted',
+        409 => 'http/game/action_already_acted',
+        _ => 'http/game/action_invalid',
+      }),
+    );
   }
 
+  /// `POST .../vote/` answering [statusCode] with the server's body for it.
   void registerVoteSubmit({int statusCode = 200}) {
-    http
-        .when(method: 'POST', path: '/onuw/games/$gameId/vote/')
-        .thenReturn(
-          Response(
-            requestOptions: RequestOptions(path: '/onuw/games/$gameId/vote/'),
-            statusCode: statusCode,
-            data: <String, dynamic>{},
-          ),
-        );
+    registerPost(
+      '/onuw/games/$gameId/vote/',
+      statusCode: statusCode,
+      data: ContractSamples.map(switch (statusCode) {
+        200 => 'http/game/vote_submitted',
+        409 => 'http/game/vote_already_voted',
+        _ => 'http/game/vote_invalid_target',
+      }),
+    );
   }
 
+  /// `POST .../end-discussion/` answering [statusCode] with the server's body.
   void registerEndDiscussion({int statusCode = 200}) {
-    http
-        .when(method: 'POST', path: '/onuw/games/$gameId/end-discussion/')
-        .thenReturn(
-          Response(
-            requestOptions: RequestOptions(
-              path: '/onuw/games/$gameId/end-discussion/',
-            ),
-            statusCode: statusCode,
-            data: <String, dynamic>{},
-          ),
-        );
+    registerPost(
+      '/onuw/games/$gameId/end-discussion/',
+      statusCode: statusCode,
+      data: ContractSamples.map(switch (statusCode) {
+        200 => 'http/game/end_discussion',
+        403 => 'http/game/end_discussion_not_host',
+        _ => 'http/game/end_discussion_wrong_phase',
+      }),
+    );
   }
 
   /// Replaces the `/me/` response (a later fetch sees the new state).
@@ -177,21 +162,50 @@ class GameTestSetup {
     registerGet('/onuw/games/$gameId/me/', json);
   }
 
-  /// The player list's `connected` flags, keyed by player id.
-  void registerPresence(Map<int, bool> connected) {
-    registerGet('/onuw/games/$gameId/players/', {
-      'players': [
-        for (final e in connected.entries)
-          {
-            'player_id': e.key,
-            'display_name': 'P${e.key}',
-            'connected': e.value,
-          },
-      ],
-    });
+  /// The player list for the players of the `/me/` body [me], all connected
+  /// but [away] (in the vote, with each one's `has_voted`).
+  void registerPlayersOf(Map<String, dynamic> me, {Set<int> away = const {}}) {
+    final players = (me['players'] as List).cast<Map<String, dynamic>>();
+    registerGet(
+      '/onuw/games/$gameId/players/',
+      serverPlayerList(
+        seats: [
+          for (final p in players)
+            (id: p['player_id'] as int, name: p['display_name'] as String),
+        ],
+        away: away,
+        hasVoted: me['phase'] == 'voting'
+            ? {
+                for (final p in players)
+                  p['player_id'] as int: p['has_voted'] == true,
+              }
+            : null,
+      ),
+    );
   }
 
-  void registerGet(String path, dynamic data, {int statusCode = 200}) {
+  /// The player list's `connected` flags, keyed by player id.
+  void registerPresence(Map<int, bool> connected) {
+    registerGet(
+      '/onuw/games/$gameId/players/',
+      serverPlayerList(
+        seats: [for (final id in connected.keys) (id: id, name: 'P$id')],
+        away: {
+          for (final e in connected.entries)
+            if (!e.value) e.key,
+        },
+      ),
+    );
+  }
+
+  /// Answers `GET [path]`; [offContract] is for a body the server would
+  /// never send (a test about malformed input).
+  void registerGet(
+    String path,
+    dynamic data, {
+    int statusCode = 200,
+    bool offContract = false,
+  }) {
     http
         .when(method: 'GET', path: path)
         .thenReturn(
@@ -200,9 +214,12 @@ class GameTestSetup {
             statusCode: statusCode,
             data: data,
           ),
+          offContract: offContract,
         );
   }
 
+  /// Answers `POST [path]` with [data], by default the server's recorded
+  /// answer for that endpoint and status.
   void registerPost(String path, {dynamic data, int statusCode = 200}) {
     http
         .when(method: 'POST', path: path)
@@ -210,7 +227,9 @@ class GameTestSetup {
           Response(
             requestOptions: RequestOptions(path: path),
             statusCode: statusCode,
-            data: data ?? <String, dynamic>{},
+            data:
+                data ??
+                ContractSamples.bodyFor('POST', path, status: statusCode),
           ),
         );
   }
@@ -234,6 +253,7 @@ extension GameFlowTestExtension on WidgetTester {
     Map<String, dynamic>? gameMeJson,
     String playerName = 'TestPlayer',
     int userId = 1,
+    Set<int> away = const {},
     FakeWakelockService? wakelock,
     AppTokens theme = const MidnightVillageTheme(),
     List<Override>? extraOverrides,
@@ -242,6 +262,7 @@ extension GameFlowTestExtension on WidgetTester {
       gameMeJson: gameMeJson,
       gameId: gameId,
       userId: userId,
+      away: away,
     );
 
     await pumpWidget(

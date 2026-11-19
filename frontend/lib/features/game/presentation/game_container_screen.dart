@@ -344,12 +344,6 @@ class _GameContainerScreenState extends ConsumerState<GameContainerScreen>
               ? notifier.dismissNightResult
               : null,
         ),
-      NightSubView.loneWerewolfPeek => LoneWerewolfPeekView(
-        key: const ValueKey('night-lone-werewolf'),
-        centerCardCount: _kCenterCardCount,
-        onSubmit: (actionType, targets) =>
-            notifier.submitAction(actionType, targets),
-      ),
       // Fallback when required state is not yet available.
       _ => NightWaitingView(
         key: const ValueKey('night-waiting-fallback'),

@@ -14,6 +14,19 @@ import 'package:midnight_village/features/game/presentation/game_container_scree
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
 import '../../../design_system/test_helpers/pump_with_tokens.dart';
+import '../../../helpers/contract/server_json.dart';
+
+/// The server's prompt of [kind] for Alice (1), aimed at Bob (2) and
+/// Charlie (3); [narrowedTo] is what is left of it after the Seer picks a
+/// look (as GameNotifier.selectSeerChoice leaves it).
+ActionPrompt _prompt(String kind, {List<String>? narrowedTo}) {
+  final prompt = ActionPrompt.fromJson(serverPrompt(kind, playerIds: [2, 3]));
+  return narrowedTo == null ? prompt : prompt.copyWith(actionTypes: narrowedTo);
+}
+
+/// The server's night result of [kind], with [info] as its values.
+ActionResult _result(String kind, Map<String, dynamic> info) =>
+    actionResultFromServer(serverNightResult(kind, info: info));
 
 /// Creates a GameSessionState with the given phase and nightSubView.
 GameSessionState _makeState({
@@ -24,7 +37,7 @@ GameSessionState _makeState({
 }) => GameSessionState(
   gameId: 'test-game-id',
   phase: phase,
-  yourRole: const YourRole(originalRole: 'seer', hasActed: false),
+  yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
   players: const [
     GamePlayer(playerId: 1, displayName: 'Alice'),
     GamePlayer(playerId: 2, displayName: 'Bob'),
@@ -91,12 +104,7 @@ void main() {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.seerChoice,
-        actionPrompt: const ActionPrompt(
-          roleActingAs: 'Seer',
-          actionTypes: ['peek_player', 'peek_center'],
-          validTargets: {},
-          wave: 1,
-        ),
+        actionPrompt: _prompt('seer'),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -118,12 +126,7 @@ void main() {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.actionPrompt,
-        actionPrompt: const ActionPrompt(
-          roleActingAs: 'Seer',
-          actionTypes: ['peek_player'],
-          validTargets: {},
-          wave: 1,
-        ),
+        actionPrompt: _prompt('seer', narrowedTo: ['peek_player', 'skip']),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -143,10 +146,7 @@ void main() {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.actionResult,
-        lastActionResult: const ActionResult(
-          wave: 1,
-          revealedInfo: {'action_type': 'swap_with_center', 'card_index': 2},
-        ),
+        lastActionResult: _result('swap_with_center', {'card_index': 2}),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -167,16 +167,8 @@ void main() {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.actionResult,
-        lastActionResult: const ActionResult(
-          wave: 1,
-          revealedInfo: {'action_type': 'swap_with_center', 'card_index': 2},
-        ),
-        actionPrompt: const ActionPrompt(
-          roleActingAs: 'Seer',
-          actionTypes: ['peek_player', 'peek_center', 'skip'],
-          validTargets: {},
-          wave: 1,
-        ),
+        lastActionResult: _result('swap_with_center', {'card_index': 2}),
+        actionPrompt: _prompt('seer'),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -196,10 +188,7 @@ void main() {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.actionResult,
-        lastActionResult: const ActionResult(
-          wave: 2,
-          revealedInfo: {'action_type': 'swap_with_center', 'card_index': 2},
-        ),
+        lastActionResult: _result('swap_with_center', {'card_index': 2}),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -218,10 +207,7 @@ void main() {
     ) async {
       final state = _makeState(
         phase: 'discussion',
-        lastActionResult: const ActionResult(
-          wave: 2,
-          revealedInfo: {'action_type': 'insomniac', 'current_role': 'robber'},
-        ),
+        lastActionResult: _result('insomniac', {'current_role': 'robber'}),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -243,12 +229,7 @@ void main() {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.seerChoice,
-        actionPrompt: const ActionPrompt(
-          roleActingAs: 'Seer',
-          actionTypes: ['peek_player', 'peek_center', 'skip'],
-          validTargets: {},
-          wave: 2,
-        ),
+        actionPrompt: _prompt('seer'),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -266,12 +247,7 @@ void main() {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.actionPrompt,
-        actionPrompt: const ActionPrompt(
-          roleActingAs: 'Drunk',
-          actionTypes: ['swap_with_center'],
-          validTargets: {},
-          wave: 2,
-        ),
+        actionPrompt: _prompt('drunk'),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -292,14 +268,7 @@ void main() {
       final state = _makeState(
         phase: 'night',
         nightSubView: NightSubView.actionPrompt,
-        actionPrompt: const ActionPrompt(
-          roleActingAs: 'Robber',
-          actionTypes: ['swap_with_player', 'skip'],
-          validTargets: {
-            'player_ids': [2],
-          },
-          wave: 2,
-        ),
+        actionPrompt: _prompt('robber'),
       );
       await tester.pumpWithTokens(
         const GameContainerScreen(gameId: 'test-game-id'),
@@ -314,45 +283,50 @@ void main() {
       expect(find.text('Skip'), findsOneWidget);
     });
 
-    testWidgets('shows lone werewolf view for NightSubView.loneWerewolfPeek', (
-      tester,
-    ) async {
-      final state = _makeState(
-        phase: 'night',
-        nightSubView: NightSubView.loneWerewolfPeek,
-      );
-      await tester.pumpWithTokens(
-        const GameContainerScreen(gameId: 'test-game-id'),
-        overrides: [
-          gameProvider(
-            'test-game-id',
-          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
-        ],
-      );
+    testWidgets(
+      'the lone Werewolf prompt offers a center card before submitting',
+      (tester) async {
+        final state = _makeState(
+          phase: 'night',
+          nightSubView: NightSubView.actionPrompt,
+          actionPrompt: _prompt('werewolf_lone'),
+        );
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            gameProvider(
+              'test-game-id',
+            ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+          ],
+        );
 
-      // LoneWerewolfPeekView renders CenterCards.
-      expect(find.byType(CenterCards), findsOneWidget);
-    });
+        expect(find.byType(CenterCards), findsOneWidget);
+      },
+    );
 
-    testWidgets('shows role reveal view for NightSubView.roleReveal', (
-      tester,
-    ) async {
-      final state = _makeState(
-        phase: 'night',
-        nightSubView: NightSubView.roleReveal,
-      );
-      await tester.pumpWithTokens(
-        const GameContainerScreen(gameId: 'test-game-id'),
-        overrides: [
-          gameProvider(
-            'test-game-id',
-          ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
-        ],
-      );
+    testWidgets(
+      'shows role reveal view for NightSubView.roleReveal',
+      skip: true, // Unreachable in production: the client enters roleReveal
+      // only on a phase_change to night, which the server never sends (it
+      // opens the night with wave_start). Kept until the screen is rebuilt.
+      (tester) async {
+        final state = _makeState(
+          phase: 'night',
+          nightSubView: NightSubView.roleReveal,
+        );
+        await tester.pumpWithTokens(
+          const GameContainerScreen(gameId: 'test-game-id'),
+          overrides: [
+            gameProvider(
+              'test-game-id',
+            ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
+          ],
+        );
 
-      // RoleRevealView renders "You are the" text.
-      expect(find.text('You are the'), findsOneWidget);
-    });
+        // RoleRevealView renders "You are the" text.
+        expect(find.text('You are the'), findsOneWidget);
+      },
+    );
 
     testWidgets('shows discussion view with timer in discussion phase', (
       tester,
@@ -379,7 +353,7 @@ void main() {
         final state = GameSessionState(
           gameId: 'test-game-id',
           phase: 'discussion',
-          yourRole: const YourRole(originalRole: 'seer', hasActed: false),
+          yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
           players: const [
             GamePlayer(playerId: 1, displayName: 'Alice'),
             GamePlayer(playerId: 2, displayName: 'Bob'),
@@ -406,7 +380,7 @@ void main() {
         final state = GameSessionState(
           gameId: 'test-game-id',
           phase: 'discussion',
-          yourRole: const YourRole(originalRole: 'seer', hasActed: false),
+          yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
           players: const [
             GamePlayer(playerId: 1, displayName: 'Alice'),
             GamePlayer(playerId: 2, displayName: 'Bob'),
@@ -508,22 +482,14 @@ void main() {
         final state = GameSessionState(
           gameId: 'test-game-id',
           phase: 'night',
-          yourRole: const YourRole(originalRole: 'seer', hasActed: false),
+          yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
           players: const [
             GamePlayer(playerId: 1, displayName: 'Alice'),
             GamePlayer(playerId: 2, displayName: 'Bob'),
             GamePlayer(playerId: 3, displayName: 'Charlie'),
           ],
           nightSubView: NightSubView.actionPrompt,
-          actionPrompt: const ActionPrompt(
-            roleActingAs: 'Seer',
-            actionTypes: ['peek_player'],
-            validTargets: {
-              'player_ids': [2, 3],
-              'center_indices': [0, 1, 2],
-            },
-            wave: 3,
-          ),
+          actionPrompt: _prompt('seer', narrowedTo: ['peek_player', 'skip']),
         );
 
         await tester.pumpWithTokens(
@@ -547,21 +513,14 @@ void main() {
         final state = GameSessionState(
           gameId: 'test-game-id',
           phase: 'night',
-          yourRole: const YourRole(originalRole: 'robber', hasActed: false),
+          yourRole: const YourRole(originalRole: 'Robber', hasActed: false),
           players: const [
             GamePlayer(playerId: 1, displayName: 'Alice'),
             GamePlayer(playerId: 2, displayName: 'Bob'),
             GamePlayer(playerId: 3, displayName: 'Charlie'),
           ],
           nightSubView: NightSubView.actionPrompt,
-          actionPrompt: const ActionPrompt(
-            roleActingAs: 'Robber',
-            actionTypes: ['swap_with_player'],
-            validTargets: {
-              'player_ids': [2, 3],
-            },
-            wave: 3,
-          ),
+          actionPrompt: _prompt('robber'),
         );
 
         await tester.pumpWithTokens(
@@ -586,7 +545,7 @@ void main() {
           gameId: 'test-game-id',
           phase: 'night',
           yourRole: const YourRole(
-            originalRole: 'troublemaker',
+            originalRole: 'Troublemaker',
             hasActed: false,
           ),
           players: const [
@@ -595,14 +554,7 @@ void main() {
             GamePlayer(playerId: 3, displayName: 'Charlie'),
           ],
           nightSubView: NightSubView.actionPrompt,
-          actionPrompt: const ActionPrompt(
-            roleActingAs: 'Troublemaker',
-            actionTypes: ['swap_others'],
-            validTargets: {
-              'player_ids': [2, 3],
-            },
-            wave: 3,
-          ),
+          actionPrompt: _prompt('troublemaker'),
         );
 
         await tester.pumpWithTokens(
@@ -619,42 +571,6 @@ void main() {
         expect(find.text('Charlie'), findsOneWidget);
         expect(find.text('Alice'), findsNothing);
       });
-
-      testWidgets(
-        'falls back to all players when player_ids missing from valid_targets',
-        (tester) async {
-          final state = GameSessionState(
-            gameId: 'test-game-id',
-            phase: 'night',
-            yourRole: const YourRole(originalRole: 'seer', hasActed: false),
-            players: const [
-              GamePlayer(playerId: 1, displayName: 'Alice'),
-              GamePlayer(playerId: 2, displayName: 'Bob'),
-            ],
-            nightSubView: NightSubView.actionPrompt,
-            actionPrompt: const ActionPrompt(
-              roleActingAs: 'Seer',
-              actionTypes: ['peek_player'],
-              validTargets: {},
-              wave: 3,
-            ),
-          );
-
-          await tester.pumpWithTokens(
-            const GameContainerScreen(gameId: 'test-game-id'),
-            overrides: [
-              gameProvider(
-                'test-game-id',
-              ).overrideWith(() => _MockGameNotifier(AsyncData(state))),
-            ],
-          );
-
-          // Without player_ids, falls back to showing all players.
-          expect(find.byType(NightActionPrompt), findsOneWidget);
-          expect(find.text('Alice'), findsOneWidget);
-          expect(find.text('Bob'), findsOneWidget);
-        },
-      );
     });
 
     // -----------------------------------------------------------------------
@@ -796,7 +712,7 @@ class _MockGameNotifier extends GameNotifier {
         GameSessionState(
           gameId: gameId,
           phase: 'night',
-          yourRole: const YourRole(originalRole: 'seer', hasActed: false),
+          yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
           players: const [],
         );
   }

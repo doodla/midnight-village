@@ -2,23 +2,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/game_state_factory.dart';
 import '../../../helpers/game_test_setup.dart';
 
 const _gameId = 'test-game-id';
 
-Map<String, dynamic> _peekPlayer({int wave = 2, String target = 'Bob'}) => {
-  'wave': wave,
-  'action_type': 'peek_player',
-  'revealed_info': {'target_name': target, 'role': 'werewolf'},
-};
+/// The Seer looked at Bob, a Werewolf (window 2).
+Map<String, dynamic> _peekPlayer() => serverNightResult(
+  'peek_player',
+  info: {'target_name': 'Bob', 'role': 'werewolf'},
+);
 
-Map<String, dynamic> _swapWithPlayer({int wave = 2}) => {
-  'wave': wave,
-  'action_type': 'swap_with_player',
-  'revealed_info': {'target_name': 'Charlie', 'new_role': 'villager'},
-};
+/// The Doppelganger's look at Bob, a Seer, then her follow-up as the Seer:
+/// the only player with more than one result, both in window 1.
+Map<String, dynamic> _look() => serverNightResult(
+  'doppelganger_look',
+  wave: 1,
+  info: {'target_name': 'Bob'},
+);
+Map<String, dynamic> _followUp() => serverNightResult('peek_center', wave: 1);
+
+/// `/me/` for the Doppelganger.
+GameMeJsonBuilder _doppelganger() =>
+    GameMeJsonBuilder().withRole('Doppelganger');
 
 GameTestSetup _setup(Map<String, dynamic> me) =>
     GameTestSetup.create(gameMeJson: me);
@@ -51,7 +59,7 @@ void main() {
       },
     );
 
-    test('absent night_results is treated as none', () async {
+    test('an empty night_results shows nothing', () async {
       final setup = _setup(GameMeJsonBuilder().inPhase('discussion').build());
       addTearDown(setup.dispose);
 
@@ -62,13 +70,13 @@ void main() {
     });
 
     test('a malformed entry is skipped, the rest still shown', () async {
-      final setup = _setup(
-        GameMeJsonBuilder().inPhase('discussion').withNightResults([
-          {'wave': 'x'},
-          _peekPlayer(),
-        ]).build(),
-      );
+      final setup = _setup(GameMeJsonBuilder().inPhase('discussion').build());
       addTearDown(setup.dispose);
+      final me = GameMeJsonBuilder().inPhase('discussion').withNightResults([
+        _peekPlayer(),
+      ]).build();
+      (me['night_results'] as List).insert(0, {'wave': 'x'});
+      setup.registerGet('/onuw/games/$_gameId/me/', me, offContract: true);
 
       final state = await setup.readGameState();
 
@@ -91,7 +99,7 @@ void main() {
         ]).build(),
       );
       addTearDown(results.dispose);
-      results.registerResults(resultsJson: {'players': <dynamic>[]});
+      results.registerResults();
       final state = await results.readGameState();
       expect(state.lastActionResult, isNull);
       // Kept for the later "My night" feature.
@@ -99,14 +107,10 @@ void main() {
     });
 
     test(
-      'at night only a window that has closed is shown (wave 1 while wave 2 '
-      'is open); the open window\'s result is never shown from /me/',
+      'at night, window 1\'s results are shown once window 2 is open',
       () async {
         final setup = _setup(
-          GameMeJsonBuilder().withWave(2).withNightResults([
-            _peekPlayer(wave: 1),
-            _swapWithPlayer(wave: 2), // the server should not send this yet
-          ]).build(),
+          _doppelganger().withWave(2).withNightResults([_look()]).build(),
         );
         addTearDown(setup.dispose);
 
@@ -117,20 +121,6 @@ void main() {
         expect(state.nightSubView, NightSubView.actionResult);
       },
     );
-
-    test('nothing is shown at night while no window has closed', () async {
-      final setup = _setup(
-        GameMeJsonBuilder().withWave(1).withNightResults([
-          _peekPlayer(wave: 1),
-        ]).build(),
-      );
-      addTearDown(setup.dispose);
-
-      final state = await setup.readGameState();
-
-      expect(state.lastActionResult, isNull);
-      expect(state.nightSubView, NightSubView.waiting);
-    });
 
     test(
       'is not shown again when the same result then arrives on the socket',
@@ -149,13 +139,7 @@ void main() {
             .dismissNightResult();
         expect(setup.currentState.lastActionResult, isNull);
 
-        setup.ws.addServerEvent(
-          GameEvents.actionResult(
-            wave: 2,
-            actionType: 'peek_player',
-            revealedInfo: {'target_name': 'Bob', 'role': 'werewolf'},
-          ),
-        );
+        setup.ws.addServerEvent(GameEvents.actionResultOf(_peekPlayer()));
 
         expect(setup.currentState.lastActionResult, isNull);
       },
@@ -164,27 +148,18 @@ void main() {
     test(
       'is not shown again when /me/ is fetched after the socket delivered it',
       () async {
-        final me = GameMeJsonBuilder().withWave(2).build();
-        final setup = _setup(me);
+        final setup = _setup(_doppelganger().withWave(1).build());
         addTearDown(setup.dispose);
         await setup.readGameState();
 
-        setup.ws.addServerEvent(
-          GameEvents.actionResult(
-            wave: 1,
-            actionType: 'peek_player',
-            revealedInfo: {'target_name': 'Bob', 'role': 'werewolf'},
-          ),
-        );
+        setup.ws.addServerEvent(GameEvents.actionResultOf(_look()));
         final notifier = setup.container.read(gameProvider(_gameId).notifier);
         notifier.dismissNightResult();
         expect(setup.currentState.lastActionResult, isNull);
 
         // The phone reconnects; the server now lists that closed window.
         setup.registerGameMe(
-          GameMeJsonBuilder().withWave(2).withNightResults([
-            _peekPlayer(wave: 1),
-          ]).build(),
+          _doppelganger().withWave(2).withNightResults([_look()]).build(),
         );
         await notifier.refreshState();
 
@@ -228,15 +203,13 @@ void main() {
 
     test('a window that closed while the socket was down is shown after the '
         'reconnect refresh', () async {
-      final setup = _setup(GameMeJsonBuilder().withWave(1).build());
+      final setup = _setup(_doppelganger().withWave(1).build());
       addTearDown(setup.dispose);
       await setup.readGameState();
       expect(setup.currentState.lastActionResult, isNull);
 
       setup.registerGameMe(
-        GameMeJsonBuilder().withWave(2).withNightResults([
-          _peekPlayer(wave: 1),
-        ]).build(),
+        _doppelganger().withWave(2).withNightResults([_look()]).build(),
       );
       await setup.container.read(gameProvider(_gameId).notifier).refreshState();
 
@@ -248,20 +221,26 @@ void main() {
       'several results from one fetch queue up and come one after another',
       () async {
         final setup = _setup(
-          GameMeJsonBuilder().inPhase('discussion').withNightResults([
-            _peekPlayer(wave: 1),
-            _swapWithPlayer(wave: 2),
+          _doppelganger().inPhase('discussion').withNightResults([
+            _look(),
+            _followUp(),
           ]).build(),
         );
         addTearDown(setup.dispose);
         final state = await setup.readGameState();
         final notifier = setup.container.read(gameProvider(_gameId).notifier);
 
-        expect(state.lastActionResult!.wave, 1);
+        expect(
+          state.lastActionResult!.revealedInfo['action_type'],
+          'peek_player',
+        );
         expect(state.pendingNightResults, hasLength(1));
 
         notifier.dismissNightResult();
-        expect(setup.currentState.lastActionResult!.wave, 2);
+        expect(
+          setup.currentState.lastActionResult!.revealedInfo['action_type'],
+          'peek_center',
+        );
         expect(setup.currentState.pendingNightResults, isEmpty);
 
         notifier.dismissNightResult();
@@ -272,21 +251,16 @@ void main() {
     test(
       'a result already on screen is not replaced; the missed one waits',
       () async {
-        final setup = _setup(GameMeJsonBuilder().withWave(2).build());
+        final setup = _setup(_doppelganger().withWave(1).build());
         addTearDown(setup.dispose);
         await setup.readGameState();
-        // Window 2's own result arrives live and is on screen.
-        setup.ws.addServerEvent(
-          GameEvents.actionResult(
-            wave: 2,
-            actionType: 'swap_with_player',
-            revealedInfo: {'target_name': 'Charlie', 'new_role': 'villager'},
-          ),
-        );
+        // Her follow-up's result arrives live as window 1 closes, on screen.
+        setup.ws.addServerEvent(GameEvents.actionResultOf(_followUp()));
+        // The look, sent while the socket was down, is in the next /me/.
         setup.registerGameMe(
-          GameMeJsonBuilder().inPhase('discussion').withNightResults([
-            _peekPlayer(wave: 1),
-            _swapWithPlayer(wave: 2),
+          _doppelganger().withWave(2).withNightResults([
+            _look(),
+            _followUp(),
           ]).build(),
         );
 
@@ -294,16 +268,26 @@ void main() {
             .read(gameProvider(_gameId).notifier)
             .refreshState();
 
-        expect(setup.currentState.lastActionResult!.wave, 2);
-        expect(setup.currentState.pendingNightResults.single.wave, 1);
+        expect(
+          setup.currentState.lastActionResult!.revealedInfo['action_type'],
+          'peek_center',
+        );
+        expect(
+          setup
+              .currentState
+              .pendingNightResults
+              .single
+              .revealedInfo['action_type'],
+          'peek_player',
+        );
       },
     );
 
     test('the phase change after the night drops the queue', () async {
       final setup = _setup(
-        GameMeJsonBuilder().inPhase('discussion').withNightResults([
-          _peekPlayer(wave: 1),
-          _swapWithPlayer(wave: 2),
+        _doppelganger().inPhase('discussion').withNightResults([
+          _look(),
+          _followUp(),
         ]).build(),
       );
       addTearDown(setup.dispose);
@@ -319,11 +303,11 @@ void main() {
 
   group('parseNightResults', () {
     test('reads the action_result event shape and injects action_type', () {
-      final results = parseNightResults([_peekPlayer(wave: 1)]);
+      final results = parseNightResults([_look()]);
 
       expect(results.single.wave, 1);
       expect(results.single.revealedInfo['action_type'], 'peek_player');
-      expect(results.single.revealedInfo['role'], 'werewolf');
+      expect(results.single.revealedInfo['copied_role'], 'Seer');
     });
 
     test('null and non-lists are empty', () {

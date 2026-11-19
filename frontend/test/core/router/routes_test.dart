@@ -13,6 +13,11 @@ import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../helpers/contract/contract_samples.dart';
+
+/// The running game the server reports for the player.
+final _running = ContractSamples.map('http/game/current_game_active');
+
 class _MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
 
 void main() {
@@ -118,7 +123,7 @@ void main() {
         () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
       ).thenAnswer(
         (_) async => Response<Map<String, dynamic>>(
-          data: <String, dynamic>{'game': null},
+          data: ContractSamples.map('http/game/current_game_none'),
           statusCode: 200,
           requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
         ),
@@ -161,7 +166,7 @@ void main() {
           () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
         ).thenAnswer(
           (_) async => Response<Map<String, dynamic>>(
-            data: <String, dynamic>{'game_id': 'game-123'},
+            data: _running,
             statusCode: 200,
             requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
           ),
@@ -174,7 +179,7 @@ void main() {
 
         expect(
           router.routerDelegate.currentConfiguration.uri.path,
-          '/game/game-123',
+          '/game/${_running['game_id']}',
         );
       },
     );
@@ -186,10 +191,7 @@ void main() {
         () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
       ).thenAnswer(
         (_) async => Response<Map<String, dynamic>>(
-          data: <String, dynamic>{
-            'game_id': 'game-123',
-            'lobby_code': 'ABC123',
-          },
+          data: _running,
           statusCode: 200,
           requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
         ),
@@ -201,8 +203,8 @@ void main() {
       );
 
       final uri = router.routerDelegate.currentConfiguration.uri;
-      expect(uri.path, '/game/game-123');
-      expect(uri.queryParameters['lobby'], 'ABC123');
+      expect(uri.path, '/game/${_running['game_id']}');
+      expect(uri.queryParameters['lobby'], _running['lobby_code']);
     });
 
     testWidgets(
@@ -216,20 +218,23 @@ void main() {
             );
         when(
           () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
-        ).thenAnswer((_) async => answer({'game_id': 'game-123'}));
+        ).thenAnswer((_) async => answer(_running));
         final router = await pumpRouterApp(
           tester,
           authState: AuthState.authenticated(User(id: 1, displayName: 'Alice')),
         );
         expect(
           router.routerDelegate.currentConfiguration.uri.path,
-          '/game/game-123',
+          '/game/${_running['game_id']}',
         );
 
         // The game is over; the server no longer lists it as active.
         when(
           () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
-        ).thenAnswer((_) async => answer({'game': null}));
+        ).thenAnswer(
+          (_) async =>
+              answer(ContractSamples.map('http/game/current_game_none')),
+        );
         router.go('/');
         await tester.pumpAndSettle();
 

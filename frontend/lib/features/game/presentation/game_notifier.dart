@@ -293,7 +293,7 @@ class GameNotifier extends _$GameNotifier {
     final remaining = [...shown];
     final unseen = <ActionResult>[];
     for (final result in closed) {
-      final i = remaining.indexWhere((s) => _sameResult(s, result));
+      final i = remaining.indexOf(result);
       if (i >= 0) {
         remaining.removeAt(i);
       } else {
@@ -301,19 +301,6 @@ class GameNotifier extends _$GameNotifier {
       }
     }
     return unseen;
-  }
-
-  /// Whether two results are the same night information. `role_acting_as` is
-  /// ignored: the socket path may add it from the prompt, a state fetch may not.
-  bool _sameResult(ActionResult a, ActionResult b) {
-    if (a.wave != b.wave) return false;
-    ActionResult core(ActionResult r) => ActionResult(
-      wave: r.wave,
-      revealedInfo: Map<String, dynamic>.of(r.revealedInfo)
-        ..remove('role_acting_as'),
-    );
-    // Generated equality compares the info map deeply.
-    return core(a) == core(b);
   }
 
   /// Merges the public `connected` flags from the player list into [state].
@@ -452,25 +439,21 @@ class GameNotifier extends _$GameNotifier {
   /// Stores the action result and transitions to actionResult sub-view.
   ///
   /// Results arrive when a window closes (all players' together), except the
-  /// Doppelganger's look, which arrives on submit. Injects `action_type` (and,
-  /// for see_team, `role_acting_as`) into [ActionResult.revealedInfo] so
-  /// [NightResultView] can determine display logic without needing extra params.
+  /// Doppelganger's look, which arrives on submit. Injects `action_type` into
+  /// [ActionResult.revealedInfo] so [NightResultView] can determine display
+  /// logic without needing extra params.
   void _handleActionResult(Map<String, dynamic> data) {
     _updateState((state) {
       final ActionResult result;
       try {
-        result = actionResultFromServer(
-          data,
-          // The server includes it; this covers an older payload.
-          fallbackRoleActingAs: state.actionPrompt?.roleActingAs,
-        );
+        result = actionResultFromServer(data);
       } on FormatException catch (e) {
         logger.w('GameNotifier: Malformed action_result: $e');
         return state;
       }
       // Already put in front of the player (surfaced from a state fetch that
       // got there first): do not show it a second time.
-      if (state.shownNightResults.any((s) => _sameResult(s, result))) {
+      if (state.shownNightResults.contains(result)) {
         return state;
       }
       return state.copyWith(
@@ -755,16 +738,6 @@ class GameNotifier extends _$GameNotifier {
     });
   }
 
-  /// Called by [NightResultView] when a lone-werewolf see_team result is shown.
-  ///
-  /// Transitions to [NightSubView.loneWerewolfPeek] so the player can
-  /// optionally peek at one center card.
-  void transitionToLoneWerewolfPeek() {
-    _updateState((state) {
-      return state.copyWith(nightSubView: NightSubView.loneWerewolfPeek);
-    });
-  }
-
   /// Submits a night action (`skip` with empty targets is "do nothing").
   ///
   /// The server accepts it and the window stays open until it closes: no result
@@ -1026,27 +999,12 @@ class GameNotifier extends _$GameNotifier {
       );
     }).toList();
 
-    final voteResults = (data['votes'] as List<dynamic>? ?? []).map((raw) {
-      final v = raw as Map<String, dynamic>;
-      final targetId = v['target_id'];
-      final targetIdStr = targetId?.toString();
-      return VoteResult(
-        voterId: v['voter_id'].toString(),
-        voterName: v['voter_name'] as String? ?? '',
-        targetId: targetIdStr,
-        targetName: targetIdStr != null
-            ? (v['target_name'] as String? ?? playerNames[targetIdStr])
-            : null,
-      );
-    }).toList();
-
     final reason = data['reason'] as String? ?? '';
 
     return GameResult(
       winningTeams: winningTeams,
       players: playerResults,
       reason: reason,
-      votes: voteResults,
       centerCards: centerCards,
     );
   }
@@ -1091,7 +1049,7 @@ RoleId? _parseRoleId(String roleStr) => switch (roleStr.toLowerCase()) {
 TeamId? _parseTeamId(String teamStr) => switch (teamStr.toLowerCase()) {
   'werewolf' => TeamId.werewolf,
   'village' => TeamId.village,
-  'independent' || 'neutral' || 'tanner' => TeamId.independent,
+  'neutral' || 'tanner' => TeamId.independent,
   _ => null,
 };
 

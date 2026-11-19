@@ -103,20 +103,8 @@ void main() {
 
       await _tick();
       ws
-        ..addServerEvent(
-          GameEvents.playerReady(
-            playerId: 2,
-            displayName: 'Ben',
-            isReady: true,
-          ),
-        )
-        ..addServerEvent(
-          GameEvents.playerReady(
-            playerId: 2,
-            displayName: 'Ben',
-            isReady: false,
-          ),
-        )
+        ..addServerEvent(GameEvents.playerReady(playerId: 2, isReady: true))
+        ..addServerEvent(GameEvents.playerReady(playerId: 2, isReady: false))
         ..addServerEvent(GameEvents.lobbyUpdate(roleConfig: {'Seer': 1}));
       fetch.complete(_lobby());
       await container.read(lobbyProvider(_code).future);
@@ -188,13 +176,9 @@ void main() {
 
       final fetch = Completer<LobbyState>();
       when(() => service.fetchLobby(_code)).thenAnswer((_) => fetch.future);
-      ws.addServerEvent(
-        GameEvents.playerJoined(playerId: 3, displayName: 'Cleo'),
-      );
+      ws.addServerEvent(GameEvents.playerJoined());
       await _tick();
-      ws.addServerEvent(
-        GameEvents.playerReady(playerId: 3, displayName: 'Cleo', isReady: true),
-      );
+      ws.addServerEvent(GameEvents.playerReady(playerId: 3, isReady: true));
       fetch.complete(_lobby());
       await _tick();
       await _tick();

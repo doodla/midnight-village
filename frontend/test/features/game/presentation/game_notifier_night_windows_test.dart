@@ -1,60 +1,20 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/game_state_factory.dart';
 import '../../../helpers/game_test_setup.dart';
 
 const _gameId = 'test-game-id';
 
-Map<String, dynamic> _robberPrompt() => {
-  'role_acting_as': 'Robber',
-  'action_types': ['swap_with_player', 'skip'],
-  'valid_targets': {
-    'player_ids': [2, 3],
-  },
-  'wave': 2,
-};
-
-Map<String, dynamic> _seerPrompt({int wave = 2}) => {
-  'role_acting_as': 'Seer',
-  'action_types': ['peek_player', 'peek_center', 'skip'],
-  'valid_targets': {
-    'player_ids': [2, 3],
-    'center_indices': [0, 1, 2],
-  },
-  'wave': wave,
-};
-
 Future<void> _pump() => Future<void>.delayed(Duration.zero);
-
-/// Makes every later request fail with [statusCode], like the server rejecting
-/// the submission (the shared mock only resolves; it cannot reject).
-void _rejectRequestsWith(GameTestSetup setup, int statusCode) {
-  setup.http.dio.interceptors.clear();
-  setup.http.dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) => handler.reject(
-        DioException(
-          requestOptions: options,
-          response: Response(
-            requestOptions: options,
-            statusCode: statusCode,
-            data: {'detail': 'rejected'},
-          ),
-          type: DioExceptionType.badResponse,
-        ),
-      ),
-    ),
-  );
-}
 
 void main() {
   group('ActionPrompt choices (what the server offered)', () {
     test('Seer with skip needs a choice, skip is separate', () {
-      final prompt = ActionPrompt.fromJson(_seerPrompt());
+      final prompt = ActionPrompt.fromJson(serverPrompt('seer'));
       expect(prompt.needsActionChoice, isTrue);
       expect(prompt.canSkip, isTrue);
       expect(prompt.choiceTypes, ['peek_player', 'peek_center']);
@@ -62,21 +22,14 @@ void main() {
     });
 
     test('a lone action plus skip is not a choice', () {
-      final prompt = ActionPrompt.fromJson(_robberPrompt());
+      final prompt = ActionPrompt.fromJson(serverPrompt('robber'));
       expect(prompt.needsActionChoice, isFalse);
       expect(prompt.canSkip, isTrue);
       expect(prompt.primaryType, 'swap_with_player');
     });
 
     test('a prompt without skip offers no skip', () {
-      final prompt = ActionPrompt.fromJson({
-        'role_acting_as': 'Drunk',
-        'action_types': ['swap_with_center'],
-        'valid_targets': {
-          'center_indices': [0, 1, 2],
-        },
-        'wave': 2,
-      });
+      final prompt = ActionPrompt.fromJson(serverPrompt('drunk'));
       expect(prompt.canSkip, isFalse);
       expect(prompt.needsActionChoice, isFalse);
     });
@@ -89,16 +42,7 @@ void main() {
       addTearDown(setup.dispose);
       await setup.readGameState();
 
-      setup.ws.addServerEvent(
-        GameEvents.actionPrompt(
-          role: 'Robber',
-          actionTypes: ['swap_with_player', 'skip'],
-          validTargets: {
-            'player_ids': [2, 3],
-          },
-          wave: 2,
-        ),
-      );
+      setup.ws.addServerEvent(GameEvents.actionPrompt('robber'));
       await _pump();
 
       expect(setup.currentState.nightSubView, NightSubView.actionPrompt);
@@ -109,17 +53,7 @@ void main() {
       addTearDown(setup.dispose);
       await setup.readGameState();
 
-      setup.ws.addServerEvent(
-        GameEvents.actionPrompt(
-          role: 'Seer',
-          actionTypes: ['peek_player', 'peek_center', 'skip'],
-          validTargets: {
-            'player_ids': [2, 3],
-            'center_indices': [0, 1, 2],
-          },
-          wave: 2,
-        ),
-      );
+      setup.ws.addServerEvent(GameEvents.actionPrompt('seer'));
       await _pump();
       expect(setup.currentState.nightSubView, NightSubView.seerChoice);
 
@@ -137,8 +71,8 @@ void main() {
         'closes', () async {
       final setup = GameTestSetup.create(
         gameMeJson: GameMeJsonBuilder()
-            .withRole('robber')
-            .withActionPrompt(_robberPrompt())
+            .withRole('Robber')
+            .withPrompt('robber')
             .build(),
       );
       addTearDown(setup.dispose);
@@ -163,9 +97,8 @@ void main() {
       // discussion. The result must survive all three until dismissed.
       setup.ws.addServerEvent(
         GameEvents.actionResult(
-          wave: 2,
-          revealedInfo: {'target_name': 'Bob', 'new_role': 'villager'},
-          actionType: 'swap_with_player',
+          'swap_with_player',
+          info: {'target_name': 'Bob', 'new_role': 'villager'},
         ),
       );
       setup.ws.addServerEvent(GameEvents.waveComplete(wave: 2));
@@ -188,8 +121,8 @@ void main() {
     test('skip submits the skip action with empty targets', () async {
       final setup = GameTestSetup.create(
         gameMeJson: GameMeJsonBuilder()
-            .withRole('seer')
-            .withActionPrompt(_seerPrompt())
+            .withRole('Seer')
+            .withPrompt('seer')
             .build(),
       );
       addTearDown(setup.dispose);
@@ -212,13 +145,13 @@ void main() {
       () async {
         final setup = GameTestSetup.create(
           gameMeJson: GameMeJsonBuilder()
-              .withRole('robber')
-              .withActionPrompt(_robberPrompt())
+              .withRole('Robber')
+              .withPrompt('robber')
               .build(),
         );
         addTearDown(setup.dispose);
         await setup.readGameState();
-        _rejectRequestsWith(setup, 400);
+        setup.registerActionSubmit(statusCode: 400);
 
         await expectLater(
           setup.container.read(gameProvider(_gameId).notifier).submitAction(
@@ -236,13 +169,13 @@ void main() {
     test('a 409 (already submitted) also lands on waiting', () async {
       final setup = GameTestSetup.create(
         gameMeJson: GameMeJsonBuilder()
-            .withRole('robber')
-            .withActionPrompt(_robberPrompt())
+            .withRole('Robber')
+            .withPrompt('robber')
             .build(),
       );
       addTearDown(setup.dispose);
       await setup.readGameState();
-      _rejectRequestsWith(setup, 409);
+      setup.registerActionSubmit(statusCode: 409);
 
       await setup.container.read(gameProvider(_gameId).notifier).submitAction(
         'swap_with_player',
@@ -255,32 +188,20 @@ void main() {
     test('Doppelganger look result and follow-up prompt: result stays until '
         'Continue', () async {
       final setup = GameTestSetup.create(
-        gameMeJson: GameMeJsonBuilder().withRole('doppelganger').build(),
+        gameMeJson: GameMeJsonBuilder().withRole('Doppelganger').build(),
       );
       addTearDown(setup.dispose);
       await setup.readGameState();
 
       setup.ws.addServerEvent(
         GameEvents.actionResult(
+          'doppelganger_look',
           wave: 1,
-          revealedInfo: {
-            'target_name': 'Bob',
-            'role': 'seer',
-            'copied_role': 'Seer',
-          },
-          actionType: 'peek_player',
+          info: {'target_name': 'Bob'},
         ),
       );
       setup.ws.addServerEvent(
-        GameEvents.actionPrompt(
-          role: 'Seer',
-          actionTypes: ['peek_player', 'peek_center', 'skip'],
-          validTargets: {
-            'player_ids': [2, 3],
-            'center_indices': [0, 1, 2],
-          },
-          wave: 1,
-        ),
+        GameEvents.actionPrompt('doppelganger_followup', wave: 1),
       );
       await _pump();
 
@@ -296,15 +217,9 @@ void main() {
         'by the late HTTP response', () async {
       final setup = GameTestSetup.create(
         gameMeJson: GameMeJsonBuilder()
-            .withRole('doppelganger')
-            .withActionPrompt({
-              'role_acting_as': 'Doppelganger',
-              'action_types': ['peek_player'],
-              'valid_targets': {
-                'player_ids': [2, 3],
-              },
-              'wave': 1,
-            })
+            .withRole('Doppelganger')
+            .withWave(1)
+            .withPrompt('doppelganger')
             .build(),
       );
       addTearDown(setup.dispose);
@@ -315,15 +230,7 @@ void main() {
       // The submit is in flight; the server's follow-up lands first.
       final submit = notifier.submitAction('peek_player', {'player_id': 2});
       setup.ws.addServerEvent(
-        GameEvents.actionPrompt(
-          role: 'Seer',
-          actionTypes: ['peek_player', 'peek_center', 'skip'],
-          validTargets: {
-            'player_ids': [2, 3],
-            'center_indices': [0, 1, 2],
-          },
-          wave: 1,
-        ),
+        GameEvents.actionPrompt('doppelganger_followup', wave: 1),
       );
       await submit;
       await _pump();
@@ -335,16 +242,20 @@ void main() {
     test('wave_start and wave_waiting keep a result the player has not '
         'dismissed (Doppelganger window 1 result, then window 2)', () async {
       final setup = GameTestSetup.create(
-        gameMeJson: GameMeJsonBuilder().withRole('doppelganger').build(),
+        gameMeJson: GameMeJsonBuilder().withRole('Doppelganger').build(),
       );
       addTearDown(setup.dispose);
       await setup.readGameState();
 
       setup.ws.addServerEvent(
         GameEvents.actionResult(
+          'doppelganger_look',
           wave: 1,
-          revealedInfo: {'target_name': 'Bob', 'role': 'villager'},
-          actionType: 'peek_player',
+          info: {
+            'target_name': 'Bob',
+            'role': 'villager',
+            'copied_role': 'Villager',
+          },
         ),
       );
       setup.ws.addServerEvent(GameEvents.waveComplete(wave: 1));
@@ -364,9 +275,8 @@ void main() {
 
       setup.ws.addServerEvent(
         GameEvents.actionResult(
-          wave: 2,
-          revealedInfo: {'current_role': 'villager'},
-          actionType: 'insomniac',
+          'insomniac',
+          info: {'current_role': 'villager'},
         ),
       );
       setup.ws.addServerEvent(GameEvents.phaseChange(phase: 'discussion'));
@@ -380,28 +290,18 @@ void main() {
     test("Insomniac's result arrives in window 2 and carries the dealt-role "
         'info', () async {
       final setup = GameTestSetup.create(
-        gameMeJson: GameMeJsonBuilder().withRole('insomniac').build(),
+        gameMeJson: GameMeJsonBuilder().withRole('Insomniac').build(),
       );
       addTearDown(setup.dispose);
       await setup.readGameState();
 
       setup.ws.addServerEvent(GameEvents.waveStart(wave: 2));
-      setup.ws.addServerEvent(
-        GameEvents.actionPrompt(
-          role: 'Insomniac',
-          actionTypes: ['none'],
-          wave: 2,
-        ),
-      );
+      setup.ws.addServerEvent(GameEvents.actionPrompt('insomniac'));
       await _pump();
       expect(setup.currentState.nightSubView, NightSubView.actionPrompt);
 
       setup.ws.addServerEvent(
-        GameEvents.actionResult(
-          wave: 2,
-          revealedInfo: {'current_role': 'robber'},
-          actionType: 'insomniac',
-        ),
+        GameEvents.actionResult('insomniac', info: {'current_role': 'robber'}),
       );
       setup.ws.addServerEvent(GameEvents.waveComplete(wave: 2));
       await _pump();
@@ -419,7 +319,7 @@ void main() {
       () async {
         final setup = GameTestSetup.create(
           gameMeJson: GameMeJsonBuilder()
-              .withRole('seer', hasActed: true)
+              .withRole('Seer', hasActed: true)
               .withWave(2)
               .build(),
         );
@@ -437,9 +337,9 @@ void main() {
       () async {
         final setup = GameTestSetup.create(
           gameMeJson: GameMeJsonBuilder()
-              .withRole('seer')
+              .withRole('Seer')
               .withWave(2)
-              .withActionPrompt(_seerPrompt())
+              .withPrompt('seer')
               .build(),
         );
         addTearDown(setup.dispose);
@@ -454,9 +354,9 @@ void main() {
     test('Robber prompt with skip is restored on the action screen', () async {
       final setup = GameTestSetup.create(
         gameMeJson: GameMeJsonBuilder()
-            .withRole('robber')
+            .withRole('Robber')
             .withWave(2)
-            .withActionPrompt(_robberPrompt())
+            .withPrompt('robber')
             .build(),
       );
       addTearDown(setup.dispose);
@@ -468,33 +368,23 @@ void main() {
 
     test('refreshState keeps a result the player has not dismissed', () async {
       final setup = GameTestSetup.create(
-        gameMeJson: GameMeJsonBuilder().withRole('robber').withWave(2).build(),
+        gameMeJson: GameMeJsonBuilder().withRole('Robber').withWave(2).build(),
       );
       addTearDown(setup.dispose);
       await setup.readGameState();
 
       setup.ws.addServerEvent(
         GameEvents.actionResult(
-          wave: 2,
-          revealedInfo: {'target_name': 'Bob', 'new_role': 'villager'},
-          actionType: 'swap_with_player',
+          'swap_with_player',
+          info: {'target_name': 'Bob', 'new_role': 'villager'},
         ),
       );
       await _pump();
 
       // The server has moved on to discussion while the socket was down.
-      setup.http
-          .when(method: 'GET', path: '/onuw/games/$_gameId/me/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(path: '/onuw/games/$_gameId/me/'),
-              statusCode: 200,
-              data: GameMeJsonBuilder()
-                  .inPhase('discussion')
-                  .withRole('robber')
-                  .build(),
-            ),
-          );
+      setup.registerGameMe(
+        GameMeJsonBuilder().inPhase('discussion').withRole('Robber').build(),
+      );
       await setup.container.read(gameProvider(_gameId).notifier).refreshState();
 
       expect(setup.currentState.phase, 'discussion');

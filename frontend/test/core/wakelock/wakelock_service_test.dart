@@ -4,6 +4,7 @@ import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
 
 import '../../helpers/fake_wakelock_service.dart';
+import '../../helpers/game_events.dart';
 import '../../helpers/game_state_factory.dart';
 import '../../helpers/game_test_setup.dart';
 
@@ -22,9 +23,9 @@ void main() {
       final wakelock = FakeWakelockService();
       final setup = await tester.pumpGameFlow(wakelock: wakelock);
 
-      setup.ws.addServerEvent('{"type":"phase_change","phase":"discussion"}');
+      setup.ws.addServerEvent(GameEvents.phaseChange(phase: 'discussion'));
       await tester.pump();
-      setup.ws.addServerEvent('{"type":"phase_change","phase":"voting"}');
+      setup.ws.addServerEvent(GameEvents.phaseChange(phase: 'voting'));
       await tester.pump();
 
       expect(wakelock.isEnabled, isTrue);

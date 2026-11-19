@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +15,7 @@ import 'package:midnight_village/features/game/data/game_service.dart';
 import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
+import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/fake_wakelock_service.dart';
 import '../../../helpers/game_state_factory.dart';
 import '../../../helpers/game_test_setup.dart';
@@ -23,52 +23,25 @@ import '../../../helpers/game_test_setup.dart';
 const _gameId = 'test-game-id';
 const _code = 'ABC123';
 
-Map<String, dynamic> _resultsJson() => {
-  'winning_teams': ['village'],
-  'reason': 'The werewolf was found.',
-  'center_cards': <String>[],
-  'players': [
-    for (final (i, n) in ['Ana', 'Ben', 'Cleo'].indexed)
-      {
-        'player_id': i + 1,
-        'display_name': n,
-        'original_role': 'villager',
-        'final_role': 'villager',
-        'team': 'village',
-        'is_eliminated': false,
-        'outcome': 'win',
-      },
-  ],
-  'votes': <dynamic>[],
-};
+/// The table is gone (its last member left): the server answers 404, with
+/// the body it sends for that endpoint.
+void _meGone(GameTestSetup setup) => setup.registerGet(
+  '/onuw/games/$_gameId/me/',
+  ContractSamples.load('http/game/me_not_found'),
+  statusCode: 404,
+);
 
-/// Answers every request to a path ending in [suffix] with 404, ahead of the
-/// mock that answers everything else.
-void _gone(GameTestSetup setup, String suffix, {String? method}) {
-  setup.http.dio.interceptors.insert(
-    0,
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        if (options.path.endsWith(suffix) &&
-            (method == null || options.method == method)) {
-          handler.reject(
-            DioException(
-              requestOptions: options,
-              response: Response(
-                requestOptions: options,
-                statusCode: 404,
-                data: {'detail': 'gone'},
-              ),
-              type: DioExceptionType.badResponse,
-            ),
-          );
-        } else {
-          handler.next(options);
-        }
-      },
-    ),
-  );
-}
+void _tableGone(GameTestSetup setup) => setup.registerGet(
+  '/lobbies/$_code/',
+  ContractSamples.load('http/lobby/not_found'),
+  statusCode: 404,
+);
+
+void _postGone(GameTestSetup setup, String path) => setup.registerPost(
+  path,
+  data: {'detail': 'Lobby not found.'},
+  statusCode: 404,
+);
 
 class _Pumped {
   _Pumped(this.setup, this.router);
@@ -84,7 +57,9 @@ Future<_Pumped> _pump(
 }) async {
   final setup = GameTestSetup.create(gameMeJson: me);
   addTearDown(setup.dispose);
-  setup.registerResults(resultsJson: _resultsJson());
+  setup
+    ..registerResults()
+    ..registerTable(code: _code);
   beforePump?.call(setup);
   final client = AuthenticatedClient.forTesting(dio: setup.http.dio);
   const theme = MidnightVillageTheme();
@@ -150,7 +125,7 @@ void main() {
         me: GameMeJsonBuilder().inPhase('results').build(),
       );
       expect(p.location, startsWith('/game/'));
-      _gone(p.setup, '/me/');
+      _meGone(p.setup);
 
       await tester.runAsync(
         () => ProviderScope.containerOf(
@@ -170,7 +145,7 @@ void main() {
       final p = await _pump(
         tester,
         me: GameMeJsonBuilder().build(),
-        beforePump: (s) => _gone(s, '/me/'),
+        beforePump: _meGone,
       );
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await _settle(tester);
@@ -186,7 +161,7 @@ void main() {
         tester,
         me: GameMeJsonBuilder().inPhase('results').asHost().build(),
       );
-      _gone(p.setup, '/play-again/', method: 'POST');
+      _postGone(p.setup, '/lobbies/$_code/play-again/');
 
       await _tap(tester, 'Play Again');
       await _settle(tester);
@@ -200,7 +175,7 @@ void main() {
         tester,
         me: GameMeJsonBuilder().inPhase('results').build(),
       );
-      _gone(p.setup, '/leave/', method: 'POST');
+      _postGone(p.setup, '/lobbies/$_code/leave/');
 
       await _tap(tester, 'Leave');
       await _settle(tester);
@@ -231,7 +206,7 @@ void main() {
       final p = await _pump(
         tester,
         me: GameMeJsonBuilder().inPhase('results').build(),
-        beforePump: (s) => _gone(s, '/lobbies/$_code/'),
+        beforePump: _tableGone,
       );
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await _settle(tester);

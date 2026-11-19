@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'contract/contract_shape.dart';
+import 'game_events.dart';
 import 'mock_websocket.dart';
 
 void main() {
@@ -20,11 +23,34 @@ void main() {
     // Event injection
     // -----------------------------------------------------------------------
 
+    test('addServerEvent passes on an event the server sends', () async {
+      final completer = Completer<dynamic>();
+      ws.stream.listen(completer.complete);
+
+      ws.addServerEvent(GameEvents.gameStarted(gameId: 'g1'));
+
+      expect(jsonDecode(await completer.future as String), {
+        'type': 'game_started',
+        'game_id': 'g1',
+      });
+    });
+
+    test('addServerEvent refuses an event the server never sends', () {
+      expect(
+        () => ws.addServerEvent({'type': 'game_started'}),
+        throwsA(isA<OffContractPayload>()),
+      );
+      expect(
+        () => ws.addServerEvent({'type': 'wave_skipped'}),
+        throwsA(isA<OffContractPayload>()),
+      );
+    });
+
     test('server event reaches stream listeners', () async {
       final completer = Completer<dynamic>();
       ws.stream.listen(completer.complete);
 
-      ws.addServerEvent({'type': 'game_started'});
+      ws.addOffContractEvent({'type': 'game_started'});
 
       final received = await completer.future;
       expect(received, equals({'type': 'game_started'}));
@@ -34,9 +60,9 @@ void main() {
       final received = <dynamic>[];
       final sub = ws.stream.listen(received.add);
 
-      ws.addServerEvent('first');
-      ws.addServerEvent('second');
-      ws.addServerEvent('third');
+      ws.addOffContractEvent('first');
+      ws.addOffContractEvent('second');
+      ws.addOffContractEvent('third');
 
       // Broadcast streams deliver synchronously; flush microtasks to be safe.
       await Future.microtask(() {});
@@ -51,7 +77,7 @@ void main() {
       final subA = ws.stream.listen(receivedA.add);
       final subB = ws.stream.listen(receivedB.add);
 
-      ws.addServerEvent('broadcast');
+      ws.addOffContractEvent('broadcast');
       await Future.microtask(() {});
 
       expect(receivedA, equals(['broadcast']));
@@ -65,7 +91,12 @@ void main() {
     // Client message capture
     // -----------------------------------------------------------------------
 
+    test('a send fails: the server takes no client messages', () {
+      expect(() => ws.send({'type': 'vote'}), throwsStateError);
+    });
+
     test('sent messages are captured in sentMessages', () {
+      final ws = MockWebSocketChannel(acceptsSends: true);
       ws.send({'action': 'vote', 'target': 'player_2'});
 
       expect(
@@ -77,6 +108,7 @@ void main() {
     });
 
     test('multiple sent messages are captured in order', () {
+      final ws = MockWebSocketChannel(acceptsSends: true);
       ws.send('ping');
       ws.send({'type': 'player_action'});
       ws.send(42);
@@ -114,9 +146,9 @@ void main() {
         final received = <dynamic>[];
         final sub = ws.stream.listen(received.add);
 
-        ws.addServerEvent('before');
+        ws.addOffContractEvent('before');
         await ws.close();
-        ws.addServerEvent('after'); // silently ignored
+        ws.addOffContractEvent('after'); // silently ignored
 
         await Future.microtask(() {});
 

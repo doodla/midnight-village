@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
+import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/game_state_factory.dart';
 import '../../../helpers/game_test_setup.dart';
@@ -27,40 +29,22 @@ void _hold(GameTestSetup setup, String suffix, Completer<void> gate) {
   );
 }
 
-/// Fails every GET to a path ending in [suffix] with [statusCode].
-void _failGets(GameTestSetup setup, String suffix, int statusCode) {
-  setup.http.dio.interceptors.insert(
-    0,
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        if (options.method == 'GET' && options.path.endsWith(suffix)) {
-          handler.reject(
-            DioException(
-              requestOptions: options,
-              response: Response(
-                requestOptions: options,
-                statusCode: statusCode,
-                data: {'detail': 'x'},
-              ),
-              type: DioExceptionType.badResponse,
-            ),
-          );
-        } else {
-          handler.next(options);
-        }
-      },
-    ),
-  );
-}
-
 bool _connected(GameTestSetup s, int id) =>
     s.currentState.players.firstWhere((p) => p.playerId == id).connected;
 
-Map<String, dynamic> _peek() => {
-  'wave': 2,
-  'action_type': 'peek_player',
-  'revealed_info': {'target_name': 'Bob', 'role': 'werewolf'},
-};
+/// Peeked at Bob, a Werewolf, in window [wave].
+Map<String, dynamic> _peek({int wave = 2}) => serverNightResult(
+  'peek_player',
+  wave: wave,
+  info: {'target_name': 'Bob', 'role': 'werewolf'},
+);
+
+/// The Doppelganger's look at Bob, a Werewolf (window 1).
+Map<String, dynamic> _look() => serverNightResult(
+  'doppelganger_look',
+  wave: 1,
+  info: {'target_name': 'Bob', 'role': 'werewolf', 'copied_role': 'Werewolf'},
+);
 
 Future<void> _tick() => Future<void>.delayed(const Duration(milliseconds: 10));
 
@@ -171,13 +155,7 @@ void main() {
 
       final loading = setup.readGameState();
       await _tick();
-      setup.ws.addServerEvent(
-        GameEvents.actionResult(
-          wave: 2,
-          actionType: 'peek_player',
-          revealedInfo: {'target_name': 'Bob', 'role': 'werewolf'},
-        ),
-      );
+      setup.ws.addServerEvent(GameEvents.actionResultOf(_peek()));
       gate.complete();
       final state = await loading;
 
@@ -192,7 +170,7 @@ void main() {
       'a night result that only the socket delivered is shown once',
       () async {
         final setup = GameTestSetup.create(
-          gameMeJson: GameMeJsonBuilder().withWave(2).build(),
+          gameMeJson: GameMeJsonBuilder().withRole('Doppelganger').build(),
         );
         addTearDown(setup.dispose);
         final gate = Completer<void>();
@@ -200,13 +178,7 @@ void main() {
 
         final loading = setup.readGameState();
         await _tick();
-        setup.ws.addServerEvent(
-          GameEvents.actionResult(
-            wave: 1,
-            actionType: 'peek_player',
-            revealedInfo: {'target_name': 'Bob', 'role': 'werewolf'},
-          ),
-        );
+        setup.ws.addServerEvent(GameEvents.actionResultOf(_look()));
         gate.complete();
         final state = await loading;
 
@@ -267,18 +239,14 @@ void main() {
       'a result shown before the refresh is not shown again after it',
       () async {
         final setup = GameTestSetup.create(
-          gameMeJson: GameMeJsonBuilder().withWave(2).build(),
+          gameMeJson: GameMeJsonBuilder().withRole('Doppelganger').build(),
         );
         addTearDown(setup.dispose);
         await setup.readGameState();
         final notifier = setup.container.read(gameProvider(_gameId).notifier);
         setup.registerGameMe(
-          GameMeJsonBuilder().withWave(2).withNightResults([
-            {
-              'wave': 1,
-              'action_type': 'peek_player',
-              'revealed_info': {'target_name': 'Bob', 'role': 'werewolf'},
-            },
+          GameMeJsonBuilder().withRole('Doppelganger').withNightResults([
+            _look(),
           ]).build(),
         );
         final gate = Completer<void>();
@@ -287,13 +255,7 @@ void main() {
         final refreshing = notifier.refreshState();
         await _tick();
         // The same result also arrives live while /me/ is on its way.
-        setup.ws.addServerEvent(
-          GameEvents.actionResult(
-            wave: 1,
-            actionType: 'peek_player',
-            revealedInfo: {'target_name': 'Bob', 'role': 'werewolf'},
-          ),
-        );
+        setup.ws.addServerEvent(GameEvents.actionResultOf(_look()));
         gate.complete();
         await refreshing;
 
@@ -385,7 +347,11 @@ void main() {
       final setup = GameTestSetup.create();
       addTearDown(setup.dispose);
       await setup.readGameState();
-      _failGets(setup, '/me/', 404);
+      setup.registerGet(
+        '/onuw/games/$_gameId/me/',
+        ContractSamples.load('http/game/me_not_found'),
+        statusCode: 404,
+      );
 
       await setup.container.read(gameProvider(_gameId).notifier).refreshState();
 
@@ -396,7 +362,7 @@ void main() {
       final setup = GameTestSetup.create();
       addTearDown(setup.dispose);
       await setup.readGameState();
-      _failGets(setup, '/me/', 500);
+      setup.registerGet('/onuw/games/$_gameId/me/', null, statusCode: 500);
 
       await setup.container.read(gameProvider(_gameId).notifier).refreshState();
 

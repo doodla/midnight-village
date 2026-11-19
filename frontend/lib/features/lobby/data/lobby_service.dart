@@ -136,13 +136,11 @@ class LobbyService {
       final response = await _client.get<Map<String, dynamic>>(
         '/onuw/me/current-game/',
       );
+      // The server answers {"game_id", "phase", "lobby_code"}, or
+      // {"game": null} when there is no running game.
       final data = response.data;
-      if (data == null) return null;
-      final game = data['game'] is Map<String, dynamic>
-          ? data['game'] as Map<String, dynamic>
-          : data;
-      if (game['lobby_code']?.toString() != code) return null;
-      return game['game_id']?.toString();
+      if (data == null || data['lobby_code']?.toString() != code) return null;
+      return data['game_id']?.toString();
     } on DioException catch (e) {
       throw mapDioException(e);
     }

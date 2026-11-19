@@ -17,8 +17,9 @@ mixin _$GamePlayer {
 
 @JsonKey(name: 'player_id') int get playerId;@JsonKey(name: 'display_name') String get displayName;/// Visible in voting phase only.
 @JsonKey(name: 'has_voted') bool get hasVoted;/// Whether the player's phone is connected. Public to the whole table.
-/// Absent in the response means connected.
- bool get connected;
+/// Not part of `/me/`: merged in from `GET .../players/` and kept up to
+/// date by `player_presence` events.
+@JsonKey(includeFromJson: false, includeToJson: false) bool get connected;
 /// Create a copy of GamePlayer
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -51,7 +52,7 @@ abstract mixin class $GamePlayerCopyWith<$Res>  {
   factory $GamePlayerCopyWith(GamePlayer value, $Res Function(GamePlayer) _then) = _$GamePlayerCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'player_id') int playerId,@JsonKey(name: 'display_name') String displayName,@JsonKey(name: 'has_voted') bool hasVoted, bool connected
+@JsonKey(name: 'player_id') int playerId,@JsonKey(name: 'display_name') String displayName,@JsonKey(name: 'has_voted') bool hasVoted,@JsonKey(includeFromJson: false, includeToJson: false) bool connected
 });
 
 
@@ -159,7 +160,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted,  bool connected)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(includeFromJson: false, includeToJson: false)  bool connected)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GamePlayer() when $default != null:
 return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected);case _:
@@ -180,7 +181,7 @@ return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected)
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted,  bool connected)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(includeFromJson: false, includeToJson: false)  bool connected)  $default,) {final _that = this;
 switch (_that) {
 case _GamePlayer():
 return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected);case _:
@@ -200,7 +201,7 @@ return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected)
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted,  bool connected)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(includeFromJson: false, includeToJson: false)  bool connected)?  $default,) {final _that = this;
 switch (_that) {
 case _GamePlayer() when $default != null:
 return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected);case _:
@@ -215,7 +216,7 @@ return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected)
 @JsonSerializable()
 
 class _GamePlayer implements GamePlayer {
-  const _GamePlayer({@JsonKey(name: 'player_id') required this.playerId, @JsonKey(name: 'display_name') required this.displayName, @JsonKey(name: 'has_voted') this.hasVoted = false, this.connected = true});
+  const _GamePlayer({@JsonKey(name: 'player_id') required this.playerId, @JsonKey(name: 'display_name') required this.displayName, @JsonKey(name: 'has_voted') this.hasVoted = false, @JsonKey(includeFromJson: false, includeToJson: false) this.connected = true});
   factory _GamePlayer.fromJson(Map<String, dynamic> json) => _$GamePlayerFromJson(json);
 
 @override@JsonKey(name: 'player_id') final  int playerId;
@@ -223,8 +224,9 @@ class _GamePlayer implements GamePlayer {
 /// Visible in voting phase only.
 @override@JsonKey(name: 'has_voted') final  bool hasVoted;
 /// Whether the player's phone is connected. Public to the whole table.
-/// Absent in the response means connected.
-@override@JsonKey() final  bool connected;
+/// Not part of `/me/`: merged in from `GET .../players/` and kept up to
+/// date by `player_presence` events.
+@override@JsonKey(includeFromJson: false, includeToJson: false) final  bool connected;
 
 /// Create a copy of GamePlayer
 /// with the given fields replaced by the non-null parameter values.
@@ -259,7 +261,7 @@ abstract mixin class _$GamePlayerCopyWith<$Res> implements $GamePlayerCopyWith<$
   factory _$GamePlayerCopyWith(_GamePlayer value, $Res Function(_GamePlayer) _then) = __$GamePlayerCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'player_id') int playerId,@JsonKey(name: 'display_name') String displayName,@JsonKey(name: 'has_voted') bool hasVoted, bool connected
+@JsonKey(name: 'player_id') int playerId,@JsonKey(name: 'display_name') String displayName,@JsonKey(name: 'has_voted') bool hasVoted,@JsonKey(includeFromJson: false, includeToJson: false) bool connected
 });
 
 

@@ -1,7 +1,50 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'contract/contract_samples.dart';
+import 'contract/contract_shape.dart';
 import 'mock_http_client.dart';
+
+/// Registers [data] for [method] [path]; off contract unless [checked], since
+/// these tests are about the mock's plumbing, not about server payloads.
+void _register(
+  MockHttpClient client,
+  String method,
+  String path,
+  dynamic data, {
+  int status = 200,
+  bool checked = false,
+}) {
+  client
+      .when(method: method, path: path)
+      .thenReturn(
+        Response(
+          requestOptions: RequestOptions(path: path),
+          statusCode: status,
+          data: data,
+        ),
+        offContract: !checked,
+      );
+}
+
+/// Runs [request], which must hit no registered mock, and returns what the
+/// request threw and what the mock reported to the test's zone.
+Future<(Object?, List<Object>)> _unmocked(Future<void> Function() request) {
+  final reported = <Object>[];
+  final done = Completer<(Object?, List<Object>)>();
+  runZonedGuarded(() async {
+    Object? thrown;
+    try {
+      await request();
+    } catch (e) {
+      thrown = e;
+    }
+    done.complete((thrown, reported));
+  }, (error, _) => reported.add(error));
+  return done.future;
+}
 
 void main() {
   group('MockHttpClient', () {
@@ -12,15 +55,7 @@ void main() {
     });
 
     test('returns canned response for registered GET endpoint', () async {
-      client
-          .when(method: 'GET', path: '/api/v1/me/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(path: '/api/v1/me/'),
-              statusCode: 200,
-              data: {'id': 42, 'username': 'alice'},
-            ),
-          );
+      _register(client, 'GET', '/api/v1/me/', {'id': 42, 'username': 'alice'});
 
       final response = await client.dio.get<Map<String, dynamic>>(
         '/api/v1/me/',
@@ -31,135 +66,90 @@ void main() {
     });
 
     test(
-      'throws DioException wrapping UnmockedEndpointException for unregistered endpoint',
+      'an unregistered request fails the test, not only the request',
       () async {
-        Object? caught;
-        try {
-          await client.dio.get('/api/v1/unknown/');
-        } catch (e) {
-          caught = e;
-        }
+        final (thrown, reported) = await _unmocked(
+          () => client.dio.get<dynamic>('/api/v1/unknown/'),
+        );
 
-        expect(caught, isA<DioException>());
-        final dioException = caught as DioException;
-        expect(dioException.error, isA<UnmockedEndpointException>());
-
-        final unmocked = dioException.error as UnmockedEndpointException;
-        expect(unmocked.method, equals('GET'));
-        expect(unmocked.path, equals('/api/v1/unknown/'));
+        expect(thrown, isA<DioException>());
+        final unmocked = (thrown! as DioException).error;
+        expect(reported, [unmocked]);
+        expect(
+          unmocked,
+          isA<UnmockedEndpointException>()
+              .having((e) => e.method, 'method', 'GET')
+              .having((e) => e.path, 'path', '/api/v1/unknown/'),
+        );
       },
     );
 
-    test(
-      'UnmockedEndpointException includes method and path in message',
-      () async {
-        Object? caught;
-        try {
-          await client.dio.post('/api/v1/games/', data: {});
-        } catch (e) {
-          caught = e;
-        }
+    test('a registered path does not answer a different path', () async {
+      _register(client, 'GET', '/api/v1/me/', <String, dynamic>{});
 
-        final unmocked =
-            (caught as DioException).error as UnmockedEndpointException;
-        expect(unmocked.toString(), contains('POST'));
-        expect(unmocked.toString(), contains('/api/v1/games/'));
-      },
-    );
+      final (thrown, reported) = await _unmocked(
+        () => client.dio.get<dynamic>('/api/v1/other/'),
+      );
+
+      expect(thrown, isA<DioException>());
+      expect(reported.single, isA<UnmockedEndpointException>());
+    });
 
     test(
       'GET and POST on the same path return independent responses',
       () async {
-        client
-            .when(method: 'GET', path: '/api/v1/games/')
-            .thenReturn(
-              Response(
-                requestOptions: RequestOptions(path: '/api/v1/games/'),
-                statusCode: 200,
-                data: [
-                  {'id': 1},
-                ],
-              ),
-            );
-        client
-            .when(method: 'POST', path: '/api/v1/games/')
-            .thenReturn(
-              Response(
-                requestOptions: RequestOptions(path: '/api/v1/games/'),
-                statusCode: 201,
-                data: {'id': 99, 'created': true},
-              ),
-            );
+        _register(client, 'GET', '/api/v1/games/', [
+          {'id': 1},
+        ]);
+        _register(client, 'POST', '/api/v1/games/', {'id': 99}, status: 201);
 
-        final getResponse = await client.dio.get('/api/v1/games/');
-        final postResponse = await client.dio.post('/api/v1/games/', data: {});
-
-        expect(getResponse.statusCode, equals(200));
-        expect(
-          getResponse.data,
-          equals([
-            {'id': 1},
-          ]),
+        final getResponse = await client.dio.get<dynamic>('/api/v1/games/');
+        final postResponse = await client.dio.post<dynamic>(
+          '/api/v1/games/',
+          data: {},
         );
 
-        expect(postResponse.statusCode, equals(201));
-        expect(postResponse.data, equals({'id': 99, 'created': true}));
+        expect(getResponse.data, [
+          {'id': 1},
+        ]);
+        expect(postResponse.statusCode, 201);
+        expect(postResponse.data, {'id': 99});
       },
     );
 
-    test('multiple endpoints each return their own response', () async {
-      client
-          .when(method: 'GET', path: '/api/v1/me/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(path: '/api/v1/me/'),
-              statusCode: 200,
-              data: {'user': 'alice'},
-            ),
-          );
-      client
-          .when(method: 'GET', path: '/api/v1/lobbies/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(path: '/api/v1/lobbies/'),
-              statusCode: 200,
-              data: {'lobbies': []},
-            ),
-          );
-      client
-          .when(method: 'GET', path: '/api/v1/games/42/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(path: '/api/v1/games/42/'),
-              statusCode: 200,
-              data: {'id': 42, 'phase': 'lobby'},
-            ),
-          );
+    test('an error status fails the request, with the body', () async {
+      _register(client, 'POST', '/api/v1/games/', {
+        'detail': 'no',
+      }, status: 409);
 
-      final me = await client.dio.get('/api/v1/me/');
-      final lobbies = await client.dio.get('/api/v1/lobbies/');
-      final game = await client.dio.get('/api/v1/games/42/');
-
-      expect(me.data, equals({'user': 'alice'}));
-      expect(lobbies.data, equals({'lobbies': []}));
-      expect(game.data, equals({'id': 42, 'phase': 'lobby'}));
+      await expectLater(
+        client.dio.post<dynamic>('/api/v1/games/'),
+        throwsA(
+          isA<DioException>()
+              .having((e) => e.type, 'type', DioExceptionType.badResponse)
+              .having((e) => e.response?.statusCode, 'status', 409)
+              .having((e) => e.response?.data, 'data', {'detail': 'no'}),
+        ),
+      );
     });
 
-    test('registered path does not match different path', () async {
-      client
-          .when(method: 'GET', path: '/api/v1/me/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(path: '/api/v1/me/'),
-              statusCode: 200,
-              data: {},
-            ),
-          );
-
-      // Different path should throw
+    test('a body is checked against the server samples when registered', () {
+      // flutter_test_config.dart installs the check for every test.
+      expect(MockHttpClient.responseCheck, isNotNull);
       expect(
-        () => client.dio.get('/api/v1/other/'),
-        throwsA(isA<DioException>()),
+        () => _register(client, 'GET', '/onuw/games/g/players/', {
+          'players': [
+            {'player_id': 1, 'name': 'Alice'},
+          ],
+        }, checked: true),
+        throwsA(isA<OffContractPayload>()),
+      );
+      _register(
+        client,
+        'GET',
+        '/onuw/games/g/players/',
+        ContractSamples.load('http/game/players_night'),
+        checked: true,
       );
     });
   });
@@ -167,21 +157,10 @@ void main() {
   group('MockHttpClient.requests', () {
     test('records each request with its method, path and body', () async {
       final client = MockHttpClient();
-      client
-          .when(method: 'POST', path: '/api/v1/act/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(path: '/api/v1/act/'),
-              statusCode: 200,
-              data: {},
-            ),
-          );
+      _register(client, 'POST', '/api/v1/act/', <String, dynamic>{});
 
-      await client.dio.post('/api/v1/act/', data: {'a': 1});
-      await expectLater(
-        client.dio.get('/api/v1/unmocked/'),
-        throwsA(isA<DioException>()),
-      );
+      await client.dio.post<dynamic>('/api/v1/act/', data: {'a': 1});
+      await _unmocked(() => client.dio.get<dynamic>('/api/v1/unmocked/'));
 
       expect(client.requests.map((r) => '${r.method} ${r.path}'), [
         'POST /api/v1/act/',
@@ -196,12 +175,6 @@ void main() {
       const ex = UnmockedEndpointException('GET', '/api/v1/me/');
       expect(ex.toString(), contains('GET'));
       expect(ex.toString(), contains('/api/v1/me/'));
-    });
-
-    test('exposes method and path fields', () {
-      const ex = UnmockedEndpointException('POST', '/api/v1/games/');
-      expect(ex.method, equals('POST'));
-      expect(ex.path, equals('/api/v1/games/'));
     });
   });
 }

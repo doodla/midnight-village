@@ -294,9 +294,7 @@ void main() {
       final t = await _pump(tester, userId: 2);
       t.server = _lobby(hostId: 2, acting: true);
 
-      t.ws.addServerEvent(
-        GameEvents.playerJoined(playerId: 3, displayName: 'Cleo'),
-      );
+      t.ws.addServerEvent(GameEvents.playerJoined());
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await _settle(tester);
 

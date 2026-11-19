@@ -8,6 +8,7 @@ import 'package:mocktail/mocktail.dart';
 
 import '../../helpers/mock_websocket.dart';
 import '../../helpers/timer_control.dart';
+import '../../helpers/game_events.dart';
 
 class MockTokenStorage extends Mock implements TokenStorage {}
 
@@ -45,7 +46,8 @@ void main() {
 
     WebSocketChannelInterface successFactory(Uri uri) {
       connectedUris.add(uri);
-      final ch = MockWebSocketChannel();
+      // Accepts sends: this file tests the socket plumbing itself.
+      final ch = MockWebSocketChannel(acceptsSends: true);
       createdChannels.add(ch);
       return ch;
     }
@@ -102,15 +104,11 @@ void main() {
       final received = <dynamic>[];
       ws.stream.listen(received.add);
 
-      createdChannels[0].addServerEvent({'type': 'game_started'});
+      final event = GameEvents.gameStarted(gameId: 'g1');
+      createdChannels[0].addServerEvent(event);
       await Future.microtask(() {});
 
-      expect(
-        received,
-        equals([
-          {'type': 'game_started'},
-        ]),
-      );
+      expect(received, [event]);
 
       ws.dispose();
     });

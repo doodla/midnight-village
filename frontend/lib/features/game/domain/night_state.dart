@@ -22,9 +22,6 @@ enum NightSubView {
   /// Peek/swap result display after submitting an action.
   actionResult,
 
-  /// Lone werewolf may optionally peek at one center card.
-  loneWerewolfPeek,
-
   /// Role reveal screen shown at the start of night before any actions.
   roleReveal,
 }
@@ -97,15 +94,11 @@ abstract class ActionResult with _$ActionResult {
 /// `GET .../me/`: `{"wave": int, "action_type": String?, "revealed_info": {}}`.
 ///
 /// Injects `action_type` into [ActionResult.revealedInfo] so
-/// [NightResultView] can pick its layout, and, for a `see_team` result without
-/// `role_acting_as` (an older payload), [fallbackRoleActingAs].
+/// [NightResultView] can pick its layout.
 ///
 /// Throws a [FormatException] when `wave` or `revealed_info` is missing, so a
 /// caller can skip a malformed entry.
-ActionResult actionResultFromServer(
-  Map<String, dynamic> data, {
-  String? fallbackRoleActingAs,
-}) {
+ActionResult actionResultFromServer(Map<String, dynamic> data) {
   final wave = data['wave'];
   final info = data['revealed_info'];
   if (wave is! num || info is! Map) {
@@ -114,11 +107,6 @@ ActionResult actionResultFromServer(
   final revealedInfo = Map<String, dynamic>.from(info);
   if (data['action_type'] is String) {
     revealedInfo['action_type'] = data['action_type'];
-  }
-  if (revealedInfo['action_type'] == 'see_team' &&
-      fallbackRoleActingAs != null &&
-      !revealedInfo.containsKey('role_acting_as')) {
-    revealedInfo['role_acting_as'] = fallbackRoleActingAs;
   }
   return ActionResult(wave: wave.toInt(), revealedInfo: revealedInfo);
 }

@@ -5,33 +5,21 @@ import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/contract/server_json.dart';
+
 class MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
 
-/// Canonical lobby response JSON matching the backend format.
+/// The server's lobby body: Alice (1) alone at the table.
 Map<String, dynamic> _lobbyResponseJson({
   String code = 'ABC123',
   int hostId = 1,
   String status = 'waiting',
-}) {
-  return {
-    'code': code,
-    'host': {'id': hostId, 'username': 'player1', 'display_name': 'Alice'},
-    'game_type': 'onuw',
-    'status': status,
-    'max_players': 10,
-    'settings': {
-      'roles': {'werewolf': 2, 'seer': 1, 'robber': 1},
-    },
-    'players': [
-      {
-        'user': {'id': hostId, 'username': 'player1', 'display_name': 'Alice'},
-        'is_ready': true,
-        'joined_at': '2026-03-31T06:00:00Z',
-      },
-    ],
-    'created_at': '2026-03-31T05:55:00Z',
-  };
-}
+}) => serverLobby(
+  code: code,
+  seats: [(id: hostId, name: 'Alice')],
+  status: status,
+);
 
 void main() {
   late MockAuthenticatedClient mockClient;
@@ -312,20 +300,21 @@ void main() {
         return service.activeGameIdAt('ABC123');
       }
 
+      final running = ContractSamples.map('http/game/current_game_active');
+
       test('returns the game running at this table', () async {
         expect(
-          await lookUp({
-            'game_id': 'g2',
-            'phase': 'night',
-            'lobby_code': 'ABC123',
-          }),
-          'g2',
+          await lookUp({...running, 'lobby_code': 'ABC123'}),
+          running['game_id'],
         );
       });
 
       test('is null for another table or no game', () async {
-        expect(await lookUp({'game_id': 'g2', 'lobby_code': 'OTHER1'}), isNull);
-        expect(await lookUp({'game': null}), isNull);
+        expect(await lookUp(running), isNull);
+        expect(
+          await lookUp(ContractSamples.map('http/game/current_game_none')),
+          isNull,
+        );
       });
     });
 
