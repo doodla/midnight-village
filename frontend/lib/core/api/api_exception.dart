@@ -138,6 +138,18 @@ Map<String, List<String>> _parseValidationErrors(dynamic data) {
     return {};
   }
 
+  // An error the server raised (a serializer's validation, a parse error)
+  // comes wrapped by its exception handler: {"error": {"status_code",
+  // "detail": <string, list or field map>}}. A Response the view returns
+  // itself is {"detail": ...}.
+  final wrapped = data['error'];
+  if (wrapped is Map<String, dynamic> && wrapped.containsKey('detail')) {
+    final detail = wrapped['detail'];
+    return _parseValidationErrors(
+      detail is Map<String, dynamic> ? detail : {'detail': detail},
+    );
+  }
+
   final errors = <String, List<String>>{};
   data.forEach((key, value) {
     if (value is List) {

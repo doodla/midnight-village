@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 
+import '../../helpers/contract/contract_samples.dart';
+
 void main() {
   group('ApiException types', () {
     test('ForbiddenException toString', () {
@@ -213,6 +215,33 @@ void main() {
     });
 
     group('validation error parsing', () {
+      test('reads the field errors the server wraps in "error"', () {
+        final exception = mapDioException(
+          createDioException(
+            statusCode: 400,
+            data: ContractSamples.load('http/auth/guest_invalid_name'),
+          ),
+        );
+
+        expect(
+          (exception as ValidationException).firstErrorFor('display_name'),
+          'Display name can only contain letters, numbers, and single spaces.',
+        );
+      });
+
+      test('reads the detail list a view returns itself', () {
+        final exception = mapDioException(
+          createDioException(
+            statusCode: 400,
+            data: ContractSamples.load('http/game/action_invalid'),
+          ),
+        );
+
+        expect((exception as ValidationException).errors, {
+          'detail': ['Cannot target yourself.'],
+        });
+      });
+
       test('parses string error data as detail', () {
         final exception = mapDioException(
           createDioException(statusCode: 400, data: 'Bad request'),
