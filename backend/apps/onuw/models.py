@@ -4,6 +4,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Phase(models.TextChoices):
@@ -115,19 +116,14 @@ class PlayerRole(models.Model):
         related_name="voted_by",
     )
     has_acted = models.BooleanField(default=False)
-    connections = models.PositiveIntegerField(
-        default=0,
-        help_text=(
-            "Open game WebSockets for this player (a player may have several). "
-            "Reset to 0 when the server starts: no socket survives a restart."
-        ),
-    )
     disconnected_at = models.DateTimeField(
         null=True,
         blank=True,
         help_text=(
-            "When the player's last socket closed (or the server restarted); "
-            "None while connected or if they never connected."
+            "When the player was noticed to have no open socket (last socket "
+            "closed, or its heartbeat went stale); None while connected or if "
+            "they were never seen disconnected. Whether they are connected NOW "
+            "comes from SocketPresence rows."
         ),
     )
 
@@ -136,3 +132,81 @@ class PlayerRole(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} as {self.original_role} in {self.game_id}"
+
+
+class ScheduledTimer(models.Model):
+    """
+    A durable named timer (see ``apps.onuw.timers``).
+
+    One row per key. ``schedule`` upserts the row with a fresh ``token``; a
+    firing (from a thread timer or a queue message, which both carry only
+    ``key`` and ``token``) runs the job only if the row still exists with the
+    same token and is due, and deletes the row in the same transaction that
+    claims it, so stale, cancelled and duplicate deliveries do nothing and two
+    instances cannot both run it.
+    """
+
+    key = models.CharField(max_length=200, unique=True)
+    token = models.CharField(max_length=64)
+    job = models.CharField(max_length=64)
+    params = models.JSONField(default=dict, blank=True)
+    # All three are written with the DATABASE clock (Now()), never an instance
+    # clock, so instances with skewed clocks agree on what is due.
+    due_at = models.DateTimeField(db_index=True)
+    scheduled_at = models.DateTimeField(default=timezone.now)
+    published_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "When the firing was handed to the backend (queue message sent / "
+            "thread armed). None = the row exists but nothing is known to fire "
+            "it: the sweep or the lazy repair publishes it again."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"{self.key} -> {self.job} at {self.due_at:%H:%M:%S}"
+
+
+class SocketPresence(models.Model):
+    """
+    One row per open WebSocket (game scope: ``game`` set; lobby scope: ``lobby`` set).
+
+    Inserted on connect, deleted on a clean disconnect, and ``last_seen`` is
+    refreshed by the consumer's heartbeat. A user is *connected* in a scope while
+    at least one of their rows has a ``last_seen`` inside the staleness timeout
+    (``ONUW_PRESENCE_STALE_SECONDS``). A row whose heartbeat stops (instance
+    killed, no ``disconnect``) simply goes stale; a durable ``presence_check``
+    timer notices it. Nothing here is ever reset at server start.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="socket_presences",
+    )
+    game = models.ForeignKey(
+        Game, null=True, blank=True, on_delete=models.CASCADE, related_name="sockets"
+    )
+    lobby = models.ForeignKey(
+        "core.Lobby",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="sockets",
+    )
+    channel_name = models.CharField(max_length=255, unique=True)
+    connected_at = models.DateTimeField()
+    last_seen = models.DateTimeField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["game", "user"]),
+            models.Index(fields=["lobby", "user"]),
+        ]
+
+    def __str__(self) -> str:
+        scope = f"game {self.game_id}" if self.game_id else f"lobby {self.lobby_id}"
+        return f"{self.user_id} on {scope} ({self.channel_name[-8:]})"

@@ -12,6 +12,7 @@ Covers:
   phase_change event deadline field
 """
 
+import functools
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -19,7 +20,7 @@ import pytest
 
 from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw import services, timers
-from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.models import Game, Phase, PlayerRole, ScheduledTimer
 
 pytestmark = [pytest.mark.integration, pytest.mark.uses_timers]
 
@@ -163,7 +164,7 @@ class TestWaveTimerLifecycle:
         """When night_wave_seconds == 0, no timer is scheduled and phase_deadline is null."""
         scheduled_keys: list = []
 
-        def fake_schedule(key, delay, callback, *args):
+        def fake_schedule(key, delay, job, params=None):
             scheduled_keys.append(key)
 
         game, *_ = _make_night_game(night_wave_seconds=0)
@@ -234,7 +235,8 @@ class TestWaveTimerLifecycle:
         """
         captured_callbacks: list = []
 
-        def fake_schedule(key, delay, callback, *args):
+        def fake_schedule(key, delay, job, params=None):
+            callback = functools.partial(timers.run_job_quietly, job, params)
             captured_callbacks.append(callback)
 
         game, *_ = _make_night_game(night_wave_seconds=60, wave=2)
@@ -368,7 +370,7 @@ class TestWaveTimerLifecycle:
         """
         scheduled_keys: list = []
 
-        def fake_schedule(key, delay, callback, *args):
+        def fake_schedule(key, delay, job, params=None):
             scheduled_keys.append(key)
 
         game, *_ = _make_night_game(night_wave_seconds=300, wave=1)
@@ -409,7 +411,8 @@ class TestDiscussionTimerLifecycle:
         """
         captured_callbacks: list = []
 
-        def fake_schedule(key, delay, callback, *args):
+        def fake_schedule(key, delay, job, params=None):
+            callback = functools.partial(timers.run_job_quietly, job, params)
             captured_callbacks.append(callback)
 
         game = _make_game(discussion_seconds=60)
@@ -462,7 +465,7 @@ class TestDiscussionTimerLifecycle:
         """
         scheduled_keys: list = []
 
-        def fake_schedule(key, delay, callback, *args):
+        def fake_schedule(key, delay, job, params=None):
             scheduled_keys.append(key)
 
         game = _make_game(discussion_seconds=0)
@@ -550,7 +553,8 @@ class TestVotingTimerLifecycle:
         """
         captured_callbacks: list = []
 
-        def fake_schedule(key, delay, callback, *args):
+        def fake_schedule(key, delay, job, params=None):
+            callback = functools.partial(timers.run_job_quietly, job, params)
             captured_callbacks.append(callback)
 
         game, _users, _host = _make_game_with_players(player_count=3, voting_seconds=60)
@@ -648,7 +652,7 @@ class TestVotingTimerLifecycle:
         """
         scheduled_keys: list = []
 
-        def fake_schedule(key, delay, callback, *args):
+        def fake_schedule(key, delay, job, params=None):
             scheduled_keys.append(key)
 
         game, _users, _host = _make_game_with_players(player_count=3, voting_seconds=0)
@@ -764,10 +768,10 @@ class TestVotingTimerLifecycle:
 
         # Manually inject a stale wave timer to simulate an orphaned timer
         stale_key = f"{game.id}:wave:2"
-        timers.schedule(stale_key, 9999, lambda: None)
-
-        with timers._lock:
-            assert stale_key in timers._registry
+        timers.schedule(
+            stale_key, 9999, "discussion_deadline", {"game_id": str(game.id)}
+        )
+        assert timers.is_scheduled(stale_key)
 
         # Submit all votes to trigger auto-reveal
         usernames = list(users.keys())
@@ -780,8 +784,8 @@ class TestVotingTimerLifecycle:
         assert game.phase == Phase.RESULTS
 
         # The stale timer should have been cleaned up by cancel_all_for_game
+        assert not timers.is_scheduled(stale_key)
+        # No game timers should remain, in the table or in memory
+        assert not ScheduledTimer.objects.filter(key__startswith=f"{game.id}:").exists()
         with timers._lock:
-            assert stale_key not in timers._registry
-            # No game timers should remain
-            game_keys = [k for k in timers._registry if k.startswith(f"{game.id}:")]
-            assert game_keys == []
+            assert [k for k in timers._registry if k.startswith(f"{game.id}:")] == []

@@ -1,9 +1,13 @@
 """ONUW game WebSocket consumer."""
 
+import asyncio
+import contextlib
 import logging
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+
+from . import presence
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +64,19 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
         # own "connected" event.
         await self._register_presence()
         self._presence_counted = True
+        self._heartbeat_task = asyncio.ensure_future(
+            presence.heartbeat_loop(self._beat)
+        )
 
     async def disconnect(self, code):
         if self.channel_layer is not None and hasattr(self, "game_group"):
             await self.channel_layer.group_discard(self.game_group, self.channel_name)
             await self.channel_layer.group_discard(self.player_group, self.channel_name)
+        task = getattr(self, "_heartbeat_task", None)
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
         # Only a socket that was counted can be uncounted (a rejected
         # connection also reaches disconnect).
         if getattr(self, "_presence_counted", False):
@@ -204,15 +216,33 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
     def _register_presence(self):
         from . import services
 
-        if services.register_connection(self.game_id, self.user_id):
+        if services.register_connection(self.game_id, self.user_id, self.channel_name):
             _host_presence(self.game_id, self.user_id, True)
 
     @database_sync_to_async
     def _unregister_presence(self):
         from . import services
 
-        if services.unregister_connection(self.game_id, self.user_id):
+        if services.unregister_connection(
+            self.game_id, self.user_id, self.channel_name
+        ):
             _host_presence(self.game_id, self.user_id, False)
+
+    async def _beat(self):
+        """One heartbeat: refresh this socket's row (its own short DB use)."""
+        came_back = await self._refresh_presence()
+        if came_back:
+            await database_sync_to_async(_host_presence)(
+                self.game_id, self.user_id, True
+            )
+
+    @database_sync_to_async
+    def _refresh_presence(self):
+        from . import services
+
+        return services.refresh_connection(
+            self.game_id, self.user_id, self.channel_name
+        )
 
     @database_sync_to_async
     def _is_player(self, game_id, user_id):

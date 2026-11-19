@@ -18,8 +18,10 @@ Rules (setting ``host_handover_seconds``, default 60, 0 to 600, 0 = off):
 * An acting host who leaves the lobby hands the role to the next connected
   member, or to nobody (the role is then back with the owner).
 
-Lobby presence (``LobbyMember.connections`` / ``disconnected_at``) exists only
-for this: it is never broadcast and plays no part in the night/vote grace logic.
+Lobby presence (lobby socket rows in ``SocketPresence`` plus
+``LobbyMember.disconnected_at``) exists only for this: it is never broadcast and
+plays no part in the night/vote grace logic. A socket that dies silently is
+noticed by the durable presence check (``check_lobby_presence``).
 
 Lock order (extends the game order): Game -> PlayerRole -> Lobby -> LobbyMember.
 Everything here takes Lobby then LobbyMember, and never takes a Game or
@@ -30,18 +32,19 @@ transaction has committed. Side effects (socket sends, timers) run after commit.
 
 from __future__ import annotations
 
-import functools
 import logging
+import uuid
 from typing import Any
 
 from django.db import transaction
+from django.db.models.functions import Now
 from django.utils import timezone
 
 from apps.core.models import Lobby, LobbyMember
-from apps.onuw import timers
+from apps.onuw import presence, timers
 
 from .engine.validation import is_valid_timer_value, max_seconds_for
-from .models import Game, PlayerRole
+from .models import Game, PlayerRole, SocketPresence
 from .services import _after_commit, _schedule_after_commit, _send_after_commit
 
 logger = logging.getLogger(__name__)
@@ -93,16 +96,16 @@ class _Presence:
             if game is not None
             else {}
         )
+        self._connected = presence.connected_user_ids(lobby_id=lobby.pk)
+        if game is not None:
+            self._connected |= presence.connected_user_ids(game_id=game.id)
 
     def connected(self, user_id: int) -> bool:
-        pr = self.game_rows.get(user_id)
-        if pr is not None and pr.connections > 0:
-            return True
-        return any(m.user_id == user_id and m.connections > 0 for m in self.members)
+        return user_id in self._connected
 
     def away_seconds(self, user_id: int, now: Any) -> float | None:
         """Seconds with no open socket at all; None if connected or never seen
-        connected (nothing to time). A user who is no longer a member counts
+        disconnected (nothing to time). A user who is no longer a member counts
         as away forever."""
         if self.connected(user_id):
             return None
@@ -190,10 +193,12 @@ def _arm_timer(lobby: Lobby, presence: _Presence) -> None:
     _schedule_after_commit(
         timer_key(lobby),
         max(0.0, seconds - away),
-        functools.partial(_handover_due, lobby.pk),
+        "host_handover",
+        {"lobby_id": lobby.pk},
     )
 
 
+@timers.job("host_handover")
 def _handover_due(lobby_id: int) -> None:
     """Timer callback: the effective host's handover period may have ended."""
     try:
@@ -208,10 +213,12 @@ def _handover_due(lobby_id: int) -> None:
                 _schedule_after_commit(
                     timer_key(lobby),
                     remaining,
-                    functools.partial(_handover_due, lobby_id),
+                    "host_handover",
+                    {"lobby_id": lobby_id},
                 )
     except Exception:
         logger.exception("Host handover failed for lobby %s", lobby_id)
+        raise  # the timer job: fire() rolls back and keeps the row for a retry
 
 
 def _lock(lobby_id: int | None = None, *, code: str | None = None) -> Lobby | None:
@@ -258,8 +265,16 @@ def _on_disconnected(lobby: Lobby, user_id: int) -> None:
 # ── Entry points (sync; called by the consumers) ────────────────────────────
 
 
-def register_lobby_connection(code: str, user_id: int) -> bool:
-    """A lobby socket opened. Counts it under row locks; True on 0 -> 1."""
+def _new_channel_name() -> str:
+    return f"direct.{uuid.uuid4().hex}"
+
+
+def register_lobby_connection(
+    code: str, user_id: int, channel_name: str | None = None
+) -> bool:
+    """A lobby socket opened: insert its row under row locks; True when the
+    member just went from offline to online (and so may take the role back)."""
+    channel_name = channel_name or _new_channel_name()
     with transaction.atomic():
         lobby = _lock(code=code)
         if lobby is None:
@@ -271,20 +286,41 @@ def register_lobby_connection(code: str, user_id: int) -> bool:
         )
         if member is None:
             return False
-        came_back = member.connections == 0
-        member.connections += 1
-        fields = ["connections"]
-        if came_back:
+        was_connected = presence.fresh_rows(lobby_id=lobby.pk, user_id=user_id).exists()
+        SocketPresence.objects.filter(lobby=lobby, user_id=user_id).exclude(
+            last_seen__gte=presence.cutoff()
+        ).delete()
+        SocketPresence.objects.update_or_create(
+            channel_name=channel_name,
+            defaults={
+                "user_id": user_id,
+                "lobby": lobby,
+                "game": None,
+                "connected_at": Now(),
+                "last_seen": Now(),
+            },
+        )
+        _after_commit(lambda: presence.ensure_check_timer("lobby", lobby.pk, user_id))
+        if was_connected:
+            return False
+        if member.disconnected_at is not None:
             member.disconnected_at = None
-            fields.append("disconnected_at")
-        member.save(update_fields=fields)
-        if came_back:
-            _on_connected(lobby, user_id)
-        return came_back
+            member.save(update_fields=["disconnected_at"])
+        _on_connected(lobby, user_id)
+        return True
 
 
-def unregister_lobby_connection(code: str, user_id: int) -> bool:
-    """A lobby socket closed. Never below zero; True on 1 -> 0."""
+def _lobby_went_offline(lobby: Lobby, member: LobbyMember, user_id: int) -> None:
+    """The member has no fresh lobby socket left (clean close or silent death)."""
+    member.disconnected_at = timezone.now()
+    member.save(update_fields=["disconnected_at"])
+    _on_disconnected(lobby, user_id)
+
+
+def unregister_lobby_connection(
+    code: str, user_id: int, channel_name: str | None = None
+) -> bool:
+    """A lobby socket closed: delete its row; True on going fully offline."""
     with transaction.atomic():
         lobby = _lock(code=code)
         if lobby is None:
@@ -294,15 +330,82 @@ def unregister_lobby_connection(code: str, user_id: int) -> bool:
             .filter(lobby=lobby, user_id=user_id)
             .first()
         )
-        if member is None or member.connections == 0:
+        if member is None:
             return False
-        member.connections -= 1
-        if member.connections > 0:
-            member.save(update_fields=["connections"])
+        rows = SocketPresence.objects.filter(lobby=lobby, user_id=user_id)
+        if channel_name is not None:
+            rows = rows.filter(channel_name=channel_name)
+        else:
+            newest = rows.order_by("-connected_at", "-id").first()
+            rows = rows.filter(pk=newest.pk) if newest else rows.none()
+        if not rows.delete()[0]:
             return False
-        member.disconnected_at = timezone.now()
-        member.save(update_fields=["connections", "disconnected_at"])
-        _on_disconnected(lobby, user_id)
+        if presence.fresh_rows(lobby_id=lobby.pk, user_id=user_id).exists():
+            return False
+        SocketPresence.objects.filter(lobby=lobby, user_id=user_id).delete()
+        _after_commit(
+            lambda: timers.cancel(presence.check_key("lobby", lobby.pk, user_id))
+        )
+        _lobby_went_offline(lobby, member, user_id)
+        return True
+
+
+def refresh_lobby_connection(code: str, user_id: int, channel_name: str) -> bool:
+    """Heartbeat of a lobby socket (see services.refresh_connection)."""
+    try:
+        lobby_id = Lobby.objects.filter(code=code).values_list("pk", flat=True).first()
+        if lobby_id is None:
+            return False
+        updated = SocketPresence.objects.filter(channel_name=channel_name).update(
+            last_seen=Now()
+        )
+        if not updated:
+            return register_lobby_connection(code, user_id, channel_name)
+        presence.ensure_check_timer("lobby", lobby_id, user_id)
+        return False
+    finally:
+        timers.release_connections()
+
+
+def check_lobby_presence(lobby_id: Any, user_id: int) -> bool:
+    """The durable presence check of a (lobby, member) fired: re-arm if a row is
+    fresh (no lock taken), else, under Lobby then LobbyMember locks, delete the
+    dead rows and go offline exactly as a clean close. Returns True if the
+    member went offline."""
+
+    def rearm(age: float) -> None:
+        _schedule_after_commit(
+            presence.check_key("lobby", lobby_id, user_id),
+            presence.next_check_delay(age),
+            "presence_check",
+            presence.check_params("lobby", lobby_id, user_id),
+        )
+
+    rows = SocketPresence.objects.filter(lobby_id=int(lobby_id), user_id=user_id)
+    age = presence.seconds_since_newest(rows)
+    if age is None:
+        return False
+    if age <= presence.stale_seconds():
+        rearm(age)
+        return False
+    with transaction.atomic():
+        lobby = _lock(int(lobby_id))
+        if lobby is None:
+            return False  # the lobby was deleted meanwhile (owner left)
+        member = (
+            LobbyMember.objects.select_for_update()
+            .filter(lobby=lobby, user_id=user_id)
+            .first()
+        )
+        rows = SocketPresence.objects.filter(lobby=lobby, user_id=user_id)
+        age = presence.seconds_since_newest(rows)
+        if age is None or member is None:
+            return False
+        if age <= presence.stale_seconds():
+            rearm(age)
+            return False
+        rows.delete()
+        _lobby_went_offline(lobby, member, user_id)
         return True
 
 

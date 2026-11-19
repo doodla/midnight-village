@@ -22,10 +22,10 @@ from rest_framework import status
 
 from apps.core.consumers import LobbyConsumer
 from apps.core.models import Lobby, LobbyMember, User
-from apps.onuw import host, services
+from apps.onuw import host, presence, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
-from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests.onuw.test_night_windows import Night
 
 pytestmark = pytest.mark.integration
@@ -53,6 +53,13 @@ def acting(night: Night) -> int | None:
     return lobby_of(night).acting_host_id
 
 
+def lobby_rows(night: Night, name: str) -> int:
+    """How many lobby socket rows the member has."""
+    return SocketPresence.objects.filter(
+        lobby_id=night.game.lobby_id, user=night.users[name]
+    ).count()
+
+
 def lobby_socket(night: Night, name: str) -> None:
     with night.committed():
         host.register_lobby_connection(lobby_of(night).code, uid(night, name))
@@ -60,8 +67,9 @@ def lobby_socket(night: Night, name: str) -> None:
 
 def lobby_socket_closes(night: Night, name: str, seconds_ago: float = 0) -> None:
     code = lobby_of(night).code
-    member = LobbyMember.objects.get(lobby__code=code, user=night.users[name])
-    if member.connections == 0:
+    if not presence.fresh_rows(
+        lobby_id=lobby_of(night).pk, user_id=uid(night, name)
+    ).exists():
         lobby_socket(night, name)
     with night.committed():
         host.unregister_lobby_connection(code, uid(night, name))
@@ -78,7 +86,9 @@ def game_socket(night: Night, name: str) -> None:
 
 
 def game_socket_closes(night: Night, name: str, seconds_ago: float = 0) -> None:
-    if night.role_of(name).connections == 0:
+    if not presence.fresh_rows(
+        game_id=night.game.id, user_id=uid(night, name)
+    ).exists():
         game_socket(night, name)
     with night.committed():
         if services.unregister_connection(night.game.id, uid(night, name)):
@@ -408,19 +418,19 @@ class TestLobbySocketCounting:
         member = LobbyMember.objects.get(
             lobby_id=night.game.lobby_id, user=night.users["wolf"]
         )
-        assert member.connections == 2
+        assert lobby_rows(night, "wolf") == 2
 
         with night.committed():
             host.unregister_lobby_connection(lobby_of(night).code, uid(night, "wolf"))
         member.refresh_from_db()
-        assert member.connections == 1
+        assert lobby_rows(night, "wolf") == 1
         assert member.disconnected_at is None
         assert handover_timers(night) == []
 
         with night.committed():
             host.unregister_lobby_connection(lobby_of(night).code, uid(night, "wolf"))
         member.refresh_from_db()
-        assert member.connections == 0
+        assert lobby_rows(night, "wolf") == 0
         assert member.disconnected_at is not None
         assert len(handover_timers(night)) == 1
 
@@ -432,7 +442,7 @@ class TestLobbySocketCounting:
         member = LobbyMember.objects.get(
             lobby_id=night.game.lobby_id, user=night.users["seer"]
         )
-        assert member.connections == 0
+        assert lobby_rows(night, "seer") == 0
         assert member.disconnected_at is None
 
     def test_a_non_member_is_not_counted(self, make_night) -> None:
@@ -799,53 +809,89 @@ class TestHandoverSetting:
 
 
 class TestRestart:
+    """Presence is never reset at start-up: rows left by the dead process go
+    stale and their durable presence checks notice them."""
+
     def _restart(self, night: Night) -> None:
         night.scheduled.clear()
         with night.committed():
             services.recover_timers()
 
-    def test_lobby_counts_are_reset_and_the_hosts_clock_starts_at_the_restart(
+    def _die_silently(self, night: Night, name: str) -> None:
+        """The player's socket died with its instance: stale row, no disconnect."""
+        SocketPresence.objects.filter(
+            lobby_id=night.game.lobby_id, user=night.users[name]
+        ).update(last_seen=timezone.now() - timedelta(seconds=300))
+
+    def test_a_restart_resets_nothing_and_hands_nothing_over(self, make_night) -> None:
+        night = make_night(ROLES, night_wave_seconds=60)
+        night.start()
+        for name in ROLES:
+            lobby_socket(night, name)
+
+        self._restart(night)
+
+        assert all(lobby_rows(night, name) == 1 for name in ROLES)
+        assert not LobbyMember.objects.filter(
+            lobby_id=night.game.lobby_id, disconnected_at__isnull=False
+        ).exists()
+        assert acting(night) is None
+
+    def test_a_host_whose_socket_died_with_the_old_process_starts_the_clock_when_noticed(
         self, make_night
     ) -> None:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
         for name in ROLES:
             lobby_socket(night, name)
-        LobbyMember.objects.filter(lobby_id=night.game.lobby_id).update(connections=3)
-
+        self._die_silently(night, "wolf")
         self._restart(night)
 
-        members = LobbyMember.objects.filter(lobby_id=night.game.lobby_id)
-        assert {m.connections for m in members} == {0}
-        assert all(m.disconnected_at is not None for m in members)
+        with night.committed():
+            host.check_lobby_presence(
+                lobby_of(night).pk, uid(night, "wolf")
+            )  # the check fires
+
+        member = LobbyMember.objects.get(
+            lobby_id=night.game.lobby_id, user=night.users["wolf"]
+        )
+        assert member.disconnected_at is not None  # the minute starts now
+        assert lobby_rows(night, "wolf") == 0
         ((delay, _),) = handover_timers(night)
         assert 59 < delay <= 60
+        assert acting(night) is None
 
-    def test_a_host_who_reconnects_during_the_reconnect_allowance_keeps_the_role(
+    def test_a_host_who_reconnects_after_the_restart_is_never_marked_away(
         self, make_night
     ) -> None:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
-        self._restart(night)
-        _, due = handover_timers(night)[0]
-
-        # Phones come back within seconds; a member connects before the host.
-        lobby_socket(night, "seer")
-        assert acting(night) is None  # the owner's minute has barely started
         lobby_socket(night, "wolf")
-        with night.committed():
-            due()
+        lobby_socket(night, "seer")
+        self._die_silently(night, "wolf")
+        self._restart(night)
 
+        lobby_socket(night, "wolf")  # the phone reconnects within seconds
+        with night.committed():
+            host.check_lobby_presence(lobby_of(night).pk, uid(night, "wolf"))
+
+        member = LobbyMember.objects.get(
+            lobby_id=night.game.lobby_id, user=night.users["wolf"]
+        )
+        assert member.disconnected_at is None
         assert acting(night) is None
         assert host_events(night) == []
 
-    def test_the_timer_firing_early_after_a_restart_does_not_steal_the_role(
+    def test_the_timer_firing_early_after_a_noticed_death_does_not_steal_the_role(
         self, make_night
     ) -> None:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
-        self._restart(night)
+        lobby_socket(night, "wolf")
         lobby_socket(night, "seer")
+        self._die_silently(night, "wolf")
+        with night.committed():
+            host.check_lobby_presence(lobby_of(night).pk, uid(night, "wolf"))
         due = handover_timers(night)[-1][1]
         night.scheduled.clear()
 
@@ -859,13 +905,17 @@ class TestRestart:
     ) -> None:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
+        lobby_socket(night, "wolf")
         self._restart(night)
+        SocketPresence.objects.filter(lobby_id=night.game.lobby_id).delete()
         LobbyMember.objects.filter(lobby_id=night.game.lobby_id).update(
             disconnected_at=timezone.now() - timedelta(seconds=90)
         )
         PlayerRole.objects.filter(game=night.game).update(
             disconnected_at=timezone.now() - timedelta(seconds=90)
         )
+        with night.committed():
+            host.ensure_timers_after_restart()
 
         fire_handover(night)  # due, but nobody is connected
         assert acting(night) is None
@@ -873,19 +923,6 @@ class TestRestart:
         lobby_socket(night, "robber")  # now someone is
 
         assert acting(night) == uid(night, "robber")
-
-    def test_stale_counts_of_finished_lobbies_are_cleared_too(self, make_night) -> None:
-        night = make_night(ROLES, night_wave_seconds=60)
-        Lobby.objects.filter(pk=night.game.lobby_id).update(
-            status=Lobby.Status.FINISHED
-        )
-        LobbyMember.objects.filter(lobby_id=night.game.lobby_id).update(connections=2)
-
-        self._restart(night)
-
-        assert not LobbyMember.objects.filter(
-            lobby_id=night.game.lobby_id, connections__gt=0
-        ).exists()
 
 
 # ── the real consumers ───────────────────────────────────────────────────────
@@ -916,7 +953,9 @@ def _table():
 @database_sync_to_async
 def _lobby_counts(lobby_id):
     return {
-        m.user.username: m.connections
+        m.user.username: SocketPresence.objects.filter(
+            lobby_id=lobby_id, user_id=m.user_id
+        ).count()
         for m in LobbyMember.objects.filter(lobby_id=lobby_id).select_related("user")
     }
 

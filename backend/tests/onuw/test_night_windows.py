@@ -13,6 +13,7 @@ once and resolves when it closes. Covered here:
 - teams come from DEALT cards (a stolen Werewolf card does not move the wake-up)
 """
 
+import functools
 import logging
 from datetime import timedelta
 from typing import Any
@@ -27,7 +28,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core.models import Lobby, LobbyMember, User
-from apps.onuw import services
+from apps.onuw import services, timers
 from apps.onuw.engine.roles import ROLE_REGISTRY
 from apps.onuw.models import Game, Phase, PlayerRole
 
@@ -182,8 +183,11 @@ def make_night(db, django_capture_on_commit_callbacks):
     recorder = _Recorder()
     scheduled: list[tuple[str, float, Any]] = []
 
-    def fake_schedule(key, delay, callback, *args):
-        scheduled.append((key, delay, callback))
+    def fake_schedule(key, delay, job, params=None):
+        # Record the timer; calling the callback runs the job as a firing would.
+        scheduled.append(
+            (key, delay, functools.partial(timers.run_job_quietly, job, params))
+        )
 
     mock_layer = type("Layer", (), {"group_send": recorder.group_send})()
     with (

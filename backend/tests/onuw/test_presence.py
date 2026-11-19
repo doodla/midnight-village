@@ -26,10 +26,10 @@ from channels.testing import WebsocketCommunicator
 from rest_framework import status
 
 from apps.core.models import Lobby, LobbyMember, User
-from apps.onuw import services
+from apps.onuw import presence, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
-from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.models import Game, Phase, PlayerRole, ScheduledTimer, SocketPresence
 from tests.onuw.test_night_windows import Night
 
 pytestmark = pytest.mark.integration
@@ -50,10 +50,18 @@ def connect(night: Night, name: str) -> None:
         services.register_connection(night.game.id, night.users[name].id)
 
 
+def socket_rows(night: Night, name: str) -> int:
+    """How many socket rows the player has in the game."""
+    return SocketPresence.objects.filter(
+        game=night.game, user=night.users[name]
+    ).count()
+
+
 def drop(night: Night, name: str, seconds_ago: float = 0) -> None:
     """The player's last socket closes ``seconds_ago`` seconds ago."""
-    pr = night.role_of(name)
-    if pr.connections == 0:
+    if not presence.fresh_rows(
+        game_id=night.game.id, user_id=night.users[name].id
+    ).exists():
         connect(night, name)
     with night.committed():
         services.unregister_connection(night.game.id, night.users[name].id)
@@ -121,7 +129,7 @@ class TestConnectionCounting:
         connect(night, "seer")
 
         pr = night.role_of("seer")
-        assert pr.connections == 1
+        assert socket_rows(night, "seer") == 1
         assert pr.disconnected_at is None
         assert presence_events(night) == [
             {
@@ -138,14 +146,14 @@ class TestConnectionCounting:
         night.start()
         connect(night, "seer")
         connect(night, "seer")  # a second tab / device
-        assert night.role_of("seer").connections == 2
+        assert socket_rows(night, "seer") == 2
         assert len(presence_events(night)) == 1  # only 0 -> 1 is news
 
         with night.committed():
             services.unregister_connection(night.game.id, night.users["seer"].id)
 
         pr = night.role_of("seer")
-        assert pr.connections == 1
+        assert socket_rows(night, "seer") == 1
         assert pr.disconnected_at is None
         assert len(presence_events(night)) == 1
         assert grace_callbacks(night, "seer") == []  # still here: nothing to time
@@ -154,7 +162,7 @@ class TestConnectionCounting:
             services.unregister_connection(night.game.id, night.users["seer"].id)
 
         pr = night.role_of("seer")
-        assert pr.connections == 0
+        assert socket_rows(night, "seer") == 0
         assert pr.disconnected_at is not None
         assert [e["connected"] for e in presence_events(night)] == [True, False]
         assert len(grace_callbacks(night, "seer")) == 1
@@ -169,7 +177,7 @@ class TestConnectionCounting:
             services.unregister_connection(night.game.id, night.users["seer"].id)
             services.unregister_connection(night.game.id, night.users["seer"].id)
 
-        assert night.role_of("seer").connections == 0
+        assert socket_rows(night, "seer") == 0
         assert presence_events(night) == []
 
     def test_presence_payload_carries_nothing_but_who_and_whether(
@@ -474,8 +482,9 @@ class TestNightWithADroppedPlayer:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
         drop(night, "seer")
+        SocketPresence.objects.filter(game=night.game).delete()
         PlayerRole.objects.filter(game=night.game).update(
-            connections=0, disconnected_at=timezone.now() - timedelta(seconds=30)
+            disconnected_at=timezone.now() - timedelta(seconds=30)
         )
 
         fire_grace(night, "seer")
@@ -828,7 +837,8 @@ async def _drain(communicator, timeout: float = 0.3) -> list[dict]:
 @database_sync_to_async
 def _connections(game_id, user_id) -> tuple[int, Any]:
     pr = PlayerRole.objects.get(game_id=game_id, user_id=user_id)
-    return pr.connections, pr.disconnected_at
+    rows = SocketPresence.objects.filter(game_id=game_id, user_id=user_id).count()
+    return rows, pr.disconnected_at
 
 
 class TestConsumerPresence(TransactionTestCase):
@@ -878,9 +888,7 @@ class TestConsumerPresence(TransactionTestCase):
         assert connected is False
         assert (
             await sync_to_async(
-                lambda: PlayerRole.objects.filter(
-                    game_id=game.id, connections__gt=0
-                ).count()
+                lambda: SocketPresence.objects.filter(game_id=game.id).count()
             )()
             == 0
         )
@@ -904,11 +912,277 @@ class TestDebugHookIgnoresGraceTimers:
         )
         gid = night.game.id
         fired: list[str] = []
-        timers.schedule(f"{gid}:wave:2", 600, lambda: fired.append("wave"))
-        timers.schedule(f"{gid}:grace:99", 600, lambda: fired.append("grace"))
+        timers.JOBS["debug_test_job"] = lambda who: fired.append(who)
+        for key, who in ((f"{gid}:wave:2", "wave"), (f"{gid}:grace:99", "grace")):
+            ScheduledTimer.objects.create(
+                key=key,
+                token="t",
+                job="debug_test_job",
+                params={"who": who},
+                due_at=timezone.now() + timedelta(hours=1),
+            )
 
         ok, key = debug.fire_timer(night.game, "current")
 
         assert ok
         assert key == f"{gid}:wave:2"
         assert fired == ["wave"]
+
+
+# ── socket rows, heartbeats and silent deaths ────────────────────────────────
+
+
+def age_rows(night: Night, name: str, seconds: float) -> None:
+    """The player's socket rows were last seen ``seconds`` ago."""
+    SocketPresence.objects.filter(game=night.game, user=night.users[name]).update(
+        last_seen=timezone.now() - timedelta(seconds=seconds)
+    )
+
+
+def presence_checks(night: Night, name: str) -> list[tuple[float, Any]]:
+    key = presence.check_key("game", night.game.id, night.users[name].id)
+    return [(d, cb) for k, d, cb in night.scheduled if k == key]
+
+
+class TestSocketRowsAndHeartbeats:
+    def test_a_fresh_row_is_connected_and_a_stale_one_is_not(self, make_night) -> None:
+        night = make_night(ROLES)
+        night.start()
+        connect(night, "seer")
+        connect(night, "wolf")
+        age_rows(night, "wolf", 100)
+
+        assert presence.connected_user_ids(game_id=night.game.id) == {
+            night.users["seer"].id
+        }
+
+    def test_connecting_arms_one_presence_check_due_at_the_staleness_timeout(
+        self, make_night
+    ) -> None:
+        night = make_night(ROLES)
+        night.start()
+
+        connect(night, "seer")
+
+        ((delay, _),) = presence_checks(night, "seer")
+        assert delay == presence.stale_seconds() == 40
+
+    def test_a_heartbeat_keeps_a_player_connected_past_the_staleness_timeout(
+        self, make_night
+    ) -> None:
+        night = make_night(ROLES)
+        night.start()
+        connect(night, "seer")
+        channel = SocketPresence.objects.get(
+            game=night.game, user=night.users["seer"]
+        ).channel_name
+        age_rows(night, "seer", 45)  # would be stale...
+        assert not presence.fresh_rows(
+            game_id=night.game.id, user_id=night.users["seer"].id
+        ).exists()
+
+        # ...the beat arrives (it re-registers: a real "coming back")
+        services.refresh_connection(night.game.id, night.users["seer"].id, channel)
+        age_rows(night, "seer", 20)  # the next beat is 20 s later: still fresh
+
+        assert presence.connected_user_ids(game_id=night.game.id) == {
+            night.users["seer"].id
+        }
+
+    def test_a_beat_refreshes_last_seen_without_any_presence_event(
+        self, make_night
+    ) -> None:
+        night = make_night(ROLES)
+        night.start()
+        connect(night, "seer")
+        row = SocketPresence.objects.get(game=night.game, user=night.users["seer"])
+        age_rows(night, "seer", 30)
+        events_before = len(night.recorder.events)
+
+        came_back = services.refresh_connection(
+            night.game.id, night.users["seer"].id, row.channel_name
+        )
+
+        assert came_back is False
+        row.refresh_from_db()
+        assert (timezone.now() - row.last_seen).total_seconds() < 5
+        assert len(night.recorder.events) == events_before
+
+    def test_a_beat_for_a_row_that_was_cleaned_up_re_registers_the_socket(
+        self, make_night
+    ) -> None:
+        night = make_night(ROLES)
+        night.start()
+        connect(night, "seer")
+        row = SocketPresence.objects.get(game=night.game, user=night.users["seer"])
+        channel = row.channel_name
+        row.delete()  # e.g. the check cleaned it up during a long pause
+
+        with night.committed():
+            came_back = services.refresh_connection(
+                night.game.id, night.users["seer"].id, channel
+            )
+
+        assert came_back is True
+        assert SocketPresence.objects.filter(channel_name=channel).exists()
+        assert presence_events(night)[-1]["connected"] is True
+
+    def test_the_check_re_arms_itself_when_heartbeats_kept_the_player_fresh(
+        self, make_night
+    ) -> None:
+        night = make_night(ROLES)
+        night.start()
+        connect(night, "seer")
+        (_, check) = presence_checks(night, "seer")[0]
+        age_rows(night, "seer", 10)
+        night.scheduled.clear()
+        events_before = len(night.recorder.events)
+
+        with night.committed():
+            check()
+
+        ((delay, _),) = presence_checks(night, "seer")
+        assert 29 < delay <= 30  # stale timeout minus the 10 s since the last beat
+        assert len(night.recorder.events) == events_before  # nothing happened
+        assert night.role_of("seer").disconnected_at is None
+
+    def test_a_silent_death_runs_the_same_path_as_a_clean_disconnect(
+        self, make_night
+    ) -> None:
+        night = make_night(ROLES, night_wave_seconds=60)
+        night.start()
+        connect(night, "seer")
+        (_, check) = presence_checks(night, "seer")[0]
+        age_rows(night, "seer", 100)  # the instance died: no heartbeat, no disconnect
+        night.recorder.events.clear()
+
+        with night.committed():
+            check()
+
+        assert socket_rows(night, "seer") == 0  # stale rows deleted
+        assert night.role_of("seer").disconnected_at is not None
+        assert [e["connected"] for e in presence_events(night)] == [False]
+        assert len(grace_callbacks(night, "seer")) == 1  # the grace period is running
+
+    def test_a_player_whose_phone_died_silently_stops_holding_up_the_night(
+        self, make_night
+    ) -> None:
+        night = make_night(ROLES, night_wave_seconds=60)
+        night.start()
+        connect(night, "seer")
+        (_, check) = presence_checks(night, "seer")[0]
+        night.post("wolf", "see_team")
+        night.post("robber", "skip")
+        assert night.refresh().phase == Phase.NIGHT  # waiting for the Seer
+        age_rows(night, "seer", 100)
+        with night.committed():
+            check()
+        PlayerRole.objects.filter(game=night.game, user=night.users["seer"]).update(
+            disconnected_at=timezone.now() - timedelta(seconds=30)
+        )
+
+        fire_grace(night, "seer")
+
+        assert night.game.phase == Phase.DISCUSSION
+
+    def test_a_check_for_a_player_who_already_left_cleanly_does_nothing(
+        self, make_night
+    ) -> None:
+        night = make_night(ROLES)
+        night.start()
+        connect(night, "seer")
+        (_, check) = presence_checks(night, "seer")[0]
+        drop(night, "seer")
+        night.recorder.events.clear()
+
+        with night.committed():
+            check()
+
+        assert presence_events(night) == []
+
+    def test_a_clean_disconnect_cancels_the_pending_check(self, make_night) -> None:
+        from unittest.mock import patch
+
+        night = make_night(ROLES)
+        night.start()
+        connect(night, "seer")
+
+        with patch("apps.onuw.timers.cancel") as cancel:
+            with night.committed():
+                services.unregister_connection(night.game.id, night.users["seer"].id)
+
+        cancel.assert_any_call(
+            presence.check_key("game", night.game.id, night.users["seer"].id)
+        )
+
+    def test_nothing_in_the_presence_event_changes_for_a_silent_death(
+        self, make_night
+    ) -> None:
+        night = make_night(ROLES)
+        night.start()
+        connect(night, "seer")
+        (_, check) = presence_checks(night, "seer")[0]
+        age_rows(night, "seer", 100)
+        with night.committed():
+            check()
+
+        for event in presence_events(night):
+            assert set(event) == {"type", "player_id", "connected"}
+
+    def test_release_connections_closes_idle_connections_but_not_a_transaction(
+        self, make_night
+    ) -> None:
+        from django.db import connection
+
+        from apps.onuw import timers
+
+        night = make_night(ROLES)
+        # Inside the test's transaction nothing may be closed.
+        timers.release_connections()
+        assert connection.connection is not None
+        assert night.game.id  # the database still answers
+        Game.objects.count()
+
+
+class TestConsumerHeartbeat(TransactionTestCase):
+    @pytest.mark.asyncio
+    async def test_the_consumer_beats_while_connected_and_stops_when_it_closes(self):
+        game, _host, other, _third = await _make_table()
+        with self.settings(ONUW_PRESENCE_HEARTBEAT_SECONDS=0.1):
+            ws = _communicator(game.id, other)
+            assert (await ws.connect())[0]
+
+            @database_sync_to_async
+            def row():
+                return SocketPresence.objects.get(game_id=game.id, user_id=other.id)
+
+            first = await row()
+            await asyncio.sleep(0.45)
+            later = await row()
+            assert later.connected_at == first.connected_at  # the same socket row
+            assert later.last_seen > first.last_seen  # kept fresh by the beat
+
+            await ws.disconnect()
+            assert not await database_sync_to_async(
+                SocketPresence.objects.filter(game_id=game.id, user_id=other.id).exists
+            )()
+            await asyncio.sleep(0.3)  # no beat is left running to bring it back
+            assert not await database_sync_to_async(
+                SocketPresence.objects.filter(game_id=game.id, user_id=other.id).exists
+            )()
+
+    @pytest.mark.asyncio
+    async def test_the_row_carries_the_socket_and_the_user_and_nothing_else_is_stored(
+        self,
+    ):
+        game, _host, other, _third = await _make_table()
+        ws = _communicator(game.id, other)
+        assert (await ws.connect())[0]
+
+        @database_sync_to_async
+        def fields():
+            r = SocketPresence.objects.get(game_id=game.id, user_id=other.id)
+            return r.user_id, r.game_id, r.lobby_id, bool(r.channel_name)
+
+        assert await fields() == (other.id, game.id, None, True)
+        await ws.disconnect()

@@ -234,7 +234,14 @@ class LobbyLeaveView(APIView):
                     {"detail": "Cannot leave while a game is in progress."},
                     status=status.HTTP_409_CONFLICT,
                 )
-            lobby.delete()
+            # Lock the lobby row first, like every other writer (Lobby, then its
+            # members and sockets): a presence check or handover running at the
+            # same moment waits for this, then finds the lobby gone and does
+            # nothing, instead of locking children in the opposite order.
+            with transaction.atomic():
+                locked = Lobby.objects.select_for_update().filter(pk=lobby.pk).first()
+                if locked is not None:
+                    locked.delete()
             return Response({"detail": "Lobby deleted."}, status=status.HTTP_200_OK)
 
         # Otherwise just remove the player. If they hold the acting-host role

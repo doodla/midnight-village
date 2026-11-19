@@ -21,6 +21,12 @@ urlpatterns = [
         LobbyPlayAgainView.as_view(),
         name="lobby-play-again",
     ),
+    # Platform cron: re-publish lost timers (shared-secret protected).
+    path(
+        "internal/sweep-timers/",
+        views.SweepTimersView.as_view(),
+        name="sweep-timers",
+    ),
     path(
         "me/current-game/",
         views.CurrentGameView.as_view(),

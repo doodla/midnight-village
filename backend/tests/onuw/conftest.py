@@ -6,11 +6,13 @@ recorded (``night.recorder``, ``night.scheduled``) instead of run, and every
 on-commit callback run as it would be after a real commit.
 """
 
+import functools
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 
+from apps.onuw import timers
 from tests.onuw.test_night_windows import Night, _Recorder
 
 
@@ -20,8 +22,11 @@ def make_night(db, django_capture_on_commit_callbacks):
     recorder = _Recorder()
     scheduled: list[tuple[str, float, Any]] = []
 
-    def fake_schedule(key, delay, callback, *args):
-        scheduled.append((key, delay, callback))
+    def fake_schedule(key, delay, job, params=None):
+        # Record the timer; calling the callback runs the job as a firing would.
+        scheduled.append(
+            (key, delay, functools.partial(timers.run_job_quietly, job, params))
+        )
 
     mock_layer = type("Layer", (), {"group_send": recorder.group_send})()
     with (

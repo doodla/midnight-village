@@ -1,5 +1,8 @@
 """WebSocket consumers for core app."""
 
+import asyncio
+import contextlib
+
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
@@ -38,6 +41,11 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
         # accept; a rejected connection is never counted.
         await self._count_connection(True)
         self._presence_counted = True
+        from apps.onuw import presence
+
+        self._heartbeat_task = asyncio.ensure_future(
+            presence.heartbeat_loop(self._beat)
+        )
 
     async def disconnect(self, code):
         # Leave lobby group
@@ -46,6 +54,11 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
                 self.lobby_group_name,
                 self.channel_name,
             )
+        task = getattr(self, "_heartbeat_task", None)
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
         if getattr(self, "_presence_counted", False):
             self._presence_counted = False
             await self._count_connection(False)
@@ -126,13 +139,37 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
 
         try:
             if opened:
-                host.register_lobby_connection(self.lobby_code, self.scope["user"].id)
+                host.register_lobby_connection(
+                    self.lobby_code, self.scope["user"].id, self.channel_name
+                )
             else:
-                host.unregister_lobby_connection(self.lobby_code, self.scope["user"].id)
+                host.unregister_lobby_connection(
+                    self.lobby_code, self.scope["user"].id, self.channel_name
+                )
         except Exception:
             logging.getLogger(__name__).exception(
                 "Host handover bookkeeping failed for lobby %s", self.lobby_code
             )
+
+    async def _beat(self):
+        """One heartbeat: refresh this socket's row (its own short DB use)."""
+        await self._refresh_presence()
+
+    @database_sync_to_async
+    def _refresh_presence(self):
+        from apps.onuw import host
+
+        try:
+            return host.refresh_lobby_connection(
+                self.lobby_code, self.scope["user"].id, self.channel_name
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Lobby presence heartbeat failed for %s", self.lobby_code
+            )
+            return False
 
     @database_sync_to_async
     def _check_lobby_membership(self, code, user_id):

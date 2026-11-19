@@ -24,8 +24,8 @@ from django.utils import timezone
 
 import pytest
 
-from apps.onuw import services, timers
-from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw import presence, services, timers
+from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests.onuw.test_night_windows import Night, _Recorder
 
 pytestmark = pytest.mark.integration
@@ -76,9 +76,25 @@ ALLOWANCE = services.RECOVERY_RECONNECT_ALLOWANCE_SECONDS
 
 def _reconnect_everyone_quietly(night: Night) -> None:
     """Every phone is back (set directly, so no presence re-check runs)."""
-    PlayerRole.objects.filter(game=night.game).update(
-        connections=1, disconnected_at=None
-    )
+    PlayerRole.objects.filter(game=night.game).update(disconnected_at=None)
+    now = timezone.now()
+    for name in ROLES:
+        SocketPresence.objects.update_or_create(
+            channel_name=f"quiet-{night.users[name].id}",
+            defaults={
+                "user": night.users[name],
+                "game": night.game,
+                "connected_at": now,
+                "last_seen": now,
+            },
+        )
+
+
+def _everyone_just_noticed_gone(night: Night) -> None:
+    """The presence checks have just noticed every phone is gone (no restart
+    reset exists: this is what the stale rows lead to)."""
+    SocketPresence.objects.filter(game=night.game).delete()
+    PlayerRole.objects.filter(game=night.game).update(disconnected_at=timezone.now())
 
 
 def _set_deadline(night: Night, seconds_from_now: float) -> None:
@@ -250,7 +266,10 @@ class TestNightWindowRecovery:
         _act_everyone(night)
         night.pretend_window_opened(20)
         _restart(night)
-        _recover(night)  # every phone is "dropped" until it reconnects
+        _recover(night)
+        _everyone_just_noticed_gone(
+            night
+        )  # every phone is "dropped" until it reconnects
         _, early_close = _timer(night, "wave:2")
         night.scheduled.clear()
 
@@ -513,8 +532,10 @@ class TestIdempotenceAndLazyRepair:
         assert live == [key]
 
     @pytest.mark.uses_timers
-    def test_a_cancelled_or_finished_timer_does_not_count_as_scheduled(self) -> None:
-        timers.schedule("k:1", 600, lambda: None)
+    def test_a_cancelled_or_finished_timer_does_not_count_as_scheduled(
+        self, db
+    ) -> None:
+        timers.schedule("k:1", 600, "discussion_deadline", {"game_id": "none"})
         assert timers.is_scheduled("k:1")
         timers.cancel("k:1")
         assert not timers.is_scheduled("k:1")
@@ -606,52 +627,57 @@ class TestStartupHook:
 # ── Presence after a restart ─────────────────────────────────────────────────
 
 
-class TestPresenceResetOnRestart:
-    def test_stale_connection_counts_are_reset_and_grace_timers_started(
-        self, make_night
-    ) -> None:
+class TestPresenceIsNotResetOnRestart:
+    def test_a_restart_leaves_socket_rows_and_stamps_alone(self, make_night) -> None:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
         for name in ("seer", "wolf"):
             services.register_connection(night.game.id, night.users[name].id)
-        PlayerRole.objects.filter(game=night.game, user=night.users["seer"]).update(
-            connections=2
-        )
+        before = sorted(SocketPresence.objects.values_list("channel_name", flat=True))
         _restart(night)
 
         _recover(night)
 
+        assert sorted(
+            SocketPresence.objects.values_list("channel_name", flat=True)
+        ) == (before)
         for name in ROLES:
-            pr = night.role_of(name)
-            assert pr.connections == 0
-            assert pr.disconnected_at is not None
-        # Every player is on a full grace clock; reconnecting cancels it.
-        for name in ROLES:
-            delay, _ = _timer(night, f"grace:{night.users[name].id}")
-            assert 24 < delay <= 25
+            assert night.role_of(name).disconnected_at is None
+        # Nobody was marked dropped, so no grace clock is running.
+        assert not [k for k, _, _ in night.scheduled if ":grace:" in k]
 
-    def test_a_player_who_reconnects_after_a_restart_stops_the_grace_clock(
+    def test_a_player_who_is_back_after_a_restart_is_simply_connected(
         self, make_night
     ) -> None:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
         _recover(night)
 
-        with patch("apps.onuw.timers.cancel") as cancel:
-            with night.committed():
-                services.register_connection(night.game.id, night.users["seer"].id)
+        with night.committed():
+            services.register_connection(night.game.id, night.users["seer"].id)
 
-        cancel.assert_any_call(f"{night.game.id}:grace:{night.users['seer'].id}")
-        pr = night.role_of("seer")
-        assert pr.connections == 1
-        assert pr.disconnected_at is None
-
-    def test_finished_games_have_stale_counts_cleared_too(self, table) -> None:
-        night = table(Phase.RESULTS)
-        PlayerRole.objects.filter(game=night.game).update(connections=1)
-
-        _recover(night)
-
-        assert not PlayerRole.objects.filter(
-            game=night.game, connections__gt=0
+        assert presence.fresh_rows(
+            game_id=night.game.id, user_id=night.users["seer"].id
         ).exists()
+        assert night.role_of("seer").disconnected_at is None
+
+    def test_a_player_whose_phone_died_with_the_old_process_is_noticed_later(
+        self, make_night
+    ) -> None:
+        night = make_night(ROLES, night_wave_seconds=60)
+        night.start()
+        services.register_connection(night.game.id, night.users["seer"].id)
+        SocketPresence.objects.filter(game=night.game).update(
+            last_seen=timezone.now() - timedelta(seconds=300)
+        )
+        _restart(night)
+        _recover(night)
+        assert night.role_of("seer").disconnected_at is None  # not yet noticed
+
+        with night.committed():  # the re-armed presence check fires
+            assert services.check_game_presence(night.game.id, night.users["seer"].id)
+
+        assert night.role_of("seer").disconnected_at is not None
+        # ...and now the usual grace period applies.
+        delay, _ = _timer(night, f"grace:{night.users['seer'].id}")
+        assert 24 < delay <= 25

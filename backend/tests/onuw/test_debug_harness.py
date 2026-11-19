@@ -14,18 +14,19 @@ DEBUG-enabled paths use @override_settings(DEBUG=True).
 
 from __future__ import annotations
 
-import threading
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 import pytest
 from rest_framework import status
 
 from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw import services, timers
-from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.models import Game, Phase, PlayerRole, ScheduledTimer
 
 pytestmark = pytest.mark.integration
 
@@ -695,16 +696,19 @@ class TestDebugStateOracle:
 
 class TestFireTimer:
     def _register_fake_timer(self, key, fn):
-        """Insert a real threading.Timer (never started) into the registry.
+        """Store a pending timer row whose job is ``fn`` (never armed).
 
-        We never call .start(), so the wall clock never fires it; fire_timer
-        cancels it and calls its function synchronously.
+        fire_timer claims the row (ignoring its due time) and runs the job
+        synchronously.
         """
-        timer = threading.Timer(9999, fn)
-        timer.daemon = True
-        with timers._lock:
-            timers._registry[key] = timer
-        return timer
+        timers.JOBS["debug_test_job"] = fn
+        return ScheduledTimer.objects.create(
+            key=key,
+            token="t",
+            job="debug_test_job",
+            params={},
+            due_at=timezone.now() + timedelta(hours=1),
+        )
 
     @override_settings(DEBUG=True)
     @pytest.mark.uses_timers

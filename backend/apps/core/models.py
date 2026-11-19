@@ -116,9 +116,8 @@ class LobbyMember(models.Model):
         related_name="lobby_memberships",
     )
     is_ready = models.BooleanField(default=False)
-    # Open lobby WebSockets for this member (several are possible). Used only to
-    # decide host handover; reset to 0 on server start (no socket survives it).
-    connections = models.PositiveIntegerField(default=0)
+    # When this member was noticed to have no open lobby socket (see
+    # apps.onuw.presence); used only to decide host handover.
     disconnected_at = models.DateTimeField(null=True, blank=True)
     joined_at = models.DateTimeField(auto_now_add=True)
 

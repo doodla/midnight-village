@@ -1,5 +1,6 @@
 """ONUW app views."""
 
+import hmac
 import logging
 import secrets
 
@@ -10,13 +11,14 @@ from django.db import transaction
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.models import Lobby
 
+from . import presence, timers
 from .debug import ForcedAssignmentError, parse_forced_assignment
 from .engine.assignment import assign_roles
 from .engine.validation import validate_onuw_settings
@@ -32,6 +34,7 @@ from .services import (
     reveal_votes,
     start_night_phase,
     submit_vote,
+    timer_prefixes,
     validate_night_action,
 )
 
@@ -72,9 +75,6 @@ class GameStartView(APIView):
                     "phase": game.phase,
                 },
             )
-
-        # Initialize the night phase (find first wave, send prompts)
-        start_night_phase(game)
 
         serializer = GameStartResponseSerializer(
             {"game_id": game.id, "phase": game.phase}
@@ -178,6 +178,11 @@ class GameStartView(APIView):
         ]
         PlayerRole.objects.bulk_create(player_roles)
 
+        # Open the first window in the SAME transaction that creates the game,
+        # so there is no committed night that never opened (an instance dying
+        # between the two). Its sends and timers still run after the commit.
+        start_night_phase(game)
+
         return game
 
 
@@ -220,6 +225,9 @@ class GameMeView(APIView):
         # restart). Cheap when they are all registered; never blocks the read.
         try:
             ensure_timers(game, all_player_roles)
+            # Re-publish this game's timers whose firing was lost (cheap: one
+            # query when nothing is wrong).
+            timers.sweep(timer_prefixes(game))
         except Exception:
             logger.exception("ensure_timers failed for game %s", game.id)
 
@@ -557,6 +565,7 @@ class PlayerListView(APIView):
 
         # Fetch all player roles with user info
         all_prs = game.player_roles.select_related("user").all()
+        connected_ids = presence.connected_user_ids(game_id=game.id)
 
         players = []
         for pr in all_prs:
@@ -564,13 +573,42 @@ class PlayerListView(APIView):
                 "player_id": pr.user_id,
                 "display_name": pr.user.display_name or pr.user.username,
                 # Presence is public: is any of their sockets open right now?
-                "connected": pr.connections > 0,
+                "connected": pr.user_id in connected_ids,
             }
             if game.phase == Phase.VOTING:
                 entry["has_voted"] = bool(pr.has_acted)
             players.append(entry)
 
         return Response({"players": players})
+
+
+class SweepTimersView(APIView):
+    """Re-publish durable timers whose firing was lost (for a platform cron).
+
+    Refused (403) unless ``Authorization: Bearer <secret>`` matches the
+    ``CRON_SECRET`` environment variable (setting ``ONUW_CRON_SECRET``); with no
+    secret configured it always refuses. Vercel Cron issues a GET with that
+    header, so GET and POST are both accepted. Reveals nothing but a count.
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+    throttle_classes: list = []
+
+    def _sweep(self, request: Request) -> Response:
+        secret = getattr(settings, "ONUW_CRON_SECRET", "")
+        given = request.headers.get("Authorization", "")
+        if not secret or not hmac.compare_digest(
+            given.encode(), f"Bearer {secret}".encode()
+        ):
+            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"republished": timers.sweep()})
+
+    def get(self, request: Request) -> Response:
+        return self._sweep(request)
+
+    def post(self, request: Request) -> Response:
+        return self._sweep(request)
 
 
 class CurrentGameView(APIView):

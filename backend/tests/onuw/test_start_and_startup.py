@@ -25,7 +25,7 @@ from rest_framework.test import APIClient
 
 from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw import services
-from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from apps.onuw.views import GameStartView
 from tests.onuw.test_play_again import Table
 
@@ -157,7 +157,13 @@ class TestStartupRecoveryInsideAnEventLoop:
                 user=user,
                 original_role="Villager",
                 current_role="Villager",
-                connections=2,
+            )
+            SocketPresence.objects.create(
+                user=user,
+                game=game,
+                channel_name=f"loop-{user.id}",
+                connected_at=timezone.now(),
+                last_seen=timezone.now(),
             )
 
         async def import_the_app_in_a_loop() -> None:
@@ -172,9 +178,8 @@ class TestStartupRecoveryInsideAnEventLoop:
         assert [
             t for t in threading.enumerate() if t.name == "onuw-timer-recovery"
         ] == []
-        assert list(
-            PlayerRole.objects.filter(game=game).values_list("connections", flat=True)
-        ) == [0, 0]
+        # Presence is never reset at start-up.
+        assert SocketPresence.objects.filter(game=game).count() == 2
         keys = [call.args[0] for call in schedule.call_args_list]
         assert f"{game.id}:discussion" in keys
         game.refresh_from_db()
@@ -203,3 +208,75 @@ class TestStartupRecoveryInsideAnEventLoop:
             services.run_startup_recovery()
 
         assert closed == [True]
+
+
+class TestAStartedNightAlwaysOpens:
+    def test_starting_a_game_opens_its_first_window_in_the_same_transaction(
+        self, table
+    ) -> None:
+        response = table.start(seed=1)
+
+        game = Game.objects.get(id=response.data["game_id"])
+        assert game.phase == Phase.NIGHT
+        assert game.current_wave in (1, 2)  # no committed night without a window
+
+    def test_if_opening_fails_nothing_was_created_and_the_table_can_start_again(
+        self, table
+    ) -> None:
+        with patch(
+            "apps.onuw.views.start_night_phase", side_effect=RuntimeError("boom")
+        ):
+            with pytest.raises(RuntimeError):
+                table.start(seed=1)
+
+        assert Game.objects.filter(lobby__code=table.code).count() == 0
+        assert table.lobby().status == Lobby.Status.WAITING
+        assert table.start(seed=1).status_code == status.HTTP_201_CREATED
+
+    def test_a_night_stuck_without_a_window_is_opened_by_the_next_game_state_fetch(
+        self, make_night
+    ) -> None:
+        night = make_night(
+            {"a": "Werewolf", "b": "Seer", "c": "Villager"}, night_wave_seconds=60
+        )
+        assert night.game.current_wave == 0  # committed, never opened
+        Game.objects.filter(id=night.game.id).update(
+            created_at=timezone.now() - timedelta(minutes=5)
+        )
+        night.client.force_authenticate(user=night.users["a"])
+
+        with night.committed():
+            response = night.client.get(
+                reverse("onuw:game-me", kwargs={"game_id": str(night.game.id)})
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert night.refresh().current_wave == 2
+        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+
+    def test_a_night_that_has_only_just_started_is_left_to_its_starter(
+        self, make_night
+    ) -> None:
+        night = make_night({"a": "Werewolf", "b": "Seer", "c": "Villager"})
+        night.client.force_authenticate(user=night.users["a"])
+
+        night.client.get(
+            reverse("onuw:game-me", kwargs={"game_id": str(night.game.id)})
+        )
+
+        assert night.refresh().current_wave == 0  # only a stuck night is repaired
+
+    def test_two_fetches_do_not_open_the_night_twice(self, make_night) -> None:
+        night = make_night({"a": "Werewolf", "b": "Seer", "c": "Villager"})
+        Game.objects.filter(id=night.game.id).update(
+            created_at=timezone.now() - timedelta(minutes=5)
+        )
+        night.client.force_authenticate(user=night.users["a"])
+        url = reverse("onuw:game-me", kwargs={"game_id": str(night.game.id)})
+
+        with night.committed():
+            night.client.get(url)
+        with night.committed():
+            night.client.get(url)
+
+        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]

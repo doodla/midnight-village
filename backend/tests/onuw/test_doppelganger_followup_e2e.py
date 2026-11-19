@@ -9,6 +9,7 @@ This tests the service layer's wave management, not the pure engine (which
 is covered by test_spec_doppelganger_timing.py).
 """
 
+import functools
 from unittest.mock import patch
 
 from django.urls import reverse
@@ -397,7 +398,8 @@ class TestDoppelgangerFollowupTimeout:
 
         scheduled: list[tuple[str, float, object]] = []
 
-        def capture_schedule(key, delay, callback, *args):
+        def capture_schedule(key, delay, job, params=None):
+            callback = functools.partial(timers.run_job_quietly, job, params)
             scheduled.append((key, delay, callback))
 
         client = APIClient()

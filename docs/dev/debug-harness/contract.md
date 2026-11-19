@@ -63,6 +63,13 @@ sections below say otherwise, this list wins:
   in its throwaway DB. Presence is reset then: every player of a running game is
   "disconnected" until their socket reconnects, with `disconnect_grace_seconds` (default 25,
   0-60, 0 = off; send it with the other timer settings) as the clock.
+- **Timers and presence are durable rows now** (`docs/dev/deploy-vercel.md`, `backend/CLAUDE.md`).
+  `debug-fire-timer` claims the `ScheduledTimer` row for the key and runs its job (`current` =
+  the single non-grace timer row under the game's prefix; a timer that already fired is gone
+  from the table, so a second fire is `fired:false`). The harness keeps the in-process
+  `threading.Timer` backend. The oracle's `players[].connected` is "has a fresh socket row"
+  (a socket whose heartbeat stopped for 40 s counts as gone). Nothing is reset at backend start:
+  a restarted harness backend notices dead sockets through their presence checks.
 - **Host handover:** `Lobby.host` is the owner; `Lobby.acting_host` holds the role while the
   owner's phone is away longer than `host_handover_seconds` (default 60, 0-600, 0 = off; send
   it with the other timer settings, `0` to keep a harness table's host fixed). The oracle's

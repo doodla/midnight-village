@@ -21,11 +21,11 @@ from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 
-from apps.onuw import timers
+from apps.onuw import presence, timers
 
 from .engine.roles import ROLE_REGISTRY
 from .engine.win_conditions import get_effective_team
-from .models import Game, Phase
+from .models import Game, Phase, ScheduledTimer
 
 
 def debug_disabled_response() -> Response | None:
@@ -148,6 +148,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
             doppelganger_copied[pr.user_id] = pr.night_action_data["copied_role"]
 
     host_id = game.lobby.effective_host_id
+    connected_ids = presence.connected_user_ids(game_id=game.id)
 
     players: list[dict[str, Any]] = []
     votes: dict[str, int | None] = {}
@@ -162,7 +163,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
                 "doppelganger_copied_role": doppelganger_copied.get(pr.user_id),
                 "team": _team_token(pr.user_id, current_roles, doppelganger_copied),
                 # Real presence: any game socket open for this player right now.
-                "connected": pr.connections > 0,
+                "connected": pr.user_id in connected_ids,
             }
         )
         # EVERY player is a key; null = has not voted / abstained.
@@ -245,11 +246,11 @@ def fire_timer(game: Game, key_suffix: str) -> tuple[bool, str]:
     than one. A window with no timer
     (its timer setting is 0) has nothing to fire: use the host's advance-wave.
 
-    The registry stores ``threading.Timer`` objects, not callbacks. We cancel
-    the wall-clock copy (so it cannot also fire) and then invoke
-    ``timer.function(*timer.args)`` synchronously. The callback is the
-    phase-guarded ``make_idempotent_callback`` wrapper, so firing a stale timer
-    is a safe no-op rather than a double transition.
+    Timers live in the ``ScheduledTimer`` table. We claim the row (ignoring its
+    due time, so a late-arriving thread or queue message for it becomes a
+    no-op) and run its job synchronously on this thread. The job is
+    phase-guarded, so firing a stale timer is a safe no-op rather than a
+    double transition.
 
     Returns:
         (fired, resolved_key). ``fired`` is False for a missing key (safe
@@ -264,13 +265,12 @@ def fire_timer(game: Game, key_suffix: str) -> tuple[bool, str]:
     prefix = f"{game.id}:"
 
     if key_suffix == "current":
-        with timers._lock:
-            # Grace timers (a dropped player's countdown) are not phase timers.
-            matching = [
-                k
-                for k in timers._registry
-                if k.startswith(prefix) and ":grace:" not in k
-            ]
+        # Grace timers (a dropped player's countdown) are not phase timers.
+        matching = list(
+            ScheduledTimer.objects.filter(key__startswith=prefix)
+            .exclude(key__contains=":grace:")
+            .values_list("key", flat=True)
+        )
         if len(matching) != 1:
             raise ForcedAssignmentError(
                 f"'current' requires exactly one pending timer, found {len(matching)}."
@@ -279,15 +279,7 @@ def fire_timer(game: Game, key_suffix: str) -> tuple[bool, str]:
     else:
         full_key = f"{game.id}:{key_suffix}"
 
-    with timers._lock:
-        timer = timers._registry.get(full_key)
-
-    if timer is None:
-        # Stale / already-fired / never-scheduled: safe no-op.
-        return False, full_key
-
-    # Cancel the wall-clock copy so it cannot fire a second time, then run the
-    # callback synchronously on this thread. The callback is phase-guarded.
-    timer.cancel()
-    timer.function(*timer.args)
-    return True, full_key
+    # Claim and run it now. A missing row is a stale / already-fired /
+    # never-scheduled timer: a safe no-op.
+    result = timers.fire(full_key, None, force=True)
+    return result.status == "ran", full_key
