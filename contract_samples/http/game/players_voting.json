@@ -1,0 +1,40 @@
+{
+  "players": [
+    {
+      "player_id": 1,
+      "display_name": "Ana",
+      "connected": true,
+      "has_voted": true
+    },
+    {
+      "player_id": 2,
+      "display_name": "Ben",
+      "connected": true,
+      "has_voted": false
+    },
+    {
+      "player_id": 3,
+      "display_name": "Cleo",
+      "connected": true,
+      "has_voted": false
+    },
+    {
+      "player_id": 4,
+      "display_name": "Dev",
+      "connected": true,
+      "has_voted": false
+    },
+    {
+      "player_id": 5,
+      "display_name": "Esme",
+      "connected": true,
+      "has_voted": false
+    },
+    {
+      "player_id": 6,
+      "display_name": "Fin",
+      "connected": true,
+      "has_voted": false
+    }
+  ]
+}

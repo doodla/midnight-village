@@ -1,0 +1,94 @@
+{
+  "game_id": "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
+  "lobby_code": "K7QX4M",
+  "phase": "night",
+  "current_wave": 2,
+  "deadline": "2026-11-19T20:57:30+00:00",
+  "your_role": {
+    "original_role": "Seer",
+    "has_acted": false
+  },
+  "is_host": true,
+  "host_id": 1,
+  "has_voted": false,
+  "players": [
+    {
+      "player_id": 1,
+      "display_name": "Ana"
+    },
+    {
+      "player_id": 2,
+      "display_name": "Ben"
+    },
+    {
+      "player_id": 3,
+      "display_name": "Cleo"
+    },
+    {
+      "player_id": 4,
+      "display_name": "Dev"
+    },
+    {
+      "player_id": 5,
+      "display_name": "Esme"
+    },
+    {
+      "player_id": 6,
+      "display_name": "Fin"
+    }
+  ],
+  "action_prompt": {
+    "role_acting_as": "Seer",
+    "action_types": [
+      "peek_player",
+      "peek_center",
+      "skip"
+    ],
+    "valid_targets": {
+      "player_ids": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "center_indices": [
+        0,
+        1,
+        2
+      ]
+    },
+    "wave": 2
+  },
+  "roles_in_game": [
+    {
+      "role": "Seer",
+      "count": 1
+    },
+    {
+      "role": "Hunter",
+      "count": 1
+    },
+    {
+      "role": "Robber",
+      "count": 1
+    },
+    {
+      "role": "Villager",
+      "count": 2
+    },
+    {
+      "role": "Werewolf",
+      "count": 2
+    },
+    {
+      "role": "Insomniac",
+      "count": 1
+    },
+    {
+      "role": "Troublemaker",
+      "count": 1
+    }
+  ],
+  "night_results": []
+}

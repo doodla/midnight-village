@@ -1,0 +1,261 @@
+{
+  "game_id": "9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e",
+  "phase": "results",
+  "current_wave": 0,
+  "center_cards": [
+    "Drunk",
+    "Villager",
+    "Tanner"
+  ],
+  "players": [
+    {
+      "user_id": 7,
+      "display_name": "Ana",
+      "is_host": true,
+      "original_role": "Doppelganger",
+      "current_role": "Doppelganger",
+      "doppelganger_copied_role": "Seer",
+      "team": "village",
+      "connected": true
+    },
+    {
+      "user_id": 8,
+      "display_name": "Ben",
+      "is_host": false,
+      "original_role": "Seer",
+      "current_role": "Seer",
+      "doppelganger_copied_role": null,
+      "team": "village",
+      "connected": true
+    },
+    {
+      "user_id": 9,
+      "display_name": "Cleo",
+      "is_host": false,
+      "original_role": "Werewolf",
+      "current_role": "Werewolf",
+      "doppelganger_copied_role": null,
+      "team": "werewolf",
+      "connected": true
+    },
+    {
+      "user_id": 10,
+      "display_name": "Dev",
+      "is_host": false,
+      "original_role": "Minion",
+      "current_role": "Minion",
+      "doppelganger_copied_role": null,
+      "team": "werewolf",
+      "connected": true
+    },
+    {
+      "user_id": 11,
+      "display_name": "Esme",
+      "is_host": false,
+      "original_role": "Mason",
+      "current_role": "Mason",
+      "doppelganger_copied_role": null,
+      "team": "village",
+      "connected": true
+    },
+    {
+      "user_id": 12,
+      "display_name": "Fin",
+      "is_host": false,
+      "original_role": "Mason",
+      "current_role": "Mason",
+      "doppelganger_copied_role": null,
+      "team": "village",
+      "connected": true
+    },
+    {
+      "user_id": 13,
+      "display_name": "Gus",
+      "is_host": false,
+      "original_role": "Drunk",
+      "current_role": "Werewolf",
+      "doppelganger_copied_role": null,
+      "team": "werewolf",
+      "connected": true
+    },
+    {
+      "user_id": 14,
+      "display_name": "Hana",
+      "is_host": false,
+      "original_role": "Insomniac",
+      "current_role": "Insomniac",
+      "doppelganger_copied_role": null,
+      "team": "village",
+      "connected": true
+    }
+  ],
+  "night_actions_log": [
+    {
+      "wave": 1,
+      "player_id": 7,
+      "role_acting_as": "Doppelganger",
+      "action_type": "peek_player",
+      "targets": {
+        "player_id": 8
+      },
+      "result": {
+        "copied_role": "Seer"
+      },
+      "timestamp_order": 0,
+      "made_by_server": false
+    },
+    {
+      "wave": 1,
+      "player_id": 7,
+      "role_acting_as": "Seer",
+      "action_type": "peek_center",
+      "targets": {
+        "center_indices": [
+          0,
+          2
+        ]
+      },
+      "result": {
+        "peeked_center": [
+          {
+            "role": "Werewolf",
+            "index": 0
+          },
+          {
+            "role": "Tanner",
+            "index": 2
+          }
+        ]
+      },
+      "timestamp_order": 0,
+      "made_by_server": false
+    },
+    {
+      "wave": 2,
+      "player_id": 9,
+      "role_acting_as": "Werewolf",
+      "action_type": "see_team",
+      "targets": {
+        "center_index": 1
+      },
+      "result": {
+        "werewolves": [],
+        "center_card": {
+          "role": "Villager",
+          "index": 1
+        }
+      },
+      "timestamp_order": 0,
+      "made_by_server": false
+    },
+    {
+      "wave": 2,
+      "player_id": 10,
+      "role_acting_as": "Minion",
+      "action_type": "see_team",
+      "targets": {},
+      "result": {
+        "werewolves": [
+          9
+        ]
+      },
+      "timestamp_order": 1,
+      "made_by_server": false
+    },
+    {
+      "wave": 2,
+      "player_id": 11,
+      "role_acting_as": "Mason",
+      "action_type": "see_team",
+      "targets": {},
+      "result": {
+        "masons": [
+          12
+        ]
+      },
+      "timestamp_order": 2,
+      "made_by_server": false
+    },
+    {
+      "wave": 2,
+      "player_id": 12,
+      "role_acting_as": "Mason",
+      "action_type": "see_team",
+      "targets": {},
+      "result": {
+        "masons": [
+          11
+        ]
+      },
+      "timestamp_order": 3,
+      "made_by_server": false
+    },
+    {
+      "wave": 3,
+      "player_id": 8,
+      "role_acting_as": "Seer",
+      "action_type": "skip",
+      "targets": {},
+      "result": {},
+      "timestamp_order": 0,
+      "made_by_server": false
+    },
+    {
+      "wave": 3,
+      "player_id": 13,
+      "role_acting_as": "Drunk",
+      "action_type": "swap_with_center",
+      "targets": {
+        "center_index": 0
+      },
+      "result": {},
+      "timestamp_order": 1,
+      "made_by_server": false
+    },
+    {
+      "wave": 4,
+      "player_id": 14,
+      "role_acting_as": "Insomniac",
+      "action_type": "none",
+      "targets": {},
+      "result": {
+        "current_role": "Insomniac"
+      },
+      "timestamp_order": 0,
+      "made_by_server": false
+    }
+  ],
+  "votes": {
+    "7": 9,
+    "8": 9,
+    "9": null,
+    "10": null,
+    "11": null,
+    "12": null,
+    "13": null,
+    "14": null
+  },
+  "results": {
+    "winning_teams": [
+      "village"
+    ],
+    "reason": "A Werewolf was eliminated.",
+    "eliminated_players": [
+      9
+    ],
+    "elimination_reasons": {
+      "9": "vote"
+    },
+    "player_outcomes": {
+      "7": "win",
+      "8": "win",
+      "9": "lose",
+      "10": "lose",
+      "11": "win",
+      "12": "win",
+      "13": "lose",
+      "14": "win"
+    }
+  },
+  "pending_timers": []
+}

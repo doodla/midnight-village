@@ -1,0 +1,7 @@
+{
+  "type": "host_changed",
+  "host_id": 7,
+  "host_name": "Ana",
+  "original_host_id": 7,
+  "reason": "returned"
+}

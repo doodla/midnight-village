@@ -1,0 +1,161 @@
+{
+  "winning_teams": [
+    "village"
+  ],
+  "reason": "A Werewolf was eliminated.",
+  "eliminated_players": [
+    {
+      "player_id": 5,
+      "display_name": "Esme",
+      "role": "Werewolf",
+      "elimination_reason": "hunter_chain"
+    },
+    {
+      "player_id": 6,
+      "display_name": "Fin",
+      "role": "Hunter",
+      "elimination_reason": "vote"
+    }
+  ],
+  "players": [
+    {
+      "player_id": 1,
+      "display_name": "Ana",
+      "original_role": "Seer",
+      "final_role": "Troublemaker",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 6
+    },
+    {
+      "player_id": 2,
+      "display_name": "Ben",
+      "original_role": "Robber",
+      "final_role": "Seer",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 6
+    },
+    {
+      "player_id": 3,
+      "display_name": "Cleo",
+      "original_role": "Werewolf",
+      "final_role": "Werewolf",
+      "team": "werewolf",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": 6
+    },
+    {
+      "player_id": 4,
+      "display_name": "Dev",
+      "original_role": "Troublemaker",
+      "final_role": "Robber",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 3
+    },
+    {
+      "player_id": 5,
+      "display_name": "Esme",
+      "original_role": "Werewolf",
+      "final_role": "Werewolf",
+      "team": "werewolf",
+      "is_eliminated": true,
+      "elimination_reason": "hunter_chain",
+      "outcome": "lose",
+      "vote_target_id": 6
+    },
+    {
+      "player_id": 6,
+      "display_name": "Fin",
+      "original_role": "Hunter",
+      "final_role": "Hunter",
+      "team": "village",
+      "is_eliminated": true,
+      "elimination_reason": "vote",
+      "outcome": "win",
+      "vote_target_id": 5
+    }
+  ],
+  "center_cards": [
+    "Villager",
+    "Insomniac",
+    "Villager"
+  ],
+  "night_actions_log": [
+    {
+      "wave": 2,
+      "result": {
+        "werewolves": [
+          5
+        ]
+      },
+      "targets": {},
+      "player_id": 3,
+      "action_type": "see_team",
+      "role_acting_as": "Werewolf",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 2,
+      "result": {
+        "werewolves": [
+          3
+        ]
+      },
+      "targets": {},
+      "player_id": 5,
+      "action_type": "see_team",
+      "role_acting_as": "Werewolf",
+      "timestamp_order": 1
+    },
+    {
+      "wave": 3,
+      "result": {
+        "peeked_role": "Werewolf"
+      },
+      "targets": {
+        "player_id": 3
+      },
+      "player_id": 1,
+      "action_type": "peek_player",
+      "role_acting_as": "Seer",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 3,
+      "result": {
+        "new_role": "Troublemaker"
+      },
+      "targets": {
+        "player_id": 4
+      },
+      "player_id": 2,
+      "action_type": "swap_with_player",
+      "role_acting_as": "Robber",
+      "timestamp_order": 1
+    },
+    {
+      "wave": 3,
+      "result": {},
+      "targets": {
+        "player_ids": [
+          1,
+          2
+        ]
+      },
+      "player_id": 4,
+      "action_type": "swap_others",
+      "role_acting_as": "Troublemaker",
+      "timestamp_order": 2
+    }
+  ]
+}

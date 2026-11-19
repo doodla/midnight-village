@@ -1,0 +1,6 @@
+{
+  "error": {
+    "status_code": 401,
+    "detail": "Token is invalid"
+  }
+}

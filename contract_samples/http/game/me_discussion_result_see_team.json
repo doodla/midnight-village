@@ -1,0 +1,83 @@
+{
+  "game_id": "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
+  "lobby_code": "K7QX4M",
+  "phase": "discussion",
+  "current_wave": 0,
+  "deadline": "2026-11-19T21:02:08+00:00",
+  "your_role": {
+    "original_role": "Werewolf",
+    "has_acted": false
+  },
+  "is_host": false,
+  "host_id": 1,
+  "has_voted": false,
+  "players": [
+    {
+      "player_id": 1,
+      "display_name": "Ana"
+    },
+    {
+      "player_id": 2,
+      "display_name": "Ben"
+    },
+    {
+      "player_id": 3,
+      "display_name": "Cleo"
+    },
+    {
+      "player_id": 4,
+      "display_name": "Dev"
+    },
+    {
+      "player_id": 5,
+      "display_name": "Esme"
+    },
+    {
+      "player_id": 6,
+      "display_name": "Fin"
+    }
+  ],
+  "action_prompt": null,
+  "roles_in_game": [
+    {
+      "role": "Seer",
+      "count": 1
+    },
+    {
+      "role": "Hunter",
+      "count": 1
+    },
+    {
+      "role": "Robber",
+      "count": 1
+    },
+    {
+      "role": "Villager",
+      "count": 2
+    },
+    {
+      "role": "Werewolf",
+      "count": 2
+    },
+    {
+      "role": "Insomniac",
+      "count": 1
+    },
+    {
+      "role": "Troublemaker",
+      "count": 1
+    }
+  ],
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "see_team",
+      "revealed_info": {
+        "teammate_names": [
+          "Esme"
+        ],
+        "role_acting_as": "Werewolf"
+      }
+    }
+  ]
+}

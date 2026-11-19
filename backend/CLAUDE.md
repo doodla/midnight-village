@@ -87,6 +87,7 @@ Then add `"apps.myapp"` to `INSTALLED_APPS` in `config/settings/base.py` and cre
 just test              # pytest (all tests)
 just test tests/path/to/test_file.py  # specific file
 just test-cov          # pytest with coverage
+just samples           # re-record contract_samples/ (see Contract samples)
 just test-unit         # Unit tests only
 just lint              # Ruff check
 just format            # Ruff format
@@ -95,6 +96,10 @@ just check             # All of the above
 ```
 
 Pre-commit hooks must be run from the **repo root** (not `backend/`), because `.pre-commit-config.yaml` lives at the root and scopes to `backend/` files via the `files: ^backend/` pattern.
+
+## Contract samples
+
+`tests/contract/` records what the server sends, for the app's tests: `scenarios.py` plays two tables (a classic six-player game with the default timers; an untimed eight-player game with a Doppelganger and every remaining prompt kind) through the real API (`recorder.Table`: DRF test client against the URL conf; a `RecordingLayer` channel layer whose group messages are turned into client frames by the consumers' own handlers; on-commit effects run per request; clock frozen, user ids from 1, fixed lobby codes and forced-deal seed; game ids, guest usernames and tokens replaced by stable stand-ins). `test_contract_samples.py` writes them to `contract_samples/` at the repo root with `UPDATE_CONTRACT_SAMPLES=1` (`just samples`) and otherwise fails, with a diff, if the committed files differ. A new endpoint, event or situation is a `table.record(...)` / `table.record_event(...)` line in `scenarios.py`, then `just samples`. A payload change shows up as a diff of the samples (review it), and may fail the app's tests where a fixture relied on the old shape.
 
 ## Debug / Harness (DEBUG-only)
 

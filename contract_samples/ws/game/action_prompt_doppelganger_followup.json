@@ -1,0 +1,26 @@
+{
+  "type": "action_prompt",
+  "wave": 1,
+  "role_acting_as": "Seer",
+  "action_types": [
+    "peek_player",
+    "peek_center",
+    "skip"
+  ],
+  "valid_targets": {
+    "player_ids": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "center_indices": [
+      0,
+      1,
+      2
+    ]
+  }
+}

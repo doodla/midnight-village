@@ -1,0 +1,15 @@
+{
+  "type": "action_prompt",
+  "wave": 2,
+  "role_acting_as": "Drunk",
+  "action_types": [
+    "swap_with_center"
+  ],
+  "valid_targets": {
+    "center_indices": [
+      0,
+      1,
+      2
+    ]
+  }
+}
