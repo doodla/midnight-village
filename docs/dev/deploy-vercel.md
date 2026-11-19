@@ -46,8 +46,9 @@ No secrets live in the repo. `DEBUG` is forced off, so the debug harness endpoin
 ## Files
 
 * `backend/config/settings/vercel.py`: the settings above, `ONUW_TIMER_BACKEND = "vercel_queue"`.
-* `backend/pyproject.toml`: optional extra `vercel = ["vercel-queue"]` (install it in the
-  build: `uv sync --extra vercel`) and `[[tool.vercel.subscribers]] entrypoint = "apps.core.queue_worker"`.
+* `backend/pyproject.toml`: `vercel-queue` is a normal dependency, so the build installs it;
+  `[tool.vercel.scripts] build` runs `migrate` on every build; and
+  `[[tool.vercel.subscribers]] entrypoint = "apps.core.queue_worker"`.
 * `backend/apps/core/queue_worker.py`: the subscriber (`@subscribe(topic="onuw-timers*")`).
 * Migrations to run on deploy: `python manage.py migrate --noinput` (core 0006, 0007;
   onuw 0004, 0005, 0006, 0007).
