@@ -133,11 +133,37 @@ class TestWhereAmI:
         settings.CORE_TABLE_RESUME_HOURS = 14  # the window is a setting
         assert where(table.clients[1])["status"] == "finished"
 
-    def test_a_running_game_is_never_stale(self, table) -> None:
+    def test_an_abandoned_running_game_stops_pulling_players_back(self, table) -> None:
         table.start()
-        make_stale(table.code, hours=30)
+        make_stale(table.code, hours=30)  # nothing happened for 30 hours
 
-        assert where(table.clients[1])["status"] == "in_game"
+        assert table.clients[1].get(reverse("core:my-table")).data == {"table": None}
+
+    def test_what_happens_at_the_table_is_activity(self, table) -> None:
+        """Counted from the last real activity, not from creation: a queryset
+        update (finishing the game) and joining or leaving must bump it too."""
+        game_id = table.start().data["game_id"]
+        make_stale(table.code, hours=30)
+        assert table.clients[1].get(reverse("core:my-table")).data == {"table": None}
+
+        table.finish_game(game_id)  # the game ends: finished is a fresh activity
+
+        assert where(table.clients[1])["status"] == "finished"
+
+    def test_a_join_or_a_leave_is_activity(self, table) -> None:
+        make_stale(table.code, hours=30)
+        assert table.host.get(reverse("core:my-table")).data == {"table": None}
+
+        table.clients[4].post(reverse("core:lobby-leave", kwargs={"code": table.code}))
+
+        assert where(table.host)["lobby_code"] == table.code
+        make_stale(table.code, hours=30)
+        guest = APIClient()
+        response = guest.post(reverse("core:guest-create"), {}, format="json")
+        guest.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['access']}")
+        guest.post(reverse("core:lobby-join", kwargs={"code": table.code}))
+        assert where(table.host)["lobby_code"] == table.code
+        assert where(guest)["lobby_code"] == table.code
 
     def test_where_am_i_picks_newest_membership(self, table) -> None:
         # Player 0 hosts the first table and later sits down at a second one.

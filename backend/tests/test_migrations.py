@@ -16,6 +16,7 @@ after ``migrator.apply(AFTER)``. ``tests/old_code.py`` holds the old code's INSE
 
 from collections.abc import Iterator
 from datetime import timedelta
+from typing import Any
 
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
@@ -58,7 +59,7 @@ def migrator() -> Iterator[Migrator]:
         migrator.to_latest()  # whatever the test did, leave the schema current
 
 
-def seed_old_tables(old) -> dict[str, object]:
+def seed_old_tables(old) -> dict[str, Any]:
     """Rows as production has them before the v2 migrations."""
     user_model = old.get_model("core", "User")
     lobby_model = old.get_model("core", "Lobby")
@@ -105,7 +106,7 @@ def tokens_of(new, code: str) -> list[str]:
 
 
 class TestTokenAndPlayerRoleMigrations:
-    def test_existing_rows_get_tokens_blanks_and_defaults(self, migrator) -> None:
+    def test_backfill_migration_assigns_tokens(self, migrator) -> None:
         old = migrator.apply(BEFORE)
         seeded = seed_old_tables(old)
 

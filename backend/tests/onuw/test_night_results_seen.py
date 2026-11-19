@@ -62,6 +62,19 @@ def finish_window_two(night: Night) -> None:
     assert night.refresh().phase == Phase.DISCUSSION
 
 
+def ack_from_a_phone(user, url, asked, barrier, replies) -> None:
+    """One phone of ``user``: wait for the others, ack ``asked``, record the answer."""
+    try:
+        client = APIClient()
+        client.force_authenticate(user=user)
+        barrier.wait(timeout=10)
+        response = client.post(url, {"seen": asked}, format="json")
+        stored_now = response.data.get("night_results_seen", -1)
+        replies.append((asked, response.status_code, stored_now))
+    finally:
+        connections.close_all()
+
+
 @pytest.fixture
 def dawn(make_night) -> Night:
     """Window 2 has closed: wolf, seer, robber and insomniac each have one result."""
@@ -142,41 +155,44 @@ class TestSeenCount:
         assert ack(night, "d", {"seen": 2}).data == {"night_results_seen": 2}
 
     @pytest.mark.django_db(transaction=True)
-    def test_concurrent_acks_leave_the_highest(self, dawn) -> None:
-        # Real threads: whatever the interleaving, the count ends at the maximum.
-        ids = {"wolf": dawn.users["wolf"], "seer": dawn.users["seer"]}
-        barrier = threading.Barrier(8)
-
-        def tap(user, value: int) -> None:
-            try:
-                client = APIClient()
-                client.force_authenticate(user=user)
-                barrier.wait(timeout=10)
-                client.post(
-                    reverse(
-                        "onuw:night-results-seen",
-                        kwargs={"game_id": str(dawn.game.id)},
-                    ),
-                    {"seen": value},
-                    format="json",
-                )
-            finally:
-                connections.close_all()
-
-        threads = [
-            threading.Thread(target=tap, args=(ids["seer"], value))
-            for value in (1, 0, 1, 0)
-        ] + [
-            threading.Thread(target=tap, args=(ids["wolf"], value))
-            for value in (0, 1, 0, 1)
+    def test_concurrent_acks_never_lose_the_highest(self, dawn) -> None:
+        """Ten phones of one player ack ten DIFFERENT counts at once, round after
+        round. A read-modify-write would sometimes end below ten, or let a lower ack
+        win; the single GREATEST update never does."""
+        seer = dawn.users["seer"]
+        entries = 10
+        # Ten visible results for the seer (only the log's entries are counted).
+        log = [
+            {"player_id": seer.id, "wave": 3, "action_type": "peek_player"}
+            for _ in range(entries)
         ]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join(timeout=30)
+        Game.objects.filter(id=dawn.game.id).update(night_actions_log=log)
+        url = reverse("onuw:night-results-seen", kwargs={"game_id": str(dawn.game.id)})
+        rounds = 12
 
-        assert stored(dawn, "seer") == 1
-        assert stored(dawn, "wolf") == 1
+        for _ in range(rounds):
+            PlayerRole.objects.filter(game=dawn.game, user=seer).update(
+                night_results_seen=0
+            )
+            barrier = threading.Barrier(entries)
+            replies: list[tuple[int, int, int]] = []  # (asked, status, stored)
+            threads = [
+                threading.Thread(
+                    target=ack_from_a_phone, args=(seer, url, asked, barrier, replies)
+                )
+                for asked in range(1, entries + 1)
+            ]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(timeout=30)
+
+            assert len(replies) == entries
+            assert all(code == status.HTTP_200_OK for _, code, _ in replies)
+            # Every answer is at least what that phone asked for: nobody's ack
+            # was lost or undone by another's.
+            assert all(stored_now >= asked for asked, _, stored_now in replies)
+            assert stored(dawn, "seer") == entries
 
 
 class TestRejections:

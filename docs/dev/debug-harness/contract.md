@@ -106,13 +106,14 @@ sections below say otherwise, this list wins:
   into `PlayerRole`, so a game keeps them when a member leaves. Players lists come back in seat
   order. The oracle's `players[]` also has `token` and `seat`, and the oracle has
   `dealt_center_cards` (`center_cards` is overwritten as the night swaps cards).
-- **Lobby limits.** `max_players` at create is 3 to 10 (400 otherwise); a join to a full lobby
-  is `400 {"detail": "Lobby is full.", "code": "lobby_full"}`. `POST .../ready/` takes
+- **Lobby limits.** `max_players` at create is 1 to 10, the token count (400 otherwise; the game
+  checks its own 3 to 10 when it deals). Join refusals carry a `code`: `lobby_not_found` (404),
+  `already_in_lobby`, `lobby_closed`, `lobby_full` (400). `POST .../ready/` takes
   `is_ready` as a real boolean only (400 `bad_request` otherwise; absent still toggles).
 - **Where am I.** `GET /api/me/table/` (core) answers `{"table": {"lobby_code", "game_type",
   "status", "is_host", "token", "game": {"game_id", "phase"} | null}}` or `{"table": null}`:
-  the caller's newest-joined lobby that is `in_game` or was updated within
-  `CORE_TABLE_RESUME_HOURS` (12), and the lobby's newest game if the caller plays in it (also
+  the caller's newest-joined lobby with activity (`Lobby.updated_at`: join, leave, deal,
+  finish, play again, ...) within `CORE_TABLE_RESUME_HOURS` (12; a game nobody finished expires too), and the lobby's newest game if the caller plays in it (also
   between games, when `current-game` is empty). `GET /api/onuw/me/current-game/` is unchanged.
 - **Night results ack.** `GET .../me/` has `night_results_seen` (the caller's own count).
   `POST /api/onuw/games/<id>/night-results/seen/` with `{"seen": n}` (a JSON integer 0 to 10;

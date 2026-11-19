@@ -8,7 +8,6 @@ from typing import Any
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 
 from apps.core import games, tokens
@@ -27,6 +26,16 @@ def _log_token(lobby: Lobby, user_id: int, token: str) -> None:
     logger.info("lobby %s: user %s takes token %s", lobby.code, user_id, token)
 
 
+def touch(lobby_id: int) -> None:
+    """Record table activity: ``Lobby.updated_at`` is when anything last happened.
+
+    ``save()`` bumps it by itself; a queryset ``update()`` and the changes that
+    only touch a member (join, leave) do not, so they call this. "Where am I"
+    counts its resume window from here.
+    """
+    Lobby.objects.filter(pk=lobby_id).update(updated_at=timezone.now())
+
+
 def add_member(lobby: Lobby, user_id: int) -> LobbyMember:
     """Seat a user at the table with the next free token, logged for replay.
 
@@ -39,6 +48,7 @@ def add_member(lobby: Lobby, user_id: int) -> LobbyMember:
     if token is None or lobby.players.count() >= lobby.max_players:  # type: ignore[attr-defined]
         raise LobbyFullError
     member = LobbyMember.objects.create(lobby=lobby, user_id=user_id, token=token)
+    touch(lobby.pk)
     _log_token(lobby, user_id, token)
     return member
 
@@ -46,18 +56,17 @@ def add_member(lobby: Lobby, user_id: int) -> LobbyMember:
 def current_table(user_id: int) -> dict[str, Any] | None:
     """The table the user is seated at now, for the app to resume (None = none).
 
-    Starts from membership: the user's newest-joined lobby that is in a game, or
-    was updated within ``CORE_TABLE_RESUME_HOURS`` (so a table left last week does
-    not pull them back). ``game`` is the lobby's newest game when the user plays
-    in it, as the game app's hook reports it; the client routes on ``game.phase``
-    and ``status``.
+    Starts from membership: the user's newest-joined lobby with activity within
+    ``CORE_TABLE_RESUME_HOURS`` (``Lobby.updated_at``: created, joined, left,
+    settings, dealt, finished, played again). A table left last week, or a game
+    nobody finished, does not pull them back. ``game`` is the lobby's newest game
+    when the user plays in it, as the game app's hook reports it; the client
+    routes on ``game.phase`` and ``status``.
     """
     cutoff = timezone.now() - timedelta(hours=settings.CORE_TABLE_RESUME_HOURS)
     member = (
         LobbyMember.objects.filter(user_id=user_id)
-        .filter(
-            Q(lobby__status=Lobby.Status.IN_GAME) | Q(lobby__updated_at__gte=cutoff)
-        )
+        .filter(lobby__updated_at__gte=cutoff)
         .select_related("lobby")
         .order_by("-joined_at", "-id")
         .first()

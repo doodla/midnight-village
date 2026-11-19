@@ -76,4 +76,5 @@ def test_a_new_migration_starts_with_a_lock_timeout(path: Path) -> None:
     assert isinstance(first.func, ast.Attribute) and first.func.attr == "RunSQL"
     sql = first.args[0]
     assert isinstance(sql, ast.Constant)
+    assert isinstance(sql.value, str)
     assert re.search(r"SET\s+LOCAL\s+lock_timeout", sql.value, re.IGNORECASE)

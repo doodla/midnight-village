@@ -19,7 +19,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .lobbies import LobbyFullError, add_member, current_table
+from .lobbies import LobbyFullError, add_member, current_table, touch
 from .models import Lobby, LobbyMember, User
 from .name_generator import generate_display_name
 from .serializers import GuestCreateSerializer, LobbyCreateSerializer, LobbySerializer
@@ -170,19 +170,25 @@ class LobbyJoinView(APIView):
                 lobby = Lobby.objects.select_for_update().get(code=code)
             except Lobby.DoesNotExist:
                 return Response(
-                    {"detail": "Lobby not found."},
+                    {"detail": "Lobby not found.", "code": "lobby_not_found"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
             if LobbyMember.objects.filter(lobby=lobby, user=request.user).exists():
                 return Response(
-                    {"detail": "You are already in this lobby."},
+                    {
+                        "detail": "You are already in this lobby.",
+                        "code": "already_in_lobby",
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if lobby.status != Lobby.Status.WAITING:
                 return Response(
-                    {"detail": "Lobby is not accepting players."},
+                    {
+                        "detail": "Lobby is not accepting players.",
+                        "code": "lobby_closed",
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -272,6 +278,7 @@ class LobbyLeaveView(APIView):
         with transaction.atomic():
             locked = Lobby.objects.select_for_update().get(pk=lobby.pk)
             membership.delete()
+            touch(locked.pk)
             if locked.acting_host_id == request.user.id:  # type: ignore[misc]
                 from apps.core.host import member_leaving
 

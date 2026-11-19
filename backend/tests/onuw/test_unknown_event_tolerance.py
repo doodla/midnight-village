@@ -6,7 +6,7 @@ carry on. Under ``ONUW_STRICT_SOCKET_EVENTS`` (test, development, harness) they
 raise instead, so a misspelled event type in new code cannot hide.
 """
 
-import logging
+from unittest.mock import patch
 
 import pytest
 from channels.layers import get_channel_layer
@@ -106,22 +106,20 @@ class TestStrictMode:
 
 class TestTheWarning:
     @pytest.mark.django_db(transaction=True)
-    async def test_a_dropped_event_is_logged_as_a_warning(self, caplog):
+    async def test_a_dropped_event_is_logged_as_a_warning(self):
         code, user = await create_lobby_with_user()
         communicator = _make_communicator(f"/ws/lobby/{code}/", user)
         assert (await communicator.connect())[0]
         layer = get_channel_layer()
         assert layer is not None
 
-        with caplog.at_level(logging.WARNING, logger="apps.core.consumers"):
+        with patch("apps.core.consumers.logger") as log:
             await layer.group_send(f"lobby_{code}", FROM_A_NEWER_INSTANCE)
             await layer.group_send(
                 f"lobby_{code}", {"type": "player.joined", "username": "x"}
             )
             await communicator.receive_json_from(timeout=2)
 
-        assert any(
-            "ready.progress" in r.getMessage() and r.levelno == logging.WARNING
-            for r in caplog.records
-        )
+        log.warning.assert_called_once()
+        assert "ready.progress" in log.warning.call_args.args[1]
         await communicator.disconnect()

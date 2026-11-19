@@ -7,8 +7,6 @@ from rest_framework import serializers
 from .models import Lobby, LobbyMember, User
 from .tokens import MAX_TABLE_SIZE
 
-MIN_TABLE_SIZE = 3
-
 DISPLAY_NAME_PATTERN = re.compile(r"^[\w]+( [\w]+)*$", re.UNICODE)
 
 
@@ -70,10 +68,11 @@ class LobbyCreateSerializer(serializers.ModelSerializer):
         model = Lobby
         fields = ["game_type", "max_players", "settings"]
         extra_kwargs = {
-            # A table seats 3 to 10 players: one token each (apps.core.tokens).
+            # A table seats at most one player per token (apps.core.tokens); the
+            # game checks its own minimum (and maximum) when it deals.
             "max_players": {
                 "required": False,
-                "min_value": MIN_TABLE_SIZE,
+                "min_value": 1,
                 "max_value": MAX_TABLE_SIZE,
             },
             "settings": {"required": False},

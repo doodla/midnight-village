@@ -5,12 +5,10 @@ Each lobby deals its ten tokens in an order seeded by its code; a member takes t
 first token nobody at the table holds. Everything here goes through the lobby API.
 """
 
-import importlib
 import random
 import threading
 from unittest.mock import patch
 
-from django.apps import apps as django_apps
 from django.db import connections
 from django.urls import reverse
 
@@ -168,8 +166,8 @@ class TestCapacity:
         assert "max_players" in response.data["error"]["detail"]
         assert Lobby.objects.count() == 0
 
-    @pytest.mark.parametrize("bad", [2, 0, -1])
-    def test_max_players_under_3_rejected(self, db, bad) -> None:
+    @pytest.mark.parametrize("bad", [0, -1])
+    def test_max_players_must_be_positive(self, db, bad) -> None:
         _, host = sitter("host")
 
         response = host.post(
@@ -181,8 +179,10 @@ class TestCapacity:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "max_players" in response.data["error"]["detail"]
 
-    @pytest.mark.parametrize("ok", [3, 10])
-    def test_max_players_between_3_and_10_accepted(self, db, ok) -> None:
+    @pytest.mark.parametrize("ok", [2, 3, 10])
+    def test_max_players_up_to_the_token_count_is_accepted(self, db, ok) -> None:
+        """Core only caps at the number of tokens; the game checks its own minimum
+        when it deals (see the start tests)."""
         _, host = sitter("host")
 
         response = host.post(
@@ -193,6 +193,23 @@ class TestCapacity:
 
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data["max_players"] == ok
+
+    def test_the_game_refuses_to_deal_a_table_that_is_too_small(self, db) -> None:
+        code, clients = seat_everyone(2, max_players=2)
+        for client in clients:
+            client.post(
+                reverse("core:lobby-ready", kwargs={"code": code}),
+                {"is_ready": True},
+                format="json",
+            )
+
+        response = clients[0].post(reverse("onuw:game-start", kwargs={"code": code}))
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert any("At least 3 players" in error for error in response.data["detail"])
+
+    def test_the_table_limit_has_one_home(self) -> None:
+        assert tokens.MAX_TABLE_SIZE == len(tokens.TOKENS) == 10
 
     def test_a_full_table_refuses_the_next_player_with_a_machine_code(self, db) -> None:
         code, _ = seat_everyone(3, max_players=3)
@@ -292,30 +309,26 @@ class TestStrictReadyFlag:
         assert self.ready(clients[1], code, {"is_ready": False}).status_code == 200
 
 
-class TestBackfillMigration:
-    """The data step of core 0010. Tests run with --nomigrations (the schema is
-    built from the models), so the migration's function runs against the live
-    models; the real forward and backward run was checked on a scratch database."""
+class TestJoinRefusalsCarryACode:
+    def test_every_refusal_has_a_machine_code_and_keeps_its_status(self, db) -> None:
+        code, clients = seat_everyone(3, max_players=3)
+        _, outsider = sitter("outsider")
 
-    def test_backfill_migration_assigns_tokens(self, db) -> None:
-        migration = importlib.import_module(
-            "apps.core.migrations.0010_lobbymember_token"
-        )
-        users = [User.objects.create(username=f"mig{i}") for i in range(12)]
-        small = Lobby.objects.create(host=users[0], game_type="onuw", code="MIG234")
-        big = Lobby.objects.create(host=users[0], game_type="onuw", code="BIG234")
-        for user in users[:4]:
-            LobbyMember.objects.create(lobby=small, user=user)
-        for user in users:
-            LobbyMember.objects.create(lobby=big, user=user)
-        assert not LobbyMember.objects.exclude(token="").exists()  # as before 0010
+        unknown = join(outsider, "ZZZZZZ")
+        again = join(clients[1], code)
+        full = join(outsider, code)
 
-        migration.backfill_tokens(django_apps, None)
+        assert (unknown.status_code, unknown.data["code"]) == (404, "lobby_not_found")
+        assert (again.status_code, again.data["code"]) == (400, "already_in_lobby")
+        assert (full.status_code, full.data["code"]) == (400, "lobby_full")
+        assert all(r.data["detail"] for r in (unknown, again, full))
 
-        def tokens_of(lobby: Lobby) -> list[str]:
-            return [m.token for m in lobby.players.all()]  # join order
+    def test_a_lobby_in_a_game_is_closed(self, db) -> None:
+        code, _ = seat_everyone(3)
+        Lobby.objects.filter(code=code).update(status=Lobby.Status.IN_GAME)
+        _, outsider = sitter("outsider")
 
-        assert tokens_of(small) == tokens.token_order("MIG234")[:4]
-        big_tokens = tokens_of(big)
-        assert big_tokens[:10] == tokens.token_order("BIG234")
-        assert big_tokens[10:] == ["", ""]  # a legacy table over ten: no token left
+        response = join(outsider, code)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["code"] == "lobby_closed"

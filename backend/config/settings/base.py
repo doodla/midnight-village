@@ -180,8 +180,8 @@ ONUW_CRON_SECRET = os.environ.get("CRON_SECRET", "")
 ONUW_PRESENCE_HEARTBEAT_SECONDS = 15
 ONUW_PRESENCE_STALE_SECONDS = 40
 
-# "Where am I" (GET /api/me/table/): a lobby that is not in a game still counts
-# as the caller's table if it was updated within this many hours.
+# "Where am I" (GET /api/me/table/): a lobby is the caller's table to resume only
+# if something happened at it (Lobby.updated_at) within this many hours.
 CORE_TABLE_RESUME_HOURS = 12
 
 # A socket consumer that gets a group event it has no handler for: False (here, so
