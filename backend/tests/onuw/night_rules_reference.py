@@ -169,9 +169,20 @@ def shared_window(dealt, center, choices):
 
 def engine(dealt, center, choices):
     """The same game through the project's real rules engine (role by role, as built today)."""
+    n = len(dealt)
+    final, results = engine_night(dealt, center, choices)
+    views: dict[int, list[tuple[str, Any]]] = {p: [] for p in range(n)}
+    for wave in (1, 2, 3, 4):
+        for res in results.get(wave, []):
+            _record_view(views, res)
+    cards = [final.player_roles[p] for p in range(n)]
+    return cards, list(final.center_cards), views, dict(final.doppelganger_copied_role)
+
+
+def engine_night(dealt, center, choices):
+    """The night through the real engine: (final GameState with its action log, results by group)."""
     from apps.onuw.engine import GameState, NightAction, resolve_night
 
-    n = len(dealt)
     state = GameState(
         player_roles=dict(enumerate(dealt)),
         center_cards=list(center),
@@ -239,39 +250,34 @@ def engine(dealt, center, choices):
     for p in _who(dealt, "Insomniac"):
         acts[4].append(NightAction(p, "Insomniac", "none", {}))
 
-    final, results = resolve_night(state, acts)
-    views: dict[int, list[tuple[str, Any]]] = {p: [] for p in range(n)}
-    for wave in (1, 2, 3, 4):
-        for res in results.get(wave, []):
-            info = res.revealed_info
-            p = res.player_id
-            if "copied_role" in info:
-                views[p].append(("copied", info["copied_role"]))
-            if "werewolves" in info:
-                views[p].append(("werewolves", tuple(sorted(info["werewolves"]))))
-            if "center_card" in info:
-                cc = info["center_card"]
-                views[p].append(("saw_center", ((cc["index"], cc["role"]),)))
-            if "masons" in info:
-                views[p].append(("masons", tuple(sorted(info["masons"]))))
-            if "peeked_role" in info:
-                views[p].append(
-                    ("saw_player", "?")
-                )  # engine does not echo the target; filled by caller
-                views[p][-1] = ("saw_player_role", info["peeked_role"])
-            if "peeked_center" in info:
-                views[p].append(
-                    (
-                        "saw_center",
-                        tuple((x["index"], x["role"]) for x in info["peeked_center"]),
-                    )
-                )
-            if "new_role" in info:
-                views[p].append(("took", info["new_role"]))
-            if "current_role" in info:
-                views[p].append(("own_card", info["current_role"]))
-    cards = [final.player_roles[p] for p in range(n)]
-    return cards, list(final.center_cards), views, dict(final.doppelganger_copied_role)
+    return resolve_night(state, acts)
+
+
+def _record_view(views, res):
+    info = res.revealed_info
+    p = res.player_id
+    if "copied_role" in info:
+        views[p].append(("copied", info["copied_role"]))
+    if "werewolves" in info:
+        views[p].append(("werewolves", tuple(sorted(info["werewolves"]))))
+    if "center_card" in info:
+        cc = info["center_card"]
+        views[p].append(("saw_center", ((cc["index"], cc["role"]),)))
+    if "masons" in info:
+        views[p].append(("masons", tuple(sorted(info["masons"]))))
+    if "peeked_role" in info:
+        views[p].append(("saw_player_role", info["peeked_role"]))
+    if "peeked_center" in info:
+        views[p].append(
+            (
+                "saw_center",
+                tuple((x["index"], x["role"]) for x in info["peeked_center"]),
+            )
+        )
+    if "new_role" in info:
+        views[p].append(("took", info["new_role"]))
+    if "current_role" in info:
+        views[p].append(("own_card", info["current_role"]))
 
 
 def normalise(views):

@@ -119,6 +119,10 @@ sections below say otherwise, this list wins:
   `POST /api/onuw/games/<id>/night-results/seen/` with `{"seen": n}` (a JSON integer 0 to 10;
   400 `bad_request` otherwise) answers `{"night_results_seen": <stored>}`. The count never goes
   down and is capped at the number of `night_results` the caller can see now.
+- **Night timeline.** `GET .../results/` also has `night_timeline` (`{seats, cards, dealt, steps,
+  final, center_moved}`, or `null` if the night cannot be replayed; see `api-contract-v2.md`
+  section 4). Built forwards from `Game.dealt_center_cards`; the debug oracle shows it as
+  `dealt_center_cards`.
 
 ## 1. Goal
 

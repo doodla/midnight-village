@@ -38,6 +38,7 @@ from .services import (
     end_discussion,
     ensure_timers,
     get_player_acting_role_for_wave,
+    night_timeline_for,
     resolve_doppelganger_look,
     reveal_votes,
     start_night_phase,
@@ -726,8 +727,9 @@ class ResultsView(APIView):
     - Winning team and reason
     - Eliminated players with their roles
     - All player original and final roles, outcomes, and vote targets
-    - Center cards (original and final)
+    - Center cards (the final ones; the dealt ones are in the timeline)
     - Night actions log
+    - The night timeline (null if the log cannot be replayed)
     """
 
     permission_classes = [IsAuthenticated]
@@ -759,7 +761,9 @@ class ResultsView(APIView):
             )
 
         # Build full results response
-        player_roles_qs = game.player_roles.select_related("user", "vote_target").all()
+        player_roles_qs = list(
+            game.player_roles.select_related("user", "vote_target").all()
+        )
 
         # Build eliminated player details
         eliminated_ids = set(game.results.get("eliminated_players", []))
@@ -817,6 +821,7 @@ class ResultsView(APIView):
             "players": players_data,
             "center_cards": list(game.center_cards),
             "night_actions_log": list(game.night_actions_log),
+            "night_timeline": night_timeline_for(game, player_roles_qs),
         }
 
         return Response(response_data)

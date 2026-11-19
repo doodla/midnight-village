@@ -40,6 +40,7 @@ from .engine.night import (
 )
 from .engine.roles import ActionType, get_role, window_for_order_group
 from .engine.state import ActionResult, GameState, NightAction
+from .engine.timeline import TimelineError, build_night_timeline, recover_dealt_center
 from .engine.validation import is_valid_timer_value, max_seconds_for
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
@@ -322,6 +323,31 @@ def night_results_for_player(
             {"wave": window, "action_type": action_type, "revealed_info": revealed}
         )
     return results
+
+
+def night_timeline_for(game: Game, player_roles: list[PlayerRole]) -> dict | None:
+    """The night as a timeline for the results screen, or None if it cannot be built.
+
+    ``player_roles`` must be in seat order. Built forwards from the dealt cards
+    (``original_role`` by seat and ``Game.dealt_center_cards``); a game dealt before
+    the centre was stored recovers it by undoing the logged swaps, which only counts
+    if that leads back to every player's dealt role. A log the timeline cannot make
+    sense of is logged and answered with None: the rest of the results still show.
+    """
+    seats = [pr.user_id for pr in player_roles]
+    original = {pr.user_id: pr.original_role for pr in player_roles}
+    log = list(game.night_actions_log)
+    try:
+        dealt_center = list(game.dealt_center_cards) or recover_dealt_center(
+            original,
+            {pr.user_id: pr.current_role for pr in player_roles},
+            list(game.center_cards),
+            log,
+        )
+        return build_night_timeline(seats, original, dealt_center, log)
+    except TimelineError:
+        logger.error("No night timeline for game %s", game.id, exc_info=True)
+        return None
 
 
 def acknowledge_night_results(game: Game, user_id: int, seen: int) -> int | None:
@@ -894,20 +920,7 @@ def persist_wave_results(
 
     # Append the action log entries produced by this resolution
     log = list(game.night_actions_log)
-    for entry in new_state.action_log:
-        log.append(
-            {
-                "wave": entry.wave,
-                "player_id": entry.player_id,
-                "action_type": entry.action_type,
-                "targets": entry.targets,
-                "result": entry.result,
-                "timestamp_order": entry.timestamp_order,
-                "role_acting_as": entry.role_acting_as,
-                # Only present when the server moved for a player who timed out.
-                **({"made_by_server": True} if entry.made_by_server else {}),
-            }
-        )
+    log.extend(entry.to_dict() for entry in new_state.action_log)
     game.night_actions_log = log
     game.save(update_fields=["center_cards", "night_actions_log", "updated_at"])
 
