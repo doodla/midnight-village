@@ -3,38 +3,46 @@ import 'package:flutter/widgets.dart';
 import '../skin/elevation.dart';
 import '../skin/skin.dart';
 
+/// [CountBadge]'s two sizes.
+enum BadgeSize {
+  /// On a thumbnail ("×2", S02, S08): 20 tall, the badge type (12).
+  small(20),
+
+  /// On a card in the deck builder (S03): 24 tall, at 14 and lifted.
+  large(24);
+
+  const BadgeSize(this.size);
+
+  final double size;
+}
+
 /// A small count on the corner of a card ("2", "×2").
 class CountBadge extends StatelessWidget {
-  const CountBadge(this.text, {super.key, this.size = 20, this.lifted = false});
+  const CountBadge(this.text, {super.key, this.size = BadgeSize.small});
 
   final String text;
-
-  /// Height; the badge is at least as wide. Taller than 20, it uses the
-  /// larger tag type.
-  final double size;
-
-  /// Casts the ground's badge shadow.
-  final bool lifted;
+  final BadgeSize size;
 
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
+    final side = size.size;
+    final large = size == BadgeSize.large;
     return Container(
-      constraints: BoxConstraints(minWidth: size, minHeight: size),
-      padding: EdgeInsets.symmetric(horizontal: skin.spacing.xs),
+      constraints: BoxConstraints(minWidth: side, minHeight: side),
+      padding: EdgeInsets.symmetric(horizontal: side / 4),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: ground.mark,
         borderRadius: BorderRadius.circular(
-          skin.shape.corner(size, skin.shape.badgeRoundness),
+          skin.shape.corner(side, skin.shape.badgeRoundness),
         ),
-        boxShadow:
-            (lifted ? ground.elevation.badge : Elevation.none).boxShadows,
+        boxShadow: (large ? ground.elevation.badge : Elevation.none).boxShadows,
       ),
       child: Text(
         text,
-        style: (size > 20 ? skin.typography.tag : skin.typography.badge)
+        style: (large ? skin.typography.smallStrong : skin.typography.badge)
             .copyWith(color: ground.onMark, height: 1),
       ),
     );

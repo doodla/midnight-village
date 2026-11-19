@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
@@ -14,7 +16,11 @@ enum TokenId {
   hare,
   lantern,
   spindle,
-  scythe,
+  scythe;
+
+  /// The token the server names, or null for one this app does not know (a
+  /// newer server's): `PlayerToken` then draws a plain disc.
+  static TokenId? fromServer(String? name) => values.asNameMap()[name];
 }
 
 /// The scene pictures.
@@ -33,39 +39,65 @@ enum Scene {
   final String fileName;
 }
 
-/// One picture and the point in it that must stay in view when it is
-/// cropped (CSS's `object-position`).
+/// One picture: its asset, its size in pixels, and the point in it that must
+/// stay in view when it is cropped (CSS's `object-position`).
+///
+/// A picture is always drawn through [decodedFor] (the `ArtPicture`
+/// primitive does it), which decodes it no larger than it is shown, so a
+/// 44-wide thumbnail does not hold a 576-wide portrait in memory. Sizes are
+/// rounded up to a few steps (the full width, a half, a quarter), so the
+/// pictures precached at start (`precacheArt`) are the ones later drawn.
 @immutable
 class ArtImage {
-  const ArtImage(this.path, {this.focus = Alignment.center});
+  const ArtImage(
+    this.path, {
+    required this.pixels,
+    this.focus = Alignment.center,
+  });
 
   final String path;
+
+  /// The asset's size in pixels (checked against the files by
+  /// skin_contract_test.dart).
+  final Size pixels;
   final Alignment focus;
 
-  ImageProvider get provider => AssetImage(path);
-}
+  /// How many halvings below the full size a picture may be decoded at.
+  static const _steps = 2;
 
-/// What a token looks like: its picture, or, for a token not drawn yet, its
-/// [TokenFallback] (drawn by `PlayerToken` as a plain disc with the token's
-/// first letters).
-sealed class TokenArt {
-  const TokenArt(this.id);
+  /// The width, in pixels, to decode this picture at to cover a [box] of
+  /// logical pixels at [devicePixelRatio]: the smallest step that is still
+  /// sharp. An unbounded box gets the full size.
+  int decodeWidth(Size box, double devicePixelRatio) {
+    final full = pixels.width;
+    if (!box.isFinite || box.isEmpty) return full.round();
+    final cover = math.max(box.width / full, box.height / pixels.height);
+    final needed = full * cover * devicePixelRatio;
+    var width = full;
+    for (var step = 0; step < _steps && width / 2 >= needed; step++) {
+      width /= 2;
+    }
+    return width.round();
+  }
 
-  final TokenId id;
-}
+  /// The image to draw for a [box] of logical pixels at [devicePixelRatio].
+  /// The asset bundle comes from the image configuration (the widget tree's
+  /// `DefaultAssetBundle`).
+  ImageProvider decodedFor(Size box, double devicePixelRatio) => ResizeImage(
+    AssetImage(path),
+    width: decodeWidth(box, devicePixelRatio),
+    allowUpscaling: false,
+  );
 
-class TokenPicture extends TokenArt {
-  const TokenPicture(super.id, this.image);
+  @override
+  bool operator ==(Object other) =>
+      other is ArtImage &&
+      other.path == path &&
+      other.pixels == pixels &&
+      other.focus == focus;
 
-  final ArtImage image;
-}
-
-class TokenFallback extends TokenArt {
-  const TokenFallback(super.id);
-
-  /// Drawn on the fallback disc: two letters, as spindle and scythe share
-  /// one ("Sp", "Sc").
-  String get initials => '${id.name[0].toUpperCase()}${id.name[1]}';
+  @override
+  int get hashCode => Object.hash(path, pixels, focus);
 }
 
 /// All the pictures of a skin, in one folder laid out as
@@ -74,30 +106,45 @@ class TokenFallback extends TokenArt {
 class ArtSet {
   const ArtSet({
     required this.folder,
-    required this.drawnTokens,
+    required this.rolePixels,
+    required this.tokenPixels,
+    required this.scenePixels,
     required this.portraitFocus,
+    required this.heroPortraitFocus,
     this.sceneFocus = const {},
   });
 
   final String folder;
 
-  /// The tokens that have a picture; the rest fall back (see [TokenFallback]).
-  final Set<TokenId> drawnTokens;
+  /// Every role portrait's size in pixels.
+  final Size rolePixels;
 
-  /// Where a role portrait's face is.
+  /// Every token's size in pixels.
+  final Size tokenPixels;
+
+  /// Each scene's size in pixels.
+  final Map<Scene, Size> scenePixels;
+
+  /// Where a role portrait's face is, cropped to a card in a grid or row.
   final Alignment portraitFocus;
+
+  /// Where it is in the one large portrait a screen is about (your card).
+  final Alignment heroPortraitFocus;
 
   final Map<Scene, Alignment> sceneFocus;
 
-  ArtImage role(RoleId role) =>
-      ArtImage('$folder/roles/${role.name}.webp', focus: portraitFocus);
+  ArtImage role(RoleId role, {bool hero = false}) => ArtImage(
+    '$folder/roles/${role.name}.webp',
+    pixels: rolePixels,
+    focus: hero ? heroPortraitFocus : portraitFocus,
+  );
 
-  TokenArt token(TokenId token) => drawnTokens.contains(token)
-      ? TokenPicture(token, ArtImage('$folder/tokens/${token.name}.webp'))
-      : TokenFallback(token);
+  ArtImage token(TokenId token) =>
+      ArtImage('$folder/tokens/${token.name}.webp', pixels: tokenPixels);
 
   ArtImage scene(Scene scene) => ArtImage(
     '$folder/scenes/${scene.fileName}.webp',
+    pixels: scenePixels[scene]!,
     focus: sceneFocus[scene] ?? Alignment.center,
   );
 

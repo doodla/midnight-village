@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:midnight_village/design_system/skin/skin_id.dart';
 
-/// Registers every font family the app declares (the skins' bundled faces,
-/// and MaterialIcons) so tests, goldens and the screen gallery draw
-/// real glyphs instead of the test font's boxes. Reads the same
-/// FontManifest.json the engine uses, so a family added to pubspec.yaml is
-/// picked up without touching this file.
+/// Registers every font family the app declares (the default skin's bundled
+/// faces and MaterialIcons, from the same FontManifest.json the engine uses,
+/// and every other skin's on-demand faces, from the skin registry) so tests,
+/// goldens and the screen gallery draw real glyphs instead of the test
+/// font's boxes. A family added to pubspec.yaml or to a skin is picked up
+/// without touching this file.
 ///
 /// Then registers Figtree under the names of families the app's text asks for
 /// but nothing bundles, so that text is legible too (in Figtree, not its real
@@ -27,6 +29,13 @@ Future<void> loadAppFonts() async {
     await _load(entry['family'] as String, [
       for (final font in fonts) rootBundle.load(font['asset'] as String),
     ]);
+  }
+
+  for (final id in SkinId.values) {
+    for (final MapEntry(key: family, value: files)
+        in id.skin.fonts.onDemand.entries) {
+      await _load(family, [for (final file in files) rootBundle.load(file)]);
+    }
   }
 
   final figtree = {

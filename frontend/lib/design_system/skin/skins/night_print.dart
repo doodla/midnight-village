@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../art_set.dart';
 import '../elevation.dart';
 import '../ground.dart';
 import '../skin.dart';
 import '../skin_shape.dart';
 import '../skin_tilt.dart';
 import '../skin_type.dart';
-import 'shadow_paper.dart';
 
 // "Night print": a linocut poster (mock row E: E_Card, E_Vote, E_Results).
-// Values are the mocks' unless a comment says otherwise. Spacing, motion and
-// (until Night print has its own) the art are Shadow paper's.
+// Values are the mocks' unless a comment says otherwise. The art is Shadow
+// paper's pictures printed in five inks by tool/linocut_art.py
+// (`just skin-art`); the faces load only when Night print is chosen.
 
 // Palette.
 const _nightIndigo = Color(0xFF14183A); // night ground
@@ -40,6 +41,7 @@ const _night = Ground(
   quietText: _nightQuiet,
   faintText: _nightFaint,
   hairline: _nightRule,
+  idle: _nightQuiet,
   outline: _cream,
   edge: _ink,
   shadow: _ink,
@@ -61,6 +63,7 @@ const _night = Ground(
   onDisabled: _nightFaint,
   elevation: GroundElevation(
     card: Elevation([HardShadow(Offset(6, 6), _ink)]),
+    lying: Elevation([HardShadow(Offset(4, 4), _ink)]),
     raised: Elevation([HardShadow(Offset(4, 4), _ink)]),
     slab: Elevation([HardShadow(Offset(10, 10), _amber)]),
     heroSlab: Elevation([HardShadow(Offset(10, 10), _amber)]),
@@ -77,6 +80,7 @@ Ground _onCream({required Color ground, required Color paper}) => Ground(
   quietText: _creamQuiet,
   faintText: _creamFaint,
   hairline: _creamRule,
+  idle: _creamQuiet,
   outline: _ink,
   edge: _ink,
   shadow: _ink,
@@ -97,6 +101,7 @@ Ground _onCream({required Color ground, required Color paper}) => Ground(
   onDisabled: _creamQuiet,
   elevation: const GroundElevation(
     card: Elevation([HardShadow(Offset(5, 5), _ink)]),
+    lying: Elevation([HardShadow(Offset(4, 4), _ink)]),
     raised: Elevation([HardShadow(Offset(4, 4), _ink)]),
     slab: Elevation([HardShadow(Offset(8, 8), _red)]),
     heroSlab: Elevation([HardShadow(Offset(8, 8), _red)]),
@@ -109,13 +114,14 @@ Ground _onCream({required Color ground, required Color paper}) => Ground(
 const _display = 'Rozha One';
 const _body = 'Alegreya Sans';
 
-TextStyle _rozha(double size, {required double height}) => TextStyle(
-  fontFamily: _display,
-  fontWeight: FontWeight.w400,
-  fontSize: size,
-  height: height,
-  letterSpacing: 0,
-);
+TextStyle _rozha(double size, {required double height, double em = 0}) =>
+    TextStyle(
+      fontFamily: _display,
+      fontWeight: FontWeight.w400,
+      fontSize: size,
+      height: height,
+      letterSpacing: em * size,
+    );
 
 TextStyle _alegreya(
   double size,
@@ -130,28 +136,72 @@ TextStyle _alegreya(
   letterSpacing: em * size,
 );
 
-// The mocks set headings up to 58; the brief caps them at 36, so Night print
-// keeps Shadow paper's sizes there. Alegreya Sans is small on the body, so
-// body text is a size up from Figtree's (the mocks use 15 to 18).
+// Night print follows the same scale as every skin (design brief section 4):
+// its mocks set headings up to 58, which the hero roles now allow on the one
+// line per screen that is the hero; every other heading stays 26 to 36.
+// Alegreya Sans is small on the body, so body text sits at the top of the
+// brief's 15 to 17.
 final _type = SkinType(
+  heroTitle: _rozha(46, height: 0.95),
+  heroCode: _rozha(46, height: 1, em: 0.06),
+  heroRole: _rozha(58, height: 0.9),
+  heroVerdict: _rozha(44, height: 0.95),
+  heroWinner: _rozha(40, height: 0.95),
   display: _rozha(36, height: 0.95),
+  screenTitle: _rozha(34, height: 1),
   headline: _rozha(32, height: 0.95),
   title: _rozha(26, height: 1.05),
+  tally: _rozha(28, height: 1),
   heading: _rozha(24, height: 1),
   name: _rozha(22, height: 1.05),
   nameSmall: _rozha(18, height: 1.05),
+  buttonLabelLarge: _rozha(23, height: 1),
   buttonLabel: _rozha(22, height: 1),
+  buttonLabelSmall: _rozha(20, height: 1),
   timer: _rozha(84, height: 0.9),
+  timerVote: _rozha(76, height: 0.9),
   timerSmall: _rozha(64, height: 0.9),
-  bodyLarge: _alegreya(18, FontWeight.w500, height: 1.3),
+  timerCompact: _rozha(34, height: 1),
+  bodyLarge: _alegreya(17, FontWeight.w500, height: 1.3),
+  lede: _alegreya(17, FontWeight.w500, height: 1.3),
   body: _alegreya(16, FontWeight.w500, height: 1.3),
   action: _alegreya(16, FontWeight.w800, height: 1.2),
+  code: _alegreya(17, FontWeight.w800, height: 1.2, em: 0.12),
   small: _alegreya(15, FontWeight.w500, height: 1.3),
+  smallStrong: _alegreya(15, FontWeight.w800, height: 1.3),
   caption: _alegreya(14, FontWeight.w500, height: 1.3),
   tag: _alegreya(13, FontWeight.w800, height: 1.2, em: 0.08),
   badge: _alegreya(13, FontWeight.w800, height: 1.2),
-  label: _alegreya(13, FontWeight.w800, height: 1.3, em: 0.2),
+  label: _alegreya(12, FontWeight.w800, height: 1.35, em: 0.2),
   micro: _alegreya(11, FontWeight.w800, height: 1.2, em: 0.16),
+);
+
+/// Night print's pictures: Shadow paper's, printed in its five inks, with
+/// square tokens (its frames are square).
+const nightPrintArt = ArtSet(
+  folder: 'assets/skins/night_print',
+  rolePixels: Size(576, 768),
+  tokenPixels: Size.square(192),
+  scenePixels: {
+    Scene.cardBack: Size(600, 800),
+    Scene.candle: Size(768, 1024),
+    Scene.table: Size(1024, 768),
+    Scene.streetDoor: Size(768, 1024),
+    Scene.sleepingVillage: Size(768, 1024),
+    Scene.nightVillage: Size(768, 1024),
+    Scene.dawnRooftops: Size(768, 1024),
+    Scene.dawnGallows: Size(1024, 768),
+  },
+  portraitFocus: Alignment(0, -0.7),
+  heroPortraitFocus: Alignment(0, -0.76),
+  sceneFocus: {
+    Scene.candle: Alignment(0, 0.24),
+    Scene.table: Alignment(0, 0.1),
+    Scene.streetDoor: Alignment(0, -0.76),
+    Scene.sleepingVillage: Alignment.topCenter,
+    Scene.nightVillage: Alignment.topCenter,
+    Scene.dawnGallows: Alignment(0, -0.2),
+  },
 );
 
 final nightPrint = Skin(
@@ -159,6 +209,14 @@ final nightPrint = Skin(
   day: _onCream(ground: _cream, paper: _paperCream),
   paper: _onCream(ground: _paperCream, paper: _creamWell),
   typography: _type,
+  // Only the weights the type roles use (500 and 800 of Alegreya Sans).
+  fonts: const SkinFonts.onDemand({
+    _display: ['assets/fonts/rozhaone/RozhaOne-Regular.ttf'],
+    _body: [
+      'assets/fonts/alegreyasans/AlegreyaSans-Medium.ttf',
+      'assets/fonts/alegreyasans/AlegreyaSans-ExtraBold.ttf',
+    ],
+  }),
   shape: const SkinShape(
     radius: 0,
     radiusSmall: 0,
@@ -175,15 +233,21 @@ final nightPrint = Skin(
     pip: Size(26, 8),
     pipRoundness: 0,
     pipEmptyStroke: 2,
+    pipStretch: true, // E_Card: the bars run the width of the row
+    archRoundness: 0,
   ),
-  spacing: shadowPaperSpacing,
-  motion: shadowPaperMotion,
   tilt: const SkinTilt(
     card: -1.2 * SkinTilt.degree,
     stamp: -5 * SkinTilt.degree,
     badge: 6 * SkinTilt.degree,
+    // Not in the mocks: Shadow paper's loose cards, a little straighter.
+    scatter: [-3 * SkinTilt.degree, 1 * SkinTilt.degree, 3 * SkinTilt.degree],
+    thumb: -3 * SkinTilt.degree,
+    hero: -2 * SkinTilt.degree,
   ),
-  art: shadowPaperArt,
+  art: nightPrintArt,
   scrim: _ink.withValues(alpha: 0.72),
   dimmed: 0.4,
+  waiting: 0.35,
+  recessed: 0.75,
 );

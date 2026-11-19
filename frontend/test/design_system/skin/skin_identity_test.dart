@@ -1,25 +1,30 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/skin/skin_id.dart';
 
 // One layout, two skins: layout code reads the active skin's values and never
 // asks which skin is active. This scans lib/ for code that names a skin or
 // compares skins, outside the few files whose job that is.
 
-/// Files allowed to name skins: their definitions, the list of them, the
-/// switch that holds the choice, and the debug toolbar's toggle.
-const _allowed = {
-  'lib/design_system/skin/skins/shadow_paper.dart',
-  'lib/design_system/skin/skins/night_print.dart',
-  'lib/design_system/skin/skin_id.dart',
-  'lib/design_system/skin/skin_choice.dart',
-  'lib/design_system/skin/skin_choice.g.dart',
-  'lib/features/debug/presentation/debug_toolbar_screen.dart',
-};
+/// Files allowed to name skins: their definitions (every file in skins/),
+/// the registry, the switch that holds the choice, and the debug toolbar's
+/// toggle.
+bool _allowed(String path) =>
+    path.startsWith('lib/design_system/skin/skins/') ||
+    const {
+      'lib/design_system/skin/skin_id.dart',
+      'lib/design_system/skin/skin_choice.dart',
+      'lib/design_system/skin/skin_choice.g.dart',
+      'lib/features/debug/presentation/debug_toolbar_screen.dart',
+    }.contains(path);
+
+/// Every skin's name in the registry, so a new skin is scanned for too.
+final _names = SkinId.values.map((id) => id.name).join('|');
 
 final _identity = [
   // Naming a skin: SkinId.nightPrint, shadowPaper, nightPrint, skinChoiceProvider.
-  RegExp(r'\b(SkinId|shadowPaper|nightPrint|skinChoiceProvider)\b'),
+  RegExp('\\b(SkinId|$_names|skinChoiceProvider)\\b'),
   // Comparing skins: skin == x, x != skin, identical(skin, x); a null check
   // is not a comparison.
   RegExp(
@@ -29,7 +34,7 @@ final _identity = [
 
 List<String> findIdentityChecks(Map<String, String> files) => [
   for (final MapEntry(key: path, value: source) in files.entries)
-    if (!_allowed.contains(path))
+    if (!_allowed(path))
       for (final (number, line) in source.split('\n').indexed)
         if (!line.trimLeft().startsWith('//') &&
             _identity.any((pattern) => pattern.hasMatch(line)))

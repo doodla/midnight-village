@@ -3,6 +3,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
+import 'package:midnight_village/design_system/skin/ground.dart';
+import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
@@ -42,6 +44,8 @@ Future<void> _pumpAt360(WidgetTester tester, Skin skin, Widget child) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: skinTheme(skin),
+      builder: (context, app) =>
+          GroundScope(ground: GroundKind.night, child: app!),
       home: Scaffold(
         body: Padding(padding: const EdgeInsets.all(24), child: child),
       ),

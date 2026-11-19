@@ -35,6 +35,12 @@ class Elevation {
     for (final layer in layers) HardShadow(layer.offset * keep, layer.color),
   ]);
 
+  /// The same stack with every offset times [factor]: a bigger or smaller
+  /// copy of the same thing (a large button, a small card).
+  Elevation scaled(double factor) => Elevation([
+    for (final layer in layers) HardShadow(layer.offset * factor, layer.color),
+  ]);
+
   /// How far the shape moves when pressed down to [keep].
   Offset travel(double keep) => _deepest * (1 - keep);
 
@@ -50,6 +56,7 @@ class Elevation {
 class GroundElevation {
   const GroundElevation({
     required this.card,
+    required this.lying,
     required this.raised,
     required this.slab,
     required this.heroSlab,
@@ -61,6 +68,10 @@ class GroundElevation {
   /// Rows and small cards.
   final Elevation card;
 
+  /// A card lying face down on the table (S05, S06), at its 78-wide size;
+  /// smaller and larger cards scale it.
+  final Elevation lying;
+
   /// Inputs, panels and paper buttons: a little higher than [card].
   final Elevation raised;
 
@@ -70,7 +81,8 @@ class GroundElevation {
   /// The one card a screen is about: your card, the dead player's card.
   final Elevation heroSlab;
 
-  /// The primary button.
+  /// The primary button at its regular size; the large and compact sizes
+  /// scale it.
   final Elevation primary;
 
   /// Whatever the player has picked.

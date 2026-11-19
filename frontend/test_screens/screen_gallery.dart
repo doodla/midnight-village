@@ -46,10 +46,10 @@ class ScreenResult {
 }
 
 /// Where the PNGs for [width] in [skin] go: `build/screens/` for the mocks'
-/// width in Shadow paper, `w<width>/` below that for any other width, and
+/// width in the default skin, `w<width>/` below that for any other width, and
 /// all of it under `<skin>/` for another skin (`build/screens/nightPrint/w360`).
 String outputDir(int width, SkinId skin) {
-  final base = skin == SkinId.shadowPaper
+  final base = skin == SkinId.fallback
       ? 'build/screens'
       : 'build/screens/${skin.name}';
   return width == 390 ? base : '$base/w$width';

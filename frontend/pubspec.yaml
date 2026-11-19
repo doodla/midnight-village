@@ -28,7 +28,6 @@ dependencies:
   json_annotation: ^4.9.0
 
   # SVG support
-  flutter_svg: ^2.0.0
 
   # Design system fonts
   google_fonts: ^6.2.1
@@ -39,6 +38,7 @@ dependencies:
 
   # Keep the screen awake during a game
   wakelock_plus: ^1.6.1
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
@@ -74,16 +74,29 @@ flutter:
     - assets/skins/shadow_paper/roles/
     - assets/skins/shadow_paper/tokens/
     - assets/skins/shadow_paper/scenes/
+    # Night print's art, made by tool/linocut_art.py (`just skin-art`). On the
+    # web an asset is fetched only when drawn, so a phone in Shadow paper
+    # never downloads these.
+    - assets/skins/night_print/roles/
+    - assets/skins/night_print/tokens/
+    - assets/skins/night_print/scenes/
+    # Night print's faces: plain assets, loaded with a FontLoader only when
+    # that skin is chosen (lib/design_system/skin_loader.dart), so they cost a
+    # phone in the default skin nothing at start. Only the weights its type
+    # roles use.
+    - assets/fonts/rozhaone/RozhaOne-Regular.ttf
+    - assets/fonts/alegreyasans/AlegreyaSans-Medium.ttf
+    - assets/fonts/alegreyasans/AlegreyaSans-ExtraBold.ttf
     # Shown on the licences page (registerFontLicences in lib/main.dart).
     - assets/fonts/gloock/OFL.txt
     - assets/fonts/figtree/OFL.txt
     - assets/fonts/rozhaone/OFL.txt
     - assets/fonts/alegreyasans/OFL.txt
 
-  # The skins' type (lib/design_system/skin/skins/): Gloock and Figtree for
-  # Shadow paper, Rozha One and Alegreya Sans for Night print (Latin subsets of
-  # the Google Fonts files). OFL licences sit beside each family in
-  # assets/fonts/.
+  # The default skin's type (lib/design_system/skin/skins/shadow_paper.dart):
+  # Gloock and Figtree (Latin subsets of the Google Fonts files), loaded by the
+  # engine at start. Other skins' faces are assets loaded on demand (above).
+  # OFL licences sit beside each family in assets/fonts/.
   fonts:
     - family: Gloock
       fonts:
@@ -98,16 +111,3 @@ flutter:
           weight: 600
         - asset: assets/fonts/figtree/Figtree-Bold.ttf
           weight: 700
-    - family: Rozha One
-      fonts:
-        - asset: assets/fonts/rozhaone/RozhaOne-Regular.ttf
-    - family: Alegreya Sans
-      fonts:
-        - asset: assets/fonts/alegreyasans/AlegreyaSans-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/alegreyasans/AlegreyaSans-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/alegreyasans/AlegreyaSans-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/alegreyasans/AlegreyaSans-ExtraBold.ttf
-          weight: 800
