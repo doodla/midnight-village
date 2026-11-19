@@ -140,3 +140,68 @@ class TestDealtCenterIsKept:
         ).data
         assert state["dealt_center_cards"] == dealt
         assert state["center_cards"] == game.center_cards
+
+
+class TestARefusedDealWritesNothing:
+    """Returning an error Response from inside ``transaction.atomic()`` commits what
+    was written before it: a start the server refuses must leave the table as it was
+    (the blank tokens are filled in only once everything has been validated)."""
+
+    def start(self, table: Table, client=None, body=None):
+        return (client or table.host).post(
+            reverse("onuw:game-start", kwargs={"code": table.code}),
+            body or {},
+            format="json",
+        )
+
+    @pytest.mark.parametrize(
+        "cause",
+        ["not_host", "not_ready", "bad_settings", "bad_assignment", "bad_seed"],
+    )
+    def test_a_refused_start_changes_nothing(self, table, cause) -> None:
+        LobbyMember.objects.filter(lobby__code=table.code).update(token="")
+        client, body = table.host, {}
+        if cause == "not_host":
+            client = table.clients[1]
+        elif cause == "not_ready":
+            LobbyMember.objects.filter(user_id=table.ids[2]).update(is_ready=False)
+        elif cause == "bad_settings":
+            Lobby.objects.filter(code=table.code).update(
+                settings={"roles": {"Seer": 1}}
+            )
+        elif cause == "bad_assignment":
+            body = {"debug": {"forced_assignment": {"player_roles": {}, "center": []}}}
+        elif cause == "bad_seed":
+            body = {"debug": {"seed": "not a number"}}
+        before = list(
+            LobbyMember.objects.filter(lobby__code=table.code).values_list(
+                "pk", "token", "is_ready"
+            )
+        )
+
+        response = self.start(table, client, body)
+
+        assert 400 <= response.status_code < 500
+        assert Game.objects.filter(lobby__code=table.code).count() == 0
+        assert Lobby.objects.get(code=table.code).status == Lobby.Status.WAITING
+        assert (
+            list(
+                LobbyMember.objects.filter(lobby__code=table.code).values_list(
+                    "pk", "token", "is_ready"
+                )
+            )
+            == before
+        )
+        assert not any(token for _, token, _ in before)  # tokens still blank
+
+    def test_the_same_start_succeeds_once_the_table_is_valid(self, table) -> None:
+        LobbyMember.objects.filter(lobby__code=table.code).update(token="")
+
+        assert self.start(table).status_code == status.HTTP_201_CREATED
+
+        tokens_now = list(
+            LobbyMember.objects.filter(lobby__code=table.code).values_list(
+                "token", flat=True
+            )
+        )
+        assert all(tokens_now)

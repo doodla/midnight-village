@@ -116,6 +116,43 @@ class TestTheDealSnapshotsTokensAndSeats:
         )
 
 
+class TestSeatOrderIsNotUserIdOrder:
+    def test_a_higher_id_user_who_joins_first_sits_first_everywhere(
+        self, table
+    ) -> None:
+        # The fixture seats the players in reverse user-id order: the host (seat 0)
+        # has the HIGHEST id, so only a real seat order passes these.
+        assert table.ids == sorted(table.ids, reverse=True)
+        game_id = table.play_to_results()
+
+        in_me = [p["player_id"] for p in me(table, game_id, 2)["players"]]
+        in_players = [
+            p["player_id"]
+            for p in table.clients[2]
+            .get(reverse("onuw:player-list", kwargs={"game_id": game_id}))
+            .data["players"]
+        ]
+        in_results = [
+            p["player_id"]
+            for p in table.clients[2]
+            .get(reverse("onuw:results", kwargs={"game_id": game_id}))
+            .data["players"]
+        ]
+        in_lobby = [p["user"]["id"] for p in table.lobby_body()["players"]]
+
+        assert in_me == in_players == in_results == in_lobby == table.ids
+        assert in_me != sorted(in_me)
+
+    def test_the_oracle_lists_players_in_seat_order_too(self, table) -> None:
+        game_id = table.start().data["game_id"]
+
+        state = table.host.get(
+            reverse("onuw:debug-state", kwargs={"game_id": game_id})
+        ).data
+
+        assert [p["user_id"] for p in state["players"]] == table.ids
+
+
 class TestGamesKeepTheirTokens:
     def test_game_snapshot_tokens_survive_member_leaving(self, table) -> None:
         joined = lobby_tokens(table)

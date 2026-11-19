@@ -18,7 +18,7 @@ from rest_framework.views import APIView
 
 from apps.core import timers
 from apps.core.lobbies import ensure_tokens
-from apps.core.models import Lobby
+from apps.core.models import Lobby, LobbyMember
 
 from . import presence
 from .debug import ForcedAssignmentError, parse_forced_assignment
@@ -51,6 +51,28 @@ logger = logging.getLogger(__name__)
 MAX_NIGHT_RESULTS_SEEN = 10
 
 
+def _snapshot_player_roles(
+    game: Game, members: list[LobbyMember], roles: dict[int, str]
+) -> None:
+    """Create the game's PlayerRoles from the dealt ``roles`` (user id -> role).
+
+    Each takes its member's token and seat (join order, 0-based) as they are now:
+    the game keeps them even if the member later leaves the lobby.
+    """
+    seats = {m.user_id: (seat, m.token) for seat, m in enumerate(members)}
+    PlayerRole.objects.bulk_create(
+        PlayerRole(
+            game=game,
+            user_id=user_id,
+            original_role=role,
+            current_role=role,
+            seat=seats[user_id][0],
+            token=seats[user_id][1],
+        )
+        for user_id, role in roles.items()
+    )
+
+
 class GameStartView(APIView):
     """Start an ONUW game from a lobby."""
 
@@ -71,6 +93,9 @@ class GameStartView(APIView):
                 )
             outcome = self._deal(request, lobby)
             if isinstance(outcome, Response):
+                # A refusal writes nothing: returning from inside atomic() would
+                # COMMIT whatever was written before it.
+                transaction.set_rollback(True)
                 return outcome
             game = outcome
 
@@ -111,7 +136,6 @@ class GameStartView(APIView):
         # All players, in join order (their seat order).
         members = list(lobby.players.all())  # type: ignore[misc]
         player_count = len(members)
-        ensure_tokens(lobby, members)  # a member made before tokens existed
 
         # All players must be ready
         if not all(m.is_ready for m in members):
@@ -166,7 +190,8 @@ class GameStartView(APIView):
                 role_counts, player_ids, seed
             )
 
-        # Create game state and update lobby (same transaction as the checks)
+        # Everything is validated: from here on the deal writes (same transaction).
+        ensure_tokens(lobby, members)  # a member made before tokens existed
         lobby.status = Lobby.Status.IN_GAME
         lobby.save(update_fields=["status", "updated_at"])
 
@@ -180,21 +205,7 @@ class GameStartView(APIView):
             dealt_center_cards=list(center_cards),
         )
 
-        # Snapshot each member's token and seat (join order) into the game: the
-        # game keeps them even if the member later leaves the lobby.
-        seats = {m.user_id: (seat, m.token) for seat, m in enumerate(members)}
-        player_roles = [
-            PlayerRole(
-                game=game,
-                user_id=player_id,
-                original_role=role_name,
-                current_role=role_name,
-                seat=seats[player_id][0],
-                token=seats[player_id][1],
-            )
-            for player_id, role_name in player_id_to_role.items()
-        ]
-        PlayerRole.objects.bulk_create(player_roles)
+        _snapshot_player_roles(game, members, player_id_to_role)
 
         # Open the first window in the SAME transaction that creates the game,
         # so there is no committed night that never opened (an instance dying
