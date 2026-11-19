@@ -365,7 +365,7 @@ void main() {
             '${villager.closedAfter} after the Villager did',
       );
       expect(seer.trace, villager.trace);
-      expect(seer.trace.last, 'phase_change:discussion');
+      expect(seer.trace, contains('phase_change:discussion'));
     });
 
     test(

@@ -60,6 +60,11 @@ class Table:
             client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['access']}")
             self.clients.append(client)
             self.ids.append(response.data["user"]["id"])
+        # Seat order (the host first, then join order) is the REVERSE of user-id
+        # order, so a list that comes back in user-id order is not mistaken for one
+        # in seat order. ``clients[i]`` and ``ids[i]`` are the player in seat ``i``.
+        self.clients.reverse()
+        self.ids.reverse()
         self.host = self.clients[0]
         self.deck = deck or DECK
         response = self.host.post(
@@ -107,7 +112,10 @@ class Table:
         """Deal, close the night, end the talk, everyone votes, results."""
         response = self.start(seed)
         assert response.status_code == status.HTTP_201_CREATED, response.data
-        game_id = response.data["game_id"]
+        return self.finish_game(response.data["game_id"])
+
+    def finish_game(self, game_id: str) -> str:
+        """Close the night, end the talk, everyone votes: the game reaches results."""
         kw = {"game_id": game_id}
         assert (
             self.host.post(reverse("onuw:wave-advance", kwargs=kw)).status_code == 200

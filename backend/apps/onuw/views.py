@@ -7,6 +7,7 @@ import secrets
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -17,21 +18,28 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core import timers
-from apps.core.models import Lobby
+from apps.core.lobbies import ensure_tokens
+from apps.core.models import Lobby, LobbyMember
 
 from . import presence
 from .debug import ForcedAssignmentError, parse_forced_assignment
 from .engine.assignment import assign_roles
 from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
-from .serializers import GameMeSerializer, GameStartResponseSerializer
+from .serializers import (
+    GameMeSerializer,
+    GameStartResponseSerializer,
+    player_identity,
+)
 from .services import (
     AlreadyActedError,
+    acknowledge_night_results,
     advance_wave,
     check_and_maybe_advance,
     end_discussion,
     ensure_timers,
     get_player_acting_role_for_wave,
+    night_timeline_for,
     resolve_doppelganger_look,
     reveal_votes,
     start_night_phase,
@@ -41,6 +49,30 @@ from .services import (
 )
 
 logger = logging.getLogger(__name__)
+
+MAX_NIGHT_RESULTS_SEEN = 10
+
+
+def _snapshot_player_roles(
+    game: Game, members: list[LobbyMember], roles: dict[int, str]
+) -> None:
+    """Create the game's PlayerRoles from the dealt ``roles`` (user id -> role).
+
+    Each takes its member's token and seat (join order, 0-based) as they are now:
+    the game keeps them even if the member later leaves the lobby.
+    """
+    seats = {m.user_id: (seat, m.token) for seat, m in enumerate(members)}
+    PlayerRole.objects.bulk_create(
+        PlayerRole(
+            game=game,
+            user_id=user_id,
+            original_role=role,
+            current_role=role,
+            seat=seats[user_id][0],
+            token=seats[user_id][1],
+        )
+        for user_id, role in roles.items()
+    )
 
 
 class GameStartView(APIView):
@@ -63,6 +95,9 @@ class GameStartView(APIView):
                 )
             outcome = self._deal(request, lobby)
             if isinstance(outcome, Response):
+                # A refusal writes nothing: returning from inside atomic() would
+                # COMMIT whatever was written before it.
+                transaction.set_rollback(True)
                 return outcome
             game = outcome
 
@@ -100,12 +135,12 @@ class GameStartView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get all players
-        members = lobby.players.select_related("user").all()  # type: ignore[misc]
-        player_count = members.count()
+        # All players, in join order (their seat order).
+        members = list(lobby.players.all())  # type: ignore[misc]
+        player_count = len(members)
 
         # All players must be ready
-        if members.filter(is_ready=False).exists():
+        if not all(m.is_ready for m in members):
             return Response(
                 {"detail": "Not all players are ready."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -157,7 +192,8 @@ class GameStartView(APIView):
                 role_counts, player_ids, seed
             )
 
-        # Create game state and update lobby (same transaction as the checks)
+        # Everything is validated: from here on the deal writes (same transaction).
+        ensure_tokens(lobby, members)  # a member made before tokens existed
         lobby.status = Lobby.Status.IN_GAME
         lobby.save(update_fields=["status", "updated_at"])
 
@@ -167,18 +203,11 @@ class GameStartView(APIView):
             random_seed=seed,
             settings=lobby.settings,
             center_cards=center_cards,
+            # The night overwrites center_cards as cards are swapped.
+            dealt_center_cards=list(center_cards),
         )
 
-        player_roles = [
-            PlayerRole(
-                game=game,
-                user_id=player_id,
-                original_role=role_name,
-                current_role=role_name,
-            )
-            for player_id, role_name in player_id_to_role.items()
-        ]
-        PlayerRole.objects.bulk_create(player_roles)
+        _snapshot_player_roles(game, members, player_id_to_role)
 
         # Open the first window in the SAME transaction that creates the game,
         # so there is no committed night that never opened (an instance dying
@@ -362,6 +391,43 @@ class NightActionView(APIView):
         check_and_maybe_advance(game)
 
         return Response({"status": "submitted"})
+
+
+class NightResultsSeenView(APIView):
+    """Acknowledge night results the caller has shown, so a restart does not show
+    them again. ``{"seen": n}`` (a whole number, 0 to 10) answers
+    ``{"night_results_seen": <stored count>}``. The count only goes up and is
+    capped at the results the caller can see; it is the caller's own."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, game_id: str) -> Response:
+        try:
+            game = Game.objects.get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        seen = request.data.get("seen") if isinstance(request.data, dict) else None
+        # A plain JSON integer only: a bool, float or string is never coerced.
+        if type(seen) is not int or not 0 <= seen <= MAX_NIGHT_RESULTS_SEEN:
+            return Response(
+                {
+                    "detail": f"seen must be a whole number from 0 to {MAX_NIGHT_RESULTS_SEEN}.",
+                    "code": "bad_request",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        stored = acknowledge_night_results(game, request.user.id, seen)  # type: ignore[misc]
+        if stored is None:
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response({"night_results_seen": stored})
 
 
 class WaveAdvanceView(APIView):
@@ -577,8 +643,7 @@ class PlayerListView(APIView):
         players = []
         for pr in all_prs:
             entry = {
-                "player_id": pr.user_id,
-                "display_name": pr.user.display_name or pr.user.username,
+                **player_identity(pr),
                 # Presence is public: is any of their sockets open right now?
                 "connected": pr.user_id in connected_ids,
             }
@@ -655,6 +720,54 @@ class CurrentGameView(APIView):
         )
 
 
+RECENT_GAMES_DEFAULT = 5
+RECENT_GAMES_MAX = 10
+
+
+def _recent_games_limit(raw: str | None) -> int:
+    """``?limit=`` clamped to 1..10; a missing or unreadable value is the default."""
+    try:
+        return max(1, min(int(raw), RECENT_GAMES_MAX))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return RECENT_GAMES_DEFAULT
+
+
+class RecentGamesView(APIView):
+    """The caller's finished games, newest first, with just enough for a list.
+
+    Only games in ``results`` in which the caller played: an unfinished game holds
+    live hidden information and "where am I" covers it. Nothing about anyone
+    else's role, and no lobby code (it would let anyone read the lobby). The full
+    detail stays behind ``results/``, which checks membership.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        limit = _recent_games_limit(request.query_params.get("limit"))
+        mine = (
+            PlayerRole.objects.filter(user=request.user, game__phase=Phase.RESULTS)
+            .select_related("game")
+            .annotate(player_count=Count("game__player_roles"))
+            .order_by("-game__updated_at", "-game_id")[:limit]
+        )
+        games = []
+        for pr in mine:
+            outcomes = pr.game.results.get("player_outcomes", {})
+            games.append(
+                {
+                    "game_id": str(pr.game_id),  # type: ignore[attr-defined]
+                    "ended_at": pr.game.updated_at.isoformat(),
+                    "player_count": pr.player_count,  # type: ignore[attr-defined]
+                    "winning_teams": list(pr.game.results.get("winning_teams", [])),
+                    "you_won": outcomes.get(str(request.user.id)) == "win",
+                    "token": pr.token,
+                    "seat": pr.seat,
+                }
+            )
+        return Response({"games": games})
+
+
 class ResultsView(APIView):
     """
     Get full game results after the game has ended.
@@ -663,8 +776,9 @@ class ResultsView(APIView):
     - Winning team and reason
     - Eliminated players with their roles
     - All player original and final roles, outcomes, and vote targets
-    - Center cards (original and final)
+    - Center cards (the final ones; the dealt ones are in the timeline)
     - Night actions log
+    - The night timeline (null if the log cannot be replayed)
     """
 
     permission_classes = [IsAuthenticated]
@@ -696,7 +810,9 @@ class ResultsView(APIView):
             )
 
         # Build full results response
-        player_roles_qs = game.player_roles.select_related("user", "vote_target").all()
+        player_roles_qs = list(
+            game.player_roles.select_related("user", "vote_target").all()
+        )
 
         # Build eliminated player details
         eliminated_ids = set(game.results.get("eliminated_players", []))
@@ -722,8 +838,7 @@ class ResultsView(APIView):
         for pr in player_roles_qs:
             is_eliminated = pr.user_id in eliminated_ids
             player_info = {
-                "player_id": pr.user_id,
-                "display_name": pr.user.display_name or pr.user.username,
+                **player_identity(pr),
                 "original_role": pr.original_role,
                 "final_role": pr.current_role,
                 "team": get_effective_team(
@@ -755,6 +870,7 @@ class ResultsView(APIView):
             "players": players_data,
             "center_cards": list(game.center_cards),
             "night_actions_log": list(game.night_actions_log),
+            "night_timeline": night_timeline_for(game, player_roles_qs),
         }
 
         return Response(response_data)

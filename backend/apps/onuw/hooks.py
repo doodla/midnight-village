@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from apps.core.games import GameHooks
 
@@ -17,8 +18,10 @@ def _newest_game(lobby) -> Game | None:
 
 
 class OnuwHooks(GameHooks):
-    def validate_settings(self, settings, player_count: int) -> list[str]:
-        return validate_onuw_settings(settings, player_count)
+    def validate_settings(self, settings, player_count: int, changed=None) -> list[str]:
+        return validate_onuw_settings(
+            settings, player_count, check_deck=changed is None or "roles" in changed
+        )
 
     def newest_game_group(self, lobby) -> str | None:
         game = _newest_game(lobby)
@@ -41,3 +44,12 @@ class OnuwHooks(GameHooks):
     def newest_game_finished(self, lobby) -> bool:
         game = _newest_game(lobby)
         return game is not None and game.phase == Phase.RESULTS
+
+    def member_game(self, lobby, user_id: int) -> dict[str, Any] | None:
+        game = _newest_game(lobby)
+        if (
+            game is None
+            or not PlayerRole.objects.filter(game=game, user_id=user_id).exists()
+        ):
+            return None
+        return {"game_id": str(game.id), "phase": game.phase}

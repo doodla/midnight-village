@@ -39,6 +39,16 @@ def fresh_rows(*, game_id: Any, user_id: int | None = None):
     return queryset
 
 
+def online_sockets():
+    """(user id, lobby id) of every fresh game socket: this game's share of
+    ``GET /api/stats/online/`` (registered with ``apps.core.online``)."""
+    from .models import SocketPresence
+
+    return SocketPresence.objects.filter(last_seen__gte=cutoff()).values_list(
+        "user_id", "game__lobby_id"
+    )
+
+
 def connected_user_ids(*, game_id: Any) -> set[int]:
     """Users with at least one fresh socket on the game."""
     return set(fresh_rows(game_id=game_id).values_list("user_id", flat=True))

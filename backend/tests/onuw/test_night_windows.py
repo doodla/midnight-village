@@ -28,7 +28,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core import timers
-from apps.core.models import Lobby, LobbyMember, User
+from apps.core.lobbies import add_member
+from apps.core.models import Lobby, User
 from apps.onuw import services
 from apps.onuw.engine.roles import ROLE_REGISTRY
 from apps.onuw.models import Game, Phase, PlayerRole
@@ -63,10 +64,14 @@ class Night:
         self.recorder = recorder
         self.scheduled = scheduled
         self._capture_on_commit = capture_on_commit
-        self.users = {
+        # Seat order (the order of ``roles``, the host first) is the REVERSE of
+        # user-id order, so a list that comes back in user-id order is not mistaken
+        # for one in seat order.
+        created = {
             name: User.objects.create_user(username=f"nw_{name}", password="pass")
-            for name in roles
+            for name in reversed(list(roles))
         }
+        self.users = {name: created[name] for name in roles}
         host = self.users[next(iter(roles))]
         lobby = Lobby.objects.create(
             host=host,
@@ -74,8 +79,12 @@ class Night:
             max_players=10,
             settings={"roles": {}},
         )
+        members = {}
         for user in self.users.values():
-            LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
+            member = add_member(lobby, user.id)
+            member.is_ready = True
+            member.save(update_fields=["is_ready"])
+            members[user.id] = member
         lobby.status = Lobby.Status.IN_GAME
         lobby.save()
         self.game = Game.objects.create(
@@ -85,12 +94,15 @@ class Night:
             settings=settings,
             center_cards=center,
         )
-        for name, role in roles.items():
+        for seat, (name, role) in enumerate(roles.items()):
+            user = self.users[name]
             PlayerRole.objects.create(
                 game=self.game,
-                user=self.users[name],
+                user=user,
                 original_role=role,
                 current_role=role,
+                seat=seat,
+                token=members[user.id].token,
             )
         self.host = host
         self.client = APIClient()

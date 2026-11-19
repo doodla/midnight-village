@@ -33,6 +33,11 @@ urlpatterns = [
         name="current-game",
     ),
     path(
+        "me/recent-games/",
+        views.RecentGamesView.as_view(),
+        name="recent-games",
+    ),
+    path(
         "games/<str:game_id>/me/",
         views.GameMeView.as_view(),
         name="game-me",
@@ -46,6 +51,11 @@ urlpatterns = [
         "games/<str:game_id>/action/",
         views.NightActionView.as_view(),
         name="night-action",
+    ),
+    path(
+        "games/<str:game_id>/night-results/seen/",
+        views.NightResultsSeenView.as_view(),
+        name="night-results-seen",
     ),
     path(
         "games/<str:game_id>/advance-wave/",

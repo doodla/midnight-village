@@ -29,6 +29,20 @@ class ActionLogEntry:
     # Drunk must swap); recorded so a replay can tell it from a chosen move.
     made_by_server: bool = False
 
+    def to_dict(self) -> dict[str, Any]:
+        """The JSON stored in ``Game.night_actions_log`` (and read by the timeline)."""
+        return {
+            "wave": self.wave,
+            "player_id": self.player_id,
+            "action_type": self.action_type,
+            "targets": self.targets,
+            "result": self.result,
+            "timestamp_order": self.timestamp_order,
+            "role_acting_as": self.role_acting_as,
+            # Only present when the server moved for a player who timed out.
+            **({"made_by_server": True} if self.made_by_server else {}),
+        }
+
 
 @dataclass(frozen=True)
 class NightAction:

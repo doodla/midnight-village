@@ -96,6 +96,43 @@ sections below say otherwise, this list wins:
   `{"type": "player_presence", "player_id", "connected"}`; the player list
   (`GET .../games/<id>/players/`) has `connected` per player.
 
+### Updates since: tokens and seats (v2 contract S1)
+
+- **Tokens and seats.** Every lobby member has a `token` (one of ten: `crow`, `key`, `moth`,
+  `bell`, `thorn`, `antler`, `hare`, `lantern`, `spindle`, `scythe`), handed out under the Lobby
+  lock in an order seeded by the lobby code. The lobby detail `players[].token`, game `/me/`
+  `players[]`, `GET .../players/` and results `players[]` carry `token` and `seat` (join order,
+  0-based; `null` seat and `""` token only for games dealt before this). The deal snapshots both
+  into `PlayerRole`, so a game keeps them when a member leaves. Players lists come back in seat
+  order. The oracle's `players[]` also has `token` and `seat`, and the oracle has
+  `dealt_center_cards` (`center_cards` is overwritten as the night swaps cards).
+- **Lobby limits.** `max_players` at create is 1 to 10, the token count (400 otherwise; the game
+  checks its own 3 to 10 when it deals). Join refusals carry a `code`: `lobby_not_found` (404),
+  `already_in_lobby`, `lobby_closed`, `lobby_full` (400). `POST .../ready/` takes
+  `is_ready` as a real boolean only (400 `bad_request` otherwise; absent still toggles).
+- **Where am I.** `GET /api/me/table/` (core) answers `{"table": {"lobby_code", "game_type",
+  "status", "is_host", "token", "game": {"game_id", "phase"} | null}}` or `{"table": null}`:
+  the caller's newest-joined lobby with activity (`Lobby.updated_at`: join, leave, deal,
+  finish, play again, ...) within `CORE_TABLE_RESUME_HOURS` (12; a game nobody finished expires too), and the lobby's newest game if the caller plays in it (also
+  between games, when `current-game` is empty). `GET /api/onuw/me/current-game/` is unchanged.
+- **Night results ack.** `GET .../me/` has `night_results_seen` (the caller's own count).
+  `POST /api/onuw/games/<id>/night-results/seen/` with `{"seen": n}` (a JSON integer 0 to 10;
+  400 `bad_request` otherwise) answers `{"night_results_seen": <stored>}`. The count never goes
+  down and is capped at the number of `night_results` the caller can see now.
+- **Night timeline.** `GET .../results/` also has `night_timeline` (`{seats, cards, dealt, steps,
+  final, center_moved}`, or `null` if the night cannot be replayed; see `api-contract-v2.md`
+  section 4). Built forwards from `Game.dealt_center_cards`; the debug oracle shows it as
+  `dealt_center_cards`.
+- **Home extras.** `GET /api/stats/online/` (no auth) answers `{"players", "tables"}` from fresh
+  socket rows, `Cache-Control: public, max-age=15, s-maxage=15` (it permits 15 s reuse; it does not guarantee a CDN caches it). `GET /api/onuw/me/recent-games/?limit=`
+  answers the caller's finished games (`game_id`, `ended_at`, `player_count`, `winning_teams`,
+  `you_won`, `token`, `seat`).
+- **Lobby settings PATCH merges.** `PATCH /api/lobbies/<code>/` with `{"settings": {...}}` merges the
+  given keys over the stored settings (the harness and the game driver send complete
+  settings, which still works), refuses with 409 `lobby_in_game` while a game runs, and
+  validates the merged settings (`pace`, if present, is `quick|normal|long|custom`). The ready
+  toggle is also 409 `lobby_in_game` while a game runs.
+
 ## 1. Goal
 
 Give an autonomous agent (and a human) a fast, deterministic way to drive the
