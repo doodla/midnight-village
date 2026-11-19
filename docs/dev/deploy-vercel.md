@@ -1,7 +1,8 @@
 # Running the backend on Vercel
 
-Status: **built and unit-tested, never deployed.** A real end-to-end deploy has not been
-done; see "Unverified" below. Everything here follows the facts measured on a throwaway
+Status: **deployed and played end to end on 19 November 2026** (Vercel project
+`midnight-village`, a preview of the working branch). See "Verified by the first deploy" and
+"Still unverified" below. Everything here follows the facts measured on a throwaway
 FastAPI project and Vercel's docs (Django ASGI + Channels WebSockets are supported).
 
 ## Why this needed changes
@@ -46,8 +47,9 @@ No secrets live in the repo. `DEBUG` is forced off, so the debug harness endpoin
 ## Files
 
 * `backend/config/settings/vercel.py`: the settings above, `ONUW_TIMER_BACKEND = "vercel_queue"`.
-* `backend/pyproject.toml`: optional extra `vercel = ["vercel-queue"]` (install it in the
-  build: `uv sync --extra vercel`) and `[[tool.vercel.subscribers]] entrypoint = "apps.core.queue_worker"`.
+* `backend/pyproject.toml`: `vercel-queue` is a normal dependency, so the build installs it;
+  `[tool.vercel.scripts] build` runs `migrate` on every build; and
+  `[[tool.vercel.subscribers]] entrypoint = "apps.core.queue_worker"`.
 * `backend/apps/core/queue_worker.py`: the subscriber (`@subscribe(topic="onuw-timers*")`).
 * Migrations to run on deploy: `python manage.py migrate --noinput` (core 0006, 0007;
   onuw 0004, 0005, 0006, 0007).
@@ -133,19 +135,37 @@ reconnects, which is a normal disconnect + connect to the presence rows.
 Under `vercel_queue`: nothing. Under `memory` (dev, tests, harness, `just dev`): exactly one
 process, because its timers are threads in that process.
 
-## Unverified (no real deploy has been done)
+## Verified by the first deploy
 
-* NOTE (open): what Vercel needs to find the ASGI app in a Django project. The docs say
-  `ASGI_APPLICATION` (set in settings) is enough, so no `[tool.vercel] entrypoint` was
-  added; if the project needs one it is most likely `config.asgi:application`.
-* NOTE (open): the subscriber `topic` pattern. `onuw-timers*` follows the measured
-  `name*` example; whether the exact topic name also matches is untested.
-* NOTE (open): whether `send(..., delay=...)` accepts only integer seconds (the sender
-  rounds up), and the maximum delay (the longest timer is the 3600 s phase limit).
-* NOTE (open): running `migrate` (and `collectstatic`, only if the admin is served; the
-  API itself needs no static files) at build time versus a release step: a build may not
-  have database access.
-* NOTE (open): installing the optional `vercel-queue` extra in the build.
-* Channels over Redis from many short-lived instances, cold-start cost of the first
-  database connection, and WebSocket behaviour at the function's max duration.
-* The subscriber's `django.setup()` and thread-pool use inside a function instance.
+A three-player game was played against a preview deployment over the real API and
+WebSockets (guests, lobby, deal, night, talk, vote, results, play again):
+
+* Vercel finds the ASGI app from `ASGI_APPLICATION` with the Django framework preset and
+  `backend` as the root directory; no `[tool.vercel] entrypoint` is needed.
+* The subscriber is found from `[[tool.vercel.subscribers]]`. Its handler must take an
+  UNTYPED message (`Message[Any]`): a bare `dict` is rejected at build time and a typed
+  payload needs pydantic.
+* `vercel-queue` must be a normal dependency (the build does not install extras).
+* `[tool.vercel.scripts] build = "python manage.py migrate --noinput"` runs at build time
+  with database access; the build then runs `collectstatic` itself.
+* The Marketplace stores set `DATABASE_URL` (pooled Neon) and `REDIS_URL` (Upstash) under
+  exactly those names.
+* Timers through the queue: a 12 s night window closed 12.5 s after the deal and a 15 s
+  talk ended 15.5 s later; the topic name matches the `onuw-timers*` pattern.
+* Lobby and game sockets connect (JWT in the query string), presence events arrive, and
+  events fan out to every player through Redis.
+
+Deployment Protection is on for every non-custom domain, so phones cannot reach a preview
+URL without signing in to Vercel. A custom domain, or changing that setting, is needed
+before real players can use it.
+
+## Still unverified
+
+* Behaviour at the function's maximum duration (a socket being closed and reconnecting
+  mid-game), and a silent socket death noticed through the presence check.
+* A deck with the Doppelganger (the fixed first window) and a dropped player's grace period.
+* The maximum queue delay (the longest timer is the 3600 s phase limit).
+* The timer sweep cron: no `crons` entry exists yet, and the minimum interval depends on
+  the plan.
+* Cold-start cost after a long idle period, and many tables at once.
+* The Flutter app is not deployed anywhere yet, and `CORS_ALLOWED_ORIGINS` is empty.

@@ -609,10 +609,6 @@ dependencies = [
     { name = "psycopg", extra = ["binary"] },
     { name = "psycopg-pool" },
     { name = "python-dotenv" },
-]
-
-[package.optional-dependencies]
-vercel = [
     { name = "vercel-queue" },
 ]
 
@@ -643,9 +639,8 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1.8" },
     { name = "psycopg-pool", specifier = ">=3.2.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "vercel-queue", marker = "extra == 'vercel'" },
+    { name = "vercel-queue" },
 ]
-provides-extras = ["vercel"]
 
 [package.metadata.requires-dev]
 dev = [

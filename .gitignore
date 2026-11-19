@@ -21,3 +21,6 @@ Thumbs.db
 
 # Stitch design artifacts
 .stitch/
+
+# Claude Code agent worktrees
+.claude/worktrees/
