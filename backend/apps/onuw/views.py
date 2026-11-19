@@ -16,9 +16,10 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core import timers
 from apps.core.models import Lobby
 
-from . import presence, timers
+from . import presence
 from .debug import ForcedAssignmentError, parse_forced_assignment
 from .engine.assignment import assign_roles
 from .engine.validation import validate_onuw_settings
@@ -31,6 +32,7 @@ from .services import (
     end_discussion,
     ensure_timers,
     get_player_acting_role_for_wave,
+    resolve_doppelganger_look,
     reveal_votes,
     start_night_phase,
     submit_vote,
@@ -348,6 +350,11 @@ class NightActionView(APIView):
             }
             pr.has_acted = True
             pr.save(update_fields=["night_action_data", "has_acted"])
+
+            # The Doppelganger's look resolves in the SAME transaction that stores
+            # it: no committed look is ever waiting for a later step.
+            if wave == 1 and acting_role == "Doppelganger":
+                resolve_doppelganger_look(game)
 
         # 8. Check if all actors submitted -- auto-advance if so
         # Refresh game to get latest state

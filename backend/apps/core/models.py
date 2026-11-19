@@ -6,6 +6,7 @@ import string
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -50,7 +51,7 @@ class Lobby(models.Model):
     )
     # The original host (the owner). Never changed by a handover.
     # While the owner's phone is away, `acting_host` holds the role (see
-    # apps.onuw.host); every host-only check goes through is_host().
+    # apps.core.host); every host-only check goes through is_host().
     acting_host = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -117,7 +118,7 @@ class LobbyMember(models.Model):
     )
     is_ready = models.BooleanField(default=False)
     # When this member was noticed to have no open lobby socket (see
-    # apps.onuw.presence); used only to decide host handover.
+    # apps.core.presence); used only to decide host handover.
     disconnected_at = models.DateTimeField(null=True, blank=True)
     joined_at = models.DateTimeField(auto_now_add=True)
 
@@ -131,3 +132,67 @@ class LobbyMember(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} in {self.lobby.code}"
+
+
+class LobbySocket(models.Model):
+    """
+    One row per open LOBBY WebSocket (see ``apps.core.presence``).
+
+    Inserted on connect, deleted on a clean disconnect, ``last_seen`` refreshed by
+    the consumer's heartbeat; a member is *connected* to the lobby while a row
+    was seen within the staleness timeout. Used only for host handover.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="lobby_sockets",
+    )
+    lobby = models.ForeignKey(Lobby, on_delete=models.CASCADE, related_name="sockets")
+    channel_name = models.CharField(max_length=255, unique=True)
+    connected_at = models.DateTimeField()
+    last_seen = models.DateTimeField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["lobby", "user"], name="core_lobbysock_lobby_user_idx")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} on lobby {self.lobby_id} ({self.channel_name[-8:]})"
+
+
+class ScheduledTimer(models.Model):
+    """
+    A durable named timer (see ``apps.core.timers``).
+
+    One row per key. ``schedule`` upserts the row with a fresh ``token``; a
+    firing (from a thread timer or a queue message, which both carry only
+    ``key`` and ``token``) runs the job only if the row still exists with the
+    same token and is due, and deletes the row in the same transaction that
+    claims it, so stale, cancelled and duplicate deliveries do nothing and two
+    instances cannot both run it.
+    """
+
+    key = models.CharField(max_length=200, unique=True)
+    token = models.CharField(max_length=64)
+    job = models.CharField(max_length=64)
+    params = models.JSONField(default=dict, blank=True)
+    # All three are written with the DATABASE clock (Now()), never an instance
+    # clock, so instances with skewed clocks agree on what is due.
+    due_at = models.DateTimeField(db_index=True)
+    scheduled_at = models.DateTimeField(default=timezone.now)
+    published_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "When the firing was handed to the backend (queue message sent / "
+            "thread armed). None = the row exists but nothing is known to fire "
+            "it: the sweep or the lazy repair publishes it again."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"{self.key} -> {self.job} at {self.due_at:%H:%M:%S}"

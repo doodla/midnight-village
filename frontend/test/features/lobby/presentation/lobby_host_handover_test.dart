@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/host/host_change.dart';
@@ -91,9 +92,21 @@ Future<_Table> _pump(
         lobbyServiceProvider.overrideWithValue(service),
         lobbyWebSocketFactoryProvider.overrideWithValue((code) => ws),
       ],
-      child: MaterialApp(
+      child: MaterialApp.router(
         theme: generateThemeData(const MidnightVillageTheme()),
-        home: const LobbyScreen(code: _code),
+        routerConfig: GoRouter(
+          initialLocation: '/lobby',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const Scaffold(body: Text('HOME SCREEN')),
+            ),
+            GoRoute(
+              path: '/lobby',
+              builder: (_, _) => const LobbyScreen(code: _code),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -314,5 +327,74 @@ void main() {
         expect(find.text(kNoLongerHostMessage), findsNothing);
       },
     );
+  });
+
+  group('The owner left and ownership was transferred', () {
+    String transferred() => GameEvents.hostChanged(
+      hostId: 2,
+      hostName: 'Ben',
+      originalHostId: 2,
+      reason: 'transferred',
+    );
+
+    testWidgets('the new owner gets the controls and "You are the host now"', (
+      tester,
+    ) async {
+      final t = await _pump(tester, userId: 2);
+      expect(find.text('Start Game'), findsNothing);
+
+      t.ws.addServerEvent(transferred());
+      await _settle(tester);
+
+      expect(find.text('Start Game'), findsOneWidget);
+      expect(find.text('Role Configuration'), findsOneWidget);
+      expect(find.text('You are the host now'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 7));
+      expect(find.text('You are the host now'), findsNothing);
+      expect(find.text('Start Game'), findsOneWidget);
+    });
+
+    testWidgets('a bystander reads "Ben is the host now" for a few seconds', (
+      tester,
+    ) async {
+      final t = await _pump(tester, userId: 3);
+
+      t.ws.addServerEvent(transferred());
+      await _settle(tester);
+      expect(find.text('Ben is the host now'), findsOneWidget);
+      expect(find.text('Start Game'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 7));
+      expect(find.textContaining('host now'), findsNothing);
+    });
+
+    testWidgets('is not an acting host: no "while ... is away" line', (
+      tester,
+    ) async {
+      final t = await _pump(tester, userId: 3);
+
+      t.ws.addServerEvent(transferred());
+      await _settle(tester);
+
+      expect(find.textContaining('away'), findsNothing);
+      await tester.pump(const Duration(seconds: 7));
+    });
+  });
+
+  group('When the table is gone (404)', () {
+    testWidgets('the lobby says so and goes home', (tester) async {
+      final t = await _pump(tester, userId: 3);
+      when(() => t.service.fetchLobby(_code)).thenThrow(NotFoundException('x'));
+
+      await tester.runAsync(
+        () => ProviderScope.containerOf(
+          tester.element(find.byType(LobbyScreen)),
+        ).read(lobbyProvider(_code).notifier).refreshLobby(),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(kTableClosedMessage), findsOneWidget);
+      expect(find.text('HOME SCREEN'), findsOneWidget);
+    });
   });
 }

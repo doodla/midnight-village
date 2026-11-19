@@ -21,7 +21,7 @@ pytestmark = pytest.mark.integration
 
 def _patch_channels():
     """Mock out channel layer so WebSocket sends are no-ops during tests."""
-    return patch("apps.onuw.services.get_channel_layer", return_value=None)
+    return patch("apps.core.effects.get_channel_layer", return_value=None)
 
 
 class TestCompleteGameVillageWins:

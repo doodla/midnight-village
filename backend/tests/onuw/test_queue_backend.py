@@ -22,9 +22,10 @@ from django.utils import timezone
 
 import pytest
 
-from apps.core.models import Lobby, LobbyMember
-from apps.onuw import host, presence, queue_worker, services, timers
-from apps.onuw.models import Game, Phase, PlayerRole, ScheduledTimer, SocketPresence
+from apps.core import host, queue_worker, timers
+from apps.core.models import Lobby, LobbyMember, ScheduledTimer
+from apps.onuw import presence, services
+from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests.onuw.test_night_windows import Night, _Recorder
 
 pytestmark = [pytest.mark.uses_timers, pytest.mark.django_db(transaction=True)]
@@ -544,7 +545,7 @@ class TestAFailingJobKeepsItsTimer:
         queue.make_due(key)
         flaky = _fail_once(host._hand_over_if_due)
 
-        with patch("apps.onuw.host._hand_over_if_due", side_effect=flaky):
+        with patch("apps.core.host._hand_over_if_due", side_effect=flaky):
             with pytest.raises(RuntimeError):
                 queue.deliver(key)
             assert ScheduledTimer.objects.filter(key=key).exists()
@@ -858,7 +859,7 @@ class TestPresenceCheckLocking:
         with n.committed():
             host.register_lobby_connection(code, user_id, "chan-l")
 
-        with patch("apps.onuw.host._lock", side_effect=AssertionError("must not lock")):
+        with patch("apps.core.host._lock", side_effect=AssertionError("must not lock")):
             assert host.check_lobby_presence(n.game.lobby_id, user_id) is False
 
     def test_host_handover_runs_only_after_the_presence_transaction_committed(
@@ -879,7 +880,7 @@ class TestPresenceCheckLocking:
         def spy(game_id, uid, connected):
             seen.append((connection.in_atomic_block, connected))
 
-        with patch("apps.onuw.host.game_presence_changed", side_effect=spy):
+        with patch("apps.onuw.services.report_game_presence", side_effect=spy):
             assert queue.deliver(key) == "ran"
 
         assert seen == [(False, False)]  # called once, outside any transaction
@@ -898,7 +899,9 @@ class TestPresenceCheckLocking:
             services.register_connection(game_id, seer, "chan-d2")
         SocketPresence.objects.update(last_seen=timezone.now() - timedelta(seconds=100))
 
-        # The owner leaves: the lobby (and its game and sockets) go away.
+        # The owner is the last member and leaves: the lobby (and its game and
+        # sockets) go away.
+        LobbyMember.objects.filter(lobby_id=lobby_id).exclude(user=n.host).delete()
         n.client.force_authenticate(user=n.host)
         from django.db import connection
         from django.test.utils import CaptureQueriesContext

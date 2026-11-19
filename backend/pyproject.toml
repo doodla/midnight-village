@@ -92,4 +92,4 @@ bad-context-manager = "ignore"
 # Vercel (see docs/dev/deploy-vercel.md). The queue subscriber receives the
 # durable-timer messages; the app itself is found through ASGI_APPLICATION.
 [[tool.vercel.subscribers]]
-entrypoint = "apps.onuw.queue_worker"
+entrypoint = "apps.core.queue_worker"

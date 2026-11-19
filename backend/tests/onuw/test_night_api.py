@@ -90,7 +90,7 @@ def _advance_url(game_id):
 
 def _patch_channels():
     """Context manager to mock out channel layer so WebSocket sends are no-ops."""
-    return patch("apps.onuw.services.get_channel_layer", return_value=None)
+    return patch("apps.core.effects.get_channel_layer", return_value=None)
 
 
 class TestNightActionSubmission:

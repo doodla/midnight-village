@@ -182,6 +182,7 @@ class TestARealDrunkRunsOutOfTime:
     ) -> None:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
+        idx = expected_index(night, "drunk")
         night.host_close_window()
         night.client.force_authenticate(user=night.users["drunk"])
 
@@ -189,8 +190,17 @@ class TestARealDrunkRunsOutOfTime:
             reverse("onuw:game-me", kwargs={"game_id": str(night.game.id)})
         ).data
 
-        # A chosen swap leaves nothing in night_results either (no card is shown).
-        assert data["night_results"] == []
+        # The phone that missed the socket event learns the same thing: which
+        # centre slot was swapped (never the card), however the swap came about.
+        assert data["night_results"] == [
+            {
+                "wave": 2,
+                "action_type": "swap_with_center",
+                "revealed_info": {"card_index": idx},
+            }
+        ]
+        sent = night.events_to("drunk", "action.result")[0]
+        assert data["night_results"][0]["revealed_info"] == sent["revealed_info"]
 
     def test_the_prompt_never_offers_a_skip_and_the_server_refuses_one(
         self, make_night

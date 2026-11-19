@@ -85,7 +85,7 @@ def _me_url(game_id):
 
 def _patch_channels():
     """Context manager to mock out channel layer so WebSocket sends are no-ops."""
-    return patch("apps.onuw.services.get_channel_layer", return_value=None)
+    return patch("apps.core.effects.get_channel_layer", return_value=None)
 
 
 class TestEndDiscussion:
@@ -304,10 +304,10 @@ class TestVoting:
         mock_channel_layer = MagicMock()
         with (
             patch(
-                "apps.onuw.services.get_channel_layer",
+                "apps.core.effects.get_channel_layer",
                 return_value=mock_channel_layer,
             ),
-            patch("apps.onuw.services.async_to_sync") as mock_a2s,
+            patch("apps.core.effects.async_to_sync") as mock_a2s,
         ):
             with django_capture_on_commit_callbacks(execute=True):
                 response = api_client.post(
@@ -555,10 +555,10 @@ class TestForceReveal:
         mock_channel_layer = MagicMock()
         with (
             patch(
-                "apps.onuw.services.get_channel_layer",
+                "apps.core.effects.get_channel_layer",
                 return_value=mock_channel_layer,
             ),
-            patch("apps.onuw.services.async_to_sync") as mock_a2s,
+            patch("apps.core.effects.async_to_sync") as mock_a2s,
         ):
             api_client.force_authenticate(user=host)
             with django_capture_on_commit_callbacks(execute=True):

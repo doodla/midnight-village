@@ -24,9 +24,10 @@ from django.utils import timezone
 import pytest
 from rest_framework import status
 
-from apps.core.models import Lobby, LobbyMember, User
-from apps.onuw import services, timers
-from apps.onuw.models import Game, Phase, PlayerRole, ScheduledTimer
+from apps.core import timers
+from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
+from apps.onuw import services
+from apps.onuw.models import Game, Phase, PlayerRole
 
 pytestmark = pytest.mark.integration
 
@@ -76,7 +77,7 @@ def _fire_timer_url(game_id):
 
 def _no_channels():
     """Mock out the channel layer so WebSocket sends are no-ops."""
-    return patch("apps.onuw.services.get_channel_layer", return_value=None)
+    return patch("apps.core.effects.get_channel_layer", return_value=None)
 
 
 # ---------------------------------------------------------------------------

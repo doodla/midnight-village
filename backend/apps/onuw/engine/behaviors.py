@@ -68,7 +68,8 @@ def execute_werewolf(
     if len(all_werewolves) == 0:
         # Lone werewolf — may peek one center card
         targets = action.targets
-        if targets and "center_index" in targets:
+        # A missing or null center_index means "no peek" (never an error).
+        if targets and targets.get("center_index") is not None:
             idx = int(targets["center_index"])
             if idx < 0 or idx >= len(state.center_cards):
                 raise ValueError(
@@ -90,7 +91,7 @@ def execute_werewolf(
         )
 
     # Multiple werewolves see each other — center peek not allowed
-    if action.targets and "center_index" in action.targets:
+    if action.targets and action.targets.get("center_index") is not None:
         raise ValueError(
             "Only a lone Werewolf may peek at a center card. "
             "Multiple Werewolves are in play."

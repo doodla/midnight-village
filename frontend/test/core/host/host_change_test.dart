@@ -15,7 +15,26 @@ void main() {
     reason: HostChangeReason.returned,
   );
 
+  const transferred = HostChange(
+    hostId: 2,
+    hostName: 'Ben',
+    originalHostId: 2,
+    reason: HostChangeReason.transferred,
+  );
+
   group('HostChange.fromEvent', () {
+    test('reads a transferred event (the new owner is host and original)', () {
+      final change = HostChange.fromEvent({
+        'type': 'host_changed',
+        'host_id': 2,
+        'host_name': 'Ben',
+        'original_host_id': 2,
+        'reason': 'transferred',
+      });
+
+      expect(change, transferred);
+    });
+
     test('reads the host_changed event', () {
       final change = HostChange.fromEvent({
         'type': 'host_changed',
@@ -46,6 +65,24 @@ void main() {
   });
 
   group('hostChangeLine', () {
+    test('transferred reads "Ben is the host now" to everyone else', () {
+      expect(
+        hostChangeLine(change: transferred, viewerId: 3),
+        'Ben is the host now',
+      );
+      expect(
+        hostChangeLine(change: transferred, viewerId: 1),
+        'Ben is the host now',
+      );
+    });
+
+    test('transferred reads "You are the host now" to the new host', () {
+      expect(
+        hostChangeLine(change: transferred, viewerId: 2),
+        'You are the host now',
+      );
+    });
+
     test(
       'handover reads "Ben is hosting while Ana is away" to a bystander',
       () {

@@ -21,11 +21,11 @@ from django.db import DatabaseError, transaction
 from django.db.models.functions import Now
 from django.utils import timezone
 
-from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
-from apps.core.models import Lobby, LobbyMember
-from apps.onuw import presence, timers
+from apps.core import effects, timers
+from apps.core.models import Lobby
+from apps.onuw import presence
 
 from .engine.behaviors import (
     get_doppelganger_followup_wave,
@@ -102,42 +102,14 @@ def _window_timer_key(game: Game, window: int) -> str:
 # transaction.on_commit runs at once when there is no open transaction.
 
 
-def _after_commit(func: Callable[[], None]) -> None:
-    """Run func once the outermost atomic block commits (robust: log, don't abort)."""
-    transaction.on_commit(func, robust=True)
-
-
-def _send_after_commit(messages: list[tuple[str, dict[str, Any]]]) -> None:
-    """Send channel messages (group, event) once the transaction commits.
-
-    The payloads are built by the caller inside the transaction, so they
-    describe the state that is about to be committed.
-    """
-    channel_layer = get_channel_layer()
-    if channel_layer is None or not messages:
-        return
-
-    def _send() -> None:
-        send = async_to_sync(channel_layer.group_send)
-        for group, event in messages:
-            send(group, event)
-
-    _after_commit(_send)
-
-
-def _schedule_after_commit(
-    key: str, delay: float, job: str, params: dict[str, Any] | None = None
-) -> None:
-    """Schedule a named timer job once the transaction commits (see timers.py)."""
-    _after_commit(lambda: timers.schedule(key, delay, job, params))
+_after_commit = effects.after_commit
+_send_after_commit = effects.send_after_commit
+_schedule_after_commit = effects.schedule_after_commit
+_cancel_after_commit = effects.cancel_after_commit
 
 
 def _window_job_params(game: Game, window: int, *, deferred: bool = False) -> dict:
     return {"game_id": str(game.id), "wave": window, "deferred": deferred}
-
-
-def _cancel_after_commit(key: str) -> None:
-    _after_commit(lambda: timers.cancel(key))
 
 
 def _get_player_names(game: Game) -> dict[int, str]:
@@ -292,10 +264,13 @@ def night_results_for_player(
     ``action.result`` socket event uses, so a phone that was offline when a
     window closed shows exactly what it would have received. One entry per
     result, in window order (a Doppelganger with a follow-up gets two in
-    window 1: the copy, then the follow-up). Entries with nothing to show
-    (a skipped action) are left out.
+    window 1: the copy, then the follow-up).
 
-    Only this player's own entries are read, and a window that is still open
+    Every action the socket carried is returned exactly as sent, including a
+    swap (Drunk, Troublemaker), whose engine result is empty but whose client
+    payload is the slot / the two names swapped. Only an explicit ``skip`` is
+    left out: it carries nothing. Only this player's own entries are read, and a
+    window that is still open
     contributes nothing: nothing reaches a player before its window closes
     (the Doppelganger's look, which is sent early because she needs it to
     choose her follow-up, is held back here until window 1 closes).
@@ -309,7 +284,11 @@ def night_results_for_player(
 
     entries: list[tuple[int, dict[str, Any]]] = []
     for entry in game.night_actions_log:
-        if entry.get("player_id") != user_id or not entry.get("result"):
+        # Only the player's own entries, and not an explicit "do nothing": every
+        # other entry, including a swap whose engine result is empty (the
+        # client learns its slot / the names it swapped from the action), was
+        # sent over the socket and is returned here exactly as sent.
+        if entry.get("player_id") != user_id or entry.get("action_type") == "skip":
             continue
         try:
             window = window_for_order_group(entry["wave"])
@@ -323,9 +302,13 @@ def night_results_for_player(
             action_type=entry.get("action_type", ""),
             targets=entry.get("targets", {}),
         )
-        action_type, revealed = client_action_result(
-            action, entry["result"], player_names
-        )
+        try:
+            action_type, revealed = client_action_result(
+                action, entry.get("result") or {}, player_names
+            )
+        except Exception:
+            logger.exception("Could not rebuild a night result for player %s", user_id)
+            continue
         entries.append(
             (
                 window,
@@ -659,13 +642,25 @@ def _doppelganger_look_submitted(game: Game) -> bool:
     return data.get("role_acting_as") == "Doppelganger" and "copied_role" not in data
 
 
-def _resolve_doppelganger_look(game: Game) -> bool:
+def resolve_doppelganger_look(game: Game) -> bool:
+    """Resolve the Doppelganger's stored look now (public name for the view).
+
+    Called by ``NightActionView`` inside the transaction that stores the look
+    (the Game row is locked), so there is never a committed look whose copy is
+    unknown to the window close. See ``_resolve_doppelganger_look``.
+    """
+    return _resolve_doppelganger_look(game)
+
+
+def _resolve_doppelganger_look(game: Game, *, send_prompt: bool = True) -> bool:
     """Resolve the Doppelganger's look as soon as she submits it.
 
     The look is the one result delivered before its window closes: she needs
     it to choose her follow-up. It goes only to her. Returns True if the copied
-    role calls for an immediate follow-up, in which case the follow-up prompt
-    has been sent and the window stays open for it.
+    role calls for an immediate follow-up, in which case (``send_prompt``) the
+    follow-up prompt has been sent and the window stays open for it. With
+    ``send_prompt=False`` (the window is closing) only the look is resolved, so the
+    copied role is known and an unsubmitted follow-up gets its timeout default.
     """
     pr = _doppelganger_player_role(game)
     if pr is None:
@@ -686,6 +681,8 @@ def _resolve_doppelganger_look(game: Game) -> bool:
     copied = new_state.doppelganger_copied_role.get(pr.user_id)
     if copied is None or get_doppelganger_followup_wave(copied) != 1:
         return False
+    if not send_prompt:
+        return True
 
     # Prompt the follow-up (Seer, Robber, Troublemaker, Drunk, Minion) at once.
     # No timer is scheduled or moved: window 1 has the one timer set when it
@@ -731,17 +728,76 @@ def _collect_window_actions(game: Game, window: int) -> list[NightAction]:
             and data.get("wave") == window
             and data.get("role_acting_as") == role_acting_as
         ):
-            actions.append(
-                NightAction(
-                    player_id=pid,
-                    role_acting_as=role_acting_as,
-                    action_type=data["action_type"],
-                    targets=data.get("targets", {}),
+            action_type, targets = data.get("action_type"), data.get("targets", {})
+            if isinstance(action_type, str) and isinstance(targets, dict):
+                actions.append(
+                    NightAction(
+                        player_id=pid,
+                        role_acting_as=role_acting_as,
+                        action_type=action_type,
+                        targets=targets,
+                    )
                 )
+                continue
+            logger.error(
+                "Malformed stored night action for player %s in game %s: "
+                "treated as a timeout",
+                pid,
+                game.id,
             )
-        else:
-            actions.append(_timeout_action(game, pid, role_acting_as))
+        actions.append(_timeout_action(game, pid, role_acting_as))
     return actions
+
+
+def _resolve_window_safely(
+    game: Game, state: GameState, actions: list[NightAction], window: int
+) -> tuple[list[NightAction], GameState, list[ActionResult]]:
+    """Resolve a window; one player's stored action can never block the close.
+
+    If resolving raises, each stored action is tried alone; one that raises is
+    replaced by its role's timeout default (logged loudly) and the window closes.
+    As a last resort every action falls back to its default. Returns the actions
+    that were really resolved (the results are labelled with them).
+    """
+    try:
+        new_state, results = resolve_window(state, actions, window)
+        return actions, new_state, results
+    except Exception:
+        logger.exception(
+            "Resolving night window %s of game %s failed; finding the stored "
+            "action that breaks it",
+            window,
+            game.id,
+        )
+    safe: list[NightAction] = []
+    for action in actions:
+        try:
+            resolve_window(state, [action], window)
+            safe.append(action)
+        except Exception:
+            logger.error(
+                "Stored night action of player %s (%s as %s) cannot be resolved "
+                "in game %s: treated as a timeout",
+                action.player_id,
+                action.action_type,
+                action.role_acting_as,
+                game.id,
+                exc_info=True,
+            )
+            safe.append(_timeout_action(game, action.player_id, action.role_acting_as))
+    try:
+        new_state, results = resolve_window(state, safe, window)
+        return safe, new_state, results
+    except Exception:
+        logger.exception(
+            "Night window %s of game %s still fails; every stored action is "
+            "treated as a timeout",
+            window,
+            game.id,
+        )
+    defaults = [_timeout_action(game, a.player_id, a.role_acting_as) for a in actions]
+    new_state, results = resolve_window(state, defaults, window)
+    return defaults, new_state, results
 
 
 def advance_wave(game: Game) -> None:
@@ -759,10 +815,18 @@ def advance_wave(game: Game) -> None:
     """
     window = game.current_wave
     _cancel_after_commit(_window_timer_key(game, window))
+    if window == 1 and _doppelganger_look_submitted(game):
+        # A look that is stored but not resolved yet (the window job got the lock
+        # first, or the step after the submission failed): resolve it now, so her
+        # copied role is known and an unsubmitted follow-up (a Drunk must swap, a
+        # Minion still looks) gets the same default as any other timeout.
+        _resolve_doppelganger_look(game, send_prompt=False)
     state = build_game_state(game)
     night_actions = _collect_window_actions(game, window)
 
-    new_state, results = resolve_window(state, night_actions, window)
+    night_actions, new_state, results = _resolve_window_safely(
+        game, state, night_actions, window
+    )
 
     with transaction.atomic():
         persist_wave_results(game, new_state, results, window)
@@ -849,14 +913,27 @@ def _action_result_messages(
     format the frontend expects (display names, consistent keys, action_type).
     """
     player_names = _get_player_names(game)
-    action_map = {a.player_id: a for a in night_actions}
+    # A player can have more than one result in a resolution (the Doppelganger's
+    # look, then her follow-up): label each result with ITS action, in the order
+    # the engine resolves them (the look first).
+    actions_by_player: dict[int, list[NightAction]] = {}
+    for a in sorted(night_actions, key=lambda x: x.role_acting_as != "Doppelganger"):
+        actions_by_player.setdefault(a.player_id, []).append(a)
     messages: list[tuple[str, dict[str, Any]]] = []
     for result in results:
-        action = action_map.get(result.player_id)
+        queue = actions_by_player.get(result.player_id)
+        action = queue.pop(0) if queue else None
         if action is not None:
-            action_type, client_info = client_action_result(
-                action, result.revealed_info, player_names
-            )
+            try:
+                action_type, client_info = client_action_result(
+                    action, result.revealed_info, player_names
+                )
+            except Exception:
+                # Never let a malformed stored target block the close.
+                logger.exception(
+                    "Could not build the result of player %s", result.player_id
+                )
+                action_type, client_info = "skip", {}
         else:
             client_info = result.revealed_info
             action_type = "unknown"
@@ -1020,6 +1097,18 @@ def get_player_acting_role_for_wave(pr: PlayerRole, wave: int) -> str | None:
 
 MALFORMED_TARGET = "Invalid target."
 
+# The target keys each action type accepts (and nothing else).
+ALLOWED_TARGET_KEYS: dict[str, set[str]] = {
+    "skip": set(),
+    "none": set(),
+    "peek_player": {"player_id"},
+    "peek_center": {"center_indices"},
+    "swap_with_player": {"player_id"},
+    "swap_with_center": {"center_index"},
+    "swap_others": {"player_ids"},
+    "see_team": {"center_index"},
+}
+
 
 def _strict_int(value: object) -> int | None:
     """The value if it is a plain integer, else None (bool, str, float, list, null)."""
@@ -1054,6 +1143,12 @@ def validate_night_action(
     if action_type not in allowed_types:
         # Generic on purpose: never name a role or what it may do.
         errors.append("Invalid action type for this wave.")
+        return errors
+
+    # Only the target fields of this action type may be present: anything else
+    # would be stored and read back at the window close.
+    if set(targets) - ALLOWED_TARGET_KEYS.get(action_type, set()):
+        errors.append("Invalid action.")
         return errors
 
     # Get all player IDs in this game (for target validation)
@@ -1131,26 +1226,29 @@ def validate_night_action(
 
     elif action_type == "see_team":
         # No targets required. Only a lone Werewolf may optionally peek center.
-        if targets.get("center_index") is not None:
-            # Verify the player is acting as Werewolf and is the only one.
-            # Error messages MUST be generic — role-specific messages leak
-            # hidden information through the API response.
-            if acting_role != "Werewolf":
-                errors.append("Center card peek is not available.")
-            else:
-                state = build_game_state(game)
-                other_werewolves = [
-                    pid
-                    for pid in state.player_roles
-                    if pid != pr.user_id and is_effective_werewolf(pid, state)
-                ]
-                if other_werewolves:
-                    errors.append("Center card peek is not available.")
+        # A PRESENT center_index must be a plain integer: null, strings, floats,
+        # booleans and lists are refused (a null used to read as "absent" and was
+        # stored, then broke the window close). Declining the peek is an empty
+        # targets dict. Messages are generic: nothing here may name a role.
+        if "center_index" in targets:
             center_idx = _strict_int(targets["center_index"])
             if center_idx is None:
                 errors.append(MALFORMED_TARGET)
-            elif center_idx < 0 or center_idx >= center_count:
-                errors.append(center_error(center_idx))
+            else:
+                # Verify the player is acting as Werewolf and is the only one.
+                if acting_role != "Werewolf":
+                    errors.append("Center card peek is not available.")
+                else:
+                    state = build_game_state(game)
+                    other_werewolves = [
+                        pid
+                        for pid in state.player_roles
+                        if pid != pr.user_id and is_effective_werewolf(pid, state)
+                    ]
+                    if other_werewolves:
+                        errors.append("Center card peek is not available.")
+                if center_idx < 0 or center_idx >= center_count:
+                    errors.append(center_error(center_idx))
 
     return errors
 
@@ -1650,7 +1748,6 @@ def register_connection(
             defaults={
                 "user_id": user_id,
                 "game": game,
-                "lobby": None,
                 "connected_at": Now(),
                 "last_seen": Now(),
             },
@@ -1797,6 +1894,53 @@ def check_game_presence(game_id: Any, user_id: int) -> bool:
         return True
 
 
+def make_idempotent_callback(
+    game_id: Any,
+    expected_phase: str,
+    action: Callable[[Any], None],  # action receives Game instance
+    *,
+    reraise: bool = False,
+) -> Callable[[], None]:
+    """
+    Wrap a phase-transition action so it is a no-op if the phase has already changed.
+
+    Uses select_for_update() to serialise concurrent callbacks — if two timer threads
+    race, only one proceeds. The other will find the phase already changed and return.
+
+    Exceptions are always logged (with the game id and phase). A failed callback
+    rolls its own transaction back, so the game is left exactly as it was and the
+    host can still advance it. With ``reraise`` the exception then propagates (the
+    timer jobs do this, so ``fire`` keeps the timer row for a retry); without it
+    the callback swallows it (the original behaviour).
+    """
+
+    def _callback() -> None:
+        # Import inside function to avoid circular imports at module load time.
+        from django.db import transaction
+
+        from apps.onuw.models import Game
+
+        try:
+            with transaction.atomic():
+                try:
+                    game = Game.objects.select_for_update().get(id=game_id)
+                except Game.DoesNotExist:
+                    return  # Game was deleted — nothing to do.
+                if game.phase != expected_phase:
+                    return  # Phase already advanced — stale callback, skip.
+                action(game)
+        except Exception:
+            logger.exception(
+                "Timer callback failed for game %s (expected phase %s)",
+                game_id,
+                expected_phase,
+            )
+            if reraise:
+                raise
+
+    return _callback
+
+
 # ── Timer jobs ──────────────────────────────────────────────────────────────
 #
 # What a due timer runs (see timers.py): a named job with JSON parameters. Each
@@ -1806,7 +1950,7 @@ def check_game_presence(game_id: Any, user_id: int) -> bool:
 
 @timers.job("night_window")
 def _job_night_window(game_id: str, wave: int, deferred: bool = False) -> None:
-    timers.make_idempotent_callback(
+    make_idempotent_callback(
         game_id,
         Phase.NIGHT,
         functools.partial(_auto_advance_wave, wave_number=wave, deferred=deferred),
@@ -1816,16 +1960,14 @@ def _job_night_window(game_id: str, wave: int, deferred: bool = False) -> None:
 
 @timers.job("discussion_deadline")
 def _job_discussion_deadline(game_id: str) -> None:
-    timers.make_idempotent_callback(
+    make_idempotent_callback(
         game_id, Phase.DISCUSSION, _auto_transition_to_voting, reraise=True
     )()
 
 
 @timers.job("voting_deadline")
 def _job_voting_deadline(game_id: str) -> None:
-    timers.make_idempotent_callback(
-        game_id, Phase.VOTING, _auto_reveal_votes, reraise=True
-    )()
+    make_idempotent_callback(game_id, Phase.VOTING, _auto_reveal_votes, reraise=True)()
 
 
 @timers.job("grace_expired")
@@ -2032,7 +2174,7 @@ def recover_timers() -> int:
         "backend: its timers live in this process (use ONUW_TIMER_BACKEND="
         "vercel_queue for several instances)."
     )
-    from . import host
+    from apps.core import host
 
     host.ensure_timers_after_restart()
     count = 0
@@ -2094,16 +2236,7 @@ def run_startup_recovery() -> None:
         logger.warning("Timer recovery is still running after 60 seconds; carrying on.")
 
 
-# ── Play again ──────────────────────────────────────────────────────────────
-
-
-class PlayAgainError(Exception):
-    """Play again refused. ``status_code`` is the HTTP status to answer with."""
-
-    def __init__(self, status_code: int, detail: str) -> None:
-        super().__init__(detail)
-        self.status_code = status_code
-        self.detail = detail
+# ── The lobby's current game ──────────────────────────────────────────────
 
 
 def latest_game(lobby: Lobby) -> Game | None:
@@ -2112,48 +2245,20 @@ def latest_game(lobby: Lobby) -> Game | None:
     return lobby.games.order_by("-created_at", "-id").first()
 
 
-def play_again(code: str, user_id: int) -> Lobby:
-    """Reopen a lobby whose game has finished, for the host to deal again.
+def report_game_presence(game_id: Any, user_id: int, connected: bool) -> None:
+    """Tell the lobby (host handover) that a player's socket on this game opened
+    (0 -> 1) or closed (1 -> 0). Call only after the game presence transaction
+    has committed. Only the lobby's newest game counts."""
+    from apps.core import host
 
-    Keeps the members and the lobby's settings (the deck); sets the lobby back
-    to waiting with everyone ready so the host can start straight away (anyone
-    can still un-ready or leave). Atomic. After commit, tells the old game's
-    players (``play.again``) and the lobby screens (``lobby.update``). The old
-    game and its results are left untouched. A repeated request while the lobby
-    is already waiting is a no-op that returns the lobby.
-
-    Raises PlayAgainError: 404 unknown lobby, 403 not the host, 409 the lobby's
-    newest game is not in the results phase.
-    """
-    from apps.core.serializers import LobbySerializer
-
-    with transaction.atomic():
-        try:
-            lobby = Lobby.objects.select_for_update().get(code=code)
-        except Lobby.DoesNotExist:
-            raise PlayAgainError(404, "Lobby not found.") from None
-        if not lobby.is_host(user_id):
-            raise PlayAgainError(403, "Only the host can start another game.")
-        game = latest_game(lobby)
-        if game is None or game.phase != Phase.RESULTS:
-            raise PlayAgainError(409, "The game is not finished yet.")
-        if lobby.status == Lobby.Status.WAITING:
-            return lobby  # Already reopened (a double tap).
-
-        lobby.status = Lobby.Status.WAITING
-        lobby.save(update_fields=["status", "updated_at"])
-        LobbyMember.objects.filter(lobby=lobby).update(is_ready=True)
-
-        _send_after_commit(
-            [
-                (
-                    f"game_{game.id}",
-                    {"type": "play.again", "lobby_code": lobby.code},
-                ),
-                (
-                    f"lobby_{lobby.code}",
-                    {"type": "lobby.update", "data": LobbySerializer(lobby).data},
-                ),
-            ]
-        )
-    return lobby
+    game = Game.objects.filter(id=game_id).only("lobby_id").first()
+    if game is None:
+        return
+    newest = (
+        Game.objects.filter(lobby_id=game.lobby_id)
+        .order_by("-created_at", "-id")
+        .first()
+    )
+    if newest is None or newest.id != game.id:
+        return
+    host.member_presence_changed(game.lobby_id, user_id, connected)

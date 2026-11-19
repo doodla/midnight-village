@@ -76,7 +76,12 @@ sections below say otherwise, this list wins:
   `players[].is_host` and every host endpoint use the effective host. Sockets: `host_changed`
   on the lobby and game sockets; lobby detail `host` = effective host plus `original_host_id`,
   `is_acting_host`; `/me/` `host_id`. API-only harness players never open sockets, so no
-  handover happens for them.
+  handover happens for them. `host_changed` `reason` is `"handover"`, `"returned"` or
+  `"transferred"`: the OWNER leaving a lobby that still has other members (not while a game
+  runs) no longer deletes it; ownership moves for good to the next member (a connected one
+  preferred) and `host_id` == `original_host_id` == the new owner. Only the last member
+  leaving deletes the lobby. `/me/`'s `night_results` now includes swaps (Drunk /
+  Troublemaker), exactly as the `action_result` socket event carried them.
 - **`GET .../games/<id>/me/`** also has `lobby_code` (every phase). After a restart a deadline
   that is overdue or under 15 s away is moved to now + 15 s (persisted in `deadline`) so phones
   can reconnect first.
@@ -216,7 +221,7 @@ Only for **timeout** paths (action-skip-on-expiry; vote auto-finalize); happy-pa
 transitions use existing host endpoints (`advance-wave`, `end-discussion`,
 `reveal-votes`). DEBUG-only. Mechanism (the review corrected the draft):
 
-`apps/onuw/timers.py` `_registry` stores **`threading.Timer` objects, not callbacks**.
+(Superseded: timers are now `ScheduledTimer` rows, `apps/core/timers.py`; the in-process `_registry` only holds the memory backend's threads and `debug-fire-timer` claims the row, see the "durable rows" note above.) It used to read: `apps/onuw/timers.py` `_registry` stores **`threading.Timer` objects, not callbacks**.
 To fire synchronously: look up `f"{game_id}:{suffix}"`, then `timer.cancel()` (so the
 wall-clock copy doesn't also fire) and call `timer.function(*timer.args)`. This
 composes safely — there's no `ATOMIC_REQUESTS`, and `make_idempotent_callback` opens

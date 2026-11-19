@@ -24,7 +24,8 @@ from django.utils import timezone
 
 import pytest
 
-from apps.onuw import presence, services, timers
+from apps.core import timers
+from apps.onuw import presence, services
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests.onuw.test_night_windows import Night, _Recorder
 
@@ -565,7 +566,7 @@ class TestIdempotenceAndLazyRepair:
         night.client.force_authenticate(user=night.users["seer"])
         url = reverse("onuw:game-me", kwargs={"game_id": str(night.game.id)})
 
-        with patch("apps.onuw.timers.is_scheduled", return_value=True):
+        with patch("apps.core.timers.is_scheduled", return_value=True):
             night.client.get(url)  # the timer exists: nothing is touched
         assert night.scheduled == []
         assert night.refresh().phase_deadline < timezone.now()
@@ -584,7 +585,7 @@ class TestIdempotenceAndLazyRepair:
         night.client.force_authenticate(user=night.users["seer"])
         url = reverse("onuw:game-me", kwargs={"game_id": str(night.game.id)})
 
-        with patch("apps.onuw.timers.is_scheduled", return_value=True):
+        with patch("apps.core.timers.is_scheduled", return_value=True):
             night.client.get(url)
 
         assert night.scheduled == []

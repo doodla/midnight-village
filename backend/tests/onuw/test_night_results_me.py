@@ -307,3 +307,225 @@ class TestDoppelgangerWindowOne:
 
         for name in ("s", "w", "v"):
             assert me(night, name)["night_results"] == []
+
+
+# ── /me/ returns exactly what the socket sent, for every action type ─────────
+
+
+def resolve_targets(night: Night, spec: dict[str, Any]) -> dict[str, Any]:
+    """Names in a target spec ("player_id": "seer") become user ids."""
+    out: dict[str, Any] = {}
+    for key, value in spec.items():
+        if key == "player_id":
+            out[key] = night.users[value].id
+        elif key == "player_ids":
+            out[key] = [night.users[name].id for name in value]
+        else:
+            out[key] = value
+    return out
+
+
+CENTER3 = ["Villager", "Tanner", "Hunter"]
+
+# id: (roles in join order, centre cards, [(who, action_type, target spec)])
+SCENARIOS: dict[str, tuple[dict[str, str], list[str], list[tuple[str, str, dict]]]] = {
+    "lone_werewolf_peeks_the_centre": (
+        {"w": "Werewolf", "s": "Seer", "v": "Villager", "x": "Villager"},
+        CENTER3,
+        [("w", "see_team", {"center_index": 1})],
+    ),
+    "two_werewolves_see_each_other": (
+        {"w": "Werewolf", "w2": "Werewolf", "s": "Seer", "v": "Villager"},
+        CENTER3,
+        [("w", "see_team", {}), ("w2", "see_team", {})],
+    ),
+    "minion_sees_the_werewolf": (
+        {"w": "Werewolf", "m": "Minion", "v": "Villager", "x": "Villager"},
+        CENTER3,
+        [("w", "see_team", {}), ("m", "see_team", {})],
+    ),
+    "masons_see_each_other": (
+        {"a": "Mason", "b": "Mason", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        [("a", "see_team", {}), ("b", "see_team", {})],
+    ),
+    "seer_looks_at_a_player": (
+        {"s": "Seer", "w": "Werewolf", "v": "Villager", "x": "Villager"},
+        CENTER3,
+        [("s", "peek_player", {"player_id": "w"})],
+    ),
+    "seer_looks_at_two_centre_cards": (
+        {"s": "Seer", "w": "Werewolf", "v": "Villager", "x": "Villager"},
+        CENTER3,
+        [("s", "peek_center", {"center_indices": [0, 2]})],
+    ),
+    "robber_takes_a_card": (
+        {"r": "Robber", "w": "Werewolf", "v": "Villager", "x": "Villager"},
+        CENTER3,
+        [("r", "swap_with_player", {"player_id": "w"})],
+    ),
+    "troublemaker_swaps_two_players": (
+        {"t": "Troublemaker", "w": "Werewolf", "v": "Villager", "x": "Villager"},
+        CENTER3,
+        [("t", "swap_others", {"player_ids": ["w", "v"]})],
+    ),
+    "drunk_chooses_a_centre_card": (
+        {"d": "Drunk", "w": "Werewolf", "v": "Villager", "x": "Villager"},
+        CENTER3,
+        [("d", "swap_with_center", {"center_index": 2})],
+    ),
+    "drunk_runs_out_of_time_and_the_server_swaps": (
+        {"d": "Drunk", "w": "Werewolf", "v": "Villager", "x": "Villager"},
+        CENTER3,
+        [],
+    ),
+    "insomniac_looks_at_dawn": (
+        {"i": "Insomniac", "r": "Robber", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        [("r", "swap_with_player", {"player_id": "i"}), ("i", "none", {})],
+    ),
+    "doppelganger_copies_seer": (
+        {"d": "Doppelganger", "s": "Seer", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        [
+            ("d", "peek_player", {"player_id": "s"}),
+            ("d", "peek_player", {"player_id": "w"}),
+        ],
+    ),
+    "doppelganger_copies_seer_and_peeks_the_centre": (
+        {"d": "Doppelganger", "s": "Seer", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        [
+            ("d", "peek_player", {"player_id": "s"}),
+            ("d", "peek_center", {"center_indices": [0, 1]}),
+        ],
+    ),
+    "doppelganger_copies_robber": (
+        {"d": "Doppelganger", "r": "Robber", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        [
+            ("d", "peek_player", {"player_id": "r"}),
+            ("d", "swap_with_player", {"player_id": "w"}),
+        ],
+    ),
+    "doppelganger_copies_troublemaker": (
+        {"d": "Doppelganger", "t": "Troublemaker", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        [
+            ("d", "peek_player", {"player_id": "t"}),
+            ("d", "swap_others", {"player_ids": ["w", "v"]}),
+        ],
+    ),
+    "doppelganger_copies_drunk_and_chooses": (
+        {"d": "Doppelganger", "dr": "Drunk", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        [
+            ("d", "peek_player", {"player_id": "dr"}),
+            ("d", "swap_with_center", {"center_index": 1}),
+        ],
+    ),
+    "doppelganger_copies_drunk_and_runs_out_of_time": (
+        {"d": "Doppelganger", "dr": "Drunk", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        [("d", "peek_player", {"player_id": "dr"})],
+    ),
+    "doppelganger_copies_minion": (
+        {"d": "Doppelganger", "m": "Minion", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        [("d", "peek_player", {"player_id": "m"}), ("d", "see_team", {})],
+    ),
+    "doppelganger_copies_werewolf": (
+        {"d": "Doppelganger", "w": "Werewolf", "v": "Villager", "x": "Villager"},
+        CENTER3,
+        [("d", "peek_player", {"player_id": "w"}), ("d", "see_team", {})],
+    ),
+    "doppelganger_copies_mason": (
+        {"d": "Doppelganger", "a": "Mason", "b": "Mason", "w": "Werewolf"},
+        CENTER3,
+        [("d", "peek_player", {"player_id": "a"}), ("d", "see_team", {})],
+    ),
+    "doppelganger_copies_insomniac": (
+        {"d": "Doppelganger", "i": "Insomniac", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        [("d", "peek_player", {"player_id": "i"}), ("d", "none", {})],
+    ),
+}
+
+
+@pytest.mark.parametrize("scenario", list(SCENARIOS))
+def test_me_returns_exactly_what_the_socket_sent_for_every_action(
+    make_night, scenario: str
+) -> None:
+    roles, center, actions = SCENARIOS[scenario]
+    night = make_night(roles, center, night_wave_seconds=60)
+    night.start()
+    for who, action_type, spec in actions:
+        response = night.post(who, action_type, resolve_targets(night, spec))
+        assert response.status_code == status.HTTP_200_OK, (
+            who,
+            action_type,
+            response.data,
+        )
+    for _ in range(
+        3
+    ):  # whoever has not acted (or is waiting out the minimum) runs out of time
+        if night.refresh().phase != Phase.NIGHT:
+            break
+        night.host_close_window()
+    assert night.refresh().phase == Phase.DISCUSSION
+
+    for name in roles:
+        socket = [
+            as_socket_payload(e)
+            for e in night.events_to(name, "action.result")
+            if e["action_type"] != "skip"
+        ]
+        assert me(night, name)["night_results"] == socket, f"{scenario}: {name}"
+    # The scenario really did give somebody something (not a vacuous pass).
+    assert any(night.events_to(name, "action.result") for name in roles), scenario
+
+
+def test_every_swap_is_in_me_even_though_its_engine_result_is_empty(make_night) -> None:
+    night = make_night(
+        {"t": "Troublemaker", "d": "Drunk", "w": "Werewolf", "v": "Villager"},
+        CENTER3,
+        night_wave_seconds=60,
+    )
+    night.start()
+    night.post(
+        "t", "swap_others", {"player_ids": [night.users["w"].id, night.users["v"].id]}
+    )
+    night.post("d", "swap_with_center", {"center_index": 0})
+    night.host_close_window()
+
+    names = {
+        u: (night.users[u].display_name or night.users[u].username) for u in ("w", "v")
+    }
+    assert me(night, "t")["night_results"] == [
+        {
+            "wave": 2,
+            "action_type": "swap_others",
+            "revealed_info": {"player1_name": names["w"], "player2_name": names["v"]},
+        }
+    ]
+    assert me(night, "d")["night_results"] == [
+        {
+            "wave": 2,
+            "action_type": "swap_with_center",
+            "revealed_info": {"card_index": 0},
+        }
+    ]
+
+
+def test_a_skip_is_the_only_thing_left_out_of_me(make_night) -> None:
+    night = make_night(
+        {"s": "Seer", "w": "Werewolf", "v": "Villager", "x": "Villager"},
+        CENTER3,
+        night_wave_seconds=60,
+    )
+    night.start()
+    night.post("s", "skip")
+    night.host_close_window()
+
+    assert [e["action_type"] for e in night.events_to("s", "action.result")] == ["skip"]
+    assert me(night, "s")["night_results"] == []

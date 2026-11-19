@@ -22,6 +22,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core.consumers import LobbyConsumer
+from apps.core.lobbies import play_again
 from apps.core.models import Lobby, LobbyMember
 from apps.onuw import services
 from apps.onuw.consumers import GameConsumer
@@ -405,14 +406,18 @@ class TestBetweenGames:
 
         assert joined.status_code == status.HTTP_200_OK
 
-    def test_the_host_leaving_behaves_as_it_does_today(self, table) -> None:
+    def test_the_host_leaving_between_games_hands_the_table_to_the_next_member(
+        self, table
+    ) -> None:
         table.play_to_results()
         table.play_again()
 
         left = table.host.post(reverse("core:lobby-leave", kwargs={"code": table.code}))
 
         assert left.status_code == status.HTTP_200_OK
-        assert not Lobby.objects.filter(code=table.code).exists()
+        lobby = table.lobby()  # the table survives
+        assert lobby.host_id == table.ids[1]  # next in join order
+        assert lobby.acting_host_id is None
 
     def test_the_host_cannot_leave_while_the_second_game_runs(self, table) -> None:
         table.play_to_results()
@@ -433,8 +438,8 @@ class TestBroadcasts:
         layer = type("L", (), {"group_send": lambda self, g, e: sent.append((g, e))})()
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=layer),
-            patch("apps.onuw.services.async_to_sync", side_effect=lambda f: f),
+            patch("apps.core.effects.get_channel_layer", return_value=layer),
+            patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
         ):
             with django_capture_on_commit_callbacks(execute=False) as callbacks:
                 assert table.play_again().status_code == status.HTTP_200_OK
@@ -460,8 +465,8 @@ class TestBroadcasts:
         layer = type("L", (), {"group_send": lambda self, g, e: sent.append((g, e))})()
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=layer),
-            patch("apps.onuw.services.async_to_sync", side_effect=lambda f: f),
+            patch("apps.core.effects.get_channel_layer", return_value=layer),
+            patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
             django_capture_on_commit_callbacks(execute=True),
         ):
             assert table.play_again().status_code == status.HTTP_409_CONFLICT
@@ -514,7 +519,7 @@ class TestClientsHearIt(TransactionTestCase):
         assert (await lobby_ws.connect())[0]
         await game_ws.receive_json_from(timeout=2)  # its own presence
 
-        await sync_to_async(services.play_again)(lobby.code, host.id)
+        await sync_to_async(play_again)(lobby.code, host.id)
 
         assert await game_ws.receive_json_from(timeout=2) == {
             "type": "play_again",

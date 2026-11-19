@@ -27,8 +27,9 @@ import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.core import timers
 from apps.core.models import Lobby, LobbyMember, User
-from apps.onuw import services, timers
+from apps.onuw import services
 from apps.onuw.engine.roles import ROLE_REGISTRY
 from apps.onuw.models import Game, Phase, PlayerRole
 
@@ -191,9 +192,9 @@ def make_night(db, django_capture_on_commit_callbacks):
 
     mock_layer = type("Layer", (), {"group_send": recorder.group_send})()
     with (
-        patch("apps.onuw.services.get_channel_layer", return_value=mock_layer),
-        patch("apps.onuw.services.async_to_sync", side_effect=lambda f: f),
-        patch("apps.onuw.timers.schedule", side_effect=fake_schedule),
+        patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
+        patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
+        patch("apps.core.timers.schedule", side_effect=fake_schedule),
     ):
 
         def factory(
@@ -1189,7 +1190,7 @@ class TestSideEffectsWaitForCommit:
         scheduled_before = len(night.scheduled)
 
         with (
-            patch("apps.onuw.timers.cancel") as cancel,
+            patch("apps.core.timers.cancel") as cancel,
             patch(
                 "apps.onuw.services.send_wave_prompts", side_effect=RuntimeError("boom")
             ),
@@ -1217,7 +1218,7 @@ class TestSideEffectsWaitForCommit:
 
         with (
             patch("apps.onuw.services.advance_wave", side_effect=RuntimeError("boom")),
-            caplog.at_level(logging.ERROR, logger="apps.onuw.timers"),
+            caplog.at_level(logging.ERROR, logger="apps.core.timers"),
         ):
             callback()  # must not raise inside the timer thread
 

@@ -40,6 +40,19 @@ class GameNotifier extends _$GameNotifier {
   Timer? _hostNoticeTimer;
   bool _wasDisconnected = false;
 
+  /// True while a state fetch (the first load or a refresh) is in flight.
+  /// Socket events arriving meanwhile are held in [_buffered] and replayed, in
+  /// order, on top of the fetched snapshot, so none is dropped (the first
+  /// load has no state to apply them to) or overwritten by an older snapshot.
+  bool _buffering = false;
+  final List<dynamic> _buffered = [];
+
+  /// While replaying, the state the replayed events are applied to.
+  GameSessionState? _working;
+
+  Future<void>? _refreshing;
+  bool _refreshAgain = false;
+
   /// Lobby code the screen knew when it opened (from the route), used when the
   /// server's state does not carry one.
   String? lobbyCodeHint;
@@ -55,9 +68,19 @@ class GameNotifier extends _$GameNotifier {
   @override
   Future<GameSessionState> build(String gameId) async {
     final service = ref.read(gameServiceProvider);
-    final initialState = await service.getGameState(gameId);
 
-    // Listen to WebSocket stream if available.
+    ref.onDispose(() {
+      _wsSubscription?.cancel();
+      _connectionSubscription?.cancel();
+      _resultsTimeout?.cancel();
+      _hostNoticeTimer?.cancel();
+    });
+
+    // Listen to the socket BEFORE fetching, so no event between the server
+    // reading its state and this phone hearing about it is lost: events are
+    // held until the snapshot is in, then replayed on top of it.
+    _buffering = true;
+    _buffered.clear();
     _wsStream = ref.read(gameWebSocketStreamProvider(gameId));
     if (_wsStream != null) {
       _wsSubscription = _wsStream!.listen(
@@ -78,12 +101,7 @@ class GameNotifier extends _$GameNotifier {
       );
     }
 
-    ref.onDispose(() {
-      _wsSubscription?.cancel();
-      _connectionSubscription?.cancel();
-      _resultsTimeout?.cancel();
-      _hostNoticeTimer?.cancel();
-    });
+    final initialState = await service.getGameState(gameId);
 
     // Hydrate frontend-only display state from the server response.
     var hydrated = _hydrateInitialState(await _withPresence(initialState));
@@ -104,7 +122,30 @@ class GameNotifier extends _$GameNotifier {
       unawaited(_checkTableMovedOn());
     }
 
-    return hydrated;
+    return _replayBuffered(hydrated);
+  }
+
+  /// Ends buffering and applies the held events, in order, on top of [base].
+  /// Returns the resulting state. An event that cannot be handled is logged
+  /// and skipped, never allowed to break the load.
+  GameSessionState _replayBuffered(GameSessionState base) {
+    _buffering = false;
+    final held = List<dynamic>.of(_buffered);
+    _buffered.clear();
+    if (held.isEmpty) return base;
+    _working = base;
+    try {
+      for (final message in held) {
+        try {
+          _handleWsMessage(message);
+        } catch (e) {
+          logger.w('GameNotifier: skipped a held event', error: e);
+        }
+      }
+      return _working!;
+    } finally {
+      _working = null;
+    }
   }
 
   /// Hydrates frontend-only display state from the initial REST response.
@@ -302,6 +343,10 @@ class GameNotifier extends _$GameNotifier {
   // ---------------------------------------------------------------------------
 
   void _handleWsMessage(dynamic message) {
+    if (_buffering) {
+      _buffered.add(message);
+      return;
+    }
     final Map<String, dynamic> event;
     if (message is String) {
       event = jsonDecode(message) as Map<String, dynamic>;
@@ -491,9 +536,9 @@ class GameNotifier extends _$GameNotifier {
         nightSubView: nightSubView,
         // "Hosting again" and "no longer the host" are for the moment; a
         // handover line stays until the role returns.
-        hostNotice: state.hostNotice?.reason == HostChangeReason.returned
-            ? null
-            : state.hostNotice,
+        hostNotice: state.hostNotice?.reason == HostChangeReason.handover
+            ? state.hostNotice
+            : null,
         hostActionNotice: null,
       );
     });
@@ -581,7 +626,7 @@ class GameNotifier extends _$GameNotifier {
       ),
     );
     _hostNoticeTimer?.cancel();
-    if (change.reason == HostChangeReason.returned) {
+    if (change.reason != HostChangeReason.handover) {
       _hostNoticeTimer = Timer(kHostNoticeDuration, () {
         if (!ref.mounted) return;
         _updateState(
@@ -633,6 +678,9 @@ class GameNotifier extends _$GameNotifier {
       final lobby = await ref.read(lobbyServiceProvider).fetchLobby(code);
       if (!ref.mounted || lobby.status != 'waiting') return;
       _updateState((s) => s.copyWith(playAgainLobbyCode: lobby.code));
+    } on NotFoundException {
+      // The table is gone: say so and go home.
+      if (ref.mounted) _updateState((s) => s.copyWith(tableClosed: true));
     } catch (e) {
       logger.d('GameNotifier: could not check the table ($e)');
     }
@@ -825,8 +873,32 @@ class GameNotifier extends _$GameNotifier {
   ///
   /// Called automatically on WebSocket reconnection. Can also be called
   /// manually if the caller suspects stale state.
-  Future<void> refreshState() async {
+  Future<void> refreshState() {
+    // Not before the first load has finished: that load is the fetch.
+    if (!ref.mounted || state.value == null) return Future.value();
+    final running = _refreshing;
+    if (running != null) {
+      // Run once more after the current fetch, which may predate the reason
+      // for asking.
+      _refreshAgain = true;
+      return running;
+    }
+    return _refreshing = _refreshLoop().whenComplete(() => _refreshing = null);
+  }
+
+  Future<void> _refreshLoop() async {
+    do {
+      _refreshAgain = false;
+      await _refreshOnce();
+    } while (_refreshAgain && ref.mounted);
+  }
+
+  Future<void> _refreshOnce() async {
     if (!ref.mounted) return;
+    // Hold socket events while the snapshot is in flight; they are replayed on
+    // top of it so a fresher event is never overwritten by the older snapshot.
+    _buffering = true;
+    _buffered.clear();
     try {
       final service = ref.read(gameServiceProvider);
       final freshState = await _withPresence(
@@ -852,12 +924,34 @@ class GameNotifier extends _$GameNotifier {
       }
 
       if (ref.mounted) {
-        state = AsyncData(hydrated);
+        state = AsyncData(_replayBuffered(hydrated));
         if (hydrated.phase == 'results') unawaited(_checkTableMovedOn());
       }
+    } on NotFoundException {
+      // The table is gone (its last member left): the screen says so and
+      // returns home.
+      logger.w('GameNotifier: the game is gone');
+      _applyHeldToCurrent();
+      _updateState((s) => s.copyWith(tableClosed: true));
     } catch (e) {
       logger.e('GameNotifier: Failed to refresh state', error: e);
+      // Nothing fetched: the held events still belong to the current state.
+      _applyHeldToCurrent();
+    } finally {
+      _buffering = false;
     }
+  }
+
+  /// A fetch failed: apply the events held meanwhile to the state we have.
+  void _applyHeldToCurrent() {
+    if (!ref.mounted) return;
+    final current = state.value;
+    if (current == null) {
+      _buffering = false;
+      _buffered.clear();
+      return;
+    }
+    state = AsyncData(_replayBuffered(current));
   }
 
   // ---------------------------------------------------------------------------
@@ -961,6 +1055,12 @@ class GameNotifier extends _$GameNotifier {
   void _updateState(
     GameSessionState Function(GameSessionState current) updater,
   ) {
+    // While held events are being replayed they build on the fetched snapshot.
+    final working = _working;
+    if (working != null) {
+      _working = updater(working);
+      return;
+    }
     final currentState = state;
     if (currentState is AsyncData<GameSessionState>) {
       state = AsyncData(updater(currentState.value));

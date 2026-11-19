@@ -20,12 +20,14 @@ from channels.db import database_sync_to_async
 from channels.testing import WebsocketCommunicator
 from rest_framework import status
 
+from apps.core import host
+from apps.core import presence as core_presence
 from apps.core.consumers import LobbyConsumer
-from apps.core.models import Lobby, LobbyMember, User
-from apps.onuw import host, presence, services
+from apps.core.models import Lobby, LobbyMember, LobbySocket, User
+from apps.onuw import presence, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
-from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
+from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.test_night_windows import Night
 
 pytestmark = pytest.mark.integration
@@ -55,7 +57,7 @@ def acting(night: Night) -> int | None:
 
 def lobby_rows(night: Night, name: str) -> int:
     """How many lobby socket rows the member has."""
-    return SocketPresence.objects.filter(
+    return LobbySocket.objects.filter(
         lobby_id=night.game.lobby_id, user=night.users[name]
     ).count()
 
@@ -67,7 +69,7 @@ def lobby_socket(night: Night, name: str) -> None:
 
 def lobby_socket_closes(night: Night, name: str, seconds_ago: float = 0) -> None:
     code = lobby_of(night).code
-    if not presence.fresh_rows(
+    if not core_presence.fresh_rows(
         lobby_id=lobby_of(night).pk, user_id=uid(night, name)
     ).exists():
         lobby_socket(night, name)
@@ -82,7 +84,7 @@ def lobby_socket_closes(night: Night, name: str, seconds_ago: float = 0) -> None
 def game_socket(night: Night, name: str) -> None:
     with night.committed():
         if services.register_connection(night.game.id, uid(night, name)):
-            host.game_presence_changed(night.game.id, uid(night, name), True)
+            services.report_game_presence(night.game.id, uid(night, name), True)
 
 
 def game_socket_closes(night: Night, name: str, seconds_ago: float = 0) -> None:
@@ -92,7 +94,7 @@ def game_socket_closes(night: Night, name: str, seconds_ago: float = 0) -> None:
         game_socket(night, name)
     with night.committed():
         if services.unregister_connection(night.game.id, uid(night, name)):
-            host.game_presence_changed(night.game.id, uid(night, name), False)
+            services.report_game_presence(night.game.id, uid(night, name), False)
     if seconds_ago:
         PlayerRole.objects.filter(game=night.game, user=night.users[name]).update(
             disconnected_at=timezone.now() - timedelta(seconds=seconds_ago)
@@ -746,11 +748,14 @@ class TestLeaving:
         assert acting(night) == uid(night, "seer")
         assert host_events(night) == []
 
-    def test_the_owner_leaving_still_deletes_the_lobby(self, make_night) -> None:
+    def test_the_last_member_leaving_still_deletes_the_lobby(self, make_night) -> None:
         night = make_night(ROLES, night_wave_seconds=0)
         night.start()
         at_the_table(night)
         code = lobby_of(night).code
+        LobbyMember.objects.filter(lobby_id=night.game.lobby_id).exclude(
+            user=night.users["wolf"]
+        ).delete()
 
         assert self._leave(night, "wolf").status_code == status.HTTP_200_OK
 
@@ -819,7 +824,7 @@ class TestRestart:
 
     def _die_silently(self, night: Night, name: str) -> None:
         """The player's socket died with its instance: stale row, no disconnect."""
-        SocketPresence.objects.filter(
+        LobbySocket.objects.filter(
             lobby_id=night.game.lobby_id, user=night.users[name]
         ).update(last_seen=timezone.now() - timedelta(seconds=300))
 
@@ -907,7 +912,7 @@ class TestRestart:
         night.start()
         lobby_socket(night, "wolf")
         self._restart(night)
-        SocketPresence.objects.filter(lobby_id=night.game.lobby_id).delete()
+        LobbySocket.objects.filter(lobby_id=night.game.lobby_id).delete()
         LobbyMember.objects.filter(lobby_id=night.game.lobby_id).update(
             disconnected_at=timezone.now() - timedelta(seconds=90)
         )
@@ -953,7 +958,7 @@ def _table():
 @database_sync_to_async
 def _lobby_counts(lobby_id):
     return {
-        m.user.username: SocketPresence.objects.filter(
+        m.user.username: LobbySocket.objects.filter(
             lobby_id=lobby_id, user_id=m.user_id
         ).count()
         for m in LobbyMember.objects.filter(lobby_id=lobby_id).select_related("user")

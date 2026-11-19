@@ -5,11 +5,16 @@ enum HostChangeReason {
 
   /// The original host is back and has the role again.
   returned,
+
+  /// The owner left the table and ownership passed, for good, to another
+  /// member. [HostChange.hostId] equals [HostChange.originalHostId]: the new
+  /// owner.
+  transferred,
 }
 
 /// The `host_changed` event, sent on both the lobby and the game channel:
 /// `{"type": "host_changed", "host_id", "host_name", "original_host_id",
-/// "reason": "handover" | "returned"}`.
+/// "reason": "handover" | "returned" | "transferred"}`.
 ///
 /// [hostId] is the effective (current) host. Public to the whole table: it
 /// says who runs the table, nothing about roles.
@@ -33,6 +38,7 @@ class HostChange {
     final reason = switch (event['reason']) {
       'handover' => HostChangeReason.handover,
       'returned' => HostChangeReason.returned,
+      'transferred' => HostChangeReason.transferred,
       _ => null,
     };
     if (hostId is! int || reason == null) return null;
@@ -64,6 +70,7 @@ class HostChange {
 ///   "You are hosting while Ana is away"; for the original host, who sees it
 ///   once back, "Ben is hosting while you are away".
 /// - returned: "Ana is hosting again" / "You are hosting again".
+/// - transferred: "Ben is the host now" / "You are the host now".
 ///
 /// [originalHostName] is looked up by the caller in the table's player list;
 /// without it the line says "the host".
@@ -78,6 +85,10 @@ String hostChangeLine({
       return viewerIsHost
           ? 'You are hosting again'
           : '${change.hostName} is hosting again';
+    case HostChangeReason.transferred:
+      return viewerIsHost
+          ? 'You are the host now'
+          : '${change.hostName} is the host now';
     case HostChangeReason.handover:
       final viewerIsOriginal =
           viewerId != null && viewerId == change.originalHostId;
@@ -101,5 +112,9 @@ class NoLongerHostException implements Exception {
   String toString() => kNoLongerHostMessage;
 }
 
-/// How long the "hosting again" line and a "no longer the host" line stay.
+/// How long the "hosting again" / "is the host now" line and a "no longer
+/// the host" line stay.
 const Duration kHostNoticeDuration = Duration(seconds: 6);
+
+/// Said when the table is gone (its last member left).
+const String kTableClosedMessage = 'This table has closed.';

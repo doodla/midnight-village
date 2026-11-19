@@ -14,10 +14,10 @@ logger = logging.getLogger(__name__)
 
 def _host_presence(game_id, user_id, connected: bool) -> None:
     """Tell host handover about a game socket opening / closing (never fatal)."""
-    from . import host
+    from . import services
 
     try:
-        host.game_presence_changed(game_id, user_id, connected)
+        services.report_game_presence(game_id, user_id, connected)
     except Exception:
         logger.exception("Host handover check failed for game %s", game_id)
 
@@ -230,13 +230,17 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
 
     async def _beat(self):
         """One heartbeat: refresh this socket's row (its own short DB use)."""
-        came_back = await self._refresh_presence()
+        # Not thread-sensitive: a pool thread does the beat and releases its
+        # database connection, so nothing stays open between beats and the beats
+        # never queue behind (or close the connection of) other consumers' work.
+        came_back = await database_sync_to_async(
+            self._refresh_presence, thread_sensitive=False
+        )()
         if came_back:
             await database_sync_to_async(_host_presence)(
                 self.game_id, self.user_id, True
             )
 
-    @database_sync_to_async
     def _refresh_presence(self):
         from . import services
 

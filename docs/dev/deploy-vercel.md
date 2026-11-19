@@ -47,8 +47,8 @@ No secrets live in the repo. `DEBUG` is forced off, so the debug harness endpoin
 
 * `backend/config/settings/vercel.py`: the settings above, `ONUW_TIMER_BACKEND = "vercel_queue"`.
 * `backend/pyproject.toml`: optional extra `vercel = ["vercel-queue"]` (install it in the
-  build: `uv sync --extra vercel`) and `[[tool.vercel.subscribers]] entrypoint = "apps.onuw.queue_worker"`.
-* `backend/apps/onuw/queue_worker.py`: the subscriber (`@subscribe(topic="onuw-timers*")`).
+  build: `uv sync --extra vercel`) and `[[tool.vercel.subscribers]] entrypoint = "apps.core.queue_worker"`.
+* `backend/apps/core/queue_worker.py`: the subscriber (`@subscribe(topic="onuw-timers*")`).
 * Migrations to run on deploy: `python manage.py migrate --noinput` (core 0006, 0007;
   onuw 0004, 0005, 0006, 0007).
 
@@ -110,7 +110,7 @@ Measured on a throwaway FastAPI project: 30 messages with delays of 1 to 30 s ar
 
 ## How presence works
 
-One `SocketPresence` row per open socket (user, game or lobby, unique `channel_name`,
+One row per open socket (`SocketPresence` for a game socket, `LobbySocket` for a lobby socket: user, game or lobby, unique `channel_name`,
 `connected_at`, `last_seen`). The consumer inserts it on connect, deletes it on a clean
 disconnect, and refreshes `last_seen` every 15 s (`ONUW_PRESENCE_HEARTBEAT_SECONDS`; each
 beat is a short DB call that releases its connection). A user is **connected** while a row

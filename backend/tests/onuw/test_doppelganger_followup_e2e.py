@@ -26,7 +26,7 @@ pytestmark = pytest.mark.integration
 
 def _patch_channels():
     """Mock out channel layer so WebSocket sends are no-ops during tests."""
-    return patch("apps.onuw.services.get_channel_layer", return_value=None)
+    return patch("apps.core.effects.get_channel_layer", return_value=None)
 
 
 def _setup_doppelganger_game(role_assignments: list[str], center_cards: list[str]):
@@ -378,7 +378,7 @@ class TestDoppelgangerFollowupTimeout:
         Regression: a callback built with functools.partial must keep working
         when make_idempotent_callback passes it a fresh Game instance.
         """
-        from apps.onuw import timers
+        from apps.core import timers
 
         game, users_by_role, action_url = _setup_doppelganger_game(
             role_assignments=["Doppelganger", "Seer", "Werewolf", "Villager"],

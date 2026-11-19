@@ -172,7 +172,7 @@ class TestStartupRecoveryInsideAnEventLoop:
                 services.recover_timers()  # the premise: direct ORM use is refused
             services.run_startup_recovery()  # must work anyway
 
-        with patch("apps.onuw.timers.schedule") as schedule:
+        with patch("apps.core.timers.schedule") as schedule:
             asyncio.run(import_the_app_in_a_loop())
 
         assert [

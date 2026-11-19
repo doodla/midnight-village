@@ -18,7 +18,7 @@ How a timer fires depends on the backend (setting ``ONUW_TIMER_BACKEND``):
   re-derives or re-arms from the table (``services.recover_timers``).
 * ``"vercel_queue"``: a delayed queue message ``{"key", "token"}``; nothing
   stays in this process, so any instance (the subscriber in
-  ``apps/onuw/queue_worker.py``) may fire it. A queued message cannot be
+  ``apps/core/queue_worker.py``) may fire it. A queued message cannot be
   cancelled and delivery is at-least-once, which is why firing is guarded by
   the row.
 
@@ -105,11 +105,23 @@ def job(name: str) -> Callable[[Callable[..., None]], Callable[..., None]]:
     return register
 
 
+# Modules that register jobs with @job. The core ones are always loaded; each
+# game app adds its own from its AppConfig.ready() (register_job_module).
+JOB_MODULES: list[str] = ["apps.core.host", "apps.core.presence"]
+
+
+def register_job_module(module: str) -> None:
+    """Register a module whose import defines timer jobs (idempotent)."""
+    if module not in JOB_MODULES:
+        JOB_MODULES.append(module)
+
+
 def load_jobs() -> None:
-    """Import the modules that register jobs (idempotent)."""
-    import apps.onuw.host
-    import apps.onuw.presence
-    import apps.onuw.services  # noqa: F401
+    """Import every registered job module (idempotent)."""
+    import importlib
+
+    for module in JOB_MODULES:
+        importlib.import_module(module)
 
 
 def run_job(name: str, params: dict[str, Any] | None = None) -> None:
@@ -239,7 +251,7 @@ def schedule(
     key is now stale), then arms the backend. Callers run this after their
     transaction commits.
     """
-    from .models import ScheduledTimer
+    from apps.core.models import ScheduledTimer
 
     load_jobs()
     if job not in JOBS:
@@ -270,7 +282,7 @@ def schedule(
 def _mark_published(key: str, token: str) -> None:
     """Record that the firing was handed to the backend (set only after the send
     returned, so a crash in between leaves an unpublished row the sweep finds)."""
-    from .models import ScheduledTimer
+    from apps.core.models import ScheduledTimer
 
     ScheduledTimer.objects.filter(key=key, token=token).update(published_at=Now())
 
@@ -288,7 +300,7 @@ def cancel(key: str) -> None:
     Deleting the row is what cancels: a thread or queued message that still
     arrives finds no row and does nothing.
     """
-    from .models import ScheduledTimer
+    from apps.core.models import ScheduledTimer
 
     ScheduledTimer.objects.filter(key=key).delete()
     _cancel_thread(key)
@@ -296,7 +308,7 @@ def cancel(key: str) -> None:
 
 def cancel_all_for_game(game_id: int | str) -> None:
     """Cancel every timer whose key starts with "{game_id}:"."""
-    from .models import ScheduledTimer
+    from apps.core.models import ScheduledTimer
 
     prefix = f"{game_id}:"
     ScheduledTimer.objects.filter(key__startswith=prefix).delete()
@@ -326,7 +338,7 @@ def is_scheduled(key: str) -> bool:
     have been published (or be younger than ``PUBLISH_GRACE_SECONDS``: its send
     may be in flight) and not be more than ``OVERDUE_AFTER_SECONDS`` past due.
     """
-    from .models import ScheduledTimer
+    from apps.core.models import ScheduledTimer
 
     row = (
         ScheduledTimer.objects.filter(key=key)
@@ -363,7 +375,7 @@ def fire(key: str, token: str | None, *, force: bool = False) -> FireResult:
     deleted in the transaction that claims it and the job runs inside it, so a
     failing job leaves the timer for the next delivery.
     """
-    from .models import ScheduledTimer
+    from apps.core.models import ScheduledTimer
 
     with transaction.atomic():
         row = ScheduledTimer.objects.select_for_update().filter(key=key).first()
@@ -380,7 +392,7 @@ def fire(key: str, token: str | None, *, force: bool = False) -> FireResult:
 
 def _seconds_until_due(pk: int) -> float:
     """Seconds until the row is due, by the database clock."""
-    from .models import ScheduledTimer
+    from apps.core.models import ScheduledTimer
 
     value = (
         ScheduledTimer.objects.filter(pk=pk)
@@ -421,7 +433,7 @@ def rearm_from_table(prefixes: tuple[str, ...] | None = None) -> int:
     at once. Returns how many were armed. After a restart derived plans
     (``services.recover_timers``) run first, so this only picks up what they do
     not know how to derive."""
-    from .models import ScheduledTimer
+    from apps.core.models import ScheduledTimer
 
     if backend() != BACKEND_MEMORY:
         return 0
@@ -452,7 +464,7 @@ def sweep(prefixes: tuple[str, ...] | None = None) -> int:
     Scoped to key prefixes for the lazy ``/me/`` path (one cheap query when
     nothing is wrong); unscoped for the platform cron.
     """
-    from .models import ScheduledTimer
+    from apps.core.models import ScheduledTimer
 
     if backend() != BACKEND_QUEUE:
         return rearm_from_table(prefixes)
@@ -485,50 +497,3 @@ def sweep(prefixes: tuple[str, ...] | None = None) -> int:
         _mark_published(row.key, row.token)
         sent += 1
     return sent
-
-
-def make_idempotent_callback(
-    game_id: Any,
-    expected_phase: str,
-    action: Callable[["Any"], None],  # action receives Game instance
-    *,
-    reraise: bool = False,
-) -> Callable[[], None]:
-    """
-    Wrap a phase-transition action so it is a no-op if the phase has already changed.
-
-    Uses select_for_update() to serialise concurrent callbacks — if two timer threads
-    race, only one proceeds. The other will find the phase already changed and return.
-
-    Exceptions are always logged (with the game id and phase). A failed callback
-    rolls its own transaction back, so the game is left exactly as it was and the
-    host can still advance it. With ``reraise`` the exception then propagates (the
-    timer jobs do this, so ``fire`` keeps the timer row for a retry); without it
-    the callback swallows it (the original behaviour).
-    """
-
-    def _callback() -> None:
-        # Import inside function to avoid circular imports at module load time.
-        from django.db import transaction
-
-        from apps.onuw.models import Game
-
-        try:
-            with transaction.atomic():
-                try:
-                    game = Game.objects.select_for_update().get(id=game_id)
-                except Game.DoesNotExist:
-                    return  # Game was deleted — nothing to do.
-                if game.phase != expected_phase:
-                    return  # Phase already advanced — stale callback, skip.
-                action(game)
-        except Exception:
-            logger.exception(
-                "Timer callback failed for game %s (expected phase %s)",
-                game_id,
-                expected_phase,
-            )
-            if reraise:
-                raise
-
-    return _callback

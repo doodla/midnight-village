@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from apps.onuw import timers
+from apps.core import timers
 from tests.onuw.test_night_windows import Night, _Recorder
 
 
@@ -30,9 +30,9 @@ def make_night(db, django_capture_on_commit_callbacks):
 
     mock_layer = type("Layer", (), {"group_send": recorder.group_send})()
     with (
-        patch("apps.onuw.services.get_channel_layer", return_value=mock_layer),
-        patch("apps.onuw.services.async_to_sync", side_effect=lambda f: f),
-        patch("apps.onuw.timers.schedule", side_effect=fake_schedule),
+        patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
+        patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
+        patch("apps.core.timers.schedule", side_effect=fake_schedule),
     ):
 
         def factory(

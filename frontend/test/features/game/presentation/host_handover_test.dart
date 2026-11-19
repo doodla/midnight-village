@@ -22,8 +22,34 @@ GameMeJsonBuilder _me({int hostId = 1, String phase = 'night'}) =>
         .withPlayersAway({4})
         .withHostId(hostId);
 
+Map<String, dynamic> _resultsJson() => {
+  'winning_teams': ['village'],
+  'reason': 'The werewolf was found.',
+  'center_cards': <String>[],
+  'players': [
+    for (final (i, n) in _names.indexed)
+      {
+        'player_id': i + 1,
+        'display_name': n,
+        'original_role': 'villager',
+        'final_role': 'villager',
+        'team': 'village',
+        'is_eliminated': false,
+        'outcome': 'win',
+      },
+  ],
+  'votes': <dynamic>[],
+};
+
 String _handover() =>
     GameEvents.hostChanged(hostId: 2, hostName: 'Ben', originalHostId: 1);
+
+String _transferred() => GameEvents.hostChanged(
+  hostId: 2,
+  hostName: 'Ben',
+  originalHostId: 2,
+  reason: 'transferred',
+);
 
 String _returned() => GameEvents.hostChanged(
   hostId: 1,
@@ -380,24 +406,7 @@ void main() {
   });
 
   group('Results screen', () {
-    Map<String, dynamic> results() => {
-      'winning_teams': ['village'],
-      'reason': 'The werewolf was found.',
-      'center_cards': <String>[],
-      'players': [
-        for (final (i, n) in _names.indexed)
-          {
-            'player_id': i + 1,
-            'display_name': n,
-            'original_role': 'villager',
-            'final_role': 'villager',
-            'team': 'village',
-            'is_eliminated': false,
-            'outcome': 'win',
-          },
-      ],
-      'votes': <dynamic>[],
-    };
+    Map<String, dynamic> results() => _resultsJson();
 
     testWidgets('"Play Again" moves from the old host to the new one', (
       tester,
@@ -447,6 +456,87 @@ void main() {
         find.text('Waiting for the host to start another game.'),
         findsNothing,
       );
+    });
+  });
+
+  group('The owner left and ownership was transferred', () {
+    test(
+      'host_changed "transferred" makes the new owner the host for good',
+      () async {
+        final setup = GameTestSetup.create(
+          gameMeJson: _me().build(),
+          userId: 2,
+        );
+        addTearDown(setup.dispose);
+        await setup.readGameState();
+
+        setup.ws.addServerEvent(_transferred());
+
+        expect(setup.currentState.isHost, isTrue);
+        expect(setup.currentState.hostId, 2);
+        expect(
+          setup.currentState.hostNotice?.reason,
+          HostChangeReason.transferred,
+        );
+      },
+    );
+
+    test('the next phase change clears the "is the host now" line', () async {
+      final setup = GameTestSetup.create(gameMeJson: _me().build());
+      addTearDown(setup.dispose);
+      await setup.readGameState();
+
+      setup.ws.addServerEvent(_transferred());
+      setup.ws.addServerEvent(GameEvents.phaseChange(phase: 'discussion'));
+
+      expect(setup.currentState.hostNotice, isNull);
+    });
+
+    testWidgets(
+      'the new host reads "You are the host now" and gets Play Again',
+      (tester) async {
+        final setup = await tester.pumpGameFlow(
+          gameMeJson: _me(phase: 'results').build(),
+          userId: 2,
+          playerName: 'Ben',
+        );
+        setup.registerResults(resultsJson: _resultsJson());
+        setup.ws.addServerEvent(GameEvents.gameResults());
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await _settle(tester);
+        await _settle(tester);
+        expect(find.text('Play Again'), findsNothing);
+
+        setup.ws.addServerEvent(_transferred());
+        await _settle(tester);
+
+        expect(find.text('You are the host now'), findsOneWidget);
+        expect(find.text('Play Again'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 7));
+        expect(find.text('You are the host now'), findsNothing);
+        expect(find.text('Play Again'), findsOneWidget);
+      },
+    );
+
+    testWidgets('a bystander reads "Ben is the host now" and has no Play '
+        'Again', (tester) async {
+      final setup = await tester.pumpGameFlow(
+        gameMeJson: _me(phase: 'results').build(),
+        userId: 3,
+        playerName: 'Cleo',
+      );
+      setup.registerResults(resultsJson: _resultsJson());
+      setup.ws.addServerEvent(GameEvents.gameResults());
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await _settle(tester);
+      await _settle(tester);
+
+      setup.ws.addServerEvent(_transferred());
+      await _settle(tester);
+
+      expect(find.text('Ben is the host now'), findsOneWidget);
+      expect(find.text('Play Again'), findsNothing);
+      await tester.pump(const Duration(seconds: 7));
     });
   });
 }

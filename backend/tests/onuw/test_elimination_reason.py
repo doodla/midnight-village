@@ -88,7 +88,7 @@ class TestEliminationReason:
             pr.has_acted = True
             pr.save(update_fields=["vote_target", "has_acted"])
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             from apps.onuw.services import reveal_votes
 
             reveal_votes(game)
@@ -136,7 +136,7 @@ class TestEliminationReason:
             pr.has_acted = True
             pr.save(update_fields=["vote_target", "has_acted"])
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             from apps.onuw.services import reveal_votes
 
             reveal_votes(game)
@@ -187,7 +187,7 @@ class TestEliminationReason:
             pr.has_acted = True
             pr.save(update_fields=["vote_target", "has_acted"])
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             from apps.onuw.services import reveal_votes
 
             reveal_votes(game)
@@ -225,7 +225,7 @@ class TestEliminationReason:
             pr.has_acted = True
             pr.save(update_fields=["vote_target", "has_acted"])
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             from apps.onuw.services import reveal_votes
 
             reveal_votes(game)
@@ -265,7 +265,7 @@ class TestEliminationReason:
             pr.has_acted = True
             pr.save(update_fields=["vote_target", "has_acted"])
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             from apps.onuw.services import reveal_votes
 
             reveal_votes(game)

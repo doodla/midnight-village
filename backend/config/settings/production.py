@@ -47,10 +47,13 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 CORS_ALLOWED_ORIGINS = os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
 CORS_ALLOWED_ORIGINS = [o for o in CORS_ALLOWED_ORIGINS if o]  # Filter empty strings
 
-# Channels - Use Redis for production to support multiple processes/servers
-# NOTE: this does NOT make the game multi-process safe. Game timers and presence
-# are held per process (apps/onuw/timers.py) and start-up recovery resets every
-# running game's presence, so run exactly ONE server process (see backend/CLAUDE.md).
+# Channels - Redis is only the channel layer (it lets several processes share
+# socket groups). It does NOT make this settings module multi-process safe: the
+# game timers use ONUW_TIMER_BACKEND = "memory" (threading.Timer in this process,
+# durable rows in the database; apps/core/timers.py), so run exactly ONE server
+# process here. Presence is rows with heartbeats and is never reset at start-up.
+# For several instances use config.settings.vercel (queue-fired timers) and read
+# docs/dev/deploy-vercel.md.
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",

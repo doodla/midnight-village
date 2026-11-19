@@ -41,7 +41,7 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
         # accept; a rejected connection is never counted.
         await self._count_connection(True)
         self._presence_counted = True
-        from apps.onuw import presence
+        from apps.core import presence
 
         self._heartbeat_task = asyncio.ensure_future(
             presence.heartbeat_loop(self._beat)
@@ -135,7 +135,7 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
         """Count this socket for host handover. Never fatal to the connection."""
         import logging
 
-        from apps.onuw import host
+        from apps.core import host
 
         try:
             if opened:
@@ -153,11 +153,12 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
 
     async def _beat(self):
         """One heartbeat: refresh this socket's row (its own short DB use)."""
-        await self._refresh_presence()
+        # Not thread-sensitive: a pool thread does the beat and releases its
+        # database connection (nothing stays open between beats).
+        await database_sync_to_async(self._refresh_presence, thread_sensitive=False)()
 
-    @database_sync_to_async
     def _refresh_presence(self):
-        from apps.onuw import host
+        from apps.core import host
 
         try:
             return host.refresh_lobby_connection(

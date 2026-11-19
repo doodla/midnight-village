@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/api/api_exception.dart';
 import '../../../core/host/host_change.dart';
+import '../../../core/host/table_closed.dart';
 import '../../../core/router/routes.dart';
 import '../../../design_system/components/core/mv_error.dart';
 import '../../../design_system/components/core/mv_loading.dart';
@@ -45,6 +47,17 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   Widget build(BuildContext context) {
     // A table runs several games in a row: open whichever one starts next.
     ref.listen(lobbyProvider(widget.code), (previous, next) {
+      // The table is gone (its last member left): say so, go home.
+      if ((next.value?.tableClosed ?? false) && mounted) {
+        if (!(previous?.value?.tableClosed ?? false)) {
+          showTableClosedAndGoHome(context);
+        }
+        return;
+      }
+      if (next.hasError && next.error is NotFoundException && mounted) {
+        showTableClosedAndGoHome(context);
+        return;
+      }
       final started = next.value?.startedGameId;
       if (started != null && started != previous?.value?.startedGameId) {
         if (mounted) {
@@ -205,7 +218,7 @@ Future<void> _hostAction(Future<void> Function() call) async {
 
 /// The host line: a refused host action, else "X is hosting while Y is away"
 /// for as long as someone is acting as host, else "Y is hosting again" for a
-/// few seconds after the role returned.
+/// for a few seconds after the role returned or was transferred.
 String? _hostLine(LobbyState lobby, int? viewerId) {
   if (lobby.hostActionNotice != null) return lobby.hostActionNotice;
   String? nameOf(int? id) {
@@ -227,9 +240,9 @@ String? _hostLine(LobbyState lobby, int? viewerId) {
       originalHostName: nameOf(lobby.originalHostId),
     );
   }
-  final returned = lobby.returnedNotice;
-  if (returned != null) {
-    return hostChangeLine(change: returned, viewerId: viewerId);
+  final brief = lobby.briefHostNotice;
+  if (brief != null) {
+    return hostChangeLine(change: brief, viewerId: viewerId);
   }
   return null;
 }

@@ -130,10 +130,10 @@ class LobbyDetailView(RetrieveAPIView):
             )
 
         # Validate role settings if provided.
-        from apps.onuw.engine.validation import validate_onuw_settings
+        from apps.core import games
 
         player_count = lobby.players.count()
-        errors = validate_onuw_settings(new_settings, player_count)
+        errors = games.hooks_for(lobby).validate_settings(new_settings, player_count)
         if errors:
             return Response(
                 {"detail": errors},
@@ -227,32 +227,50 @@ class LobbyLeaveView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # If host leaves, delete the lobby — but only if no game is in progress
+        # The owner leaving: never while a game is in progress. Otherwise the
+        # table survives if anyone else is still in it (ownership moves for good
+        # to the next member), and is deleted only when the owner was the last.
         if lobby.host == request.user:
-            if lobby.status == Lobby.Status.IN_GAME:
-                return Response(
-                    {"detail": "Cannot leave while a game is in progress."},
-                    status=status.HTTP_409_CONFLICT,
-                )
+            from apps.core.host import transfer_ownership
+
             # Lock the lobby row first, like every other writer (Lobby, then its
             # members and sockets): a presence check or handover running at the
-            # same moment waits for this, then finds the lobby gone and does
-            # nothing, instead of locking children in the opposite order.
+            # same moment waits for this, then finds the lobby gone (or the new
+            # owner) instead of locking children in the opposite order.
             with transaction.atomic():
                 locked = Lobby.objects.select_for_update().filter(pk=lobby.pk).first()
-                if locked is not None:
+                if locked is None:
+                    return Response(
+                        {"detail": "Lobby deleted."}, status=status.HTTP_200_OK
+                    )
+                if locked.status == Lobby.Status.IN_GAME:
+                    return Response(
+                        {"detail": "Cannot leave while a game is in progress."},
+                        status=status.HTTP_409_CONFLICT,
+                    )
+                username = request.user.username
+                if transfer_ownership(locked, request.user.id) is None:  # type: ignore[misc]
                     locked.delete()
-            return Response({"detail": "Lobby deleted."}, status=status.HTTP_200_OK)
+                    return Response(
+                        {"detail": "Lobby deleted."}, status=status.HTTP_200_OK
+                    )
+            channel_layer = get_channel_layer()
+            if channel_layer is not None:
+                async_to_sync(channel_layer.group_send)(
+                    f"lobby_{lobby.code}",
+                    {"type": "player.left", "username": username},
+                )
+            return Response({"detail": "Left lobby."}, status=status.HTTP_200_OK)
 
         # Otherwise just remove the player. If they hold the acting-host role
         # it passes to the next connected member (or back to the owner). Lock
-        # order: Lobby, then the member (see apps.onuw.host).
+        # order: Lobby, then the member (see apps.core.host).
         username = request.user.username
         with transaction.atomic():
             locked = Lobby.objects.select_for_update().get(pk=lobby.pk)
             membership.delete()
             if locked.acting_host_id == request.user.id:  # type: ignore[misc]
-                from apps.onuw.host import member_leaving
+                from apps.core.host import member_leaving
 
                 member_leaving(locked, request.user.id)  # type: ignore[misc]
 
@@ -322,8 +340,7 @@ class LobbyPlayAgainView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, code):
-        # ONUW owns the rules of a game's life; core only routes the request.
-        from apps.onuw.services import PlayAgainError, play_again
+        from apps.core.lobbies import PlayAgainError, play_again
 
         try:
             lobby = play_again(code, request.user.id)

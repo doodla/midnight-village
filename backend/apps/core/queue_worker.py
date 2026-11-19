@@ -4,9 +4,9 @@ Vercel Queues subscriber for the durable timers (``ONUW_TIMER_BACKEND = "vercel_
 Registered in ``pyproject.toml`` as::
 
     [[tool.vercel.subscribers]]
-    entrypoint = "apps.onuw.queue_worker"
+    entrypoint = "apps.core.queue_worker"
 
-A timer message is ``{"key", "token"}`` (see ``apps/onuw/timers.py``). Delivery is
+A timer message is ``{"key", "token"}`` (see ``apps/core/timers.py``). Delivery is
 at-least-once and a queued message cannot be cancelled, so everything is decided
 by the ``ScheduledTimer`` row: ``timers.fire`` runs the job only if the row still
 exists with that token and is due, deleting the row in the same transaction. A
@@ -31,7 +31,7 @@ if not apps.ready:  # a no-op inside a process Django already set up (tests)
 
 from asgiref.sync import sync_to_async
 
-from apps.onuw import timers
+from apps.core import timers
 
 logger = logging.getLogger(__name__)
 

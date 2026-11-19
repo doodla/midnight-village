@@ -25,11 +25,11 @@ from channels.db import database_sync_to_async
 from channels.testing import WebsocketCommunicator
 from rest_framework import status
 
-from apps.core.models import Lobby, LobbyMember, User
+from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
 from apps.onuw import presence, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
-from apps.onuw.models import Game, Phase, PlayerRole, ScheduledTimer, SocketPresence
+from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests.onuw.test_night_windows import Night
 
 pytestmark = pytest.mark.integration
@@ -285,7 +285,7 @@ class TestNightWithADroppedPlayer:
         night.post("robber", "skip")
         stale = grace_callbacks(night, "seer")[-1]
 
-        with patch("apps.onuw.timers.cancel") as cancel:
+        with patch("apps.core.timers.cancel") as cancel:
             connect(night, "seer")
         cancel.assert_any_call(f"{night.game.id}:grace:{night.users['seer'].id}")
 
@@ -899,7 +899,8 @@ class TestDebugHookIgnoresGraceTimers:
     def test_current_resolves_to_the_phase_timer_even_when_a_player_has_dropped(
         self, db, django_capture_on_commit_callbacks
     ) -> None:
-        from apps.onuw import debug, timers
+        from apps.core import timers
+        from apps.onuw import debug
         from tests.onuw.test_night_windows import _Recorder
 
         night = Night(
@@ -1107,7 +1108,7 @@ class TestSocketRowsAndHeartbeats:
         night.start()
         connect(night, "seer")
 
-        with patch("apps.onuw.timers.cancel") as cancel:
+        with patch("apps.core.timers.cancel") as cancel:
             with night.committed():
                 services.unregister_connection(night.game.id, night.users["seer"].id)
 
@@ -1134,7 +1135,7 @@ class TestSocketRowsAndHeartbeats:
     ) -> None:
         from django.db import connection
 
-        from apps.onuw import timers
+        from apps.core import timers
 
         night = make_night(ROLES)
         # Inside the test's transaction nothing may be closed.
@@ -1182,7 +1183,7 @@ class TestConsumerHeartbeat(TransactionTestCase):
         @database_sync_to_async
         def fields():
             r = SocketPresence.objects.get(game_id=game.id, user_id=other.id)
-            return r.user_id, r.game_id, r.lobby_id, bool(r.channel_name)
+            return r.user_id, r.game_id, bool(r.channel_name)
 
-        assert await fields() == (other.id, game.id, None, True)
+        assert await fields() == (other.id, game.id, True)
         await ws.disconnect()

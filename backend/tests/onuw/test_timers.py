@@ -17,8 +17,8 @@ from django.utils import timezone
 
 import pytest
 
-from apps.onuw import timers
-from apps.onuw.models import ScheduledTimer
+from apps.core import timers
+from apps.core.models import ScheduledTimer
 
 pytestmark = pytest.mark.uses_timers
 

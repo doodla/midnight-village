@@ -18,9 +18,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.models import Lobby, LobbyMember, User
-from apps.onuw import services, timers
-from apps.onuw.models import Game, Phase, PlayerRole, ScheduledTimer
+from apps.core import timers
+from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
+from apps.onuw import services
+from apps.onuw.models import Game, Phase, PlayerRole
 
 pytestmark = [pytest.mark.integration, pytest.mark.uses_timers]
 
@@ -170,8 +171,8 @@ class TestWaveTimerLifecycle:
         game, *_ = _make_night_game(night_wave_seconds=0)
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
-            patch("apps.onuw.timers.schedule", side_effect=fake_schedule),
+            patch("apps.core.effects.get_channel_layer", return_value=None),
+            patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
             services.send_wave_prompts(game, 2)
 
@@ -191,9 +192,9 @@ class TestWaveTimerLifecycle:
         mock_layer.group_send = capture_send
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=mock_layer),
-            patch("apps.onuw.services.async_to_sync", side_effect=lambda f: f),
-            patch("apps.onuw.timers.schedule"),
+            patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
+            patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
+            patch("apps.core.timers.schedule"),
         ):
             services.send_wave_prompts(game, 2)
 
@@ -217,8 +218,8 @@ class TestWaveTimerLifecycle:
         mock_layer.group_send = capture_send
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=mock_layer),
-            patch("apps.onuw.services.async_to_sync", side_effect=lambda f: f),
+            patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
+            patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
         ):
             services.send_wave_prompts(game, 2)
 
@@ -242,8 +243,8 @@ class TestWaveTimerLifecycle:
         game, *_ = _make_night_game(night_wave_seconds=60, wave=2)
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
-            patch("apps.onuw.timers.schedule", side_effect=fake_schedule),
+            patch("apps.core.effects.get_channel_layer", return_value=None),
+            patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
             services.send_wave_prompts(game, 2)
 
@@ -251,8 +252,8 @@ class TestWaveTimerLifecycle:
 
         # Invoke the callback directly -- simulates timer expiry.
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
-            patch("apps.onuw.timers.schedule"),  # Prevent next-wave timer from firing
+            patch("apps.core.effects.get_channel_layer", return_value=None),
+            patch("apps.core.timers.schedule"),  # Prevent next-wave timer from firing
         ):
             captured_callbacks[0]()
 
@@ -276,7 +277,7 @@ class TestWaveTimerLifecycle:
         )
 
         # Schedule a real wave timer via send_wave_prompts.
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             services.send_wave_prompts(game, 2)
 
         timer_key = f"{game.id}:wave:2"
@@ -305,8 +306,8 @@ class TestWaveTimerLifecycle:
 
         # check_and_maybe_advance should cancel the timer before advancing.
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
-            patch("apps.onuw.timers.schedule"),  # Prevent next-wave timer
+            patch("apps.core.effects.get_channel_layer", return_value=None),
+            patch("apps.core.timers.schedule"),  # Prevent next-wave timer
         ):
             services.check_and_maybe_advance(game)
 
@@ -318,7 +319,7 @@ class TestWaveTimerLifecycle:
         game, *_ = _make_night_game(night_wave_seconds=300, wave=2)
 
         # Schedule a real wave timer.
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             services.send_wave_prompts(game, 2)
 
         timer_key = f"{game.id}:wave:2"
@@ -327,8 +328,8 @@ class TestWaveTimerLifecycle:
 
         # Force-advance (host action).
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
-            patch("apps.onuw.timers.schedule"),  # Prevent next-wave timer
+            patch("apps.core.effects.get_channel_layer", return_value=None),
+            patch("apps.core.timers.schedule"),  # Prevent next-wave timer
         ):
             services.advance_wave(game)
 
@@ -355,7 +356,7 @@ class TestWaveTimerLifecycle:
         game.phase_deadline = timezone.now() + timedelta(seconds=100)
         game.save(update_fields=["phase_deadline", "updated_at"])
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             services.transition_to_discussion(game)
 
         game.refresh_from_db()
@@ -376,8 +377,8 @@ class TestWaveTimerLifecycle:
         game, *_ = _make_night_game(night_wave_seconds=300, wave=1)
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
-            patch("apps.onuw.timers.schedule", side_effect=fake_schedule),
+            patch("apps.core.effects.get_channel_layer", return_value=None),
+            patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
             # Window 1 starts -- schedules wave:1 timer.
             services.send_wave_prompts(game, 1)
@@ -418,8 +419,8 @@ class TestDiscussionTimerLifecycle:
         game = _make_game(discussion_seconds=60)
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
-            patch("apps.onuw.timers.schedule", side_effect=fake_schedule),
+            patch("apps.core.effects.get_channel_layer", return_value=None),
+            patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
             services.transition_to_discussion(game)
 
@@ -429,7 +430,7 @@ class TestDiscussionTimerLifecycle:
         assert len(captured_callbacks) == 1
 
         # Invoke the captured callback directly -- simulates timer firing.
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             captured_callbacks[0]()
 
         game.refresh_from_db()
@@ -442,14 +443,14 @@ class TestDiscussionTimerLifecycle:
         """
         game = _make_game(discussion_seconds=300)
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             services.transition_to_discussion(game)
 
         timer_key = f"{game.id}:discussion"
         with timers._lock:
             assert timer_key in timers._registry
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             services.end_discussion(game)
 
         with timers._lock:
@@ -471,8 +472,8 @@ class TestDiscussionTimerLifecycle:
         game = _make_game(discussion_seconds=0)
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
-            patch("apps.onuw.timers.schedule", side_effect=fake_schedule),
+            patch("apps.core.effects.get_channel_layer", return_value=None),
+            patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
             services.transition_to_discussion(game)
 
@@ -497,9 +498,9 @@ class TestDiscussionTimerLifecycle:
         mock_layer.group_send = capture_send
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=mock_layer),
-            patch("apps.onuw.services.async_to_sync", side_effect=lambda f: f),
-            patch("apps.onuw.timers.schedule"),
+            patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
+            patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
+            patch("apps.core.timers.schedule"),
         ):
             services.transition_to_discussion(game)
 
@@ -526,8 +527,8 @@ class TestDiscussionTimerLifecycle:
         mock_layer.group_send = capture_send
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=mock_layer),
-            patch("apps.onuw.services.async_to_sync", side_effect=lambda f: f),
+            patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
+            patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
         ):
             services.transition_to_discussion(game)
 
@@ -560,8 +561,8 @@ class TestVotingTimerLifecycle:
         game, _users, _host = _make_game_with_players(player_count=3, voting_seconds=60)
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
-            patch("apps.onuw.timers.schedule", side_effect=fake_schedule),
+            patch("apps.core.effects.get_channel_layer", return_value=None),
+            patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
             services.transition_to_voting(game)
 
@@ -571,7 +572,7 @@ class TestVotingTimerLifecycle:
         assert len(captured_callbacks) == 1
 
         # No player has voted -- invoking callback simulates timer expiry.
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             captured_callbacks[0]()
 
         game.refresh_from_db()
@@ -591,7 +592,7 @@ class TestVotingTimerLifecycle:
         game, users, _host = _make_game_with_players(player_count=3, voting_seconds=300)
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
+            patch("apps.core.effects.get_channel_layer", return_value=None),
         ):
             services.transition_to_voting(game)
 
@@ -607,7 +608,7 @@ class TestVotingTimerLifecycle:
             (usernames[2], users[usernames[0]].id),
         ]
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             for voter_name, target_id in vote_pairs:
                 errors = services.submit_vote(game, users[voter_name].id, target_id)
                 # Ignore "Game is not in voting phase" after auto-reveal on last vote
@@ -628,14 +629,14 @@ class TestVotingTimerLifecycle:
             player_count=3, voting_seconds=300
         )
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             services.transition_to_voting(game)
 
         timer_key = f"{game.id}:voting"
         with timers._lock:
             assert timer_key in timers._registry
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             services.reveal_votes(game)
 
         with timers._lock:
@@ -658,8 +659,8 @@ class TestVotingTimerLifecycle:
         game, _users, _host = _make_game_with_players(player_count=3, voting_seconds=0)
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=None),
-            patch("apps.onuw.timers.schedule", side_effect=fake_schedule),
+            patch("apps.core.effects.get_channel_layer", return_value=None),
+            patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
             services.transition_to_voting(game)
 
@@ -686,9 +687,9 @@ class TestVotingTimerLifecycle:
         mock_layer.group_send = capture_send
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=mock_layer),
-            patch("apps.onuw.services.async_to_sync", side_effect=lambda f: f),
-            patch("apps.onuw.timers.schedule"),
+            patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
+            patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
+            patch("apps.core.timers.schedule"),
         ):
             services.transition_to_voting(game)
 
@@ -716,8 +717,8 @@ class TestVotingTimerLifecycle:
         mock_layer.group_send = capture_send
 
         with (
-            patch("apps.onuw.services.get_channel_layer", return_value=mock_layer),
-            patch("apps.onuw.services.async_to_sync", side_effect=lambda f: f),
+            patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
+            patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
         ):
             services.transition_to_voting(game)
 
@@ -735,7 +736,7 @@ class TestVotingTimerLifecycle:
         """
         game, users, _host = _make_game_with_players(player_count=3, voting_seconds=300)
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             services.transition_to_voting(game)
 
         usernames = list(users.keys())
@@ -745,7 +746,7 @@ class TestVotingTimerLifecycle:
             (usernames[2], users[usernames[0]].id),
         ]
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             for voter_name, target_id in vote_pairs:
                 services.submit_vote(game, users[voter_name].id, target_id)
 
@@ -763,7 +764,7 @@ class TestVotingTimerLifecycle:
         """
         game, users, _host = _make_game_with_players(player_count=3, voting_seconds=300)
 
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             services.transition_to_voting(game)
 
         # Manually inject a stale wave timer to simulate an orphaned timer
@@ -775,7 +776,7 @@ class TestVotingTimerLifecycle:
 
         # Submit all votes to trigger auto-reveal
         usernames = list(users.keys())
-        with patch("apps.onuw.services.get_channel_layer", return_value=None):
+        with patch("apps.core.effects.get_channel_layer", return_value=None):
             for i, name in enumerate(usernames):
                 target = users[usernames[(i + 1) % len(usernames)]].id
                 services.submit_vote(game, users[name].id, target)

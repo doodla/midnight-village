@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/host/host_change.dart';
+import '../../../core/host/table_closed.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/wakelock/wakelock_service.dart';
@@ -76,6 +77,7 @@ class GameContainerScreen extends ConsumerStatefulWidget {
 class _GameContainerScreenState extends ConsumerState<GameContainerScreen>
     with WidgetsBindingObserver {
   late final WakelockService _wakelock;
+  bool _closing = false;
 
   String get gameId => widget.gameId;
 
@@ -123,6 +125,17 @@ class _GameContainerScreenState extends ConsumerState<GameContainerScreen>
     // on another phone): leave for its lobby. This screen, and with it the
     // finished game's state, goes away; the next game opens clean.
     ref.listen(gameProvider(gameId), (previous, next) {
+      // The table is gone (its last member left): say so, go home.
+      final closed =
+          (next.value?.tableClosed ?? false) ||
+          (next.hasError && next.error is NotFoundException);
+      if (closed) {
+        if (!_closing) {
+          _closing = true;
+          showTableClosedAndGoHome(context);
+        }
+        return;
+      }
       final code = next.value?.playAgainLobbyCode;
       if (code != null && code != previous?.value?.playAgainLobbyCode) {
         context.go(LobbyRoute(code: code).location);
@@ -798,6 +811,9 @@ class _ResultsViewState extends ConsumerState<_ResultsView> {
     try {
       // On success the notifier points the screen at the lobby.
       await ref.read(gameProvider(widget.gameId).notifier).playAgain();
+    } on NotFoundException {
+      // The table is gone: say so and go home.
+      if (mounted) showTableClosedAndGoHome(context);
     } catch (e) {
       if (mounted) setState(() => _error = _playAgainMessage(e));
     } finally {
@@ -816,6 +832,10 @@ class _ResultsViewState extends ConsumerState<_ResultsView> {
   Future<void> _leave() async {
     try {
       await ref.read(gameProvider(widget.gameId).notifier).leaveTable();
+    } on NotFoundException {
+      // The table is already gone: say so on the way home.
+      if (mounted) showTableClosedAndGoHome(context);
+      return;
     } catch (e) {
       // Leaving is what the player wants either way; the table sorts itself
       // out on the server.

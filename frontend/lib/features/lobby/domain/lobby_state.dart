@@ -60,13 +60,17 @@ abstract class LobbyState with _$LobbyState {
     /// True while someone other than the original host is hosting.
     @Default(false) bool isActingHost,
 
-    /// The "Ana is hosting again" line, shown for a few seconds after the
-    /// role returns. Frontend only.
-    HostChange? returnedNotice,
+    /// The "Ana is hosting again" / "Ben is the host now" line, shown for a few
+    /// seconds after the role returns or is transferred. Frontend only.
+    HostChange? briefHostNotice,
 
     /// A plain line about a host action refused because the role had moved.
     /// Frontend only.
     String? hostActionNotice,
+
+    /// Set when the server says the table no longer exists (its last member
+    /// left). The screen says so and goes home. Frontend only.
+    @Default(false) bool tableClosed,
   }) = _LobbyState;
 
   /// Parses the backend's LobbyResponse format.

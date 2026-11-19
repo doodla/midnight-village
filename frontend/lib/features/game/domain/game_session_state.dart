@@ -123,6 +123,12 @@ abstract class GameSessionState with _$GameSessionState {
     @Default([])
     List<ActionResult> pendingNightResults,
 
+    /// Set when the server says the table (and with it this game) no longer
+    /// exists, because its last member left. The screen says so and goes home.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default(false)
+    bool tableClosed,
+
     /// Set when the table has gone back to waiting for another game (the
     /// `play_again` event, or the host's own play-again call). The screen
     /// navigates to this lobby.

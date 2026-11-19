@@ -21,11 +21,13 @@ from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 
-from apps.onuw import presence, timers
+from apps.core import timers
+from apps.core.models import ScheduledTimer
+from apps.onuw import presence
 
 from .engine.roles import ROLE_REGISTRY
 from .engine.win_conditions import get_effective_team
-from .models import Game, Phase, ScheduledTimer
+from .models import Game, Phase
 
 
 def debug_disabled_response() -> Response | None:
