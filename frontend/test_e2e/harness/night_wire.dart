@@ -6,6 +6,7 @@ import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'harness_config.dart';
+import 'time_budget.dart';
 
 /// Records every WebSocket event one player receives for a game (or a lobby), in
 /// order, so a test can check WHAT the server sends WHEN (the night's delivery
@@ -24,7 +25,14 @@ class PlayerWire {
     DebugApiClient client,
     DebugTable table,
     DebugPlayer player,
-  ) => _open(client, player, '/ws/game/${table.gameId}/');
+  ) => connectToGame(client, table.gameId, player);
+
+  /// Same, for any game id (a later game of the same lobby).
+  static Future<PlayerWire> connectToGame(
+    DebugApiClient client,
+    String gameId,
+    DebugPlayer player,
+  ) => _open(client, player, '/ws/game/$gameId/');
 
   /// Same, for the table's lobby socket (`/ws/lobby/<code>/`): the one the lobby
   /// screen and the host handover use.
@@ -84,7 +92,7 @@ class PlayerWire {
     String type, {
     bool Function(Map<String, dynamic> event)? where,
     int after = 0,
-    Duration timeout = const Duration(seconds: 8),
+    required Duration timeout,
   }) async {
     Map<String, dynamic>? found;
     await waitFor(
@@ -103,22 +111,17 @@ class PlayerWire {
     return found!;
   }
 
-  /// Polls until [condition] holds (bounded; throws on expiry).
+  /// Polls until [condition] holds (bounded by [timeout]; throws on expiry).
   Future<void> waitFor(
     bool Function() condition, {
     required String reason,
-    Duration timeout = const Duration(seconds: 8),
-  }) async {
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      if (condition()) return;
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-    }
-    throw StateError(
-      'Timed out waiting for $reason for ${player.displayName}. '
-      'Events so far: $trace',
-    );
-  }
+    required Duration timeout,
+  }) => pollUntil(
+    condition,
+    reason: '$reason for ${player.displayName}',
+    timeout: timeout,
+    context: () => 'Events so far: $trace',
+  );
 
   Future<void> close() async {
     await _subscription.cancel();

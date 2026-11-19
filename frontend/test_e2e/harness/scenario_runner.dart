@@ -1,14 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/core/debug/debug_api_client.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/core/debug/debug_oracle.dart';
 import 'package:midnight_village/core/debug/debug_table_controller.dart';
 
 import 'debug_oracle_diff.dart';
 import 'failure_report.dart';
-import 'harness_config.dart';
+import 'live_table.dart';
 import 'scenario_dsl.dart';
 
 /// Game timers for the harness: every night window closes as soon as its last
@@ -38,27 +37,12 @@ const Map<String, int> fastTimers = {
 /// Independent of Riverpod: its [DebugTableController] has no-op session hooks
 /// (the API runner never changes the visible perspective).
 class ReferenceGameRunner {
-  ReferenceGameRunner(
-    this.game, {
-    DebugApiClient? client,
-    this.timerSettings = fastTimers,
-  }) : _client =
-           client ??
-           DebugApiClient(
-             baseUrl: HarnessConfig.apiBaseUrl,
-             origin: HarnessConfig.origin,
-           ) {
-    _controller = DebugTableController(
-      client: _client,
-      adoptSession: (_, {required accessToken, required refreshToken}) async {},
-      invalidateGameProviders: (_) {},
-    );
-  }
+  ReferenceGameRunner(this.game, {this.timerSettings = fastTimers})
+    : _controller = harnessClients().controller;
 
   final ReferenceGame game;
   final Map<String, int> timerSettings;
-  final DebugApiClient _client;
-  late final DebugTableController _controller;
+  final DebugTableController _controller;
 
   DebugTable? _table;
   DebugTable get table => _table!;

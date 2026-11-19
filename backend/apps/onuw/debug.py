@@ -198,6 +198,11 @@ def _pending_timers(game: Game) -> list[str]:
     ``grace:<user id>``) plus ``host_handover`` while its lobby's handover timer
     is armed. Lets the harness assert that a timer was started or cancelled,
     which no player-facing response says.
+
+    "Pending" means the ``ScheduledTimer`` row exists: a row that is overdue but
+    not yet fired still shows, and under the queue backend a row is not proof
+    that a message will arrive. The handover timer belongs to the LOBBY, so it
+    also shows on a finished game of the same lobby.
     """
     prefix = f"{game.id}:"
     keys = ScheduledTimer.objects.filter(
@@ -234,6 +239,9 @@ def _build_night_actions_log(game: Game) -> list[dict[str, Any]]:
                 "targets": entry.get("targets", {}),
                 "result": entry.get("result", {}),
                 "timestamp_order": entry.get("timestamp_order"),
+                # True only for a move the server made for a player who timed
+                # out or was gone past the grace period (the Drunk's swap).
+                "made_by_server": bool(entry.get("made_by_server", False)),
             }
         )
     return projected
