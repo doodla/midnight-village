@@ -1,8 +1,12 @@
 """
 During a rollout an older instance can be handed a group event type that only the
 new code knows. Channels would raise "No handler for message type" and close the
-player's socket; both consumers drop such an event instead and carry on.
+player's socket; both consumers drop such an event (with a warning) instead and
+carry on. Under ``ONUW_STRICT_SOCKET_EVENTS`` (test, development, harness) they
+raise instead, so a misspelled event type in new code cannot hide.
 """
+
+import logging
 
 import pytest
 from channels.layers import get_channel_layer
@@ -14,6 +18,12 @@ from tests.onuw.test_game_consumer import (
 )
 
 pytestmark = pytest.mark.integration
+
+
+@pytest.fixture(autouse=True)
+def production_like_consumers(settings):
+    settings.ONUW_STRICT_SOCKET_EVENTS = False
+
 
 FROM_A_NEWER_INSTANCE = {"type": "ready.progress", "stage": "vote", "done": 3}
 
@@ -65,4 +75,53 @@ class TestGameSocket:
         first = await communicator.receive_json_from(timeout=2)
         assert first["type"] == "wave_start"  # nothing of the unknown event came first
         assert first["wave"] == 2
+        await communicator.disconnect()
+
+
+class TestStrictMode:
+    @pytest.mark.django_db(transaction=True)
+    async def test_a_misspelled_event_type_fails_loudly_under_the_test_settings(
+        self, settings
+    ):
+        settings.ONUW_STRICT_SOCKET_EVENTS = True
+        code, user = await create_lobby_with_user()
+        communicator = _make_communicator(f"/ws/lobby/{code}/", user)
+        assert (await communicator.connect())[0]
+        layer = get_channel_layer()
+        assert layer is not None
+
+        await layer.group_send(f"lobby_{code}", {"type": "player.joinned"})
+
+        with pytest.raises(ValueError, match="No handler for message type"):
+            await communicator.receive_output(timeout=2)
+
+    def test_the_test_and_development_settings_are_strict_and_base_is_not(self):
+        from config.settings import base, development, harness, test
+
+        assert base.ONUW_STRICT_SOCKET_EVENTS is False
+        assert development.ONUW_STRICT_SOCKET_EVENTS is True
+        assert harness.ONUW_STRICT_SOCKET_EVENTS is True
+        assert test.ONUW_STRICT_SOCKET_EVENTS is True
+
+
+class TestTheWarning:
+    @pytest.mark.django_db(transaction=True)
+    async def test_a_dropped_event_is_logged_as_a_warning(self, caplog):
+        code, user = await create_lobby_with_user()
+        communicator = _make_communicator(f"/ws/lobby/{code}/", user)
+        assert (await communicator.connect())[0]
+        layer = get_channel_layer()
+        assert layer is not None
+
+        with caplog.at_level(logging.WARNING, logger="apps.core.consumers"):
+            await layer.group_send(f"lobby_{code}", FROM_A_NEWER_INSTANCE)
+            await layer.group_send(
+                f"lobby_{code}", {"type": "player.joined", "username": "x"}
+            )
+            await communicator.receive_json_from(timeout=2)
+
+        assert any(
+            "ready.progress" in r.getMessage() and r.levelno == logging.WARNING
+            for r in caplog.records
+        )
         await communicator.disconnect()

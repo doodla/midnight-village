@@ -184,5 +184,11 @@ ONUW_PRESENCE_STALE_SECONDS = 40
 # as the caller's table if it was updated within this many hours.
 CORE_TABLE_RESUME_HOURS = 12
 
+# A socket consumer that gets a group event it has no handler for: False (here, so
+# production) logs a warning and drops it, so an instance older than a deploy keeps
+# its players' sockets open; True raises like Channels does, so a misspelled event
+# type in new code fails the tests (test, development and harness settings).
+ONUW_STRICT_SOCKET_EVENTS = False
+
 # Channels configuration
 ASGI_APPLICATION = "config.asgi.application"

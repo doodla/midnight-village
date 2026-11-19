@@ -50,9 +50,18 @@ makemigrations *args:
 
 # --- Testing ---
 
-# Run all tests
+# The suite builds its database from the models (--nomigrations); the migration
+# tests (marker `migration`) skip there and run in a second pass that applies the
+# real migrations. With arguments only the first pass runs.
+
+# Run all tests (and the migration tests when no arguments are given)
 test *args:
     uv run pytest {{args}}
+    {{ if args == "" { "just test-migrations" } else { "true" } }}
+
+# The migration tests, against a database built by the real migrations (no coverage)
+test-migrations:
+    uv run pytest --migrations --create-db --no-cov -m migration
 
 # Run tests with coverage report (uses pyproject.toml config)
 test-cov:
@@ -99,8 +108,14 @@ format-check:
 typecheck:
     uv run pyrefly check --disable-project-excludes-heuristics --project-excludes '**/node_modules' --project-excludes '**/__pycache__' --project-excludes '**/.venv/**' .
 
-# Run all quality checks (lint, format check, typecheck)
-check: lint format-check typecheck
+# The settings module only avoids needing a .env: nothing is applied.
+
+# Fail if a model change has no migration
+migrations-check:
+    DJANGO_SETTINGS_MODULE=config.settings.test uv run python manage.py makemigrations --check --dry-run
+
+# Run all quality checks (lint, format check, typecheck, migrations match models)
+check: lint format-check typecheck migrations-check
 
 # Run all quality checks and fix what can be fixed
 fix: lint-fix format

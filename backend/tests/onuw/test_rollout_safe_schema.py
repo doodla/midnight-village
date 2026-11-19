@@ -4,15 +4,10 @@ The migrations run while the PREVIOUS code is still serving.
 That code INSERTs rows without the new columns, so each new NOT NULL column has a
 database default; and a member it adds after the token backfill has a blank token,
 which the deal fills in. Raw SQL below is the old code's INSERT (the column set
-before these migrations).
+before these migrations; see tests/old_code.py).
 """
 
-import uuid
-from typing import Any
-
-from django.db import connection
 from django.urls import reverse
-from django.utils import timezone
 
 import pytest
 from rest_framework import status
@@ -20,14 +15,10 @@ from rest_framework import status
 from apps.core import tokens
 from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw.models import Game, PlayerRole
+from tests.old_code import insert_game, insert_member, insert_player_role
 from tests.onuw.test_play_again import Table
 
 pytestmark = pytest.mark.integration
-
-
-def insert(sql: str, params: list[Any]) -> None:
-    with connection.cursor() as cursor:
-        cursor.execute(sql, params)
 
 
 @pytest.fixture
@@ -41,31 +32,15 @@ class TestOldCodeInsertsStillWork:
     def test_lobby_member_without_a_token_column(self, lobby_and_user) -> None:
         lobby, user = lobby_and_user
 
-        insert(
-            "INSERT INTO core_lobbymember (lobby_id, user_id, is_ready, joined_at)"
-            " VALUES (%s, %s, false, %s)",
-            [lobby.pk, user.pk, timezone.now()],
-        )
+        insert_member(lobby.pk, user.pk)
 
         assert LobbyMember.objects.get(lobby=lobby).token == ""
 
     def test_game_and_player_role_without_the_new_columns(self, lobby_and_user) -> None:
         lobby, user = lobby_and_user
-        game_id = uuid.uuid4()
-        now = timezone.now()
-        insert(
-            "INSERT INTO onuw_game (id, lobby_id, phase, current_wave, random_seed,"
-            " night_actions_log, settings, center_cards, results, created_at,"
-            " updated_at) VALUES (%s, %s, 'night', 0, 1, '[]', '{}', '[]', '{}',"
-            " %s, %s)",
-            [game_id, lobby.pk, now, now],
-        )
-        insert(
-            "INSERT INTO onuw_playerrole (id, game_id, user_id, original_role,"
-            ' "current_role", night_action_data, has_acted)'
-            " VALUES (%s, %s, %s, 'Villager', 'Villager', '{}', false)",
-            [uuid.uuid4(), game_id, user.pk],
-        )
+
+        game_id = insert_game(lobby.pk)
+        insert_player_role(game_id, user.pk)
 
         game = Game.objects.get(pk=game_id)
         pr = PlayerRole.objects.get(game=game)

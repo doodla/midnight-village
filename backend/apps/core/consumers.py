@@ -4,6 +4,8 @@ import asyncio
 import contextlib
 import logging
 
+from django.conf import settings
+
 from channels.consumer import get_handler_name
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
@@ -16,14 +18,18 @@ class TolerantJsonWebsocketConsumer(AsyncJsonWebsocketConsumer):
 
     During a rollout the channel layer can hand an older instance an event type
     that only the new code knows; Channels would raise and close the player's
-    socket. Here the event is logged at debug level and ignored, so the socket
-    stays open. Only the consumer's own events are affected: its connect,
-    receive and disconnect handlers still dispatch as usual.
+    socket. Here the event is logged at WARNING and ignored, so the socket stays
+    open. With ``ONUW_STRICT_SOCKET_EVENTS`` (test, development, harness) it raises
+    as Channels does, so a misspelled type in new code still fails the suite. Only
+    the consumer's own events are affected: its connect, receive and disconnect
+    handlers still dispatch as usual.
     """
 
     async def dispatch(self, message):
         if getattr(self, get_handler_name(message), None) is None:
-            logger.debug("Ignoring event with no handler: %s", message.get("type"))
+            if getattr(settings, "ONUW_STRICT_SOCKET_EVENTS", False):
+                raise ValueError(f"No handler for message type {message['type']}")
+            logger.warning("Ignoring event with no handler: %s", message.get("type"))
             return
         await super().dispatch(message)
 
