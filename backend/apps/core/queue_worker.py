@@ -83,7 +83,7 @@ try:  # pragma: no cover - only on Vercel, where the package is installed
     from vercel.queue import Message, RetryAfter, subscribe
 
     @subscribe(topic=f"{timers.queue_topic()}*")
-    async def handler(message: Message[dict]) -> None:
+    async def handler(message: Message[Any]) -> None:
         try:
             await process(message.payload)
         except Exception:
