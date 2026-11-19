@@ -6,12 +6,14 @@ pictures.
 
 ## What is here
 
+`mock-to-skin.md` maps every element of every mock to the primitive and the skin roles that draw it.
+
 | Folder | What |
 |---|---|
 | `mocks/*.png` | The 11 screens (plus `03b`, the role sheet) at 390x844. These are the target. |
 | `mocks/*.dc.html` | The mock markup. Every size, colour, radius, shadow and font size is an inline style, so read these for exact values. Image `src` values (`/_blob/...`) only resolve inside the mock canvas; use the files in `art/` instead. |
 | `art/roles/` | 12 role portraits, 576x768, one per role, file named after the role. |
-| `art/tokens/` | 5 player tokens (crow, key, moth, bell, thorn), 320x320, to be shown in a circle. A table can have 10 players, so at least 5 more are needed in the same style. |
+| `art/tokens/` | 10 player tokens (crow, key, moth, bell, thorn, antler, hare, lantern, spindle, scythe), 320x320, to be shown in a circle: one per seat at a table of 10. |
 | `art/scenes/` | Card back, candle, table, street door, sleeping village, night village, dawn rooftops, dawn gallows. |
 
 The mock canvas, where the product owner comments: https://claude.ai/artifact/AQ2LuLA5KkRPXHiZoGb6j9
