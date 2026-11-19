@@ -8,6 +8,7 @@ import 'package:midnight_village/core/debug/debug_table_controller.dart';
 
 import 'harness/failure_report.dart';
 import 'harness/harness_config.dart';
+import 'harness/live_table.dart';
 import 'harness/night_wire.dart';
 import 'harness/scenario_runner.dart';
 import 'harness/scenarios.dart';
@@ -58,16 +59,9 @@ void main() {
     late DebugTableController controller;
 
     setUp(() {
-      client = DebugApiClient(
-        baseUrl: HarnessConfig.apiBaseUrl,
-        origin: HarnessConfig.origin,
-      );
-      controller = DebugTableController(
-        client: client,
-        adoptSession:
-            (_, {required accessToken, required refreshToken}) async {},
-        invalidateGameProviders: (_) {},
-      );
+      final clients = harnessClients();
+      client = clients.client;
+      controller = clients.controller;
     });
 
     /// Alice Doppelganger, Bob Seer, Carol Werewolf, Dave Insomniac.

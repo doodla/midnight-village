@@ -183,6 +183,21 @@ Rules:
 Tests: forced lands exactly (current=original); mismatch → 400, no game; seed
 reproducible; `DEBUG=False` ignores `debug`.
 
+- **Lifecycle scenarios** (`frontend/test_e2e/api_lifecycle_test.dart`, run by
+  `just test-harness`; helpers `harness/live_table.dart` + `PlayerWire.connectLobby` /
+  `waitForEvent`): real HTTP + real sockets, asserting both what clients are told and the
+  oracle. *Play again* (409 before results, 403 non-host, `play_again` + `lobby_update` to
+  every socket, same members/settings, new game id, old results readable, `current-game`
+  null); *dropped phone* (`player_presence`, player list, `grace:<id>` in `pending_timers`,
+  window/vote held for a dropped player inside `disconnect_grace_seconds` even when
+  everyone else is done, closed after it with the server's Drunk swap or a non-voter,
+  `night_results` in `/me/`, reconnect cancels the countdown, same close time for a dropped
+  actor and non-actor); *host handover* (`host_changed` `handover`/`returned`, lobby detail
+  and `/me/` agree, acting host can advance / end discussion / play again / start, a normal
+  player gets 403). Grace and handover are real wall-clock periods (a few seconds, set per
+  game): `debug-fire-timer` cannot shorten them because their callbacks re-check the stored
+  disconnect stamp. The tests wait for the server's events, never sleep.
+
 ### B2. Debug-state oracle — `GET /api/onuw/games/<id>/debug-state/` (DEBUG only; 403 otherwise)
 
 Read-only projection of authoritative state — the harness assertion oracle AND the
@@ -208,9 +223,14 @@ drifted in 5 fields):**
       "action_type": "swap_with_player", "targets": {...}, "result": {...}, "timestamp_order": 2 }
   ],
   "votes": { "12": 14, "13": null },          // EVERY player is a key; null = has not voted/abstained
-  "results": { ... } | null                   // present once phase=results; winning_teams = list of lowercase tokens ⊂ {"village","werewolf","tanner"}, asserted as a SET
+  "results": { ... } | null,                  // present once phase=results; winning_teams = list of lowercase tokens ⊂ {"village","werewolf","tanner"}, asserted as a SET
+  "pending_timers": ["grace:14", "wave:2"]    // sorted names of the ScheduledTimer rows pending now: this game's keys without the "<game id>:" prefix (wave:N, discussion, voting, grace:<user id>) plus "host_handover" while the lobby's handover timer is armed
 }
 ```
+
+`pending_timers` exists so a scenario can assert a timer was started or cancelled (a
+reconnect cancelling a grace countdown, the owner coming back cancelling the handover),
+which no player-facing response says.
 
 Tests: post-swap `current_role` correct; team `neutral` for Tanner; `votes` includes
 all players; `DEBUG=False` → 403.

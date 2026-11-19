@@ -1,6 +1,6 @@
 # Test runner config (honored by `flutter test`).
 #
-# `e2e` tags the live-backend integration harness in test_e2e/ (api_runner /
+# `e2e` tags the live-backend integration harness in test_e2e/ (api_runner / api_lifecycle /
 # ui_runner). Those suites require the booted harness backend on 127.0.0.1:8001.
 #
 # PRIMARY exclusion is STRUCTURAL: the suites live in test_e2e/, not test/, so
