@@ -6,7 +6,21 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import Game, Phase
+from .models import Game, Phase, PlayerRole
+
+
+def player_identity(pr: PlayerRole) -> dict[str, Any]:
+    """A player's public table identity: who they are and where they sit.
+
+    The one place the players lists (``/me/``, ``players/``, results) build it.
+    Needs ``pr.user`` loaded. Never includes a role or a vote.
+    """
+    return {
+        "player_id": pr.user_id,
+        "display_name": pr.user.display_name or pr.user.username,
+        "token": pr.token,
+        "seat": pr.seat,
+    }
 
 
 class PlayerPublicSerializer(serializers.Serializer):
@@ -43,6 +57,7 @@ class GameMeSerializer(serializers.Serializer):
     action_prompt = serializers.SerializerMethodField()
     roles_in_game = serializers.SerializerMethodField()
     night_results = serializers.SerializerMethodField()
+    night_results_seen = serializers.SerializerMethodField()
 
     def get_deadline(self, game: Game) -> str | None:
         """
@@ -125,10 +140,7 @@ class GameMeSerializer(serializers.Serializer):
         all_player_roles = self.context.get("all_player_roles", [])
         result: list[dict[str, Any]] = []
         for pr in all_player_roles:
-            entry: dict[str, Any] = {
-                "player_id": pr.user_id,
-                "display_name": pr.user.display_name or pr.user.username,
-            }
+            entry = player_identity(pr)
             if game.phase == Phase.VOTING:
                 entry["has_voted"] = bool(pr.has_acted)
             result.append(entry)
@@ -192,6 +204,15 @@ class GameMeSerializer(serializers.Serializer):
             for pr in self.context.get("all_player_roles", [])
         }
         return night_results_for_player(game, player_role.user_id, names)
+
+    def get_night_results_seen(self, game: Game) -> int:
+        """How many of their ``night_results`` the caller has acknowledged.
+
+        The caller's own count only (``POST night-results/seen/`` raises it), so
+        a restarted app shows just the results it has not shown yet.
+        """
+        player_role = self.context.get("player_role")
+        return 0 if player_role is None else player_role.night_results_seen
 
     def get_roles_in_game(self, game: Game) -> list[dict[str, Any]]:
         """

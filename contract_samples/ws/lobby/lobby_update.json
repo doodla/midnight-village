@@ -31,6 +31,7 @@
           "display_name": "Ana"
         },
         "is_ready": true,
+        "token": "antler",
         "joined_at": "2026-11-19T20:51:00Z"
       },
       {
@@ -40,6 +41,7 @@
           "display_name": "Ben"
         },
         "is_ready": true,
+        "token": "thorn",
         "joined_at": "2026-11-19T20:52:00Z"
       },
       {
@@ -49,6 +51,7 @@
           "display_name": "Cleo"
         },
         "is_ready": true,
+        "token": "moth",
         "joined_at": "2026-11-19T20:53:00Z"
       },
       {
@@ -58,6 +61,7 @@
           "display_name": "Dev"
         },
         "is_ready": true,
+        "token": "bell",
         "joined_at": "2026-11-19T20:54:00Z"
       },
       {
@@ -67,6 +71,7 @@
           "display_name": "Esme"
         },
         "is_ready": true,
+        "token": "scythe",
         "joined_at": "2026-11-19T20:55:00Z"
       },
       {
@@ -76,6 +81,7 @@
           "display_name": "Fin"
         },
         "is_ready": true,
+        "token": "key",
         "joined_at": "2026-11-19T20:56:00Z"
       }
     ],

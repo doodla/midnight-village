@@ -169,109 +169,135 @@ def shared_window(dealt, center, choices):
 
 def engine(dealt, center, choices):
     """The same game through the project's real rules engine (role by role, as built today)."""
-    from apps.onuw.engine import GameState, NightAction, resolve_night
-
     n = len(dealt)
-    state = GameState(
-        player_roles=dict(enumerate(dealt)),
-        center_cards=list(center),
-        original_roles=dict(enumerate(dealt)),
-    )
-    acts = {1: [], 2: [], 3: [], 4: []}
-
-    def role_action(pid, role, c):
-        if role == "Seer":
-            if c[0] == "player":
-                return NightAction(pid, "Seer", "peek_player", {"player_id": c[1]})
-            return NightAction(
-                pid, "Seer", "peek_center", {"center_indices": list(c[1])}
-            )
-        if role == "Robber":
-            return NightAction(pid, "Robber", "swap_with_player", {"player_id": c})
-        if role == "Troublemaker":
-            return NightAction(
-                pid, "Troublemaker", "swap_others", {"player_ids": list(c)}
-            )
-        if role == "Drunk":
-            return NightAction(pid, "Drunk", "swap_with_center", {"center_index": c})
-        raise AssertionError(role)
-
-    d = _who(dealt, "Doppelganger")
-    copied = None
-    if d and choices.get("doppel_target") is not None:
-        me = d[0]
-        copied = dealt[choices["doppel_target"]]
-        acts[1].append(
-            NightAction(
-                me,
-                "Doppelganger",
-                "peek_player",
-                {"player_id": choices["doppel_target"]},
-            )
-        )
-        if copied == "Minion":
-            acts[1].append(NightAction(me, "Minion", "see_team", {}))
-        elif copied in ACTING_NOW and choices.get("doppel_follow") is not None:
-            acts[1].append(role_action(me, copied, choices["doppel_follow"]))
-        elif copied in ("Werewolf", "Mason"):
-            acts[2].append(NightAction(me, copied, "see_team", {}))
-        elif copied == "Insomniac":
-            acts[4].append(NightAction(me, "Insomniac", "none", {}))
-    wolves, _ = _teams(dealt, copied, d[0] if d else None)
-    for w in _who(dealt, "Werewolf"):
-        t = {}
-        if len(wolves) == 1 and choices.get("wolf_center") is not None:
-            t = {"center_index": choices["wolf_center"]}
-        acts[2].append(NightAction(w, "Werewolf", "see_team", t))
-    for m in _who(dealt, "Minion"):
-        acts[2].append(NightAction(m, "Minion", "see_team", {}))
-    for m in _who(dealt, "Mason"):
-        acts[2].append(NightAction(m, "Mason", "see_team", {}))
-    for role, key in (
-        ("Seer", "seer"),
-        ("Robber", "robber"),
-        ("Troublemaker", "troublemaker"),
-        ("Drunk", "drunk"),
-    ):
-        for p in _who(dealt, role):
-            if choices.get(key) is not None:
-                acts[3].append(role_action(p, role, choices[key]))
-    for p in _who(dealt, "Insomniac"):
-        acts[4].append(NightAction(p, "Insomniac", "none", {}))
-
-    final, results = resolve_night(state, acts)
+    final, results = engine_night(dealt, center, choices)
     views: dict[int, list[tuple[str, Any]]] = {p: [] for p in range(n)}
-    for wave in (1, 2, 3, 4):
-        for res in results.get(wave, []):
-            info = res.revealed_info
-            p = res.player_id
-            if "copied_role" in info:
-                views[p].append(("copied", info["copied_role"]))
-            if "werewolves" in info:
-                views[p].append(("werewolves", tuple(sorted(info["werewolves"]))))
-            if "center_card" in info:
-                cc = info["center_card"]
-                views[p].append(("saw_center", ((cc["index"], cc["role"]),)))
-            if "masons" in info:
-                views[p].append(("masons", tuple(sorted(info["masons"]))))
-            if "peeked_role" in info:
-                views[p].append(
-                    ("saw_player", "?")
-                )  # engine does not echo the target; filled by caller
-                views[p][-1] = ("saw_player_role", info["peeked_role"])
-            if "peeked_center" in info:
-                views[p].append(
-                    (
-                        "saw_center",
-                        tuple((x["index"], x["role"]) for x in info["peeked_center"]),
-                    )
-                )
-            if "new_role" in info:
-                views[p].append(("took", info["new_role"]))
-            if "current_role" in info:
-                views[p].append(("own_card", info["current_role"]))
+    for res in results:
+        _record_view(views, res)
     cards = [final.player_roles[p] for p in range(n)]
     return cards, list(final.center_cards), views, dict(final.doppelganger_copied_role)
+
+
+def engine_night(dealt, center, choices, ids=None):
+    """The night through the real engine, collecting actions the way the server does.
+
+    ``services._collect_window_actions`` asks ``get_required_actions_for_window`` who
+    acts, which walks the dealt cards in SEAT order (so a Minion can sit between two
+    Werewolves) and appends a Doppelganger's follow-up last; the window is then
+    resolved with ``resolve_window``, the Doppelganger's look having been resolved on
+    its own when she submitted it. This does the same, so the log has the order
+    production writes, not an order built by hand.
+
+    ``dealt[i]`` is the card of the player in seat ``i`` and ``ids[i]`` that
+    player's user id (default: the seat index). ``choices`` name players by seat.
+    Returns (final GameState with its action log, the results in resolution order).
+    """
+    from apps.onuw.engine import (
+        GameState,
+        NightAction,
+        get_doppelganger_followup_wave,
+        get_required_actions_for_window,
+        resolve_wave,
+        resolve_window,
+    )
+    from apps.onuw.engine.behaviors import is_effective_werewolf
+
+    ids = list(range(len(dealt))) if ids is None else list(ids)
+    roles = {ids[seat]: role for seat, role in enumerate(dealt)}  # seat order
+    state = GameState(
+        player_roles=dict(roles),
+        center_cards=list(center),
+        original_roles=dict(roles),
+    )
+    doppelganger = next(
+        (uid for uid, role in roles.items() if role == "Doppelganger"), None
+    )
+
+    def chosen(role, uid, c):
+        if role == "Seer":
+            if c[0] == "player":
+                return NightAction(uid, "Seer", "peek_player", {"player_id": ids[c[1]]})
+            return NightAction(
+                uid, "Seer", "peek_center", {"center_indices": list(c[1])}
+            )
+        if role == "Robber":
+            return NightAction(uid, "Robber", "swap_with_player", {"player_id": ids[c]})
+        if role == "Troublemaker":
+            return NightAction(
+                uid, "Troublemaker", "swap_others", {"player_ids": [ids[x] for x in c]}
+            )
+        return NightAction(uid, "Drunk", "swap_with_center", {"center_index": c})
+
+    def action_for(uid, role, state):
+        """What a player submits, or its role's automatic default (None: nothing)."""
+        if role in ("Minion", "Mason"):
+            return NightAction(uid, role, "see_team", {})
+        if role == "Insomniac":
+            return NightAction(uid, role, "none", {})
+        if role == "Werewolf":
+            lone = sum(is_effective_werewolf(p, state) for p in state.player_roles) == 1
+            peek = choices.get("wolf_center")
+            targets = {"center_index": peek} if lone and peek is not None else {}
+            return NightAction(uid, role, "see_team", targets)
+        key = {"Seer": "seer", "Robber": "robber", "Troublemaker": "troublemaker"}.get(
+            role, "drunk"
+        )
+        pick = choices.get("doppel_follow") if uid == doppelganger else choices.get(key)
+        if pick is not None:
+            return chosen(role, uid, pick)
+        return NightAction(uid, role, "skip", {}) if role != "Drunk" else None
+
+    results: list = []
+    # Window 1: the look is resolved on its own, then the close brings the follow-up.
+    if doppelganger is not None and choices.get("doppel_target") is not None:
+        look = NightAction(
+            doppelganger,
+            "Doppelganger",
+            "peek_player",
+            {"player_id": ids[choices["doppel_target"]]},
+        )
+        state, got = resolve_wave(state, [look], 1)  # as resolve_doppelganger_look
+        results += got
+        copied = state.doppelganger_copied_role[doppelganger]
+        if get_doppelganger_followup_wave(copied) == 1:
+            follow = action_for(doppelganger, copied, state)
+            state, got = resolve_window(state, [follow] if follow else [], 1)
+            results += got
+    # Window 2: everyone who acts, in the order the server collects them.
+    prompts = get_required_actions_for_window(state, 2, state.doppelganger_copied_role)
+    window_two = [
+        action_for(p["player_id"], p["role_acting_as"], state) for p in prompts
+    ]
+    state, got = resolve_window(state, [a for a in window_two if a], 2)
+    results += got
+    return state, results
+
+
+def _record_view(views, res):
+    info = res.revealed_info
+    p = res.player_id
+    if "copied_role" in info:
+        views[p].append(("copied", info["copied_role"]))
+    if "werewolves" in info:
+        views[p].append(("werewolves", tuple(sorted(info["werewolves"]))))
+    if "center_card" in info:
+        cc = info["center_card"]
+        views[p].append(("saw_center", ((cc["index"], cc["role"]),)))
+    if "masons" in info:
+        views[p].append(("masons", tuple(sorted(info["masons"]))))
+    if "peeked_role" in info:
+        views[p].append(("saw_player_role", info["peeked_role"]))
+    if "peeked_center" in info:
+        views[p].append(
+            (
+                "saw_center",
+                tuple((x["index"], x["role"]) for x in info["peeked_center"]),
+            )
+        )
+    if "new_role" in info:
+        views[p].append(("took", info["new_role"]))
+    if "current_role" in info:
+        views[p].append(("own_card", info["current_role"]))
 
 
 def normalise(views):

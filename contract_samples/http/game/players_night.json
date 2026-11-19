@@ -3,31 +3,43 @@
     {
       "player_id": 1,
       "display_name": "Ana",
+      "token": "antler",
+      "seat": 0,
       "connected": true
     },
     {
       "player_id": 2,
       "display_name": "Ben",
+      "token": "thorn",
+      "seat": 1,
       "connected": true
     },
     {
       "player_id": 3,
       "display_name": "Cleo",
+      "token": "moth",
+      "seat": 2,
       "connected": true
     },
     {
       "player_id": 4,
       "display_name": "Dev",
+      "token": "bell",
+      "seat": 3,
       "connected": true
     },
     {
       "player_id": 5,
       "display_name": "Esme",
+      "token": "scythe",
+      "seat": 4,
       "connected": false
     },
     {
       "player_id": 6,
       "display_name": "Fin",
+      "token": "key",
+      "seat": 5,
       "connected": true
     }
   ]

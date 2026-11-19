@@ -26,27 +26,39 @@
   "players": [
     {
       "player_id": 1,
-      "display_name": "Ana"
+      "display_name": "Ana",
+      "token": "antler",
+      "seat": 0
     },
     {
       "player_id": 2,
-      "display_name": "Ben"
+      "display_name": "Ben",
+      "token": "thorn",
+      "seat": 1
     },
     {
       "player_id": 3,
-      "display_name": "Cleo"
+      "display_name": "Cleo",
+      "token": "moth",
+      "seat": 2
     },
     {
       "player_id": 4,
-      "display_name": "Dev"
+      "display_name": "Dev",
+      "token": "bell",
+      "seat": 3
     },
     {
       "player_id": 5,
-      "display_name": "Esme"
+      "display_name": "Esme",
+      "token": "scythe",
+      "seat": 4
     },
     {
       "player_id": 6,
-      "display_name": "Fin"
+      "display_name": "Fin",
+      "token": "key",
+      "seat": 5
     }
   ],
   "action_prompt": null,
@@ -89,5 +101,6 @@
         "role": "werewolf"
       }
     }
-  ]
+  ],
+  "night_results_seen": 0
 }

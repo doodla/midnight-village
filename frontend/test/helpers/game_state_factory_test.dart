@@ -20,10 +20,11 @@ void main() {
       expect(json['lobby_code'], 'ABC123');
       expect(json['is_host'], false);
       expect(json['host_id'], 2);
+      expect(json['night_results_seen'], 0);
       expect(json['players'], [
-        {'player_id': 1, 'display_name': 'Alice'},
-        {'player_id': 2, 'display_name': 'Bob'},
-        {'player_id': 3, 'display_name': 'Charlie'},
+        {'player_id': 1, 'display_name': 'Alice', 'token': 'crow', 'seat': 0},
+        {'player_id': 2, 'display_name': 'Bob', 'token': 'key', 'seat': 1},
+        {'player_id': 3, 'display_name': 'Charlie', 'token': 'moth', 'seat': 2},
       ]);
     });
 
@@ -122,6 +123,25 @@ void main() {
           'revealed_info': {'target_name': 'Bob', 'role': 'werewolf'},
         },
       ]);
+    });
+
+    test('night_results_seen counts acknowledged entries, at most all', () {
+      final results = [serverNightResult('peek_player')];
+      final json = GameMeJsonBuilder()
+          .inPhase('discussion')
+          .withNightResults(results)
+          .withNightResultsSeen(1)
+          .build();
+      expect(json['night_results_seen'], 1);
+
+      expect(
+        () => GameMeJsonBuilder()
+            .inPhase('discussion')
+            .withNightResults(results)
+            .withNightResultsSeen(2)
+            .build(),
+        throwsStateError,
+      );
     });
   });
 }

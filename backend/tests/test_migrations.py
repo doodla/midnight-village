@@ -1,0 +1,195 @@
+"""
+Real migrations, run against data shaped like production's.
+
+The rest of the suite builds its database from the models (``--nomigrations``), so
+nothing else proves that a migration works on rows that already exist, or that the
+previous code can still write after it. These tests apply the actual migrations
+(``just test-migrations``; they skip under ``--nomigrations``): migrate to the state
+before, create rows through the historical models as that code would, migrate
+forward, assert, check the old code's INSERTs still work, then migrate back and
+forward again.
+
+To cover a new migration: add its ``(app, name)`` nodes to a new ``BEFORE`` /
+``AFTER`` pair, seed old-shape rows with ``migrator.apply(BEFORE)``, and assert
+after ``migrator.apply(AFTER)``. ``tests/old_code.py`` holds the old code's INSERTs.
+"""
+
+from collections.abc import Iterator
+from datetime import timedelta
+from typing import Any
+
+from django.db import IntegrityError, connection, transaction
+from django.db.migrations.executor import MigrationExecutor
+from django.utils import timezone
+
+import pytest
+
+from apps.core import tokens
+from tests.old_code import insert_game, insert_member, insert_player_role
+
+pytestmark = [pytest.mark.migration, pytest.mark.django_db(transaction=True)]
+
+# Before and after the v2 migrations (tokens, PlayerRole columns, dealt centre).
+BEFORE = [("core", "0009_scheduledtimer"), ("onuw", "0009_core_owns_timers")]
+AFTER = [("core", "0010_lobbymember_token"), ("onuw", "0010_playerrole_v2_fields")]
+
+
+class Migrator:
+    """Moves the database between migration states and returns that state's models."""
+
+    def apply(self, targets):
+        executor = MigrationExecutor(connection)
+        executor.migrate(targets)
+        return executor.loader.project_state(targets).apps
+
+    def to_latest(self) -> None:
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+
+@pytest.fixture
+def migrator() -> Iterator[Migrator]:
+    loader = MigrationExecutor(connection).loader
+    if AFTER[0] not in loader.graph.nodes:
+        pytest.skip("migrations are disabled (--nomigrations): `just test-migrations`")
+    migrator = Migrator()
+    try:
+        yield migrator
+    finally:
+        migrator.to_latest()  # whatever the test did, leave the schema current
+
+
+def seed_old_tables(old) -> dict[str, Any]:
+    """Rows as production has them before the v2 migrations."""
+    user_model = old.get_model("core", "User")
+    lobby_model = old.get_model("core", "Lobby")
+    member_model = old.get_model("core", "LobbyMember")
+    users = [user_model.objects.create(username=f"m{i}") for i in range(14)]
+
+    def lobby(code: str, status: str, members: int, *, max_players: int = 10):
+        row = lobby_model.objects.create(
+            code=code,
+            host=users[0],
+            game_type="onuw",
+            status=status,
+            max_players=max_players,
+        )
+        for user in users[:members]:
+            member_model.objects.create(lobby=row, user=user)
+        return row
+
+    big = lobby("BIG234", "waiting", 12, max_players=12)
+    tied = lobby("TIE234", "waiting", 4)
+    # Members who share one joined_at: the id breaks the tie.
+    same = timezone.now() - timedelta(hours=1)
+    member_model.objects.filter(lobby=tied).update(joined_at=same)
+    empty = lobby("EMP234", "waiting", 0)
+    done = lobby("DON234", "finished", 3)
+    running = lobby("RUN234", "in_game", 3)
+    game_id = insert_game(running.pk)
+    for user in users[:3]:
+        insert_player_role(game_id, user.pk)
+    return {
+        "big": big,
+        "tied": tied,
+        "empty": empty,
+        "done": done,
+        "running": running,
+        "game_id": game_id,
+        "users": users,
+    }
+
+
+def tokens_of(new, code: str) -> list[str]:
+    members = new.get_model("core", "LobbyMember").objects.filter(lobby__code=code)
+    return [m.token for m in members.order_by("joined_at", "id")]
+
+
+class TestTokenAndPlayerRoleMigrations:
+    def test_backfill_migration_assigns_tokens(self, migrator) -> None:
+        old = migrator.apply(BEFORE)
+        seeded = seed_old_tables(old)
+
+        new = migrator.apply(AFTER)
+
+        # A lobby of 12 (legacy: max_players above 10): ten tokens, two blanks.
+        order = tokens.token_order("BIG234")
+        assert tokens_of(new, "BIG234") == [*order, "", ""]
+        # Joined at the same instant: tokens go by id, which is creation order.
+        tied_ids = list(
+            new.get_model("core", "LobbyMember")
+            .objects.filter(lobby__code="TIE234")
+            .order_by("id")
+            .values_list("token", flat=True)
+        )
+        assert tied_ids == tokens.token_order("TIE234")[:4]
+        assert tokens_of(new, "EMP234") == []  # an empty lobby is fine
+        # A finished table is left alone (blank tokens are handled lazily).
+        assert tokens_of(new, "DON234") == ["", "", ""]
+        # A running one gets them.
+        assert tokens_of(new, "RUN234") == tokens.token_order("RUN234")[:3]
+        # Old games and players take the column defaults.
+        game = new.get_model("onuw", "Game").objects.get(id=seeded["game_id"])
+        assert game.dealt_center_cards == []
+        roles = new.get_model("onuw", "PlayerRole").objects.filter(game=game)
+        assert roles.count() == 3
+        for role in roles:
+            assert (role.token, role.seat, role.phase_ready) == ("", None, False)
+            assert role.night_results_seen == 0
+
+    def test_the_unique_rule_ignores_blanks_but_stops_a_repeated_token(
+        self, migrator
+    ) -> None:
+        seed_old_tables(migrator.apply(BEFORE))
+        new = migrator.apply(AFTER)
+        member_model = new.get_model("core", "LobbyMember")
+        user_model = new.get_model("core", "User")
+        done = member_model.objects.filter(lobby__code="DON234")
+        assert done.filter(token="").count() == 3  # three blanks, no clash
+        lobby = new.get_model("core", "Lobby").objects.get(code="TIE234")
+        taken = member_model.objects.filter(lobby=lobby).first().token
+
+        with pytest.raises(IntegrityError), transaction.atomic():
+            member_model.objects.create(
+                lobby=lobby, user=user_model.objects.get(username="m9"), token=taken
+            )
+
+    def test_the_old_code_can_still_write_after_the_migrations(self, migrator) -> None:
+        seeded = seed_old_tables(migrator.apply(BEFORE))
+        new = migrator.apply(AFTER)
+        tied = seeded["tied"]
+        late_user = seeded["users"][9]
+
+        insert_member(tied.pk, late_user.pk)  # a join by the previous instance
+        game_id = insert_game(tied.pk)
+        insert_player_role(game_id, late_user.pk)
+
+        late = new.get_model("core", "LobbyMember").objects.get(
+            lobby_id=tied.pk, user_id=late_user.pk
+        )
+        assert late.token == ""  # the deal fills it in
+        role = new.get_model("onuw", "PlayerRole").objects.get(game_id=game_id)
+        assert (role.token, role.seat, role.phase_ready, role.night_results_seen) == (
+            "",
+            None,
+            False,
+            0,
+        )
+        game = new.get_model("onuw", "Game").objects.get(id=game_id)
+        assert game.dealt_center_cards == []
+
+    def test_migrating_back_and_forward_again_keeps_the_result(self, migrator) -> None:
+        seeded = seed_old_tables(migrator.apply(BEFORE))
+        migrator.apply(AFTER)
+
+        back = migrator.apply(BEFORE)
+        columns = {f.name for f in back.get_model("core", "LobbyMember")._meta.fields}
+        assert "token" not in columns
+        # The previous code writes while the schema is old again.
+        insert_member(seeded["tied"].pk, seeded["users"][9].pk)
+        again = migrator.apply(AFTER)
+
+        # Forward a second time: the backfill reruns, now including that member.
+        assert tokens_of(again, "TIE234") == tokens.token_order("TIE234")[:5]
+        assert tokens_of(again, "BIG234") == [*tokens.token_order("BIG234"), "", ""]
+        assert tokens_of(again, "DON234") == ["", "", ""]

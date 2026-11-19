@@ -138,7 +138,13 @@ class TestPlayerList:
 
         # Verify individual player entries only contain expected keys
         for p in response.data["players"]:
-            assert set(p.keys()) == {"player_id", "display_name", "connected"}
+            assert set(p.keys()) == {
+                "player_id",
+                "display_name",
+                "token",
+                "seat",
+                "connected",
+            }
 
     def test_player_list_shows_vote_status_during_voting(self, api_client, db):
         """During voting phase, each player entry includes has_voted status."""
@@ -176,6 +182,8 @@ class TestPlayerList:
             assert set(p.keys()) == {
                 "player_id",
                 "display_name",
+                "token",
+                "seat",
                 "connected",
                 "has_voted",
             }

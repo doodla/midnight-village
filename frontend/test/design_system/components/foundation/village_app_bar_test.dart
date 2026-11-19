@@ -1,9 +1,11 @@
+// OLD LOOK: delete when 01 Join and 02 Table are rebuilt
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/foundation/village_app_bar.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
-import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
+import 'package:midnight_village/design_system/skin/skin_theme.dart';
+import 'package:midnight_village/design_system/skin/skins/shadow_paper.dart';
 
 import '../../test_helpers/pump_with_tokens.dart';
 import '../../test_helpers/test_theme.dart';
@@ -50,7 +52,7 @@ void main() {
           ProviderScope(
             overrides: [activeThemeProvider.overrideWithValue(testTheme)],
             child: MaterialApp(
-              theme: generateThemeData(testTheme),
+              theme: skinTheme(shadowPaper),
               home: Builder(
                 builder: (context) => Scaffold(
                   body: TextButton(

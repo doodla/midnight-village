@@ -18,6 +18,27 @@ const List<Seat> defaultSeats = [
   (id: 3, name: 'Charlie'),
 ];
 
+/// The ten seat tokens, in the server's order (`backend/apps/core/tokens.py`).
+const serverTokens = [
+  'crow',
+  'key',
+  'moth',
+  'bell',
+  'thorn',
+  'antler',
+  'hare',
+  'lantern',
+  'spindle',
+  'scythe',
+];
+
+/// The seat fields of the player at [index] in seat (join) order: their
+/// own token and their seat number, as every players list carries them.
+Map<String, dynamic> seatFields(int index) => {
+  'token': serverTokens[index],
+  'seat': index,
+};
+
 /// [base] with [values] written over keys it already has.
 Map<String, dynamic> withValues(
   Map<String, dynamic> base,
@@ -130,10 +151,11 @@ Map<String, dynamic> serverPlayerList({
   final template = _entry(sample, 'players')..remove('has_voted');
   return withValues(sample, {
     'players': [
-      for (final seat in seats)
+      for (final (i, seat) in seats.indexed)
         withValues(template, {
           'player_id': seat.id,
           'display_name': seat.name,
+          ...seatFields(i),
           'connected': !away.contains(seat.id),
         })..addAll({
           if (hasVoted != null) 'has_voted': hasVoted[seat.id] ?? false,
@@ -202,10 +224,11 @@ Map<String, dynamic> serverResults({
           }),
     ],
     'players': [
-      for (final p in seats)
+      for (final (i, p) in seats.indexed)
         withValues(player, {
           'player_id': p.seat.id,
           'display_name': p.seat.name,
+          ...seatFields(i),
           'original_role': p.originalRole,
           'final_role': p.finalRole,
           'team': p.team,
@@ -285,6 +308,7 @@ Map<String, dynamic> serverLobby({
       for (final (i, seat) in seats.indexed)
         withValues(member, {
           'user': userJson(seat),
+          'token': serverTokens[i],
           'is_ready': !notReady.contains(seat.id),
           'joined_at': DateTime.utc(
             2026,

@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
-/// Registers every font family the app declares (the bundled Gloock and
-/// Figtree, and MaterialIcons) so tests, goldens and the screen gallery draw
+/// Registers every font family the app declares (the skins' bundled faces,
+/// and MaterialIcons) so tests, goldens and the screen gallery draw
 /// real glyphs instead of the test font's boxes. Reads the same
 /// FontManifest.json the engine uses, so a family added to pubspec.yaml is
 /// picked up without touching this file.

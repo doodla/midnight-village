@@ -15,31 +15,43 @@
     {
       "player_id": 1,
       "display_name": "Ana",
+      "token": "antler",
+      "seat": 0,
       "has_voted": true
     },
     {
       "player_id": 2,
       "display_name": "Ben",
+      "token": "thorn",
+      "seat": 1,
       "has_voted": false
     },
     {
       "player_id": 3,
       "display_name": "Cleo",
+      "token": "moth",
+      "seat": 2,
       "has_voted": false
     },
     {
       "player_id": 4,
       "display_name": "Dev",
+      "token": "bell",
+      "seat": 3,
       "has_voted": false
     },
     {
       "player_id": 5,
       "display_name": "Esme",
+      "token": "scythe",
+      "seat": 4,
       "has_voted": false
     },
     {
       "player_id": 6,
       "display_name": "Fin",
+      "token": "key",
+      "seat": 5,
       "has_voted": false
     }
   ],
@@ -83,5 +95,6 @@
         "role": "werewolf"
       }
     }
-  ]
+  ],
+  "night_results_seen": 0
 }

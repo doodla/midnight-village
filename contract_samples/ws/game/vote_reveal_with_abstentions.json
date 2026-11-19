@@ -1,13 +1,13 @@
 {
   "type": "vote_reveal",
   "votes": {
+    "7": 9,
+    "8": 9,
+    "9": null,
     "10": null,
     "11": null,
     "12": null,
     "13": null,
-    "9": null,
-    "14": null,
-    "7": 9,
-    "8": 9
+    "14": null
   }
 }

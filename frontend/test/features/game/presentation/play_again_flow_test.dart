@@ -6,8 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
-import 'package:midnight_village/design_system/tokens/midnight_village_theme.dart';
-import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
+import '../../../design_system/test_helpers/midnight_village_theme.dart';
+import 'package:midnight_village/design_system/skin/skin_theme.dart';
+import 'package:midnight_village/design_system/skin/skins/shadow_paper.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
@@ -124,7 +125,7 @@ Future<_Pumped> _pumpResults(
         wakelockServiceProvider.overrideWithValue(wakelock),
       ],
       child: MaterialApp.router(
-        theme: generateThemeData(theme),
+        theme: skinTheme(shadowPaper),
         routerConfig: router,
       ),
     ),

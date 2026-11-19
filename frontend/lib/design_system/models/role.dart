@@ -15,7 +15,12 @@ enum RoleId {
   mason,
   hunter,
   tanner,
-  doppelganger,
+  doppelganger;
+
+  /// The role the server names [name] ("Werewolf", "Doppelganger"), or null
+  /// for a name it does not use.
+  static RoleId? fromServer(String name) =>
+      values.where((role) => role.displayName == name).firstOrNull;
 }
 
 extension RoleIdX on RoleId {
@@ -41,6 +46,8 @@ extension RoleIdX on RoleId {
     RoleId.doppelganger => 'Doppelganger',
   };
 
+  // OLD LOOK: delete teamColor, placeholderIcon and the app_tokens import
+  // when 02 Table, 03 Deck and 04 to 11 are rebuilt.
   Color teamColor(AppColorTokens colors) => switch (team) {
     TeamId.werewolf => colors.werewolfTeam,
     TeamId.village => colors.villageTeam,

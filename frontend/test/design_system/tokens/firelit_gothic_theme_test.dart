@@ -1,3 +1,4 @@
+// OLD LOOK: delete when the last old-look screen is rebuilt
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -5,7 +6,6 @@ import 'package:midnight_village/design_system/tokens/app_colors.dart';
 import 'package:midnight_village/design_system/tokens/app_radius.dart';
 import 'package:midnight_village/design_system/tokens/app_spacing.dart';
 import 'package:midnight_village/design_system/tokens/firelit_gothic_theme.dart';
-import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
 
 import '../../helpers/test_fonts.dart';
 import '../test_helpers/test_theme.dart';
@@ -16,9 +16,6 @@ import '../test_helpers/test_theme.dart';
 
 TextStyle _getTypographyStyle(TextStyle Function() builder) =>
     quietRetiredFonts(builder);
-
-ThemeData _buildThemeData(FirelitGothicTheme theme) =>
-    quietRetiredFonts(() => generateThemeData(theme));
 
 void main() {
   group('FirelitGothicTheme', () {
@@ -172,51 +169,6 @@ void main() {
         expect(theme.decorations.candleGlow, isNotNull);
         expect(theme.decorations.noiseOverlayAsset, isNotEmpty);
       });
-    });
-  });
-
-  group('generateThemeData (ThemeBridge)', () {
-    late ThemeData themeData;
-
-    setUp(() {
-      themeData = _buildThemeData(const FirelitGothicTheme());
-    });
-
-    test('generates valid ThemeData', () {
-      expect(themeData, isNotNull);
-      expect(themeData.useMaterial3, isTrue);
-    });
-
-    test('colorScheme primary matches emberRed', () {
-      expect(themeData.colorScheme.primary, AppColors.emberRed);
-    });
-
-    test('colorScheme tertiary matches moonSage', () {
-      expect(themeData.colorScheme.tertiary, AppColors.moonSage);
-    });
-
-    test('displayLarge is non-null', () {
-      expect(themeData.textTheme.displayLarge, isNotNull);
-    });
-
-    test('labelLarge maps to timerDigits (48sp)', () {
-      expect(themeData.textTheme.labelLarge?.fontSize, 48.0);
-    });
-
-    test('cardTheme shape is RoundedRectangleBorder', () {
-      expect(themeData.cardTheme.shape, isA<RoundedRectangleBorder>());
-    });
-
-    test('cardTheme elevation is 0', () {
-      expect(themeData.cardTheme.elevation, 0.0);
-    });
-
-    test('appBarTheme has transparent background', () {
-      expect(themeData.appBarTheme.backgroundColor, Colors.transparent);
-    });
-
-    test('appBarTheme has 0 elevation', () {
-      expect(themeData.appBarTheme.elevation, 0.0);
     });
   });
 

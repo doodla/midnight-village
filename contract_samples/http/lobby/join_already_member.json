@@ -1,3 +1,4 @@
 {
-  "detail": "You are already in this lobby."
+  "detail": "You are already in this lobby.",
+  "code": "already_in_lobby"
 }

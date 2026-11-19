@@ -1,3 +1,4 @@
+// OLD LOOK: delete when the last old-look screen is rebuilt
 // Smoke test validating that Google Fonts render without errors in tests.
 // Google Fonts HTTP fetching is disabled in flutter_test_config.dart and these
 // families are not bundled, so they are drawn in Figtree stand-ins

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:midnight_village/core/router/routes.dart';
-import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
+import 'package:midnight_village/design_system/skin/skin_choice.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 
@@ -66,7 +66,7 @@ extension PumpAppExtension on WidgetTester {
         child: Consumer(
           builder: (context, ref, _) => MaterialApp.router(
             debugShowCheckedModeBanner: false,
-            theme: ref.watch(activeThemeDataProvider),
+            theme: ref.watch(appThemeProvider),
             routerConfig: router,
           ),
         ),

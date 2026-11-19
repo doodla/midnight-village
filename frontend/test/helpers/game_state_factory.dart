@@ -59,6 +59,7 @@ class GameMeJsonBuilder {
   String? _promptKind;
   List<int>? _promptTeam;
   List<Map<String, dynamic>> _nightResults = const [];
+  int _nightResultsSeen = 0;
   List<Seat> _seats = defaultSeats;
   Map<String, int> _deck = const {
     'Werewolf': 2,
@@ -159,6 +160,13 @@ class GameMeJsonBuilder {
     return this;
   }
 
+  /// `night_results_seen`: how many of [withNightResults]' entries this
+  /// player has acknowledged (the server never counts more than it lists).
+  GameMeJsonBuilder withNightResultsSeen(int seen) {
+    _nightResultsSeen = seen;
+    return this;
+  }
+
   GameMeJsonBuilder withLobbyCode(String code) {
     _lobbyCode = code;
     return this;
@@ -177,6 +185,16 @@ class GameMeJsonBuilder {
     ..._deck,
     if (!_deck.containsKey(_role)) _role: 1,
   };
+
+  int get _seenCount {
+    if (_nightResultsSeen < 0 || _nightResultsSeen > _nightResults.length) {
+      throw StateError(
+        'night_results_seen is 0 to the number of night_results the server '
+        'lists (${_nightResults.length}), never $_nightResultsSeen.',
+      );
+    }
+    return _nightResultsSeen;
+  }
 
   int get _window {
     if (_phase != 'night') return 0;
@@ -218,10 +236,11 @@ class GameMeJsonBuilder {
       'host_id': _host,
       'has_voted': _hasVoted,
       'players': [
-        for (final seat in _seats)
+        for (final (i, seat) in _seats.indexed)
           withValues(player, {
             'player_id': seat.id,
             'display_name': seat.name,
+            ...seatFields(i),
             if (_phase == 'voting')
               'has_voted': seat.id == _viewerId
                   ? _hasVoted
@@ -244,6 +263,7 @@ class GameMeJsonBuilder {
           {'role': key, 'count': value},
       ],
       'night_results': _nightResults,
+      'night_results_seen': _seenCount,
     });
     checkHttpBody('GET', '/onuw/games/$_gameId/me/', 200, json);
     return json;

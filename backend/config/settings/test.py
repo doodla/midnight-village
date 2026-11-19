@@ -16,6 +16,10 @@ SECRET_KEY = "django-insecure-test-key-not-for-production"
 
 DEBUG = False
 
+# A socket event type with no handler is a bug in new code: fail, do not drop it
+# (production, base.py, drops it so an older instance keeps its sockets open).
+ONUW_STRICT_SOCKET_EVENTS = True
+
 # Tests never recover timers at import time (they build their own state).
 ONUW_RECOVER_TIMERS_ON_START = False
 
@@ -66,5 +70,6 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "1000/minute",
         "user": "1000/minute",
+        "online_stats": "1000/minute",
     },
 }

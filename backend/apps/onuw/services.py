@@ -18,7 +18,8 @@ from typing import Any
 
 from django.conf import settings as django_settings
 from django.db import DatabaseError, transaction
-from django.db.models.functions import Now
+from django.db.models import F
+from django.db.models.functions import Greatest, Now
 from django.utils import timezone
 
 from channels.layers import get_channel_layer
@@ -39,6 +40,7 @@ from .engine.night import (
 )
 from .engine.roles import ActionType, get_role, window_for_order_group
 from .engine.state import ActionResult, GameState, NightAction
+from .engine.timeline import TimelineError, build_night_timeline, recover_dealt_center
 from .engine.validation import is_valid_timer_value, max_seconds_for
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
@@ -255,25 +257,19 @@ def client_action_result(
     )
 
 
-def night_results_for_player(
-    game: Game, user_id: int, player_names: dict[int, str]
-) -> list[dict[str, Any]]:
-    """The caller's own night results for every window that has closed.
+def _visible_result_entries(
+    game: Game, user_id: int
+) -> list[tuple[int, dict[str, Any]]]:
+    """The player's own night-log entries that show as a result now: ``(window,
+    entry)`` in window order (stable: wake order within a window).
 
-    Rebuilt from the stored night log with the same transform the
-    ``action.result`` socket event uses, so a phone that was offline when a
-    window closed shows exactly what it would have received. One entry per
-    result, in window order (a Doppelganger with a follow-up gets two in
-    window 1: the copy, then the follow-up).
-
-    Every action the socket carried is returned exactly as sent, including a
-    swap (Drunk, Troublemaker), whose engine result is empty but whose client
-    payload is the slot / the two names swapped. Only an explicit ``skip`` is
-    left out: it carries nothing. Only this player's own entries are read, and a
-    window that is still open
-    contributes nothing: nothing reaches a player before its window closes
-    (the Doppelganger's look, which is sent early because she needs it to
-    choose her follow-up, is held back here until window 1 closes).
+    Only this player's entries, and not an explicit ``skip`` (it carries nothing);
+    every other action, including a swap whose engine result is empty (the client
+    learns its slot / the names it swapped from the action), was sent over the
+    socket. A window that is still open contributes nothing: nothing reaches a
+    player before its window closes (the Doppelganger's look, which is sent early
+    because she needs it to choose her follow-up, is held back until window 1
+    closes).
     """
     if game.phase == Phase.NIGHT:
         closed_before = game.current_wave  # windows 1..current_wave-1 have closed
@@ -284,18 +280,32 @@ def night_results_for_player(
 
     entries: list[tuple[int, dict[str, Any]]] = []
     for entry in game.night_actions_log:
-        # Only the player's own entries, and not an explicit "do nothing": every
-        # other entry, including a swap whose engine result is empty (the
-        # client learns its slot / the names it swapped from the action), was
-        # sent over the socket and is returned here exactly as sent.
         if entry.get("player_id") != user_id or entry.get("action_type") == "skip":
             continue
         try:
             window = window_for_order_group(entry["wave"])
         except (KeyError, ValueError):
             continue
-        if window >= closed_before:
-            continue
+        if window < closed_before:
+            entries.append((window, entry))
+    entries.sort(key=lambda item: item[0])
+    return entries
+
+
+def night_results_for_player(
+    game: Game, user_id: int, player_names: dict[int, str]
+) -> list[dict[str, Any]]:
+    """The caller's own night results for every window that has closed.
+
+    Rebuilt from the stored night log with the same transform the
+    ``action.result`` socket event uses (``client_action_result``), so a phone that
+    was offline when a window closed shows exactly what it would have received. One
+    entry per result, in window order (a Doppelganger with a follow-up gets two in
+    window 1: the copy, then the follow-up). Which entries count is decided by
+    ``_visible_result_entries``.
+    """
+    results: list[dict[str, Any]] = []
+    for window, entry in _visible_result_entries(game, user_id):
         action = NightAction(
             player_id=user_id,
             role_acting_as=entry.get("role_acting_as", ""),
@@ -309,14 +319,67 @@ def night_results_for_player(
         except Exception:
             logger.exception("Could not rebuild a night result for player %s", user_id)
             continue
-        entries.append(
-            (
-                window,
-                {"wave": window, "action_type": action_type, "revealed_info": revealed},
-            )
+        results.append(
+            {"wave": window, "action_type": action_type, "revealed_info": revealed}
         )
-    entries.sort(key=lambda item: item[0])  # stable: keeps wake order within a window
-    return [payload for _, payload in entries]
+    return results
+
+
+def night_timeline_for(game: Game, player_roles: list[PlayerRole]) -> dict | None:
+    """The night as a timeline for the results screen, or None if it cannot be built.
+
+    ``player_roles`` must be in seat order. Built forwards from the dealt cards
+    (``original_role`` by seat and ``Game.dealt_center_cards``); a game dealt before
+    the centre was stored recovers it by undoing the logged swaps, which only counts
+    if that leads back to every player's dealt role.
+
+    This is a presentation boundary: the rest of the results must show whatever the
+    night log looks like, so ANY failure answers None. A log the timeline refuses in
+    a game from before the centre was stored is expected (WARNING, once); anything
+    else is a bug or a corrupt log (ERROR, with the traceback).
+    """
+    seats = [pr.user_id for pr in player_roles]
+    original = {pr.user_id: pr.original_role for pr in player_roles}
+    log = list(game.night_actions_log)
+    legacy = not game.dealt_center_cards
+    try:
+        dealt_center = list(game.dealt_center_cards) or recover_dealt_center(
+            original,
+            {pr.user_id: pr.current_role for pr in player_roles},
+            list(game.center_cards),
+            log,
+        )
+        return build_night_timeline(seats, original, dealt_center, log)
+    except TimelineError:
+        if legacy:
+            logger.warning("No night timeline for old game %s", game.id, exc_info=True)
+        else:
+            logger.error("No night timeline for game %s", game.id, exc_info=True)
+    except Exception:
+        logger.exception("Night timeline of game %s failed unexpectedly", game.id)
+    return None
+
+
+def acknowledge_night_results(game: Game, user_id: int, seen: int) -> int | None:
+    """Record that the player has seen their first ``seen`` night results.
+
+    Returns the stored count, or None if the user is not a player of the game.
+    ``seen`` is clamped to the number of results the player can see now: the log
+    entries ``night_results`` is built from, counted without rendering them. So an
+    ack can never cover a result not shown to them yet (the Doppelganger's look
+    reaches her by socket while window 1 is open, but is listed only once it
+    closes). The update is ONE statement that
+    only ever raises the count (``GREATEST``): it takes no Game lock, a late or
+    repeated ack changes nothing, and two phones cannot lower each other's.
+    """
+    visible = len(_visible_result_entries(game, user_id))
+    rows = PlayerRole.objects.filter(game=game, user_id=user_id)
+    updated = rows.update(
+        night_results_seen=Greatest(F("night_results_seen"), min(seen, visible))
+    )
+    if not updated:
+        return None
+    return rows.values_list("night_results_seen", flat=True).get()
 
 
 def build_game_state(game: Game) -> GameState:
@@ -867,20 +930,7 @@ def persist_wave_results(
 
     # Append the action log entries produced by this resolution
     log = list(game.night_actions_log)
-    for entry in new_state.action_log:
-        log.append(
-            {
-                "wave": entry.wave,
-                "player_id": entry.player_id,
-                "action_type": entry.action_type,
-                "targets": entry.targets,
-                "result": entry.result,
-                "timestamp_order": entry.timestamp_order,
-                "role_acting_as": entry.role_acting_as,
-                # Only present when the server moved for a player who timed out.
-                **({"made_by_server": True} if entry.made_by_server else {}),
-            }
-        )
+    log.extend(entry.to_dict() for entry in new_state.action_log)
     game.night_actions_log = log
     game.save(update_fields=["center_cards", "night_actions_log", "updated_at"])
 
@@ -1474,7 +1524,9 @@ def reveal_votes(game: Game) -> None:
         }
         game.save(update_fields=["phase", "phase_deadline", "results", "updated_at"])
 
-        Lobby.objects.filter(id=game.lobby_id).update(status=Lobby.Status.FINISHED)
+        Lobby.objects.filter(id=game.lobby_id).update(
+            status=Lobby.Status.FINISHED, updated_at=timezone.now()
+        )
 
     # Clean up all remaining timers for this game (safety net — individual
     # timers are cancelled at each phase transition, but this catches any

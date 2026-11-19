@@ -212,7 +212,13 @@ class TestConnectionCounting:
             night.users["villager"].id: False,
         }
         for p in response.data["players"]:
-            assert set(p) == {"player_id", "display_name", "connected"}
+            assert set(p) == {
+                "player_id",
+                "display_name",
+                "token",
+                "seat",
+                "connected",
+            }
 
     def test_a_drop_in_the_talk_starts_no_grace_timer(self, make_night) -> None:
         night = make_night(ROLES)

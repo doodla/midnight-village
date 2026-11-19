@@ -14,35 +14,51 @@
   "players": [
     {
       "player_id": 7,
-      "display_name": "Ana"
+      "display_name": "Ana",
+      "token": "hare",
+      "seat": 0
     },
     {
       "player_id": 8,
-      "display_name": "Ben"
+      "display_name": "Ben",
+      "token": "scythe",
+      "seat": 1
     },
     {
       "player_id": 9,
-      "display_name": "Cleo"
+      "display_name": "Cleo",
+      "token": "lantern",
+      "seat": 2
     },
     {
       "player_id": 10,
-      "display_name": "Dev"
+      "display_name": "Dev",
+      "token": "bell",
+      "seat": 3
     },
     {
       "player_id": 11,
-      "display_name": "Esme"
+      "display_name": "Esme",
+      "token": "antler",
+      "seat": 4
     },
     {
       "player_id": 12,
-      "display_name": "Fin"
+      "display_name": "Fin",
+      "token": "key",
+      "seat": 5
     },
     {
       "player_id": 13,
-      "display_name": "Gus"
+      "display_name": "Gus",
+      "token": "crow",
+      "seat": 6
     },
     {
       "player_id": 14,
-      "display_name": "Hana"
+      "display_name": "Hana",
+      "token": "spindle",
+      "seat": 7
     }
   ],
   "action_prompt": {
@@ -101,5 +117,6 @@
       "count": 1
     }
   ],
-  "night_results": []
+  "night_results": [],
+  "night_results_seen": 0
 }

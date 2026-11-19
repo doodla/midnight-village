@@ -5,7 +5,8 @@ import contextlib
 import logging
 
 from channels.db import database_sync_to_async
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
+
+from apps.core.consumers import TolerantJsonWebsocketConsumer
 
 from . import presence
 
@@ -22,7 +23,7 @@ def _host_presence(game_id, user_id, connected: bool) -> None:
         logger.exception("Host handover check failed for game %s", game_id)
 
 
-class GameConsumer(AsyncJsonWebsocketConsumer):
+class GameConsumer(TolerantJsonWebsocketConsumer):
     """
     WebSocket consumer for an ONUW game session.
 

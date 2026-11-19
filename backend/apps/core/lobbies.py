@@ -2,11 +2,105 @@
 
 from __future__ import annotations
 
-from django.db import transaction
+import logging
+from datetime import timedelta
+from typing import Any
 
-from apps.core import games
+from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
+
+from apps.core import games, tokens
 from apps.core.effects import send_after_commit
 from apps.core.models import Lobby, LobbyMember
+
+logger = logging.getLogger(__name__)
+
+
+class LobbyFullError(Exception):
+    """No seat is left: the lobby is at ``max_players`` or every token is taken."""
+
+
+def _log_token(lobby: Lobby, user_id: int, token: str) -> None:
+    """Tokens are seeded by the lobby code; the log makes a table replayable."""
+    logger.info("lobby %s: user %s takes token %s", lobby.code, user_id, token)
+
+
+def touch(lobby_id: int) -> None:
+    """Record table activity: ``Lobby.updated_at`` is when anything last happened.
+
+    ``save()`` bumps it by itself; a queryset ``update()`` and the changes that
+    only touch a member (join, leave) do not, so they call this. "Where am I"
+    counts its resume window from here.
+    """
+    Lobby.objects.filter(pk=lobby_id).update(updated_at=timezone.now())
+
+
+def add_member(lobby: Lobby, user_id: int) -> LobbyMember:
+    """Seat a user at the table with the next free token, logged for replay.
+
+    The caller holds the Lobby row lock inside an atomic block, so the capacity
+    check, the token and the insert cannot interleave with another join.
+
+    Raises LobbyFullError.
+    """
+    token = tokens.assign_token(lobby)
+    if token is None or lobby.players.count() >= lobby.max_players:  # type: ignore[attr-defined]
+        raise LobbyFullError
+    member = LobbyMember.objects.create(lobby=lobby, user_id=user_id, token=token)
+    touch(lobby.pk)
+    _log_token(lobby, user_id, token)
+    return member
+
+
+def current_table(user_id: int) -> dict[str, Any] | None:
+    """The table the user is seated at now, for the app to resume (None = none).
+
+    Starts from membership: the user's newest-joined lobby with activity within
+    ``CORE_TABLE_RESUME_HOURS`` (``Lobby.updated_at``: created, joined, left,
+    settings, dealt, finished, played again). A table left last week, or a game
+    nobody finished, does not pull them back. ``game`` is the lobby's newest game
+    when the user plays in it, as the game app's hook reports it; the client
+    routes on ``game.phase`` and ``status``.
+    """
+    cutoff = timezone.now() - timedelta(hours=settings.CORE_TABLE_RESUME_HOURS)
+    member = (
+        LobbyMember.objects.filter(user_id=user_id)
+        .filter(lobby__updated_at__gte=cutoff)
+        .select_related("lobby")
+        .order_by("-joined_at", "-id")
+        .first()
+    )
+    if member is None:
+        return None
+    lobby = member.lobby
+    return {
+        "lobby_code": lobby.code,
+        "game_type": lobby.game_type,
+        "status": lobby.status,
+        "is_host": lobby.is_host(user_id),
+        "token": member.token,
+        "game": games.hooks_for(lobby).member_game(lobby, user_id),
+    }
+
+
+def ensure_tokens(lobby: Lobby, members: list[LobbyMember]) -> None:
+    """Give a token to every member who has none (join order); call before a deal.
+
+    A member made by code that predates tokens (a rollout, or a row created
+    outside ``add_member``) is blank. With the Lobby row locked, each takes the
+    next free token in the lobby's order; a legacy table over ten keeps blanks
+    for the members beyond the tenth.
+    """
+    for member in members:
+        if member.token:
+            continue
+        token = tokens.assign_token(lobby)
+        if token is None:
+            return
+        LobbyMember.objects.filter(pk=member.pk).update(token=token)
+        member.token = token
+        _log_token(lobby, member.user_id, token)
 
 
 class PlayAgainError(Exception):

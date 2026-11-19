@@ -276,9 +276,9 @@ The stage is identical for every role; only presence and taps end it. `night_res
 ### Decision
 `GET .../results/` (already results-phase only, already all players) gains a `night_timeline` computed by a **pure engine function** that replays the night log over the dealt cards. Every physical card gets a stable id, so duplicate roles (2 Werewolves, 2 Masons) still have distinct paths. Each step lists actors, the action, what was looked at (as card ids), the moves, and **all card positions after the step**, so the client only draws (principle 1).
 
-Rows are log entries in log order, which is wake order (the log is appended in resolution order). Consecutive `see_team` entries of the same `role_acting_as` merge into one row with several actors ("Werewolves wake").
+Rows are log entries in resolution order, with ONE correction: the engine resolves the team views of order group 2 in SEAT order (a Minion can sit between two Werewolves in the log), so the timeline puts group 2 in the order of the rules, with a stable sort: Werewolves, then Minion, then Masons (a Doppelganger who copied Werewolf or Mason is one of that role's actors, after the dealt ones). Team views move no cards, so no position changes. The `see_team` rows of one role in one order group then merge into ONE step with all its actors ("Werewolves wake"); `doppelganger_actors` names the Doppelganger among them, so the screen can mark her without a rule. A Doppelganger who copied Minion acts in window 1 (a different order group) and keeps a step of her own.
 
-The dealt center is recovered by undoing the logged swaps from the final table. `Game.center_cards` is overwritten during the night (`persist_wave_results`), so no migration or backfill is needed, and old games get timelines too. A forward replay must then reproduce the stored final roles and center. If it does not, `night_timeline` is `null` and an error is logged.
+The timeline is built FORWARDS from the dealt cards: `PlayerRole.original_role` by seat and `Game.dealt_center_cards` (`Game.center_cards` is overwritten during the night). A game dealt before that column existed recovers its centre by undoing the logged swaps from the final table; that is accepted only if the players' cards it arrives at equal their dealt roles (nothing else is verified: the centre it returns is what the log implies). `night_timeline` is `null` (logged: WARNING for such an old game, ERROR otherwise) whenever it cannot be built, for ANY reason, and the rest of the results still show. There is no runtime "replay equals final" check, because it could never fail; it is tested instead, for the 29 reference games and for seeded random nights, with the actions collected the way the server collects them.
 
 ### API (additions to the existing body)
 ```json
@@ -295,12 +295,12 @@ The dealt center is recovered by undoing the logged swaps from the final table. 
               "center": ["k5", "k6", "k7"]},
     "steps": [
       {"step": 1, "window": 2, "order_group": 2, "role": "Werewolf", "actors": [13],
-       "action": "peek_center", "made_by_server": false,
+       "doppelganger_actors": [], "action": "peek_center", "made_by_server": false,
        "looked_at": [{"center_index": 1, "card_id": "k6"}],
        "team": [], "copied_role": null, "moves": [],
        "positions_after": {"players": {"11": "k0", "12": "k1", "13": "k2", "14": "k3", "15": "k4"}, "center": ["k5", "k6", "k7"]}},
       {"step": 3, "window": 2, "order_group": 3, "role": "Robber", "actors": [12],
-       "action": "swap_with_player", "made_by_server": false,
+       "doppelganger_actors": [], "action": "swap_with_player", "made_by_server": false,
        "looked_at": [{"player_id": 13, "card_id": "k2"}],
        "moves": [{"card_id": "k1", "from": {"player_id": 12}, "to": {"player_id": 13}},
                  {"card_id": "k2", "from": {"player_id": 13}, "to": {"player_id": 12}}],
@@ -313,9 +313,9 @@ The dealt center is recovered by undoing the logged swaps from the final table. 
 ```
 - `cards` lists one entry per card; the example shows three of the eight.
 - `action` is one of `copy` (Doppelganger look), `see_team`, `peek_player`, `peek_center`, `swap_with_player`, `swap_others`, `swap_with_center`, `look_own` (Insomniac), `skip`.
-- `role` is `role_acting_as`; a Doppelganger's step carries `"doppelganger": true`.
+- `role` is `role_acting_as`. `doppelganger_actors` lists which of `actors` is the Doppelganger (her look, her follow-up as another role, her place among the Werewolves or Masons); it is empty otherwise. `team` (see_team rows) is everyone shown together: the actors of a Werewolf or Mason row plus whoever the result listed (a Minion's row lists the Werewolves).
 - `looked_at[].card_id` comes from the replay, not from the stored result text. The client looks up `role` in `cards`.
-- `werewolf: true` marks cards whose role is Werewolf (the red path). The server decides this; the client only colours.
+- `werewolf: true` marks the werewolf cards (the red path): a Werewolf card, AND a Doppelganger card whose holder copied Werewolf, which is a werewolf card for whoever ends the night holding it (`docs/specs/onuw/doppelganger.md`, Team Resolution Rule). The server decides this from the copy step; the client only colours. The card's `role` still says "Doppelganger".
 - `center_moved` drives "Center cards, untouched: …".
 - Card ids: `k0..k(n-1)` by seat order, then `k(n)..k(n+2)` for center 0–2. No randomness.
 
@@ -323,8 +323,8 @@ The dealt center is recovered by undoing the logged swaps from the final table. 
 - New `engine/timeline.py` (pure, no Django):
   - `undo_to_dealt(final_players, final_center, log) -> (dealt_players_roles, dealt_center)`
   - `build_night_timeline(seats, original_roles, dealt_center, log) -> dict`
-  - `replay_matches(…)`
-- `views.ResultsView` builds `seats` from `PlayerRole.seat` (fallback `user_id` order for legacy rows), adds `night_timeline`, `token` and `seat`.
+  - `recover_dealt_center(original_roles, final_players, final_center, log)` (legacy games)
+- `views.ResultsView` builds `seats` from the seat-ordered PlayerRoles (fallback `user_id` order for legacy rows), adds `night_timeline` (via `services.night_timeline_for`), `token` and `seat`.
 - Keep `night_actions_log` and the other existing fields.
 
 ### Leak analysis

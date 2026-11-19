@@ -30,4 +30,5 @@ DATABASES["default"]["NAME"] = "midnight_village_harness"
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "anon": "1000000/minute",
     "user": "1000000/minute",
+    "online_stats": "1000000/minute",
 }
