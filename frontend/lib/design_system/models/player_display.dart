@@ -1,3 +1,9 @@
+// OLD LOOK: delete when 06 Night action and 09 Vote are rebuilt
+@Deprecated(
+  'OLD LOOK: delete when 06 Night action and 09 Vote are rebuilt. Build screens from lib/design_system/primitives/ instead.',
+)
+library;
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'player_display.freezed.dart';

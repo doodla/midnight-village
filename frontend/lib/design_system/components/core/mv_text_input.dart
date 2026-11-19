@@ -1,4 +1,9 @@
 // OLD LOOK: delete when 01 Join is rebuilt
+@Deprecated(
+  'OLD LOOK: delete when 01 Join is rebuilt. Build screens from lib/design_system/primitives/ instead.',
+)
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';

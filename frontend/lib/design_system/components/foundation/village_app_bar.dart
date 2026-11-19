@@ -1,4 +1,9 @@
 // OLD LOOK: delete when 01 Join and 02 Table are rebuilt
+@Deprecated(
+  'OLD LOOK: delete when 01 Join and 02 Table are rebuilt. Build screens from lib/design_system/primitives/ instead.',
+)
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
