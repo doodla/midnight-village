@@ -79,6 +79,7 @@ cd "$FRONTEND_DIR"
 # normal flutter_test binding when invoked by explicit path here.
 flutter test --tags e2e \
   test_e2e/api_runner_test.dart \
+  test_e2e/api_lifecycle_test.dart \
   test_e2e/ui_runner_test.dart
 test_exit=$?
 

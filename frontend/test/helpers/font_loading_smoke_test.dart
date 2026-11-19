@@ -1,6 +1,7 @@
 // Smoke test validating that Google Fonts render without errors in tests.
-// Google Fonts HTTP fetching is disabled in flutter_test_config.dart, so
-// fonts fall back to system defaults — this test verifies no exceptions are thrown.
+// Google Fonts HTTP fetching is disabled in flutter_test_config.dart and these
+// families are not bundled, so they are drawn in Figtree stand-ins
+// (test_fonts.dart) — this test verifies no exceptions are thrown.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

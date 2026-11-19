@@ -23,6 +23,9 @@ migrate_working_dir/
 # is commented out by default.
 #.vscode/
 
+# Golden test failure output (diff images written by the comparator)
+test/**/failures/
+
 # Integration test artefacts (screenshots captured on failure)
 integration_test/screenshots/*
 !integration_test/screenshots/.gitkeep

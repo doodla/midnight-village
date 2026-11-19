@@ -9,7 +9,7 @@
 //
 // Flutter golden test failures are written to the `failures/` subdirectory of
 // the comparator's basedir. The default scan path is `test/design_system/failures/`,
-// matching the PlatformGoldenFileComparator setup in flutter_test_config.dart.
+// matching the comparator set up in test/flutter_test_config.dart.
 //
 // Failure artifact naming convention (LocalFileComparator):
 //   {key}_masterImage.png  – baseline (expected)

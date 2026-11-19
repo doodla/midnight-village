@@ -8,9 +8,11 @@ import 'package:midnight_village/core/debug/debug_table_controller.dart';
 
 import 'harness/failure_report.dart';
 import 'harness/harness_config.dart';
+import 'harness/live_table.dart';
 import 'harness/night_wire.dart';
 import 'harness/scenario_runner.dart';
 import 'harness/scenarios.dart';
+import 'harness/time_budget.dart';
 
 /// API runner: replays EVERY reference game (23 full games + 6 night-only
 /// Doppelganger games) from `backend/tests/onuw/data/reference_games.json`.
@@ -58,16 +60,9 @@ void main() {
     late DebugTableController controller;
 
     setUp(() {
-      client = DebugApiClient(
-        baseUrl: HarnessConfig.apiBaseUrl,
-        origin: HarnessConfig.origin,
-      );
-      controller = DebugTableController(
-        client: client,
-        adoptSession:
-            (_, {required accessToken, required refreshToken}) async {},
-        invalidateGameProviders: (_) {},
-      );
+      final clients = harnessClients();
+      client = clients.client;
+      controller = clients.controller;
     });
 
     /// Alice Doppelganger, Bob Seer, Carol Werewolf, Dave Insomniac.
@@ -128,6 +123,7 @@ void main() {
       await wires['Alice']!.waitFor(
         () => wires['Alice']!.ofType('action_prompt').isNotEmpty,
         reason: 'the follow-up prompt',
+        timeout: eventTimeout,
       );
       final aliceTrace = wires['Alice']!.trace;
       expect(aliceTrace.sublist(aliceTrace.length - 2), [
@@ -148,6 +144,7 @@ void main() {
       await wires['Alice']!.waitFor(
         () => wires['Alice']!.ofType('wave_start').any((e) => e['wave'] == 2),
         reason: 'window 2 to open',
+        timeout: eventTimeout,
       );
       expect(
         wires['Alice']!.trace.skipWhile((e) => e != 'action_result:1').skip(1),
@@ -164,6 +161,7 @@ void main() {
         await wires[name]!.waitFor(
           () => wires[name]!.ofType('action_prompt').any((e) => e['wave'] == 2),
           reason: 'the window 2 prompt',
+          timeout: eventTimeout,
         );
       }
       expect(
@@ -179,7 +177,34 @@ void main() {
         act('peek_player', {'player_id': carol.userId}),
       );
       await controller.driveAs(carol, act('see_team', {'center_index': 0}));
-      await Future<void>.delayed(const Duration(milliseconds: 400));
+      // Positive synchronisation instead of a sleep: Alice's phone drops and
+      // comes back. The presence events go out to the table AFTER anything the
+      // server sent before, and each socket delivers in order, so once the
+      // others have seen them, an early result would already be in their
+      // recorded events.
+      final seenBefore = {
+        for (final name in ['Bob', 'Carol', 'Dave']) name: wires[name]!.mark,
+      };
+      await wires['Alice']!.close();
+      for (final name in ['Bob', 'Carol', 'Dave']) {
+        await wires[name]!.waitForEvent(
+          'player_presence',
+          where: (e) =>
+              e['player_id'] == alice.userId && e['connected'] == false,
+          after: seenBefore[name]!,
+          timeout: eventTimeout,
+        );
+      }
+      wires['Alice'] = await PlayerWire.connect(client, t, alice);
+      for (final name in ['Bob', 'Carol', 'Dave']) {
+        await wires[name]!.waitForEvent(
+          'player_presence',
+          where: (e) =>
+              e['player_id'] == alice.userId && e['connected'] == true,
+          after: seenBefore[name]!,
+          timeout: eventTimeout,
+        );
+      }
       for (final w in wires.values) {
         expect(
           w.ofType('action_result').where((e) => e['wave'] == 2),
@@ -196,6 +221,7 @@ void main() {
         await wires[name]!.waitFor(
           () => wires[name]!.ofType('phase_change').isNotEmpty,
           reason: 'the discussion',
+          timeout: eventTimeout,
         );
         final w2 = wires[name]!.trace
             .skipWhile((e) => e != 'wave_start:2')
@@ -228,14 +254,23 @@ void main() {
 
     test('window 1 lasts exactly its fixed length and window 2 never closes '
         'sooner than its minimum', () async {
+      // Both boxes start before the table is dealt, so the server's windows
+      // (which open after) can never be shorter than the client measures.
+      final window1 = TimeBox(
+        'the Doppelganger window',
+        const Duration(seconds: 3),
+      );
+      final both = TimeBox(
+        'the Doppelganger window plus the minimum of window 2',
+        const Duration(seconds: 6),
+      );
       final t = await table({
         ...fastTimers,
-        'night_doppelganger_window_seconds': 2,
-        'night_min_window_seconds': 2,
+        'night_doppelganger_window_seconds': 3,
+        'night_min_window_seconds': 3,
       });
       final alice = t.players[0], bob = t.players[1];
       final carol = t.players[2], dave = t.players[3];
-      final opened = DateTime.now();
 
       // The Doppelganger answers at once (no follow-up: she copies the Werewolf
       // card, whose action is in window 2). Window 1 must STILL run its length.
@@ -243,33 +278,34 @@ void main() {
         alice,
         act('peek_player', {'player_id': carol.userId}),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 700));
-      expect((await controller.oracle()).currentWave, 1);
+      final wave = await window1.readInside(
+        () async => (await controller.oracle()).currentWave,
+      );
+      expect(wave, 1);
 
       // ... then closes on its own.
-      await _until(
+      await pollUntil(
         () async => (await controller.oracle()).currentWave == 2,
-        'window 1 to close by itself',
+        reason: 'window 1 to close by itself',
+        timeout: window1.timeout,
       );
-      final window1 = DateTime.now().difference(opened);
-      expect(window1, greaterThanOrEqualTo(const Duration(milliseconds: 1800)));
+      window1.expectOver('window 1 closed early');
 
       // Everyone answers straight away; window 2 still waits out its minimum.
-      final window2Opened = DateTime.now();
       await controller.driveAs(bob, act('skip'));
       await controller.driveAs(carol, act('see_team'));
       await controller.driveAs(dave, act('none'));
       await controller.driveAs(alice, act('see_team'));
-      await Future<void>.delayed(const Duration(milliseconds: 700));
-      expect((await controller.oracle()).phase, 'night');
-      await _until(
+      final phase = await both.readInside(
+        () async => (await controller.oracle()).phase,
+      );
+      expect(phase, 'night');
+      await pollUntil(
         () async => (await controller.oracle()).phase == 'discussion',
-        'window 2 to close after its minimum',
+        reason: 'window 2 to close after its minimum',
+        timeout: both.timeout,
       );
-      expect(
-        DateTime.now().difference(window2Opened),
-        greaterThanOrEqualTo(const Duration(milliseconds: 1800)),
-      );
+      both.expectOver('window 2 closed before its minimum');
     });
 
     test('debug-fire-timer closes the open window now, whatever its minimum, '
@@ -293,7 +329,6 @@ void main() {
       await controller.driveAs(bob, act('skip'));
       await controller.driveAs(carol, act('see_team'));
       await controller.driveAs(dave, act('none'));
-      await Future<void>.delayed(const Duration(milliseconds: 300));
       expect((await controller.oracle()).phase, 'night');
 
       // ... until the hook closes it.
@@ -303,18 +338,4 @@ void main() {
       expect((await controller.oracle()).phase, 'discussion');
     });
   });
-}
-
-/// Polls an async condition (bounded; throws on expiry).
-Future<void> _until(
-  Future<bool> Function() condition,
-  String reason, {
-  Duration timeout = const Duration(seconds: 8),
-}) async {
-  final deadline = DateTime.now().add(timeout);
-  while (DateTime.now().isBefore(deadline)) {
-    if (await condition()) return;
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-  }
-  throw StateError('Timed out waiting for $reason');
 }

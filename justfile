@@ -137,6 +137,10 @@ flutter-test:
 flutter-analyze:
     {{frontend_just}} analyze
 
+# Render every app screen to PNG next to its mock (see frontend/CLAUDE.md)
+screens *args:
+    {{frontend_just}} screens {{args}}
+
 # Run Flutter integration tests on Chrome
 # Uses flutter drive because flutter test does not support web devices
 flutter-test-integration:

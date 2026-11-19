@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,29 +7,18 @@ import 'package:midnight_village/design_system/tokens/app_spacing.dart';
 import 'package:midnight_village/design_system/tokens/firelit_gothic_theme.dart';
 import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
 
+import '../../helpers/test_fonts.dart';
 import '../test_helpers/test_theme.dart';
 
-// NOTE: Typography getter tests use runZonedGuarded to suppress google_fonts
-// async CDN-fetch failures. The TextStyle properties (fontSize, fontWeight,
-// color, letterSpacing) are set synchronously before any loading attempt.
-// Font-family assertions are omitted to avoid triggering the same errors.
+// Typography is built through quietRetiredFonts: the theme's families are not
+// bundled and tests may not fetch them, so each style's font load fails in the
+// background; that helper keeps the failure out of the test output.
 
-TextStyle _getTypographyStyle(TextStyle Function() builder) {
-  late TextStyle result;
-  runZonedGuarded(() => result = builder(), (error, stack) {
-    // Suppress google_fonts asset/CDN loading errors — they happen async
-    // after the TextStyle is already returned with correct properties.
-  });
-  return result;
-}
+TextStyle _getTypographyStyle(TextStyle Function() builder) =>
+    quietRetiredFonts(builder);
 
-ThemeData _buildThemeData(FirelitGothicTheme theme) {
-  late ThemeData result;
-  runZonedGuarded(() => result = generateThemeData(theme), (error, stack) {
-    // Suppress google_fonts asset/CDN loading errors.
-  });
-  return result;
-}
+ThemeData _buildThemeData(FirelitGothicTheme theme) =>
+    quietRetiredFonts(() => generateThemeData(theme));
 
 void main() {
   group('FirelitGothicTheme', () {
@@ -97,8 +84,7 @@ void main() {
 
     group('typography', () {
       test('all 10 typography getters return non-null', () {
-        // Wrap in runZonedGuarded to suppress google_fonts async load errors.
-        runZonedGuarded(() {
+        quietRetiredFonts(() {
           final typography = theme.typography;
           expect(typography.displayHeading, isNotNull);
           expect(typography.heading, isNotNull);
@@ -110,7 +96,7 @@ void main() {
           expect(typography.lobbyCode, isNotNull);
           expect(typography.phaseLabel, isNotNull);
           expect(typography.serifAccent, isNotNull);
-        }, (error, stack) {});
+        });
       });
 
       test('timerDigits has fontSize 48', () {

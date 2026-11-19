@@ -228,12 +228,20 @@ drifted in 5 fields):**
   }],
   "night_actions_log": [                      // NOTE plural; mirror models.py field exactly
     { "wave": 3, "player_id": 14, "role_acting_as": "Robber",   // wave = order group 1-4 (wake order), NOT the window; role_acting_as enriched from PlayerRole.night_action_data
-      "action_type": "swap_with_player", "targets": {...}, "result": {...}, "timestamp_order": 2 }
+      "action_type": "swap_with_player", "targets": {...}, "result": {...}, "timestamp_order": 2,
+      "made_by_server": false }   // true only for a move the server made for a player who timed out / was gone past the grace period (the Drunk's seeded swap)
   ],
   "votes": { "12": 14, "13": null },          // EVERY player is a key; null = has not voted/abstained
-  "results": { ... } | null                   // present once phase=results; winning_teams = list of lowercase tokens ⊂ {"village","werewolf","tanner"}, asserted as a SET
+  "results": { ... } | null,                  // present once phase=results; winning_teams = list of lowercase tokens ⊂ {"village","werewolf","tanner"}, asserted as a SET
+  "pending_timers": ["grace:14", "wave:2"]    // sorted names of the ScheduledTimer rows pending now: this game's keys without the "<game id>:" prefix (wave:N, discussion, voting, grace:<user id>) plus "host_handover" while the lobby's handover timer is armed
 }
 ```
+
+`pending_timers` exists so a scenario can assert a timer was started or cancelled (a
+reconnect cancelling a grace countdown, the owner coming back cancelling the handover),
+which no player-facing response says. "Pending" means the `ScheduledTimer` row exists (an
+overdue, not yet fired row still shows). `host_handover` is the LOBBY's timer, so it also
+shows on a finished game of the same lobby.
 
 Tests: post-swap `current_role` correct; team `neutral` for Tanner; `votes` includes
 all players; `DEBUG=False` → 403.
@@ -350,9 +358,11 @@ after provider changes; widget/unit tests for the controller + toolbar.
   from the access token, NO refresh) + invalidate `gameProvider(gameId)`,
   `gameWebSocketProvider(gameId)`, `gameWebSocketStreamProvider(gameId)`,
   `gameConnectionStateProvider(gameId)`. Exactly one live WS.
-- `driveAs(player, action)` → issue calls AS any player without changing the visible
+- `driveAs(player, action, {lenient = false})` → issue calls AS any player without changing the visible
   perspective, via the §D2 client. Covers night action, vote, end-discussion,
-  advance-wave, reveal-votes.
+  advance-wave, reveal-votes. **Strict by default: a refusal (including a 409) throws.**
+  Only the debug toolbar's one-tap helpers pass `lenient: true` (409 = already done).
+  `attachTable(table)` re-points the controller at a later game of the same lobby.
 - `oracle()` → `GET .../debug-state/`.
 - `fireTimer(TimerKey)` → §B3 hook, the **single** coupling point (see §D4).
 - `setConnected(player, bool)` → drop/restore that player's WS (manual disconnect toggle).
@@ -411,6 +421,32 @@ peek, 4 multi-wave, 5 Hunter-chain results, 10 three-way tie): boot the real wid
 against `original_role`** (current_role is hidden pre-results by design — asserting
 rendered==oracle.current_role can never pass and would tempt leaking it); assert
 post-swap truth against the **oracle**.
+
+**Lifecycle scenarios** (`frontend/test_e2e/api_lifecycle_test.dart`, run by
+`just test-harness`; helpers `harness/live_table.dart`, `harness/time_budget.dart`,
+`PlayerWire.connectLobby` / `connectToGame` / `waitForEvent`): real HTTP + real sockets,
+asserting what clients are told AND the oracle.
+- *Play again* (on both URLs): 409 before results, 403 non-host, `play_again` +
+  `lobby_update` to every socket, same members/settings, a NEW game id the controller then
+  drives, old results readable, `current-game` null; a double-tap Start deals one game.
+- *Dropped phone*: `player_presence`, player list, `grace:<id>` in `pending_timers`;
+  window / vote held for a dropped player inside `disconnect_grace_seconds` even when
+  everyone else is done, then closed with the server's Drunk swap (`made_by_server`) or a
+  non-voter; `night_results` in `/me/` after a missed window (including a Doppelganger's two
+  window 1 results with window 2 still open); reconnect cancels the countdown (and a
+  returning voter's vote counts); a dropped actor and a dropped non-actor close the window
+  at the same time with the same events; a second socket closing is not a drop.
+- *Host handover*: `host_changed` `handover` / `returned`, lobby detail and `/me/` agree,
+  acting host can advance / end discussion / play again / start, a normal player gets 403;
+  an acting host who drops hands on to the next connected member, never the owner; the
+  handover timer is armed only while the owner has no socket at all, and the owner
+  returning cancels it before it fires (`host_handover` in `pending_timers`, no event).
+- *Time*: grace and handover are real wall-clock periods set per game (`debug-fire-timer`
+  cannot shorten them: their callbacks re-check the stored disconnect stamp). Every "has
+  not happened yet" check inside one goes through a `TimeBox` (fails as "inconclusive:
+  machine too slow" if the period was already over), every wait has an explicit timeout
+  derived from the period, and a "nothing arrived" check is made after a positive barrier
+  (an event that travels the same socket after anything sent earlier), never after a sleep.
 
 **Test harness setup** (every harness test): `HttpOverrides.global = null` (real
 network), load fonts, target `127.0.0.1:8001`. Use the §B3 fire-timer hook (not

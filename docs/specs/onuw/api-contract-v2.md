@@ -613,3 +613,91 @@ S2, S3, S8 and S9 depend only on S1 (S8 and S9 only for tokens/seat). S4–S7 sh
 - **Label for the Doppelganger window on the deck screen:** "Copy".
 - **Hold-to-read a role** works on every role card, large or small.
 - **Pace:** three presets plus custom, exactly the table in section 7.
+
+## Amendments after independent review (19 November 2026)
+
+These override the text above wherever they disagree. The review's root causes were three
+assumptions, so the fixes are rules, not patches.
+
+### Rule A: there is no old app to protect, so there is no legacy staging
+
+The Flutter app is not deployed anywhere (`docs/dev/deploy-vercel.md`). The app in this
+repository is the only client and changes in the same pull request as the server slice it
+depends on. Therefore:
+
+- No `night_all_players_tap` setting. The all-tap close rule is THE rule for window 2.
+- No legacy vote fields: S4 removes `vote_submitted.player_id`, `/me/ players[].has_voted`
+  and `has_voted` in the player list. Only `progress` counts exist ("counts only" ruling).
+- `lock` is required on `POST .../vote/` (no default).
+- Slice S10 ("breaking cleanup") is deleted.
+- `PATCH /lobbies/<code>/` merges the given settings keys into the stored settings instead
+  of replacing the whole object, so one screen cannot silently drop another screen's key.
+
+### Rule B: every phone sends the same thing at night
+
+- Every player submits exactly once per window. A player whose prompt offers a choice
+  (Seer, Robber, Troublemaker, Drunk, lone Werewolf, the Doppelganger's look and her
+  choosing follow-ups) submits that action. EVERY other player, including actors with
+  nothing to choose (Werewolves in a pack, Masons, Minion, Insomniac, a Doppelganger who
+  copied one of them) submits `sleep`; the server still gives them their automatic
+  `see_team` / `none` result when the window closes. `sleep` from a player who has a choice
+  is the generic 400.
+- `sleep_prompt` is sent to every player who has no choice; `/me/` carries it too.
+- The all-tap rule applies to window 2 only. Window 1 is always the fixed Doppelganger
+  window. `night_doppelganger_window_seconds = 0` and `night_wave_seconds = 0` are refused
+  unless the Django setting `ONUW_ALLOW_UNTIMED_NIGHT` is true (true only in the test,
+  development and harness settings; false in base, so production refuses them). With no
+  deadline one idle player could stall the night, and an open-ended window 1 singles out
+  the Doppelganger.
+- `night_min_window_seconds` has a floor of 5 under the same switch.
+- `advance-wave` takes `{"from_window": n}` and answers 409 if the current window differs,
+  so a stale host tap cannot close the window after the one it was aimed at.
+
+### Rule C: a change must be safe while the previous code is still serving
+
+Vercel runs `migrate` at build time, before the new code takes traffic, and the channel
+layer is shared between old and new instances.
+
+- Every new NOT NULL column has a database default (`db_default`). Tested by a raw insert
+  that omits the column.
+- Tokens are assigned lazily as well as on join: at the deal for any member whose token is
+  blank; serializers accept a blank token. The backfill leaves members beyond the tenth
+  blank.
+- Consumers drop unknown event types instead of closing the socket.
+- A new timer job name is only scheduled by code that can also run it; `card_look` is
+  scheduled only when `card_look_seconds > 0`.
+
+### Single corrections
+
+- **Look stage (section 3):** `_evaluate_presence`, `ensure_timers` and `recover_timers`
+  must each handle "night, window 0, look deadline set": re-check look readiness when a
+  grace timer fires or a player reconnects, rebuild the `:look` timer, and never open the
+  night at start-up while a look deadline is pending. `start_night_phase` cancels
+  `<id>:look`. Implement this as one `stage readiness` function used by all three, not
+  three special cases.
+- **Votes (section 1):** `docs/specs/onuw/voting-and-resolution.md` is updated in S4: a
+  pick counts at any reveal whether or not it was locked, including the pick of a player
+  who dropped, and an unlocked Hunter pick triggers the Hunter chain. The pick response
+  echoes the stored target (`{"status": "picked", "target_player_id": 14}`).
+  `target_player_id` must be a JSON integer.
+- **Talk readiness (section 1):** no grace timers in the talk. `needed` is computed when a
+  player taps and when a player's presence changes; `progress` is sent on both.
+- **Night results ack (section 8b):** phones ack only after a window's dawn screen; the
+  value is clamped to the number of results the caller can see. The "not clamped" sentence
+  is withdrawn.
+- **Results timeline (section 4):** the deal stores the center as dealt in
+  `Game.dealt_center_cards` (S1 migration). The timeline is built forwards from it. The
+  undo is used only for games dealt before that column existed, is verified against each
+  player's `original_role`, and yields `night_timeline: null` if they differ. The
+  "forward replay must reproduce the final table" check is dropped: it could never fail.
+- **Online count (section 6):** `authentication_classes = []`; the app calls it without an
+  `Authorization` header.
+- **"Poor code" #6** is wrong as written: `advance_wave` at window 0 raises and returns a
+  500 (unreachable today). The fix stands.
+
+### Slice order after the amendments
+
+S1 schema, tokens, seat, dealt center, tolerant consumers · S2 where am I · S3 results ack ·
+S4 lock-in voting (with the app's vote screen) · S5 ready to vote · S6 look stage ·
+S7 sleep and the all-tap rule (with the app's night screens) · S8 results timeline ·
+S9 home extras and merged settings PATCH.

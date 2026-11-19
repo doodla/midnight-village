@@ -32,7 +32,6 @@ dependencies:
 
   # Design system fonts
   google_fonts: ^6.2.1
-  material_symbols_icons: ^4.2800.0
 
   # Logging
   logger: ^2.6.2
@@ -72,4 +71,24 @@ flutter:
     - assets/themes/midnight-village/
     - assets/themes/_placeholder/
     - assets/textures/
+    # Shown on the licences page (registerFontLicences in lib/main.dart).
+    - assets/fonts/gloock/OFL.txt
+    - assets/fonts/figtree/OFL.txt
+
+  # Shadow paper type (docs/specs/frontend/design-brief.md). OFL licences sit
+  # beside each family in assets/fonts/.
+  fonts:
+    - family: Gloock
+      fonts:
+        - asset: assets/fonts/gloock/Gloock-Regular.ttf
+    - family: Figtree
+      fonts:
+        - asset: assets/fonts/figtree/Figtree-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/figtree/Figtree-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/figtree/Figtree-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/figtree/Figtree-Bold.ttf
+          weight: 700
 

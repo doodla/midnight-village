@@ -286,7 +286,7 @@ void main() {
               'action_type': 'peek_player',
               'targets': {'player_id': 1},
             },
-            idempotent409: true,
+            idempotent409: false,
           ),
         ).called(1);
       },
@@ -312,8 +312,65 @@ void main() {
           '/onuw/games/g1/vote/',
           token: 'access-1',
           data: {'target_player_id': 2},
-          idempotent409: true,
+          idempotent409: false,
         ),
+      ).called(1);
+    });
+
+    test(
+      'lenient driving treats a 409 as already done (toolbar only)',
+      () async {
+        when(
+          () => client.post(
+            '/onuw/games/g1/vote/',
+            token: any(named: 'token'),
+            data: any(named: 'data'),
+            idempotent409: any(named: 'idempotent409'),
+          ),
+        ).thenAnswer((_) async => const {});
+
+        await controller.driveAs(
+          controller.table!.playerById(1),
+          const DebugAction.vote(voteTargetUserId: 2),
+          lenient: true,
+        );
+
+        verify(
+          () => client.post(
+            '/onuw/games/g1/vote/',
+            token: 'access-1',
+            data: {'target_player_id': 2},
+            idempotent409: true,
+          ),
+        ).called(1);
+      },
+    );
+
+    test('attachTable re-points driving at a later game', () async {
+      when(
+        () => client.post(
+          any(),
+          token: any(named: 'token'),
+          data: any(named: 'data'),
+          idempotent409: any(named: 'idempotent409'),
+        ),
+      ).thenAnswer((_) async => const {});
+      final old = controller.table!;
+      controller.attachTable(
+        DebugTable(
+          gameId: 'g7',
+          lobbyCode: old.lobbyCode,
+          players: old.players,
+        ),
+      );
+
+      await controller.driveAs(
+        old.players.first,
+        const DebugAction.endDiscussion(),
+      );
+
+      verify(
+        () => client.post('/onuw/games/g7/end-discussion/', token: 'access-1'),
       ).called(1);
     });
   });

@@ -34,9 +34,10 @@ All root commands delegate to `backend/justfile` or `frontend/justfile`. Run `ju
 Beyond `just check`/`test` (which mock the HTTP/WS seam), there is a deterministic harness for driving the **whole ONUW multiplayer flow against a real backend**, plus a single-agent game driver. Full docs: `docs/dev/debug-harness/` (`contract.md`, `game-driver.md`).
 
 - `cd backend && just harness-serve` — boot a throwaway DEBUG backend on `127.0.0.1:8001` (forced role assignment, a full-state oracle, fire-timer hook — all `DEBUG`-only, 403 in prod).
-- `just test-harness` (root, or `cd frontend`) — boots that backend itself, replays the 29 reference games (`backend/tests/onuw/data/reference_games.json`) through the real API and a subset through the real widget tree against the two-window night, and writes per-player PNG filmstrips (`frontend/test_e2e/`; not part of `just test`).
+- `just test-harness` (root, or `cd frontend`) — boots that backend itself, replays the 29 reference games (`backend/tests/onuw/data/reference_games.json`) through the real API and a subset through the real widget tree against the two-window night, and writes per-player PNG filmstrips (`frontend/test_e2e/`; not part of `just test`). `frontend/test_e2e/api_lifecycle_test.dart` also drives play again, dropped phones (grace period) and host handover over real HTTP + sockets.
 - `backend/tools/game_driver.py` — one agent drives an entire game via the real player API + oracle and verifies outcomes against the rules.
 - `/debug` route (dev-only, gated by `Env.isDev`) — debug toolbar: spin up a table, switch player perspectives, god panel, auto-drive.
+- `just screens [width] [report|strict]` (root, or `cd frontend`) — renders every app screen from the real widgets to `frontend/build/screens/`, side by side with `docs/design/mocks/`, and lists overflows/exceptions per screen (no backend; e.g. `just screens 360`, `just screens 390 strict`; old-theme text is drawn in Figtree stand-ins until the old look is removed). See `frontend/CLAUDE.md`.
 
 ## Code Style
 

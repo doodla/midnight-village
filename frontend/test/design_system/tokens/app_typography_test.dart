@@ -1,32 +1,18 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/tokens/app_colors.dart';
 import 'package:midnight_village/design_system/tokens/app_typography.dart';
 
-// NOTE: This test uses runZonedGuarded around the AppTypography calls to
-// prevent google_fonts' async CDN-fetch failures from propagating into the test
-// zone. The font bytes can't load in an offline test environment but the
-// TextStyle properties (fontSize, fontWeight, color, letterSpacing) are set
-// synchronously before any loading attempt and are what we actually verify.
-// Font-family assertions are omitted because accessing GoogleFonts.xxx() in
-// the test itself would trigger the same zone errors.
+import '../../helpers/test_fonts.dart';
 
-TextTheme _buildTextTheme() {
-  late TextTheme result;
-  runZonedGuarded(() => result = AppTypography.textTheme, (error, stack) {
-    // Suppress google_fonts asset/CDN loading errors — they happen async
-    // after the TextStyle is already returned with correct properties.
-  });
-  return result;
-}
+// The styles are built through quietRetiredFonts: these families are not
+// bundled and tests may not fetch them, so each style's font load fails in the
+// background; that helper keeps the failure out of the test output.
 
-TextStyle _buildDisplaySerif() {
-  late TextStyle result;
-  runZonedGuarded(() => result = AppTypography.displaySerif, (error, stack) {});
-  return result;
-}
+TextTheme _buildTextTheme() => quietRetiredFonts(() => AppTypography.textTheme);
+
+TextStyle _buildDisplaySerif() =>
+    quietRetiredFonts(() => AppTypography.displaySerif);
 
 void main() {
   group('AppTypography', () {

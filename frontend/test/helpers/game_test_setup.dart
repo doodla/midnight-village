@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
+import 'package:midnight_village/design_system/tokens/app_tokens.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 import 'package:midnight_village/design_system/tokens/midnight_village_theme.dart';
 import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
@@ -63,7 +64,8 @@ class GameTestSetup {
           ),
         );
 
-    // Everyone connected, unless a test says otherwise (registerPresence).
+    // The `/me/` players, everyone connected unless a player there is marked
+    // away or a test says otherwise (registerPresence).
     http
         .when(method: 'GET', path: '/onuw/games/$gameId/players/')
         .thenReturn(
@@ -72,7 +74,12 @@ class GameTestSetup {
               path: '/onuw/games/$gameId/players/',
             ),
             statusCode: 200,
-            data: <String, dynamic>{'players': <dynamic>[]},
+            data: <String, dynamic>{
+              'players': [
+                for (final p in (json['players'] as List).cast<Map>())
+                  {...p, 'connected': p['connected'] ?? true},
+              ],
+            },
           ),
         );
 
@@ -219,12 +226,16 @@ extension GameFlowTestExtension on WidgetTester {
   /// Pumps [GameContainerScreen] with mocked [GameNotifier] backed by real
   /// HTTP/WS mocks. Returns the [GameTestSetup] for event injection and
   /// state inspection.
+  ///
+  /// [theme] defaults to the test theme ([MidnightVillageTheme], system font);
+  /// pass the app's own theme to see the screen as players do.
   Future<GameTestSetup> pumpGameFlow({
     String gameId = 'test-game-id',
     Map<String, dynamic>? gameMeJson,
     String playerName = 'TestPlayer',
     int userId = 1,
     FakeWakelockService? wakelock,
+    AppTokens theme = const MidnightVillageTheme(),
     List<Override>? extraOverrides,
   }) async {
     final setup = GameTestSetup.create(
@@ -232,8 +243,6 @@ extension GameFlowTestExtension on WidgetTester {
       gameId: gameId,
       userId: userId,
     );
-
-    final theme = const MidnightVillageTheme();
 
     await pumpWidget(
       ProviderScope(
