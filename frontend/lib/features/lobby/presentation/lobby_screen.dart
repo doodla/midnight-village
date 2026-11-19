@@ -61,7 +61,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       final started = next.value?.startedGameId;
       if (started != null && started != previous?.value?.startedGameId) {
         if (mounted) {
-          GameRoute(gameId: started, lobby: widget.code).go(context);
+          GameRoute(gameId: started).go(context);
         }
       }
     });

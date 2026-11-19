@@ -87,7 +87,7 @@ Future<_Pumped> _pumpResults(
   const theme = MidnightVillageTheme();
 
   final router = GoRouter(
-    initialLocation: '/game/$_gameId?lobby=$_code',
+    initialLocation: '/game/$_gameId',
     routes: [
       GoRoute(
         path: '/',
@@ -101,10 +101,8 @@ Future<_Pumped> _pumpResults(
       ),
       GoRoute(
         path: '/game/:gameId',
-        builder: (_, state) => GameContainerScreen(
-          gameId: state.pathParameters['gameId']!,
-          lobbyCode: state.uri.queryParameters['lobby'],
-        ),
+        builder: (_, state) =>
+            GameContainerScreen(gameId: state.pathParameters['gameId']!),
       ),
     ],
   );

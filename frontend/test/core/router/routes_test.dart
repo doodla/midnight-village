@@ -36,11 +36,6 @@ void main() {
       expect(route.location, '/game/550e8400-uuid');
     });
 
-    test('GameRoute carries the table code as ?lobby=', () {
-      const route = GameRoute(gameId: 'g1', lobby: 'ABC123');
-      expect(route.location, '/game/g1?lobby=ABC123');
-    });
-
     test('/ resolves to HomeRoute', () {
       const route = HomeRoute();
       expect(route.location, '/');
@@ -203,8 +198,7 @@ void main() {
       );
 
       final uri = router.routerDelegate.currentConfiguration.uri;
-      expect(uri.path, '/game/${_running['game_id']}');
-      expect(uri.queryParameters['lobby'], _running['lobby_code']);
+      expect(uri.toString(), '/game/${_running['game_id']}');
     });
 
     testWidgets(

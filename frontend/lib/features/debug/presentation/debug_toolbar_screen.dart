@@ -340,7 +340,7 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
   }
 
   void _openGame(DebugTable table) =>
-      GameRoute(gameId: table.gameId, lobby: table.lobbyCode).go(context);
+      GameRoute(gameId: table.gameId).go(context);
 
   // ---------------------------------------------------------------------------
   // God panel (live oracle)

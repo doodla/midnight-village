@@ -53,12 +53,8 @@ class GameNotifier extends _$GameNotifier {
   Future<void>? _refreshing;
   bool _refreshAgain = false;
 
-  /// Lobby code the screen knew when it opened (from the route), used when the
-  /// server's state does not carry one.
-  String? lobbyCodeHint;
-
-  /// The table this game belongs to: the server's, else the route's hint.
-  String? get lobbyCode => state.value?.lobbyCode ?? lobbyCodeHint;
+  /// The table this game belongs to (`lobby_code` in every `/me/`).
+  String? get lobbyCode => state.value?.lobbyCode;
 
   /// WebSocket stream injected for testability.
   /// In production this comes from a ReconnectingWebSocket provider.

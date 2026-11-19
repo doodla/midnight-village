@@ -86,12 +86,8 @@ Future<_Table> _pumpLobby(
       ),
       GoRoute(
         path: '/game/:gameId',
-        builder: (_, state) => Scaffold(
-          body: Text(
-            'GAME ${state.pathParameters['gameId']} '
-            'AT ${state.uri.queryParameters['lobby']}',
-          ),
-        ),
+        builder: (_, state) =>
+            Scaffold(body: Text('GAME ${state.pathParameters['gameId']}')),
       ),
     ],
   );
@@ -153,8 +149,8 @@ void main() {
       t.ws.addServerEvent(GameEvents.gameStarted(gameId: 'game-two'));
       await tester.pumpAndSettle();
 
-      expect(t.location, '/game/game-two?lobby=$_code');
-      expect(find.text('GAME game-two AT $_code'), findsOneWidget);
+      expect(t.location, '/game/game-two');
+      expect(find.text('GAME game-two'), findsOneWidget);
     });
 
     testWidgets('the host opens the game from the start call, without waiting '
@@ -169,7 +165,7 @@ void main() {
       await tester.tap(find.text('Start Game'));
       await tester.pumpAndSettle();
 
-      expect(t.location, '/game/game-two?lobby=$_code');
+      expect(t.location, '/game/game-two');
     });
 
     testWidgets('a third game opens too, not the second one again', (
@@ -187,7 +183,7 @@ void main() {
       t.ws.addServerEvent(GameEvents.gameStarted(gameId: 'game-three'));
       await tester.pumpAndSettle();
 
-      expect(t.location, '/game/game-three?lobby=$_code');
+      expect(t.location, '/game/game-three');
     });
 
     testWidgets('finds a game that already started before the lobby opened', (
@@ -200,7 +196,7 @@ void main() {
         runningGameId: 'game-two',
       );
 
-      expect(t.location, '/game/game-two?lobby=$_code');
+      expect(t.location, '/game/game-two');
     });
 
     testWidgets('ignores a running game that belongs to another table', (

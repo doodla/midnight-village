@@ -61,13 +61,9 @@ const double _kTallyHeaderGap = 8.0;
 /// The [NightSubView] enum gives fine-grained control over which night view
 /// to show.
 class GameContainerScreen extends ConsumerStatefulWidget {
-  const GameContainerScreen({super.key, required this.gameId, this.lobbyCode});
+  const GameContainerScreen({super.key, required this.gameId});
 
   final String gameId;
-
-  /// Code of the table this game is played at, when the route knows it. The
-  /// results screen needs it to start another game or leave the table.
-  final String? lobbyCode;
 
   @override
   ConsumerState<GameContainerScreen> createState() =>
@@ -89,7 +85,6 @@ class _GameContainerScreenState extends ConsumerState<GameContainerScreen>
     _wakelock = ref.read(wakelockServiceProvider);
     _keepAwake(_wakelock.enable);
     WidgetsBinding.instance.addObserver(this);
-    ref.read(gameProvider(gameId).notifier).lobbyCodeHint = widget.lobbyCode;
   }
 
   @override
