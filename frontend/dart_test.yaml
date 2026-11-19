@@ -10,6 +10,14 @@
 # `just test` also passes `--exclude-tags e2e` as belt-and-suspenders. (A
 # config-level `exclude_tags: e2e` is NOT used: it would AND with an explicit
 # `--tags e2e` and make the suites unrunnable.)
+#
+# `golden` tags the pixel-comparison tests. There is ONE baseline set
+# (test/design_system/goldens/), made on Linux: font rasterisation differs per
+# OS, so on any other OS these tests are skipped, not failed. CI (Linux) is the
+# source of truth; regenerate baselines there or on Linux.
 tags:
-  golden: {}
+  golden:
+    on_platform:
+      "!linux":
+        skip: "Golden baselines are Linux-only: CI (Linux) is the source of truth. Run golden tests on Linux."
   e2e: {}

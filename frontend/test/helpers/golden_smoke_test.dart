@@ -1,4 +1,4 @@
-// Smoke test validating that pumpWithGolden and PlatformGoldenFileComparator
+// Smoke test validating that pumpWithGolden and the golden comparator
 // (T002, T003) work end-to-end.
 //
 // Run with: just flutter-test-golden

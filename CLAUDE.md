@@ -37,6 +37,7 @@ Beyond `just check`/`test` (which mock the HTTP/WS seam), there is a determinist
 - `just test-harness` (root, or `cd frontend`) — boots that backend itself, replays the 29 reference games (`backend/tests/onuw/data/reference_games.json`) through the real API and a subset through the real widget tree against the two-window night, and writes per-player PNG filmstrips (`frontend/test_e2e/`; not part of `just test`).
 - `backend/tools/game_driver.py` — one agent drives an entire game via the real player API + oracle and verifies outcomes against the rules.
 - `/debug` route (dev-only, gated by `Env.isDev`) — debug toolbar: spin up a table, switch player perspectives, god panel, auto-drive.
+- `just screens [width] [report|strict]` (root, or `cd frontend`) — renders every app screen from the real widgets to `frontend/build/screens/`, side by side with `docs/design/mocks/`, and lists overflows/exceptions per screen (no backend; e.g. `just screens 360`, `just screens 390 strict`; old-theme text is drawn in Figtree stand-ins until the old look is removed). See `frontend/CLAUDE.md`.
 
 ## Code Style
 

@@ -20,11 +20,7 @@ import 'mock_websocket.dart';
 /// Example — boot to the home screen with a pre-authenticated user:
 /// ```dart
 /// await tester.pumpApp(
-///   overrides: [
-///     authProvider.overrideWithValue(
-///       AuthState.authenticated(User(id: 1, displayName: 'Alice')),
-///     ),
-///   ],
+///   auth: AuthState.authenticated(User(id: 1, displayName: 'Alice')),
 /// );
 /// expect(find.text('Hello, Alice!'), findsOneWidget);
 /// ```
@@ -38,13 +34,16 @@ extension PumpAppExtension on WidgetTester {
   /// they are available for use in [overrides] once real HTTP and WebSocket
   /// providers exist in the app.
   ///
-  /// [overrides] allows any provider to be substituted for the test, on top
-  /// of the default auth guard (which defaults to unauthenticated to avoid
-  /// token-storage access during setup).
+  /// [auth] is the signed-in state the app starts with. It defaults to
+  /// unauthenticated so token storage is never accessed during startup.
+  ///
+  /// [overrides] allows any other provider to be substituted for the test
+  /// (not `authProvider`: a provider may be overridden only once).
   Future<void> pumpApp({
     MockHttpClient? httpClient,
     MockWebSocketChannel? webSocket,
     String? initialRoute,
+    AuthState auth = const AuthState.unauthenticated(),
     List<Override>? overrides,
   }) async {
     // Capture for use in overrides when callers need them.
@@ -63,13 +62,7 @@ extension PumpAppExtension on WidgetTester {
 
     await pumpWidget(
       ProviderScope(
-        overrides: [
-          // Default to unauthenticated so token storage is never accessed
-          // during app startup. Override with authProvider.overrideWithValue(
-          // AuthState.authenticated(...)) in [overrides] to start logged in.
-          authProvider.overrideWithValue(const AuthState.unauthenticated()),
-          ...?overrides,
-        ],
+        overrides: [authProvider.overrideWithValue(auth), ...?overrides],
         child: Consumer(
           builder: (context, ref, _) => MaterialApp.router(
             debugShowCheckedModeBanner: false,

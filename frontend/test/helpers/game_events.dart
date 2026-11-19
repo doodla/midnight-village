@@ -91,9 +91,10 @@ abstract final class GameEvents {
     return jsonEncode({'type': 'vote_reveal', 'votes': votes});
   }
 
-  /// Game results ready, triggers REST fetch.
-  static String gameResults() {
-    return jsonEncode({'type': 'game_results'});
+  /// Game results ready, triggers REST fetch. The server also sends [data]
+  /// (`winning_teams`, `reason`, `eliminated_players`); the client ignores it.
+  static String gameResults({Map<String, dynamic>? data}) {
+    return jsonEncode({'type': 'game_results', 'data': ?data});
   }
 
   /// A player's phone connected or dropped (public to the whole table).
