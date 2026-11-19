@@ -18,8 +18,10 @@ def _newest_game(lobby) -> Game | None:
 
 
 class OnuwHooks(GameHooks):
-    def validate_settings(self, settings, player_count: int) -> list[str]:
-        return validate_onuw_settings(settings, player_count)
+    def validate_settings(self, settings, player_count: int, changed=None) -> list[str]:
+        return validate_onuw_settings(
+            settings, player_count, check_deck=changed is None or "roles" in changed
+        )
 
     def newest_game_group(self, lobby) -> str | None:
         game = _newest_game(lobby)

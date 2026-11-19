@@ -124,7 +124,7 @@ sections below say otherwise, this list wins:
   section 4). Built forwards from `Game.dealt_center_cards`; the debug oracle shows it as
   `dealt_center_cards`.
 - **Home extras.** `GET /api/stats/online/` (no auth) answers `{"players", "tables"}` from fresh
-  socket rows, `Cache-Control: public, max-age=15`. `GET /api/onuw/me/recent-games/?limit=`
+  socket rows, `Cache-Control: public, max-age=15, s-maxage=15` (it permits 15 s reuse; it does not guarantee a CDN caches it). `GET /api/onuw/me/recent-games/?limit=`
   answers the caller's finished games (`game_id`, `ended_at`, `player_count`, `winning_teams`,
   `you_won`, `token`, `seat`).
 - **Lobby settings PATCH merges.** `PATCH /api/lobbies/<code>/` with `{"settings": {...}}` merges the

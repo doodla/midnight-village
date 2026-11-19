@@ -88,7 +88,9 @@ def validate_pace(settings: dict) -> list[str]:
     return []
 
 
-def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
+def validate_onuw_settings(
+    settings: dict, player_count: int, *, check_deck: bool = True
+) -> list[str]:
     """
     Validate ONUW role configuration.
 
@@ -96,6 +98,10 @@ def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
         settings: Game settings dict. Must contain a "roles" key mapping
                   role names to counts, e.g. {"Werewolf": 2, "Seer": 1, ...}.
         player_count: Number of players in the lobby.
+        check_deck: Check the role deck against the player count. The deal always
+                    does; a settings change that does not touch ``roles`` (a pace
+                    label, a timer) skips it, because who joined meanwhile is not
+                    that change's fault and the deal checks again.
 
     Returns:
         List of error messages. Empty list means valid.
@@ -104,6 +110,8 @@ def validate_onuw_settings(settings: dict, player_count: int) -> list[str]:
         return ["Settings must be an object."]
 
     errors: list[str] = [*validate_timer_settings(settings), *validate_pace(settings)]
+    if not check_deck:
+        return errors
 
     if player_count < 3:
         errors.append(f"At least 3 players required, got {player_count}.")

@@ -17,7 +17,7 @@ import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.core.models import Lobby
+from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw.engine.validation import PACE_LABELS, validate_onuw_settings
 from tests.core.test_lobby_patch import _create_lobby_with_players
 
@@ -232,6 +232,57 @@ class TestWhoAndWhen:
         assert lost == []
 
 
+class TestTheDeckIsCheckedOnlyWhenTheDeckChanges:
+    @pytest.fixture
+    def somebody_joined(self, table):
+        """The deck fits 3 players; a 4th sits down afterwards."""
+        lobby, _, client = table
+        newcomer = User.objects.create_user(username="latecomer", password="x")
+        LobbyMember.objects.create(lobby=lobby, user=newcomer, is_ready=True)
+        return lobby, client
+
+    def test_a_pace_only_patch_is_not_refused_because_a_player_joined(
+        self, somebody_joined
+    ) -> None:
+        lobby, client = somebody_joined
+
+        response = patch_settings(client, lobby.code, {"pace": "quick"})
+
+        assert response.status_code == status.HTTP_200_OK, response.data
+        assert stored(lobby)["pace"] == "quick"
+
+    def test_a_timer_patch_is_not_refused_either_but_a_bad_timer_still_is(
+        self, somebody_joined
+    ) -> None:
+        lobby, client = somebody_joined
+
+        ok = patch_settings(client, lobby.code, {"voting_seconds": 90})
+        bad = patch_settings(client, lobby.code, {"voting_seconds": -5})
+
+        assert ok.status_code == status.HTTP_200_OK
+        assert bad.status_code == status.HTTP_400_BAD_REQUEST
+        assert stored(lobby)["voting_seconds"] == 90
+
+    def test_a_patch_that_sets_roles_is_checked_against_who_is_here(
+        self, somebody_joined
+    ) -> None:
+        lobby, client = somebody_joined  # 4 players need 7 cards; ROLES is 6
+
+        response = patch_settings(client, lobby.code, {"roles": ROLES})
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert any("Total role count" in e for e in response.data["detail"])
+
+    def test_the_deal_still_refuses_the_mismatched_deck(self, somebody_joined) -> None:
+        lobby, client = somebody_joined
+        patch_settings(client, lobby.code, {"pace": "quick"})
+
+        response = client.post(reverse("onuw:game-start", kwargs={"code": lobby.code}))
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert any("Total role count" in e for e in response.data["detail"])
+
+
 class TestPaceLabel:
     @pytest.mark.parametrize("label", PACE_LABELS)
     def test_pace_label_validated_if_present(self, label) -> None:
@@ -301,7 +352,7 @@ class TestReadyIsNotForAGameInProgress:
     def ready(self, client: APIClient, code: str, body=None):
         return client.post(
             reverse("core:lobby-ready", kwargs={"code": code}),
-            body or {},
+            {} if body is None else body,
             format="json",
         )
 
@@ -314,6 +365,19 @@ class TestReadyIsNotForAGameInProgress:
 
         assert response.status_code == status.HTTP_409_CONFLICT
         assert response.data["code"] == "lobby_in_game"
+        assert lobby.players.get(user=host).is_ready is before
+
+    @pytest.mark.parametrize("body", [[], [True], "yes", 5])
+    def test_a_body_that_is_not_an_object_is_a_400_not_a_crash(
+        self, table, body
+    ) -> None:
+        lobby, host, client = table
+        before = lobby.players.get(user=host).is_ready
+
+        response = self.ready(client, lobby.code, body)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["code"] == "bad_request"
         assert lobby.players.get(user=host).is_ready is before
 
     def test_ready_still_toggles_in_a_waiting_or_finished_lobby(self, table) -> None:

@@ -162,6 +162,7 @@ class LobbyDetailView(RetrieveAPIView):
             errors = games.hooks_for(lobby).validate_settings(
                 merged,
                 lobby.players.count(),  # type: ignore[attr-defined]
+                changed=set(given),
             )
             if errors:
                 return Response(
@@ -354,7 +355,13 @@ class LobbyReadyView(APIView):
                     status=status.HTTP_409_CONFLICT,
                 )
 
-            is_ready = request.data.get("is_ready", not membership.is_ready)
+            body = request.data if isinstance(request.data, dict) else None
+            if body is None:
+                return Response(
+                    {"detail": "Body must be an object.", "code": "bad_request"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            is_ready = body.get("is_ready", not membership.is_ready)
             if not isinstance(is_ready, bool):
                 return Response(
                     {
@@ -429,7 +436,9 @@ class OnlineStatsView(APIView):
 
     ``{"players": 23, "tables": 5}`` from fresh socket rows; no user data, no login
     (``authentication_classes = []`` so a stale token on the home screen cannot
-    turn it into a 401). Cached for 15 s by whatever sits in front.
+    turn it into a 401). The response says ``Cache-Control: public, max-age=15,
+    s-maxage=15``: it MAY be reused for 15 s by browsers and shared caches. Whether
+    a given CDN does is the platform's business; nothing here depends on it.
     """
 
     authentication_classes: list = []
@@ -438,7 +447,7 @@ class OnlineStatsView(APIView):
 
     def get(self, request: Request) -> Response:
         response = Response(online_counts())
-        patch_cache_control(response, public=True, max_age=15)
+        patch_cache_control(response, public=True, max_age=15, s_maxage=15)
         return response
 
 

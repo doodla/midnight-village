@@ -108,7 +108,7 @@ class TestOnlineCount:
         response = APIClient().get(reverse("core:online-stats"))
 
         header = response.headers["Cache-Control"]
-        assert "public" in header and "max-age=15" in header
+        assert {"public", "max-age=15", "s-maxage=15"} <= set(header.split(", "))
         assert set(response.data) == {"players", "tables"}
         body = response.content.decode()
         assert first.code not in body and str(first.ids[0]) not in body
