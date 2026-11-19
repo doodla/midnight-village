@@ -29,5 +29,6 @@ urlpatterns = [
         views.LobbyPlayAgainView.as_view(),
         name="lobby-play-again",
     ),
+    path("me/table/", views.MyTableView.as_view(), name="my-table"),
     path("auth/logout/", views.LogoutView.as_view(), name="logout"),
 ]

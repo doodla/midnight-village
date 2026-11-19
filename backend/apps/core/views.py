@@ -19,7 +19,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .lobbies import LobbyFullError, add_member
+from .lobbies import LobbyFullError, add_member, current_table
 from .models import Lobby, LobbyMember, User
 from .name_generator import generate_display_name
 from .serializers import GuestCreateSerializer, LobbyCreateSerializer, LobbySerializer
@@ -355,6 +355,19 @@ class LobbyPlayAgainView(APIView):
         except PlayAgainError as exc:
             return Response({"detail": exc.detail}, status=exc.status_code)
         return Response(LobbySerializer(lobby).data, status=status.HTTP_200_OK)
+
+
+class MyTableView(APIView):
+    """Where am I: the table the caller is seated at, so the app can resume it.
+
+    ``{"table": {"lobby_code", "game_type", "status", "is_host", "token",
+    "game": {"game_id", "phase"} | null}}`` or ``{"table": null}``.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        return Response({"table": current_table(request.user.id)})  # type: ignore[misc]
 
 
 class LogoutView(APIView):

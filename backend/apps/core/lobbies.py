@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
+from typing import Any
 
+from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
 
 from apps.core import games, tokens
 from apps.core.effects import send_after_commit
@@ -36,6 +41,38 @@ def add_member(lobby: Lobby, user_id: int) -> LobbyMember:
     member = LobbyMember.objects.create(lobby=lobby, user_id=user_id, token=token)
     _log_token(lobby, user_id, token)
     return member
+
+
+def current_table(user_id: int) -> dict[str, Any] | None:
+    """The table the user is seated at now, for the app to resume (None = none).
+
+    Starts from membership: the user's newest-joined lobby that is in a game, or
+    was updated within ``CORE_TABLE_RESUME_HOURS`` (so a table left last week does
+    not pull them back). ``game`` is the lobby's newest game when the user plays
+    in it, as the game app's hook reports it; the client routes on ``game.phase``
+    and ``status``.
+    """
+    cutoff = timezone.now() - timedelta(hours=settings.CORE_TABLE_RESUME_HOURS)
+    member = (
+        LobbyMember.objects.filter(user_id=user_id)
+        .filter(
+            Q(lobby__status=Lobby.Status.IN_GAME) | Q(lobby__updated_at__gte=cutoff)
+        )
+        .select_related("lobby")
+        .order_by("-joined_at", "-id")
+        .first()
+    )
+    if member is None:
+        return None
+    lobby = member.lobby
+    return {
+        "lobby_code": lobby.code,
+        "game_type": lobby.game_type,
+        "status": lobby.status,
+        "is_host": lobby.is_host(user_id),
+        "token": member.token,
+        "game": games.hooks_for(lobby).member_game(lobby, user_id),
+    }
 
 
 def ensure_tokens(lobby: Lobby, members: list[LobbyMember]) -> None:

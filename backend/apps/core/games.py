@@ -6,7 +6,7 @@ timers, and must not import any game app. A game app registers a ``GameHooks``
 for its ``game_type`` (from ``AppConfig.ready``); core asks the hooks for the few
 things only the game knows: whether its settings are valid, which socket group
 the lobby's newest game listens on, who is connected to that game, and whether
-that game is over.
+that game is over, and which game (if any) a member plays in.
 """
 
 from __future__ import annotations
@@ -37,6 +37,13 @@ class GameHooks:
     def newest_game_finished(self, lobby) -> bool:
         """True if the lobby's newest game exists and is over (results shown)."""
         return False
+
+    def member_game(self, lobby, user_id: int) -> dict[str, Any] | None:
+        """The lobby's newest game as ``{"game_id", "phase"}`` if this user plays in it.
+
+        None if the lobby has no game or the user is not in its newest one.
+        """
+        return None
 
 
 _NO_GAME = GameHooks()
