@@ -331,12 +331,17 @@ def night_timeline_for(game: Game, player_roles: list[PlayerRole]) -> dict | Non
     ``player_roles`` must be in seat order. Built forwards from the dealt cards
     (``original_role`` by seat and ``Game.dealt_center_cards``); a game dealt before
     the centre was stored recovers it by undoing the logged swaps, which only counts
-    if that leads back to every player's dealt role. A log the timeline cannot make
-    sense of is logged and answered with None: the rest of the results still show.
+    if that leads back to every player's dealt role.
+
+    This is a presentation boundary: the rest of the results must show whatever the
+    night log looks like, so ANY failure answers None. A log the timeline refuses in
+    a game from before the centre was stored is expected (WARNING, once); anything
+    else is a bug or a corrupt log (ERROR, with the traceback).
     """
     seats = [pr.user_id for pr in player_roles]
     original = {pr.user_id: pr.original_role for pr in player_roles}
     log = list(game.night_actions_log)
+    legacy = not game.dealt_center_cards
     try:
         dealt_center = list(game.dealt_center_cards) or recover_dealt_center(
             original,
@@ -346,8 +351,13 @@ def night_timeline_for(game: Game, player_roles: list[PlayerRole]) -> dict | Non
         )
         return build_night_timeline(seats, original, dealt_center, log)
     except TimelineError:
-        logger.error("No night timeline for game %s", game.id, exc_info=True)
-        return None
+        if legacy:
+            logger.warning("No night timeline for old game %s", game.id, exc_info=True)
+        else:
+            logger.error("No night timeline for game %s", game.id, exc_info=True)
+    except Exception:
+        logger.exception("Night timeline of game %s failed unexpectedly", game.id)
+    return None
 
 
 def acknowledge_night_results(game: Game, user_id: int, seen: int) -> int | None:

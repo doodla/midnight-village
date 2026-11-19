@@ -155,7 +155,8 @@ class TestTheResultsCarryTheTimeline:
             body = results(table, game_id).data
 
         assert body["night_timeline"] is None
-        log.error.assert_called_once()
+        log.warning.assert_called_once()  # expected for an old game: not an error
+        log.error.assert_not_called()
 
 
 class TestResultsAccessIsUnchanged:
@@ -181,3 +182,40 @@ class TestResultsAccessIsUnchanged:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert "night_timeline" not in response.data
+
+
+class TestAnyMalformedLogStillShowsTheResults:
+    @pytest.mark.parametrize(
+        "bad_entry",
+        [
+            "not even an object",
+            None,
+            {"wave": 3},  # no player, no action
+            {"wave": 3, "player_id": "x", "action_type": "swap_others", "targets": 5},
+            {"wave": 3, "player_id": 1, "action_type": 7, "role_acting_as": "Seer"},
+            {
+                "wave": [],
+                "player_id": 1,
+                "action_type": "skip",
+                "role_acting_as": "Seer",
+            },
+        ],
+    )
+    def test_a_malformed_entry_gives_null_and_the_rest_of_the_results(
+        self, table, bad_entry
+    ) -> None:
+        game_id = forced_game(table)
+        game = Game.objects.get(id=game_id)
+        Game.objects.filter(id=game_id).update(
+            night_actions_log=[*game.night_actions_log, bad_entry]
+        )
+
+        with patch("apps.onuw.services.logger") as log:
+            response = results(table, game_id)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["night_timeline"] is None
+        assert len(response.data["players"]) == 5
+        assert response.data["winning_teams"] == game.results["winning_teams"]
+        assert log.error.call_count + log.exception.call_count == 1  # once, loudly
+        log.warning.assert_not_called()

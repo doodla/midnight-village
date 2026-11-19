@@ -10,9 +10,19 @@ client only draws (it computes nothing). Every physical card gets a stable id
 Werewolves or two Masons still have distinct paths. There is no randomness.
 
 Games dealt before the dealt centre was stored have to recover it:
-``recover_dealt_center`` undoes the logged swaps from the final table and refuses
-(``TimelineError``) if the players' cards it arrives at are not the roles they
-were dealt, because then the log cannot be trusted to describe the night.
+``recover_dealt_center`` undoes the logged swaps from the final table. The ONLY
+check is that the players' cards it arrives at equal the roles they were dealt
+(``TimelineError`` otherwise). That catches a log that is missing or has a wrong
+swap involving a player, but not every fault: the centre it returns is simply what
+the log implies, and a log whose errors leave the players' cards right (for
+instance a Drunk swap that is absent while the Drunk swapped two identical cards)
+is accepted.
+
+Wake order. The log of a night is in resolution order, but inside order group 2
+(team views) the engine resolves the actions in SEAT order, so a Minion can sit
+between two Werewolves in it. The timeline puts group 2 in the order of the rules:
+Werewolves (the dealt ones, then a Doppelganger who copied Werewolf), Minion,
+Masons. Team views move no cards, so this changes no position.
 """
 
 from __future__ import annotations
@@ -23,6 +33,9 @@ from .roles import window_for_order_group
 
 # A row's team is shown for roles that wake together (the actors are the team).
 _TEAM_ROLES = ("Werewolf", "Mason")
+# The order group of the team views, and the order its roles wake in.
+_TEAM_VIEW_GROUP = 2
+_TEAM_WAKE_ORDER = {"Werewolf": 0, "Minion": 1, "Mason": 2}
 
 
 class TimelineError(ValueError):
@@ -89,8 +102,10 @@ def recover_dealt_center(
 ) -> list[str]:
     """The centre as dealt, for a game that did not store it, or ``TimelineError``.
 
-    The players' cards that undoing arrives at must equal each player's dealt
-    role; if they do not, the log does not describe this game.
+    The ONLY check: the players' cards that undoing arrives at must equal each
+    player's dealt role (a log missing or misstating a swap that involves a player
+    fails it). The centre returned is whatever the log implies; a fault that leaves
+    the players' cards right is not detected.
     """
     players, center = undo_to_dealt(final_players, final_center, log)
     if players != original_roles:
@@ -229,8 +244,10 @@ def _row(
         "window": window,
         "order_group": order_group,
         "role": role,
-        "doppelganger": original_roles.get(actor) == "Doppelganger",
         "actors": [actor],
+        "doppelganger_actors": (
+            [actor] if original_roles.get(actor) == "Doppelganger" else []
+        ),
         "action": action,
         "made_by_server": bool(entry.get("made_by_server", False)),
         "looked_at": [],
@@ -242,39 +259,80 @@ def _row(
     }
 
 
+def _in_wake_order(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Put the team views of order group 2 in the order of the rules.
+
+    Werewolves, then Minion, then Masons; within a role the dealt ones before a
+    Doppelganger who copied it. A stable sort of just those rows, in the slots they
+    already hold: nothing else moves, and team views move no cards, so every
+    ``positions_after`` stays true.
+    """
+    slots = [i for i, r in enumerate(rows) if r["order_group"] == _TEAM_VIEW_GROUP]
+
+    def rank(row: dict[str, Any]) -> tuple[int, bool]:
+        return (
+            _TEAM_WAKE_ORDER.get(row["role"], len(_TEAM_WAKE_ORDER)),
+            bool(row["doppelganger_actors"]),
+        )
+
+    ordered = sorted((rows[i] for i in slots), key=rank)
+    result = list(rows)
+    for slot, row in zip(slots, ordered, strict=True):
+        result[slot] = row
+    return result
+
+
 def _merge_team_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Consecutive ``see_team`` rows of one role wake together: one row, several
-    actors ("Werewolves wake"). A Doppelganger who copied the role stays on a row
-    of her own (right after the real ones), so her row can say she copied it."""
+    """Consecutive ``see_team`` rows of one role in one order group wake together:
+    one row, several actors ("Werewolves wake").
+
+    A Doppelganger who copied the role is one of the actors, after the dealt ones;
+    ``doppelganger_actors`` says which, so the screen can mark her without knowing
+    any rule. (A Doppelganger-Minion acts in window 1, a different order group, and
+    keeps her own row.)"""
     merged: list[dict[str, Any]] = []
-    index = 0
-    while index < len(rows):
-        row = rows[index]
-        if row["action"] != "see_team":
-            merged.append(row)
-            index += 1
-            continue
-        run = [row]
-        while (
-            index + len(run) < len(rows)
-            and rows[index + len(run)]["action"] == "see_team"
-            and rows[index + len(run)]["role"] == row["role"]
+    for row in rows:
+        last = merged[-1] if merged else None
+        if (
+            last is not None
+            and row["action"] == last["action"] == "see_team"
+            and row["role"] == last["role"]
+            and row["order_group"] == last["order_group"]
         ):
-            run.append(rows[index + len(run)])
-        index += len(run)
-        for doppelganger in (False, True):
-            part = [r for r in run if r["doppelganger"] is doppelganger]
-            if not part:
-                continue
-            first = dict(part[0])
-            first["actors"] = [a for r in part for a in r["actors"]]
-            first["team"] = sorted(
-                {a for r in part for a in r["team"]}
-                | (set(first["actors"]) if first["role"] in _TEAM_ROLES else set())
-            )
-            first["positions_after"] = part[-1]["positions_after"]
-            merged.append(first)
+            last["actors"] = [*last["actors"], *row["actors"]]
+            last["doppelganger_actors"] = [
+                *last["doppelganger_actors"],
+                *row["doppelganger_actors"],
+            ]
+            last["team"] = [*last["team"], *row["team"]]
+            last["positions_after"] = row["positions_after"]
+        else:
+            merged.append(dict(row))
+    for row in merged:
+        if row["action"] == "see_team":
+            seen = set(row["team"])
+            if row["role"] in _TEAM_ROLES:
+                seen |= set(row["actors"])
+            row["team"] = sorted(seen)
     return merged
+
+
+def _werewolf_cards(
+    roles: list[str], rows: list[dict[str, Any]], table_dealt: dict[str, Any]
+) -> set[int]:
+    """Indexes of the cards that are werewolves at dawn, whoever holds them.
+
+    A Werewolf card is. So is a Doppelganger card whose holder COPIED Werewolf: the
+    card becomes the copied role for team purposes and follows the card to whoever
+    ends the night holding it (docs/specs/onuw/doppelganger.md, Team Resolution
+    Rule). Decided from the copy step in the log, so it needs no rules in the client.
+    """
+    flagged = {i for i, role in enumerate(roles) if role == "Werewolf"}
+    for row in rows:
+        if row["action"] == "copy" and row["copied_role"] == "Werewolf":
+            card = table_dealt["players"][str(row["actors"][0])]
+            flagged.add(int(card[1:]))
+    return flagged
 
 
 def build_night_timeline(
@@ -308,15 +366,16 @@ def build_night_timeline(
         row["positions_after"] = table.snapshot()
         rows.append(row)
 
-    steps = _merge_team_rows(rows)
+    steps = _merge_team_rows(_in_wake_order(rows))
     for number, step in enumerate(steps, start=1):
         step["step"] = number
 
     final = table.snapshot()
+    werewolf = _werewolf_cards(roles, rows, dealt)
     return {
         "seats": list(seats),
         "cards": [
-            {"card_id": f"k{i}", "role": role, "werewolf": role == "Werewolf"}
+            {"card_id": f"k{i}", "role": role, "werewolf": i in werewolf}
             for i, role in enumerate(roles)
         ],
         "dealt": dealt,
@@ -335,8 +394,8 @@ _STEP_KEYS = (
     "window",
     "order_group",
     "role",
-    "doppelganger",
     "actors",
+    "doppelganger_actors",
     "action",
     "made_by_server",
     "looked_at",
