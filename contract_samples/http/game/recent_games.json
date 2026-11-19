@@ -1,0 +1,15 @@
+{
+  "games": [
+    {
+      "game_id": "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
+      "ended_at": "2026-11-19T20:59:08+00:00",
+      "player_count": 6,
+      "winning_teams": [
+        "village"
+      ],
+      "you_won": true,
+      "token": "antler",
+      "seat": 0
+    }
+  ]
+}

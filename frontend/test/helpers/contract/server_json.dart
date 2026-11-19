@@ -321,3 +321,69 @@ Map<String, dynamic> serverLobby({
     ],
   });
 }
+
+// ---------------------------------------------------------------------------
+// Home: where am I, recent games, players at tables
+// ---------------------------------------------------------------------------
+
+/// `GET /me/table/` ("where am I"). No [code]: at no table. [gameId] and
+/// [phase] name the lobby's newest game when the caller plays in it (after
+/// play again the table is `waiting` while that game is still `results`).
+Map<String, dynamic> serverMyTable({
+  String? code,
+  String status = 'waiting',
+  bool isHost = false,
+  int seat = 0,
+  String? gameId,
+  String phase = 'night',
+}) {
+  if (code == null) return ContractSamples.map('http/lobby/my_table_none');
+  final sample = ContractSamples.map('http/lobby/my_table_night');
+  final table = (sample['table'] as Map).cast<String, dynamic>();
+  final game = (table['game'] as Map).cast<String, dynamic>();
+  return withValues(sample, {
+    'table': withValues(table, {
+      'lobby_code': code,
+      'status': status,
+      'is_host': isHost,
+      'token': serverTokens[seat],
+      'game': gameId == null
+          ? null
+          : withValues(game, {'game_id': gameId, 'phase': phase}),
+    }),
+  });
+}
+
+/// One finished game in `GET /onuw/me/recent-games/`.
+typedef RecentGame = ({
+  String gameId,
+  int playerCount,
+  List<String> winningTeams,
+  bool youWon,
+  int seat,
+});
+
+/// `GET /onuw/me/recent-games/`: [games], newest first.
+Map<String, dynamic> serverRecentGames(List<RecentGame> games) {
+  final sample = ContractSamples.map('http/game/recent_games');
+  final entry = _entry(sample, 'games');
+  return withValues(sample, {
+    'games': [
+      for (final g in games)
+        withValues(entry, {
+          'game_id': g.gameId,
+          'player_count': g.playerCount,
+          'winning_teams': g.winningTeams,
+          'you_won': g.youWon,
+          ...seatFields(g.seat),
+        }),
+    ],
+  });
+}
+
+/// `GET /stats/online/`: players and tables with a phone connected.
+Map<String, dynamic> serverOnlineStats({int players = 6, int tables = 1}) =>
+    withValues(ContractSamples.map('http/core/online_stats'), {
+      'players': players,
+      'tables': tables,
+    });

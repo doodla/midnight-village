@@ -44,7 +44,7 @@ from apps.onuw import services
 from apps.onuw.consumers import GameConsumer
 
 START = datetime(2026, 11, 19, 20, 50, tzinfo=UTC)
-LOBBY_CODES = ("K7QX4M", "M2RV8P")
+LOBBY_CODES = ("K7QX4M", "M2RV8P", "Q4TW9N")
 GAME_IDS = (
     "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
     "9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e",

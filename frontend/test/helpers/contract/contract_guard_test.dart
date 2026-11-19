@@ -163,6 +163,52 @@ void main() {
       events.forEach(checkSocketEvent);
     });
 
+    test('where am I, recent games and players at tables', () {
+      checkHttpBody('GET', '/me/table/', 200, serverMyTable());
+      for (final phase in ['night', 'discussion', 'voting', 'results']) {
+        checkHttpBody(
+          'GET',
+          '/me/table/',
+          200,
+          serverMyTable(
+            code: 'ABC123',
+            status: phase == 'results' ? 'finished' : 'in_game',
+            isHost: true,
+            seat: 3,
+            gameId: 'g',
+            phase: phase,
+          ),
+        );
+      }
+      checkHttpBody('GET', '/me/table/', 200, serverMyTable(code: 'ABC123'));
+      checkHttpBody(
+        'GET',
+        '/onuw/me/recent-games/',
+        200,
+        serverRecentGames([
+          (
+            gameId: 'g',
+            playerCount: 5,
+            winningTeams: ['werewolf'],
+            youWon: false,
+            seat: 4,
+          ),
+        ]),
+      );
+      checkHttpBody(
+        'GET',
+        '/onuw/me/recent-games/',
+        200,
+        serverRecentGames(const []),
+      );
+      checkHttpBody(
+        'GET',
+        '/stats/online/',
+        200,
+        serverOnlineStats(players: 0, tables: 0),
+      );
+    });
+
     test('player list, results and lobby', () {
       checkHttpBody(
         'GET',

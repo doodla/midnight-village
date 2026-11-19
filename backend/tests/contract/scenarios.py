@@ -1,17 +1,21 @@
 """The games whose payloads become the contract samples.
 
-Two tables, each played start to finish through the real API (see recorder.py):
+Three tables, played through the real API (see recorder.py):
 
 - ``classic_table``: six players, no Doppelganger (so the night is window 2
   only), the default timers. Sign-in, lobby set-up and every lobby event, the
   Seer, Robber, Troublemaker and a Werewolf pack, a player with no night action,
   the close at the minimum window length, the talk, the vote with a Hunter
-  chain, the results, play again and the owner leaving. Most error bodies.
+  chain, the results, play again and the owner leaving; "where am I" in every
+  state, online stats, the night results ack, recent games. Most error bodies.
 - ``doppelganger_table``: eight players and every remaining prompt kind: the
   Doppelganger's look and her follow-up (window 1), the lone Werewolf's center
   peek, Minion, Masons, Drunk, Insomniac, a Seer who skips. Every timer is 0
   (as the harness plays), so deadlines are null. Host handover and return, the
-  host revealing votes with abstentions, the debug oracle.
+  host revealing votes with abstentions, the results with the night timeline,
+  the debug oracle.
+- ``full_table``: ten players fill a table; the join refusals and the ack from
+  someone who does not play in the game.
 
 Adding a situation: drive it here with ``table.record`` / ``table.record_event``,
 run ``just samples`` and review the new files.
@@ -35,6 +39,13 @@ VOTE = "/onuw/games/{game_id}/vote/"
 REVEAL = "/onuw/games/{game_id}/reveal-votes/"
 RESULTS = "/onuw/games/{game_id}/results/"
 PLAY_AGAIN = "/lobbies/{code}/play-again/"
+JOIN = "/lobbies/{code}/join/"
+READY = "/lobbies/{code}/ready/"
+MY_TABLE = "/me/table/"
+RECENT_GAMES = "/onuw/me/recent-games/"
+ONLINE = "/stats/online/"
+RESULTS_SEEN = "/onuw/games/{game_id}/night-results/seen/"
+UNKNOWN_GAME = "00000000-0000-4000-8000-000000000000"
 
 UNTIMED = {
     "night_wave_seconds": 0,
@@ -79,6 +90,11 @@ def _record_night_results(t: Table, players: list[tuple[str, str]]) -> None:
             status=200,
             about=f"/me/ in the talk with a {kind.replace('_', ' ')} result.",
         )
+
+
+def _record_my_table(t: Table, who: str, state: str, about: str) -> None:
+    """``GET /me/table/`` ("where am I") as ``http/lobby/my_table_<state>``."""
+    t.record(f"lobby/my_table_{state}", "GET", who, MY_TABLE, status=200, about=about)
 
 
 def classic_table(run: Recording) -> None:
@@ -134,6 +150,16 @@ def classic_table(run: Recording) -> None:
         about="A refresh token the server does not accept.",
     )
 
+    _record_my_table(t, "Ana", "none", "Where am I: at no table.")
+    t.record(
+        "game/recent_games_none",
+        "GET",
+        "Ana",
+        RECENT_GAMES,
+        status=200,
+        about="No finished games yet.",
+    )
+
     # -- the lobby -------------------------------------------------------
     t.clock.advance(60)
     t.record(
@@ -166,6 +192,16 @@ def classic_table(run: Recording) -> None:
         about="Joining a table you are already at.",
     )
     t.record(
+        "lobby/join_not_found",
+        "POST",
+        "Ben",
+        JOIN,
+        status=404,
+        about="Joining a table code that does not exist.",
+        code="ZZZZZZ",
+    )
+    _record_my_table(t, "Ben", "waiting", "Where am I: at a table before the deal.")
+    t.record(
         "lobby/not_found",
         "GET",
         "Ben",
@@ -182,6 +218,15 @@ def classic_table(run: Recording) -> None:
         "/lobbies/{code}/ready/",
         status=200,
         about="A player toggles ready.",
+    )
+    t.record(
+        "lobby/ready_invalid",
+        "POST",
+        "Ana",
+        READY,
+        {"is_ready": "yes"},
+        status=400,
+        about="A ready flag that is not true or false.",
     )
     t.record_event(
         "lobby/player_ready", "Ben", "lobby", "player_ready", about="Ready toggled."
@@ -264,6 +309,24 @@ def classic_table(run: Recording) -> None:
         status=200,
         about="The player's running game.",
     )
+    _record_my_table(t, "Ben", "night", "Where am I: in a game, at night.")
+    t.record(
+        "lobby/settings_in_game",
+        "PATCH",
+        "Ana",
+        LOBBY,
+        {"settings": {"roles": deck}},
+        status=409,
+        about="The host changes the deck while a game runs.",
+    )
+    t.record(
+        "lobby/ready_in_game",
+        "POST",
+        "Ben",
+        READY,
+        status=409,
+        about="Toggling ready while a game runs.",
+    )
     for name in dealt:
         t.connect(name)
     t.record_event(
@@ -311,6 +374,14 @@ def classic_table(run: Recording) -> None:
         ME,
         status=200,
         about="/me/ at night for a player with no action.",
+    )
+    t.record(
+        "core/online_stats",
+        "GET",
+        "",
+        ONLINE,
+        status=200,
+        about="Players at tables right now (no login).",
     )
     t.disconnect("Esme")
     t.record_event(
@@ -432,6 +503,35 @@ def classic_table(run: Recording) -> None:
     _record_night_results(
         t, [("Ben", "swap_with_player"), ("Dev", "swap_others"), ("Cleo", "see_team")]
     )
+    _record_my_table(t, "Ben", "discussion", "Where am I: in a game, in the talk.")
+    t.record(
+        "game/night_results_seen",
+        "POST",
+        "Ana",
+        RESULTS_SEEN,
+        {"seen": 1},
+        status=200,
+        about="The phone showed the night's results (acknowledged).",
+    )
+    t.record(
+        "game/night_results_seen_invalid",
+        "POST",
+        "Ana",
+        RESULTS_SEEN,
+        {"seen": -1},
+        status=400,
+        about="An acknowledgement that is not a count from 0 to 10.",
+    )
+    t.record(
+        "game/night_results_seen_not_found",
+        "POST",
+        "Ana",
+        RESULTS_SEEN,
+        {"seen": 1},
+        status=404,
+        about="Acknowledging results of a game that does not exist.",
+        game_id=UNKNOWN_GAME,
+    )
     t.record(
         "game/action_not_night",
         "POST",
@@ -478,6 +578,7 @@ def classic_table(run: Recording) -> None:
     t.record(
         "game/me_voting", "GET", "Ana", ME, status=200, about="/me/ before voting."
     )
+    _record_my_table(t, "Ben", "voting", "Where am I: in a game, in the vote.")
     t.record(
         "lobby/play_again_not_finished",
         "POST",
@@ -584,6 +685,15 @@ def classic_table(run: Recording) -> None:
         status=200,
         about="No running game (a finished one does not count).",
     )
+    _record_my_table(t, "Ben", "results", "Where am I: the game is over.")
+    t.record(
+        "game/recent_games",
+        "GET",
+        "Ana",
+        RECENT_GAMES,
+        status=200,
+        about="The player's finished games, newest first.",
+    )
     t.record(
         "game/me_not_found",
         "GET",
@@ -591,7 +701,7 @@ def classic_table(run: Recording) -> None:
         ME,
         status=404,
         about="A game that does not exist.",
-        game_id="00000000-0000-4000-8000-000000000000",
+        game_id=UNKNOWN_GAME,
     )
     t.record(
         "lobby/play_again_not_host",
@@ -611,6 +721,12 @@ def classic_table(run: Recording) -> None:
     )
     t.record_event(
         "game/play_again", "Ben", "game", "play_again", about="Back to the lobby."
+    )
+    _record_my_table(
+        t,
+        "Ben",
+        "after_play_again",
+        "Where am I: back at the table; the last game is still the results.",
     )
     t.record(
         "lobby/left",
@@ -633,7 +749,7 @@ def classic_table(run: Recording) -> None:
     )
 
 
-def doppelganger_table(run: Recording) -> None:
+def doppelganger_table(run: Recording) -> Table:
     t = run.table()
     deck = {
         "Doppelganger": 1,
@@ -915,8 +1031,47 @@ def doppelganger_table(run: Recording) -> None:
         about="The DEBUG-only timer hook when no such timer is pending.",
         debug=True,
     )
+    return t
+
+
+def full_table(run: Recording, finished: Table) -> None:
+    """Ten players fill a table; an eleventh is refused here, at a finished
+    table, and by a game she does not play in."""
+    t = run.table()
+    names = ["Ida", "Jon", "Kit", "Lev", "Mia", "Ned", "Ola", "Pim", "Quin", "Rae"]
+    _sign_in(t, [*names, "Sol"])
+    t.call("POST", "Ida", "/lobbies/", {"game_type": "onuw"})
+    for name in names[1:]:
+        t.call("POST", name, JOIN)
+    t.record(
+        "lobby/join_full",
+        "POST",
+        "Sol",
+        JOIN,
+        status=400,
+        about="Joining a table with every seat taken.",
+    )
+    t.record(
+        "lobby/join_closed",
+        "POST",
+        "Sol",
+        JOIN,
+        status=400,
+        about="Joining a table that is not taking players (its game is over).",
+        code=finished.code,
+    )
+    t.record(
+        "game/night_results_seen_not_a_player",
+        "POST",
+        "Sol",
+        RESULTS_SEEN,
+        {"seen": 1},
+        status=403,
+        about="Acknowledging results of a game you do not play in.",
+        game_id=finished.game_id,
+    )
 
 
 def record_all(run: Recording) -> None:
     classic_table(run)
-    doppelganger_table(run)
+    full_table(run, finished=doppelganger_table(run))

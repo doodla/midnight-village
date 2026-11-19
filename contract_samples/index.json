@@ -34,6 +34,14 @@
       "description": "A refresh token is exchanged (and rotated)."
     },
     {
+      "name": "http/core/online_stats",
+      "kind": "http",
+      "method": "GET",
+      "path": "/stats/online/",
+      "status": 200,
+      "description": "Players at tables right now (no login)."
+    },
+    {
       "name": "http/debug/fire_timer_none",
       "kind": "http",
       "method": "POST",
@@ -386,6 +394,38 @@
       "description": "/me/ after voting."
     },
     {
+      "name": "http/game/night_results_seen",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 200,
+      "description": "The phone showed the night's results (acknowledged)."
+    },
+    {
+      "name": "http/game/night_results_seen_invalid",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 400,
+      "description": "An acknowledgement that is not a count from 0 to 10."
+    },
+    {
+      "name": "http/game/night_results_seen_not_a_player",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 403,
+      "description": "Acknowledging results of a game you do not play in."
+    },
+    {
+      "name": "http/game/night_results_seen_not_found",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 404,
+      "description": "Acknowledging results of a game that does not exist."
+    },
+    {
       "name": "http/game/players_night",
       "kind": "http",
       "method": "GET",
@@ -400,6 +440,22 @@
       "path": "/onuw/games/{game_id}/players/",
       "status": 200,
       "description": "The player list during the vote."
+    },
+    {
+      "name": "http/game/recent_games",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/me/recent-games/",
+      "status": 200,
+      "description": "The player's finished games, newest first."
+    },
+    {
+      "name": "http/game/recent_games_none",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/me/recent-games/",
+      "status": 200,
+      "description": "No finished games yet."
     },
     {
       "name": "http/game/results",
@@ -530,6 +586,30 @@
       "description": "Joining a table you are already at."
     },
     {
+      "name": "http/lobby/join_closed",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 400,
+      "description": "Joining a table that is not taking players (its game is over)."
+    },
+    {
+      "name": "http/lobby/join_full",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 400,
+      "description": "Joining a table with every seat taken."
+    },
+    {
+      "name": "http/lobby/join_not_found",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 404,
+      "description": "Joining a table code that does not exist."
+    },
+    {
       "name": "http/lobby/joined",
       "kind": "http",
       "method": "POST",
@@ -552,6 +632,62 @@
       "path": "/lobbies/{code}/leave/",
       "status": 200,
       "description": "A player leaves the table."
+    },
+    {
+      "name": "http/lobby/my_table_after_play_again",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: back at the table; the last game is still the results."
+    },
+    {
+      "name": "http/lobby/my_table_discussion",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: in a game, in the talk."
+    },
+    {
+      "name": "http/lobby/my_table_night",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: in a game, at night."
+    },
+    {
+      "name": "http/lobby/my_table_none",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: at no table."
+    },
+    {
+      "name": "http/lobby/my_table_results",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: the game is over."
+    },
+    {
+      "name": "http/lobby/my_table_voting",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: in a game, in the vote."
+    },
+    {
+      "name": "http/lobby/my_table_waiting",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: at a table before the deal."
     },
     {
       "name": "http/lobby/not_found",
@@ -592,6 +728,30 @@
       "path": "/lobbies/{code}/ready/",
       "status": 200,
       "description": "A player toggles ready."
+    },
+    {
+      "name": "http/lobby/ready_in_game",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/ready/",
+      "status": 409,
+      "description": "Toggling ready while a game runs."
+    },
+    {
+      "name": "http/lobby/ready_invalid",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/ready/",
+      "status": 400,
+      "description": "A ready flag that is not true or false."
+    },
+    {
+      "name": "http/lobby/settings_in_game",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 409,
+      "description": "The host changes the deck while a game runs."
     },
     {
       "name": "http/lobby/settings_invalid",
