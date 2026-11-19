@@ -32,7 +32,6 @@ class CountBadge extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(minWidth: side, minHeight: side),
       padding: EdgeInsets.symmetric(horizontal: side / 4),
-      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: ground.mark,
         borderRadius: BorderRadius.circular(
@@ -40,10 +39,15 @@ class CountBadge extends StatelessWidget {
         ),
         boxShadow: (large ? ground.elevation.badge : Elevation.none).boxShadows,
       ),
-      child: Text(
-        text,
-        style: (large ? skin.typography.smallStrong : skin.typography.badge)
-            .copyWith(color: ground.onMark, height: 1),
+      // Centred in the badge, which keeps to its own size wherever it is.
+      child: Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Text(
+          text,
+          style: (large ? skin.typography.smallStrong : skin.typography.badge)
+              .copyWith(color: ground.onMark, height: 1),
+        ),
       ),
     );
   }
