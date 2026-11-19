@@ -664,6 +664,45 @@ class TestDebugStateOracle:
         assert resp.data["results"]["winning_teams"] == ["village"]
 
     @override_settings(DEBUG=True)
+    def test_pending_timers_lists_this_games_timers_and_the_host_handover(
+        self, api_client, db
+    ):
+        """pending_timers names the game's own timers (prefix stripped, sorted)
+        and the lobby's handover timer; another game's timers are not listed."""
+        game, users, host = _make_game_with_roles(
+            {"alice": "Villager", "bob": "Werewolf", "carol": "Seer"},
+            ["Robber", "Drunk", "Tanner"],
+            phase=Phase.NIGHT,
+            wave=2,
+        )
+        later = timezone.now() + timedelta(hours=1)
+        for key in (
+            f"{game.id}:wave:2",
+            f"{game.id}:grace:{users['bob'].id}",
+            f"lobby:{game.lobby.pk}:host",
+            "00000000-0000-0000-0000-000000000001:wave:2",
+            f"lobby:{game.lobby.pk + 1}:host",
+        ):
+            ScheduledTimer.objects.create(
+                key=key, token="t", job="x", params={}, due_at=later
+            )
+        api_client.force_authenticate(user=host)
+        resp = api_client.get(_debug_state_url(game.id))
+        assert resp.data["pending_timers"] == sorted(
+            ["wave:2", f"grace:{users['bob'].id}", "host_handover"]
+        )
+
+    @override_settings(DEBUG=True)
+    def test_pending_timers_is_empty_without_timers(self, api_client, db):
+        game, _users, host = _make_game_with_roles(
+            {"alice": "Villager", "bob": "Werewolf", "carol": "Seer"},
+            ["Robber", "Drunk", "Tanner"],
+        )
+        api_client.force_authenticate(user=host)
+        resp = api_client.get(_debug_state_url(game.id))
+        assert resp.data["pending_timers"] == []
+
+    @override_settings(DEBUG=True)
     def test_non_player_cannot_read_oracle(self, api_client, db):
         """Even in DEBUG, a non-player gets 403 (membership bar)."""
         game, _users, _host = _make_game_with_roles(
