@@ -309,6 +309,53 @@ class TestPrompts:
 
         assert me(night, "seer")["action_prompt"]["chosen"] == 1
         assert me(night, "robber")["action_prompt"]["chosen"] == 0
+        assert me(night, "seer")["action_prompt"]["chooses_left"] == 0
+        assert me(night, "robber")["action_prompt"]["chooses_left"] == 1
+
+    @pytest.mark.parametrize(
+        ("copied", "left_after_look"),
+        [
+            ("Seer", 1),
+            ("Robber", 1),
+            ("Troublemaker", 1),
+            ("Drunk", 1),
+            ("Minion", 1),  # nothing to pick, still waited for once more
+            ("Werewolf", 0),  # acts in window 2
+            ("Mason", 0),
+            ("Insomniac", 0),
+            ("Villager", 0),
+        ],
+    )
+    def test_chooses_left_says_whose_turn_comes_again_only_to_her(
+        self, make_p2, copied, left_after_look
+    ) -> None:
+        roles = {"dop": "Doppelganger", "target": copied, "a": "Villager", "b": "Seer"}
+        if copied == "Mason":
+            roles["b"] = "Mason"
+        night = make_p2(roles)
+        night.start()
+        assert me(night, "dop")["action_prompt"]["chooses_left"] == 1
+        choose(night, "dop", [player(night, "target")])
+
+        assert me(night, "dop")["action_prompt"]["chooses_left"] == left_after_look
+        if left_after_look:
+            choose(night, "dop", [])
+            assert me(night, "dop")["action_prompt"]["chooses_left"] == 0
+        # Everyone else: one choose expected in window 1, whatever they hold.
+        for name in ("target", "a", "b"):
+            assert me(night, name)["action_prompt"]["chooses_left"] == 1
+            choose(night, name, [])
+            assert me(night, name)["action_prompt"]["chooses_left"] == 0
+            assert me(night, name)["action_prompt"]["max_chooses"] == 2
+
+    def test_get_me_names_the_viewer(self, make_p2) -> None:
+        """Protocol 2 only (protocol 1's /me/ is unchanged: its samples are)."""
+        night = make_p2(LONE)
+        night.start()
+
+        assert {name: me(night, name)["player_id"] for name in LONE} == {
+            name: pid(night, name) for name in LONE
+        }
 
     def test_there_is_no_prompt_between_windows_or_after_the_night(
         self, make_p2

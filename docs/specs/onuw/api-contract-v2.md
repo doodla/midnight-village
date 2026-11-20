@@ -783,3 +783,15 @@ else's; protocol 1 is unchanged.
   "nothing_chosen": true}`), and a lone Werewolf who looked at no centre card
   (`see_team` without `center_card`). Absent on a result the player's picks made.
   `night_results_seen` counts these entries like any other.
+
+**Two additions to `GET /me/` (protocol 2 only, additive).**
+
+- `player_id` at the top level: the caller's own id (the app no longer has to take it from
+  the login).
+- `action_prompt.chooses_left` (0 or 1): how many `choose` this phone should still send in
+  the open window. 1 per window for every phone; after her look, 1 again for the
+  Doppelganger when the copied role acts in window 1 (Seer, Robber, Troublemaker, Drunk,
+  Minion). It says nothing her own prompt's `kind` does not already say to her, it is the
+  same width for every phone, and it is only in her own `/me/`. `max_chooses` stays what
+  the server accepts (two in window 1 from anyone, so a second tap is no tell). The legacy
+  `has_voted` and `your_role.has_acted` are still sent; they go with the cleanup slice.

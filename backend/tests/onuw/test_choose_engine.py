@@ -288,6 +288,30 @@ class TestPrompt:
     def test_kind(self, acting, kind) -> None:
         assert self.prompt(acting)["kind"] == kind
 
+    @pytest.mark.parametrize(
+        ("window", "acting", "chosen", "left"),
+        [
+            (2, "Seer", 0, 1),
+            (2, "Seer", 1, 0),
+            (2, None, 0, 1),
+            (2, None, 1, 0),
+            (1, None, 0, 1),  # everyone else in window 1: one choose
+            (1, None, 1, 0),
+            (1, None, 2, 0),  # a second one the server took anyway
+            (1, "Doppelganger", 0, 1),  # her look
+            (1, "Robber", 1, 1),  # her follow-up, armed
+            (1, "Minion", 1, 1),  # a follow-up with nothing to pick
+            (1, "Robber", 2, 0),
+        ],
+    )
+    def test_chooses_left_is_what_the_phone_should_still_send(
+        self, window, acting, chosen, left
+    ) -> None:
+        prompt = self.prompt(acting, window=window, chosen=chosen)
+
+        assert prompt["chooses_left"] == left
+        assert prompt["max_chooses"] == (2 if window == 1 else 1)  # what is accepted
+
     def test_a_lone_werewolf_is_told_its_real_option(self) -> None:
         table = {ME: "Werewolf", 11: "Seer", 12: "Villager", 13: "Robber"}
 

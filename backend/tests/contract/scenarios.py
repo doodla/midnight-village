@@ -1648,6 +1648,16 @@ def _plain_choose_table(run: Recording) -> None:
         "role, nothing stored, and it can never land in the next stage.",
     )
     t.record(
+        "game/advance_wave_wrong_stage",
+        "POST",
+        "Ana",
+        ADVANCE,
+        {"stage": window_stage},
+        status=409,
+        about="The host's advance for a window that is over: nothing happens to "
+        "the stage the game is in now.",
+    )
+    t.record(
         "game/choose_stage_missing",
         "POST",
         "Ana",
@@ -1712,6 +1722,7 @@ def _plain_choose_table(run: Recording) -> None:
         status=200,
         about="/me/ in the talk after tapping ready.",
     )
+    talk_stage = t.stage_now()
     since_vote = t.mark()
     _everyone(t, names[1:], GAME_READY, {"ready": True})
     t.record_event(
@@ -1720,6 +1731,25 @@ def _plain_choose_table(run: Recording) -> None:
         "game",
         "progress",
         about="Everyone present was ready: the vote opens, nobody has locked in.",
+    )
+    t.record(
+        "game/me_voting_unpicked",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in the vote before the caller has picked anyone (`my_vote` "
+        "is null).",
+    )
+    t.record(
+        "game/end_discussion_wrong_stage",
+        "POST",
+        "Ana",
+        END_DISCUSSION,
+        {"stage": talk_stage},
+        status=409,
+        about="The host's end-discussion after the talk already ended (everyone "
+        "was ready): nothing happens to the vote.",
     )
 
     # -- the vote: pick, re-pick, lock -----------------------------------
@@ -1847,6 +1877,23 @@ def _plain_choose_table(run: Recording) -> None:
         about="A vote that was on its way when the vote was revealed: the stage is "
         "over, nothing is stored.",
     )
+    t.record(
+        "game/reveal_votes_wrong_stage",
+        "POST",
+        "Ana",
+        REVEAL,
+        {"stage": vote_stage},
+        status=409,
+        about="The host's reveal after the last lock already revealed the vote.",
+    )
+    t.record(
+        "game/me_results_v2",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in the results phase under night protocol 2.",
+    )
 
 
 def _doppelganger_choose_table(run: Recording) -> None:
@@ -1875,6 +1922,21 @@ def _doppelganger_choose_table(run: Recording) -> None:
         "Ana",
         LOBBY,
         {"settings": {"deck": "custom", "roles": deck}},
+    )
+    t.record_event(
+        "lobby/lobby_update_v2_custom_deck",
+        "Ben",
+        "lobby",
+        "lobby_update",
+        about="A night protocol 2 table whose host picked the cards (`deck: custom`).",
+    )
+    t.record(
+        "lobby/detail_v2_custom_deck",
+        "GET",
+        "Ben",
+        LOBBY,
+        status=200,
+        about="A night protocol 2 table with a custom deck, before the deal.",
     )
     t.clock.advance(60)
     t.start(dealt, ["Villager", "Villager", "Tanner"])
@@ -2034,6 +2096,22 @@ def _auto_deck_table(run: Recording, names: list[str], chip: str, players: int) 
     t = run.table()
     _v2_lobby(t, names)
     t.call("PATCH", "Ana", LOBBY, {"settings": {"deck": "auto", "deck_chip": chip}})
+    t.record_event(
+        f"lobby/lobby_update_v2_auto_deck_{players}",
+        "Ben",
+        "lobby",
+        "lobby_update",
+        about=f"A night protocol 2 table with the automatic deck ({chip} chip).",
+    )
+    t.record(
+        f"lobby/detail_v2_auto_deck_{players}",
+        "GET",
+        "Ben",
+        LOBBY,
+        status=200,
+        about=f"A night protocol 2 table with the automatic deck ({chip} chip), "
+        "before the deal: the server builds the cards at the deal.",
+    )
     t.clock.advance(60)
     t.start_random(7, sample=f"game/started_auto_deck_{players}")
     t.record(

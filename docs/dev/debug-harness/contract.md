@@ -62,7 +62,7 @@ sections below say otherwise, this list wins:
   (the table's `night_doppelganger_window_seconds`; `wave:1` fire-timer); window 2 closes
   when EVERY present phone has chosen once (and the minimum passed). The only night events
   are group `night_window {window, deadline}` and `wave_complete`; a phone reads its
-  `action_prompt` (`kind`, `shapes`, `chosen`, `max_chooses`, the board) and
+  `action_prompt` (`kind`, `shapes`, `chosen`, `chooses_left`, `max_chooses`, the board) and
   `night_results` from `GET /me/`, where the Doppelganger's look is listed as soon as it
   resolves. No `vote_submitted {player_id}` is sent; votes announce counts only. With
   `card_look_seconds` > 0 (protocol 2 only) the deal opens window 0: every phone posts
