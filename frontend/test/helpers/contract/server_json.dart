@@ -18,7 +18,9 @@ const List<Seat> defaultSeats = [
   (id: 3, name: 'Charlie'),
 ];
 
-/// The ten seat tokens, in the server's order (`backend/apps/core/tokens.py`).
+/// The ten seat tokens (`backend/apps/core/tokens.py`). The server hands
+/// them out in an order seeded by the table code; tests take them in this
+/// order, one per seat.
 const serverTokens = [
   'crow',
   'key',
@@ -244,6 +246,62 @@ Map<String, dynamic> serverResults({
     ],
     'center_cards': centerCards,
     'night_actions_log': nightActionsLog,
+    'night_timeline': _nightTimeline(sample, seats, centerCards),
+  });
+}
+
+/// The results' `night_timeline` for [seats] and the final [center], built
+/// from the sample's: one card per role dealt (the players' original roles,
+/// then the centre), and where each card ended (the players' final roles,
+/// then the centre). The centre is taken as dealt as it ends, and the steps
+/// are left empty (no test reads them yet). A deck that does not add up
+/// throws.
+Map<String, dynamic> _nightTimeline(
+  Map<String, dynamic> results,
+  List<ResultSeat> seats,
+  List<String> center,
+) {
+  final sample = (results['night_timeline'] as Map).cast<String, dynamic>();
+  final cardTemplate = ((sample['cards'] as List).first as Map)
+      .cast<String, dynamic>();
+  final dealtRoles = [for (final p in seats) p.originalRole, ...center];
+  final cards = [
+    for (final (i, role) in dealtRoles.indexed)
+      withValues(cardTemplate, {
+        'card_id': 'k$i',
+        'role': role,
+        'werewolf': role == 'Werewolf',
+      }),
+  ];
+  final unused = [for (var i = 0; i < cards.length; i++) 'k$i'];
+  String take(String role) {
+    final id = unused.firstWhere(
+      (id) => dealtRoles[int.parse(id.substring(1))] == role,
+      orElse: () => throw ArgumentError('no $role card left in the deck'),
+    );
+    unused.remove(id);
+    return id;
+  }
+
+  final dealtCenter = [
+    for (var i = 0; i < center.length; i++) 'k${seats.length + i}',
+  ];
+  final finalPlayers = {
+    for (final p in seats) '${p.seat.id}': take(p.finalRole),
+  };
+  final finalCenter = [for (final role in center) take(role)];
+  return withValues(sample, {
+    'seats': [for (final p in seats) p.seat.id],
+    'cards': cards,
+    'dealt': {
+      'players': {for (final (i, p) in seats.indexed) '${p.seat.id}': 'k$i'},
+      'center': dealtCenter,
+    },
+    'steps': <dynamic>[],
+    'final': {'players': finalPlayers, 'center': finalCenter},
+    'center_moved': [
+      for (var i = 0; i < center.length; i++) finalCenter[i] != dealtCenter[i],
+    ],
   });
 }
 

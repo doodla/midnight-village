@@ -153,14 +153,16 @@ void main() {
       final results = await _resultsFor(
         serverResults(
           players: [
+            // The Robber took the Werewolf's card.
             _seat(0, role: 'Werewolf', finalRole: 'Robber', team: 'village'),
-            _seat(1, role: 'Troublemaker'),
+            _seat(1, role: 'Robber', finalRole: 'Werewolf', team: 'werewolf'),
           ],
         ),
       );
       expect(results.players[0].originalRole, RoleId.werewolf);
       expect(results.players[0].finalRole, RoleId.robber);
-      expect(results.players[1].originalRole, RoleId.troublemaker);
+      expect(results.players[1].originalRole, RoleId.robber);
+      expect(results.players[1].finalRole, RoleId.werewolf);
     });
 
     test('"neutral" team maps to TeamId.independent', () async {
