@@ -7,6 +7,7 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 
 import '../test/helpers/component_sheet.dart' show holdDown;
+import '../test/helpers/mock_http_client.dart';
 import '../test/helpers/sheet/sheet_data.dart' as sheet;
 import '../test/helpers/shell_setup.dart';
 
@@ -327,3 +328,20 @@ Future<void> pumpVoteThree(WidgetTester tester) => _shell(
   ),
   learned: Cue.values.toSet(),
 );
+
+/// A game this app cannot play (its `/me/` has no `stage`): the calm line
+/// and Leave.
+Future<void> pumpUnplayable(WidgetTester tester) async {
+  final me = sheet.recordedMe('me_discussion_choose_seer');
+  final setup = await ShellSetup.pump(
+    tester,
+    me,
+    before: (s) => s.http.answer(
+      'GET',
+      '/onuw/games/${me['game_id']}/me/',
+      Map.of(me)..remove('stage'),
+      offContract: true,
+    ),
+  );
+  await setup.settle(tester);
+}

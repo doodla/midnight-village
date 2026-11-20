@@ -86,7 +86,7 @@ A timer is a named job with JSON params (`night_window`, `discussion_deadline`,
    configured it always refuses. Vercel Cron's minimum interval depends on the plan (hobby
    plans are limited to daily runs), so the lazy repair on `GET /me/` is the primary
    repair and the cron is a backstop for games nobody is polling. NOTE (open): the cron
-   entry itself (`vercel.json` `crons`) is not in the repo.
+   entry itself (the `crons` of a vercel.json) is not in the repo.
 7. **One clock.** `due_at`, `last_seen`, the staleness cutoff and every due / freshness
    comparison use the database clock, so instances with skewed clocks agree on who is
    connected and what is due.

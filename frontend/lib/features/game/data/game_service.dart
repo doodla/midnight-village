@@ -116,7 +116,8 @@ class GameService {
       (await _stage(path, {'stage': stage})).answer;
 }
 
-/// A game whose `/me/` has no `stage`: it runs a night this app does not
+/// PROTOCOL 1: a game whose `/me/` has no `stage`: it runs a night this app
+/// does not
 /// play (night protocol 1, from before every table was opened with
 /// `defaults: "v2"`). Final: fetching again gives the same answer.
 class UnplayableGameException implements Exception {

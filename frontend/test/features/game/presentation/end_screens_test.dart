@@ -517,6 +517,42 @@ void main() {
       await s.close(tester);
     });
 
+    for (final (what, endpoint, sample, viewer, tap) in [
+      (
+        'play again',
+        'play-again',
+        'play_again_not_found',
+        'Ana',
+        ResultsCopy.playAgain,
+      ),
+      ('leave', 'leave', 'leave_not_found', 'Ben', CommonCopy.leave),
+    ]) {
+      testWidgets('the table closed while on 11: $what answered 404 is 01 '
+          'with "This table has closed.", never "Not sent."', (tester) async {
+        final s = await _end(
+          tester,
+          recordedResults('results'),
+          viewer: viewer,
+        );
+        await _seeWhoWon(tester, s);
+        s.http.answer(
+          'POST',
+          '/lobbies/${code(s)}/$endpoint/',
+          ContractSamples.load('http/lobby/$sample'),
+          status: 404,
+        );
+        s
+          ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
+          ..answerHome();
+        await tester.tap(find.text(tap));
+        await s.settle(tester);
+        expect(_screen(tester, s), AppScreen.join);
+        expect(find.text(BannerCopy.tableClosed), findsOneWidget);
+        expect(find.text(BannerCopy.notSent), findsNothing);
+        await s.close(tester);
+      });
+    }
+
     testWidgets('a guest leaves: back to 01', (tester) async {
       final s = await _end(tester, recordedResults('results'));
       await _seeWhoWon(tester, s);

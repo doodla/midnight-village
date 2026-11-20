@@ -52,6 +52,9 @@ final screenCatalogue = <ScreenEntry>[
     '-link': pumpJoinLink,
     '-link-named': pumpJoinLinkNamed,
     '-link-elsewhere': pumpJoinLinkElsewhere,
+    '-closed': pumpJoinClosed,
+    '-keyboard': pumpJoinKeyboard,
+    '-x1.3': (tester) => pumpJoinFresh(tester, textScale: 1.3),
     '-x2': (tester) => pumpJoinFresh(tester, textScale: 2),
   }),
   ..._rebuilt('02-table', '02-table.png', {
@@ -142,6 +145,8 @@ final screenCatalogue = <ScreenEntry>[
     '-ten-long': pumpResultsTen,
     '-x1.3': (tester) => pumpResultsVillage(tester, textScale: 1.3),
   }),
+  // A game this app cannot play (no `stage` in its `/me/`).
+  ..._rebuilt('unplayable', null, {'': pumpUnplayable}),
   ...componentSheet,
 ];
 
@@ -149,7 +154,7 @@ final screenCatalogue = <ScreenEntry>[
 /// screen next to [mock].
 List<ScreenEntry> _rebuilt(
   String id,
-  String mock,
+  String? mock,
   Map<String, Future<void> Function(WidgetTester tester)> states,
 ) => [
   for (final MapEntry(key: suffix, value: build) in states.entries)

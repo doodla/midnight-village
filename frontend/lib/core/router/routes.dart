@@ -30,7 +30,8 @@ class JoinRoute extends GoRouteData with $JoinRoute {
 }
 
 /// A table by its code (an old link). The table a player sits at is
-/// `/me/table/`'s, so this is home.
+/// `/me/table/`'s, so this is home. PROTOCOL 1: the old game screen's
+/// route after play again; delete it with the server slice.
 @TypedGoRoute<LobbyRoute>(path: '/lobby/:code')
 class LobbyRoute extends GoRouteData with $LobbyRoute {
   const LobbyRoute({required this.code});

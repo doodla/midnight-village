@@ -106,6 +106,8 @@ class ScreenFrame extends StatelessWidget {
     final bottom = actions.isEmpty ? Space.screenBottom : Space.md;
     final Widget top;
     if (art != null && topArtLayout == TopArtLayout.fill) {
+      // Read here: the Scaffold takes the keyboard out of its body's insets.
+      final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
       return _frame(
         context,
         colors,
@@ -114,6 +116,7 @@ class ScreenFrame extends StatelessWidget {
             fadeTo: colors.ground,
             bottom: bottom,
             child: _FillTop(
+              keyboard: keyboard,
               minHeight: box.maxHeight - bottom,
               art: art,
               fadeTo: colors.ground,
@@ -307,11 +310,13 @@ class _ScrollBodyState extends State<_ScrollBody> {
 }
 
 /// [TopArtLayout.fill]: the picture takes the height the [body] leaves of
-/// [minHeight] (at least down to where the scene's body starts), and the
+/// [minHeight] (at least down to where the scene's body starts, unless the
+/// keyboard is up: then only what the body leaves), and the
 /// body sits at its foot, over the last of the fade: the scene's own overlap
 /// ([TopArtLayout.height] - [TopArtLayout.bodyTop]) and its fade length.
 class _FillTop extends StatelessWidget {
   const _FillTop({
+    required this.keyboard,
     required this.minHeight,
     required this.art,
     required this.fadeTo,
@@ -319,6 +324,9 @@ class _FillTop extends StatelessWidget {
     required this.body,
   });
 
+  /// The keyboard is up: the form keeps to the room above it, the picture
+  /// giving up its minimum (only what runs on behind the title is kept).
+  final bool keyboard;
   final double minHeight;
   final ArtImage art;
   final Color fadeTo;
@@ -330,8 +338,12 @@ class _FillTop extends StatelessWidget {
     const layout = TopArtLayout.fill;
     final fade = layout.height - layout.fadeFrom;
     return _ArtOverBody(
+      // Never taller than the picture is at this width: the whole scene,
+      // side to side, never cropped to cover a taller box (what is left
+      // over is ground between its fade and the body).
+      artAspect: art.pixels.height / art.pixels.width,
       minHeight: minHeight,
-      artTop: layout.bodyTop + safeTop,
+      artTop: keyboard ? safeTop : layout.bodyTop + safeTop,
       overlap: layout.height - layout.bodyTop,
       children: [
         LayoutBuilder(
@@ -350,28 +362,32 @@ class _FillTop extends StatelessWidget {
 /// Lays out its second child (the body) at its natural height at the foot
 /// of a box at least [minHeight] tall, and its first child (the picture)
 /// from the top down to [overlap] below the body's start, at least
-/// [artTop] + [overlap] tall. The body paints over the picture.
+/// [artTop] + [overlap] tall and at most its own shape ([artAspect], height
+/// over width) at the box's width. The body paints over the picture.
 class _ArtOverBody extends MultiChildRenderObjectWidget {
   const _ArtOverBody({
+    required this.artAspect,
     required this.minHeight,
     required this.artTop,
     required this.overlap,
     required super.children,
   });
 
+  final double artAspect;
   final double minHeight;
   final double artTop;
   final double overlap;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderArtOverBody(minHeight, artTop, overlap);
+      _RenderArtOverBody(artAspect, minHeight, artTop, overlap);
 
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderArtOverBody renderObject,
   ) => renderObject
+    ..artAspect = artAspect
     ..minHeight = minHeight
     ..artTop = artTop
     ..overlap = overlap;
@@ -383,7 +399,19 @@ class _RenderArtOverBody extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _ArtOverBodyData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _ArtOverBodyData> {
-  _RenderArtOverBody(this._minHeight, this._artTop, this._overlap);
+  _RenderArtOverBody(
+    this._artAspect,
+    this._minHeight,
+    this._artTop,
+    this._overlap,
+  );
+
+  double _artAspect;
+  set artAspect(double value) {
+    if (value == _artAspect) return;
+    _artAspect = value;
+    markNeedsLayout();
+  }
 
   double _minHeight;
   set minHeight(double value) {
@@ -425,7 +453,10 @@ class _RenderArtOverBody extends RenderBox
     );
     final bodyTop = height - bodyHeight;
     art.layout(
-      BoxConstraints.tightFor(width: width, height: bodyTop + _overlap),
+      BoxConstraints.tightFor(
+        width: width,
+        height: math.min(bodyTop + _overlap, width * _artAspect),
+      ),
     );
     (art.parentData! as _ArtOverBodyData).offset = Offset.zero;
     (body.parentData! as _ArtOverBodyData).offset = Offset(0, bodyTop);

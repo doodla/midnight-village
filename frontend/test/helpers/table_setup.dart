@@ -117,6 +117,7 @@ class TableSetup {
     int online = 23,
     bool? lastWon,
     double textScale = 1,
+    double keyboard = 0,
     bool realAuth = false,
     bool lobbyDown = false,
   }) async {
@@ -206,9 +207,11 @@ class TableSetup {
             debugShowCheckedModeBanner: false,
             theme: ref.watch(appThemeProvider),
             builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: TextScaler.linear(textScale)),
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(textScale),
+                // The phone's keyboard, up (a field focused).
+                viewInsets: EdgeInsets.only(bottom: keyboard),
+              ),
               child: GroundScope(ground: GroundKind.night, child: child!),
             ),
             routerConfig: router,

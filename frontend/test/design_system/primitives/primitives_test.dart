@@ -72,7 +72,7 @@ void main() {
     });
 
     testWidgets('only a ready button is amber, with an ink edge by day; done '
-        'is a sunk panel with a check, never the outline of a locked gate', (
+        'is settled: no fill, no outline, a check and its word', (
       tester,
     ) async {
       final skin = skinsUnderTest.values.first;
@@ -108,13 +108,31 @@ void main() {
       for (final ground in GroundKind.values) {
         for (final label in ['Chosen', 'Locked', 'Ready ✓']) {
           final done = await drawn(PrimaryButton.done(label: label), ground);
-          expect(done.color, skin.ground(ground).panel, reason: label);
-          expect(done.color, isNot(skin.ground(ground).accent));
+          expect(done.color, isNull, reason: '$label: nothing to press');
           expect(done.border, isNull, reason: '$label: no gate outline');
           expect(find.byIcon(Icons.check), findsOneWidget, reason: label);
           expect(find.text('Ready ✓'), findsNothing, reason: 'one check');
         }
       }
+    });
+
+    testWidgets('one form of "Ready ✓": the check before the word, both as '
+        'done and as a toggle (still outlined: a button)', (tester) async {
+      for (final button in [
+        const PrimaryButton.done(label: 'Ready ✓'),
+        PrimaryButton.quiet(label: 'Ready ✓', onPressed: () {}),
+      ]) {
+        await pumpSkinned(tester, button, ground: GroundKind.day);
+        final check = tester.getCenter(find.byIcon(Icons.check));
+        final word = tester.getCenter(find.text('Ready'));
+        expect(check.dx, lessThan(word.dx), reason: button.phase.name);
+      }
+      final toggle =
+          tester
+                  .widget<AnimatedContainer>(find.byType(AnimatedContainer))
+                  .decoration!
+              as BoxDecoration;
+      expect(toggle.border, isNotNull, reason: 'the toggle is a button');
     });
 
     testWidgets('it goes down while pressed and comes back up', (tester) async {

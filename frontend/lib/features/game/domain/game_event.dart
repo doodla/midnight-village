@@ -39,6 +39,8 @@ sealed class GameEvent {
       // game is over, the table went back to the lobby: what this phone sees
       // next is in `/me/` (and `/me/table/`), never in the event.
       'night_window' ||
+      // PROTOCOL 1: the old night's window event, still sent beside
+      // `night_window`; drop it when the server slice stops sending it.
       'wave_complete' ||
       'phase_change' ||
       'vote_reveal' ||

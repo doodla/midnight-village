@@ -10,7 +10,7 @@ Recording every payload the app consumes into `contract_samples/` (see `backend/
 
 3. **Two timestamp formats.** Lobby bodies write `created_at` / `joined_at` as `2024-03-07T20:51:00Z`; `/me/`'s `deadline`, the socket deadlines and recent games' `ended_at` write `2024-03-07T20:57:30+00:00`. Both parse, but a client comparing strings would be wrong. Samples: `http/lobby/detail_waiting`, `http/game/me_night_prompt_seer`, `http/game/recent_games`.
 
-4. **The lone Werewolf's prompt does not offer its centre peek.** `action_prompt_werewolf_lone` is `{"action_types": ["see_team"], "valid_targets": {"see_team": []}}`, the same shape as the pack's with an empty team; the centre peek it accepts (`see_team` with `center_index`) is not advertised. The app infers it from the empty team (`game_container_screen.dart`, the lone-Werewolf check), which is game logic on the client (principle 1). A prompt that lists `center_indices` would remove the inference.
+4. **The lone Werewolf's prompt does not offer its centre peek.** `action_prompt_werewolf_lone` is `{"action_types": ["see_team"], "valid_targets": {"see_team": []}}`, the same shape as the pack's with an empty team; the centre peek it accepts (`see_team` with `center_index`) is not advertised. The old app inferred it from the empty team (its protocol-1 game screen, deleted), which was game logic on the client (principle 1). A prompt that lists `center_indices` would remove the inference.
 
    **Under protocol 2: fixed.** The prompt has `kind: "lone_werewolf"` and the board (`valid_targets.center_indices`); the client does not infer anything (`http/game/me_choose_prompt_werewolf_lone`).
 

@@ -139,6 +139,66 @@ void main() {
       await s.close(tester);
     });
 
+    testWidgets('the table ahead of /me/ (the vote named, the talk\'s /me/ '
+        'held): the vote waits on its ground, never with the talk\'s values', (
+      tester,
+    ) async {
+      final s = await ShellSetup.pump(tester, recordedMe('me_talk_ready'));
+      await s.settle(tester);
+      expect(find.byType(TalkScreen), findsOneWidget);
+      final vote = recordedMe('me_voting_unpicked');
+      final held = s.http.hold(
+        method: 'GET',
+        path: '/onuw/games/${s.gameId}/me/',
+      );
+      s.answerMe(vote);
+      s.resume();
+      await s.settle(tester);
+      expect(s.screenOn(tester), AppScreen.vote);
+      expect(find.byType(TalkScreen), findsNothing);
+      expect(find.byType(VoteScreen), findsNothing);
+      expect(find.byType(PrimaryButton), findsNothing, reason: 'nothing on it');
+      held.releaseAll();
+      await s.settle(tester);
+      expect(find.byType(VoteScreen), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('the unplayable game: a Leave with no answer says "Not sent." '
+        'and Try again; a table already gone is 01, saying so', (tester) async {
+      final me = recordedMe('me_discussion_choose_seer');
+      final s = await ShellSetup.pump(
+        tester,
+        me,
+        before: (s) => s.http.answer(
+          'GET',
+          '/onuw/games/${me['game_id']}/me/',
+          Map.of(me)..remove('stage'),
+          offContract: true,
+        ),
+      );
+      await s.settle(tester);
+      final leave = '/lobbies/${me['lobby_code']}/leave/';
+      s.http.answer('POST', leave, 'Server Error', status: 503);
+      await tester.tap(find.text(CommonCopy.leave));
+      await s.settle(tester);
+      expect(find.byType(UnplayableScreen), findsOneWidget);
+      expect(find.text(BannerCopy.notSent), findsOneWidget);
+      s.http.answer(
+        'POST',
+        leave,
+        ContractSamples.load('http/lobby/leave_not_found'),
+        status: 404,
+      );
+      s.answerTable(ContractSamples.map('http/lobby/my_table_none'));
+      s.answerHome();
+      await tester.tap(find.text(BannerCopy.tryAgain));
+      await s.settle(tester);
+      expect(find.byType(JoinScreen), findsOneWidget);
+      expect(find.text(BannerCopy.tableClosed), findsOneWidget);
+      await s.close(tester);
+    });
+
     testWidgets('at no table: 01 Join', (tester) async {
       final s = await ShellSetup.pump(tester, recordedMe('me_look_stage'));
       s.answerTable(ContractSamples.map('http/lobby/my_table_none'));

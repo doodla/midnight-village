@@ -118,6 +118,8 @@ void main() {
     });
   });
 
+  // PROTOCOL 1: these name the server's protocol-1 samples; delete the
+  // first two tests with them.
   group('a /me/ is the one the server sends now', () {
     Map<String, dynamic> sample(String name) => ContractSamples.map(name);
     void check(Map<String, dynamic> body) =>

@@ -16,6 +16,7 @@ import '../../../../design_system/skin/skin.dart';
 import '../../../lobby/presentation/at_table_screen.dart';
 import '../../../lobby/presentation/deck_screen.dart';
 import '../../../lobby/presentation/join_screen.dart';
+import '../../domain/game_me.dart' show GamePhase;
 import '../../domain/screen_table.dart';
 import '../../data/game_service.dart' show UnplayableGameException;
 import '../game_socket.dart';
@@ -39,7 +40,8 @@ import 'your_card_screen.dart';
 ///   night board (06, 05 while `/me/` loads), 08 Talk, 09 Vote, 10 The count
 ///   and 11 Results (their calm wait while the results load). 08 and 09
 ///   show their day ground, nothing on it, while their `/me/` loads.
-/// - A game whose `/me/` has no `stage` (a night this app does not play)
+/// - PROTOCOL 1: a game whose `/me/` has no `stage` (a night this app does
+///   not play)
 ///   is [UnplayableScreen]: a calm line and "Leave", never a retry loop.
 /// - A change of screen fades quickly ([Motion.settle]); with reduce motion
 ///   it is instant. Nothing waits for it.
@@ -133,39 +135,49 @@ class _TableShellState extends ConsumerState<TableShell>
     // The player too: a `/debug` perspective switch is another phone, and
     // nothing of one player's screen (a reveal, picks) carries to the next.
     final key = '${shown.screen.name}|$gameId|${game?.me.playerId}';
+    // A game screen is built only from a `/me/` of its own phase: when the
+    // table names a later phase than the `/me/` held (it is being fetched),
+    // the screen waits on its ground with nothing on it, never showing the
+    // earlier phase's values (the talk's count as the vote's).
+    ProtocolTwoGame? at(GamePhase phase) =>
+        game != null && game.me.phase == phase ? game : null;
+    final night = at(GamePhase.night);
+    final talk = at(GamePhase.discussion);
+    final vote = at(GamePhase.voting);
+    final end = at(GamePhase.results);
     return switch (shown.screen) {
       // 01 to 03 (features/lobby) read the table and the lobby themselves.
       AppScreen.join => (key, const JoinScreen()),
       AppScreen.table => (key, const AtTableScreen()),
       AppScreen.deck => (key, const DeckScreen()),
-      AppScreen.yourCard when game != null => (
+      AppScreen.yourCard when night != null && night.me.window == 0 => (
         key,
-        YourCardScreen(game: game, gameId: gameId!),
+        YourCardScreen(game: night, gameId: gameId!),
       ),
       AppScreen.yourCard || AppScreen.nightBoard when gameId != null => (
         // 05 and the board fade into each other too.
-        '$key|${_boardOpen(game) ? 'board' : 'wait'}',
-        NightScreen(gameId: gameId, game: game),
+        '$key|${_boardOpen(night) ? 'board' : 'wait'}',
+        NightScreen(gameId: gameId, game: night),
       ),
-      AppScreen.talk when game != null => (
+      AppScreen.talk when talk != null => (
         key,
-        TalkScreen(game: game, gameId: gameId!),
+        TalkScreen(game: talk, gameId: gameId!),
       ),
-      AppScreen.vote when game != null => (
+      AppScreen.vote when vote != null => (
         key,
-        VoteScreen(game: game, gameId: gameId!),
+        VoteScreen(game: vote, gameId: gameId!),
       ),
       AppScreen.count when gameId != null => (
         key,
-        CountScreen(gameId: gameId, game: game),
+        CountScreen(gameId: gameId, game: end),
       ),
       AppScreen.results when gameId != null => (
         key,
-        ResultsScreen(gameId: gameId, game: game),
+        ResultsScreen(gameId: gameId, game: end),
       ),
-      // 08 and 09 while their `/me/` loads (and a game screen with no game,
-      // which the screen table never names): the screen's ground, nothing
-      // on it.
+      // 08 and 09 while their own `/me/` loads (and a game screen with no
+      // game, which the screen table never names): the screen's ground,
+      // nothing on it.
       AppScreen.talk || AppScreen.vote => (key, const _Nothing(day: true)),
       _ => (key, const _Nothing()),
     };

@@ -590,6 +590,32 @@ void main() {
       expect(setup.game.me.phase, GamePhase.discussion);
     });
 
+    test('a /me/ without stage mid-game is a failed fetch: healed, the '
+        'screen and an unsent tap kept, never the unplayable state', () async {
+      final me = recordedMe('me_discussion_choose_villager');
+      final setup = await phone('me_discussion_choose_villager');
+      setup.failPost('/ready/');
+      await setup.notifier.setReady(true);
+      expect(setup.game.unsent, {OutboxLane.ready});
+      setup.http.answer(
+        'GET',
+        '/onuw/games/${setup.gameId}/me/',
+        Map.of(me)..remove('stage'),
+        offContract: true,
+      );
+      await setup.notifier.refresh();
+      await setup.settle();
+      expect(setup.game.fetchFailing, isTrue);
+      expect(setup.game.me.phase, GamePhase.discussion);
+      expect(setup.game.unsent, {OutboxLane.ready});
+      expect(setup.screen!.screen, AppScreen.talk);
+      // The next answer is whole again: healed by itself.
+      setup.answerMe(me);
+      await setup.wait(const Duration(milliseconds: 200));
+      expect(setup.game.fetchFailing, isFalse);
+      expect(setup.game.unsent, {OutboxLane.ready});
+    });
+
     test(
       'while /me/ and the table are fetched again, the screen holds',
       () async {

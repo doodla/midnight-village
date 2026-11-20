@@ -297,7 +297,8 @@ class TableSettings {
     }
     final chip = settings['deck_chip'];
     return TableSettings._(
-      // Absent means 1 (the server's rule).
+      // Absent means 1 (the server's rule). PROTOCOL 1: always 2 once the
+      // server slice deletes protocol 1.
       nightProtocol: settings['night_protocol'] as int? ?? 1,
       autoDeck: deck == 'auto',
       deckChip: chip == null ? null : DeckChip.fromServer(chip),

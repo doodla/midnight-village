@@ -57,8 +57,10 @@ enum ButtonPhase {
   locked,
 
   /// Done: its label is the state in one word ("Chosen", "Locked",
-  /// "Ready ✓"). Settled, not waiting: a sunk panel with no outline and a
-  /// check before the words, so it never reads as a [locked] gate.
+  /// "Ready ✓"). Settled: no fill and no outline, only a check and the word
+  /// in quiet ink where the button was, so it reads neither as a [locked]
+  /// gate nor as something to tap. (08's "Ready ✓" is a toggle, [quiet]:
+  /// still a button, outlined, with the same check before the word.)
   done,
 
   /// It acts, but is never amber: a button that must not be the loudest
@@ -69,10 +71,11 @@ enum ButtonPhase {
 
 /// The one main action of a screen: lantern amber with a hard shadow (and an
 /// ink edge on day grounds), pressed down while held, when [phase] is ready.
-/// Waiting, locked and quiet are an outline with no fill; done is the
-/// ground's sunk panel with a check, no outline: so the only amber on a
-/// screen is a button that acts, and a finished step never looks like a
-/// gate. [busy] keeps a ready button filled and
+/// Waiting, locked and quiet are an outline with no fill; done is no
+/// button at all, a check and its word in quiet ink: so the only amber on a
+/// screen is a button that acts, and a finished step never looks like a gate
+/// or a thing to tap. A label ending in [checkMark] is drawn with the check
+/// before the words, in every phase. [busy] keeps a ready button filled and
 /// readable but shows that the action is on its way and ignores more taps.
 class PrimaryButton extends StatefulWidget {
   /// Ready when [onPressed] is given, else waiting.
@@ -171,8 +174,9 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     final bare = label.endsWith(PrimaryButton.checkMark)
         ? label.substring(0, label.length - PrimaryButton.checkMark.length)
         : label;
-    if (widget.phase == ButtonPhase.done) {
-      // Done: the check first, whatever the label says.
+    if (widget.phase == ButtonPhase.done ||
+        label.endsWith(PrimaryButton.checkMark)) {
+      // The check first: one form of "Ready ✓" everywhere.
       return Row(
         mainAxisSize: MainAxisSize.min,
         spacing: Space.xs,
@@ -182,15 +186,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         ],
       );
     }
-    if (!label.endsWith(PrimaryButton.checkMark)) return words(label);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      spacing: Space.xs,
-      children: [
-        Flexible(child: words(bare)),
-        check,
-      ],
-    );
+    return words(label);
   }
 
   @override
@@ -206,10 +202,8 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     final down = _pressed && _acts;
     final ink = switch (widget.phase) {
       ButtonPhase.ready => ground.onAccent,
-      ButtonPhase.waiting => ground.quietText,
-      ButtonPhase.locked ||
-      ButtonPhase.done ||
-      ButtonPhase.quiet => ground.text,
+      ButtonPhase.waiting || ButtonPhase.done => ground.quietText,
+      ButtonPhase.locked || ButtonPhase.quiet => ground.text,
     };
     final style = widget.size.label(skin.typography);
     final edge = ground.accentEdge;
@@ -225,7 +219,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                 : null,
           )
         : widget.phase == ButtonPhase.done
-        ? BoxDecoration(color: ground.panel, borderRadius: radius)
+        ? const BoxDecoration()
         : BoxDecoration(
             borderRadius: radius,
             border: Border.all(color: ground.outline, width: skin.shape.stroke),

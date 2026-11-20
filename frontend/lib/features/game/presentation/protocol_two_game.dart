@@ -241,13 +241,21 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
       final fetched = await _service.fetchMeTimed(gameId);
       if (ref.mounted) _accept(seq, fetched);
     } on NotFoundException {
-      if (!ref.mounted) return;
-      _invalidateTable();
-      _update((s) => s.copyWith(tableClosed: true));
-      // 01 follows (the table screen), and says why.
-      ref.read(joinFlowProvider.notifier).tableClosed();
+      if (ref.mounted) _tableGone();
     } on UnplayableGameException catch (e, stack) {
-      if (ref.mounted) state = AsyncError(e, stack);
+      // PROTOCOL 1 (the unplayable game).
+      // Final only on a game's first load. Mid-game it is a broken answer
+      // (a phone this app already plays it on): a failed fetch, healed like
+      // any other, the taps in flight kept.
+      if (!ref.mounted) return;
+      if (state.value == null) {
+        state = AsyncError(e, stack);
+        return;
+      }
+      logger.w('ProtocolTwoGame: a /me/ without stage mid-game', error: e);
+      _update((s) => s.copyWith(fetchFailing: true));
+      _armHealing(state.value!.server);
+      _scheduleRetry();
     } catch (e, stack) {
       if (!ref.mounted) return;
       logger.w('ProtocolTwoGame: fetch failed', error: e);
@@ -711,16 +719,33 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
     return _submit(OutboxLane.ack, gameId, AckRequest(count));
   }
 
-  /// Host, at the results: the table goes back to waiting. Errors reach the
-  /// caller.
-  Future<void> playAgain() async {
-    await ref.read(lobbyServiceProvider).playAgain(_game.server.lobbyCode);
-    _invalidateTable();
+  /// Host, at the results: the table goes back to waiting. A table that is
+  /// gone (404) is closed, as a fetch answered 404 closes it; other errors
+  /// reach the caller.
+  Future<void> playAgain() => _atTable(
+    () => ref.read(lobbyServiceProvider).playAgain(_game.server.lobbyCode),
+  );
+
+  /// Leaves the table this game was played at (a table already gone: the
+  /// same, with "This table has closed." on 01).
+  Future<void> leaveTable() => _atTable(
+    () => ref.read(lobbyServiceProvider).leaveLobby(_game.server.lobbyCode),
+  );
+
+  Future<void> _atTable(Future<void> Function() call) async {
+    try {
+      await call();
+      _invalidateTable();
+    } on NotFoundException {
+      if (ref.mounted) _tableGone();
+    }
   }
 
-  /// Leaves the table this game was played at.
-  Future<void> leaveTable() async {
-    await ref.read(lobbyServiceProvider).leaveLobby(_game.server.lobbyCode);
+  /// The game's table is gone (404): `/me/table/` is read again, 01
+  /// follows (the table screen) and says why.
+  void _tableGone() {
     _invalidateTable();
+    _update((s) => s.copyWith(tableClosed: true));
+    ref.read(joinFlowProvider.notifier).tableClosed();
   }
 }

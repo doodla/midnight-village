@@ -115,7 +115,7 @@ final class ProtocolTwoGameNotifierProvider
 }
 
 String _$protocolTwoGameNotifierHash() =>
-    r'f8d6cafa0487a4f6f69163e922b7e7e842c782da';
+    r'8f959f2ac0b3caf2a6dad543a7c8e93452c83c77';
 
 /// A game for the shell's screens, keyed by game id. The game id comes from
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.

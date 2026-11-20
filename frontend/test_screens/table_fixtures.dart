@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
+import 'package:midnight_village/features/lobby/presentation/join_flow.dart';
+import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
 import '../test/helpers/contract/contract_samples.dart';
 import '../test/helpers/table_setup.dart';
@@ -33,6 +36,20 @@ const longNames = {
 /// 01 on a phone that has never played: no name, nothing to say how it went.
 Future<void> pumpJoinFresh(WidgetTester tester, {double textScale = 1}) =>
     TableSetup.pump(tester, textScale: textScale);
+
+/// 01 on a fresh phone with the keyboard up (the name field is focused):
+/// a phone keyboard's height at 390 wide.
+Future<void> pumpJoinKeyboard(WidgetTester tester) =>
+    TableSetup.pump(tester, keyboard: 336);
+
+/// 01 after the game's table closed (a fetch answered 404).
+Future<void> pumpJoinClosed(WidgetTester tester) async {
+  await pumpJoinReturning(tester);
+  ProviderScope.containerOf(
+    tester.element(find.byType(JoinScreen)),
+  ).read(joinFlowProvider.notifier).tableClosed();
+  await tester.pump();
+}
 
 /// 01 for a player back after a game: their own name, how it went.
 Future<void> pumpJoinReturning(WidgetTester tester) =>
