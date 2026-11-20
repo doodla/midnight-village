@@ -87,8 +87,9 @@ class GameMe {
     required this.voteTargets,
   });
 
-  /// A protocol-2 `/me/` body. One without a `stage` key is protocol 1
-  /// (`gameStateFromServer` reads those) and is refused here.
+  /// A `/me/` body (night protocol 2). One without a `stage` key is refused
+  /// here (`GameService.fetchMe` reports it first, as
+  /// `UnplayableGameException`).
   factory GameMe.fromJson(Map<String, dynamic> me) {
     if (!me.containsKey('stage')) {
       throw FormatException('Not a night protocol 2 /me/ (no stage)', me);
@@ -99,11 +100,9 @@ class GameMe {
       if (!me.containsKey(key)) throw FormatException('No $key in /me/', me);
     }
     final role = me['your_role'] as Map<String, dynamic>;
-    // Always sent, read for strictness only: `has_acted` and `has_voted` are
-    // the protocol-1 flags; protocol 2 says the same with `chosen`, `ready`
-    // and `my_vote`.
-    role['has_acted'] as bool;
-    me['has_voted'] as bool;
+    // `your_role.has_acted` and `has_voted` (protocol 1's flags, still sent)
+    // are not read: protocol 2 says the same with `chosen`, `ready` and
+    // `my_vote`, and the server drops them with protocol 1.
     final rawVote = me['my_vote'] as Map<String, dynamic>?;
     final rawProgress = me['progress'] as Map<String, dynamic>?;
     final results = me['night_results'] as List;

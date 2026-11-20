@@ -95,7 +95,7 @@ class GameService {
   }
 
   // The host's stage requests. The contract keeps them under protocol 2
-  // (each names its stage); the rebuilt screens have no button for them
+  // (each names its stage); the screens have no button for them
   // (first-time play spec: the look, the talk and the vote never wait on the
   // host), so nothing in the app calls them. Delete them if the contract
   // drops them.

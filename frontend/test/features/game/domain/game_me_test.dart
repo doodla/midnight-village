@@ -41,10 +41,19 @@ void main() {
 
   test('a missing always-sent key is a broken payload, never a default', () {
     final json = recordedMe('me_voting_picked');
-    for (final key in json.keys) {
+    for (final key in json.keys.where((k) => k != 'has_voted')) {
       final broken = Map<String, dynamic>.of(json)..remove(key);
       expect(() => GameMe.fromJson(broken), throwsA(anything), reason: key);
     }
+  });
+
+  test("protocol 1's legacy flags are not read: the server may drop them", () {
+    final json = recordedMe('me_voting_picked')..remove('has_voted');
+    (json['your_role'] as Map).remove('has_acted');
+    expect(
+      GameMe.fromJson(json).stage,
+      recordedMe('me_voting_picked')['stage'],
+    );
   });
 
   group('the look stage', () {

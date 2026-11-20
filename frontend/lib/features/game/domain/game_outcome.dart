@@ -36,8 +36,8 @@ class GameOutcome {
   final NightTimeline? timeline;
 }
 
-/// The results body as a [GameResult]: the one results parser, used by the
-/// protocol-1 screens (`GameNotifier`) and [GameOutcome]. Vote targets are
+/// The results body as a [GameResult]: the one results parser, used by
+/// [GameOutcome]. Vote targets are
 /// named from the results' own players list.
 GameResult gameResultFromServer(Map<String, dynamic> data) {
   final players = (data['players'] as List).cast<Map<String, dynamic>>();

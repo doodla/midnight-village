@@ -71,8 +71,10 @@ void main() {
       );
     });
 
-    testWidgets('only a ready button is filled: amber, with an ink edge by '
-        'day; every other phase is an outline', (tester) async {
+    testWidgets('only a ready button is amber, with an ink edge by day; done '
+        'is a sunk panel with a check, never the outline of a locked gate', (
+      tester,
+    ) async {
       final skin = skinsUnderTest.values.first;
       Future<BoxDecoration> drawn(Widget button, GroundKind ground) async {
         await pumpSkinned(tester, button, ground: ground);
@@ -97,12 +99,21 @@ void main() {
       for (final quiet in [
         const PrimaryButton(label: 'Pick a name', onPressed: null),
         PrimaryButton.locked(label: 'Ready', onLockedTap: () {}),
-        const PrimaryButton.done(label: 'Chosen'),
         PrimaryButton.quiet(label: 'Ready to vote', onPressed: () {}),
       ]) {
         final outline = await drawn(quiet, GroundKind.day);
         expect(outline.color, isNull, reason: quiet.label);
         expect(outline.border, isNotNull, reason: quiet.label);
+      }
+      for (final ground in GroundKind.values) {
+        for (final label in ['Chosen', 'Locked', 'Ready ✓']) {
+          final done = await drawn(PrimaryButton.done(label: label), ground);
+          expect(done.color, skin.ground(ground).panel, reason: label);
+          expect(done.color, isNot(skin.ground(ground).accent));
+          expect(done.border, isNull, reason: '$label: no gate outline');
+          expect(find.byIcon(Icons.check), findsOneWidget, reason: label);
+          expect(find.text('Ready ✓'), findsNothing, reason: 'one check');
+        }
       }
     });
 

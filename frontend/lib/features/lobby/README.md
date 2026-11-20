@@ -12,7 +12,10 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
 - **01** (`join_screen.dart`): the name is this device's own guest account's or empty and
   focused; "Join a table" first, then "Start a table", locked until a name is typed; Enter in
   the name opens the code (with a code, or from a link, it joins; never a table of one's own
-  by accident); the online count and the last game under them. The ways in are `JoinFlow`
+  by accident); the online count and the last game under them. The village takes all the
+  height the form leaves (`TopArtLayout.fill`), so the form sits low and a tall phone shows
+  no empty lower half. A game that closed (404) lands here with "This table has closed."
+  (`JoinFlow.tableClosed`). The ways in are `JoinFlow`
   (`join_flow.dart`), outside any widget: the account (this device's when it has that name,
   else a new guest: the server has no rename), then `createTable` (always `defaults: "v2"`)
   or a join by code (`already_in_lobby` is no refusal: the player is there), then

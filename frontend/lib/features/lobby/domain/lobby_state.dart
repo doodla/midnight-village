@@ -162,6 +162,9 @@ abstract class LobbyState with _$LobbyState {
     // A table whose host has not chosen a deck yet has no `roles`.
     final roles = settings['roles'] as Map<String, dynamic>?;
     final table = TableSettings.fromSettings(settings);
+    // PROTOCOL 1: a table made before `defaults: "v2"` (and the server's
+    // protocol-1 lobby samples) sends no `night_protocol`, `deck_preview` or
+    // `deal`; read leniently until the server slice deletes them.
     final protocolTwo = table.isProtocolTwo;
     // A protocol-2 table always sends `deck_preview` (null for a custom deck)
     // and `deal`: missing is a broken payload, as in `GameMe`.
@@ -381,7 +384,7 @@ sealed class DealState {
   factory DealState.of(LobbyState lobby) {
     final players = lobby.players.length;
     final deal = lobby.deal;
-    // A table that sends no verdict (protocol 1, never made by this app):
+    // PROTOCOL 1: a table that sends no verdict (never made by this app):
     // the button is offered and the server's answer to the deal judges.
     if (deal == null || deal.ok) return CanDeal(players);
     if (players < minPlayers) return const NeedPlayers();

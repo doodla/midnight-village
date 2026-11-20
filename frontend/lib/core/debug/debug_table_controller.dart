@@ -72,11 +72,12 @@ class DebugTableController {
   /// defaults (the real window lengths); the harness passes zeros so a night
   /// window closes as soon as every actor has submitted.
   ///
-  /// [protocolTwo] opens the table as the rebuilt screens do
-  /// (`defaults: "v2"`: the look stage, night protocol 2), with the deck
-  /// made custom from [roleCounts] (an automatic deck is built at the deal
-  /// and would not match a forced assignment). The game route then shows the
-  /// rebuilt shell for it. Only this toolbar makes such tables for now.
+  /// [protocolTwo] opens the table as the app does (`defaults: "v2"`: the
+  /// look stage, night protocol 2), with the deck made custom from
+  /// [roleCounts] (an automatic deck is built at the deal and would not match
+  /// a forced assignment). The toolbar always passes it. PROTOCOL 1: false
+  /// (the default) is for the e2e API runner, which still drives the
+  /// protocol-1 API; it goes when the server slice ports that runner.
   ///
   /// [roleCounts] is TitleCase role name → count, exactly as PATCHed.
   /// [playerRolesByName] maps each player's display name → TitleCase role.
@@ -219,7 +220,9 @@ class DebugTableController {
   }
 
   /// Issues [action] AS [player] WITHOUT changing the visible perspective,
-  /// via the explicit-per-player-token client.
+  /// via the explicit-per-player-token client. PROTOCOL 1: these are the
+  /// protocol-1 requests the e2e API runner makes (no `stage`); a protocol-2
+  /// game is driven with [stagedAs].
   ///
   /// STRICT by default: anything the server refuses (including a 409 "already
   /// acted / already voted") throws, so a runner can never mistake a refused

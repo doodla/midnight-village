@@ -226,6 +226,9 @@ class _JoinViewState extends State<JoinView> {
     return ScreenFrame(
       ground: GroundKind.night,
       topArt: skin.art.streetDoor,
+      // The village takes the height the form leaves: the form sits low,
+      // under the thumb, never above an empty lower half.
+      topArtLayout: TopArtLayout.fill,
       body: Builder(
         builder: (context) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

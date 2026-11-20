@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../layout/space.dart';
 import '../skin/art_set.dart';
@@ -20,7 +23,13 @@ enum TopArtLayout {
 
   /// A backdrop behind the whole top of the screen (S04 your card): 520 tall,
   /// the body from 52, fading from 300.
-  backdrop(height: 520, bodyTop: 52, fadeFrom: 300);
+  backdrop(height: 520, bodyTop: 52, fadeFrom: 300),
+
+  /// A scene that takes all the height the body leaves (S01 Join): at least
+  /// [scene]'s, the body at its foot over the last of its fade, so a tall
+  /// phone shows more of the village instead of an empty lower half. The
+  /// body still scrolls when it cannot fit.
+  fill(height: 330, bodyTop: 282, fadeFrom: 160);
 
   const TopArtLayout({
     required this.height,
@@ -94,7 +103,27 @@ class ScreenFrame extends StatelessWidget {
     final slot = topSlot;
 
     const padded = EdgeInsets.symmetric(horizontal: Space.gutter);
+    final bottom = actions.isEmpty ? Space.screenBottom : Space.md;
     final Widget top;
+    if (art != null && topArtLayout == TopArtLayout.fill) {
+      return _frame(
+        context,
+        colors,
+        LayoutBuilder(
+          builder: (context, box) => _ScrollBody(
+            fadeTo: colors.ground,
+            bottom: bottom,
+            child: _FillTop(
+              minHeight: box.maxHeight - bottom,
+              art: art,
+              fadeTo: colors.ground,
+              safeTop: safeTop,
+              body: Padding(padding: padded, child: body),
+            ),
+          ),
+        ),
+      );
+    }
     if (art != null) {
       final layout = topArtLayout;
       top = Stack(
@@ -135,6 +164,20 @@ class ScreenFrame extends StatelessWidget {
       );
     }
 
+    return _frame(
+      context,
+      colors,
+      fitsHeight
+          ? Padding(
+              padding: EdgeInsets.only(bottom: bottom),
+              child: top,
+            )
+          : _ScrollBody(fadeTo: colors.ground, bottom: bottom, child: top),
+    );
+  }
+
+  /// The screen around [main] (what goes above the pinned actions).
+  Widget _frame(BuildContext context, Ground colors, Widget main) {
     return Scaffold(
       backgroundColor: colors.ground,
       body: GroundScope(
@@ -147,24 +190,7 @@ class ScreenFrame extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: fitsHeight
-                      ? Padding(
-                          padding: EdgeInsets.only(
-                            bottom: actions.isEmpty
-                                ? Space.screenBottom
-                                : Space.md,
-                          ),
-                          child: top,
-                        )
-                      : _ScrollBody(
-                          fadeTo: colors.ground,
-                          bottom: actions.isEmpty
-                              ? Space.screenBottom
-                              : Space.md,
-                          child: top,
-                        ),
-                ),
+                Expanded(child: main),
                 if (actions.isNotEmpty)
                   SafeArea(
                     top: false,
@@ -278,6 +304,141 @@ class _ScrollBodyState extends State<_ScrollBody> {
         ),
     ],
   );
+}
+
+/// [TopArtLayout.fill]: the picture takes the height the [body] leaves of
+/// [minHeight] (at least down to where the scene's body starts), and the
+/// body sits at its foot, over the last of the fade: the scene's own overlap
+/// ([TopArtLayout.height] - [TopArtLayout.bodyTop]) and its fade length.
+class _FillTop extends StatelessWidget {
+  const _FillTop({
+    required this.minHeight,
+    required this.art,
+    required this.fadeTo,
+    required this.safeTop,
+    required this.body,
+  });
+
+  final double minHeight;
+  final ArtImage art;
+  final Color fadeTo;
+  final double safeTop;
+  final Widget body;
+
+  @override
+  Widget build(BuildContext context) {
+    const layout = TopArtLayout.fill;
+    final fade = layout.height - layout.fadeFrom;
+    return _ArtOverBody(
+      minHeight: minHeight,
+      artTop: layout.bodyTop + safeTop,
+      overlap: layout.height - layout.bodyTop,
+      children: [
+        LayoutBuilder(
+          builder: (context, box) => _TopArt(
+            art: art,
+            fadeTo: fadeTo,
+            fadeFrom: 1 - fade / box.maxHeight,
+          ),
+        ),
+        body,
+      ],
+    );
+  }
+}
+
+/// Lays out its second child (the body) at its natural height at the foot
+/// of a box at least [minHeight] tall, and its first child (the picture)
+/// from the top down to [overlap] below the body's start, at least
+/// [artTop] + [overlap] tall. The body paints over the picture.
+class _ArtOverBody extends MultiChildRenderObjectWidget {
+  const _ArtOverBody({
+    required this.minHeight,
+    required this.artTop,
+    required this.overlap,
+    required super.children,
+  });
+
+  final double minHeight;
+  final double artTop;
+  final double overlap;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderArtOverBody(minHeight, artTop, overlap);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderArtOverBody renderObject,
+  ) => renderObject
+    ..minHeight = minHeight
+    ..artTop = artTop
+    ..overlap = overlap;
+}
+
+class _ArtOverBodyData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderArtOverBody extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _ArtOverBodyData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _ArtOverBodyData> {
+  _RenderArtOverBody(this._minHeight, this._artTop, this._overlap);
+
+  double _minHeight;
+  set minHeight(double value) {
+    if (value == _minHeight) return;
+    _minHeight = value;
+    markNeedsLayout();
+  }
+
+  double _artTop;
+  set artTop(double value) {
+    if (value == _artTop) return;
+    _artTop = value;
+    markNeedsLayout();
+  }
+
+  double _overlap;
+  set overlap(double value) {
+    if (value == _overlap) return;
+    _overlap = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _ArtOverBodyData) {
+      child.parentData = _ArtOverBodyData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final art = firstChild!;
+    final body = childAfter(art)!;
+    final width = constraints.maxWidth;
+    body.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
+    final bodyHeight = body.size.height;
+    final height = constraints.constrainHeight(
+      math.max(_minHeight, _artTop + bodyHeight),
+    );
+    final bodyTop = height - bodyHeight;
+    art.layout(
+      BoxConstraints.tightFor(width: width, height: bodyTop + _overlap),
+    );
+    (art.parentData! as _ArtOverBodyData).offset = Offset.zero;
+    (body.parentData! as _ArtOverBodyData).offset = Offset(0, bodyTop);
+    size = Size(width, height);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 /// The top picture, its lower part fading into the ground.

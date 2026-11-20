@@ -14,6 +14,19 @@ harness, `just test-harness`) and `test_screens/` (the screen gallery and the co
 - The whole way on one phone: test_e2e/ui_protocol2_journey_test.dart starts at 01 signed out ("Start a table"), follows 02 as three guests join through the API (the lobby's socket is live, `UiHarness.readLobby`), picks Classic on 03 and checks its cards against the server's `deck_preview`, deals from 02, lets every player play the game through the API (nothing forced) while the phone follows, checks 10 and 11 against the oracle and plays again back to 02. `UiHarness.followTable` and `readLobby` read `/me/table/` and the lobby again in the real zone (a read a pump started runs in the fake zone and never completes); `openShell` drops a game read a pump started.
 - `/debug` route (dev-only, gated by const `Env.isDev` so it tree-shakes out of prod) — the debug toolbar: spin up a (protocol-2) table, switch player perspectives, god panel, auto-drive everyone but the phone shown (ready, keep their card, vote someone, through `DebugTableController.stagedAs`; fire the pending timer), reset learned cues. Core lives in `lib/core/debug/`.
 
+## The web integration test (`integration_test/auth_flow_test.dart`)
+
+`just test-integration-ci` drives it in headless Chrome through `flutter drive`, which needs a
+chromedriver of Chrome's own version listening on port 4444. CI installs both
+(`.github/workflows/flutter-tests.yml`). In the cloud container (20 November 2026) Chrome
+is Chrome for Testing 153.0.8010.12 (`/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`,
+also `/usr/bin/google-chrome`) but the only chromedriver is 147.0.7727.24
+(`/opt/node-tools/node_modules/chromedriver/`), which refuses it. The matching driver is
+`https://storage.googleapis.com/chrome-for-testing-public/153.0.8010.12/linux64/chromedriver-linux64.zip`
+(it downloads); with it: start `chromedriver --port=4444`, then
+`CHROME_EXECUTABLE=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome just test-integration-ci`.
+An agent session may not run a downloaded binary, so it is not run there.
+
 ## Fonts in tests
 
 `test/flutter_test_config.dart` loads every family in the build's FontManifest (Gloock, Figtree and MaterialIcons) via `test/helpers/test_fonts.dart`, so widget tests, goldens and the screen gallery draw real glyphs for those. `Roboto` (Material's default, the debug toolbar's) is drawn in a Figtree stand-in. The e2e UI runners load the same fonts (`HarnessConfig.loadFonts`); nothing is fetched.
