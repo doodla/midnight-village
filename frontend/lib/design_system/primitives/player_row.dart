@@ -156,8 +156,9 @@ class PlayerRow extends StatelessWidget {
                     maxLines: 2,
                     style: size.nameStyle(skin.typography).copyWith(color: ink),
                   ),
+                  // Names wrap between words, never inside one.
                   if (detail case final detail?)
-                    Text(
+                    FitWords(
                       detail,
                       style: skin.typography.body.copyWith(
                         color: skin.paper.quietText,

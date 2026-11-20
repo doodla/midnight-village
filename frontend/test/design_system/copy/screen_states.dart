@@ -252,6 +252,8 @@ final screens = <String, Screen>{
         text(CountCopy.noVote),
         button(CountCopy.seeWhoWon),
       ],
+      // One, two (a tie) or three (a tie and the Hunter's pick) dead
+      // cards, each on any team.
       for (final dies in [CountCopy.dies, CountCopy.die])
         for (final hunter in [false, true])
           for (final team in TeamId.values)
@@ -259,7 +261,10 @@ final screens = <String, Screen>{
               headline(dies),
               if (hunter) text(CountCopy.diesToo),
               text(CountCopy.noVote),
-              ..._deadCard(team),
+              ..._deadCards([
+                for (var i = 0; i < (dies == CountCopy.die ? 2 : 1); i++) team,
+                if (hunter) team,
+              ]),
               button(CountCopy.seeWhoWon),
             ],
     },
@@ -284,14 +289,13 @@ final screens = <String, Screen>{
   ),
 };
 
-/// A dead player's card on 10: "Now", "Dealt" (the card moved) and the team
-/// tag. With several dead, the cards are shown one at a time: three cards'
-/// captions at once would break the budget of 16 (a tie of two and the
-/// Hunter's pick is 17).
-List<Line> _deadCard(TeamId team) => [
+/// The dead players' cards on 10, every one moved: "Now" and "Dealt" are
+/// said on the first card only (the others show the same arrow), and each
+/// card has its team tag (a Doppelganger's caption is her role's name).
+List<Line> _deadCards(List<TeamId> teams) => [
   text(CountCopy.now),
   text(CountCopy.dealt),
-  text(RoleText.teamTag(team)),
+  for (final team in teams) text(RoleText.teamTag(team)),
 ];
 
 /// 11 above its buttons. The timeline's last row counts once ("Won" or
@@ -301,6 +305,7 @@ List<Line> _results(String winner, String you) => [
   headline(winner),
   text(you),
   text(ResultsCopy.won),
+  text(ResultsCopy.copiedAs),
   text(ResultsCopy.center),
 ];
 
@@ -339,4 +344,4 @@ final banners = <(String, String?)>[
 ];
 
 /// Everything a screen reader says that no screen shows.
-final spoken = [SpokenCopy.hidden, SpokenCopy.working];
+final spoken = [SpokenCopy.hidden, SpokenCopy.working, ResultsCopy.nightSpoken];

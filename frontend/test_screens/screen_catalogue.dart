@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 
 import '../test/helpers/component_sheet.dart';
+import 'end_fixtures.dart';
 import 'screen_fixtures.dart';
 import 'shell_fixtures.dart';
 
@@ -128,6 +129,27 @@ final screenCatalogue = <ScreenEntry>[
   ScreenEntry('09-vote', mock: '09-vote.png', build: pumpVote),
   ScreenEntry('10-the-count', mock: '10-the-count.png', build: pumpCount),
   ScreenEntry('11-results', mock: '11-results.png', build: pumpResults),
+  // 10 and 11 rebuilt (night protocol 2), through the real shell.
+  ..._rebuilt('10-count', '10-the-count.png', {
+    '-one': pumpCountOne,
+    '-opening': pumpCountOpening,
+    '-hunter': pumpCountHunter,
+    '-moved': pumpCountMoved,
+    '-nobody': pumpCountNobody,
+    '-tanner': pumpCountTanner,
+    '-ten-long': pumpCountTen,
+    '-waiting': pumpCountWaiting,
+    '-x1.3': (tester) => pumpCountOne(tester, textScale: 1.3),
+  }),
+  ..._rebuilt('11-results', '11-results.png', {
+    '-village': pumpResultsVillage,
+    '-werewolves': pumpResultsWerewolves,
+    '-nobody': pumpResultsNobody,
+    '-tanner': pumpResultsTanner,
+    '-night': pumpResultsNight,
+    '-ten-long': pumpResultsTen,
+    '-x1.3': (tester) => pumpResultsVillage(tester, textScale: 1.3),
+  }),
   ...componentSheet,
 ];
 

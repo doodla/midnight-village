@@ -243,6 +243,12 @@ abstract final class ResultsCopy {
   static const playAgain = 'Play again';
   static const editDeck = 'Edit deck';
   static const hostDealsNext = Template('{host} deals next.');
+
+  /// A Doppelganger's card at the end, as the role she copied.
+  static const copiedAs = Template('{role} · {copied}');
+
+  /// What a screen reader says for the folded night, which opens on a tap.
+  static const nightSpoken = 'The night, in order';
 }
 
 /// 11's timeline rows, each after a "{role}:" prefix (a Doppelganger's

@@ -88,8 +88,9 @@ class TableView {
 
 /// What only this phone decides, inside one server state: the host opened
 /// the deck (03) from the table, or the player went on from the count (10)
-/// to who won (11). Both are lost on a restart, which then lands on 02 and
-/// 10, as the spec says ("in results phase it skips straight to 10").
+/// to who won (11). The deck is lost on a restart (02); who won is kept on
+/// the device (`StepRecord.wonPrefix`), so a phone that restarts at the
+/// results lands where it was, 10 or 11.
 @immutable
 class LocalSteps {
   const LocalSteps({this.editingDeck = false, this.countSeen = false});

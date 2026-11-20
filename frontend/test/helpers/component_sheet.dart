@@ -16,6 +16,7 @@ import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 
 import 'sheet/day_pages.dart';
+import 'sheet/end_pages.dart';
 import 'sheet/night_pages.dart';
 import 'sheet/sheet_data.dart';
 import 'sheet/state_pages.dart';
@@ -79,7 +80,14 @@ enum ComponentPage {
   voteLocked(mock: '09-vote.png', day: true),
   count(mock: '10-the-count.png', day: true),
   results(mock: '11-results.png'),
-  resultsGuest(mock: '11-results.png');
+  resultsGuest(mock: '11-results.png'),
+  countMoved(mock: '10-the-count.png', day: true),
+  countNobody(mock: '10-the-count.png', day: true),
+  countTenLong(mock: '10-the-count.png', day: true),
+  resultsWerewolves(mock: '11-results.png', viewer: Viewer.villager),
+  resultsTanner(mock: '11-results.png'),
+  resultsNight(mock: '11-results.png'),
+  resultsTenLong(mock: '11-results.png');
 
   const ComponentPage({
     this.mock,
@@ -346,7 +354,26 @@ class ComponentSheetPage extends StatelessWidget {
     ComponentPage.votePicked ||
     ComponentPage.voteLocked => const VotePage(),
     ComponentPage.count => const CountPage(),
-    ComponentPage.results => const ResultsPage(),
-    ComponentPage.resultsGuest => const ResultsPage(guest: true),
+    ComponentPage.results => ResultsPage(viewer: viewer),
+    ComponentPage.resultsGuest => ResultsPage(viewer: viewer, guest: true),
+    ComponentPage.countMoved => const CountPage(game: EndGame.werewolves),
+    ComponentPage.countNobody => const CountPage(game: EndGame.nobody),
+    ComponentPage.countTenLong => const CountPage(game: EndGame.tenLong),
+    ComponentPage.resultsWerewolves => ResultsPage(
+      viewer: viewer,
+      game: EndGame.werewolves,
+      guest: true,
+    ),
+    ComponentPage.resultsTanner => ResultsPage(
+      viewer: viewer,
+      game: EndGame.tanner,
+      guest: true,
+    ),
+    ComponentPage.resultsNight => ResultsPage(viewer: viewer, nightOpen: true),
+    ComponentPage.resultsTenLong => ResultsPage(
+      viewer: viewer,
+      game: EndGame.tenLong,
+      guest: true,
+    ),
   };
 }

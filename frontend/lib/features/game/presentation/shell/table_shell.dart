@@ -17,8 +17,10 @@ import '../../domain/screen_table.dart';
 import '../game_notifier.dart' show gameConnectionStateProvider;
 import '../protocol_two_game.dart';
 import '../table_screen.dart';
+import 'count_screen.dart';
 import 'night_screen.dart';
 import 'not_built_screen.dart';
+import 'results_screen.dart';
 import 'your_card_screen.dart';
 
 /// The rebuilt screens' one place (night protocol 2): it shows exactly the
@@ -28,7 +30,8 @@ import 'your_card_screen.dart';
 /// server is fetched to say, and the screen follows.
 ///
 /// - 04 Your card and the night board (06, 05 while `/me/` loads) are
-///   built; every other screen is a [NotBuiltScreen] for now.
+///   built; 10 The count and 11 Results too (their calm wait while the
+///   results load); every other screen is a [NotBuiltScreen] for now.
 /// - A change of screen fades quickly ([Motion.settle]); with reduce motion
 ///   it is instant. Nothing waits for it.
 /// - While nothing is known yet (the first `/me/table/`), the night ground
@@ -123,6 +126,14 @@ class _TableShellState extends ConsumerState<TableShell>
         // 05 and the board fade into each other too.
         '$key|${_boardOpen(game) ? 'board' : 'wait'}',
         NightScreen(gameId: gameId, game: game),
+      ),
+      AppScreen.count when gameId != null => (
+        key,
+        CountScreen(gameId: gameId, game: game),
+      ),
+      AppScreen.results when gameId != null => (
+        key,
+        ResultsScreen(gameId: gameId, game: game),
       ),
       final other => (key, NotBuiltScreen(screen: other)),
     };
