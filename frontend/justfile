@@ -111,8 +111,9 @@ screens width="390" mode="report" skin="default":
       --dart-define=SCREENS_SKIN={{skin}}
 
 # Regenerate the skins' art in assets/skins/ from docs/design/art/: Shadow
-# paper resized, Night print printed in five inks (tool/linocut_art.py).
-# Deterministic. Needs uv. Usage: just skin-art [shadow_paper|night_print]
+# paper resized, Night print printed in five inks (tool/linocut_art.py), Warm
+# blood filmed by heat (tool/thermal_art.py). Deterministic. Needs uv.
+# Usage: just skin-art [shadow_paper|night_print|warm_blood]
 skin-art *skins:
     uv run --with pillow --with numpy python tool/skin_art.py {{skins}}
 
