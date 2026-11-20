@@ -99,10 +99,14 @@ enum ChooseAnswer {
   /// `200`: the server has the picks.
   taken,
 
-  /// Any refusal (`409 wrong_stage`, `409 already_chosen`, a `400`): the
-  /// stage has moved on or the server already has this phone's choose.
-  /// Nothing to retry; the caller fetches `/me/` again.
+  /// A `409` (`wrong_stage`, `already_chosen`): the stage has moved on or
+  /// the server already has this phone's choose. Nothing to retry; the
+  /// caller fetches `/me/` again.
   stale,
+
+  /// Any other `4xx`: the server took nothing. The board is armed again,
+  /// the picks still lifted.
+  refused,
 
   /// No answer (the network failed, or the server did): the picks may not
   /// have arrived, so the board offers "Try again".
@@ -111,7 +115,8 @@ enum ChooseAnswer {
   /// The answer to a choose that came back with [status].
   static ChooseAnswer fromStatus(int status) => switch (status) {
     >= 200 && < 300 => taken,
-    >= 500 => notSent,
-    _ => stale,
+    409 => stale,
+    >= 400 && < 500 => refused,
+    _ => notSent,
   };
 }

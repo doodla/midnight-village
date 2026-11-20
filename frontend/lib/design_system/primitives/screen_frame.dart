@@ -54,6 +54,7 @@ class ScreenFrame extends StatelessWidget {
     this.topArtLayout = TopArtLayout.scene,
     this.topSlot,
     this.actionGap = Space.mdPlus,
+    this.fitsHeight = false,
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
@@ -79,6 +80,11 @@ class ScreenFrame extends StatelessWidget {
 
   /// Between the pinned actions.
   final double actionGap;
+
+  /// The body is given the height above the actions and does not scroll: a
+  /// body that sizes itself to that height (the night board, whose every
+  /// card must be on screen).
+  final bool fitsHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -139,11 +145,22 @@ class ScreenFrame extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: _ScrollBody(
-                    fadeTo: colors.ground,
-                    bottom: actions.isEmpty ? Space.screenBottom : Space.md,
-                    child: top,
-                  ),
+                  child: fitsHeight
+                      ? Padding(
+                          padding: EdgeInsets.only(
+                            bottom: actions.isEmpty
+                                ? Space.screenBottom
+                                : Space.md,
+                          ),
+                          child: top,
+                        )
+                      : _ScrollBody(
+                          fadeTo: colors.ground,
+                          bottom: actions.isEmpty
+                              ? Space.screenBottom
+                              : Space.md,
+                          child: top,
+                        ),
                 ),
                 if (actions.isNotEmpty)
                   SafeArea(

@@ -44,10 +44,12 @@ class NightReport {
   /// 04: the card dealt.
   FaceContent get card => FaceContent.roleText(dealt);
 
-  /// "You" on the board for [prompt]: the Doppelganger's copy during her
-  /// follow-up; else the prompt, and window 1's page in window 2.
+  /// "You" on the board for [prompt]: once the Doppelganger's look is back,
+  /// for the rest of window 1, whom she copied and what her copy may do
+  /// (nothing, for a role that acts later or not at all); else the prompt,
+  /// and window 1's page in window 2.
   FaceContent you(ChoosePrompt prompt) => switch (windowOne) {
-    final CopiedResult look when prompt.turn == 1 => FaceContent.copied(
+    final CopiedResult look when prompt.window == 1 => FaceContent.copied(
       look,
       prompt.kind,
     ),

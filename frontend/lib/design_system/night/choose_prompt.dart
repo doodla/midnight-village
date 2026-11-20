@@ -13,6 +13,7 @@ class ChoosePrompt {
     required this.window,
     required this.kind,
     required this.rule,
+    required this.chosen,
   });
 
   /// `/me/` with an `action_prompt`.
@@ -23,6 +24,7 @@ class ChoosePrompt {
       window: prompt['window'] as int,
       kind: NightPrompt.fromKind(prompt['kind'] as String),
       rule: PickRule.fromPrompt(prompt),
+      chosen: prompt['chosen'] as int,
     );
   }
 
@@ -36,6 +38,9 @@ class ChoosePrompt {
   final NightPrompt kind;
   final PickRule rule;
 
+  /// How many chooses the server has from this phone in this stage.
+  final int chosen;
+
   /// Which choose of the stage this is: 1 only for the Doppelganger's
   /// follow-up, which the server marks by giving window 1 a prompt that is
   /// neither her look nor "nothing to do"; 0 otherwise. The board re-arms
@@ -47,4 +52,8 @@ class ChoosePrompt {
           kind != NightPrompt.noChoice
       ? 1
       : 0;
+
+  /// The server already has this turn's choose (a phone that restarted, or
+  /// chose on another screen): the board starts at "Chosen".
+  bool get used => chosen > turn;
 }

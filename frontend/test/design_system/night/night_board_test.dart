@@ -236,6 +236,29 @@ void main() {
     expect(board.sent, hasLength(1));
   });
 
+  group('a phone whose turn the server already has starts at "Chosen"', () {
+    testWidgets('window 2, chosen once', (tester) async {
+      final board = BoardHarness(recordedMe('me_choose_chosen'));
+      expect(board.prompt.used, isTrue);
+      await board.pump(tester);
+      expect(button(tester), (NightCopy.chosen, ButtonPhase.done));
+      await tapCard(tester, cleo.name);
+      expect(lifted(tester), isEmpty);
+    });
+
+    testWidgets("the Doppelganger's follow-up: armed at chosen 1, done at "
+        'chosen 2', (tester) async {
+      final armed = BoardHarness.of(Viewer.doppelgangerFollowUp);
+      await armed.pump(tester);
+      expect(button(tester), (NightCopy.chooseNone, ButtonPhase.locked));
+
+      final me = Viewer.doppelgangerFollowUp.nightMe;
+      (me['action_prompt'] as Map)['chosen'] = 2;
+      await BoardHarness(me).pump(tester);
+      expect(button(tester), (NightCopy.chosen, ButtonPhase.done));
+    });
+  });
+
   testWidgets('a new stage starts a fresh board', (tester) async {
     final board = BoardHarness.of(Viewer.windowOneSleeper);
     await board.pump(tester);
@@ -293,6 +316,20 @@ void main() {
         expect(button(tester), (NightCopy.chosen, ButtonPhase.done));
       });
     }
+
+    testWidgets('any other refusal (choose_bad_request) arms the board '
+        'again, the picks still lifted, with no banner', (tester) async {
+      final board = BoardHarness.of(
+        Viewer.seer,
+        answer: () async => _answered('choose_bad_request'),
+      );
+      await board.pump(tester);
+      await tapCard(tester, cleo.name);
+      await _choose(tester);
+      expect(find.text(BannerCopy.notSent), findsNothing);
+      expect(button(tester), ('Choose Cleo', ButtonPhase.ready));
+      expect(lifted(tester), [cleo.name]);
+    });
 
     testWidgets('an answer after its turn has passed is forgotten', (
       tester,

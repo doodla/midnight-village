@@ -106,6 +106,25 @@ void main() {
     expect(_lines(face.pages.single), ['You copied Ben.', NightCopy.seer]);
   });
 
+  test('a Doppelganger who copied a role with nothing to do in window 1 sees '
+      'her copy at once', () {
+    // No recorded game has this; the follow-up sample, with the values the
+    // server sends for such a copy.
+    final me = recordedMe('me_choose_doppelganger_followup');
+    final prompt = me['action_prompt'] as Map;
+    prompt['kind'] = 'none';
+    prompt['shapes'] = [
+      {'any': 1},
+    ];
+    prompt['role_acting_as'] = 'Villager';
+    ((me['night_results'] as List).first
+            as Map)['revealed_info']['copied_role'] =
+        'Villager';
+    final face = NightReport.fromMe(me).you(ChoosePrompt.fromMe(me));
+    expect(face.pages.single.name, 'Villager');
+    expect(_lines(face.pages.single), ['You copied Ben.', NightCopy.noChoice]);
+  });
+
   test('the results fill their lines with names, cards and roles', () {
     String result(String name) => _lines(_myNight(name).pages.first).join(' ');
     expect(result('me_discussion_choose_robber'), 'Your card now: Seer.');

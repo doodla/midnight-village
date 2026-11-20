@@ -149,11 +149,11 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Mark disc 40 amber at top 38, eye icon 26, 0 2 deep | **Cut** by the first-time play spec: the mark said what a pick would do, which tells the role |
 | Owner token 36 overlapping by 18, ring bone (amber when picked) | `TokenSize.card`, placed by `FaceDownCard` |
 | Name Gloock 18 at 4, amber when picked | `type.nameSmall`, `ground.text` (the name does not change when picked) |
-| Rule 2 px hairline, margin-top 6, padding-top 14 | **Cut**: the center cards are the board's last row, `Space.lg` below the players; the board sits high under the title, four cards to a row for six seats or fewer (five beyond, four with large text); a body that runs past the button fades at its lower edge (`ScreenFrame`) |
+| Rule 2 px hairline, margin-top 6, padding-top 14 | **Cut**: the center cards are the board's last row, `Space.lg` below the players; the board sits high under the title, four cards to a row for six seats or fewer (five beyond, four with large text); it never scrolls (`ScreenFrame(fitsHeight: true)`, a one-line title): the cards shrink from `FaceDownSize.board` until every row is on screen |
 | "Center" centred label | **Cut** by the first-time play spec ("Center"): Left, Middle and Right follow the players on the same board |
 | Center cards 62 x 84, radius 5, 0 3 deep, 0.75 opacity, gap 22 | Every card the same size, `FaceDownSize.player`, with `caption:` (`type.caption` 14, `ground.quietText`); no recess |
 | "Left / Middle / Right" 12/700 quiet, gap 6 | `caption:` (`type.caption` 14, `ground.quietText`) |
-| "Look at Cleo's card" 56 | `PrimaryButton`: "Choose a card" and "Choose 1 more" `.locked` (a tap replays the wave), then "Choose {cards}" or "Keep my card", then `.done` "Chosen"; a send that gets no answer adds `Notice` "Not sent." with "Try again" (a `409` is done, not a failure) |
+| "Look at Cleo's card" 56 | `PrimaryButton`: "Choose a card" and "Choose 1 more" `.locked` (a tap replays the wave), then "Choose {cards}" or "Keep my card", then `.done` "Chosen"; a send that gets no answer adds `Notice` "Not sent." with "Try again" (a `409` is done, not a failure; any other `4xx` arms the board again); a phone whose turn the server already has (`chosen`) opens at "Chosen" |
 | "Do nothing tonight" 48, 2 px quiet outline, 15/700 | **Cut** by the first-time play spec: doing nothing is picking "You" ("Keep my card") |
 | Gap 12 | `actionGap: Space.md` |
 

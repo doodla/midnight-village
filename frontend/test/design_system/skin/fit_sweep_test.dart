@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/night/night_board.dart';
+import 'package:midnight_village/design_system/primitives/face_down_card.dart';
+import 'package:midnight_village/design_system/primitives/primary_button.dart';
 
 import '../../helpers/component_sheet.dart';
 import '../../helpers/pump_skinned.dart';
@@ -64,6 +67,21 @@ List<String> brokenWords(WidgetTester tester) {
   return broken;
 }
 
+/// On a night board, every card is on the screen, above the button, with
+/// no scrolling: a Drunk can only pick a center card.
+List<String> offBoard(WidgetTester tester) {
+  if (find.byType(NightBoard).evaluate().isEmpty) return const [];
+  final screen = Offset.zero & tester.view.physicalSize;
+  final button = tester.getRect(find.byType(PrimaryButton).last);
+  return [
+    for (final element in find.byType(FaceDownCard).evaluate())
+      if (tester.getRect(find.byWidget(element.widget)) case final card
+          when !screen.contains(card.bottomRight - const Offset(1, 1)) ||
+              card.bottom > button.top)
+        '"${(element.widget as FaceDownCard).semanticLabel}" is off the board',
+  ];
+}
+
 void main() {
   for (final MapEntry(key: name, value: skin) in skinsUnderTest.entries) {
     for (final width in _widths) {
@@ -90,6 +108,9 @@ void main() {
               for (final word in brokenWords(tester)) {
                 findings.add('$where: $word');
               }
+              findings.addAll([
+                for (final card in offBoard(tester)) '$where: $card',
+              ]);
             }
           }
           FlutterError.onError = report;

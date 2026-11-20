@@ -112,6 +112,12 @@ enum Viewer {
     final results = (talkMe['night_results'] as List).cast<Map>();
     if (results.isEmpty) return const [NightCopy.you];
     final info = results.last['revealed_info'] as Map;
+    if (info.containsKey('roles')) {
+      throw StateError(
+        "A center look's result names the roles, not the cards: the server "
+        'does not record which two this phone tapped.',
+      );
+    }
     return [
       if (info['target_name'] case final String name) name,
       if (info['card_index'] case final int index) centerName(index),

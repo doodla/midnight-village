@@ -13,8 +13,12 @@ import 'player_token.dart';
 /// shrinks, keeping its shape, when its parent is narrower (five players'
 /// cards on a 320-wide phone).
 enum FaceDownSize {
-  /// A card on the night board (S06): 78 x 106.
+  /// A player's card in a row (S06): 78 x 106.
   player(Size(78, 106)),
+
+  /// A card on the night board, which takes the room it is given up to
+  /// this: the player card's shape, larger where the phone has the height.
+  board(Size(96, 130)),
 
   /// A card dropped on the table (S05): 84 x 112.
   scatter(Size(84, 112)),
@@ -33,7 +37,9 @@ enum FaceDownSize {
 /// When [selected] it lifts and takes the selection's outline (first-time
 /// play spec: a selection is lift plus an outline, never a fill). [hold]
 /// puts the thumbprint on it: null for none, else the `hold` cue, teaching
-/// or learned ([HoldCue]).
+/// or learned ([HoldCue]). [cardWidth] sets the card's own width when its
+/// name or caption may run wider, across the parent's width (the board's
+/// columns when its cards shrink to fit the screen).
 class FaceDownCard extends StatelessWidget {
   const FaceDownCard({
     super.key,
@@ -44,6 +50,7 @@ class FaceDownCard extends StatelessWidget {
     this.selected = false,
     this.hold,
     this.tilt = Tilt.none,
+    this.cardWidth,
     this.semanticLabel,
     this.onTap,
   });
@@ -55,6 +62,7 @@ class FaceDownCard extends StatelessWidget {
   final bool selected;
   final bool? hold;
   final Tilt tilt;
+  final double? cardWidth;
   final String? semanticLabel;
   final VoidCallback? onTap;
 
@@ -76,9 +84,10 @@ class FaceDownCard extends StatelessWidget {
         transform: Matrix4.translationValues(0, selected ? -Space.sm : 0, 0),
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final most = cardWidth ?? size.mock.width;
             final width = constraints.hasBoundedWidth
-                ? size.mock.width.clamp(0.0, constraints.maxWidth)
-                : size.mock.width;
+                ? most.clamp(0.0, constraints.maxWidth)
+                : most;
             return _column(context, width);
           },
         ),

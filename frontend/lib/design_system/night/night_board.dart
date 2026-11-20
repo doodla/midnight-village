@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../layout/space.dart';
 import '../primitives/face_down_card.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/notice.dart';
+import '../primitives/player_token.dart';
 import '../primitives/primary_button.dart';
 import '../primitives/screen_frame.dart';
 import '../primitives/world_timer.dart';
@@ -76,10 +78,11 @@ class NightBoard extends ConsumerStatefulWidget {
   /// became of them ([ChooseAnswer.fromStatus] on the server's answer). The
   /// board shows "Chosen" before it is called. [ChooseAnswer.taken] learns
   /// the board's cue; [ChooseAnswer.stale] (`409 wrong_stage`,
-  /// `409 already_chosen`, any refusal) changes nothing here: the stage has
-  /// moved on or the server has the choose, and the caller fetches `/me/`.
-  /// Only [ChooseAnswer.notSent], or a Future that fails (no answer at all),
-  /// shows "Not sent." with "Try again".
+  /// `409 already_chosen`) changes nothing here: the stage has moved on or
+  /// the server has the choose, and the caller fetches `/me/`.
+  /// [ChooseAnswer.refused] (any other `4xx`) arms the board again, the
+  /// picks still lifted. Only [ChooseAnswer.notSent], or a Future that fails
+  /// (no answer at all), shows "Not sent." with "Try again".
   final Future<ChooseAnswer> Function(String stage, List<NightPick> picks)
   onChoose;
 
@@ -103,8 +106,9 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   final _replay = CueReplay();
   var _picks = <NightPick>[];
 
-  /// What Choose sent this turn; null until it is pressed.
-  List<NightPick>? _sent;
+  /// What Choose sent this turn; null until it is pressed (empty when the
+  /// server already had the turn's choose before this board was shown).
+  late List<NightPick>? _sent = _usedUp(widget.prompt);
   var _failed = false;
 
   /// Which send is the latest: an answer to an older one, or to an earlier
@@ -118,8 +122,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         old.prompt.turn != widget.prompt.turn) {
       _sends++;
       _picks = [];
-      _sent = null;
+      _sent = _usedUp(widget.prompt);
       _failed = false;
+    } else {
+      // The server counted a choose this board did not send.
+      _sent ??= _usedUp(widget.prompt);
     }
   }
 
@@ -128,6 +135,9 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     _replay.dispose();
     super.dispose();
   }
+
+  static List<NightPick>? _usedUp(ChoosePrompt prompt) =>
+      prompt.used ? const [] : null;
 
   void _tap(NightPick pick) {
     if (_sent != null) return;
@@ -159,6 +169,9 @@ class _NightBoardState extends ConsumerState<NightBoard> {
               ChooseAnswer.taken when current() =>
                 ref.read(learnedCuesProvider.notifier).learn(Cue.nightChoose),
               ChooseAnswer.notSent => failed(),
+              ChooseAnswer.refused when current() => setState(
+                () => _sent = null,
+              ),
               _ => null,
             },
             onError: (Object _) => failed(),
@@ -197,11 +210,15 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         : widget.seats.length <= NightBoard.smallTable
         ? NightBoard.perRowSmallTable
         : NightBoard.perRow;
-    final cards = [
+    final cards = <Widget Function(double)>[
       for (final seat in widget.seats)
-        seat.id == widget.selfId ? _you(seat) : _player(seat),
+        seat.id == widget.selfId
+            ? (width) => _you(seat, width)
+            : (width) => _player(seat, width),
     ];
-    final center = [for (var i = 0; i < 3; i++) _center(i)];
+    final center = <Widget Function(double)>[
+      for (var i = 0; i < 3; i++) (width) => _center(i, width),
+    ];
 
     return TeachOnce(
       cue: Cue.nightChoose,
@@ -214,9 +231,10 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           distance: CueWave.boardLift,
           child: card,
         );
-        // The board is the screen: high, under the title.
+        // The board is the screen: high, under the title, every card on it.
         return ScreenFrame(
           ground: GroundKind.night,
+          fitsHeight: true,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -226,7 +244,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                   Expanded(
                     child: Semantics(
                       header: true,
-                      child: FitWords(
+                      child: FitLine(
                         CommonCopy.nightTitle,
                         style: type.screenTitle,
                       ),
@@ -235,19 +253,40 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                   WorldTimer.candleCompact(secondsLeft: widget.secondsLeft),
                 ],
               ),
-              Padding(
-                padding: const EdgeInsets.only(top: Space.xl),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: Space.lg,
-                  children: [
-                    for (var at = 0; at < cards.length; at += perRow)
-                      _row([
-                        for (final card in cards.skip(at).take(perRow))
-                          wave(card),
-                      ], perRow),
-                    _row([for (final card in center) wave(card)], perRow),
-                  ],
+              const SizedBox(height: Space.xl),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, room) {
+                    // The wave runs left to right, top to bottom, from 0
+                    // each time the board is laid out.
+                    index = 0;
+                    final rows = [
+                      for (var at = 0; at < cards.length; at += perRow)
+                        [for (final card in cards.skip(at).take(perRow)) card],
+                    ];
+                    final column = _column(room, perRow);
+                    final width = _cardWidth(
+                      context,
+                      room,
+                      perRow,
+                      rows.length,
+                    );
+                    // A name keeps its column's width when the card shrinks.
+                    Widget row(List<Widget Function(double)> slots) => Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: Space.xs,
+                      children: [
+                        for (final card in slots)
+                          SizedBox(width: column, child: wave(card(width))),
+                      ],
+                    );
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: Space.lg,
+                      children: [for (final r in rows) row(r), row(center)],
+                    );
+                  },
                 ),
               ),
             ],
@@ -266,23 +305,53 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  /// One row of cards, each a column's width ([perRow] to a row), centred.
-  Widget _row(List<Widget> cards, int perRow) {
-    final gap = perRow - cards.length;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: Space.xs,
-      children: [
-        if (gap > 0) Spacer(flex: gap),
-        for (final card in cards) Expanded(flex: 2, child: card),
-        if (gap > 0) Spacer(flex: gap),
-      ],
-    );
+  /// The width every card on the board takes: a column's width at most
+  /// ([FaceDownSize.board] at most), and less when that is what it takes for
+  /// [playerRows] rows of players and the center row to fit [room]'s height
+  /// with their tokens and names, so no card is ever off the screen.
+  double _cardWidth(
+    BuildContext context,
+    BoxConstraints room,
+    int perRow,
+    int playerRows,
+  ) {
+    final type = context.skin.typography;
+    final scaler = MediaQuery.textScalerOf(context);
+    double line(TextStyle style) {
+      final painter = TextPainter(
+        text: TextSpan(text: NightCopy.you, style: style),
+        textScaler: scaler,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    final column = _column(room, perRow);
+    final under = TokenSize.card.size / 2 + Space.xxs + line(type.nameSmall);
+    final caption = Space.xs + line(type.caption);
+    final cardsHigh =
+        room.maxHeight -
+        Space.lg * playerRows -
+        playerRows * under -
+        caption -
+        // A picked card lifts this far into the gap above it.
+        Space.sm;
+    final shape = FaceDownSize.board.mock;
+    final byHeight = cardsHigh / (playerRows + 1) * shape.width / shape.height;
+    return [column, byHeight, shape.width].reduce(math.min);
   }
 
-  Widget _player(NightSeat seat) {
+  /// A column's width: [perRow] columns across [room] with their gaps.
+  static double _column(BoxConstraints room, int perRow) =>
+      (room.maxWidth - (perRow - 1) * Space.xs) / perRow;
+
+  Widget _player(NightSeat seat, double width) {
     final pick = PlayerPick(seat.id);
     return FaceDownCard(
+      size: FaceDownSize.board,
+      cardWidth: width,
       owner: seat.token,
       ownerName: seat.name,
       selected: _picks.contains(pick),
@@ -291,9 +360,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  Widget _center(int index) {
+  Widget _center(int index, double width) {
     final pick = CenterPick(index);
     return FaceDownCard(
+      size: FaceDownSize.board,
+      cardWidth: width,
       caption: centerName(index),
       selected: _picks.contains(pick),
       semanticLabel: centerName(index),
@@ -301,11 +372,13 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  Widget _you(NightSeat seat) => TeachingHold(
+  Widget _you(NightSeat seat, double width) => TeachingHold(
     target: NightCopy.you,
     cue: Cue.holdYou,
     face: widget.face,
     cover: (teaching) => FaceDownCard(
+      size: FaceDownSize.board,
+      cardWidth: width,
       owner: seat.token,
       ownerName: NightCopy.you,
       selected: _picks.contains(const SelfPick()),
