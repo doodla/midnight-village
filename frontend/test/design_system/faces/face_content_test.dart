@@ -34,13 +34,13 @@ final _windowOnes = <WindowOneResult>[
 
 void main() {
   group('every phone has the same number of pages at the same beat', () {
-    test('04: two pages for every role', () {
+    test('04: one page, the whole card, for every role', () {
       expect(
         {
           for (final role in RoleId.values)
             FaceContent.roleText(role).pages.length,
         },
-        {2},
+        {1},
       );
     });
 
@@ -70,10 +70,6 @@ void main() {
       );
     });
 
-    test('07: one page, whatever was seen', () {
-      expect({for (final r in _results) FaceContent.saw(r).pages.length}, {1});
-    });
-
     test('08: dealt and seen, with window 1 between when it ran', () {
       int pages(WindowOneResult? windowOne, NightResult saw) =>
           FaceContent.myNight(
@@ -92,27 +88,16 @@ void main() {
     });
   });
 
-  test('every page has at most two lines', () {
-    final pages = [
-      for (final role in RoleId.values) ...[
-        ...FaceContent.roleText(role).pages,
-        ...FaceContent.copied(name: 'Cleo', role: role).pages,
-      ],
-      for (final w in _windowOnes) w.page,
-      for (final r in _results) r.page,
-    ];
-    expect(pages.where((p) => p.lines.length > FacePage.maxLines), isEmpty);
-  });
-
   test('the role text face is the role text, in its order', () {
     final face = FaceContent.roleText(RoleId.minion);
     final text = RoleText.of(RoleId.minion);
     expect(face.pages.first.name, 'Minion');
     expect(face.pages.first.tag, 'Werewolf');
-    expect(
-      [...face.pages.first.lines, ...face.pages.last.lines],
-      [text.lines[1], text.lines[2], RoleCopy.shared],
-    );
+    expect(face.pages.single.lines, [
+      text.lines[1],
+      text.lines[2],
+      RoleCopy.shared,
+    ]);
   });
 
   test('the 07 faces fill their lines with names, cards and roles', () {

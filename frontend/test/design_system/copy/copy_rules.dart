@@ -1,3 +1,4 @@
+import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 
 // The copy rules of docs/specs/frontend/first-time-play.md, section 1, as
@@ -110,13 +111,17 @@ const banned = [
 /// Rule 9: the one question.
 const onlyQuestion = 'Who dies today?';
 
-/// Rule 6: gestures are never explained in text; the cue's one word is the
-/// only exception.
+/// Rule 6: gestures are never explained in text. The cue's one word is an
+/// exception, and so are the lines in [gestureKept].
 final _gesture = RegExp(
   r'\b(tap|taps|tapping|tapped|press|pressing|swipe|drag|hold|holding|'
   r'double[- ]tap)\b',
   caseSensitive: false,
 );
+
+/// Lines that name a gesture and stay, each by a decision in the spec: the
+/// sleeper's face says how to take a turn at all (section 8, product owner).
+const gestureKept = {NightCopy.noChoice};
 
 /// Budgets that are not a screen's.
 const headlineMax = 5;
@@ -136,7 +141,7 @@ List<String> lineViolations(String line, {bool isCue = false}) => [
     '"$line" asks a question; the only one is "$onlyQuestion"',
   for (final phrase in banned)
     if (_contains(line, phrase)) '"$line" uses the banned "$phrase"',
-  if (!isCue && _gesture.hasMatch(line))
+  if (!isCue && !gestureKept.contains(line) && _gesture.hasMatch(line))
     '"$line" explains a gesture ("${_gesture.firstMatch(line)![0]}")',
 ];
 

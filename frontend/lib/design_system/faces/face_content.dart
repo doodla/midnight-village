@@ -4,13 +4,12 @@ import '../copy/copy.dart';
 import '../copy/role_text.dart';
 import '../models/role.dart';
 
-// What a held face says (first-time play spec, section 2, "The held-face
-// frame", and section 3): pages of one portrait and at most two lines, built
-// from plain data the server gives. Hidden information: the page count of a
-// face depends only on the moment (window 1 ran or not), never on the role,
-// so every phone at the table has the same number of pages at the same beat.
+// What a held face says (first-time play spec, sections 3 and 8): pages of a
+// portrait and a few lines, built from plain data the server gives. Hidden
+// information: the page count of a face depends only on the moment (window 1
+// ran or not), never on the role.
 
-/// What fills a face's one portrait slot.
+/// What fills a face's portrait slot.
 sealed class FacePortrait {
   const FacePortrait();
 }
@@ -42,10 +41,7 @@ class FacePage {
     required this.lines,
     this.name,
     this.tag,
-  }) : assert(lines.length <= maxLines, 'A face has at most 2 lines.');
-
-  /// At most this many lines on a page.
-  static const maxLines = 2;
+  });
 
   final FacePortrait portrait;
 
@@ -94,7 +90,7 @@ enum NightPrompt {
 }
 
 /// What a phone was told when a window closed: one row of the "07 faces"
-/// table.
+/// table, a page of My night.
 sealed class NightResult {
   const NightResult();
 
@@ -322,8 +318,7 @@ class FaceContent {
 
   final List<FacePage> pages;
 
-  /// 04 (and the role sheet's words): the role text on two pages, the same
-  /// two for every role.
+  /// 04: the whole role card on one page (the role sheet's words).
   factory FaceContent.roleText(RoleId role) {
     final text = RoleText.of(role);
     return FaceContent([
@@ -331,12 +326,7 @@ class FaceContent {
         portrait: RoleFacePortrait(role),
         name: role.displayName,
         tag: text.tag,
-        lines: [text.lines[1], text.lines[2]],
-      ),
-      FacePage(
-        portrait: RoleFacePortrait(role),
-        name: role.displayName,
-        lines: const [RoleCopy.shared],
+        lines: text.lines.skip(1).toList(),
       ),
     ]);
   }
@@ -371,11 +361,8 @@ class FaceContent {
         ),
       ]);
 
-  /// 07: what this phone saw when window 2 closed. One page.
-  factory FaceContent.saw(NightResult result) => FaceContent([result.page]);
-
-  /// 08's My night: the dealt card, window 1's page when it ran, and the 07
-  /// face; the same count on every phone.
+  /// 08's My night: the dealt card, window 1's page when it ran, and what
+  /// window 2 told this phone; the same count on every phone.
   factory FaceContent.myNight({
     required RoleId dealt,
     WindowOneResult? windowOne,

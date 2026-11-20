@@ -14,16 +14,21 @@ import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import '../../helpers/pump_skinned.dart';
 
 final _seer = FaceContent.roleText(RoleId.seer);
+
+/// My night: two pages.
+final _myNight = FaceContent.myNight(
+  dealt: RoleId.seer,
+  saw: const SleptResult(),
+);
 const _cover = 'Face down';
 
 /// The line the Seer's face shows first.
 String get _secret => _seer.pages.first.lines.first;
 
 class _Harness {
-  _Harness({FaceContent? face, this.cap}) : face = face ?? _seer;
+  _Harness({FaceContent? face}) : face = face ?? _seer;
 
   final FaceContent face;
-  final Duration? cap;
   final changes = <bool>[];
   var revealed = 0;
 
@@ -38,7 +43,6 @@ class _Harness {
           HoldToReveal(
             target: 'Your card',
             face: face,
-            cap: cap,
             onRevealChanged: changes.add,
             onRevealed: () => revealed++,
             cover: SizedBox.square(dimension: 200, child: const Text(_cover)),
@@ -109,22 +113,8 @@ void main() {
       expect(h.revealed, 1);
     });
 
-    testWidgets('with a cap, the face hides after it even while held; '
-        'without one it stays', (tester) async {
-      final capped = _Harness(cap: HoldToReveal.nightCap);
-      await tester.pumpWidget(capped.build());
-      final hold = await _press(tester);
-      await tester.pump(HoldToReveal.holdDelay);
-      await tester.pump(
-        HoldToReveal.nightCap - const Duration(milliseconds: 1),
-      );
-      expect(_face, findsOneWidget);
-      await tester.pump(const Duration(milliseconds: 1));
-      expect(_face, findsNothing);
-      await hold.up();
-
-      final uncapped = _Harness();
-      await tester.pumpWidget(uncapped.build());
+    testWidgets('it stays as long as it is held: no cap', (tester) async {
+      await tester.pumpWidget(_Harness().build());
       final longHold = await _press(tester);
       await tester.pump(const Duration(seconds: 30));
       expect(_face, findsOneWidget);
@@ -181,12 +171,13 @@ void main() {
     });
 
     testWidgets('each new showing shows the next page', (tester) async {
-      await tester.pumpWidget(_Harness().build());
+      await tester.pumpWidget(_Harness(face: _myNight).build());
+      final dealt = _myNight.pages.first.lines.single;
       final shown = <bool>[];
       for (var i = 0; i < 3; i++) {
         final hold = await _press(tester);
         await tester.pump(HoldToReveal.holdDelay);
-        shown.add(find.text(_secret).evaluate().isNotEmpty);
+        shown.add(find.text(dealt).evaluate().isNotEmpty);
         await hold.up();
         await tester.pump();
       }
@@ -262,10 +253,10 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('activating shows the face for 5 s, reads it aloud and '
-        'counts', (tester) async {
+    testWidgets('activating shows the face, reads it aloud and counts, '
+        'until activated again', (tester) async {
       final semantics = tester.ensureSemantics();
-      final h = _Harness(cap: HoldToReveal.nightCap);
+      final h = _Harness();
       await tester.pumpWidget(h.build());
       await _activate(tester);
       expect(_face, findsOneWidget);
@@ -274,17 +265,6 @@ void main() {
         find.bySemanticsLabel(RegExp(RegExp.escape(_secret))),
         findsOneWidget,
       );
-      await tester.pump(HoldToReveal.activateShows);
-      expect(_face, findsNothing);
-      semantics.dispose();
-    });
-
-    testWidgets('with no cap (04) it stays until activated again', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      await tester.pumpWidget(_Harness().build());
-      await _activate(tester);
       await tester.pump(const Duration(minutes: 1));
       expect(_face, findsOneWidget);
       await _activate(tester);
@@ -332,7 +312,7 @@ void main() {
       for (final face in [
         FaceContent.roleText(RoleId.villager),
         FaceContent.roleText(RoleId.minion),
-        FaceContent.saw(const SleptResult()),
+        FaceContent([const SleptResult().page]),
       ]) {
         await tester.pumpWidget(_Harness(face: face).build());
         covers.add(tester.getSize(_card));

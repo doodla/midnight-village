@@ -10,6 +10,7 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
+import 'package:midnight_village/design_system/night/pick_rule.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
@@ -21,25 +22,32 @@ import '../../helpers/component_sheet.dart';
 import '../../helpers/pump_skinned.dart';
 import '../../helpers/sheet/sheet_data.dart';
 
+/// The stage name the harness's server gives.
+const windowTwo = 'stage-w2';
+
 /// A night board on a phone, with what it sent.
 class BoardHarness {
   BoardHarness({
     required this.face,
-    this.window = NightWindow.two,
+    required this.rule,
     this.seats = fiveSeats,
-    this.taken = true,
+    this.stage = windowTwo,
     this.learned = const {},
-  });
+    Future<void> Function()? answer,
+  }) : answer = answer ?? (() async {});
 
   FaceContent face;
-  final NightWindow window;
+  PickRule rule;
+  String stage;
+  var turn = 0;
   final List<NightSeat> seats;
-
-  /// What the server answers each choose.
-  bool taken;
   final Set<Cue> learned;
 
-  /// Each choose's picks, in order.
+  /// How the server answers each choose: at once by default.
+  Future<void> Function() answer;
+
+  /// Each choose's stage, and its picks, in order.
+  final stages = <String>[];
   final sent = <List<NightPick>>[];
   late final container = ProviderContainer(
     overrides: learnedOverrides(learned),
@@ -49,12 +57,15 @@ class BoardHarness {
     final board = NightBoard(
       seats: seats,
       selfId: ana.id,
-      window: window,
+      stage: stage,
+      turn: turn,
+      rule: rule,
       face: face,
       secondsLeft: 14,
-      onChoose: (picks) async {
+      onChoose: (stage, picks) {
+        stages.add(stage);
         sent.add(picks);
-        return taken;
+        return answer();
       },
     );
     return UncontrolledProviderScope(
@@ -77,8 +88,13 @@ class BoardHarness {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     addTearDown(container.dispose);
+    // A phone that has shown no board yet: nothing kept from an earlier one.
+    await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(build(wrap: wrap));
-    // The opening wave, done.
+    // The opening wave, done: it starts on the frame after the first and
+    // takes its first tick as time zero.
+    await tester.pump();
+    await tester.pump();
     await tester.pump(const Duration(seconds: 2));
     // Every picture loaded for real (the test clock never waits for I/O),
     // so the first board drawn in a test is drawn as the rest are.
@@ -131,6 +147,8 @@ String visibleTrees(WidgetTester tester) {
     RegExp(r'(?<=SemanticsNode)#\d+'),
     RegExp(r', dependencies: \[(?:[^\[\]]|\[[^\]]*\])*\]'),
     RegExp(r', state: _ImageState\(.*$', multiLine: true),
+    // How often a layer has repainted so far in the test.
+    RegExp(r'^.*(metrics|diagnosis): .*$', multiLine: true),
   ];
   final view = tester.binding.renderViews.single;
   final semantics = view.owner?.semanticsOwner?.rootSemanticsNode?.toStringDeep(

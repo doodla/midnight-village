@@ -8,14 +8,24 @@ import '../skin/skin.dart';
 /// first-time play spec, section 2). While [teaching], a bone ring round it
 /// breathes (scale 1.00 to 1.06, a 1.4 s loop) with the word "Hold" at 20 px
 /// under it; once learned, the thumbprint alone, still. With reduced motion
-/// the ring stands still. It sets itself smaller to fit a small card.
+/// the ring stands still. It sets itself smaller to fit a small card; a card
+/// too small for the word at 20 px leaves it out ([word]) and its holder
+/// sets it beside the card.
 ///
 /// It is drawn in the night's colours on any ground: it always lies on a
 /// card back.
 class HoldCue extends StatefulWidget {
-  const HoldCue({super.key, required this.teaching, this.size = maxSize});
+  const HoldCue({
+    super.key,
+    required this.teaching,
+    this.size = maxSize,
+    this.word = true,
+  });
 
   final bool teaching;
+
+  /// Draw "Hold" under the thumbprint while teaching.
+  final bool word;
 
   /// The ring's diameter at most.
   final double size;
@@ -109,7 +119,7 @@ class _HoldCueState extends State<HoldCue> with SingleTickerProviderStateMixin {
             alignment: Alignment.center,
             children: [disc, if (widget.teaching) ring],
           ),
-          if (widget.teaching)
+          if (widget.teaching && widget.word)
             Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: Space.xs,

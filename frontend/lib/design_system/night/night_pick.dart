@@ -79,28 +79,3 @@ final class SelfPick extends NightPick {
   @override
   String toString() => 'SelfPick()';
 }
-
-/// The night's two windows. Window 1 runs only when the Doppelganger card is
-/// in the deck, and every phone may choose twice in it, so her follow-up is
-/// not a tell; window 2 takes one choose.
-enum NightWindow {
-  one(chooses: 2),
-  two(chooses: 1);
-
-  const NightWindow({required this.chooses});
-
-  /// How many times every phone chooses in it.
-  final int chooses;
-}
-
-/// What the board does with a third pick and with a pick tapped again
-/// (first-time play spec, "The night, second by second"): at most [maxPicks]
-/// picks; a third replaces the oldest; tapping a chosen card unchooses it.
-List<NightPick> toggled(List<NightPick> picks, NightPick tapped) {
-  if (picks.contains(tapped)) return [...picks]..remove(tapped);
-  final kept = picks.length < maxPicks ? picks : picks.sublist(1);
-  return [...kept, tapped];
-}
-
-/// The most picks a choose sends.
-const maxPicks = 2;

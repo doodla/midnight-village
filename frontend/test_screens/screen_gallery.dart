@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:midnight_village/design_system/skin/skin_id.dart';
 
 import '../test/helpers/test_fonts.dart';
 import 'reading_floor.dart';
@@ -46,20 +45,15 @@ class ScreenResult {
   final String? png;
 }
 
-/// Where the PNGs for [width] in [skin] go: `build/screens/` for the mocks'
-/// width in the default skin, `w<width>/` below that for any other width, and
-/// all of it under `<skin>/` for another skin (`build/screens/nightPrint/w360`).
-String outputDir(int width, SkinId skin) {
-  final base = skin == SkinId.fallback
-      ? 'build/screens'
-      : 'build/screens/${skin.name}';
-  return width == 390 ? base : '$base/w$width';
-}
+/// Where the PNGs for [width] go: `build/screens/` for the mocks' width,
+/// `build/screens/w<width>/` for any other.
+String outputDir(int width) =>
+    width == 390 ? 'build/screens' : 'build/screens/w$width';
 
-/// Removes the previous run's images for [width] in [skin], so a renamed or
-/// removed entry leaves nothing behind.
-void clearOutput(int width, SkinId skin) {
-  final dir = Directory(outputDir(width, skin));
+/// Removes the previous run's images for [width], so a renamed or removed
+/// entry leaves nothing behind.
+void clearOutput(int width) {
+  final dir = Directory(outputDir(width));
   if (!dir.existsSync()) return;
   for (final file in dir.listSync()) {
     if (file is File && file.path.endsWith('.png')) file.deleteSync();
@@ -116,6 +110,9 @@ Future<ScreenCapture> captureScreen(
       return (null, 'CAPTURE FAILED: ${_describeError(error, stack)}');
     }
   });
+  // Given back before the caller's expectations run: a test that fails with
+  // the handler still replaced never ends.
+  FlutterError.onError = reportError;
   return ScreenCapture(png: png, findings: findings.toList(), failure: failure);
 }
 
@@ -125,11 +122,10 @@ ScreenResult saveScreen(
   ScreenEntry entry,
   ScreenCapture capture, {
   required int width,
-  required SkinId skin,
 }) {
   final png = capture.png;
   if (png == null) return ScreenResult(capture, null);
-  final dir = outputDir(width, skin);
+  final dir = outputDir(width);
   final file = File('$dir/${entry.id}.png')
     ..parent.createSync(recursive: true)
     ..writeAsBytesSync(png);
@@ -219,11 +215,10 @@ String summarize(
   Map<String, ScreenResult> results, {
   required int width,
   required bool strict,
-  required SkinId skin,
 }) {
   final out = StringBuffer()
     ..writeln(
-      'Screens at ${width}x${screenHeight.toInt()} in ${skin.label} '
+      'Screens at ${width}x${screenHeight.toInt()} '
       '(${strict ? 'strict' : 'findings reported, not failed'})',
     )
     ..writeln(
@@ -271,6 +266,6 @@ String summarize(
       '$rendered rendered, $withFindings with findings, $notBuilt not built'
       '${failed > 0 ? ', $failed FAILED' : ''}.',
     )
-    ..write('Side by side with the mocks: ${outputDir(width, skin)}/compare/');
+    ..write('Side by side with the mocks: ${outputDir(width)}/compare/');
   return out.toString();
 }

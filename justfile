@@ -145,6 +145,10 @@ flutter-analyze:
 screens *args:
     {{frontend_just}} screens {{args}}
 
+# The cold-read pack of first-game journeys (see frontend/CLAUDE.md)
+playtest-pack *args:
+    {{frontend_just}} playtest-pack {{args}}
+
 # Run Flutter integration tests on Chrome
 # Uses flutter drive because flutter test does not support web devices
 flutter-test-integration:

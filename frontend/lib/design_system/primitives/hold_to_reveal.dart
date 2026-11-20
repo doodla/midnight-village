@@ -17,16 +17,15 @@ enum _Shown { held, doubleTapped, activated }
 /// shows until the player presses; [face] is drawn in the one held-face
 /// frame ([HeldFace]) above the touch point, never under the thumb.
 ///
-/// - The face shows [holdDelay] after the press and hides on release; with a
-///   [cap] it hides after that even if still held (5 s on the night board,
-///   07 and 08; none on 04).
+/// - The face shows [holdDelay] after the press and hides on release, however
+///   long it is held (no cap: spec section 8).
 /// - [onRevealed] fires once the face has been visible [revealedAfter]: a
 ///   reveal counts then (it learns the `hold` cue and opens gates).
 /// - A double tap shows the face for [doubleTapShows]; any touch hides it.
 ///   It counts as a reveal at once.
 /// - A screen reader's activate, a switch or the keyboard (Enter, Space)
-///   shows it for [activateShows] (with no [cap], until activated again),
-///   reads it aloud, and counts as a reveal at once. Until then the face is
+///   shows it until activated again, reads it aloud, and counts as a reveal
+///   at once. Until then the face is
 ///   a button labelled "{target}, hidden. Activate to show."
 /// - Each new showing shows the face's next page.
 ///
@@ -46,7 +45,6 @@ class HoldToReveal extends StatefulWidget {
     required this.cover,
     required this.face,
     required this.target,
-    this.cap,
     this.onRevealed,
     this.onRevealChanged,
   });
@@ -56,9 +54,6 @@ class HoldToReveal extends StatefulWidget {
 
   /// What this is ("Your card", "You", "My night"): its spoken name.
   final String target;
-
-  /// The longest a face stays shown; null for no limit (04).
-  final Duration? cap;
 
   /// Told each time a reveal counts.
   final VoidCallback? onRevealed;
@@ -73,11 +68,7 @@ class HoldToReveal extends StatefulWidget {
   /// How long a face must be visible for the reveal to count.
   static const revealedAfter = Duration(milliseconds: 800);
 
-  /// The cap on the night board, 07 and 08.
-  static const nightCap = Duration(seconds: 5);
-
   static const doubleTapShows = Duration(seconds: 2);
-  static const activateShows = Duration(seconds: 5);
 
   /// Between the face's lower edge and the touch point.
   static const gap = Space.lg;
@@ -100,7 +91,7 @@ class _HoldToRevealState extends State<HoldToReveal>
   /// How many times the face has been shown: which page is next.
   var _showings = 0;
   var _focusHighlight = false;
-  Timer? _cap;
+  Timer? _doubleTap;
   Timer? _counts;
 
   bool get _visible => _shown != null;
@@ -138,13 +129,9 @@ class _HoldToRevealState extends State<HoldToReveal>
   void _show(_Shown how, Offset anchor) {
     if (_covered) return;
     _stopTimers();
-    final limit = switch (how) {
-      _Shown.held => widget.cap,
-      _Shown.doubleTapped => HoldToReveal.doubleTapShows,
-      _Shown.activated =>
-        widget.cap == null ? null : HoldToReveal.activateShows,
-    };
-    if (limit != null) _cap = Timer(limit, _hide);
+    if (how == _Shown.doubleTapped) {
+      _doubleTap = Timer(HoldToReveal.doubleTapShows, _hide);
+    }
     if (how == _Shown.held) {
       _counts = Timer(
         HoldToReveal.revealedAfter,
@@ -182,9 +169,9 @@ class _HoldToRevealState extends State<HoldToReveal>
   }
 
   void _stopTimers() {
-    _cap?.cancel();
+    _doubleTap?.cancel();
     _counts?.cancel();
-    _cap = _counts = null;
+    _doubleTap = _counts = null;
   }
 
   // A double-tapped face hides at any touch, anywhere.

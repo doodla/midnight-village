@@ -25,12 +25,12 @@ const _labelSize = 20.0;
 /// caption role (14, 15) at 14; nothing goes below 14. The table code,
 /// tracked capitals read letter by letter, is not a label.
 List<String> readingFloorBreaches(WidgetTester tester) {
-  final code = _codeStyle(tester);
   final breaches = <String>[];
   for (final element in find.byType(RichText).evaluate()) {
     final paragraph = element.renderObject;
     if (paragraph is! RenderParagraph || !paragraph.hasSize) continue;
     if (paragraph.size.isEmpty || _hidden(element, paragraph)) continue;
+    final code = Theme.of(element).extension<Skin>()?.typography.code;
     // In logical pixels: the view's own pixel ratio is divided back out.
     final shrink = _widthScale(paragraph) / _viewScale(tester);
     final scale = paragraph.textScaler.scale(1);
@@ -70,12 +70,6 @@ double _widthScale(RenderObject node) {
 double _viewScale(WidgetTester tester) {
   final child = tester.binding.renderViews.first.child;
   return child == null ? 1 : _widthScale(child);
-}
-
-TextStyle? _codeStyle(WidgetTester tester) {
-  final apps = find.byType(MaterialApp).evaluate();
-  if (apps.isEmpty) return null;
-  return Theme.of(apps.first).extension<Skin>()?.typography.code;
 }
 
 /// Not seen: transparent, offstage, or under a sheet's scrim.

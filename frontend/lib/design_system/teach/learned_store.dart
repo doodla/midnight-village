@@ -14,6 +14,14 @@ enum Cue {
   /// 0.8 s reveal on any face.
   hold('hold'),
 
+  /// The same thumbprint on "You" on the night board, pointing at what this
+  /// phone may do (spec section 8); learned by the first reveal of "You".
+  holdYou('hold_you'),
+
+  /// The same thumbprint on 08's "My night" (spec section 7); learned by
+  /// the first reveal of My night.
+  holdMyNight('hold_my_night'),
+
   /// The wave across the night board as it opens; learned by the first
   /// successful choose.
   nightChoose('night_choose'),

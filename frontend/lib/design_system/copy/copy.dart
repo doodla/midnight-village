@@ -142,16 +142,17 @@ abstract final class NightCopy {
   /// The center cards, by index.
   static const center = [left, middle, right];
 
-  // The button, by state.
+  // The button, by state (spec section 8).
   static const chooseNone = 'Choose a card';
+  static const chooseMore = 'Choose 1 more';
   static const choose = Template('Choose {cards}');
   static const keep = 'Keep my card';
   static const chosen = 'Chosen';
 
   // The face of "You": what this prompt asks of the player.
-  /// Spec: "Nothing to choose. Tap any card." Copy rule 6: gestures are
-  /// never explained in text.
-  static const noChoice = 'Nothing to choose. Pick any card.';
+  /// Names a gesture against copy rule 6; kept by the product owner
+  /// (spec section 8): it tells a sleeper how to take a turn at all.
+  static const noChoice = 'Nothing to choose. Tap any card.';
   static const seer = 'Look at 1 card, or 2 center cards.';
   static const robber = 'Swap with 1 player. See your new card.';
   static const troublemaker = "Swap 2 other players' cards.";
@@ -164,10 +165,9 @@ abstract final class NightCopy {
   static const slept = 'You slept.';
 }
 
-/// 07 What you saw: the faces (also My night's last page on 08).
+/// What a phone saw at night: the result faces, My night's pages on 08 (the
+/// spec's "07 faces"; 07 itself is gone, section 7).
 abstract final class SawCopy {
-  static const headline = 'What you saw';
-
   static const seerPlayer = Template("{name}'s card: {role}.");
   static const seerCenter = Template('{pos1}: {role1}. {pos2}: {role2}.');
   static const newCard = Template('Your card now: {role}.');

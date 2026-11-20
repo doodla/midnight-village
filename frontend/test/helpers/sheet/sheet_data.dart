@@ -1,6 +1,7 @@
 import 'package:midnight_village/design_system/faces/face_content.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
+import 'package:midnight_village/design_system/night/pick_rule.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
 
 // The one game the component sheet's pages show: five at the table, Classic
@@ -57,6 +58,17 @@ const deckOrder = [
   RoleId.villager,
 ];
 
+/// The other players' ids at the five-seat table.
+final others = {for (final seat in fiveSeats.skip(1)) seat.id};
+
+/// The Seer's prompt as the server gives it: a player, two center cards, or
+/// "You" (skip).
+final seerRule = PickRule(
+  shapes: const {PickShape.self, PickShape.onePlayer, PickShape.twoCenter},
+  players: others,
+  centers: const {0, 1, 2},
+);
+
 /// Ana's card on a page: what her held faces say.
 enum Viewer {
   villager(RoleId.villager, NightPrompt.noChoice, SleptResult()),
@@ -64,7 +76,13 @@ enum Viewer {
     RoleId.seer,
     NightPrompt.seer,
     SeerPlayerResult(name: 'Cleo', role: RoleId.werewolf),
-  );
+  ),
+  troublemaker(
+    RoleId.troublemaker,
+    NightPrompt.troublemaker,
+    SwappedResult('Ben', 'Dev'),
+  ),
+  drunk(RoleId.drunk, NightPrompt.drunk, DrunkResult(2));
 
   const Viewer(this.role, this.prompt, this.saw);
 
@@ -74,6 +92,16 @@ enum Viewer {
 
   FaceContent get card => FaceContent.roleText(role);
   FaceContent get you => FaceContent.nightYou(dealt: role, prompt: prompt);
-  FaceContent get sawFace => FaceContent.saw(saw);
   FaceContent get myNight => FaceContent.myNight(dealt: role, saw: saw);
+
+  /// What her prompt lets her choose.
+  PickRule get rule => switch (this) {
+    villager => const PickRule.anyCard(),
+    seer => seerRule,
+    troublemaker => PickRule(
+      shapes: const {PickShape.self, PickShape.twoPlayers},
+      players: others,
+    ),
+    drunk => const PickRule(shapes: {PickShape.oneCenter}, centers: {0, 1, 2}),
+  };
 }

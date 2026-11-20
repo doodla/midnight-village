@@ -8,7 +8,6 @@ import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/fit_line.dart';
-import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/panels.dart';
 import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
@@ -32,8 +31,8 @@ import 'table_pages.dart';
 // 08 Talk, 09 Vote, 10 The count and 11 Results, to the first-time play
 // spec.
 
-/// 08: the talk. The sun is loudest, then My night; "Ready to vote" stays
-/// outlined and unlocks once My night has been held this game.
+/// 08: the talk. The sun is loudest, then My night (the hold cue on it in
+/// a first game); "Ready to vote" is outlined and never locked.
 class TalkPage extends StatefulWidget {
   const TalkPage({super.key, required this.viewer});
 
@@ -44,15 +43,7 @@ class TalkPage extends StatefulWidget {
 }
 
 class _TalkPageState extends State<TalkPage> {
-  final _replay = CueReplay();
-  var _held = false;
   var _ready = false;
-
-  @override
-  void dispose() {
-    _replay.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => ScreenFrame(
@@ -66,9 +57,7 @@ class _TalkPageState extends State<TalkPage> {
         TeachingHold(
           target: TalkCopy.myNight,
           face: widget.viewer.myNight,
-          cap: HoldToReveal.nightCap,
-          replay: _replay,
-          onRevealed: () => setState(() => _held = true),
+          cue: Cue.holdMyNight,
           cover: (teaching) =>
               PeekBox(title: TalkCopy.myNight, teaching: teaching),
         ),
@@ -81,16 +70,10 @@ class _TalkPageState extends State<TalkPage> {
         total: fiveSeats.length,
         label: TalkCopy.progress.fill({'d': 2, 'n': fiveSeats.length}),
       ),
-      if (!_held)
-        PrimaryButton.locked(
-          label: TalkCopy.readyToVote,
-          onLockedTap: _replay.replay,
-        )
-      else
-        PrimaryButton.quiet(
-          label: _ready ? CommonCopy.readyDone : TalkCopy.readyToVote,
-          onPressed: () => setState(() => _ready = !_ready),
-        ),
+      PrimaryButton.quiet(
+        label: _ready ? CommonCopy.readyDone : TalkCopy.readyToVote,
+        onPressed: () => setState(() => _ready = !_ready),
+      ),
     ],
   );
 }

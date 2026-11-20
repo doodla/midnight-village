@@ -21,7 +21,7 @@ Iterable<(RoleId, List<Line>)> _roleTexts() => [
     (role, [for (final line in RoleText.of(role).lines) face(line)]),
 ];
 
-/// One of every row of the 07 faces table.
+/// One of every row of the 07 faces table (My night's result pages).
 final _saw = <String, List<Object>>{
   'Seer, player': [SawCopy.seerPlayer],
   'Seer, center': [SawCopy.seerCenter],
@@ -192,6 +192,7 @@ final screens = <String, Screen>{
     states: {
       for (final label in <Object>[
         NightCopy.chooseNone,
+        NightCopy.chooseMore,
         NightCopy.choose,
         NightCopy.keep,
         NightCopy.chosen,
@@ -207,20 +208,17 @@ final screens = <String, Screen>{
           ],
     },
   ),
-  '07 What you saw': (
-    budget: 8,
-    states: {
-      for (final MapEntry(:key, :value) in _saw.entries)
-        key: [
-          headline(SawCopy.headline),
-          button(CommonCopy.done),
-          ..._face(value),
-        ],
-    },
-  ),
   '08 Talk': (
     budget: 15,
     states: {
+      // A first game, My night not yet held: the cue's word on it.
+      'not held': [
+        headline(TalkCopy.headline),
+        text(TalkCopy.myNight),
+        cue(CommonCopy.hold),
+        text(TalkCopy.progress),
+        button(TalkCopy.readyToVote),
+      ],
       for (final ready in [TalkCopy.readyToVote, CommonCopy.readyDone])
         for (final MapEntry(:key, :value) in _myNight.entries)
           '$ready, $key': [

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
-import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/panels.dart';
@@ -55,17 +54,18 @@ enum ComponentPage {
   action(mock: '06-night-action.png'),
   actionHeld(mock: '06-night-action.png', viewer: Viewer.seer),
   actionHeldVillager(mock: '06-night-action.png', viewer: Viewer.villager),
-  actionOnePick(mock: '06-night-action.png'),
-  actionTwoPicks(mock: '06-night-action.png'),
-  actionSecondChoose(mock: '06-night-action.png'),
-  actionChosen(mock: '06-night-action.png'),
+  actionPicked(mock: '06-night-action.png'),
+  actionOneMore(mock: '06-night-action.png', viewer: Viewer.seer),
+  actionTwoPicks(mock: '06-night-action.png', viewer: Viewer.seer),
+  actionChosen(mock: '06-night-action.png', viewer: Viewer.seer),
+  actionNotSent(mock: '06-night-action.png', viewer: Viewer.seer),
   actionTen(mock: '06-night-action.png'),
   actionTenLarge(mock: '06-night-action.png'),
-  saw(mock: '07-night-what-you-saw.png'),
-  sawHeld(mock: '07-night-what-you-saw.png', viewer: Viewer.seer),
-  sawHeldVillager(mock: '07-night-what-you-saw.png', viewer: Viewer.villager),
   talk(mock: '08-talk.png', day: true),
   talkHeld(mock: '08-talk.png', day: true, viewer: Viewer.seer),
+  talkSeer(mock: '08-talk.png', day: true, viewer: Viewer.seer),
+  talkTroublemaker(mock: '08-talk.png', day: true, viewer: Viewer.troublemaker),
+  talkDrunk(mock: '08-talk.png', day: true, viewer: Viewer.drunk),
   vote(mock: '09-vote.png', day: true),
   votePicked(mock: '09-vote.png', day: true),
   voteLocked(mock: '09-vote.png', day: true),
@@ -97,19 +97,25 @@ enum ComponentPage {
       ? [if (day) GroundKind.day else GroundKind.night]
       : _grounds ?? GroundKind.values;
 
-  /// What this phone has learned by this page in a first game: the hold is
-  /// taught on 04 and the board's wave on the first choose.
+  /// What this phone has learned by this page in a first game: the hold on
+  /// 04, "You" and the board's wave on 06, My night on 08.
   Set<Cue> get learned => switch (this) {
     card || cardHeld || cardHeldVillager || gates => const {},
+    talk ||
+    talkHeld ||
+    talkSeer ||
+    talkTroublemaker ||
+    talkDrunk => {...Cue.values}..remove(Cue.holdMyNight),
     action ||
     actionHeld ||
     actionHeldVillager ||
-    actionOnePick ||
+    actionPicked ||
+    actionOneMore ||
     actionTwoPicks ||
-    actionSecondChoose ||
     actionChosen ||
+    actionNotSent ||
     actionTen ||
-    actionTenLarge => const {Cue.nightChoose},
+    actionTenLarge => const {Cue.hold},
     _ => Cue.values.toSet(),
   };
 
@@ -119,29 +125,33 @@ enum ComponentPage {
       case buttons:
         await tester.startGesture(tester.getCenter(find.byKey(pressedKey)));
         await tester.pump(const Duration(milliseconds: 300));
-      case cardHeld || cardHeldVillager || sawHeld || sawHeldVillager:
+      case cardHeld || cardHeldVillager:
         await holdDown(tester, find.byType(FaceDownCard));
       case actionHeld || actionHeldVillager:
         await holdDown(tester, _you);
       case talkHeld:
         await holdDown(tester, find.byType(PeekBox));
-      case actionOnePick:
+      case talkSeer || talkTroublemaker || talkDrunk:
+        // The second hold shows My night's second page: the result.
+        await holdAndLetGo(tester, find.byType(PeekBox));
+        await holdDown(tester, find.byType(PeekBox));
+      case actionPicked:
         await tester.tap(find.text(cleo.name));
+      case actionOneMore:
+        await tester.tap(find.text(NightCopy.left));
       case actionTwoPicks:
         await tester.tap(find.text(NightCopy.left));
         await tester.tap(find.text(NightCopy.right));
-        await holdAndLetGo(tester, _you);
-      case actionSecondChoose:
-        await tester.tap(find.text(cleo.name));
-        await holdAndLetGo(tester, _you);
-        await tester.tap(find.byType(PrimaryButton));
-        await tester.pump();
-        await tester.tap(find.text(ben.name));
       case actionChosen:
         await tester.tap(find.text(NightCopy.left));
         await tester.tap(find.text(NightCopy.right));
-        await holdAndLetGo(tester, _you);
+        await tester.pump();
         await tester.tap(find.byType(PrimaryButton));
+      case actionNotSent:
+        await tester.tap(find.text(cleo.name));
+        await tester.pump();
+        await tester.tap(find.byType(PrimaryButton));
+        await tester.pump();
       case votePicked:
         await tester.tap(find.text(cleo.name));
       case voteLocked:
@@ -264,24 +274,22 @@ class ComponentSheetPage extends StatelessWidget {
     ComponentPage.action ||
     ComponentPage.actionHeld ||
     ComponentPage.actionHeldVillager ||
-    ComponentPage.actionOnePick ||
+    ComponentPage.actionPicked ||
+    ComponentPage.actionOneMore ||
     ComponentPage.actionTwoPicks ||
     ComponentPage.actionChosen => BoardPage(viewer: page.viewer),
-    ComponentPage.actionSecondChoose => BoardPage(
-      viewer: page.viewer,
-      window: NightWindow.one,
-    ),
+    ComponentPage.actionNotSent => BoardPage(viewer: page.viewer, fails: true),
     ComponentPage.actionTen => BoardPage(viewer: page.viewer, ten: true),
     ComponentPage.actionTenLarge => BoardPage(
       viewer: page.viewer,
       ten: true,
       textScale: 2,
     ),
-    ComponentPage.saw ||
-    ComponentPage.sawHeld ||
-    ComponentPage.sawHeldVillager => SawPage(viewer: page.viewer),
     ComponentPage.talk ||
-    ComponentPage.talkHeld => TalkPage(viewer: page.viewer),
+    ComponentPage.talkHeld ||
+    ComponentPage.talkSeer ||
+    ComponentPage.talkTroublemaker ||
+    ComponentPage.talkDrunk => TalkPage(viewer: page.viewer),
     ComponentPage.vote ||
     ComponentPage.votePicked ||
     ComponentPage.voteLocked => const VotePage(),

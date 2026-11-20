@@ -11,19 +11,15 @@ import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import 'face_content.dart';
 
-/// The one frame every secret is drawn in (first-time play spec, section 2,
-/// "The held-face frame"): 04's card, "You" on the night board, 07, and
-/// 08's My night. Always the same fixed size ([sizeFor]), on the night's
-/// ground on any screen; at most one portrait, in the night's two colours
-/// (bone on indigo, never red) and [portraitShare] of the frame's width;
-/// bone text, at most two lines and a role's name; dots for the pages
-/// when there are several. Its text is set at most [maxTextScale] times
-/// larger, and smaller rather than out of the frame.
+/// The frame every secret is drawn in: 04's card, "You" on the night board
+/// and 08's My night. One size ([sizeFor]) on the night's ground on any
+/// screen, so faces stay a similar size: the role's portrait, in colour, at
+/// [portraitShare] of the frame's width, its name, tag and lines, and dots
+/// for the pages when there are several. Its text is set at most
+/// [maxTextScale] times larger, and smaller rather than out of the frame.
 ///
-/// Hidden information: the frame's size and place never depend on what it
-/// says (a long face and a short one are the same shape from the side), and
-/// its words are left out of what a screen reader reads unless the player
-/// asked for them ([announce], the explicit activation).
+/// Hidden information: the words are left out of what a screen reader reads
+/// unless the player asked for them ([announce], the explicit activation).
 class HeldFace extends StatelessWidget {
   const HeldFace({
     super.key,
@@ -41,28 +37,27 @@ class HeldFace extends StatelessWidget {
   /// reader, a switch or the keyboard).
   final bool announce;
 
-  /// The frame's width at most; narrower phones get a narrower frame of the
-  /// same shape.
+  /// The frame's width at most; a narrower phone gets a narrower frame.
   static const maxWidth = 342.0;
 
-  /// Height over width.
-  static const aspect = 0.82;
+  /// The frame's height, on every phone: room for a whole role card.
+  static const height = 342.0;
 
-  /// The portrait's share of the frame's width.
+  /// The portrait's share of the frame's width; it is 3 wide to 4 high.
   static const portraitShare = 0.3;
 
   /// Faces cap their own text scale.
   static const maxTextScale = 1.6;
 
   /// The frame on a screen [available] wide (the gutters left out).
-  static Size sizeFor(double available) {
-    final width = math.min(maxWidth, available - 2 * Space.gutter);
-    return Size(width, width * aspect);
-  }
+  static Size sizeFor(double available) =>
+      Size(math.min(maxWidth, available - 2 * Space.gutter), height);
 
   /// The biggest portrait a face draws: what is decoded ahead of a reveal.
-  static Size get portraitBox =>
-      Size(maxWidth * portraitShare, maxWidth * aspect - 2 * Space.md);
+  static Size get portraitBox {
+    final width = maxWidth * portraitShare;
+    return Size(width, width * 4 / 3);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,63 +106,86 @@ class _Frame extends StatelessWidget {
         boxShadow: night.elevation.raised.boxShadows,
       ),
       child: LayoutBuilder(
-        builder: (context, constraints) {
-          final portraitWidth =
-              (constraints.maxWidth + 2 * Space.md) * HeldFace.portraitShare;
-          final textWidth = constraints.maxWidth - portraitWidth - Space.md;
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: Space.md,
-            children: [
-              SizedBox(width: portraitWidth, child: _Portrait(page.portrait)),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: AlignmentDirectional.topStart,
-                        child: SizedBox(width: textWidth, child: _Words(page)),
-                      ),
-                    ),
-                    if (pages > 1) _Dots(current: index, count: pages),
-                  ],
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.topStart,
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: _Words(
+                    page,
+                    portraitWidth:
+                        constraints.maxWidth * HeldFace.portraitShare,
+                  ),
                 ),
               ),
-            ],
-          );
-        },
+            ),
+            if (pages > 1) _Dots(current: index, count: pages),
+          ],
+        ),
       ),
     );
   }
 }
 
+/// The portrait with the name and tag beside it, the lines under them (a
+/// result's few lines sit beside the portrait).
 class _Words extends StatelessWidget {
-  const _Words(this.page);
+  const _Words(this.page, {required this.portraitWidth});
 
   final FacePage page;
+  final double portraitWidth;
 
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ink = skin.night.text;
+    final lines = [
+      for (final line in page.lines)
+        Text(line, style: skin.typography.body.copyWith(color: ink)),
+    ];
+    final named = page.name != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       spacing: Space.sm,
       children: [
-        if (page.name case final name?)
-          FitLine(name, style: skin.typography.heading.copyWith(color: ink)),
-        if (page.tag case final tag?) TagChip(tag),
-        for (final line in page.lines)
-          Text(line, style: skin.typography.body.copyWith(color: ink)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: Space.md,
+          children: [
+            SizedBox(
+              width: portraitWidth,
+              height: portraitWidth * 4 / 3,
+              child: _Portrait(page.portrait),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: Space.sm,
+                children: [
+                  if (page.name case final name?)
+                    FitLine(
+                      name,
+                      style: skin.typography.heading.copyWith(color: ink),
+                    ),
+                  if (page.tag case final tag?) TagChip(tag),
+                  if (!named) ...lines,
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (named) ...lines,
       ],
     );
   }
 }
 
-/// The face's one portrait: a role in the night's two colours, or the moon.
+/// The face's portrait: a role, or the moon.
 class _Portrait extends StatelessWidget {
   const _Portrait(this.portrait);
 
@@ -181,10 +199,7 @@ class _Portrait extends StatelessWidget {
     return ClipRRect(
       borderRadius: radius,
       child: switch (portrait) {
-        RoleFacePortrait(:final role) => ColorFiltered(
-          colorFilter: duotone(dark: night.ground, light: night.text),
-          child: ArtPicture(skin.art.role(role)),
-        ),
+        RoleFacePortrait(:final role) => ArtPicture(skin.art.role(role)),
         MoonFacePortrait() => ColoredBox(
           color: night.panel,
           child: FittedBox(
@@ -197,23 +212,6 @@ class _Portrait extends StatelessWidget {
       },
     );
   }
-}
-
-/// A picture in two colours: its darks in [dark], its lights in [light], by
-/// luminance (so a red in the art is a mid tone, never red).
-ColorFilter duotone({required Color dark, required Color light}) {
-  // One output channel: from + (to - from) x luminance (channels 0 to 255).
-  List<double> row(double from, double to) {
-    final span = to - from;
-    return [0.2126 * span, 0.7152 * span, 0.0722 * span, 0, from * 255];
-  }
-
-  return ColorFilter.matrix([
-    ...row(dark.r, light.r),
-    ...row(dark.g, light.g),
-    ...row(dark.b, light.b),
-    0, 0, 0, 1, 0, //
-  ]);
 }
 
 class _Dots extends StatelessWidget {

@@ -244,7 +244,7 @@ class _GateState extends State<_Gate> {
       Expanded(
         child: PrimaryButton.locked(
           key: widget.gateKey,
-          label: CommonCopy.done,
+          label: CardCopy.ready,
           onLockedTap: _replay.replay,
         ),
       ),
@@ -282,7 +282,7 @@ class FacesPage extends StatelessWidget {
                 ]
               : [
                   (FaceContent.roleText(RoleId.minion), 0),
-                  (FaceContent.roleText(RoleId.seer), 1),
+                  (FaceContent.roleText(RoleId.seer), 0),
                 ])
         HeldFace(content: content, page: page),
     ],

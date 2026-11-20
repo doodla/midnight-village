@@ -1,13 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
-import 'package:midnight_village/design_system/faces/face_content.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
-import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
-import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
@@ -19,52 +14,26 @@ import 'package:midnight_village/design_system/teach/teaching_hold.dart';
 
 import 'sheet_data.dart';
 
-// 04 Your card, 05 between windows, 06 the night board, 07 What you saw, to
-// the first-time play spec.
+// 04 Your card, 05 between, 06 the night board, to the first-time play spec.
 
-/// A face-down card that is held to read, with its gate under it: "Ready"
-/// (04) or "Done" (07), locked until the reveal counts (and, on 07, until
-/// [minimum] has passed since it opened).
-class _HeldCardPage extends StatefulWidget {
-  const _HeldCardPage({
-    required this.headline,
-    required this.face,
-    required this.gate,
-    required this.cap,
-    this.minimum = Duration.zero,
-    this.progress,
-    this.backdrop = false,
-  });
+/// 04: the dealt card, face down; the whole role card while held; "Ready"
+/// locked until a 0.8 s reveal (a tap on it replays the hold cue); plain
+/// pips.
+class CardPage extends StatefulWidget {
+  const CardPage({super.key, required this.viewer});
 
-  final String headline;
-  final FaceContent face;
-  final String gate;
-  final Duration? cap;
-  final Duration minimum;
-  final Widget? progress;
-  final bool backdrop;
+  final Viewer viewer;
 
   @override
-  State<_HeldCardPage> createState() => _HeldCardPageState();
+  State<CardPage> createState() => _CardPageState();
 }
 
-class _HeldCardPageState extends State<_HeldCardPage> {
+class _CardPageState extends State<CardPage> {
   final _replay = CueReplay();
   var _revealed = false;
-  late var _waited = widget.minimum == Duration.zero;
-  Timer? _wait;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!_waited) {
-      _wait = Timer(widget.minimum, () => setState(() => _waited = true));
-    }
-  }
 
   @override
   void dispose() {
-    _wait?.cancel();
     _replay.dispose();
     super.dispose();
   }
@@ -74,20 +43,19 @@ class _HeldCardPageState extends State<_HeldCardPage> {
     final skin = context.skin;
     return ScreenFrame(
       ground: GroundKind.night,
-      topArt: widget.backdrop ? skin.art.nightVillage : null,
+      topArt: skin.art.nightVillage,
       topArtLayout: TopArtLayout.backdrop,
       body: Column(
         spacing: Space.lg,
         children: [
           Text(
-            widget.headline,
+            CardCopy.headline,
             textAlign: TextAlign.center,
             style: skin.typography.screenTitle,
           ),
           TeachingHold(
-            target: widget.headline,
-            face: widget.face,
-            cap: widget.cap,
+            target: CardCopy.headline,
+            face: widget.viewer.card,
             replay: _replay,
             onRevealed: () => setState(() => _revealed = true),
             cover: (teaching) =>
@@ -97,48 +65,30 @@ class _HeldCardPageState extends State<_HeldCardPage> {
       ),
       actionGap: Space.lg,
       actions: [
-        if (_revealed && _waited)
+        if (_revealed)
           PrimaryButton(
-            label: widget.gate,
+            label: CardCopy.ready,
             onPressed: () {},
             size: ButtonSize.large,
           )
         else
           PrimaryButton.locked(
-            label: widget.gate,
+            label: CardCopy.ready,
             onLockedTap: _replay.replay,
             size: ButtonSize.large,
           ),
-        ?widget.progress,
+        ProgressPips(
+          done: 2,
+          total: fiveSeats.length,
+          label: CommonCopy.progress.fill({'d': 2, 'n': fiveSeats.length}),
+          centred: true,
+        ),
       ],
     );
   }
 }
 
-/// 04: the dealt card, face down; the role text while held; "Ready" locked
-/// until a 0.8 s reveal; plain pips.
-class CardPage extends StatelessWidget {
-  const CardPage({super.key, required this.viewer});
-
-  final Viewer viewer;
-
-  @override
-  Widget build(BuildContext context) => _HeldCardPage(
-    headline: CardCopy.headline,
-    face: viewer.card,
-    gate: CardCopy.ready,
-    cap: null,
-    backdrop: true,
-    progress: ProgressPips(
-      done: 2,
-      total: fiveSeats.length,
-      label: CommonCopy.progress.fill({'d': 2, 'n': fiveSeats.length}),
-      centred: true,
-    ),
-  );
-}
-
-/// 05: between a window's close and 07; nothing to do.
+/// 05: while the night's next screen loads; nothing to do.
 class WaitPage extends StatelessWidget {
   const WaitPage({super.key});
 
@@ -163,20 +113,21 @@ class WaitPage extends StatelessWidget {
   }
 }
 
-/// 06: the night board, as every phone has it.
+/// 06: the night board, as every phone has it. With [fails] the server
+/// never takes a choose (the phone is offline).
 class BoardPage extends StatelessWidget {
   const BoardPage({
     super.key,
     required this.viewer,
-    this.window = NightWindow.two,
     this.ten = false,
     this.textScale = 1,
+    this.fails = false,
   });
 
   final Viewer viewer;
-  final NightWindow window;
   final bool ten;
   final double textScale;
+  final bool fails;
 
   @override
   Widget build(BuildContext context) => MediaQuery(
@@ -186,30 +137,13 @@ class BoardPage extends StatelessWidget {
     child: NightBoard(
       seats: ten ? tenSeats : fiveSeats,
       selfId: ana.id,
-      window: window,
+      stage: 'window-2',
+      rule: viewer.rule,
       face: viewer.you,
       secondsLeft: 14,
-      onChoose: (_) async => true,
+      onChoose: (_, _) async {
+        if (fails) throw StateError('offline');
+      },
     ),
-  );
-}
-
-/// 07: what this phone saw when window 2 closed; "Done" after a 0.8 s
-/// reveal and 4 s.
-class SawPage extends StatelessWidget {
-  const SawPage({super.key, required this.viewer});
-
-  final Viewer viewer;
-
-  /// The least time 07 stays.
-  static const minimum = Duration(seconds: 4);
-
-  @override
-  Widget build(BuildContext context) => _HeldCardPage(
-    headline: SawCopy.headline,
-    face: viewer.sawFace,
-    gate: CommonCopy.done,
-    cap: HoldToReveal.nightCap,
-    minimum: minimum,
   );
 }

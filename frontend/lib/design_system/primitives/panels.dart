@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
@@ -121,7 +122,7 @@ class PaceTile extends StatelessWidget {
 /// "My night" (S08): a strip of night laid on the day, with a small
 /// face-down card set into it at the skin's thumb tilt, and its title. It is
 /// the cover of a `HoldToReveal`; every player's is the same. The card
-/// carries the `hold` cue ([teaching]).
+/// carries the thumbprint cue ([teaching]), its word under the title.
 class PeekBox extends StatelessWidget {
   const PeekBox({super.key, required this.title, required this.teaching});
 
@@ -153,7 +154,21 @@ class PeekBox extends StatelessWidget {
           spacing: Space.mdPlus,
           children: [
             _PeekCard(teaching: teaching),
-            Expanded(child: FitWords(title, style: skin.typography.heading)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FitWords(title, style: skin.typography.heading),
+                  if (teaching)
+                    Text(
+                      CommonCopy.hold,
+                      style: skin.typography.cue.copyWith(
+                        color: skin.night.text,
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -197,7 +212,7 @@ class _PeekCard extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(Space.xxs),
-              child: HoldCue(teaching: teaching, size: size.width),
+              child: HoldCue(teaching: teaching, size: size.width, word: false),
             ),
           ],
         ),

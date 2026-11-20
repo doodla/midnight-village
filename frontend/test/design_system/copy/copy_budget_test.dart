@@ -185,7 +185,7 @@ void main() {
       expect(
         stateViolations([
           headline(VoteCopy.headline),
-          headline(SawCopy.headline),
+          headline(TalkCopy.headline),
           button(VoteCopy.pickName),
         ], budget: 8),
         [contains('9 words for a budget of 8'), contains('2 headlines')],
