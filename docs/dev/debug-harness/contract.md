@@ -42,22 +42,35 @@ sections below say otherwise, this list wins:
 - **Night protocol 2** (`night_protocol: 2` in the table's settings; the harness settings
   set `ONUW_ALLOW_UNTIMED_NIGHT = True`, so zero timers are allowed; protocol 1 stays the
   default and every scenario below uses it): every player posts
-  `{"action_type":"choose","picks":[...]}` (0 to 2 of `{"player_id"}`, `{"center_index"}`,
-  `{"self":true}`) and always gets `{"status":"submitted"}`; the only refusals are
-  `wrong_phase`, `already_chosen` (409) and `bad_request`. The server reads the picks per
-  role (`backend/apps/onuw/engine/choose.py`); a pick with no valid meaning is a timeout.
-  Window 1 takes two chooses per phone, window 2 one; window 2 closes when EVERY present
-  phone has chosen once (and the minimum passed), window 1 on its timer (`wave:1`
-  fire-timer). The only night events are group `night_window {window, deadline}` and
-  `wave_complete`; a phone reads its `action_prompt` (`kind`, `chosen`, `max_chooses`, the
-  board) and `night_results` from `GET /me/`, where the Doppelganger's look is listed as
-  soon as it resolves. With `card_look_seconds` > 0 the deal opens window 0: every phone
-  posts `ready {"ready": true}` (`progress {stage: "look"}` events), `advance-wave
-  {"from_window": 0}` or `debug-fire-timer look` opens the night.
+  `{"action_type":"choose","picks":[...],"stage":"<from /me/>"}` (0 to 2 of
+  `{"player_id"}`, `{"center_index"}`, `{"self":true}`) and always gets
+  `{"status":"submitted"}`; the only refusals are `wrong_stage` (409), `wrong_phase`,
+  `already_chosen` (409) and `bad_request`. **Every stage-scoped request names its stage**
+  (`choose`, `ready`, `vote`, and the host's `advance-wave`, `end-discussion`,
+  `reveal-votes`): `/me/` carries an opaque `stage` string that changes whenever a tap's
+  meaning changes (look, window 1, window 2, talk, vote) and carries a piece of the game's
+  id, and a request for a stage that has passed is `409 {"code":"wrong_stage"}`, the same
+  for every role, compared under the Game lock, storing nothing (`from_window` is protocol
+  1's check only). The server reads the picks per role
+  (`backend/apps/onuw/engine/choose.py`); a pick with no valid meaning is a timeout, and
+  the prompt's `shapes` (`[{"players":1},{"center":2}]`: alternatives; `any` = one card of
+  the board) tell the phone which picks would do something. A phone chooses once per
+  window; only the Doppelganger sends a second in window 1 (the server takes a harmless
+  second from anyone, a third is `already_chosen`). Window 1 is ONE fixed-length stage
+  (the table's `night_doppelganger_window_seconds`; `wave:1` fire-timer); window 2 closes
+  when EVERY present phone has chosen once (and the minimum passed). The only night events
+  are group `night_window {window, deadline}` and `wave_complete`; a phone reads its
+  `action_prompt` (`kind`, `shapes`, `chosen`, `max_chooses`, the board) and
+  `night_results` from `GET /me/`, where the Doppelganger's look is listed as soon as it
+  resolves. No `vote_submitted {player_id}` is sent; votes announce counts only. With
+  `card_look_seconds` > 0 (protocol 2 only) the deal opens window 0: every phone posts
+  `ready {"ready": true, "stage": ...}` (`progress {stage: "look"}` events), `advance-wave`
+  with the stage or `debug-fire-timer look` opens the night.
   `frontend/test_e2e/api_protocol2_test.dart` drives these over real HTTP and sockets
-  (look stage, a plain choose night, a Doppelganger table with window 1's two chooses,
-  ready to vote, a lock-in vote with a changed pick, the automatic deck at 5 and 9
-  players with `defaults: "v2"`); it asserts no per-player night event is heard.
+  (look stage, a plain choose night, a Doppelganger table with one window 1 and a late tap
+  refused with `wrong_stage`, ready to vote, a lock-in vote with a changed pick, the
+  automatic deck at 5 and 9 players with `defaults: "v2"`); it asserts no per-player night
+  event is heard.
 - **Scenarios** = `docs/specs/onuw/reference-games.md`, data in
   `backend/tests/onuw/data/reference_games.json` (23 full games + 6 night-only
   Doppelganger games). The old nine-scenario matrix (§3) and its `nightScript` DSL (§D4)

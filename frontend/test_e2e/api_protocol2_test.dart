@@ -5,13 +5,27 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
-import 'package:midnight_village/core/debug/debug_api_client.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 
 import 'harness/harness_config.dart';
 import 'harness/live_table.dart';
-import 'harness/night_wire.dart';
 import 'harness/time_budget.dart';
+
+/// A stage-scoped request names the stage `/me/` carries now (or a stale one).
+Future<Map<String, dynamic>> _staged(
+  LiveTable t,
+  DebugPlayer p,
+  String tail,
+  Map<String, dynamic> data, {
+  String? stage,
+}) async {
+  final named = stage ?? (await t.me(p))['stage'] as String;
+  return t.client.post(
+    '/onuw/games/${t.gameId}/$tail/',
+    token: p.accessToken,
+    data: {...data, 'stage': named},
+  );
+}
 
 /// API runner, night protocol 2: the look stage, the choose night (a plain table
 /// and a Doppelganger table), lock-in voting, ready to vote and the automatic
@@ -70,7 +84,6 @@ void main() {
       final alice = t.player('Alice'), bob = t.player('Bob');
       final cara = t.player('Cara'), dan = t.player('Dan');
       final eve = t.player('Eve');
-      String game(String tail) => '/onuw/games/${t.gameId}/$tail/';
 
       // -- the look stage: nothing opened, everyone is counted ------------
       final stage = await t.me(alice);
@@ -79,11 +92,7 @@ void main() {
       expect(stage['progress'], {'stage': 'look', 'done': 0, 'needed': 5});
       expect(stage['action_prompt'], isNull);
       await expectLater(
-        t.client.post(
-          game('ready'),
-          token: alice.accessToken,
-          data: {'ready': false},
-        ),
+        _staged(t, alice, 'ready', {'ready': false}),
         throwsA(
           isA<ValidationException>().having(
             (e) => e.code,
@@ -94,19 +103,11 @@ void main() {
       );
       final marks = {for (final p in players) p.userId: t.gameWire(p).mark};
       for (final p in [alice, bob, cara, dan]) {
-        final body = await t.client.post(
-          game('ready'),
-          token: p.accessToken,
-          data: {'ready': true},
-        );
+        final body = await _staged(t, p, 'ready', {'ready': true});
         expect(body, {'status': 'ok', 'ready': true});
       }
       expect((await t.me(alice))['current_wave'], 0);
-      await t.client.post(
-        game('ready'),
-        token: eve.accessToken,
-        data: {'ready': true},
-      );
+      await _staged(t, eve, 'ready', {'ready': true});
 
       // -- window 2 opens with ONE group event, the same for every phone -----
       final opened = <Map<String, dynamic>>[];
@@ -121,7 +122,11 @@ void main() {
               ),
         );
       }
-      expect(opened.map(jsonEncode).toSet().length, 1, reason: 'one event, the same bytes');
+      expect(
+        opened.map(jsonEncode).toSet().length,
+        1,
+        reason: 'one event, the same bytes',
+      );
       expect(opened.first['window'], 2);
 
       // Every phone reads its own prompt from /me/; none got a prompt event.
@@ -139,12 +144,12 @@ void main() {
 
       Future<Map<String, dynamic>> choose(
         DebugPlayer p,
-        List<Map<String, Object>> picks,
-      ) => t.client.post(
-        game('action'),
-        token: p.accessToken,
-        data: {'action_type': 'choose', 'picks': picks},
-      );
+        List<Map<String, Object>> picks, {
+        String? stage,
+      }) => _staged(t, p, 'action', {
+        'action_type': 'choose',
+        'picks': picks,
+      }, stage: stage);
       Map<String, Object> other(DebugPlayer p) => {'player_id': p.userId};
 
       final answers = [
@@ -204,29 +209,13 @@ void main() {
         'needed': 5,
       });
       for (final p in [alice, bob, cara, dan]) {
-        await t.client.post(
-          game('ready'),
-          token: p.accessToken,
-          data: {'ready': true},
-        );
+        await _staged(t, p, 'ready', {'ready': true});
       }
-      await t.client.post(
-        game('ready'),
-        token: dan.accessToken,
-        data: {'ready': false},
-      );
+      await _staged(t, dan, 'ready', {'ready': false});
       expect(await t.phase(), 'discussion');
-      await t.client.post(
-        game('ready'),
-        token: dan.accessToken,
-        data: {'ready': true},
-      );
+      await _staged(t, dan, 'ready', {'ready': true});
       expect(await t.phase(), 'discussion', reason: 'Eve is not ready');
-      await t.client.post(
-        game('ready'),
-        token: eve.accessToken,
-        data: {'ready': true},
-      );
+      await _staged(t, eve, 'ready', {'ready': true});
       expect(await t.phase(), 'voting');
 
       // -- the vote: pick, re-pick, lock ---------------------------------
@@ -234,14 +223,10 @@ void main() {
         DebugPlayer p,
         DebugPlayer target, {
         bool? lock,
-      }) => t.client.post(
-        game('vote'),
-        token: p.accessToken,
-        data: {
-          'target_player_id': target.userId,
-          ...?(lock == null ? null : {'lock': lock}),
-        },
-      );
+      }) => _staged(t, p, 'vote', {
+        'target_player_id': target.userId,
+        ...?(lock == null ? null : {'lock': lock}),
+      });
       final bobMark = t.gameWire(bob).mark;
       expect(await vote(alice, cara, lock: false), {
         'status': 'picked',
@@ -298,8 +283,8 @@ void main() {
       );
     });
 
-    test('a Doppelganger table: window 1 takes two chooses from every phone, '
-        'her look is read at once, nobody hears a per-player event', () async {
+    test('a Doppelganger table: window 1 is one stage, her look is read at '
+        'once, a late tap is refused, nobody hears a per-player event', () async {
       final t = await LiveTable.open(
         playerNames: ['Alice', 'Bob', 'Cara', 'Dan', 'Eve'],
         roleCounts: {
@@ -334,15 +319,14 @@ void main() {
         await t.connectGame(p);
       }
       final alice = t.player('Alice'), bob = t.player('Bob');
-      String game(String tail) => '/onuw/games/${t.gameId}/$tail/';
       Future<Map<String, dynamic>> choose(
         DebugPlayer p,
-        List<Map<String, Object>> picks,
-      ) => t.client.post(
-        game('action'),
-        token: p.accessToken,
-        data: {'action_type': 'choose', 'picks': picks},
-      );
+        List<Map<String, Object>> picks, {
+        String? stage,
+      }) => _staged(t, p, 'action', {
+        'action_type': 'choose',
+        'picks': picks,
+      }, stage: stage);
 
       var me = await t.me(alice);
       expect(me['current_wave'], 1);
@@ -366,13 +350,14 @@ void main() {
         {'center_index': 1},
       ]);
 
-      // Every other phone also sends two, and a third is refused for all.
+      // Every other phone chooses once (the server takes a harmless second from
+      // anyone, only the Doppelganger's is read) and a third is refused for all.
       for (final p in players.where((p) => p != alice)) {
         await choose(p, []);
-        await choose(p, [
-          {'self': true},
-        ]);
       }
+      await choose(bob, [
+        {'self': true},
+      ]);
       await expectLater(
         choose(bob, []),
         throwsA(
@@ -380,6 +365,8 @@ void main() {
         ),
       );
       expect((await t.me(alice))['current_wave'], 1, reason: 'a fixed window');
+      final windowOne = (await t.me(bob))['stage'] as String;
+      expect(windowOne, startsWith('w1.'));
 
       expect(await t.controller.fireTimer(TimerKey.wave(1)), isTrue);
       await pollUntil(
@@ -387,6 +374,17 @@ void main() {
         reason: 'window 2 to open',
         timeout: eventTimeout,
       );
+      // A tap that was on its way when window 1 closed names a stage that is
+      // over: refused (409 wrong_stage), and it cannot land in window 2.
+      await expectLater(
+        choose(bob, [
+          {'player_id': alice.userId},
+        ], stage: windowOne),
+        throwsA(
+          isA<UnhandledHttpException>().having((e) => e.statusCode, 's', 409),
+        ),
+      );
+      expect((await t.me(bob))['action_prompt']['chosen'], 0);
       final results = (await t.me(alice))['night_results'] as List;
       expect(results.map((r) => r['action_type']), [
         'peek_player',
