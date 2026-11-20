@@ -3,6 +3,7 @@
 import hmac
 import logging
 import secrets
+from typing import Any
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -610,21 +611,32 @@ class VoteView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # The error bodies of a game that plays the original night are exactly what
+        # they always were; under night protocol 2 they carry a machine-readable
+        # ``code`` (and the lock-in wording).
+        v2 = is_choose_night(game)
+
+        def refuse(detail: Any, code: str, http_status: int) -> Response:
+            error: dict[str, Any] = {"detail": detail}
+            if v2:
+                error["code"] = code
+            return Response(error, status=http_status)
+
         body = request.data if isinstance(request.data, dict) else None
         if body is None:
-            return _bad_request("Body must be an object.")
+            return refuse("Body must be an object.", "bad_request", 400)
 
         # A plain JSON integer only: a bool, float or string is never coerced.
         target_player_id = body.get("target_player_id")
         if target_player_id is None:
-            return _bad_request("target_player_id is required.")
+            return refuse("target_player_id is required.", "bad_request", 400)
         if type(target_player_id) is not int:
-            return _bad_request("target_player_id must be an integer.")
+            return refuse("target_player_id must be an integer.", "bad_request", 400)
 
         # ``lock`` defaults to true: pick and lock in one call, as before.
         lock = body.get("lock", True)
         if type(lock) is not bool:
-            return _bad_request("lock must be true or false")
+            return refuse("lock must be true or false", "bad_request", 400)
 
         # Check player membership (403) before delegating to service
         if not PlayerRole.objects.filter(game=game, user=request.user).exists():
@@ -636,21 +648,19 @@ class VoteView(APIView):
         try:
             errors = submit_vote(game, request.user.id, target_player_id, lock=lock)  # type: ignore[misc]
         except AlreadyActedError:
-            return Response(
-                {
-                    "detail": "You have already locked in your vote.",
-                    "code": "vote_locked",
-                },
-                status=status.HTTP_409_CONFLICT,
+            return refuse(
+                "You have already locked in your vote."
+                if v2
+                else "You have already voted.",
+                "vote_locked",
+                status.HTTP_409_CONFLICT,
             )
         if errors:
             # ``detail`` stays a list of messages, as it always was.
-            return Response(
-                {
-                    "detail": errors,
-                    "code": VOTE_ERROR_CODES.get(errors[0], "bad_request"),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+            return refuse(
+                errors,
+                VOTE_ERROR_CODES.get(errors[0], "bad_request"),
+                status.HTTP_400_BAD_REQUEST,
             )
 
         if lock:

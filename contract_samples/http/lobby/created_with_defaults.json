@@ -1,0 +1,37 @@
+{
+  "code": "R5ZD3H",
+  "host": {
+    "id": 27,
+    "username": "00000000-0000-4000-8000-000000000027",
+    "display_name": "Ana"
+  },
+  "original_host_id": 27,
+  "is_acting_host": false,
+  "game_type": "onuw",
+  "status": "waiting",
+  "max_players": 10,
+  "settings": {
+    "pace": "normal",
+    "discussion_seconds": 300,
+    "voting_seconds": 90,
+    "night_wave_seconds": 30,
+    "card_look_seconds": 30,
+    "night_doppelganger_window_seconds": 15,
+    "night_protocol": 2,
+    "deck": "auto",
+    "deck_chip": "simple"
+  },
+  "players": [
+    {
+      "user": {
+        "id": 27,
+        "username": "00000000-0000-4000-8000-000000000027",
+        "display_name": "Ana"
+      },
+      "is_ready": false,
+      "token": "moth",
+      "joined_at": "2024-03-07T21:13:38Z"
+    }
+  ],
+  "created_at": "2024-03-07T21:13:38Z"
+}

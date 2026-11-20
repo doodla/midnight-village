@@ -57,12 +57,21 @@ from apps.onuw.consumers import GameConsumer
 from apps.onuw.models import PlayerRole
 
 START = datetime(2024, 3, 7, 20, 50, tzinfo=UTC)
-LOBBY_CODES = ("K7QX4M", "M2RV8P", "Q4TW9N")
+LOBBY_CODES = (
+    "K7QX4M",
+    "M2RV8P",
+    "Q4TW9N",
+    # The night-protocol-2 tables (scenarios.protocol_two_tables) come after.
+    "R5ZD3H",
+    "T8NB6C",
+    "V9YC2J",
+    "W3XF7K",
+)
 # Stand-ins for the game ids, in the order the games are dealt.
 GAME_IDS = (
     "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
     "9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e",
-    *(f"00000000-0000-4000-a000-{n:012d}" for n in range(3, 10)),
+    *(f"00000000-0000-4000-a000-{n:012d}" for n in range(3, 20)),
 )
 FORCED_SEED = 424242
 
@@ -413,6 +422,57 @@ class Table:
                 },
                 payload,
             )
+
+    def start_random(self, seed: int, *, sample: str | None = None) -> dict[str, Any]:
+        """The host deals a random hand from a fixed seed (the DEBUG seed), as
+        for a table whose deck the server builds."""
+        host = next(iter(self.players))
+        got, payload = self.request(
+            "POST",
+            host,
+            "/onuw/lobbies/{code}/start/",
+            {"debug": {"seed": seed}},
+            debug=True,
+        )
+        assert got == 201, payload
+        self.game_id = payload["game_id"]
+        self.recorder.stable(self.game_id, next(self._game_ids))
+        if sample:
+            self.recorder.add(
+                f"http/{sample}",
+                {
+                    "kind": "http",
+                    "method": "POST",
+                    "path": "/onuw/lobbies/{code}/start/",
+                    "status": 201,
+                    "description": "The host deals; the server built the deck.",
+                },
+                payload,
+            )
+        return payload
+
+    def mark(self) -> int:
+        """A point in the stream of socket messages, for ``record_sequence``."""
+        return len(self.layer.sent)
+
+    def record_sequence(self, name: str, since: int, *, about: str) -> None:
+        """Keep, per player, the TYPES of the game messages that player's socket
+        received since ``since``, in order, as ``ws_sequence/<name>``: the
+        broadcast group and the player's own group (what their phone would see).
+        Under night protocol 2 these lists must be the same for every seat."""
+        sequences: dict[str, list[str]] = {}
+        for who in self.players:
+            groups = self._groups(who, "game")
+            sequences[who] = [
+                message["type"].replace(".", "_")
+                for group, message in self.layer.sent[since:]
+                if group in groups
+            ]
+        self.recorder.add(
+            f"ws_sequence/{name}",
+            {"kind": "ws_sequence", "socket": "game", "description": about},
+            sequences,
+        )
 
     def fire(self, key: str) -> None:
         """Fire the pending timer under ``key`` (``{game_id}`` is filled in) now:

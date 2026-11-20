@@ -182,7 +182,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
 
     results = _build_results(game) if game.phase == Phase.RESULTS else None
 
-    return {
+    state: dict[str, Any] = {
         "game_id": str(game.id),
         "phase": game.phase,
         # INT: the night window (1 = Doppelganger, 2 = everyone else), 0
@@ -198,6 +198,14 @@ def build_debug_state(game: Game) -> dict[str, Any]:
         "results": results,
         "pending_timers": _pending_timers(game),
     }
+    from .services import is_choose_night
+
+    if not is_choose_night(game):
+        # A game that plays the original night is described as it always was.
+        del state["vote_locked"]
+        for player in players:
+            del player["ready"]
+    return state
 
 
 def _pending_timers(game: Game) -> list[str]:

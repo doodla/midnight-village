@@ -1,0 +1,6 @@
+{
+  "detail": [
+    "Game is not in the voting phase."
+  ],
+  "code": "wrong_phase"
+}

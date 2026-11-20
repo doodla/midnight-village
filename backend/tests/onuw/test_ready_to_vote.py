@@ -42,7 +42,9 @@ CENTER = ["Villager", "Tanner", "Villager"]
 @pytest.fixture
 def talk_night(make_night) -> Night:
     """Five players in the talk, a deadline far away."""
-    night = make_night(ROLES, CENTER, discussion_seconds=300, voting_seconds=120)
+    night = make_night(
+        ROLES, CENTER, night_protocol=2, discussion_seconds=300, voting_seconds=120
+    )
     night.start()
     with night.committed():
         services.transition_to_discussion(night.game)
@@ -120,7 +122,7 @@ class TestTheTap:
         assert night.refresh().phase == Phase.DISCUSSION
 
     def test_the_talk_announces_done_zero_when_it_opens(self, make_night) -> None:
-        night = make_night(ROLES, CENTER, discussion_seconds=300)
+        night = make_night(ROLES, CENTER, night_protocol=2, discussion_seconds=300)
         night.start()
         night.recorder.events.clear()
 
@@ -132,7 +134,7 @@ class TestTheTap:
         ]
 
     def test_the_flags_start_clear_when_the_talk_opens(self, make_night) -> None:
-        night = make_night(ROLES, CENTER, discussion_seconds=300)
+        night = make_night(ROLES, CENTER, night_protocol=2, discussion_seconds=300)
         night.start()
         PlayerRole.objects.filter(game=night.game).update(phase_ready=True)
 
@@ -241,7 +243,7 @@ class TestRefusals:
     def test_ready_during_the_night_is_wrong_phase_for_now(self, make_night) -> None:
         # Window 0 (the card look) answers ``true`` once the look stage exists; an
         # open window never takes ready.
-        night = make_night(ROLES, CENTER)
+        night = make_night(ROLES, CENTER, night_protocol=2)
         night.start()
         assert night.game.current_wave in (1, 2)
 

@@ -62,6 +62,19 @@ class GameMeSerializer(serializers.Serializer):
     ready = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
 
+    # The keys of the lock-in / ready / look stages. A game that plays the original
+    # night (no ``night_protocol: 2``) is answered byte for byte as it always was.
+    PROTOCOL_2_KEYS = ("my_vote", "ready", "progress")
+
+    def to_representation(self, instance: Game) -> dict[str, Any]:
+        from .services import is_choose_night
+
+        data = super().to_representation(instance)
+        if not is_choose_night(instance):
+            for key in self.PROTOCOL_2_KEYS:
+                data.pop(key, None)
+        return data
+
     def get_deadline(self, game: Game) -> str | None:
         """
         Return the ISO 8601 deadline for the current phase, or None if untimed.

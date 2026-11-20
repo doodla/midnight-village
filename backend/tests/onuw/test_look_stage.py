@@ -59,6 +59,15 @@ def looking(make_night) -> Night:
     return night
 
 
+def make_v2(night: Night) -> None:
+    """Let the game answer with the stage keys (``night_protocol: 2``) from here on,
+    without changing how its night opens in this test."""
+    Game.objects.filter(id=night.game.id).update(
+        settings={**night.game.settings, "night_protocol": 2}
+    )
+    night.refresh()
+
+
 def post_ready(night: Night, who: str, body: Any) -> Any:
     night.client.force_authenticate(user=night.users[who])
     with night.committed():
@@ -117,7 +126,7 @@ class TestOff:
         assert look_timers(night) == []
         assert night.broadcasts("wave.start")
         assert night.broadcasts("progress") == []
-        assert me(night, "seer")["progress"] is None
+        assert "progress" not in me(night, "seer")  # the original night's payload
 
     def test_a_zero_setting_is_off_too(self, make_night) -> None:
         night = make_night(ROLES, CENTER, card_look_seconds=0)
@@ -150,8 +159,14 @@ class TestTheStage:
         remaining = (night.game.phase_deadline - timezone.now()).total_seconds()
         assert 28 < remaining <= 30
 
+    def test_the_original_night_payload_has_no_stage_keys(self, looking) -> None:
+        body = me(looking, "seer")
+
+        assert not {"progress", "ready", "my_vote"} & set(body)
+
     def test_me_during_the_stage_is_the_same_for_every_role(self, looking) -> None:
         night = looking
+        make_v2(night)
         look(night, "wolf")
 
         bodies = {name: me(night, name) for name in ROLES}
@@ -265,6 +280,7 @@ class TestTheStage:
 
     def test_the_talk_after_the_night_starts_with_nobody_ready(self, looking) -> None:
         night = looking
+        make_v2(night)
         for name in ROLES:
             look(night, name)
         with night.committed():
@@ -650,12 +666,12 @@ class TestTheDealThroughTheApi:
             table = Table()
             yield table, scheduled, sent, django_capture_on_commit_callbacks
 
-    def deal(self, deal_api, seconds: int | None):
+    def deal(self, deal_api, seconds: int | None, **extra: Any):
         table, _scheduled, _sent, capture = deal_api
         if seconds is not None:
             reply = table.host.patch(
                 reverse("core:lobby-detail", kwargs={"code": table.code}),
-                {"settings": {"card_look_seconds": seconds}},
+                {"settings": {"card_look_seconds": seconds, **extra}},
                 format="json",
             )
             assert reply.status_code == status.HTTP_200_OK, reply.data
@@ -675,7 +691,7 @@ class TestTheDealThroughTheApi:
     def test_the_setting_on_holds_the_night_at_window_zero(self, deal_api) -> None:
         table, scheduled, sent, _ = deal_api
 
-        game = self.deal(deal_api, 30)
+        game = self.deal(deal_api, 30, night_protocol=2)
 
         assert (game.phase, game.current_wave) == (Phase.NIGHT, 0)
         assert (f"{game.id}:look", 30, "card_look") in scheduled

@@ -41,7 +41,7 @@ CENTER = ["Villager", "Tanner", "Villager"]
 @pytest.fixture
 def vote_night(make_night) -> Night:
     """Five players at the vote, a deadline far away."""
-    night = make_night(ROLES, CENTER, voting_seconds=120)
+    night = make_night(ROLES, CENTER, night_protocol=2, voting_seconds=120)
     night.start()
     to_voting(night)
     night.recorder.events.clear()
@@ -200,7 +200,7 @@ class TestPickAndLock:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_picking_outside_the_voting_phase_is_wrong_phase(self, make_night) -> None:
-        night = make_night(ROLES, CENTER)
+        night = make_night(ROLES, CENTER, night_protocol=2)
         night.start()
         assert night.game.phase == Phase.NIGHT
 
@@ -302,7 +302,7 @@ class TestSocketEvents:
             assert set(event) == {"type", "player_id"}
 
     def test_opening_the_vote_announces_done_zero(self, make_night) -> None:
-        night = make_night(ROLES, CENTER, voting_seconds=120)
+        night = make_night(ROLES, CENTER, night_protocol=2, voting_seconds=120)
         night.start()
 
         to_voting(night)
@@ -583,7 +583,7 @@ class TestMe:
         }
 
     def test_my_vote_and_progress_are_null_outside_the_vote(self, make_night) -> None:
-        night = make_night(ROLES, CENTER)
+        night = make_night(ROLES, CENTER, night_protocol=2)
         night.start()
 
         body = me(night, "seer")
@@ -600,3 +600,42 @@ class TestMe:
 
         assert body["my_vote"] is None
         assert body["progress"] is None
+
+
+class TestTheOriginalNightIsAnsweredAsBefore:
+    """A game without ``night_protocol: 2`` gets today's bodies, byte for byte: no
+    stage keys in ``/me/``, no ``code`` in vote errors, the old 409 wording."""
+
+    @pytest.fixture
+    def old_night(self, make_night) -> Night:
+        night = make_night(ROLES, CENTER, voting_seconds=120)
+        night.start()
+        to_voting(night)
+        return night
+
+    def test_me_has_no_stage_keys(self, old_night) -> None:
+        assert not {"my_vote", "ready", "progress"} & set(me(old_night, "seer"))
+
+    def test_the_old_error_bodies(self, old_night) -> None:
+        night = old_night
+        assert lock(night, "robber", "seer").data == {"status": "submitted"}
+
+        again = lock(night, "robber", "wolf")
+        self_vote = vote(night, "seer", "seer")
+        bad_target = post_vote(night, "seer", {"target_player_id": "5"})
+
+        assert again.status_code == status.HTTP_409_CONFLICT
+        assert again.data == {"detail": "You have already voted."}
+        assert self_vote.data == {"detail": ["You cannot vote for yourself."]}
+        assert bad_target.data == {"detail": "target_player_id must be an integer."}
+
+    def test_a_pick_works_the_same(self, old_night) -> None:
+        night = old_night
+
+        reply = pick(night, "robber", "seer")
+
+        assert reply.data == {
+            "status": "picked",
+            "target_player_id": night.users["seer"].id,
+        }
+        assert night.role_of("robber").has_acted is False
