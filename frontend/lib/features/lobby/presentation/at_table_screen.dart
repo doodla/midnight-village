@@ -211,14 +211,17 @@ class AtTableView extends StatelessWidget {
     final skin = context.skin;
     final host = _host;
     final refused = lobby.dealRefused;
+    // A table nearly empty is about getting the others in: the picture and
+    // the large code. Past that, who is here, the deck and Deal come first.
+    final roomy = lobby.players.length <= Sizes.nearlyEmptyTable;
     return ScreenFrame(
       ground: GroundKind.night,
-      topArt: skin.art.table,
+      topArt: roomy ? skin.art.table : null,
       topArtLayout: TopArtLayout.banner,
       body: Builder(
         builder: (context) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: Space.md,
+          spacing: roomy ? Space.md : Space.sm,
           children: [
             if (!host)
               Semantics(
@@ -233,17 +236,23 @@ class AtTableView extends StatelessWidget {
               link: link,
               onShare: onShare,
               headline: host,
+              compact: !roomy,
             ),
-            for (final player in lobby.players)
-              PlayerRow(
-                token: player.token,
-                name: player.displayName,
-                own: player.id == viewerId,
-                // This phone is here: its own row is never dimmed.
-                away:
-                    player.id != viewerId &&
-                    (player.connected == false || away.contains(player.id)),
-              ),
+            _Rows(
+              names: [for (final p in lobby.players) p.displayName],
+              rows: [
+                for (final player in lobby.players)
+                  _Row(
+                    player: player,
+                    own: player.id == viewerId,
+                    // This phone is here: its own row is never dimmed.
+                    away:
+                        player.id != viewerId &&
+                        (player.connected == false || away.contains(player.id)),
+                  ),
+              ],
+              spacing: roomy ? Space.md : Space.xs,
+            ),
             if (host) _DeckPanel(lobby: lobby, onEdit: onEditDeck),
             Align(
               child: SecondaryButton(
@@ -326,6 +335,101 @@ class AtTableView extends StatelessWidget {
   );
 }
 
+/// Everyone at the table, a row each; from [Sizes.twoUpPlayers] on, two to
+/// a line, so the deck and Deal stay in view, where each half still has
+/// [Sizes.playerColumn] and every name ([names]) fits its half at the
+/// caption floor (names wrap between words or are set smaller, never cut,
+/// never under the floor).
+class _Rows extends StatelessWidget {
+  const _Rows({required this.names, required this.rows, required this.spacing});
+
+  final List<String> names;
+  final List<Widget> rows;
+  final double spacing;
+
+  /// The widest word of [names] in the rows' name face at the caption floor.
+  double _widestWord(BuildContext context) {
+    final style = PlayerRowSize.compact
+        .nameStyle(context.skin.typography)
+        .copyWith(fontSize: ReadingFloor.caption);
+    final scaler = MediaQuery.textScalerOf(context);
+    var widest = 0.0;
+    for (final word in names.expand((n) => n.split(' '))) {
+      final painter = TextPainter(
+        text: TextSpan(text: word, style: style),
+        textScaler: scaler,
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      if (painter.width > widest) widest = painter.width;
+      painter.dispose();
+    }
+    return widest;
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, room) {
+      final half = (room.maxWidth - Space.xs) / 2;
+      const size = PlayerRowSize.compact;
+      final nameRoom =
+          half - Space.sm - size.token.size - size.gap - size.endPadding;
+      if (rows.length < Sizes.twoUpPlayers ||
+          half < Sizes.playerColumn ||
+          _widestWord(context) > nameRoom) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: spacing,
+          children: rows,
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: spacing,
+        children: [
+          for (var i = 0; i < rows.length; i += 2)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: Space.xs,
+              children: [
+                Expanded(child: rows[i]),
+                Expanded(
+                  child: i + 1 < rows.length
+                      ? rows[i + 1]
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+        ],
+      );
+    },
+  );
+}
+
+/// A member's row; a dropped phone's whole row dimmed (its token more),
+/// with no words, so it reads at a glance.
+class _Row extends StatelessWidget {
+  const _Row({required this.player, required this.own, required this.away});
+
+  final LobbyPlayer player;
+  final bool own;
+  final bool away;
+
+  @override
+  Widget build(BuildContext context) {
+    final row = PlayerRow(
+      token: player.token,
+      name: player.displayName,
+      own: own,
+      away: away,
+    );
+    if (!away) return row;
+    // A third of the way from present to the skin's switched-off: the row
+    // reads as away at a glance, its name still clears the contrast floor.
+    return Opacity(opacity: 1 - (1 - context.skin.dimmed) / 3, child: row);
+  }
+}
+
 /// "Add {n} cards" / "Remove {n} cards", one card singular.
 String cardsLabel(int count, {required bool add}) => switch ((add, count)) {
   (true, 1) => CommonCopy.addCard,
@@ -334,21 +438,27 @@ String cardsLabel(int count, {required bool add}) => switch ((add, count)) {
   (false, _) => CommonCopy.removeCards.fill({'n': count}),
 };
 
-/// The table's paper: "Scan to join" on one line with Share beside it, the
-/// QR code of the table's link large and centred (never under
-/// [Sizes.qrScannable]), the code under it in the hero face. [headline]:
-/// the words are the screen's headline (the host's; a guest's headline is
-/// whose table it is). Without a link (no web address known) the code alone.
+/// The table's paper: "Scan to join" with Share beside it, the QR code of
+/// the table's link (never under [Sizes.qrScannable]) and the code in the
+/// hero face. Nearly empty ([compact] false): the QR code large and centred,
+/// the code under it. Past that, the card is as short as it can be: the QR
+/// code at its scannable least on the left, the words, Share and the code
+/// beside it; where that leaves the code too little room (a narrow phone),
+/// stacked, the QR code still at its least. [headline]: the words are the
+/// screen's headline (the host's; a guest's headline is whose table it is).
+/// Without a link (no web address known) the code alone.
 class _JoinCard extends StatelessWidget {
   const _JoinCard({
     required this.code,
     required this.headline,
+    required this.compact,
     this.link,
     this.onShare,
   });
 
   final String code;
   final bool headline;
+  final bool compact;
   final Uri? link;
   final ValueChanged<Uri>? onShare;
 
@@ -358,62 +468,103 @@ class _JoinCard extends StatelessWidget {
     final share = onShare;
     return PaperCard(
       lift: PaperLift.slab,
-      padding: const EdgeInsets.fromLTRB(
-        Space.lg,
-        Space.sm,
-        Space.sm,
-        Space.md,
-      ),
+      padding: compact
+          ? const EdgeInsets.fromLTRB(Space.md, Space.sm, Space.xs, Space.sm)
+          : const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.sm, Space.md),
       child: Builder(
         builder: (context) {
           final type = context.skin.typography;
           final ink = context.ground.text;
-          return Column(
-            spacing: Space.xs,
+          final scan = Semantics(
+            header: headline,
+            child: FitLine(
+              TableCopy.scan,
+              style: type.title.copyWith(color: ink),
+              alignment: AlignmentDirectional.centerStart,
+            ),
+          );
+          final shareButton = link == null || share == null
+              ? null
+              // The skin has no art for sharing: the platform's glyph.
+              : IconButton(
+                  onPressed: () => share(link),
+                  tooltip: TableCopy.share,
+                  color: ink,
+                  icon: const Icon(Icons.ios_share),
+                );
+          final words = Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Semantics(
-                      header: headline,
-                      child: FitLine(
-                        TableCopy.scan,
-                        style: type.title.copyWith(color: ink),
-                        alignment: AlignmentDirectional.centerStart,
+              Expanded(child: scan),
+              ?shareButton,
+            ],
+          );
+          final theCode = FitLine(
+            code,
+            style: type.heroCode.copyWith(color: ink),
+            alignment: compact
+                ? AlignmentDirectional.centerStart
+                : AlignmentDirectional.center,
+          );
+          QrPicture qr(double side) => QrPicture(
+            data: link.toString(),
+            side: side,
+            semanticLabel: TableCopy.scan,
+          );
+          return LayoutBuilder(
+            builder: (context, room) {
+              // The words beside the QR code need their room at the
+              // player's text size.
+              final beside =
+                  room.maxWidth - Sizes.qrScannable - Space.md >=
+                  MediaQuery.textScalerOf(context).scale(Sizes.joinCodeBeside);
+              if (link != null && compact && beside) {
+                return Row(
+                  spacing: Space.md,
+                  children: [
+                    qr(Sizes.qrScannable),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: Space.xs,
+                        children: [
+                          scan,
+                          theCode,
+                          if (shareButton != null)
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: shareButton,
+                            ),
+                        ],
                       ),
+                    ),
+                  ],
+                );
+              }
+              return Column(
+                spacing: Space.xs,
+                children: [
+                  words,
+                  Padding(
+                    padding: const EdgeInsets.only(right: Space.sm),
+                    child: Column(
+                      spacing: Space.xs,
+                      children: [
+                        if (link != null)
+                          qr(
+                            compact
+                                ? Sizes.qrScannable
+                                : math.max(
+                                    Sizes.qrScannable,
+                                    math.min(room.maxWidth, Sizes.qrLargest),
+                                  ),
+                          ),
+                        theCode,
+                      ],
                     ),
                   ),
-                  if (link != null && share != null)
-                    // The skin has no art for sharing: the platform's glyph.
-                    IconButton(
-                      onPressed: () => share(link),
-                      tooltip: TableCopy.share,
-                      color: ink,
-                      icon: const Icon(Icons.ios_share),
-                    ),
                 ],
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: Space.sm),
-                child: Column(
-                  spacing: Space.xs,
-                  children: [
-                    if (link != null)
-                      LayoutBuilder(
-                        builder: (context, room) => QrPicture(
-                          data: link.toString(),
-                          side: math.max(
-                            Sizes.qrScannable,
-                            math.min(room.maxWidth, Sizes.qrLargest),
-                          ),
-                          semanticLabel: TableCopy.scan,
-                        ),
-                      ),
-                    FitLine(code, style: type.heroCode.copyWith(color: ink)),
-                  ],
-                ),
-              ),
-            ],
+              );
+            },
           );
         },
       ),

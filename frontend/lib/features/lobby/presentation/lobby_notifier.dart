@@ -526,24 +526,27 @@ class LobbyNotifier extends _$LobbyNotifier {
       if (!ref.mounted) return null;
       final now = state.value;
       final refusal = dealRefusal(e);
-      _retry = refusal == null ? deal : null;
+      _retry = refusal.answered ? null : deal;
       if (now != null) {
         state = AsyncData(
-          now.copyWith(notSent: refusal == null, dealRefused: refusal),
+          now.copyWith(notSent: !refusal.answered, dealRefused: refusal.why),
         );
       }
-      if (refusal != null) unawaited(refreshLobby());
+      // The table's new verdict sets the button (the screen keeps it busy
+      // until it is read).
+      if (refusal.answered) await refreshLobby();
       return null;
     }
   }
 
   /// What a refused deal means to the host, from the server's answer
   /// (`apps/onuw/deal.py`'s `deal_refusal`: the table is not waiting, or the
-  /// settings' errors for this many players); null when there was no answer
-  /// (the phone could not reach the server). The button showed `deal.ok`, so
-  /// a refusal means the table changed under the tap: the lobby is read
-  /// again, and its new `deal` sets the button.
-  static String? dealRefusal(Object error) {
+  /// settings' errors for this many players). Not [answered]: the phone could
+  /// not reach the server ("Not sent."). Answered with no [why]: the server
+  /// gave no reason worth saying, so nothing is said; the button showed
+  /// `deal.ok`, so a refusal means the table changed under the tap, and the
+  /// lobby read again sets the button.
+  static ({bool answered, String? why}) dealRefusal(Object error) {
     final (int? status, List<String> details) = switch (error) {
       ValidationException(:final errors) => (
         400,
@@ -556,14 +559,17 @@ class LobbyNotifier extends _$LobbyNotifier {
       NotFoundException() => (404, const <String>[]),
       _ => (null, const <String>[]),
     };
-    if (status == null || status >= 500) return null;
-    if (status == 404) return BannerCopy.tableClosed;
-    if (details.contains(_notWaiting)) return BannerCopy.lobbyClosed;
-    if (details.any((d) => d.startsWith(_tooFew))) {
-      return TableCopy.needPlayers;
-    }
-    if (details.any(_deckError.hasMatch)) return BannerCopy.deckDoesNotFit;
-    return BannerCopy.cannotDeal;
+    if (status == null || status >= 500) return (answered: false, why: null);
+    final why = status == 404
+        ? BannerCopy.tableClosed
+        : details.contains(_notWaiting)
+        ? BannerCopy.lobbyClosed
+        : details.any((d) => d.startsWith(_tooFew))
+        ? TableCopy.needPlayers
+        : details.any(_deckError.hasMatch)
+        ? BannerCopy.deckDoesNotFit
+        : null;
+    return (answered: true, why: why);
   }
 
   /// The server's refusal words (`deal.py`, `validate_onuw_settings`).

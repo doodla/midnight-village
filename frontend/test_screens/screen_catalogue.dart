@@ -64,7 +64,6 @@ final screenCatalogue = <ScreenEntry>[
     '-custom': pumpTableHostCustom,
     '-custom-short': pumpTableHostMismatch,
     '-dropped': pumpTableDropped,
-    '-refused': pumpTableRefused,
     '-guest': pumpTableGuest,
     '-handover': pumpTableHandover,
     '-x1.3': (tester) => pumpTableHost(tester, textScale: 1.3),

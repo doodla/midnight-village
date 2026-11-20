@@ -11,6 +11,7 @@ import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart
 import 'package:mocktail/mocktail.dart';
 
 import 'package:midnight_village/core/api/api_exception.dart';
+import 'package:midnight_village/design_system/copy/copy.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/mock_http_client.dart';
@@ -386,6 +387,61 @@ void main() {
 
         expect(mockWebSocket.isClosed, isTrue);
       });
+    });
+  });
+
+  group('a refused deal, in the player\'s words', () {
+    // The server's refusal words (apps/onuw/deal.py, validate_onuw_settings).
+    ({bool answered, String? why}) refused(String detail) =>
+        LobbyNotifier.dealRefusal(
+          ValidationException({
+            'detail': [detail],
+          }),
+        );
+
+    test('a table no longer waiting', () {
+      expect(refused('Lobby is not in waiting state.'), (
+        answered: true,
+        why: BannerCopy.lobbyClosed,
+      ));
+    });
+
+    test('too few at the table', () {
+      expect(refused('At least 3 players required, got 2.'), (
+        answered: true,
+        why: TableCopy.needPlayers,
+      ));
+    });
+
+    test('a deck that does not fit', () {
+      expect(
+        refused(
+          'Total role count must be 10 (players + 3 center cards), got 9.',
+        ),
+        (answered: true, why: BannerCopy.deckDoesNotFit),
+      );
+      expect(
+        refused(
+          'Masons must be used in pairs \u2014 include 0 or 2 Mason cards, '
+          'not 1.',
+        ),
+        (answered: true, why: BannerCopy.deckDoesNotFit),
+      );
+    });
+
+    test('no reason worth saying: nothing is said', () {
+      final body = ContractSamples.map('http/game/start_not_all_ready');
+      expect(
+        LobbyNotifier.dealRefusal(ValidationException(parseServerErrors(body))),
+        (answered: true, why: null),
+      );
+    });
+
+    test('no answer: "Not sent."', () {
+      expect(LobbyNotifier.dealRefusal(Exception('offline')), (
+        answered: false,
+        why: null,
+      ));
     });
   });
 }

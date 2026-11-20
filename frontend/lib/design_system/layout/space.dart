@@ -48,6 +48,17 @@ abstract final class Sizes {
   static const qrScannable = 160.0;
   static const qrLargest = 220.0;
 
+  /// The least room for 02's code beside its QR code; with less, they stack.
+  static const joinCodeBeside = 100.0;
+
+  /// Players at a table still about getting the others in (02 large).
+  static const nearlyEmptyTable = 2;
+
+  /// From this many at the table, 02's rows go two to a line where each
+  /// half is at least [playerColumn] wide.
+  static const twoUpPlayers = 5;
+  static const playerColumn = 150.0;
+
   /// A role card in the deck builder's grid, width over height: the
   /// portrait and its name under it (S03).
   static const roleGridCell = 0.66;

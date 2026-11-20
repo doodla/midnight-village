@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/chips.dart';
+import 'package:midnight_village/design_system/primitives/notice.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/qr_picture.dart';
@@ -692,28 +693,31 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('a refused deal says why, never a bare "Not sent."', (
-      tester,
-    ) async {
-      final setup = await TableSetup.pump(
-        tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
-        viewer: 'Ana',
-      );
-      setup.http.answer(
-        'POST',
-        '/onuw/lobbies/V9YC2J/start/',
-        ContractSamples.map('http/game/start_not_all_ready'),
-        status: 400,
-      );
+    testWidgets(
+      'a deal refused for no reason worth saying adds nothing, never a bare "Not sent."',
+      (tester) async {
+        final setup = await TableSetup.pump(
+          tester,
+          lobby: v2Lobby('detail_v2_auto_deck_5'),
+          viewer: 'Ana',
+        );
+        setup.http.answer(
+          'POST',
+          '/onuw/lobbies/V9YC2J/start/',
+          ContractSamples.map('http/game/start_not_all_ready'),
+          status: 400,
+        );
 
-      await _tap(tester, setup, find.text(TableCopy.deal.fill({'n': 5})));
+        await _tap(tester, setup, find.text(TableCopy.deal.fill({'n': 5})));
 
-      expect(find.text(BannerCopy.cannotDeal), findsOneWidget);
-      expect(find.text(BannerCopy.notSent), findsNothing);
-      expect(find.text(BannerCopy.tryAgain), findsNothing);
-      await setup.close(tester);
-    });
+        // No reason worth saying: nothing extra, never a bare "Not sent.".
+        expect(find.text(BannerCopy.cannotDeal), findsNothing);
+        expect(find.byType(Notice), findsNothing);
+        expect(find.text(BannerCopy.notSent), findsNothing);
+        expect(find.text(BannerCopy.tryAgain), findsNothing);
+        await setup.close(tester);
+      },
+    );
 
     testWidgets('a table that cannot be read says "One moment", and shows '
         'once it answers', (tester) async {

@@ -8,6 +8,7 @@ import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
+import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/lobby/presentation/at_table_screen.dart';
@@ -66,11 +67,26 @@ void main() {
       await ui.pumpApp();
 
       // 01: a new phone, signed out.
-      await ui.pumpUntil(shows<JoinScreen>, reason: '01 Join');
+      // Signed out for certain first: a session restore that lands after
+      // the name is typed rebuilds 01 and drops it.
+      await ui.pumpUntil(
+        () =>
+            shows<JoinScreen>() &&
+            ui.container.read(authProvider) is AuthUnauthenticated,
+        reason: '01 Join, signed out',
+      );
       await shoot('join');
-      await tester.enterText(find.byType(EditableText).first, 'Alice');
-      await tester.pump();
-      await ui.tapAndSubmit(find.text(JoinCopy.startTable));
+      final start = find.widgetWithText(SecondaryButton, JoinCopy.startTable);
+      bool startOpen() =>
+          start.evaluate().isNotEmpty &&
+          tester.widget<SecondaryButton>(start).onPressed != null;
+      for (var i = 0; i < 3 && !startOpen(); i++) {
+        await tester.enterText(find.byType(EditableText).first, 'Alice');
+        await tester.pump();
+        await ui.settle();
+      }
+      expect(startOpen(), isTrue, reason: 'a name opens "Start a table"');
+      await ui.tapAndSubmit(start);
       final seat = await ui.followTable(until: (t) => t != null);
       expect(seat, isNotNull, reason: 'the server seats Alice at her table');
       final code = seat!.lobbyCode;

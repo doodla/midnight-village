@@ -20,26 +20,34 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   link to another table while seated at one, and the server's 409 `already_at_table`, say
   "You're at another table." with "Go there" (it reads `/me/table/` again): never a silent
   second seat.
-- **02** (`at_table_screen.dart`): for everyone, "Scan to join" on one line with Share beside
-  it, the QR code of the join link (`joinLink`: `<origin>/#/join/<code>`; `appOrigin` is the
-  page's address on the web, else `--dart-define=PUBLIC_ORIGIN`, else the code alone) large
-  and centred, never under `Sizes.qrScannable`, the code under it; a row per player (their own
-  outlined and never dimmed, names never cut, another's dropped phone dimmed with no words from
-  `connected: false`; the server keeps it true through the grace period). Share is the
-  system share sheet (`share_plus`, no mail fallback); only where there is none, or it fails,
-  the link is copied and the screen says "Copied" (the skin has no share art: the platform's
-  glyph). The host: the deck as its chip with its cards face up (`deck_preview`) or the custom
-  deck's cards, with "Edit"; the deal button is the server's `deal` (`DealState`): "Deal to
-  {n}" only when `ok`; else "Need 3 players", "Add 1 card" / "Remove 2 cards" (a custom deck,
-  `need` against `have`), "The deck does not fit." or "Can't deal yet.", locked. Nobody is
-  asked to be ready: the server deals in everyone at the table. A deal refused all the same
-  (the table changed under the tap) says why from the server's refusal
-  (`LobbyNotifier.dealRefusal`), never a bare "Not sent.", and the lobby is read again; a quiet
-  labelled
-  "Leave" that asks first ("Stay" / "Leave"). A guest: "{host} deals" over the same code, the
-  rows, a quiet "Leave" at the end. A deal, a handover or a host change reads `/me/table/`
-  again; the layout follows the lobby's host with no words; a table that is gone says so with
-  "Go home".
+- **02** (`at_table_screen.dart`): for everyone, "Scan to join" with Share beside it, the QR
+  code of the join link (`joinLink`: `<origin>/#/join/<code>`; `appOrigin` is the page's
+  address on the web, else `--dart-define=PUBLIC_ORIGIN`, else the code alone), never under
+  `Sizes.qrScannable`, and the code. Nearly empty (`Sizes.nearlyEmptyTable`: alone or two)
+  the table's picture shows and the QR code is large and centred, the code under it. Past
+  that the next thing is who is here, the deck and Deal, so the card is short: no picture, the
+  QR code at its least on the left with the words, Share and the code beside it (stacked,
+  still at its least, where the code would have under `Sizes.joinCodeBeside`: at 320), and
+  from `Sizes.twoUpPlayers` the rows two to a line where each half keeps
+  `Sizes.playerColumn`. So the rows, the deck with its cards and Deal are all in view for six
+  at 390 x 844 and five at 360 x 640 (`table_fit_test.dart`); beyond that the body scrolls
+  under its fade. A row per player: their own outlined and never dimmed, names never cut,
+  another's dropped phone (`connected: false`; the server keeps it true through the grace
+  period) the whole row dimmed, its token more, with no words. Share is the system share sheet
+  (`share_plus`, no mail fallback); only where there is none, or it fails, the link is copied
+  and the screen says "Copied" (the skin has no share art: the platform's glyph). The host:
+  the deck as its chip with its cards face up (`deck_preview`) or the custom deck's cards,
+  with "Edit"; the deal button is the server's `deal` (`DealState`): "Deal to {n}" only when
+  `ok`; else "Need 3 players", "Add 1 card" / "Remove 2 cards" (a custom deck, `need` against
+  `have`), "The deck does not fit." or "Can't deal yet.", locked. Nobody is asked to be ready:
+  the server deals in everyone at the table. A deal refused all the same (the table changed
+  under the tap) says why when the server's refusal gives a reason worth saying
+  (`LobbyNotifier.dealRefusal`: the table playing, too few, the deck), else nothing extra,
+  never a bare "Not sent." nor a notice that repeats the button; the button stays busy until
+  the lobby is read again and its new verdict sets it. A quiet labelled "Leave" asks first
+  ("Stay" / "Leave"). A guest: "{host} deals" over the same card, the rows, a quiet "Leave"
+  at the end. A deal, a handover or a host change reads `/me/table/` again; the layout follows
+  the lobby's host with no words; a table that is gone says so with "Go home".
 - **03** (`deck_screen.dart`): the chips choose (the server builds the deck at the deal), with
   the chip's cards face up from `deck_preview` (only for the chip the body is of: a chip tapped
   and not answered yet shows the deck face down, as does a count with no automatic deck, where
