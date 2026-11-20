@@ -1,0 +1,98 @@
+{
+  "game_id": "00000000-0000-4000-a000-000000000007",
+  "lobby_code": "R5ZD3H",
+  "phase": "results",
+  "current_wave": 0,
+  "deadline": null,
+  "your_role": {
+    "original_role": "Seer",
+    "has_acted": true,
+    "current_role": "Seer",
+    "night_action_data": {
+      "wave": 2,
+      "chose_2": 1,
+      "targets": {
+        "player_id": 29
+      },
+      "action_type": "peek_player",
+      "wave_2_result": {
+        "peeked_role": "Werewolf"
+      },
+      "role_acting_as": "Seer"
+    }
+  },
+  "is_host": true,
+  "host_id": 27,
+  "has_voted": false,
+  "players": [
+    {
+      "player_id": 27,
+      "display_name": "Ana",
+      "token": "moth",
+      "seat": 0
+    },
+    {
+      "player_id": 28,
+      "display_name": "Ben",
+      "token": "hare",
+      "seat": 1
+    },
+    {
+      "player_id": 29,
+      "display_name": "Cleo",
+      "token": "spindle",
+      "seat": 2
+    },
+    {
+      "player_id": 30,
+      "display_name": "Dev",
+      "token": "scythe",
+      "seat": 3
+    },
+    {
+      "player_id": 31,
+      "display_name": "Esme",
+      "token": "bell",
+      "seat": 4
+    }
+  ],
+  "action_prompt": null,
+  "roles_in_game": [
+    {
+      "role": "Seer",
+      "count": 1
+    },
+    {
+      "role": "Robber",
+      "count": 1
+    },
+    {
+      "role": "Villager",
+      "count": 3
+    },
+    {
+      "role": "Werewolf",
+      "count": 2
+    },
+    {
+      "role": "Troublemaker",
+      "count": 1
+    }
+  ],
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "peek_player",
+      "revealed_info": {
+        "target_name": "Cleo",
+        "role": "Werewolf"
+      }
+    }
+  ],
+  "night_results_seen": 0,
+  "player_id": 27,
+  "my_vote": null,
+  "ready": null,
+  "progress": null,
+  "stage": null
+}

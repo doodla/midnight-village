@@ -52,7 +52,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apps.core import timers
 from apps.core.consumers import LobbyConsumer
 from apps.core.models import LobbyMember, ScheduledTimer, User
-from apps.onuw import services
+from apps.onuw import night2, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.models import Game, PlayerRole
 from apps.onuw.protocol import is_choose_night, stage_token
@@ -229,7 +229,7 @@ class Table:
             client = self.players[who].client if who else APIClient()
         ids = {"code": self.code, "game_id": self.game_id, **fill}
         url = "/api" + path.format(**ids)
-        body = self._staged(path, body, ids["game_id"])
+        body = self._staged(path, body, ids["game_id"], who)
         send = getattr(client, method.lower())
         with self._capture_on_commit(execute=True), override_settings(DEBUG=debug):
             response = send(url, body, format="json")
@@ -245,19 +245,36 @@ class Table:
     )
 
     def _staged(
-        self, path: str, body: dict[str, Any] | None, game_id: str
+        self, path: str, body: dict[str, Any] | None, game_id: str, who: str
     ) -> dict[str, Any] | None:
         """The way the app sends it: a request to a stage-scoped endpoint of a game
         that plays night protocol 2 names the stage the game is in NOW (read from
-        ``/me/``'s own function), unless the scenario names one (a stale token)."""
+        ``/me/``'s own function), unless the scenario names one (a stale token), and
+        a ``choose`` answers the caller's prompt as it is now (``chosen``), unless
+        the scenario names a count (a resend)."""
         if not game_id or not path.endswith(self.STAGE_ENDPOINTS):
             return body
         if body is not None and not isinstance(body, dict):
             return body
         game = Game.objects.filter(id=game_id).first()
-        if game is None or not is_choose_night(game) or "stage" in (body or {}):
+        if game is None or not is_choose_night(game):
             return body
-        return {**(body or {}), "stage": stage_token(game)}
+        staged = dict(body or {})
+        if "stage" not in staged:
+            staged["stage"] = stage_token(game)
+        if staged.get("action_type") == "choose" and "chosen" not in staged:
+            # The prompt the phone answers: its own count in the open window.
+            pr = (
+                PlayerRole.objects.filter(
+                    game=game, user=self.players[who].user
+                ).first()
+                if who in self.players
+                else None
+            )
+            staged["chosen"] = (
+                0 if pr is None else night2.chose_count(pr, game.current_wave)
+            )
+        return staged
 
     def stage_now(self) -> str:
         """The stage token the game is in now, to be sent LATER as a stale one."""

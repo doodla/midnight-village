@@ -21,6 +21,14 @@ The rules this module keeps:
   second choose from anyone (the simpler rule, and the same answer for every phone;
   only hers is ever read). Her FIRST choose is her look whatever it holds; if it holds
   no other player she has not copied and her second choose does nothing.
+* Every choose names the prompt it answers: ``chosen``, the count the prompt showed
+  (``GET /me/``'s ``action_prompt.chosen``). Under the Game lock a request whose
+  ``chosen`` is LOWER than the stored count is a resend of a choose already taken (its
+  answer was lost and the phone sent the same request again): it gets the same
+  ``200 {"status": "submitted"}`` and stores nothing. Without this a resent look was
+  counted as the Doppelganger's second choose and read as her follow-up (as Robber
+  she robbed the player she had looked at), and her real follow-up was refused. A
+  ``chosen`` above the stored count names a prompt the server never showed: 400.
 * ``GET /me/``'s prompt carries ``shapes`` (``engine.choose.pick_shapes``): which picks
   would do something for the caller, as data, so a phone can keep a player from
   wasting a turn without holding any rule. The server's reading stays the authority.
@@ -56,11 +64,13 @@ logger = logging.getLogger(__name__)
 CHOOSE_WRONG_PHASE = "Nothing is waiting for a choice right now."
 CHOOSE_BAD_PICKS = "Invalid picks."
 CHOOSE_ALREADY = "You have already chosen."
+CHOOSE_BAD_COUNT = "chosen is ahead of the choices you have made."
 # The only refusals a ``choose`` can get (and ``wrong_stage``, 409, from the stage
 # check). None names a role or depends on one.
 CHOOSE_ERROR_CODES = {
     CHOOSE_WRONG_PHASE: "wrong_phase",
     CHOOSE_BAD_PICKS: "bad_request",
+    CHOOSE_BAD_COUNT: "bad_request",
 }
 
 
@@ -73,16 +83,23 @@ def chose_count(pr: PlayerRole, window: int) -> int:
     return count if type(count) is int else 0
 
 
-def submit_choose(game: Game, user_id: int, raw_picks: object, stage: str) -> list[str]:
-    """A phone's ``choose``. Returns the list of errors (empty = stored);
-    ``CHOOSE_ERROR_CODES`` maps them to codes. A phone that has used its chooses in
-    the window raises ``services.AlreadyActedError``; a request aimed at a stage that
-    is over raises ``WrongStageError``.
+def submit_choose(
+    game: Game, user_id: int, raw_picks: object, stage: str, answered: int
+) -> list[str]:
+    """A phone's ``choose``. Returns the list of errors (empty = success: stored, or
+    a resend of a choose already taken); ``CHOOSE_ERROR_CODES`` maps them to codes. A
+    phone that has used its chooses in the window raises
+    ``services.AlreadyActedError``; a request aimed at a stage that is over raises
+    ``WrongStageError``.
 
-    ONE transaction, Game lock then the player's row: check the stage, the shape of
-    the picks (against the table), read what the picks mean for the caller's acting
-    role, store, count, and close the window if everyone it waits for has chosen.
-    The caller is known to play in this game (the view checked).
+    ``answered`` is the request's ``chosen``: the count the prompt it answers showed.
+    Lower than the stored count = a resend (the first answer was lost): success,
+    nothing stored, nothing read. Equal = a new choose. Higher = 400.
+
+    ONE transaction, Game lock then the player's row: check the stage, the count,
+    the shape of the picks (against the table), read what the picks mean for the
+    caller's acting role, store, count, and close the window if everyone it waits
+    for has chosen. The caller is known to play in this game (the view checked).
     """
     with transaction.atomic():
         game = Game.objects.select_for_update().get(id=game.id)
@@ -91,6 +108,12 @@ def submit_choose(game: Game, user_id: int, raw_picks: object, stage: str) -> li
         pr = PlayerRole.objects.select_for_update().get(game=game, user_id=user_id)
 
         chosen = chose_count(pr, window)
+        if answered < chosen:
+            # Already taken: the same answer the original got, and nothing else
+            # (no store, no reading, no close check), whoever sends it.
+            return []
+        if answered > chosen:
+            return [CHOOSE_BAD_COUNT]
         if chosen >= max_chooses(window):
             raise svc.AlreadyActedError(CHOOSE_ALREADY)
 
@@ -107,8 +130,9 @@ def submit_choose(game: Game, user_id: int, raw_picks: object, stage: str) -> li
         acting = svc.get_player_acting_role_for_wave(pr, window)
         # One look: a Doppelganger who has not copied has had her look (her first
         # choose, whatever it held), so a later choose of hers reads as nothing.
+        reads = acting is not None and not (acting == "Doppelganger" and chosen >= 1)
         reading = None
-        if acting is not None and not (acting == "Doppelganger" and chosen >= 1):
+        if reads:
             reading = interpret_choice(
                 acting,
                 picks,
@@ -117,7 +141,7 @@ def submit_choose(game: Game, user_id: int, raw_picks: object, stage: str) -> li
 
         data: dict[str, Any] = dict(pr.night_action_data)
         data[f"chose_{window}"] = chosen + 1
-        if acting is not None and not (acting == "Doppelganger" and chosen >= 1):
+        if reads:
             # A role with something to do this window: the latest choose replaces
             # what an earlier one stored (a Doppelganger's follow-up replaces her
             # look's record; the look itself is already resolved and logged).

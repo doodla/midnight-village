@@ -148,7 +148,7 @@ def _transform_revealed_info(
     result: ActionResult,
     player_names: dict[int, str],
     *,
-    canonical_roles: bool = False,
+    choose_night: bool = False,
 ) -> dict[str, Any]:
     """Transform engine revealed_info into the format the frontend expects.
 
@@ -157,16 +157,20 @@ def _transform_revealed_info(
 
     Role names are lower-cased (``"werewolf"``) except ``copied_role``, which has
     always been the canonical ``"Seer"``: a quirk the old screens depend on. Under
-    night protocol 2 (``canonical_roles``) every role name is canonical.
+    night protocol 2 (``choose_night``) every role name is canonical, and two things
+    are added to the viewer's own result (it was the viewer's own choice, so nothing
+    leaks): ``center_indices`` on a ``peek_center`` (which two centre cards, in the
+    order of ``roles``), and ``"nothing_chosen": true`` on a result that is the
+    role's default because nothing the player picked meant anything (or they did not
+    choose): a ``skip``, the Drunk's swap made by the server, a lone Werewolf who
+    looked at no centre card.
     """
     raw = result.revealed_info
     action_type = action.action_type
     targets = action.targets
 
     def role_name(value: Any) -> Any:
-        return (
-            value.lower() if isinstance(value, str) and not canonical_roles else value
-        )
+        return value.lower() if isinstance(value, str) and not choose_night else value
 
     # Insomniac sees their current role (may have changed via swap).
     if action.role_acting_as == "Insomniac":
@@ -195,7 +199,12 @@ def _transform_revealed_info(
             for entry in peeked
             if isinstance(entry, dict) and "role" in entry
         ]
-        return {"roles": roles}
+        peek_out: dict[str, Any] = {"roles": roles}
+        if choose_night:
+            peek_out["center_indices"] = [
+                int(index) for index in targets.get("center_indices", [])
+            ]
+        return peek_out
 
     if action_type == "swap_with_player":
         # Robber swaps with target, learns their role.
@@ -210,7 +219,12 @@ def _transform_revealed_info(
     if action_type == "swap_with_center":
         # Drunk swaps with a center card, learns nothing.
         center_index = targets.get("center_index")
-        return {"card_index": int(center_index) if center_index is not None else 0}
+        drunk_out: dict[str, Any] = {
+            "card_index": int(center_index) if center_index is not None else 0
+        }
+        if choose_night and action.made_by_server:
+            drunk_out["nothing_chosen"] = True
+        return drunk_out
 
     if action_type == "swap_others":
         # Troublemaker swaps two other players, learns nothing.
@@ -243,10 +257,17 @@ def _transform_revealed_info(
                 "index": cc["index"],
                 "role": role_name(cc.get("role", "")),
             }
+        elif (
+            choose_night
+            and action.role_acting_as == "Werewolf"
+            and raw.get("werewolves") == []
+        ):
+            # A lone Werewolf whose picks held no centre card: alone, nothing seen.
+            see_team_out["nothing_chosen"] = True
         return see_team_out
 
     if action_type == "skip":
-        return {}
+        return {"nothing_chosen": True} if choose_night else {}
 
     # Unknown action — pass through as-is.
     return dict(raw)
@@ -257,7 +278,7 @@ def client_action_result(
     revealed_info: dict[str, Any],
     player_names: dict[int, str],
     *,
-    canonical_roles: bool = False,
+    choose_night: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     """The (action_type, revealed_info) pair a player is shown for one result.
 
@@ -271,7 +292,7 @@ def client_action_result(
     return (
         _client_action_type(action),
         _transform_revealed_info(
-            action, result, player_names, canonical_roles=canonical_roles
+            action, result, player_names, choose_night=choose_night
         ),
     )
 
@@ -282,13 +303,14 @@ def _visible_result_entries(
     """The player's own night-log entries that show as a result now: ``(window,
     entry)`` in window order (stable: wake order within a window).
 
-    Only this player's entries, and not an explicit ``skip`` (it carries nothing);
-    every other action, including a swap whose engine result is empty (the client
-    learns its slot / the names it swapped from the action), was sent over the
-    socket. A window that is still open contributes nothing: nothing reaches a
-    player before its window closes (the Doppelganger's look, which is sent early
-    because she needs it to choose her follow-up, is held back until window 1
-    closes).
+    Only this player's entries, and not an explicit ``skip`` (it carries nothing)
+    except under night protocol 2, where the phone is told that its choice did
+    nothing (``"nothing_chosen": true``); every other action, including a swap whose
+    engine result is empty (the client learns its slot / the names it swapped from
+    the action), was sent over the socket. A window that is still open contributes
+    nothing: nothing reaches a player before its window closes (the Doppelganger's
+    look, which is sent early because she needs it to choose her follow-up, is held
+    back until window 1 closes).
 
     Under night protocol 2 nothing is sent by socket at all, so the Doppelganger's
     look is listed as soon as it is resolved, even while window 1 is open (she needs
@@ -300,11 +322,14 @@ def _visible_result_entries(
         closed_before = NIGHT_WINDOWS[-1] + 1
     else:
         return []
-    early_look = game.phase == Phase.NIGHT and is_choose_night(game)
+    choose_night = is_choose_night(game)
+    early_look = game.phase == Phase.NIGHT and choose_night
 
     entries: list[tuple[int, dict[str, Any]]] = []
     for entry in game.night_actions_log:
-        if entry.get("player_id") != user_id or entry.get("action_type") == "skip":
+        if entry.get("player_id") != user_id:
+            continue
+        if entry.get("action_type") == "skip" and not choose_night:
             continue
         try:
             window = window_for_order_group(entry["wave"])
@@ -334,20 +359,21 @@ def night_results_for_player(
     ``_visible_result_entries``.
     """
     results: list[dict[str, Any]] = []
-    canonical = is_choose_night(game)
+    choose_night = is_choose_night(game)
     for window, entry in _visible_result_entries(game, user_id):
         action = NightAction(
             player_id=user_id,
             role_acting_as=entry.get("role_acting_as", ""),
             action_type=entry.get("action_type", ""),
             targets=entry.get("targets", {}),
+            made_by_server=bool(entry.get("made_by_server", False)),
         )
         try:
             action_type, revealed = client_action_result(
                 action,
                 entry.get("result") or {},
                 player_names,
-                canonical_roles=canonical,
+                choose_night=choose_night,
             )
         except Exception:
             logger.exception("Could not rebuild a night result for player %s", user_id)
@@ -1523,8 +1549,9 @@ def submit_vote(
 
     Under night protocol 2 the request names its ``stage`` (compared under the Game
     lock: a pick or lock for a stage that is over, a late lock after the reveal,
-    raises ``WrongStageError`` and stores nothing), and the legacy ``vote.submitted``
-    (who locked) is NOT sent: only the count is.
+    raises ``WrongStageError`` and stores nothing), the legacy ``vote.submitted``
+    (who locked) is NOT sent: only the count is, and a lock that repeats the stored
+    locked vote (a resend whose answer was lost) succeeds again doing nothing.
     """
     with transaction.atomic():
         game = Game.objects.select_for_update().get(id=game.id)
@@ -1540,6 +1567,16 @@ def submit_vote(
             return [VOTE_NOT_A_PLAYER]
 
         if voter_pr.has_acted:
+            # Protocol 2: the SAME lock again is a resend whose answer was lost: the
+            # answer the original got, and nothing stored or sent. Any other pick or
+            # lock after locking in is refused (and protocol 1 is unchanged).
+            if (
+                lock
+                and is_choose_night(game)
+                # pyrefly: ignore [missing-attribute]
+                and voter_pr.vote_target_id == target_player_id
+            ):
+                return []
             raise AlreadyActedError("You have already locked in your vote.")
 
         # No self-votes per spec

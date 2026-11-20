@@ -42,8 +42,10 @@ sections below say otherwise, this list wins:
 - **Night protocol 2** (`night_protocol: 2` in the table's settings; the harness settings
   set `ONUW_ALLOW_UNTIMED_NIGHT = True`, so zero timers are allowed; protocol 1 stays the
   default and every scenario below uses it): every player posts
-  `{"action_type":"choose","picks":[...],"stage":"<from /me/>"}` (0 to 2 of
-  `{"player_id"}`, `{"center_index"}`, `{"self":true}`) and always gets
+  `{"action_type":"choose","picks":[...],"chosen":<n>,"stage":"<from /me/>"}` (0 to 2 of
+  `{"player_id"}`, `{"center_index"}`, `{"self":true}`; `chosen` is required: the
+  prompt's `chosen` it answers, and a lower one than the server's count is a resend whose
+  answer was lost: the same answer, nothing stored) and always gets
   `{"status":"submitted"}`; the only refusals are `wrong_stage` (409), `wrong_phase`,
   `already_chosen` (409) and `bad_request`. **Every stage-scoped request names its stage**
   (`choose`, `ready`, `vote`, and the host's `advance-wave`, `end-discussion`,
@@ -55,12 +57,12 @@ sections below say otherwise, this list wins:
   (`backend/apps/onuw/engine/choose.py`); a pick with no valid meaning is a timeout, and
   the prompt's `shapes` (`[{"players":1},{"center":2}]`: alternatives; `any` = one card of
   the board) tell the phone which picks would do something. A phone chooses once per
-  window; only the Doppelganger sends a second in window 1 (the server takes a harmless
-  second from anyone, a third is `already_chosen`). Window 1 is ONE fixed-length stage
+  window; only the Doppelganger sends a second in window 1 (the server takes a second from
+  anyone; a choose answering a prompt that is used up is `already_chosen`). Window 1 is ONE fixed-length stage
   (the table's `night_doppelganger_window_seconds`; `wave:1` fire-timer); window 2 closes
   when EVERY present phone has chosen once (and the minimum passed). The only night events
   are group `night_window {window, deadline}` and `wave_complete`; a phone reads its
-  `action_prompt` (`kind`, `shapes`, `chosen`, `max_chooses`, the board) and
+  `action_prompt` (`kind`, `shapes`, `chosen`, `chooses_left`, `max_chooses`, the board) and
   `night_results` from `GET /me/`, where the Doppelganger's look is listed as soon as it
   resolves. No `vote_submitted {player_id}` is sent; votes announce counts only. With
   `card_look_seconds` > 0 (protocol 2 only) the deal opens window 0: every phone posts

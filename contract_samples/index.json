@@ -170,12 +170,20 @@
       "description": "The host closes a night window after the night."
     },
     {
+      "name": "http/game/advance_wave_wrong_stage",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/advance-wave/",
+      "status": 409,
+      "description": "The host's advance for a window that is over: nothing happens to the stage the game is in now."
+    },
+    {
       "name": "http/game/choose_already_chosen",
       "kind": "http",
       "method": "POST",
       "path": "/onuw/games/{game_id}/action/",
       "status": 409,
-      "description": "A second choose in window 2."
+      "description": "A choose answering a prompt that is used up (`chosen` 1 of `max_chooses` 1 in window 2)."
     },
     {
       "name": "http/game/choose_bad_request",
@@ -186,12 +194,36 @@
       "description": "Picks that are not a list of at most two cards."
     },
     {
+      "name": "http/game/choose_chosen_missing",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 400,
+      "description": "A choose that does not say which prompt it answers (`chosen`)."
+    },
+    {
       "name": "http/game/choose_not_a_choose",
       "kind": "http",
       "method": "POST",
       "path": "/onuw/games/{game_id}/action/",
       "status": 400,
       "description": "Any other action_type under night protocol 2."
+    },
+    {
+      "name": "http/game/choose_resent",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "The same choose sent again (its answer was lost): it names the prompt it answered (`chosen` 0), the server has already taken that one, so the answer is the original's and nothing is stored."
+    },
+    {
+      "name": "http/game/choose_resent_doppelganger_look",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "Her look sent again (its answer was lost): taken already, so it is not read as her follow-up; the same answer as anyone's."
     },
     {
       "name": "http/game/choose_stage_missing",
@@ -296,6 +328,14 @@
       "path": "/onuw/games/{game_id}/end-discussion/",
       "status": 400,
       "description": "Ending a talk that is over."
+    },
+    {
+      "name": "http/game/end_discussion_wrong_stage",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/end-discussion/",
+      "status": 409,
+      "description": "The host's end-discussion after the talk already ended (everyone was ready): nothing happens to the vote."
     },
     {
       "name": "http/game/me_auto_deck_5",
@@ -496,6 +536,14 @@
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in the talk: the seer's night results."
+    },
+    {
+      "name": "http/game/me_discussion_choose_seer_nothing_chosen",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: a Seer whose choose held nothing valid is told so (a `skip` result with `nothing_chosen`), only on their own phone."
     },
     {
       "name": "http/game/me_discussion_choose_villager",
@@ -754,6 +802,14 @@
       "description": "/me/ at the end."
     },
     {
+      "name": "http/game/me_results_v2",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the results phase under night protocol 2."
+    },
+    {
       "name": "http/game/me_talk_ready",
       "kind": "http",
       "method": "GET",
@@ -784,6 +840,14 @@
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ with a pick that is not locked yet (`my_vote`, own only)."
+    },
+    {
+      "name": "http/game/me_voting_unpicked",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the vote before the caller has picked anyone (`my_vote` is null)."
     },
     {
       "name": "http/game/me_voting_untimed",
@@ -994,6 +1058,14 @@
       "description": "The host reveals votes before the vote."
     },
     {
+      "name": "http/game/reveal_votes_wrong_stage",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/reveal-votes/",
+      "status": 409,
+      "description": "The host's reveal after the last lock already revealed the vote."
+    },
+    {
       "name": "http/game/start_not_all_ready",
       "kind": "http",
       "method": "POST",
@@ -1090,6 +1162,14 @@
       "description": "A lock flag that is not true or false."
     },
     {
+      "name": "http/game/vote_lock_resent",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 200,
+      "description": "The same lock sent again (its answer was lost): the original's answer, nothing stored or sent."
+    },
+    {
       "name": "http/game/vote_locked_v2",
       "kind": "http",
       "method": "POST",
@@ -1176,6 +1256,30 @@
       "path": "/lobbies/{code}/",
       "status": 200,
       "description": "The table while its game runs."
+    },
+    {
+      "name": "http/lobby/detail_v2_auto_deck_5",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A night protocol 2 table with the automatic deck (classic chip), before the deal: the server builds the cards at the deal."
+    },
+    {
+      "name": "http/lobby/detail_v2_auto_deck_9",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A night protocol 2 table with the automatic deck (chaos chip), before the deal: the server builds the cards at the deal."
+    },
+    {
+      "name": "http/lobby/detail_v2_custom_deck",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A night protocol 2 table with a custom deck, before the deal."
     },
     {
       "name": "http/lobby/detail_waiting",
@@ -2251,6 +2355,59 @@
         "Fin"
       ],
       "description": "Deck changed."
+    },
+    {
+      "name": "ws/lobby/lobby_update_v2_auto_deck_5",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "A night protocol 2 table with the automatic deck (classic chip)."
+    },
+    {
+      "name": "ws/lobby/lobby_update_v2_auto_deck_9",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana",
+        "Ida"
+      ],
+      "description": "A night protocol 2 table with the automatic deck (chaos chip)."
+    },
+    {
+      "name": "ws/lobby/lobby_update_v2_custom_deck",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana",
+        "Ida"
+      ],
+      "description": "A night protocol 2 table whose host picked the cards (`deck: custom`)."
     },
     {
       "name": "ws/lobby/player_joined",

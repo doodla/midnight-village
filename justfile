@@ -43,9 +43,14 @@ makemigrations *args:
 
 # --- Testing ---
 
-# Run backend tests
+# Run backend tests, then the .claude/ guardrail tests
 test *args:
     {{backend_just}} test {{args}}
+    just test-guardrails
+
+# Run the .claude/guardrails hook tests (stdlib only, needs python3 >= 3.11)
+test-guardrails:
+    python3 -m unittest discover -s .claude/guardrails/tests
 
 # Re-record contract_samples/ from the real server (see backend/CLAUDE.md)
 samples:
