@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# git commit-msg hook: the subject must read `type(scope): description`.
+# $1 is the file holding the message git is about to record.
+HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ ! -f "$HOOKS/lib/commit_msg.py" ]; then
+  echo "BLOCKED: .claude/hooks/lib/commit_msg.py is missing." >&2
+  exit 2
+fi
+python3 "$HOOKS/lib/commit_msg.py" "$1" >&2 || exit 2
+exit 0

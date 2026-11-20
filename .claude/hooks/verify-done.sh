@@ -20,10 +20,13 @@ cd "$CWD" || exit 0
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 cd "$ROOT" || exit 0
 # shellcheck source=lib/gate.sh
-source "$HOOKS/lib/gate.sh"
+if ! source "$HOOKS/lib/gate.sh" 2>/dev/null || ! gate_require; then
+  echo "The commit gate (.claude/hooks/lib/gate.sh) is broken or missing; fix it before finishing." >&2
+  exit 2
+fi
 
 # Uncommitted code only (.py, .dart): documentation never blocks a stop.
-CHANGED=$(git status --porcelain --untracked-files=all 2>/dev/null | cut -c4- | sed 's/.* -> //' | grep -E '\.(py|dart)$')
+CHANGED=$(git status --porcelain --no-renames --untracked-files=all 2>/dev/null | cut -c4- | grep -E '\.(py|dart)$')
 [ -z "$CHANGED" ] && exit 0
 
 TO_RUN=()

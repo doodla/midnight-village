@@ -17,8 +17,9 @@ just samples                    # re-record contract_samples/ after a payload ch
 just harness-serve              # DEBUG backend on 127.0.0.1:8001 for the e2e harness
 ```
 
-`backend/.env` holds your own `DB_NAME` and never `DJANGO_SETTINGS_MODULE` (it makes the
-tests run under dev settings). Setup: `docs/dev/environment.md`.
+Set up with `tool/setup_env.sh <db_name>` (or `just install`): never `uv sync --all-extras`,
+never `.env.example` copied as is. `backend/.env` holds your own `DB_NAME` and never
+`DJANGO_SETTINGS_MODULE` (it makes the tests run under dev settings). `docs/dev/environment.md`.
 
 ## Deploy-safe changes
 
@@ -29,7 +30,8 @@ serves. Full rules: `docs/dev/deploy-vercel.md`, "Deploy-safe changes". In one l
 - No `from apps...` in a migration; copy what it needs.
 - `SET LOCAL lock_timeout = '5s'` is the first operation of every migration from 0010 on.
 - Every new NOT NULL column has a `db_default` and a Python `default`.
-- Every migration gets a case in `tests/test_migrations.py`.
+- Every migration gets a case in `tests/test_migrations.py`; never add columns to the old
+  code's INSERTs in `tests/old_code.py`; a backfill touches only what it must.
 - Socket consumers extend `TolerantJsonWebsocketConsumer`, so old instances drop a new event type.
 
 ## Rules that have bitten
@@ -55,6 +57,9 @@ serves. Full rules: `docs/dev/deploy-vercel.md`, "Deploy-safe changes". In one l
   silently.
 - **Throttle rates live in test settings**; without them guest sign-up tests fail with 429s.
 - **One process for the memory timer backend** (dev, tests, harness): its timers are threads.
+- **Timers in tests**: an autouse fixture makes `timers.schedule` a no-op; `make_night`
+  records callbacks you call to run the job; real rows and threads need
+  `@pytest.mark.uses_timers` (`tests/README.md`).
 
 ## Contract samples
 
@@ -77,5 +82,5 @@ DEBUG-only endpoints (forced deal, `debug-state` oracle, `debug-fire-timer`; 403
 production) live in `apps/onuw/debug.py` and `debug_views.py`. `tools/game_driver.py` drives a
 whole game through them. Docs: `docs/dev/debug-harness/`.
 
-`.pre-commit-config.yaml` (repo root) is optional; the commit gate that runs is
-`.claude/hooks/pre-commit-gate.sh`.
+`.pre-commit-config.yaml` (repo root) is optional; the commit gate is git's own hooks in
+`.claude/hooks/git/` (`docs/claude-architecture.md`).

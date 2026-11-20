@@ -9,7 +9,7 @@ work stands: `docs/dev/status.md`.
 1. **Server-authoritative**: all game logic on the server; clients send actions and show results.
 2. **Hidden information**: responses, socket events and errors are player-scoped; never leak another player's secret.
 3. **State machine**: phases (lobby, night, discussion, voting, results) with explicit transitions; reject invalid ones.
-4. **Atomicity**: state changes are all-or-nothing (`@atomic`).
+4. **Atomicity**: state changes are all-or-nothing (`@atomic`). Game logic is unit-testable without HTTP or Django.
 5. **Determinism**: all randomness seeded and logged.
 6. **Separate game apps**: `apps.core` is shared infrastructure; each game is its own app (`apps.onuw`); no premature abstraction.
 7. **HTTP for actions, WebSockets for events**: never submit a player action over a socket.
@@ -23,7 +23,7 @@ work stands: `docs/dev/status.md`.
 - Every screen change gets a "does it look good" review by eye, and before/after pictures go to the owner before it merges.
 - Every change is reviewed by a fresh agent that was not given the author's conclusions. When a review finds something, fix the cause as a mechanism, not the instance.
 - Subagents: one worktree and one `DB_NAME` each. Port 8001 is shared: check it before `just test-harness`. Timing tests fail falsely under load: re-run alone.
-- Test fixtures come only from `contract_samples/`; after a payload change run `just samples` and review the diff.
+- Test fixtures come only from `contract_samples/`; after a payload change, and after merging a branch that changes payloads, run `just samples` and review the diff.
 - The server is LIVE: every push migrates the shared database (rules: `backend/CLAUDE.md`, "Deploy-safe changes"). Do not touch the owner's Vercel, Neon or Redis accounts; ask before generating large batches of art. Fetch and merge before pushing; after pushing server changes, tell the deployment session (id in `docs/dev/status.md`).
 - Never open or read https://github.com/mankidev/antialgorithm in a main session; only subagents may, and they must not reproduce it.
 - Ordering and concurrency logic (server stage handling, the phone's outbox) is model-checked in focused slices: `docs/dev/models/README.md`.
@@ -54,7 +54,7 @@ More: `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `just --list`. Setup: `docs/dev
 ## Commits
 
 - `type(scope): description`; types feat, fix, test, refactor, docs, chore. Tests: descriptive names, seeded, several players; coverage 80% minimum.
-- The commit gate runs the checks for the paths you stage; never bypass it.
+- Git's own hooks (`.claude/hooks/git/`, on once per clone via `tool/setup_env.sh`) run the checks for what you commit; never `--no-verify` or any other bypass. Give a committing Bash call `timeout` 600000 or run it in the background: the suites take minutes.
 - A change under `.claude/` updates `docs/claude-architecture.md` in the same commit.
 
 ## Pointers

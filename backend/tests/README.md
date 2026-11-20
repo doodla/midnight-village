@@ -7,7 +7,7 @@ multi-player scenarios. Coverage minimum 80% (`pyproject.toml`).
 
 ## Side effects after commit, and timers in tests
 
-Every WebSocket send and `timers.schedule/cancel` in the night flow goes through `transaction.on_commit` (`_send_after_commit`, `_schedule_after_commit`, `_cancel_after_commit`), so a rollback leaves nothing sent or rescheduled. Tests that call these services inside pytest's transaction must use `django_capture_on_commit_callbacks(execute=True)` (or `django_db(transaction=True)`). The autouse fixture makes `timers.schedule` a no-op; `make_night` (`tests/onuw/conftest.py`) records `(key, delay, callback)` instead, where calling the callback runs the job; tests that need real rows/threads use `@pytest.mark.uses_timers` and, for the queue backend, `timers.set_queue_sender(fake)` + `queue_worker.handle_message(payload)`.
+Every WebSocket send and `timers.schedule` / `cancel` in the night flow goes through `transaction.on_commit` (`_send_after_commit`, `_schedule_after_commit`, `_cancel_after_commit`), so a rollback leaves nothing sent or rescheduled. Tests that call these services inside pytest's transaction must use `django_capture_on_commit_callbacks(execute=True)` (or `django_db(transaction=True)`). The autouse fixture makes `timers.schedule` a no-op; `make_night` (`tests/onuw/conftest.py`) records `(key, delay, callback)` instead, where calling the callback runs the job; tests that need real rows/threads use `@pytest.mark.uses_timers` and, for the queue backend, `timers.set_queue_sender(fake)` + `queue_worker.handle_message(payload)`.
 
 ## Traps
 

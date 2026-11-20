@@ -3,7 +3,7 @@
 # exception. The old look's libraries are marked @Deprecated('OLD LOOK: ...'),
 # so each use of them is reported; a use in a file listed in
 # tool/old_look_users.txt (the files that used the old look when it was
-# marked, tracked by the removal checklist in frontend/CLAUDE.md) is counted
+# marked, tracked by the removal checklist in docs/dev/old-look-removal.md) is counted
 # and shown, not failed. A use anywhere else fails: no new code may take up
 # the old look. A listed file that no longer uses it fails too, so the list
 # only shrinks: delete its line.

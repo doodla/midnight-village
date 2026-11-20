@@ -1,7 +1,7 @@
 # Files that used the old look when it was marked @Deprecated('OLD LOOK: ...').
 # tool/analyze_gate.sh (`just analyze`) lets their uses through and fails on
 # any other file's. Delete a line when its file stops using the old look;
-# never add one. The removal checklist is in frontend/CLAUDE.md.
+# never add one. The removal checklist is in docs/dev/old-look-removal.md.
 integration_test/auth_flow_test.dart
 lib/design_system/models/role.dart
 lib/features/auth/presentation/home_screen.dart

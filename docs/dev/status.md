@@ -56,4 +56,5 @@ changes. Last updated 20 November 2026.
 - DRF throttles are per instance on Vercel and keyed on a spoofable header: a courtesy, not
   protection.
 - Parallel agents set their own `DB_NAME` by hand; nothing enforces it.
-- Six sample looks were made for the owner (not in the repository); waiting for a reaction.
+- Six sample looks were made for the owner (https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2,
+  not in the repository); waiting on the owner: no more look work until they react.

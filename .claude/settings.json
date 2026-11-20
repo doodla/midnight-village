@@ -17,8 +17,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-commit-gate.sh",
-            "timeout": 1800
+            "command": "python3 .claude/hooks/git_guard.py",
+            "timeout": 30,
+            "onFailure": "block"
           }
         ]
       }
