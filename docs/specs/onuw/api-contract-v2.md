@@ -813,3 +813,24 @@ else's; protocol 1 is unchanged.
   server would take a second choose from any phone; the extra request itself is visible
   and accepted, as is her look's extra work in her first request (`backend/apps/onuw/README.md`). The legacy
   `has_voted` and `your_role.has_acted` are still sent; they go with the cleanup slice.
+
+## Fourth amendment: the stage clock, the vote list, the server's `Date` (20 November 2026)
+
+Three additions for the rebuilt phone screens; all additive, no migration, protocol 1 unchanged.
+
+- **`GET /me/` `stage_started_at`** (protocol 2): when the timed stage that is open now (the
+  look, window 1, window 2, the talk, the vote) opened, in `deadline`'s format (ISO 8601 with
+  offset). It is null whenever `deadline` is null (an untimed stage, the results) and for a
+  stage opened by code from before it existed. The same on every phone; it depends only on
+  when the stage opened, never on a role. A restart's reconnect allowance moves `deadline`,
+  never `stage_started_at`, so a phone draws the stage as it really ran. Stored in the
+  existing `Game.night_window_opened_at`, which every stage now sets when it opens (the
+  night's minimum-length rule still reads it only in a night window).
+- **`GET /me/` `vote_targets`** (protocol 2): while voting, the player ids the caller may vote
+  for, in seat order: every player in the game but the caller (no self-votes,
+  `voting-and-resolution.md`), the same list `POST .../vote/` accepts, whoever has picked,
+  locked or dropped. Null outside the vote. The phone lists exactly these and holds no rule.
+- **CORS exposes `Date`** (`CORS_EXPOSE_HEADERS = ["Date"]` in the base settings, so every
+  environment): a web app on an allowed origin can read the server's clock from the
+  response `Date` header to draw `deadline` and `stage_started_at` against it instead of
+  the phone's clock. Origins are unchanged (`CORS_ALLOWED_ORIGINS` per environment).

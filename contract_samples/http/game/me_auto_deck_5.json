@@ -84,5 +84,7 @@
     "done": 0,
     "needed": 5
   },
-  "stage": "look.000000000009"
+  "stage": "look.000000000009",
+  "stage_started_at": "2024-03-07T21:32:38+00:00",
+  "vote_targets": null
 }

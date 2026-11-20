@@ -61,8 +61,9 @@ class GameMeSerializer(serializers.Serializer):
     night_results_seen = serializers.SerializerMethodField()
 
     def to_representation(self, instance: Game) -> dict[str, Any]:
-        """The body. A game that plays night protocol 2 also gets ``my_vote``,
-        ``ready``, ``progress`` and ``stage`` (and its players list says nothing about
+        """The body. A game that plays night protocol 2 also gets ``player_id``,
+        ``my_vote``, ``ready``, ``progress``, ``stage``, ``stage_started_at`` and
+        ``vote_targets`` (and its players list says nothing about
         who locked in); a game that plays the original night is answered exactly as
         it always was, and none of that is even computed for it."""
         data = super().to_representation(instance)
@@ -73,7 +74,39 @@ class GameMeSerializer(serializers.Serializer):
             data["ready"] = self._ready(instance)
             data["progress"] = self._progress(instance)
             data["stage"] = stage_token(instance)
+            data["stage_started_at"] = self._stage_started_at(instance)
+            data["vote_targets"] = self._vote_targets(instance)
         return data
+
+    def _stage_started_at(self, game: Game) -> str | None:
+        """When the timed stage that is open now (the look, a night window, the
+        talk, the vote) opened, in ``deadline``'s format, so a phone that restarts
+        can draw how much of the stage has passed. The same for every player.
+
+        None when the stage has no deadline (untimed, or no stage is open), and
+        for a stage opened by code from before this field (the open time was not
+        recorded then). Stored in ``Game.night_window_opened_at``, which every
+        stage sets when it opens (no new column)."""
+        opened_at = game.night_window_opened_at
+        if game.phase_deadline is None or opened_at is None:
+            return None
+        if game.phase not in (Phase.NIGHT, Phase.DISCUSSION, Phase.VOTING):
+            return None
+        return opened_at.isoformat()
+
+    def _vote_targets(self, game: Game) -> list[int] | None:
+        """While voting: the player ids the caller may vote for, in seat order
+        (every player in the game but the caller: no self-votes,
+        ``docs/specs/onuw/voting-and-resolution.md``; the same rule
+        ``services.submit_vote`` checks). None outside the vote."""
+        player_role = self.context.get("player_role")
+        if game.phase != Phase.VOTING or player_role is None:
+            return None
+        return [
+            pr.user_id
+            for pr in self.context.get("all_player_roles", [])
+            if pr.user_id != player_role.user_id
+        ]
 
     def get_deadline(self, game: Game) -> str | None:
         """

@@ -94,5 +94,7 @@
   "my_vote": null,
   "ready": null,
   "progress": null,
-  "stage": null
+  "stage": null,
+  "stage_started_at": null,
+  "vote_targets": null
 }

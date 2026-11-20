@@ -523,8 +523,14 @@ def _start_look_stage(game: Game, seconds: int) -> None:
     """Hold the night at window 0 until everyone has looked at their card, or the
     backstop fires, or the host moves on. Shows nothing about roles."""
     with transaction.atomic():
-        game.phase_deadline = timezone.now() + timedelta(seconds=seconds)
-        game.save(update_fields=["phase_deadline", "updated_at"])
+        opened_at = timezone.now()
+        # ``night_window_opened_at`` is the open time of whichever stage is open
+        # (look, a night window, talk, vote): ``/me/`` ``stage_started_at``.
+        game.night_window_opened_at = opened_at
+        game.phase_deadline = opened_at + timedelta(seconds=seconds)
+        game.save(
+            update_fields=["phase_deadline", "night_window_opened_at", "updated_at"]
+        )
     _schedule_after_commit(
         _look_timer_key(game), seconds, "card_look", {"game_id": str(game.id)}
     )
@@ -1168,9 +1174,12 @@ def transition_to_discussion(game: Game) -> None:
     with transaction.atomic():
         game.phase = Phase.DISCUSSION
         game.current_wave = 0
-        game.night_window_opened_at = None
+        # The talk's open time (``/me/`` ``stage_started_at``); the night's
+        # minimum-length rule never reads it outside a night window.
+        opened_at = timezone.now()
+        game.night_window_opened_at = opened_at
         if discussion_seconds > 0:
-            game.phase_deadline = timezone.now() + timedelta(seconds=discussion_seconds)
+            game.phase_deadline = opened_at + timedelta(seconds=discussion_seconds)
         else:
             game.phase_deadline = None
         game.save(
@@ -1463,11 +1472,20 @@ def transition_to_voting(game: Game) -> None:
 
     with transaction.atomic():
         game.phase = Phase.VOTING
+        opened_at = timezone.now()
+        game.night_window_opened_at = opened_at  # the vote's open time
         if voting_seconds > 0:
-            game.phase_deadline = timezone.now() + timedelta(seconds=voting_seconds)
+            game.phase_deadline = opened_at + timedelta(seconds=voting_seconds)
         else:
             game.phase_deadline = None
-        game.save(update_fields=["phase", "phase_deadline", "updated_at"])
+        game.save(
+            update_fields=[
+                "phase",
+                "phase_deadline",
+                "night_window_opened_at",
+                "updated_at",
+            ]
+        )
 
         # Reset has_acted for all players (tracks vote submission)
         # pyrefly: ignore [missing-attribute]

@@ -120,5 +120,7 @@
     "done": 0,
     "needed": 9
   },
-  "stage": "look.000000000010"
+  "stage": "look.000000000010",
+  "stage_started_at": "2024-03-07T21:41:38+00:00",
+  "vote_targets": null
 }

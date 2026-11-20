@@ -48,13 +48,12 @@ changes. Last updated 20 November 2026.
 - A request whose answer was lost but which the server processes late can overtake a newer
   tap of the same lane; closing it needs a per-phone sequence number on the server.
 - Ten long names on a 320-wide phone: the night board falls under the 14 px reading floor.
-- Recorder gap: no contract sample of a Doppelganger who copied the Minion with a follow-up.
 - Protocol 1 only (goes with the cleanup slice): across several server instances a phone can
   get `action_prompt` before `wave_start` and lose its prompt. (The unreachable "your card"
   screen is fixed under protocol 2.)
-- The server should send `CORS_EXPOSE_HEADERS = ["Date"]` (or a `server_time` field) so the web
-  app can read the server's clock; until then it times fetches by the phone's clock. Tell the
-  deployment session when it is added.
+- The server now sends `CORS_EXPOSE_HEADERS = ["Date"]` (base settings) and `/me/`
+  `stage_started_at`; the app does not read either yet (it times fetches by the phone's
+  clock). The deployment session has to be told the CORS change.
 - `ENV` defaults to dev, so a build without `--dart-define=ENV=prod` includes the dev-only
   shell and gate.
 - Untidy protocol-1 payloads still open: `docs/dev/server-payload-quirks.md`.

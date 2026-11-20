@@ -630,7 +630,13 @@ class TestWindowsAlwaysRun:
         night.start()
 
         assert night.game.current_wave == 0
-        assert night.game.night_window_opened_at is None
+        # The open time now belongs to the talk (``/me/`` ``stage_started_at``),
+        # set when the talk opened: no night window's is left behind.
+        assert night.game.phase == Phase.DISCUSSION
+        assert night.game.night_window_opened_at is not None
+        assert night.game.phase_deadline == night.game.night_window_opened_at + (
+            timedelta(seconds=300)
+        )
 
 
 # ── skip ─────────────────────────────────────────────────────────────────────

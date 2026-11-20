@@ -101,5 +101,7 @@
   "my_vote": null,
   "ready": null,
   "progress": null,
-  "stage": "w2.000000000007"
+  "stage": "w2.000000000007",
+  "stage_started_at": "2024-03-07T21:18:38+00:00",
+  "vote_targets": null
 }

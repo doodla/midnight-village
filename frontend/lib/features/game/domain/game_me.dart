@@ -69,6 +69,7 @@ class GameMe {
     required this.phase,
     required this.window,
     required this.deadline,
+    required this.stageStartedAt,
     required this.stage,
     required this.dealt,
     required this.finalRole,
@@ -83,6 +84,7 @@ class GameMe {
     required this.myVote,
     required this.ready,
     required this.progress,
+    required this.voteTargets,
   });
 
   /// A protocol-2 `/me/` body. One without a `stage` key is protocol 1
@@ -106,6 +108,8 @@ class GameMe {
     final rawProgress = me['progress'] as Map<String, dynamic>?;
     final results = me['night_results'] as List;
     final deadline = me['deadline'] as String?;
+    final stageStartedAt = me['stage_started_at'] as String?;
+    final voteTargets = me['vote_targets'] as List?;
     final finalRole = role['current_role'] as String?;
     return GameMe._(
       playerId: me['player_id'] as int,
@@ -114,6 +118,9 @@ class GameMe {
       phase: GamePhase.fromServer(me['phase']),
       window: me['current_wave'] as int,
       deadline: deadline == null ? null : DateTime.parse(deadline),
+      stageStartedAt: stageStartedAt == null
+          ? null
+          : DateTime.parse(stageStartedAt),
       stage: me['stage'] as String?,
       dealt: serverRole(role['original_role']),
       finalRole: finalRole == null ? null : serverRole(finalRole),
@@ -133,15 +140,20 @@ class GameMe {
       progress: rawProgress == null
           ? null
           : StageProgress.fromJson(rawProgress),
+      voteTargets: voteTargets == null
+          ? null
+          : List.unmodifiable(voteTargets.cast<int>()),
     );
   }
 
   static const _alwaysSent = [
     'deadline',
+    'stage_started_at',
     'action_prompt',
     'my_vote',
     'ready',
     'progress',
+    'vote_targets',
   ];
 
   /// This phone's own player id (`player_id`).
@@ -160,6 +172,10 @@ class GameMe {
   /// When the server ends the stage on its own; null when untimed. Every
   /// countdown is read from this, never assumed.
   final DateTime? deadline;
+
+  /// When the timed stage open now began (`stage_started_at`), the same on
+  /// every phone; null whenever [deadline] is.
+  final DateTime? stageStartedAt;
 
   /// The opaque name of the stage the game is in, which every stage-scoped
   /// request echoes; null when no stage takes requests (the results).
@@ -203,6 +219,10 @@ class GameMe {
   /// Counts at the look, talk and vote; null elsewhere.
   final StageProgress? progress;
 
+  /// In the vote: the player ids this phone may vote for, in seat order
+  /// (`vote_targets`, every other player); null elsewhere.
+  final List<int>? voteTargets;
+
   /// Results this phone has not acknowledged yet.
   bool get hasUnseenResults => nightResultCount > nightResultsSeen;
 
@@ -229,6 +249,7 @@ class GameMe {
     phase: phase,
     window: window,
     deadline: deadline,
+    stageStartedAt: stageStartedAt,
     stage: stage,
     dealt: dealt,
     finalRole: finalRole,
@@ -243,6 +264,7 @@ class GameMe {
     myVote: clearVote ? null : myVote ?? this.myVote,
     ready: clearReady ? null : ready ?? this.ready,
     progress: progress ?? this.progress,
+    voteTargets: voteTargets,
   );
 
   /// With this turn's choose sent ([ChoosePrompt.afterChoose]).
