@@ -1,4 +1,9 @@
 // OLD LOOK: delete when 01 Join, 02 Table and the game screens (04 to 11) are rebuilt
+@Deprecated(
+  'OLD LOOK: delete when 01 Join, 02 Table and the game screens (04 to 11) are rebuilt. Build screens from lib/design_system/primitives/ instead.',
+)
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';

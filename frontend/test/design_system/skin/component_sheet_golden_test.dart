@@ -11,7 +11,8 @@ import '../../helpers/component_sheet.dart';
 const _pages = [
   (ComponentPage.buttons, GroundKind.night),
   (ComponentPage.players, GroundKind.day),
-  (ComponentPage.table, GroundKind.night),
+  (ComponentPage.action, GroundKind.night),
+  (ComponentPage.vote, GroundKind.day),
 ];
 
 /// Asset images load on real I/O, which the test clock never waits for.

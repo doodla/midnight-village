@@ -1,4 +1,9 @@
 // OLD LOOK: delete when 04 Your card, 06 Night action, 07 What you saw, 10 The count and 11 Results are rebuilt
+@Deprecated(
+  'OLD LOOK: delete when 04 Your card, 06 Night action, 07 What you saw, 10 The count and 11 Results are rebuilt. Build screens from lib/design_system/primitives/ instead.',
+)
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:midnight_village/design_system/models/role.dart';

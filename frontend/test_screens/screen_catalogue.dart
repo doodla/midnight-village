@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:midnight_village/design_system/skin/ground.dart';
-
 import '../test/helpers/component_sheet.dart';
 import 'screen_fixtures.dart';
 
@@ -107,26 +105,15 @@ final screenCatalogue = <ScreenEntry>[
   ...componentSheet,
 ];
 
-/// The mock a component page is compared with, where one shows the same
-/// parts on the same ground.
-const _componentMocks = {
-  (ComponentPage.deck, GroundKind.night): '03-deck.png',
-  (ComponentPage.sheet, GroundKind.night): '03b-deck-role-explained.png',
-  (ComponentPage.card, GroundKind.night): '04-your-card.png',
-  (ComponentPage.table, GroundKind.night): '06-night-action.png',
-  (ComponentPage.daylight, GroundKind.day): '08-talk.png',
-  (ComponentPage.players, GroundKind.day): '09-vote.png',
-  (ComponentPage.frame, GroundKind.night): '01-join.png',
-};
-
-/// The primitives (test/helpers/component_sheet.dart), each page on the
-/// night and the day ground: `c-<page>-<ground>`.
+/// The component sheet (test/helpers/component_sheet.dart): each mock
+/// rebuilt from the primitives, next to its mock, and each state page on every
+/// ground: `c-<page>-<ground>`.
 final componentSheet = [
   for (final page in ComponentPage.values)
-    for (final ground in [GroundKind.night, GroundKind.day])
+    for (final ground in page.grounds)
       ScreenEntry(
         'c-${page.name}-${ground.name}',
-        mock: _componentMocks[(page, ground)],
+        mock: page.mock,
         build: (tester) => pumpComponentPage(tester, page, ground),
       ),
 ];

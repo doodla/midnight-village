@@ -20,6 +20,7 @@ class Ground {
     required this.quietText,
     required this.faintText,
     required this.hairline,
+    required this.idle,
     required this.outline,
     required this.edge,
     required this.shadow,
@@ -59,6 +60,9 @@ class Ground {
 
   /// Rules, rings of inactive things, the empty part of a progress bar.
   final Color hairline;
+
+  /// The ring of a player who has not done the thing being counted yet.
+  final Color idle;
 
   /// The stroke of outline buttons and inputs.
   final Color outline;

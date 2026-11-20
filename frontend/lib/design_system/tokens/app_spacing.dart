@@ -1,4 +1,9 @@
 // OLD LOOK: delete when the last old-look screen is rebuilt
+@Deprecated(
+  'OLD LOOK: delete when the last old-look screen is rebuilt. Build screens from lib/design_system/primitives/ instead.',
+)
+library;
+
 abstract final class AppSpacing {
   static const xs = 4.0;
   static const sm = 8.0;

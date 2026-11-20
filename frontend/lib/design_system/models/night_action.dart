@@ -1,3 +1,9 @@
+// OLD LOOK: delete when 06 Night action is rebuilt
+@Deprecated(
+  'OLD LOOK: delete when 06 Night action is rebuilt. Build screens from lib/design_system/primitives/ instead.',
+)
+library;
+
 enum NightActionType {
   peekPlayer, // Seer option A
   peekCenter, // Seer option B, lone werewolf

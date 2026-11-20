@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
-/// Corner radii, stroke widths and the few shape choices a skin makes.
+/// Corner radii, stroke widths and the few shape choices a skin makes (with
+/// the hard shadows in each `Ground` and the tilts in `SkinTilt`, a skin's
+/// shape).
 /// Roundness values run from 0 (square corners) to 1 (fully round).
 @immutable
 class SkinShape {
@@ -21,6 +23,8 @@ class SkinShape {
     required this.pip,
     required this.pipRoundness,
     required this.pipEmptyStroke,
+    required this.pipStretch,
+    required this.archRoundness,
   });
 
   /// Cards, buttons, panels, portraits in a grid.
@@ -65,6 +69,14 @@ class SkinShape {
 
   /// The outline of an empty pip; 0 draws it as a filled hairline instead.
   final double pipEmptyStroke;
+
+  /// Pips share the row's width as bars of [pip]'s height instead of keeping
+  /// [pip]'s width.
+  final bool pipStretch;
+
+  /// How round the top of an arched portrait frame is (the winner's portrait,
+  /// S11): 1 a full half circle, 0 square.
+  final double archRoundness;
 
   /// Corners of a box [height] tall at [roundness].
   double corner(double height, double roundness, {double square = 0}) =>

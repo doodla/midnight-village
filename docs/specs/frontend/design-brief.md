@@ -35,7 +35,7 @@ Rules for the look:
 - Two colours do most of the work. No pastel player colours. A player is a name and a **token**: a small round cut-paper emblem (crow, key, moth, bell, thorn and so on) given at the table, so people are recognisable at a glance without colour.
 - Timers should come from the world (a candle burning down, the pale sun climbing over the rooftops) with the number kept small beside it.
 - Drifting specks are kept, redrawn as paper scraps and ash. Never more than 60 on screen at once. Test early on a mid-range Android phone in the browser and lower the count there if it stutters.
-- **One layout, two skins.** Build every screen once. A skin may change art, colours and type only, so "Night print" can be added later without rebuilding screens.
+- **One layout, two skins.** Build every screen once. A skin may change its art, colours, type and shape (corner radii, border widths, hard shadows, tilt) and nothing else. Spacing and motion are the same in every skin: they are shared layout and motion constants, not part of a skin, so a skin can never move a thing on the screen or change how long it takes to move. "Night print" is a second skin on the same screens; a further skin is one more skin file and one entry in the skin registry.
 
 ### Role art
 
@@ -86,7 +86,7 @@ Decisions that shape those screens:
 - **Pace** lives on the deck screen: talk, vote, night and Doppelganger window lengths. The server already takes these as table settings.
 - **Night, your action** shows the other players' face-down cards and the three center cards; the player taps the card to look at or swap.
 - **No explanatory copy.** Screens say what to do in a few words. Lines that explain the design to the player are cut.
-- **Type scale.** Headings 26 to 36, timers 64 to 84, labels 12 uppercase, body 15 to 17. Nothing larger.
+- **Type scale.** Headings 26 to 36, timers 64 to 84 (a compact one beside a picture 34), vote counts 28, labels 12 uppercase, body 15 to 17, and names, buttons and small print 11 to 24. Nothing larger, except one **hero line** per screen, which follows its mock: the app's name on Join (46), the table code (46, tracked +0.08em), the role name on your card (58, -0.02em, line height 0.9), who dies (44) and who won (40). Every skin is held to this scale, heroes included.
 - **The count** shows who voted for whom as the voters' tokens beside the accused.
 
 ## 5. How the night runs
