@@ -89,7 +89,7 @@ in Night print. Per picture: the Hunter's grey face is warmed to match the other
 Werewolf runs a step hotter than the people.
 
 The frames are stored as lossless WebP (flat colours in square cells compress well and lossy
-coding would smear them): 30 pictures, 284 KB.
+coding would smear them): 30 pictures, 199 KB in all (Night print's set is 991 KB).
 
 ## Where it came from, and licences
 
