@@ -6,6 +6,7 @@ NO Django imports allowed in this module. This is pure game logic.
 
 from __future__ import annotations
 
+from .decks import DECK_CHIPS
 from .roles import ROLE_REGISTRY
 
 # Every timer setting the server reads, in seconds. 0 disables that timer
@@ -18,6 +19,7 @@ TIMER_SETTING_KEYS: tuple[str, ...] = (
     "voting_seconds",
     "disconnect_grace_seconds",
     "host_handover_seconds",
+    "card_look_seconds",
 )
 MAX_TIMER_SECONDS = 3600
 # Per-setting ceilings that are lower than MAX_TIMER_SECONDS. The disconnect
@@ -27,6 +29,9 @@ MAX_TIMER_SECONDS = 3600
 TIMER_SETTING_MAX_SECONDS: dict[str, int] = {
     "disconnect_grace_seconds": 60,
     "host_handover_seconds": 600,
+    # The look stage's backstop: how long the table may take to look at its cards
+    # (0 = no look stage: the night opens at the deal).
+    "card_look_seconds": 120,
 }
 
 
@@ -88,8 +93,70 @@ def validate_pace(settings: dict) -> list[str]:
     return []
 
 
+DECK_MODES: tuple[str, ...] = ("auto", "custom")
+
+
+def validate_deck_choice(settings: dict) -> list[str]:
+    """``deck`` (``auto`` or ``custom``) and ``deck_chip`` (a chip of ``engine.decks``),
+    if present. Under ``auto`` the server builds the deck at the deal; under
+    ``custom`` (or no ``deck`` at all) the ``roles`` the host chose are the deck."""
+    errors: list[str] = []
+    if "deck" in settings and settings["deck"] not in DECK_MODES:
+        errors.append(f"'deck' must be one of: {', '.join(DECK_MODES)}.")
+    if "deck_chip" in settings and settings["deck_chip"] not in DECK_CHIPS:
+        errors.append(f"'deck_chip' must be one of: {', '.join(DECK_CHIPS)}.")
+    return errors
+
+
+# Night protocol 1 is the original per-role night; 2 is "every phone sends one
+# choose" (see ``choose.py``). Absent means 1.
+NIGHT_PROTOCOLS: tuple[int, ...] = (1, 2)
+# Under protocol 2 the close of a window must not depend on roles, so a window with
+# no deadline (one idle phone could stall the table and a window 1 with no length
+# singles out the Doppelganger) and a minimum window shorter than this are refused,
+# unless the server allows untimed nights (tests, development, the harness).
+MIN_PROTOCOL_2_MIN_WINDOW_SECONDS = 5
+PROTOCOL_2_TIMED_KEYS: tuple[str, ...] = (
+    "night_wave_seconds",
+    "night_doppelganger_window_seconds",
+)
+
+
+def validate_night_protocol(settings: dict, *, allow_untimed: bool = True) -> list[str]:
+    """``night_protocol`` (if present) must be 1 or 2. Under 2, unless
+    ``allow_untimed``: no zero night timers and a minimum window of at least 5 s. The look stage
+    (``card_look_seconds`` above 0) belongs to protocol 2 only."""
+    protocol = settings.get("night_protocol", 1)
+    if "night_protocol" in settings and (
+        type(protocol) is not int or protocol not in NIGHT_PROTOCOLS
+    ):
+        return ["'night_protocol' must be 1 or 2."]
+    errors: list[str] = []
+    look = settings.get("card_look_seconds")
+    if protocol != 2 and type(look) is int and look > 0:
+        errors.append("'card_look_seconds' needs 'night_protocol' 2.")
+    if protocol != 2 or allow_untimed:
+        return errors
+    errors += [
+        f"{key!r} cannot be 0 when every phone chooses at night."
+        for key in PROTOCOL_2_TIMED_KEYS
+        if type(settings.get(key)) is int and settings.get(key) == 0
+    ]
+    window_min = settings.get("night_min_window_seconds")
+    if type(window_min) is int and window_min < MIN_PROTOCOL_2_MIN_WINDOW_SECONDS:
+        errors.append(
+            "'night_min_window_seconds' must be at least "
+            f"{MIN_PROTOCOL_2_MIN_WINDOW_SECONDS} when every phone chooses at night."
+        )
+    return errors
+
+
 def validate_onuw_settings(
-    settings: dict, player_count: int, *, check_deck: bool = True
+    settings: dict,
+    player_count: int,
+    *,
+    check_deck: bool = True,
+    allow_untimed: bool = True,
 ) -> list[str]:
     """
     Validate ONUW role configuration.
@@ -102,6 +169,8 @@ def validate_onuw_settings(
                     does; a settings change that does not touch ``roles`` (a pace
                     label, a timer) skips it, because who joined meanwhile is not
                     that change's fault and the deal checks again.
+        allow_untimed: Allow zero night timers and a short minimum window under
+                    night protocol 2 (the server's ``ONUW_ALLOW_UNTIMED_NIGHT``).
 
     Returns:
         List of error messages. Empty list means valid.
@@ -109,7 +178,12 @@ def validate_onuw_settings(
     if not isinstance(settings, dict):
         return ["Settings must be an object."]
 
-    errors: list[str] = [*validate_timer_settings(settings), *validate_pace(settings)]
+    errors: list[str] = [
+        *validate_timer_settings(settings),
+        *validate_pace(settings),
+        *validate_night_protocol(settings, allow_untimed=allow_untimed),
+        *validate_deck_choice(settings),
+    ]
     if not check_deck:
         return errors
 
@@ -118,6 +192,11 @@ def validate_onuw_settings(
 
     if player_count > 10:
         errors.append(f"At most 10 players allowed, got {player_count}.")
+
+    if settings.get("deck") == "auto":
+        # The server builds the deck at the deal for the players then at the table
+        # (``engine.decks``): any card list lying around is ignored.
+        return errors
 
     roles = settings.get("roles")
     if roles is None:

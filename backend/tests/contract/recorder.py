@@ -54,15 +54,25 @@ from apps.core.consumers import LobbyConsumer
 from apps.core.models import LobbyMember, ScheduledTimer, User
 from apps.onuw import services
 from apps.onuw.consumers import GameConsumer
-from apps.onuw.models import PlayerRole
+from apps.onuw.models import Game, PlayerRole
+from apps.onuw.protocol import is_choose_night, stage_token
 
 START = datetime(2024, 3, 7, 20, 50, tzinfo=UTC)
-LOBBY_CODES = ("K7QX4M", "M2RV8P", "Q4TW9N")
+LOBBY_CODES = (
+    "K7QX4M",
+    "M2RV8P",
+    "Q4TW9N",
+    # The night-protocol-2 tables (scenarios.protocol_two_tables) come after.
+    "R5ZD3H",
+    "T8NB6C",
+    "V9YC2J",
+    "W3XF7K",
+)
 # Stand-ins for the game ids, in the order the games are dealt.
 GAME_IDS = (
     "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
     "9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e",
-    *(f"00000000-0000-4000-a000-{n:012d}" for n in range(3, 10)),
+    *(f"00000000-0000-4000-a000-{n:012d}" for n in range(3, 20)),
 )
 FORCED_SEED = 424242
 
@@ -219,10 +229,41 @@ class Table:
             client = self.players[who].client if who else APIClient()
         ids = {"code": self.code, "game_id": self.game_id, **fill}
         url = "/api" + path.format(**ids)
+        body = self._staged(path, body, ids["game_id"])
         send = getattr(client, method.lower())
         with self._capture_on_commit(execute=True), override_settings(DEBUG=debug):
             response = send(url, body, format="json")
         return response.status_code, json.loads(response.content or b"null")
+
+    STAGE_ENDPOINTS = (
+        "/action/",
+        "/ready/",
+        "/vote/",
+        "/advance-wave/",
+        "/end-discussion/",
+        "/reveal-votes/",
+    )
+
+    def _staged(
+        self, path: str, body: dict[str, Any] | None, game_id: str
+    ) -> dict[str, Any] | None:
+        """The way the app sends it: a request to a stage-scoped endpoint of a game
+        that plays night protocol 2 names the stage the game is in NOW (read from
+        ``/me/``'s own function), unless the scenario names one (a stale token)."""
+        if not game_id or not path.endswith(self.STAGE_ENDPOINTS):
+            return body
+        if body is not None and not isinstance(body, dict):
+            return body
+        game = Game.objects.filter(id=game_id).first()
+        if game is None or not is_choose_night(game) or "stage" in (body or {}):
+            return body
+        return {**(body or {}), "stage": stage_token(game)}
+
+    def stage_now(self) -> str:
+        """The stage token the game is in now, to be sent LATER as a stale one."""
+        token = stage_token(Game.objects.get(id=self.game_id))
+        assert token is not None
+        return token
 
     def record(
         self,
@@ -400,7 +441,7 @@ class Table:
             )
         assert got == 201, payload
         self.game_id = payload["game_id"]
-        self.recorder.stable(self.game_id, next(self._game_ids))
+        self._pin_game_id()
         if sample:
             self.recorder.add(
                 f"http/{sample}",
@@ -413,6 +454,64 @@ class Table:
                 },
                 payload,
             )
+
+    def _pin_game_id(self) -> None:
+        """The game id is random: its stand-in, and the piece of it a stage token
+        carries (``/me/``'s ``stage``), are fixed."""
+        stand_in = next(self._game_ids)
+        self.recorder.stable(self.game_id, stand_in)
+        self.recorder.stable(self.game_id.replace("-", "")[:12], stand_in[-12:])
+
+    def start_random(self, seed: int, *, sample: str | None = None) -> dict[str, Any]:
+        """The host deals a random hand from a fixed seed (the DEBUG seed), as
+        for a table whose deck the server builds."""
+        host = next(iter(self.players))
+        got, payload = self.request(
+            "POST",
+            host,
+            "/onuw/lobbies/{code}/start/",
+            {"debug": {"seed": seed}},
+            debug=True,
+        )
+        assert got == 201, payload
+        self.game_id = payload["game_id"]
+        self._pin_game_id()
+        if sample:
+            self.recorder.add(
+                f"http/{sample}",
+                {
+                    "kind": "http",
+                    "method": "POST",
+                    "path": "/onuw/lobbies/{code}/start/",
+                    "status": 201,
+                    "description": "The host deals; the server built the deck.",
+                },
+                payload,
+            )
+        return payload
+
+    def mark(self) -> int:
+        """A point in the stream of socket messages, for ``record_sequence``."""
+        return len(self.layer.sent)
+
+    def record_sequence(self, name: str, since: int, *, about: str) -> None:
+        """Keep, per player, the TYPES of the game messages that player's socket
+        received since ``since``, in order, as ``ws_sequence/<name>``: the
+        broadcast group and the player's own group (what their phone would see).
+        Under night protocol 2 these lists must be the same for every seat."""
+        sequences: dict[str, list[str]] = {}
+        for who in self.players:
+            groups = self._groups(who, "game")
+            sequences[who] = [
+                message["type"].replace(".", "_")
+                for group, message in self.layer.sent[since:]
+                if group in groups
+            ]
+        self.recorder.add(
+            f"ws_sequence/{name}",
+            {"kind": "ws_sequence", "socket": "game", "description": about},
+            sequences,
+        )
 
     def fire(self, key: str) -> None:
         """Fire the pending timer under ``key`` (``{game_id}`` is filled in) now:

@@ -5,11 +5,25 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from django.conf import settings as django_settings
+
 from apps.core.games import GameHooks
 
 from . import presence
 from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
+
+# What a lobby made with ``defaults: "v2"`` starts with: ONLY what the new screens need
+# to work (a look at the cards, the choose night, the automatic Simple deck). It writes
+# no timer value the server already defaults and never the Doppelganger's window:
+# every length is the table's own setting or the server's existing default. Nothing is
+# written unless the create body asks for it.
+V2_DEFAULTS: dict[str, Any] = {
+    "card_look_seconds": 30,
+    "night_protocol": 2,
+    "deck": "auto",
+    "deck_chip": "simple",
+}
 
 
 def _newest_game(lobby) -> Game | None:
@@ -20,8 +34,14 @@ def _newest_game(lobby) -> Game | None:
 class OnuwHooks(GameHooks):
     def validate_settings(self, settings, player_count: int, changed=None) -> list[str]:
         return validate_onuw_settings(
-            settings, player_count, check_deck=changed is None or "roles" in changed
+            settings,
+            player_count,
+            check_deck=changed is None or "roles" in changed,
+            allow_untimed=getattr(django_settings, "ONUW_ALLOW_UNTIMED_NIGHT", False),
         )
+
+    def default_settings(self, name: str) -> dict[str, Any] | None:
+        return dict(V2_DEFAULTS) if name == "v2" else None
 
     def newest_game_group(self, lobby) -> str | None:
         game = _newest_game(lobby)

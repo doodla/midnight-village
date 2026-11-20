@@ -68,6 +68,11 @@ urlpatterns = [
         name="end-discussion",
     ),
     path(
+        "games/<str:game_id>/ready/",
+        views.ReadyView.as_view(),
+        name="ready",
+    ),
+    path(
         "games/<str:game_id>/vote/",
         views.VoteView.as_view(),
         name="vote",

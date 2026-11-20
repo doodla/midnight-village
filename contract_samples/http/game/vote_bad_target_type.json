@@ -1,0 +1,4 @@
+{
+  "detail": "target_player_id must be an integer.",
+  "code": "bad_request"
+}

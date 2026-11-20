@@ -29,6 +29,11 @@ class GameHooks:
         table when the change cannot affect them."""
         return []
 
+    def default_settings(self, name: str) -> dict[str, Any] | None:
+        """The named set of lobby settings a create may ask for (``defaults`` in the
+        create body), or None if the game has no set of that name."""
+        return None
+
     def newest_game_group(self, lobby) -> str | None:
         """Channel group of the lobby's newest game, or None if it has none."""
         return None
@@ -64,4 +69,9 @@ def register(game_type: str, hooks: GameHooks) -> None:
 
 def hooks_for(lobby) -> GameHooks:
     """The hooks of the lobby's game app (do-nothing hooks if none registered)."""
-    return _registry.get(lobby.game_type, _NO_GAME)
+    return hooks_for_type(lobby.game_type)
+
+
+def hooks_for_type(game_type: str) -> GameHooks:
+    """The hooks registered for a ``game_type`` (do-nothing hooks if none)."""
+    return _registry.get(game_type, _NO_GAME)

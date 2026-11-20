@@ -1,0 +1,4 @@
+{
+  "detail": "lock must be true or false",
+  "code": "bad_request"
+}

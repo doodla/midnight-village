@@ -78,7 +78,7 @@ class DebugFireTimerView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    _ALLOWED_FIXED_SUFFIXES = {"discussion", "voting", "current"}
+    _ALLOWED_FIXED_SUFFIXES = {"discussion", "voting", "look", "current"}
 
     def post(self, request: Request, game_id: str) -> Response:
         disabled = debug_disabled_response()

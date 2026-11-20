@@ -102,6 +102,17 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
             }
         )
 
+    async def night_window(self, event):
+        """Broadcast (night protocol 2): a night window opened. The same event for
+        every phone; each reads its own prompt from ``GET /me/``."""
+        await self.send_json(
+            {
+                "type": "night_window",
+                "window": event["window"],
+                "deadline": event.get("deadline"),
+            }
+        )
+
     async def action_prompt(self, event):
         """Player-scoped: you need to submit an action."""
         await self.send_json(
@@ -159,6 +170,17 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
             {
                 "type": "vote_submitted",
                 "player_id": event["player_id"],
+            }
+        )
+
+    async def progress(self, event):
+        """Broadcast: how many players have locked in / are ready (counts only)."""
+        await self.send_json(
+            {
+                "type": "progress",
+                "stage": event["stage"],
+                "done": event["done"],
+                "needed": event["needed"],
             }
         )
 

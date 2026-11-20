@@ -11,12 +11,6 @@ from django.contrib.auth.models import AbstractUser
 import pytest
 from rest_framework.test import APIClient
 
-# Importing the ASGI app runs django.setup() again, which re-applies the test
-# LOGGING (``disable_existing_loggers``) and so silences every logger created
-# before it. Import it before any test module creates the apps' loggers, so
-# ``caplog`` tests do not depend on which module happens to be collected first.
-import config.asgi  # noqa: F401
-
 
 @pytest.fixture
 def api_client() -> APIClient:

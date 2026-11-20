@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .games import hooks_for_type
 from .lobbies import LobbyFullError, add_member, current_table, touch
 from .models import Lobby, LobbyMember, User
 from .name_generator import generate_display_name
@@ -94,6 +95,51 @@ class LobbyCreateView(CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        # ``defaults`` (optional) names a set of settings the game offers for a new
+        # table; the settings given in the body win over it. Nothing is written
+        # unless the body asks.
+        if "defaults" in request.data:
+            name = request.data["defaults"]
+            offered = (
+                hooks_for_type(serializer.validated_data["game_type"]).default_settings(
+                    name
+                )
+                if isinstance(name, str)
+                else None
+            )
+            if offered is None:
+                return Response(
+                    {"detail": "Unknown defaults.", "code": "bad_request"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            given = serializer.validated_data.get("settings") or {}
+            if not isinstance(given, dict):
+                return Response(
+                    {"detail": "Settings must be an object.", "code": "bad_request"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            serializer.validated_data["settings"] = {**offered, **given}
+
+        # What the table starts with is checked now, not at the deal: a combination
+        # the game refuses is refused here. Who will sit at the table is not known
+        # yet, so the card list is not checked against a player count.
+        merged = serializer.validated_data.get("settings") or {}
+        if merged:
+            errors = hooks_for_type(
+                serializer.validated_data["game_type"]
+            ).validate_settings(
+                merged,
+                0,
+                changed=set(merged) - {"roles", "deck"}
+                if isinstance(merged, dict)
+                else None,
+            )
+            if errors:
+                return Response(
+                    {"detail": errors, "code": "bad_request"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         self.perform_create(serializer)
 
         # Return full lobby data
