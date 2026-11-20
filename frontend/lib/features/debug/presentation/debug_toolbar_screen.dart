@@ -9,8 +9,7 @@ import '../../../core/debug/debug_providers.dart';
 import '../../../core/debug/debug_table_controller.dart';
 import '../../../core/router/routes.dart';
 import '../../../design_system/models/role.dart';
-import '../../../design_system/skin/skin_choice.dart';
-import '../../../design_system/skin/skin_id.dart';
+import '../../../design_system/teach/learned_store.dart';
 import '../../lobby/domain/role_config.dart';
 
 /// DEBUG-ONLY developer toolbar (contract §D3), reachable at `/debug` ONLY when
@@ -105,7 +104,7 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
                 _buildAutoDrive(_table!),
                 const Divider(height: 32),
               ],
-              _buildSkinSwitch(),
+              _buildForgetCues(),
             ],
           ),
         ),
@@ -114,23 +113,16 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Skin (a per-device look, saved on this device)
+  // Learned cues (first-time play: what this device has been taught)
   // ---------------------------------------------------------------------------
 
-  Widget _buildSkinSwitch() => Row(
-    children: [
-      const Text('Skin: '),
-      SegmentedButton<SkinId>(
-        key: const Key('debug-skin'),
-        segments: [
-          for (final id in SkinId.values)
-            ButtonSegment(value: id, label: Text(id.label)),
-        ],
-        selected: {ref.watch(skinChoiceProvider)},
-        onSelectionChanged: (chosen) =>
-            ref.read(skinChoiceProvider.notifier).choose(chosen.single),
-      ),
-    ],
+  Widget _buildForgetCues() => Align(
+    alignment: Alignment.centerLeft,
+    child: OutlinedButton(
+      key: const Key('debug-forget-cues'),
+      onPressed: () => ref.read(learnedCuesProvider.notifier).reset(),
+      child: const Text('Reset learned cues'),
+    ),
   );
 
   // ---------------------------------------------------------------------------

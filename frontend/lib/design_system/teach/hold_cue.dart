@@ -20,12 +20,17 @@ class HoldCue extends StatefulWidget {
     required this.teaching,
     this.size = maxSize,
     this.word = true,
+    this.wordAbove = false,
   });
 
   final bool teaching;
 
-  /// Draw "Hold" under the thumbprint while teaching.
+  /// Draw "Hold" with the thumbprint while teaching.
   final bool word;
+
+  /// The word over the thumbprint rather than under it: on a card whose
+  /// lower edge carries its owner's token.
+  final bool wordAbove;
 
   /// The ring's diameter at most.
   final double size;
@@ -109,31 +114,34 @@ class _HoldCueState extends State<HoldCue> with SingleTickerProviderStateMixin {
         ),
       ),
     );
+    final ringed = Stack(
+      alignment: Alignment.center,
+      children: [disc, if (widget.teaching) ring],
+    );
+    final label = Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.xs,
+        vertical: Space.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: night.ground.withValues(alpha: 0.86),
+        borderRadius: BorderRadius.circular(skin.shape.radiusSmall),
+      ),
+      child: Text(
+        CommonCopy.hold,
+        style: skin.typography.cue.copyWith(color: night.text),
+      ),
+    );
+    final showWord = widget.teaching && widget.word;
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         spacing: Space.sm,
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [disc, if (widget.teaching) ring],
-          ),
-          if (widget.teaching && widget.word)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.xs,
-                vertical: Space.xxs,
-              ),
-              decoration: BoxDecoration(
-                color: night.ground.withValues(alpha: 0.86),
-                borderRadius: BorderRadius.circular(skin.shape.radiusSmall),
-              ),
-              child: Text(
-                CommonCopy.hold,
-                style: skin.typography.cue.copyWith(color: night.text),
-              ),
-            ),
+          if (showWord && widget.wordAbove) label,
+          ringed,
+          if (showWord && !widget.wordAbove) label,
         ],
       ),
     );

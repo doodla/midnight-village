@@ -46,36 +46,41 @@ class _TalkPageState extends State<TalkPage> {
   var _ready = false;
 
   @override
-  Widget build(BuildContext context) => ScreenFrame(
-    ground: GroundKind.day,
-    topSlot: const TimerBand.sun(secondsLeft: 252, elapsed: 0.3),
-    body: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: Space.lg,
-      children: [
-        Text(TalkCopy.headline, style: context.skin.typography.screenTitle),
-        TeachingHold(
-          target: TalkCopy.myNight,
-          face: widget.viewer.myNight,
-          cue: Cue.holdMyNight,
-          cover: (teaching) =>
-              PeekBox(title: TalkCopy.myNight, teaching: teaching),
+  Widget build(BuildContext context) {
+    final me = widget.viewer.talkMe;
+    final progress = me['progress'] as Map<String, dynamic>;
+    final (done, needed) = (progress['done'] as int, progress['needed'] as int);
+    return ScreenFrame(
+      ground: GroundKind.day,
+      topSlot: const TimerBand.sun(secondsLeft: 252, elapsed: 0.3),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.lg,
+        children: [
+          Text(TalkCopy.headline, style: context.skin.typography.screenTitle),
+          TeachingHold(
+            target: TalkCopy.myNight,
+            face: widget.viewer.myNight,
+            cue: Cue.holdMyNight,
+            cover: (teaching) =>
+                PeekBox(title: TalkCopy.myNight, teaching: teaching),
+          ),
+          deckStrip(RoleCardSize.mini, deckOf(me)),
+        ],
+      ),
+      actions: [
+        ProgressPips(
+          done: done,
+          total: needed,
+          label: TalkCopy.progress.fill({'d': done, 'n': needed}),
         ),
-        deckStrip(RoleCardSize.mini),
+        PrimaryButton.quiet(
+          label: _ready ? CommonCopy.readyDone : TalkCopy.readyToVote,
+          onPressed: () => setState(() => _ready = !_ready),
+        ),
       ],
-    ),
-    actions: [
-      ProgressPips(
-        done: 2,
-        total: fiveSeats.length,
-        label: TalkCopy.progress.fill({'d': 2, 'n': fiveSeats.length}),
-      ),
-      PrimaryButton.quiet(
-        label: _ready ? CommonCopy.readyDone : TalkCopy.readyToVote,
-        onPressed: () => setState(() => _ready = !_ready),
-      ),
-    ],
-  );
+    );
+  }
 }
 
 /// 09: pick a name, then lock it in. Your own row is never listed; once
@@ -162,7 +167,7 @@ class CountPage extends StatelessWidget {
             spacing: Space.lg,
             children: [
               PlayerToken(
-                dev.token,
+                cleo.token,
                 size: TokenSize.band,
                 ringColor: context.ground.dangerLine,
               ),
@@ -170,7 +175,7 @@ class CountPage extends StatelessWidget {
                 child: Align(
                   alignment: AlignmentDirectional.centerStart,
                   child: FitLine(
-                    CountCopy.dies.fill({'name': dev.name}),
+                    CountCopy.dies.fill({'name': cleo.name}),
                     style: type.heroVerdict,
                   ),
                 ),
@@ -185,8 +190,8 @@ class CountPage extends StatelessWidget {
           spacing: Space.smPlus,
           children: [
             for (final (seat, voters) in [
-              (dev, [ana, ben, cleo]),
-              (cleo, [dev]),
+              (cleo, [ana, ben, dev]),
+              (ana, [cleo]),
             ])
               PlayerRow(
                 token: seat.token,
@@ -199,7 +204,7 @@ class CountPage extends StatelessWidget {
               CountCopy.noVote.fill({'names': esme.name}),
               style: type.body.copyWith(color: context.ground.text),
             ),
-            const _DeadCard(dealt: RoleId.seer, now: RoleId.werewolf),
+            const _DeadCard(dealt: RoleId.werewolf, now: RoleId.werewolf),
           ],
         ),
       ),
@@ -284,16 +289,15 @@ class ResultsPage extends StatelessWidget {
       ),
       row(
         RoleId.seer.displayName,
-        TimelineCopy.seerPlayer.fill({'a': dev.name, 'b': cleo.name}),
+        TimelineCopy.seerPlayer.fill({'a': ana.name, 'b': cleo.name}),
       ),
-      row(RoleId.robber.displayName, TimelineCopy.skip.fill({'a': ben.name})),
+      row(
+        RoleId.robber.displayName,
+        TimelineCopy.robber.fill({'a': ben.name, 'b': ana.name}),
+      ),
       row(
         RoleId.troublemaker.displayName,
-        TimelineCopy.troublemaker.fill({
-          'a': esme.name,
-          'b': cleo.name,
-          'c': dev.name,
-        }),
+        TimelineCopy.skip.fill({'a': dev.name}),
       ),
     ];
     return ScreenFrame(
@@ -334,9 +338,9 @@ class ResultsPage extends StatelessWidget {
                       children: [
                         Text(seat.name, style: type.body.copyWith(color: ink)),
                         Text(
-                          seat == dev ? ResultsCopy.died : ResultsCopy.won,
+                          seat == cleo ? ResultsCopy.died : ResultsCopy.won,
                           style: type.caption.copyWith(
-                            color: seat == dev
+                            color: seat == cleo
                                 ? context.ground.dangerText
                                 : context.ground.quietText,
                           ),

@@ -82,7 +82,7 @@ flutter:
 
   # The default skin's type (lib/design_system/skin/skins/shadow_paper.dart):
   # Gloock and Figtree (Latin subsets of the Google Fonts files), loaded by the
-  # engine at start. Other skins' faces are assets loaded on demand (above).
+  # engine at start.
   # OFL licences sit beside each family in assets/fonts/.
   fonts:
     - family: Gloock

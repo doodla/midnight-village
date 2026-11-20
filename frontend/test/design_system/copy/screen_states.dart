@@ -35,7 +35,6 @@ final _saw = <String, List<Object>>{
   'Minion, none': [SawCopy.noWerewolves],
   'Masons': [SawCopy.masons],
   'Mason alone': [SawCopy.onlyYou],
-  'Acted, nothing valid': [SawCopy.didNothing],
   'Slept': [NightCopy.slept],
 };
 
@@ -52,11 +51,8 @@ final _windowOne = <String, List<Object>>{
 /// once her copy is back, and window 2's second page.
 final _you = <String, List<Object>>{
   for (final prompt in NightPrompt.values) prompt.name: [prompt.instruction],
-  for (final role in RoleId.values)
-    'copied ${role.name}': [
-      NightCopy.copied,
-      NightPrompt.windowOneFor(role).instruction,
-    ],
+  for (final followUp in NightPrompt.values)
+    'copied, then ${followUp.name}': [NightCopy.copied, followUp.instruction],
   for (final MapEntry(:key, :value) in _windowOne.entries)
     'window 2 page 2, $key': value,
 };
@@ -341,4 +337,4 @@ final banners = <(String, String?)>[
 ];
 
 /// Everything a screen reader says that no screen shows.
-final spoken = [SpokenCopy.hidden];
+final spoken = [SpokenCopy.hidden, SpokenCopy.working];

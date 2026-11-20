@@ -56,7 +56,7 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 - The face shows 120 ms after the press and hides on release.
 - On 06 ("You"), 07 and 08 the face hides after 5 s even if still held. 04 has no cap: everyone is on 04 at the same time, and the stage ends on everyone's Ready.
 - A reveal counts once it has been visible for at least 0.8 s.
-- A double tap shows the face for 2 s. Any touch hides it. It counts as a 0.8 s reveal.
+- A tap is never a reveal (review, 20 November 2026: the double tap is withdrawn, so a tap on "You" picks at once). The path without a hold is the accessible activate below.
 
 **The held-face frame** is the same on every face: 04, "You" on 06, 07, and 08's My night.
 - Always the same fixed size.
@@ -70,6 +70,8 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 | Cue (`id`) | First appears | What the player sees | Words | Unlocks | Learned when | Later games |
 |---|---|---|---|---|---|---|
 | `hold` | 04, the moment of the deal | The thumbprint ring on the face-down card breathes (bone colour, scale 1.00 to 1.06, 1.4 s loop), with "Hold" at 20 px under it | "Hold" | "Ready" turns amber after a 0.8 s reveal | The first 0.8 s reveal on any face | A static thumbprint glyph |
+| `hold_you` | 06, the first board | The same thumbprint on "You", "Hold" over it (section 8: it points at what this phone may do) | "Hold" | — | The first reveal of "You" | A static thumbprint glyph |
+| `hold_my_night` | 08, the first talk | The same thumbprint on My night's card, "Hold" under the title | "Hold" | — | The first reveal of My night | A static thumbprint glyph |
 | `night_choose` | 06, the first window of the first game | When the board opens, each card lifts 8 px in a single left-to-right wave (120 ms each, 90 ms stagger) | none | — | The first successful `choose` | No wave |
 | `vote_lock` | 09, the first vote | The rows nudge 6 px in a single wave | none | — | The first successful lock | No wave |
 
@@ -193,7 +195,7 @@ Village line: **"A Werewolf dies. No Werewolf player: nobody dies."** (6 words)
 **Where I chose brevity over precision** (each string was checked against `roles.md` and `voting-and-resolution.md`):
 1. "You are your last card": for a Doppelganger card, "your card" means the role she copied. Her own line says this.
 2. Doppelganger "Act as that role": a copied Werewolf, Mason or Insomniac acts later, not at once.
-3. Minion: the rules do not cover "the Tanner and another player die" when no Werewolf is a player. The engine decides that case.
+3. Minion: with no Werewolf player, `voting-and-resolution.md` (Minion special rules) has the Minion win when a player other than the Minion and the Tanner dies, and lose when only the Tanner dies; "someone else dies, not the Tanner" says that.
 4. Hunter "your pick": an unlocked pick counts too (contract amendment), so "pick" is exact.
 5. Insomniac "At dawn": this is the end of window 2.
 6. "Keep my card" is not true for a Drunk (see the trade-off above).
@@ -206,7 +208,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 | Result | Portrait | Text (words) |
 |---|---|---|
 | Seer, player | That card | "{name}'s card: {role}." (1) |
-| Seer, center | The first card | "{pos}: {role}. {pos}: {role}." (0) |
+| Seer, center | The first card | "Center: {role}, {role}." (1): the server names the two roles, not their places (review, 20 November 2026) |
 | Robber or Insomniac | The new card | "Your card now: {role}." (3) |
 | Troublemaker | Moon | "You swapped {name} and {name}." (3) |
 | Drunk (chosen or seeded) | Moon | "{pos} is yours now. Unseen." (4) |
@@ -214,7 +216,6 @@ Every face has exactly one portrait slot and at most 2 lines.
 | Lone Werewolf | Werewolf | "Only you." plus "{pos}: {role}." if it looked (2) |
 | Minion | Minion | "Werewolves: {names}." or "No Werewolves." (1) |
 | Masons | Mason | "Masons: {names}." or "Only you." (2) |
-| Acted, but no valid pick | Moon | "You did nothing." (3) |
 | No choice, or timeout | Moon | "You slept." (2) |
 
 ### Per-screen sheet
@@ -301,7 +302,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 **08 Talk**
 - **One thing / loudest:** talk. On the phone, the sun timer is loudest, then "My night".
 - **Locked until:** "Ready to vote" stays outlined (never amber) and unlocks once My night has been held this game.
-- **Copy:** "The village wakes"; timer digits; "My night"; deck strip; pips "{d} of {n} ready"; "Ready to vote", then "Ready ✓" (tap again to undo). My night pages, the same count on every phone: "Dealt: {role}"; the window-1 page if window 1 ran; the 07 face. **15 of 15 words.**
+- **Copy:** "The village wakes"; timer digits; "My night"; deck strip; pips "{d} of {n} ready"; "Ready to vote", then "Ready ✓" (tap again to undo). My night pages, the same count on every phone: the result face; the window-1 page if window 1 ran; "Dealt: {role}". **15 of 15 words.**
 - **Removed:** "Left to talk", "Hold to peek", "In the deck tonight" (12). A loud ready button (4, 19). Tokens on the pips (9).
 - **States:**
   - Never paused. No host button. No dropped-player copy.
@@ -447,7 +448,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 
 1. `LearnedStore` (`mv.learned.v1.*`, with a reset in /debug).
 2. `TeachOnce(id, cue)`, plus a locked gate that replays its cue for 3 s.
-3. `HoldToReveal` timings: 120 ms, caps per screen, 0.8 s, a 2 s double tap, and the accessible activate.
+3. `HoldToReveal` timings: 120 ms, 0.8 s, and the accessible activate (no caps, section 8; no double tap, the review).
 4. `HeldFace` frame: fixed size, duotone portrait, pages, drawn above the thumb, text scale capped at 1.6.
 5. `copy.dart` holding every string, plus `copy_budget_test.dart`: budgets, banned list, headlines, buttons, the single question, and the amber count.
 6. `RoleText`: one table that feeds RoleCard, 03b and faces.
@@ -500,9 +501,9 @@ Doppelganger's look resolves the moment she chooses). Two rules close what the r
 "Done" (section 3, 07) was an added delay and is withdrawn, and without it a separate 07
 screen would show who had little to read. So when the last night window closes every phone
 goes straight to 08 Talk at the same moment (the talk's clock is already running on the
-server). "My night" on 08 is the hold box that shows it: page 1 "Dealt: {role}", then the
-window pages and the result faces from the "07 faces" table, the same number of pages on
-every phone. In a player's first game the `hold` cue breathes on "My night"; "Ready to vote"
+server). "My night" on 08 is the hold box that shows it: page 1 is the last window's result
+face from the "07 faces" table (what a player holds it for), then window 1's page when it ran,
+then "Dealt: {role}", the same number of pages on every phone (review, 20 November 2026). In a player's first game the `hold` cue breathes on "My night"; "Ready to vote"
 stays locked until it has been held once this game, as already specified. The results ack is
 sent the first time "My night" has been held for 0.8 s. Screen 07 and its copy ("What you
 saw", "Done") are removed; 05 is shown only while `/me/` loads.

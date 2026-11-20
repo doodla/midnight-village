@@ -221,11 +221,13 @@ class _JoinCode extends StatelessWidget {
   );
 }
 
-/// Tonight's deck as a strip of thumbnails, which shrink to fit the row.
-Widget deckStrip(RoleCardSize size) => Row(
+/// Tonight's deck (game 7's, or [deck]) as a strip of thumbnails, which
+/// shrink to fit the row.
+Widget deckStrip(RoleCardSize size, [Map<RoleId, int>? deck]) => Row(
   spacing: size == RoleCardSize.thumbSmall ? Space.sm : Space.smPlus,
   children: [
-    for (final MapEntry(key: role, value: count) in deckCounts.entries)
+    for (final MapEntry(key: role, value: count)
+        in (deck ?? deckCounts).entries)
       Flexible(
         child: RoleCard(role: role, size: size, count: count),
       ),

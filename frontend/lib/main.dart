@@ -6,25 +6,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
-import 'design_system/skin/skin_choice.dart';
+import 'design_system/skin/skin_id.dart';
 import 'design_system/skin_loader.dart';
 import 'design_system/teach/learned_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   registerFontLicences();
-  // The saved skin and the cues this device has learned, before the first
-  // frame, so it is right.
-  final loader = SkinLoader();
-  final (skin, _) = await (restoreSkin(), restoreLearned()).wait;
-  runApp(
-    ProviderScope(
-      overrides: [skinLoaderProvider.overrideWithValue(loader)],
-      child: const App(),
-    ),
-  );
+  // The cues this device has learned, before the first frame, so it is right.
+  await restoreLearned();
+  runApp(const ProviderScope(child: App()));
   // The art secrets show, decoded long before the first card is dealt.
-  unawaited(loader.prepare(skin.skin));
+  unawaited(SkinLoader().prepare(SkinId.fallback.skin));
 }
 
 /// The bundled fonts and their OFL licence texts (assets/fonts/).

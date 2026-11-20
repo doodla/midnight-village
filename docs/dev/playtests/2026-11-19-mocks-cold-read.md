@@ -43,9 +43,10 @@ lot, hates tutorials), **Margaret** (62, reading glasses, afraid of pressing the
 
 ## How to rerun
 
-1. `just screens` (and `just screens 390 report nightPrint`).
-2. Copy the PNGs for one player's journey, in game order, to an empty folder under neutral names
-   (`screen-01.png` ...) so file names give nothing away.
+1. `just playtest-pack` writes four first-game journeys (host, guest, sleeper, Seer) through one
+   recorded game to `frontend/build/playtest/<journey>/screen-NN.png`, in order, under neutral
+   names so file names give nothing away.
+2. Take one journey's folder.
 3. Give each participant only those files and the persona brief; one screen at a time; ask: what is
    this, where does your finger go first (tap, hold, wait), confidence 1-5, what did you read and
    skip, what do you expect next. No rules, no brief, no code.

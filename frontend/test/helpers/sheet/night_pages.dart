@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
+import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
@@ -14,7 +15,8 @@ import 'package:midnight_village/design_system/teach/teaching_hold.dart';
 
 import 'sheet_data.dart';
 
-// 04 Your card, 05 between, 06 the night board, to the first-time play spec.
+// 04 Your card, 05 between, 06 the night board, to the first-time play spec,
+// each as a phone of a recorded game had it (sheet_data.dart).
 
 /// 04: the dealt card, face down; the whole role card while held; "Ready"
 /// locked until a 0.8 s reveal (a tap on it replays the hold cue); plain
@@ -29,6 +31,8 @@ class CardPage extends StatefulWidget {
 }
 
 class _CardPageState extends State<CardPage> {
+  /// Game 7's look stage: who has looked, as the server counts it.
+  final _look = recordedMe('me_look_stage')['progress'] as Map<String, dynamic>;
   final _replay = CueReplay();
   var _revealed = false;
 
@@ -48,10 +52,10 @@ class _CardPageState extends State<CardPage> {
       body: Column(
         spacing: Space.lg,
         children: [
-          Text(
-            CardCopy.headline,
-            textAlign: TextAlign.center,
-            style: skin.typography.screenTitle,
+          // Left, clear of the moon in the picture.
+          SizedBox(
+            width: double.infinity,
+            child: Text(CardCopy.headline, style: skin.typography.screenTitle),
           ),
           TeachingHold(
             target: CardCopy.headline,
@@ -78,9 +82,12 @@ class _CardPageState extends State<CardPage> {
             size: ButtonSize.large,
           ),
         ProgressPips(
-          done: 2,
-          total: fiveSeats.length,
-          label: CommonCopy.progress.fill({'d': 2, 'n': fiveSeats.length}),
+          done: _look['done'] as int,
+          total: _look['needed'] as int,
+          label: CommonCopy.progress.fill({
+            'd': _look['done'],
+            'n': _look['needed'],
+          }),
           centred: true,
         ),
       ],
@@ -113,19 +120,17 @@ class WaitPage extends StatelessWidget {
   }
 }
 
-/// 06: the night board, as every phone has it. With [fails] the server
-/// never takes a choose (the phone is offline).
+/// 06: the night board, as [viewer]'s phone had it in the recorded game.
+/// With [fails] the choose gets no answer (the phone is offline).
 class BoardPage extends StatelessWidget {
   const BoardPage({
     super.key,
     required this.viewer,
-    this.ten = false,
     this.textScale = 1,
     this.fails = false,
   });
 
   final Viewer viewer;
-  final bool ten;
   final double textScale;
   final bool fails;
 
@@ -135,15 +140,13 @@ class BoardPage extends StatelessWidget {
       context,
     ).copyWith(textScaler: TextScaler.linear(textScale)),
     child: NightBoard(
-      seats: ten ? tenSeats : fiveSeats,
-      selfId: ana.id,
-      stage: 'window-2',
-      rule: viewer.rule,
+      seats: viewer.seats,
+      selfId: viewer.selfId,
+      prompt: viewer.prompt,
       face: viewer.you,
       secondsLeft: 14,
-      onChoose: (_, _) async {
-        if (fails) throw StateError('offline');
-      },
+      onChoose: (_, _) async =>
+          fails ? ChooseAnswer.notSent : ChooseAnswer.taken,
     ),
   );
 }

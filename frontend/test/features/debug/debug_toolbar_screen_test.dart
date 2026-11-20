@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/core/debug/debug_providers.dart';
 import 'package:midnight_village/core/debug/debug_table_controller.dart';
+import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/debug/presentation/debug_toolbar_screen.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -145,5 +146,22 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(() => controller.oracle()).called(1);
+  });
+
+  testWidgets('"Reset learned cues" makes this device a newcomer again', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildApp());
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(DebugToolbarScreen)),
+    );
+    await container.read(learnedCuesProvider.notifier).learn(Cue.hold);
+    expect(container.read(learnedCuesProvider), {Cue.hold});
+
+    final reset = find.byKey(const Key('debug-forget-cues'));
+    await tester.ensureVisible(reset);
+    await tester.tap(reset);
+    await tester.pumpAndSettle();
+    expect(container.read(learnedCuesProvider), isEmpty);
   });
 }

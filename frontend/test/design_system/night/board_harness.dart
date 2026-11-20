@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:ui' as ui;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +9,8 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
-import 'package:midnight_village/design_system/night/pick_rule.dart';
+import 'package:midnight_village/design_system/faces/night_report.dart';
+import 'package:midnight_village/design_system/night/choose_prompt.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
@@ -22,29 +22,42 @@ import '../../helpers/component_sheet.dart';
 import '../../helpers/pump_skinned.dart';
 import '../../helpers/sheet/sheet_data.dart';
 
-/// The stage name the harness's server gives.
-const windowTwo = 'stage-w2';
-
-/// A night board on a phone, with what it sent.
+/// A night board on a phone of a recorded game, with what it sent.
 class BoardHarness {
-  BoardHarness({
-    required this.face,
-    required this.rule,
-    this.seats = fiveSeats,
-    this.stage = windowTwo,
+  BoardHarness(
+    Map<String, dynamic> me, {
     this.learned = const {},
-    Future<void> Function()? answer,
-  }) : answer = answer ?? (() async {});
+    Future<ChooseAnswer> Function()? answer,
+  }) : answer = answer ?? (() async => ChooseAnswer.taken) {
+    show(me);
+  }
 
-  FaceContent face;
-  PickRule rule;
-  String stage;
-  var turn = 0;
-  final List<NightSeat> seats;
+  /// [viewer]'s phone at its board.
+  BoardHarness.of(
+    Viewer viewer, {
+    Set<Cue> learned = const {},
+    Future<ChooseAnswer> Function()? answer,
+  }) : this(viewer.nightMe, learned: learned, answer: answer);
+
+  /// What the phone shows: read from its `/me/`.
+  late Map<String, dynamic> me;
+  late ChoosePrompt prompt;
+  late FaceContent face;
+  late List<NightSeat> seats;
+  late int selfId;
   final Set<Cue> learned;
 
-  /// How the server answers each choose: at once by default.
-  Future<void> Function() answer;
+  /// The phone fetched [next] (a new stage, the Doppelganger's follow-up).
+  void show(Map<String, dynamic> next) {
+    me = next;
+    prompt = ChoosePrompt.fromMe(next);
+    face = NightReport.fromMe(next).you(prompt);
+    seats = NightSeat.seatsOf(next);
+    selfId = selfIn(next);
+  }
+
+  /// How the server answers each choose: at once, taken, by default.
+  Future<ChooseAnswer> Function() answer;
 
   /// Each choose's stage, and its picks, in order.
   final stages = <String>[];
@@ -53,13 +66,14 @@ class BoardHarness {
     overrides: learnedOverrides(learned),
   );
 
+  /// A seat by name.
+  NightSeat seat(String name) => seats.firstWhere((s) => s.name == name);
+
   Widget build({Widget Function(Widget board)? wrap}) {
     final board = NightBoard(
       seats: seats,
-      selfId: ana.id,
-      stage: stage,
-      turn: turn,
-      rule: rule,
+      selfId: selfId,
+      prompt: prompt,
       face: face,
       secondsLeft: 14,
       onChoose: (stage, picks) {
@@ -115,11 +129,11 @@ Finder card(String caption) =>
 /// "You".
 Finder get you => card(NightCopy.you);
 
-/// A tap shorter than 120 ms (on "You", longer is a hold), then past the
-/// double-tap window, so every card takes it the same way.
+/// A tap shorter than 120 ms (on "You", longer is a hold); it picks at
+/// once, on every card.
 Future<void> tapCard(WidgetTester tester, String caption) async {
   await tester.tap(card(caption));
-  await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 10));
+  await tester.pump();
 }
 
 /// The board's button: its label and what it can do.

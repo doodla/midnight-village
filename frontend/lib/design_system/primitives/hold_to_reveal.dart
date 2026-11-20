@@ -11,7 +11,7 @@ import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 
 /// How the face came to be shown.
-enum _Shown { held, doubleTapped, activated }
+enum _Shown { held, activated }
 
 /// A secret behind press-and-hold (first-time play spec, section 2): [cover]
 /// shows until the player presses; [face] is drawn in the one held-face
@@ -21,12 +21,12 @@ enum _Shown { held, doubleTapped, activated }
 ///   long it is held (no cap: spec section 8).
 /// - [onRevealed] fires once the face has been visible [revealedAfter]: a
 ///   reveal counts then (it learns the `hold` cue and opens gates).
-/// - A double tap shows the face for [doubleTapShows]; any touch hides it.
-///   It counts as a reveal at once.
+/// - A tap is not a reveal: it reaches the [cover] at once (on the night
+///   board, a pick), with no double-tap wait.
 /// - A screen reader's activate, a switch or the keyboard (Enter, Space)
 ///   shows it until activated again, reads it aloud, and counts as a reveal
-///   at once. Until then the face is
-///   a button labelled "{target}, hidden. Activate to show."
+///   at once. Until then the face is a button labelled "{target}, hidden.
+///   Activate to show."
 /// - Each new showing shows the face's next page.
 ///
 /// A face shown in any way still hides by itself when focus moves away from
@@ -68,8 +68,6 @@ class HoldToReveal extends StatefulWidget {
   /// How long a face must be visible for the reveal to count.
   static const revealedAfter = Duration(milliseconds: 800);
 
-  static const doubleTapShows = Duration(seconds: 2);
-
   /// Between the face's lower edge and the touch point.
   static const gap = Space.lg;
 
@@ -91,7 +89,6 @@ class _HoldToRevealState extends State<HoldToReveal>
   /// How many times the face has been shown: which page is next.
   var _showings = 0;
   var _focusHighlight = false;
-  Timer? _doubleTap;
   Timer? _counts;
 
   bool get _visible => _shown != null;
@@ -114,7 +111,6 @@ class _HoldToRevealState extends State<HoldToReveal>
   @override
   void dispose() {
     _stopTimers();
-    _stopListeningForTouches();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -129,9 +125,6 @@ class _HoldToRevealState extends State<HoldToReveal>
   void _show(_Shown how, Offset anchor) {
     if (_covered) return;
     _stopTimers();
-    if (how == _Shown.doubleTapped) {
-      _doubleTap = Timer(HoldToReveal.doubleTapShows, _hide);
-    }
     if (how == _Shown.held) {
       _counts = Timer(
         HoldToReveal.revealedAfter,
@@ -140,7 +133,6 @@ class _HoldToRevealState extends State<HoldToReveal>
     } else {
       widget.onRevealed?.call();
     }
-    if (how == _Shown.doubleTapped) _listenForTouches();
     final wasVisible = _visible;
     setState(() {
       _shown = how;
@@ -154,7 +146,6 @@ class _HoldToRevealState extends State<HoldToReveal>
   void _hide() {
     if (!mounted || !_visible) return;
     _stopTimers();
-    _stopListeningForTouches();
     setState(() => _shown = null);
     widget.onRevealChanged?.call(false);
   }
@@ -162,35 +153,14 @@ class _HoldToRevealState extends State<HoldToReveal>
   /// Hides while this widget is being rebuilt, without calling setState.
   void _hideQuietly() {
     _stopTimers();
-    _stopListeningForTouches();
     _shown = null;
     final changed = widget.onRevealChanged;
     if (changed != null) scheduleMicrotask(() => changed(false));
   }
 
   void _stopTimers() {
-    _doubleTap?.cancel();
     _counts?.cancel();
-    _doubleTap = _counts = null;
-  }
-
-  // A double-tapped face hides at any touch, anywhere.
-  var _listening = false;
-
-  void _listenForTouches() {
-    if (_listening) return;
-    _listening = true;
-    GestureBinding.instance.pointerRouter.addGlobalRoute(_onAnyPointer);
-  }
-
-  void _stopListeningForTouches() {
-    if (!_listening) return;
-    _listening = false;
-    GestureBinding.instance.pointerRouter.removeGlobalRoute(_onAnyPointer);
-  }
-
-  void _onAnyPointer(PointerEvent event) {
-    if (event is PointerDownEvent) _hide();
+    _counts = null;
   }
 
   /// The middle of the cover, for a face shown with no touch.
@@ -278,17 +248,6 @@ class _HoldToRevealState extends State<HoldToReveal>
                               _show(_Shown.held, details.globalPosition))
                           ..onLongPressEnd = ((_) => _release())
                           ..onLongPressCancel = _release,
-                      ),
-                  DoubleTapGestureRecognizer:
-                      GestureRecognizerFactoryWithHandlers<
-                        DoubleTapGestureRecognizer
-                      >(
-                        DoubleTapGestureRecognizer.new,
-                        (recognizer) => recognizer
-                          ..onDoubleTapDown = ((details) =>
-                              _anchor = details.globalPosition)
-                          ..onDoubleTap = () =>
-                              _show(_Shown.doubleTapped, _anchor),
                       ),
                 },
                 // Hidden information: the cover sets the size, shown or not.

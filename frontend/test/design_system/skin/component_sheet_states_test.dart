@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
@@ -9,6 +10,13 @@ import '../../helpers/component_sheet.dart';
 // contrast, fit and amber tests (and the cold-read pack) judge the wrong
 // picture.
 
+/// A phone, as the gallery draws it.
+void _phone(WidgetTester tester) {
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   final shows = <ComponentPage, List<String>>{
     ComponentPage.actionPicked: ['Choose Cleo'],
@@ -16,13 +24,20 @@ void main() {
     ComponentPage.actionTwoPicks: ['Choose Left, Right'],
     ComponentPage.actionChosen: [NightCopy.chosen],
     ComponentPage.actionNotSent: [BannerCopy.notSent, BannerCopy.tryAgain],
-    ComponentPage.talkSeer: ["Cleo's card: Werewolf."],
-    ComponentPage.talkTroublemaker: ['You swapped Ben and Dev.'],
-    ComponentPage.talkDrunk: ['Right is yours. Unseen.'],
+    ComponentPage.talkHeld: ["Cleo's card: Werewolf."],
+    ComponentPage.talkRobber: ['Your card now: Seer.'],
+    ComponentPage.talkLoneWerewolf: ['Only you.', 'Left: Werewolf.'],
+    ComponentPage.talkDrunk: ['Middle is yours. Unseen.'],
+    ComponentPage.talkDoppelganger: [
+      'You copied Ben.',
+      'Center: Villager, Villager.',
+    ],
+    ComponentPage.actionFollowUpHeld: ['You copied Ben.', NightCopy.seer],
     ComponentPage.voteLocked: [VoteCopy.locked],
   };
   for (final MapEntry(key: page, value: words) in shows.entries) {
     testWidgets('${page.name} shows ${words.join(', ')}', (tester) async {
+      _phone(tester);
       await pumpComponentPage(tester, page, page.grounds.single);
       for (final word in words) {
         expect(find.text(word), findsOneWidget, reason: word);
@@ -31,6 +46,7 @@ void main() {
   }
 
   testWidgets('held pages show a face', (tester) async {
+    _phone(tester);
     for (final page in [
       ComponentPage.cardHeld,
       ComponentPage.actionHeld,

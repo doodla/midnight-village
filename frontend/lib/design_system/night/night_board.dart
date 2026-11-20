@@ -18,8 +18,8 @@ import '../teach/cue_wave.dart';
 import '../teach/learned_store.dart';
 import '../teach/teach_once.dart';
 import '../teach/teaching_hold.dart';
+import 'choose_prompt.dart';
 import 'night_pick.dart';
-import 'pick_rule.dart';
 
 /// The night (06), sections 3, 7 and 8 of the first-time play spec.
 ///
@@ -28,35 +28,34 @@ import 'pick_rule.dart';
 ///   every phone, whatever the role.
 /// - Holding "You" shows [face] (what this phone may do); until this device
 ///   has held "You" once, the thumbprint cue points at it (`hold_you`).
-///   Nothing waits on the hold.
-/// - A tap selects a card [rule] can take (lift plus the selection's
-///   outline) and unselects a chosen one; a card it cannot take does not
-///   select. The picks are always one of the rule's shapes or the start of
-///   one, so a slip cannot waste the turn.
+///   Nothing waits on the hold; a tap on "You" picks it at once.
+/// - A tap selects a card the prompt's rule can take (lift plus the
+///   selection's outline) and unselects a chosen one; a card it cannot take
+///   does not select. "You" alone (do nothing) is always a choice. The picks
+///   are always that, one of the rule's shapes or the start of one, so a
+///   slip cannot waste the turn.
 /// - The button: "Choose a card" and "Choose 1 more" are locked (a tap
 ///   replays the wave over the cards), then "Choose {cards}", or "Keep my
 ///   card" for "You" alone; "Chosen" from the moment it is pressed.
-/// - One Choose per turn. A new [stage] or [turn] re-arms the board.
-/// - Choose changes what the table can see at once and never waits:
-///   [onChoose] is called with the [stage] and the picks in tap order, and
-///   its answer only ever shows as "Not sent." with "Try again" when it
-///   fails. What the server sends back belongs on a held face.
+/// - One Choose per turn. The board re-arms only when [prompt]'s stage or
+///   turn changes ([ChoosePrompt.turn]: the Doppelganger's look giving way
+///   to her follow-up), never on the prompt's counts.
+/// - Choose changes what the table can see at once and never waits: see
+///   [onChoose]. What the server sends back belongs on a held face.
 ///
 /// Hidden information: the role reaches this board only as [face], shown
-/// while held, and [rule], which only decides what the player's own taps
-/// select; the board's layout and motion are the same for every role
+/// while held, and the prompt's rule, which only decides what the player's
+/// own taps select; the board's layout and motion are the same for every role
 /// (test/design_system/night/night_layout_test.dart).
 class NightBoard extends ConsumerStatefulWidget {
   const NightBoard({
     super.key,
     required this.seats,
     required this.selfId,
-    required this.stage,
-    required this.rule,
+    required this.prompt,
     required this.face,
     required this.secondsLeft,
     required this.onChoose,
-    this.turn = 0,
   });
 
   final List<NightSeat> seats;
@@ -64,15 +63,8 @@ class NightBoard extends ConsumerStatefulWidget {
   /// The viewer's seat.
   final int selfId;
 
-  /// The server's opaque name for this stage, sent back with the picks.
-  final String stage;
-
-  /// Which Choose of the stage this is: 0, then 1 for the Doppelganger's
-  /// follow-up once her look's result is back.
-  final int turn;
-
-  /// What the server's prompt lets this phone choose this turn.
-  final PickRule rule;
+  /// This phone's prompt, read from `/me/`.
+  final ChoosePrompt prompt;
 
   /// What "You" shows while held.
   final FaceContent face;
@@ -80,13 +72,25 @@ class NightBoard extends ConsumerStatefulWidget {
   /// The stage's countdown, as the server gives it.
   final int secondsLeft;
 
-  /// Sends the picks. Completes with an error only when they may not have
-  /// arrived; the board then offers "Try again".
-  final Future<void> Function(String stage, List<NightPick> picks) onChoose;
+  /// Sends the picks, in tap order, with the prompt's stage, and says what
+  /// became of them ([ChooseAnswer.fromStatus] on the server's answer). The
+  /// board shows "Chosen" before it is called. [ChooseAnswer.taken] learns
+  /// the board's cue; [ChooseAnswer.stale] (`409 wrong_stage`,
+  /// `409 already_chosen`, any refusal) changes nothing here: the stage has
+  /// moved on or the server has the choose, and the caller fetches `/me/`.
+  /// Only [ChooseAnswer.notSent], or a Future that fails (no answer at all),
+  /// shows "Not sent." with "Try again".
+  final Future<ChooseAnswer> Function(String stage, List<NightPick> picks)
+  onChoose;
 
-  /// Cards per row at most, and with large text.
+  /// Cards per row at most: four for a small table, five for a large one,
+  /// and four with large text.
+  static const perRowSmallTable = 4;
   static const perRow = 5;
   static const perRowLargeText = 4;
+
+  /// A table this small or smaller has [perRowSmallTable] to a row.
+  static const smallTable = 6;
 
   /// From this text scale the board wraps to [perRowLargeText].
   static const largeText = 1.3;
@@ -110,7 +114,8 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   @override
   void didUpdateWidget(NightBoard old) {
     super.didUpdateWidget(old);
-    if (old.stage != widget.stage || old.turn != widget.turn) {
+    if (old.prompt.stage != widget.prompt.stage ||
+        old.prompt.turn != widget.prompt.turn) {
       _sends++;
       _picks = [];
       _sent = null;
@@ -126,7 +131,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   void _tap(NightPick pick) {
     if (_sent != null) return;
-    setState(() => _picks = widget.rule.tap(_picks, pick));
+    setState(() => _picks = widget.prompt.rule.tap(_picks, pick));
   }
 
   void _choose() {
@@ -142,18 +147,21 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   void _send() {
     final send = ++_sends;
     bool current() => mounted && send == _sends;
+    void failed() {
+      if (current()) setState(() => _failed = true);
+    }
+
     unawaited(
       widget
-          .onChoose(widget.stage, _sent!)
+          .onChoose(widget.prompt.stage, _sent!)
           .then(
-            (_) {
-              if (current()) {
-                ref.read(learnedCuesProvider.notifier).learn(Cue.nightChoose);
-              }
+            (answer) => switch (answer) {
+              ChooseAnswer.taken when current() =>
+                ref.read(learnedCuesProvider.notifier).learn(Cue.nightChoose),
+              ChooseAnswer.notSent => failed(),
+              _ => null,
             },
-            onError: (Object _) {
-              if (current()) setState(() => _failed = true);
-            },
+            onError: (Object _) => failed(),
           ),
     );
   }
@@ -167,7 +175,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   Widget _button() {
     if (_sent != null) return const PrimaryButton.done(label: NightCopy.chosen);
-    if (!widget.rule.fits(_picks)) {
+    if (!widget.prompt.rule.fits(_picks)) {
       return PrimaryButton.locked(
         label: _picks.isEmpty ? NightCopy.chooseNone : NightCopy.chooseMore,
         onLockedTap: _replay.replay,
@@ -184,7 +192,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     final type = context.skin.typography;
     final large =
         MediaQuery.textScalerOf(context).scale(1) >= NightBoard.largeText;
-    final perRow = large ? NightBoard.perRowLargeText : NightBoard.perRow;
+    final perRow = large
+        ? NightBoard.perRowLargeText
+        : widget.seats.length <= NightBoard.smallTable
+        ? NightBoard.perRowSmallTable
+        : NightBoard.perRow;
     final cards = [
       for (final seat in widget.seats)
         seat.id == widget.selfId ? _you(seat) : _player(seat),
@@ -202,14 +214,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           distance: CueWave.boardLift,
           child: card,
         );
-        // The board rests just above the button, so a held face has room
-        // above the thumb.
+        // The board is the screen: high, under the title.
         return ScreenFrame(
           ground: GroundKind.night,
-          fillHeight: true,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 spacing: Space.md,
@@ -227,7 +236,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.only(top: Space.lg),
+                padding: const EdgeInsets.only(top: Space.xl),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   spacing: Space.lg,

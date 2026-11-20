@@ -5,8 +5,8 @@ import 'primitives/art_precache.dart';
 import 'skin/skin.dart';
 
 /// Gets a skin ready to draw before anything is drawn in it: the art its
-/// secrets show, decoded (`secretArt`). The app does this at start, and the
-/// skin switch waits for it, so no frame shows an empty card.
+/// secrets show, decoded (`secretArt`). The app does this at start, so no
+/// hold shows an empty card.
 class SkinLoader {
   SkinLoader({AssetBundle? bundle, double Function()? devicePixelRatio})
     : _bundle = bundle ?? rootBundle,

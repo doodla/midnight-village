@@ -20,7 +20,7 @@ abstract final class CommonCopy {
   /// A gate button after the player is ready (04, 08).
   static const readyDone = 'Ready ✓';
 
-  /// A stage or a stepper is finished (03's stepper, 07).
+  /// A stepper is finished (03).
   static const done = 'Done';
 
   /// Back to the start (02 guest, 11 guest).
@@ -169,7 +169,9 @@ abstract final class NightCopy {
 /// spec's "07 faces"; 07 itself is gone, section 7).
 abstract final class SawCopy {
   static const seerPlayer = Template("{name}'s card: {role}.");
-  static const seerCenter = Template('{pos1}: {role1}. {pos2}: {role2}.');
+
+  /// The server names the two roles, not their places.
+  static const seerCenter = Template('Center: {role1}, {role2}.');
   static const newCard = Template('Your card now: {role}.');
   static const swapped = Template('You swapped {a} and {b}.');
 
@@ -181,7 +183,6 @@ abstract final class SawCopy {
   static const centerLook = Template('{pos}: {role}.');
   static const noWerewolves = 'No Werewolves.';
   static const masons = Template('Masons: {names}.');
-  static const didNothing = 'You did nothing.';
 }
 
 /// 08 Talk.
@@ -279,4 +280,7 @@ abstract final class BannerCopy {
 abstract final class SpokenCopy {
   /// A face before it is shown.
   static const hidden = Template('{target}, hidden. Activate to show.');
+
+  /// A button whose action is on its way.
+  static const working = 'Working';
 }

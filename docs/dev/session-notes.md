@@ -54,8 +54,9 @@ re-run on a quiet machine before believing a failure.
 ## What is done and on the branch
 
 Tooling
-- `just screens [width] [report|strict] [skin|all]`: every screen and the component sheet as
-  PNGs beside the mocks (`frontend/build/screens/`).
+- `just screens [width] [report|strict]`: every screen and the component sheet as
+  PNGs beside the mocks (`frontend/build/screens/`); `just playtest-pack`: the cold-read pack
+  (`frontend/build/playtest/`).
 - Real fonts in tests; one Linux golden set; `just analyze` runs `tool/analyze_gate.sh` (fails
   on new uses of the old look; allowed files in `tool/old_look_users.txt`).
 - End-to-end harness (`just test-harness`): 29 reference games, play again, dropped phones,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/elevation.dart';
 import '../skin/skin.dart';
@@ -189,7 +190,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       button: true,
       enabled: _acts,
       label: widget.label,
-      value: widget.busy ? 'Working' : null,
+      value: widget.busy ? SpokenCopy.working : null,
       excludeSemantics: true,
       child: AnimatedContainer(
         duration: Motion.press,

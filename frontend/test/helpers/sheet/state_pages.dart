@@ -266,19 +266,10 @@ class FacesPage extends StatelessWidget {
       for (final (content, page)
           in night
               ? [
-                  (FaceContent.copied(name: cleo.name, role: RoleId.robber), 0),
-                  (
-                    FaceContent.myNight(
-                      dealt: RoleId.doppelganger,
-                      windowOne: CopiedResult(
-                        name: cleo.name,
-                        role: RoleId.drunk,
-                        followUp: const DrunkResult(1),
-                      ),
-                      saw: const SleptResult(),
-                    ),
-                    1,
-                  ),
+                  // The Doppelganger's follow-up, and her My night's
+                  // window-1 page (game 8).
+                  (Viewer.doppelgangerFollowUp.you, 0),
+                  (Viewer.doppelganger.myNight, 1),
                 ]
               : [
                   (FaceContent.roleText(RoleId.minion), 0),

@@ -4,10 +4,10 @@ import '../copy/copy.dart';
 import '../copy/role_text.dart';
 import '../models/role.dart';
 
-// What a held face says (first-time play spec, sections 3 and 8): pages of a
-// portrait and a few lines, built from plain data the server gives. Hidden
-// information: the page count of a face depends only on the moment (window 1
-// ran or not), never on the role.
+// What a held face says (first-time play spec, sections 3, 7 and 8): pages
+// of a portrait and a few lines, read from what the server sends (see
+// night_report.dart). Hidden information: the page count of a face depends
+// only on the moment (window 1 ran or not), never on the role.
 
 /// What fills a face's portrait slot.
 sealed class FacePortrait {
@@ -63,36 +63,74 @@ String centerName(int index) => NightCopy.center[index];
 /// Several names as one gap ("Ana, Ben").
 String nameList(Iterable<String> names) => names.join(', ');
 
-/// The prompt the server gives a phone for one night window: what its "You"
-/// face asks for.
+/// The role named [name] by the server; anything else is a broken payload.
+RoleId serverRole(Object? name) =>
+    RoleId.fromServer(name as String) ??
+    (throw FormatException('Not a role', name));
+
+/// What a night prompt asks of this phone, by the prompt's `kind`, one to
+/// one: what its "You" face says.
 enum NightPrompt {
-  noChoice(NightCopy.noChoice),
-  seer(NightCopy.seer),
-  robber(NightCopy.robber),
-  troublemaker(NightCopy.troublemaker),
-  drunk(NightCopy.drunk),
-  loneWerewolf(NightCopy.loneWerewolf),
-  doppelgangerLook(NightCopy.doppelgangerLook);
+  noChoice('none', NightCopy.noChoice),
+  seer('seer', NightCopy.seer),
+  robber('robber', NightCopy.robber),
+  troublemaker('troublemaker', NightCopy.troublemaker),
+  drunk('drunk', NightCopy.drunk),
+  loneWerewolf('lone_werewolf', NightCopy.loneWerewolf),
+  doppelgangerLook('doppelganger_look', NightCopy.doppelgangerLook);
 
-  const NightPrompt(this.instruction);
+  const NightPrompt(this.kind, this.instruction);
 
+  /// The server's name for it.
+  final String kind;
   final String instruction;
 
-  /// A copied role's window-1 follow-up: the four that act at once; every
-  /// other copied role acts later or not at all.
-  static NightPrompt windowOneFor(RoleId copied) => switch (copied) {
-    RoleId.seer => seer,
-    RoleId.robber => robber,
-    RoleId.troublemaker => troublemaker,
-    RoleId.drunk => drunk,
-    _ => noChoice,
-  };
+  static NightPrompt fromKind(String kind) =>
+      values.where((prompt) => prompt.kind == kind).firstOrNull ??
+      (throw FormatException('Unknown prompt kind', kind));
 }
 
-/// What a phone was told when a window closed: one row of the "07 faces"
-/// table, a page of My night.
+/// What a phone was told when a window closed (one `night_results` entry):
+/// one row of the spec's "07 faces" table, a page of My night.
 sealed class NightResult {
   const NightResult();
+
+  /// One entry of `/me/`'s `night_results`.
+  factory NightResult.fromEntry(Map<String, dynamic> entry) {
+    final info = entry['revealed_info'] as Map<String, dynamic>;
+    List<String> names() => (info['teammate_names'] as List).cast<String>();
+    return switch (entry['action_type']) {
+      'peek_player' => SeerPlayerResult._(
+        name: info['target_name'] as String,
+        role: serverRole(info['role']),
+      ),
+      'peek_center' => SeerCenterResult._([
+        for (final role in info['roles'] as List) serverRole(role),
+      ]),
+      'swap_with_player' => NewCardResult._(serverRole(info['new_role'])),
+      'insomniac' => NewCardResult._(serverRole(info['current_role'])),
+      'swap_others' => SwappedResult._(
+        info['player1_name'] as String,
+        info['player2_name'] as String,
+      ),
+      'swap_with_center' => DrunkResult._(info['card_index'] as int),
+      'see_team' => switch (serverRole(info['role_acting_as'])) {
+        RoleId.minion => MinionResult._(names()),
+        RoleId.mason => MasonsResult._(names()),
+        _ when names().isEmpty => LoneWerewolfResult._(
+          switch (info['center_card']) {
+            {'index': final int index, 'role': final role} => (
+              index,
+              serverRole(role),
+            ),
+            _ => null,
+          },
+        ),
+        _ => WerewolvesResult._(names()),
+      },
+      final type => throw FormatException('Unknown night result', type),
+    };
+  }
 
   FacePortrait get portrait;
   List<String> get lines;
@@ -102,7 +140,7 @@ sealed class NightResult {
 
 /// The Seer looked at a player's card.
 final class SeerPlayerResult extends NightResult {
-  const SeerPlayerResult({required this.name, required this.role});
+  const SeerPlayerResult._({required this.name, required this.role});
 
   final String name;
   final RoleId role;
@@ -116,30 +154,28 @@ final class SeerPlayerResult extends NightResult {
   ];
 }
 
-/// The Seer looked at two center cards; the portrait is the first.
+/// The Seer looked at two center cards (the server names the roles, not the
+/// places); the portrait is the first.
 final class SeerCenterResult extends NightResult {
-  const SeerCenterResult(this.first, this.second);
+  const SeerCenterResult._(this.roles);
 
-  final (int index, RoleId role) first;
-  final (int index, RoleId role) second;
+  final List<RoleId> roles;
 
   @override
-  FacePortrait get portrait => RoleFacePortrait(first.$2);
+  FacePortrait get portrait => RoleFacePortrait(roles.first);
 
   @override
   List<String> get lines => [
     SawCopy.seerCenter.fill({
-      'pos1': centerName(first.$1),
-      'role1': first.$2.displayName,
-      'pos2': centerName(second.$1),
-      'role2': second.$2.displayName,
+      'role1': roles.first.displayName,
+      'role2': roles.last.displayName,
     }),
   ];
 }
 
 /// The Robber's or the Insomniac's card now.
 final class NewCardResult extends NightResult {
-  const NewCardResult(this.role);
+  const NewCardResult._(this.role);
 
   final RoleId role;
 
@@ -154,7 +190,7 @@ final class NewCardResult extends NightResult {
 
 /// The Troublemaker swapped two players.
 final class SwappedResult extends NightResult {
-  const SwappedResult(this.a, this.b);
+  const SwappedResult._(this.a, this.b);
 
   final String a;
   final String b;
@@ -170,7 +206,7 @@ final class SwappedResult extends NightResult {
 
 /// The Drunk took a center card, chosen or by the server's seeded swap.
 final class DrunkResult extends NightResult {
-  const DrunkResult(this.center);
+  const DrunkResult._(this.center);
 
   final int center;
 
@@ -185,7 +221,7 @@ final class DrunkResult extends NightResult {
 
 /// The Werewolves saw each other.
 final class WerewolvesResult extends NightResult {
-  const WerewolvesResult(this.names);
+  const WerewolvesResult._(this.names);
 
   final List<String> names;
 
@@ -200,7 +236,7 @@ final class WerewolvesResult extends NightResult {
 
 /// A lone Werewolf, with the center card it looked at, if it did.
 final class LoneWerewolfResult extends NightResult {
-  const LoneWerewolfResult([this.look]);
+  const LoneWerewolfResult._(this.look);
 
   final (int index, RoleId role)? look;
 
@@ -220,7 +256,7 @@ final class LoneWerewolfResult extends NightResult {
 
 /// The Minion saw the Werewolves, or that there are none.
 final class MinionResult extends NightResult {
-  const MinionResult(this.names);
+  const MinionResult._(this.names);
 
   final List<String> names;
 
@@ -237,7 +273,7 @@ final class MinionResult extends NightResult {
 
 /// The Masons saw each other, or a lone Mason saw nobody.
 final class MasonsResult extends NightResult {
-  const MasonsResult(this.names);
+  const MasonsResult._(this.names);
 
   /// The other Masons; empty for a lone Mason.
   final List<String> names;
@@ -253,20 +289,12 @@ final class MasonsResult extends NightResult {
   ];
 }
 
-/// The player chose, but no pick was a valid action for their role.
-final class DidNothingResult extends NightResult {
-  const DidNothingResult();
-
-  @override
-  FacePortrait get portrait => const MoonFacePortrait();
-
-  @override
-  List<String> get lines => const [SawCopy.didNothing];
-}
-
-/// No choice, or the window timed out.
+/// Nothing came back: no choice, a choice of nothing, or a timeout.
 final class SleptResult extends NightResult {
-  const SleptResult();
+  const SleptResult._();
+
+  /// The page for a window that told this phone nothing.
+  static const none = SleptResult._();
 
   @override
   FacePortrait get portrait => const MoonFacePortrait();
@@ -281,11 +309,24 @@ final class SleptResult extends NightResult {
 sealed class WindowOneResult {
   const WindowOneResult();
 
+  /// Window 1's `night_results` entries for this phone (wave 1): her look
+  /// (a `peek_player` naming `copied_role`), then her follow-up's; none for
+  /// everyone else.
+  factory WindowOneResult.fromEntries(List<Map<String, dynamic>> entries) {
+    if (entries.isEmpty) return const WindowOneSlept._();
+    final look = entries.first['revealed_info'] as Map<String, dynamic>;
+    return CopiedResult._(
+      name: look['target_name'] as String,
+      role: serverRole(look['copied_role']),
+      followUp: entries.length > 1 ? NightResult.fromEntry(entries[1]) : null,
+    );
+  }
+
   FacePage get page;
 }
 
 final class CopiedResult extends WindowOneResult {
-  const CopiedResult({required this.name, required this.role, this.followUp});
+  const CopiedResult._({required this.name, required this.role, this.followUp});
 
   final String name;
   final RoleId role;
@@ -305,10 +346,10 @@ final class CopiedResult extends WindowOneResult {
 }
 
 final class WindowOneSlept extends WindowOneResult {
-  const WindowOneSlept();
+  const WindowOneSlept._();
 
   @override
-  FacePage get page => const SleptResult().page;
+  FacePage get page => SleptResult.none.page;
 }
 
 /// A held face's pages, in the order holds show them.
@@ -331,9 +372,9 @@ class FaceContent {
     ]);
   }
 
-  /// "You" on the night board: the dealt role's name and this window's
-  /// instruction; in window 2, after a window 1, what window 1 told this
-  /// phone on a second page (every phone has one).
+  /// "You" on the night board: the dealt role's name and what the prompt
+  /// asks; in window 2, after a window 1, what window 1 told this phone on a
+  /// second page (every phone has one).
   factory FaceContent.nightYou({
     required RoleId dealt,
     required NightPrompt prompt,
@@ -348,33 +389,34 @@ class FaceContent {
   ]);
 
   /// "You" in window 1 once the Doppelganger's look has come back: whom she
-  /// copied, the copied role's portrait, and its window-1 instruction.
-  factory FaceContent.copied({required String name, required RoleId role}) =>
+  /// copied, the copied role's portrait, and what her follow-up prompt asks.
+  factory FaceContent.copied(CopiedResult look, NightPrompt followUp) =>
       FaceContent([
         FacePage(
-          portrait: RoleFacePortrait(role),
-          name: role.displayName,
+          portrait: RoleFacePortrait(look.role),
+          name: look.role.displayName,
           lines: [
-            NightCopy.copied.fill({'name': name}),
-            NightPrompt.windowOneFor(role).instruction,
+            NightCopy.copied.fill({'name': look.name}),
+            followUp.instruction,
           ],
         ),
       ]);
 
-  /// 08's My night: the dealt card, window 1's page when it ran, and what
-  /// window 2 told this phone; the same count on every phone.
+  /// 08's My night: what window 2 told this phone first (the page most
+  /// wanted), window 1's page when it ran, then the dealt card; the same
+  /// count on every phone.
   factory FaceContent.myNight({
     required RoleId dealt,
     WindowOneResult? windowOne,
     required NightResult saw,
   }) => FaceContent([
+    saw.page,
+    ?windowOne?.page,
     FacePage(
       portrait: RoleFacePortrait(dealt),
       lines: [
         TalkCopy.dealt.fill({'role': dealt.displayName}),
       ],
     ),
-    ?windowOne?.page,
-    saw.page,
   ]);
 }

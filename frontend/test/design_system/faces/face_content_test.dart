@@ -2,35 +2,53 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/copy/role_text.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
+import 'package:midnight_village/design_system/faces/night_report.dart';
 import 'package:midnight_village/design_system/models/role.dart';
+import 'package:midnight_village/design_system/night/choose_prompt.dart';
 
-/// Every result a window can end with, one of each kind.
-const _results = <NightResult>[
-  SeerPlayerResult(name: 'Cleo', role: RoleId.werewolf),
-  SeerCenterResult((0, RoleId.drunk), (2, RoleId.tanner)),
-  NewCardResult(RoleId.robber),
-  SwappedResult('Ana', 'Ben'),
-  DrunkResult(1),
-  WerewolvesResult(['Ana', 'Ben']),
-  LoneWerewolfResult(),
-  LoneWerewolfResult((2, RoleId.seer)),
-  MinionResult(['Ana']),
-  MinionResult([]),
-  MasonsResult(['Ana']),
-  MasonsResult([]),
-  DidNothingResult(),
-  SleptResult(),
+import '../../helpers/sheet/sheet_data.dart';
+
+// The faces read from what the server recorded (contract_samples/, night
+// protocol 2): every prompt, every talk.
+
+const _game7Prompts = [
+  'me_choose_prompt_seer',
+  'me_choose_prompt_robber',
+  'me_choose_prompt_troublemaker',
+  'me_choose_prompt_villager',
+  'me_choose_prompt_werewolf_lone',
+];
+const _game8Prompts = [
+  'me_choose_prompt_drunk',
+  'me_choose_prompt_insomniac',
+  'me_choose_prompt_mason',
+  'me_choose_prompt_minion',
+  'me_choose_prompt_werewolf_pack',
+];
+const _game7Talks = [
+  'me_discussion_choose_seer',
+  'me_discussion_choose_robber',
+  'me_discussion_choose_villager',
+  'me_discussion_choose_werewolf_lone',
+];
+const _game8Talks = [
+  'me_discussion_choose_doppelganger',
+  'me_discussion_choose_drunk',
+  'me_discussion_choose_insomniac',
+  'me_discussion_choose_mason',
+  'me_discussion_choose_minion',
+  'me_discussion_choose_werewolf_pack',
 ];
 
-final _windowOnes = <WindowOneResult>[
-  const WindowOneSlept(),
-  for (final role in RoleId.values) CopiedResult(name: 'Cleo', role: role),
-  const CopiedResult(
-    name: 'Cleo',
-    role: RoleId.drunk,
-    followUp: DrunkResult(0),
-  ),
-];
+FaceContent _you(String name) {
+  final me = recordedMe(name);
+  return NightReport.fromMe(me).you(ChoosePrompt.fromMe(me));
+}
+
+FaceContent _myNight(String name) =>
+    NightReport.fromMe(recordedMe(name)).myNight;
+
+List<String> _lines(FacePage page) => page.lines;
 
 void main() {
   group('every phone has the same number of pages at the same beat', () {
@@ -44,108 +62,99 @@ void main() {
       );
     });
 
-    test('06: one page in window 1, before and after a copy; two in window 2 '
-        'after a window 1', () {
-      expect(
-        {
-          for (final role in RoleId.values)
-            for (final prompt in NightPrompt.values)
-              FaceContent.nightYou(dealt: role, prompt: prompt).pages.length,
-          for (final role in RoleId.values)
-            FaceContent.copied(name: 'Cleo', role: role).pages.length,
-        },
-        {1},
-      );
-      expect(
-        {
-          for (final role in RoleId.values)
-            for (final windowOne in _windowOnes)
-              FaceContent.nightYou(
-                dealt: role,
-                prompt: NightPrompt.noChoice,
-                windowOne: windowOne,
-              ).pages.length,
-        },
-        {2},
-      );
+    test('06: one page without a window 1, two in window 2 after one', () {
+      expect({for (final name in _game7Prompts) _you(name).pages.length}, {1});
+      expect({for (final name in _game8Prompts) _you(name).pages.length}, {2});
     });
 
-    test('08: dealt and seen, with window 1 between when it ran', () {
-      int pages(WindowOneResult? windowOne, NightResult saw) =>
-          FaceContent.myNight(
-            dealt: RoleId.seer,
-            windowOne: windowOne,
-            saw: saw,
-          ).pages.length;
-      expect({for (final r in _results) pages(null, r)}, {2});
+    test('08: the result, window 1 when it ran, then the dealt card', () {
       expect(
-        {
-          for (final w in _windowOnes)
-            for (final r in _results) pages(w, r),
-        },
+        {for (final name in _game7Talks) _myNight(name).pages.length},
+        {2},
+      );
+      expect(
+        {for (final name in _game8Talks) _myNight(name).pages.length},
         {3},
       );
+      final seer = _myNight('me_discussion_choose_seer');
+      expect(_lines(seer.pages.first), ["Cleo's card: Werewolf."]);
+      expect(_lines(seer.pages.last), ['Dealt: Seer']);
     });
+  });
+
+  test('each prompt kind the server sends has its own instruction', () {
+    expect(_lines(_you('me_choose_prompt_seer').pages.first), [NightCopy.seer]);
+    expect(_lines(_you('me_choose_prompt_villager').pages.first), [
+      NightCopy.noChoice,
+    ]);
+    expect(_lines(_you('me_choose_prompt_werewolf_lone').pages.first), [
+      NightCopy.loneWerewolf,
+    ]);
+    expect(_lines(_you('me_choose_prompt_doppelganger_look').pages.first), [
+      NightCopy.doppelgangerLook,
+    ]);
+    expect(
+      () => NightPrompt.fromKind('not_a_kind'),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test("the Doppelganger's follow-up shows whom she copied and what her "
+      'copy may do', () {
+    final face = _you('me_choose_doppelganger_followup');
+    expect(face.pages.single.name, 'Seer');
+    expect(_lines(face.pages.single), ['You copied Ben.', NightCopy.seer]);
+  });
+
+  test('the results fill their lines with names, cards and roles', () {
+    String result(String name) => _lines(_myNight(name).pages.first).join(' ');
+    expect(result('me_discussion_choose_robber'), 'Your card now: Seer.');
+    expect(
+      result('me_discussion_choose_werewolf_lone'),
+      'Only you. Left: Werewolf.',
+    );
+    expect(result('me_discussion_choose_villager'), NightCopy.slept);
+    expect(result('me_discussion_choose_drunk'), 'Middle is yours. Unseen.');
+    expect(result('me_discussion_choose_minion'), 'Werewolves: Cleo, Ida.');
+    expect(result('me_discussion_choose_mason'), 'Masons: Fin.');
+    expect(
+      result('me_discussion_choose_insomniac'),
+      'Your card now: Insomniac.',
+    );
+    expect(result('me_discussion_choose_werewolf_pack'), 'Werewolves: Ida.');
+    final doppelganger = _myNight('me_discussion_choose_doppelganger');
+    expect(_lines(doppelganger.pages[1]), [
+      'You copied Ben.',
+      'Center: Villager, Villager.',
+    ]);
+  });
+
+  test('the portrait is the card seen, or the moon when nothing was', () {
+    final seer = _myNight('me_discussion_choose_seer').pages.first;
+    expect(seer.portrait, const RoleFacePortrait(RoleId.werewolf));
+    for (final name in [
+      'me_discussion_choose_villager',
+      'me_discussion_choose_drunk',
+    ]) {
+      expect(_myNight(name).pages.first.portrait, isA<MoonFacePortrait>());
+    }
+  });
+
+  test('a result the app does not know is a broken payload', () {
+    final me = recordedMe('me_discussion_choose_seer');
+    ((me['night_results'] as List).first as Map)['action_type'] = 'unknown';
+    expect(() => NightReport.fromMe(me), throwsA(isA<FormatException>()));
   });
 
   test('the role text face is the role text, in its order', () {
     final face = FaceContent.roleText(RoleId.minion);
     final text = RoleText.of(RoleId.minion);
-    expect(face.pages.first.name, 'Minion');
-    expect(face.pages.first.tag, 'Werewolf');
+    expect(face.pages.single.name, 'Minion');
+    expect(face.pages.single.tag, 'Werewolf');
     expect(face.pages.single.lines, [
       text.lines[1],
       text.lines[2],
       RoleCopy.shared,
     ]);
-  });
-
-  test('the 07 faces fill their lines with names, cards and roles', () {
-    expect(
-      const SeerCenterResult((0, RoleId.drunk), (2, RoleId.tanner)).lines,
-      ['Left: Drunk. Right: Tanner.'],
-    );
-    expect(const SwappedResult('Ana', 'Ben').lines, [
-      'You swapped Ana and Ben.',
-    ]);
-    expect(const DrunkResult(1).lines, ['Middle is yours. Unseen.']);
-    expect(const LoneWerewolfResult((2, RoleId.seer)).lines, [
-      'Only you.',
-      'Right: Seer.',
-    ]);
-    expect(const MinionResult([]).lines, ['No Werewolves.']);
-    expect(const MasonsResult(['Ana', 'Ben']).lines, ['Masons: Ana, Ben.']);
-  });
-
-  test('the portrait is the card seen, or the moon when nothing was', () {
-    expect(
-      const SeerCenterResult((0, RoleId.drunk), (2, RoleId.tanner)).portrait,
-      const RoleFacePortrait(RoleId.drunk),
-    );
-    for (final blind in const [
-      SwappedResult('Ana', 'Ben'),
-      DrunkResult(0),
-      DidNothingResult(),
-      SleptResult(),
-    ]) {
-      expect(blind.portrait, isA<MoonFacePortrait>());
-    }
-  });
-
-  test('a copy shows the copied role and its window-1 instruction', () {
-    final page = FaceContent.copied(
-      name: 'Cleo',
-      role: RoleId.robber,
-    ).pages.single;
-    expect(page.portrait, const RoleFacePortrait(RoleId.robber));
-    expect(page.lines, ['You copied Cleo.', NightCopy.robber]);
-    expect(
-      FaceContent.copied(
-        name: 'Cleo',
-        role: RoleId.werewolf,
-      ).pages.single.lines.last,
-      NightCopy.noChoice,
-      reason: 'a copied Werewolf acts in window 2, not at once',
-    );
   });
 }

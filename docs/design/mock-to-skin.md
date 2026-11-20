@@ -106,7 +106,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Element | Primitive / role |
 |---|---|
 | Night-village picture 520 tall, focus 50% 0%, fading from 300; content from 52 | `ScreenFrame(topArt: skin.art.nightVillage, topArtLayout: TopArtLayout.backdrop)` |
-| Pill: 36 tall, padding 0 16, radius 4, 14/700, 0 3 shadow, moon icon | **Cut** by the first-time play spec ("Night one · your card"); the headline "Your card" in `type.screenTitle` |
+| Pill: 36 tall, padding 0 16, radius 4, 14/700, 0 3 shadow, moon icon | **Cut** by the first-time play spec ("Night one · your card"); the headline "Your card" in `type.screenTitle`, set left, clear of the moon in the picture |
 | Column gap 18, centred | `Space.lgPlus` |
 | Card: 310 wide, padding 12/12/20, gap 12, heroSlab (0 5 paperEdge, 0 11 amber, 0 17 deep) | Your card is face down: `FaceDownCard(size: FaceDownSize.hero, hold: teaching)` under a `TeachingHold`; the role text is its held face (`HeldFace`). The amber layer of `heroSlab` is cut (amber is the primary button's alone) |
 | Portrait 318 tall, radius 3, inset ring 2 px at 12%, focus 50% 12% | On the held face: `HeldFace` draws the portrait in colour beside the name and tag (`shape.radiusSmall`, `ArtSet.portraitFocus`) |
@@ -149,11 +149,11 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Mark disc 40 amber at top 38, eye icon 26, 0 2 deep | **Cut** by the first-time play spec: the mark said what a pick would do, which tells the role |
 | Owner token 36 overlapping by 18, ring bone (amber when picked) | `TokenSize.card`, placed by `FaceDownCard` |
 | Name Gloock 18 at 4, amber when picked | `type.nameSmall`, `ground.text` (the name does not change when picked) |
-| Rule 2 px hairline, margin-top 6, padding-top 14 | **Cut**: the center cards are the board's last row, `Space.lg` below the players; the board rests just above the button (`ScreenFrame(fillHeight: true)`) so a held face has room above the thumb |
+| Rule 2 px hairline, margin-top 6, padding-top 14 | **Cut**: the center cards are the board's last row, `Space.lg` below the players; the board sits high under the title, four cards to a row for six seats or fewer (five beyond, four with large text); a body that runs past the button fades at its lower edge (`ScreenFrame`) |
 | "Center" centred label | **Cut** by the first-time play spec ("Center"): Left, Middle and Right follow the players on the same board |
 | Center cards 62 x 84, radius 5, 0 3 deep, 0.75 opacity, gap 22 | Every card the same size, `FaceDownSize.player`, with `caption:` (`type.caption` 14, `ground.quietText`); no recess |
 | "Left / Middle / Right" 12/700 quiet, gap 6 | `caption:` (`type.caption` 14, `ground.quietText`) |
-| "Look at Cleo's card" 56 | `PrimaryButton`: "Choose a card" and "Choose 1 more" `.locked` (a tap replays the wave), then "Choose {cards}" or "Keep my card", then `.done` "Chosen"; a failed send adds `Notice` "Not sent." with "Try again" |
+| "Look at Cleo's card" 56 | `PrimaryButton`: "Choose a card" and "Choose 1 more" `.locked` (a tap replays the wave), then "Choose {cards}" or "Keep my card", then `.done` "Chosen"; a send that gets no answer adds `Notice` "Not sent." with "Try again" (a `409` is done, not a failure) |
 | "Do nothing tonight" 48, 2 px quiet outline, 15/700 | **Cut** by the first-time play spec: doing nothing is picking "You" ("Keep my card") |
 | Gap 12 | `actionGap: Space.md` |
 
@@ -225,7 +225,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 
 | Element | Primitive / role |
 |---|---|
-| Blood band, full bleed, curved foot with a darker edge | `ScreenFrame(topSlot: Band(tone: BandTone.danger, child: ...))` (`night.danger`, the primary shadow's colour for the edge; the curve's depth follows `shape.archRoundness`, square in Night print) |
+| Blood band, full bleed, curved foot with a darker edge | `ScreenFrame(topSlot: Band(tone: BandTone.danger, child: ...))` (`night.danger`, the primary shadow's colour for the edge; the curve's depth follows `shape.archRoundness`) |
 | Winner's portrait in an arched paper frame, tilted about -3 deg | `RolePortrait.arched(width: RolePortrait.winner)` (`ground.paper`, `elevation.slab`, `Tilt.hero`) |
 | "Cleo held the Robber": indigo chip, bone 13/700 | `TagChip(..., tone: TagTone.ground)` |
 | "The Werewolf wins" about 40, lh about 0.95 | `FitWords` in `type.heroWinner` (hero line; wraps between words, set smaller before a word would break) |

@@ -34,10 +34,10 @@ class CueWave extends StatefulWidget {
 }
 
 class _CueWaveState extends State<CueWave> with SingleTickerProviderStateMixin {
-  late final _wave = AnimationController(
-    vsync: this,
-    duration: CueWave.stagger * widget.index + CueWave.each,
-  );
+  late final _wave = AnimationController(vsync: this, duration: _length);
+
+  /// The whole wave up to and including this thing's step.
+  Duration get _length => CueWave.stagger * widget.index + CueWave.each;
 
   @override
   void initState() {
@@ -48,6 +48,8 @@ class _CueWaveState extends State<CueWave> with SingleTickerProviderStateMixin {
   @override
   void didUpdateWidget(CueWave old) {
     super.didUpdateWidget(old);
+    // The same element can be another card's step after the board wraps.
+    if (old.index != widget.index) _wave.duration = _length;
     if (widget.play && !old.play) _start();
   }
 

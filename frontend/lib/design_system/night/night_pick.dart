@@ -2,11 +2,25 @@ import 'package:flutter/foundation.dart';
 
 import '../skin/art_set.dart';
 
-/// One seat at the table, in seat order: what the night board draws a card
-/// for. The same list on every phone.
+/// One seat at the table: what the night board draws a card for. The same
+/// list on every phone, read from the server's `players`.
 @immutable
 class NightSeat {
-  const NightSeat({required this.id, required this.name, this.token});
+  const NightSeat._({required this.id, required this.name, this.token});
+
+  /// One entry of `/me/`'s `players`.
+  factory NightSeat.fromPlayer(Map<String, dynamic> player) => NightSeat._(
+    id: player['player_id'] as int,
+    name: player['display_name'] as String,
+    token: TokenId.fromServer(player['token'] as String?),
+  );
+
+  /// Everyone at the table in `/me/` [me], in seat order.
+  static List<NightSeat> seatsOf(Map<String, dynamic> me) {
+    final players = (me['players'] as List).cast<Map<String, dynamic>>()
+      ..sort((a, b) => (a['seat'] as int).compareTo(b['seat'] as int));
+    return [for (final player in players) NightSeat.fromPlayer(player)];
+  }
 
   final int id;
   final String name;
@@ -78,4 +92,26 @@ final class SelfPick extends NightPick {
 
   @override
   String toString() => 'SelfPick()';
+}
+
+/// What became of a choose, from the server's answer (or its absence).
+enum ChooseAnswer {
+  /// `200`: the server has the picks.
+  taken,
+
+  /// Any refusal (`409 wrong_stage`, `409 already_chosen`, a `400`): the
+  /// stage has moved on or the server already has this phone's choose.
+  /// Nothing to retry; the caller fetches `/me/` again.
+  stale,
+
+  /// No answer (the network failed, or the server did): the picks may not
+  /// have arrived, so the board offers "Try again".
+  notSent;
+
+  /// The answer to a choose that came back with [status].
+  static ChooseAnswer fromStatus(int status) => switch (status) {
+    >= 200 && < 300 => taken,
+    >= 500 => notSent,
+    _ => stale,
+  };
 }

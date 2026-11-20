@@ -2,72 +2,110 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/night/pick_rule.dart';
 
+import '../../helpers/contract/contract_samples.dart';
+import '../../helpers/sheet/sheet_data.dart';
+
 // The phone compares picks with the prompt's shapes and nothing else
-// (first-time play spec, section 8).
+// (first-time play spec, section 8), read from every prompt the server
+// recorded.
 
-const _ben = PlayerPick(2);
-const _cleo = PlayerPick(3);
-const _left = CenterPick(0);
-const _right = CenterPick(2);
-const _you = SelfPick();
+/// Every recorded protocol-2 prompt.
+final _prompts = [
+  for (final info in ContractSamples.index)
+    if (info.name.startsWith('http/game/me_choose_prompt_') ||
+        info.name == 'http/game/me_choose_doppelganger_followup')
+      info.name.substring('http/game/'.length),
+];
 
-const _seer = PickRule(
-  shapes: {PickShape.self, PickShape.onePlayer, PickShape.twoCenter},
-  players: {2, 3},
-  centers: {0, 1, 2},
+PickRule _rule(String sample) => PickRule.fromPrompt(
+  recordedMe(sample)['action_prompt'] as Map<String, dynamic>,
 );
-const _troublemaker = PickRule(
-  shapes: {PickShape.self, PickShape.twoPlayers},
-  players: {2, 3},
-);
-const _drunk = PickRule(shapes: {PickShape.oneCenter}, centers: {0, 1, 2});
 
 List<NightPick> _taps(PickRule rule, List<NightPick> taps) =>
     taps.fold(const [], rule.tap);
 
+const _you = SelfPick();
+const _left = CenterPick(0);
+const _middle = CenterPick(1);
+const _right = CenterPick(2);
+
 void main() {
-  test('a whole shape fits; its start and a mix do not', () {
-    expect(_seer.fits([_cleo]), isTrue);
-    expect(_seer.fits([_left, _right]), isTrue);
-    expect(_seer.fits([_you]), isTrue);
-    expect(_seer.fits([_left]), isFalse);
-    expect(_seer.fits([_cleo, _left]), isFalse);
-    expect(_troublemaker.fits([_ben, _cleo]), isTrue);
-    expect(_troublemaker.fits([_ben]), isFalse);
-  });
-
-  test('only the cards the prompt names can be picked', () {
-    expect(_seer.canPick(const PlayerPick(9)), isFalse);
-    expect(_drunk.canPick(_cleo), isFalse);
-    expect(_drunk.canPick(_you), isFalse);
-    expect(_troublemaker.canPick(_left), isFalse);
-    expect(_drunk.canPick(_right), isTrue);
-  });
-
-  test('nothing to choose: any one card, "You" included', () {
-    const rule = PickRule.anyCard();
-    for (final pick in [_you, _cleo, _left]) {
-      expect(rule.canPick(pick), isTrue);
-      expect(rule.fits([pick]), isTrue);
+  test('every recorded prompt parses', () {
+    expect(_prompts, hasLength(greaterThanOrEqualTo(12)));
+    for (final sample in _prompts) {
+      expect(() => _rule(sample), returnsNormally, reason: sample);
     }
-    expect(_taps(rule, [_cleo, _left]), [_left]);
   });
 
-  test('a tap keeps the picks a shape or its start', () {
-    expect(_taps(_seer, [_left, _right]), [_left, _right]);
-    expect(_taps(_seer, [_left, _right, CenterPick(1)]), [
-      _right,
-      const CenterPick(1),
-    ]);
-    expect(_taps(_seer, [_left, _cleo]), [_cleo]);
-    expect(_taps(_seer, [_cleo, _left]), [_left]);
-    expect(_taps(_troublemaker, [_ben, _cleo]), [_ben, _cleo]);
-    expect(_taps(_troublemaker, [_ben, _you]), [_you]);
+  test('"You" alone is a choice for every prompt, the Drunk and the '
+      "Doppelganger's look included", () {
+    for (final sample in _prompts) {
+      final rule = _rule(sample);
+      expect(rule.canPick(_you), isTrue, reason: sample);
+      expect(rule.fits([_you]), isTrue, reason: sample);
+    }
   });
 
-  test('a picked card tapped again is unpicked; one that cannot be '
-      'picked changes nothing', () {
-    expect(_taps(_seer, [_left, _right, _left]), [_right]);
-    expect(_taps(_drunk, [_left, _cleo]), [_left]);
+  test("the Seer's shapes: a player, or two center cards", () {
+    final rule = _rule('me_choose_prompt_seer');
+    expect(rule.fits([PlayerPick(cleo.id)]), isTrue);
+    expect(rule.fits([_left, _right]), isTrue);
+    expect(rule.fits([_left]), isFalse);
+    expect(rule.fits([PlayerPick(cleo.id), _left]), isFalse);
+    expect(rule.canPick(PlayerPick(ana.id)), isFalse, reason: 'her own seat');
+  });
+
+  test("the Troublemaker's: two other players", () {
+    final rule = _rule('me_choose_prompt_troublemaker');
+    expect(rule.fits([PlayerPick(ana.id), PlayerPick(ben.id)]), isTrue);
+    expect(rule.fits([PlayerPick(ana.id)]), isFalse);
+    expect(rule.canPick(_left), isFalse);
+  });
+
+  test("the Drunk's: one center card; no player's card", () {
+    final me = recordedMe('me_choose_prompt_drunk');
+    final rule = _rule('me_choose_prompt_drunk');
+    final other = NightSeat.seatsOf(
+      me,
+    ).map((s) => s.id).firstWhere((id) => id != selfIn(me));
+    expect(rule.canPick(PlayerPick(other)), isFalse);
+    expect(rule.fits([_middle]), isTrue);
+  });
+
+  test('nothing to choose: any one card', () {
+    final rule = _rule('me_choose_prompt_villager');
+    for (final pick in [_you, PlayerPick(ben.id), _left]) {
+      expect(rule.fits([pick]), isTrue, reason: '$pick');
+    }
+    expect(_taps(rule, [PlayerPick(ben.id), _left]), [_left]);
+  });
+
+  test('a tap keeps the picks "You", a shape or its start', () {
+    final seer = _rule('me_choose_prompt_seer');
+    expect(_taps(seer, [_left, _right]), [_left, _right]);
+    expect(_taps(seer, [_left, _right, _middle]), [_right, _middle]);
+    expect(_taps(seer, [_left, PlayerPick(cleo.id)]), [PlayerPick(cleo.id)]);
+    expect(_taps(seer, [PlayerPick(cleo.id), _you]), [_you]);
+    expect(_taps(seer, [_you, _left]), [_left]);
+  });
+
+  test('a picked card tapped again is unpicked; one that cannot be picked '
+      'changes nothing', () {
+    final seer = _rule('me_choose_prompt_seer');
+    expect(_taps(seer, [_left, _right, _left]), [_right]);
+    final drunk = _rule('me_choose_prompt_drunk');
+    final me = recordedMe('me_choose_prompt_drunk');
+    final other = NightSeat.seatsOf(
+      me,
+    ).map((s) => s.id).firstWhere((id) => id != selfIn(me));
+    expect(_taps(drunk, [_left, PlayerPick(other)]), [_left]);
+  });
+
+  test('a shape the app does not know is a broken payload', () {
+    final prompt =
+        recordedMe('me_choose_prompt_seer')['action_prompt']
+            as Map<String, dynamic>;
+    (prompt['shapes'] as List).first = {'tokens': 1};
+    expect(() => PickRule.fromPrompt(prompt), throwsA(isA<FormatException>()));
   });
 }

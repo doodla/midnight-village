@@ -40,7 +40,8 @@ enum ComponentPage {
   gates(grounds: [GroundKind.night, GroundKind.day]),
   facesCard(grounds: [GroundKind.night]),
   facesNight(grounds: [GroundKind.night]),
-  // Screen pages: each with its mock, on its mock's ground.
+  // Screen pages: each with its mock, on its mock's ground, as the phone of
+  // a recorded game ([Viewer]) had it.
   join(mock: '01-join.png'),
   joinCode(mock: '01-join.png'),
   table(mock: '02-table.png'),
@@ -48,24 +49,29 @@ enum ComponentPage {
   deck(mock: '03-deck.png'),
   sheet(mock: '03b-deck-role-explained.png'),
   card(mock: '04-your-card.png'),
-  cardHeld(mock: '04-your-card.png', viewer: Viewer.seer),
+  cardHeld(mock: '04-your-card.png'),
   cardHeldVillager(mock: '04-your-card.png', viewer: Viewer.villager),
   wait(mock: '05-night-waiting.png'),
   action(mock: '06-night-action.png'),
-  actionHeld(mock: '06-night-action.png', viewer: Viewer.seer),
+  actionHeld(mock: '06-night-action.png'),
   actionHeldVillager(mock: '06-night-action.png', viewer: Viewer.villager),
   actionPicked(mock: '06-night-action.png'),
-  actionOneMore(mock: '06-night-action.png', viewer: Viewer.seer),
-  actionTwoPicks(mock: '06-night-action.png', viewer: Viewer.seer),
-  actionChosen(mock: '06-night-action.png', viewer: Viewer.seer),
-  actionNotSent(mock: '06-night-action.png', viewer: Viewer.seer),
-  actionTen(mock: '06-night-action.png'),
-  actionTenLarge(mock: '06-night-action.png'),
+  actionOneMore(mock: '06-night-action.png'),
+  actionTwoPicks(mock: '06-night-action.png'),
+  actionChosen(mock: '06-night-action.png'),
+  actionNotSent(mock: '06-night-action.png'),
+  actionFollowUpHeld(
+    mock: '06-night-action.png',
+    viewer: Viewer.doppelgangerFollowUp,
+  ),
+  actionNine(mock: '06-night-action.png', viewer: Viewer.drunk),
+  actionNineLarge(mock: '06-night-action.png', viewer: Viewer.drunk),
   talk(mock: '08-talk.png', day: true),
-  talkHeld(mock: '08-talk.png', day: true, viewer: Viewer.seer),
-  talkSeer(mock: '08-talk.png', day: true, viewer: Viewer.seer),
-  talkTroublemaker(mock: '08-talk.png', day: true, viewer: Viewer.troublemaker),
+  talkHeld(mock: '08-talk.png', day: true),
+  talkRobber(mock: '08-talk.png', day: true, viewer: Viewer.robber),
+  talkLoneWerewolf(mock: '08-talk.png', day: true, viewer: Viewer.loneWerewolf),
   talkDrunk(mock: '08-talk.png', day: true, viewer: Viewer.drunk),
+  talkDoppelganger(mock: '08-talk.png', day: true, viewer: Viewer.doppelganger),
   vote(mock: '09-vote.png', day: true),
   votePicked(mock: '09-vote.png', day: true),
   voteLocked(mock: '09-vote.png', day: true),
@@ -76,7 +82,7 @@ enum ComponentPage {
   const ComponentPage({
     this.mock,
     this.day = false,
-    this.viewer = Viewer.villager,
+    this.viewer = Viewer.seer,
     List<GroundKind>? grounds,
   }) : _grounds = grounds;
 
@@ -84,7 +90,7 @@ enum ComponentPage {
   final String? mock;
   final bool day;
 
-  /// Ana's card: what her held faces say on this page.
+  /// Whose phone the page is (game 7's Seer, Ana, unless it says).
   final Viewer viewer;
   final List<GroundKind>? _grounds;
 
@@ -97,15 +103,17 @@ enum ComponentPage {
       ? [if (day) GroundKind.day else GroundKind.night]
       : _grounds ?? GroundKind.values;
 
-  /// What this phone has learned by this page in a first game: the hold on
-  /// 04, "You" and the board's wave on 06, My night on 08.
+  /// What a phone in its first game has learned by this page, alone on the
+  /// sheet: the hold on 04, "You" and the board's wave on 06, My night on
+  /// 08. A journey (the cold-read pack) passes what it has really learned.
   Set<Cue> get learned => switch (this) {
     card || cardHeld || cardHeldVillager || gates => const {},
     talk ||
     talkHeld ||
-    talkSeer ||
-    talkTroublemaker ||
-    talkDrunk => {...Cue.values}..remove(Cue.holdMyNight),
+    talkRobber ||
+    talkLoneWerewolf ||
+    talkDrunk ||
+    talkDoppelganger => {...Cue.values}..remove(Cue.holdMyNight),
     action ||
     actionHeld ||
     actionHeldVillager ||
@@ -114,42 +122,64 @@ enum ComponentPage {
     actionTwoPicks ||
     actionChosen ||
     actionNotSent ||
-    actionTen ||
-    actionTenLarge => const {Cue.hold},
+    actionFollowUpHeld ||
+    actionNine ||
+    actionNineLarge => const {Cue.hold},
     _ => Cue.values.toSet(),
   };
 
-  /// Puts the page in its state as a player would: a press, a hold, taps.
-  Future<void> drive(WidgetTester tester) async {
+  /// What a player learns by doing what [drive] does here.
+  Set<Cue> get teaches => switch (this) {
+    cardHeld || cardHeldVillager => const {Cue.hold},
+    actionHeld ||
+    actionHeldVillager ||
+    actionFollowUpHeld => const {Cue.hold, Cue.holdYou},
+    actionChosen => const {Cue.nightChoose},
+    talkHeld ||
+    talkRobber ||
+    talkLoneWerewolf ||
+    talkDrunk ||
+    talkDoppelganger => const {Cue.hold, Cue.holdMyNight},
+    voteLocked => const {Cue.voteLock},
+    _ => const {},
+  };
+
+  /// Puts the page in its state as a player would: a press, a hold, taps,
+  /// on [viewer]'s phone (this page's own unless given).
+  Future<void> drive(WidgetTester tester, [Viewer? viewer]) async {
+    final who = viewer ?? this.viewer;
+    Future<void> tapAll(Iterable<String> captions) async {
+      for (final caption in captions) {
+        await tester.tap(find.text(caption).last);
+        await tester.pump();
+      }
+    }
+
     switch (this) {
       case buttons:
         await tester.startGesture(tester.getCenter(find.byKey(pressedKey)));
         await tester.pump(const Duration(milliseconds: 300));
       case cardHeld || cardHeldVillager:
         await holdDown(tester, find.byType(FaceDownCard));
-      case actionHeld || actionHeldVillager:
+      case actionHeld || actionHeldVillager || actionFollowUpHeld:
         await holdDown(tester, _you);
-      case talkHeld:
+      case talkHeld || talkRobber || talkLoneWerewolf || talkDrunk:
         await holdDown(tester, find.byType(PeekBox));
-      case talkSeer || talkTroublemaker || talkDrunk:
-        // The second hold shows My night's second page: the result.
+      case talkDoppelganger:
+        // The second hold shows My night's second page: window 1's.
         await holdAndLetGo(tester, find.byType(PeekBox));
         await holdDown(tester, find.byType(PeekBox));
       case actionPicked:
-        await tester.tap(find.text(cleo.name));
+        await tapAll(who.taps);
       case actionOneMore:
-        await tester.tap(find.text(NightCopy.left));
+        await tapAll([NightCopy.left]);
       case actionTwoPicks:
-        await tester.tap(find.text(NightCopy.left));
-        await tester.tap(find.text(NightCopy.right));
+        await tapAll([NightCopy.left, NightCopy.right]);
       case actionChosen:
-        await tester.tap(find.text(NightCopy.left));
-        await tester.tap(find.text(NightCopy.right));
-        await tester.pump();
+        await tapAll(who.taps);
         await tester.tap(find.byType(PrimaryButton));
       case actionNotSent:
-        await tester.tap(find.text(cleo.name));
-        await tester.pump();
+        await tapAll(who.taps);
         await tester.tap(find.byType(PrimaryButton));
         await tester.pump();
       case votePicked:
@@ -225,23 +255,29 @@ Future<void> pumpComponentPage(
   ComponentPage page,
   GroundKind ground, {
   Skin? skin,
+  Viewer? viewer,
+  Set<Cue>? learned,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: learnedOverrides(page.learned),
+      overrides: learnedOverrides(learned ?? page.learned),
       child: Consumer(
         builder: (context, ref, _) => MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: skin == null ? ref.watch(appThemeProvider) : skinTheme(skin),
           builder: (context, child) =>
               GroundScope(ground: GroundKind.night, child: child!),
-          home: ComponentSheetPage(page: page, ground: ground),
+          home: ComponentSheetPage(
+            page: page,
+            ground: ground,
+            viewer: viewer ?? page.viewer,
+          ),
         ),
       ),
     ),
   );
   await tester.pump();
-  await page.drive(tester);
+  await page.drive(tester, viewer);
 }
 
 class ComponentSheetPage extends StatelessWidget {
@@ -249,10 +285,14 @@ class ComponentSheetPage extends StatelessWidget {
     super.key,
     required this.page,
     required this.ground,
+    required this.viewer,
   });
 
   final ComponentPage page;
   final GroundKind ground;
+
+  /// Whose phone it is.
+  final Viewer viewer;
 
   @override
   Widget build(BuildContext context) => switch (page) {
@@ -269,7 +309,7 @@ class ComponentSheetPage extends StatelessWidget {
     ComponentPage.sheet => const RoleSheetPage(),
     ComponentPage.card ||
     ComponentPage.cardHeld ||
-    ComponentPage.cardHeldVillager => CardPage(viewer: page.viewer),
+    ComponentPage.cardHeldVillager => CardPage(viewer: viewer),
     ComponentPage.wait => const WaitPage(),
     ComponentPage.action ||
     ComponentPage.actionHeld ||
@@ -277,19 +317,17 @@ class ComponentSheetPage extends StatelessWidget {
     ComponentPage.actionPicked ||
     ComponentPage.actionOneMore ||
     ComponentPage.actionTwoPicks ||
-    ComponentPage.actionChosen => BoardPage(viewer: page.viewer),
-    ComponentPage.actionNotSent => BoardPage(viewer: page.viewer, fails: true),
-    ComponentPage.actionTen => BoardPage(viewer: page.viewer, ten: true),
-    ComponentPage.actionTenLarge => BoardPage(
-      viewer: page.viewer,
-      ten: true,
-      textScale: 2,
-    ),
+    ComponentPage.actionChosen ||
+    ComponentPage.actionFollowUpHeld ||
+    ComponentPage.actionNine => BoardPage(viewer: viewer),
+    ComponentPage.actionNotSent => BoardPage(viewer: viewer, fails: true),
+    ComponentPage.actionNineLarge => BoardPage(viewer: viewer, textScale: 2),
     ComponentPage.talk ||
     ComponentPage.talkHeld ||
-    ComponentPage.talkSeer ||
-    ComponentPage.talkTroublemaker ||
-    ComponentPage.talkDrunk => TalkPage(viewer: page.viewer),
+    ComponentPage.talkRobber ||
+    ComponentPage.talkLoneWerewolf ||
+    ComponentPage.talkDrunk ||
+    ComponentPage.talkDoppelganger => TalkPage(viewer: viewer),
     ComponentPage.vote ||
     ComponentPage.votePicked ||
     ComponentPage.voteLocked => const VotePage(),

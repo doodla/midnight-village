@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -12,14 +11,12 @@ import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
 import '../../helpers/pump_skinned.dart';
+import '../../helpers/sheet/sheet_data.dart';
 
 final _seer = FaceContent.roleText(RoleId.seer);
 
-/// My night: two pages.
-final _myNight = FaceContent.myNight(
-  dealt: RoleId.seer,
-  saw: const SleptResult(),
-);
+/// The recorded Seer's My night: two pages.
+final _myNight = Viewer.seer.myNight;
 const _cover = 'Face down';
 
 /// The line the Seer's face shows first.
@@ -130,31 +127,16 @@ void main() {
       expect(h.changes, isEmpty);
     });
 
-    testWidgets('a double tap shows it for 2 s, counts at once, and any touch '
-        'hides it', (tester) async {
+    testWidgets('two quick taps are taps, not a reveal: nothing waits for a '
+        'second', (tester) async {
       final h = _Harness();
       await tester.pumpWidget(h.build());
       await tester.tap(_card);
       await tester.pump(const Duration(milliseconds: 50));
       await tester.tap(_card);
       await tester.pump();
-      expect(_face, findsOneWidget);
-      expect(h.revealed, 1);
-      await tester.pump(const Duration(milliseconds: 1999));
-      expect(_face, findsOneWidget);
-      await tester.pump(const Duration(milliseconds: 1));
       expect(_face, findsNothing);
-
-      await tester.tap(_card);
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester.tap(_card);
-      await tester.pump();
-      expect(_face, findsOneWidget);
-      await tester.tapAt(const Offset(5, 5));
-      await tester.pump();
-      expect(_face, findsNothing);
-      // The last tap's double-tap window.
-      await tester.pump(kDoubleTapTimeout);
+      expect(h.revealed, 0);
     });
   });
 
@@ -172,12 +154,12 @@ void main() {
 
     testWidgets('each new showing shows the next page', (tester) async {
       await tester.pumpWidget(_Harness(face: _myNight).build());
-      final dealt = _myNight.pages.first.lines.single;
+      final first = _myNight.pages.first.lines.single;
       final shown = <bool>[];
       for (var i = 0; i < 3; i++) {
         final hold = await _press(tester);
         await tester.pump(HoldToReveal.holdDelay);
-        shown.add(find.text(dealt).evaluate().isNotEmpty);
+        shown.add(find.text(first).evaluate().isNotEmpty);
         await hold.up();
         await tester.pump();
       }
@@ -312,7 +294,7 @@ void main() {
       for (final face in [
         FaceContent.roleText(RoleId.villager),
         FaceContent.roleText(RoleId.minion),
-        FaceContent([const SleptResult().page]),
+        Viewer.villager.myNight,
       ]) {
         await tester.pumpWidget(_Harness(face: face).build());
         covers.add(tester.getSize(_card));

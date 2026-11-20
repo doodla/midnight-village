@@ -35,7 +35,8 @@ enum TopArtLayout {
 
 /// A whole screen, laid out as a stack (design brief section 3, rule 6): an
 /// optional top (a picture behind the body's start, or a band in
-/// [topSlot]), the [body] (scrolling when it does not fit), and [actions]
+/// [topSlot]), the [body] (scrolling when it does not fit, with the ground
+/// fading in over its lower edge while there is more below), and [actions]
 /// pinned to the bottom. Each part starts where the one above ends, so larger
 /// text pushes things down instead of overlapping. On a wide screen the phone
 /// layout is centred and the ground fills the rest.
@@ -53,7 +54,6 @@ class ScreenFrame extends StatelessWidget {
     this.topArtLayout = TopArtLayout.scene,
     this.topSlot,
     this.actionGap = Space.mdPlus,
-    this.fillHeight = false,
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
@@ -79,12 +79,6 @@ class ScreenFrame extends StatelessWidget {
 
   /// Between the pinned actions.
   final double actionGap;
-
-  /// The body is at least as tall as the space above the actions, so a body
-  /// laid out with `MainAxisAlignment.spaceBetween` can rest its last part
-  /// just above them (the night board, low on the screen so a held face has
-  /// room above the thumb); it still scrolls when it does not fit.
-  final bool fillHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -145,23 +139,10 @@ class ScreenFrame extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, viewport) {
-                      final bottom = actions.isEmpty
-                          ? Space.screenBottom
-                          : Space.md;
-                      return SingleChildScrollView(
-                        padding: EdgeInsets.only(bottom: bottom),
-                        child: fillHeight
-                            ? ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: viewport.maxHeight - bottom,
-                                ),
-                                child: top,
-                              )
-                            : top,
-                      );
-                    },
+                  child: _ScrollBody(
+                    fadeTo: colors.ground,
+                    bottom: actions.isEmpty ? Space.screenBottom : Space.md,
+                    child: top,
                   ),
                 ),
                 if (actions.isNotEmpty)
@@ -188,6 +169,81 @@ class ScreenFrame extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The body, scrolling when it does not fit. While there is more below, the
+/// ground fades in over its lower edge: the board, the list or the text goes
+/// on past the button.
+class _ScrollBody extends StatefulWidget {
+  const _ScrollBody({
+    required this.fadeTo,
+    required this.bottom,
+    required this.child,
+  });
+
+  final Color fadeTo;
+  final double bottom;
+  final Widget child;
+
+  /// How tall the fade is.
+  static const fade = Space.xxl;
+
+  @override
+  State<_ScrollBody> createState() => _ScrollBodyState();
+}
+
+class _ScrollBodyState extends State<_ScrollBody> {
+  final _scroll = ScrollController();
+  var _more = false;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  bool _measure(ScrollMetricsNotification note) {
+    final more = note.metrics.extentAfter > 0;
+    if (more != _more) setState(() => _more = more);
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    children: [
+      NotificationListener<ScrollMetricsNotification>(
+        onNotification: _measure,
+        child: NotificationListener<ScrollUpdateNotification>(
+          onNotification: (note) => _measure(
+            ScrollMetricsNotification(metrics: note.metrics, context: context),
+          ),
+          child: SingleChildScrollView(
+            controller: _scroll,
+            padding: EdgeInsets.only(bottom: widget.bottom),
+            child: widget.child,
+          ),
+        ),
+      ),
+      if (_more)
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: _ScrollBody.fade,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [widget.fadeTo.withValues(alpha: 0), widget.fadeTo],
+                ),
+              ),
+            ),
+          ),
+        ),
+    ],
+  );
 }
 
 /// The top picture, its lower part fading into the ground.

@@ -8,23 +8,23 @@ import 'package:midnight_village/design_system/skin/skin_id.dart';
 // compares skins, outside the few files whose job that is.
 
 /// Files allowed to name skins: their definitions (every file in skins/),
-/// the registry, the switch that holds the choice, and the debug toolbar's
-/// toggle.
+/// the registry, the theme that holds the one look, and `main`, which
+/// decodes its art at start.
 bool _allowed(String path) =>
     path.startsWith('lib/design_system/skin/skins/') ||
     const {
       'lib/design_system/skin/skin_id.dart',
       'lib/design_system/skin/skin_choice.dart',
       'lib/design_system/skin/skin_choice.g.dart',
-      'lib/features/debug/presentation/debug_toolbar_screen.dart',
+      'lib/main.dart',
     }.contains(path);
 
 /// Every skin's name in the registry, so a new skin is scanned for too.
 final _names = SkinId.values.map((id) => id.name).join('|');
 
 final _identity = [
-  // Naming a skin: SkinId.nightPrint, shadowPaper, nightPrint, skinChoiceProvider.
-  RegExp('\\b(SkinId|$_names|skinChoiceProvider)\\b'),
+  // Naming a skin: SkinId.shadowPaper, shadowPaper.
+  RegExp('\\b(SkinId|$_names)\\b'),
   // Comparing skins: skin == x, x != skin, identical(skin, x); a null check
   // is not a comparison.
   RegExp(

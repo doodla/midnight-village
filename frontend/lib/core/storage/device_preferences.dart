@@ -16,29 +16,8 @@ class DevicePreferences {
 
   final Future<SharedPreferences> Function() _open;
 
-  static const _skinKey = 'skin';
-
   /// The value a set flag holds.
   static const _flagOn = '1';
-
-  /// The name of the chosen skin, or null when none was saved or it could
-  /// not be read. Fast enough to await before the first frame.
-  Future<String?> readSkin() async {
-    try {
-      return (await _open()).getString(_skinKey);
-    } catch (e) {
-      logger.w('DevicePreferences: could not read the skin: $e');
-      return null;
-    }
-  }
-
-  Future<void> saveSkin(String name) async {
-    try {
-      await (await _open()).setString(_skinKey, name);
-    } catch (e) {
-      logger.w('DevicePreferences: could not save the skin: $e');
-    }
-  }
 
   /// The keys starting with [prefix] whose flag is set (an empty set when
   /// they could not be read). Fast enough to await before the first frame.

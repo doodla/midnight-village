@@ -180,7 +180,14 @@ class FaceDownCard extends StatelessWidget {
             if (hold case final teaching?)
               Padding(
                 padding: const EdgeInsets.all(Space.xxs),
-                child: HoldCue(teaching: teaching, size: width * 0.45),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: HoldCue(
+                    teaching: teaching,
+                    size: width * 0.45,
+                    wordAbove: true,
+                  ),
+                ),
               ),
           ],
         ),
