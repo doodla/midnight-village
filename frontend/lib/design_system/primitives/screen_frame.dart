@@ -115,14 +115,17 @@ class ScreenFrame extends StatelessWidget {
         ],
       );
     } else if (slot != null) {
+      final under = Padding(
+        padding: padded.copyWith(top: Space.lg),
+        child: body,
+      );
       top = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        // A body that sizes itself to the height is given what is left
+        // under the band.
         children: [
           slot,
-          Padding(
-            padding: padded.copyWith(top: Space.lg),
-            child: body,
-          ),
+          if (fitsHeight) Expanded(child: under) else under,
         ],
       );
     } else {
@@ -186,6 +189,20 @@ class ScreenFrame extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A part of a `fitsHeight` body that scrolls only when it cannot fit (the
+/// vote's rows at ten long names on a small phone at large text), with the
+/// same hint as a scrolling body: while there is more below, the ground
+/// fades in over its lower edge.
+class FadingScroll extends StatelessWidget {
+  const FadingScroll({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      _ScrollBody(fadeTo: context.ground.ground, bottom: 0, child: child);
 }
 
 /// The body, scrolling when it does not fit. While there is more below, the

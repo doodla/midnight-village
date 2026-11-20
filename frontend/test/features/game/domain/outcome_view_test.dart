@@ -5,8 +5,8 @@ import 'package:midnight_village/features/game/domain/outcome_view.dart';
 
 import '../../../helpers/outcome_samples.dart';
 
-// What 10 and 11 show, read from the recorded results bodies (and the two
-// derived ones, test/helpers/outcome_samples.dart): every fact is the
+// What 10 and 11 show, read from the recorded results bodies
+// (test/helpers/outcome_samples.dart): every fact is the
 // server's, grouped for drawing, never a rule applied on the phone.
 
 List<String> _names(Iterable<EndSeat> seats) => [
@@ -61,7 +61,9 @@ void main() {
     });
 
     test('nobody dies: no dead, every row one vote', () {
-      final count = TheCount.of(outcomeOf(derivedNobodyDies()));
+      final count = TheCount.of(
+        outcomeOf(recordedResults('results_nobody_dies')),
+      );
       expect(count.headline, 'Nobody dies.');
       expect(count.dead, isEmpty);
       expect(count.huntersPicks, isEmpty);
@@ -71,12 +73,14 @@ void main() {
 
     test("the dead card is the one in front of the player at the end, with "
         "the server's team; the dealt one only where it moved (finding 1)", () {
-      final ana = TheCount.of(outcomeOf(derivedWerewolvesWin())).dead.single;
-      expect(ana.seat.name, 'Ana');
-      expect(ana.dealt, RoleId.seer);
-      expect(ana.now, RoleId.troublemaker);
-      expect(ana.moved, isTrue);
-      expect(ana.team, TeamId.village);
+      final ben = TheCount.of(
+        outcomeOf(recordedResults('results_moved_dead_card')),
+      ).dead.single;
+      expect(ben.seat.name, 'Ben');
+      expect(ben.dealt, RoleId.robber);
+      expect(ben.now, RoleId.werewolf);
+      expect(ben.moved, isTrue);
+      expect(ben.team, TeamId.werewolf);
       final cleo = TheCount.of(
         outcomeOf(recordedResults('results_doppelganger')),
       ).dead.single;
@@ -93,7 +97,7 @@ void main() {
   });
 
   group('who won', () {
-    test('as the server says, for every recorded and derived game', () {
+    test('as the server says, for every recorded game', () {
       expect(
         Winners.of(outcomeOf(recordedResults('results')).result.winningTeams),
         Winners.village,
@@ -105,7 +109,11 @@ void main() {
         Winners.tanner,
       );
       expect(
-        Winners.of(outcomeOf(derivedWerewolvesWin()).result.winningTeams),
+        Winners.of(
+          outcomeOf(
+            recordedResults('results_werewolves_win'),
+          ).result.winningTeams,
+        ),
         Winners.werewolves,
       );
     });

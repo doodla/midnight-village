@@ -319,7 +319,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 - **States:**
   - Your own row is never listed.
   - The picked row lifts and gets an ink outline. Tapping another row moves the pick.
-  - After locking, every row looks the same and dims equally.
+  - After locking, the player's own pick stays lifted and outlined and the other rows dim; the button reads "Locked". (Owner, 20 November 2026: a neighbour could already read "Lock in Cleo" before the lock; hiding the pick afterwards only costs the player the sight of their own choice.)
   - Normal pace gives 90 s (17).
 - **Pass:** "Tap a name, then Lock in."
 

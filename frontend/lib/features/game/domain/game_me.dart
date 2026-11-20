@@ -273,11 +273,25 @@ class GameMe {
     return open == null ? this : _with(prompt: open.afterChoose);
   }
 
-  /// With this phone's [ready] flag as tapped.
-  GameMe withReady(bool ready) => _with(ready: ready);
+  /// With this phone's [ready] flag as tapped, and the count with it: the
+  /// table's count shows this phone's own tap at once, then the server's
+  /// number (a count is only ever moved against the `ready` of its own
+  /// `/me/`, so the server's counting it is never added twice).
+  GameMe withReady(bool ready) =>
+      _with(ready: ready, progress: _counted(this.ready ?? false, ready));
 
-  /// With this phone's vote as tapped.
-  GameMe withVote(MyVote vote) => _with(myVote: vote);
+  /// With this phone's vote as tapped; a lock counts at once, as [withReady].
+  GameMe withVote(MyVote vote) => _with(
+    myVote: vote,
+    progress: _counted(myVote?.locked ?? false, vote.locked),
+  );
+
+  /// [progress] with this phone moved from [was] to [now].
+  StageProgress? _counted(bool was, bool now) {
+    final counts = progress;
+    if (counts == null || was == now) return counts;
+    return counts.moved(now ? 1 : -1);
+  }
 
   /// With the server's newer counts, when they are for this stage's counts;
   /// otherwise unchanged (a count for another stage is a reason to fetch).

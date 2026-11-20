@@ -122,24 +122,32 @@ class PaceTile extends StatelessWidget {
 /// "My night" (S08): a strip of night laid on the day, with a small
 /// face-down card set into it at the skin's thumb tilt, and its title. It is
 /// the cover of a `HoldToReveal`; every player's is the same. The card
-/// carries the hold ring ([teaching]), its word under the title.
+/// carries the hold ring ([teaching]), its word under the title. [large]
+/// where it is the one thing on the screen's body (08 Talk): a larger card
+/// and title, more room round them.
 class PeekBox extends StatelessWidget {
-  const PeekBox({super.key, required this.title, required this.teaching});
+  const PeekBox({
+    super.key,
+    required this.title,
+    required this.teaching,
+    this.large = false,
+  });
 
   final String title;
   final bool teaching;
+  final bool large;
+
+  /// The mock's card, and the large box's.
+  static const cardSize = Size(50, 68);
+  static const largeCardSize = Size(76, 103);
 
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
+    final inset = large ? Space.lg : Space.smPlus;
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        Space.smPlus,
-        Space.smPlus,
-        Space.lg,
-        Space.smPlus,
-      ),
+      padding: EdgeInsets.fromLTRB(inset, inset, Space.lg, inset),
       decoration: BoxDecoration(
         color: skin.night.ground,
         borderRadius: BorderRadius.circular(skin.shape.radius),
@@ -153,12 +161,22 @@ class PeekBox extends StatelessWidget {
         child: Row(
           spacing: Space.mdPlus,
           children: [
-            _PeekCard(teaching: teaching),
+            _PeekCard(
+              teaching: teaching,
+              size: large ? largeCardSize : cardSize,
+            ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  FitWords(title, style: skin.typography.heading),
+                  // Set smaller rather than broken over two lines.
+                  FitWords(
+                    title,
+                    maxLines: 1,
+                    style: large
+                        ? skin.typography.display
+                        : skin.typography.heading,
+                  ),
                   if (teaching)
                     Text(
                       CommonCopy.hold,
@@ -179,12 +197,10 @@ class PeekBox extends StatelessWidget {
 /// The small card in the "My night" box: a card back ringed in the mark
 /// colour, tilted, with the hold ring on it while taught.
 class _PeekCard extends StatelessWidget {
-  const _PeekCard({required this.teaching});
+  const _PeekCard({required this.teaching, required this.size});
 
   final bool teaching;
-
-  /// The mock's 50 x 68.
-  static const size = Size(50, 68);
+  final Size size;
 
   @override
   Widget build(BuildContext context) {

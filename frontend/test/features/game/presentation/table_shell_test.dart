@@ -12,6 +12,8 @@ import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/night_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/not_built_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
 
 import '../../../helpers/component_sheet.dart' show holdDown;
@@ -38,6 +40,10 @@ void main() {
       'me_choose_prompt_seer': NightBoard,
       'me_choose_prompt_doppelganger_look': NightBoard,
       'me_choose_chosen': NightBoard,
+      'me_discussion_choose_seer': TalkScreen,
+      'me_talk_ready': TalkScreen,
+      'me_voting_unpicked': VoteScreen,
+      'me_voting_locked': VoteScreen,
       'me_results_v2': CountScreen,
     };
     for (final MapEntry(key: sample, value: type) in cases.entries) {
@@ -59,6 +65,8 @@ void main() {
           (e) => !{
             AppScreen.yourCard,
             AppScreen.nightBoard,
+            AppScreen.talk,
+            AppScreen.vote,
             AppScreen.count,
           }.contains(e.value),
         )) {
@@ -207,11 +215,15 @@ void main() {
       replies.releaseAll();
       await s.settle(tester);
       expect(_button(tester), CommonCopy.readyDone);
-      // The count is the server's, from its event to every phone.
-      expect(find.text('0 of 5'), findsOneWidget);
+      // This phone's own Ready is counted at once; then the server's count,
+      // read with this phone's flag from one /me/ (the event, arriving
+      // before that is confirmed, fetches it): still one, never two.
+      expect(find.text('1 of 5'), findsOneWidget);
+      s.answerMe(recordedMe('me_look_ready'));
       s.ws.addServerEvent(ContractSamples.map('ws/game/progress_look'));
       await s.settle(tester);
       expect(find.text('1 of 5'), findsOneWidget);
+      expect(_button(tester), CommonCopy.readyDone);
       await s.close(tester);
     });
 

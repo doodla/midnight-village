@@ -108,13 +108,13 @@ void main() {
 
     testWidgets('a card that moved: Dealt, an arrow, and Now with its team '
         '(the card that counts)', (tester) async {
-      final s = await _end(tester, derivedWerewolvesWin());
+      final s = await _end(tester, recordedResults('results_moved_dead_card'));
       await _countDone(tester);
-      expect(find.text('Ana dies.'), findsOneWidget);
+      expect(find.text('Ben dies.'), findsOneWidget);
       expect(find.text(CountCopy.dealt), findsOneWidget);
       expect(find.text(CountCopy.now), findsOneWidget);
-      expect(find.text('Troublemaker'), findsOneWidget);
-      expect(find.text('Village'), findsOneWidget);
+      expect(find.text('Werewolf'), findsOneWidget);
+      expect(find.text('Werewolf team'), findsOneWidget);
       await s.close(tester);
     });
 
@@ -127,7 +127,7 @@ void main() {
     });
 
     testWidgets('nobody dies: the fact, no card', (tester) async {
-      final s = await _end(tester, derivedNobodyDies());
+      final s = await _end(tester, recordedResults('results_nobody_dies'));
       await _countDone(tester);
       expect(find.text(CountCopy.nobodyDies), findsOneWidget);
       expect(find.text(CountCopy.nobodyGotTwo), findsOneWidget);
@@ -236,7 +236,7 @@ void main() {
         'won), the Tanner (alone), nobody dies', (tester) async {
       for (final (results, viewer, headline, you) in [
         (
-          derivedWerewolvesWin(),
+          recordedResults('results_werewolves_win'),
           'Cleo',
           ResultsCopy.werewolvesWin,
           ResultsCopy.youWon,
@@ -254,7 +254,7 @@ void main() {
           ResultsCopy.youLost,
         ),
         (
-          derivedNobodyDies(),
+          recordedResults('results_nobody_dies'),
           'Ben',
           ResultsCopy.werewolvesWin,
           ResultsCopy.youLost,

@@ -9,8 +9,7 @@ import '../test/helpers/shell_setup.dart';
 // 10 The count and 11 Results through the real shell (TableShell), as a
 // phone at the end of a recorded game has them: `/me/` at the results
 // (`me_results_v2` at that game's table) and the results body
-// (test/helpers/outcome_samples.dart: recorded, or derived where no game
-// was recorded). 11 is reached the way a player reaches it: "See who won".
+// (test/helpers/outcome_samples.dart, every one recorded). 11 is reached the way a player reaches it: "See who won".
 
 /// The shell at the end of the game of [results] on [viewer]'s phone,
 /// [host] the host; the count's motion run to its end.
@@ -51,13 +50,14 @@ Future<void> pumpCountOne(WidgetTester tester, {double textScale = 1}) => _end(
 Future<void> pumpCountHunter(WidgetTester tester) =>
     _end(tester, recordedResults('results'), viewer: 'Ben');
 
-/// 10: Ana dies; her card moved in the night (derived: no recording).
+/// 10: Ben dies; his card moved in the night (results_moved_dead_card: the
+/// Robber took a Werewolf's card).
 Future<void> pumpCountMoved(WidgetTester tester) =>
-    _end(tester, derivedWerewolvesWin(), viewer: 'Ben');
+    _end(tester, recordedResults('results_moved_dead_card'), viewer: 'Ana');
 
-/// 10: nobody dies (derived: no recording).
+/// 10: nobody dies (results_nobody_dies).
 Future<void> pumpCountNobody(WidgetTester tester) =>
-    _end(tester, derivedNobodyDies(), viewer: 'Ben');
+    _end(tester, recordedResults('results_nobody_dies'), viewer: 'Ben');
 
 /// 10: Dev, the Tanner, dies (results_tanner).
 Future<void> pumpCountTanner(WidgetTester tester) =>
@@ -113,16 +113,25 @@ Future<void> pumpResultsVillage(
   await _seeWhoWon(tester, setup);
 }
 
-/// 11: the Werewolves win (derived: no recording), on Cleo's phone (a
+/// 11: the Werewolves win (results_werewolves_win), on Cleo's phone (a
 /// Werewolf, a guest).
 Future<void> pumpResultsWerewolves(WidgetTester tester) async {
-  final setup = await _end(tester, derivedWerewolvesWin(), viewer: 'Cleo');
+  final setup = await _end(
+    tester,
+    recordedResults('results_werewolves_win'),
+    viewer: 'Cleo',
+  );
   await _seeWhoWon(tester, setup);
 }
 
-/// 11: nobody died and the Werewolves win (derived), on Ben's phone.
+/// 11: nobody died and the Werewolves win (results_nobody_dies), on Ben's
+/// phone.
 Future<void> pumpResultsNobody(WidgetTester tester) async {
-  final setup = await _end(tester, derivedNobodyDies(), viewer: 'Ben');
+  final setup = await _end(
+    tester,
+    recordedResults('results_nobody_dies'),
+    viewer: 'Ben',
+  );
   await _seeWhoWon(tester, setup);
 }
 

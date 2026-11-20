@@ -9,19 +9,21 @@ import 'sheet_data.dart';
 // 10 The count and 11 Results on the component sheet: the screens' own views
 // (CountView, ResultsView) fed by a results body (test/helpers/
 // outcome_samples.dart), so the sheet's contrast, amber and fit sweeps
-// measure the real thing. No recorded game ends game 7 (a recorder gap), so
-// these pages are the `results` game unless they say: Ana the Seer, Ben the
-// Robber, Cleo and Esme the Werewolves, Dev the Troublemaker, Fin the Hunter.
+// measure the real thing. These pages are the `results` game unless they
+// say: Ana the Seer, Ben the Robber, Cleo and Esme the Werewolves, Dev the
+// Troublemaker, Fin the Hunter.
 
 /// Which results body a page shows.
 enum EndGame {
   /// Fin, the Hunter, is voted out and takes Esme: the village wins.
   hunter,
 
-  /// Derived: Ana's card moved; she dies; the Werewolves win.
+  /// Recorded (`results_werewolves_win`, a six-player protocol-2 game): Fin,
+  /// a Villager, is voted out; the Werewolves win.
   werewolves,
 
-  /// Derived: nobody dies; the Werewolves win.
+  /// Recorded (`results_nobody_dies`): one vote each, nobody dies; the
+  /// Werewolves win.
   nobody,
 
   /// The Tanner is voted out and wins alone.
@@ -32,8 +34,8 @@ enum EndGame {
 
   Map<String, dynamic> get body => switch (this) {
     hunter => recordedResults('results'),
-    werewolves => derivedWerewolvesWin(),
-    nobody => derivedNobodyDies(),
+    werewolves => recordedResults('results_werewolves_win'),
+    nobody => recordedResults('results_nobody_dies'),
     tanner => recordedResults('results_tanner'),
     tenLong => widened(
       recordedResults('results_doppelganger'),

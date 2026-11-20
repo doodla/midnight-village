@@ -12,15 +12,19 @@ import 'contract/contract_shape.dart';
 // - `results_doppelganger`: eight; Cleo, the lone Werewolf, is voted out:
 //   the village wins (Ana, the Doppelganger, copied the Seer).
 // - `results_tanner`: eight; Dev, the Tanner, is voted out and wins alone.
+// - `results_werewolves_win`: six (protocol 2); Fin, a Villager, is voted
+//   out: no Werewolf dies, the Werewolves win.
+// - `results_nobody_dies`: six; one vote each: nobody dies, the Werewolves
+//   win.
+// - `results_moved_dead_card`: six; Ben, dealt the Robber, robbed Cleo's
+//   Werewolf and is voted out holding it: the village wins.
+// - and the other protocol-2 ends (`results_v2*`: game 7, a tie that kills
+//   two, the Hunter chain, the Tanner, three players).
 //
-// No game was recorded where the Werewolves win or nobody dies; those two
-// are the `results` game with only its votes changed (and what the server
-// would then say: who died, who won), each marked as derived, until the
-// recorder has them (a recorder gap). Every body is checked against the
-// samples before it is used.
+// Every body is checked against the samples before it is used.
 
 /// The recorded results [name] (`results`, `results_doppelganger`,
-/// `results_tanner`).
+/// `results_tanner`, `results_werewolves_win`, ...).
 Map<String, dynamic> recordedResults(String name) =>
     _checked(ContractSamples.map('http/game/$name'));
 
@@ -31,69 +35,6 @@ GameOutcome outcomeOf(Map<String, dynamic> results) =>
 Map<String, dynamic> _checked(Map<String, dynamic> body) {
   checkHttpBody('GET', '/onuw/games/g/results/', 200, body);
   return body;
-}
-
-/// DERIVED (no recording): the `results` game where Ana, dealt the Seer and
-/// swapped to the Troublemaker by Dev, gets three votes and dies; no
-/// Werewolf dies, so the Werewolves win. Only the votes, the deaths, the
-/// outcomes and the server's reason differ from the recording.
-/// REPLACE WITH `recordedResults('results_werewolves_win')` (a moved dead
-/// card: `results_moved_dead_card`) once the recorder has them.
-Map<String, dynamic> derivedWerewolvesWin() => _revote(
-  {1: 2, 2: 1, 3: 1, 4: 6, 5: 1, 6: 4},
-  dead: {1},
-  winners: 'werewolf',
-  reason: _werewolvesWin,
-);
-
-/// DERIVED (no recording): the `results` game where every vote names a
-/// different player, so nobody dies and the Werewolves win.
-/// REPLACE WITH `recordedResults('results_nobody_dies')` once recorded.
-Map<String, dynamic> derivedNobodyDies() => _revote(
-  {1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 1},
-  dead: const {},
-  winners: 'werewolf',
-  reason: _werewolvesWin,
-);
-
-/// The server's own reason when Werewolves are among the players and none
-/// dies (`apps/onuw/engine/win_conditions.py`).
-const _werewolvesWin = 'No Werewolf was eliminated. Werewolves win!';
-
-/// The `results` game with [votes] (voter id -> target id), [dead] voted
-/// out and [winners] the one winning team.
-Map<String, dynamic> _revote(
-  Map<int, int> votes, {
-  required Set<int> dead,
-  required String winners,
-  required String reason,
-}) {
-  final body = ContractSamples.map('http/game/results');
-  final players = (body['players'] as List).cast<Map<String, dynamic>>();
-  final eliminated = (body['eliminated_players'] as List)
-      .cast<Map<String, dynamic>>()
-      .first;
-  for (final p in players) {
-    final id = p['player_id'] as int;
-    p['vote_target_id'] = votes[id];
-    p['is_eliminated'] = dead.contains(id);
-    p['elimination_reason'] = dead.contains(id) ? 'vote' : null;
-    p['outcome'] = p['team'] == winners ? 'win' : 'lose';
-  }
-  body['winning_teams'] = [winners];
-  body['reason'] = reason;
-  body['eliminated_players'] = [
-    for (final p in players)
-      if (dead.contains(p['player_id']))
-        {
-          ...eliminated,
-          'player_id': p['player_id'],
-          'display_name': p['display_name'],
-          'role': p['final_role'],
-          'elimination_reason': 'vote',
-        },
-  ];
-  return _checked(body);
 }
 
 /// [results] with [add] more players like its first Villager-team sleeper

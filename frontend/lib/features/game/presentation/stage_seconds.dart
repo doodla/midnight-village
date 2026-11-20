@@ -62,3 +62,25 @@ class _StageSecondsState extends ConsumerState<StageSeconds> {
     return widget.builder(context, seconds);
   }
 }
+
+/// How much of a stage is left, 0 to 1, for the sun's place on its arc (08)
+/// and the vote's bar (09): the [secondsLeft] (by the server's clock, from
+/// [StageSeconds]) over the stage's length, from the server's own
+/// `stage_started_at` and `deadline`. The same on every phone and after a
+/// restart. Null for an untimed stage (the server sends neither): then no
+/// share is drawn (the stage's length is the table's setting, never
+/// assumed).
+abstract final class StageShare {
+  static double? left({
+    required DateTime? startedAt,
+    required DateTime? deadline,
+    required int? secondsLeft,
+  }) {
+    if (startedAt == null || deadline == null || secondsLeft == null) {
+      return null;
+    }
+    final length = deadline.difference(startedAt).inMilliseconds / 1000;
+    if (length <= 0) return 0;
+    return (secondsLeft / length).clamp(0, 1).toDouble();
+  }
+}

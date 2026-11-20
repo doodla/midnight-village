@@ -22,8 +22,8 @@ changes. Last updated 20 November 2026.
 - App: the Shadow paper skin and primitives (the only look); the first-time-play pieces (copy,
   cues, hold to reveal, the night board); the protocol-2 data layer (`GameMe`, screen table,
   one outbox, healing fetches), model-checked (`docs/dev/models/phone/`). With the screens
-  branch: 04 Your card and the night board are rebuilt for protocol 2, behind the dev-only
-  "Rebuilt screens" switch; 05 shows only while `/me/` loads; under protocol 2, 04 is reachable
+  branch: 04 Your card, the night board, 08 Talk (with My night) and 09 Vote are rebuilt for
+  protocol 2, behind the dev-only "Rebuilt screens" switch; 05 shows only while `/me/` loads; under protocol 2, 04 is reachable
   (it was not under protocol 1). The other screens are still the old ones.
 - App, end of the game: 10 The count and 11 Results rebuilt for protocol 2 (the dead card is
   the final card with its team, the dealt one before it when it moved; who won, every card,
@@ -35,8 +35,8 @@ changes. Last updated 20 November 2026.
 ## Next, in order
 
 1. Rebuild the remaining screens for protocol 2, one at a time, from the primitives, checked
-   by eye with `just screens` against the mocks, before/after pictures to the owner: 08 Talk
-   with "My night", 09 Vote, then 01 Join, 02 Table, 03 Deck (+ 03b
+   by eye with `just screens` against the mocks, before/after pictures to the owner: 01 Join,
+   02 Table, 03 Deck (+ 03b
    role sheet). Then remove the dev-only gate with the last placeholder. Delete each old-look file with the last screen using it
    (`docs/dev/old-look-removal.md`).
 2. Rerun the cold-read playtest on the real screens (method in
