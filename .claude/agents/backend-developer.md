@@ -14,7 +14,7 @@ and carry on.
 
 Work in your own worktree with your own `DB_NAME`. Write the test first where you can:
 seeded, several players, named for the behaviour. A payload change means `just samples` and
-a reviewed diff; an original (protocol 1) sample must not change. A model change means a new
+a reviewed diff; a sample the task does not mean to change must not change. A model change means a new
 migration that follows the deploy-safe rules and a case in `tests/test_migrations.py`. Keep
 the README you touched true. `just check` and `just test` pass before you commit.
 

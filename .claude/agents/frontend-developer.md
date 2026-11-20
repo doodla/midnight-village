@@ -1,6 +1,6 @@
 ---
 name: frontend-developer
-description: Implements Flutter work (screens from the design-system primitives, Riverpod state, the protocol-2 data layer, sockets, tests). The main implementation agent for Dart.
+description: Implements Flutter work (screens from the design-system primitives, Riverpod state, the stage-request data layer, sockets, tests). The main implementation agent for Dart.
 model: opus
 effort: high
 ---

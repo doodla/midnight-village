@@ -41,9 +41,8 @@ Every mocked HTTP body and socket event is built from `contract_samples/` and ch
 the samples of its own situation; a request with no mock fails the test; domain objects come
 from `FromSample`, never a constructor with made-up values; `fixture_sources_test.dart` fails
 any test that goes around this. Night inputs come from recorded samples (`recordedMe`), never
-by hand. A test about malformed input says so (`offContract: true`). The server still records
-its old night (protocol 1) until the server slice deletes it; the app's tests never see those
-samples (one marked filter in `contract_samples.dart`).
+by hand. A test about malformed input says so (`offContract: true`). The app's tests read every
+sample.
 After a payload change: `just samples` in `backend/`, then fix the fixtures that fail.
 
 ## The app's rules
@@ -76,5 +75,4 @@ Every screen (01 to 11) is built from the primitives, against its mock in
 `docs/design/mocks/` (`docs/design/mock-to-skin.md` maps every element), to the copy in
 `docs/specs/frontend/first-time-play.md`. A change to one is checked by eye with
 `just screens` at 320, 360 and 390 wide, `strict` before merging, and before/after pictures go
-to the owner. A game whose `/me/` has no `stage` (a night from an older app) is a calm line and
-"Leave" (`UnplayableScreen`), never a retry loop.
+to the owner.

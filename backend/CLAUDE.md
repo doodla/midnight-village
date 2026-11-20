@@ -1,7 +1,7 @@
 # Backend: Midnight Village
 
 Django 5, DRF, Channels, Postgres, managed with `uv`. Game rules: `docs/specs/onuw/`. What
-the code does, endpoint by endpoint: `apps/onuw/README.md` (the night, protocol 2, voting,
+the code does, endpoint by endpoint: `apps/onuw/README.md` (the night, voting,
 look stage, results, decks) and `apps/core/README.md` (timers, presence, host handover, play
 again, tokens, where am I). Tests: `tests/README.md`. Read the README of the part you change,
 and keep it true.
@@ -46,8 +46,8 @@ serves. Full rules: `docs/dev/deploy-vercel.md`, "Deploy-safe changes". In one l
   `transaction.on_commit`; build payloads inside the transaction. Tests must capture
   on-commit callbacks (`tests/README.md`).
 - **Dealt card decides who wakes**, the held card decides who wins.
-- **Protocol 1 answers exactly as before.** A diff in an original (non-protocol-2) contract
-  sample is a behaviour change to fix, not to regenerate.
+- **A sample diff is a behaviour change.** Review every changed contract sample after
+  `just samples`; a change the task did not ask for is a bug to fix, not to regenerate.
 - **No waits beyond the table's settings.** The night's minimum window and the Doppelganger's
   fixed window are the table's own settings; add no other delay, minimum or assumed default
   length. A stage ends once everyone present has done their part (window 1 keeps the

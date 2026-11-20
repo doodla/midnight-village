@@ -53,7 +53,7 @@ rule: `.claude/guardrails/README.md`. Tests: `just test-guardrails`.
 | `backend-code-reviewer`, `frontend-code-reviewer` | opus, high | Read, Grep, Glob, Bash: no edit tools |
 | `player-experience` | opus, high | Read, Grep, Glob |
 
-The developer agents' briefs carry no old-look rule any more: the old look is deleted.
+The developer agents' briefs carry no old-look or protocol-1 rule any more: both are deleted.
 
 ## Skills (`.claude/skills/`)
 
