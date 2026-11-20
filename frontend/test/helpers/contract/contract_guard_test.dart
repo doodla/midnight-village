@@ -337,6 +337,19 @@ void main() {
       ServerBodies.refreshRefused,
     );
     checkHttpBody('GET', '/stats/online/', 200, ServerBodies.onlineStats);
+    checkHttpBody('GET', '/me/table/', 200, ServerBodies.myTableNone);
+    checkHttpBody(
+      'GET',
+      '/onuw/me/current-game/',
+      200,
+      ServerBodies.currentGameNone,
+    );
+    checkHttpBody(
+      'GET',
+      '/onuw/me/recent-games/',
+      200,
+      ServerBodies.recentGamesNone,
+    );
   });
 
   group('every builder output is on contract', () {

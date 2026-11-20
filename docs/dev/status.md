@@ -59,16 +59,15 @@ changes. Last updated 20 November 2026.
   deployment session when it is added.
 - `ENV` defaults to dev, so a build without `--dart-define=ENV=prod` includes the `/debug`
   toolbar.
-- 01 to 03, server gaps: the lobby body says nothing of whose phone has dropped (02 cannot dim
-  a dropped player; no sample); the deal still wants every member ready, so each phone sets its
-  own flag as it sits down (a phone that cannot send it blocks the deal with "Not sent."); there
-  is no rename, so a new name on a device makes a new guest account; the lobby body carries no
-  timer lengths until a pace is chosen and no preview of a chip's cards (so 03's "Edit" from a
-  chip starts from the last custom deck, or none); no PATCH sample carries timer keys.
+- 01 to 03, waiting on the server branch (each read when present, a marked `FALLBACK` until
+  then; finish when its samples land): members seated ready (each phone sets its own flag
+  until then), `deal`, `deck_preview`, per-member `connected` (the dropped-player gallery
+  state), 409 `already_at_table`. No rename: a new name on a device makes a new guest account.
+  The lobby body carries no timer lengths until a pace is chosen.
 - 01 to 03, not built: the pace tiles' steppers (03 shows the lengths once a pace is chosen);
   in-app QR scanning (the phone's camera opens the link); path URLs for `/join/<code>` (the link
   is `<origin>/#/join/<code>` until the web host rewrites `/join/*`); a public origin for
-  native builds (`--dart-define=PUBLIC_ORIGIN`).
+  native builds (`--dart-define=PUBLIC_ORIGIN`); skin art for Share (the platform's glyph).
 - Untidy protocol-1 payloads still open: `docs/dev/server-payload-quirks.md`.
 - DRF throttles are per instance on Vercel and keyed on a spoofable header: a courtesy, not
   protection.

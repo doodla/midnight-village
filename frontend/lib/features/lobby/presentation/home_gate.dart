@@ -18,8 +18,9 @@ import 'where_am_i_provider.dart';
 ///
 /// - While a way in is on its way ([JoinFlow]), 01 stays (the account it
 ///   makes first would otherwise swap the screen mid-way).
-/// - From a link ([code]) to a table the player does not sit at: 01 with
-///   the name and "Join".
+/// - From a link ([code]): the table itself for a player at it; 01 with
+///   the name and "Join" for one at no table; "You're at another table."
+///   with "Go there" for one seated elsewhere (never a second seat).
 class HomeGate extends ConsumerWidget {
   const HomeGate({super.key, this.code});
 
@@ -36,11 +37,19 @@ class HomeGate extends ConsumerWidget {
         ground: GroundKind.night,
         body: SizedBox.shrink(),
       ),
-      AuthAuthenticated() when link != null => switch (ref
-          .watch(myTableProvider)
-          .value) {
-        final table? when table.lobbyCode == link => const TableShell(),
-        _ => JoinScreen(code: link),
+      AuthAuthenticated() when link != null => switch (ref.watch(
+        myTableProvider,
+      )) {
+        AsyncValue(value: final table?) when table.lobbyCode == link =>
+          const TableShell(),
+        // Seated elsewhere: say so; never a silent second seat.
+        AsyncValue(value: final _?) => JoinScreen(code: link, elsewhere: true),
+        AsyncValue(hasValue: true) => JoinScreen(code: link),
+        // Not known yet: nothing to tap until it is.
+        _ => const ScreenFrame(
+          ground: GroundKind.night,
+          body: SizedBox.shrink(),
+        ),
       },
       AuthAuthenticated() => const TableShell(),
       AuthUnauthenticated() || AuthError() => JoinScreen(code: link),

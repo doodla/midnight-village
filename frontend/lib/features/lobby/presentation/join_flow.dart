@@ -16,7 +16,12 @@ part 'join_flow.g.dart';
 /// "Banners and errors").
 @immutable
 class JoinFlowState {
-  const JoinFlowState({this.busy, this.banner, this.retry = false});
+  const JoinFlowState({
+    this.busy,
+    this.banner,
+    this.retry = false,
+    this.goThere = false,
+  });
 
   /// The way in on its way ([JoinWay.start] or [JoinWay.join]).
   final JoinWay? busy;
@@ -26,6 +31,10 @@ class JoinFlowState {
 
   /// The banner offers "Try again" (nothing the player typed was wrong).
   final bool retry;
+
+  /// The banner offers "Go there": the player sits at another table, and the
+  /// server will not seat them twice.
+  final bool goThere;
 }
 
 enum JoinWay { start, join }
@@ -75,6 +84,12 @@ class JoinFlow extends _$JoinFlow {
     if (state.banner != null) state = JoinFlowState(busy: state.busy);
   }
 
+  /// "Go there": `/me/table/` is read again, and its table shows.
+  void goThere() {
+    clearBanner();
+    ref.invalidate(myTableProvider);
+  }
+
   Future<bool> _run(
     JoinWay way,
     String name,
@@ -122,6 +137,12 @@ class JoinFlow extends _$JoinFlow {
       ),
       'lobby_full' => const JoinFlowState(banner: BannerCopy.lobbyFull),
       'lobby_closed' => const JoinFlowState(banner: BannerCopy.lobbyClosed),
+      // The server's coming refusal (409, with that table's code): the
+      // player is seated elsewhere; "Go there" opens it.
+      'already_at_table' => const JoinFlowState(
+        banner: BannerCopy.alreadyInLobby,
+        goThere: true,
+      ),
       _ => const JoinFlowState(banner: BannerCopy.notSent, retry: true),
     };
   }

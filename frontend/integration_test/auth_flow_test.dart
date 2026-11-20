@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -31,6 +32,37 @@ void main() {
 
       expect(way(JoinCopy.joinTable).onPressed, isNotNull);
       expect(way(JoinCopy.startTable).onPressed, isNotNull);
+      tester.expectRoute('/');
+    },
+  );
+
+  testWidgets(
+    '01 Join: a name and "Start a table" make this device\'s guest account; '
+    'a table that cannot be opened says "Not sent."',
+    (tester) async {
+      await IntegrationTestSetup.launchApp(
+        tester,
+        httpMocks: {
+          // No answer (a 5xx): the table is not opened.
+          'POST:/lobbies/': Response<dynamic>(
+            requestOptions: RequestOptions(path: '/lobbies/'),
+            statusCode: 503,
+            data: 'Server Error',
+          ),
+        },
+      );
+
+      await tester.enterText(find.byType(TextField), 'TestPlayer');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(JoinCopy.startTable));
+      await tester.pumpAndSettle();
+
+      final guest = IntegrationTestSetup.mockHttp.requests.where(
+        (r) => r.method == 'POST' && r.path == '/auth/guest/',
+      );
+      expect(guest.single.data, {'display_name': 'TestPlayer'});
+      expect(find.text(BannerCopy.notSent), findsOneWidget);
+      expect(find.text(BannerCopy.tryAgain), findsOneWidget);
       tester.expectRoute('/');
     },
   );

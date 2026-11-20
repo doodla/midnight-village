@@ -195,15 +195,13 @@ The WebSocket client lives in `core/api/` (planned: `ws_client.dart`). Feature r
 
 ### Phase → Route Mapping
 
-Game phases map directly to routes. The server decides the current phase; the client only navigates.
-
-| Phase        | Route              | Screen             |
-|--------------|--------------------|--------------------|
-| `lobby`      | `/game/lobby`      | `LobbyScreen`      |
-| `night`      | `/game/night`      | `NightPhaseScreen` |
-| `discussion` | `/game/discussion` | `DiscussionScreen` |
-| `voting`     | `/game/vote`       | `VotingScreen`     |
-| `results`    | `/game/results`    | `ResultsScreen`    |
+The server decides where a player is; the client never navigates on its own.
+Home (`/`) is the table's shell (`TableShell`, through `HomeGate`): it shows the
+one screen `screenFor` names from `/me/table/` and the table's game's `/me/`
+(01 Join at no table, 02 Table at a waiting table, 03 Deck for a host who
+opened it, then the game's screens by phase). `/join/:code` is a table's link
+(01 with "Join", or the table for a player already at it); `/game/:gameId`
+opens a game through `GameEntry` (the same shell for night protocol 2).
 
 Routes are defined in `lib/core/router/routes.dart` using typed GoRouter.
 

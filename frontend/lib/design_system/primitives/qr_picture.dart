@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qr/qr.dart';
 
+import '../layout/space.dart';
 import '../skin/skin.dart';
 
 /// A QR code for [data] (02: the link that joins the table), drawn square in
@@ -20,7 +21,7 @@ class QrPicture extends StatelessWidget {
   final String? semanticLabel;
 
   /// Big enough to scan across a table.
-  static const defaultSide = 168.0;
+  static const defaultSide = Sizes.qrLargest;
 
   /// The light border round the code, in modules (the standard asks for 4;
   /// the paper it sits on gives the rest).

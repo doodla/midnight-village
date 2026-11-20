@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../core/host/host_change.dart';
+import '../../../design_system/models/role.dart' show RoleId;
 import '../../../design_system/skin/art_set.dart' show TokenId;
 
 part 'lobby_state.freezed.dart';
@@ -23,6 +24,12 @@ abstract class LobbyPlayer with _$LobbyPlayer {
     /// The seat token (public table identity); null for a token this app
     /// does not know, or the blank one a member past the tenth may have.
     TokenId? token,
+
+    /// Whether the member's phone is connected (`connected`): false is a
+    /// dropped phone, shown dimmed with no words. Null while the server does
+    /// not say (FALLBACK until the server branch's per-member `connected`
+    /// lands on the base; then make it required and delete this note).
+    bool? connected,
   }) = _LobbyPlayer;
 
   /// Parses the backend's nested player format.
@@ -35,6 +42,7 @@ abstract class LobbyPlayer with _$LobbyPlayer {
       isReady: json['is_ready'] as bool,
       joinedAt: DateTime.parse(json['joined_at'] as String),
       token: TokenId.fromServer(json['token'] as String),
+      connected: json['connected'] as bool?,
     );
   }
 }
@@ -83,6 +91,26 @@ abstract class LobbyState with _$LobbyState {
     /// server: the screen says "Not sent." with "Try again". Frontend only.
     @Default(false) bool notSent,
 
+    /// The server refused the deal: why, in the player's words
+    /// (`LobbyNotifier.dealRefusal`), until the next deal or "Try again".
+    /// Frontend only.
+    String? dealRefused,
+
+    /// The deck the server would deal now, for a chip's deck
+    /// (`deck_preview`), in the server's role names; null while the server
+    /// does not send it (FALLBACK until the server branch's `deck_preview`
+    /// lands; the phone never computes a chip's cards).
+    Map<String, int>? deckPreview,
+
+    /// The chip [deckPreview] is the deck of (the body's own `deck_chip`), so
+    /// a chip tapped and not answered yet never shows another chip's cards.
+    DeckChip? deckPreviewChip,
+
+    /// The server's verdict on dealing now (`deal`); null while the server
+    /// does not send it (FALLBACK: [DealState.of] reads the deck itself until
+    /// the server branch's `deal` lands; then delete that fallback).
+    ServerDeal? serverDeal,
+
     /// Set when the server says the table no longer exists (its last member
     /// left). The screen says so and goes home. Frontend only.
     @Default(false) bool tableClosed,
@@ -110,8 +138,76 @@ abstract class LobbyState with _$LobbyState {
       hostName: host['display_name'] as String,
       originalHostId: json['original_host_id'] as int,
       isActingHost: json['is_acting_host'] as bool,
+      deckPreview: _preview(json['deck_preview']),
+      deckPreviewChip:
+          settings['deck'] == 'auto' && settings['deck_chip'] != null
+          ? DeckChip.fromServer(settings['deck_chip'])
+          : null,
+      serverDeal: ServerDeal.fromJson(json['deal']),
     );
   }
+}
+
+/// The cards a chip's deck holds now, face up (02's strip, 03's chips
+/// view, where "Edit" starts): the server's `deck_preview` for the chip the
+/// table shows. Null for a custom deck, or while the server sends no
+/// preview (FALLBACK until `deck_preview` lands: nothing extra is shown and
+/// "Edit" starts from the last custom deck).
+extension ChipCards on LobbyState {
+  Map<RoleId, int>? get chipCards {
+    final preview = deckPreview;
+    if (!table.autoDeck || preview == null) return null;
+    if (deckPreviewChip != table.deckChip) return null;
+    return {
+      for (final MapEntry(:key, :value) in preview.entries)
+        if (RoleId.fromServer(key) case final role? when value > 0) role: value,
+    };
+  }
+}
+
+/// `deck_preview` in either form a server may send it: `{role: count}` or
+/// `[{"role", "count"}]`. Null when absent.
+Map<String, int>? _preview(Object? json) => switch (json) {
+  null => null,
+  final Map<String, dynamic> m => {
+    for (final MapEntry(:key, :value) in m.entries) key: value as int,
+  },
+  final List<dynamic> l => {
+    for (final e in l.cast<Map<String, dynamic>>())
+      e['role'] as String: e['count'] as int,
+  },
+  _ => throw FormatException('Not a deck preview', json),
+};
+
+/// The server's `deal`: whether the host may deal now and, when the deck is
+/// what stands in the way, the cards it needs and has.
+@immutable
+class ServerDeal {
+  const ServerDeal._({required this.ok, this.need, this.have});
+
+  static ServerDeal? fromJson(Object? json) {
+    if (json == null) return null;
+    final m = json as Map<String, dynamic>;
+    return ServerDeal._(
+      ok: m['ok'] as bool,
+      need: m['need'] as int?,
+      have: m['have'] as int?,
+    );
+  }
+
+  final bool ok;
+  final int? need;
+  final int? have;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ServerDeal &&
+      other.ok == ok &&
+      other.need == need &&
+      other.have == have;
+
+  @override
+  int get hashCode => Object.hash(ok, need, have);
 }
 
 /// The deck chips the server builds a deck from (`deck_chip`).
@@ -281,6 +377,19 @@ sealed class DealState {
 
   factory DealState.of(LobbyState lobby) {
     final players = lobby.players.length;
+    if (lobby.serverDeal case final deal?) {
+      if (deal.ok) return CanDeal(players);
+      final (need, have) = (deal.need, deal.have);
+      if (players < minPlayers || need == null || have == null) {
+        return const NeedPlayers();
+      }
+      if (have < need) return AddCards(need - have);
+      if (have > need) return RemoveCards(have - need);
+      return const NeedPlayers();
+    }
+    // FALLBACK until the server's `deal` lands on the base: the deal's rules
+    // read from the lobby body here. Delete from this line to the end of the
+    // factory (and [centerCards]) then.
     if (players < minPlayers) return const NeedPlayers();
     if (lobby.table.autoDeck) return CanDeal(players);
     final cards = lobby.roleConfig.values.fold(0, (a, b) => a + b);

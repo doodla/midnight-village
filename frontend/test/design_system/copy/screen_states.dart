@@ -112,30 +112,41 @@ final screens = <String, Screen>{
     },
   ),
   '02 Table': (
-    budget: 7,
+    // The spec's 7, and the host's quiet labelled "Leave" (review, 21
+    // November 2026: a glyph in the corner handed the table away on one
+    // stray tap); Share is a glyph, spoken only.
+    budget: 8,
     states: {
-      // The deck as its chip (the custom deck's cards carry no words);
-      // Share is a glyph, spoken only.
       for (final chip in DeckCopy.chips)
         for (final deal in <Object>[
           TableCopy.deal,
           TableCopy.needPlayers,
           CommonCopy.addCards,
           CommonCopy.removeCards,
+          CommonCopy.addCard,
+          CommonCopy.removeCard,
         ])
           'host, $chip: $deal': [
             headline(TableCopy.scan),
             button(chip),
             button(TableCopy.editDeck),
             button(deal),
+            button(CommonCopy.leave),
           ],
-      'guest': [headline(TableCopy.hostDeals), button(CommonCopy.leave)],
+      // The host's "Leave" asks first, in a sheet over the table.
+      'host: leave asked': [button(TableCopy.stay), button(CommonCopy.leave)],
+      'guest': [
+        headline(TableCopy.hostDeals),
+        text(TableCopy.scan),
+        button(CommonCopy.leave),
+      ],
     },
   ),
   '03 Deck': (
     budget: 15,
     states: {
-      // A chip's deck: "Edit" opens the grid; the lengths show once set,
+      // A chip's deck: its cards face up when the server sends them (role
+      // names are exempt), "Edit" opens the grid; the lengths show once set,
       // "Copy" not (the chip's cards are the server's).
       'chips': [
         headline(DeckCopy.headline),
@@ -151,6 +162,8 @@ final screens = <String, Screen>{
         DeckCopy.useDeck,
         CommonCopy.addCards,
         CommonCopy.removeCards,
+        CommonCopy.addCard,
+        CommonCopy.removeCard,
       ])
         'grid: $use': [
           headline(DeckCopy.headline),
@@ -348,6 +361,10 @@ final banners = <(String, String?)>[
   (BannerCopy.notSent, BannerCopy.tryAgain),
   (BannerCopy.offline, null),
   (BannerCopy.leftGame, BannerCopy.goHome),
+  (BannerCopy.copied, null),
+  (BannerCopy.stillJoining, null),
+  (BannerCopy.deckDoesNotFit, null),
+  (BannerCopy.cannotDeal, null),
 ];
 
 /// Everything a screen reader says that no screen shows.

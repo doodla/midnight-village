@@ -50,6 +50,8 @@ final screenCatalogue = <ScreenEntry>[
     '-returning': pumpJoinReturning,
     '-code': pumpJoinCode,
     '-link': pumpJoinLink,
+    '-link-named': pumpJoinLinkNamed,
+    '-link-elsewhere': pumpJoinLinkElsewhere,
     '-x2': (tester) => pumpJoinFresh(tester, textScale: 2),
   }),
   ..._rebuilt('02-table', '02-table.png', {
@@ -64,11 +66,12 @@ final screenCatalogue = <ScreenEntry>[
     '-x1.3': (tester) => pumpTableHost(tester, textScale: 1.3),
     '-guest-x2': (tester) => pumpTableGuest(tester, textScale: 2),
   }),
-  // The lobby body says nothing of whose phone has dropped: no sample.
+  // The lobby body says nothing of whose phone has dropped yet: no sample
+  // (the server branch adds `connected`; the screen reads it already).
   const ScreenEntry.notBuilt(
     '02-table-dropped',
     mock: '02-table.png',
-    why: 'the lobby body has no presence (c-table-night draws it)',
+    why: 'no lobby sample with `connected` yet (c-table-night draws it)',
   ),
   ..._rebuilt('03-deck', '03-deck.png', {
     '': pumpDeckChips,

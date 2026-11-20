@@ -6,9 +6,9 @@ import 'package:go_router/go_router.dart';
 ///
 /// Available as extensions on [WidgetTester]:
 /// ```dart
-/// tester.expectRoute('/home');
-/// await tester.waitForNavigation('/home');
-/// tester.expectScreen<HomeScreen>();
+/// tester.expectRoute('/');
+/// await tester.waitForNavigation('/');
+/// tester.expectScreen<JoinScreen>();
 /// ```
 extension NavigationAssertions on WidgetTester {
   /// Asserts the current GoRouter route matches [path].

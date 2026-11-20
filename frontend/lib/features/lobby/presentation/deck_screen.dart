@@ -15,6 +15,7 @@ import '../../../design_system/primitives/primary_button.dart';
 import '../../../design_system/primitives/role_card.dart';
 import '../../../design_system/primitives/role_sheet_body.dart';
 import '../../../design_system/primitives/screen_frame.dart';
+import '../../../design_system/primitives/secondary_button.dart';
 import '../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../design_system/primitives/world_timer.dart';
 import '../../../design_system/skin/ground.dart';
@@ -23,6 +24,7 @@ import '../../../design_system/skin/skin_tilt.dart';
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
 import '../domain/lobby_state.dart';
 import '../domain/role_config.dart';
+import 'at_table_screen.dart' show cardsLabel;
 import 'lobby_notifier.dart';
 import 'where_am_i_provider.dart';
 
@@ -72,13 +74,18 @@ class DeckScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final table = ref.watch(myTableProvider).value;
-    final lobby = table == null
+    final read = table == null
         ? null
-        : ref.watch(lobbyProvider(table.lobbyCode)).value;
+        : ref.watch(lobbyProvider(table.lobbyCode));
+    final lobby = read?.value;
     if (lobby == null) {
-      return const ScreenFrame(
+      // Read until it answers; "One moment" while it cannot be.
+      return ScreenFrame(
         ground: GroundKind.night,
-        body: SizedBox.shrink(),
+        body: const SizedBox.shrink(),
+        actions: [
+          if (read?.error != null) const Notice(message: BannerCopy.offline),
+        ],
       );
     }
     final notifier = ref.read(lobbyProvider(lobby.code).notifier);
@@ -180,9 +187,28 @@ class _DeckViewState extends State<DeckView> {
             selected: chip?.index,
             onTap: (i) => _chip(DeckChip.values[i]),
           ),
-          if (draft == null)
-            _EditPanel(onEdit: () => setState(() => _draft = _stored))
-          else
+          if (draft == null) ...[
+            // The chip's cards face up, when the server sends them; a tap
+            // or "Edit" starts editing from them.
+            if (lobby.chipCards case final cards? when cards.isNotEmpty) ...[
+              _Grid(
+                deck: cards,
+                onTap: (_) => setState(() => _draft = {...cards}),
+                onHold: (role) => unawaited(showRoleSheet(context, role)),
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: SecondaryButton(
+                  label: TableCopy.editDeck,
+                  size: ButtonSize.compact,
+                  onPressed: () => setState(() => _draft = {...cards}),
+                ),
+              ),
+            ] else
+              // FALLBACK until `deck_preview` lands: the deck face down;
+              // "Edit" starts from the last custom deck, or none.
+              _EditPanel(onEdit: () => setState(() => _draft = _stored)),
+          ] else
             _Grid(
               deck: draft,
               onTap: _tap,
@@ -221,16 +247,15 @@ class _DeckViewState extends State<DeckView> {
       );
     }
     final cards = draft.values.fold(0, (a, b) => a + b);
-    final wanted = widget.lobby.players.length + DealState.centerCards;
-    if (cards < wanted) {
+    // The cards the server's deal needs (`deal.need`); FALLBACK until the
+    // server's `deal` lands: players + 3, read from the lobby body. Delete
+    // the fallback (and `DealState.centerCards`) then.
+    final wanted =
+        widget.lobby.serverDeal?.need ??
+        widget.lobby.players.length + DealState.centerCards;
+    if (cards != wanted) {
       return PrimaryButton(
-        label: CommonCopy.addCards.fill({'n': wanted - cards}),
-        onPressed: null,
-      );
-    }
-    if (cards > wanted) {
-      return PrimaryButton(
-        label: CommonCopy.removeCards.fill({'n': cards - wanted}),
+        label: cardsLabel((wanted - cards).abs(), add: cards < wanted),
         onPressed: null,
       );
     }

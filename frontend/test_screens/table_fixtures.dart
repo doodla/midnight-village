@@ -65,6 +65,21 @@ Future<void> pumpJoinCodeFresh(WidgetTester tester) async {
   await tester.pump();
 }
 
+/// 01 from a table's link on a new phone, the name typed: "Join" open.
+Future<void> pumpJoinLinkNamed(WidgetTester tester) async {
+  await pumpJoinLink(tester);
+  await tester.enterText(find.byType(TextField), 'Ben');
+  await tester.pump();
+}
+
+/// A table's link opened by a player seated at another table.
+Future<void> pumpJoinLinkElsewhere(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_v2_auto_deck_5'),
+  viewer: 'Ben',
+  route: '/join/W3XF7K',
+);
+
 /// 01 opened from a table's link (its QR code), signed out.
 Future<void> pumpJoinLink(WidgetTester tester) =>
     TableSetup.pump(tester, route: '/join/V9YC2J');

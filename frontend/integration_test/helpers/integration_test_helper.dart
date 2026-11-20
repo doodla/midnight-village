@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:midnight_village/app.dart';
 import 'package:midnight_village/core/api/api_client.dart';
+import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 
 import 'mock_http_client.dart';
@@ -99,6 +100,11 @@ class IntegrationTestSetup {
       ProviderScope(
         overrides: [
           apiClientProvider.overrideWithValue(ApiClient(dio: mockHttp.dio)),
+          // The signed-in calls go to the same mock (a request with no mock
+          // fails the test).
+          authenticatedClientProvider.overrideWithValue(
+            AuthenticatedClient.forTesting(dio: mockHttp.dio),
+          ),
         ],
         child: const App(),
       ),
@@ -133,6 +139,30 @@ class IntegrationTestSetup {
             data: ServerBodies.onlineStats,
           ),
         );
+
+    // Home once signed in: at no table, no finished game.
+    mockHttp
+      ..when(method: 'GET', path: '/me/table/').thenReturn(
+        Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/me/table/'),
+          statusCode: 200,
+          data: ServerBodies.myTableNone,
+        ),
+      )
+      ..when(method: 'GET', path: '/onuw/me/current-game/').thenReturn(
+        Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
+          statusCode: 200,
+          data: ServerBodies.currentGameNone,
+        ),
+      )
+      ..when(method: 'GET', path: '/onuw/me/recent-games/').thenReturn(
+        Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/onuw/me/recent-games/'),
+          statusCode: 200,
+          data: ServerBodies.recentGamesNone,
+        ),
+      );
 
     // Default guest registration response.
     mockHttp

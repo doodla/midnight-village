@@ -68,10 +68,10 @@ final journeys = <String, List<_Step>>{
     _page(ComponentPage.count, Viewer.seer),
     _page(ComponentPage.results, Viewer.seer),
   ],
-  // Ben joins with the code; he is the Robber and takes Ana's card.
+  // Ben scans Ana's QR code; he is the Robber and takes Ana's card.
   'guest': [
-    _real('join', pumpJoinFresh),
-    _real('joinCode', pumpJoinCodeFresh),
+    _real('joinLink', pumpJoinLink),
+    _real('joinLinkNamed', pumpJoinLinkNamed),
     _real('tableGuest', pumpTableGuest),
     ..._night(Viewer.robber),
     _page(ComponentPage.vote, Viewer.robber),

@@ -192,4 +192,4 @@ final class ShareLinkProvider
   }
 }
 
-String _$shareLinkHash() => r'02ff95a99cba6e326990b35aef3cfbd59d3a3c3b';
+String _$shareLinkHash() => r'f3ace4a4048ebe9d82ec56989f305242fb105849';

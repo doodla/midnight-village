@@ -26,9 +26,12 @@ abstract final class CommonCopy {
   /// "{d} of {n}" under a stage everyone passes (04).
   static const progress = Template('{d} of {n}');
 
-  /// A custom deck that does not match the table (02, 03).
+  /// A custom deck that does not match the table (02, 03); one card is
+  /// singular.
   static const addCards = Template('Add {n} cards');
   static const removeCards = Template('Remove {n} cards');
+  static const addCard = 'Add 1 card';
+  static const removeCard = 'Remove 1 card';
 
   /// Night and dawn share the title (05, 06).
   static const nightTitle = 'The village sleeps';
@@ -67,6 +70,10 @@ abstract final class TableCopy {
   static const editDeck = 'Edit';
   static const deal = Template('Deal to {n}');
   static const needPlayers = 'Need 3 players';
+
+  /// The host's way out, quiet and labelled, behind a confirm ([stay]
+  /// keeps the table): one stray tap must not hand the table away.
+  static const stay = 'Stay';
 
   // Guest.
   static const hostDeals = Template('{host} deals');
@@ -282,6 +289,15 @@ abstract final class BannerCopy {
   static const tryAgain = 'Try again';
   static const offline = 'One moment';
   static const leftGame = 'You left this game.';
+
+  /// 02's Share copied the link (no share sheet on this device).
+  static const copied = 'Copied';
+
+  /// The server refused the deal, in its words: not everyone has sat down
+  /// yet; the deck does not fit the table; any other reason.
+  static const stillJoining = 'Someone is still joining.';
+  static const deckDoesNotFit = 'The deck does not fit.';
+  static const cannotDeal = "Can't deal yet.";
 }
 
 /// What a screen reader says (8 words at most; not in the budgets).

@@ -35,10 +35,15 @@ import 'join_flow.dart';
 /// `/me/table/` says so and the app shows that table (opened from a link,
 /// this screen goes home to it).
 class JoinScreen extends ConsumerWidget {
-  const JoinScreen({super.key, this.code});
+  const JoinScreen({super.key, this.code, this.elsewhere = false});
 
   /// The table of the link this was opened from.
   final String? code;
+
+  /// Opened from another table's link while this player sits at a table:
+  /// "You're at another table." with "Go there", and no Join (the server
+  /// does not seat anyone twice, and nobody is moved without asking).
+  final bool elsewhere;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,18 +61,44 @@ class JoinScreen extends ConsumerWidget {
     // This device's saved account could not be read back (no answer): it is
     // tried again on "Try again", not given up for a new one.
     final restoreFailed = auth is AuthError && flow.banner == null;
+    void goThere() {
+      notifier.goThere();
+      context.go('/');
+    }
+
+    final (String? banner, String? action, VoidCallback? onAction) = switch ((
+      elsewhere,
+      restoreFailed,
+      flow,
+    )) {
+      (true, _, _) => (BannerCopy.alreadyInLobby, BannerCopy.goThere, goThere),
+      (_, true, _) => (
+        BannerCopy.notSent,
+        BannerCopy.tryAgain,
+        () => ref.invalidate(authProvider),
+      ),
+      (_, _, JoinFlowState(goThere: true)) => (
+        flow.banner,
+        BannerCopy.goThere,
+        goThere,
+      ),
+      (_, _, JoinFlowState(retry: true)) => (
+        flow.banner,
+        BannerCopy.tryAgain,
+        () => unawaited(sat(notifier.retry())),
+      ),
+      _ => (flow.banner, null, null),
+    };
     return JoinView(
       name: auth is AuthAuthenticated ? auth.user.displayName : '',
       code: link,
+      seated: elsewhere,
       online: online?.players,
       lastWon: last?.youWon,
       busy: flow.busy,
-      banner: restoreFailed ? BannerCopy.notSent : flow.banner,
-      onRetry: restoreFailed
-          ? () => ref.invalidate(authProvider)
-          : flow.retry
-          ? () => unawaited(sat(notifier.retry()))
-          : null,
+      banner: banner,
+      bannerAction: action,
+      onBannerAction: onAction,
       onEdited: notifier.clearBanner,
       onStart: (name) => unawaited(sat(notifier.start(name))),
       onJoin: (name, code) => unawaited(sat(notifier.join(name, code))),
@@ -86,8 +117,10 @@ class JoinView extends StatefulWidget {
     this.online,
     this.lastWon,
     this.busy,
+    this.seated = false,
     this.banner,
-    this.onRetry,
+    this.bannerAction,
+    this.onBannerAction,
     this.openCode = false,
     required this.onStart,
     required this.onJoin,
@@ -106,8 +139,12 @@ class JoinView extends StatefulWidget {
   final JoinWay? busy;
   final String? banner;
 
-  /// "Try again" on the banner, when the banner offers it.
-  final VoidCallback? onRetry;
+  /// The banner's button ("Try again", "Go there"), when it has one.
+  final String? bannerAction;
+  final VoidCallback? onBannerAction;
+
+  /// The player sits at another table: the link's "Join" is not offered.
+  final bool seated;
 
   /// Starts with "Join a table" opened (the gallery's state).
   final bool openCode;
@@ -147,7 +184,26 @@ class _JoinViewState extends State<JoinView> {
   void dispose() {
     _name.dispose();
     _code.dispose();
+    _codeFocus.dispose();
     super.dispose();
+  }
+
+  final _codeFocus = FocusNode();
+
+  /// Enter in the name field does what the screen offers first: from a link,
+  /// Join; else the way to join (a guest's first step, never a table of
+  /// their own by accident): the code field opens, or with a code typed,
+  /// Join.
+  void _nameEntered(String? link) {
+    if (!_named || widget.busy != null || widget.seated) return;
+    if (link != null) {
+      widget.onJoin(_typedName, link);
+    } else if (_codeOpen && _coded) {
+      widget.onJoin(_typedName, _code.text);
+    } else {
+      setState(() => _codeOpen = true);
+      _codeFocus.requestFocus();
+    }
   }
 
   String get _typedName => _name.text.trim();
@@ -186,15 +242,20 @@ class _JoinViewState extends State<JoinView> {
               autofocus: widget.name.isEmpty,
               maxLength: JoinView.nameLength,
               inputFormatters: [_NameFormatter()],
-              textInputAction: TextInputAction.done,
+              textInputAction: TextInputAction.go,
+              onSubmitted: (_) => _nameEntered(link),
             ),
             if (banner != null)
               Notice(
                 message: banner,
-                action: widget.onRetry == null ? null : BannerCopy.tryAgain,
-                onAction: widget.onRetry,
+                action: widget.onBannerAction == null
+                    ? null
+                    : widget.bannerAction,
+                onAction: widget.onBannerAction,
               ),
-            if (link != null)
+            if (link != null && widget.seated)
+              const SizedBox.shrink()
+            else if (link != null)
               PrimaryButton(
                 label: JoinCopy.join,
                 onPressed: join(link),
@@ -209,6 +270,7 @@ class _JoinViewState extends State<JoinView> {
                     Expanded(
                       child: SkinField.code(
                         controller: _code,
+                        focusNode: _codeFocus,
                         hint: JoinCopy.codeHint,
                         semanticLabel: JoinCopy.codeHint,
                         autofocus: _named,

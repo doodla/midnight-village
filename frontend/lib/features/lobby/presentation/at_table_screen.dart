@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,7 @@ import '../../../design_system/primitives/qr_picture.dart';
 import '../../../design_system/primitives/role_card.dart';
 import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
+import '../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
 import '../../auth/domain/auth_state.dart';
@@ -29,25 +31,27 @@ import 'home_numbers.dart';
 import 'lobby_notifier.dart';
 import 'where_am_i_provider.dart';
 
-/// 02 Table (first-time play spec, section 3): who is here, and for the
-/// host the way to get the others in and to deal.
+/// 02 Table (first-time play spec, section 3): who is here, and the way to
+/// get the others in.
 ///
-/// - Host: the QR code of the table's link, loudest, the code under it and
-///   Share beside it (a glyph: the screen's seven words go to the deck and
-///   the deal); everyone at the table as a row each, their own outlined; the
-///   deck as its chip ("Simple", or the custom deck's cards) with "Edit",
-///   which opens 03; "Deal to {n}", amber, by the server's rules for the
-///   deal ([DealState]); a glyph to leave.
-/// - Guest: "{host} deals", the code in small type, the rows, quiet
-///   "Leave".
+/// - Everyone: "Scan to join" over the QR code of the table's link, large and
+///   centred, the code under it, Share beside the words (copied, "Copied",
+///   only where there is no share sheet); then everyone at the table as a
+///   row each, their own outlined, a dropped phone dimmed with no words.
+/// - Host: the deck as its chip (and, when the server sends it, the chip's
+///   cards face up) or the custom deck's cards, with "Edit" (03); "Deal to
+///   {n}", amber, by the server's verdict on dealing ([DealState]); a refused
+///   deal says why; a quiet "Leave" that asks first ("Stay" / "Leave"), so
+///   one stray tap never hands the table away.
+/// - Guest: "{host} deals" over the same code, the rows, and a quiet "Leave"
+///   at the end.
 /// - A handover makes another phone the host: it switches layout, with no
 ///   words. A table the server says is gone says so, with "Go home".
 ///
 /// Everything shown is the lobby ([lobbyProvider]: its body, its socket,
-/// this phone's own changes merged over it); which screen shows is
-/// `/me/table/`'s, read again here whenever the table moves on (the deal,
-/// a handover). Each phone sets its own ready flag as it sits down
-/// ([LobbyNotifier.sitDown]); there is no ready button.
+/// this phone's own changes merged over it), read until it answers ("One
+/// moment" meanwhile); which screen shows is `/me/table/`'s, read again here
+/// whenever the table moves on (the deal, a handover).
 class AtTableScreen extends ConsumerStatefulWidget {
   const AtTableScreen({super.key});
 
@@ -59,6 +63,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
   var _dealing = false;
   var _leaving = false;
   var _leaveFailed = false;
+  var _copied = false;
 
   int? get _viewer => switch (ref.read(authProvider)) {
     AuthAuthenticated(:final user) => user.id,
@@ -68,18 +73,22 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
   @override
   Widget build(BuildContext context) {
     final table = ref.watch(myTableProvider).value;
-    if (table == null) return const _Ground();
+    if (table == null) return const _Waiting();
     final code = table.lobbyCode;
     ref.listen(
       lobbyProvider(code),
       (before, now) => _follow(table, before, now),
     );
-    final lobby = ref.watch(lobbyProvider(code)).value;
+    final read = ref.watch(lobbyProvider(code));
+    final lobby = read.value;
     final viewer = _viewer;
-    if (lobby == null || viewer == null) return const _Ground();
+    if (lobby == null || viewer == null) {
+      return _Waiting(offline: read.error != null);
+    }
     final notifier = ref.read(lobbyProvider(code).notifier);
+    // FALLBACK until the server seats members ready (server branch): this
+    // phone sets its own flag. Delete with [LobbyNotifier.sitDown].
     if (!lobby.players.any((p) => p.id == viewer && p.isReady)) {
-      // Opened on a lobby already loaded: no change will come to sit down on.
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => unawaited(notifier.sitDown(viewer)),
       );
@@ -92,6 +101,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
       dealing: _dealing,
       leaving: _leaving,
       notSent: lobby.notSent || _leaveFailed,
+      copied: _copied,
       onRetry: () {
         if (_leaveFailed) {
           unawaited(_leave(code));
@@ -99,7 +109,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
           unawaited(notifier.retry());
         }
       },
-      onShare: (link) => unawaited(ref.read(shareLinkProvider)(link)),
+      onShare: (link) => unawaited(_share(link)),
       onEditDeck: () => ref.read(localStepsProvider.notifier).openDeck(table),
       onDeal: () => unawaited(_deal(notifier)),
       onLeave: () => unawaited(_leave(code)),
@@ -117,6 +127,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     final lobby = now.value;
     final viewer = _viewer;
     if (lobby == null || viewer == null) return;
+    // FALLBACK until members are seated ready (server branch).
     unawaited(
       ref.read(lobbyProvider(table.lobbyCode).notifier).sitDown(viewer),
     );
@@ -128,8 +139,17 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     if (moved || hostMoved) ref.invalidate(myTableProvider);
   }
 
+  Future<void> _share(Uri link) async {
+    setState(() => _copied = false);
+    final copied = await ref.read(shareLinkProvider)(link);
+    if (mounted) setState(() => _copied = copied);
+  }
+
   Future<void> _deal(LobbyNotifier notifier) async {
-    setState(() => _dealing = true);
+    setState(() {
+      _dealing = true;
+      _copied = false;
+    });
     await notifier.deal();
     if (mounted) setState(() => _dealing = false);
   }
@@ -138,6 +158,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     setState(() {
       _leaving = true;
       _leaveFailed = false;
+      _copied = false;
     });
     try {
       await ref.read(lobbyProvider(code).notifier).leave();
@@ -150,19 +171,25 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
   }
 }
 
-/// Before the table is known: its ground, nothing on it.
-class _Ground extends StatelessWidget {
-  const _Ground();
+/// Before the table is known: its ground; "One moment" while it cannot be
+/// read (it is read again until it answers).
+class _Waiting extends StatelessWidget {
+  const _Waiting({this.offline = false});
+
+  final bool offline;
 
   @override
-  Widget build(BuildContext context) =>
-      const ScreenFrame(ground: GroundKind.night, body: SizedBox.shrink());
+  Widget build(BuildContext context) => ScreenFrame(
+    ground: GroundKind.night,
+    body: const SizedBox.shrink(),
+    actions: [if (offline) const Notice(message: BannerCopy.offline)],
+  );
 }
 
 /// 02 drawn from the lobby as [viewerId] sees it (the component sheet and
 /// the gallery draw it too). [link] is the table's join link (none: the
-/// code alone); [away] the members whose phones have dropped, dimmed with
-/// no words (the lobby body does not say yet; see the README).
+/// code alone). A member is dimmed when the lobby says their phone dropped,
+/// or when in [away] (the component sheet's state).
 class AtTableView extends StatelessWidget {
   const AtTableView({
     super.key,
@@ -173,6 +200,7 @@ class AtTableView extends StatelessWidget {
     this.dealing = false,
     this.leaving = false,
     this.notSent = false,
+    this.copied = false,
     this.onRetry,
     this.onShare,
     this.onEditDeck,
@@ -188,6 +216,7 @@ class AtTableView extends StatelessWidget {
   final bool dealing;
   final bool leaving;
   final bool notSent;
+  final bool copied;
   final VoidCallback? onRetry;
   final ValueChanged<Uri>? onShare;
   final VoidCallback? onEditDeck;
@@ -201,61 +230,98 @@ class AtTableView extends StatelessWidget {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final host = _host;
-    final body = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: Space.md,
-      children: [
-        if (host)
-          _JoinCard(code: lobby.code, link: link, onShare: onShare)
-        else
-          _GuestHeader(host: lobby.hostName, code: lobby.code),
-        for (final player in lobby.players)
-          PlayerRow(
-            token: player.token,
-            name: player.displayName,
-            own: player.id == viewerId,
-            away: away.contains(player.id),
-          ),
-        if (host) _DeckPanel(lobby: lobby, onEdit: onEditDeck),
-      ],
-    );
-    return Stack(
-      children: [
-        ScreenFrame(
-          ground: GroundKind.night,
-          topArt: skin.art.table,
-          topArtLayout: TopArtLayout.banner,
-          body: body,
-          actions: [
-            if (lobby.tableClosed)
-              Notice(
-                message: BannerCopy.tableClosed,
-                action: BannerCopy.goHome,
-                onAction: onGoHome,
-              )
-            else if (notSent)
-              Notice(
-                message: BannerCopy.notSent,
-                action: BannerCopy.tryAgain,
-                onAction: onRetry,
+    final refused = lobby.dealRefused;
+    return ScreenFrame(
+      ground: GroundKind.night,
+      topArt: skin.art.table,
+      topArtLayout: TopArtLayout.banner,
+      body: Builder(
+        builder: (context) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: Space.md,
+          children: [
+            if (!host)
+              Semantics(
+                header: true,
+                child: FitWords(
+                  TableCopy.hostDeals.fill({'host': lobby.hostName}),
+                  style: skin.typography.screenTitle,
+                ),
               ),
-            if (host)
-              _dealButton()
-            else
-              SecondaryButton(
+            _JoinCard(
+              code: lobby.code,
+              link: link,
+              onShare: onShare,
+              headline: host,
+            ),
+            for (final player in lobby.players)
+              PlayerRow(
+                token: player.token,
+                name: player.displayName,
+                own: player.id == viewerId,
+                away: player.connected == false || away.contains(player.id),
+              ),
+            if (host) _DeckPanel(lobby: lobby, onEdit: onEditDeck),
+            Align(
+              child: SecondaryButton(
                 label: CommonCopy.leave,
-                onPressed: leaving ? null : onLeave,
+                size: ButtonSize.compact,
+                onPressed: leaving || onLeave == null
+                    ? null
+                    : host
+                    ? () => unawaited(_confirmLeave(context))
+                    : onLeave,
               ),
+            ),
           ],
         ),
-        if (host)
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + Space.sm,
-            left: Space.sm,
-            child: _LeaveGlyph(onLeave: leaving ? null : onLeave),
-          ),
+      ),
+      actions: [
+        if (lobby.tableClosed)
+          Notice(
+            message: BannerCopy.tableClosed,
+            action: BannerCopy.goHome,
+            onAction: onGoHome,
+          )
+        else if (notSent)
+          Notice(
+            message: BannerCopy.notSent,
+            action: BannerCopy.tryAgain,
+            onAction: onRetry,
+          )
+        else if (host && refused != null)
+          Notice(message: refused)
+        else if (copied)
+          const Notice(message: BannerCopy.copied),
+        if (host) _dealButton(),
       ],
     );
+  }
+
+  /// The host leaves only after saying so again: the table moves to the
+  /// next member the moment the host goes.
+  Future<void> _confirmLeave(BuildContext context) async {
+    final leave = await showSkinSheet<bool>(
+      context,
+      builder: (sheet) => SheetScaffold(
+        actions: [
+          Expanded(
+            child: SecondaryButton(
+              label: TableCopy.stay,
+              size: ButtonSize.compact,
+              onPressed: () => Navigator.of(sheet).pop(false),
+            ),
+          ),
+          PrimaryButton.quiet(
+            label: CommonCopy.leave,
+            size: ButtonSize.compact,
+            onPressed: () => Navigator.of(sheet).pop(true),
+          ),
+        ],
+        child: const SizedBox.shrink(),
+      ),
+    );
+    if (leave ?? false) onLeave?.call();
   }
 
   Widget _dealButton() => switch (DealState.of(lobby)) {
@@ -269,29 +335,41 @@ class AtTableView extends StatelessWidget {
       onPressed: null,
     ),
     AddCards(:final count) => PrimaryButton(
-      label: CommonCopy.addCards.fill({'n': count}),
+      label: cardsLabel(count, add: true),
       onPressed: null,
     ),
     RemoveCards(:final count) => PrimaryButton(
-      label: CommonCopy.removeCards.fill({'n': count}),
+      label: cardsLabel(count, add: false),
       onPressed: null,
     ),
   };
 }
 
-/// The host's paper, as the mock's code panel: the QR code of the table's
-/// link, loudest, on the left; beside it "Scan to join" with Share, and the
-/// code in the hero face under them, for whoever types it. Without a link
-/// (no web address known) the code alone.
+/// "Add {n} cards" / "Remove {n} cards", one card singular.
+String cardsLabel(int count, {required bool add}) => switch ((add, count)) {
+  (true, 1) => CommonCopy.addCard,
+  (false, 1) => CommonCopy.removeCard,
+  (true, _) => CommonCopy.addCards.fill({'n': count}),
+  (false, _) => CommonCopy.removeCards.fill({'n': count}),
+};
+
+/// The table's paper: "Scan to join" on one line with Share beside it, the
+/// QR code of the table's link large and centred (never under
+/// [Sizes.qrScannable]), the code under it in the hero face. [headline]:
+/// the words are the screen's headline (the host's; a guest's headline is
+/// whose table it is). Without a link (no web address known) the code alone.
 class _JoinCard extends StatelessWidget {
-  const _JoinCard({required this.code, this.link, this.onShare});
+  const _JoinCard({
+    required this.code,
+    required this.headline,
+    this.link,
+    this.onShare,
+  });
 
   final String code;
+  final bool headline;
   final Uri? link;
   final ValueChanged<Uri>? onShare;
-
-  /// The QR code's share of the paper's width.
-  static const _qrShare = 0.46;
 
   @override
   Widget build(BuildContext context) {
@@ -299,30 +377,33 @@ class _JoinCard extends StatelessWidget {
     final share = onShare;
     return PaperCard(
       lift: PaperLift.slab,
-      padding: const EdgeInsets.all(Space.smPlus),
+      padding: const EdgeInsets.fromLTRB(
+        Space.lg,
+        Space.sm,
+        Space.sm,
+        Space.md,
+      ),
       child: Builder(
         builder: (context) {
           final type = context.skin.typography;
           final ink = context.ground.text;
-          final words = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          return Column(
+            spacing: Space.xs,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: Space.xs),
-                      child: Semantics(
-                        header: true,
-                        child: FitWords(
-                          TableCopy.scan,
-                          style: type.title.copyWith(color: ink),
-                        ),
+                    child: Semantics(
+                      header: headline,
+                      child: FitLine(
+                        TableCopy.scan,
+                        style: type.title.copyWith(color: ink),
+                        alignment: AlignmentDirectional.centerStart,
                       ),
                     ),
                   ),
                   if (link != null && share != null)
+                    // The skin has no art for sharing: the platform's glyph.
                     IconButton(
                       onPressed: () => share(link),
                       tooltip: TableCopy.share,
@@ -331,28 +412,27 @@ class _JoinCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: Space.sm),
-              FitLine(
-                code,
-                style: type.heroCode.copyWith(color: ink),
-                alignment: AlignmentDirectional.centerStart,
+              Padding(
+                padding: const EdgeInsets.only(right: Space.sm),
+                child: Column(
+                  spacing: Space.xs,
+                  children: [
+                    if (link != null)
+                      LayoutBuilder(
+                        builder: (context, room) => QrPicture(
+                          data: link.toString(),
+                          side: math.max(
+                            Sizes.qrScannable,
+                            math.min(room.maxWidth, Sizes.qrLargest),
+                          ),
+                          semanticLabel: TableCopy.scan,
+                        ),
+                      ),
+                    FitLine(code, style: type.heroCode.copyWith(color: ink)),
+                  ],
+                ),
               ),
             ],
-          );
-          if (link == null) return words;
-          return LayoutBuilder(
-            builder: (context, room) => Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              spacing: Space.md,
-              children: [
-                QrPicture(
-                  data: link.toString(),
-                  side: room.maxWidth * _qrShare,
-                  semanticLabel: TableCopy.scan,
-                ),
-                Expanded(child: words),
-              ],
-            ),
           );
         },
       ),
@@ -360,34 +440,8 @@ class _JoinCard extends StatelessWidget {
   }
 }
 
-/// A guest's head: whose table it is, and its code in small type.
-class _GuestHeader extends StatelessWidget {
-  const _GuestHeader({required this.host, required this.code});
-
-  final String host;
-  final String code;
-
-  @override
-  Widget build(BuildContext context) {
-    final type = context.skin.typography;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: Space.xxs,
-      children: [
-        Semantics(
-          header: true,
-          child: FitWords(
-            TableCopy.hostDeals.fill({'host': host}),
-            style: type.screenTitle,
-          ),
-        ),
-        Text(code, style: type.code.copyWith(color: context.ground.text)),
-      ],
-    );
-  }
-}
-
-/// The host's deck: its chip, or the custom deck's cards, with "Edit".
+/// The host's deck: its chip with "Edit", and the chip's cards face up when
+/// the server sends them; or the custom deck's cards with "Edit".
 class _DeckPanel extends StatelessWidget {
   const _DeckPanel({required this.lobby, this.onEdit});
 
@@ -398,27 +452,44 @@ class _DeckPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = context.skin.typography;
     final chip = lobby.table.autoDeck ? lobby.table.deckChip : null;
-    final cards = {
-      for (final MapEntry(:key, :value) in lobby.roleConfig.entries)
-        if (RoleId.fromServer(key) case final role? when value > 0) role: value,
-    };
+    final cards =
+        lobby.chipCards ??
+        (chip != null
+            ? const <RoleId, int>{}
+            : {
+                for (final MapEntry(:key, :value) in lobby.roleConfig.entries)
+                  if (RoleId.fromServer(key) case final role? when value > 0)
+                    role: value,
+              });
+    final edit = Text(
+      TableCopy.editDeck,
+      style: type.action.copyWith(color: context.ground.text),
+    );
     return OutlinePanel(
       onTap: onEdit,
       semanticLabel: TableCopy.editDeck,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: Space.smPlus,
         children: [
-          Expanded(
-            child: chip != null
-                ? Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: PresetChip(
-                      label: deckChipLabel(chip),
-                      selected: true,
-                      onTap: null,
-                    ),
-                  )
-                : Row(
+          if (chip != null)
+            Row(
+              children: [
+                PresetChip(
+                  label: deckChipLabel(chip),
+                  selected: true,
+                  onTap: null,
+                ),
+                const Spacer(),
+                edit,
+              ],
+            ),
+          if (cards.isNotEmpty)
+            Row(
+              spacing: Space.smPlus,
+              children: [
+                Expanded(
+                  child: Row(
                     spacing: Space.sm,
                     children: [
                       for (final MapEntry(key: role, value: count)
@@ -432,35 +503,11 @@ class _DeckPanel extends StatelessWidget {
                         ),
                     ],
                   ),
-          ),
-          Text(
-            TableCopy.editDeck,
-            style: type.action.copyWith(color: context.ground.text),
-          ),
+                ),
+                if (chip == null) edit,
+              ],
+            ),
         ],
-      ),
-    );
-  }
-}
-
-/// The host's way out: a glyph over the picture (the screen's words go to
-/// the deck and the deal), spoken "Leave".
-class _LeaveGlyph extends StatelessWidget {
-  const _LeaveGlyph({this.onLeave});
-
-  final VoidCallback? onLeave;
-
-  @override
-  Widget build(BuildContext context) {
-    final ground = context.ground;
-    return Material(
-      color: ground.ground,
-      shape: const CircleBorder(),
-      child: IconButton(
-        onPressed: onLeave,
-        tooltip: CommonCopy.leave,
-        color: ground.text,
-        icon: const Icon(Icons.logout),
       ),
     );
   }

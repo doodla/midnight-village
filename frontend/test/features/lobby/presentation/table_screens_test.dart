@@ -209,6 +209,57 @@ void main() {
       await setup.close(tester);
     });
 
+    testWidgets('a link to another table, while seated at one: "You\'re at '
+        'another table." and "Go there", never a second seat', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        viewer: 'Ben',
+        route: '/join/ZZZZZZ',
+      );
+
+      expect(find.text(BannerCopy.alreadyInLobby), findsOneWidget);
+      expect(find.text(JoinCopy.join), findsNothing);
+
+      await _tap(tester, setup, find.text(BannerCopy.goThere));
+      await setup.settle(tester);
+
+      expect(setup.count('POST', '/lobbies/ZZZZZZ/join/'), 0);
+      expect(
+        find.text(TableCopy.hostDeals.fill({'host': 'Ana'})),
+        findsOneWidget,
+      );
+      await setup.close(tester);
+    });
+
+    testWidgets('Enter in the name field opens the code; Enter there joins', (
+      tester,
+    ) async {
+      final setup = await TableSetup.pump(
+        tester,
+        signedInAs: 'Ben',
+        userId: 42,
+      );
+      setup.http.answer(
+        'POST',
+        '/lobbies/V9YC2J/join/',
+        ContractSamples.map('http/lobby/joined'),
+      );
+      setup.sitAt(v2Lobby('detail_v2_auto_deck_5'), 'Ben');
+
+      await tester.showKeyboard(find.byType(TextField).first);
+      await tester.testTextInput.receiveAction(TextInputAction.go);
+      await tester.pump();
+      // No table of their own by accident.
+      expect(setup.http.requests.where((r) => r.path == '/lobbies/'), isEmpty);
+      await tester.enterText(find.byType(TextField).last, 'V9YC2J');
+      await tester.testTextInput.receiveAction(TextInputAction.go);
+      await setup.settle(tester);
+
+      expect(setup.count('POST', '/lobbies/V9YC2J/join/'), 1);
+      await setup.close(tester);
+    });
+
     testWidgets('a player who sits at a table opens on it, with no tap', (
       tester,
     ) async {
@@ -287,7 +338,7 @@ void main() {
       );
 
       expect(find.byType(RoleCard), findsWidgets);
-      expect(_onPressed(tester, CommonCopy.removeCards.fill({'n': 1})), isNull);
+      expect(_onPressed(tester, CommonCopy.removeCard), isNull);
       await setup.close(tester);
     });
 
@@ -304,8 +355,9 @@ void main() {
         find.text(TableCopy.hostDeals.fill({'host': 'Ana'})),
         findsOneWidget,
       );
+      // Guests see the code too, to help others join.
       expect(find.text('V9YC2J'), findsOneWidget);
-      expect(find.byType(QrPicture), findsNothing);
+      expect(find.byType(QrPicture), findsOneWidget);
       expect(find.text(TableCopy.editDeck), findsNothing);
       expect(find.textContaining('Deal'), findsNothing);
       expect(_onPressed(tester, CommonCopy.leave), isNotNull);
@@ -411,7 +463,7 @@ void main() {
         lobby: v2Lobby('detail_v2_auto_deck_5'),
         viewer: 'Ben',
       );
-      expect(find.byType(QrPicture), findsNothing);
+      expect(find.text(TableCopy.editDeck), findsNothing);
 
       setup.event({
         ...ContractSamples.map('ws/lobby/host_changed_handover'),
@@ -421,7 +473,7 @@ void main() {
       });
       await setup.settle(tester);
 
-      expect(find.byType(QrPicture), findsOneWidget);
+      expect(find.text(TableCopy.editDeck), findsOneWidget);
       expect(_onPressed(tester, TableCopy.deal.fill({'n': 5})), isNotNull);
       expect(find.textContaining('host'), findsNothing);
       await setup.close(tester);
@@ -480,6 +532,102 @@ void main() {
 
       await _tap(tester, setup, find.text(BannerCopy.goHome));
       expect(find.text(JoinCopy.startTable), findsOneWidget);
+      await setup.close(tester);
+    });
+
+    testWidgets('where there is no share sheet, Share copies the link and '
+        'says "Copied"', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        viewer: 'Ana',
+      );
+      setup.shareCopies = true;
+
+      await _tap(tester, setup, find.byTooltip(TableCopy.share));
+
+      expect(find.text(BannerCopy.copied), findsOneWidget);
+      await setup.close(tester);
+    });
+
+    testWidgets('the host\'s Leave asks first: Stay keeps the table, Leave '
+        'leaves', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        viewer: 'Ana',
+      );
+      setup.http.answer(
+        'POST',
+        '/lobbies/V9YC2J/leave/',
+        ContractSamples.map('http/lobby/left'),
+      );
+
+      await _tap(tester, setup, find.text(CommonCopy.leave));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(TableCopy.stay));
+      await tester.pumpAndSettle();
+      expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 0);
+
+      await _tap(tester, setup, find.text(CommonCopy.leave));
+      await tester.pumpAndSettle();
+      setup.http.answer(
+        'GET',
+        '/me/table/',
+        ContractSamples.map('http/lobby/my_table_none'),
+      );
+      await tester.tap(find.text(CommonCopy.leave).last);
+      await tester.pumpAndSettle();
+      await setup.settle(tester);
+
+      expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
+      expect(find.text(JoinCopy.startTable), findsOneWidget);
+      await setup.close(tester);
+    });
+
+    testWidgets('a refused deal says why, never a bare "Not sent."', (
+      tester,
+    ) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        viewer: 'Ana',
+      );
+      setup.http.answer(
+        'POST',
+        '/onuw/lobbies/V9YC2J/start/',
+        ContractSamples.map('http/game/start_not_all_ready'),
+        status: 400,
+      );
+
+      await _tap(tester, setup, find.text(TableCopy.deal.fill({'n': 5})));
+
+      expect(find.text(BannerCopy.stillJoining), findsOneWidget);
+      expect(find.text(BannerCopy.notSent), findsNothing);
+      expect(find.text(BannerCopy.tryAgain), findsNothing);
+      await setup.close(tester);
+    });
+
+    testWidgets('a table that cannot be read says "One moment", and shows '
+        'once it answers', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        viewer: 'Ben',
+        lobbyDown: true,
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await setup.settle(tester);
+      expect(find.text(BannerCopy.offline), findsOneWidget);
+
+      setup.serverAt(setup.lobby!);
+      await tester.pump(const Duration(seconds: 3));
+      await setup.settle(tester);
+
+      expect(
+        find.text(TableCopy.hostDeals.fill({'host': 'Ana'})),
+        findsOneWidget,
+      );
       await setup.close(tester);
     });
 
@@ -547,7 +695,7 @@ void main() {
       expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
 
       await _tap(tester, setup, _role(RoleId.tanner));
-      expect(_onPressed(tester, CommonCopy.addCards.fill({'n': 1})), isNull);
+      expect(_onPressed(tester, CommonCopy.addCard), isNull);
       await _tap(tester, setup, _role(RoleId.hunter));
       expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
 

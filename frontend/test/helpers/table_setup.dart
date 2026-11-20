@@ -115,6 +115,9 @@ class TableSetup {
   /// The links handed to the share sheet.
   final shared = <Uri>[];
 
+  /// The device has no share sheet: Share copies the link.
+  var shareCopies = false;
+
   String get code => lobby!['code'] as String;
 
   static Future<TableSetup> pump(
@@ -128,6 +131,7 @@ class TableSetup {
     bool? lastWon,
     double textScale = 1,
     bool realAuth = false,
+    bool lobbyDown = false,
   }) async {
     // ignore: invalid_use_of_visible_for_testing_member
     SharedPreferences.setMockInitialValues({});
@@ -160,6 +164,15 @@ class TableSetup {
               ]),
       );
     if (lobby != null) setup._answerLobby();
+    // The lobby cannot be read (no answer) until the test says it can.
+    if (lobby != null && lobbyDown) {
+      http.answer(
+        'GET',
+        '/lobbies/${setup.code}/',
+        'Server Error',
+        status: 503,
+      );
+    }
     final name = signedInAs ?? viewer;
     final auth = name == null
         ? const AuthState.unauthenticated()
@@ -196,6 +209,7 @@ class TableSetup {
           ),
           shareLinkProvider.overrideWithValue((link) async {
             setup.shared.add(link);
+            return setup.shareCopies;
           }),
           healTimingProvider.overrideWithValue(testHealTiming),
           wakelockServiceProvider.overrideWithValue(FakeWakelockService()),

@@ -16,7 +16,11 @@ mixin _$LobbyPlayer {
 
  int get id; String get displayName; bool get isReady; DateTime get joinedAt;/// The seat token (public table identity); null for a token this app
 /// does not know, or the blank one a member past the tenth may have.
- TokenId? get token;
+ TokenId? get token;/// Whether the member's phone is connected (`connected`): false is a
+/// dropped phone, shown dimmed with no words. Null while the server does
+/// not say (FALLBACK until the server branch's per-member `connected`
+/// lands on the base; then make it required and delete this note).
+ bool? get connected;
 /// Create a copy of LobbyPlayer
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,16 +31,16 @@ $LobbyPlayerCopyWith<LobbyPlayer> get copyWith => _$LobbyPlayerCopyWithImpl<Lobb
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LobbyPlayer&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.isReady, isReady) || other.isReady == isReady)&&(identical(other.joinedAt, joinedAt) || other.joinedAt == joinedAt)&&(identical(other.token, token) || other.token == token));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LobbyPlayer&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.isReady, isReady) || other.isReady == isReady)&&(identical(other.joinedAt, joinedAt) || other.joinedAt == joinedAt)&&(identical(other.token, token) || other.token == token)&&(identical(other.connected, connected) || other.connected == connected));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,displayName,isReady,joinedAt,token);
+int get hashCode => Object.hash(runtimeType,id,displayName,isReady,joinedAt,token,connected);
 
 @override
 String toString() {
-  return 'LobbyPlayer(id: $id, displayName: $displayName, isReady: $isReady, joinedAt: $joinedAt, token: $token)';
+  return 'LobbyPlayer(id: $id, displayName: $displayName, isReady: $isReady, joinedAt: $joinedAt, token: $token, connected: $connected)';
 }
 
 
@@ -47,7 +51,7 @@ abstract mixin class $LobbyPlayerCopyWith<$Res>  {
   factory $LobbyPlayerCopyWith(LobbyPlayer value, $Res Function(LobbyPlayer) _then) = _$LobbyPlayerCopyWithImpl;
 @useResult
 $Res call({
- int id, String displayName, bool isReady, DateTime joinedAt, TokenId? token
+ int id, String displayName, bool isReady, DateTime joinedAt, TokenId? token, bool? connected
 });
 
 
@@ -64,14 +68,15 @@ class _$LobbyPlayerCopyWithImpl<$Res>
 
 /// Create a copy of LobbyPlayer
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? displayName = null,Object? isReady = null,Object? joinedAt = null,Object? token = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? displayName = null,Object? isReady = null,Object? joinedAt = null,Object? token = freezed,Object? connected = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,isReady: null == isReady ? _self.isReady : isReady // ignore: cast_nullable_to_non_nullable
 as bool,joinedAt: null == joinedAt ? _self.joinedAt : joinedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,token: freezed == token ? _self.token : token // ignore: cast_nullable_to_non_nullable
-as TokenId?,
+as TokenId?,connected: freezed == connected ? _self.connected : connected // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 
@@ -156,10 +161,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String displayName,  bool isReady,  DateTime joinedAt,  TokenId? token)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String displayName,  bool isReady,  DateTime joinedAt,  TokenId? token,  bool? connected)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LobbyPlayer() when $default != null:
-return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.token);case _:
+return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.token,_that.connected);case _:
   return orElse();
 
 }
@@ -177,10 +182,10 @@ return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.to
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String displayName,  bool isReady,  DateTime joinedAt,  TokenId? token)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String displayName,  bool isReady,  DateTime joinedAt,  TokenId? token,  bool? connected)  $default,) {final _that = this;
 switch (_that) {
 case _LobbyPlayer():
-return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.token);case _:
+return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.token,_that.connected);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -197,10 +202,10 @@ return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.to
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String displayName,  bool isReady,  DateTime joinedAt,  TokenId? token)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String displayName,  bool isReady,  DateTime joinedAt,  TokenId? token,  bool? connected)?  $default,) {final _that = this;
 switch (_that) {
 case _LobbyPlayer() when $default != null:
-return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.token);case _:
+return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.token,_that.connected);case _:
   return null;
 
 }
@@ -212,7 +217,7 @@ return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.to
 
 
 class _LobbyPlayer implements LobbyPlayer {
-  const _LobbyPlayer({required this.id, required this.displayName, required this.isReady, required this.joinedAt, this.token});
+  const _LobbyPlayer({required this.id, required this.displayName, required this.isReady, required this.joinedAt, this.token, this.connected});
   
 
 @override final  int id;
@@ -222,6 +227,11 @@ class _LobbyPlayer implements LobbyPlayer {
 /// The seat token (public table identity); null for a token this app
 /// does not know, or the blank one a member past the tenth may have.
 @override final  TokenId? token;
+/// Whether the member's phone is connected (`connected`): false is a
+/// dropped phone, shown dimmed with no words. Null while the server does
+/// not say (FALLBACK until the server branch's per-member `connected`
+/// lands on the base; then make it required and delete this note).
+@override final  bool? connected;
 
 /// Create a copy of LobbyPlayer
 /// with the given fields replaced by the non-null parameter values.
@@ -233,16 +243,16 @@ _$LobbyPlayerCopyWith<_LobbyPlayer> get copyWith => __$LobbyPlayerCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LobbyPlayer&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.isReady, isReady) || other.isReady == isReady)&&(identical(other.joinedAt, joinedAt) || other.joinedAt == joinedAt)&&(identical(other.token, token) || other.token == token));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LobbyPlayer&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.isReady, isReady) || other.isReady == isReady)&&(identical(other.joinedAt, joinedAt) || other.joinedAt == joinedAt)&&(identical(other.token, token) || other.token == token)&&(identical(other.connected, connected) || other.connected == connected));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,displayName,isReady,joinedAt,token);
+int get hashCode => Object.hash(runtimeType,id,displayName,isReady,joinedAt,token,connected);
 
 @override
 String toString() {
-  return 'LobbyPlayer(id: $id, displayName: $displayName, isReady: $isReady, joinedAt: $joinedAt, token: $token)';
+  return 'LobbyPlayer(id: $id, displayName: $displayName, isReady: $isReady, joinedAt: $joinedAt, token: $token, connected: $connected)';
 }
 
 
@@ -253,7 +263,7 @@ abstract mixin class _$LobbyPlayerCopyWith<$Res> implements $LobbyPlayerCopyWith
   factory _$LobbyPlayerCopyWith(_LobbyPlayer value, $Res Function(_LobbyPlayer) _then) = __$LobbyPlayerCopyWithImpl;
 @override @useResult
 $Res call({
- int id, String displayName, bool isReady, DateTime joinedAt, TokenId? token
+ int id, String displayName, bool isReady, DateTime joinedAt, TokenId? token, bool? connected
 });
 
 
@@ -270,14 +280,15 @@ class __$LobbyPlayerCopyWithImpl<$Res>
 
 /// Create a copy of LobbyPlayer
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? displayName = null,Object? isReady = null,Object? joinedAt = null,Object? token = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? displayName = null,Object? isReady = null,Object? joinedAt = null,Object? token = freezed,Object? connected = freezed,}) {
   return _then(_LobbyPlayer(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,isReady: null == isReady ? _self.isReady : isReady // ignore: cast_nullable_to_non_nullable
 as bool,joinedAt: null == joinedAt ? _self.joinedAt : joinedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,token: freezed == token ? _self.token : token // ignore: cast_nullable_to_non_nullable
-as TokenId?,
+as TokenId?,connected: freezed == connected ? _self.connected : connected // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 
@@ -302,7 +313,19 @@ mixin _$LobbyState {
 /// Frontend only.
  String? get hostActionNotice;/// A change this phone made (a deck, a pace, the deal) did not reach the
 /// server: the screen says "Not sent." with "Try again". Frontend only.
- bool get notSent;/// Set when the server says the table no longer exists (its last member
+ bool get notSent;/// The server refused the deal: why, in the player's words
+/// (`LobbyNotifier.dealRefusal`), until the next deal or "Try again".
+/// Frontend only.
+ String? get dealRefused;/// The deck the server would deal now, for a chip's deck
+/// (`deck_preview`), in the server's role names; null while the server
+/// does not send it (FALLBACK until the server branch's `deck_preview`
+/// lands; the phone never computes a chip's cards).
+ Map<String, int>? get deckPreview;/// The chip [deckPreview] is the deck of (the body's own `deck_chip`), so
+/// a chip tapped and not answered yet never shows another chip's cards.
+ DeckChip? get deckPreviewChip;/// The server's verdict on dealing now (`deal`); null while the server
+/// does not send it (FALLBACK: [DealState.of] reads the deck itself until
+/// the server branch's `deal` lands; then delete that fallback).
+ ServerDeal? get serverDeal;/// Set when the server says the table no longer exists (its last member
 /// left). The screen says so and goes home. Frontend only.
  bool get tableClosed;
 /// Create a copy of LobbyState
@@ -315,16 +338,16 @@ $LobbyStateCopyWith<LobbyState> get copyWith => _$LobbyStateCopyWithImpl<LobbySt
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LobbyState&&(identical(other.code, code) || other.code == code)&&(identical(other.hostId, hostId) || other.hostId == hostId)&&const DeepCollectionEquality().equals(other.players, players)&&(identical(other.status, status) || other.status == status)&&(identical(other.maxPlayers, maxPlayers) || other.maxPlayers == maxPlayers)&&const DeepCollectionEquality().equals(other.roleConfig, roleConfig)&&(identical(other.table, table) || other.table == table)&&(identical(other.startedGameId, startedGameId) || other.startedGameId == startedGameId)&&(identical(other.hostName, hostName) || other.hostName == hostName)&&(identical(other.originalHostId, originalHostId) || other.originalHostId == originalHostId)&&(identical(other.isActingHost, isActingHost) || other.isActingHost == isActingHost)&&(identical(other.briefHostNotice, briefHostNotice) || other.briefHostNotice == briefHostNotice)&&(identical(other.hostActionNotice, hostActionNotice) || other.hostActionNotice == hostActionNotice)&&(identical(other.notSent, notSent) || other.notSent == notSent)&&(identical(other.tableClosed, tableClosed) || other.tableClosed == tableClosed));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LobbyState&&(identical(other.code, code) || other.code == code)&&(identical(other.hostId, hostId) || other.hostId == hostId)&&const DeepCollectionEquality().equals(other.players, players)&&(identical(other.status, status) || other.status == status)&&(identical(other.maxPlayers, maxPlayers) || other.maxPlayers == maxPlayers)&&const DeepCollectionEquality().equals(other.roleConfig, roleConfig)&&(identical(other.table, table) || other.table == table)&&(identical(other.startedGameId, startedGameId) || other.startedGameId == startedGameId)&&(identical(other.hostName, hostName) || other.hostName == hostName)&&(identical(other.originalHostId, originalHostId) || other.originalHostId == originalHostId)&&(identical(other.isActingHost, isActingHost) || other.isActingHost == isActingHost)&&(identical(other.briefHostNotice, briefHostNotice) || other.briefHostNotice == briefHostNotice)&&(identical(other.hostActionNotice, hostActionNotice) || other.hostActionNotice == hostActionNotice)&&(identical(other.notSent, notSent) || other.notSent == notSent)&&(identical(other.dealRefused, dealRefused) || other.dealRefused == dealRefused)&&const DeepCollectionEquality().equals(other.deckPreview, deckPreview)&&(identical(other.deckPreviewChip, deckPreviewChip) || other.deckPreviewChip == deckPreviewChip)&&(identical(other.serverDeal, serverDeal) || other.serverDeal == serverDeal)&&(identical(other.tableClosed, tableClosed) || other.tableClosed == tableClosed));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,code,hostId,const DeepCollectionEquality().hash(players),status,maxPlayers,const DeepCollectionEquality().hash(roleConfig),table,startedGameId,hostName,originalHostId,isActingHost,briefHostNotice,hostActionNotice,notSent,tableClosed);
+int get hashCode => Object.hashAll([runtimeType,code,hostId,const DeepCollectionEquality().hash(players),status,maxPlayers,const DeepCollectionEquality().hash(roleConfig),table,startedGameId,hostName,originalHostId,isActingHost,briefHostNotice,hostActionNotice,notSent,dealRefused,const DeepCollectionEquality().hash(deckPreview),deckPreviewChip,serverDeal,tableClosed]);
 
 @override
 String toString() {
-  return 'LobbyState(code: $code, hostId: $hostId, players: $players, status: $status, maxPlayers: $maxPlayers, roleConfig: $roleConfig, table: $table, startedGameId: $startedGameId, hostName: $hostName, originalHostId: $originalHostId, isActingHost: $isActingHost, briefHostNotice: $briefHostNotice, hostActionNotice: $hostActionNotice, notSent: $notSent, tableClosed: $tableClosed)';
+  return 'LobbyState(code: $code, hostId: $hostId, players: $players, status: $status, maxPlayers: $maxPlayers, roleConfig: $roleConfig, table: $table, startedGameId: $startedGameId, hostName: $hostName, originalHostId: $originalHostId, isActingHost: $isActingHost, briefHostNotice: $briefHostNotice, hostActionNotice: $hostActionNotice, notSent: $notSent, dealRefused: $dealRefused, deckPreview: $deckPreview, deckPreviewChip: $deckPreviewChip, serverDeal: $serverDeal, tableClosed: $tableClosed)';
 }
 
 
@@ -335,7 +358,7 @@ abstract mixin class $LobbyStateCopyWith<$Res>  {
   factory $LobbyStateCopyWith(LobbyState value, $Res Function(LobbyState) _then) = _$LobbyStateCopyWithImpl;
 @useResult
 $Res call({
- String code, int hostId, List<LobbyPlayer> players, String status, int maxPlayers, Map<String, int> roleConfig, TableSettings table, String? startedGameId, String hostName, int originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool notSent, bool tableClosed
+ String code, int hostId, List<LobbyPlayer> players, String status, int maxPlayers, Map<String, int> roleConfig, TableSettings table, String? startedGameId, String hostName, int originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool notSent, String? dealRefused, Map<String, int>? deckPreview, DeckChip? deckPreviewChip, ServerDeal? serverDeal, bool tableClosed
 });
 
 
@@ -352,7 +375,7 @@ class _$LobbyStateCopyWithImpl<$Res>
 
 /// Create a copy of LobbyState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? maxPlayers = null,Object? roleConfig = null,Object? table = null,Object? startedGameId = freezed,Object? hostName = null,Object? originalHostId = null,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? notSent = null,Object? tableClosed = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? maxPlayers = null,Object? roleConfig = null,Object? table = null,Object? startedGameId = freezed,Object? hostName = null,Object? originalHostId = null,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? notSent = null,Object? dealRefused = freezed,Object? deckPreview = freezed,Object? deckPreviewChip = freezed,Object? serverDeal = freezed,Object? tableClosed = null,}) {
   return _then(_self.copyWith(
 code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,hostId: null == hostId ? _self.hostId : hostId // ignore: cast_nullable_to_non_nullable
@@ -368,7 +391,11 @@ as int,isActingHost: null == isActingHost ? _self.isActingHost : isActingHost //
 as bool,briefHostNotice: freezed == briefHostNotice ? _self.briefHostNotice : briefHostNotice // ignore: cast_nullable_to_non_nullable
 as HostChange?,hostActionNotice: freezed == hostActionNotice ? _self.hostActionNotice : hostActionNotice // ignore: cast_nullable_to_non_nullable
 as String?,notSent: null == notSent ? _self.notSent : notSent // ignore: cast_nullable_to_non_nullable
-as bool,tableClosed: null == tableClosed ? _self.tableClosed : tableClosed // ignore: cast_nullable_to_non_nullable
+as bool,dealRefused: freezed == dealRefused ? _self.dealRefused : dealRefused // ignore: cast_nullable_to_non_nullable
+as String?,deckPreview: freezed == deckPreview ? _self.deckPreview : deckPreview // ignore: cast_nullable_to_non_nullable
+as Map<String, int>?,deckPreviewChip: freezed == deckPreviewChip ? _self.deckPreviewChip : deckPreviewChip // ignore: cast_nullable_to_non_nullable
+as DeckChip?,serverDeal: freezed == serverDeal ? _self.serverDeal : serverDeal // ignore: cast_nullable_to_non_nullable
+as ServerDeal?,tableClosed: null == tableClosed ? _self.tableClosed : tableClosed // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -454,10 +481,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool notSent,  bool tableClosed)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool notSent,  String? dealRefused,  Map<String, int>? deckPreview,  DeckChip? deckPreviewChip,  ServerDeal? serverDeal,  bool tableClosed)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LobbyState() when $default != null:
-return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.notSent,_that.tableClosed);case _:
+return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.notSent,_that.dealRefused,_that.deckPreview,_that.deckPreviewChip,_that.serverDeal,_that.tableClosed);case _:
   return orElse();
 
 }
@@ -475,10 +502,10 @@ return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlay
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool notSent,  bool tableClosed)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool notSent,  String? dealRefused,  Map<String, int>? deckPreview,  DeckChip? deckPreviewChip,  ServerDeal? serverDeal,  bool tableClosed)  $default,) {final _that = this;
 switch (_that) {
 case _LobbyState():
-return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.notSent,_that.tableClosed);case _:
+return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.notSent,_that.dealRefused,_that.deckPreview,_that.deckPreviewChip,_that.serverDeal,_that.tableClosed);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -495,10 +522,10 @@ return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlay
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool notSent,  bool tableClosed)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool notSent,  String? dealRefused,  Map<String, int>? deckPreview,  DeckChip? deckPreviewChip,  ServerDeal? serverDeal,  bool tableClosed)?  $default,) {final _that = this;
 switch (_that) {
 case _LobbyState() when $default != null:
-return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.notSent,_that.tableClosed);case _:
+return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.notSent,_that.dealRefused,_that.deckPreview,_that.deckPreviewChip,_that.serverDeal,_that.tableClosed);case _:
   return null;
 
 }
@@ -510,7 +537,7 @@ return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlay
 
 
 class _LobbyState implements LobbyState {
-  const _LobbyState({required this.code, required this.hostId, required final  List<LobbyPlayer> players, required this.status, required this.maxPlayers, final  Map<String, int> roleConfig = const {}, this.table = TableSettings.none, this.startedGameId, required this.hostName, required this.originalHostId, required this.isActingHost, this.briefHostNotice, this.hostActionNotice, this.notSent = false, this.tableClosed = false}): _players = players,_roleConfig = roleConfig;
+  const _LobbyState({required this.code, required this.hostId, required final  List<LobbyPlayer> players, required this.status, required this.maxPlayers, final  Map<String, int> roleConfig = const {}, this.table = TableSettings.none, this.startedGameId, required this.hostName, required this.originalHostId, required this.isActingHost, this.briefHostNotice, this.hostActionNotice, this.notSent = false, this.dealRefused, final  Map<String, int>? deckPreview, this.deckPreviewChip, this.serverDeal, this.tableClosed = false}): _players = players,_roleConfig = roleConfig,_deckPreview = deckPreview;
   
 
 @override final  String code;
@@ -554,6 +581,34 @@ class _LobbyState implements LobbyState {
 /// A change this phone made (a deck, a pace, the deal) did not reach the
 /// server: the screen says "Not sent." with "Try again". Frontend only.
 @override@JsonKey() final  bool notSent;
+/// The server refused the deal: why, in the player's words
+/// (`LobbyNotifier.dealRefusal`), until the next deal or "Try again".
+/// Frontend only.
+@override final  String? dealRefused;
+/// The deck the server would deal now, for a chip's deck
+/// (`deck_preview`), in the server's role names; null while the server
+/// does not send it (FALLBACK until the server branch's `deck_preview`
+/// lands; the phone never computes a chip's cards).
+ final  Map<String, int>? _deckPreview;
+/// The deck the server would deal now, for a chip's deck
+/// (`deck_preview`), in the server's role names; null while the server
+/// does not send it (FALLBACK until the server branch's `deck_preview`
+/// lands; the phone never computes a chip's cards).
+@override Map<String, int>? get deckPreview {
+  final value = _deckPreview;
+  if (value == null) return null;
+  if (_deckPreview is EqualUnmodifiableMapView) return _deckPreview;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(value);
+}
+
+/// The chip [deckPreview] is the deck of (the body's own `deck_chip`), so
+/// a chip tapped and not answered yet never shows another chip's cards.
+@override final  DeckChip? deckPreviewChip;
+/// The server's verdict on dealing now (`deal`); null while the server
+/// does not send it (FALLBACK: [DealState.of] reads the deck itself until
+/// the server branch's `deal` lands; then delete that fallback).
+@override final  ServerDeal? serverDeal;
 /// Set when the server says the table no longer exists (its last member
 /// left). The screen says so and goes home. Frontend only.
 @override@JsonKey() final  bool tableClosed;
@@ -568,16 +623,16 @@ _$LobbyStateCopyWith<_LobbyState> get copyWith => __$LobbyStateCopyWithImpl<_Lob
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LobbyState&&(identical(other.code, code) || other.code == code)&&(identical(other.hostId, hostId) || other.hostId == hostId)&&const DeepCollectionEquality().equals(other._players, _players)&&(identical(other.status, status) || other.status == status)&&(identical(other.maxPlayers, maxPlayers) || other.maxPlayers == maxPlayers)&&const DeepCollectionEquality().equals(other._roleConfig, _roleConfig)&&(identical(other.table, table) || other.table == table)&&(identical(other.startedGameId, startedGameId) || other.startedGameId == startedGameId)&&(identical(other.hostName, hostName) || other.hostName == hostName)&&(identical(other.originalHostId, originalHostId) || other.originalHostId == originalHostId)&&(identical(other.isActingHost, isActingHost) || other.isActingHost == isActingHost)&&(identical(other.briefHostNotice, briefHostNotice) || other.briefHostNotice == briefHostNotice)&&(identical(other.hostActionNotice, hostActionNotice) || other.hostActionNotice == hostActionNotice)&&(identical(other.notSent, notSent) || other.notSent == notSent)&&(identical(other.tableClosed, tableClosed) || other.tableClosed == tableClosed));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LobbyState&&(identical(other.code, code) || other.code == code)&&(identical(other.hostId, hostId) || other.hostId == hostId)&&const DeepCollectionEquality().equals(other._players, _players)&&(identical(other.status, status) || other.status == status)&&(identical(other.maxPlayers, maxPlayers) || other.maxPlayers == maxPlayers)&&const DeepCollectionEquality().equals(other._roleConfig, _roleConfig)&&(identical(other.table, table) || other.table == table)&&(identical(other.startedGameId, startedGameId) || other.startedGameId == startedGameId)&&(identical(other.hostName, hostName) || other.hostName == hostName)&&(identical(other.originalHostId, originalHostId) || other.originalHostId == originalHostId)&&(identical(other.isActingHost, isActingHost) || other.isActingHost == isActingHost)&&(identical(other.briefHostNotice, briefHostNotice) || other.briefHostNotice == briefHostNotice)&&(identical(other.hostActionNotice, hostActionNotice) || other.hostActionNotice == hostActionNotice)&&(identical(other.notSent, notSent) || other.notSent == notSent)&&(identical(other.dealRefused, dealRefused) || other.dealRefused == dealRefused)&&const DeepCollectionEquality().equals(other._deckPreview, _deckPreview)&&(identical(other.deckPreviewChip, deckPreviewChip) || other.deckPreviewChip == deckPreviewChip)&&(identical(other.serverDeal, serverDeal) || other.serverDeal == serverDeal)&&(identical(other.tableClosed, tableClosed) || other.tableClosed == tableClosed));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,code,hostId,const DeepCollectionEquality().hash(_players),status,maxPlayers,const DeepCollectionEquality().hash(_roleConfig),table,startedGameId,hostName,originalHostId,isActingHost,briefHostNotice,hostActionNotice,notSent,tableClosed);
+int get hashCode => Object.hashAll([runtimeType,code,hostId,const DeepCollectionEquality().hash(_players),status,maxPlayers,const DeepCollectionEquality().hash(_roleConfig),table,startedGameId,hostName,originalHostId,isActingHost,briefHostNotice,hostActionNotice,notSent,dealRefused,const DeepCollectionEquality().hash(_deckPreview),deckPreviewChip,serverDeal,tableClosed]);
 
 @override
 String toString() {
-  return 'LobbyState(code: $code, hostId: $hostId, players: $players, status: $status, maxPlayers: $maxPlayers, roleConfig: $roleConfig, table: $table, startedGameId: $startedGameId, hostName: $hostName, originalHostId: $originalHostId, isActingHost: $isActingHost, briefHostNotice: $briefHostNotice, hostActionNotice: $hostActionNotice, notSent: $notSent, tableClosed: $tableClosed)';
+  return 'LobbyState(code: $code, hostId: $hostId, players: $players, status: $status, maxPlayers: $maxPlayers, roleConfig: $roleConfig, table: $table, startedGameId: $startedGameId, hostName: $hostName, originalHostId: $originalHostId, isActingHost: $isActingHost, briefHostNotice: $briefHostNotice, hostActionNotice: $hostActionNotice, notSent: $notSent, dealRefused: $dealRefused, deckPreview: $deckPreview, deckPreviewChip: $deckPreviewChip, serverDeal: $serverDeal, tableClosed: $tableClosed)';
 }
 
 
@@ -588,7 +643,7 @@ abstract mixin class _$LobbyStateCopyWith<$Res> implements $LobbyStateCopyWith<$
   factory _$LobbyStateCopyWith(_LobbyState value, $Res Function(_LobbyState) _then) = __$LobbyStateCopyWithImpl;
 @override @useResult
 $Res call({
- String code, int hostId, List<LobbyPlayer> players, String status, int maxPlayers, Map<String, int> roleConfig, TableSettings table, String? startedGameId, String hostName, int originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool notSent, bool tableClosed
+ String code, int hostId, List<LobbyPlayer> players, String status, int maxPlayers, Map<String, int> roleConfig, TableSettings table, String? startedGameId, String hostName, int originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool notSent, String? dealRefused, Map<String, int>? deckPreview, DeckChip? deckPreviewChip, ServerDeal? serverDeal, bool tableClosed
 });
 
 
@@ -605,7 +660,7 @@ class __$LobbyStateCopyWithImpl<$Res>
 
 /// Create a copy of LobbyState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? maxPlayers = null,Object? roleConfig = null,Object? table = null,Object? startedGameId = freezed,Object? hostName = null,Object? originalHostId = null,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? notSent = null,Object? tableClosed = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? maxPlayers = null,Object? roleConfig = null,Object? table = null,Object? startedGameId = freezed,Object? hostName = null,Object? originalHostId = null,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? notSent = null,Object? dealRefused = freezed,Object? deckPreview = freezed,Object? deckPreviewChip = freezed,Object? serverDeal = freezed,Object? tableClosed = null,}) {
   return _then(_LobbyState(
 code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,hostId: null == hostId ? _self.hostId : hostId // ignore: cast_nullable_to_non_nullable
@@ -621,7 +676,11 @@ as int,isActingHost: null == isActingHost ? _self.isActingHost : isActingHost //
 as bool,briefHostNotice: freezed == briefHostNotice ? _self.briefHostNotice : briefHostNotice // ignore: cast_nullable_to_non_nullable
 as HostChange?,hostActionNotice: freezed == hostActionNotice ? _self.hostActionNotice : hostActionNotice // ignore: cast_nullable_to_non_nullable
 as String?,notSent: null == notSent ? _self.notSent : notSent // ignore: cast_nullable_to_non_nullable
-as bool,tableClosed: null == tableClosed ? _self.tableClosed : tableClosed // ignore: cast_nullable_to_non_nullable
+as bool,dealRefused: freezed == dealRefused ? _self.dealRefused : dealRefused // ignore: cast_nullable_to_non_nullable
+as String?,deckPreview: freezed == deckPreview ? _self._deckPreview : deckPreview // ignore: cast_nullable_to_non_nullable
+as Map<String, int>?,deckPreviewChip: freezed == deckPreviewChip ? _self.deckPreviewChip : deckPreviewChip // ignore: cast_nullable_to_non_nullable
+as DeckChip?,serverDeal: freezed == serverDeal ? _self.serverDeal : serverDeal // ignore: cast_nullable_to_non_nullable
+as ServerDeal?,tableClosed: null == tableClosed ? _self.tableClosed : tableClosed // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

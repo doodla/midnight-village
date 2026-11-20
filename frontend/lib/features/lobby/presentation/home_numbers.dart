@@ -39,20 +39,25 @@ Uri? appOrigin(Ref ref) {
   return null;
 }
 
-/// Hands a link to the system's share sheet (02's Share); where there is
-/// none (some browsers) the link is copied instead.
-typedef ShareLink = Future<void> Function(Uri link);
+/// Hands a link to the system's share sheet (02's Share). Only where there
+/// is none, or it fails, is the link copied instead; true then, so the
+/// screen says "Copied". (No mail fallback on the web: a mail window is not
+/// a share sheet.)
+typedef ShareLink = Future<bool> Function(Uri link);
 
 @Riverpod(keepAlive: true)
 ShareLink shareLink(Ref ref) => (link) async {
   final text = link.toString();
   try {
-    final result = await SharePlus.instance.share(ShareParams(text: text));
-    if (result.status != ShareResultStatus.unavailable) return;
+    final result = await SharePlus.instance.share(
+      ShareParams(text: text, mailToFallbackEnabled: false),
+    );
+    if (result.status != ShareResultStatus.unavailable) return false;
   } catch (e) {
     logger.d('No share sheet ($e)');
   }
   await Clipboard.setData(ClipboardData(text: text));
+  return true;
 };
 
 /// The link that opens 01 ready to join table [code]: the app's `/join/`

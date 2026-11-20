@@ -41,6 +41,18 @@ abstract final class ReadingFloor {
   static const caption = 14.0;
 }
 
+/// Fixed sizes of things that are not text, the same in every skin.
+abstract final class Sizes {
+  /// A QR code's side: never under [qrScannable] (a phone held across the
+  /// table still reads it), at most [qrLargest].
+  static const qrScannable = 160.0;
+  static const qrLargest = 220.0;
+
+  /// A role card in the deck builder's grid, width over height: the
+  /// portrait and its name under it (S03).
+  static const roleGridCell = 0.66;
+}
+
 /// How long things take to move: the same in every skin.
 abstract final class Motion {
   /// A button going down or coming back up.

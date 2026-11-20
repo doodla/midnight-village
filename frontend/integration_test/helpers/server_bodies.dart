@@ -19,4 +19,13 @@ abstract final class ServerBodies {
 
   /// `GET /stats/online/` -> 200: 01's "{n} at tables".
   static const onlineStats = {'players': 6, 'tables': 1};
+
+  /// `GET /me/table/` -> 200: at no table.
+  static const myTableNone = {'table': null};
+
+  /// `GET /onuw/me/recent-games/` -> 200: no finished game yet.
+  static const recentGamesNone = {'games': <Object>[]};
+
+  /// `GET /onuw/me/current-game/` -> 200: in no game (the router asks at `/`).
+  static const currentGameNone = {'game': null};
 }

@@ -126,6 +126,8 @@ String _$lobbyWebSocketFactoryHash() =>
 /// A table runs several games one after another: every start sets a new
 /// [LobbyState.startedGameId], and a lobby opened while a game is already
 /// running (the start event came before the socket was up) looks the game up.
+/// Its first read heals like every fetch a screen depends on: retried until
+/// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
 @ProviderFor(LobbyNotifier)
 const lobbyProvider = LobbyNotifierFamily._();
@@ -149,6 +151,8 @@ const lobbyProvider = LobbyNotifierFamily._();
 /// A table runs several games one after another: every start sets a new
 /// [LobbyState.startedGameId], and a lobby opened while a game is already
 /// running (the start event came before the socket was up) looks the game up.
+/// Its first read heals like every fetch a screen depends on: retried until
+/// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 final class LobbyNotifierProvider
     extends $AsyncNotifierProvider<LobbyNotifier, LobbyState> {
   /// Manages lobby state for a given lobby code.
@@ -170,11 +174,13 @@ final class LobbyNotifierProvider
   /// A table runs several games one after another: every start sets a new
   /// [LobbyState.startedGameId], and a lobby opened while a game is already
   /// running (the start event came before the socket was up) looks the game up.
+  /// Its first read heals like every fetch a screen depends on: retried until
+  /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
   const LobbyNotifierProvider._({
     required LobbyNotifierFamily super.from,
     required String super.argument,
   }) : super(
-         retry: null,
+         retry: retryForever,
          name: r'lobbyProvider',
          isAutoDispose: true,
          dependencies: null,
@@ -206,7 +212,7 @@ final class LobbyNotifierProvider
   }
 }
 
-String _$lobbyNotifierHash() => r'6f37f8aad381f3ce2e792b4b72cbd400818e0fd4';
+String _$lobbyNotifierHash() => r'e0a4926ba17f8f7dd618268f56da7abf88a1b6d6';
 
 /// Manages lobby state for a given lobby code.
 ///
@@ -227,6 +233,8 @@ String _$lobbyNotifierHash() => r'6f37f8aad381f3ce2e792b4b72cbd400818e0fd4';
 /// A table runs several games one after another: every start sets a new
 /// [LobbyState.startedGameId], and a lobby opened while a game is already
 /// running (the start event came before the socket was up) looks the game up.
+/// Its first read heals like every fetch a screen depends on: retried until
+/// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
 final class LobbyNotifierFamily extends $Family
     with
@@ -239,7 +247,7 @@ final class LobbyNotifierFamily extends $Family
         > {
   const LobbyNotifierFamily._()
     : super(
-        retry: null,
+        retry: retryForever,
         name: r'lobbyProvider',
         dependencies: null,
         $allTransitiveDependencies: null,
@@ -265,6 +273,8 @@ final class LobbyNotifierFamily extends $Family
   /// A table runs several games one after another: every start sets a new
   /// [LobbyState.startedGameId], and a lobby opened while a game is already
   /// running (the start event came before the socket was up) looks the game up.
+  /// Its first read heals like every fetch a screen depends on: retried until
+  /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
   LobbyNotifierProvider call(String code) =>
       LobbyNotifierProvider._(argument: code, from: this);
@@ -292,6 +302,8 @@ final class LobbyNotifierFamily extends $Family
 /// A table runs several games one after another: every start sets a new
 /// [LobbyState.startedGameId], and a lobby opened while a game is already
 /// running (the start event came before the socket was up) looks the game up.
+/// Its first read heals like every fetch a screen depends on: retried until
+/// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
 abstract class _$LobbyNotifier extends $AsyncNotifier<LobbyState> {
   late final _$args = ref.$arg as String;

@@ -5,10 +5,12 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/config/env.dart';
+import '../../../core/healing/healing.dart';
 import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
+import '../../../design_system/copy/copy.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../data/lobby_service.dart';
 import '../domain/lobby_state.dart';
@@ -63,7 +65,9 @@ LobbyWebSocketFactory lobbyWebSocketFactory(Ref ref) {
 /// A table runs several games one after another: every start sets a new
 /// [LobbyState.startedGameId], and a lobby opened while a game is already
 /// running (the start event came before the socket was up) looks the game up.
-@riverpod
+/// Its first read heals like every fetch a screen depends on: retried until
+/// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
+@Riverpod(retry: retryForever)
 class LobbyNotifier extends _$LobbyNotifier {
   StreamSubscription<dynamic>? _wsSubscription;
   StreamSubscription<WebSocketConnectionState>? _connectionSubscription;
@@ -306,6 +310,7 @@ class LobbyNotifier extends _$LobbyNotifier {
     return fresh.copyWith(
       startedGameId: current.startedGameId,
       notSent: current.notSent,
+      dealRefused: current.dealRefused,
       // The "hosting again" / "is the host now" line outlives a refetch only
       // while the server agrees that person is the host.
       briefHostNotice: brief != null && fresh.hostId == brief.hostId
@@ -446,6 +451,9 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   bool _readying = false;
 
+  /// FALLBACK until the server seats members ready (server branch): then
+  /// delete this, `LobbyService.setReady` and the calls in 02.
+  ///
   /// This phone sits down ready: the server deals only when every member is
   /// ready, and there is no ready button. Sent once while [playerId] is not
   /// ready at a waiting table; the lobby the answer brings (an event or the
@@ -531,14 +539,21 @@ class LobbyNotifier extends _$LobbyNotifier {
     final again = _retry;
     _retry = null;
     final now = state.value;
-    if (now != null) state = AsyncData(now.copyWith(notSent: false));
+    if (now != null) {
+      state = AsyncData(now.copyWith(notSent: false, dealRefused: null));
+    }
     if (again != null) await again();
   }
 
-  /// Deals (host only): the game id, or null when the deal did not happen
-  /// (then the screen says "Not sent." with "Try again"; a host role that
-  /// moved meanwhile says nothing: the screen is a guest's now).
+  /// Deals (host only): the game id, or null when the deal did not happen.
+  /// No answer: "Not sent." with "Try again". A refusal: why, in the
+  /// player's words ([dealRefusal]), never a bare "Not sent.". A host role
+  /// that moved meanwhile says nothing: the screen is a guest's now.
   Future<String?> deal() async {
+    final before = state.value;
+    if (before != null && before.dealRefused != null) {
+      state = AsyncData(before.copyWith(dealRefused: null));
+    }
     try {
       final id = await startGame();
       _retry = null;
@@ -547,11 +562,45 @@ class LobbyNotifier extends _$LobbyNotifier {
       return null;
     } catch (e) {
       if (!ref.mounted) return null;
-      _retry = deal;
       final now = state.value;
-      if (now != null) state = AsyncData(now.copyWith(notSent: true));
+      final refusal = dealRefusal(e);
+      _retry = refusal == null ? deal : null;
+      if (now != null) {
+        state = AsyncData(
+          now.copyWith(notSent: refusal == null, dealRefused: refusal),
+        );
+      }
       return null;
     }
+  }
+
+  /// What a refused deal means to the host, from the server's answer; null
+  /// when there was no answer (the phone could not reach the server).
+  static String? dealRefusal(Object error) {
+    final (int? status, String? code, String words) = switch (error) {
+      ValidationException(:final code, :final errors) => (
+        400,
+        code,
+        errors.values.expand((e) => e).join(' ').toLowerCase(),
+      ),
+      UnhandledHttpException(:final statusCode, :final code, :final message) =>
+        (statusCode, code, message.toLowerCase()),
+      NotFoundException() => (404, null, ''),
+      _ => (null, null, ''),
+    };
+    if (status == null || status >= 500) return null;
+    if (code == 'lobby_not_found' || status == 404) {
+      return BannerCopy.tableClosed;
+    }
+    if (words.contains('ready')) return BannerCopy.stillJoining;
+    if (words.contains('at least 3')) return TableCopy.needPlayers;
+    if (words.contains('waiting') || status == 409) {
+      return BannerCopy.lobbyClosed;
+    }
+    if (words.contains('role') || words.contains('mason')) {
+      return BannerCopy.deckDoesNotFit;
+    }
+    return BannerCopy.cannotDeal;
   }
 
   /// Starts the game (host only).

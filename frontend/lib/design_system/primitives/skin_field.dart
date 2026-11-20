@@ -23,6 +23,7 @@ class SkinField extends StatelessWidget {
     this.maxLength,
     this.inputFormatters = const [],
     this.autofocus = false,
+    this.focusNode,
   }) : _paper = true;
 
   const SkinField.code({
@@ -36,6 +37,7 @@ class SkinField extends StatelessWidget {
     this.maxLength,
     this.inputFormatters = const [],
     this.autofocus = false,
+    this.focusNode,
   }) : _paper = false;
 
   final TextEditingController? controller;
@@ -49,6 +51,7 @@ class SkinField extends StatelessWidget {
 
   /// Takes the focus when it first shows (01's empty name).
   final bool autofocus;
+  final FocusNode? focusNode;
   final bool _paper;
 
   static const paperHeight = 56.0;
@@ -72,6 +75,7 @@ class SkinField extends StatelessWidget {
       maxLength: maxLength,
       inputFormatters: inputFormatters,
       autofocus: autofocus,
+      focusNode: focusNode,
       textCapitalization: _paper
           ? TextCapitalization.words
           : TextCapitalization.characters,
