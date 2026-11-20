@@ -22,7 +22,7 @@ work stands: `docs/dev/status.md`.
 - A look ("skin") is a complete design with its own layouts and original art, never a recolour or filter. One look today: Shadow paper.
 - Every screen change gets a "does it look good" review by eye, and before/after pictures go to the owner before it merges.
 - Every change is reviewed by a fresh agent that was not given the author's conclusions. When a review finds something, fix the cause as a mechanism, not the instance.
-- Subagents: one worktree and one `DB_NAME` each. Port 8001 is shared: check it before `just test-harness`. Timing tests fail falsely under load: re-run alone.
+- Subagents: one worktree and one `DB_NAME` each. `just test-harness` takes its own free port and stops only its own backend, so runs go side by side. Timing tests fail falsely under load: re-run alone.
 - Test fixtures come only from `contract_samples/`; after a payload change, and after merging a branch that changes payloads, run `just samples` and review the diff.
 - The server is LIVE: every push migrates the shared database (rules: `backend/CLAUDE.md`, "Deploy-safe changes"). Do not touch the owner's Vercel, Neon or Redis accounts; ask before generating large batches of art. Fetch and merge before pushing; after pushing server changes, tell the deployment session (id in `docs/dev/status.md`).
 - Never open or read https://github.com/mankidev/antialgorithm in a main session; only subagents may, and they must not reproduce it.
@@ -45,7 +45,7 @@ just check            # backend lint, format, types, migrations + instruction li
 just test             # backend tests + guardrail and gate-routing tests
 just flutter-test     # frontend tests (frontend: just analyze, just format-check)
 just samples          # re-record contract_samples/
-just test-harness     # end-to-end harness against a real backend on :8001
+just test-harness     # end-to-end harness against its own real backend (a free port)
 just screens          # every screen as a PNG beside its mock
 ```
 

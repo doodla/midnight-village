@@ -26,13 +26,25 @@ dev:
 serve port="8000":
     uv run python manage.py runserver {{port}}
 
-# Boot the deterministic integration-test harness backend on 127.0.0.1:8001
-# (DEBUG=True, throwaway DB). The frontend test-harness recipe waits for
+# Boot the deterministic integration-test harness backend (DEBUG=True,
+# throwaway DB) on 127.0.0.1:$HARNESS_PORT, or on a free port it picks and
+# prints when HARNESS_PORT is not set: parallel runs never share a port. The
+# frontend test-harness recipe passes its own port and waits for
 # GET /api/health/ -> 200 before running tests against it.
 harness-serve:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    port="${HARNESS_PORT:-}"
+    if [ -z "$port" ]; then
+      port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+    fi
+    echo "[harness-serve] 127.0.0.1:$port"
+    # Runs on other ports share the throwaway database: one migrates at a time.
+    if command -v flock >/dev/null; then exec 9>"${TMPDIR:-/tmp}/midnight_village_harness.lock"; flock 9; fi
     PGPASSWORD="${DB_PASSWORD:-}" createdb -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" ${DB_USER:+-U "$DB_USER"} midnight_village_harness 2>&1 | grep -v "already exists" || true
     DJANGO_SETTINGS_MODULE=config.settings.harness uv run python manage.py migrate
-    DJANGO_SETTINGS_MODULE=config.settings.harness uv run python manage.py runserver --noreload 127.0.0.1:8001
+    if command -v flock >/dev/null; then flock -u 9; exec 9>&-; fi
+    exec env DJANGO_SETTINGS_MODULE=config.settings.harness uv run python manage.py runserver --noreload "127.0.0.1:$port"
 
 # Run Django management command
 manage *args:

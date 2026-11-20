@@ -20,13 +20,15 @@ move — 400 vs 500 vs leak — is the point).
 
 ## Prerequisites
 
-The harness backend must be up (DEBUG, throwaway DB, `127.0.0.1:8001`):
+The harness backend must be up (DEBUG, throwaway DB). It binds `HARNESS_PORT`, or a free
+port it picks and prints:
 
 ```bash
-cd backend && just harness-serve     # leave running in another shell
+cd backend && HARNESS_PORT=8001 just harness-serve     # leave running in another shell
 ```
 
-Override the target with `DRIVER_API_BASE` if needed.
+The driver targets `127.0.0.1:8001` unless `DRIVER_API_BASE` says otherwise
+(`DRIVER_API_BASE=http://127.0.0.1:<port>/api` for another port).
 
 ## Verbs
 

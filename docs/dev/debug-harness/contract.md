@@ -14,6 +14,15 @@ The server now runs the night as **two windows** (`backend/apps/onuw/README.md`,
 runs in two windows"), and the scenarios are the **reference games**. Where the
 sections below say otherwise, this list wins:
 
+- **A port per run, the old screens gone (20 November 2026).** `just test-harness` and
+  `just harness-serve` take `HARNESS_PORT` or pick a free port (wherever this file says
+  `127.0.0.1:8001`, read the run's port); the tests get it as `--dart-define=HARNESS_PORT`
+  (`HarnessConfig.port`), and the runner stops only the backend it started (its process
+  group by pid, a hard kill after 5 s). The UI runner that played reference games through the
+  old protocol-1 screens is gone: `test_e2e/ui_protocol2_roles_test.dart` deals the same
+  games (1, 4, 5, 8, 21) at protocol-2 tables and plays one phone through the table's shell.
+  The API runner still replays all 29 through the protocol-1 API, until the server slice
+  ports it.
 - **`current_wave` / `wave:{n}`** are the night window: `1` = Doppelganger,
   `2` = everyone else (`0` outside night). Night-log entries keep `wave` = the
   *order group* (1-4) so the log stays in wake order. The old "wave 1-4" language,

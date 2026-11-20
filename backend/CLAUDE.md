@@ -14,7 +14,7 @@ just test tests/onuw/test_x.py  # one file (first pass only)
 just check                      # ruff lint + format-check, pyrefly, makemigrations --check
 just fix                        # auto-fix lint and format
 just samples                    # re-record contract_samples/ after a payload change
-just harness-serve              # DEBUG backend on 127.0.0.1:8001 for the e2e harness
+just harness-serve              # DEBUG backend for the e2e harness ($HARNESS_PORT, else a free port)
 ```
 
 Set up with `tool/setup_env.sh <db_name>` (or `just install`): never `uv sync --all-extras`,

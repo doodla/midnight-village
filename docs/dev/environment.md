@@ -28,9 +28,10 @@ worktree of the clone; the same script runs at the start of every Claude session
   other's runs.
 - **`DJANGO_SETTINGS_MODULE` never goes in `backend/.env`**: it makes the tests run under the
   development settings.
-- **Port 8001 is shared**: `just test-harness` and `just harness-serve` bind
-  `127.0.0.1:8001` and the database `midnight_village_harness`. Check nothing else is
-  listening before you start one.
+- **Harness runs go side by side**: `just test-harness` and `just harness-serve` each take
+  `HARNESS_PORT`, or a free port they pick (harness-serve prints it), and the test-harness run
+  stops only the backend it started (its own process group, a hard kill after 5 s). They share
+  the database `midnight_village_harness`; one migrates it at a time.
 - **Timing tests fail falsely under load** (for example
   `test_a_scheduled_job_runs_after_the_delay_with_its_params` in the timers tests): re-run on a
   quiet machine before believing the failure.
