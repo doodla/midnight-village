@@ -77,7 +77,7 @@ class GameNotifier extends _$GameNotifier {
     // held until the snapshot is in, then replayed on top of it.
     _buffering = true;
     _buffered.clear();
-    _wsStream = ref.read(gameWebSocketStreamProvider(gameId));
+    _wsStream = ref.watch(gameWebSocketStreamProvider(gameId));
     if (_wsStream != null) {
       _wsSubscription = _wsStream!.listen(
         _handleWsMessage,
@@ -90,7 +90,7 @@ class GameNotifier extends _$GameNotifier {
     // Listen to connection state for reconnection-triggered refresh.
     // When the WebSocket reconnects after a disconnect, re-fetch authoritative
     // state from the server to recover any events missed while disconnected.
-    final ws = ref.read(gameWebSocketProvider(gameId));
+    final ws = ref.watch(gameWebSocketProvider(gameId));
     if (ws != null) {
       _connectionSubscription = ws.connectionState.listen(
         _handleConnectionStateChange,
@@ -922,7 +922,8 @@ class GameNotifier extends _$GameNotifier {
   }
 }
 
-/// Provides the [ReconnectingWebSocket] instance for a given game ID.
+/// Provides the [ReconnectingWebSocket] instance for a given game ID, open
+/// while a game listens to it (autoDispose: a game left closes its socket).
 ///
 /// Exposes the full instance so callers can access both [stream] (for game
 /// events) and [connectionState] (for reconnection tracking / overlay).
@@ -930,17 +931,15 @@ class GameNotifier extends _$GameNotifier {
 /// In tests, override [gameWebSocketStreamProvider] and
 /// [gameConnectionStateProvider] instead — those are the consumer-facing
 /// providers.
-final gameWebSocketProvider = Provider.family<ReconnectingWebSocket?, String>((
-  ref,
-  gameId,
-) {
-  final tokenStorage = ref.watch(tokenStorageProvider);
-  final url = '${Env.wsBaseUrl}/ws/game/$gameId/';
-  final ws = ReconnectingWebSocket(url: url, tokenStorage: tokenStorage);
-  unawaited(ws.connect());
-  ref.onDispose(ws.dispose);
-  return ws;
-}, name: 'gameWebSocketProvider');
+final gameWebSocketProvider = Provider.autoDispose
+    .family<ReconnectingWebSocket?, String>((ref, gameId) {
+      final tokenStorage = ref.watch(tokenStorageProvider);
+      final url = '${Env.wsBaseUrl}/ws/game/$gameId/';
+      final ws = ReconnectingWebSocket(url: url, tokenStorage: tokenStorage);
+      unawaited(ws.connect());
+      ref.onDispose(ws.dispose);
+      return ws;
+    }, name: 'gameWebSocketProvider');
 
 /// Provides the WebSocket message stream for a given game ID.
 ///
@@ -949,12 +948,10 @@ final gameWebSocketProvider = Provider.family<ReconnectingWebSocket?, String>((
 ///
 /// Returns null when no WebSocket is available (e.g., in unit tests that
 /// test individual event handlers by calling them directly).
-final gameWebSocketStreamProvider = Provider.family<Stream<dynamic>?, String>((
-  ref,
-  gameId,
-) {
-  return ref.watch(gameWebSocketProvider(gameId))?.stream;
-}, name: 'gameWebSocketStreamProvider');
+final gameWebSocketStreamProvider = Provider.autoDispose
+    .family<Stream<dynamic>?, String>((ref, gameId) {
+      return ref.watch(gameWebSocketProvider(gameId))?.stream;
+    }, name: 'gameWebSocketStreamProvider');
 
 /// Provides the WebSocket connection state stream for a given game ID.
 ///
@@ -962,8 +959,8 @@ final gameWebSocketStreamProvider = Provider.family<Stream<dynamic>?, String>((
 /// Returns a stream of [WebSocketConnectionState] values.
 ///
 /// In tests, override this provider to inject connection state transitions.
-final gameConnectionStateProvider =
-    StreamProvider.family<WebSocketConnectionState, String>((ref, gameId) {
+final gameConnectionStateProvider = StreamProvider.autoDispose
+    .family<WebSocketConnectionState, String>((ref, gameId) {
       final ws = ref.watch(gameWebSocketProvider(gameId));
       if (ws == null) {
         return Stream.value(WebSocketConnectionState.connected);

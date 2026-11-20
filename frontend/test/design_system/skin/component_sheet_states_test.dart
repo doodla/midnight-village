@@ -30,7 +30,7 @@ void main() {
     ComponentPage.talkDrunk: ['Middle is yours. Unseen.'],
     ComponentPage.talkDoppelganger: [
       'You copied Ben.',
-      'Center: Villager, Villager.',
+      'Left: Villager, Middle: Villager.',
     ],
     ComponentPage.actionFollowUpHeld: ['You copied Ben.', NightCopy.seer],
     ComponentPage.voteLocked: [VoteCopy.locked],

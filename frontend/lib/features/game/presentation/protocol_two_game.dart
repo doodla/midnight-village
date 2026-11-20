@@ -2,16 +2,14 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_exception.dart';
+import '../../../core/healing/healing.dart';
 import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/night/night_pick.dart';
-import '../../auth/domain/auth_state.dart';
-import '../../auth/presentation/auth_notifier.dart';
 import '../../lobby/domain/where_am_i.dart';
 import '../../lobby/presentation/lobby_notifier.dart';
 import '../../lobby/presentation/where_am_i_provider.dart';
@@ -26,48 +24,6 @@ import 'outbox.dart';
 export 'outbox.dart';
 
 part 'protocol_two_game.g.dart';
-
-/// How this phone heals what it may have missed. None of it is a wait a
-/// player can feel: the screen moves the moment the server's event or answer
-/// arrives; these only bound how long a missed one can go unnoticed.
-@immutable
-class HealTiming {
-  const HealTiming({
-    this.afterDeadline = const Duration(seconds: 2),
-    this.poll = const Duration(seconds: 5),
-    this.firstRetry = const Duration(seconds: 1),
-    this.maxRetry = const Duration(seconds: 10),
-  });
-
-  /// After a stage's deadline (by the server's clock), one fetch: a close
-  /// this phone did not hear about (spec: "Drops and missed closes").
-  final Duration afterDeadline;
-
-  /// Past the deadline and still in the same stage: fetch this often until
-  /// it changes (the server's backstop may be late, never the phone's call).
-  final Duration poll;
-
-  /// A first `/me/` that failed is fetched again after this, doubling up to
-  /// [maxRetry].
-  final Duration firstRetry;
-  final Duration maxRetry;
-}
-
-@riverpod
-HealTiming healTiming(Ref ref) => const HealTiming();
-
-/// Counts the app coming back to the foreground (each value a new resume).
-@riverpod
-Stream<int> appResumes(Ref ref) {
-  final resumes = StreamController<int>();
-  var count = 0;
-  final listener = AppLifecycleListener(onResume: () => resumes.add(++count));
-  ref.onDispose(() {
-    listener.dispose();
-    resumes.close();
-  });
-  return resumes.stream;
-}
 
 /// A night protocol 2 game as this phone holds it: the server's last `/me/`,
 /// the taps it has not seen yet ([outbox]), and the results once over.
@@ -88,7 +44,8 @@ class ProtocolTwoGame {
   /// This phone's taps in flight, unsent or confirming.
   final Outbox outbox;
 
-  /// `GET .../results/`, fetched once the game is in the results.
+  /// `GET .../results/`, fetched (and fetched again until it loads) once the
+  /// game is in the results.
   final GameOutcome? outcome;
 
   /// Who has a phone connected (public), from `player_presence`.
@@ -97,7 +54,7 @@ class ProtocolTwoGame {
   /// The latest host change, for the quiet line about it (until cleared).
   final HostChange? hostNotice;
 
-  /// The game (its table) is gone.
+  /// The game (its table) is gone: the last fetch was answered 404.
   final bool tableClosed;
 
   /// What the screens show: `/me/` with this phone's taps on it. Everything
@@ -105,9 +62,11 @@ class ProtocolTwoGame {
   /// answer.
   GameMe get me => outbox.on(server);
 
-  /// The taps whose answer never came ("Try again", [ProtocolTwoGameNotifier
-  /// .retry]); the board shows its own for a choose.
-  Set<OutboxLane> get unsent => outbox.unsent;
+  /// The taps whose answer never came and that wait for "Try again"
+  /// ([ProtocolTwoGameNotifier.retry]); the board shows its own for a
+  /// choose. The results ack is retried by itself and is not listed.
+  Set<OutboxLane> get unsent =>
+      outbox.unsent.difference(const {OutboxLane.ack});
 
   ProtocolTwoGame copyWith({
     GameMe? server,
@@ -132,30 +91,42 @@ class ProtocolTwoGame {
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
 /// Server state in: `/me/` fetches go out one at a time (a request made
-/// while one is out runs once after it), each numbered; a reply older than
-/// one applied, or of an earlier stage, is dropped. Socket events only ask
-/// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
-/// reconnect, resume and the stage's deadline fetch too, so anything missed
-/// heals and the screen is a function of fetched state alone.
+/// while one is out runs once after it), so a reply can never overtake a
+/// newer one. A failed fetch is made again with backoff until one succeeds;
+/// socket events only ask for a fetch or update a value `/me/` holds in the
+/// same form ([GameEvent]); reconnect, resume and the stage's deadline fetch
+/// too. The screen is a function of fetched state alone.
 ///
 /// Taps out: through the [Outbox], one request per kind in flight, later
 /// taps coalescing to the latest, each keyed to its stage (and turn) and
 /// dropped when that ends. The shown state is derived from it.
-@riverpod
+///
+/// Known and accepted: a request whose answer was lost but which the server
+/// processes later can land after a newer tap of the same lane (the latest
+/// is resent only after a fetch, but the server orders what it receives);
+/// closing that needs a per-phone sequence number on the server.
+///
+/// Riverpod's own retry is off ([noRetry]): this notifier retries its
+/// fetches itself, and a Riverpod rebuild would drop the taps in flight.
+@Riverpod(retry: noRetry)
 class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
   StreamSubscription<dynamic>? _events;
   Timer? _healTimer;
   Timer? _retryTimer;
-  Duration? _retryDelay;
+  int _failedFetches = 0;
+  Timer? _outcomeTimer;
+  int _failedOutcomes = 0;
+  Timer? _ackTimer;
+  int _failedAcks = 0;
   bool _wasDisconnected = false;
 
   bool _building = false;
   Future<void>? _loop;
   bool _again = false;
 
-  /// `/me/` fetches sent, and the number of the last one applied.
+  /// `/me/` fetches sent: a confirming tap waits for one sent after its
+  /// answer.
   int _sentFetches = 0;
-  int _appliedFetch = 0;
 
   /// The server's clock at the last applied fetch, and the time since.
   DateTime? _serverDate;
@@ -170,7 +141,7 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
 
   int _ids = 0;
 
-  /// The results count this phone has acknowledged (once per count).
+  /// The results count this phone has acknowledged in this session.
   int? _acked;
 
   GameService get _service => ref.read(gameServiceProvider);
@@ -182,10 +153,12 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
       _events?.cancel();
       _healTimer?.cancel();
       _retryTimer?.cancel();
+      _outcomeTimer?.cancel();
+      _ackTimer?.cancel();
     });
     // Listen first, so nothing said while the first fetch is out is missed.
     _events = ref
-        .read(gameWebSocketStreamProvider(gameId))
+        .watch(gameWebSocketStreamProvider(gameId))
         ?.listen(
           _onMessage,
           onError: (Object e) => logger.w('ProtocolTwoGame: socket', error: e),
@@ -200,15 +173,13 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
     ref.listen(myTableProvider, (_, next) => _compareTable(next.value));
 
     _building = true;
-    final seq = ++_sentFetches;
+    _sentFetches++;
     try {
       final fetched = await _service.fetchMeTimed(gameId);
-      _appliedFetch = seq;
       _clockFrom(fetched);
-      _retryDelay = null;
-      final first = ProtocolTwoGame._(server: fetched.me, outbox: Outbox.empty);
+      _failedFetches = 0;
       _afterApply(fetched.me);
-      return first;
+      return ProtocolTwoGame._(server: fetched.me, outbox: Outbox.empty);
     } catch (e) {
       _scheduleRetry();
       rethrow;
@@ -257,41 +228,34 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
     } on NotFoundException {
       if (!ref.mounted) return;
       _invalidateTable();
-      final current = state.value;
-      if (current != null) {
-        state = AsyncData(current.copyWith(tableClosed: true));
-      }
+      _update((s) => s.copyWith(tableClosed: true));
     } catch (e, stack) {
       if (!ref.mounted) return;
       logger.w('ProtocolTwoGame: fetch failed', error: e);
       final current = state.value;
       if (current == null) {
         state = AsyncError(e, stack);
-        _scheduleRetry();
       } else {
-        _armHealing(current.server); // keep healing through a bad patch
+        _armHealing(current.server);
       }
+      // Whatever asked for this fetch (a taken choose, an event, a "Try
+      // again") still needs it: again, with backoff, until one succeeds.
+      _scheduleRetry();
     }
   }
 
-  /// Applies fetch number [seq] unless a later one was applied already or
-  /// it is of an earlier stage than what this phone has.
+  /// Applies the `/me/` of fetch number [seq].
   void _accept(int seq, FetchedMe fetched) {
     final current = state.value;
     final me = fetched.me;
-    if (current != null &&
-        (seq <= _appliedFetch || me.isBehind(current.server))) {
-      return;
-    }
-    _appliedFetch = seq;
     _clockFrom(fetched);
-    _retryDelay = null;
+    _failedFetches = 0;
     _retryTimer?.cancel();
     final outbox = (current?.outbox ?? Outbox.empty).afterFetch(me, seq);
     state = AsyncData(
       current == null
           ? ProtocolTwoGame._(server: me, outbox: outbox)
-          : current.copyWith(server: me, outbox: outbox),
+          : current.copyWith(server: me, outbox: outbox, tableClosed: false),
     );
     _afterApply(me);
     // A queued tap whose lane was waiting on a dropped request goes now.
@@ -307,17 +271,29 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
         : null;
     _compareTable(table, me: me);
     if (me.phase == GamePhase.results && state.value?.outcome == null) {
-      unawaited(_loadOutcome());
+      _outcomeTimer ??= Timer(Duration.zero, _loadOutcome);
     }
   }
 
+  /// The results, fetched until they load (or the game is no longer at the
+  /// results), with backoff.
   Future<void> _loadOutcome() async {
+    _outcomeTimer = null;
+    if (!ref.mounted) return;
     try {
       final outcome = await _service.fetchOutcome(gameId);
+      _failedOutcomes = 0;
       _update((s) => s.copyWith(outcome: outcome));
     } catch (e) {
-      // The next fetch in the results tries again.
       logger.w('ProtocolTwoGame: results not fetched', error: e);
+      if (!ref.mounted) return;
+      final atResults = state.value?.server.phase == GamePhase.results;
+      if (atResults && state.value?.outcome == null) {
+        _outcomeTimer = Timer(
+          _timing.retryAfter(_failedOutcomes++),
+          _loadOutcome,
+        );
+      }
     }
   }
 
@@ -358,16 +334,11 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
   }
 
   void _scheduleRetry() {
-    final delay = _retryDelay = _retryDelay == null
-        ? _timing.firstRetry
-        : Duration(
-            microseconds: math.min(
-              _retryDelay!.inMicroseconds * 2,
-              _timing.maxRetry.inMicroseconds,
-            ),
-          );
     _retryTimer?.cancel();
-    _retryTimer = Timer(delay, () => unawaited(refresh()));
+    _retryTimer = Timer(
+      _timing.retryAfter(_failedFetches++),
+      () => unawaited(refresh()),
+    );
   }
 
   /// `/me/table/` and `/me/` agree on the game's phase; when one is behind,
@@ -393,6 +364,8 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
   void _healEverything() {
     _invalidateTable();
     unawaited(refresh());
+    final lost = state.value?.outbox.current(OutboxLane.ack);
+    if (lost?.leg == Leg.unsent) unawaited(retry(OutboxLane.ack));
   }
 
   void _onConnection(WebSocketConnectionState? connection) {
@@ -440,15 +413,9 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
           (s) => s.copyWith(presence: {...s.presence, playerId: connected}),
         );
       case HostEvent(:final change):
-        final viewer = _viewerId();
         _update(
           (s) => s.copyWith(
-            server: s.server.withHost(
-              change.hostId,
-              isHost: viewer == null
-                  ? s.server.isHost
-                  : viewer == change.hostId,
-            ),
+            server: s.server.withHost(change.hostId),
             hostNotice: change,
           ),
         );
@@ -462,11 +429,6 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
         unawaited(refresh());
       case IgnoredEvent():
     }
-  }
-
-  int? _viewerId() {
-    final auth = ref.read(authProvider);
-    return auth is AuthAuthenticated ? auth.user.id : null;
   }
 
   void _update(ProtocolTwoGame Function(ProtocolTwoGame) change) {
@@ -532,9 +494,10 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
     switch (reply.answer) {
       case ChooseAnswer.taken:
         _setOutbox(box.withCurrent(_confirming(item)));
-        // Every phone fetches once after a choose is taken (the same on the
-        // wire for every role): the Doppelganger's follow-up arrives so.
-        // A ready or a pick whose echo differs from the tap fetches too.
+        // After ANY taken choose the phone reads `/me/` and trusts its
+        // `chosen` and `chooses_left` (contract, third amendment): the same
+        // on the wire for every role, and how the Doppelganger's follow-up
+        // turn arrives. A ready or a pick whose echo differs fetches too.
         if (item.lane == OutboxLane.choose ||
             _echoDiffers(item.request, reply.body)) {
           unawaited(refresh());
@@ -547,11 +510,20 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
         _setOutbox(box.withoutCurrent(item.lane));
       case ChooseAnswer.notSent:
         _setOutbox(box.withCurrent(item.copyWith(leg: Leg.unsent)));
+        // The ack has no "Try again": it is sent again by itself.
+        if (item.lane == OutboxLane.ack) {
+          _ackTimer?.cancel();
+          _ackTimer = Timer(
+            _timing.retryAfter(_failedAcks++),
+            () => unawaited(retry(OutboxLane.ack)),
+          );
+        }
     }
     if (item.request case AckRequest(
       :final seen,
     ) when reply.answer == ChooseAnswer.taken) {
       _acked = math.max(_acked ?? 0, seen);
+      _failedAcks = 0;
     }
     _next(item.lane);
     return reply.answer;
@@ -607,7 +579,9 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
       return const Declined(DeclineReason.nothingToRetry);
     }
     await refresh();
-    if (!ref.mounted) return const Declined(DeclineReason.nothingToRetry);
+    if (!ref.mounted || state.value == null) {
+      return const Declined(DeclineReason.nothingToRetry);
+    }
     final now = _game.outbox.current(lane);
     if (now?.id != item.id || now!.leg != Leg.unsent) {
       return const Declined(DeclineReason.notThisStage);
@@ -681,16 +655,19 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
   }
 
   /// My night held for the first time this game: acknowledge every night
-  /// result `/me/` lists. Every phone sends it once per count, results or
-  /// not.
+  /// result `/me/` lists. Every phone sends it once, results or not; whether
+  /// it is done is read from `/me/` (`night_results_seen`), so a restart does
+  /// not send it again once the server has it. A lost one is sent again by
+  /// itself, with backoff.
   Future<TapOutcome> acknowledgeNightResults() async {
-    final count = _game.server.nightResultCount;
-    final acked = _acked;
+    final server = _game.server;
+    final count = server.nightResultCount;
     final shown = _game.outbox.shown(OutboxLane.ack)?.request;
-    if (acked != null && acked >= count ||
-        shown is AckRequest && shown.seen >= count) {
-      return const Declined(DeclineReason.unchanged);
-    }
+    final done =
+        (count > 0 && server.nightResultsSeen >= count) ||
+        (_acked != null && _acked! >= count) ||
+        (shown is AckRequest && shown.seen >= count);
+    if (done) return const Declined(DeclineReason.unchanged);
     return _submit(OutboxLane.ack, gameId, AckRequest(count));
   }
 

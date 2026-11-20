@@ -74,10 +74,10 @@ final class ChooseRequest extends StageRequest {
   /// Which turn of the stage it is ([ChoosePrompt.turn]).
   final int turn;
 
-  /// How many chooses the server had from this phone in this stage when the
-  /// prompt was read (`chosen`). After a lost answer, a `/me/` whose prompt
-  /// says more than this means the choose landed. Not sent until the
-  /// server's samples record it: then add `'chosen': chosen` to [toJson].
+  /// The answered prompt's `chosen` (as the server last sent it). Required
+  /// by the server: lower than its count, it is a resend of a choose already
+  /// taken (answered alike, nothing stored); after a lost answer, a `/me/`
+  /// whose prompt says more than this means it landed.
   final int chosen;
   final List<NightPick> picks;
 
@@ -86,6 +86,7 @@ final class ChooseRequest extends StageRequest {
     'action_type': 'choose',
     'picks': [for (final pick in picks) pick.toJson()],
     'stage': stage,
+    'chosen': chosen,
   };
 }
 

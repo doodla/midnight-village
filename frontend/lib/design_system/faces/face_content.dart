@@ -105,8 +105,12 @@ sealed class NightResult {
         role: serverRole(info['role']),
       ),
       'peek_center' => SeerCenterResult._([
-        for (final role in info['roles'] as List) serverRole(role),
+        for (final (i, role) in (info['roles'] as List).indexed)
+          ((info['center_indices'] as List)[i] as int, serverRole(role)),
       ]),
+      // Chose, and nothing picked meant anything for the role (protocol 2
+      // lists the viewer's own skip, marked `nothing_chosen`).
+      'skip' => const DidNothingResult._(),
       'swap_with_player' => NewCardResult._(serverRole(info['new_role'])),
       'insomniac' => NewCardResult._(serverRole(info['current_role'])),
       'swap_others' => SwappedResult._(
@@ -154,23 +158,36 @@ final class SeerPlayerResult extends NightResult {
   ];
 }
 
-/// The Seer looked at two center cards (the server names the roles, not the
-/// places); the portrait is the first.
+/// The Seer looked at two center cards, each named by its place
+/// (`center_indices`, in the order of `roles`); the portrait is the first.
 final class SeerCenterResult extends NightResult {
-  const SeerCenterResult._(this.roles);
+  const SeerCenterResult._(this.cards);
 
-  final List<RoleId> roles;
+  final List<(int index, RoleId role)> cards;
 
   @override
-  FacePortrait get portrait => RoleFacePortrait(roles.first);
+  FacePortrait get portrait => RoleFacePortrait(cards.first.$2);
 
   @override
   List<String> get lines => [
     SawCopy.seerCenter.fill({
-      'role1': roles.first.displayName,
-      'role2': roles.last.displayName,
+      'pos1': centerName(cards.first.$1),
+      'role1': cards.first.$2.displayName,
+      'pos2': centerName(cards.last.$1),
+      'role2': cards.last.$2.displayName,
     }),
   ];
+}
+
+/// The player chose, and nothing they picked meant anything for the role.
+final class DidNothingResult extends NightResult {
+  const DidNothingResult._();
+
+  @override
+  FacePortrait get portrait => const MoonFacePortrait();
+
+  @override
+  List<String> get lines => const [SawCopy.didNothing];
 }
 
 /// The Robber's or the Insomniac's card now.
@@ -314,6 +331,10 @@ sealed class WindowOneResult {
   /// everyone else.
   factory WindowOneResult.fromEntries(List<Map<String, dynamic>> entries) {
     if (entries.isEmpty) return const WindowOneSlept._();
+    // Her look held no other player: she copied nothing.
+    if (entries.first['action_type'] == 'skip') {
+      return const WindowOneDidNothing._();
+    }
     final look = entries.first['revealed_info'] as Map<String, dynamic>;
     return CopiedResult._(
       name: look['target_name'] as String,
@@ -350,6 +371,14 @@ final class WindowOneSlept extends WindowOneResult {
 
   @override
   FacePage get page => SleptResult.none.page;
+}
+
+/// The Doppelganger's look held no other player: she copied nothing.
+final class WindowOneDidNothing extends WindowOneResult {
+  const WindowOneDidNothing._();
+
+  @override
+  FacePage get page => const DidNothingResult._().page;
 }
 
 /// A held face's pages, in the order holds show them.

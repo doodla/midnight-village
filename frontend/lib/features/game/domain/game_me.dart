@@ -63,6 +63,7 @@ class MyVote {
 @immutable
 class GameMe {
   const GameMe._({
+    required this.playerId,
     required this.gameId,
     required this.lobbyCode,
     required this.phase,
@@ -107,6 +108,7 @@ class GameMe {
     final deadline = me['deadline'] as String?;
     final finalRole = role['current_role'] as String?;
     return GameMe._(
+      playerId: me['player_id'] as int,
       gameId: me['game_id'] as String,
       lobbyCode: me['lobby_code'] as String,
       phase: GamePhase.fromServer(me['phase']),
@@ -141,6 +143,9 @@ class GameMe {
     'ready',
     'progress',
   ];
+
+  /// This phone's own player id (`player_id`).
+  final int playerId;
 
   final String gameId;
 
@@ -198,14 +203,6 @@ class GameMe {
   /// Counts at the look, talk and vote; null elsewhere.
   final StageProgress? progress;
 
-  /// This `/me/` is of an earlier stage of the same game than [other]: the
-  /// game only moves forward (look, window 1, window 2, talk, vote,
-  /// results), so a reply that is behind is an old one arriving late.
-  bool isBehind(GameMe other) =>
-      gameId == other.gameId &&
-      (phase.index < other.phase.index ||
-          phase == other.phase && window < other.window);
-
   /// Results this phone has not acknowledged yet.
   bool get hasUnseenResults => nightResultCount > nightResultsSeen;
 
@@ -226,6 +223,7 @@ class GameMe {
     int? hostId,
     bool? isHost,
   }) => GameMe._(
+    playerId: playerId,
     gameId: gameId,
     lobbyCode: lobbyCode,
     phase: phase,
@@ -269,6 +267,6 @@ class GameMe {
       seen > nightResultsSeen ? _with(nightResultsSeen: seen) : this;
 
   /// With the host role where a `host_changed` event says it is now.
-  GameMe withHost(int hostId, {required bool isHost}) =>
-      _with(hostId: hostId, isHost: isHost);
+  GameMe withHost(int hostId) =>
+      _with(hostId: hostId, isHost: hostId == playerId);
 }

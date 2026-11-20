@@ -55,16 +55,17 @@ void main() {
           {'center_index': 2},
         ],
         'stage': seer.stage,
+        'chosen': 0,
       });
     });
 
-    test('carries the prompt\'s chosen count, not sent yet', () {
+    test('sends the prompt\'s chosen: her follow-up names 1', () {
       final followUp = FromSample.gameMe(
         recordedMe('me_choose_doppelganger_followup'),
       ).prompt!;
       final request = ChooseRequest.of(followUp, const [SelfPick()]);
       expect(request.chosen, 1);
-      expect(request.toJson().containsKey('chosen'), isFalse);
+      expect(request.toJson()['chosen'], 1);
       expect(request.toJson()['picks'], [
         {'self': true},
       ]);
@@ -82,6 +83,9 @@ void main() {
     });
 
     for (final (sample, status, expected) in [
+      ('game/choose_resent', 200, ChooseAnswer.taken),
+      ('game/choose_resent_doppelganger_look', 200, ChooseAnswer.taken),
+      ('game/choose_chosen_missing', 400, ChooseAnswer.refused),
       ('game/choose_wrong_stage', 409, ChooseAnswer.stale),
       ('game/choose_already_chosen', 409, ChooseAnswer.stale),
       ('game/choose_window1_third_refused', 409, ChooseAnswer.stale),
@@ -216,8 +220,20 @@ void main() {
         answer(endpoint, sample);
         expect(await call(service), ChooseAnswer.taken);
         expect(sent(), {'stage': 'w2.x'});
+        // A stage that is over: fetch /me/, never an error.
+        answer(endpoint, '${sample}_wrong_stage', status: 409);
+        expect(await call(service), ChooseAnswer.stale);
       });
     }
+  });
+
+  test('the same lock resent is answered alike', () async {
+    answer('/vote/', 'game/vote_lock_resent');
+    final reply = await service.send(
+      'g7',
+      const VoteRequest('vote.x', targetId: 30, lock: true),
+    );
+    expect(reply.answer, ChooseAnswer.taken);
   });
 
   test('the server clock is read from the Date header', () {

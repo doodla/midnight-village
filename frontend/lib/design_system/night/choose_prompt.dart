@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 
 import '../faces/face_content.dart';
@@ -18,6 +20,7 @@ class ChoosePrompt {
     required this.kind,
     required this.rule,
     required this.chosen,
+    required this.choosesLeft,
     required this.maxChooses,
     required this.maxPicks,
   });
@@ -37,6 +40,7 @@ class ChoosePrompt {
       kind: NightPrompt.fromKind(prompt['kind'] as String),
       rule: PickRule.fromPrompt(prompt),
       chosen: prompt['chosen'] as int,
+      choosesLeft: prompt['chooses_left'] as int,
       maxChooses: prompt['max_chooses'] as int,
       maxPicks: prompt['max_picks'] as int,
     );
@@ -55,33 +59,33 @@ class ChoosePrompt {
   /// How many chooses the server has from this phone in this stage.
   final int chosen;
 
+  /// How many chooses this phone should still send in this stage, as the
+  /// server says (`chooses_left`): 1 for every phone's turn, and 1 again for
+  /// the Doppelganger's follow-up when her copied role acts in window 1. The
+  /// phone infers nothing from the prompt's `kind`.
+  final int choosesLeft;
+
   /// How many chooses the server takes from this phone in this stage (2 in
-  /// window 1 for everyone, so the Doppelganger's second is no tell). The
-  /// phone does not offer a second because of it: see [turn].
+  /// window 1 from anyone). Never a reason to offer a second: [choosesLeft]
+  /// is.
   final int maxChooses;
 
   /// The most picks one choose carries.
   final int maxPicks;
 
-  /// Which choose of the stage this is: 1 only for the Doppelganger's
-  /// follow-up, which the server marks by giving window 1 a prompt that is
-  /// neither her look nor "nothing to do"; 0 otherwise. The board re-arms
-  /// when it changes, so no other phone ever gets a second choose, whatever
-  /// `max_chooses` says.
-  int get turn =>
-      window == 1 &&
-          kind != NightPrompt.doppelgangerLook &&
-          kind != NightPrompt.noChoice
-      ? 1
-      : 0;
+  /// Which choose of the stage the board is on: the server's count while one
+  /// is left to send ([chosen]), else the last one sent. It changes only when
+  /// the server arms a new turn (the Doppelganger's follow-up), never when a
+  /// turn is used, so the board re-arms exactly then.
+  int get turn => choosesLeft > 0 ? chosen : math.max(0, chosen - 1);
 
-  /// The server already has this turn's choose (a phone that restarted, or
-  /// chose on another screen): the board starts at "Chosen".
-  bool get used => chosen > turn;
+  /// The server has this turn's choose (a phone that restarted, or chose on
+  /// another screen): the board starts at "Chosen".
+  bool get used => choosesLeft == 0;
 
   /// This prompt as it is once this phone has sent this turn's choose: what
-  /// the app shows from the tap on, whatever an older `/me/` still says (a
-  /// fetch that left before the choose landed must not re-arm the board).
+  /// the app shows from the tap on, until a `/me/` fetched after the answer
+  /// says what the server holds.
   ChoosePrompt get afterChoose => used
       ? this
       : ChoosePrompt._(
@@ -89,7 +93,8 @@ class ChoosePrompt {
           window: window,
           kind: kind,
           rule: rule,
-          chosen: turn + 1,
+          chosen: chosen + 1,
+          choosesLeft: 0,
           maxChooses: maxChooses,
           maxPicks: maxPicks,
         );

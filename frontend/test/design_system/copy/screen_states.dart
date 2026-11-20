@@ -36,12 +36,14 @@ final _saw = <String, List<Object>>{
   'Masons': [SawCopy.masons],
   'Mason alone': [SawCopy.onlyYou],
   'Slept': [NightCopy.slept],
+  'Chose, nothing happened': [SawCopy.didNothing],
 };
 
 /// Every window-1 page a phone carries into window 2 and the talk: slept,
 /// copied, or copied and then a one-line result.
 final _windowOne = <String, List<Object>>{
   'slept': [NightCopy.slept],
+  'copied nothing': [SawCopy.didNothing],
   'copied': [NightCopy.copied],
   for (final MapEntry(:key, :value) in _saw.entries)
     if (value.length == 1) 'copied, then $key': [NightCopy.copied, ...value],

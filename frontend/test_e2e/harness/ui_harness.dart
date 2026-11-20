@@ -175,8 +175,10 @@ class UiHarness {
   Future<void> openGame(String gameId) async {
     // Create the live socket in the REAL zone first (see [_overrides]); the
     // screen then reuses this instance when it watches the provider.
+    // (Listened, not read: the socket provider is autoDispose and would
+    // close again before the screen watches it.)
     await tester.runAsync(() async {
-      container.read(gameWebSocketProvider(gameId));
+      container.listen(gameWebSocketProvider(gameId), (_, _) {});
     });
 
     // Navigate so the screen mounts and watches `gameProvider` (its build

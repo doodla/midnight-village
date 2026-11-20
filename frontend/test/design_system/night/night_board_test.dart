@@ -231,7 +231,9 @@ void main() {
     await _choose(tester);
     // The server counts the choose; its next /me/ says so.
     final after = Viewer.windowOneSleeper.nightMe;
-    (after['action_prompt'] as Map)['chosen'] = 1;
+    (after['action_prompt'] as Map)
+      ..['chosen'] = 1
+      ..['chooses_left'] = 0;
     board.show(after);
     await tester.pumpWidget(board.build());
     expect(button(tester), (NightCopy.chosen, ButtonPhase.done));
@@ -258,7 +260,9 @@ void main() {
       expect(button(tester), (NightCopy.chooseNone, ButtonPhase.locked));
 
       final me = Viewer.doppelgangerFollowUp.nightMe;
-      (me['action_prompt'] as Map)['chosen'] = 2;
+      (me['action_prompt'] as Map)
+        ..['chosen'] = 2
+        ..['chooses_left'] = 0;
       await BoardHarness(me).pump(tester);
       expect(button(tester), (NightCopy.chosen, ButtonPhase.done));
     });

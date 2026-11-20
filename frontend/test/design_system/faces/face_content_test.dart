@@ -133,6 +133,11 @@ void main() {
       'Only you. Left: Werewolf.',
     );
     expect(result('me_discussion_choose_villager'), NightCopy.slept);
+    // Chose, and nothing picked meant anything: the server says so.
+    expect(
+      result('me_discussion_choose_seer_nothing_chosen'),
+      SawCopy.didNothing,
+    );
     expect(result('me_discussion_choose_drunk'), 'Middle is yours. Unseen.');
     expect(result('me_discussion_choose_minion'), 'Werewolves: Cleo, Ida.');
     expect(result('me_discussion_choose_mason'), 'Masons: Fin.');
@@ -144,7 +149,7 @@ void main() {
     final doppelganger = _myNight('me_discussion_choose_doppelganger');
     expect(_lines(doppelganger.pages[1]), [
       'You copied Ben.',
-      'Center: Villager, Villager.',
+      'Left: Villager, Middle: Villager.',
     ]);
   });
 

@@ -144,6 +144,32 @@ void main() {
     });
   });
 
+  test("this phone's own id is /me/'s player_id", () {
+    expect(me('me_choose_prompt_seer').playerId, 27);
+    expect(me('me_choose_doppelganger_followup').playerId, 32);
+  });
+
+  test('the vote before a pick: no vote of mine yet', () {
+    final open = me('me_voting_unpicked');
+    expect(open.myVote, isNull);
+    expect(open.progress!.done, 0);
+  });
+
+  test('the results: no stage, no deadline, the card held at the end', () {
+    final results = me('me_results_v2');
+    expect(results.phase, GamePhase.results);
+    expect(results.stage, isNull);
+    expect(results.deadline, isNull);
+    expect(results.finalRole, RoleId.seer);
+    expect(results.progress, isNull);
+  });
+
+  test('the turn is the server\'s chooses_left, never inferred', () {
+    expect(me('me_choose_prompt_seer').prompt!.choosesLeft, 1);
+    expect(me('me_choose_chosen').prompt!.choosesLeft, 0);
+    expect(me('me_choose_chosen').prompt!.used, isTrue);
+  });
+
   test('the server-built deck is roles_in_game', () {
     final nine = me('me_auto_deck_9');
     expect(nine.deck[RoleId.doppelganger], 1);

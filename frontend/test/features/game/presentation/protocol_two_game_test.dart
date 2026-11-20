@@ -66,13 +66,11 @@ Object view(ProtocolTwoGame game) {
 void main() {
   Future<ProtocolTwoSetup> phone(
     String meName, {
-    int userId = 27,
     DateTime Function()? clock,
     Map<String, dynamic>? body,
   }) async {
     final setup = ProtocolTwoSetup.create(
       body ?? recordedMe(meName),
-      userId: userId,
       clock: clock,
     );
     addTearDown(setup.dispose);
@@ -82,15 +80,12 @@ void main() {
   }
 
   group('a phone that (re)starts lands from /me/ and /me/table/ alone', () {
-    test('every recorded protocol-2 /me/: the screen the table says', () async {
-      for (final name in protocolTwoMeSamples()) {
+    test('every recorded protocol-2 /me/: the screen stated for it', () async {
+      for (final MapEntry(key: name, value: expected)
+          in protocolTwoScreens.entries) {
         final setup = await phone(name);
-        final me = FromSample.gameMe(recordedMe(name));
-        expect(
-          setup.screen,
-          TableScreen(screenFor(tableDuring(me), me: me), gameId: me.gameId),
-          reason: name,
-        );
+        expect(setup.screen!.screen, expected, reason: name);
+        expect(setup.screen!.gameId, setup.gameId, reason: name);
         expect(setup.meFetches, 1, reason: '$name: one fetch, no events');
       }
     });
@@ -173,14 +168,6 @@ void main() {
       });
     }
 
-    test('a reply of an earlier stage, arriving late, does not win', () async {
-      final setup = await phone('me_discussion_choose_seer');
-      // An old answer (window 2) reaches the phone after the talk's.
-      setup.answerMe(recordedMe('me_choose_prompt_seer'), table: false);
-      await setup.notifier.refresh();
-      expect(setup.game.server.phase, GamePhase.discussion);
-    });
-
     test('progress applies in place; a fetch has the last word', () async {
       final setup = await phone('me_discussion_choose_villager');
       setup.ws.addServerEvent(withValues(event('progress_talk'), {'done': 3}));
@@ -202,12 +189,13 @@ void main() {
       final presence = event('player_presence_disconnected');
       expect(setup.game.presence[presence['player_id']], isFalse);
       final tables = setup.tableFetches;
+      final self = setup.game.me.playerId; // `player_id` in /me/
       setup.ws.addServerEvent(
-        withValues(event('host_changed_handover'), {'host_id': 27}),
+        withValues(event('host_changed_handover'), {'host_id': self}),
       );
       await setup.settle();
-      expect(setup.game.me.hostId, 27);
-      expect(setup.game.me.isHost, isTrue, reason: 'this phone is player 27');
+      expect(setup.game.me.hostId, self);
+      expect(setup.game.me.isHost, isTrue, reason: 'the host is this phone');
       expect(setup.game.hostNotice, isNotNull);
       expect(setup.tableFetches, greaterThan(tables));
       setup.notifier.clearHostNotice();
@@ -219,7 +207,7 @@ void main() {
     test('after her look every phone fetches; her board arms again', () async {
       final look = recordedMe('me_choose_prompt_doppelganger_look');
       final followUp = recordedMe('me_choose_doppelganger_followup');
-      final setup = await phone('', userId: 32, body: look);
+      final setup = await phone('', body: look);
       setup
         ..answerPost('/action/', 'game/choose_submitted_doppelganger_look')
         ..answerMe(followUp);
@@ -233,7 +221,7 @@ void main() {
       expect(setup.game.me.prompt!.turn, 1);
       expect(setup.game.me.prompt!.used, isFalse);
       // Her second choose goes out, and is shown chosen at once.
-      setup.answerMe(withPrompt(followUp, {'chosen': 2}));
+      setup.answerMe(withPrompt(followUp, {'chosen': 2, 'chooses_left': 0}));
       setup.answerPost('/action/', 'game/choose_submitted_window1_second');
       final second = setup.notifier.choose(stage, const [
         CenterPick(0),
@@ -248,10 +236,10 @@ void main() {
 
     test('any other phone in window 1 fetches once and stays chosen', () async {
       final sleeper = recordedMe('me_choose_prompt_window1_sleeper');
-      final setup = await phone('', userId: 34, body: sleeper);
+      final setup = await phone('', body: sleeper);
       setup
         ..answerPost('/action/', 'game/choose_submitted_villager')
-        ..answerMe(withPrompt(sleeper, {'chosen': 1}));
+        ..answerMe(withPrompt(sleeper, {'chosen': 1, 'chooses_left': 0}));
       await setup.notifier.choose(setup.game.me.stage!, const [SelfPick()]);
       await setup.settle();
       expect(setup.meFetches, 2, reason: 'the same on the wire for all');

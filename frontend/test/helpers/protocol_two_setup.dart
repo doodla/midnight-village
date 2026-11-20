@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/core/healing/healing.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
@@ -13,7 +14,6 @@ import 'package:midnight_village/features/game/presentation/protocol_two_game.da
 import 'package:midnight_village/features/game/presentation/table_screen.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
-import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
 
 import 'contract/contract_samples.dart';
 import 'contract/server_json.dart';
@@ -32,6 +32,7 @@ const testHealTiming = HealTiming(
   poll: Duration(milliseconds: 30),
   firstRetry: Duration(milliseconds: 10),
   maxRetry: Duration(milliseconds: 40),
+  tablePoll: Duration(milliseconds: 50),
 );
 
 /// `/me/table/` while [me]'s game runs (finished once it is over).
@@ -71,13 +72,14 @@ String httpDate(DateTime time) {
 class ProtocolTwoSetup {
   ProtocolTwoSetup._(this.container, this.http, this.ws, this.gameId);
 
-  /// A phone whose `/me/` answers [me] (a recorded protocol-2 `/me/`), and
-  /// whose `/me/table/` answers that game's table.
+  /// The phone of `/me/` [me] (a recorded protocol-2 `/me/`: its
+  /// `player_id` is the signed-in player), whose `/me/table/` answers that
+  /// game's table.
   factory ProtocolTwoSetup.create(
     Map<String, dynamic> me, {
-    int userId = 27,
     DateTime Function()? clock,
   }) {
+    final userId = me['player_id'] as int;
     final http = MockHttpClient();
     final ws = MockWebSocketChannel();
     final client = AuthenticatedClient.forTesting(dio: http.dio);
@@ -111,6 +113,8 @@ class ProtocolTwoSetup {
       .._resumes = resumes
       .._connection = connection
       ..answerMe(me);
+    // A game at the results fetches them at once.
+    if (me['phase'] == 'results') setup.answerResults();
     return setup;
   }
 
@@ -158,6 +162,17 @@ class ProtocolTwoSetup {
         ContractSamples.load('http/$sample'),
         status: status,
       );
+
+  /// `GET .../results/` answers the recorded results [sample].
+  void answerResults([String sample = 'results']) => http.answer(
+    'GET',
+    '$_base/results/',
+    ContractSamples.load('http/game/$sample'),
+  );
+
+  /// `GET [path]` gives no readable answer (a 5xx: the network is down).
+  void failGet(String path) =>
+      http.answer('GET', path, 'Server Error', status: 503);
 
   /// `POST <base><endpoint>` gives no readable answer (a 5xx).
   void failPost(String endpoint) =>

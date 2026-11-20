@@ -25,16 +25,41 @@ void main() {
       }
     });
 
-    test('a table opened with defaults v2 says protocol 2 and auto deck', () {
-      // Recorded as the create's answer only: no GET /lobbies/<code>/ or
-      // lobby_update of a v2 table is recorded yet (a recorder gap).
+    test('a v2 table with a chip: protocol 2, the deck automatic', () {
+      final lobby = FromSample.lobby(
+        ContractSamples.map('http/lobby/detail_v2_auto_deck_5'),
+      );
+      expect(lobby.table.isProtocolTwo, isTrue);
+      expect(lobby.table.autoDeck, isTrue);
+      expect(lobby.table.deckChip, DeckChip.classic);
+      expect(lobby.table.cardLookSeconds, 30);
+      expect(lobby.players, hasLength(5));
+    });
+
+    test('a v2 table whose cards were edited: custom, the cards are read', () {
+      final lobby = FromSample.lobby(
+        ContractSamples.map('http/lobby/detail_v2_custom_deck'),
+      );
+      expect(lobby.table.isProtocolTwo, isTrue);
+      expect(lobby.table.autoDeck, isFalse);
+      expect(lobby.roleConfig['Doppelganger'], 1);
+      // The update the table hears is the same body.
+      final update = ContractSamples.map(
+        'ws/lobby/lobby_update_v2_custom_deck',
+      );
+      expect(
+        LobbyState.fromJson(
+          (update['data'] as Map).cast<String, dynamic>(),
+        ).table,
+        lobby.table,
+      );
+    });
+
+    test('a table opened with defaults v2: the Simple chip, the look on', () {
       final body = ContractSamples.map('http/lobby/created_with_defaults');
       checkHttpBody('POST', '/lobbies/', 201, body);
       final lobby = LobbyState.fromJson(body);
-      expect(lobby.table.isProtocolTwo, isTrue);
-      expect(lobby.table.autoDeck, isTrue);
       expect(lobby.table.deckChip, DeckChip.simple);
-      expect(lobby.table.cardLookSeconds, 30);
       expect(lobby.players.single.token, TokenId.moth);
     });
 

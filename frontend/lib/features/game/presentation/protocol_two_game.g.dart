@@ -8,100 +8,28 @@ part of 'protocol_two_game.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-
-@ProviderFor(healTiming)
-const healTimingProvider = HealTimingProvider._();
-
-final class HealTimingProvider
-    extends $FunctionalProvider<HealTiming, HealTiming, HealTiming>
-    with $Provider<HealTiming> {
-  const HealTimingProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'healTimingProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$healTimingHash();
-
-  @$internal
-  @override
-  $ProviderElement<HealTiming> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
-
-  @override
-  HealTiming create(Ref ref) {
-    return healTiming(ref);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(HealTiming value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<HealTiming>(value),
-    );
-  }
-}
-
-String _$healTimingHash() => r'c64c9b0391f799d323e9d1cff22c6c37b64b8ea2';
-
-/// Counts the app coming back to the foreground (each value a new resume).
-
-@ProviderFor(appResumes)
-const appResumesProvider = AppResumesProvider._();
-
-/// Counts the app coming back to the foreground (each value a new resume).
-
-final class AppResumesProvider
-    extends $FunctionalProvider<AsyncValue<int>, int, Stream<int>>
-    with $FutureModifier<int>, $StreamProvider<int> {
-  /// Counts the app coming back to the foreground (each value a new resume).
-  const AppResumesProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'appResumesProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$appResumesHash();
-
-  @$internal
-  @override
-  $StreamProviderElement<int> $createElement($ProviderPointer pointer) =>
-      $StreamProviderElement(pointer);
-
-  @override
-  Stream<int> create(Ref ref) {
-    return appResumes(ref);
-  }
-}
-
-String _$appResumesHash() => r'ebcdbb303b188fcc6a52cd00bd80c1e8232ba161';
-
 /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
 /// old screens keep [GameNotifier] on protocol 1). The game id comes from
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
 /// Server state in: `/me/` fetches go out one at a time (a request made
-/// while one is out runs once after it), each numbered; a reply older than
-/// one applied, or of an earlier stage, is dropped. Socket events only ask
-/// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
-/// reconnect, resume and the stage's deadline fetch too, so anything missed
-/// heals and the screen is a function of fetched state alone.
+/// while one is out runs once after it), so a reply can never overtake a
+/// newer one. A failed fetch is made again with backoff until one succeeds;
+/// socket events only ask for a fetch or update a value `/me/` holds in the
+/// same form ([GameEvent]); reconnect, resume and the stage's deadline fetch
+/// too. The screen is a function of fetched state alone.
 ///
 /// Taps out: through the [Outbox], one request per kind in flight, later
 /// taps coalescing to the latest, each keyed to its stage (and turn) and
 /// dropped when that ends. The shown state is derived from it.
+///
+/// Known and accepted: a request whose answer was lost but which the server
+/// processes later can land after a newer tap of the same lane (the latest
+/// is resent only after a fetch, but the server orders what it receives);
+/// closing that needs a per-phone sequence number on the server.
+///
+/// Riverpod's own retry is off ([noRetry]): this notifier retries its
+/// fetches itself, and a Riverpod rebuild would drop the taps in flight.
 
 @ProviderFor(ProtocolTwoGameNotifier)
 const protocolTwoGameProvider = ProtocolTwoGameNotifierFamily._();
@@ -111,15 +39,23 @@ const protocolTwoGameProvider = ProtocolTwoGameNotifierFamily._();
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
 /// Server state in: `/me/` fetches go out one at a time (a request made
-/// while one is out runs once after it), each numbered; a reply older than
-/// one applied, or of an earlier stage, is dropped. Socket events only ask
-/// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
-/// reconnect, resume and the stage's deadline fetch too, so anything missed
-/// heals and the screen is a function of fetched state alone.
+/// while one is out runs once after it), so a reply can never overtake a
+/// newer one. A failed fetch is made again with backoff until one succeeds;
+/// socket events only ask for a fetch or update a value `/me/` holds in the
+/// same form ([GameEvent]); reconnect, resume and the stage's deadline fetch
+/// too. The screen is a function of fetched state alone.
 ///
 /// Taps out: through the [Outbox], one request per kind in flight, later
 /// taps coalescing to the latest, each keyed to its stage (and turn) and
 /// dropped when that ends. The shown state is derived from it.
+///
+/// Known and accepted: a request whose answer was lost but which the server
+/// processes later can land after a newer tap of the same lane (the latest
+/// is resent only after a fetch, but the server orders what it receives);
+/// closing that needs a per-phone sequence number on the server.
+///
+/// Riverpod's own retry is off ([noRetry]): this notifier retries its
+/// fetches itself, and a Riverpod rebuild would drop the taps in flight.
 final class ProtocolTwoGameNotifierProvider
     extends $AsyncNotifierProvider<ProtocolTwoGameNotifier, ProtocolTwoGame> {
   /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
@@ -127,20 +63,28 @@ final class ProtocolTwoGameNotifierProvider
   /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
   ///
   /// Server state in: `/me/` fetches go out one at a time (a request made
-  /// while one is out runs once after it), each numbered; a reply older than
-  /// one applied, or of an earlier stage, is dropped. Socket events only ask
-  /// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
-  /// reconnect, resume and the stage's deadline fetch too, so anything missed
-  /// heals and the screen is a function of fetched state alone.
+  /// while one is out runs once after it), so a reply can never overtake a
+  /// newer one. A failed fetch is made again with backoff until one succeeds;
+  /// socket events only ask for a fetch or update a value `/me/` holds in the
+  /// same form ([GameEvent]); reconnect, resume and the stage's deadline fetch
+  /// too. The screen is a function of fetched state alone.
   ///
   /// Taps out: through the [Outbox], one request per kind in flight, later
   /// taps coalescing to the latest, each keyed to its stage (and turn) and
   /// dropped when that ends. The shown state is derived from it.
+  ///
+  /// Known and accepted: a request whose answer was lost but which the server
+  /// processes later can land after a newer tap of the same lane (the latest
+  /// is resent only after a fetch, but the server orders what it receives);
+  /// closing that needs a per-phone sequence number on the server.
+  ///
+  /// Riverpod's own retry is off ([noRetry]): this notifier retries its
+  /// fetches itself, and a Riverpod rebuild would drop the taps in flight.
   const ProtocolTwoGameNotifierProvider._({
     required ProtocolTwoGameNotifierFamily super.from,
     required String super.argument,
   }) : super(
-         retry: null,
+         retry: noRetry,
          name: r'protocolTwoGameProvider',
          isAutoDispose: true,
          dependencies: null,
@@ -174,22 +118,30 @@ final class ProtocolTwoGameNotifierProvider
 }
 
 String _$protocolTwoGameNotifierHash() =>
-    r'8c908891efe3c3a7138d86168c2c4c56bb46182f';
+    r'10ae974a07d2f3cee4da5081e1becb1bddb78d0e';
 
 /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
 /// old screens keep [GameNotifier] on protocol 1). The game id comes from
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
 /// Server state in: `/me/` fetches go out one at a time (a request made
-/// while one is out runs once after it), each numbered; a reply older than
-/// one applied, or of an earlier stage, is dropped. Socket events only ask
-/// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
-/// reconnect, resume and the stage's deadline fetch too, so anything missed
-/// heals and the screen is a function of fetched state alone.
+/// while one is out runs once after it), so a reply can never overtake a
+/// newer one. A failed fetch is made again with backoff until one succeeds;
+/// socket events only ask for a fetch or update a value `/me/` holds in the
+/// same form ([GameEvent]); reconnect, resume and the stage's deadline fetch
+/// too. The screen is a function of fetched state alone.
 ///
 /// Taps out: through the [Outbox], one request per kind in flight, later
 /// taps coalescing to the latest, each keyed to its stage (and turn) and
 /// dropped when that ends. The shown state is derived from it.
+///
+/// Known and accepted: a request whose answer was lost but which the server
+/// processes later can land after a newer tap of the same lane (the latest
+/// is resent only after a fetch, but the server orders what it receives);
+/// closing that needs a per-phone sequence number on the server.
+///
+/// Riverpod's own retry is off ([noRetry]): this notifier retries its
+/// fetches itself, and a Riverpod rebuild would drop the taps in flight.
 
 final class ProtocolTwoGameNotifierFamily extends $Family
     with
@@ -202,7 +154,7 @@ final class ProtocolTwoGameNotifierFamily extends $Family
         > {
   const ProtocolTwoGameNotifierFamily._()
     : super(
-        retry: null,
+        retry: noRetry,
         name: r'protocolTwoGameProvider',
         dependencies: null,
         $allTransitiveDependencies: null,
@@ -214,15 +166,23 @@ final class ProtocolTwoGameNotifierFamily extends $Family
   /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
   ///
   /// Server state in: `/me/` fetches go out one at a time (a request made
-  /// while one is out runs once after it), each numbered; a reply older than
-  /// one applied, or of an earlier stage, is dropped. Socket events only ask
-  /// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
-  /// reconnect, resume and the stage's deadline fetch too, so anything missed
-  /// heals and the screen is a function of fetched state alone.
+  /// while one is out runs once after it), so a reply can never overtake a
+  /// newer one. A failed fetch is made again with backoff until one succeeds;
+  /// socket events only ask for a fetch or update a value `/me/` holds in the
+  /// same form ([GameEvent]); reconnect, resume and the stage's deadline fetch
+  /// too. The screen is a function of fetched state alone.
   ///
   /// Taps out: through the [Outbox], one request per kind in flight, later
   /// taps coalescing to the latest, each keyed to its stage (and turn) and
   /// dropped when that ends. The shown state is derived from it.
+  ///
+  /// Known and accepted: a request whose answer was lost but which the server
+  /// processes later can land after a newer tap of the same lane (the latest
+  /// is resent only after a fetch, but the server orders what it receives);
+  /// closing that needs a per-phone sequence number on the server.
+  ///
+  /// Riverpod's own retry is off ([noRetry]): this notifier retries its
+  /// fetches itself, and a Riverpod rebuild would drop the taps in flight.
 
   ProtocolTwoGameNotifierProvider call(String gameId) =>
       ProtocolTwoGameNotifierProvider._(argument: gameId, from: this);
@@ -236,15 +196,23 @@ final class ProtocolTwoGameNotifierFamily extends $Family
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
 /// Server state in: `/me/` fetches go out one at a time (a request made
-/// while one is out runs once after it), each numbered; a reply older than
-/// one applied, or of an earlier stage, is dropped. Socket events only ask
-/// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
-/// reconnect, resume and the stage's deadline fetch too, so anything missed
-/// heals and the screen is a function of fetched state alone.
+/// while one is out runs once after it), so a reply can never overtake a
+/// newer one. A failed fetch is made again with backoff until one succeeds;
+/// socket events only ask for a fetch or update a value `/me/` holds in the
+/// same form ([GameEvent]); reconnect, resume and the stage's deadline fetch
+/// too. The screen is a function of fetched state alone.
 ///
 /// Taps out: through the [Outbox], one request per kind in flight, later
 /// taps coalescing to the latest, each keyed to its stage (and turn) and
 /// dropped when that ends. The shown state is derived from it.
+///
+/// Known and accepted: a request whose answer was lost but which the server
+/// processes later can land after a newer tap of the same lane (the latest
+/// is resent only after a fetch, but the server orders what it receives);
+/// closing that needs a per-phone sequence number on the server.
+///
+/// Riverpod's own retry is off ([noRetry]): this notifier retries its
+/// fetches itself, and a Riverpod rebuild would drop the taps in flight.
 
 abstract class _$ProtocolTwoGameNotifier
     extends $AsyncNotifier<ProtocolTwoGame> {

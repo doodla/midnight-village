@@ -208,7 +208,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 | Result | Portrait | Text (words) |
 |---|---|---|
 | Seer, player | That card | "{name}'s card: {role}." (1) |
-| Seer, center | The first card | "Center: {role}, {role}." (1): the server names the two roles, not their places (review, 20 November 2026) |
+| Seer, center | The first card | "{pos}: {role}, {pos}: {role}." (0): the server names each card's place (`center_indices`, contract third amendment) |
 | Robber or Insomniac | The new card | "Your card now: {role}." (3) |
 | Troublemaker | Moon | "You swapped {name} and {name}." (3) |
 | Drunk (chosen or seeded) | Moon | "{pos} is yours now. Unseen." (4) |
@@ -217,6 +217,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 | Minion | Minion | "Werewolves: {names}." or "No Werewolves." (1) |
 | Masons | Mason | "Masons: {names}." or "Only you." (2) |
 | No choice, or timeout | Moon | "You slept." (2) |
+| Chose, nothing happened (the viewer's own `skip`, marked `nothing_chosen`, also the Doppelganger's look with no other player; a Drunk's server-made swap and a lone Werewolf who looked at nothing keep their own rows) | Moon | "You did nothing." (3) |
 
 ### Per-screen sheet
 

@@ -170,8 +170,8 @@ abstract final class NightCopy {
 abstract final class SawCopy {
   static const seerPlayer = Template("{name}'s card: {role}.");
 
-  /// The server names the two roles, not their places.
-  static const seerCenter = Template('Center: {role1}, {role2}.');
+  /// The two center cards, each by its place.
+  static const seerCenter = Template('{pos1}: {role1}, {pos2}: {role2}.');
   static const newCard = Template('Your card now: {role}.');
   static const swapped = Template('You swapped {a} and {b}.');
 
@@ -183,6 +183,10 @@ abstract final class SawCopy {
   static const centerLook = Template('{pos}: {role}.');
   static const noWerewolves = 'No Werewolves.';
   static const masons = Template('Masons: {names}.');
+
+  /// The player chose, and nothing they picked meant anything for their
+  /// role (spec section 3, "Trade-off": "You did nothing.").
+  static const didNothing = 'You did nothing.';
 }
 
 /// 08 Talk.
