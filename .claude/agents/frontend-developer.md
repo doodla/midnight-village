@@ -15,8 +15,7 @@ README of the part you change (`frontend/lib/design_system/README.md`,
 Work in your own worktree. Test payloads come only from `contract_samples/`. A screen is
 built from the primitives against its mock, one screen at a time; render it with
 `just screens` at 320, 360 and 390 wide, look at every picture yourself, and hand the
-before/after PNG paths to your caller. Delete old-look files with the last screen that used
-them (`docs/dev/old-look-removal.md`). Keep the README you touched true. `just analyze`,
+before/after PNG paths to your caller. Keep the README you touched true. `just analyze`,
 `just format-check` and `just test` pass before you commit.
 
 Report in plain words: what changed, the pictures, the tests added, decisions you made,

@@ -63,8 +63,6 @@ changes. Last updated 20 November 2026.
      `driveAs`'s protocol-1 requests (`DebugAction`), which only the e2e API runners use:
      port `test_e2e/api_runner_test.dart`, `api_lifecycle_test.dart` and
      `harness/scenario_runner.dart` to protocol 2 first.
-   - `docs/dev/old-look-removal.md` (a done note) with its line in
-     `.claude/agents/frontend-developer.md` (agent configuration: for the main session).
 3. Open the pull request; split it if it is too big to review.
 
 ## Open items
