@@ -153,13 +153,33 @@ class PlayerRow extends StatelessWidget {
                 children: [
                   // A long name wraps between words, then is set smaller;
                   // never cut short.
-                  FitWords(
-                    name,
-                    maxLines: 2,
-                    style: size.nameStyle(skin.typography).copyWith(color: ink),
-                  ),
-                  // Under the name, so a long name keeps its room.
-                  if (own) YouTag(ink: ink),
+                  // "You" beside the name where both fit, under it where
+                  // not, so a long name keeps its room and a short one its
+                  // size.
+                  if (own)
+                    Wrap(
+                      spacing: Space.sm,
+                      runSpacing: Space.xxs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        FitWords(
+                          name,
+                          maxLines: 2,
+                          style: size
+                              .nameStyle(skin.typography)
+                              .copyWith(color: ink),
+                        ),
+                        YouTag(ink: ink),
+                      ],
+                    )
+                  else
+                    FitWords(
+                      name,
+                      maxLines: 2,
+                      style: size
+                          .nameStyle(skin.typography)
+                          .copyWith(color: ink),
+                    ),
                   // Names wrap between words, never inside one.
                   if (detail case final detail?)
                     FitWords(
