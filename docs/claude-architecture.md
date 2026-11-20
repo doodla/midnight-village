@@ -29,6 +29,8 @@ Tests: `hooks/test_gate_routing.sh` (in `just test-guardrails`).
 
 ## Claude Code hooks (`.claude/settings.json`; timeouts in seconds)
 
+Every hook command starts from `$CLAUDE_PROJECT_DIR`, never a relative path: a session whose shell sits in `backend/` or `frontend/` must still find the script. The Bash guard does nothing when its script is missing (the git hooks are the gate).
+
 | Event | Script | Does |
 |---|---|---|
 | PreToolUse Agent, Task, Workflow | `guardrails/runner.py` | Blocks a subagent not pinned to `opus` or `sonnet` with an effort, and forks. |
