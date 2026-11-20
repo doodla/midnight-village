@@ -59,19 +59,61 @@ void main() {
   });
 
   group('GameSessionState', () {
-    test('parses every /me/ the server has sent', () {
+    test('parses every night protocol 1 /me/ the server has sent', () {
       final samples = ContractSamples.index.where(
         (s) =>
             s.isHttp && s.status == 200 && s.matchesPath('/onuw/games/g/me/'),
       );
       expect(samples, isNotEmpty);
-      for (final sample in samples) {
+      final protocolOne = [
+        for (final s in samples)
+          if (ContractSamples.protocolOf(s) == NightProtocol.one) s,
+      ];
+      expect(protocolOne, isNotEmpty);
+      for (final sample in protocolOne) {
         final json = ContractSamples.map(sample.name);
         final state = GameSessionState.fromJson(json);
         expect(state.phase, json['phase'], reason: sample.name);
         expect(state.players, hasLength((json['players'] as List).length));
         expect(state.actionPrompt == null, json['action_prompt'] == null);
       }
+    });
+
+    test('night protocol 2 /me/ samples are not parsed by the app yet', () {
+      // The app speaks only protocol 1 (the parser is strict on purpose: a
+      // protocol-2 body has no per-player has_voted and a different prompt).
+      // Protocol 2 arrives with the rebuilt screens; the day it does, move
+      // these samples into the test above (and delete this one) so they are
+      // parsed too, instead of staying skipped.
+      const reason =
+          'night_protocol 2 /me/ (a `stage` key) is not in the app yet';
+      final all = ContractSamples.index.where(
+        (s) =>
+            s.isHttp && s.status == 200 && s.matchesPath('/onuw/games/g/me/'),
+      );
+      final protocolTwo = [
+        for (final s in all)
+          if (ContractSamples.protocolOf(s) == NightProtocol.two) s.name,
+      ];
+      expect(protocolTwo, isNotEmpty, reason: 'there are none left? $reason');
+      expect(
+        protocolTwo,
+        containsAll([
+          'http/game/me_look_stage',
+          'http/game/me_choose_prompt_seer',
+          'http/game/me_discussion_choose_seer',
+          'http/game/me_voting_picked',
+        ]),
+        reason: reason,
+      );
+      expect(
+        [
+          for (final s in all)
+            if (ContractSamples.protocolOf(s) == null) s.name,
+        ],
+        isEmpty,
+        reason: 'every /me/ is protocol 1 (parsed) or protocol 2 ($reason)',
+      );
     });
 
     test('fromJson reads the night with a prompt', () {
