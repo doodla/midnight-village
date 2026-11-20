@@ -1,5 +1,7 @@
 # Night protocol 2: a TLA+ model of one game
 
+> These models predate the protocol-1 cleanup (20 November 2026): they speak of "protocol 2", the contract's "Third amendment" (now `docs/specs/onuw/api-contract-v2.md`, sections 5 and 9), `ProtocolTwoGameNotifier` (now `LiveGameNotifier`), the server module night2 (now `apps/onuw/choose_night.py`) and sample names ending in `_v2` (now plain names); the one flow they model is the only one left.
+
 A model of a protocol-2 game from the deal (look stage) to the results, written from the
 code, and checked with TLC. It found the Doppelganger resend bug fixed in commit
 `fb229fb` (`fix(onuw): a resent choose is answered, never read as the next one`; see "The

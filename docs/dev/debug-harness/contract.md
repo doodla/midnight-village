@@ -8,94 +8,80 @@
 > **Spike-validated facts carry a `[SPIKE]` tag** — these were proven by running
 > code, not reasoned about. See Appendix A for the spike record.
 
-## 0. Updates since the freeze (two-window night, reference games)
+## 0. Updates since the freeze (the choose night, reference games)
 
-The server now runs the night as **two windows** (`backend/apps/onuw/README.md`, "The night: two windows"; was `backend/CLAUDE.md`, "Night phase
-runs in two windows"), and the scenarios are the **reference games**. Where the
-sections below say otherwise, this list wins:
+The server runs ONE night: two windows where every phone sends a `choose`
+(`backend/apps/onuw/README.md`, "The night: two windows" and "The choose night"; the API:
+`docs/specs/onuw/api-contract-v2.md`), and the scenarios are the **reference games**. The
+sections below have been brought up to date with it; this list says what changed since the
+freeze:
 
-- **A port per run, the old screens gone (20 November 2026).** `just test-harness` and
-  `just harness-serve` take `HARNESS_PORT` or pick a free port (wherever this file says
-  `127.0.0.1:8001`, read the run's port); the tests get it as `--dart-define=HARNESS_PORT`
-  (`HarnessConfig.port`), and the runner stops only the backend it started (its process
-  group by pid, a hard kill after 5 s). The UI runner that played reference games through the
-  old protocol-1 screens is gone: `test_e2e/ui_protocol2_roles_test.dart` deals the same
-  games (1, 4, 5, 8, 21) at protocol-2 tables and plays one phone through the table's shell.
-  The API runner still replays all 29 through the protocol-1 API, until the server slice
-  ports it.
+- **A port per run (20 November 2026).** `just test-harness` and `just harness-serve` take
+  `HARNESS_PORT` or pick a free port (wherever this file says `127.0.0.1:8001`, read the
+  run's port); the tests get it as `--dart-define=HARNESS_PORT` (`HarnessConfig.port`), and
+  the runner stops only the backend it started (its process group by pid, a hard kill after
+  5 s).
+- **Tables.** `DebugTableController.createTable` opens a table as the app does
+  (`defaults: "v2"`), makes the deck `custom` from the role counts (an automatic deck would
+  not match a forced assignment) and PATCHes the timer settings beside it; the runners pass
+  `card_look_seconds: 0` unless they test the look stage. The harness settings set
+  `ONUW_ALLOW_UNTIMED_NIGHT = True`, so zero timers are allowed. There is no ready check at
+  the deal.
 - **`current_wave` / `wave:{n}`** are the night window: `1` = Doppelganger,
-  `2` = everyone else (`0` outside night). Night-log entries keep `wave` = the
-  *order group* (1-4) so the log stays in wake order. The old "wave 1-4" language,
-  `wave_3_result` / `wave_4_result` and "waves auto-advance one by one" no longer apply.
-- **Window 2 delivers nothing until it closes** (every `action.result`, then
-  `wave.complete`, then `phase.change`). Window 1 (Doppelganger) sends her look
-  result on submit, then a follow-up `action.prompt` (also wave 1) when she copied
-  Seer/Robber/Troublemaker/Drunk/Minion; the follow-up result arrives when the
-  window closes.
-- **Timers** are per-game lobby settings: `night_doppelganger_window_seconds`
-  (fixed length of window 1; `0` = off), `night_min_window_seconds` (a window never
-  closes sooner), `night_wave_seconds` (maximum; `0` = no timer). The harness passes
-  `0, 0, 600` (and `0` for discussion / voting) via `createTable(timerSettings:)`, so a
-  window closes when its last actor submits, and the 600s maximum gives
-  `debug-fire-timer` a real timer to fire.
-- **`debug-fire-timer` `wave:{n}` closes night window `n` now** (ignoring the fixed and
-  minimum lengths). `fired:false` = no timer pending (e.g. that window's timer setting is
-  0, or it already closed): use the host's `advance-wave`. `advance-wave` takes an optional
-  `{"from_window": n}` and answers 409 `wrong_window` when the game is in another window;
-  at window 0 (the look stage, `card_look_seconds` > 0) it opens the first window.
-  `debug-fire-timer` `look` fires the look stage's backstop.
-- **"Do nothing"** is `{"action_type":"skip","targets":{}}` for Seer, Robber,
-  Troublemaker (and a Doppelganger follow-up as one of them), when the prompt's
-  `action_types` includes `skip`. The Drunk and the Doppelganger's first look cannot skip.
-  "Same action with empty targets" (§D4) is still how a lone Werewolf declines the peek.
-- **Night protocol 2** (`night_protocol: 2` in the table's settings; the harness settings
-  set `ONUW_ALLOW_UNTIMED_NIGHT = True`, so zero timers are allowed; protocol 1 stays the
-  default and every scenario below uses it): every player posts
+  `2` = everyone else (`0` = the look stage at night, and outside night). Night-log entries
+  keep `wave` = the *order group* (1-4) so the log stays in wake order.
+- **The night request.** Every player posts
   `{"action_type":"choose","picks":[...],"chosen":<n>,"stage":"<from /me/>"}` (0 to 2 of
-  `{"player_id"}`, `{"center_index"}`, `{"self":true}`; `chosen` is required: the
-  prompt's `chosen` it answers, and a lower one than the server's count is a resend whose
-  answer was lost: the same answer, nothing stored) and always gets
-  `{"status":"submitted"}`; the only refusals are `wrong_stage` (409), `wrong_phase`,
-  `already_chosen` (409) and `bad_request`. **Every stage-scoped request names its stage**
-  (`choose`, `ready`, `vote`, and the host's `advance-wave`, `end-discussion`,
-  `reveal-votes`): `/me/` carries an opaque `stage` string that changes whenever a tap's
-  meaning changes (look, window 1, window 2, talk, vote) and carries a piece of the game's
-  id, and a request for a stage that has passed is `409 {"code":"wrong_stage"}`, the same
-  for every role, compared under the Game lock, storing nothing (`from_window` is protocol
-  1's check only). The server reads the picks per role
-  (`backend/apps/onuw/engine/choose.py`); a pick with no valid meaning is a timeout, and
-  the prompt's `shapes` (`[{"players":1},{"center":2}]`: alternatives; `any` = one card of
-  the board) tell the phone which picks would do something. A phone chooses once per
-  window; only the Doppelganger sends a second in window 1 (the server takes a second from
-  anyone; a choose answering a prompt that is used up is `already_chosen`). Window 1 is ONE fixed-length stage
-  (the table's `night_doppelganger_window_seconds`; `wave:1` fire-timer); window 2 closes
-  when EVERY present phone has chosen once (and the minimum passed). The only night events
-  are group `night_window {window, deadline}` and `wave_complete`; a phone reads its
-  `action_prompt` (`kind`, `shapes`, `chosen`, `chooses_left`, `max_chooses`, the board) and
-  `night_results` from `GET /me/`, where the Doppelganger's look is listed as soon as it
-  resolves. No `vote_submitted {player_id}` is sent; votes announce counts only. With
-  `card_look_seconds` > 0 (protocol 2 only) the deal opens window 0: every phone posts
-  `ready {"ready": true, "stage": ...}` (`progress {stage: "look"}` events), `advance-wave`
+  `{"player_id"}`, `{"center_index"}`, `{"self":true}`; `chosen` is the prompt's `chosen` it
+  answers, and a lower one than the server's count is a resend whose answer was lost: the
+  same answer, nothing stored) and always gets `{"status":"submitted"}`; the only refusals are
+  `wrong_stage` (409), `already_chosen` (409) and `bad_request` (400). The server reads the
+  picks per role (`backend/apps/onuw/engine/choose.py`); a pick with no valid meaning takes
+  the role's default (a Drunk is swapped by the server, the Seer, Robber, Troublemaker and
+  the Doppelganger's look skip), and the prompt's `shapes` (`[{"players":1},{"center":2}]`:
+  alternatives; `any` = one card of the board) tell the phone which picks would do something.
+  A phone chooses once per window; only the Doppelganger sends a second in window 1, her
+  follow-up as the copied role.
+- **Every stage-scoped request names its stage** (`choose`, `ready`, `vote`, and the host's
+  `advance-wave`, `end-discussion`, `reveal-votes`): `/me/` carries an opaque `stage` string
+  that changes whenever a tap's meaning changes (look, window 1, window 2, talk, vote) and
+  carries a piece of the game's id; a request for a stage that has passed is
+  `409 {"code":"wrong_stage"}`, the same for every role, compared under the Game lock,
+  storing nothing. `DebugTableController.stagedAs(player, tail, body)` reads the player's
+  `/me/` and adds the `stage` (and a choose's `chosen`).
+- **Windows and events.** Window 1 is ONE fixed-length stage (the table's
+  `night_doppelganger_window_seconds`; `0` = it closes once every phone has chosen); window
+  2 closes when EVERY present phone has chosen once (and `night_min_window_seconds` passed),
+  else at `night_wave_seconds`. The only night event is the group
+  `night_window {window, deadline}`; a phone reads its `action_prompt` (`kind`, `shapes`,
+  `chosen`, `chooses_left`, `max_chooses`, the board) and `night_results` from `GET /me/`,
+  where the Doppelganger's look is listed as soon as it resolves. Votes announce counts only
+  (`progress`); `lock` is required on a vote.
+- **The look stage.** With `card_look_seconds` > 0 the deal opens window 0: every phone posts
+  `ready {"ready": true, "stage": ...}` (`progress {stage: "look"}` events); `advance-wave`
   with the stage or `debug-fire-timer look` opens the night.
-  `frontend/test_e2e/api_protocol2_test.dart` drives these over real HTTP and sockets
-  (look stage, a plain choose night, a Doppelganger table with one window 1 and a late tap
-  refused with `wrong_stage`, ready to vote, a lock-in vote with a changed pick, the
-  automatic deck at 5 and 9 players with `defaults: "v2"`); it asserts no per-player night
-  event is heard.
+- **`debug-fire-timer` `wave:{n}` closes night window `n` now** (ignoring the fixed and
+  minimum lengths). `fired:false` = no timer pending (that window's timer setting is 0, or it
+  already closed): use the host's `advance-wave` with the stage.
 - **Scenarios** = `docs/specs/onuw/reference-games.md`, data in
   `backend/tests/onuw/data/reference_games.json` (23 full games + 6 night-only
   Doppelganger games). The old nine-scenario matrix (§3) and its `nightScript` DSL (§D4)
-  are replaced by that file; the API runner replays all 29, the UI runner a subset
-  (`test_e2e/harness/scenarios.dart`).
+  are replaced by that file.
 - **Runners** (`frontend/test_e2e/`, run with `just test-harness` from the repo root or
-  `frontend/`): the API runner reads each player's own `GET .../me/` for the pending
-  `action_prompt` and answers it from the game's choices (a player who must not or cannot
-  answer is left to the window timer, closed with `debug-fire-timer`), then checks final
-  cards, center, teams, copied role, what each player learned (rebuilt from the oracle's
-  night log) and, for full games, votes / deaths / winners / reason. Three extra tests
-  check the wire (what each socket receives, and when) and the window timing. The UI
-  runner shows one player's real widget tree with a live WebSocket, taps that player's
-  steps, and drives the rest through the API.
+  `frontend/`): the API runner (`api_runner_test.dart`, `harness/scenario_runner.dart`)
+  replays all 29 reference games: everyone looks, then each phone with `chooses_left`
+  answers its prompt by `kind` from the game's choices (`picks()`; a player who must not
+  answer sends no picks), the day is driven with `stagedAs` (locked votes), and it checks
+  final cards, center, teams, copied role, what each player learned (rebuilt from the
+  oracle's night log) and, for full games, votes / deaths / winners / reason. Its
+  "two-window night" group checks the wire (no per-player event is heard) and the window
+  timing. `api_game_test.dart` drives the look stage, a plain choose night, a
+  Doppelganger table with a late tap refused with `wrong_stage`, ready to vote, a lock-in vote
+  with a changed pick and the automatic deck at 5 and 9 players. `ui_roles_test.dart`
+  deals reference games 1, 4, 5, 8 and 21 and plays one phone through the table's shell. The
+  backend replays the same 29 games through the real API in
+  `backend/tests/onuw/test_reference_games_api.py`, and `backend/tools/game_driver.py` drives
+  one game from the command line (`game-driver.md`).
 
 ### Updates since: restart recovery, play again, presence, missed results
 
@@ -126,14 +112,14 @@ sections below say otherwise, this list wins:
   `"transferred"`: the OWNER leaving a lobby that still has other members (not while a game
   runs) no longer deletes it; ownership moves for good to the next member (a connected one
   preferred) and `host_id` == `original_host_id` == the new owner. Only the last member
-  leaving deletes the lobby. `/me/`'s `night_results` now includes swaps (Drunk /
-  Troublemaker), exactly as the `action_result` socket event carried them.
+  leaving deletes the lobby. `/me/`'s `night_results` includes swaps (Drunk /
+  Troublemaker).
 - **`GET .../games/<id>/me/`** also has `lobby_code` (every phase). After a restart a deadline
   that is overdue or under 15 s away is moved to now + 15 s (persisted in `deadline`) so phones
   can reconnect first.
 - **`GET .../games/<id>/me/`** has `night_results`: the caller's own results for windows
-  that have closed, `[{"wave", "action_type", "revealed_info"}]` in the same shape as the
-  `action_result` socket event; empty while the window is open.
+  that have closed, `[{"wave", "action_type", "revealed_info"}]` (and the Doppelganger's own
+  look as soon as it resolves).
 - **Play again:** `POST /api/lobbies/<code>/play-again/` (alias
   `/api/onuw/lobbies/<code>/play-again/`), host only, newest game must be in `results`;
   a lobby holds many games (`Game.lobby` is a ForeignKey), so the harness can run several
@@ -154,8 +140,8 @@ sections below say otherwise, this list wins:
   `dealt_center_cards` (`center_cards` is overwritten as the night swaps cards).
 - **Lobby limits.** `max_players` at create is 1 to 10, the token count (400 otherwise; the game
   checks its own 3 to 10 when it deals). Join refusals carry a `code`: `lobby_not_found` (404),
-  `already_in_lobby`, `lobby_closed`, `lobby_full` (400). `POST .../ready/` takes
-  `is_ready` as a real boolean only (400 `bad_request` otherwise; absent still toggles).
+  `already_in_lobby`, `lobby_closed`, `lobby_full` (400). There is no lobby ready flag
+  (the deal has no ready check; `POST .../ready/` of a lobby is gone).
 - **Where am I.** `GET /api/me/table/` (core) answers `{"table": {"lobby_code", "game_type",
   "status", "is_host", "token", "game": {"game_id", "phase"} | null}}` or `{"table": null}`:
   the caller's newest-joined lobby with activity (`Lobby.updated_at`: join, leave, deal,
@@ -167,7 +153,7 @@ sections below say otherwise, this list wins:
   down and is capped at the number of `night_results` the caller can see now.
 - **Night timeline.** `GET .../results/` also has `night_timeline` (`{seats, cards, dealt, steps,
   final, center_moved}`, or `null` if the night cannot be replayed; see `api-contract-v2.md`
-  section 4). Built forwards from `Game.dealt_center_cards`; the debug oracle shows it as
+  section 7). Built forwards from `Game.dealt_center_cards`; the debug oracle shows it as
   `dealt_center_cards`.
 - **Home extras.** `GET /api/stats/online/` (no auth) answers `{"players", "tables"}` from fresh
   socket rows, `Cache-Control: public, max-age=15, s-maxage=15` (it permits 15 s reuse; it does not guarantee a CDN caches it). `GET /api/onuw/me/recent-games/?limit=`
@@ -310,7 +296,8 @@ all players; `DEBUG=False` → 403.
 
 ### B3. Timeout / timer fire hook — **FINALIZED** (shape below is implemented)
 
-Only for **timeout** paths (action-skip-on-expiry; vote auto-finalize); happy-path
+Only for **timeout** paths (a window closing on phones that never chose; vote
+auto-finalize); happy-path
 transitions use existing host endpoints (`advance-wave`, `end-discussion`,
 `reveal-votes`). DEBUG-only. Mechanism (the review corrected the draft):
 
@@ -380,18 +367,18 @@ running tests.
 - **Perspective switch** uses a NEW debug-only `AuthNotifier.adoptSession(User)` (see
   §2). Do NOT route switching through `tryRestoreSession` (`auth_repository.dart`) — it
   refreshes and the backend rotates+blacklists.
-- **Game WebSocket providers (corrected):** the game screen does NOT use
-  `webSocketConnection` (that's the lobby's). `GameNotifier` uses its own inline
-  providers in `game_notifier.dart`: `gameWebSocketProvider` (Provider.family, ~615),
-  `gameWebSocketStreamProvider` (~634), `gameConnectionStateProvider` (~647). `switchTo`
-  must invalidate `gameProvider(gameId)` **and** these three so the old player's socket
-  is disposed and the new player's attaches.
+- **Game WebSocket providers:** the game uses its own providers in
+  `lib/features/game/presentation/game_socket.dart`: `gameWebSocketProvider`,
+  `gameWebSocketStreamProvider`, `gameConnectionStateProvider`. `switchTo` invalidates
+  `liveGameProvider(gameId)` (`live_game.dart`) **and** these three so the old player's
+  socket is disposed and the new player's attaches.
 - REST paths (note `/api/` prefix): guest `POST /api/auth/guest/` → `{access, refresh,
-  user:{id, display_name}}`; lobby `POST /api/lobbies/`, `/api/lobbies/<code>/join/`,
-  `/ready/`, `PATCH /api/lobbies/<code>/` (`{settings:{roles:{...}}}`, TitleCase keys),
-  start `POST /api/onuw/lobbies/<code>/start/`; game `GET /api/onuw/games/<id>/me/`,
-  `POST .../action/`, `.../advance-wave/`, `.../vote/`, `.../end-discussion/`,
-  `.../reveal-votes/`, `GET .../results/`, `GET .../debug-state/`.
+  user:{id, display_name}}`; lobby `POST /api/lobbies/` (`defaults: "v2"`),
+  `/api/lobbies/<code>/join/`, `PATCH /api/lobbies/<code>/` (`{settings:{deck:"custom",
+  roles:{...}}}`, TitleCase keys), start `POST /api/onuw/lobbies/<code>/start/`; game
+  `GET /api/onuw/games/<id>/me/` (its `stage`), and with that `stage`: `POST .../ready/`,
+  `.../action/` (a `choose`), `.../vote/` (with `lock`), `.../advance-wave/`,
+  `.../end-discussion/`, `.../reveal-votes/`; `GET .../results/`, `GET .../debug-state/`.
 - WS routes: `ws://127.0.0.1:8001/ws/lobby/<code>/?token=<access>` and
   `/ws/game/<id>/?token=<access>` — set the `Origin` header (§2).
 - `lib/core/config/env.dart` — change `isDev` to a `const bool` (§2). Harness
@@ -411,18 +398,20 @@ after provider changes; widget/unit tests for the controller + toolbar.
 
 - `createTable({ required int playerCount, required Map<String,int> roleCounts /* TitleCase role name → count, as PATCHed */, ForcedAssignment? assignment, String? hostName })`
   → create N guests (the **first guest is the host / lobby creator**), capture each
-  guest's server-assigned `user_id` from the `POST /auth/guest/` response, create lobby,
-  join all, ready all, PATCH role config, `start` with `debug.forced_assignment` keyed
+  guest's server-assigned `user_id` from the `POST /auth/guest/` response, create the
+  lobby as the app does (`defaults: "v2"`), join all, PATCH `deck: custom`, the role
+  config and the timers, `start` with `debug.forced_assignment` keyed
   by those **stringified user_ids** (creation order does NOT affect role assignment —
   forced assignment is explicit). Returns a `DebugTable` holding each player's
   `{userId, displayName, accessToken, refreshToken, role}` + `gameId`.
 - `switchTo(player)` → `adoptSession(player.user)` (writes token+user, sets authed state
-  from the access token, NO refresh) + invalidate `gameProvider(gameId)`,
+  from the access token, NO refresh) + invalidate `liveGameProvider(gameId)`,
   `gameWebSocketProvider(gameId)`, `gameWebSocketStreamProvider(gameId)`,
   `gameConnectionStateProvider(gameId)`. Exactly one live WS.
-- `driveAs(player, action, {lenient = false})` → issue calls AS any player without changing the visible
-  perspective, via the §D2 client. Covers night action, vote, end-discussion,
-  advance-wave, reveal-votes. **Strict by default: a refusal (including a 409) throws.**
+- `stagedAs(player, tail, body, {lenient = false})` → issue a stage-scoped call AS any
+  player without changing the visible perspective, via the §D2 client, naming the stage
+  that player's `/me/` carries (and a choose's `chosen`). Covers `choose`, `ready`, vote,
+  end-discussion, advance-wave, reveal-votes. **Strict by default: a refusal (including a 409) throws.**
   Only the debug toolbar's one-tap helpers pass `lenient: true` (409 = already done).
   `attachTable(table)` re-points the controller at a later game of the same lobby.
 - `oracle()` → `GET .../debug-state/`.
@@ -434,7 +423,7 @@ after provider changes; widget/unit tests for the controller + toolbar.
 Issues REST with an **explicit** `Authorization: Bearer <token>` per call and
 **attaches NO `AuthInterceptor`** (otherwise a 401 would trigger a refresh against the
 global `TokenStorage` and cross-contaminate identities). On 401 it fails loudly, never
-refreshes. Sets the WS `Origin` header for `driveAs`/connection helpers.
+refreshes. Sets the WS `Origin` header for the connection helpers.
 
 ### D3. Debug toolbar (human, dev-only, `/debug` route under `if (Env.isDev)`)
 
@@ -443,42 +432,42 @@ Table setup (player-count + role-config presets from the **Base-Game-Only** sect
 Daybreak setups; + the nine matrix scenarios; + a forced-assignment editor + seed
 field); perspective switcher (lists players with true roles — debug only — tap to
 become any); god panel (live oracle: original→current card, copied role, team, action
-log, votes, center); auto-drive (auto-play night actions, advance wave, everyone votes,
-end discussion, reveal votes, skip-timer via fireTimer); disconnect toggle; replay
+log, votes, center); auto-drive for everyone but the phone shown, through `stagedAs`
+(everyone ready, keep their card (an empty `choose`), everyone votes someone and locks,
+end discussion, reveal votes, fire the pending timer via fireTimer); disconnect toggle; replay
 (show/edit seed/assignment). Toolbar uses real wall-clock time.
 
 ### D4. Integration harness (`integration_test/`, never ships)
 
-**Scenario-as-data DSL** — one Dart record per scenario:
-`{ name, tags (e.g. uiCritical), playerCount, forcedAssignment, nightScript, voteScript,
-expected, expectedUiStates }`. Author the **nine** scenarios mirroring `scenarios.md`.
+**Scenarios as data**: the reference games (`backend/tests/onuw/data/reference_games.json`,
+read by `test_e2e/harness/scenarios.dart`): players, dealt cards, centre, each player's night
+choices and votes, and the expected outcome.
 
-Encoding rules the author needs (the review found these unauthorable otherwise):
-- **Action target encoding** (`nightScript` entries `{actorUserId, actionType, targets}`):
-  `peek_player {player_id}`; `peek_center {center_indices:[i,j]}` (exactly 2);
-  `swap_with_player {player_id}`; `swap_others {player_ids:[a,b]}`;
-  `swap_with_center {center_index:i}`; lone-Werewolf center peek =
-  `see_team {center_index:i}`; **declined/optional-skip = same action_type with empty
-  `targets:{}`** (e.g. scenario 2's declined lone-WW peek — no fire-timer needed).
+Encoding rules:
+- **A night choice is a `choose`** (`harness/scenario_runner.dart`, `picks()`): every phone
+  with `chooses_left` sends the picks its prompt's `kind` takes from the game's choices
+  (`seer`: one other player, or two centre cards; `robber`: one other player;
+  `troublemaker`: two other players; `drunk` and `lone_werewolf`: one centre card;
+  `doppelganger_look`: one other player, then her follow-up as the copied role); a player
+  whose role has nothing to choose, or who declines, sends no picks.
 - **Roles/teams:** role names TitleCase; team tokens `{werewolf,village,neutral}`
   (Tanner=neutral); `winning_teams` lowercase, asserted as a **set**; elimination
   reasons ∈ `{"vote","hunter_chain"}`; eliminations as a set of user ids.
-- **Scenario 7** = Sub-Case A only, single entry, not `uiCritical`; assert via oracle
-  (Alice/Bob/Carol `team==werewolf`; Dave's Seer peek result = `Doppelganger` from the
-  night_actions_log). "Who-sees-what" = each seer's recorded peek result, not a separate
-  field.
-- **Oracle checkpoints** are per-wave boundaries (the oracle reflects committed state
-  after a wave fully resolves; intra-wave ordering like Seer-before-Robber is asserted
-  via each actor's recorded `result` in the log, not a mid-wave snapshot). Always assert
-  the final-state table.
+- "Who-sees-what" = each player's recorded result in the night log, rebuilt the same way
+  for every game, not a separate field.
+- **Oracle checkpoints** are per-window boundaries (the oracle reflects committed state
+  after a window fully resolves; ordering inside a window, like Seer-before-Robber, is
+  asserted via each actor's recorded `result` in the log, not a mid-window snapshot).
+  Always assert the final-state table.
 
-**API runner** (full matrix every run): drive via `DebugTableController` + §D2 client,
-assert `oracle()` at checkpoints and `results` for eliminations/reasons/winners.
+**API runner** (`api_runner_test.dart`, all 29 reference games every run): drive via
+`DebugTableController` + §D2 client, assert `oracle()` at checkpoints and `results` for
+eliminations/reasons/winners.
 
-**UI runner** (`uiCritical` subset, ~5-6: scenarios 1/3 Seer peek variants, 2/5 lone-WW
-peek, 4 multi-wave, 5 Hunter-chain results, 10 three-way tie): boot the real widget tree,
-`switchTo` the relevant player, drive by **tapping real widgets**, capture
-`RepaintBoundary.toImage()` PNGs (inside `runAsync`, fonts loaded) to
+**UI runner** (`ui_roles_test.dart`: reference games 1, 4, 5, 8 and 21; `ui_game_test.dart`,
+`ui_end_test.dart`, `ui_journey_test.dart`): boot the real widget tree, `switchTo` the
+relevant player, drive by **tapping real widgets** while the others play through the API,
+capture `RepaintBoundary.toImage()` PNGs (inside `runAsync`, fonts loaded) to
 `integration_test/screenshots/<scenario>/NN-<state>.png`. **Assert the rendered role
 against `original_role`** (current_role is hidden pre-results by design — asserting
 rendered==oracle.current_role can never pass and would tempt leaking it); assert
@@ -535,9 +524,9 @@ back), B5 recipe; B4 confirmed for a full run. Every debug endpoint has a `DEBUG
 **Frontend agent:** `Env.isDev` is a `const bool`; `AuthNotifier.adoptSession` added with
 a test; `DebugTableController` + §D2 client + toolbar built with widget/unit tests that
 run **without a backend** (mock the §D2 client); `just analyze` clean; `just gen` run.
-All **nine** scenarios fully populated as data (no empty `expected`/TODO); the API runner
+Every reference game fully populated as data (no empty `expected`/TODO); the API runner
 **compiles with complete assertion code** (asserts populated `expected` against
-oracle/results); the UI runner captures filmstrips for the `uiCritical` subset. Only the
+oracle/results); the UI runners capture filmstrips. Only the
 live-backend round-trip (actual HTTP/WS) may be left for the gate; everything else is
 tested and complete.
 
