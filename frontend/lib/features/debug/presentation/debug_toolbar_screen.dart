@@ -38,6 +38,10 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
   bool _busy = false;
   String? _status;
 
+  /// The table is made for the rebuilt screens (`defaults: "v2"`, night
+  /// protocol 2): the only way to open one for now.
+  bool _protocolTwo = false;
+
   // Forced-assignment editor: player index → role name, and the 3 center cards.
   final Map<int, String> _playerRoleEditor = {};
   final List<String> _centerEditor = [];
@@ -179,7 +183,13 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
         ),
         const SizedBox(height: 12),
         _buildForcedAssignmentEditor(),
-        const SizedBox(height: 12),
+        SwitchListTile(
+          key: const Key('debug-protocol-two'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Rebuilt screens (night protocol 2, v2 table)'),
+          value: _protocolTwo,
+          onChanged: _busy ? null : (v) => setState(() => _protocolTwo = v),
+        ),
         ElevatedButton(
           key: const Key('debug-create-table'),
           onPressed: _busy || _selectedPreset == null ? null : _createTable,
@@ -248,6 +258,7 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
         roleCounts: roleCounts,
         playerRolesByName: rolesByName,
         centerCards: List.of(_centerEditor),
+        protocolTwo: _protocolTwo,
       );
       setState(() => _table = table);
     });

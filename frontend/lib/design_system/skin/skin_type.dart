@@ -10,7 +10,7 @@ import 'package:flutter/painting.dart';
 /// and captions under cards and tokens 14. No capitals tracked as labels.
 /// Nothing larger but one hero line per screen, which follows its mock:
 /// [heroTitle] (Join), [heroCode] (the table code), [heroVerdict] (who dies)
-/// and [heroWinner] (who won). `test/design_system/skin/
+/// [heroWinner] (who won) and [heroRole] (the role on a held face). `test/design_system/skin/
 /// skin_contract_test.dart` holds every skin to it, and the screen gallery
 /// fails a player screen whose text is drawn below the floor.
 @immutable
@@ -20,6 +20,7 @@ class SkinType {
     required this.heroCode,
     required this.heroVerdict,
     required this.heroWinner,
+    required this.heroRole,
     required this.display,
     required this.screenTitle,
     required this.headline,
@@ -57,6 +58,10 @@ class SkinType {
 
   /// Hero: who won ("The village wins", S11).
   final TextStyle heroWinner;
+
+  /// Hero: the role's name on a held face (S04's "Seer"): seeing your card
+  /// is the screen's moment.
+  final TextStyle heroRole;
 
   /// The biggest ordinary heading (the dead player's role).
   final TextStyle display;
@@ -134,6 +139,7 @@ class SkinType {
     'heroCode': heroCode,
     'heroVerdict': heroVerdict,
     'heroWinner': heroWinner,
+    'heroRole': heroRole,
     'display': display,
     'screenTitle': screenTitle,
     'headline': headline,

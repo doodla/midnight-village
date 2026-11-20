@@ -64,8 +64,9 @@ void main() {
       // 576 x 768: a 44-wide thumbnail at 3x needs 135 pixels: a quarter.
       expect(portrait.decodeWidth(const Size(44, 58), 3), 144);
       expect(portrait.decodeWidth(const Size(50, 68), 3), 288);
-      // A held face's portrait (103 x 137) at 2x needs 205 pixels: a half.
-      expect(portrait.decodeWidth(HeldFace.portraitBox, 2), 288);
+      // A held face's portrait, drawn across the card, is decoded whole.
+      expect(portrait.decodeWidth(HeldFace.portraitBox, 2), 576);
+      expect(portrait.decodeWidth(HeldFace.portraitBox, 1), 576);
       // Never smaller than a quarter, never larger than the picture.
       expect(portrait.decodeWidth(const Size(4, 5), 1), 144);
       expect(portrait.decodeWidth(Size.infinite, 1), 576);

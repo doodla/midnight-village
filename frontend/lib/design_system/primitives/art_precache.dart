@@ -25,6 +25,8 @@ List<(ArtImage, Size)> secretArt(Skin skin) => [
         (skin.art.role(role), thumbnail),
   ],
   for (final size in FaceDownSize.values) (skin.art.cardBack, size.mock),
+  // A face that saw no card (the moon over the sleeping village).
+  (skin.art.sleepingVillage, HeldFace.portraitBox),
 ];
 
 /// Decodes each picture in [uses] at the size `ArtPicture` will draw it, into

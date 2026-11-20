@@ -9,6 +9,7 @@ import '../../../features/auth/presentation/auth_notifier.dart';
 import '../domain/game_me.dart';
 import '../domain/game_outcome.dart';
 import '../domain/game_session_state.dart';
+import '../domain/night_protocol.dart';
 import 'stage_requests.dart';
 
 export 'stage_requests.dart';
@@ -163,6 +164,19 @@ class GameService {
   // Night protocol 2. Every stage-scoped request echoes `/me/`'s `stage` and
   // answers a [StageReply]: a 409 is "fetch /me/ again", never an error.
   // ---------------------------------------------------------------------------
+
+  /// Which night [gameId] runs (`GET /onuw/games/{id}/me/`, read only for
+  /// its `stage` key): decides which screens show it.
+  Future<NightProtocol> fetchNightProtocol(String gameId) async {
+    try {
+      final response = await _client.get<Map<String, dynamic>>(
+        '/onuw/games/$gameId/me/',
+      );
+      return NightProtocol.of(response.data!);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
 
   /// `GET /onuw/games/{id}/me/` of a protocol-2 game.
   Future<GameMe> fetchMe(String gameId) async =>

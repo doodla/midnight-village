@@ -171,24 +171,24 @@ Shared rules for every phone at night:
 
 ### Role text (single source for the 04 face, 03b and the role name on faces)
 
-Every role entry is laid out as: tag; "Night:" line; "Wins:" line; then the shared line **"You are your last card. Anyone may lie."** (8 words).
+Every role entry is laid out as: tag; "Night:" line; "Wins:" line; then the shared line **"You are your last card."** (5 words; "Anyone may lie." was cut on review, 21 November 2026, so the card reads at full size on small phones).
 
 Village line: **"A Werewolf dies. No Werewolf player: nobody dies."** (6 words)
 
 | Role | Tag | Night: | Wins: | Total words |
 |---|---|---|---|---|
-| Werewolf | Werewolf | See the other Werewolves. Alone: you may see 1 center card. | No Werewolf and no Tanner dies. | 23 |
-| Minion | Werewolf | See the Werewolves. They don't see you. | With the Werewolves, even if you die. No Werewolf player: someone else dies, not the Tanner. | 29 |
-| Mason | Village | See the other Mason. | Village line | 20 |
-| Seer | Village | Look at 1 player's card, or 2 center cards. | Village line | 24 |
-| Robber | Village | Swap with a player. See your new card. | Village line | 25 |
-| Troublemaker | Village | Swap 2 other players' cards. Don't look. | Village line | 23 |
-| Drunk | Village | Swap with a center card. Don't look. | Village line | 24 |
-| Insomniac | Village | At dawn, see your own card. | Village line | 23 |
-| Hunter | Village | Sleep. If you die, your pick dies. | Village line | 24 |
-| Villager | Village | Sleep. | Village line | 18 |
-| Tanner | Alone | Sleep. | You die. | 14 |
-| Doppelganger | Copies | Copy a player's card. Act as that role. | As the role you copy. | 24 |
+| Werewolf | Werewolf | See the other Werewolves. Alone: you may see 1 center card. | No Werewolf and no Tanner dies. | 20 |
+| Minion | Werewolf | See the Werewolves. They don't see you. | With the Werewolves, even if you die. No Werewolf player: someone else dies, not the Tanner. | 26 |
+| Mason | Village | See the other Mason. | Village line | 17 |
+| Seer | Village | Look at 1 player's card, or 2 center cards. | Village line | 21 |
+| Robber | Village | Swap with a player. See your new card. | Village line | 22 |
+| Troublemaker | Village | Swap 2 other players' cards. Don't look. | Village line | 20 |
+| Drunk | Village | Swap with a center card. Don't look. | Village line | 21 |
+| Insomniac | Village | At dawn, see your own card. | Village line | 20 |
+| Hunter | Village | Sleep. If you die, your pick dies. | Village line | 21 |
+| Villager | Village | Sleep. | Village line | 15 |
+| Tanner | Alone | Sleep. | You die. | 11 |
+| Doppelganger | Copies | Copy a player's card. Act as that role. | As the role you copy. | 21 |
 
 **Team tags** on 10 and 11 come from the server's `team`: `village` → "Village", `werewolf` → "Werewolf", `neutral` → "Alone".
 

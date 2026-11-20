@@ -2,6 +2,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../features/auth/presentation/auth_notifier.dart';
 import '../../features/game/presentation/game_notifier.dart';
+import '../../features/game/presentation/protocol_two_game.dart';
+import '../../features/game/presentation/table_screen.dart';
+import '../../features/lobby/presentation/where_am_i_provider.dart';
 import '../config/env.dart';
 import 'debug_api_client.dart';
 import 'debug_table_controller.dart';
@@ -33,12 +36,13 @@ DebugApiClient debugApiClient(Ref ref) {
 }
 
 /// The §D1 table controller, wired to the real auth notifier + the four game
-/// providers in `game_notifier.dart`.
+/// providers in `game_notifier.dart`, and the rebuilt screens' state.
 ///
 /// `switchTo` adopts a session (no refresh) and invalidates `gameProvider`,
 /// `gameWebSocketProvider`, `gameWebSocketStreamProvider`, and
 /// `gameConnectionStateProvider` so the prior player's socket is disposed and
-/// the new player's attaches — exactly one live WS.
+/// the new player's attaches — exactly one live WS. For a protocol-2 table it
+/// also drops the previous player's `/me/`, `/me/table/` and local steps.
 @riverpod
 DebugTableController debugTableController(Ref ref) {
   assert(Env.isDev, 'debugTableController must never be built in prod');
@@ -56,7 +60,10 @@ DebugTableController debugTableController(Ref ref) {
         ..invalidate(gameProvider(gameId))
         ..invalidate(gameWebSocketProvider(gameId))
         ..invalidate(gameWebSocketStreamProvider(gameId))
-        ..invalidate(gameConnectionStateProvider(gameId));
+        ..invalidate(gameConnectionStateProvider(gameId))
+        ..invalidate(protocolTwoGameProvider(gameId))
+        ..invalidate(myTableProvider)
+        ..invalidate(localStepsProvider);
     },
   );
 }

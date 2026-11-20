@@ -76,8 +76,9 @@ class NightBoard extends ConsumerStatefulWidget {
   /// What "You" shows while held.
   final FaceContent face;
 
-  /// The stage's countdown, as the server gives it.
-  final int secondsLeft;
+  /// The stage's countdown, as the server gives it; null in a window with
+  /// no deadline (the candle alone).
+  final int? secondsLeft;
 
   /// Sends the picks, in tap order, with the prompt's stage, and says what
   /// became of them ([ChooseAnswer.fromStatus] on the server's answer). The

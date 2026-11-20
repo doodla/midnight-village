@@ -119,6 +119,11 @@ class PrimaryButton extends StatefulWidget {
   /// The regular minimum height.
   static const height = 56.0;
 
+  /// A check mark at the end of a label ("Ready ✓"): the skin's fonts have
+  /// no such glyph, so it is drawn as an icon after the words, the same on
+  /// every phone (a device's fallback font would draw its own).
+  static const checkMark = ' ✓';
+
   final String label;
   final VoidCallback? onPressed;
   final VoidCallback? onLockedTap;
@@ -149,6 +154,29 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     ButtonPhase.locked => widget.onLockedTap,
     ButtonPhase.waiting || ButtonPhase.done => null,
   };
+
+  Widget _label(TextStyle style) {
+    final label = widget.label;
+    Widget words(String text) =>
+        FitWords(text, textAlign: TextAlign.center, maxLines: 2, style: style);
+    if (!label.endsWith(PrimaryButton.checkMark)) return words(label);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: Space.xs,
+      children: [
+        Flexible(
+          child: words(
+            label.substring(0, label.length - PrimaryButton.checkMark.length),
+          ),
+        ),
+        Icon(
+          Icons.check,
+          color: style.color,
+          size: MediaQuery.textScalerOf(context).scale(style.fontSize!),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -227,14 +255,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                   children: [
                     if (widget.icon case final icon?)
                       Icon(icon, color: ink, size: style.fontSize),
-                    Flexible(
-                      child: FitWords(
-                        widget.label,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        style: style.copyWith(color: ink),
-                      ),
-                    ),
+                    Flexible(child: _label(style.copyWith(color: ink))),
                     if (widget.busy)
                       SizedBox.square(
                         dimension: style.fontSize,

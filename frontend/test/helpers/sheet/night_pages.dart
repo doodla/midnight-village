@@ -63,6 +63,7 @@ class _CardPageState extends State<CardPage> {
             target: CardCopy.headline,
             face: widget.viewer.card,
             replay: _replay,
+            inPlace: true,
             onRevealed: () => setState(() => _revealed = true),
             cover: (teaching) =>
                 FaceDownCard(size: FaceDownSize.hero, hold: teaching),

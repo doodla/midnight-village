@@ -9,20 +9,24 @@ import 'game_me.dart';
 /// [nightBoard] shows while `/me/` loads, 07 is folded into 08's My night
 /// (first-time play spec, section 7).
 enum AppScreen {
-  join('01'),
-  table('02'),
-  deck('03'),
-  yourCard('04'),
-  nightBoard('06'),
-  talk('08'),
-  vote('09'),
-  count('10'),
-  results('11');
+  join('01', 'Join'),
+  table('02', 'Table'),
+  deck('03', 'Deck'),
+  yourCard('04', 'Your card'),
+  nightBoard('06', 'Night board'),
+  talk('08', 'Talk'),
+  vote('09', 'Vote'),
+  count('10', 'The count'),
+  results('11', 'Results');
 
-  const AppScreen(this.number);
+  const AppScreen(this.number, this.briefName);
 
   /// The brief's number.
   final String number;
+
+  /// The brief's name for it: what a developer calls the screen (the
+  /// placeholder of a screen not rebuilt yet shows it), never player copy.
+  final String briefName;
 }
 
 /// Where the server says this player is, from `/me/table/` or a lobby body:

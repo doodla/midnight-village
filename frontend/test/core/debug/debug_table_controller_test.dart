@@ -251,6 +251,44 @@ void main() {
       });
     });
 
+    test('a protocol-2 table is made with defaults v2 and a custom deck, so '
+        'the forced deal matches it', () async {
+      stubGuests({'Alice': 10, 'Bob': 11});
+      _stubLobbyFlow(client, code: 'V2', gameId: 'g-v2');
+
+      await controller.createTable(
+        playerNames: ['Alice', 'Bob'],
+        roleCounts: {'Werewolf': 1, 'Villager': 4},
+        playerRolesByName: {'Alice': 'Werewolf', 'Bob': 'Villager'},
+        centerCards: ['Villager', 'Villager', 'Villager'],
+        timerSettings: {'card_look_seconds': 120},
+        protocolTwo: true,
+      );
+
+      final created = verify(
+        () => client.post(
+          '/lobbies/',
+          token: any(named: 'token'),
+          data: captureAny(named: 'data'),
+        ),
+      ).captured.single;
+      expect(created, {'game_type': 'onuw', 'defaults': 'v2'});
+      final patched =
+          verify(
+                () => client.patch(
+                  '/lobbies/V2/',
+                  token: any(named: 'token'),
+                  data: captureAny(named: 'data'),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(patched['settings'], {
+        'deck': 'custom',
+        'roles': {'Werewolf': 1, 'Villager': 4},
+        'card_look_seconds': 120,
+      });
+    });
+
     test('rejects duplicate player names', () async {
       expect(
         () => controller.createTable(

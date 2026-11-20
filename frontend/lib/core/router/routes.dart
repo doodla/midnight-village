@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/home_screen.dart';
-import '../../features/game/presentation/game_container_screen.dart';
+import '../../features/game/presentation/shell/game_entry.dart';
 import '../../features/lobby/presentation/lobby_screen.dart';
 
 part 'routes.g.dart';
@@ -30,6 +30,8 @@ class LobbyRoute extends GoRouteData with $LobbyRoute {
 
 /// Game route — active game screen identified by [gameId]. The table it
 /// belongs to comes with the game's state (`lobby_code` in every phase).
+/// [GameEntry] decides by the game's night protocol: the rebuilt shell for
+/// protocol 2, the old game screen for protocol 1.
 @TypedGoRoute<GameRoute>(path: '/game/:gameId')
 class GameRoute extends GoRouteData with $GameRoute {
   const GameRoute({required this.gameId});
@@ -38,5 +40,5 @@ class GameRoute extends GoRouteData with $GameRoute {
 
   @override
   Widget build(BuildContext context, GoRouterState state) =>
-      GameContainerScreen(gameId: gameId);
+      GameEntry(gameId: gameId);
 }

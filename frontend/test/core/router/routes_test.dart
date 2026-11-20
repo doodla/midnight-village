@@ -6,6 +6,7 @@ import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/router/app_router.dart';
 import 'package:midnight_village/core/router/routes.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
+import 'package:midnight_village/design_system/skin/skin_choice.dart';
 import 'package:midnight_village/design_system/tokens/firelit_gothic_theme.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
@@ -100,7 +101,12 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp.router(routerConfig: router),
+          // The app's theme: the game route's first frame is drawn from
+          // the skin's primitives.
+          child: MaterialApp.router(
+            theme: container.read(appThemeProvider),
+            routerConfig: router,
+          ),
         ),
       );
       await _settle(tester);
@@ -205,6 +211,10 @@ void main() {
         await _settle(tester);
 
         expect(location(router), '/');
+
+        // Let the closed game screen's timers run out.
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 1));
       },
     );
   });

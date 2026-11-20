@@ -11,6 +11,7 @@ import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/skin/skin_tilt.dart';
 import 'package:midnight_village/design_system/teach/cue_wave.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
@@ -37,6 +38,17 @@ ChooseAnswer _answered(String sample) => ChooseAnswer.fromStatus(
 );
 
 void main() {
+  testWidgets('a window with no deadline shows the candle alone, no number', (
+    tester,
+  ) async {
+    await BoardHarness(Viewer.seer.nightMe, secondsLeft: null).pump(tester);
+    expect(
+      tester.widget<WorldTimer>(find.byType(WorldTimer)).secondsLeft,
+      isNull,
+    );
+    expect(find.text('0'), findsNothing);
+  });
+
   testWidgets('it is drawn from the other seats in seat order, then "You" '
       'in front, then Left, Middle, Right', (tester) async {
     await BoardHarness.of(Viewer.seer).pump(tester);

@@ -72,6 +72,12 @@ class DebugTableController {
   /// defaults (the real window lengths); the harness passes zeros so a night
   /// window closes as soon as every actor has submitted.
   ///
+  /// [protocolTwo] opens the table as the rebuilt screens do
+  /// (`defaults: "v2"`: the look stage, night protocol 2), with the deck
+  /// made custom from [roleCounts] (an automatic deck is built at the deal
+  /// and would not match a forced assignment). The game route then shows the
+  /// rebuilt shell for it. Only this toolbar makes such tables for now.
+  ///
   /// [roleCounts] is TitleCase role name → count, exactly as PATCHed.
   /// [playerRolesByName] maps each player's display name → TitleCase role.
   /// [centerCards] is exactly 3 TitleCase role names. Pass all three null to
@@ -82,6 +88,7 @@ class DebugTableController {
     Map<String, String>? playerRolesByName,
     List<String>? centerCards,
     Map<String, int>? timerSettings,
+    bool protocolTwo = false,
   }) async {
     if (playerNames.isEmpty) {
       throw const _DebugTableException('playerNames must not be empty');
@@ -102,7 +109,7 @@ class DebugTableController {
     final lobbyResp = await _client.post(
       '/lobbies/',
       token: host.accessToken,
-      data: {'game_type': 'onuw'},
+      data: {'game_type': 'onuw', if (protocolTwo) 'defaults': 'v2'},
     );
     final lobbyCode = _requireString(lobbyResp, 'code', '/lobbies/');
 
@@ -124,7 +131,11 @@ class DebugTableController {
       '/lobbies/$lobbyCode/',
       token: host.accessToken,
       data: {
-        'settings': {'roles': roleCounts, ...?timerSettings},
+        'settings': {
+          if (protocolTwo) 'deck': 'custom',
+          'roles': roleCounts,
+          ...?timerSettings,
+        },
       },
     );
 
