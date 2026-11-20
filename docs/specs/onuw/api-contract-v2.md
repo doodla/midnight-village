@@ -701,3 +701,22 @@ S1 schema, tokens, seat, dealt center, tolerant consumers · S2 where am I · S3
 S4 lock-in voting (with the app's vote screen) · S5 ready to vote · S6 look stage ·
 S7 sleep and the all-tap rule (with the app's night screens) · S8 results timeline ·
 S9 home extras and merged settings PATCH.
+
+## Second amendment: the night is one `choose` (20 November 2026)
+
+`docs/specs/frontend/first-time-play.md` section 4(b) replaces this contract's `sleep`
+action, `sleep_prompt` and the wording of Rule B. In short: every phone sends
+`action_type: "choose"` with 0 to 2 ordered picks; the server alone decides what the picks
+mean for the role and answers every phone identically; window 1 accepts up to two `choose`
+from any phone; window 2 closes when every present phone has chosen once (never before the
+minimum); a window opening is one group event and each phone reads its own prompt from
+`/me/`; prompts no longer carry teammates (teams are shown with the results of the window);
+the deck may be `deck: "auto"` with a chip and is then built by the server at the deal.
+
+**Staging.** The app in this repository still wears its old night screens, and the harness
+drives them. Until screens 04 to 09 are rebuilt the server keeps today's behaviour for games
+whose settings do not say `night_protocol: 2`, and `lock` on a vote defaults to true. The new
+screens' lobby defaults write `night_protocol: 2`. When the last old screen is gone, protocol 1,
+the legacy vote fields (`vote_submitted.player_id`, `has_voted`), the per-role prompt events
+and this paragraph are deleted in one cleanup slice (tracked in `frontend/CLAUDE.md`,
+"Removing the old look").
