@@ -9,12 +9,15 @@ import 'app.dart';
 import 'design_system/skin/skin_id.dart';
 import 'design_system/skin_loader.dart';
 import 'design_system/teach/learned_store.dart';
+import 'features/game/presentation/table_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   registerFontLicences();
   // The cues this device has learned, before the first frame, so it is right.
   await restoreLearned();
+  // Whether this phone had gone on from the count, so a restart lands there.
+  await restoreLocalSteps();
   runApp(const ProviderScope(child: App()));
   // The art secrets show, decoded long before the first card is dealt.
   unawaited(SkinLoader().prepare(SkinId.fallback.skin));

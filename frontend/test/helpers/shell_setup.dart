@@ -21,6 +21,7 @@ import 'package:midnight_village/features/game/data/game_service.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 import 'package:midnight_village/features/game/presentation/shell/game_entry.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
+import 'package:midnight_village/features/game/presentation/table_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
@@ -84,6 +85,9 @@ class ShellSetup {
     // empty, unless the test restarts the app on the same device.
     // ignore: invalid_use_of_visible_for_testing_member
     if (!sameDevice) SharedPreferences.setMockInitialValues({});
+    // What this device kept of its local steps, read as `main` reads it.
+    forgetRestoredLocalSteps();
+    if (sameDevice) await restoreLocalSteps();
     final setup = ShellSetup._(
       me,
       MockHttpClient(),
@@ -242,12 +246,17 @@ class ShellSetup {
   void failPost(String endpoint) =>
       http.answer('POST', '$_base$endpoint', 'Server Error', status: 503);
 
-  /// `GET .../results/` answers the recorded results.
-  void answerResults() => http.answer(
+  /// `GET .../results/` answers [body] (the recorded `results` unless
+  /// given).
+  void answerResults([Map<String, dynamic>? body]) => http.answer(
     'GET',
     '$_base/results/',
-    ContractSamples.load('http/game/results'),
+    body ?? ContractSamples.load('http/game/results'),
   );
+
+  /// `GET .../results/` gives no readable answer (a 5xx).
+  void failResults() =>
+      http.answer('GET', '$_base/results/', 'Server Error', status: 503);
 
   /// The app comes back to the foreground.
   void resume() => _resumes.add(++_resumeCount);

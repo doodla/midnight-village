@@ -1,0 +1,501 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/primitives/player_row.dart';
+import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/primitives/role_card.dart';
+import 'package:midnight_village/design_system/primitives/secondary_button.dart';
+import 'package:midnight_village/features/game/domain/screen_table.dart';
+import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/not_built_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
+
+import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/mock_http_client.dart';
+import '../../../helpers/outcome_samples.dart';
+import '../../../helpers/shell_setup.dart';
+import '../../../helpers/truncated_text.dart';
+
+// 10 The count and 11 Results through the real shell, on phones at the end
+// of recorded games (test/helpers/outcome_samples.dart): every outcome the
+// results can hold, the count's motion and its gate, "See who won" and a
+// restart, the results failing to load and then arriving, play again, edit
+// deck and leave.
+
+/// The shell at the end of [results] on [viewer]'s phone.
+Future<ShellSetup> _end(
+  WidgetTester tester,
+  Map<String, dynamic> results, {
+  String viewer = 'Ben',
+  String host = 'Ana',
+  bool sameDevice = false,
+  bool disableAnimations = false,
+  void Function(ShellSetup s)? before,
+}) async {
+  final s = await ShellSetup.pump(
+    tester,
+    resultsMeFor(results, viewer: viewer, host: host),
+    sameDevice: sameDevice,
+    disableAnimations: disableAnimations,
+    before: (s) {
+      s.answerResults(results);
+      before?.call(s);
+    },
+  );
+  await s.settle(tester);
+  return s;
+}
+
+/// Lets the count's rows land and its cards turn.
+Future<void> _countDone(WidgetTester tester) async {
+  for (var i = 0; i < 40; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+PrimaryButton _button(WidgetTester tester) =>
+    tester.widget<PrimaryButton>(find.byType(PrimaryButton).last);
+
+Future<void> _seeWhoWon(WidgetTester tester, ShellSetup s) async {
+  await _countDone(tester);
+  await tester.tap(find.text(CountCopy.seeWhoWon));
+  await s.settle(tester);
+}
+
+AppScreen? _placeholder(WidgetTester tester) {
+  final shown = find.byType(NotBuiltScreen);
+  return shown.evaluate().isEmpty
+      ? null
+      : tester.widget<NotBuiltScreen>(shown).screen;
+}
+
+void main() {
+  group('10 The count: every outcome, from the results', () {
+    testWidgets('one dies: the headline, the card as it ended, the votes '
+        'by name, who did not vote', (tester) async {
+      final s = await _end(tester, recordedResults('results_doppelganger'));
+      await _countDone(tester);
+      expect(find.byType(CountView), findsOneWidget);
+      expect(find.text('Cleo dies.'), findsOneWidget);
+      expect(find.text(CountCopy.now), findsOneWidget);
+      expect(find.text(CountCopy.dealt), findsNothing, reason: 'not moved');
+      expect(find.text('Werewolf'), findsWidgets);
+      expect(find.text('Ana, Ben'), findsOneWidget);
+      expect(
+        find.text('No vote: Cleo, Dev, Esme, Fin, Gus, Hana'),
+        findsOneWidget,
+      );
+      await s.close(tester);
+    });
+
+    testWidgets("the Hunter: two die; the Hunter's pick is named as his, and "
+        'only the row the vote killed is outlined', (tester) async {
+      final s = await _end(tester, recordedResults('results'));
+      await _countDone(tester);
+      expect(find.text('Fin dies.'), findsOneWidget);
+      expect(find.text("Esme, Fin's pick, dies too."), findsOneWidget);
+      // Two cards, each naming its player; "Now" said once.
+      expect(find.text('Hunter'), findsOneWidget);
+      expect(find.text(CountCopy.now), findsOneWidget);
+      final outlined = {
+        for (final row in tester.widgetList<PlayerRow>(find.byType(PlayerRow)))
+          row.name: row.picked,
+      };
+      expect(outlined, {'Fin': true, 'Cleo': false, 'Esme': false});
+      await s.close(tester);
+    });
+
+    testWidgets('a card that moved: Dealt, an arrow, and Now with its team '
+        '(the card that counts)', (tester) async {
+      final s = await _end(tester, derivedWerewolvesWin());
+      await _countDone(tester);
+      expect(find.text('Ana dies.'), findsOneWidget);
+      expect(find.text(CountCopy.dealt), findsOneWidget);
+      expect(find.text(CountCopy.now), findsOneWidget);
+      expect(find.text('Troublemaker'), findsOneWidget);
+      expect(find.text('Village'), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('a Werewolf dies: "Werewolf team" on the tag beside the '
+        'role', (tester) async {
+      final s = await _end(tester, recordedResults('results_doppelganger'));
+      await _countDone(tester);
+      expect(find.text('Werewolf team'), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('nobody dies: the fact, no card', (tester) async {
+      final s = await _end(tester, derivedNobodyDies());
+      await _countDone(tester);
+      expect(find.text(CountCopy.nobodyDies), findsOneWidget);
+      expect(find.text(CountCopy.nobodyGotTwo), findsOneWidget);
+      expect(find.text(CountCopy.now), findsNothing);
+      await s.close(tester);
+    });
+
+    testWidgets('before it turns, the card already says whose it is and '
+        '"Now"; the role comes as it turns', (tester) async {
+      final s = await _end(tester, recordedResults('results_doppelganger'));
+      expect(find.text(CountCopy.now), findsOneWidget);
+      expect(find.text('Cleo'), findsWidgets);
+      expect(find.byType(RolePortrait), findsNothing, reason: 'face down');
+      await _countDone(tester);
+      expect(find.byType(RolePortrait), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('"See who won" is live at once: one tap during the motion '
+        'goes straight to 11', (tester) async {
+      final s = await _end(tester, recordedResults('results_doppelganger'));
+      expect(_button(tester).phase, ButtonPhase.ready);
+      await tester.tap(find.text(CountCopy.seeWhoWon));
+      await s.settle(tester);
+      expect(find.byType(ResultsView), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('any other tap finishes the motion; with reduce motion it '
+        'opens finished', (tester) async {
+      var s = await _end(tester, recordedResults('results_doppelganger'));
+      await tester.tap(find.text('Cleo dies.'));
+      await tester.pump();
+      expect(find.byType(RolePortrait), findsOneWidget, reason: 'turned');
+      await s.close(tester);
+      s = await _end(
+        tester,
+        recordedResults('results_doppelganger'),
+        disableAnimations: true,
+      );
+      expect(find.byType(RolePortrait), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('names are never cut: ten long names at 320, text x2', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 692);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final results = widened(
+        recordedResults('results_doppelganger'),
+        add: 2,
+        rename: longEndNames,
+      );
+      final s = await ShellSetup.pump(
+        tester,
+        resultsMeFor(results, viewer: 'Maximiliano', host: 'Christopher'),
+        textScale: 2,
+        before: (s) => s.answerResults(results),
+      );
+      await s.settle(tester);
+      await _countDone(tester);
+      expect(truncatedText(tester), isEmpty);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text(CountCopy.seeWhoWon));
+      await s.settle(tester);
+      expect(find.byType(ResultsView), findsOneWidget);
+      expect(truncatedText(tester), isEmpty);
+      expect(tester.takeException(), isNull);
+      await s.close(tester);
+    });
+  });
+
+  group('the results load', () {
+    testWidgets('failing: the ground and "One moment"; fetched again until '
+        'it arrives, then the count', (tester) async {
+      final results = recordedResults('results');
+      final s = await _end(tester, results, before: (s) => s.failResults());
+      expect(find.byType(EndWaiting), findsOneWidget);
+      expect(find.text(BannerCopy.offline), findsOneWidget);
+      expect(find.byType(CountView), findsNothing);
+      s.answerResults(results);
+      await s.settle(tester);
+      expect(find.byType(CountView), findsOneWidget);
+      expect(find.text(BannerCopy.offline), findsNothing);
+      await s.close(tester);
+    });
+  });
+
+  group('11 Results', () {
+    testWidgets('"See who won" goes on to 11: who won, and this phone\'s '
+        'own result', (tester) async {
+      final s = await _end(tester, recordedResults('results'), viewer: 'Ana');
+      await _seeWhoWon(tester, s);
+      expect(find.byType(ResultsView), findsOneWidget);
+      expect(find.text(ResultsCopy.villageWins), findsOneWidget);
+      expect(find.text(ResultsCopy.youWon), findsOneWidget);
+      // The host's buttons.
+      expect(find.text(ResultsCopy.playAgain), findsOneWidget);
+      expect(find.text(ResultsCopy.editDeck), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('every winner the samples hold: the Werewolves (a Werewolf '
+        'won), the Tanner (alone), nobody dies', (tester) async {
+      for (final (results, viewer, headline, you) in [
+        (
+          derivedWerewolvesWin(),
+          'Cleo',
+          ResultsCopy.werewolvesWin,
+          ResultsCopy.youWon,
+        ),
+        (
+          recordedResults('results_tanner'),
+          'Dev',
+          ResultsCopy.tannerWins,
+          ResultsCopy.youWon,
+        ),
+        (
+          recordedResults('results_tanner'),
+          'Ben',
+          ResultsCopy.tannerWins,
+          ResultsCopy.youLost,
+        ),
+        (
+          derivedNobodyDies(),
+          'Ben',
+          ResultsCopy.werewolvesWin,
+          ResultsCopy.youLost,
+        ),
+      ]) {
+        final s = await _end(tester, results, viewer: viewer);
+        await _seeWhoWon(tester, s);
+        expect(find.text(headline), findsOneWidget, reason: viewer);
+        expect(find.text(you), findsOneWidget, reason: viewer);
+        // A guest: who deals next, and Leave.
+        expect(find.text('Ana deals next.'), findsOneWidget);
+        expect(find.text(CommonCopy.leave), findsOneWidget);
+        await s.close(tester);
+      }
+    });
+
+    testWidgets("each player's card at the end; the dealt one where it moved; "
+        'won or died', (tester) async {
+      final s = await _end(tester, recordedResults('results'));
+      await _seeWhoWon(tester, s);
+      // Ana was dealt the Seer and ends with the Troublemaker.
+      expect(find.text('Seer'), findsWidgets);
+      expect(find.text('Troublemaker'), findsWidgets);
+      expect(find.text(ResultsCopy.died), findsNWidgets(2));
+      expect(find.text(ResultsCopy.won), findsNWidgets(4));
+      expect(find.text('Center: Villager, Insomniac, Villager'), findsOne);
+      await s.close(tester);
+    });
+
+    testWidgets('the night is open: the red line where the Werewolf card '
+        'went, a line per step (at once with reduce motion); a tap on the '
+        'red line folds the steps', (tester) async {
+      final s = await _end(
+        tester,
+        recordedResults('results_doppelganger'),
+        disableAnimations: true,
+      );
+      await tester.tap(find.text(CountCopy.seeWhoWon));
+      await s.settle(tester);
+      // The Werewolf card the Drunk took: from Left to Gus.
+      expect(find.text('Left'), findsWidgets);
+      expect(find.text('Gus'), findsWidgets);
+      for (final line in [
+        'Ana copies Ben.',
+        'Ana sees Left, Right.',
+        'Gus takes Left.',
+        'Hana sees own card.',
+      ]) {
+        expect(find.textContaining(line, findRichText: true), findsOneWidget);
+      }
+      final night = find.bySemanticsLabel(ResultsCopy.nightSpoken);
+      await tester.ensureVisible(night);
+      await tester.pump();
+      await tester.tap(night);
+      await tester.pump();
+      expect(
+        find.textContaining('Gus takes Left.', findRichText: true),
+        findsNothing,
+      );
+      await s.close(tester);
+    });
+
+    testWidgets('the host\'s buttons stack when "Play again" would not fit on '
+        'one line (320, text x1.3); side by side at 390', (tester) async {
+      Future<bool> stacked(double width, double scale) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1;
+        final s = await ShellSetup.pump(
+          tester,
+          resultsMeFor(recordedResults('results'), viewer: 'Ana', host: 'Ana'),
+          textScale: scale,
+          disableAnimations: true,
+          before: (s) => s.answerResults(recordedResults('results')),
+        );
+        await s.settle(tester);
+        await tester.tap(find.text(CountCopy.seeWhoWon));
+        await s.settle(tester);
+        final play = tester.getRect(find.byType(PrimaryButton));
+        final edit = tester.getRect(find.byType(SecondaryButton));
+        final label = tester.getRect(find.text(ResultsCopy.playAgain));
+        // One line, never wrapped.
+        expect(
+          label.height,
+          lessThan(
+            2 *
+                (tester
+                        .widget<Text>(find.text(ResultsCopy.playAgain))
+                        .style!
+                        .fontSize! *
+                    scale),
+          ),
+        );
+        await s.close(tester);
+        return edit.top >= play.bottom;
+      }
+
+      addTearDown(tester.view.reset);
+      expect(await stacked(390, 1), isFalse);
+      expect(await stacked(320, 1), isTrue);
+      expect(await stacked(390, 1.3), isTrue);
+    });
+
+    testWidgets('a guest whose host is not at the table hears nothing about '
+        'who deals', (tester) async {
+      final results = recordedResults('results');
+      final me = resultsMeFor(results, viewer: 'Ben', host: 'Ana');
+      me['host_id'] = 999;
+      final s = await ShellSetup.pump(
+        tester,
+        me,
+        disableAnimations: true,
+        before: (s) => s.answerResults(results),
+      );
+      await s.settle(tester);
+      await tester.tap(find.text(CountCopy.seeWhoWon));
+      await s.settle(tester);
+      expect(find.textContaining('deals next'), findsNothing);
+      expect(find.text(CommonCopy.leave), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('a restart after "See who won" lands on 11; one before it on '
+        '10', (tester) async {
+      final results = recordedResults('results');
+      var s = await _end(tester, results);
+      await _seeWhoWon(tester, s);
+      expect(find.byType(ResultsView), findsOneWidget);
+      await s.close(tester);
+
+      s = await _end(tester, results, sameDevice: true);
+      expect(find.byType(ResultsView), findsOneWidget);
+      expect(find.byType(CountView), findsNothing);
+      await s.close(tester);
+
+      // Another device, which never went on: 10.
+      s = await _end(tester, results);
+      expect(find.byType(CountView), findsOneWidget);
+      await s.close(tester);
+    });
+  });
+
+  group('after the game', () {
+    String code(ShellSetup s) => s.me['lobby_code'] as String;
+    Map<String, dynamic> waiting(ShellSetup s, {required bool host}) =>
+        serverMyTable(
+          code: code(s),
+          isHost: host,
+          gameId: s.gameId,
+          phase: 'results',
+        );
+
+    testWidgets('the host plays again: the table waits, and the phone goes '
+        'to 02', (tester) async {
+      final s = await _end(tester, recordedResults('results'), viewer: 'Ana');
+      await _seeWhoWon(tester, s);
+      s.http.answer(
+        'POST',
+        '/lobbies/${code(s)}/play-again/',
+        ContractSamples.load('http/lobby/play_again'),
+      );
+      s.answerTable(waiting(s, host: true));
+      await tester.tap(find.text(ResultsCopy.playAgain));
+      await s.settle(tester);
+      expect(_placeholder(tester), AppScreen.table);
+      await s.close(tester);
+    });
+
+    testWidgets('every other phone hears it and goes to 02 too', (
+      tester,
+    ) async {
+      final s = await _end(tester, recordedResults('results'));
+      await _seeWhoWon(tester, s);
+      s.answerTable(waiting(s, host: false));
+      s.ws.addServerEvent(ContractSamples.map('ws/game/play_again'));
+      await s.settle(tester);
+      expect(_placeholder(tester), AppScreen.table);
+      await s.close(tester);
+    });
+
+    testWidgets('a guest still on the count goes to 02 as well (no step '
+        'strands it)', (tester) async {
+      final s = await _end(tester, recordedResults('results'));
+      s.answerTable(waiting(s, host: false));
+      s.ws.addServerEvent(ContractSamples.map('ws/game/play_again'));
+      await s.settle(tester);
+      expect(_placeholder(tester), AppScreen.table);
+      await s.close(tester);
+    });
+
+    testWidgets('"Edit deck": play again, then 03 on the host\'s phone', (
+      tester,
+    ) async {
+      final s = await _end(tester, recordedResults('results'), viewer: 'Ana');
+      await _seeWhoWon(tester, s);
+      s.http.answer(
+        'POST',
+        '/lobbies/${code(s)}/play-again/',
+        ContractSamples.load('http/lobby/play_again'),
+      );
+      s.answerTable(waiting(s, host: true));
+      await tester.tap(find.text(ResultsCopy.editDeck));
+      await s.settle(tester);
+      expect(_placeholder(tester), AppScreen.deck);
+      await s.close(tester);
+    });
+
+    testWidgets('play again that gets no answer: "Not sent." and Try again; '
+        'nothing moves until it lands', (tester) async {
+      final s = await _end(tester, recordedResults('results'), viewer: 'Ana');
+      await _seeWhoWon(tester, s);
+      final path = '/lobbies/${code(s)}/play-again/';
+      s.http.answer('POST', path, 'Server Error', status: 503);
+      await tester.tap(find.text(ResultsCopy.playAgain));
+      await s.settle(tester);
+      expect(find.text(BannerCopy.notSent), findsOneWidget);
+      expect(find.byType(ResultsView), findsOneWidget);
+      s.http.answer(
+        'POST',
+        path,
+        ContractSamples.load('http/lobby/play_again'),
+      );
+      s.answerTable(waiting(s, host: true));
+      await tester.tap(find.text(BannerCopy.tryAgain));
+      await s.settle(tester);
+      expect(_placeholder(tester), AppScreen.table);
+      await s.close(tester);
+    });
+
+    testWidgets('a guest leaves: back to 01', (tester) async {
+      final s = await _end(tester, recordedResults('results'));
+      await _seeWhoWon(tester, s);
+      s.http.answer(
+        'POST',
+        '/lobbies/${code(s)}/leave/',
+        ContractSamples.load('http/lobby/left'),
+      );
+      s.answerTable(ContractSamples.map('http/lobby/my_table_none'));
+      await tester.tap(find.text(CommonCopy.leave));
+      await s.settle(tester);
+      expect(_placeholder(tester), AppScreen.join);
+      await s.close(tester);
+    });
+  });
+}

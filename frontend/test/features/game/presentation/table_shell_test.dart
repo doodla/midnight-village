@@ -9,6 +9,7 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
+import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/night_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/not_built_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
@@ -37,6 +38,7 @@ void main() {
       'me_choose_prompt_seer': NightBoard,
       'me_choose_prompt_doppelganger_look': NightBoard,
       'me_choose_chosen': NightBoard,
+      'me_results_v2': CountScreen,
     };
     for (final MapEntry(key: sample, value: type) in cases.entries) {
       testWidgets('$sample: ${protocolTwoScreens[sample]!.number}', (
@@ -54,8 +56,11 @@ void main() {
     // placeholder, named by the brief, and nothing else.
     for (final MapEntry(key: sample, value: screen)
         in protocolTwoScreens.entries.where(
-          (e) =>
-              e.value != AppScreen.yourCard && e.value != AppScreen.nightBoard,
+          (e) => !{
+            AppScreen.yourCard,
+            AppScreen.nightBoard,
+            AppScreen.count,
+          }.contains(e.value),
         )) {
       testWidgets('$sample: the ${screen.number} placeholder', (tester) async {
         final s = await ShellSetup.pump(tester, recordedMe(sample));
