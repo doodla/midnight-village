@@ -464,32 +464,34 @@ Every face has exactly one portrait slot and at most 2 lines.
 4. **A 15 s window 1** (hold, choose, hold, choose) is tight for the Doppelganger. Simple decks leave her out.
 5. **Faces can still be read from the side up close.** The fixed frame removes the shape tell, but not the words.
 
-## 7. Amendment: stages are named, and window 1 runs in two beats (20 November 2026)
+## 7. Amendment: stages are named; nothing waits (20 November 2026)
 
 Found by the review of the server build. These override the text above.
 
 **Every stage-scoped request names its stage.** `/me/` carries an opaque `stage` string that
-changes whenever the thing a tap would mean changes (`look`, `w1a`, `w1b`, `w2`, `talk`,
-`vote`, each suffixed with the game's own counter). `choose`, `ready`, `vote` and the host's
-`advance` send it back; a request for a stage that has passed is answered `409 wrong_stage`,
-the same for every role, and does nothing. A late tap can therefore never land in the next
-stage (a Robber's late window-1 tap used to rob someone in window 2).
+changes whenever the thing a tap would mean changes (the look stage, window 1, window 2, the
+talk, the vote, each tied to the game so an old one can never match). `choose`, `ready`, `vote`
+and the host's advance send it back; a request for a stage that has passed is answered
+`409 wrong_stage`, the same for every role, and does nothing. A late tap can therefore never
+land in the next stage (a Robber's late window-1 tap used to rob someone in window 2).
 
-**Window 1 is two fixed beats of equal length**, on every phone, whatever anyone taps:
+**No delays, and no assumed lengths.** Nothing in this spec adds a wait or a minimum response
+time, and no timer value is assumed: every length is the table's own setting, the defaults are
+the server's existing ones, and the pace presets leave the Doppelganger's time alone (the
+"Copy" tile changes it). Where this spec says "15 s", "20 s" or "Normal Copy", read "the
+table's setting".
 
-| Moment | What every phone shows | Held face of "You" | What the phone sends |
-|---|---|---|---|
-| Beat A opens (`w1a`) | The board, Choose locked until "You" is held | Role name and instruction (Doppelganger: "Copy 1 player's card.") | `GET /me` |
-| Choose in beat A | Picks stay lifted, button "Chosen" | unchanged | one `POST choose` |
-| Beat A ends (fixed time) | One group event; every phone's picks clear together; Choose locks again | Doppelganger: "You copied {name}." plus the copied role's instruction, or "Nothing to choose. Tap any card." Everyone else: unchanged | `GET /me` |
-| Choose in beat B (`w1b`) | Picks stay lifted, button "Chosen" | unchanged | one `POST choose` |
-| Beat B ends (fixed time) | Every phone goes to the window-2 board | — | `GET /me` |
+**Window 1 is as in section 3** (one fixed-length window, every phone may Choose twice, the
+Doppelganger's look resolves the moment she chooses). Two rules close what the review found:
 
-The server stores a `choose` and does nothing else in the request, for every role: the
-Doppelganger's look is resolved by the timer that ends beat A, never while her phone waits
-for an answer, so neither the answer's speed nor the moment a screen changes says who she
-is. A Doppelganger who picks no other player in beat A has not copied; beat B is then a
-no-op for her like for everyone else. "Copy" (`night_doppelganger_window_seconds`) is the
-length of the whole window: Normal 20 s (two beats of 10 s), minimum 10 s.
+- **The phone never waits for the answer to change what others can see.** On Choose the picks
+  clear and the button locks at once, on every phone, before the response arrives. What the
+  answer brings (her copied role, a result) only ever appears on a held face. So a slower
+  answer for one role is invisible at the table. The server keeps the difference small (it
+  does the same reads for every role and writes only what changed); the remainder is visible
+  only to someone timing the network, which is outside what this app defends against.
+- **One look.** The Doppelganger's first Choose in window 1 is her look whatever it holds. If
+  it holds no other player she has not copied, and her second Choose does nothing, like
+  everyone else's.
 
 **Votes:** under the new night the server never announces who locked, only the count.
