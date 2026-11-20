@@ -10,6 +10,8 @@ import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
@@ -20,22 +22,14 @@ class _MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
 const _code = 'ABC123';
 const _names = ['Ana', 'Ben', 'Cleo'];
 
-LobbyState _lobby({int hostId = 1}) => LobbyState(
-  code: _code,
-  hostId: hostId,
-  hostName: _names[hostId - 1],
-  players: [
-    for (final (i, n) in _names.indexed)
-      LobbyPlayer(
-        id: i + 1,
-        displayName: n,
-        isReady: false,
-        joinedAt: DateTime.utc(2026, 3, 31, 0, i),
-      ),
-  ],
-  status: 'waiting',
-  maxPlayers: 10,
-  roleConfig: const {'Werewolf': 2},
+LobbyState _lobby({int hostId = 1}) => FromSample.lobby(
+  serverLobby(
+    code: _code,
+    seats: [for (final (i, n) in _names.indexed) (id: i + 1, name: n)],
+    hostId: hostId,
+    notReady: {for (var i = 1; i <= _names.length; i++) i},
+    roles: const {'Werewolf': 2},
+  ),
 );
 
 Future<void> _tick() => Future<void>.delayed(const Duration(milliseconds: 10));

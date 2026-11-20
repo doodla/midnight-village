@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
 import '../../../design_system/test_helpers/midnight_village_theme.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import 'package:midnight_village/design_system/skin/skins/shadow_paper.dart';
@@ -27,21 +29,17 @@ const _code = 'ABC123';
 
 /// The table as the server returns it after "Play again": same players, same
 /// deck, waiting.
-LobbyState _waitingLobby({String status = 'waiting'}) => LobbyState(
-  code: _code,
-  hostId: 1,
-  players: [
-    for (final (i, name) in ['Alice', 'Bob', 'Carol'].indexed)
-      LobbyPlayer(
-        id: i + 1,
-        displayName: name,
-        isReady: true,
-        joinedAt: DateTime.utc(2026, 3, 31, 0, i),
-      ),
-  ],
-  status: status,
-  maxPlayers: 10,
-  roleConfig: const {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2},
+LobbyState _waitingLobby({String status = 'waiting'}) => FromSample.lobby(
+  serverLobby(
+    code: _code,
+    seats: const [
+      (id: 1, name: 'Alice'),
+      (id: 2, name: 'Bob'),
+      (id: 3, name: 'Carol'),
+    ],
+    status: status,
+    roles: const {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2},
+  ),
 );
 
 class _Table {

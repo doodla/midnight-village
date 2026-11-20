@@ -10,6 +10,8 @@ import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
@@ -17,38 +19,25 @@ class MockLobbyService extends Mock implements LobbyService {}
 
 class MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
 
-/// Canonical test lobby state.
+/// The server's lobby body: Alice (1, ready) and Bob (2) unless [seats] are
+/// given (then all ready but [notReady]), parsed as the app parses it.
 LobbyState _testLobbyState({
   String code = 'ABC123',
   int hostId = 1,
-  List<LobbyPlayer>? players,
+  List<Seat> seats = const [(id: 1, name: 'Alice'), (id: 2, name: 'Bob')],
+  Set<int> notReady = const {2},
   String status = 'waiting',
   Map<String, int>? roleConfig,
-}) {
-  return LobbyState(
+}) => FromSample.lobby(
+  serverLobby(
     code: code,
+    seats: seats,
     hostId: hostId,
-    players:
-        players ??
-        [
-          LobbyPlayer(
-            id: 1,
-            displayName: 'Alice',
-            isReady: true,
-            joinedAt: DateTime.utc(2026, 3, 31),
-          ),
-          LobbyPlayer(
-            id: 2,
-            displayName: 'Bob',
-            isReady: false,
-            joinedAt: DateTime.utc(2026, 3, 31, 0, 1),
-          ),
-        ],
+    notReady: notReady,
     status: status,
-    maxPlayers: 10,
-    roleConfig: roleConfig ?? {'Werewolf': 2, 'Seer': 1},
-  );
-}
+    roles: roleConfig ?? {'Werewolf': 2, 'Seer': 1},
+  ),
+);
 
 void main() {
   late MockLobbyService mockService;
@@ -126,26 +115,12 @@ void main() {
         // Set up re-fetch with updated players
         final refetchCompleter = Completer<LobbyState>();
         final updatedState = _testLobbyState(
-          players: [
-            LobbyPlayer(
-              id: 1,
-              displayName: 'Alice',
-              isReady: true,
-              joinedAt: DateTime.utc(2026, 3, 31),
-            ),
-            LobbyPlayer(
-              id: 2,
-              displayName: 'Bob',
-              isReady: false,
-              joinedAt: DateTime.utc(2026, 3, 31, 0, 1),
-            ),
-            LobbyPlayer(
-              id: 3,
-              displayName: 'Charlie',
-              isReady: false,
-              joinedAt: DateTime.utc(2026, 3, 31, 0, 2),
-            ),
+          seats: [
+            (id: 1, name: 'Alice'),
+            (id: 2, name: 'Bob'),
+            (id: 3, name: 'Charlie'),
           ],
+          notReady: {2, 3},
         );
         when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
           final result = updatedState;
@@ -175,16 +150,7 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         final refetchCompleter = Completer<LobbyState>();
-        final updatedState = _testLobbyState(
-          players: [
-            LobbyPlayer(
-              id: 1,
-              displayName: 'Alice',
-              isReady: true,
-              joinedAt: DateTime.utc(2026, 3, 31),
-            ),
-          ],
-        );
+        final updatedState = _testLobbyState(seats: [(id: 1, name: 'Alice')]);
         when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
           final result = updatedState;
           if (!refetchCompleter.isCompleted) {

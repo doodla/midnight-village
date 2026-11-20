@@ -31,26 +31,13 @@ class HostChange {
   final int originalHostId;
   final HostChangeReason reason;
 
-  /// Parses the event, or returns null when it is not in the expected shape.
-  static HostChange? fromEvent(Map<String, dynamic> event) {
-    final hostId = event['host_id'];
-    final original = event['original_host_id'];
-    final reason = switch (event['reason']) {
-      'handover' => HostChangeReason.handover,
-      'returned' => HostChangeReason.returned,
-      'transferred' => HostChangeReason.transferred,
-      _ => null,
-    };
-    if (hostId is! int || reason == null) return null;
-    return HostChange(
-      hostId: hostId,
-      hostName: event['host_name'] is String
-          ? event['host_name'] as String
-          : 'Someone',
-      originalHostId: original is int ? original : hostId,
-      reason: reason,
-    );
-  }
+  /// The event as the server sends it (every key always present).
+  factory HostChange.fromEvent(Map<String, dynamic> event) => HostChange(
+    hostId: event['host_id'] as int,
+    hostName: event['host_name'] as String,
+    originalHostId: event['original_host_id'] as int,
+    reason: HostChangeReason.values.byName(event['reason'] as String),
+  );
 
   @override
   bool operator ==(Object other) =>

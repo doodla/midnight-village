@@ -31,38 +31,31 @@ Map<String, dynamic> _$YourRoleToJson(_YourRole instance) => <String, dynamic>{
   'current_role': instance.currentRole,
 };
 
-_GameSessionState _$GameSessionStateFromJson(Map<String, dynamic> json) =>
-    _GameSessionState(
-      gameId: json['game_id'] as String,
-      phase: json['phase'] as String,
-      currentWave: (json['current_wave'] as num?)?.toInt() ?? 0,
-      deadline: json['deadline'] == null
-          ? null
-          : DateTime.parse(json['deadline'] as String),
-      yourRole: YourRole.fromJson(json['your_role'] as Map<String, dynamic>),
-      players: (json['players'] as List<dynamic>)
-          .map((e) => GamePlayer.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      hasVoted: json['has_voted'] as bool? ?? false,
-      actionPrompt: json['action_prompt'] == null
-          ? null
-          : ActionPrompt.fromJson(
-              json['action_prompt'] as Map<String, dynamic>,
-            ),
-      lastActionResult: json['last_action_result'] == null
-          ? null
-          : ActionResult.fromJson(
-              json['last_action_result'] as Map<String, dynamic>,
-            ),
-      rolesInGame:
-          (json['roles_in_game'] as List<dynamic>?)
-              ?.map((e) => RoleInGame.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
-      isHost: json['is_host'] as bool? ?? false,
-      hostId: (json['host_id'] as num?)?.toInt(),
-      lobbyCode: json['lobby_code'] as String?,
-    );
+_GameSessionState _$GameSessionStateFromJson(Map<String, dynamic> json) {
+  $checkKeys(json, requiredKeys: const ['deadline', 'action_prompt']);
+  return _GameSessionState(
+    gameId: json['game_id'] as String,
+    phase: json['phase'] as String,
+    currentWave: (json['current_wave'] as num).toInt(),
+    deadline: json['deadline'] == null
+        ? null
+        : DateTime.parse(json['deadline'] as String),
+    yourRole: YourRole.fromJson(json['your_role'] as Map<String, dynamic>),
+    players: (json['players'] as List<dynamic>)
+        .map((e) => GamePlayer.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    hasVoted: json['has_voted'] as bool,
+    actionPrompt: json['action_prompt'] == null
+        ? null
+        : ActionPrompt.fromJson(json['action_prompt'] as Map<String, dynamic>),
+    rolesInGame: (json['roles_in_game'] as List<dynamic>)
+        .map((e) => RoleInGame.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    isHost: json['is_host'] as bool,
+    hostId: (json['host_id'] as num).toInt(),
+    lobbyCode: json['lobby_code'] as String,
+  );
+}
 
 Map<String, dynamic> _$GameSessionStateToJson(_GameSessionState instance) =>
     <String, dynamic>{
@@ -74,7 +67,6 @@ Map<String, dynamic> _$GameSessionStateToJson(_GameSessionState instance) =>
       'players': instance.players,
       'has_voted': instance.hasVoted,
       'action_prompt': instance.actionPrompt,
-      'last_action_result': instance.lastActionResult,
       'roles_in_game': instance.rolesInGame,
       'is_host': instance.isHost,
       'host_id': instance.hostId,

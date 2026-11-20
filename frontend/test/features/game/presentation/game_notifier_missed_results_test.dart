@@ -59,6 +59,25 @@ void main() {
       },
     );
 
+    test('window 1\'s look, listed in window 2, is put on screen', () async {
+      // The server lists only closed windows: in window 2 her look is there.
+      final setup = _setup(
+        _doppelganger()
+            .withDeck({'Doppelganger': 1, 'Werewolf': 2})
+            .withWave(2)
+            .withPrompt('doppelganger_werewolf')
+            .withNightResults([_look()])
+            .build(),
+      );
+      addTearDown(setup.dispose);
+
+      final state = await setup.readGameState();
+
+      expect(state.currentWave, 2);
+      expect(state.lastActionResult?.wave, 1);
+      expect(state.lastActionResult?.revealedInfo['copied_role'], 'Seer');
+    });
+
     test('an empty night_results shows nothing', () async {
       final setup = _setup(GameMeJsonBuilder().inPhase('discussion').build());
       addTearDown(setup.dispose);
@@ -67,21 +86,6 @@ void main() {
 
       expect(state.nightResults, isEmpty);
       expect(state.lastActionResult, isNull);
-    });
-
-    test('a malformed entry is skipped, the rest still shown', () async {
-      final setup = _setup(GameMeJsonBuilder().inPhase('discussion').build());
-      addTearDown(setup.dispose);
-      final me = GameMeJsonBuilder().inPhase('discussion').withNightResults([
-        _peekPlayer(),
-      ]).build();
-      (me['night_results'] as List).insert(0, {'wave': 'x'});
-      setup.registerGet('/onuw/games/$_gameId/me/', me, offContract: true);
-
-      final state = await setup.readGameState();
-
-      expect(state.nightResults, hasLength(1));
-      expect(state.lastActionResult, isNotNull);
     });
 
     test('is shown from /me/ in the vote too, not in the results', () async {
@@ -308,11 +312,6 @@ void main() {
       expect(results.single.wave, 1);
       expect(results.single.revealedInfo['action_type'], 'peek_player');
       expect(results.single.revealedInfo['copied_role'], 'Seer');
-    });
-
-    test('null and non-lists are empty', () {
-      expect(parseNightResults(null), isEmpty);
-      expect(parseNightResults('nope'), isEmpty);
     });
   });
 }

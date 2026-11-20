@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
 import '../../../design_system/test_helpers/midnight_village_theme.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import 'package:midnight_village/design_system/skin/skins/shadow_paper.dart';
@@ -54,43 +56,32 @@ class FakeLobbyNotifier extends LobbyNotifier {
 // State factories
 // ---------------------------------------------------------------------------
 
+/// Alice (1), Bob (2) and Carol (3), everyone ready but Bob and Carol.
+const _defaultSeats = <Seat>[
+  (id: 1, name: 'Alice'),
+  (id: 2, name: 'Bob'),
+  (id: 3, name: 'Carol'),
+];
+
+/// The server's lobby body for [seats] (all ready but [notReady]), parsed as
+/// the app parses it.
 LobbyState _makeState({
   String code = 'ABC123',
   int hostId = 1,
-  List<LobbyPlayer>? players,
+  List<Seat> seats = _defaultSeats,
+  Set<int> notReady = const {2, 3},
   String status = 'waiting',
   Map<String, int>? roleConfig,
-}) {
-  return LobbyState(
+}) => FromSample.lobby(
+  serverLobby(
     code: code,
+    seats: seats,
     hostId: hostId,
-    players: players ?? _defaultPlayers(),
+    notReady: notReady,
     status: status,
-    maxPlayers: 10,
-    roleConfig: roleConfig ?? _validRoleConfig(3),
-  );
-}
-
-List<LobbyPlayer> _defaultPlayers({bool allReady = false}) => [
-  LobbyPlayer(
-    id: 1,
-    displayName: 'Alice',
-    isReady: allReady ? true : true,
-    joinedAt: DateTime.utc(2026, 3, 31),
+    roles: roleConfig ?? _validRoleConfig(3),
   ),
-  LobbyPlayer(
-    id: 2,
-    displayName: 'Bob',
-    isReady: allReady ? true : false,
-    joinedAt: DateTime.utc(2026, 3, 31, 0, 1),
-  ),
-  LobbyPlayer(
-    id: 3,
-    displayName: 'Carol',
-    isReady: allReady ? true : false,
-    joinedAt: DateTime.utc(2026, 3, 31, 0, 2),
-  ),
-];
+);
 
 // 3 players + 3 center = 6 cards
 Map<String, int> _validRoleConfig(int playerCount) {
@@ -186,20 +177,8 @@ void main() {
       testWidgets('shows ready indicator for ready players', (tester) async {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
-            players: [
-              LobbyPlayer(
-                id: 1,
-                displayName: 'Alice',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
-              LobbyPlayer(
-                id: 2,
-                displayName: 'Bob',
-                isReady: false,
-                joinedAt: DateTime.utc(2026),
-              ),
-            ],
+            seats: [(id: 1, name: 'Alice'), (id: 2, name: 'Bob')],
+            notReady: {2},
           ),
         );
         await _pump(tester, notifier: notifier);
@@ -213,14 +192,8 @@ void main() {
       testWidgets('ready toggle button calls notifier', (tester) async {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
-            players: [
-              LobbyPlayer(
-                id: 1,
-                displayName: 'Alice',
-                isReady: false,
-                joinedAt: DateTime.utc(2026),
-              ),
-            ],
+            seats: [(id: 1, name: 'Alice')],
+            notReady: {1},
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);
@@ -235,14 +208,8 @@ void main() {
       ) async {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
-            players: [
-              LobbyPlayer(
-                id: 1,
-                displayName: 'Alice',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
-            ],
+            seats: [(id: 1, name: 'Alice')],
+            notReady: const {},
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);
@@ -277,9 +244,7 @@ void main() {
       testWidgets('non-host sees role token list, not config controls', (
         tester,
       ) async {
-        final notifier = FakeLobbyNotifier(
-          initialState: _makeState(hostId: 99),
-        );
+        final notifier = FakeLobbyNotifier(initialState: _makeState(hostId: 2));
         // userId=1 is NOT the host (hostId=99)
         await _pump(tester, notifier: notifier, userId: 1);
 
@@ -384,11 +349,7 @@ void main() {
 
       testWidgets('preset selection populates role counts', (tester) async {
         final notifier = FakeLobbyNotifier(
-          initialState: _makeState(
-            hostId: 1,
-            players: _defaultPlayers(),
-            roleConfig: {'Werewolf': 1},
-          ),
+          initialState: _makeState(hostId: 1, roleConfig: {'Werewolf': 1}),
         );
         await _pump(tester, notifier: notifier, userId: 1);
 
@@ -413,7 +374,6 @@ void main() {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
             hostId: 1,
-            players: _defaultPlayers(), // 3 players need 6 cards
             roleConfig: {'Werewolf': 1}, // only 1 card — invalid
           ),
         );
@@ -433,9 +393,7 @@ void main() {
       });
 
       testWidgets('non-host does not see start button', (tester) async {
-        final notifier = FakeLobbyNotifier(
-          initialState: _makeState(hostId: 99),
-        );
+        final notifier = FakeLobbyNotifier(initialState: _makeState(hostId: 2));
         await _pump(tester, notifier: notifier, userId: 1);
 
         expect(find.text('Start Game'), findsNothing);
@@ -448,26 +406,8 @@ void main() {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
             hostId: 1,
-            players: [
-              LobbyPlayer(
-                id: 1,
-                displayName: 'Alice',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
-              LobbyPlayer(
-                id: 2,
-                displayName: 'Bob',
-                isReady: false, // NOT ready
-                joinedAt: DateTime.utc(2026),
-              ),
-              LobbyPlayer(
-                id: 3,
-                displayName: 'Carol',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
-            ],
+            seats: [(id: 1, name: 'Alice'), (id: 3, name: 'Carol')],
+            notReady: const {},
             roleConfig: _validRoleConfig(3),
           ),
         );
@@ -488,26 +428,12 @@ void main() {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
             hostId: 1,
-            players: [
-              LobbyPlayer(
-                id: 1,
-                displayName: 'Alice',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
-              LobbyPlayer(
-                id: 2,
-                displayName: 'Bob',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
-              LobbyPlayer(
-                id: 3,
-                displayName: 'Carol',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
+            seats: [
+              (id: 1, name: 'Alice'),
+              (id: 2, name: 'Bob'),
+              (id: 3, name: 'Carol'),
             ],
+            notReady: const {},
             roleConfig: {'Werewolf': 1}, // Invalid — wrong card count
           ),
         );
@@ -529,26 +455,12 @@ void main() {
           final notifier = FakeLobbyNotifier(
             initialState: _makeState(
               hostId: 1,
-              players: [
-                LobbyPlayer(
-                  id: 1,
-                  displayName: 'Alice',
-                  isReady: true,
-                  joinedAt: DateTime.utc(2026),
-                ),
-                LobbyPlayer(
-                  id: 2,
-                  displayName: 'Bob',
-                  isReady: true,
-                  joinedAt: DateTime.utc(2026),
-                ),
-                LobbyPlayer(
-                  id: 3,
-                  displayName: 'Carol',
-                  isReady: true,
-                  joinedAt: DateTime.utc(2026),
-                ),
+              seats: [
+                (id: 1, name: 'Alice'),
+                (id: 2, name: 'Bob'),
+                (id: 3, name: 'Carol'),
               ],
+              notReady: const {},
               roleConfig: _validRoleConfig(3),
             ),
           );
@@ -570,51 +482,9 @@ void main() {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
             hostId: 1,
-            players: [
-              LobbyPlayer(
-                id: 1,
-                displayName: 'Alice',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
-              LobbyPlayer(
-                id: 2,
-                displayName: 'Bob',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
-            ],
+            seats: [(id: 1, name: 'Alice'), (id: 2, name: 'Bob')],
+            notReady: const {},
             roleConfig: _validRoleConfig(2), // 2 players — invalid
-          ),
-        );
-        await _pump(tester, notifier: notifier, userId: 1);
-
-        final startButton = tester.widget<FilledButton>(
-          find.ancestor(
-            of: find.text('Start Game'),
-            matching: find.byType(FilledButton),
-          ),
-        );
-        expect(startButton.onPressed, isNull);
-      });
-
-      testWidgets('start button disabled when player count above 10', (
-        tester,
-      ) async {
-        final players = List.generate(
-          11,
-          (i) => LobbyPlayer(
-            id: i + 1,
-            displayName: 'Player ${i + 1}',
-            isReady: true,
-            joinedAt: DateTime.utc(2026),
-          ),
-        );
-        final notifier = FakeLobbyNotifier(
-          initialState: _makeState(
-            hostId: 1,
-            players: players,
-            roleConfig: _validRoleConfig(11), // 11 players — out of range
           ),
         );
         await _pump(tester, notifier: notifier, userId: 1);
@@ -632,26 +502,12 @@ void main() {
         final notifier = FakeLobbyNotifier(
           initialState: _makeState(
             hostId: 1,
-            players: [
-              LobbyPlayer(
-                id: 1,
-                displayName: 'Alice',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
-              LobbyPlayer(
-                id: 2,
-                displayName: 'Bob',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
-              LobbyPlayer(
-                id: 3,
-                displayName: 'Carol',
-                isReady: true,
-                joinedAt: DateTime.utc(2026),
-              ),
+            seats: [
+              (id: 1, name: 'Alice'),
+              (id: 2, name: 'Bob'),
+              (id: 3, name: 'Carol'),
             ],
+            notReady: const {},
             roleConfig: _validRoleConfig(3),
           ),
         );

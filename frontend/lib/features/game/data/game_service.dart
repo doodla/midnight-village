@@ -6,7 +6,6 @@ import '../../../core/api/authenticated_client.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../domain/game_session_state.dart';
-import '../domain/night_state.dart';
 
 part 'game_service.g.dart';
 
@@ -32,11 +31,7 @@ class GameService {
       if (data == null) {
         throw const MalformedResponseException('Response body is null');
       }
-      // `night_results` mirrors the `action_result` socket event; parse it
-      // here (absent means none) so one bad entry cannot fail the fetch.
-      return GameSessionState.fromJson(
-        data,
-      ).copyWith(nightResults: parseNightResults(data['night_results']));
+      return gameStateFromServer(data);
     } on DioException catch (e) {
       throw mapDioException(e);
     }

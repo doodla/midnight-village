@@ -89,46 +89,23 @@ abstract class ActionResult with _$ActionResult {
       _$ActionResultFromJson(json);
 }
 
-/// Builds an [ActionResult] from the shape the server uses for both the
-/// `action_result` socket event and the entries of `night_results` in
-/// `GET .../me/`: `{"wave": int, "action_type": String?, "revealed_info": {}}`.
-///
-/// Injects `action_type` into [ActionResult.revealedInfo] so
-/// [NightResultView] can pick its layout.
-///
-/// Throws a [FormatException] when `wave` or `revealed_info` is missing, so a
-/// caller can skip a malformed entry.
-ActionResult actionResultFromServer(Map<String, dynamic> data) {
-  final wave = data['wave'];
-  final info = data['revealed_info'];
-  if (wave is! num || info is! Map) {
-    throw const FormatException('Night result without wave or revealed_info');
-  }
-  final revealedInfo = Map<String, dynamic>.from(info);
-  if (data['action_type'] is String) {
-    revealedInfo['action_type'] = data['action_type'];
-  }
-  return ActionResult(wave: wave.toInt(), revealedInfo: revealedInfo);
-}
+/// A night result as the server sends it (the `action_result` event, or an
+/// entry of `/me/`'s `night_results`): `action_type` goes into
+/// [ActionResult.revealedInfo] so the result view knows what it shows.
+ActionResult actionResultFromServer(Map<String, dynamic> data) => ActionResult(
+  wave: data['wave'] as int,
+  revealedInfo: {
+    ...(data['revealed_info'] as Map).cast<String, dynamic>(),
+    'action_type': data['action_type'] as String,
+  },
+);
 
-/// Parses the `night_results` list of `GET .../me/`. Absent or null is empty;
-/// an entry that is not in the expected shape is skipped rather than failing
-/// the whole state fetch.
-List<ActionResult> parseNightResults(Object? raw) {
-  if (raw is! List) return const [];
-  final results = <ActionResult>[];
-  for (final entry in raw) {
-    if (entry is! Map) continue;
-    try {
-      results.add(actionResultFromServer(Map<String, dynamic>.from(entry)));
-    } on FormatException {
-      continue;
-    }
-  }
-  return results;
-}
+/// `/me/`'s `night_results`: the player's results of closed windows, in order.
+List<ActionResult> parseNightResults(List<dynamic> raw) => [
+  for (final entry in raw)
+    actionResultFromServer((entry as Map).cast<String, dynamic>()),
+];
 
-/// A role present in the current game with its count.
 @freezed
 abstract class RoleInGame with _$RoleInGame {
   const factory RoleInGame({required String role, required int count}) =

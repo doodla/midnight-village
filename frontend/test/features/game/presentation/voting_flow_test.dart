@@ -7,6 +7,7 @@ import 'package:midnight_village/features/game/presentation/game_container_scree
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
 import '../../../design_system/test_helpers/pump_with_tokens.dart';
+import '../../../helpers/contract/from_sample.dart';
 import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/game_state_factory.dart';
@@ -16,24 +17,15 @@ import '../../../helpers/game_test_setup.dart';
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Default state for voting phase tests.
+/// The server's `/me/` in the vote for Alice (1) with Bob and Charlie, and
+/// the vote progress and reveal the notifier keeps on top.
 GameSessionState _votingState({
   bool hasVoted = false,
   VoteProgress voteProgress = const VoteProgress(),
   VoteRevealData? voteRevealData,
-}) => GameSessionState(
-  gameId: 'test-game-id',
-  phase: 'voting',
-  yourRole: const YourRole(originalRole: 'seer', hasActed: false),
-  hasVoted: hasVoted,
-  players: const [
-    GamePlayer(playerId: 1, displayName: 'Alice'),
-    GamePlayer(playerId: 2, displayName: 'Bob'),
-    GamePlayer(playerId: 3, displayName: 'Charlie'),
-  ],
-  voteProgress: voteProgress,
-  voteRevealData: voteRevealData,
-);
+}) => FromSample.game(
+  GameMeJsonBuilder().inPhase('voting').hasVoted(hasVoted).build(),
+).copyWith(voteProgress: voteProgress, voteRevealData: voteRevealData);
 
 /// A mock GameNotifier that allows tracking of method calls.
 class _MockVotingNotifier extends GameNotifier {
@@ -47,13 +39,7 @@ class _MockVotingNotifier extends GameNotifier {
   @override
   Future<GameSessionState> build(String gameId) async {
     state = _state;
-    return _state.value ??
-        GameSessionState(
-          gameId: gameId,
-          phase: 'voting',
-          yourRole: const YourRole(originalRole: 'seer', hasActed: false),
-          players: const [],
-        );
+    return _state.requireValue;
   }
 
   @override

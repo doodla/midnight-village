@@ -78,6 +78,9 @@ const promptKinds = [
   'werewolf_lone',
   'doppelganger',
   'doppelganger_followup',
+  'doppelganger_werewolf',
+  'doppelganger_mason',
+  'doppelganger_insomniac',
 ];
 
 /// The prompt the server builds for [kind] (as in `action_prompt` and
@@ -116,6 +119,7 @@ const nightResultKinds = [
   'see_team_minion',
   'see_team_masons',
   'doppelganger_look',
+  'see_team_doppelganger_minion',
   'skip',
 ];
 

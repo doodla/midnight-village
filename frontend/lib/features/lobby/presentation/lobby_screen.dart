@@ -232,8 +232,8 @@ String? _hostLine(LobbyState lobby, int? viewerId) {
     return hostChangeLine(
       change: HostChange(
         hostId: lobby.hostId,
-        hostName: lobby.hostName ?? nameOf(lobby.hostId) ?? 'Someone',
-        originalHostId: lobby.originalHostId ?? lobby.hostId,
+        hostName: lobby.hostName,
+        originalHostId: lobby.originalHostId,
         reason: HostChangeReason.handover,
       ),
       viewerId: viewerId,

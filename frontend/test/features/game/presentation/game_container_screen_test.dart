@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,43 +11,46 @@ import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
-import 'package:midnight_village/features/game/domain/voting_state.dart';
 import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
 import '../../../design_system/test_helpers/pump_with_tokens.dart';
+import '../../../helpers/contract/from_sample.dart';
 import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/game_state_factory.dart';
 
 /// The server's prompt of [kind] for Alice (1), aimed at Bob (2) and
 /// Charlie (3); [narrowedTo] is what is left of it after the Seer picks a
 /// look (as GameNotifier.selectSeerChoice leaves it).
 ActionPrompt _prompt(String kind, {List<String>? narrowedTo}) {
-  final prompt = ActionPrompt.fromJson(serverPrompt(kind, playerIds: [2, 3]));
+  final prompt = FromSample.prompt(serverPrompt(kind, playerIds: [2, 3]));
   return narrowedTo == null ? prompt : prompt.copyWith(actionTypes: narrowedTo);
 }
 
 /// The server's night result of [kind], with [info] as its values.
 ActionResult _result(String kind, Map<String, dynamic> info) =>
-    actionResultFromServer(serverNightResult(kind, info: info));
+    FromSample.result(serverNightResult(kind, info: info));
 
-/// Creates a GameSessionState with the given phase and nightSubView.
+/// The server's `/me/` for Alice (1) at a table with Bob (2) and Charlie
+/// (3), in [phase], as [role] (the host with [isHost]); then the screen
+/// state the notifier would have put on top: [nightSubView], the night
+/// [actionPrompt] and the result on screen.
 GameSessionState _makeState({
   String phase = 'night',
+  String role = 'Seer',
+  bool isHost = false,
   NightSubView nightSubView = NightSubView.waiting,
   ActionPrompt? actionPrompt,
   ActionResult? lastActionResult,
-}) => GameSessionState(
-  gameId: 'test-game-id',
-  phase: phase,
-  yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
-  players: const [
-    GamePlayer(playerId: 1, displayName: 'Alice'),
-    GamePlayer(playerId: 2, displayName: 'Bob'),
-  ],
-  nightSubView: nightSubView,
-  actionPrompt: actionPrompt,
-  lastActionResult: lastActionResult,
-);
+}) {
+  final me = GameMeJsonBuilder().inPhase(phase).withRole(role);
+  if (isHost) me.asHost();
+  return FromSample.game(me.build()).copyWith(
+    nightSubView: nightSubView,
+    actionPrompt: actionPrompt,
+    lastActionResult: lastActionResult,
+  );
+}
 
 void main() {
   group('GameContainerScreen', () {
@@ -350,16 +355,7 @@ void main() {
       (tester) async {
         // Verifies the full wiring: GameSessionState.isHost=true
         // → GameContainerScreen passes it to DiscussionView → button visible.
-        final state = GameSessionState(
-          gameId: 'test-game-id',
-          phase: 'discussion',
-          yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
-          players: const [
-            GamePlayer(playerId: 1, displayName: 'Alice'),
-            GamePlayer(playerId: 2, displayName: 'Bob'),
-          ],
-          isHost: true,
-        );
+        final state = _makeState(phase: 'discussion', isHost: true);
 
         await tester.pumpWithTokens(
           const GameContainerScreen(gameId: 'test-game-id'),
@@ -377,16 +373,7 @@ void main() {
     testWidgets(
       'hides End Discussion button in discussion phase when isHost is false',
       (tester) async {
-        final state = GameSessionState(
-          gameId: 'test-game-id',
-          phase: 'discussion',
-          yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
-          players: const [
-            GamePlayer(playerId: 1, displayName: 'Alice'),
-            GamePlayer(playerId: 2, displayName: 'Bob'),
-          ],
-          isHost: false,
-        );
+        final state = _makeState(phase: 'discussion', isHost: false);
 
         await tester.pumpWithTokens(
           const GameContainerScreen(gameId: 'test-game-id'),
@@ -413,7 +400,7 @@ void main() {
       );
 
       // _VotingActiveView renders vote progress text.
-      expect(find.text('0 of 2 voted'), findsOneWidget);
+      expect(find.text('0 of 3 voted'), findsOneWidget);
     });
 
     testWidgets(
@@ -479,15 +466,7 @@ void main() {
       ) async {
         // Alice (1) is the Seer; Bob (2) and Charlie (3) are valid targets.
         // Alice should NOT appear as a selectable target.
-        final state = GameSessionState(
-          gameId: 'test-game-id',
-          phase: 'night',
-          yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
-          players: const [
-            GamePlayer(playerId: 1, displayName: 'Alice'),
-            GamePlayer(playerId: 2, displayName: 'Bob'),
-            GamePlayer(playerId: 3, displayName: 'Charlie'),
-          ],
+        final state = _makeState(
           nightSubView: NightSubView.actionPrompt,
           actionPrompt: _prompt('seer', narrowedTo: ['peek_player', 'skip']),
         );
@@ -510,15 +489,8 @@ void main() {
       testWidgets('swap_with_player only shows players from valid_targets', (
         tester,
       ) async {
-        final state = GameSessionState(
-          gameId: 'test-game-id',
-          phase: 'night',
-          yourRole: const YourRole(originalRole: 'Robber', hasActed: false),
-          players: const [
-            GamePlayer(playerId: 1, displayName: 'Alice'),
-            GamePlayer(playerId: 2, displayName: 'Bob'),
-            GamePlayer(playerId: 3, displayName: 'Charlie'),
-          ],
+        final state = _makeState(
+          role: 'Robber',
           nightSubView: NightSubView.actionPrompt,
           actionPrompt: _prompt('robber'),
         );
@@ -541,18 +513,8 @@ void main() {
       testWidgets('swap_others only shows players from valid_targets', (
         tester,
       ) async {
-        final state = GameSessionState(
-          gameId: 'test-game-id',
-          phase: 'night',
-          yourRole: const YourRole(
-            originalRole: 'Troublemaker',
-            hasActed: false,
-          ),
-          players: const [
-            GamePlayer(playerId: 1, displayName: 'Alice'),
-            GamePlayer(playerId: 2, displayName: 'Bob'),
-            GamePlayer(playerId: 3, displayName: 'Charlie'),
-          ],
+        final state = _makeState(
+          role: 'Troublemaker',
           nightSubView: NightSubView.actionPrompt,
           actionPrompt: _prompt('troublemaker'),
         );
@@ -590,17 +552,7 @@ void main() {
 
           // Alice (id=1) is the current authenticated user.
           // The voting view should NOT include Alice in the selectable list.
-          final state = GameSessionState(
-            gameId: 'test-game-id',
-            phase: 'voting',
-            yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
-            players: const [
-              GamePlayer(playerId: 1, displayName: 'Alice'),
-              GamePlayer(playerId: 2, displayName: 'Bob'),
-              GamePlayer(playerId: 3, displayName: 'Carol'),
-            ],
-            voteProgress: const VoteProgress(),
-          );
+          final state = _makeState(phase: 'voting');
 
           await tester.pumpWithTokens(
             const GameContainerScreen(gameId: 'test-game-id'),
@@ -619,7 +571,7 @@ void main() {
           // (initials only, no Text with full name).
           //
           // After the fix, Alice must NOT appear as a selectable target.
-          // Bob and Carol must still appear.
+          // Bob and Charlie must still appear.
           final voteSubmissionFinder = find.byType(VoteSubmission);
           expect(
             voteSubmissionFinder,
@@ -648,10 +600,10 @@ void main() {
           expect(
             find.descendant(
               of: voteSubmissionFinder,
-              matching: find.text('Carol'),
+              matching: find.text('Charlie'),
             ),
             findsOneWidget,
-            reason: 'Other player (Carol) must appear as a vote target',
+            reason: 'Other player (Charlie) must appear as a vote target',
           );
         },
       );
@@ -663,17 +615,7 @@ void main() {
             testScreenSize * tester.view.devicePixelRatio;
         addTearDown(tester.view.resetPhysicalSize);
 
-        final state = GameSessionState(
-          gameId: 'test-game-id',
-          phase: 'voting',
-          yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
-          players: const [
-            GamePlayer(playerId: 1, displayName: 'Alice'),
-            GamePlayer(playerId: 2, displayName: 'Bob'),
-            GamePlayer(playerId: 3, displayName: 'Carol'),
-          ],
-          voteProgress: const VoteProgress(),
-        );
+        final state = _makeState(phase: 'voting');
 
         await tester.pumpWithTokens(
           const GameContainerScreen(gameId: 'test-game-id'),
@@ -708,12 +650,11 @@ class _MockGameNotifier extends GameNotifier {
   @override
   Future<GameSessionState> build(String gameId) async {
     state = _initialState;
-    return _initialState.value ??
-        GameSessionState(
-          gameId: gameId,
-          phase: 'night',
-          yourRole: const YourRole(originalRole: 'Seer', hasActed: false),
-          players: const [],
-        );
+    return switch (_initialState) {
+      AsyncData(:final value) => value,
+      AsyncError(:final error) => throw error,
+      // Loading: the fetch never answers.
+      _ => Completer<GameSessionState>().future,
+    };
   }
 }

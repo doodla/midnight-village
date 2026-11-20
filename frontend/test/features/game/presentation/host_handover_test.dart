@@ -126,23 +126,6 @@ void main() {
       expect(setup.currentState.hostNotice?.reason, HostChangeReason.returned);
     });
 
-    test('a malformed host_changed is ignored', () async {
-      final setup = GameTestSetup.create(
-        gameMeJson: _me().build(),
-        away: _away,
-      );
-      addTearDown(setup.dispose);
-      await setup.readGameState();
-
-      setup.ws.addOffContractEvent({
-        'type': 'host_changed',
-        'reason': 'handover',
-      });
-
-      expect(setup.currentState.isHost, isTrue);
-      expect(setup.currentState.hostNotice, isNull);
-    });
-
     test('a refetch after a reconnect picks up the effective host', () async {
       // Ana missed the handover: her phone was offline.
       final setup = GameTestSetup.create(

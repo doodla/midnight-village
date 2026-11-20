@@ -77,7 +77,7 @@ final class GameNotifierProvider
   }
 }
 
-String _$gameNotifierHash() => r'b0513d008a3e3d7bc97a8aa37359319353cd08ab';
+String _$gameNotifierHash() => r'729b0d978bc7ac78e7d3a6612361aa08d1dc812a';
 
 /// Core game state machine that handles all WebSocket events and exposes
 /// action methods.

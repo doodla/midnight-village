@@ -53,8 +53,9 @@ class GameNotifier extends _$GameNotifier {
   Future<void>? _refreshing;
   bool _refreshAgain = false;
 
-  /// The table this game belongs to (`lobby_code` in every `/me/`).
-  String? get lobbyCode => state.value?.lobbyCode;
+  /// The table this game belongs to (`lobby_code` in every `/me/`). Only
+  /// asked for once the game is on screen.
+  String get _tableCode => state.requireValue.lobbyCode;
 
   /// WebSocket stream injected for testability.
   /// In production this comes from a ReconnectingWebSocket provider.
@@ -223,21 +224,18 @@ class GameNotifier extends _$GameNotifier {
     }
   }
 
-  /// When the server names the effective host (`host_id`), "am I the host"
-  /// follows it, on every fetch, so a missed `host_changed` heals. Without a
-  /// `host_id` the server's own `is_host` stands. A "hosting while ... is
-  /// away" line is dropped once the server shows the role back with its
-  /// original host.
+  /// "Am I the host" follows the effective host (`host_id`) on every fetch,
+  /// so a missed `host_changed` heals. A "hosting while ... is away" line is
+  /// dropped once the server shows the role back with its original host.
   GameSessionState _followEffectiveHost(GameSessionState state) {
     var result = state;
     final hostId = result.hostId;
-    final me = hostId != null ? _viewerId() : null;
-    if (hostId != null && me != null) {
+    final me = _viewerId();
+    if (me != null) {
       result = result.copyWith(isHost: hostId == me);
     }
     final notice = result.hostNotice;
-    if (hostId != null &&
-        notice != null &&
+    if (notice != null &&
         notice.reason == HostChangeReason.handover &&
         hostId == notice.originalHostId) {
       result = result.copyWith(hostNotice: null);
@@ -249,21 +247,15 @@ class GameNotifier extends _$GameNotifier {
   static bool _showsNightResults(String phase) =>
       phase == 'night' || phase == 'discussion' || phase == 'voting';
 
-  /// Puts results of closed night windows the player has not been shown in
-  /// front of them, the same way the `action_result` event does.
-  ///
-  /// The server lists only windows that already closed; as a second check, a
-  /// result for a window this state still has open (`wave >= currentWave`
-  /// during the night) is never shown from here. Results already shown are
-  /// skipped. When a result is on screen the rest queue up behind it.
+  /// Puts results of closed night windows (the server lists no other) the
+  /// player has not been shown in front of them, the same way the
+  /// `action_result` event does. Results already shown are skipped. When a
+  /// result is on screen the rest queue up behind it.
   GameSessionState _surfaceMissedNightResults(GameSessionState state) {
     if (!_showsNightResults(state.phase) || state.nightResults.isEmpty) {
       return state;
     }
-    final closed = state.nightResults
-        .where((r) => state.phase != 'night' || r.wave < state.currentWave)
-        .toList();
-    final unseen = _unseenResults(closed, state.shownNightResults);
+    final unseen = _unseenResults(state.nightResults, state.shownNightResults);
     if (unseen.isEmpty) return state;
 
     final shown = [...state.shownNightResults, ...unseen];
@@ -440,13 +432,7 @@ class GameNotifier extends _$GameNotifier {
   /// logic without needing extra params.
   void _handleActionResult(Map<String, dynamic> data) {
     _updateState((state) {
-      final ActionResult result;
-      try {
-        result = actionResultFromServer(data);
-      } on FormatException catch (e) {
-        logger.w('GameNotifier: Malformed action_result: $e');
-        return state;
-      }
+      final result = actionResultFromServer(data);
       // Already put in front of the player (surfaced from a state fetch that
       // got there first): do not show it a second time.
       if (state.shownNightResults.contains(result)) {
@@ -594,7 +580,6 @@ class GameNotifier extends _$GameNotifier {
   /// the new host and disappear for the old one without a refetch.
   void _handleHostChanged(Map<String, dynamic> data) {
     final change = HostChange.fromEvent(data);
-    if (change == null) return;
     final me = _viewerId();
     _updateState(
       (state) => state.copyWith(
@@ -651,10 +636,8 @@ class GameNotifier extends _$GameNotifier {
     // Let the state settle first: this runs from build.
     await Future<void>.delayed(Duration.zero);
     if (!ref.mounted) return;
-    final code = lobbyCode;
-    if (code == null) return;
     try {
-      final lobby = await ref.read(lobbyServiceProvider).fetchLobby(code);
+      final lobby = await ref.read(lobbyServiceProvider).fetchLobby(_tableCode);
       if (!ref.mounted || lobby.status != 'waiting') return;
       _updateState((s) => s.copyWith(playAgainLobbyCode: lobby.code));
     } on NotFoundException {
@@ -796,10 +779,7 @@ class GameNotifier extends _$GameNotifier {
   /// On success the screen is told to leave for the lobby, the same as when the
   /// `play_again` event arrives. Errors propagate so the screen can say so.
   Future<void> playAgain() async {
-    final code = lobbyCode;
-    if (code == null) {
-      throw StateError('The table for this game is not known');
-    }
+    final code = _tableCode;
     late final LobbyState lobby;
     await _hostAction(() async {
       lobby = await ref.read(lobbyServiceProvider).playAgain(code);
@@ -809,13 +789,8 @@ class GameNotifier extends _$GameNotifier {
   }
 
   /// Leaves the table (the lobby this game was played at).
-  ///
-  /// Without a known table there is nothing to leave on the server.
-  Future<void> leaveTable() async {
-    final code = lobbyCode;
-    if (code == null) return;
-    await ref.read(lobbyServiceProvider).leaveLobby(code);
-  }
+  Future<void> leaveTable() =>
+      ref.read(lobbyServiceProvider).leaveLobby(_tableCode);
 
   // ---------------------------------------------------------------------------
   // Reconnection handling
@@ -958,33 +933,29 @@ class GameNotifier extends _$GameNotifier {
       for (final p in players) p.playerId.toString(): p.displayName,
     };
 
-    final winningTeams = (data['winning_teams'] as List<dynamic>? ?? [])
-        .map((t) => _parseTeamId(t as String))
-        .whereType<TeamId>()
-        .toList();
+    final winningTeams = [
+      for (final t in data['winning_teams'] as List) _parseTeamId(t as String),
+    ];
 
-    final centerCards = (data['center_cards'] as List<dynamic>? ?? [])
-        .map((r) => _parseRoleId(r as String))
-        .whereType<RoleId>()
-        .toList();
+    final centerCards = [
+      for (final r in data['center_cards'] as List) _parseRoleId(r as String),
+    ];
 
-    final playerResults = (data['players'] as List<dynamic>? ?? []).map((raw) {
+    final playerResults = (data['players'] as List).map((raw) {
       final p = raw as Map<String, dynamic>;
-      final playerId = p['player_id'];
-      final playerIdStr = playerId?.toString() ?? '';
-      final voteTargetId = p['vote_target_id'];
-      final voteTargetIdStr = voteTargetId?.toString();
+      final voteTargetIdStr = (p['vote_target_id'] as int?)?.toString();
       return PlayerResult(
-        id: playerIdStr,
-        displayName: p['display_name'] as String? ?? '',
-        originalRole:
-            _parseRoleId(p['original_role'] as String? ?? '') ??
-            RoleId.villager,
-        finalRole:
-            _parseRoleId(p['final_role'] as String? ?? '') ?? RoleId.villager,
-        team: _parseTeamId(p['team'] as String? ?? '') ?? TeamId.village,
-        isEliminated: p['is_eliminated'] as bool? ?? false,
-        isWinner: (p['outcome'] as String?) == 'win',
+        id: (p['player_id'] as int).toString(),
+        displayName: p['display_name'] as String,
+        originalRole: _parseRoleId(p['original_role'] as String),
+        finalRole: _parseRoleId(p['final_role'] as String),
+        team: _parseTeamId(p['team'] as String),
+        isEliminated: p['is_eliminated'] as bool,
+        isWinner: switch (p['outcome']) {
+          'win' => true,
+          'lose' => false,
+          final other => throw FormatException('Unknown outcome: $other'),
+        },
         voteTargetId: voteTargetIdStr,
         voteTargetName: voteTargetIdStr != null
             ? playerNames[voteTargetIdStr]
@@ -995,7 +966,7 @@ class GameNotifier extends _$GameNotifier {
       );
     }).toList();
 
-    final reason = data['reason'] as String? ?? '';
+    final reason = data['reason'] as String;
 
     return GameResult(
       winningTeams: winningTeams,
@@ -1026,33 +997,37 @@ class GameNotifier extends _$GameNotifier {
 // Result parsing helpers (module-level for testability)
 // ---------------------------------------------------------------------------
 
-RoleId? _parseRoleId(String roleStr) => switch (roleStr.toLowerCase()) {
-  'werewolf' => RoleId.werewolf,
-  'minion' => RoleId.minion,
-  'villager' => RoleId.villager,
-  'seer' => RoleId.seer,
-  'robber' => RoleId.robber,
-  'troublemaker' => RoleId.troublemaker,
-  'drunk' => RoleId.drunk,
-  'insomniac' => RoleId.insomniac,
-  'mason' => RoleId.mason,
-  'hunter' => RoleId.hunter,
-  'tanner' => RoleId.tanner,
-  'doppelganger' => RoleId.doppelganger,
-  _ => null,
+/// A role as the results name it (`Werewolf`, `Seer`, ...).
+RoleId _parseRoleId(String roleStr) => switch (roleStr) {
+  'Werewolf' => RoleId.werewolf,
+  'Minion' => RoleId.minion,
+  'Villager' => RoleId.villager,
+  'Seer' => RoleId.seer,
+  'Robber' => RoleId.robber,
+  'Troublemaker' => RoleId.troublemaker,
+  'Drunk' => RoleId.drunk,
+  'Insomniac' => RoleId.insomniac,
+  'Mason' => RoleId.mason,
+  'Hunter' => RoleId.hunter,
+  'Tanner' => RoleId.tanner,
+  'Doppelganger' => RoleId.doppelganger,
+  _ => throw FormatException('Unknown role in the results: $roleStr'),
 };
 
-TeamId? _parseTeamId(String teamStr) => switch (teamStr.toLowerCase()) {
+/// A player's `team` (`neutral` for the Tanner) or a winning team (`tanner`).
+TeamId _parseTeamId(String teamStr) => switch (teamStr) {
   'werewolf' => TeamId.werewolf,
   'village' => TeamId.village,
   'neutral' || 'tanner' => TeamId.independent,
-  _ => null,
+  _ => throw FormatException('Unknown team in the results: $teamStr'),
 };
 
+/// Null for a player who was not eliminated.
 EliminationReason? _parseEliminationReason(String? reason) => switch (reason) {
+  null => null,
   'vote' => EliminationReason.vote,
   'hunter_chain' => EliminationReason.hunterChain,
-  _ => null,
+  _ => throw FormatException('Unknown elimination reason: $reason'),
 };
 
 /// Provides the [ReconnectingWebSocket] instance for a given game ID.
