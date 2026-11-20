@@ -495,3 +495,14 @@ Doppelganger's look resolves the moment she chooses). Two rules close what the r
   everyone else's.
 
 **Votes:** under the new night the server never announces who locked, only the count.
+
+**"What you saw" is not a separate screen, and has no timed gate.** The 4-second wait before
+"Done" (section 3, 07) was an added delay and is withdrawn, and without it a separate 07
+screen would show who had little to read. So when the last night window closes every phone
+goes straight to 08 Talk at the same moment (the talk's clock is already running on the
+server). "My night" on 08 is the hold box that shows it: page 1 "Dealt: {role}", then the
+window pages and the result faces from the "07 faces" table, the same number of pages on
+every phone. In a player's first game the `hold` cue breathes on "My night"; "Ready to vote"
+stays locked until it has been held once this game, as already specified. The results ack is
+sent the first time "My night" has been held for 0.8 s. Screen 07 and its copy ("What you
+saw", "Done") are removed; 05 is shown only while `/me/` loads.
