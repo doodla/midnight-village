@@ -130,8 +130,9 @@ def submit_choose(
         acting = svc.get_player_acting_role_for_wave(pr, window)
         # One look: a Doppelganger who has not copied has had her look (her first
         # choose, whatever it held), so a later choose of hers reads as nothing.
+        reads = acting is not None and not (acting == "Doppelganger" and chosen >= 1)
         reading = None
-        if acting is not None and not (acting == "Doppelganger" and chosen >= 1):
+        if reads:
             reading = interpret_choice(
                 acting,
                 picks,
@@ -140,7 +141,7 @@ def submit_choose(
 
         data: dict[str, Any] = dict(pr.night_action_data)
         data[f"chose_{window}"] = chosen + 1
-        if acting is not None and not (acting == "Doppelganger" and chosen >= 1):
+        if reads:
             # A role with something to do this window: the latest choose replaces
             # what an earlier one stored (a Doppelganger's follow-up replaces her
             # look's record; the look itself is already resolved and logged).

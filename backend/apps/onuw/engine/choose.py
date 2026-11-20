@@ -41,8 +41,9 @@ PickKind = Literal["player", "center", "self"]
 
 MAX_PICKS = 2
 # How many ``choose`` a phone may send in a night window. Window 1 takes two from
-# every phone (the Doppelganger's look, then her follow-up, so a second tap is not a
-# tell); window 2 takes exactly one.
+# every phone (the Doppelganger's look, then her follow-up, so a second choose gets
+# the same answer from anyone; that her phone SENDS a second request is visible on the
+# network, an accepted tell); window 2 takes exactly one.
 MAX_CHOOSES = {1: 2, 2: 1}
 
 
@@ -222,8 +223,9 @@ def chooses_left(window: int, acting_role: str | None, chosen: int) -> int:
     ``kind`` does not (her follow-up prompt already names the copied role's kind,
     and a copied Minion is waited for twice, as ``night2.ready_to_close`` says), and
     only to her: it is in her own ``GET /me/``. ``max_chooses`` stays what the
-    server ACCEPTS (two from anyone in window 1, so a second tap is no tell); this is
-    what the phone should send.
+    server ACCEPTS (two from anyone in window 1); this is what the phone should
+    send. (Her second request in window 1 is itself visible on the network: an
+    accepted tell, ``docs/specs/onuw/api-contract-v2.md``, "Third amendment".)
     """
     expected = 2 if window == 1 and chosen >= 1 and acting_role is not None else 1
     return max(0, expected - chosen)

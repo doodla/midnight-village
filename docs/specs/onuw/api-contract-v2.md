@@ -747,6 +747,12 @@ check:
   client spoke protocol 2 yet when this was added (the app in this repository has the
   night board but no protocol-2 request yet; the harness and the samples send it).
 
+**After ANY choose answered 200 the phone re-reads `GET /me/` and trusts its `chosen` and
+`chooses_left`, never the 200.** The 200 says only that the server holds a choose for the
+prompt the request named. A choose built from a STALE prompt (its `chosen` already passed)
+is answered the same 200 and is stored nowhere: if the phone meant it as a new choose,
+only `/me/` shows that it was not taken (`chosen` did not move, `chooses_left` is still 1).
+
 `409 already_chosen` stays for exactly one case: a choose that answers a prompt that is
 used up (`chosen` == `max_chooses`): a second phone of the same player, or a client that
 ignores its prompt. A resend never gets it. A resend that arrives after its stage ended
@@ -759,12 +765,20 @@ wrong_stage`, nothing stored, as for any late tap; the phone reads `/me/`.
 | Request | A resend while its stage is open | A resend after its first copy ended the stage |
 |---|---|---|
 | `ready` (look, talk) | sets the flag to the same value: same answer | `409 wrong_stage` |
-| `vote` pick | stores the same pick: same answer | n/a (a pick ends nothing) |
+| `vote` pick | stores the same pick: same answer; resent after its own lock: `409 vote_locked` (nothing changes) | n/a (a pick ends nothing) |
 | `vote` lock | **same lock again: `200 {"status":"submitted"}`, nothing stored or sent** (was `409 vote_locked`); any other pick or lock after locking is still `409 vote_locked`; protocol 1 unchanged | `409 wrong_stage` (the last lock revealed) |
 | `night-results/seen` | `GREATEST`: same answer | no stage |
 | `advance-wave`, `end-discussion`, `reveal-votes` | always end their stage | `409 wrong_stage` |
 | lobby `start` | n/a | `400` "Lobby is not in waiting state." (Lobby row lock: one game) |
 | lobby `play-again` | `200`, the same lobby body | `409` once the next game is dealt |
+| lobby `join` | state unchanged; the answer differs: `400 already_in_lobby` | n/a |
+| lobby `leave` | state unchanged; the answer differs: `400` "You are not in this lobby." (`404` if the leaver was the last member and the lobby is gone) | n/a |
+| lobby settings `PATCH`, lobby `ready` | merges / sets the same values: same answer | n/a |
+
+For the lobby requests whose second answer differs (`join`, `leave`, `start`), the client
+treats that answer to its own resend as success and reads the lobby (`GET /lobbies/<code>/`
+or `GET /api/me/table/`). There is no kick and no token-change endpoint today; when one is
+added it needs a row here and a test in `test_resend.py`.
 
 A stale resend that overtakes a NEWER request of the same phone (a pick resent after a
 different pick) is a client ordering matter: the app sends a phone's requests one at a
@@ -793,5 +807,10 @@ else's; protocol 1 is unchanged.
   Doppelganger when the copied role acts in window 1 (Seer, Robber, Troublemaker, Drunk,
   Minion). It says nothing her own prompt's `kind` does not already say to her, it is the
   same width for every phone, and it is only in her own `/me/`. `max_chooses` stays what
-  the server accepts (two in window 1 from anyone, so a second tap is no tell). The legacy
+  the server accepts (two in window 1 from anyone). **An accepted tell:** phones send one
+  choose per window, so an armed Doppelganger's phone is the only one that sends a SECOND
+  `POST .../action/` in window 1. Someone watching the table's network traffic can see
+  that extra request (not its content). The answer is the same bytes as anyone's, and the
+  server would take a second choose from any phone; the extra request itself is visible
+  and accepted, as is her look's extra work in her first request (`backend/CLAUDE.md`). The legacy
   `has_voted` and `your_role.has_acted` are still sent; they go with the cleanup slice.

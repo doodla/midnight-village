@@ -1227,6 +1227,42 @@ class TestNightUniformity:
         for foreign in ("Seer", "Robber", "Troublemaker", "Drunk", "Minion", "Mason"):
             assert foreign not in text.replace("Insomniac", "")
 
+    def test_a_choice_that_did_nothing_is_told_only_to_its_own_phone(
+        self, make_p2
+    ) -> None:
+        """The Seer, Robber and Drunk pick nothing valid (a skip, a skip, the
+        server's swap); the Troublemaker acts. Only those three phones are told
+        ``nothing_chosen``, each about itself; no other seat's /me/ carries a
+        skip or the flag, in any window."""
+        night = make_p2(TEN)
+        night.start()
+        finish_window_two(
+            night,
+            {
+                "seer": [SELF],
+                "robber": [center(0)],
+                "drunk": [SELF],
+                "trouble": [player(night, "wolf1"), player(night, "mason1")],
+            },
+        )
+
+        told = {
+            name
+            for name in TEN
+            if "nothing_chosen" in repr(me(night, name)["night_results"])
+        }
+        skips = {
+            name
+            for name in TEN
+            for r in me(night, name)["night_results"]
+            if r["action_type"] == "skip"
+        }
+        assert told == {"seer", "robber", "drunk"}
+        assert skips == {"seer", "robber"}
+        for name in TEN:
+            assert all(r["wave"] == 2 for r in me(night, name)["night_results"])
+            assert len(me(night, name)["night_results"]) <= 1  # its own one only
+
 
 # ── the setting ──────────────────────────────────────────────────────────────
 

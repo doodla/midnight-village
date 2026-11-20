@@ -32,6 +32,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
+from apps.core.models import LobbyMember
 from apps.onuw import night2, services
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import staged
@@ -573,6 +574,63 @@ class TestLobbyRequestsResent:
         assert table.lobby().status == lobby.status
         assert table.lobby().games.count() == 1
 
+    @staticmethod
+    def lobby_state(table) -> tuple:
+        lobby = table.lobby()
+        members = sorted(
+            (m.user_id, m.token, m.is_ready)
+            for m in LobbyMember.objects.filter(lobby=lobby)
+        )
+        return lobby.status, lobby.settings, lobby.host_id, members
+
+    def test_a_resent_join_changes_nothing_but_answers_already_in_lobby(
+        self, db
+    ) -> None:
+        """The client treats ``already_in_lobby`` on its own resend as success."""
+        from tests.onuw.test_play_again import Table
+
+        table = Table(players=4)
+        newcomer = Table(players=1).clients[0]  # signed in, at no table yet
+        url = reverse("core:lobby-join", kwargs={"code": table.code})
+        assert newcomer.post(url).status_code == status.HTTP_200_OK
+        before = self.lobby_state(table)
+
+        again = newcomer.post(url)
+
+        assert again.status_code == status.HTTP_400_BAD_REQUEST
+        assert again.data["code"] == "already_in_lobby"
+        assert self.lobby_state(table) == before
+
+    def test_a_resent_leave_changes_nothing_but_answers_not_in_lobby(self, db) -> None:
+        from tests.onuw.test_play_again import Table
+
+        table = Table()
+        url = reverse("core:lobby-leave", kwargs={"code": table.code})
+        assert table.clients[-1].post(url).status_code == status.HTTP_200_OK
+        before = self.lobby_state(table)
+
+        again = table.clients[-1].post(url)
+
+        assert again.status_code == status.HTTP_400_BAD_REQUEST
+        assert self.lobby_state(table) == before
+
+    def test_a_resent_settings_patch_and_ready_answer_alike(self, db) -> None:
+        from tests.onuw.test_play_again import Table
+
+        table = Table()
+        detail = reverse("core:lobby-detail", kwargs={"code": table.code})
+        ready = reverse("core:lobby-ready", kwargs={"code": table.code})
+        for client, url, body, method in (
+            (table.host, detail, {"settings": {"pace": "quick"}}, "patch"),
+            (table.clients[1], ready, {"is_ready": False}, "post"),
+        ):
+            first = getattr(client, method)(url, body, format="json")
+            before = self.lobby_state(table)
+            again = getattr(client, method)(url, body, format="json")
+            assert first.status_code == again.status_code == status.HTTP_200_OK
+            assert first.data == again.data
+            assert self.lobby_state(table) == before
+
 
 # ── the property: twice is once ──────────────────────────────────────────────
 
@@ -811,64 +869,105 @@ class TestTwiceIsOnce:
 
     @pytest.mark.parametrize("seed", range(12))
     def test_a_whole_seeded_game_with_every_request_resent_ends_as_without(
-        self, make_p2, seed: int
+        self, make_p2, monkeypatch, seed: int
     ) -> None:
-        """Random picks for a random Doppelganger table: every request of the game
-        (chooses in both windows, ready, locks) is sent, then sent again, and the
-        copy never changes anything; the night ends as the picks say."""
-        rng = random.Random(seed)  # noqa: S311 (seeded test data, not secret)
-        others = ["Robber", "Seer", "Troublemaker", "Drunk", "Werewolf", "Villager"]
-        rng.shuffle(others)
-        roles = {"dop": "Doppelganger"} | {
-            f"p{i}": role for i, role in enumerate(others[:4])
-        }
-        night = make_p2(roles)
-        night.start()
-        names = list(roles)
-
-        def random_picks(who: str) -> list:
-            board = [player(night, n) for n in names if n != who]
-            board += [{"center_index": i} for i in range(3)] + [SELF]
-            return rng.sample(board, rng.randint(0, 2))
-
-        def twice(who: str, url_name: str, body: Any) -> None:
-            first = send(night, who, url_name, body)
-            once = snapshot(night)
-            second = send(night, who, url_name, body)
-            assert first.status_code == status.HTTP_200_OK, (who, body, first.data)
-            assert snapshot(night) == once, (who, body)
-            assert second.status_code == 200 or second.data["code"] == "wrong_stage"
-
-        # Window 1: she looks, then (if she copied) follows up; everyone else once.
-        order = names[:]
-        rng.shuffle(order)
-        for who in order:
-            twice(who, "onuw:night-action", choose_body(night, who, random_picks(who)))
-        twice(
-            "dop", "onuw:night-action", choose_body(night, "dop", random_picks("dop"))
+        """Random picks for a random Doppelganger table, played twice from the same
+        seed: once sending every request once, once sending every request (chooses
+        in both windows, ready, locks) and then sending it again. Every copy changes
+        nothing, and the two games end the same: cards, log, votes and winners."""
+        # The server's Drunk default is seeded by the player id, which differs
+        # between the two tables; tie it to the game seed so they are comparable.
+        monkeypatch.setattr(
+            services, "drunk_timeout_center_index", lambda seed_, _pid, n: seed_ % n
         )
-        expected_chosen = {n: 2 if n == "dop" else 1 for n in names}
-        assert {n: chosen_now(night, n) for n in names} == expected_chosen
-        night.fire_timer(1)
-        assert night.refresh().current_wave == 2
+        plain = _play_seeded_game(make_p2, seed, "a", resend=False)
+        resent = _play_seeded_game(make_p2, seed, "b", resend=True)
 
-        rng.shuffle(order)
-        for who in order:
-            twice(who, "onuw:night-action", choose_body(night, who, random_picks(who)))
-        assert night.refresh().phase == Phase.DISCUSSION
-        # One log entry per action: no resend added one.
-        log = night.game.night_actions_log
-        keys = [(e["player_id"], e["role_acting_as"], e["wave"]) for e in log]
-        assert len(keys) == len(set(keys))
+        assert resent == plain
 
-        for who in names:
-            twice(who, "onuw:ready", staged(night, {"ready": True}))
-        assert night.refresh().phase == Phase.VOTING
-        for i, who in enumerate(names):
-            target = names[(i + 1) % len(names)]
-            twice(
-                who,
-                "onuw:vote",
-                staged(night, {"target_player_id": pid(night, target), "lock": True}),
+
+def _play_seeded_game(make_p2, seed: int, prefix: str, *, resend: bool) -> dict:
+    """Play one seeded protocol-2 game to the results and return its outcome with
+    every player id replaced by the player's seat (comparable across tables)."""
+    rng = random.Random(seed)  # noqa: S311 (seeded test data, not secret)
+    others = ["Robber", "Seer", "Troublemaker", "Drunk", "Werewolf", "Villager"]
+    rng.shuffle(others)
+    dop = f"{prefix}dop"
+    roles = {dop: "Doppelganger"} | {
+        f"{prefix}{i}": role for i, role in enumerate(others[:4])
+    }
+    night = make_p2(roles)
+    night.start()
+    names = list(roles)
+    seat = {pid(night, n): i for i, n in enumerate(names)}
+
+    def random_picks(who: str) -> list:
+        board = [player(night, n) for n in names if n != who]
+        board += [{"center_index": i} for i in range(3)] + [SELF]
+        return rng.sample(board, rng.randint(0, 2))
+
+    def request(who: str, url_name: str, body: Any) -> None:
+        first = send(night, who, url_name, body)
+        assert first.status_code == status.HTTP_200_OK, (who, body, first.data)
+        if not resend:
+            return
+        once = snapshot(night)
+        second = send(night, who, url_name, body)
+        assert snapshot(night) == once, (who, body)
+        assert second.status_code == 200 or second.data["code"] == "wrong_stage"
+
+    # Window 1: everyone chooses once (her first is the look), then she again.
+    order = names[:]
+    rng.shuffle(order)
+    for who in order:
+        request(who, "onuw:night-action", choose_body(night, who, random_picks(who)))
+    request(dop, "onuw:night-action", choose_body(night, dop, random_picks(dop)))
+    assert {n: chosen_now(night, n) for n in names} == {
+        n: 2 if n == dop else 1 for n in names
+    }
+    night.fire_timer(1)
+    assert night.refresh().current_wave == 2
+
+    rng.shuffle(order)
+    for who in order:
+        request(who, "onuw:night-action", choose_body(night, who, random_picks(who)))
+    assert night.refresh().phase == Phase.DISCUSSION
+
+    for who in names:
+        request(who, "onuw:ready", staged(night, {"ready": True}))
+    assert night.refresh().phase == Phase.VOTING
+    for who in names:
+        target = rng.choice([n for n in names if n != who])
+        body = {"target_player_id": pid(night, target), "lock": True}
+        request(who, "onuw:vote", staged(night, body))
+    game = night.refresh()
+    assert game.phase == Phase.RESULTS
+
+    def targets(t: dict) -> dict:
+        out = dict(t)
+        if "player_id" in out:
+            out["player_id"] = seat[out["player_id"]]
+        if "player_ids" in out:
+            out["player_ids"] = [seat[i] for i in out["player_ids"]]
+        return out
+
+    rows = {pr.user_id: pr for pr in PlayerRole.objects.filter(game=game)}
+    results = game.results
+    return {
+        "cards": [rows[pid(night, n)].current_role for n in names],
+        "center": list(game.center_cards),
+        "log": [
+            (
+                seat[e["player_id"]],
+                e["role_acting_as"],
+                e["action_type"],
+                targets(e["targets"]),
+                e.get("made_by_server", False),
             )
-        assert night.refresh().phase == Phase.RESULTS
+            for e in game.night_actions_log
+        ],
+        "votes": [seat[rows[pid(night, n)].vote_target_id] for n in names],
+        "winning_teams": sorted(results["winning_teams"]),
+        "eliminated": sorted(seat[i] for i in results["eliminated_players"]),
+        "outcomes": {seat[int(k)]: v for k, v in results["player_outcomes"].items()},
+    }

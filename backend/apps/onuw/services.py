@@ -308,9 +308,9 @@ def _visible_result_entries(
     nothing (``"nothing_chosen": true``); every other action, including a swap whose
     engine result is empty (the client learns its slot / the names it swapped from
     the action), was sent over the socket. A window that is still open contributes
-    nothing: nothing reaches a player before its window closes (the Doppelganger's look, which is sent early
-    because she needs it to choose her follow-up, is held back until window 1
-    closes).
+    nothing: nothing reaches a player before its window closes (the Doppelganger's
+    look, which is sent early because she needs it to choose her follow-up, is held
+    back until window 1 closes).
 
     Under night protocol 2 nothing is sent by socket at all, so the Doppelganger's
     look is listed as soon as it is resolved, even while window 1 is open (she needs
