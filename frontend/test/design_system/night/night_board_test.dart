@@ -1,12 +1,15 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
+import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/skin/skin_tilt.dart';
 import 'package:midnight_village/design_system/teach/cue_wave.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 
@@ -350,17 +353,71 @@ void main() {
     });
   });
 
-  testWidgets('with large text it wraps to rows of four', (tester) async {
-    tester.platformDispatcher.textScaleFactorTestValue = 2;
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await BoardHarness.of(Viewer.drunk).pump(tester);
-    final rows = <double, int>{};
-    for (final element in find.byType(FaceDownCard).evaluate()) {
-      final top = tester.getTopLeft(find.byWidget(element.widget)).dy;
-      rows[top] = (rows[top] ?? 0) + 1;
+  group('the look', () {
+    /// The seats' cards and the table's, by the top of where they lie.
+    Map<double, List<FaceDownCard>> rows(WidgetTester tester) {
+      final rows = <double, List<FaceDownCard>>{};
+      for (final element in find.byType(FaceDownCard).evaluate()) {
+        final card = element.widget as FaceDownCard;
+        final top = tester.getTopLeft(find.byWidget(card)).dy;
+        (rows[top] ??= []).add(card);
+      }
+      return rows;
     }
-    expect(rows.values, everyElement(lessThanOrEqualTo(4)));
-    expect(tester.takeException(), isNull);
+
+    testWidgets('five at the table sit three and two, the table\'s cards '
+        'smaller and tilted on their own strip under them', (tester) async {
+      await BoardHarness.of(Viewer.seer).pump(tester);
+      final byTop = rows(tester);
+      final counts = [
+        for (final top in byTop.keys.toList()..sort()) byTop[top]!,
+      ];
+      expect([for (final row in counts) row.length], [3, 2, 3]);
+      final seat = tester.getSize(find.byWidget(counts.first.first));
+      final center = counts.last;
+      expect(center.map((c) => c.caption), [
+        NightCopy.left,
+        NightCopy.middle,
+        NightCopy.right,
+      ]);
+      expect(center.map((c) => c.tilt), [
+        for (var i = 0; i < 3; i++) Tilt.scatter(i),
+      ]);
+      expect(
+        tester.getSize(find.byWidget(center.first)).width,
+        lessThan(seat.width),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('every name is set at one size; "You" alone on its place '
+        'card', (tester) async {
+      await BoardHarness.of(Viewer.drunk).pump(tester);
+      final seats = [
+        for (final element in find.byType(FaceDownCard).evaluate())
+          if ((element.widget as FaceDownCard).ownerName != null)
+            element.widget as FaceDownCard,
+      ];
+      expect(seats.map((c) => c.nameSize).toSet(), hasLength(1));
+      expect(seats.where((c) => c.mine).map((c) => c.ownerName), [
+        NightCopy.you,
+      ]);
+    });
+
+    testWidgets('with large text the words grow only so far, and the cards '
+        'stay the board\'s', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await BoardHarness.of(Viewer.drunk).pump(tester);
+      double scaleOf(String text) => tester
+          .renderObject<RenderParagraph>(find.text(text).first)
+          .textScaler
+          .scale(1);
+      expect(scaleOf(NightCopy.you), NightBoard.labelScale);
+      expect(scaleOf(CommonCopy.nightTitle), NightBoard.labelScale);
+      expect(scaleOf(NightCopy.chooseNone), NightBoard.buttonScale);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   test('picks go to the server as the contract has them', () {
