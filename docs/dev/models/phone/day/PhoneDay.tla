@@ -1,0 +1,226 @@
+---------------------------- MODULE PhoneDay ----------------------------
+(* ONE phone from the talk to the next game: the ready and vote lanes of    *)
+(* the Outbox, /me/ and /me/table/, the results, play again.                *)
+(* Modelled from protocol_two_game.dart (_submit, _send, _next, refresh,    *)
+(* _accept, _armHealing, _loadOutcome, apply), outbox.dart, table_screen.   *)
+(* dart (tableScreen), screen_table.dart (screenFor), where_am_i_provider.  *)
+(* Game 1: 0 talk, 1 vote, 2 results; then play again (table waiting) and   *)
+(* game 2 dealt (its first stage only: "night").                            *)
+EXTENDS Naturals, FiniteSets, TLC
+
+CONSTANTS MaxFaults, MaxTaps, FIX_HEAL,
+          HOST_MOVES_ON  \* the host eventually plays again and deals (else the table may stay at the results)
+
+Lanes == {"ready", "vote"}
+NoTab == [status |-> "none", game |-> 0, phase |-> 0]
+NoReq == [lane |-> "-", st |-> 9, val |-> "-", lock |-> FALSE, tap |-> 0]
+
+VARIABLES
+  sv, sReady, sVote, sLocked, sLast, badOrder, table,   \* server
+  reqs, reps,                                          \* lane requests and answers in flight
+  snap, cur, que, conts,                               \* phone: /me/ of game 1, outbox, awaits
+  fq, fv, again,                                       \* /me/ fetch loop of game 1
+  tq, tv, tab,                                         \* /me/table/: in flight, read value, held value
+  oq, outcome,                                         \* GET results/
+  ev, tev, taps, faults
+
+vars == <<sv, sReady, sVote, sLocked, sLast, badOrder, table, reqs, reps, snap, cur, que, conts,
+          fq, fv, again, tq, tv, tab, oq, outcome, ev, tev, taps, faults>>
+srvVars == <<sv, sReady, sVote, sLocked, sLast, badOrder, table>>
+phoneVars == <<snap, cur, que, conts, fq, fv, again, tq, tv, tab, oq, outcome>>
+
+\* what /me/ says; what /me/table/ says
+MeView == [st |-> sv, ready |-> sReady, vote |-> sVote, locked |-> sLocked]
+TableView == table
+
+(* Outbox.on, for the vote and ready lanes: the latest tap of its stage *)
+Shown(l) == IF que[l] # NoReq THEN que[l] ELSE cur[l].req
+Me ==
+  LET r == Shown("ready") v == Shown("vote") IN
+  [st |-> snap.st,
+   ready |-> IF r # NoReq /\ r.st = snap.st THEN r.val = "on" ELSE snap.ready,
+   vote |-> IF v # NoReq /\ v.st = snap.st THEN v.val ELSE snap.vote,
+   locked |-> IF v # NoReq /\ v.st = snap.st THEN v.lock ELSE snap.locked]
+
+(* screenFor: table first, then /me/ of the table's game *)
+Screen ==
+  IF tab = NoTab THEN "loading"
+  ELSE IF tab.status = "waiting" THEN "02 table"
+  ELSE IF tab.game = 2 THEN "06 night (game 2)"
+  ELSE LET ph == IF snap.st >= tab.phase THEN snap.st ELSE tab.phase IN
+       CASE ph = 0 -> "08 talk" [] ph = 1 -> "09 vote" [] OTHER -> "10 count"
+Truth ==
+  IF table.status = "waiting" THEN "02 table"
+  ELSE IF table.game = 2 THEN "06 night (game 2)"
+  ELSE CASE sv = 0 -> "08 talk" [] sv = 1 -> "09 vote" [] OTHER -> "10 count"
+
+Refresh == IF fq # "none" THEN again' = TRUE /\ UNCHANGED fq ELSE fq' = "sent" /\ again' = FALSE
+\* ref.invalidate(myTableProvider): a new fetch; an older one's answer is ignored
+InvalidateTable == tq' = "sent"
+
+(* ---------------- server ---------------- *)
+\* the talk / vote ends on its timer (or everyone is ready / locked)
+SAdvance ==
+  /\ table.game = 1 /\ sv < 2 /\ sv' = sv + 1 /\ ev' = TRUE
+  /\ table' = [table EXCEPT !.phase = sv + 1, !.status = IF sv + 1 = 2 THEN "finished" ELSE "game"]
+  /\ IF sv = 0 THEN sVote' = "none" /\ sLocked' = FALSE ELSE UNCHANGED <<sVote, sLocked>>
+  /\ UNCHANGED <<sReady, sLast, badOrder, reqs, reps, phoneVars, tev, taps, faults>>
+\* the host plays again (table waiting), then deals game 2
+SPlayAgain ==
+  /\ sv = 2 /\ table.status = "finished" /\ table' = [table EXCEPT !.status = "waiting"] /\ tev' = TRUE
+  /\ UNCHANGED <<sv, sReady, sVote, sLocked, sLast, badOrder, reqs, reps, phoneVars, ev, taps, faults>>
+SDeal ==
+  /\ table.status = "waiting" /\ table' = [status |-> "game", game |-> 2, phase |-> 0] /\ tev' = TRUE
+  /\ UNCHANGED <<sv, sReady, sVote, sLocked, sLast, badOrder, reqs, reps, phoneVars, ev, taps, faults>>
+
+SProcess(r) ==
+  LET ok == r.st = sv /\ table.game = 1
+      ans == IF ~ok THEN "stale"
+             ELSE IF r.lane = "vote" /\ sLocked THEN (IF r.lock /\ r.val = sVote THEN "taken" ELSE "stale")
+             ELSE "taken"
+      store == ok /\ ~(r.lane = "vote" /\ sLocked)
+  IN /\ reqs' = reqs \ {r}
+     /\ IF store /\ r.lane = "ready" THEN sReady' = (r.val = "on") ELSE UNCHANGED sReady
+     /\ IF store /\ r.lane = "vote" THEN sVote' = r.val /\ sLocked' = r.lock ELSE UNCHANGED <<sVote, sLocked>>
+     /\ IF store THEN /\ sLast' = [sLast EXCEPT ![r.lane] = IF r.tap > @ THEN r.tap ELSE @]
+                      /\ badOrder' = (badOrder \/ r.tap < sLast[r.lane])
+        ELSE UNCHANGED <<sLast, badOrder>>
+     /\ reps' = IF r.live THEN reps \cup {[lane |-> r.lane, tap |-> r.tap, ans |-> ans]} ELSE reps
+     /\ UNCHANGED <<sv, table, phoneVars, ev, tev, taps, faults>>
+
+(* ---------------- phone: fetches ---------------- *)
+FetchServe == fq = "sent" /\ fq' = "served" /\ fv' = MeView
+              /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, again, tq, tv, tab, oq, outcome, ev, tev, taps, faults>>
+\* _accept: drop an older stage; afterFetch drops taps of other stages and
+\* confirmed ones; the results load the outcome; queued taps go
+AfterFetch(c, v) == IF c.req # NoReq /\ (c.req.st # v.st \/ c.leg = "conf") THEN [req |-> NoReq, leg |-> "none"] ELSE c
+FetchApply ==
+  /\ fq = "served"
+  /\ IF fv.st < snap.st THEN UNCHANGED <<snap, cur, que, oq>>
+     ELSE /\ snap' = fv
+          /\ cur' = [l \in Lanes |-> AfterFetch(cur[l], fv)]
+          /\ que' = [l \in Lanes |-> IF que[l] # NoReq /\ que[l].st # fv.st THEN NoReq ELSE que[l]]
+          /\ oq' = IF fv.st = 2 /\ outcome = "none" /\ oq = "none" THEN "sent" ELSE oq
+  /\ IF again THEN fq' = "sent" /\ again' = FALSE ELSE fq' = "none" /\ UNCHANGED again
+  /\ UNCHANGED <<srvVars, reqs, reps, conts, fv, tq, tv, tab, outcome, ev, tev, taps, faults>>
+FetchFail ==
+  /\ fq # "none" /\ faults < MaxFaults /\ faults' = faults + 1
+  /\ IF again THEN fq' = "sent" /\ again' = FALSE ELSE fq' = "none" /\ UNCHANGED again
+  /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fv, tq, tv, tab, oq, outcome, ev, tev, taps>>
+\* _armHealing: after the stage's deadline (talk and vote have one; the results none)
+Heal ==
+  /\ snap.st < 2 /\ snap.st < sv /\ fq = "none" /\ Refresh
+  /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fv, tq, tv, tab, oq, outcome, ev, tev, taps, faults>>
+\* proposed: while at the results (no deadline), poll /me/table/ slowly
+PollTable ==
+  /\ FIX_HEAL /\ tab # NoTab /\ (snap.st = 2 \/ tab.status = "waiting")
+  /\ tq = "none" /\ tab # table /\ InvalidateTable
+  /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fq, fv, again, tv, tab, oq, outcome, ev, tev, taps, faults>>
+EvDeliver ==   \* phase_change / progress etc. of game 1: fetch
+  /\ ev /\ ev' = FALSE /\ Refresh
+  /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fv, tq, tv, tab, oq, outcome, tev, taps, faults>>
+TevDeliver ==  \* table_moved / play again: /me/table/ again (and /me/)
+  /\ tev /\ tev' = FALSE /\ InvalidateTable /\ Refresh
+  /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fv, tv, tab, oq, outcome, ev, taps, faults>>
+EvDrop == \/ ev /\ ev' = FALSE /\ UNCHANGED <<srvVars, reqs, reps, phoneVars, tev, taps, faults>>
+          \/ tev /\ tev' = FALSE /\ UNCHANGED <<srvVars, reqs, reps, phoneVars, ev, taps, faults>>
+TableServe == tq = "sent" /\ tq' = "served" /\ tv' = TableView
+              /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fq, fv, again, tab, oq, outcome, ev, tev, taps, faults>>
+\* the held value is kept while it is fetched again (tableScreen)
+TableApply ==
+  /\ tq = "served" /\ tq' = "none" /\ tab' = tv /\ tv' = NoTab
+  \* _compareTable: the table is ahead of /me/: fetch /me/ once
+  /\ IF tv.game = 1 /\ tv.phase > snap.st THEN Refresh ELSE UNCHANGED <<fq, again>>
+  /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fv, oq, outcome, ev, tev, taps, faults>>
+TableFail == tq # "none" /\ faults < MaxFaults /\ faults' = faults + 1 /\ tq' = "none" /\ tv' = NoTab
+             /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fq, fv, again, tab, oq, outcome, ev, tev, taps>>
+OutcomeOk == oq = "sent" /\ sv = 2 /\ oq' = "none" /\ outcome' = "loaded"
+             /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fq, fv, again, tq, tv, tab, ev, tev, taps, faults>>
+OutcomeFail == oq = "sent" /\ faults < MaxFaults /\ faults' = faults + 1 /\ oq' = (IF FIX_HEAL THEN "sent" ELSE "none")
+               /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fq, fv, again, tq, tv, tab, outcome, ev, tev, taps>>
+
+(* ---------------- phone: taps through the outbox ---------------- *)
+Send(l, r) == /\ cur' = [cur EXCEPT ![l] = [req |-> r, leg |-> "flight"]]
+              /\ reqs' = reqs \cup {[r EXCEPT !.lane = l] @@ [live |-> TRUE]}
+Submit(l, r) ==
+  IF cur[l].leg = "flight"
+  THEN que' = [que EXCEPT ![l] = r] /\ UNCHANGED <<cur, reqs>>
+  ELSE Send(l, r) /\ que' = [que EXCEPT ![l] = NoReq]
+
+TapReady ==   \* 08 "Ready to vote", a toggle
+  /\ tab # NoTab /\ Screen = "08 talk" /\ snap.st = 0 /\ taps < MaxTaps /\ taps' = taps + 1
+  /\ Submit("ready", [lane |-> "ready", st |-> 0, val |-> IF Me.ready THEN "off" ELSE "on", lock |-> FALSE, tap |-> taps + 1])
+  /\ UNCHANGED <<srvVars, reps, snap, conts, fq, fv, again, tq, tv, tab, oq, outcome, ev, tev, faults>>
+TapVote(val, lock) ==   \* 09: pick a row, or lock in the one shown
+  /\ tab # NoTab /\ Screen = "09 vote" /\ snap.st = 1 /\ ~Me.locked /\ taps < MaxTaps /\ taps' = taps + 1
+  /\ lock => Me.vote # "none"
+  /\ Submit("vote", [lane |-> "vote", st |-> 1, val |-> IF lock THEN Me.vote ELSE val, lock |-> lock, tap |-> taps + 1])
+  /\ UNCHANGED <<srvVars, reps, snap, conts, fq, fv, again, tq, tv, tab, oq, outcome, ev, tev, faults>>
+TapVoteStep == \/ TapVote("A", FALSE) \/ TapVote("B", FALSE) \/ TapVote("-", TRUE)
+
+\* _send's answer; then _next sends the queued tap (unless it asks for what
+\* was just confirmed)
+Next1(l, c2) ==
+  IF que[l] # NoReq /\ c2.leg # "flight"
+  THEN IF c2.leg = "conf" /\ c2.req = que[l] THEN que' = [que EXCEPT ![l] = NoReq] /\ cur' = [cur EXCEPT ![l] = c2] /\ UNCHANGED reqs
+       ELSE /\ cur' = [cur EXCEPT ![l] = [req |-> que[l], leg |-> "flight"]] /\ que' = [que EXCEPT ![l] = NoReq]
+            /\ reqs' = (reqs \ {}) \cup {que[l] @@ [live |-> TRUE]}
+  ELSE cur' = [cur EXCEPT ![l] = c2] /\ UNCHANGED <<que, reqs>>
+Answer(l, tap, ans) ==
+  LET match == cur[l].req # NoReq /\ cur[l].req.tap = tap /\ cur[l].leg = "flight"
+      c2 == IF ~match THEN cur[l]
+            ELSE CASE ans \in {"taken", "stale"} -> [cur[l] EXCEPT !.leg = "conf"]
+                   [] OTHER -> [cur[l] EXCEPT !.leg = "unsent"]
+  IN /\ Next1(l, c2)
+     /\ IF match /\ ans = "stale" THEN Refresh ELSE UNCHANGED <<fq, again>>
+Reply ==
+  \E r \in reps : /\ reps' = reps \ {r} /\ Answer(r.lane, r.tap, r.ans)
+                  /\ UNCHANGED <<srvVars, snap, conts, fv, tq, tv, tab, oq, outcome, ev, tev, taps, faults>>
+\* no answer in time: notSent ("Try again"); the request may still arrive later
+Timeout ==
+  \E l \in Lanes :
+    /\ cur[l].leg = "flight" /\ faults < MaxFaults /\ faults' = faults + 1
+    /\ LET t == cur[l].req.tap IN
+       /\ reps' = {x \in reps : ~(x.lane = l /\ x.tap = t)}
+       /\ Answer(l, t, "notSent")
+       /\ \* the request's answer, if it ever comes, goes nowhere
+          TRUE
+    /\ UNCHANGED <<srvVars, snap, conts, fv, tq, tv, tab, oq, outcome, ev, tev, taps>>
+\* (a timed-out request still in reqs keeps live = TRUE here; its answer
+\* matches no item in flight and changes nothing, as in _send)
+
+Done == table.game = 2 /\ tab # NoTab /\ tab.game = 2 /\ reqs = {} /\ reps = {} /\ fq = "none" /\ tq = "none"
+        /\ oq = "none" /\ ~ev /\ ~tev /\ UNCHANGED vars
+
+Init ==
+  /\ sv = 0 /\ sReady = FALSE /\ sVote = "none" /\ sLocked = FALSE
+  /\ sLast = [l \in Lanes |-> 0] /\ badOrder = FALSE
+  /\ table = [status |-> "game", game |-> 1, phase |-> 0]
+  /\ reqs = {} /\ reps = {}
+  /\ snap = MeView /\ cur = [l \in Lanes |-> [req |-> NoReq, leg |-> "none"]] /\ que = [l \in Lanes |-> NoReq]
+  /\ conts = {} /\ fq = "none" /\ fv = MeView /\ again = FALSE
+  /\ tq = "none" /\ tv = NoTab /\ tab = table
+  /\ oq = "none" /\ outcome = "none" /\ ev = FALSE /\ tev = FALSE /\ taps = 0 /\ faults = 0
+
+SProcessStep == \E r \in reqs : SProcess(r)
+SPlayAgainF == SPlayAgain
+Next ==
+  \/ SAdvance \/ SPlayAgain \/ SDeal \/ SProcessStep
+  \/ FetchServe \/ FetchApply \/ FetchFail \/ Heal \/ PollTable
+  \/ EvDeliver \/ TevDeliver \/ EvDrop
+  \/ TableServe \/ TableApply \/ TableFail \/ OutcomeOk \/ OutcomeFail
+  \/ TapReady \/ TapVoteStep \/ Reply \/ Timeout \/ Done
+
+\* the server's own timers and the host move the game on; phone internals are fair
+Spec == Init /\ [][Next]_vars
+        /\ WF_vars(SAdvance) /\ (HOST_MOVES_ON => WF_vars(SPlayAgain) /\ WF_vars(SDeal)) /\ WF_vars(SProcessStep)
+        /\ WF_vars(FetchServe) /\ WF_vars(FetchApply) /\ WF_vars(Heal) /\ WF_vars(PollTable)
+        /\ WF_vars(TableServe) /\ WF_vars(TableApply) /\ WF_vars(OutcomeOk) /\ WF_vars(Reply)
+
+(* ---------------- rules ---------------- *)
+\* the server stores this phone's taps of a lane in tap order (a lock never overtakes its pick)
+TapOrder == ~badOrder
+\* the screen ends where the server is, and the count has its results
+ScreenConverges == <>[](Screen = Truth)
+OutcomeLoads == (snap.st = 2 /\ table.game = 1 /\ table.status = "finished") ~> (outcome = "loaded" \/ table.status # "finished" \/ table.game # 1)
+=============================================================================
