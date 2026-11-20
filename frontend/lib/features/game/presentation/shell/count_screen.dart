@@ -8,6 +8,7 @@ import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/copy/role_text.dart';
 import '../../../../design_system/faces/face_content.dart' show nameList;
 import '../../../../design_system/layout/space.dart';
+import '../../../../design_system/models/game_result.dart';
 import '../../../../design_system/models/role.dart';
 import '../../../../design_system/primitives/art_picture.dart';
 import '../../../../design_system/primitives/band.dart';
@@ -75,38 +76,32 @@ class EndWaiting extends StatelessWidget {
 }
 
 /// 10 The count, from the results: who dies (the band), the dead player's
-/// card as it ended (face down until the flip), then who voted for whom, by
+/// card as it ended (face down until it turns), then who voted for whom, by
 /// name, most votes first, and who did not vote.
 ///
 /// - The headline: "{name} dies." / "{names} die." / "Nobody dies.", then
-///   "{name} dies too." for the Hunter's pick; when nobody dies, "Nobody got
-///   2 or more votes.". Who dies is the server's (`is_eliminated`,
-///   `elimination_reason`), never counted here.
+///   "{name}, {hunter}'s pick, dies too." for each player the Hunter took;
+///   when nobody dies, "Nobody got 2 or more votes.". Who dies, and why, is
+///   the server's (`is_eliminated`, `elimination_reason`), never counted
+///   here; only the rows of players the vote killed are outlined.
 /// - The card is the one in front of the player at the end (`final_role`),
 ///   the same the results show, so 10 and 11 cannot disagree (playtest
-///   finding 1): "Now", large, with its team as the server says; when it is
-///   not the card they were dealt, the dealt one small before it, "Dealt",
-///   and an arrow. A Doppelganger's card shows the role she copied, captioned
-///   "Doppelganger". With several dead, "Dealt" and "Now" are said on the
-///   first card only.
+///   finding 1): the player's name and "Now" from the start, then, as it
+///   turns, the role large with its team as the server says; when it is not
+///   the card they were dealt, the dealt one small before it, "Dealt", and
+///   an arrow. A Doppelganger's card shows the role she copied, captioned
+///   "Doppelganger". With several dead the cards are smaller and "Dealt" and
+///   "Now" are said on the first card only.
 /// - Motion (the same on every phone, from the moment it opens): the rows
-///   land 150 ms apart, then after 1.2 s the dead cards turn over (400 ms);
-///   "See who won" is locked until they have. Any tap finishes it at once,
-///   a tap on the locked button too; with reduce motion it starts finished.
+///   land one after another ([Motion.stagger]), a beat ([Motion.beat]), then
+///   the dead cards turn over ([Motion.reveal]). Nothing waits on it: "See
+///   who won" works at once, any other tap finishes it, and with reduce
+///   motion it starts finished.
 class CountView extends StatefulWidget {
   const CountView({super.key, required this.count, required this.onSeeWhoWon});
 
   final TheCount count;
   final VoidCallback onSeeWhoWon;
-
-  /// Between two rows landing.
-  static const rowStagger = Duration(milliseconds: 150);
-
-  /// After the last row, before the flip.
-  static const pause = Duration(milliseconds: 1200);
-
-  /// The flip itself.
-  static const flip = Motion.reveal;
 
   @override
   State<CountView> createState() => _CountViewState();
@@ -121,14 +116,11 @@ class _CountViewState extends State<CountView>
   void initState() {
     super.initState();
     final rows = widget.count.accused.length;
-    _landing = CountView.rowStagger * math.max(0, rows - 1) + Motion.settle;
+    _landing = Motion.stagger * math.max(0, rows - 1) + Motion.settle;
     final total = widget.count.dead.isEmpty
         ? _landing
-        : _landing + CountView.pause + CountView.flip;
-    _motion = AnimationController(vsync: this, duration: total)
-      ..addStatusListener((_) {
-        if (mounted) setState(() {});
-      });
+        : _landing + Motion.beat + Motion.reveal;
+    _motion = AnimationController(vsync: this, duration: total);
   }
 
   @override
@@ -164,7 +156,6 @@ class _CountViewState extends State<CountView>
   Widget build(BuildContext context) {
     final count = widget.count;
     final dead = count.dead;
-    final done = _motion.isCompleted;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: _finish,
@@ -174,7 +165,7 @@ class _CountViewState extends State<CountView>
           final flip = dead.isEmpty
               ? 1.0
               : Curves.easeInOut.transform(
-                  _phase(_landing + CountView.pause, CountView.flip),
+                  _phase(_landing + Motion.beat, Motion.reveal),
                 );
           return ScreenFrame(
             ground: GroundKind.day,
@@ -195,14 +186,15 @@ class _CountViewState extends State<CountView>
                 for (final (i, row) in count.accused.indexed) ...[
                   if (i > 0) const SizedBox(height: Space.md),
                   _Landing(
-                    t: _phase(CountView.rowStagger * i, Motion.settle),
+                    t: _phase(Motion.stagger * i, Motion.settle),
                     child: PlayerRow(
                       token: row.player.seat.token,
                       name: row.player.seat.name,
                       size: PlayerRowSize.count,
                       detail: nameList(row.voters.map((v) => v.name)),
                       trailing: Tally(row.votes),
-                      picked: row.player.died,
+                      // Voted out: the Hunter's pick was not.
+                      picked: row.player.diedBy == EliminationReason.vote,
                     ),
                   ),
                 ],
@@ -222,16 +214,10 @@ class _CountViewState extends State<CountView>
               ],
             ),
             actions: [
-              if (done)
-                PrimaryButton(
-                  label: CountCopy.seeWhoWon,
-                  onPressed: widget.onSeeWhoWon,
-                )
-              else
-                PrimaryButton.locked(
-                  label: CountCopy.seeWhoWon,
-                  onLockedTap: _finish,
-                ),
+              PrimaryButton(
+                label: CountCopy.seeWhoWon,
+                onPressed: widget.onSeeWhoWon,
+              ),
             ],
           );
         },
@@ -281,8 +267,8 @@ class _Verdict extends StatelessWidget {
       spacing: Space.xs,
       children: [
         headline,
-        if (count.diesToo case final line?) Text(line, style: quiet),
-        if (count.dead.isEmpty) Text(CountCopy.nobodyGotTwo, style: quiet),
+        for (final line in count.huntersPicks) FitWords(line, style: quiet),
+        if (count.dead.isEmpty) FitWords(CountCopy.nobodyGotTwo, style: quiet),
       ],
     );
     final ring = context.ground.dangerLine;
@@ -322,16 +308,15 @@ class _Verdict extends StatelessWidget {
   }
 }
 
-/// A dead player's card as it ended: the card in front of them at the end
-/// ("Now"; for a Doppelganger the role she copied, captioned
-/// "Doppelganger"), its name and its team; before it, when the card moved,
-/// the dealt card, "Dealt", and an arrow. Face down until [flip] passes half
-/// way; nothing of it shows before.
+/// A dead player's card as it ended: whose it is and "Now" from the start;
+/// as it turns, the card in front of them at the end (for a Doppelganger the
+/// role she copied, captioned "Doppelganger"), its name and its team, and,
+/// when the card moved, the dealt card, "Dealt", and an arrow before it.
 ///
-/// One death: the card large (the screen's loudest thing), its name beside
-/// it; when it moved, dealt and now side by side and the name under them,
-/// centred. Several: each card smaller, in one row with the player's token
-/// and name, so the rows still show.
+/// One death: the card large (the screen's loudest thing), its words beside
+/// it; when it moved, dealt and now side by side and the words under them,
+/// centred. Several: each card smaller, its words beside it, so the rows
+/// still show.
 class _DeadCard extends StatelessWidget {
   const _DeadCard(
     this.death, {
@@ -348,15 +333,8 @@ class _DeadCard extends StatelessWidget {
   /// Say "Dealt" and "Now" (the first card only).
   final bool captions;
 
-  /// Several die: smaller, and the player named on it.
+  /// Several die: smaller.
   final bool compact;
-
-  /// The portraits' widths: the card's own and the dealt one before it,
-  /// alone and with others.
-  static const _now = 112.0;
-  static const _dealt = 72.0;
-  static const _nowCompact = 64.0;
-  static const _dealtCompact = 40.0;
 
   @override
   Widget build(BuildContext context) => PaperCard(
@@ -379,11 +357,7 @@ class _DeadCard extends StatelessWidget {
           spacing: Space.xxs,
           children: [
             picture,
-            if (text != null)
-              Opacity(
-                opacity: shown,
-                child: FitWords(text, style: quiet),
-              ),
+            if (text != null) FitWords(text, style: quiet),
           ],
         );
         final cards = Row(
@@ -396,7 +370,9 @@ class _DeadCard extends StatelessWidget {
                 child: card(
                   RolePortrait(
                     role: death.dealt,
-                    width: compact ? _dealtCompact : _dealt,
+                    width: compact
+                        ? RolePortrait.deadDealtSmall
+                        : RolePortrait.deadDealt,
                   ),
                   captions ? CountCopy.dealt : null,
                 ),
@@ -409,54 +385,66 @@ class _DeadCard extends StatelessWidget {
             card(
               _Turning(
                 role: death.plays,
-                width: compact ? _nowCompact : _now,
+                width: compact
+                    ? RolePortrait.deadNowSmall
+                    : RolePortrait.deadNow,
                 flip: flip,
               ),
-              nowCaption,
+              // Whose card it is, and that it is the one they hold now, are
+              // there before it turns; a Doppelganger's caption comes with
+              // her copied role.
+              death.copied == null || shown > 0 ? nowCaption : CountCopy.now,
             ),
           ],
         );
         final align = centred ? TextAlign.center : TextAlign.start;
-        final words = Opacity(
-          opacity: shown,
-          child: Column(
-            crossAxisAlignment: centred
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            spacing: Space.sm,
-            children: [
-              if (compact)
-                Row(
-                  spacing: Space.sm,
-                  children: [
-                    PlayerToken(
-                      death.seat.token,
-                      size: TokenSize.card,
-                      ringColor: ground.text,
-                    ),
-                    Expanded(
-                      child: FitWords(
-                        death.seat.name,
-                        maxLines: 2,
-                        style: type.name.copyWith(color: ground.text),
-                      ),
-                    ),
-                  ],
+        final words = Column(
+          crossAxisAlignment: centred
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          spacing: Space.sm,
+          children: [
+            Row(
+              mainAxisSize: centred ? MainAxisSize.min : MainAxisSize.max,
+              spacing: Space.sm,
+              children: [
+                PlayerToken(
+                  death.seat.token,
+                  size: TokenSize.card,
+                  ringColor: ground.text,
                 ),
-              FitWords(
-                death.plays.displayName,
-                maxLines: 2,
-                textAlign: align,
-                style: (compact ? type.heading : type.display).copyWith(
-                  color: ground.text,
+                Flexible(
+                  child: FitWords(
+                    death.seat.name,
+                    maxLines: 2,
+                    style: type.name.copyWith(color: ground.text),
+                  ),
                 ),
+              ],
+            ),
+            Opacity(
+              opacity: shown,
+              child: Column(
+                crossAxisAlignment: centred
+                    ? CrossAxisAlignment.center
+                    : CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                spacing: Space.sm,
+                children: [
+                  FitWords(
+                    death.plays.displayName,
+                    maxLines: 2,
+                    textAlign: align,
+                    style: (compact ? type.heading : type.display).copyWith(
+                      color: ground.text,
+                    ),
+                  ),
+                  _TeamTag(death.team),
+                ],
               ),
-              death.team == TeamId.werewolf
-                  ? TagChip.danger(RoleText.teamTag(death.team))
-                  : TagChip(RoleText.teamTag(death.team)),
-            ],
-          ),
+            ),
+          ],
         );
         if (centred) {
           return Column(
@@ -475,6 +463,21 @@ class _DeadCard extends StatelessWidget {
       },
     ),
   );
+}
+
+/// The team the server says a dead player was on, as a tag: "Werewolf team"
+/// (S10) in blood, "Village", "Alone".
+class _TeamTag extends StatelessWidget {
+  const _TeamTag(this.team);
+
+  final TeamId team;
+
+  @override
+  Widget build(BuildContext context) => team == TeamId.werewolf
+      ? TagChip.danger(
+          CountCopy.werewolfTeam.fill({'role': RoleText.teamTag(team)}),
+        )
+      : TagChip(RoleText.teamTag(team));
 }
 
 /// A role portrait that turns over: the card's back until half way, then
@@ -501,7 +504,7 @@ class _Turning extends StatelessWidget {
           : SizedBox(
               width: width,
               child: AspectRatio(
-                aspectRatio: 3 / 4,
+                aspectRatio: RolePortrait.aspect,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
                   child: ArtPicture(skin.art.cardBack),

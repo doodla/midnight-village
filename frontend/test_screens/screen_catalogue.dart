@@ -147,6 +147,8 @@ final screenCatalogue = <ScreenEntry>[
     '-nobody': pumpResultsNobody,
     '-tanner': pumpResultsTanner,
     '-night': pumpResultsNight,
+    '-folded': pumpResultsFolded,
+    '-end': pumpResultsEnd,
     '-ten-long': pumpResultsTen,
     '-x1.3': (tester) => pumpResultsVillage(tester, textScale: 1.3),
   }),

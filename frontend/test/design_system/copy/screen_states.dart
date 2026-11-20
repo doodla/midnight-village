@@ -259,7 +259,7 @@ final screens = <String, Screen>{
           for (final team in TeamId.values)
             '$dies${hunter ? ' + Hunter' : ''}, ${team.name}': [
               headline(dies),
-              if (hunter) text(CountCopy.diesToo),
+              if (hunter) text(CountCopy.huntersPick),
               text(CountCopy.noVote),
               ..._deadCards([
                 for (var i = 0; i < (dies == CountCopy.die ? 2 : 1); i++) team,
@@ -295,7 +295,12 @@ final screens = <String, Screen>{
 List<Line> _deadCards(List<TeamId> teams) => [
   text(CountCopy.now),
   text(CountCopy.dealt),
-  for (final team in teams) text(RoleText.teamTag(team)),
+  for (final team in teams)
+    text(
+      team == TeamId.werewolf
+          ? '${CountCopy.werewolfTeam}'
+          : RoleText.teamTag(team),
+    ),
 ];
 
 /// 11 above its buttons. The timeline's last row counts once ("Won" or

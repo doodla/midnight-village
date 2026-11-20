@@ -5,11 +5,13 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
-import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/faces/face_content.dart'
+    show nameList;
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/not_built_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
+import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/helpers/test_fonts.dart';
@@ -45,9 +47,10 @@ void main() {
 
   group('UI, protocol 2, from the count', () {
     testWidgets('the Hunter is voted out and takes a Werewolf: the village '
-        'wins; the host plays again and the phone goes to 02', (tester) async {
+        'wins; the host plays again: a guest\'s phone goes to 02 by itself and '
+        'every phone is told the table waits', (tester) async {
       await _run(tester, 'p2-end-hunter', (r) async {
-        final t = await r.play(
+        await r.play(
           roles: {
             'Alice': 'Seer',
             'Bob': 'Hunter',
@@ -64,30 +67,58 @@ void main() {
             'Eve': 'Dan',
           },
         );
-        final oracle = await r.api(t.oracleJson);
-        expect(oracle['phase'], 'results');
+        // A guest's phone (the Hunter's own), left at 11.
+        await r.endAsTheOracleSays('Bob');
+        // The host plays again from her phone: this one goes to 02 by
+        // itself (the table's event, or its poll), and the server has every
+        // phone at the waiting table.
+        await r.api(() => r.table.playAgain(r.table.player('Alice')));
+        await r.ui.pumpUntil(
+          () => r.placeholder == AppScreen.table,
+          reason: "Bob's phone at 02 after the host's play again",
+        );
+        await r.shoot('table');
+        for (final p in r.table.table.players) {
+          final where = await r.api(
+            () => r.table.client.get('/me/table/', token: p.accessToken),
+          );
+          expect(
+            (where['table'] as Map)['status'],
+            'waiting',
+            reason: "${p.displayName}'s phone is told the table waits (02)",
+          );
+        }
+      });
+    });
 
-        await r.openAs('Alice');
-        await r.ui.pumpUntil(r.shows<CountView>, reason: '10 The count');
-        await r.shoot('count-opening');
-        await r.finishMotion();
-        expect(r.text('Bob dies.'), isTrue);
-        expect(r.text('Cara dies too.'), isTrue);
-        expect(r.text('Alice, Cara, Dan'), isTrue, reason: "Bob's voters");
-        await r.shoot('count');
-
-        await r.tapText(CountCopy.seeWhoWon);
-        await r.ui.pumpUntil(r.shows<ResultsView>, reason: '11 Results');
-        expect(r.text(ResultsCopy.villageWins), isTrue);
-        expect(r.text(ResultsCopy.youWon), isTrue);
-        await r.shoot('results');
-
+    testWidgets('a tie: both die; the village wins; the host plays again from '
+        'her phone', (tester) async {
+      await _run(tester, 'p2-end-tie', (r) async {
+        await r.play(
+          roles: {
+            'Alice': 'Seer',
+            'Bob': 'Villager',
+            'Cara': 'Werewolf',
+            'Dan': 'Villager',
+            'Eve': 'Robber',
+          },
+          center: ['Werewolf', 'Villager', 'Troublemaker'],
+          votes: {
+            'Alice': 'Bob',
+            'Bob': 'Cara',
+            'Cara': 'Bob',
+            'Dan': 'Cara',
+            'Eve': 'Alice',
+          },
+        );
+        // The host's phone: "Play again" takes it to 02.
+        await r.endAsTheOracleSays('Alice');
         await r.ui.tapAndSubmit(
           find.text(ResultsCopy.playAgain),
           until: () => r.placeholder == AppScreen.table,
         );
         await r.shoot('table');
-        final lobby = await r.api(() => t.lobby(t.player('Alice')));
+        final lobby = await r.api(() => r.table.lobby(r.table.player('Alice')));
         expect(lobby['status'], 'waiting');
       });
     });
@@ -117,19 +148,10 @@ void main() {
             'Eve': 'Alice',
           },
         );
-        await r.openAs('Alice');
-        await r.ui.pumpUntil(r.shows<CountView>, reason: '10 The count');
-        await r.finishMotion();
-        expect(r.text(CountCopy.nobodyDies), isTrue);
-        expect(r.text(CountCopy.nobodyGotTwo), isTrue);
-        await r.shoot('count');
-
-        await r.tapText(CountCopy.seeWhoWon);
-        await r.ui.pumpUntil(r.shows<ResultsView>, reason: '11 Results');
-        expect(r.text(ResultsCopy.werewolvesWin), isTrue);
-        expect(r.text(ResultsCopy.youLost), isTrue);
+        await r.endAsTheOracleSays('Alice');
+        // The red line: the Werewolf card went from Cara to Bob.
+        expect(r.text('Cara'), isTrue);
         expect(r.text('Robber'), isTrue, reason: "Bob's dealt card");
-        await r.shoot('results');
       });
     });
 
@@ -153,16 +175,8 @@ void main() {
             'Eve': 'Dan',
           },
         );
-        await r.openAs('Bob');
-        await r.ui.pumpUntil(r.shows<CountView>, reason: '10 The count');
-        await r.finishMotion();
-        expect(r.text('Bob dies.'), isTrue);
-        await r.tapText(CountCopy.seeWhoWon);
-        await r.ui.pumpUntil(r.shows<ResultsView>, reason: '11 Results');
-        expect(r.text(ResultsCopy.tannerWins), isTrue);
-        expect(r.text(ResultsCopy.youWon), isTrue);
+        await r.endAsTheOracleSays('Bob');
         expect(r.text('Alice deals next.'), isTrue);
-        await r.shoot('results-guest');
       });
     });
   });
@@ -315,6 +329,9 @@ class _End {
       refreshToken: p.refreshToken,
       gameId: table.gameId,
     );
+    // Another phone: where it is is fetched afresh, in the real zone (the
+    // last phone's slow poll of `/me/table/` was armed in the fake one).
+    await tester.runAsync(() async => ui.container.invalidate(myTableProvider));
     await ui.openShell(table.gameId);
   }
 
@@ -333,14 +350,62 @@ class _End {
       ? tester.widget<NotBuiltScreen>(find.byType(NotBuiltScreen)).screen
       : null;
 
-  /// The count's rows land and its cards turn (a tap finishes them).
-  Future<void> finishMotion() async {
+  /// [name]'s phone at the end, checked against the oracle, not against
+  /// anything typed here: 10's headline names whom the server eliminated by
+  /// the vote (in seat order) and each the Hunter took; "See who won"; 11
+  /// says the server's winning teams and this phone's own outcome.
+  Future<void> endAsTheOracleSays(String name) async {
+    final oracle = await api(table.oracleJson);
+    final results = oracle['results'] as Map<String, dynamic>;
+    final reasons = (results['elimination_reasons'] as Map)
+        .cast<String, String>();
+    final byId = {for (final p in table.table.players) '${p.userId}': p};
+    final seats = [for (final p in table.table.players) '${p.userId}'];
+    List<String> dead(String why) => [
+      for (final id in seats)
+        if (reasons[id] == why) byId[id]!.displayName,
+    ];
+    final byVote = dead('vote');
+    final byHunter = dead('hunter_chain');
+    final headline = switch (byVote) {
+      [] => CountCopy.nobodyDies,
+      [final one] => CountCopy.dies.fill({'name': one}),
+      final several => CountCopy.die.fill({'names': nameList(several)}),
+    };
+    final teams = (results['winning_teams'] as List).cast<String>().toSet();
+    final winners = {
+      'village': ResultsCopy.villageWins,
+      'werewolf': ResultsCopy.werewolvesWin,
+      'tanner': ResultsCopy.tannerWins,
+    };
+    final outcome =
+        (results['player_outcomes'] as Map)['${table.player(name).userId}'];
+
+    await openAs(name);
+    await ui.pumpUntil(shows<CountView>, reason: '10 The count');
+    await shoot('count-opening');
     await tester.tap(find.byType(CountView), warnIfMissed: false);
     await tester.pump();
+    expect(text(headline), isTrue, reason: headline);
+    for (final picked in byHunter) {
+      expect(
+        find.textContaining('$picked, ').evaluate(),
+        isNotEmpty,
+        reason: "the Hunter's pick, $picked",
+      );
+    }
+    await shoot('count');
+
+    await tapText(CountCopy.seeWhoWon);
+    await ui.pumpUntil(shows<ResultsView>, reason: '11 Results');
+    expect(teams, hasLength(1), reason: 'one winning team in these games');
+    expect(text(winners[teams.single]!), isTrue, reason: 'winners: $teams');
     expect(
-      tester.widget<PrimaryButton>(find.byType(PrimaryButton).last).phase,
-      isNot(ButtonPhase.locked),
+      text(outcome == 'win' ? ResultsCopy.youWon : ResultsCopy.youLost),
+      isTrue,
+      reason: '$name: $outcome',
     );
+    await shoot('results');
   }
 
   /// A local step (no network).

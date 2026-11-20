@@ -136,8 +136,9 @@ Future<void> pumpResultsTanner(WidgetTester tester) async {
   await _seeWhoWon(tester, setup);
 }
 
-/// 11 with the night opened and scrolled to (results_doppelganger: the
-/// Doppelganger and her follow-up, the Masons, the Drunk), on Ben's phone.
+/// 11 at the Doppelganger's game (her copy and follow-up, the Masons, the
+/// Drunk taking a Werewolf from the center), on Ben's phone: the night open,
+/// its red line from Left to Gus.
 Future<void> pumpResultsNight(WidgetTester tester) async {
   final setup = await _end(
     tester,
@@ -145,16 +146,23 @@ Future<void> pumpResultsNight(WidgetTester tester) async {
     viewer: 'Ben',
   );
   await _seeWhoWon(tester, setup);
-  final strip = find.bySemanticsLabel(ResultsCopy.nightSpoken);
-  await tester.ensureVisible(strip);
-  await tester.pump();
-  await tester.tap(strip);
-  // The lines land one after another: frames, not one jump of the clock.
-  for (var i = 0; i < 20; i++) {
-    await tester.pump(const Duration(milliseconds: 300));
-  }
-  await tester.drag(find.byType(Scrollable).first, const Offset(0, -900));
-  await tester.pump();
+}
+
+/// 11 with the night folded by a tap on its red line (the Hunter's game).
+Future<void> pumpResultsFolded(WidgetTester tester) async {
+  final setup = await _end(tester, recordedResults('results'), viewer: 'Ana');
+  await _seeWhoWon(tester, setup);
+  await tester.tap(find.bySemanticsLabel(ResultsCopy.nightSpoken));
+  await setup.settle(tester);
+}
+
+/// 11 scrolled to its end: everyone's card, the center (the Hunter's game,
+/// on the host's phone).
+Future<void> pumpResultsEnd(WidgetTester tester) async {
+  final setup = await _end(tester, recordedResults('results'), viewer: 'Ana');
+  await _seeWhoWon(tester, setup);
+  await tester.drag(find.byType(Scrollable).first, const Offset(0, -2000));
+  await setup.settle(tester);
 }
 
 /// 11 at ten with long names, on a guest's phone.

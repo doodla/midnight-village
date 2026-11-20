@@ -86,7 +86,6 @@ enum ComponentPage {
   countTenLong(mock: '10-the-count.png', day: true),
   resultsWerewolves(mock: '11-results.png', viewer: Viewer.villager),
   resultsTanner(mock: '11-results.png'),
-  resultsNight(mock: '11-results.png'),
   resultsTenLong(mock: '11-results.png');
 
   const ComponentPage({
@@ -369,7 +368,6 @@ class ComponentSheetPage extends StatelessWidget {
       game: EndGame.tanner,
       guest: true,
     ),
-    ComponentPage.resultsNight => ResultsPage(viewer: viewer, nightOpen: true),
     ComponentPage.resultsTenLong => ResultsPage(
       viewer: viewer,
       game: EndGame.tenLong,

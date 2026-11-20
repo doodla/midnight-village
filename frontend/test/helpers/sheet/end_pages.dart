@@ -82,27 +82,25 @@ class CountPage extends StatelessWidget {
 }
 
 /// 11 on [viewer]'s phone: the host's buttons, or a guest's line and
-/// "Leave"; [nightOpen] with the night unfolded.
+/// "Leave".
 class ResultsPage extends StatelessWidget {
   const ResultsPage({
     super.key,
     required this.viewer,
     this.game = EndGame.hunter,
     this.guest = false,
-    this.nightOpen = false,
   });
 
   final Viewer viewer;
   final EndGame game;
   final bool guest;
-  final bool nightOpen;
 
   @override
   Widget build(BuildContext context) => ResultsView(
     outcome: outcomeOf(game.body),
     viewerId: endViewerId(game, viewer),
-    hostName: guest ? game.host : null,
-    nightOpen: nightOpen,
+    host: !guest,
+    hostName: game.host,
     onPlayAgain: () {},
     onEditDeck: () {},
     onLeave: () {},

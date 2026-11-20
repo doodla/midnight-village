@@ -96,11 +96,13 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
       );
     }
     final me = game.me;
-    final host = me.seats.where((s) => s.id == me.hostId).firstOrNull;
     return ResultsView(
       outcome: outcome,
       viewerId: me.playerId,
-      hostName: me.isHost ? null : host?.name ?? '',
+      host: me.isHost,
+      // The host's name from the table; none when it is not there (then
+      // nothing is said about who deals).
+      hostName: me.seats.where((s) => s.id == me.hostId).firstOrNull?.name,
       busy: _busy != null,
       failed: _failed != null,
       onPlayAgain: () => unawaited(_run(_Act.playAgain)),
@@ -112,22 +114,28 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
 }
 
 /// 11 Results, from the results body: who won (the band: the winners'
-/// portrait, the headline, "You won." / "You lost."), then everyone's card at
-/// the end (the dealt one before it where it moved) with "Won" or "Died",
-/// the center, and the night folded into a strip of the roles that woke, in
-/// order; a tap opens it into a line per step ("Robber: Ben takes Dev's
-/// card.", with the cards the step showed), landing one by one (600 ms each,
-/// a tap finishes them; instant with reduce motion). Werewolf cards are red
-/// wherever they appear. Everything is the server's: the winners, each
-/// player's outcome, team and cards, the timeline.
+/// portrait, the headline, "You won." / "You lost."), then the night, open:
+/// where each Werewolf card went (the red line, headed by the Werewolf's
+/// portrait: "Cara → Bob"; the line that teaches a newcomer the cards
+/// move), then a line per step ("Robber: Ben takes Dev's card.", with the
+/// cards the step showed), arriving one after another ([Motion.stagger]; a
+/// tap finishes them, reduce motion shows them at once), each on a spine
+/// that is red where a werewolf card was looked at or moved; a tap on the
+/// red line folds the steps away (and opens them again). Then everyone's card
+/// at the end (the dealt one before it where it moved) with "Won" or
+/// "Died", and the center. Red is the server's `werewolf` flag on a card,
+/// everywhere. Everything is the server's: the winners, each player's
+/// outcome, team and cards, the timeline.
 ///
-/// [hostName] null: this phone is the host ("Play again", "Edit deck");
-/// otherwise "{host} deals next." and "Leave".
+/// [host]: "Play again" and "Edit deck", side by side, or stacked when a
+/// label would not fit on one line. A guest: "{host} deals next." (when the
+/// host is at the table) and "Leave".
 class ResultsView extends StatefulWidget {
   const ResultsView({
     super.key,
     required this.outcome,
     required this.viewerId,
+    required this.host,
     required this.hostName,
     required this.onPlayAgain,
     required this.onEditDeck,
@@ -135,11 +143,11 @@ class ResultsView extends StatefulWidget {
     required this.onTryAgain,
     this.busy = false,
     this.failed = false,
-    this.nightOpen = false,
   });
 
   final GameOutcome outcome;
   final int viewerId;
+  final bool host;
   final String? hostName;
   final VoidCallback onPlayAgain;
   final VoidCallback onEditDeck;
@@ -152,12 +160,6 @@ class ResultsView extends StatefulWidget {
   /// The last request got no answer.
   final bool failed;
 
-  /// Opens with the night unfolded (the gallery's picture of it).
-  final bool nightOpen;
-
-  /// How long each line of the night takes to land.
-  static const lineLands = Duration(milliseconds: 600);
-
   @override
   State<ResultsView> createState() => _ResultsViewState();
 }
@@ -167,17 +169,32 @@ class _ResultsViewState extends State<ResultsView>
   late final Winners _winners = Winners.of(widget.outcome.result.winningTeams);
   late final List<EndSeat> _seats = endSeatsOf(widget.outcome);
   late final List<NightLine> _lines = nightLinesOf(widget.outcome);
+  late final List<WerewolfPath> _paths = werewolfPathsOf(widget.outcome);
   late final AnimationController _landing;
-  late bool _open = widget.nightOpen;
+  var _open = true;
 
   @override
   void initState() {
     super.initState();
     _landing = AnimationController(
       vsync: this,
-      duration: ResultsView.lineLands * math.max(1, _lines.length),
-      value: _open ? 1 : 0,
+      duration: Motion.stagger * _lines.length + Motion.settle,
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_landing.isAnimating || _landing.isCompleted) return;
+    _land();
+  }
+
+  void _land() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _landing.value = 1;
+    } else {
+      unawaited(_landing.forward(from: 0));
+    }
   }
 
   @override
@@ -188,16 +205,19 @@ class _ResultsViewState extends State<ResultsView>
 
   void _toggle() {
     setState(() => _open = !_open);
-    if (!_open) return;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _landing.value = 1;
-    } else {
-      unawaited(_landing.forward(from: 0));
-    }
+    if (_open) _land();
   }
 
   void _finish() {
     if (_landing.isAnimating) _landing.value = 1;
+  }
+
+  /// 0 to 1 as line [i] lands.
+  double _phase(int i) {
+    final total = _landing.duration!.inMicroseconds;
+    final start = (Motion.stagger * i).inMicroseconds / total;
+    final length = Motion.settle.inMicroseconds / total;
+    return ((_landing.value - start) / length).clamp(0.0, 1.0);
   }
 
   @override
@@ -218,18 +238,13 @@ class _ResultsViewState extends State<ResultsView>
           builder: (context) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final seat in _seats)
-                _EndRow(seat, own: seat.seat.id == widget.viewerId),
-              const SizedBox(height: Space.md),
-              Text(
-                ResultsCopy.center.fill({
-                  'roles': nameList(center.map((r) => r.displayName)),
-                }),
-                style: type.body.copyWith(color: context.ground.quietText),
-              ),
               if (_lines.isNotEmpty) ...[
-                const SizedBox(height: Space.xl),
-                _NightStrip(lines: _lines, open: _open, onTap: _toggle),
+                _NightHead(
+                  paths: _paths,
+                  lines: _lines,
+                  open: _open,
+                  onTap: _toggle,
+                ),
                 if (_open)
                   AnimatedBuilder(
                     animation: _landing,
@@ -241,7 +256,17 @@ class _ResultsViewState extends State<ResultsView>
                       ],
                     ),
                   ),
+                const SizedBox(height: Space.xl),
               ],
+              for (final seat in _seats)
+                _EndRow(seat, own: seat.seat.id == widget.viewerId),
+              const SizedBox(height: Space.md),
+              Text(
+                ResultsCopy.center.fill({
+                  'roles': nameList(center.map((r) => r.displayName)),
+                }),
+                style: type.body.copyWith(color: context.ground.quietText),
+              ),
             ],
           ),
         ),
@@ -250,15 +275,9 @@ class _ResultsViewState extends State<ResultsView>
     );
   }
 
-  /// 0 to 1 as line [i] lands.
-  double _phase(int i) {
-    final n = math.max(1, _lines.length);
-    return ((_landing.value * n) - i).clamp(0.0, 1.0);
-  }
-
   List<Widget> _actions(BuildContext context) {
     final type = context.skin.typography;
-    final host = widget.hostName;
+    final hostName = widget.hostName;
     return [
       if (widget.failed)
         Notice(
@@ -266,39 +285,99 @@ class _ResultsViewState extends State<ResultsView>
           action: BannerCopy.tryAgain,
           onAction: widget.onTryAgain,
         ),
-      if (host == null)
-        Row(
-          spacing: Space.md,
-          children: [
-            Expanded(
-              child: PrimaryButton(
-                label: ResultsCopy.playAgain,
-                onPressed: widget.onPlayAgain,
-                busy: widget.busy,
-                size: ButtonSize.large,
-              ),
-            ),
-            Expanded(
-              child: SecondaryButton(
-                label: ResultsCopy.editDeck,
-                onPressed: widget.busy ? null : widget.onEditDeck,
-                size: ButtonSize.large,
-              ),
-            ),
-          ],
+      if (widget.host)
+        _HostButtons(
+          busy: widget.busy,
+          onPlayAgain: widget.onPlayAgain,
+          onEditDeck: widget.onEditDeck,
         )
       else ...[
-        Text(
-          ResultsCopy.hostDealsNext.fill({'host': host}),
-          textAlign: TextAlign.center,
-          style: type.body.copyWith(color: context.ground.text),
-        ),
+        if (hostName != null)
+          Text(
+            ResultsCopy.hostDealsNext.fill({'host': hostName}),
+            textAlign: TextAlign.center,
+            style: type.body.copyWith(color: context.ground.text),
+          ),
         SecondaryButton(
           label: CommonCopy.leave,
           onPressed: widget.busy ? null : widget.onLeave,
         ),
       ],
     ];
+  }
+}
+
+/// The host's two buttons: side by side when both labels fit on one line,
+/// else "Play again" full width and "Edit deck" under it (a primary label
+/// never wraps).
+class _HostButtons extends StatelessWidget {
+  const _HostButtons({
+    required this.busy,
+    required this.onPlayAgain,
+    required this.onEditDeck,
+  });
+
+  final bool busy;
+  final VoidCallback onPlayAgain;
+  final VoidCallback onEditDeck;
+
+  /// [text]'s one-line width in [style] at this phone's text size.
+  static double _width(BuildContext context, String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final type = context.skin.typography;
+    final play = PrimaryButton(
+      label: ResultsCopy.playAgain,
+      onPressed: onPlayAgain,
+      busy: busy,
+      size: ButtonSize.large,
+    );
+    final edit = SecondaryButton(
+      label: ResultsCopy.editDeck,
+      onPressed: busy ? null : onEditDeck,
+      size: ButtonSize.large,
+    );
+    return LayoutBuilder(
+      builder: (context, room) {
+        final half = (room.maxWidth - Space.md) / 2;
+        // Each label with its button's own inset and edge.
+        final playNeeds =
+            _width(
+              context,
+              ResultsCopy.playAgain,
+              ButtonSize.large.label(type),
+            ) +
+            2 * (Space.xl + context.skin.shape.selectedRing);
+        final editNeeds =
+            _width(context, ResultsCopy.editDeck, type.action) +
+            2 * (Space.lg + context.skin.shape.selectedRing);
+        if (playNeeds <= half && editNeeds <= half) {
+          return Row(
+            spacing: Space.md,
+            children: [
+              Expanded(child: play),
+              Expanded(child: edit),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: Space.md,
+          children: [play, edit],
+        );
+      },
+    );
   }
 }
 
@@ -331,19 +410,20 @@ class _Winner extends StatelessWidget {
     );
     if (portrait == null) return words;
     return LayoutBuilder(
-      builder: (context, room) {
-        // The portrait takes about a third of the band, as in the picture,
-        // and never more than its own width.
-        final width = math.min(RolePortrait.winner, room.maxWidth * 0.36);
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          spacing: Space.lg,
-          children: [
-            RolePortrait.arched(role: portrait, width: width),
-            Expanded(child: words),
-          ],
-        );
-      },
+      builder: (context, room) => Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        spacing: Space.lg,
+        children: [
+          RolePortrait.arched(
+            role: portrait,
+            width: math.min(
+              RolePortrait.winner,
+              room.maxWidth * RolePortrait.winnerShare,
+            ),
+          ),
+          Expanded(child: words),
+        ],
+      ),
     );
   }
 }
@@ -362,7 +442,6 @@ class _EndRow extends StatelessWidget {
     final skin = context.skin;
     final type = skin.typography;
     final ground = context.ground;
-    final quiet = type.body.copyWith(color: ground.quietText);
     final copied = seat.copied;
     final card = copied == null
         ? seat.now.displayName
@@ -371,10 +450,7 @@ class _EndRow extends StatelessWidget {
             'copied': copied.displayName,
           });
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.sm,
-        vertical: Space.sm,
-      ),
+      padding: const EdgeInsets.all(Space.sm),
       decoration: own
           ? BoxDecoration(
               color: ground.panel,
@@ -401,14 +477,21 @@ class _EndRow extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     if (seat.moved) ...[
-                      FitWords(seat.dealt.displayName, style: quiet),
+                      FitWords(
+                        seat.dealt.displayName,
+                        style: type.body.copyWith(
+                          color: seat.werewolfDealt
+                              ? ground.dangerText
+                              : ground.quietText,
+                        ),
+                      ),
                       Icon(
                         Icons.arrow_forward,
                         size: type.body.fontSize,
                         color: ground.quietText,
                       ),
                     ],
-                    _cardChip(card, werewolf: seat.team == TeamId.werewolf),
+                    _CardChip(card, werewolf: seat.werewolfNow),
                   ],
                 ),
               ],
@@ -436,29 +519,84 @@ class _EndRow extends StatelessWidget {
   }
 }
 
-/// A role's name as a chip: red for a werewolf card.
-Widget _cardChip(String text, {required bool werewolf}) =>
-    werewolf ? TagChip.danger(text, small: true) : TagChip(text, small: true);
+/// A card's role as a chip: red for a werewolf card (the server's flag).
+class _CardChip extends StatelessWidget {
+  const _CardChip(this.text, {required this.werewolf});
 
-/// The night folded: the roles that woke, in order, as small portraits with
-/// their step numbers; a tap opens (and closes) the lines.
-class _NightStrip extends StatelessWidget {
-  const _NightStrip({
+  final String text;
+  final bool werewolf;
+
+  @override
+  Widget build(BuildContext context) =>
+      werewolf ? TagChip.danger(text, small: true) : TagChip(text, small: true);
+}
+
+/// The head of the night: where each Werewolf card went, headed by the
+/// Werewolf's portrait ("Cara → Bob"; one place: it never moved), or, in a
+/// game with no werewolf card, the roles that woke, in order. A tap folds
+/// the steps under it away, and opens them again.
+class _NightHead extends StatelessWidget {
+  const _NightHead({
+    required this.paths,
     required this.lines,
     required this.open,
     required this.onTap,
   });
 
+  final List<WerewolfPath> paths;
   final List<NightLine> lines;
   final bool open;
   final VoidCallback onTap;
 
-  static const _portrait = 30.0;
-
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
+    final type = skin.typography;
     final ground = context.ground;
+    final arrow = Icon(
+      Icons.arrow_forward,
+      size: type.body.fontSize,
+      color: ground.dangerText,
+    );
+    final Widget content = paths.isEmpty
+        ? Wrap(
+            spacing: Space.xs,
+            runSpacing: Space.xs,
+            children: [
+              for (final line in lines)
+                RolePortrait(role: line.role, width: RolePortrait.strip),
+            ],
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: Space.sm,
+            children: [
+              for (final path in paths)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  spacing: Space.smPlus,
+                  children: [
+                    const RolePortrait(
+                      role: RoleId.werewolf,
+                      width: RolePortrait.strip,
+                    ),
+                    Expanded(
+                      child: Wrap(
+                        spacing: Space.xs,
+                        runSpacing: Space.xs,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          for (final (i, place) in path.places.indexed) ...[
+                            if (i > 0) arrow,
+                            TagChip.danger(place, small: true),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          );
     return Semantics(
       button: true,
       expanded: open,
@@ -475,7 +613,7 @@ class _NightStrip extends StatelessWidget {
             padding: const EdgeInsets.all(Space.smPlus),
             decoration: BoxDecoration(
               border: Border.all(
-                color: ground.hairline,
+                color: paths.isEmpty ? ground.hairline : ground.dangerLine,
                 width: skin.shape.ring,
               ),
               borderRadius: BorderRadius.circular(skin.shape.radius),
@@ -483,16 +621,7 @@ class _NightStrip extends StatelessWidget {
             child: Row(
               spacing: Space.sm,
               children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: Space.xs,
-                    runSpacing: Space.xs,
-                    children: [
-                      for (final line in lines)
-                        RolePortrait(role: line.role, width: _portrait),
-                    ],
-                  ),
-                ),
+                Expanded(child: content),
                 Icon(
                   open ? Icons.expand_less : Icons.expand_more,
                   color: ground.text,
@@ -526,21 +655,30 @@ class _LineLanding extends StatelessWidget {
   }
 }
 
-/// One step of the night: its number, the role's portrait, "Robber: Ben
-/// takes Dev's card.", and the cards it showed or moved.
+/// One step of the night on its spine (red where a werewolf card was looked
+/// at or moved): its number, the role's portrait, "Robber: Ben takes Dev's
+/// card.", and the cards it showed or moved.
 class _Line extends StatelessWidget {
   const _Line(this.line);
 
   final NightLine line;
 
-  static const _portrait = 36.0;
-
   @override
   Widget build(BuildContext context) {
-    final type = context.skin.typography;
+    final skin = context.skin;
+    final type = skin.typography;
     final ground = context.ground;
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.md),
+    return Container(
+      margin: const EdgeInsets.only(left: Space.lg),
+      padding: const EdgeInsets.fromLTRB(Space.md, Space.sm, 0, Space.sm),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: line.werewolf ? ground.dangerLine : ground.hairline,
+            width: line.werewolf ? skin.shape.selectedRing : skin.shape.ring,
+          ),
+        ),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: Space.smPlus,
@@ -549,29 +687,26 @@ class _Line extends StatelessWidget {
             width: Space.lg,
             child: Text(
               '${line.number}',
-              style: type.nameSmall.copyWith(color: ground.quietText),
+              style: type.nameSmall.copyWith(
+                color: line.werewolf ? ground.dangerText : ground.quietText,
+              ),
             ),
           ),
-          RolePortrait(role: line.role, width: _portrait),
+          RolePortrait(role: line.role, width: RolePortrait.line),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: Space.xs,
               children: [
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      // The role steps back; what happened leads.
-                      TextSpan(
-                        text: '${line.prefix} ',
-                        style: type.action.copyWith(color: ground.quietText),
-                      ),
-                      TextSpan(
-                        text: line.text,
-                        style: type.body.copyWith(color: ground.text),
-                      ),
-                    ],
-                  ),
+                // The role steps back, above; what happened leads. Each is
+                // set on its own, so neither breaks inside a word.
+                FitWords(
+                  line.prefix,
+                  style: type.action.copyWith(color: ground.quietText),
+                ),
+                FitWords(
+                  line.text,
+                  style: type.body.copyWith(color: ground.text),
                 ),
                 if (line.cards.isNotEmpty)
                   Wrap(
@@ -586,7 +721,7 @@ class _Line extends StatelessWidget {
                             size: type.body.fontSize,
                             color: ground.quietText,
                           ),
-                        _cardChip(
+                        _CardChip(
                           card.role.displayName,
                           werewolf: card.werewolf,
                         ),

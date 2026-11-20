@@ -28,6 +28,8 @@ class EndSeat {
     required this.won,
     required this.diedBy,
     required this.votedFor,
+    required this.werewolfNow,
+    required this.werewolfDealt,
   });
 
   final NightSeat seat;
@@ -55,6 +57,12 @@ class EndSeat {
   /// Whom they voted for (null: no vote).
   final int? votedFor;
 
+  /// The card in front of them at the end, and the one dealt to them, are
+  /// werewolf cards, as the server marks them (the timeline's `werewolf`):
+  /// the one rule for red.
+  final bool werewolfNow;
+  final bool werewolfDealt;
+
   bool get died => diedBy != null;
 
   /// The card moved in the night.
@@ -68,7 +76,10 @@ class EndSeat {
 /// tokens and seats of its players list).
 List<EndSeat> endSeatsOf(GameOutcome outcome) {
   final byId = {for (final p in outcome.result.players) p.id: p};
-  final copied = outcome.timeline?.steps
+  final timeline = outcome.timeline;
+  bool werewolf(String? cardId) =>
+      cardId != null && (timeline?.cards[cardId]?.werewolf ?? false);
+  final copied = timeline?.steps
       .where((s) => s.action == TimelineAction.copy)
       .firstOrNull
       ?.copiedRole;
@@ -83,9 +94,12 @@ List<EndSeat> endSeatsOf(GameOutcome outcome) {
           team: p.team,
           won: p.isWinner,
           diedBy: p.isEliminated
-              ? p.eliminationReason ?? EliminationReason.vote
+              ? p.eliminationReason ??
+                    (throw FormatException('A death with no reason', p.id))
               : null,
           votedFor: p.voteTargetId == null ? null : int.parse(p.voteTargetId!),
+          werewolfNow: werewolf(timeline?.finalPositions.players[seat.id]),
+          werewolfDealt: werewolf(timeline?.dealt.players[seat.id]),
         ),
   ];
 }
@@ -171,13 +185,25 @@ class TheCount {
     final dead => _dies(dead),
   };
 
-  /// "{name} dies too." for the Hunter's pick (null: none, or the Hunter's
-  /// pick is the headline's only death).
-  String? get diesToo => deadByVote.isEmpty || deadByHunter.isEmpty
-      ? null
-      : CountCopy.diesToo.fill({
-          'name': nameList(deadByHunter.map((s) => s.seat.name)),
-        });
+  /// "Esme, Fin's pick, dies too." for each player the server says the
+  /// Hunter took (`hunter_chain`): the Hunter is the one voted out who
+  /// voted for them.
+  List<String> get huntersPicks => [
+    for (final picked in deadByHunter)
+      CountCopy.huntersPick.fill({
+        'name': picked.seat.name,
+        'hunter':
+            (deadByVote
+                        .where((d) => d.votedFor == picked.seat.id)
+                        .firstOrNull ??
+                    (throw FormatException(
+                      'A Hunter\'s pick nobody voted out picked',
+                      picked.seat.id,
+                    )))
+                .seat
+                .name,
+      }),
+  ];
 
   static String _dies(List<EndSeat> dead) => dead.length == 1
       ? CountCopy.dies.fill({'name': dead.single.seat.name})
@@ -247,6 +273,7 @@ class NightLine {
     required this.text,
     required this.cards,
     required this.swap,
+    required this.werewolf,
   });
 
   /// 1, 2, ...
@@ -263,6 +290,10 @@ class NightLine {
 
   /// The cards the step showed or moved, in order.
   final List<LineCard> cards;
+
+  /// The step showed or moved a werewolf card: its line is on the red
+  /// line.
+  final bool werewolf;
 
   /// [cards] are two that changed places (the Troublemaker's swap).
   final bool swap;
@@ -389,5 +420,49 @@ NightLine _line(
     text: text,
     cards: cards,
     swap: swap,
+    werewolf:
+        cards.any((c) => c.werewolf) ||
+        step.moves.any((m) => card(m.cardId).werewolf),
   );
+}
+
+/// Where one werewolf card was, from the deal to the end: the red line on
+/// 11 that shows a newcomer the cards moved. [places] are seat names or
+/// center places ("Left"), the deal's first; one place: it never moved.
+typedef WerewolfPath = ({List<String> places, List<int> steps});
+
+/// Every werewolf card's path (the server's `werewolf` flag), in card order.
+List<WerewolfPath> werewolfPathsOf(GameOutcome outcome) {
+  final timeline = outcome.timeline;
+  if (timeline == null) return const [];
+  final names = {for (final s in outcome.seats) s.id: s.name};
+  String place(CardPlace p) => switch (p) {
+    PlayerPlace(:final playerId) => names[playerId] ?? '',
+    CenterPlace(:final index) => centerName(index),
+  };
+  CardPlace? dealtPlace(String cardId) {
+    for (final MapEntry(:key, :value) in timeline.dealt.players.entries) {
+      if (value == cardId) return PlayerPlace(key);
+    }
+    final center = timeline.dealt.center.indexOf(cardId);
+    return center < 0 ? null : CenterPlace(center);
+  }
+
+  return [
+    for (final card in timeline.cards.values)
+      if (card.werewolf)
+        if (dealtPlace(card.id) case final start?)
+          (
+            places: [
+              place(start),
+              for (final step in timeline.steps)
+                for (final move in step.moves)
+                  if (move.cardId == card.id) place(move.to),
+            ],
+            steps: [
+              for (final step in timeline.steps)
+                if (step.moves.any((m) => m.cardId == card.id)) step.step,
+            ],
+          ),
+  ];
 }

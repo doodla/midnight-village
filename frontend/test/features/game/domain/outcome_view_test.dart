@@ -37,7 +37,7 @@ void main() {
       expect(_names(count.deadByHunter), ['Esme']);
       expect(_names(count.dead), ['Fin', 'Esme']);
       expect(count.headline, 'Fin dies.');
-      expect(count.diesToo, 'Esme dies too.');
+      expect(count.huntersPicks, ["Esme, Fin's pick, dies too."]);
       expect(count.dead.first.diedBy, EliminationReason.vote);
       expect(count.dead.last.diedBy, EliminationReason.hunterChain);
     });
@@ -47,7 +47,7 @@ void main() {
         outcomeOf(recordedResults('results_doppelganger')),
       );
       expect(count.headline, 'Cleo dies.');
-      expect(count.diesToo, isNull);
+      expect(count.huntersPicks, isEmpty);
       expect(count.accused.single.voters.map((v) => v.name), ['Ana', 'Ben']);
       expect(count.accused.single.player.died, isTrue);
       expect(count.noVote.map((s) => s.name), [
@@ -64,7 +64,7 @@ void main() {
       final count = TheCount.of(outcomeOf(derivedNobodyDies()));
       expect(count.headline, 'Nobody dies.');
       expect(count.dead, isEmpty);
-      expect(count.diesToo, isNull);
+      expect(count.huntersPicks, isEmpty);
       expect(count.accused.map((a) => a.votes), everyElement(1));
       expect(count.accused, hasLength(6));
     });
@@ -214,5 +214,66 @@ void main() {
         expect(line.text, isNot(startsWith(' ')), reason: _line(line));
       }
     });
+  });
+
+  group('the red line: the server\'s werewolf flag, everywhere', () {
+    test('where each Werewolf card went: one from Left to the Drunk, one '
+        'that never moved', () {
+      final paths = werewolfPathsOf(
+        outcomeOf(recordedResults('results_doppelganger')),
+      );
+      expect(
+        [for (final p in paths) p.places],
+        [
+          ['Cleo'],
+          ['Left', 'Gus'],
+        ],
+      );
+      expect(
+        [for (final p in paths) p.steps],
+        [
+          <int>[],
+          [7],
+        ],
+      );
+    });
+
+    test('a step is on the red line when it showed or moved a werewolf '
+        'card', () {
+      final lines = nightLinesOf(
+        outcomeOf(recordedResults('results_doppelganger')),
+      );
+      expect(lines.map((l) => l.werewolf), [
+        false, // copies Ben (the Seer)
+        true, // sees Left (a Werewolf) and Right
+        false, // the lone wolf sees Middle (a Villager)
+        false,
+        false,
+        false,
+        true, // the Drunk takes Left (a Werewolf)
+        false,
+      ]);
+    });
+
+    test("each player's card red by the flag: the Drunk who took a Werewolf, "
+        'not the Minion', () {
+      final seats = {
+        for (final s in endSeatsOf(
+          outcomeOf(recordedResults('results_doppelganger')),
+        ))
+          s.seat.name: s,
+      };
+      expect(seats['Gus']!.werewolfNow, isTrue);
+      expect(seats['Gus']!.werewolfDealt, isFalse);
+      expect(seats['Cleo']!.werewolfNow, isTrue);
+      expect(seats['Dev']!.werewolfNow, isFalse, reason: 'the Minion');
+    });
+  });
+
+  test('a death the server gives no reason for fails loudly', () {
+    final body = recordedResults('results');
+    final fin = (body['players'] as List).cast<Map<String, dynamic>>().last;
+    fin['elimination_reason'] = null;
+    expect(() => endSeatsOf(outcomeOf(body)), throwsA(isA<FormatException>()));
   });
 }
