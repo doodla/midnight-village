@@ -1,0 +1,11 @@
+{
+  "type": "action_result",
+  "wave": 1,
+  "action_type": "peek_center",
+  "revealed_info": {
+    "roles": [
+      "werewolf",
+      "tanner"
+    ]
+  }
+}

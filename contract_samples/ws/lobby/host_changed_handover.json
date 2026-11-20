@@ -1,0 +1,7 @@
+{
+  "type": "host_changed",
+  "host_id": 8,
+  "host_name": "Ben",
+  "original_host_id": 7,
+  "reason": "handover"
+}

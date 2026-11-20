@@ -7,6 +7,7 @@ import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 
 import 'mock_http_client.dart';
+import 'server_bodies.dart';
 
 export 'mock_http_client.dart' show MockHttpClient;
 
@@ -118,7 +119,7 @@ class IntegrationTestSetup {
           Response<Map<String, dynamic>>(
             requestOptions: RequestOptions(path: '/auth/token/refresh/'),
             statusCode: 401,
-            data: {'detail': 'Token is invalid or expired'},
+            data: ServerBodies.refreshRefused,
           ),
         );
 
@@ -129,14 +130,7 @@ class IntegrationTestSetup {
           Response<Map<String, dynamic>>(
             requestOptions: RequestOptions(path: '/auth/guest/'),
             statusCode: 201,
-            data: {
-              'access': 'test-access-token',
-              'refresh': 'test-refresh-token',
-              'user': {
-                'id': 1,
-                'display_name': 'TestPlayer',
-              },
-            },
+            data: ServerBodies.guestCreated,
           ),
         );
   }

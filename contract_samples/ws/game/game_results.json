@@ -1,0 +1,13 @@
+{
+  "type": "game_results",
+  "data": {
+    "winning_teams": [
+      "village"
+    ],
+    "reason": "A Werewolf was eliminated.",
+    "eliminated_players": [
+      5,
+      6
+    ]
+  }
+}

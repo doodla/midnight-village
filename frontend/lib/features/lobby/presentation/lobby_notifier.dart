@@ -296,7 +296,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   void _onHostChanged(Map<String, dynamic> message) {
     final change = HostChange.fromEvent(message);
     final current = _current;
-    if (change == null || current == null) return;
+    if (current == null) return;
     final brief = change.reason != HostChangeReason.handover;
     _set(
       current.copyWith(

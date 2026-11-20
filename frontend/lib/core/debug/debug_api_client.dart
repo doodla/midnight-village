@@ -131,30 +131,17 @@ class DebugApiClient {
   }
 
   ApiException _httpError(int status, String path, dynamic data) {
-    final detail = data is Map<String, dynamic>
-        ? (data['detail']?.toString() ?? data.toString())
-        : data?.toString() ?? '';
+    final detail = serverErrorMessage(data) ?? '';
     return switch (status) {
-      400 => ValidationException(_asErrorMap(data)),
+      400 => ValidationException(
+        parseServerErrors(data),
+        code: serverErrorCode(data),
+      ),
       403 => const ForbiddenException(),
       404 => NotFoundException(path),
       429 => const RateLimitException(),
       >= 500 => ServerException(status),
       _ => UnhandledHttpException(status, '$path: $detail'),
-    };
-  }
-
-  Map<String, List<String>> _asErrorMap(dynamic data) {
-    if (data is Map<String, dynamic>) {
-      return {
-        for (final entry in data.entries)
-          entry.key: entry.value is List
-              ? (entry.value as List).map((e) => e.toString()).toList()
-              : [entry.value.toString()],
-      };
-    }
-    return {
-      'detail': [data?.toString() ?? 'Bad request'],
     };
   }
 

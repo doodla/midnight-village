@@ -20,8 +20,11 @@ abstract class GamePlayer with _$GamePlayer {
     @JsonKey(name: 'has_voted') @Default(false) bool hasVoted,
 
     /// Whether the player's phone is connected. Public to the whole table.
-    /// Absent in the response means connected.
-    @Default(true) bool connected,
+    /// Not part of `/me/`: merged in from `GET .../players/` and kept up to
+    /// date by `player_presence` events.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default(true)
+    bool connected,
   }) = _GamePlayer;
 
   factory GamePlayer.fromJson(Map<String, dynamic> json) =>
@@ -55,13 +58,22 @@ abstract class GameSessionState with _$GameSessionState {
   const factory GameSessionState({
     @JsonKey(name: 'game_id') required String gameId,
     required String phase,
-    @JsonKey(name: 'current_wave') @Default(0) int currentWave,
-    DateTime? deadline,
+    @JsonKey(name: 'current_wave') required int currentWave,
+
+    /// Null when the phase has no time limit (always sent).
+    @JsonKey(required: true) required DateTime? deadline,
     @JsonKey(name: 'your_role') required YourRole yourRole,
     required List<GamePlayer> players,
-    @JsonKey(name: 'has_voted') @Default(false) bool hasVoted,
-    @JsonKey(name: 'action_prompt') ActionPrompt? actionPrompt,
-    @JsonKey(name: 'last_action_result') ActionResult? lastActionResult,
+    @JsonKey(name: 'has_voted') required bool hasVoted,
+
+    /// Null when this player has nothing to do now (always sent).
+    @JsonKey(name: 'action_prompt', required: true)
+    required ActionPrompt? actionPrompt,
+
+    /// The night result on screen (from `action_result` or `night_results`;
+    /// `/me/` has no such key).
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    ActionResult? lastActionResult,
 
     /// Frontend-only display state for the night phase sub-view.
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -69,7 +81,7 @@ abstract class GameSessionState with _$GameSessionState {
     NightSubView nightSubView,
 
     /// Roles present in this game with their counts.
-    @JsonKey(name: 'roles_in_game') @Default([]) List<RoleInGame> rolesInGame,
+    @JsonKey(name: 'roles_in_game') required List<RoleInGame> rolesInGame,
 
     /// Vote progress tracking during voting phase.
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -84,11 +96,11 @@ abstract class GameSessionState with _$GameSessionState {
     @JsonKey(includeFromJson: false, includeToJson: false) GameResult? results,
 
     /// Whether the current player is the game host (from server response).
-    @JsonKey(name: 'is_host') @Default(false) bool isHost,
+    @JsonKey(name: 'is_host') required bool isHost,
 
-    /// The effective (current) host's player id, when the server says. When
-    /// present, [isHost] follows it, and `host_changed` events update both.
-    @JsonKey(name: 'host_id') int? hostId,
+    /// The effective (current) host's player id. [isHost] follows it, and
+    /// `host_changed` events update both.
+    @JsonKey(name: 'host_id') required int hostId,
 
     /// The latest host change, for the quiet line everyone sees ("Ben is
     /// hosting while Ana is away").
@@ -100,8 +112,8 @@ abstract class GameSessionState with _$GameSessionState {
     @JsonKey(includeFromJson: false, includeToJson: false)
     String? hostActionNotice,
 
-    /// Code of the table (lobby) this game belongs to, when the server says.
-    @JsonKey(name: 'lobby_code') String? lobbyCode,
+    /// Code of the table (lobby) this game belongs to (in every phase).
+    @JsonKey(name: 'lobby_code') required String lobbyCode,
 
     /// This player's own results for night windows that have already closed,
     /// in order (from `night_results`). Parsed by [GameService]; the later
@@ -139,6 +151,13 @@ abstract class GameSessionState with _$GameSessionState {
   factory GameSessionState.fromJson(Map<String, dynamic> json) =>
       _$GameSessionStateFromJson(json);
 }
+
+/// `GET /onuw/games/<id>/me/` as the app holds it: the state, with
+/// `night_results` parsed the way the `action_result` event is.
+GameSessionState gameStateFromServer(Map<String, dynamic> data) =>
+    GameSessionState.fromJson(
+      data,
+    ).copyWith(nightResults: parseNightResults(data['night_results'] as List));
 
 /// Who is away, from the public `connected` flag.
 extension GamePresence on GameSessionState {

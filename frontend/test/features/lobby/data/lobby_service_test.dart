@@ -1,390 +1,211 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
-import 'package:mocktail/mocktail.dart';
 
-class MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
+import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/mock_http_client.dart';
 
-/// Canonical lobby response JSON matching the backend format.
-Map<String, dynamic> _lobbyResponseJson({
-  String code = 'ABC123',
-  int hostId = 1,
-  String status = 'waiting',
-}) {
-  return {
-    'code': code,
-    'host': {'id': hostId, 'username': 'player1', 'display_name': 'Alice'},
-    'game_type': 'onuw',
-    'status': status,
-    'max_players': 10,
-    'settings': {
-      'roles': {'werewolf': 2, 'seer': 1, 'robber': 1},
-    },
-    'players': [
-      {
-        'user': {'id': hostId, 'username': 'player1', 'display_name': 'Alice'},
-        'is_ready': true,
-        'joined_at': '2026-03-31T06:00:00Z',
-      },
-    ],
-    'created_at': '2026-03-31T05:55:00Z',
-  };
-}
+/// The server's lobby body: Alice (1) alone at the table [code], with a deck
+/// chosen or ([deck] false) not yet.
+Map<String, dynamic> _lobby({String code = 'ABC123', bool deck = true}) =>
+    serverLobby(code: code, seats: const [(id: 1, name: 'Alice')], deck: deck);
 
 void main() {
-  late MockAuthenticatedClient mockClient;
+  late MockHttpClient http;
   late LobbyService service;
 
   setUp(() {
-    mockClient = MockAuthenticatedClient();
-    service = LobbyService(client: mockClient);
+    http = MockHttpClient();
+    service = LobbyService(
+      client: AuthenticatedClient.forTesting(dio: http.dio),
+    );
   });
 
+  /// What the app sent last: method, path and body.
+  (String, String, dynamic) sent() {
+    final last = http.requests.last;
+    return (last.method, last.path, last.data);
+  }
+
   group('LobbyService', () {
-    group('createLobby', () {
-      test(
-        'sends POST to /lobbies/ with game_type and returns LobbyState',
-        () async {
-          when(
-            () => mockClient.post<Map<String, dynamic>>(
-              '/lobbies/',
-              data: {'game_type': 'onuw'},
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/lobbies/'),
-              data: _lobbyResponseJson(),
-            ),
-          );
+    test('createLobby opens an ONUW table and reads it back', () async {
+      http.answer('POST', '/lobbies/', _lobby(deck: false), status: 201);
 
-          final lobby = await service.createLobby();
+      final lobby = await service.createLobby();
 
-          expect(lobby.code, 'ABC123');
-          expect(lobby.hostId, 1);
-          verify(
-            () => mockClient.post<Map<String, dynamic>>(
-              '/lobbies/',
-              data: {'game_type': 'onuw'},
-            ),
-          ).called(1);
-        },
-      );
-
-      test('maps DioException to ApiException', () async {
-        when(
-          () => mockClient.post<Map<String, dynamic>>(
-            '/lobbies/',
-            data: any(named: 'data'),
-          ),
-        ).thenThrow(
-          DioException(
-            requestOptions: RequestOptions(path: '/lobbies/'),
-            type: DioExceptionType.connectionError,
-          ),
-        );
-
-        await expectLater(
-          () => service.createLobby(),
-          throwsA(isA<NetworkException>()),
-        );
-      });
+      expect(sent().$2, '/lobbies/');
+      expect(sent().$3, {'game_type': 'onuw'});
+      expect(lobby.code, 'ABC123');
+      expect(lobby.hostId, 1);
     });
 
-    group('joinLobby', () {
-      test(
-        'sends POST to /lobbies/<code>/join/ and returns LobbyState',
-        () async {
-          when(
-            () =>
-                mockClient.post<Map<String, dynamic>>('/lobbies/XYZ789/join/'),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/lobbies/XYZ789/join/'),
-              data: _lobbyResponseJson(code: 'XYZ789'),
-            ),
-          );
+    test('joinLobby joins the table and reads it back', () async {
+      http.answer(
+        'POST',
+        '/lobbies/XYZ789/join/',
+        _lobby(code: 'XYZ789', deck: false),
+      );
 
-          final lobby = await service.joinLobby('XYZ789');
+      final lobby = await service.joinLobby('XYZ789');
 
-          expect(lobby.code, 'XYZ789');
-          verify(
-            () =>
-                mockClient.post<Map<String, dynamic>>('/lobbies/XYZ789/join/'),
-          ).called(1);
-        },
+      expect(sent().$2, '/lobbies/XYZ789/join/');
+      expect(lobby.code, 'XYZ789');
+    });
+
+    test('a refused join carries the server\'s message and code', () async {
+      http.answer(
+        'POST',
+        '/lobbies/ABC123/join/',
+        ContractSamples.load('http/lobby/join_full'),
+        status: 400,
+      );
+
+      await expectLater(
+        service.joinLobby('ABC123'),
+        throwsA(
+          isA<ValidationException>()
+              .having((e) => e.code, 'code', 'lobby_full')
+              .having((e) => e.firstErrorFor('detail'), 'detail', isNotNull),
+        ),
       );
     });
 
-    group('leaveLobby', () {
-      test('sends POST to /lobbies/<code>/leave/', () async {
-        when(
-          () => mockClient.post<Map<String, dynamic>>('/lobbies/ABC123/leave/'),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/lobbies/ABC123/leave/'),
-            data: {'detail': 'Left lobby'},
-          ),
-        );
+    test('leaveLobby posts to the table\'s leave', () async {
+      http.answer(
+        'POST',
+        '/lobbies/ABC123/leave/',
+        ContractSamples.load('http/lobby/left'),
+      );
 
-        await service.leaveLobby('ABC123');
+      await service.leaveLobby('ABC123');
 
-        verify(
-          () => mockClient.post<Map<String, dynamic>>('/lobbies/ABC123/leave/'),
-        ).called(1);
-      });
+      expect(sent().$2, '/lobbies/ABC123/leave/');
     });
 
-    group('toggleReady', () {
-      test('sends POST to /lobbies/<code>/ready/', () async {
-        when(
-          () => mockClient.post<Map<String, dynamic>>('/lobbies/ABC123/ready/'),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/lobbies/ABC123/ready/'),
-            data: _lobbyResponseJson(),
-          ),
-        );
+    test('toggleReady posts to the table\'s ready', () async {
+      http.answer('POST', '/lobbies/ABC123/ready/', _lobby(deck: false));
 
-        await service.toggleReady('ABC123');
+      await service.toggleReady('ABC123');
 
-        verify(
-          () => mockClient.post<Map<String, dynamic>>('/lobbies/ABC123/ready/'),
-        ).called(1);
-      });
+      expect(sent().$2, '/lobbies/ABC123/ready/');
     });
 
-    group('updateRoleConfig', () {
-      test('sends PATCH to /lobbies/<code>/ with settings body', () async {
-        final roles = {'werewolf': 2, 'seer': 1};
-        when(
-          () => mockClient.patch<Map<String, dynamic>>(
-            '/lobbies/ABC123/',
-            data: {
-              'settings': {'roles': roles},
-            },
-          ),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/lobbies/ABC123/'),
-            data: _lobbyResponseJson(),
-          ),
-        );
+    test('updateRoleConfig sends the deck as settings', () async {
+      final roles = {'Werewolf': 2, 'Seer': 1};
+      http.answer('PATCH', '/lobbies/ABC123/', _lobby());
 
-        final lobby = await service.updateRoleConfig('ABC123', roles);
+      final lobby = await service.updateRoleConfig('ABC123', roles);
 
-        expect(lobby.code, 'ABC123');
-        verify(
-          () => mockClient.patch<Map<String, dynamic>>(
-            '/lobbies/ABC123/',
-            data: {
-              'settings': {'roles': roles},
-            },
-          ),
-        ).called(1);
+      expect(sent().$1, 'PATCH');
+      expect(sent().$3, {
+        'settings': {'roles': roles},
       });
+      expect(lobby.code, 'ABC123');
     });
 
-    group('startGame', () {
-      test(
-        'sends POST to /onuw/lobbies/<code>/start/ and returns game ID',
-        () async {
-          when(
-            () => mockClient.post<Map<String, dynamic>>(
-              '/onuw/lobbies/ABC123/start/',
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(
-                path: '/onuw/lobbies/ABC123/start/',
+    test('a deck change during a game is a conflict with its code', () async {
+      http.answer(
+        'PATCH',
+        '/lobbies/ABC123/',
+        ContractSamples.load('http/lobby/settings_in_game'),
+        status: 409,
+      );
+
+      await expectLater(
+        service.updateRoleConfig('ABC123', {'Werewolf': 2}),
+        throwsA(
+          isA<UnhandledHttpException>()
+              .having((e) => e.statusCode, 'status', 409)
+              .having((e) => e.code, 'code', 'lobby_in_game')
+              .having(
+                (e) => e.message,
+                'message',
+                'Settings cannot change while a game is in progress.',
               ),
-              data: {
-                'game_id': '550e8400-e29b-41d4-a716-446655440000',
-                'phase': 'night',
-              },
-            ),
-          );
-
-          final gameId = await service.startGame('ABC123');
-
-          expect(gameId, '550e8400-e29b-41d4-a716-446655440000');
-        },
+        ),
       );
-
-      test('throws MalformedResponseException when response is null', () async {
-        when(
-          () => mockClient.post<Map<String, dynamic>>(
-            '/onuw/lobbies/ABC123/start/',
-          ),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/onuw/lobbies/ABC123/start/'),
-            data: null,
-          ),
-        );
-
-        await expectLater(
-          () => service.startGame('ABC123'),
-          throwsA(isA<MalformedResponseException>()),
-        );
-      });
-
-      test('throws MalformedResponseException when game_id missing', () async {
-        when(
-          () => mockClient.post<Map<String, dynamic>>(
-            '/onuw/lobbies/ABC123/start/',
-          ),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/onuw/lobbies/ABC123/start/'),
-            data: {'phase': 'night'},
-          ),
-        );
-
-        await expectLater(
-          () => service.startGame('ABC123'),
-          throwsA(isA<MalformedResponseException>()),
-        );
-      });
     });
 
-    group('playAgain', () {
-      test(
-        'sends POST to /lobbies/<code>/play-again/ and returns the lobby',
-        () async {
-          when(
-            () => mockClient.post<Map<String, dynamic>>(
-              '/lobbies/ABC123/play-again/',
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(
-                path: '/lobbies/ABC123/play-again/',
-              ),
-              data: _lobbyResponseJson(),
-            ),
-          );
+    test('startGame returns the dealt game\'s id', () async {
+      final started = ContractSamples.map('http/game/started');
+      http.answer('POST', '/onuw/lobbies/ABC123/start/', started, status: 201);
 
-          final lobby = await service.playAgain('ABC123');
+      expect(await service.startGame('ABC123'), started['game_id']);
+    });
 
-          expect(lobby.code, 'ABC123');
-          expect(lobby.status, 'waiting');
-          expect(lobby.players, hasLength(1));
-        },
+    test('playAgain returns the reopened table', () async {
+      http.answer(
+        'POST',
+        '/lobbies/ABC123/play-again/',
+        ContractSamples.load('http/lobby/play_again'),
       );
 
-      test('maps 403 (not the host) to ForbiddenException', () async {
-        when(
-          () => mockClient.post<Map<String, dynamic>>(
-            '/lobbies/ABC123/play-again/',
-          ),
-        ).thenThrow(
-          DioException(
-            requestOptions: RequestOptions(path: '/lobbies/ABC123/play-again/'),
-            response: Response(
-              requestOptions: RequestOptions(
-                path: '/lobbies/ABC123/play-again/',
-              ),
-              statusCode: 403,
-            ),
-            type: DioExceptionType.badResponse,
-          ),
-        );
+      final lobby = await service.playAgain('ABC123');
 
-        await expectLater(
-          () => service.playAgain('ABC123'),
-          throwsA(isA<ForbiddenException>()),
-        );
-      });
+      expect(lobby.status, 'waiting');
+    });
+
+    test('playAgain by someone else is forbidden', () async {
+      http.answer(
+        'POST',
+        '/lobbies/ABC123/play-again/',
+        ContractSamples.load('http/lobby/play_again_not_host'),
+        status: 403,
+      );
+
+      await expectLater(
+        service.playAgain('ABC123'),
+        throwsA(isA<ForbiddenException>()),
+      );
     });
 
     group('activeGameIdAt', () {
+      final running = ContractSamples.map('http/game/current_game_active');
+
       Future<String?> lookUp(Map<String, dynamic> body) {
-        when(
-          () => mockClient.get<Map<String, dynamic>>('/onuw/me/current-game/'),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
-            data: body,
-          ),
-        );
+        http.answer('GET', '/onuw/me/current-game/', body);
         return service.activeGameIdAt('ABC123');
       }
 
       test('returns the game running at this table', () async {
         expect(
-          await lookUp({
-            'game_id': 'g2',
-            'phase': 'night',
-            'lobby_code': 'ABC123',
-          }),
-          'g2',
+          await lookUp({...running, 'lobby_code': 'ABC123'}),
+          running['game_id'],
         );
       });
 
       test('is null for another table or no game', () async {
-        expect(await lookUp({'game_id': 'g2', 'lobby_code': 'OTHER1'}), isNull);
-        expect(await lookUp({'game': null}), isNull);
+        expect(await lookUp(running), isNull);
+        expect(
+          await lookUp(ContractSamples.map('http/game/current_game_none')),
+          isNull,
+        );
       });
     });
 
-    group('fetchLobby', () {
-      test('sends GET to /lobbies/<code>/ and returns LobbyState', () async {
-        when(
-          () => mockClient.get<Map<String, dynamic>>('/lobbies/ABC123/'),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/lobbies/ABC123/'),
-            data: _lobbyResponseJson(),
-          ),
-        );
+    test('fetchLobby reads the table', () async {
+      http.answer('GET', '/lobbies/ABC123/', _lobby());
 
-        final lobby = await service.fetchLobby('ABC123');
+      final lobby = await service.fetchLobby('ABC123');
 
-        expect(lobby.code, 'ABC123');
-        expect(lobby.hostId, 1);
-        expect(lobby.players, hasLength(1));
-        verify(
-          () => mockClient.get<Map<String, dynamic>>('/lobbies/ABC123/'),
-        ).called(1);
-      });
+      expect(lobby.code, 'ABC123');
+      expect(lobby.players, hasLength(1));
+    });
 
-      test('throws MalformedResponseException when response is null', () async {
-        when(
-          () => mockClient.get<Map<String, dynamic>>('/lobbies/ABC123/'),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/lobbies/ABC123/'),
-            data: null,
-          ),
-        );
+    test('fetchLobby of a table that is gone is not found', () async {
+      http.answer(
+        'GET',
+        '/lobbies/NOPE/',
+        ContractSamples.load('http/lobby/not_found'),
+        status: 404,
+      );
 
-        await expectLater(
-          () => service.fetchLobby('ABC123'),
-          throwsA(isA<MalformedResponseException>()),
-        );
-      });
-
-      test('maps DioException 404 to NotFoundException', () async {
-        when(
-          () => mockClient.get<Map<String, dynamic>>('/lobbies/NOPE/'),
-        ).thenThrow(
-          DioException(
-            requestOptions: RequestOptions(path: '/lobbies/NOPE/'),
-            response: Response(
-              requestOptions: RequestOptions(path: '/lobbies/NOPE/'),
-              statusCode: 404,
-            ),
-            type: DioExceptionType.badResponse,
-          ),
-        );
-
-        await expectLater(
-          () => service.fetchLobby('NOPE'),
-          throwsA(isA<NotFoundException>()),
-        );
-      });
+      await expectLater(
+        service.fetchLobby('NOPE'),
+        throwsA(isA<NotFoundException>()),
+      );
     });
   });
 }

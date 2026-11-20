@@ -1,0 +1,13 @@
+{
+  "type": "action_result",
+  "wave": 2,
+  "action_type": "see_team",
+  "revealed_info": {
+    "teammate_names": [],
+    "role_acting_as": "Werewolf",
+    "center_card": {
+      "index": 1,
+      "role": "villager"
+    }
+  }
+}

@@ -39,6 +39,10 @@ Beyond `just check`/`test` (which mock the HTTP/WS seam), there is a determinist
 - `/debug` route (dev-only, gated by `Env.isDev`) — debug toolbar: spin up a table, switch player perspectives, god panel, auto-drive.
 - `just screens [width] [report|strict] [<skin>|all]` (root, or `cd frontend`) — renders every app screen, and each mock rebuilt from the design primitives, from the real widgets to `frontend/build/screens/`, side by side with `docs/design/mocks/`, and lists overflows/exceptions per screen (no backend; e.g. `just screens 360`, `just screens 390 strict all`; old-theme text is drawn in Figtree stand-ins until the old look is removed). See `frontend/CLAUDE.md`.
 
+### Contract samples (server payloads the app's tests are built from)
+
+`contract_samples/` (repo root) holds real response bodies and socket events, recorded by playing seeded games through the real views, services and consumer handlers (`backend/tests/contract/`; `index.json` lists each with its endpoint/status or event type). A backend test re-records them in memory and fails while the committed files differ: after any change to a payload run `just samples` and review the diff (also the one command after merging a branch that changes payloads). The app's tests may only use payloads built from these (`frontend/test/helpers/contract/`, `GameMeJsonBuilder`, `GameEvents`, `GameTestSetup`): every mocked HTTP body and socket event is checked against the samples of its own situation (phase, prompt role, result kind; errors by endpoint and status), a request with no mock fails the test, domain objects are parsed from payloads (`FromSample`), and `fixture_sources_test.dart` fails on any test that goes around this.
+
 ## Code Style
 
 - **Tests:** Descriptive names (`test_seer_can_view_one_center_card`), seed ALL randomness, test multi-player scenarios not just single player.

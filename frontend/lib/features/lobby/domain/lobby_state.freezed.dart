@@ -284,9 +284,9 @@ mixin _$LobbyState {
 /// the player's current game). The screen opens it. A table can run
 /// several games one after another, so each start sets a new id.
  String? get startedGameId;/// Display name of the effective host (the lobby's `host`).
- String? get hostName;/// The host who set the table up. [hostId] is the effective host, who may
+ String get hostName;/// The host who set the table up. [hostId] is the effective host, who may
 /// be someone else while the original host's phone is away.
- int? get originalHostId;/// True while someone other than the original host is hosting.
+ int get originalHostId;/// True while someone other than the original host is hosting.
  bool get isActingHost;/// The "Ana is hosting again" / "Ben is the host now" line, shown for a few
 /// seconds after the role returns or is transferred. Frontend only.
  HostChange? get briefHostNotice;/// A plain line about a host action refused because the role had moved.
@@ -324,7 +324,7 @@ abstract mixin class $LobbyStateCopyWith<$Res>  {
   factory $LobbyStateCopyWith(LobbyState value, $Res Function(LobbyState) _then) = _$LobbyStateCopyWithImpl;
 @useResult
 $Res call({
- String code, int hostId, List<LobbyPlayer> players, String status, int maxPlayers, Map<String, int> roleConfig, String? startedGameId, String? hostName, int? originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool tableClosed
+ String code, int hostId, List<LobbyPlayer> players, String status, int maxPlayers, Map<String, int> roleConfig, String? startedGameId, String hostName, int originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool tableClosed
 });
 
 
@@ -341,7 +341,7 @@ class _$LobbyStateCopyWithImpl<$Res>
 
 /// Create a copy of LobbyState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? maxPlayers = null,Object? roleConfig = null,Object? startedGameId = freezed,Object? hostName = freezed,Object? originalHostId = freezed,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? tableClosed = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? maxPlayers = null,Object? roleConfig = null,Object? startedGameId = freezed,Object? hostName = null,Object? originalHostId = null,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? tableClosed = null,}) {
   return _then(_self.copyWith(
 code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,hostId: null == hostId ? _self.hostId : hostId // ignore: cast_nullable_to_non_nullable
@@ -350,9 +350,9 @@ as List<LobbyPlayer>,status: null == status ? _self.status : status // ignore: c
 as String,maxPlayers: null == maxPlayers ? _self.maxPlayers : maxPlayers // ignore: cast_nullable_to_non_nullable
 as int,roleConfig: null == roleConfig ? _self.roleConfig : roleConfig // ignore: cast_nullable_to_non_nullable
 as Map<String, int>,startedGameId: freezed == startedGameId ? _self.startedGameId : startedGameId // ignore: cast_nullable_to_non_nullable
-as String?,hostName: freezed == hostName ? _self.hostName : hostName // ignore: cast_nullable_to_non_nullable
-as String?,originalHostId: freezed == originalHostId ? _self.originalHostId : originalHostId // ignore: cast_nullable_to_non_nullable
-as int?,isActingHost: null == isActingHost ? _self.isActingHost : isActingHost // ignore: cast_nullable_to_non_nullable
+as String?,hostName: null == hostName ? _self.hostName : hostName // ignore: cast_nullable_to_non_nullable
+as String,originalHostId: null == originalHostId ? _self.originalHostId : originalHostId // ignore: cast_nullable_to_non_nullable
+as int,isActingHost: null == isActingHost ? _self.isActingHost : isActingHost // ignore: cast_nullable_to_non_nullable
 as bool,briefHostNotice: freezed == briefHostNotice ? _self.briefHostNotice : briefHostNotice // ignore: cast_nullable_to_non_nullable
 as HostChange?,hostActionNotice: freezed == hostActionNotice ? _self.hostActionNotice : hostActionNotice // ignore: cast_nullable_to_non_nullable
 as String?,tableClosed: null == tableClosed ? _self.tableClosed : tableClosed // ignore: cast_nullable_to_non_nullable
@@ -441,7 +441,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  String? startedGameId,  String? hostName,  int? originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool tableClosed)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool tableClosed)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LobbyState() when $default != null:
 return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlayers,_that.roleConfig,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.tableClosed);case _:
@@ -462,7 +462,7 @@ return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlay
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  String? startedGameId,  String? hostName,  int? originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool tableClosed)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool tableClosed)  $default,) {final _that = this;
 switch (_that) {
 case _LobbyState():
 return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlayers,_that.roleConfig,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.tableClosed);case _:
@@ -482,7 +482,7 @@ return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlay
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  String? startedGameId,  String? hostName,  int? originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool tableClosed)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  int maxPlayers,  Map<String, int> roleConfig,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool tableClosed)?  $default,) {final _that = this;
 switch (_that) {
 case _LobbyState() when $default != null:
 return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlayers,_that.roleConfig,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.tableClosed);case _:
@@ -497,7 +497,7 @@ return $default(_that.code,_that.hostId,_that.players,_that.status,_that.maxPlay
 
 
 class _LobbyState implements LobbyState {
-  const _LobbyState({required this.code, required this.hostId, required final  List<LobbyPlayer> players, required this.status, required this.maxPlayers, final  Map<String, int> roleConfig = const {}, this.startedGameId, this.hostName, this.originalHostId, this.isActingHost = false, this.briefHostNotice, this.hostActionNotice, this.tableClosed = false}): _players = players,_roleConfig = roleConfig;
+  const _LobbyState({required this.code, required this.hostId, required final  List<LobbyPlayer> players, required this.status, required this.maxPlayers, final  Map<String, int> roleConfig = const {}, this.startedGameId, required this.hostName, required this.originalHostId, required this.isActingHost, this.briefHostNotice, this.hostActionNotice, this.tableClosed = false}): _players = players,_roleConfig = roleConfig;
   
 
 @override final  String code;
@@ -523,12 +523,12 @@ class _LobbyState implements LobbyState {
 /// several games one after another, so each start sets a new id.
 @override final  String? startedGameId;
 /// Display name of the effective host (the lobby's `host`).
-@override final  String? hostName;
+@override final  String hostName;
 /// The host who set the table up. [hostId] is the effective host, who may
 /// be someone else while the original host's phone is away.
-@override final  int? originalHostId;
+@override final  int originalHostId;
 /// True while someone other than the original host is hosting.
-@override@JsonKey() final  bool isActingHost;
+@override final  bool isActingHost;
 /// The "Ana is hosting again" / "Ben is the host now" line, shown for a few
 /// seconds after the role returns or is transferred. Frontend only.
 @override final  HostChange? briefHostNotice;
@@ -569,7 +569,7 @@ abstract mixin class _$LobbyStateCopyWith<$Res> implements $LobbyStateCopyWith<$
   factory _$LobbyStateCopyWith(_LobbyState value, $Res Function(_LobbyState) _then) = __$LobbyStateCopyWithImpl;
 @override @useResult
 $Res call({
- String code, int hostId, List<LobbyPlayer> players, String status, int maxPlayers, Map<String, int> roleConfig, String? startedGameId, String? hostName, int? originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool tableClosed
+ String code, int hostId, List<LobbyPlayer> players, String status, int maxPlayers, Map<String, int> roleConfig, String? startedGameId, String hostName, int originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool tableClosed
 });
 
 
@@ -586,7 +586,7 @@ class __$LobbyStateCopyWithImpl<$Res>
 
 /// Create a copy of LobbyState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? maxPlayers = null,Object? roleConfig = null,Object? startedGameId = freezed,Object? hostName = freezed,Object? originalHostId = freezed,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? tableClosed = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? maxPlayers = null,Object? roleConfig = null,Object? startedGameId = freezed,Object? hostName = null,Object? originalHostId = null,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? tableClosed = null,}) {
   return _then(_LobbyState(
 code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,hostId: null == hostId ? _self.hostId : hostId // ignore: cast_nullable_to_non_nullable
@@ -595,9 +595,9 @@ as List<LobbyPlayer>,status: null == status ? _self.status : status // ignore: c
 as String,maxPlayers: null == maxPlayers ? _self.maxPlayers : maxPlayers // ignore: cast_nullable_to_non_nullable
 as int,roleConfig: null == roleConfig ? _self._roleConfig : roleConfig // ignore: cast_nullable_to_non_nullable
 as Map<String, int>,startedGameId: freezed == startedGameId ? _self.startedGameId : startedGameId // ignore: cast_nullable_to_non_nullable
-as String?,hostName: freezed == hostName ? _self.hostName : hostName // ignore: cast_nullable_to_non_nullable
-as String?,originalHostId: freezed == originalHostId ? _self.originalHostId : originalHostId // ignore: cast_nullable_to_non_nullable
-as int?,isActingHost: null == isActingHost ? _self.isActingHost : isActingHost // ignore: cast_nullable_to_non_nullable
+as String?,hostName: null == hostName ? _self.hostName : hostName // ignore: cast_nullable_to_non_nullable
+as String,originalHostId: null == originalHostId ? _self.originalHostId : originalHostId // ignore: cast_nullable_to_non_nullable
+as int,isActingHost: null == isActingHost ? _self.isActingHost : isActingHost // ignore: cast_nullable_to_non_nullable
 as bool,briefHostNotice: freezed == briefHostNotice ? _self.briefHostNotice : briefHostNotice // ignore: cast_nullable_to_non_nullable
 as HostChange?,hostActionNotice: freezed == hostActionNotice ? _self.hostActionNotice : hostActionNotice // ignore: cast_nullable_to_non_nullable
 as String?,tableClosed: null == tableClosed ? _self.tableClosed : tableClosed // ignore: cast_nullable_to_non_nullable

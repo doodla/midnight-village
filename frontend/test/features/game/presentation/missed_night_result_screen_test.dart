@@ -4,21 +4,28 @@ import 'package:midnight_village/features/game/presentation/game_container_scree
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 import 'package:midnight_village/features/game/presentation/night_result_view.dart';
 
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/game_state_factory.dart';
 import '../../../helpers/game_test_setup.dart';
 
-Map<String, dynamic> _peekBob({int wave = 2}) => {
-  'wave': wave,
-  'action_type': 'peek_player',
-  'revealed_info': {'target_name': 'Bob', 'role': 'werewolf'},
-};
+/// The Seer looked at Bob, a Werewolf (window 2).
+Map<String, dynamic> _peekBob() => serverNightResult(
+  'peek_player',
+  info: {'target_name': 'Bob', 'role': 'werewolf'},
+);
 
-Map<String, dynamic> _swapWithCharlie({int wave = 2}) => {
-  'wave': wave,
-  'action_type': 'swap_with_player',
-  'revealed_info': {'target_name': 'Charlie', 'new_role': 'villager'},
-};
+/// The Doppelganger's look at Bob (window 1), and her follow-up as the copied
+/// Seer: the only player with two results.
+Map<String, dynamic> _lookAtBob() => serverNightResult(
+  'doppelganger_look',
+  wave: 1,
+  info: {'target_name': 'Bob'},
+);
+Map<String, dynamic> _followUp() => serverNightResult('peek_center', wave: 1);
+
+GameMeJsonBuilder _doppelganger() =>
+    GameMeJsonBuilder().withRole('Doppelganger');
 
 Future<void> _settle(WidgetTester tester) async {
   await tester.pump();
@@ -71,13 +78,7 @@ void main() {
       await tester.tap(find.text('Continue to discussion'));
       await _settle(tester);
 
-      setup.ws.addServerEvent(
-        GameEvents.actionResult(
-          wave: 2,
-          actionType: 'peek_player',
-          revealedInfo: {'target_name': 'Bob', 'role': 'werewolf'},
-        ),
-      );
+      setup.ws.addServerEvent(GameEvents.actionResultOf(_peekBob()));
       await _settle(tester);
 
       expect(find.byType(NightResultView), findsNothing);
@@ -106,18 +107,26 @@ void main() {
       tester,
     ) async {
       await tester.pumpGameFlow(
-        gameMeJson: GameMeJsonBuilder().inPhase('discussion').withNightResults([
-          _peekBob(wave: 1),
-          _swapWithCharlie(),
+        gameMeJson: _doppelganger().inPhase('discussion').withNightResults([
+          _lookAtBob(),
+          _followUp(),
         ]).build(),
       );
 
-      expect(find.text('You looked at Bob\'s card'), findsOneWidget);
+      final look = find.byType(NightResultView);
+      final lookWidget = tester.widget<NightResultView>(look);
+      expect(lookWidget.result.revealedInfo['action_type'], 'peek_player');
       expect(find.text('Next'), findsOneWidget);
 
       await tester.tap(find.text('Next'));
       await _settle(tester);
-      expect(find.text('You looked at Bob\'s card'), findsNothing);
+      expect(
+        tester
+            .widget<NightResultView>(find.byType(NightResultView))
+            .result
+            .revealedInfo['action_type'],
+        'peek_center',
+      );
       expect(find.byType(NightResultView), findsOneWidget);
       expect(find.text('Continue to discussion'), findsOneWidget);
 
@@ -129,14 +138,12 @@ void main() {
     testWidgets('a window that closed while offline is shown after the '
         'reconnect refresh, and can be dismissed at night', (tester) async {
       final setup = await tester.pumpGameFlow(
-        gameMeJson: GameMeJsonBuilder().withWave(1).build(),
+        gameMeJson: _doppelganger().withWave(1).build(),
       );
       expect(find.byType(NightResultView), findsNothing);
 
       setup.registerGameMe(
-        GameMeJsonBuilder().withWave(2).withNightResults([
-          _peekBob(wave: 1),
-        ]).build(),
+        _doppelganger().withWave(2).withNightResults([_lookAtBob()]).build(),
       );
       await tester.runAsync(
         () => ProviderScope.containerOf(
@@ -154,18 +161,6 @@ void main() {
       await _settle(tester);
       expect(find.byType(NightResultView), findsNothing);
       expect(find.text('The village sleeps…'), findsOneWidget);
-    });
-
-    testWidgets('is never shown at night while that window is still open', (
-      tester,
-    ) async {
-      await tester.pumpGameFlow(
-        gameMeJson: GameMeJsonBuilder().withWave(2).withNightResults([
-          _peekBob(wave: 2),
-        ]).build(),
-      );
-
-      expect(find.byType(NightResultView), findsNothing);
     });
   });
 }

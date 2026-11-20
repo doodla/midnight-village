@@ -1,467 +1,101 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/features/auth/data/auth_service.dart';
-import 'package:mocktail/mocktail.dart';
 
-class MockApiClient extends Mock implements ApiClient {}
+import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/mock_http_client.dart';
 
 void main() {
-  late MockApiClient mockApiClient;
+  late MockHttpClient http;
   late AuthService authService;
 
   setUp(() {
-    mockApiClient = MockApiClient();
-    authService = AuthService(apiClient: mockApiClient);
+    http = MockHttpClient();
+    authService = AuthService(apiClient: ApiClient(dio: http.dio));
   });
+
+  /// The server's answer to [path] with [status], as recorded.
+  void answer(String path, String sample, {int status = 200}) =>
+      http.answer('POST', path, ContractSamples.load(sample), status: status);
 
   group('AuthService', () {
     group('createGuest', () {
-      test('returns tokens and user on successful response', () async {
-        when(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/guest/',
-            data: any(named: 'data'),
-          ),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/auth/guest/'),
-            data: {
-              'access': 'access_token',
-              'refresh': 'refresh_token',
-              'user': {'id': 1, 'display_name': 'Guest1'},
-            },
-          ),
-        );
+      test('returns the tokens and the user the server created', () async {
+        answer('/auth/guest/', 'http/auth/guest_created', status: 201);
+        final created = ContractSamples.map('http/auth/guest_created');
 
-        final result = await authService.createGuest();
+        final result = await authService.createGuest(displayName: 'Ana');
 
-        expect(result.tokens.access, 'access_token');
-        expect(result.tokens.refresh, 'refresh_token');
-        expect(result.user.id, 1);
-        expect(result.user.displayName, 'Guest1');
+        expect(result.tokens.access, created['access']);
+        expect(result.tokens.refresh, created['refresh']);
+        expect(result.user.id, created['user']['id']);
+        expect(result.user.displayName, created['user']['display_name']);
       });
 
-      test('sends display_name in request when provided', () async {
-        when(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/guest/',
-            data: {'display_name': 'MyName'},
-          ),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/auth/guest/'),
-            data: {
-              'access': 'access',
-              'refresh': 'refresh',
-              'user': {'id': 1, 'display_name': 'MyName'},
-            },
-          ),
-        );
+      test('sends the display name, trimmed', () async {
+        answer('/auth/guest/', 'http/auth/guest_created', status: 201);
 
-        await authService.createGuest(displayName: 'MyName');
+        await authService.createGuest(displayName: '  Ana  ');
 
-        verify(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/guest/',
-            data: {'display_name': 'MyName'},
-          ),
-        ).called(1);
+        expect(http.requests.single.data, {'display_name': 'Ana'});
       });
 
-      test('trims display_name before sending', () async {
-        when(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/guest/',
-            data: {'display_name': 'Trimmed'},
-          ),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/auth/guest/'),
-            data: {
-              'access': 'access',
-              'refresh': 'refresh',
-              'user': {'id': 1, 'display_name': 'Trimmed'},
-            },
-          ),
-        );
-
-        await authService.createGuest(displayName: '  Trimmed  ');
-
-        verify(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/guest/',
-            data: {'display_name': 'Trimmed'},
-          ),
-        ).called(1);
-      });
-
-      test('does not send display_name when empty after trim', () async {
-        when(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/guest/',
-            data: <String, dynamic>{},
-          ),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/auth/guest/'),
-            data: {
-              'access': 'access',
-              'refresh': 'refresh',
-              'user': {'id': 1, 'display_name': 'Generated'},
-            },
-          ),
-        );
+      test('sends no display name when it is blank', () async {
+        answer('/auth/guest/', 'http/auth/guest_created', status: 201);
 
         await authService.createGuest(displayName: '   ');
 
-        verify(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/guest/',
-            data: <String, dynamic>{},
-          ),
-        ).called(1);
+        expect(http.requests.single.data, <String, dynamic>{});
       });
 
-      test(
-        'throws MalformedResponseException when response body is null',
-        () async {
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/guest/',
-              data: any(named: 'data'),
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/guest/'),
-              data: null,
-            ),
-          );
-
-          await expectLater(
-            () => authService.createGuest(),
-            throwsA(
-              isA<MalformedResponseException>().having(
-                (e) => e.message,
-                'message',
-                'Response body is null',
-              ),
-            ),
-          );
-        },
-      );
-
-      test(
-        'throws MalformedResponseException when access token missing',
-        () async {
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/guest/',
-              data: any(named: 'data'),
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/guest/'),
-              data: {
-                'refresh': 'refresh_token',
-                'user': {'id': 1, 'display_name': 'Test'},
-              },
-            ),
-          );
-
-          await expectLater(
-            () => authService.createGuest(),
-            throwsA(
-              isA<MalformedResponseException>().having(
-                (e) => e.message,
-                'message',
-                'Missing or invalid token fields in response',
-              ),
-            ),
-          );
-        },
-      );
-
-      test(
-        'throws MalformedResponseException when refresh token missing',
-        () async {
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/guest/',
-              data: any(named: 'data'),
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/guest/'),
-              data: {
-                'access': 'access_token',
-                'user': {'id': 1, 'display_name': 'Test'},
-              },
-            ),
-          );
-
-          await expectLater(
-            () => authService.createGuest(),
-            throwsA(
-              isA<MalformedResponseException>().having(
-                (e) => e.message,
-                'message',
-                'Missing or invalid token fields in response',
-              ),
-            ),
-          );
-        },
-      );
-
-      test(
-        'throws MalformedResponseException when user field missing',
-        () async {
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/guest/',
-              data: any(named: 'data'),
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/guest/'),
-              data: {'access': 'access_token', 'refresh': 'refresh_token'},
-            ),
-          );
-
-          await expectLater(
-            () => authService.createGuest(),
-            throwsA(
-              isA<MalformedResponseException>().having(
-                (e) => e.message,
-                'message',
-                'Missing or invalid user field in response',
-              ),
-            ),
-          );
-        },
-      );
-
-      test(
-        'throws MalformedResponseException when user field is not a map',
-        () async {
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/guest/',
-              data: any(named: 'data'),
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/guest/'),
-              data: {
-                'access': 'access_token',
-                'refresh': 'refresh_token',
-                'user': 'not_a_map',
-              },
-            ),
-          );
-
-          await expectLater(
-            () => authService.createGuest(),
-            throwsA(
-              isA<MalformedResponseException>().having(
-                (e) => e.message,
-                'message',
-                'Missing or invalid user field in response',
-              ),
-            ),
-          );
-        },
-      );
-
-      test(
-        'throws MalformedResponseException when user data has invalid id',
-        () async {
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/guest/',
-              data: any(named: 'data'),
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/guest/'),
-              data: {
-                'access': 'access_token',
-                'refresh': 'refresh_token',
-                'user': {'id': 0, 'display_name': 'Test'},
-              },
-            ),
-          );
-
-          await expectLater(
-            () => authService.createGuest(),
-            throwsA(
-              isA<MalformedResponseException>().having(
-                (e) => e.message,
-                'message',
-                contains('Invalid user data'),
-              ),
-            ),
-          );
-        },
-      );
-
-      test('maps DioException to ApiException', () async {
-        when(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/guest/',
-            data: any(named: 'data'),
-          ),
-        ).thenThrow(
-          DioException(
-            requestOptions: RequestOptions(path: '/auth/guest/'),
-            type: DioExceptionType.connectionError,
-          ),
-        );
+      test('a name the server refuses says why', () async {
+        answer('/auth/guest/', 'http/auth/guest_invalid_name', status: 400);
 
         await expectLater(
-          () => authService.createGuest(),
-          throwsA(isA<NetworkException>()),
+          authService.createGuest(displayName: 'Ana!!'),
+          throwsA(
+            isA<ValidationException>().having(
+              (e) => e.firstErrorFor('display_name'),
+              'display_name error',
+              'Display name can only contain letters, numbers, and single '
+                  'spaces.',
+            ),
+          ),
+        );
+      });
+
+      test('too many sign-ins is a rate limit', () async {
+        answer('/auth/guest/', 'http/auth/guest_throttled', status: 429);
+
+        await expectLater(
+          authService.createGuest(),
+          throwsA(isA<RateLimitException>()),
         );
       });
     });
 
     group('refreshToken', () {
-      test('returns new token pair on success', () async {
-        when(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/token/refresh/',
-            data: {'refresh': 'old_refresh'},
-          ),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-            data: {'access': 'new_access', 'refresh': 'new_refresh'},
-          ),
-        );
+      test('returns the new (rotated) token pair', () async {
+        answer('/auth/token/refresh/', 'http/auth/token_refreshed');
+        final refreshed = ContractSamples.map('http/auth/token_refreshed');
 
-        final result = await authService.refreshToken('old_refresh');
+        final tokens = await authService.refreshToken('old-refresh');
 
-        expect(result.access, 'new_access');
-        expect(result.refresh, 'new_refresh');
+        expect(tokens.access, refreshed['access']);
+        expect(tokens.refresh, refreshed['refresh']);
+        expect(http.requests.single.data, {'refresh': 'old-refresh'});
       });
 
-      test('reuses original refresh token when not returned', () async {
-        when(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/token/refresh/',
-            data: {'refresh': 'original_refresh'},
-          ),
-        ).thenAnswer(
-          (_) async => Response(
-            requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-            data: {'access': 'new_access'},
-          ),
-        );
-
-        final result = await authService.refreshToken('original_refresh');
-
-        expect(result.access, 'new_access');
-        expect(result.refresh, 'original_refresh');
-      });
-
-      test(
-        'throws MalformedResponseException when response body is null',
-        () async {
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/token/refresh/',
-              data: {'refresh': 'token'},
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-              data: null,
-            ),
-          );
-
-          await expectLater(
-            () => authService.refreshToken('token'),
-            throwsA(
-              isA<MalformedResponseException>().having(
-                (e) => e.message,
-                'message',
-                'Response body is null',
-              ),
-            ),
-          );
-        },
-      );
-
-      test(
-        'throws MalformedResponseException when access token missing',
-        () async {
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/token/refresh/',
-              data: {'refresh': 'token'},
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-              data: {'refresh': 'new_refresh'},
-            ),
-          );
-
-          await expectLater(
-            () => authService.refreshToken('token'),
-            throwsA(
-              isA<MalformedResponseException>().having(
-                (e) => e.message,
-                'message',
-                'Missing or invalid access token in response',
-              ),
-            ),
-          );
-        },
-      );
-
-      test(
-        'throws MalformedResponseException when access token is not string',
-        () async {
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/token/refresh/',
-              data: {'refresh': 'token'},
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-              data: {'access': 12345},
-            ),
-          );
-
-          await expectLater(
-            () => authService.refreshToken('token'),
-            throwsA(isA<MalformedResponseException>()),
-          );
-        },
-      );
-
-      test('maps DioException to ApiException', () async {
-        when(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            '/auth/token/refresh/',
-            data: {'refresh': 'expired'},
-          ),
-        ).thenThrow(
-          DioException(
-            requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-            response: Response(
-              requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-              statusCode: 401,
-            ),
-            type: DioExceptionType.badResponse,
-          ),
+      test('a refresh token the server refuses is unauthorized', () async {
+        answer(
+          '/auth/token/refresh/',
+          'http/auth/token_refresh_refused',
+          status: 401,
         );
 
         await expectLater(
-          () => authService.refreshToken('expired'),
+          authService.refreshToken('stale'),
           throwsA(isA<UnauthorizedException>()),
         );
       });

@@ -1,182 +1,88 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart';
-import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
-import 'package:midnight_village/features/game/data/game_service.dart';
-import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
-import '../../../helpers/mock_http_client.dart';
-import '../../../helpers/mock_websocket.dart';
+import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/game_events.dart';
+import '../../../helpers/game_state_factory.dart';
+import '../../../helpers/game_test_setup.dart';
 
-/// Default game state JSON returned by the mock /me/ endpoint.
-Map<String, dynamic> _defaultGameMeJson({
-  String phase = 'night',
-  int currentWave = 1,
-}) => {
-  'game_id': 'test-game-id',
-  'phase': phase,
-  'current_wave': currentWave,
-  'deadline': null,
-  'your_role': {'original_role': 'seer', 'has_acted': false},
-  'players': [
-    {'player_id': 1, 'display_name': 'Alice'},
-    {'player_id': 2, 'display_name': 'Bob'},
-    {'player_id': 3, 'display_name': 'Charlie'},
-  ],
-  'roles_in_game': [
-    {'role': 'werewolf', 'count': 2},
-    {'role': 'seer', 'count': 1},
-  ],
-};
-
-/// Creates a test container with mocked dependencies and a WebSocket stream.
-/// Returns the container, http mock, ws mock, and a subscription that keeps
-/// the provider alive.
-({ProviderContainer container, MockHttpClient http, MockWebSocketChannel ws})
-_createTestSetup({Map<String, dynamic>? gameMeJson}) {
-  final http = MockHttpClient();
-  final ws = MockWebSocketChannel();
-
-  // Register the /me/ endpoint.
-  http
-      .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-      .thenReturn(
-        Response(
-          requestOptions: RequestOptions(path: '/onuw/games/test-game-id/me/'),
-          statusCode: 200,
-          data: gameMeJson ?? _defaultGameMeJson(),
-        ),
-      );
-
-  final client = AuthenticatedClient.forTesting(dio: http.dio);
-
-  final container = ProviderContainer(
-    overrides: [
-      authenticatedClientProvider.overrideWithValue(client),
-      gameServiceProvider.overrideWithValue(GameService(client: client)),
-      gameWebSocketProvider.overrideWith((ref, gameId) => null),
-      gameWebSocketStreamProvider.overrideWith((ref, gameId) => ws.stream),
-    ],
-  );
-
-  return (container: container, http: http, ws: ws);
+/// A [GameTestSetup] whose first state has been read.
+Future<GameTestSetup> _loaded({Map<String, dynamic>? gameMeJson}) async {
+  final setup = GameTestSetup.create(gameMeJson: gameMeJson);
+  addTearDown(setup.dispose);
+  await setup.readGameState();
+  return setup;
 }
 
-/// Reads the game state, keeping the provider alive.
-Future<GameSessionState> _readGameState(ProviderContainer container) async {
-  // Keep the provider alive with a subscription.
-  container.listen(gameProvider('test-game-id'), (_, _) {});
-  final state = await container.read(gameProvider('test-game-id').future);
-  // Don't close the subscription -- let the caller's addTearDown handle it.
-  return state;
-}
+Future<void> _pump() => Future<void>.delayed(Duration.zero);
 
 void main() {
   group('GameNotifier initial load', () {
     test('fetches initial state from GameService', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded();
 
-      final state = await _readGameState(container);
+      final state = setup.currentState;
       expect(state.gameId, 'test-game-id');
       expect(state.phase, 'night');
       expect(state.players.length, 3);
-      expect(state.yourRole.originalRole, 'seer');
+      expect(state.yourRole.originalRole, 'Seer');
     });
 
     test(
       'derives nightSubView from initial state with action_prompt',
       () async {
-        final (:container, :http, :ws) = _createTestSetup(
-          gameMeJson: {
-            ..._defaultGameMeJson(),
-            'action_prompt': {
-              'role_acting_as': 'Seer',
-              'action_types': ['peek_player', 'peek_center'],
-              'valid_targets': {
-                'peek_player': {
-                  'players': [2, 3],
-                },
-                'peek_center': {
-                  'card_indices': [0, 1, 2],
-                },
-              },
-              'wave': 2,
-            },
-          },
+        final setup = await _loaded(
+          gameMeJson: GameMeJsonBuilder().withPrompt('seer').build(),
         );
-        addTearDown(container.dispose);
 
-        final state = await _readGameState(container);
-        expect(state.nightSubView, NightSubView.seerChoice);
+        expect(setup.currentState.nightSubView, NightSubView.seerChoice);
       },
     );
 
     test('derives nightSubView as waiting when no action_prompt', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded();
 
-      final state = await _readGameState(container);
-      expect(state.nightSubView, NightSubView.waiting);
+      expect(setup.currentState.nightSubView, NightSubView.waiting);
     });
   });
 
   group('GameNotifier initial load in voting phase', () {
     test('hydrates voteProgress from server has_voted data', () async {
-      final (:container, :http, :ws) = _createTestSetup(
-        gameMeJson: {
-          ..._defaultGameMeJson(phase: 'voting'),
-          'has_voted': false,
-          'players': [
-            {'player_id': 1, 'display_name': 'Alice', 'has_voted': true},
-            {'player_id': 2, 'display_name': 'Bob', 'has_voted': true},
-            {'player_id': 3, 'display_name': 'Charlie', 'has_voted': false},
-          ],
-        },
+      final setup = await _loaded(
+        gameMeJson: GameMeJsonBuilder()
+            .inPhase('voting')
+            .withPlayersHavingVoted({2: true})
+            .build(),
       );
-      addTearDown(container.dispose);
 
-      final state = await _readGameState(container);
-      expect(state.voteProgress.playerVoted[1], true);
-      expect(state.voteProgress.playerVoted[2], true);
-      expect(state.voteProgress.playerVoted[3], false);
-      expect(state.voteProgress.currentPlayerVoted, false);
+      final progress = setup.currentState.voteProgress;
+      expect(progress.playerVoted, {1: false, 2: true, 3: false});
+      expect(progress.currentPlayerVoted, false);
     });
 
     test('hydrates currentPlayerVoted when player already voted', () async {
-      final (:container, :http, :ws) = _createTestSetup(
-        gameMeJson: {
-          ..._defaultGameMeJson(phase: 'voting'),
-          'has_voted': true,
-          'players': [
-            {'player_id': 1, 'display_name': 'Alice', 'has_voted': true},
-            {'player_id': 2, 'display_name': 'Bob', 'has_voted': false},
-            {'player_id': 3, 'display_name': 'Charlie', 'has_voted': false},
-          ],
-        },
+      final setup = await _loaded(
+        gameMeJson: GameMeJsonBuilder()
+            .inPhase('voting')
+            .hasVoted(true)
+            .build(),
       );
-      addTearDown(container.dispose);
 
-      final state = await _readGameState(container);
-      expect(state.voteProgress.currentPlayerVoted, true);
-      expect(state.voteProgress.playerVoted[1], true);
+      expect(setup.currentState.voteProgress.currentPlayerVoted, true);
+      expect(setup.currentState.voteProgress.playerVoted[1], true);
     });
 
     test('leaves voteProgress empty when not in voting phase', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded();
 
-      final state = await _readGameState(container);
-      expect(state.voteProgress.playerVoted, isEmpty);
-      expect(state.voteProgress.currentPlayerVoted, false);
+      expect(setup.currentState.voteProgress.playerVoted, isEmpty);
+      expect(setup.currentState.voteProgress.currentPlayerVoted, false);
     });
   });
 
@@ -184,61 +90,32 @@ void main() {
     test(
       'fetches results via REST when reconnecting to results phase',
       () async {
-        final (:container, :http, :ws) = _createTestSetup(
-          gameMeJson: _defaultGameMeJson(phase: 'results'),
+        final setup = GameTestSetup.create(
+          gameMeJson: GameMeJsonBuilder().inPhase('results').build(),
         );
-        addTearDown(container.dispose);
-
-        // Register the results endpoint.
-        http
-            .when(method: 'GET', path: '/onuw/games/test-game-id/results/')
-            .thenReturn(
-              Response(
-                requestOptions: RequestOptions(
-                  path: '/onuw/games/test-game-id/results/',
-                ),
-                statusCode: 200,
-                data: {
-                  'winning_teams': ['village'],
-                  'players': [
-                    {
-                      'player_id': 1,
-                      'display_name': 'Alice',
-                      'original_role': 'Seer',
-                      'final_role': 'Seer',
-                      'team': 'village',
-                      'is_eliminated': false,
-                      'outcome': 'win',
-                      'vote_target_id': 3,
-                    },
-                    {
-                      'player_id': 2,
-                      'display_name': 'Bob',
-                      'original_role': 'Werewolf',
-                      'final_role': 'Werewolf',
-                      'team': 'werewolf',
-                      'is_eliminated': true,
-                      'outcome': 'lose',
-                      'elimination_reason': 'vote',
-                      'vote_target_id': 1,
-                    },
-                    {
-                      'player_id': 3,
-                      'display_name': 'Charlie',
-                      'original_role': 'Villager',
-                      'final_role': 'Villager',
-                      'team': 'village',
-                      'is_eliminated': false,
-                      'outcome': 'win',
-                      'vote_target_id': 2,
-                    },
-                  ],
-                  'center_cards': ['Drunk', 'Minion', 'Villager'],
-                },
+        addTearDown(setup.dispose);
+        setup.registerResults(
+          resultsJson: serverResults(
+            players: [
+              ResultSeat(defaultSeats[0], originalRole: 'Seer', votedFor: 2),
+              ResultSeat(
+                defaultSeats[1],
+                originalRole: 'Werewolf',
+                team: 'werewolf',
+                won: false,
+                eliminatedBy: 'vote',
+                votedFor: 1,
               ),
-            );
+              ResultSeat(
+                defaultSeats[2],
+                originalRole: 'Villager',
+                votedFor: 2,
+              ),
+            ],
+          ),
+        );
 
-        final state = await _readGameState(container);
+        final state = await setup.readGameState();
         expect(state.phase, 'results');
         expect(state.results, isNotNull);
         expect(state.results!.winningTeams.length, 1);
@@ -247,54 +124,49 @@ void main() {
       },
     );
 
-    test('survives results fetch failure on reconnect', () async {
-      final (:container, :http, :ws) = _createTestSetup(
-        gameMeJson: _defaultGameMeJson(phase: 'results'),
+    test('survives a refused results fetch on reconnect', () async {
+      final setup = GameTestSetup.create(
+        gameMeJson: GameMeJsonBuilder().inPhase('results').build(),
       );
-      addTearDown(container.dispose);
+      addTearDown(setup.dispose);
+      setup.registerGet(
+        '/onuw/games/test-game-id/results/',
+        ContractSamples.load('http/game/results_not_ready'),
+        statusCode: 403,
+      );
 
-      // Do NOT register the results endpoint — MockHttpClient will reject it
-      // with an UnmockedEndpointException, simulating a network failure.
-
-      final state = await _readGameState(container);
+      final state = await setup.readGameState();
       // State should still load (phase=results, results=null).
       expect(state.phase, 'results');
       expect(state.results, isNull);
     });
 
     test('does not fetch results for non-results phases', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      // The results endpoint is not mocked: a call would fail the test.
+      final setup = await _loaded();
 
-      // Do NOT register the results endpoint -- if it's called, MockHttpClient
-      // will throw an UnmockedEndpointException.
-
-      final state = await _readGameState(container);
-      expect(state.phase, 'night');
-      expect(state.results, isNull);
+      expect(setup.currentState.phase, 'night');
+      expect(setup.currentState.results, isNull);
     });
   });
 
   group('GameNotifier WS event: wave_start', () {
     test('updates currentWave and deadline', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
-
-      await _readGameState(container);
-
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'wave_start',
-          'wave': 3,
-          'deadline': '2026-03-31T06:10:00.000Z',
-        }),
+      final setup = await _loaded(
+        gameMeJson: GameMeJsonBuilder()
+            .withRole('Doppelganger')
+            .withWave(1)
+            .build(),
       );
 
-      await Future<void>.delayed(Duration.zero);
+      setup.ws.addServerEvent(
+        GameEvents.waveStart(wave: 2, deadline: '2026-11-19T21:00:30+00:00'),
+      );
+      await _pump();
 
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.currentWave, 3);
-      expect(state.deadline, isNotNull);
+      final state = setup.currentState;
+      expect(state.currentWave, 2);
+      expect(state.deadline, DateTime.utc(2026, 11, 19, 21, 0, 30));
       expect(state.actionPrompt, isNull);
       expect(state.lastActionResult, isNull);
     });
@@ -302,91 +174,52 @@ void main() {
 
   group('GameNotifier WS event: action_prompt', () {
     test('sets nightSubView to seerChoice for multi-action types', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded();
 
-      await _readGameState(container);
+      setup.ws.addServerEvent(GameEvents.actionPrompt('seer'));
+      await _pump();
 
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'action_prompt',
-          'wave': 2,
-          'role_acting_as': 'Seer',
-          'action_types': ['peek_player', 'peek_center'],
-          'valid_targets': {
-            'peek_player': {
-              'players': [2, 3],
-            },
-            'peek_center': {
-              'card_indices': [0, 1, 2],
-            },
-          },
-        }),
-      );
-
-      await Future<void>.delayed(Duration.zero);
-
-      final state = container.read(gameProvider('test-game-id')).value!;
+      final state = setup.currentState;
       expect(state.nightSubView, NightSubView.seerChoice);
-      expect(state.actionPrompt, isNotNull);
       expect(state.actionPrompt!.roleActingAs, 'Seer');
-      expect(state.actionPrompt!.actionTypes, hasLength(2));
+      expect(state.actionPrompt!.choiceTypes, ['peek_player', 'peek_center']);
     });
 
     test('sets nightSubView to actionPrompt for single action type', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
-
-      await _readGameState(container);
-
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'action_prompt',
-          'wave': 2,
-          'role_acting_as': 'Robber',
-          'action_types': ['swap_with_player'],
-          'valid_targets': {
-            'swap_with_player': {
-              'players': [1, 3],
-            },
-          },
-        }),
+      final setup = await _loaded(
+        gameMeJson: GameMeJsonBuilder().withRole('Drunk').build(),
       );
 
-      await Future<void>.delayed(Duration.zero);
+      setup.ws.addServerEvent(GameEvents.actionPrompt('drunk'));
+      await _pump();
 
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.nightSubView, NightSubView.actionPrompt);
-      expect(state.actionPrompt!.actionTypes, ['swap_with_player']);
+      expect(setup.currentState.nightSubView, NightSubView.actionPrompt);
+      expect(setup.currentState.actionPrompt!.actionTypes, [
+        'swap_with_center',
+      ]);
     });
   });
 
   group('GameNotifier WS event: action_result', () {
     test('stores result and transitions to actionResult subview', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded();
 
-      await _readGameState(container);
-
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'action_result',
-          'wave': 2,
-          'revealed_info': {
-            'action_type': 'peek_player',
-            'target_player_id': 3,
-            'role': 'werewolf',
-          },
-        }),
+      setup.ws.addServerEvent(
+        GameEvents.actionResult(
+          'peek_player',
+          info: {'target_name': 'Charlie', 'role': 'werewolf'},
+        ),
       );
+      await _pump();
 
-      await Future<void>.delayed(Duration.zero);
-
-      final state = container.read(gameProvider('test-game-id')).value!;
+      final state = setup.currentState;
       expect(state.nightSubView, NightSubView.actionResult);
-      expect(state.lastActionResult, isNotNull);
       expect(state.lastActionResult!.wave, 2);
       expect(state.lastActionResult!.revealedInfo['role'], 'werewolf');
+      expect(
+        state.lastActionResult!.revealedInfo['action_type'],
+        'peek_player',
+      );
     });
   });
 
@@ -394,27 +227,15 @@ void main() {
     test(
       'clears the prompt and keeps the result the player was shown',
       () async {
-        final (:container, :http, :ws) = _createTestSetup();
-        addTearDown(container.dispose);
+        final setup = await _loaded();
 
-        await _readGameState(container);
+        // Results arrive as the window closes, so the result must outlive the
+        // wave_complete that follows it.
+        setup.ws.addServerEvent(GameEvents.actionResult('peek_player'));
+        setup.ws.addServerEvent(GameEvents.waveComplete());
+        await _pump();
 
-        // First send an action_result to set state.
-        ws.addServerEvent(
-          jsonEncode({
-            'type': 'action_result',
-            'wave': 2,
-            'revealed_info': {'action_type': 'peek_player', 'role': 'seer'},
-          }),
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        // Then wave_complete. Results arrive as the window closes, so the result
-        // must outlive the wave_complete that follows it.
-        ws.addServerEvent(jsonEncode({'type': 'wave_complete', 'wave': 2}));
-        await Future<void>.delayed(Duration.zero);
-
-        final state = container.read(gameProvider('test-game-id')).value!;
+        final state = setup.currentState;
         expect(state.nightSubView, NightSubView.actionResult);
         expect(state.actionPrompt, isNull);
         expect(state.lastActionResult, isNotNull);
@@ -422,26 +243,16 @@ void main() {
     );
 
     test('with no result sets waiting and clears the prompt', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
-
-      await _readGameState(container);
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'action_prompt',
-          'wave': 2,
-          'role_acting_as': 'Robber',
-          'action_types': ['swap_with_player', 'skip'],
-          'valid_targets': {
-            'player_ids': [2, 3],
-          },
-        }),
+      final setup = await _loaded(
+        gameMeJson: GameMeJsonBuilder().withRole('Robber').build(),
       );
-      await Future<void>.delayed(Duration.zero);
-      ws.addServerEvent(jsonEncode({'type': 'wave_complete', 'wave': 2}));
-      await Future<void>.delayed(Duration.zero);
 
-      final state = container.read(gameProvider('test-game-id')).value!;
+      setup.ws.addServerEvent(GameEvents.actionPrompt('robber'));
+      await _pump();
+      setup.ws.addServerEvent(GameEvents.waveComplete());
+      await _pump();
+
+      final state = setup.currentState;
       expect(state.nightSubView, NightSubView.waiting);
       expect(state.actionPrompt, isNull);
       expect(state.lastActionResult, isNull);
@@ -450,252 +261,163 @@ void main() {
 
   group('GameNotifier WS event: wave_waiting', () {
     test('sets nightSubView to waiting', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded();
 
-      await _readGameState(container);
+      setup.ws.addServerEvent(GameEvents.waveWaiting());
+      await _pump();
 
-      ws.addServerEvent(jsonEncode({'type': 'wave_waiting', 'wave': 2}));
-
-      await Future<void>.delayed(Duration.zero);
-
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.nightSubView, NightSubView.waiting);
+      expect(setup.currentState.nightSubView, NightSubView.waiting);
     });
   });
 
   group('GameNotifier WS event: phase_change', () {
     test('updates phase and deadline', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded();
 
-      await _readGameState(container);
-
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'phase_change',
-          'phase': 'discussion',
-          'deadline': '2026-03-31T06:15:00.000Z',
-        }),
+      setup.ws.addServerEvent(
+        GameEvents.phaseChange(
+          phase: 'discussion',
+          deadline: '2026-11-19T21:05:00+00:00',
+        ),
       );
+      await _pump();
 
-      await Future<void>.delayed(Duration.zero);
-
-      final state = container.read(gameProvider('test-game-id')).value!;
+      final state = setup.currentState;
       expect(state.phase, 'discussion');
-      expect(state.deadline, isNotNull);
+      expect(state.deadline, DateTime.utc(2026, 11, 19, 21, 5));
       expect(state.actionPrompt, isNull);
       expect(state.lastActionResult, isNull);
       expect(state.nightSubView, NightSubView.waiting);
     });
 
-    test('handles null deadline (e.g., results phase)', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+    test('handles a null deadline (an untimed talk)', () async {
+      final setup = await _loaded();
 
-      await _readGameState(container);
+      setup.ws.addServerEvent(GameEvents.phaseChange(phase: 'discussion'));
+      await _pump();
 
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'phase_change',
-          'phase': 'results',
-          'deadline': null,
-        }),
-      );
-
-      await Future<void>.delayed(Duration.zero);
-
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.phase, 'results');
-      expect(state.deadline, isNull);
+      expect(setup.currentState.phase, 'discussion');
+      expect(setup.currentState.deadline, isNull);
     });
   });
 
   group('GameNotifier WS event: vote_submitted', () {
     test('marks player as voted in VoteProgress', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded(
+        gameMeJson: GameMeJsonBuilder().inPhase('voting').build(),
+      );
 
-      await _readGameState(container);
+      setup.ws.addServerEvent(GameEvents.voteSubmitted(playerId: 2));
+      await _pump();
 
-      ws.addServerEvent(jsonEncode({'type': 'vote_submitted', 'player_id': 2}));
-
-      await Future<void>.delayed(Duration.zero);
-
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.voteProgress.playerVoted[2], true);
+      expect(setup.currentState.voteProgress.playerVoted[2], true);
     });
 
     test('accumulates multiple vote_submitted events', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded(
+        gameMeJson: GameMeJsonBuilder().inPhase('voting').build(),
+      );
 
-      await _readGameState(container);
+      setup.ws.addServerEvent(GameEvents.voteSubmitted(playerId: 1));
+      setup.ws.addServerEvent(GameEvents.voteSubmitted(playerId: 2));
+      await _pump();
 
-      ws.addServerEvent(jsonEncode({'type': 'vote_submitted', 'player_id': 1}));
-      await Future<void>.delayed(Duration.zero);
-
-      ws.addServerEvent(jsonEncode({'type': 'vote_submitted', 'player_id': 2}));
-      await Future<void>.delayed(Duration.zero);
-
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.voteProgress.playerVoted[1], true);
-      expect(state.voteProgress.playerVoted[2], true);
+      expect(setup.currentState.voteProgress.playerVoted, {
+        1: true,
+        2: true,
+        3: false,
+      });
     });
   });
 
   group('GameNotifier WS event: vote_reveal', () {
     test('stores vote mapping and computes tally', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
-
-      await _readGameState(container);
-
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'vote_reveal',
-          'votes': {'1': 3, '2': 3, '3': 1},
-        }),
+      final setup = await _loaded(
+        gameMeJson: GameMeJsonBuilder().inPhase('voting').build(),
       );
 
-      await Future<void>.delayed(Duration.zero);
+      setup.ws.addServerEvent(
+        GameEvents.voteReveal(votes: {'1': 3, '2': 3, '3': 1}),
+      );
+      await _pump();
 
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.voteRevealData, isNotNull);
-      expect(state.voteRevealData!.votes['1'], 3);
-      expect(state.voteRevealData!.votes['2'], 3);
-      expect(state.voteRevealData!.tally['3'], 2);
-      expect(state.voteRevealData!.tally['1'], 1);
+      final reveal = setup.currentState.voteRevealData!;
+      expect(reveal.votes['1'], 3);
+      expect(reveal.votes['2'], 3);
+      expect(reveal.tally['3'], 2);
+      expect(reveal.tally['1'], 1);
     });
 
     test('handles null (abstain) votes', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
-
-      await _readGameState(container);
-
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'vote_reveal',
-          'votes': {'1': 3, '2': null},
-        }),
+      final setup = await _loaded(
+        gameMeJson: GameMeJsonBuilder().inPhase('voting').build(),
       );
 
-      await Future<void>.delayed(Duration.zero);
+      setup.ws.addServerEvent(
+        GameEvents.voteReveal(votes: {'1': 3, '2': null, '3': null}),
+      );
+      await _pump();
 
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.voteRevealData!.votes['2'], isNull);
-      expect(state.voteRevealData!.tally['3'], 1);
+      final reveal = setup.currentState.voteRevealData!;
+      expect(reveal.votes['2'], isNull);
+      expect(reveal.tally, {'3': 1});
     });
   });
 
   group('GameNotifier WS event: game_results', () {
     test('transitions to results phase', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
-
-      // Register the results endpoint.
-      http
-          .when(method: 'GET', path: '/onuw/games/test-game-id/results/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(
-                path: '/onuw/games/test-game-id/results/',
-              ),
-              statusCode: 200,
-              data: {
-                'winning_teams': ['village'],
-                'players': [],
-              },
-            ),
-          );
-
-      await _readGameState(container);
-
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'game_results',
-          'data': {
-            'winning_teams': ['village'],
-            'eliminated_player_ids': [3],
-          },
-        }),
+      final setup = await _loaded(
+        gameMeJson: GameMeJsonBuilder().inPhase('voting').build(),
       );
+      setup.registerResults();
 
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
+      setup.ws.addServerEvent(GameEvents.gameResults(eliminatedPlayers: [3]));
+      for (var i = 0; i < 10; i++) {
+        await _pump();
+      }
 
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.phase, 'results');
+      expect(setup.currentState.phase, 'results');
+      expect(setup.currentState.results, isNotNull);
     });
   });
 
-  group('GameNotifier full night wave cycle', () {
+  group('GameNotifier full night window', () {
     test(
       'wave_start -> action_prompt -> action_result -> wave_complete',
       () async {
-        final (:container, :http, :ws) = _createTestSetup();
-        addTearDown(container.dispose);
-
-        await _readGameState(container);
-
-        // Step 1: wave_start
-        ws.addServerEvent(
-          jsonEncode({
-            'type': 'wave_start',
-            'wave': 2,
-            'deadline': '2026-03-31T06:05:00.000Z',
-          }),
+        final setup = await _loaded(
+          gameMeJson: GameMeJsonBuilder().withRole('Robber').build(),
         );
-        await Future<void>.delayed(Duration.zero);
 
-        var state = container.read(gameProvider('test-game-id')).value!;
-        expect(state.currentWave, 2);
-
-        // Step 2: action_prompt
-        ws.addServerEvent(
-          jsonEncode({
-            'type': 'action_prompt',
-            'wave': 2,
-            'role_acting_as': 'Robber',
-            'action_types': ['swap_with_player'],
-            'valid_targets': {
-              'swap_with_player': {
-                'players': [1, 3],
-              },
-            },
-          }),
+        setup.ws.addServerEvent(
+          GameEvents.waveStart(wave: 2, deadline: '2026-11-19T21:00:30+00:00'),
         );
-        await Future<void>.delayed(Duration.zero);
+        await _pump();
+        expect(setup.currentState.currentWave, 2);
 
-        state = container.read(gameProvider('test-game-id')).value!;
-        expect(state.nightSubView, NightSubView.actionPrompt);
-        expect(state.actionPrompt, isNotNull);
+        setup.ws.addServerEvent(GameEvents.actionPrompt('robber'));
+        await _pump();
+        expect(setup.currentState.nightSubView, NightSubView.actionPrompt);
+        expect(setup.currentState.actionPrompt, isNotNull);
 
-        // Step 3: action_result
-        ws.addServerEvent(
-          jsonEncode({
-            'type': 'action_result',
-            'wave': 2,
-            'revealed_info': {
-              'action_type': 'swap_with_player',
-              'target_player_id': 3,
-              'new_role': 'werewolf',
-            },
-          }),
+        setup.ws.addServerEvent(
+          GameEvents.actionResult(
+            'swap_with_player',
+            info: {'target_name': 'Charlie', 'new_role': 'werewolf'},
+          ),
         );
-        await Future<void>.delayed(Duration.zero);
+        await _pump();
+        expect(setup.currentState.nightSubView, NightSubView.actionResult);
+        expect(
+          setup.currentState.lastActionResult!.revealedInfo['new_role'],
+          'werewolf',
+        );
 
-        state = container.read(gameProvider('test-game-id')).value!;
-        expect(state.nightSubView, NightSubView.actionResult);
-        expect(state.lastActionResult!.revealedInfo['new_role'], 'werewolf');
-
-        // Step 4: wave_complete. The result stays: it is what the player
-        // learned, and it arrived only as the window closed.
-        ws.addServerEvent(jsonEncode({'type': 'wave_complete', 'wave': 2}));
-        await Future<void>.delayed(Duration.zero);
-
-        state = container.read(gameProvider('test-game-id')).value!;
+        // The result stays: it is what the player learned, and it arrived only
+        // as the window closed.
+        setup.ws.addServerEvent(GameEvents.waveComplete());
+        await _pump();
+        final state = setup.currentState;
         expect(state.nightSubView, NightSubView.actionResult);
         expect(state.actionPrompt, isNull);
         expect(state.lastActionResult!.revealedInfo['new_role'], 'werewolf');
@@ -703,123 +425,48 @@ void main() {
     );
   });
 
-  group('GameNotifier vote_reveal 5-second timeout', () {
-    test('marks voteRevealData when vote_reveal event is received', () async {
-      // Verifies the intermediate state before the timeout fires.
-      // The widget-test coverage for the 5-second fallback is in
-      // voting_flow_test.dart (testWidgets advances fake time via tester.pump).
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
-
-      http
-          .when(method: 'GET', path: '/onuw/games/test-game-id/results/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(
-                path: '/onuw/games/test-game-id/results/',
-              ),
-              statusCode: 200,
-              data: {
-                'winning_teams': ['village'],
-                'players': [],
-              },
-            ),
-          );
-
-      await _readGameState(container);
-
-      ws.addServerEvent(
-        jsonEncode({
-          'type': 'vote_reveal',
-          'votes': {'1': 2, '2': 3},
-        }),
-      );
-      await Future<void>.delayed(Duration.zero);
-
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.voteRevealData, isNotNull);
-      expect(state.voteRevealData!.votes['1'], 2);
-      expect(state.voteRevealData!.votes['2'], 3);
-    });
-  });
-
   group('GameNotifier Doppelganger multi-step', () {
     test(
-      'action_result followed by another action_prompt in same wave',
+      'action_result followed by another action_prompt in same window',
       () async {
-        final (:container, :http, :ws) = _createTestSetup();
-        addTearDown(container.dispose);
-
-        await _readGameState(container);
-
-        // Doppelganger's initial action_prompt.
-        ws.addServerEvent(
-          jsonEncode({
-            'type': 'action_prompt',
-            'wave': 1,
-            'role_acting_as': 'Doppelganger',
-            'action_types': ['peek_player'],
-            'valid_targets': {
-              'peek_player': {
-                'players': [2, 3],
-              },
-            },
-          }),
+        final setup = await _loaded(
+          gameMeJson: GameMeJsonBuilder()
+              .withRole('Doppelganger')
+              .withWave(1)
+              .build(),
         );
-        await Future<void>.delayed(Duration.zero);
 
-        var state = container.read(gameProvider('test-game-id')).value!;
-        expect(state.nightSubView, NightSubView.actionPrompt);
-        expect(state.actionPrompt!.roleActingAs, 'Doppelganger');
-
-        // Doppelganger's action_result (copied Seer).
-        ws.addServerEvent(
-          jsonEncode({
-            'type': 'action_result',
-            'wave': 1,
-            'revealed_info': {
-              'action_type': 'peek_player',
-              'role': 'seer',
-              'copied_role': 'seer',
-            },
-          }),
+        setup.ws.addServerEvent(
+          GameEvents.actionPrompt('doppelganger', wave: 1),
         );
-        await Future<void>.delayed(Duration.zero);
+        await _pump();
+        expect(setup.currentState.nightSubView, NightSubView.actionPrompt);
+        expect(setup.currentState.actionPrompt!.roleActingAs, 'Doppelganger');
 
-        state = container.read(gameProvider('test-game-id')).value!;
-        expect(state.nightSubView, NightSubView.actionResult);
-
-        // Follow-up action_prompt (now acting as Seer).
-        ws.addServerEvent(
-          jsonEncode({
-            'type': 'action_prompt',
-            'wave': 1,
-            'role_acting_as': 'Seer',
-            'action_types': ['peek_player', 'peek_center'],
-            'valid_targets': {
-              'peek_player': {
-                'players': [2, 3],
-              },
-              'peek_center': {
-                'card_indices': [0, 1, 2],
-              },
-            },
-          }),
+        // Her look (she copied the Seer), then her follow-up as the Seer.
+        setup.ws.addServerEvent(
+          GameEvents.actionResult('doppelganger_look', wave: 1),
         );
-        await Future<void>.delayed(Duration.zero);
+        await _pump();
+        expect(setup.currentState.nightSubView, NightSubView.actionResult);
+
+        setup.ws.addServerEvent(
+          GameEvents.actionPrompt('doppelganger_followup', wave: 1),
+        );
+        await _pump();
 
         // Her look result stays on screen (with a Continue) instead of being
         // replaced at once by the follow-up prompt, which is stored for later.
-        state = container.read(gameProvider('test-game-id')).value!;
+        var state = setup.currentState;
         expect(state.nightSubView, NightSubView.actionResult);
-        expect(state.lastActionResult!.revealedInfo['copied_role'], 'seer');
+        expect(state.lastActionResult!.revealedInfo['copied_role'], 'Seer');
         expect(state.actionPrompt!.roleActingAs, 'Seer');
 
         // Continue moves on to the follow-up prompt.
-        container
+        setup.container
             .read(gameProvider('test-game-id').notifier)
             .dismissNightResult();
-        state = container.read(gameProvider('test-game-id')).value!;
+        state = setup.currentState;
         expect(state.nightSubView, NightSubView.seerChoice);
         expect(state.lastActionResult, isNull);
         expect(state.actionPrompt!.roleActingAs, 'Seer');
@@ -829,304 +476,119 @@ void main() {
 
   group('GameNotifier refreshState', () {
     test('re-fetches state from server and re-hydrates', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded();
+      expect(setup.currentState.phase, 'night');
 
-      final state = await _readGameState(container);
-      expect(state.phase, 'night');
-      expect(state.players.length, 3);
-
-      // Advance the server state — the game has moved to discussion phase.
-      http
-          .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(
-                path: '/onuw/games/test-game-id/me/',
-              ),
-              statusCode: 200,
-              data: {
-                ..._defaultGameMeJson(phase: 'discussion'),
-                'deadline': '2026-03-31T06:15:00.000Z',
-              },
-            ),
-          );
-
-      // Call refreshState.
-      await container
+      // The game has moved to the talk.
+      setup.registerGameMe(
+        GameMeJsonBuilder()
+            .inPhase('discussion')
+            .withDeadline('2026-11-19T21:05:00+00:00')
+            .build(),
+      );
+      await setup.container
           .read(gameProvider('test-game-id').notifier)
           .refreshState();
-      await Future<void>.delayed(Duration.zero);
 
-      final refreshed = container.read(gameProvider('test-game-id')).value!;
-      expect(refreshed.phase, 'discussion');
-      expect(refreshed.deadline, isNotNull);
+      expect(setup.currentState.phase, 'discussion');
+      expect(setup.currentState.deadline, isNotNull);
     });
 
     test('re-hydrates voting phase with vote progress', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded();
 
-      await _readGameState(container);
-
-      // Server now shows voting phase with some votes in.
-      http
-          .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(
-                path: '/onuw/games/test-game-id/me/',
-              ),
-              statusCode: 200,
-              data: {
-                ..._defaultGameMeJson(phase: 'voting'),
-                'has_voted': true,
-                'players': [
-                  {'player_id': 1, 'display_name': 'Alice', 'has_voted': true},
-                  {'player_id': 2, 'display_name': 'Bob', 'has_voted': true},
-                  {
-                    'player_id': 3,
-                    'display_name': 'Charlie',
-                    'has_voted': false,
-                  },
-                ],
-              },
-            ),
-          );
-
-      await container
+      final voting = GameMeJsonBuilder()
+          .inPhase('voting')
+          .hasVoted(true)
+          .withPlayersHavingVoted({2: true})
+          .build();
+      setup
+        ..registerGameMe(voting)
+        ..registerPlayersOf(voting);
+      await setup.container
           .read(gameProvider('test-game-id').notifier)
           .refreshState();
-      await Future<void>.delayed(Duration.zero);
 
-      final refreshed = container.read(gameProvider('test-game-id')).value!;
+      final refreshed = setup.currentState;
       expect(refreshed.phase, 'voting');
       expect(refreshed.voteProgress.currentPlayerVoted, true);
-      expect(refreshed.voteProgress.playerVoted[1], true);
-      expect(refreshed.voteProgress.playerVoted[2], true);
-      expect(refreshed.voteProgress.playerVoted[3], false);
+      expect(refreshed.voteProgress.playerVoted, {1: true, 2: true, 3: false});
     });
 
     test('fetches results when refreshing into results phase', () async {
-      final (:container, :http, :ws) = _createTestSetup();
-      addTearDown(container.dispose);
+      final setup = await _loaded();
 
-      await _readGameState(container);
-
-      // Server has moved to results.
-      http
-          .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(
-                path: '/onuw/games/test-game-id/me/',
-              ),
-              statusCode: 200,
-              data: _defaultGameMeJson(phase: 'results'),
-            ),
-          );
-      http
-          .when(method: 'GET', path: '/onuw/games/test-game-id/results/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(
-                path: '/onuw/games/test-game-id/results/',
-              ),
-              statusCode: 200,
-              data: {
-                'winning_teams': ['village'],
-                'players': [
-                  {
-                    'player_id': 1,
-                    'display_name': 'Alice',
-                    'original_role': 'Seer',
-                    'final_role': 'Seer',
-                    'team': 'village',
-                    'is_eliminated': false,
-                    'outcome': 'win',
-                    'vote_target_id': 2,
-                  },
-                ],
-                'center_cards': ['Drunk', 'Minion', 'Villager'],
-              },
-            ),
-          );
-
-      await container
+      setup
+        ..registerGameMe(GameMeJsonBuilder().inPhase('results').build())
+        ..registerResults();
+      await setup.container
           .read(gameProvider('test-game-id').notifier)
           .refreshState();
-      await Future<void>.delayed(Duration.zero);
 
-      final refreshed = container.read(gameProvider('test-game-id')).value!;
-      expect(refreshed.phase, 'results');
-      expect(refreshed.results, isNotNull);
-      expect(refreshed.results!.winningTeams.length, 1);
+      expect(setup.currentState.phase, 'results');
+      expect(setup.currentState.results!.winningTeams.length, 1);
     });
   });
 
   group('GameNotifier reconnection-triggered refresh', () {
+    late StreamController<WebSocketConnectionState> connection;
+
+    Future<GameTestSetup> loadedWithSocket() async {
+      connection = StreamController<WebSocketConnectionState>.broadcast(
+        sync: true,
+      );
+      addTearDown(connection.close);
+      final ws = _MockReconnectingWebSocket(connection.stream);
+      final setup = GameTestSetup.create(socket: ws);
+      addTearDown(setup.dispose);
+      await setup.readGameState();
+      return setup;
+    }
+
     test(
       'refreshes state when WebSocket reconnects after disconnect',
       () async {
-        final http = MockHttpClient();
-        final ws = MockWebSocketChannel();
-        final connectionController =
-            StreamController<WebSocketConnectionState>.broadcast(sync: true);
+        final setup = await loadedWithSocket();
+        expect(setup.currentState.phase, 'night');
 
-        // Register the /me/ endpoint — initial load returns night phase.
-        http
-            .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-            .thenReturn(
-              Response(
-                requestOptions: RequestOptions(
-                  path: '/onuw/games/test-game-id/me/',
-                ),
-                statusCode: 200,
-                data: _defaultGameMeJson(),
-              ),
-            );
-
-        final client = AuthenticatedClient.forTesting(dio: http.dio);
-
-        // Create a mock ReconnectingWebSocket that exposes controllable
-        // connectionState and message streams.
-        final mockRws = _MockReconnectingWebSocket(
-          stream: ws.stream,
-          connectionState: connectionController.stream,
-        );
-
-        final container = ProviderContainer(
-          overrides: [
-            authenticatedClientProvider.overrideWithValue(client),
-            gameServiceProvider.overrideWithValue(GameService(client: client)),
-            gameWebSocketProvider.overrideWith((ref, gameId) => mockRws),
-            gameWebSocketStreamProvider.overrideWith(
-              (ref, gameId) => ws.stream,
-            ),
-          ],
-        );
-        addTearDown(() {
-          container.dispose();
-          connectionController.close();
-        });
-
-        // Load initial state.
-        final state = await _readGameState(container);
-        expect(state.phase, 'night');
-
-        // Server state has advanced to discussion while we were disconnected.
-        http
-            .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-            .thenReturn(
-              Response(
-                requestOptions: RequestOptions(
-                  path: '/onuw/games/test-game-id/me/',
-                ),
-                statusCode: 200,
-                data: _defaultGameMeJson(phase: 'discussion'),
-              ),
-            );
-
-        // Simulate disconnect then reconnect.
-        connectionController.add(WebSocketConnectionState.disconnected);
-        await Future<void>.delayed(Duration.zero);
-        connectionController.add(WebSocketConnectionState.reconnecting);
-        await Future<void>.delayed(Duration.zero);
-        connectionController.add(WebSocketConnectionState.connected);
-
-        // Allow the async refreshState chain to fully complete.
-        // refreshState() awaits service.getGameState() which is async, so we
-        // need enough microtask cycles for the Dio mock to resolve and the
-        // state assignment to fire.
+        // The game moved to the talk while the socket was down.
+        setup.registerGameMe(GameMeJsonBuilder().inPhase('discussion').build());
+        connection
+          ..add(WebSocketConnectionState.disconnected)
+          ..add(WebSocketConnectionState.reconnecting)
+          ..add(WebSocketConnectionState.connected);
         for (var i = 0; i < 10; i++) {
-          await Future<void>.delayed(Duration.zero);
+          await _pump();
         }
 
-        final refreshed = container.read(gameProvider('test-game-id')).value!;
-        expect(refreshed.phase, 'discussion');
+        expect(setup.currentState.phase, 'discussion');
       },
     );
 
     test('initial connection does not trigger refresh', () async {
-      final http = MockHttpClient();
-      final ws = MockWebSocketChannel();
-      final connectionController =
-          StreamController<WebSocketConnectionState>.broadcast(sync: true);
+      final setup = await loadedWithSocket();
 
-      http
-          .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(
-                path: '/onuw/games/test-game-id/me/',
-              ),
-              statusCode: 200,
-              data: _defaultGameMeJson(),
-            ),
-          );
+      // A second fetch would see the talk.
+      setup.registerGameMe(GameMeJsonBuilder().inPhase('discussion').build());
+      connection.add(WebSocketConnectionState.connected);
+      await _pump();
+      await _pump();
 
-      final client = AuthenticatedClient.forTesting(dio: http.dio);
-
-      final mockRws = _MockReconnectingWebSocket(
-        stream: ws.stream,
-        connectionState: connectionController.stream,
-      );
-
-      final container = ProviderContainer(
-        overrides: [
-          authenticatedClientProvider.overrideWithValue(client),
-          gameServiceProvider.overrideWithValue(GameService(client: client)),
-          gameWebSocketProvider.overrideWith((ref, gameId) => mockRws),
-          gameWebSocketStreamProvider.overrideWith((ref, gameId) => ws.stream),
-        ],
-      );
-      addTearDown(() {
-        container.dispose();
-        connectionController.close();
-      });
-
-      await _readGameState(container);
-
-      // Change the server response to detect if a second fetch happens.
-      http
-          .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-          .thenReturn(
-            Response(
-              requestOptions: RequestOptions(
-                path: '/onuw/games/test-game-id/me/',
-              ),
-              statusCode: 200,
-              data: _defaultGameMeJson(phase: 'discussion'),
-            ),
-          );
-
-      // Simulate initial connection (no prior disconnect).
-      connectionController.add(WebSocketConnectionState.connected);
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-
-      // State should NOT have changed — no refresh was triggered.
-      final state = container.read(gameProvider('test-game-id')).value!;
-      expect(state.phase, 'night');
+      expect(setup.currentState.phase, 'night');
     });
   });
 }
 
-/// Minimal mock of [ReconnectingWebSocket] for testing reconnection behavior.
-///
-/// Provides controllable [stream] and [connectionState] streams without
-/// requiring a real network connection.
+/// A [ReconnectingWebSocket] whose connection state the test drives; its
+/// messages come from the setup's mock socket.
 class _MockReconnectingWebSocket implements ReconnectingWebSocket {
-  _MockReconnectingWebSocket({
-    required this.stream,
-    required this.connectionState,
-  });
-
-  @override
-  final Stream<dynamic> stream;
+  _MockReconnectingWebSocket(this.connectionState);
 
   @override
   final Stream<WebSocketConnectionState> connectionState;
+
+  @override
+  Stream<dynamic> get stream => const Stream.empty();
 
   @override
   void send(dynamic data) {}
