@@ -24,6 +24,7 @@ from rest_framework.test import APIClient
 
 from apps.onuw import services
 from apps.onuw.models import Game, Phase, PlayerRole
+from tests.onuw.stages import current_stage, staged
 from tests.onuw.test_night_windows import Night
 from tests.onuw.test_presence import connect, drop, grace_callbacks
 
@@ -59,13 +60,13 @@ def post_ready(night: Night, who: str, body: Any) -> Any:
     with night.committed():
         return night.client.post(
             reverse("onuw:ready", kwargs={"game_id": str(night.game.id)}),
-            body,
+            staged(night, body),
             format="json",
         )
 
 
-def ready(night: Night, who: str, value: bool = True) -> Any:
-    return post_ready(night, who, {"ready": value})
+def ready(night: Night, who: str, value: bool = True, **extra: Any) -> Any:
+    return post_ready(night, who, {"ready": value, **extra})
 
 
 def me(night: Night, name: str) -> dict[str, Any]:
@@ -209,7 +210,7 @@ class TestRefusals:
 
         response = night.client.post(
             reverse("onuw:ready", kwargs={"game_id": str(night.game.id)}),
-            {"ready": True},
+            {"ready": True, "stage": current_stage(night.game.id)},
             format="json",
         )
 
@@ -230,27 +231,47 @@ class TestRefusals:
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     @pytest.mark.parametrize("phase", [Phase.VOTING, Phase.RESULTS])
-    def test_ready_outside_the_talk_is_wrong_phase(self, talk_night, phase) -> None:
+    def test_a_late_ready_after_the_talk_ended_is_wrong_stage(
+        self, talk_night, phase
+    ) -> None:
         night = talk_night
+        talk = current_stage(night.game.id)
         Game.objects.filter(id=night.game.id).update(phase=phase)
 
-        response = ready(night, "seer")
+        response = ready(night, "seer", stage=talk)
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data["code"] == "wrong_phase"
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data == {"detail": "That stage is over.", "code": "wrong_stage"}
         assert flag(night, "seer") is False
 
-    def test_ready_during_the_night_is_wrong_phase_for_now(self, make_night) -> None:
-        # Window 0 (the card look) answers ``true`` once the look stage exists; an
-        # open window never takes ready.
+    def test_ready_during_an_open_night_window_is_wrong_stage(self, make_night) -> None:
+        # The look stage takes ``true``; an open window never takes ready.
         night = make_night(ROLES, CENTER, night_protocol=2)
         night.start()
         assert night.game.current_wave in (1, 2)
 
-        response = ready(night, "seer")
+        response = ready(night, "seer")  # names the window's own stage
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data["code"] == "wrong_stage"
+
+    def test_ready_needs_a_stage_under_protocol_2(self, talk_night) -> None:
+        response = post_ready(talk_night, "seer", {"ready": True, "stage": None})
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data["code"] == "wrong_phase"
+        assert response.data["code"] == "bad_request"
+        assert flag(talk_night, "seer") is False
+
+    def test_a_token_from_an_earlier_game_never_matches(self, talk_night) -> None:
+        night = talk_night
+        talk = current_stage(night.game.id)
+        assert talk is not None and talk.startswith("talk.")
+
+        # Same stage name, another game (after play again): never accepted.
+        response = ready(night, "seer", stage="talk." + "0" * 12)
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data["code"] == "wrong_stage"
 
 
 # ── ending the talk ──────────────────────────────────────────────────────────
@@ -278,7 +299,7 @@ class TestEndingTheTalk:
         }
         # Tapping again once the vote is on is refused and changes nothing.
         again = ready(night, "villager", False)
-        assert again.status_code == status.HTTP_400_BAD_REQUEST
+        assert again.status_code == status.HTTP_409_CONFLICT
         assert len(night.broadcasts("phase.change")) == 1
 
     def test_ending_by_ready_stops_the_talk_timer_and_starts_the_vote_timer(
@@ -301,7 +322,7 @@ class TestEndingTheTalk:
         assert body["phase"] == "voting"
         assert body["ready"] is None
         assert body["my_vote"] is None
-        assert all(p["has_voted"] is False for p in body["players"])
+        assert all("has_voted" not in p for p in body["players"])
 
     def test_one_player_not_ready_keeps_the_talk_going(self, talk_night) -> None:
         night = talk_night
@@ -331,7 +352,9 @@ class TestEndingTheTalk:
 
         with night.committed():
             response = night.client.post(
-                reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)})
+                reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)}),
+                staged(night, {}),
+                format="json",
             )
 
         assert response.status_code == status.HTTP_200_OK
@@ -358,6 +381,7 @@ class TestEndingTheTalk:
             ready(night, name)
         ready_url = reverse("onuw:ready", kwargs={"game_id": str(night.game.id)})
         end_url = reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)})
+        token = current_stage(night.game.id)
         barrier = threading.Barrier(2)
         codes: list[int] = []
 
@@ -372,17 +396,22 @@ class TestEndingTheTalk:
 
         threads = [
             threading.Thread(
-                target=call, args=(night.users["villager"], ready_url, {"ready": True})
+                target=call,
+                args=(
+                    night.users["villager"],
+                    ready_url,
+                    {"ready": True, "stage": token},
+                ),
             ),
-            threading.Thread(target=call, args=(night.host, end_url, None)),
+            threading.Thread(target=call, args=(night.host, end_url, {"stage": token})),
         ]
         for t in threads:
             t.start()
         for t in threads:
             t.join(timeout=30)
 
-        # Whichever came second got the ordinary "not in the talk" refusal.
-        assert sorted(codes) == [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST]
+        # Whichever came second named a stage that was already over.
+        assert sorted(codes) == [status.HTTP_200_OK, status.HTTP_409_CONFLICT]
         assert night.refresh().phase == Phase.VOTING
         assert [c["phase"] for c in night.broadcasts("phase.change")] == ["voting"]
         assert len(night.timer_delays_for("voting")) == 1
@@ -472,7 +501,7 @@ class TestDroppedPhones:
         with night.committed():
             night.client.post(
                 reverse("onuw:ready", kwargs={"game_id": str(night.game.id)}),
-                {"ready": True},
+                {"ready": True, "stage": current_stage(night.game.id)},
                 format="json",
             )
 

@@ -2,10 +2,11 @@
 Night protocol 2: every phone sends one ``choose``.
 
 ``settings["night_protocol"] == 2`` turns the night into this: ``POST .../action/``
-takes ``{"action_type": "choose", "picks": [0 to 2 picks]}`` from EVERY phone,
-whatever it was dealt; the server reads the picks per role, answers every phone
-alike, sends one group event per window, and each phone reads its own prompt and
-results from ``GET /me/``. Games without that setting keep the original night (the
+takes ``{"action_type": "choose", "picks": [0 to 2 picks], "stage": <from /me/>}``
+from EVERY phone, whatever it was dealt; the server reads the picks per role, answers
+every phone alike, sends one group event per window, and each phone reads its own
+prompt, stage and results from ``GET /me/``. A request names the stage it was aimed
+at: one for a stage that is over is 409 ``wrong_stage`` and stores nothing. Games without that setting keep the original night (the
 rest of the suite).
 
 All through the real API with seat order different from user-id order (``Night``).
@@ -20,6 +21,7 @@ from rest_framework import status
 
 from apps.onuw import services
 from apps.onuw.models import Game, Phase, PlayerRole
+from tests.onuw.stages import current_stage, staged
 from tests.onuw.test_night_windows import Night
 from tests.onuw.test_presence import drop
 
@@ -90,9 +92,11 @@ SELF = {"self": True}
 
 
 def choose(night: Night, who: str, picks: Any = None, **body: Any) -> Any:
+    """A choose naming the CURRENT stage (``stage=`` names another)."""
     night.client.force_authenticate(user=night.users[who])
     payload = {"action_type": "choose", "picks": [] if picks is None else picks}
     payload.update(body)
+    payload = staged(night, payload)
     with night.committed():
         return night.client.post(
             reverse("onuw:night-action", kwargs={"game_id": str(night.game.id)}),
@@ -486,18 +490,19 @@ class TestIdenticalAnswers:
         assert all(r.data["code"] == "bad_request" for r in replies.values())
         assert not PlayerRole.objects.filter(game=night.game, has_acted=True).exists()
 
-    def test_outside_a_window_everyone_gets_the_same_wrong_phase(self, make_p2) -> None:
+    def test_a_late_choose_after_the_window_closed_is_the_same_wrong_stage_for_all(
+        self, make_p2
+    ) -> None:
         night = make_p2(TEN)
         night.start()
+        window = current_stage(night.game.id)
         finish_window_two(night)
 
-        replies = {name: choose(night, name, []) for name in TEN}
+        replies = {name: choose(night, name, [], stage=window) for name in TEN}
 
-        assert {r.status_code for r in replies.values()} == {
-            status.HTTP_400_BAD_REQUEST
-        }
+        assert {r.status_code for r in replies.values()} == {status.HTTP_409_CONFLICT}
         assert len({r.content for r in replies.values()}) == 1
-        assert all(r.data["code"] == "wrong_phase" for r in replies.values())
+        assert all(r.data["code"] == "wrong_stage" for r in replies.values())
 
     def test_a_stranger_is_refused(self, make_p2, django_user_model) -> None:
         night = make_p2(TEN)
@@ -509,7 +514,11 @@ class TestIdenticalAnswers:
 
         response = night.client.post(
             reverse("onuw:night-action", kwargs={"game_id": str(night.game.id)}),
-            {"action_type": "choose", "picks": []},
+            {
+                "action_type": "choose",
+                "picks": [],
+                "stage": current_stage(night.game.id),
+            },
             format="json",
         )
 
@@ -526,17 +535,17 @@ class TestIdenticalAnswers:
         assert choose(night, "wolf1", [center(0)]).status_code == status.HTTP_200_OK
         assert choose(night, "insomniac", [player(night, "seer")]).status_code == 200
 
-    def test_a_choose_in_the_look_stage_is_wrong_phase(self, make_p2) -> None:
+    def test_a_choose_in_the_look_stage_is_wrong_stage(self, make_p2) -> None:
         night = make_p2(TEN, card_look_seconds=30)
         with night.committed():
             services.begin_night(night.game)
         night.refresh()
         assert night.game.current_wave == 0
 
-        response = choose(night, "seer", [])
+        response = choose(night, "seer", [])  # names the look's own stage
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data["code"] == "wrong_phase"
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data["code"] == "wrong_stage"
 
 
 # ── what the picks mean ──────────────────────────────────────────────────────
@@ -893,15 +902,21 @@ class TestWindowOne:
         assert "copied_role" not in night.role_of("dop").night_action_data
         assert night.game.current_wave == 2
 
-    def test_a_second_look_attempt_is_still_a_look_when_the_first_found_nothing(
+    def test_one_look_a_first_choose_with_no_other_player_copies_nobody(
         self, make_p2
     ) -> None:
+        """Her first choose is her look whatever it holds; a second one does nothing."""
         night = make_p2(DOPPEL)
         night.start()
         choose(night, "dop", [])
-        choose(night, "dop", [player(night, "seer")])
+        second = choose(night, "dop", [player(night, "seer")])
 
-        assert results(night, "dop")[0]["revealed_info"]["copied_role"] == "Seer"
+        assert second.status_code == status.HTTP_200_OK  # answered like anyone's
+        assert results(night, "dop") == []
+        assert "copied_role" not in night.role_of("dop").night_action_data
+        night.fire_timer(1)
+        assert results(night, "dop") == []
+        assert night.game.current_wave == 2
 
     def test_a_player_who_is_not_the_doppelganger_chooses_twice_to_no_effect(
         self, make_p2
@@ -915,21 +930,33 @@ class TestWindowOne:
         assert results(night, "seer") == []
         assert night.role_of("seer").current_role == "Seer"
 
-    def test_with_the_fixed_length_off_window_one_waits_for_every_phone_twice(
+    def test_with_the_fixed_length_off_window_one_ends_when_everyone_chose_once(
         self, make_night
     ) -> None:
         night = make_night(
             DOPPEL, CENTER, night_protocol=2, night_wave_seconds=60
         )  # night_doppelganger_window_seconds = 0 (the make_night default)
         night.start()
-        for name in DOPPEL:
-            choose(night, name)
-            assert night.refresh().current_wave == 1
-        for name in list(DOPPEL)[:-1]:
+        names = list(DOPPEL)
+        for name in names[:-1]:
             choose(night, name)
             assert night.refresh().current_wave == 1
 
-        choose(night, list(DOPPEL)[-1])
+        choose(night, names[-1])  # she copied nobody: nothing more to wait for
+
+        assert night.refresh().current_wave == 2
+
+    def test_with_the_fixed_length_off_a_copying_doppelganger_is_waited_for_twice(
+        self, make_night
+    ) -> None:
+        night = make_night(DOPPEL, CENTER, night_protocol=2, night_wave_seconds=60)
+        night.start()
+        choose(night, "dop", [player(night, "seer")])  # copies the Seer
+        for name in ("seer", "wolf", "villager", "drunk"):
+            choose(night, name)
+        assert night.refresh().current_wave == 1  # her follow-up is still to come
+
+        choose(night, "dop", [center(0), center(1)])
 
         assert night.refresh().current_wave == 2
 
@@ -1006,12 +1033,13 @@ class TestWindowTwoClose:
 
         stale = night.client.post(
             reverse("onuw:wave-advance", kwargs={"game_id": str(night.game.id)}),
-            {"from_window": 1},
+            {"stage": "w1." + night.game.id.hex[:12]},  # window 1 is long over
             format="json",
         )
         ok = night.host_close_window()
 
         assert stale.status_code == status.HTTP_409_CONFLICT
+        assert stale.data["code"] == "wrong_stage"
         assert ok.status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.DISCUSSION
 
@@ -1222,3 +1250,418 @@ class TestTheSetting:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "code" not in response.data
+
+
+# ── stages: a request names the stage it is aimed at ─────────────────────────
+
+
+class TestStages:
+    def test_get_me_names_the_stage_and_it_changes_with_every_stage(
+        self, make_p2
+    ) -> None:
+        night = make_p2(DOPPEL)
+        night.start()
+        tokens = [{me(night, n)["stage"] for n in DOPPEL}]  # window 1
+        night.fire_timer(1)
+        tokens.append({me(night, n)["stage"] for n in DOPPEL})  # window 2
+        everyone_chooses(night)
+        tokens.append({me(night, n)["stage"] for n in DOPPEL})  # the talk
+
+        assert all(len(group) == 1 for group in tokens)  # every phone, one token
+        flat = [token for group in tokens for token in group]
+        assert [t.split(".")[0] for t in flat] == ["w1", "w2", "talk"]
+        assert len(set(flat)) == 3
+
+    def test_the_original_night_has_no_stage(self, make_night) -> None:
+        night = make_night(LONE, CENTER, night_wave_seconds=60)  # no protocol
+        night.start()
+
+        assert "stage" not in me(night, "seer")
+
+    def test_a_token_from_another_game_never_matches(self, make_p2) -> None:
+        a = make_p2({f"a_{n}": r for n, r in LONE.items()})
+        b = make_p2({f"b_{n}": r for n, r in LONE.items()})
+        a.start()
+        b.start()
+        token_a, token_b = current_stage(a.game.id), current_stage(b.game.id)
+        assert token_a.split(".")[0] == token_b.split(".")[0] == "w2"
+        assert token_a != token_b
+
+        reply = choose(b, "b_seer", [], stage=token_a)
+
+        assert reply.status_code == status.HTTP_409_CONFLICT
+        assert reply.data == {"detail": "That stage is over.", "code": "wrong_stage"}
+        assert "chose_2" not in b.role_of("b_seer").night_action_data
+
+    def test_a_token_from_an_earlier_game_after_play_again_never_matches(
+        self, settings, db
+    ) -> None:
+        from tests.onuw.test_play_again import Table
+
+        settings.DEBUG = True
+        table = Table()
+        lobby = table.lobby()
+        lobby.settings = {**lobby.settings, "night_protocol": 2}
+        lobby.save()
+        first = table.start().data["game_id"]
+        old = current_stage(first)
+        assert old is not None and old.startswith("w2.")
+        Game.objects.filter(id=first).update(phase=Phase.RESULTS)
+        assert table.play_again().status_code == status.HTTP_200_OK
+        second = table.start().data["game_id"]
+        assert current_stage(second).startswith("w2.")  # the same stage name again
+
+        reply = table.clients[0].post(
+            reverse("onuw:night-action", kwargs={"game_id": second}),
+            {"action_type": "choose", "picks": [], "stage": old},
+            format="json",
+        )
+
+        assert reply.status_code == status.HTTP_409_CONFLICT
+        assert reply.data["code"] == "wrong_stage"
+        assert not PlayerRole.objects.filter(
+            game_id=second, night_action_data__has_key="chose_2"
+        ).exists()
+
+    def test_a_stage_is_required_and_must_be_text(self, make_p2) -> None:
+        night = make_p2(LONE)
+        night.start()
+        for stage in (None, 5, [], {}, ""):
+            reply = raw_post(
+                night,
+                "seer",
+                {"action_type": "choose", "picks": [], "stage": stage},
+            )
+            assert reply.status_code == status.HTTP_400_BAD_REQUEST, stage
+            assert reply.data["code"] == "bad_request"
+        reply = raw_post(night, "seer", {"action_type": "choose", "picks": []})
+        assert reply.status_code == status.HTTP_400_BAD_REQUEST
+        assert "chose_2" not in night.role_of("seer").night_action_data
+
+    def test_a_late_window_one_tap_cannot_land_in_window_two(self, make_p2) -> None:
+        """A Robber's second window-1 choose arriving just after the close used to be
+        stored as his window-2 action and rob the Werewolf, and his real choose then
+        got 409. Now the late tap names a stage that is over and does nothing."""
+        table = {
+            "rob": "Robber",
+            "wolf": "Werewolf",
+            "seer": "Seer",
+            "villager": "Villager",
+            "tanner": "Tanner",
+        }
+        night = make_p2(table, ["Doppelganger", "Villager", "Hunter"])
+        night.start()  # the Doppelganger card is in the centre: window 1 still runs
+        window_one = current_stage(night.game.id)
+        assert window_one.startswith("w1.")
+        choose(night, "rob", [])  # his one real choose of window 1
+        night.fire_timer(1)  # window 1 closes; window 2 opens
+        assert night.refresh().current_wave == 2
+
+        late = choose(night, "rob", [player(night, "wolf")], stage=window_one)
+
+        assert late.status_code == status.HTTP_409_CONFLICT
+        assert late.data["code"] == "wrong_stage"
+        assert "chose_2" not in night.role_of("rob").night_action_data
+        real = choose(night, "rob", [player(night, "seer")])  # his real choose
+        assert real.status_code == status.HTTP_200_OK
+        for name in table:
+            if name != "rob":
+                choose(night, name, [])
+        assert night.refresh().phase == Phase.DISCUSSION
+        assert night.role_of("rob").current_role == "Seer"
+        assert night.role_of("wolf").current_role == "Werewolf"
+
+    def test_the_host_names_the_stage_too(self, make_p2) -> None:
+        night = make_p2(LONE)
+        night.start()
+        old = current_stage(night.game.id)
+        night.client.force_authenticate(user=night.host)
+        url = reverse("onuw:wave-advance", kwargs={"game_id": str(night.game.id)})
+
+        missing = night.client.post(url, {}, format="json")
+        wrong = night.client.post(url, {"stage": "w2.000000000000"}, format="json")
+        with night.committed():
+            ok = night.client.post(url, {"stage": old}, format="json")
+        stale = night.client.post(url, {"stage": old}, format="json")
+
+        assert missing.status_code == status.HTTP_400_BAD_REQUEST
+        assert wrong.status_code == status.HTTP_409_CONFLICT
+        assert wrong.data["code"] == "wrong_stage"
+        assert ok.status_code == status.HTTP_200_OK
+        assert stale.status_code == status.HTTP_409_CONFLICT  # the window is over
+        assert night.refresh().phase == Phase.DISCUSSION
+
+
+# ── the prompt says what a pick would do ─────────────────────────────────────
+
+
+class TestDoppelgangerHeldFace:
+    def test_with_nothing_to_choose_in_window_two_she_shows_her_copied_role(
+        self, make_p2
+    ) -> None:
+        """A Doppelganger with no action in window 2 presents the role she copied as
+        ``role_acting_as`` (her held face), not "Doppelganger"."""
+        night = make_p2(DOPPEL)
+        night.start()
+        choose(night, "dop", [player(night, "villager")])  # copies the Villager
+        night.fire_timer(1)
+
+        prompt = me(night, "dop")["action_prompt"]
+
+        assert prompt["kind"] == "none"
+        assert prompt["role_acting_as"] == "Villager"
+        assert me(night, "villager")["action_prompt"]["role_acting_as"] == "Villager"
+
+    def test_one_who_copied_nobody_keeps_her_own_card(self, make_p2) -> None:
+        night = make_p2(DOPPEL)
+        night.start()
+        choose(night, "dop", [SELF])
+        night.fire_timer(1)
+
+        assert me(night, "dop")["action_prompt"]["role_acting_as"] == "Doppelganger"
+
+
+class TestShapes:
+    SHAPES = {
+        "wolf1": [{"any": 1}],  # a pack: nothing to choose
+        "minion": [{"any": 1}],
+        "mason1": [{"any": 1}],
+        "seer": [{"players": 1}, {"center": 2}],
+        "robber": [{"players": 1}],
+        "trouble": [{"players": 2}],
+        "drunk": [{"center": 1}],
+        "insomniac": [{"any": 1}],
+    }
+
+    def test_every_role_gets_its_shapes_as_data(self, make_p2) -> None:
+        night = make_p2(TEN)
+        night.start()
+
+        shapes = {
+            name: me(night, name)["action_prompt"]["shapes"] for name in self.SHAPES
+        }
+
+        assert shapes == self.SHAPES
+
+    def test_a_lone_werewolf_may_pick_one_centre_card(self, make_p2) -> None:
+        night = make_p2(LONE)
+        night.start()
+
+        assert me(night, "wolf")["action_prompt"]["shapes"] == [{"center": 1}]
+        assert me(night, "villager")["action_prompt"]["shapes"] == [{"any": 1}]
+
+    def test_the_doppelganger_looks_at_one_player_then_follows_the_copied_role(
+        self, make_p2
+    ) -> None:
+        night = make_p2(DOPPEL)
+        night.start()
+        assert me(night, "dop")["action_prompt"]["shapes"] == [{"players": 1}]
+        assert me(night, "villager")["action_prompt"]["shapes"] == [{"any": 1}]
+
+        choose(night, "dop", [player(night, "seer")])  # copies the Seer
+
+        after = me(night, "dop")["action_prompt"]
+        assert after["shapes"] == [{"players": 1}, {"center": 2}]
+        assert after["chosen"] == 1 and after["max_chooses"] == 2
+
+    def test_a_doppelganger_who_copied_nobody_has_nothing_more_to_pick(
+        self, make_p2
+    ) -> None:
+        night = make_p2(DOPPEL)
+        night.start()
+        choose(night, "dop", [SELF])
+
+        assert me(night, "dop")["action_prompt"]["shapes"] == [{"any": 1}]
+
+    def test_the_shapes_cover_exactly_the_picks_the_server_reads(self, make_p2) -> None:
+        """A pick that fits a shape does something; the prompt's board is the same
+        for everyone, and a pick outside the shapes safely does nothing."""
+        night = make_p2(TEN)
+        night.start()
+        prompt = me(night, "robber")["action_prompt"]
+
+        assert prompt["valid_targets"]["center_indices"] == [0, 1, 2]
+        finish_window_two(night, {"robber": [center(0)]})  # outside {"players": 1}
+
+        assert night.role_of("robber").current_role == "Robber"  # nothing happened
+
+
+# ── one cross-table check ────────────────────────────────────────────────────
+
+
+class TestTablesLookAlike:
+    """The same taps at the same times on tables dealt differently give the same
+    statuses, the same events heard and the same close time."""
+
+    A = ["Werewolf", "Seer", "Robber", "Villager", "Tanner"]
+    B = ["Seer", "Werewolf", "Drunk", "Insomniac", "Minion"]
+    C = ["Doppelganger", "Seer", "Werewolf", "Drunk", "Villager"]
+
+    def run(self, night: Night) -> dict[str, Any]:
+        night.start()
+        if night.game.current_wave == 1:
+            night.fire_timer(1)  # window 1 (a Doppelganger table) closes
+        assert night.refresh().current_wave == 2
+        night.pretend_window_opened(3)
+        mark = len(night.recorder.events)
+        replies = []
+        names = list(night.users)
+        for index, name in enumerate(names):
+            other = names[(index + 1) % len(names)]
+            reply = choose(night, name, [player(night, other)])
+            replies.append((reply.status_code, reply.content))
+        # Everyone chose, 3 s into an 8 s minimum: the close is deferred.
+        deferred = night.timer_delays(2)[-1]
+        night.fire_timer(2)
+        return {
+            "replies": replies,
+            "events": [e["type"] for _, e in night.recorder.events[mark:]],
+            "deferred": round(deferred),
+            "phase": night.game.phase,
+            "keys": [sorted(me(night, n)) for n in names],
+        }
+
+    def test_three_differently_dealt_tables_look_the_same_from_outside(
+        self, make_p2
+    ) -> None:
+        seen = [
+            self.run(
+                make_p2(
+                    {f"t{t}_{i}": role for i, role in enumerate(table)},
+                    night_min_window_seconds=8,
+                )
+            )
+            for t, table in enumerate((self.A, self.B, self.C))
+        ]
+
+        assert seen[0]["replies"] == [(200, b'{"status":"submitted"}')] * 5
+        assert seen[0] == seen[1] == seen[2]
+        assert seen[0]["deferred"] == 5
+        assert seen[0]["phase"] == Phase.DISCUSSION
+
+
+# ── races ────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db(transaction=True)
+class TestChooseRaces:
+    def post_choose(
+        self, night: Night, who: str, token: str | None, out: list, barrier
+    ) -> None:
+        from django.db import connections
+
+        from rest_framework.test import APIClient
+
+        try:
+            client = APIClient()
+            client.force_authenticate(user=night.users[who])
+            barrier.wait(timeout=10)
+            reply = client.post(
+                reverse("onuw:night-action", kwargs={"game_id": str(night.game.id)}),
+                {"action_type": "choose", "picks": [], "stage": token},
+                format="json",
+            )
+            out.append((reply.status_code, reply.data.get("code")))
+        finally:
+            connections.close_all()
+
+    def run_all(self, targets: list) -> None:
+        import threading
+
+        threads = [threading.Thread(target=t) for t in targets]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
+
+    def test_the_last_choose_and_the_deadline_close_the_window_once(
+        self, make_p2
+    ) -> None:
+        import threading
+
+        from django.db import connections
+
+        night = make_p2(LONE)
+        night.start()
+        for name in ("wolf", "seer", "villager", "hunter"):
+            choose(night, name, [])
+        token = current_stage(night.game.id)
+        callback = [cb for k, _, cb in night.scheduled if k.endswith(":wave:2")][-1]
+        barrier = threading.Barrier(2)
+        out: list = []
+
+        def deadline() -> None:
+            try:
+                barrier.wait(timeout=10)
+                callback()
+            finally:
+                connections.close_all()
+
+        self.run_all(
+            [lambda: self.post_choose(night, "tanner", token, out, barrier), deadline]
+        )
+
+        # The choose is stored (200) or arrived after the close (409 wrong_stage);
+        # either way the window closed exactly once.
+        assert out in ([(200, None)], [(409, "wrong_stage")])
+        assert night.refresh().phase == Phase.DISCUSSION
+        assert len(night.broadcasts("wave.complete")) == 1
+
+    def test_two_requests_for_the_same_stage_from_one_phone_store_one(
+        self, make_p2
+    ) -> None:
+        import threading
+
+        night = make_p2(LONE)
+        night.start()
+        token = current_stage(night.game.id)
+        barrier = threading.Barrier(2)
+        out: list = []
+
+        self.run_all([lambda: self.post_choose(night, "seer", token, out, barrier)] * 2)
+
+        assert sorted(out, key=str) == [(200, None), (409, "already_chosen")]
+        assert night.role_of("seer").night_action_data["chose_2"] == 1
+
+    def test_the_hosts_advance_and_the_last_choose_close_the_window_once(
+        self, make_p2
+    ) -> None:
+        import threading
+
+        from django.db import connections
+
+        from rest_framework.test import APIClient
+
+        night = make_p2(LONE)
+        night.start()
+        for name in ("wolf", "seer", "villager", "hunter"):
+            choose(night, name, [])
+        token = current_stage(night.game.id)
+        barrier = threading.Barrier(2)
+        out: list = []
+        advance: list = []
+
+        def host() -> None:
+            try:
+                client = APIClient()
+                client.force_authenticate(user=night.host)
+                barrier.wait(timeout=10)
+                reply = client.post(
+                    reverse(
+                        "onuw:wave-advance", kwargs={"game_id": str(night.game.id)}
+                    ),
+                    {"stage": token},
+                    format="json",
+                )
+                advance.append(reply.status_code)
+            finally:
+                connections.close_all()
+
+        self.run_all(
+            [lambda: self.post_choose(night, "tanner", token, out, barrier), host]
+        )
+
+        assert advance in ([200], [409])
+        assert out in ([(200, None)], [(409, "wrong_stage")])
+        assert night.refresh().phase == Phase.DISCUSSION
+        assert len(night.broadcasts("wave.complete")) == 1

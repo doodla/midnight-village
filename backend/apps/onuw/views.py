@@ -28,13 +28,24 @@ from .engine.assignment import assign_roles
 from .engine.decks import auto_deck
 from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
+from .night2 import CHOOSE_ERROR_CODES, submit_choose
+from .protocol import (
+    LOOK,
+    NIGHT_CHOOSE_STAGES,
+    TALK,
+    VOTE,
+    WRONG_STAGE_CODE,
+    WRONG_STAGE_DETAIL,
+    WrongStageError,
+    is_choose_night,
+    require_stage,
+)
 from .serializers import (
     GameMeSerializer,
     GameStartResponseSerializer,
     player_identity,
 )
 from .services import (
-    CHOOSE_ERROR_CODES,
     READY_ERROR_CODES,
     VOTE_ERROR_CODES,
     AlreadyActedError,
@@ -45,12 +56,10 @@ from .services import (
     end_discussion,
     ensure_timers,
     get_player_acting_role_for_wave,
-    is_choose_night,
     night_timeline_for,
     resolve_doppelganger_look,
     reveal_votes,
     set_ready,
-    submit_choose,
     submit_vote,
     timer_prefixes,
     validate_night_action,
@@ -59,6 +68,27 @@ from .services import (
 logger = logging.getLogger(__name__)
 
 MAX_NIGHT_RESULTS_SEEN = 10
+
+
+def _wrong_stage() -> Response:
+    """409 ``wrong_stage``: the request named a stage that is over (protocol 2). The
+    same body for every role and every endpoint; nothing was stored."""
+    return Response(
+        {"detail": WRONG_STAGE_DETAIL, "code": WRONG_STAGE_CODE},
+        status=status.HTTP_409_CONFLICT,
+    )
+
+
+def _stage_of(request: Request, game: Game) -> tuple[str | None, Response | None]:
+    """The ``stage`` a request echoes (night protocol 2 only: it is required there,
+    and ignored by a game that plays the original night)."""
+    if not is_choose_night(game):
+        return None, None
+    body = request.data if isinstance(request.data, dict) else {}
+    stage = body.get("stage")
+    if not isinstance(stage, str) or not stage:
+        return None, _bad_request("stage is required.")
+    return stage, None
 
 
 def _bad_request(detail: str) -> Response:
@@ -425,20 +455,26 @@ class NightActionView(APIView):
 
     def _choose(self, request: Request, game: Game) -> Response:
         """Night protocol 2: every phone sends ``{"action_type": "choose", "picks":
-        [...]}``. The answer is ``{"status": "submitted"}`` for everyone; the only
-        refusals are ``wrong_phase``, ``already_chosen`` (409) and ``bad_request``,
-        and none of them depends on the caller's role. What the picks MEAN is the
-        server's business (``services.submit_choose``)."""
+        [...], "stage": <the stage from /me/>}``. The answer is ``{"status":
+        "submitted"}`` for everyone; the only refusals are ``wrong_stage`` (409),
+        ``wrong_phase``, ``already_chosen`` (409) and ``bad_request``, none of them
+        depending on the caller's role. What the picks MEAN is the server's business,
+        decided when the stage ends (``night2``)."""
         body = request.data if isinstance(request.data, dict) else {}
         if body.get("action_type") != "choose" or "picks" not in body:
             return _bad_request("Invalid action.")
+        stage, refusal = _stage_of(request, game)
+        if refusal is not None:
+            return refusal
         if not PlayerRole.objects.filter(game=game, user=request.user).exists():
             return Response(
                 {"detail": "You are not a player in this game."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         try:
-            errors = submit_choose(game, request.user.id, body["picks"])  # type: ignore[misc]
+            errors = submit_choose(game, request.user.id, body["picks"], stage or "")  # type: ignore[misc]
+        except WrongStageError:
+            return _wrong_stage()
         except AlreadyActedError:
             return Response(
                 {"detail": "You have already chosen.", "code": "already_chosen"},
@@ -452,8 +488,6 @@ class NightActionView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        game.refresh_from_db()
-        check_and_maybe_advance(game)
         return Response({"status": "submitted"})
 
 
@@ -519,9 +553,14 @@ class WaveAdvanceView(APIView):
         # ``from_window`` (optional): the window the host saw when they tapped. A
         # stale tap (the window already moved on) must not close the next one.
         body = request.data if isinstance(request.data, dict) else {}
-        from_window = body.get("from_window")
-        if "from_window" in body and (
-            type(from_window) is not int or not 0 <= from_window <= 2
+        stage, refusal = _stage_of(request, game)  # protocol 2: replaces from_window
+        if refusal is not None:
+            return refusal
+        from_window = None if stage is not None else body.get("from_window")
+        if (
+            stage is None
+            and "from_window" in body
+            and (type(from_window) is not int or not 0 <= from_window <= 2)
         ):
             return _bad_request("from_window must be 0, 1 or 2")
 
@@ -531,6 +570,10 @@ class WaveAdvanceView(APIView):
         # has_acted for the next wave (losing already-submitted actions).
         with transaction.atomic():
             game = Game.objects.select_for_update().get(id=game_id)
+            try:
+                require_stage(game, stage, expected=(LOOK, *NIGHT_CHOOSE_STAGES))
+            except WrongStageError:
+                return _wrong_stage()
             if game.phase != Phase.NIGHT:
                 return Response(
                     {"detail": "Game is not in the night phase."},
@@ -584,8 +627,15 @@ class EndDiscussionView(APIView):
         # discussion timer callback. Without this, both paths can call
         # transition_to_voting, and the second resets has_acted/vote_target
         # for all players — deleting any votes submitted in the window.
+        stage, refusal = _stage_of(request, game)
+        if refusal is not None:
+            return refusal
         with transaction.atomic():
             game = Game.objects.select_for_update().get(id=game_id)
+            try:
+                require_stage(game, stage, expected=(TALK,))
+            except WrongStageError:
+                return _wrong_stage()
             if game.phase != Phase.DISCUSSION:
                 return Response(
                     {"detail": "Game is not in the discussion phase."},
@@ -638,6 +688,10 @@ class VoteView(APIView):
         if type(lock) is not bool:
             return refuse("lock must be true or false", "bad_request", 400)
 
+        stage, stage_refusal = _stage_of(request, game)
+        if stage_refusal is not None:
+            return stage_refusal
+
         # Check player membership (403) before delegating to service
         if not PlayerRole.objects.filter(game=game, user=request.user).exists():
             return Response(
@@ -646,7 +700,15 @@ class VoteView(APIView):
             )
 
         try:
-            errors = submit_vote(game, request.user.id, target_player_id, lock=lock)  # type: ignore[misc]
+            errors = submit_vote(
+                game,
+                request.user.id,
+                target_player_id,
+                lock=lock,
+                stage=stage,  # type: ignore[misc]
+            )
+        except WrongStageError:
+            return _wrong_stage()
         except AlreadyActedError:
             return refuse(
                 "You have already locked in your vote."
@@ -699,7 +761,13 @@ class ReadyView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        errors = set_ready(game, request.user.id, ready)  # type: ignore[misc]
+        stage, refusal = _stage_of(request, game)
+        if refusal is not None:
+            return refusal
+        try:
+            errors = set_ready(game, request.user.id, ready, stage)  # type: ignore[misc]
+        except WrongStageError:
+            return _wrong_stage()
         if errors:
             return Response(
                 {
@@ -737,8 +805,15 @@ class ForceRevealView(APIView):
         # voting timer callback. Without this, both paths can call
         # reveal_votes, producing duplicate vote_reveal and game_results
         # WebSocket events.
+        stage, refusal = _stage_of(request, game)
+        if refusal is not None:
+            return refusal
         with transaction.atomic():
             game = Game.objects.select_for_update().get(id=game_id)
+            try:
+                require_stage(game, stage, expected=(VOTE,))
+            except WrongStageError:
+                return _wrong_stage()
             if game.phase != Phase.VOTING:
                 return Response(
                     {"detail": "Game is not in the voting phase."},
@@ -789,7 +864,8 @@ class PlayerListView(APIView):
                 # Presence is public: is any of their sockets open right now?
                 "connected": pr.user_id in connected_ids,
             }
-            if game.phase == Phase.VOTING:
+            if game.phase == Phase.VOTING and not is_choose_night(game):
+                # Who locked in: only the original night says (protocol 2: counts).
                 entry["has_voted"] = bool(pr.has_acted)
             players.append(entry)
 

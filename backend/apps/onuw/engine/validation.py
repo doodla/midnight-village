@@ -124,18 +124,23 @@ PROTOCOL_2_TIMED_KEYS: tuple[str, ...] = (
 
 def validate_night_protocol(settings: dict, *, allow_untimed: bool = True) -> list[str]:
     """``night_protocol`` (if present) must be 1 or 2. Under 2, unless
-    ``allow_untimed``: no zero night timers and a minimum window of at least 5 s."""
-    if "night_protocol" not in settings:
-        return []
-    protocol = settings["night_protocol"]
-    if type(protocol) is not int or protocol not in NIGHT_PROTOCOLS:
+    ``allow_untimed``: no zero night timers and a minimum window of at least 5 s. The look stage
+    (``card_look_seconds`` above 0) belongs to protocol 2 only."""
+    protocol = settings.get("night_protocol", 1)
+    if "night_protocol" in settings and (
+        type(protocol) is not int or protocol not in NIGHT_PROTOCOLS
+    ):
         return ["'night_protocol' must be 1 or 2."]
+    errors: list[str] = []
+    look = settings.get("card_look_seconds")
+    if protocol != 2 and type(look) is int and look > 0:
+        errors.append("'card_look_seconds' needs 'night_protocol' 2.")
     if protocol != 2 or allow_untimed:
-        return []
-    errors = [
+        return errors
+    errors += [
         f"{key!r} cannot be 0 when every phone chooses at night."
         for key in PROTOCOL_2_TIMED_KEYS
-        if settings.get(key) == 0 and type(settings.get(key)) is int
+        if type(settings.get(key)) is int and settings.get(key) == 0
     ]
     window_min = settings.get("night_min_window_seconds")
     if type(window_min) is int and window_min < MIN_PROTOCOL_2_MIN_WINDOW_SECONDS:

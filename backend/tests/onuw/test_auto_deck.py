@@ -4,8 +4,8 @@ Automatic decks and lobby defaults.
 A lobby with ``deck: "auto"`` and a ``deck_chip`` (``simple``, ``classic``, ``chaos``)
 has no card list of its own: the server builds the deck at the deal for the number
 of players then at the table, from ONE table in code that the doc shows too. A lobby
-created with ``defaults: "v2"`` starts with Normal pace, a card look, the Normal
-Doppelganger window, night protocol 2 and the automatic Simple deck.
+created with ``defaults: "v2"`` starts with a card look, night protocol 2 and the
+automatic Simple deck, and nothing else (no timer length is assumed).
 """
 
 import re
@@ -321,13 +321,10 @@ class TestDefaults:
             reverse("core:lobby-list"), {"game_type": "onuw", **body}, format="json"
         )
 
+    # ONLY what the new screens need to work. No timer the server already defaults
+    # and never the Doppelganger's window (the table's own setting, or the server's).
     EXPECTED = {
-        "pace": "normal",
-        "discussion_seconds": 300,
-        "voting_seconds": 90,
-        "night_wave_seconds": 30,
         "card_look_seconds": 30,
-        "night_doppelganger_window_seconds": 15,
         "night_protocol": 2,
         "deck": "auto",
         "deck_chip": "simple",
@@ -348,6 +345,23 @@ class TestDefaults:
             **self.EXPECTED,
             "deck_chip": "chaos",
             "voting_seconds": 45,
+        }
+
+    def test_no_timer_is_written_and_the_doppelganger_window_is_left_alone(
+        self, db
+    ) -> None:
+        written = self.create(defaults="v2").data["settings"]
+
+        assert not [
+            key
+            for key in written
+            if key.endswith("_seconds") and key != "card_look_seconds"
+        ]
+        assert set(written) == {
+            "card_look_seconds",
+            "night_protocol",
+            "deck",
+            "deck_chip",
         }
 
     def test_nothing_is_written_unless_the_body_asks(self, db) -> None:

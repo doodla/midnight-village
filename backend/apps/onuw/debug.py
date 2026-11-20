@@ -198,7 +198,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
         "results": results,
         "pending_timers": _pending_timers(game),
     }
-    from .services import is_choose_night
+    from .protocol import is_choose_night
 
     if not is_choose_night(game):
         # A game that plays the original night is described as it always was.

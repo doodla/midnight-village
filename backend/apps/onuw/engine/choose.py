@@ -185,6 +185,25 @@ def prompt_kind(role_acting_as: str | None, *, lone_werewolf: bool = False) -> s
     return "none"
 
 
+def pick_shapes(role_acting_as: str | None, *, lone_werewolf: bool = False) -> list:
+    """What a phone may pick, as data, so it can keep a player from wasting a turn
+    without holding any game rule. A list of ALTERNATIVE shapes, each one key and a
+    count: ``{"players": n}`` n distinct other players, ``{"center": n}`` n distinct
+    centre cards, ``{"any": 1}`` one card of the board (a player or a centre card).
+    Picking "You" (or nothing) is always allowed and means do nothing. The server's
+    reading (``interpret_choice``) stays the authority: a pick outside the shapes is
+    stored and safely does nothing."""
+    if role_acting_as == "Seer":
+        return [{"players": 1}, {"center": 2}]
+    if role_acting_as in ("Robber", "Doppelganger"):
+        return [{"players": 1}]
+    if role_acting_as == "Troublemaker":
+        return [{"players": 2}]
+    if role_acting_as == "Drunk" or (role_acting_as == "Werewolf" and lone_werewolf):
+        return [{"center": 1}]
+    return [{"any": 1}]
+
+
 def is_lone_werewolf(state: GameState, player_id: int) -> bool:
     """True if the player wakes as a Werewolf and no other player does."""
     return is_effective_werewolf(player_id, state) and not any(
@@ -213,10 +232,17 @@ def build_choose_prompt(
     lone = (
         acting_role == "Werewolf" and is_lone_werewolf(state, player_id) and window == 2
     )
-    role = acting_role or state.original_roles.get(player_id, "")
+    # A player with nothing to do is shown the role they act as for the table's
+    # purposes: the one a Doppelganger copied (whenever she did), else the dealt one.
+    role = (
+        acting_role
+        or state.doppelganger_copied_role.get(player_id)
+        or state.original_roles.get(player_id, "")
+    )
     return {
         "window": window,
         "kind": prompt_kind(acting_role, lone_werewolf=lone),
+        "shapes": pick_shapes(acting_role, lone_werewolf=lone),
         "role_acting_as": role,
         "action_types": ["choose"],
         "max_picks": MAX_PICKS,

@@ -339,6 +339,22 @@ class TestPrompt:
         assert self.prompt("Seer", window=2, chosen=1)["max_chooses"] == 1
         assert self.prompt("Seer", chosen=1)["chosen"] == 1
 
+    def test_a_player_with_nothing_to_do_shows_the_role_they_copied(self) -> None:
+        table = {ME: "Doppelganger", 11: "Seer", 12: "Villager", 13: "Robber"}
+        state_after = state(table, self.CENTRE, {ME: "Seer"})
+
+        prompt = build_choose_prompt(state_after, ME, 2, None, 0)
+
+        assert prompt["role_acting_as"] == "Seer"  # her copied role, for the held face
+        assert prompt["kind"] == "none"  # nothing to choose in this window
+
+    def test_a_doppelganger_who_copied_nobody_shows_her_own_card(self) -> None:
+        table = {ME: "Doppelganger", 11: "Seer", 12: "Villager", 13: "Robber"}
+
+        prompt = build_choose_prompt(state(table, self.CENTRE), ME, 2, None, 0)
+
+        assert prompt["role_acting_as"] == "Doppelganger"
+
     def test_the_players_own_card_is_not_in_the_board(self) -> None:
         assert ME not in self.prompt("Seer")["valid_targets"]["player_ids"]
 

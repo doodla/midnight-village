@@ -13,17 +13,13 @@ from . import presence
 from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
 
-# What a lobby made with ``defaults: "v2"`` starts with: Normal pace, a 30 s look at
-# the cards, the Normal Doppelganger window, the choose night and the automatic
-# Simple deck (``docs/specs/frontend/first-time-play.md``). Nothing is written unless
-# the create body asks for it.
+# What a lobby made with ``defaults: "v2"`` starts with: ONLY what the new screens need
+# to work (a look at the cards, the choose night, the automatic Simple deck). It writes
+# no timer value the server already defaults and never the Doppelganger's window:
+# every length is the table's own setting or the server's existing default. Nothing is
+# written unless the create body asks for it.
 V2_DEFAULTS: dict[str, Any] = {
-    "pace": "normal",
-    "discussion_seconds": 300,
-    "voting_seconds": 90,
-    "night_wave_seconds": 30,
     "card_look_seconds": 30,
-    "night_doppelganger_window_seconds": 15,
     "night_protocol": 2,
     "deck": "auto",
     "deck_chip": "simple",

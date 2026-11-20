@@ -114,7 +114,32 @@ class LobbyCreateView(CreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             given = serializer.validated_data.get("settings") or {}
+            if not isinstance(given, dict):
+                return Response(
+                    {"detail": "Settings must be an object.", "code": "bad_request"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             serializer.validated_data["settings"] = {**offered, **given}
+
+        # What the table starts with is checked now, not at the deal: a combination
+        # the game refuses is refused here. Who will sit at the table is not known
+        # yet, so the card list is not checked against a player count.
+        merged = serializer.validated_data.get("settings") or {}
+        if merged:
+            errors = hooks_for_type(
+                serializer.validated_data["game_type"]
+            ).validate_settings(
+                merged,
+                0,
+                changed=set(merged) - {"roles", "deck"}
+                if isinstance(merged, dict)
+                else None,
+            )
+            if errors:
+                return Response(
+                    {"detail": errors, "code": "bad_request"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         self.perform_create(serializer)
 
         # Return full lobby data

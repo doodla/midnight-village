@@ -23,6 +23,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.protocol import WrongStageError
+from tests.onuw.stages import current_stage, staged
 from tests.onuw.test_night_windows import Night
 from tests.onuw.test_presence import drop, fire_grace, to_voting
 
@@ -53,7 +55,7 @@ def post_vote(night: Night, voter: str, body: Any) -> Any:
     with night.committed():
         return night.client.post(
             reverse("onuw:vote", kwargs={"game_id": str(night.game.id)}),
-            body,
+            staged(night, body),
             format="json",
         )
 
@@ -64,12 +66,12 @@ def vote(night: Night, voter: str, target: str, **extra: Any) -> Any:
     )
 
 
-def pick(night: Night, voter: str, target: str) -> Any:
-    return vote(night, voter, target, lock=False)
+def pick(night: Night, voter: str, target: str, **extra: Any) -> Any:
+    return vote(night, voter, target, lock=False, **extra)
 
 
-def lock(night: Night, voter: str, target: str) -> Any:
-    return vote(night, voter, target, lock=True)
+def lock(night: Night, voter: str, target: str, **extra: Any) -> Any:
+    return vote(night, voter, target, lock=True, **extra)
 
 
 def me(night: Night, name: str) -> dict[str, Any]:
@@ -99,7 +101,9 @@ def host_reveal(night: Night) -> Any:
     night.client.force_authenticate(user=night.host)
     with night.committed():
         return night.client.post(
-            reverse("onuw:reveal-votes", kwargs={"game_id": str(night.game.id)})
+            reverse("onuw:reveal-votes", kwargs={"game_id": str(night.game.id)}),
+            staged(night, {}),
+            format="json",
         )
 
 
@@ -148,11 +152,27 @@ class TestPickAndLock:
         assert response.status_code == status.HTTP_200_OK
         assert response.data == {"status": "submitted"}
         assert stored(night, "robber") == (night.users["seer"].id, True)
-        assert night.broadcasts("vote.submitted") == [
-            {"type": "vote.submitted", "player_id": night.users["robber"].id}
-        ]
+        # Protocol 2 never announces WHO locked: only the count.
+        assert night.broadcasts("vote.submitted") == []
         assert me(night, "robber")["has_voted"] is True
         assert vote(night, "robber", "wolf").status_code == status.HTTP_409_CONFLICT
+
+    def test_nobody_is_told_who_locked_in(self, vote_night) -> None:
+        night = vote_night
+        lock(night, "robber", "seer")
+
+        body = me(night, "wolf")
+
+        assert all("has_voted" not in p for p in body["players"])
+        assert body["has_voted"] is False  # your own, as ever
+        assert me(night, "robber")["has_voted"] is True
+        assert [e for _, e in night.recorder.events if "player_id" in e] == []
+        # The players list endpoint says nothing about who locked either.
+        night.client.force_authenticate(user=night.users["wolf"])
+        listing = night.client.get(
+            reverse("onuw:player-list", kwargs={"game_id": str(night.game.id)})
+        )
+        assert all("has_voted" not in p for p in listing.data["players"])
 
     def test_an_unlocked_pick_is_not_a_vote_cast_for_has_voted(
         self, vote_night
@@ -160,10 +180,7 @@ class TestPickAndLock:
         night = vote_night
         pick(night, "robber", "seer")
 
-        body = me(night, "robber")
-        assert body["has_voted"] is False
-        other = me(night, "wolf")
-        assert all(p["has_voted"] is False for p in other["players"])
+        assert me(night, "robber")["has_voted"] is False
 
     def test_a_pick_repeated_for_the_same_target_is_harmless(self, vote_night) -> None:
         night = vote_night
@@ -193,21 +210,27 @@ class TestPickAndLock:
 
         response = night.client.post(
             reverse("onuw:vote", kwargs={"game_id": str(night.game.id)}),
-            {"target_player_id": night.users["seer"].id, "lock": False},
+            {
+                "target_player_id": night.users["seer"].id,
+                "lock": False,
+                "stage": current_stage(night.game.id),
+            },
             format="json",
         )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_picking_outside_the_voting_phase_is_wrong_phase(self, make_night) -> None:
+    def test_a_vote_while_it_is_still_night_is_for_a_stage_that_is_not_here(
+        self, make_night
+    ) -> None:
         night = make_night(ROLES, CENTER, night_protocol=2)
         night.start()
         assert night.game.phase == Phase.NIGHT
 
-        response = pick(night, "robber", "seer")
+        response = pick(night, "robber", "seer")  # the night's own token is not "vote"
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data["code"] == "wrong_phase"
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data["code"] == "wrong_stage"
         assert night.role_of("robber").vote_target_id is None
 
     @pytest.mark.parametrize(
@@ -263,14 +286,12 @@ class TestSocketEvents:
         # Not to the group and not to any player's channel.
         assert night.recorder.events == []
 
-    def test_a_lock_sends_the_legacy_event_and_a_count(self, vote_night) -> None:
+    def test_a_lock_sends_a_count_and_not_who(self, vote_night) -> None:
         night = vote_night
 
         lock(night, "robber", "seer")
 
-        assert night.broadcasts("vote.submitted") == [
-            {"type": "vote.submitted", "player_id": night.users["robber"].id}
-        ]
+        assert night.broadcasts("vote.submitted") == []
         assert night.broadcasts("progress") == [
             {"type": "progress", "stage": "vote", "done": 1, "needed": 5}
         ]
@@ -291,15 +312,11 @@ class TestSocketEvents:
         for event in events:
             assert set(event) == {"type", "stage", "done", "needed"}
             assert event["stage"] == "vote"
-        # Everything broadcast is a lock (who) or a count: no target anywhere.
+        # Everything broadcast is a count: no target, no name, anywhere.
         assert sorted(e["type"] for _, e in night.recorder.events) == [
             "progress",
             "progress",
-            "vote.submitted",
-            "vote.submitted",
         ]
-        for event in night.broadcasts("vote.submitted"):
-            assert set(event) == {"type", "player_id"}
 
     def test_opening_the_vote_announces_done_zero(self, make_night) -> None:
         night = make_night(ROLES, CENTER, night_protocol=2, voting_seconds=120)
@@ -450,15 +467,21 @@ class TestReveal:
     ) -> None:
         night = vote_night
         lock(night, "wolf", "seer")
+        vote_stage = current_stage(night.game.id)
         fire_voting_deadline(night)
         before = dict(night.game.results)
         assert night.game.phase == Phase.RESULTS
 
-        late = (pick(night, "robber", "wolf"), lock(night, "robber", "wolf"))
+        # A lock that was on its way when the vote was revealed names the old stage.
+        late = (
+            pick(night, "robber", "wolf", stage=vote_stage),
+            lock(night, "robber", "wolf", stage=vote_stage),
+        )
 
         for response in late:
-            assert response.status_code == status.HTTP_400_BAD_REQUEST
-            assert response.data["code"] == "wrong_phase"
+            assert response.status_code == status.HTTP_409_CONFLICT
+            assert response.data["code"] == "wrong_stage"
+            assert response.data["detail"] == "That stage is over."
         assert night.role_of("robber").vote_target_id is None
         assert Game.objects.get(id=night.game.id).results == before
         assert len(night.broadcasts("vote.reveal")) == 1
@@ -470,13 +493,18 @@ class TestReveal:
 
         night = vote_night
         stale = Game.objects.get(id=night.game.id)
+        token = current_stage(night.game.id)
         fire_voting_deadline(night)
 
-        errors = services.submit_vote(
-            stale, night.users["robber"].id, night.users["wolf"].id, lock=False
-        )
+        with pytest.raises(WrongStageError):
+            services.submit_vote(
+                stale,
+                night.users["robber"].id,
+                night.users["wolf"].id,
+                lock=False,
+                stage=token,
+            )
 
-        assert errors == ["Game is not in the voting phase."]
         assert night.role_of("robber").vote_target_id is None
 
     @pytest.mark.django_db(transaction=True)
@@ -485,6 +513,7 @@ class TestReveal:
         for voter, target in (("wolf", "seer"), ("seer", "wolf"), ("hunter", "wolf")):
             lock(night, voter, target)
         url = reverse("onuw:vote", kwargs={"game_id": str(night.game.id)})
+        token = current_stage(night.game.id)
         barrier = threading.Barrier(2)
         codes: list[int] = []
 
@@ -495,7 +524,11 @@ class TestReveal:
                 barrier.wait(timeout=10)
                 reply = client.post(
                     url,
-                    {"target_player_id": night.users[target].id, "lock": True},
+                    {
+                        "target_player_id": night.users[target].id,
+                        "lock": True,
+                        "stage": token,
+                    },
                     format="json",
                 )
                 codes.append(reply.status_code)

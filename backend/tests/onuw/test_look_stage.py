@@ -28,6 +28,7 @@ from apps.core import timers
 from apps.onuw import services
 from apps.onuw.engine.validation import validate_onuw_settings
 from apps.onuw.models import Game, Phase, PlayerRole
+from tests.onuw.stages import current_stage, staged
 from tests.onuw.test_night_windows import Night
 from tests.onuw.test_presence import connect, drop, fire_grace
 
@@ -73,7 +74,7 @@ def post_ready(night: Night, who: str, body: Any) -> Any:
     with night.committed():
         return night.client.post(
             reverse("onuw:ready", kwargs={"game_id": str(night.game.id)}),
-            body,
+            staged(night, body),
             format="json",
         )
 
@@ -96,7 +97,7 @@ def host_advance(night: Night, body: dict[str, Any] | None = None) -> Any:
     with night.committed():
         return night.client.post(
             reverse("onuw:wave-advance", kwargs={"game_id": str(night.game.id)}),
-            body,
+            staged(night, {} if body is None else body),
             format="json",
         )
 
@@ -548,6 +549,7 @@ class TestHostAndRestart:
         for name in ("wolf", "seer", "hunter", "robber"):
             look(night, name)
         url = reverse("onuw:ready", kwargs={"game_id": str(night.game.id)})
+        token = current_stage(night.game.id)
         callback = look_timers(night)[-1][1]
         barrier = threading.Barrier(2)
         codes: list[int] = []
@@ -558,7 +560,9 @@ class TestHostAndRestart:
                 client.force_authenticate(user=night.users["villager"])
                 barrier.wait(timeout=10)
                 codes.append(
-                    client.post(url, {"ready": True}, format="json").status_code
+                    client.post(
+                        url, {"ready": True, "stage": token}, format="json"
+                    ).status_code
                 )
             finally:
                 connections.close_all()
@@ -599,12 +603,12 @@ class TestSetting:
 
     @pytest.mark.parametrize("value", [0, 1, 30, 120])
     def test_valid_values(self, value) -> None:
-        settings = {"roles": self.DECK, "card_look_seconds": value}
+        settings = {"roles": self.DECK, "card_look_seconds": value, "night_protocol": 2}
         assert validate_onuw_settings(settings, 6) == []
 
     @pytest.mark.parametrize("value", [-1, 121, 3600, "30", 1.5, True, None, [30]])
     def test_invalid_values(self, value) -> None:
-        settings = {"roles": self.DECK, "card_look_seconds": value}
+        settings = {"roles": self.DECK, "card_look_seconds": value, "night_protocol": 2}
 
         errors = validate_onuw_settings(settings, 6)
 
@@ -671,7 +675,13 @@ class TestTheDealThroughTheApi:
         if seconds is not None:
             reply = table.host.patch(
                 reverse("core:lobby-detail", kwargs={"code": table.code}),
-                {"settings": {"card_look_seconds": seconds, **extra}},
+                {
+                    "settings": {
+                        "card_look_seconds": seconds,
+                        "night_protocol": 2,
+                        **extra,
+                    }
+                },
                 format="json",
             )
             assert reply.status_code == status.HTTP_200_OK, reply.data
@@ -711,26 +721,40 @@ class TestTheDealThroughTheApi:
     def test_every_player_looking_opens_the_first_window(self, deal_api) -> None:
         table, _scheduled, sent, capture = deal_api
         game = self.deal(deal_api, 30)
+        token = current_stage(game.id)
+        assert token is not None and token.startswith("look.")
 
         for client in table.clients:
             with capture(execute=True):
                 reply = client.post(
                     reverse("onuw:ready", kwargs={"game_id": str(game.id)}),
-                    {"ready": True},
+                    {"ready": True, "stage": token},
                     format="json",
                 )
             assert reply.status_code == status.HTTP_200_OK
 
         game.refresh_from_db()
         assert game.current_wave == 2
-        assert [e["wave"] for _, e in sent if e["type"] == "wave.start"] == [2]
+        assert [e["window"] for _, e in sent if e["type"] == "night.window"] == [2]
+
+    def test_the_look_stage_belongs_to_protocol_2(self, deal_api) -> None:
+        table, *_ = deal_api
+
+        reply = table.host.patch(
+            reverse("core:lobby-detail", kwargs={"code": table.code}),
+            {"settings": {"card_look_seconds": 30}},
+            format="json",
+        )
+
+        assert reply.status_code == status.HTTP_400_BAD_REQUEST
+        assert "card_look_seconds" in str(reply.data)
 
     def test_a_lobby_patch_over_the_limit_is_refused(self, deal_api) -> None:
         table, *_ = deal_api
 
         reply = table.host.patch(
             reverse("core:lobby-detail", kwargs={"code": table.code}),
-            {"settings": {"card_look_seconds": 121}},
+            {"settings": {"card_look_seconds": 121, "night_protocol": 2}},
             format="json",
         )
 

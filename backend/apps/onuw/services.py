@@ -28,16 +28,10 @@ from apps.core import effects, timers
 from apps.core.models import Lobby
 from apps.onuw import presence
 
+from . import night2
 from .engine.behaviors import (
     get_doppelganger_followup_wave,
     is_effective_werewolf,
-)
-from .engine.choose import (
-    build_choose_prompt,
-    interpret_choice,
-    is_lone_werewolf,
-    max_chooses,
-    parse_picks,
 )
 from .engine.night import (
     build_role_prompt,
@@ -52,6 +46,14 @@ from .engine.validation import is_valid_timer_value, max_seconds_for
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
 from .models import Game, Phase, PlayerRole, SocketPresence
+from .protocol import (
+    LOOK,
+    TALK,
+    VOTE,
+    in_look_stage,
+    is_choose_night,
+    require_stage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,14 +84,6 @@ TIMED_PHASES = (Phase.NIGHT, Phase.DISCUSSION, Phase.VOTING)
 # than this many seconds away, is moved to this long from now when its timer is
 # rebuilt, so phones can reconnect before the vote is revealed or the night closes.
 RECOVERY_RECONNECT_ALLOWANCE_SECONDS = 15
-
-
-def is_choose_night(game: Game) -> bool:
-    """True if the game plays night protocol 2: every phone sends one ``choose``,
-    the server reads it per role and answers everyone alike, a window opens with
-    one group event and results are read from ``GET /me/``. Games whose settings
-    do not say ``night_protocol: 2`` keep the original per-role night."""
-    return isinstance(game.settings, dict) and game.settings.get("night_protocol") == 2
 
 
 def get_timer_seconds(game: Game, key: str, default: int) -> int:
@@ -499,16 +493,6 @@ def begin_night(game: Game) -> None:
         start_night_phase(game)
 
 
-def in_look_stage(game: Game) -> bool:
-    """Night, window 0, with a look deadline. (A night at window 0 with no
-    deadline is a night that is about to open, or never did: the stuck rule's.)"""
-    return (
-        game.phase == Phase.NIGHT
-        and game.current_wave == 0
-        and game.phase_deadline is not None
-    )
-
-
 def _start_look_stage(game: Game, seconds: int) -> None:
     """Hold the night at window 0 until everyone has looked at their card, or the
     backstop fires, or the host moves on. Shows nothing about roles."""
@@ -737,22 +721,7 @@ def send_wave_prompts(game: Game, wave: int) -> None:
         )
 
     if is_choose_night(game):
-        # Night protocol 2: ONE group event, the same bytes for every phone and
-        # nothing per player. Each phone reads its own prompt from GET /me/.
-        _send_after_commit(
-            [
-                (
-                    f"game_{game.id}",
-                    {
-                        "type": "night.window",
-                        "window": wave,
-                        "deadline": game.phase_deadline.isoformat()
-                        if game.phase_deadline
-                        else None,
-                    },
-                )
-            ]
-        )
+        night2.announce_window(game, wave)
         return
 
     state = build_game_state(game)
@@ -904,7 +873,7 @@ def _collect_window_actions(game: Game, window: int) -> list[NightAction]:
             and data.get("role_acting_as") == role_acting_as
         ):
             action_type, targets = data.get("action_type"), data.get("targets", {})
-            if action_type is None and data.get(f"chose_{window}"):
+            if action_type is None and night2.chose_count(pr, window):
                 # Night protocol 2: they chose, and nothing they picked means
                 # anything for their role. The role's timeout default applies
                 # (a Drunk is swapped by the server), silently: not an error.
@@ -1058,21 +1027,30 @@ def persist_wave_results(
     game.night_actions_log = log
     game.save(update_fields=["center_cards", "night_actions_log", "updated_at"])
 
-    # Update player roles (swaps may have occurred)
+    # Write only the rows that changed: one read, then an update for each card that
+    # moved (a window with no swap writes no role at all) and one save for each
+    # player who got a result.
+    rows = {pr.user_id: pr for pr in PlayerRole.objects.filter(game=game)}
     for pid, role in new_state.player_roles.items():
-        PlayerRole.objects.filter(game=game, user_id=pid).update(current_role=role)
+        pr = rows.get(pid)
+        if pr is not None and pr.current_role != role:
+            PlayerRole.objects.filter(game=game, user_id=pid).update(current_role=role)
+            pr.current_role = role
 
     # Store action results in each player's night_action_data
+    changed: dict[int, dict[str, Any]] = {}
     for result in results:
-        if result.revealed_info:
-            pr = PlayerRole.objects.get(game=game, user_id=result.player_id)
-            data = dict(pr.night_action_data)
+        if result.revealed_info and result.player_id in rows:
+            data = changed.get(result.player_id)
+            if data is None:
+                data = dict(rows[result.player_id].night_action_data)
+                changed[result.player_id] = data
             data[f"wave_{wave}_result"] = result.revealed_info
             # For Doppelganger, also store copied_role at top level
             if "copied_role" in result.revealed_info:
                 data["copied_role"] = result.revealed_info["copied_role"]
-            pr.night_action_data = data
-            pr.save(update_fields=["night_action_data"])
+    for pid, data in changed.items():
+        PlayerRole.objects.filter(game=game, user_id=pid).update(night_action_data=data)
 
 
 def _action_result_messages(
@@ -1434,107 +1412,6 @@ def validate_night_action(
     return errors
 
 
-# ── Night protocol 2: one `choose` from every phone ─────────────────────────
-
-
-NOT_A_PLAYER = "You are not a player in this game."
-CHOOSE_WRONG_PHASE = "Nothing is waiting for a choice right now."
-CHOOSE_BAD_PICKS = "Invalid picks."
-CHOOSE_ALREADY = "You have already chosen."
-# The only refusals a ``choose`` can get. None names a role or depends on one.
-CHOOSE_ERROR_CODES = {
-    CHOOSE_WRONG_PHASE: "wrong_phase",
-    CHOOSE_BAD_PICKS: "bad_request",
-    NOT_A_PLAYER: "not_a_player",
-}
-
-
-def choose_prompt_for(game: Game, pr: PlayerRole) -> dict[str, Any] | None:
-    """The prompt the caller reads from ``GET /me/`` in an open night window under
-    protocol 2: every player has one, shaped alike (``engine.choose``)."""
-    if game.phase != Phase.NIGHT or game.current_wave not in NIGHT_WINDOWS:
-        return None
-    window = game.current_wave
-    return build_choose_prompt(
-        build_game_state(game),
-        pr.user_id,
-        window,
-        get_player_acting_role_for_wave(pr, window),
-        _chose_count(pr, window),
-    )
-
-
-def submit_choose(game: Game, user_id: int, raw_picks: object) -> list[str]:
-    """A phone's ``choose`` (night protocol 2). Returns the list of errors (empty =
-    accepted); ``CHOOSE_ERROR_CODES`` maps them to codes, and a phone that has used
-    its chooses raises ``AlreadyActedError``.
-
-    EVERY phone may send one, whatever it was dealt: the answer is the same, and so
-    is everything the table can observe. What the picks mean is read here, by role
-    (``engine.choose.interpret_choice``); a pick that means nothing for the role is
-    stored as "chose, nothing valid" and the window close gives the role its timeout
-    default. Window 1 takes two chooses from every phone (the Doppelganger's look,
-    then her follow-up), window 2 takes one.
-
-    One transaction: Game lock, then the player's row. A Doppelganger's look
-    resolves in it, so her copy is known to the window close.
-    """
-    with transaction.atomic():
-        game = Game.objects.select_for_update().get(id=game.id)
-        if game.phase != Phase.NIGHT or game.current_wave not in NIGHT_WINDOWS:
-            return [CHOOSE_WRONG_PHASE]
-        try:
-            pr = PlayerRole.objects.select_for_update().get(game=game, user_id=user_id)
-        except PlayerRole.DoesNotExist:
-            return [NOT_A_PLAYER]
-
-        window = game.current_wave
-        chosen = _chose_count(pr, window)
-        if chosen >= max_chooses(window):
-            raise AlreadyActedError(CHOOSE_ALREADY)
-
-        picks = parse_picks(
-            raw_picks,
-            own_id=user_id,
-            # pyrefly: ignore [missing-attribute]
-            player_ids=set(game.player_roles.values_list("user_id", flat=True)),
-            center_count=len(game.center_cards),
-        )
-        if picks is None:
-            return [CHOOSE_BAD_PICKS]
-
-        acting = get_player_acting_role_for_wave(pr, window)
-        reading = None
-        if acting is not None:
-            reading = interpret_choice(
-                acting,
-                picks,
-                lone_werewolf=acting == "Werewolf"
-                and is_lone_werewolf(build_game_state(game), user_id),
-            )
-
-        data: dict[str, Any] = dict(pr.night_action_data)
-        data[f"chose_{window}"] = chosen + 1
-        if acting is not None:
-            # A role with something to do this window: the latest choose replaces
-            # what an earlier one stored (a Doppelganger's follow-up replaces her
-            # look's record; the look itself is already resolved and logged).
-            data.pop("action_type", None)
-            data.pop("targets", None)
-            data["wave"] = window
-            data["role_acting_as"] = acting
-            if reading is not None:
-                data["action_type"] = reading.action_type
-                data["targets"] = reading.targets
-        pr.night_action_data = data
-        pr.has_acted = True
-        pr.save(update_fields=["night_action_data", "has_acted"])
-
-        if window == 1 and acting == "Doppelganger" and reading is not None:
-            _resolve_doppelganger_look(game)
-    return []
-
-
 # ── Discussion & Voting ────────────────────────────────────────────────────
 
 
@@ -1610,7 +1487,7 @@ def end_discussion(game: Game) -> None:
 VOTE_WRONG_PHASE = "Game is not in the voting phase."
 VOTE_SELF = "You cannot vote for yourself."
 VOTE_BAD_TARGET = "Invalid vote target."
-VOTE_NOT_A_PLAYER = NOT_A_PLAYER
+VOTE_NOT_A_PLAYER = "You are not a player in this game."
 VOTE_ERROR_CODES = {
     VOTE_WRONG_PHASE: "wrong_phase",
     VOTE_SELF: "invalid_target",
@@ -1620,7 +1497,12 @@ VOTE_ERROR_CODES = {
 
 
 def submit_vote(
-    game: Game, voter_id: int, target_player_id: int, *, lock: bool = True
+    game: Game,
+    voter_id: int,
+    target_player_id: int,
+    *,
+    lock: bool = True,
+    stage: str | None = None,
 ) -> list[str]:
     """
     Pick (``lock=False``) or lock in (``lock=True``) a vote. Returns the list of
@@ -1638,9 +1520,15 @@ def submit_vote(
     A pick sends nothing. A lock sends the legacy ``vote.submitted`` (WHO locked,
     never the target) and the count-only ``progress`` after the commit, and reveals
     the vote when everyone being waited for has locked (``_votes_ready``).
+
+    Under night protocol 2 the request names its ``stage`` (compared under the Game
+    lock: a pick or lock for a stage that is over, a late lock after the reveal,
+    raises ``WrongStageError`` and stores nothing), and the legacy ``vote.submitted``
+    (who locked) is NOT sent: only the count is.
     """
     with transaction.atomic():
         game = Game.objects.select_for_update().get(id=game.id)
+        require_stage(game, stage, expected=(VOTE,))
         if game.phase != Phase.VOTING:
             return [VOTE_WRONG_PHASE]
 
@@ -1671,15 +1559,16 @@ def submit_vote(
 
         voter_pr.has_acted = True
         voter_pr.save(update_fields=["vote_target", "has_acted"])
-        _send_after_commit(
-            [
-                (
-                    f"game_{game.id}",
-                    {"type": "vote.submitted", "player_id": voter_id},
-                ),
-                (f"game_{game.id}", {"type": "progress", **vote_progress(game)}),
-            ]
+        messages: list[tuple[str, dict[str, Any]]] = []
+        if not is_choose_night(game):
+            # The original night announces WHO locked; protocol 2 only the count.
+            messages.append(
+                (f"game_{game.id}", {"type": "vote.submitted", "player_id": voter_id})
+            )
+        messages.append(
+            (f"game_{game.id}", {"type": "progress", **vote_progress(game)})
         )
+        _send_after_commit(messages)
         # Reveal once everyone has locked, or everyone still being waited for has
         # (a player gone past the grace period is a non-voter at the deadline too).
         if _votes_ready(game):
@@ -1762,11 +1651,12 @@ READY_ONE_WAY = "Looking at your card cannot be undone."
 READY_ERROR_CODES = {
     READY_WRONG_PHASE: "wrong_phase",
     READY_ONE_WAY: "bad_request",
-    VOTE_NOT_A_PLAYER: "not_a_player",
 }
 
 
-def set_ready(game: Game, user_id: int, ready: bool) -> list[str]:
+def set_ready(
+    game: Game, user_id: int, ready: bool, stage: str | None = None
+) -> list[str]:
     """Mark the caller ready at the stage that asks for it. Returns the list of
     errors (empty = success); ``READY_ERROR_CODES`` maps them to codes.
 
@@ -1776,17 +1666,18 @@ def set_ready(game: Game, user_id: int, ready: bool) -> list[str]:
     function the host's button uses. One transaction, Game lock then PlayerRole
     lock, the stage re-checked, so a tap racing the host, the backstop or the
     talk's deadline moves on once. Every tap recounts ``needed`` and sends the
-    count.
+    count. Under night protocol 2 the request names its ``stage`` (compared under
+    the lock: a tap for a stage that is over raises ``WrongStageError``).
     """
     with transaction.atomic():
         game = Game.objects.select_for_update().get(id=game.id)
+        require_stage(game, stage, expected=(LOOK, TALK))
         looking = in_look_stage(game)
         if not looking and game.phase != Phase.DISCUSSION:
             return [READY_WRONG_PHASE]
-        try:
-            pr = PlayerRole.objects.select_for_update().get(game=game, user_id=user_id)
-        except PlayerRole.DoesNotExist:
-            return [VOTE_NOT_A_PLAYER]
+        # The caller is known to play in this game (the view checked), so the row
+        # exists; it is locked after the Game row as everywhere.
+        pr = PlayerRole.objects.select_for_update().get(game=game, user_id=user_id)
         if looking and not ready:
             return [READY_ONE_WAY]
 
@@ -1970,12 +1861,6 @@ def _grace_timer_key(game_id: Any, user_id: int) -> str:
     return f"{game_id}:grace:{user_id}"
 
 
-def _chose_count(pr: PlayerRole, window: int) -> int:
-    """How many ``choose`` the player has sent in the window (night protocol 2)."""
-    count = pr.night_action_data.get(f"chose_{window}", 0)
-    return count if type(count) is int else 0
-
-
 def _night_ready_to_close(game: Game, *, ignore_recent_drops: bool = False) -> bool:
     """True when the open night window has nothing left to wait for.
 
@@ -2001,15 +1886,9 @@ def _night_ready_to_close(game: Game, *, ignore_recent_drops: bool = False) -> b
     if prs and all(_is_gone(pr, grace, now) for pr in prs):
         return False
     if is_choose_night(game):
-        # Night protocol 2: EVERY phone sends a choose, so every present phone is
-        # waited for, whatever its role; the close time can say nothing about who
-        # had something to choose. (Window 1 is fixed-length; this is only asked
-        # of it when its length was switched off, and then it waits for both chooses.)
-        window = game.current_wave
-        return all(
-            _chose_count(pr, window) >= max_chooses(window) or _is_gone(pr, grace, now)
-            for pr in prs
-        )
+        # Night protocol 2: EVERY phone sends a choose per stage, so every present
+        # phone is waited for, whatever its role (see ``night2``).
+        return night2.ready_to_close(prs, game.current_wave, grace, now)
     actor_ids = set(get_wave_actors(game, game.current_wave))
     return all(
         pr.has_acted or _is_gone(pr, grace, now)
