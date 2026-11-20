@@ -12,10 +12,21 @@ consumer handlers. Nothing about the payloads is stubbed:
   ``LobbyConsumer``).
 - After-commit side effects run when each request's transaction would commit.
 
+- Timers are the real ones (``ScheduledTimer`` rows, cancelled by deleting
+  them) with no thread behind them: ``is_scheduled`` is "the row exists", so a
+  ``GET /me/`` never takes the lost-timer repair path, and ``Table.fire`` claims
+  a row and runs its job the way its thread (or the debug hook) would.
+
 What would differ from run to run is pinned instead of edited out: the clock is
-frozen (``Clock``), user ids start at 1, lobby codes come from a fixed list, the
-forced deal's seed is fixed; game ids, guest usernames and tokens (random by
-design) are replaced by stable stand-ins (``Recorder.stable``).
+frozen at a past date (``Clock``), user ids start at 1, lobby codes come from a
+fixed list, the forced deal's seed is fixed; game ids, guest usernames and
+tokens (random by design) are replaced by stable stand-ins
+(``Recorder.stable``).
+
+Each socket sample's index entry says which group delivered it (``group``: a
+player's own ``player`` group or the table's ``broadcast`` group) and who
+receives it (``recipients``), so moving a private event onto the broadcast
+group is a sample diff (and ``test_contract_privacy.py`` refuses it).
 """
 
 from __future__ import annotations
@@ -36,18 +47,22 @@ from asgiref.sync import async_to_sync
 from channels.consumer import get_handler_name
 from channels.layers import BaseChannelLayer, get_channel_layer
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.core import timers
 from apps.core.consumers import LobbyConsumer
-from apps.core.models import User
+from apps.core.models import LobbyMember, ScheduledTimer, User
 from apps.onuw import services
 from apps.onuw.consumers import GameConsumer
+from apps.onuw.models import PlayerRole
 
-START = datetime(2026, 11, 19, 20, 50, tzinfo=UTC)
+START = datetime(2024, 3, 7, 20, 50, tzinfo=UTC)
 LOBBY_CODES = ("K7QX4M", "M2RV8P", "Q4TW9N")
+# Stand-ins for the game ids, in the order the games are dealt.
 GAME_IDS = (
     "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
     "9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e",
+    *(f"00000000-0000-4000-a000-{n:012d}" for n in range(3, 10)),
 )
 FORCED_SEED = 424242
 
@@ -167,14 +182,14 @@ class Table:
         clock: Clock,
         layer: RecordingLayer,
         capture_on_commit: Callable[..., Any],
-        scheduled: list[tuple[str, float, str, dict[str, Any] | None]],
+        game_ids: Iterator[str],
         lobby_code: str,
     ) -> None:
         self.recorder = recorder
         self.clock = clock
         self.layer = layer
         self._capture_on_commit = capture_on_commit
-        self._scheduled = scheduled
+        self._game_ids = game_ids
         self.code = lobby_code
         self.players: dict[str, Player] = {}
         self.game_id = ""
@@ -189,13 +204,19 @@ class Table:
         body: dict[str, Any] | None = None,
         *,
         debug: bool = False,
+        bearer: str | None = None,
         **fill: str,
     ) -> tuple[int, Any]:
         """Call the real view as ``who`` (a player name, or "" for nobody);
         ``path`` is the app's path (no ``/api``), with ``{code}`` / ``{game_id}``.
         ``fill`` overrides those (an unknown code, say). Returns (status, body)
-        with the on-commit side effects run, as on a commit."""
-        client = self.players[who].client if who else APIClient()
+        with the on-commit side effects run, as on a commit. ``bearer`` sends
+        that access token instead of signing ``who`` in directly."""
+        if bearer is not None:
+            client = APIClient()
+            client.credentials(HTTP_AUTHORIZATION=f"Bearer {bearer}")
+        else:
+            client = self.players[who].client if who else APIClient()
         ids = {"code": self.code, "game_id": self.game_id, **fill}
         url = "/api" + path.format(**ids)
         send = getattr(client, method.lower())
@@ -214,10 +235,13 @@ class Table:
         status: int,
         about: str,
         debug: bool = False,
+        bearer: str | None = None,
         **fill: str,
     ) -> Any:
         """``request`` and keep the response as sample ``http/<name>``."""
-        got, payload = self.request(method, who, path, body, debug=debug, **fill)
+        got, payload = self.request(
+            method, who, path, body, debug=debug, bearer=bearer, **fill
+        )
         assert got == status, f"{name}: expected {status}, got {got}: {payload}"
         self.recorder.add(
             f"http/{name}",
@@ -268,6 +292,12 @@ class Table:
         self.players[name] = player
         return player
 
+    def expired_access_token(self, name: str) -> str:
+        """A real access token for ``name`` whose lifetime ended in 2020."""
+        token = AccessToken.for_user(self.players[name].user)
+        token.set_exp(from_time=datetime(2020, 1, 1, tzinfo=UTC))
+        return str(token)
+
     def pid(self, name: str) -> int:
         return self.players[name].user.id  # type: ignore[return-value]
 
@@ -279,29 +309,60 @@ class Table:
         game = f"game_{self.game_id}"
         return {game, f"{game}_player_{self.pid(name)}"}
 
-    def events(self, name: str, socket: str, kind: str) -> list[dict[str, Any]]:
-        """Every ``kind`` event ``name``'s lobby or game socket has received."""
+    def events(
+        self, name: str, socket: str, kind: str
+    ) -> list[tuple[str, dict[str, Any]]]:
+        """Every ``kind`` event ``name``'s lobby or game socket has received,
+        with the group that delivered it."""
         consumer = LobbyConsumer if socket == "lobby" else GameConsumer
         groups = self._groups(name, socket)
         wanted = kind.replace("_", ".")
         return [
-            client_event(consumer, message)
+            (group, client_event(consumer, message))
             for group, message in self.layer.sent
             if group in groups and message["type"] == wanted
         ]
 
+    def _recipients(self, group: str, socket: str) -> list[str]:
+        """Who holds a socket in ``group``: a player's own group is theirs; the
+        broadcast group is every member of the lobby (lobby socket) or every
+        player of the game (game socket)."""
+        if socket == "lobby":
+            ids = LobbyMember.objects.filter(lobby__code=self.code).values_list(
+                "user_id", flat=True
+            )
+        else:
+            ids = PlayerRole.objects.filter(game_id=self.game_id).values_list(
+                "user_id", flat=True
+            )
+        held = set(ids)
+        return sorted(
+            name
+            for name, player in self.players.items()
+            if player.user.id in held and group in self._groups(name, socket)
+        )
+
     def record_event(
         self, name: str, who: str, socket: str, kind: str, *, about: str
     ) -> dict[str, Any]:
-        """Keep the latest ``kind`` event ``who`` received as ``ws/<name>``."""
+        """Keep the latest ``kind`` event ``who`` received as ``ws/<name>``,
+        noting which group delivered it and who else got it."""
         received = self.events(who, socket, kind)
         assert received, f"{who} received no {kind} on the {socket} socket"
+        group, event = received[-1]
         self.recorder.add(
             f"ws/{name}",
-            {"kind": "ws", "socket": socket, "type": kind, "description": about},
-            received[-1],
+            {
+                "kind": "ws",
+                "socket": socket,
+                "type": kind,
+                "group": "player" if "_player_" in group else "broadcast",
+                "recipients": self._recipients(group, socket),
+                "description": about,
+            },
+            event,
         )
-        return received[-1]
+        return event
 
     def connect(self, name: str) -> None:
         """A game socket opens: what ``GameConsumer`` does on connect."""
@@ -339,7 +400,7 @@ class Table:
             )
         assert got == 201, payload
         self.game_id = payload["game_id"]
-        self.recorder.stable(self.game_id, GAME_IDS[LOBBY_CODES.index(self.code)])
+        self.recorder.stable(self.game_id, next(self._game_ids))
         if sample:
             self.recorder.add(
                 f"http/{sample}",
@@ -354,13 +415,12 @@ class Table:
             )
 
     def fire(self, key: str) -> None:
-        """Run the latest timer scheduled under ``key`` (``{game_id}`` is filled
-        in) now, as its firing would."""
+        """Fire the pending timer under ``key`` (``{game_id}`` is filled in) now:
+        claim its row and run its job, as its thread would when due."""
         key = key.format(game_id=self.game_id)
-        jobs = [(job, params) for k, _, job, params in self._scheduled if k == key]
-        assert jobs, f"no timer {key}"
         with self._capture_on_commit(execute=True):
-            timers.run_job_quietly(*jobs[-1])
+            result = timers.fire(key, None, force=True)
+        assert result.status == "ran", f"no pending timer {key}: {result}"
 
 
 @dataclass
@@ -371,8 +431,8 @@ class Recording:
     clock: Clock
     layer: RecordingLayer
     capture_on_commit: Callable[..., Any]
-    scheduled: list[tuple[str, float, str, dict[str, Any] | None]]
     codes: Iterator[str]
+    game_ids: Iterator[str]
 
     def table(self) -> Table:
         """A new lobby (the next fixed lobby code)."""
@@ -381,21 +441,21 @@ class Recording:
             self.clock,
             self.layer,
             self.capture_on_commit,
-            self.scheduled,
+            self.game_ids,
             next(self.codes),
         )
 
 
 @contextmanager
 def recording(capture_on_commit: Callable[..., Any]) -> Iterator[Recording]:
-    """Pin the clock, ids, lobby codes, channel layer and timers for a run."""
-    scheduled: list[tuple[str, float, str, dict[str, Any] | None]] = []
+    """Pin the clock, ids, lobby codes, channel layer and timers for a run.
+
+    Timers keep their rows (``timers.schedule`` / ``cancel`` are the real
+    ones) but arm no thread; a timer is scheduled while its row exists."""
     codes = iter(LOBBY_CODES)
 
-    def schedule(
-        key: str, delay: float, job: str, params: dict[str, Any] | None = None
-    ) -> None:
-        scheduled.append((key, delay, job, params))
+    def row_exists(key: str) -> bool:
+        return ScheduledTimer.objects.filter(key=key).exists()
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -407,8 +467,11 @@ def recording(capture_on_commit: Callable[..., Any]) -> Iterator[Recording]:
         override_settings(CHANNEL_LAYERS=RECORDING_LAYER),
         patch("django.utils.timezone.now", new=clock),
         patch("apps.core.models.generate_lobby_code", side_effect=iter(LOBBY_CODES)),
-        patch("apps.core.timers.schedule", side_effect=schedule),
+        patch("apps.core.timers._arm"),
+        patch("apps.core.timers.is_scheduled", side_effect=row_exists),
     ):
         layer = get_channel_layer()
         assert isinstance(layer, RecordingLayer)
-        yield Recording(Recorder(), clock, layer, capture_on_commit, scheduled, codes)
+        yield Recording(
+            Recorder(), clock, layer, capture_on_commit, codes, iter(GAME_IDS)
+        )

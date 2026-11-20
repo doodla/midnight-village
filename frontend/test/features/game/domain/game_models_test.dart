@@ -103,7 +103,7 @@ void main() {
       );
       expect(state.phase, 'night');
       expect(state.currentWave, 2);
-      expect(state.deadline, DateTime.utc(2026, 11, 19, 20, 57, 30));
+      expect(state.deadline, DateTime.utc(2024, 3, 7, 20, 57, 30));
       expect(state.yourRole.originalRole, 'Seer');
       expect(state.isHost, isTrue);
       expect(state.hostId, 1);

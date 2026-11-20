@@ -18,6 +18,22 @@
       "description": "A display name with characters the server refuses."
     },
     {
+      "name": "http/auth/guest_throttled",
+      "kind": "http",
+      "method": "POST",
+      "path": "/auth/guest/",
+      "status": 429,
+      "description": "Too many sign-ins from this address (rate limited)."
+    },
+    {
+      "name": "http/auth/token_expired",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/me/current-game/",
+      "status": 401,
+      "description": "An authenticated call with an access token that has expired."
+    },
+    {
       "name": "http/auth/token_refresh_refused",
       "kind": "http",
       "method": "POST",
@@ -42,6 +58,14 @@
       "description": "Players at tables right now (no login)."
     },
     {
+      "name": "http/debug/fire_timer",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/debug-fire-timer/",
+      "status": 200,
+      "description": "The DEBUG-only timer hook fires a pending timer (window 2 closes)."
+    },
+    {
       "name": "http/debug/fire_timer_none",
       "kind": "http",
       "method": "POST",
@@ -58,6 +82,14 @@
       "description": "The DEBUG-only oracle (dev toolbar and harness)."
     },
     {
+      "name": "http/debug/state_night",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/debug-state/",
+      "status": 200,
+      "description": "The DEBUG-only oracle at night, a window open and its timer armed."
+    },
+    {
       "name": "http/game/action_already_acted",
       "kind": "http",
       "method": "POST",
@@ -72,6 +104,14 @@
       "path": "/onuw/games/{game_id}/action/",
       "status": 400,
       "description": "An action the server refuses (generic message)."
+    },
+    {
+      "name": "http/game/action_not_a_player",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 403,
+      "description": "A night action from someone who does not play in the game."
     },
     {
       "name": "http/game/action_not_an_actor",
@@ -114,6 +154,14 @@
       "description": "Someone other than the host closes the window."
     },
     {
+      "name": "http/game/advance_wave_not_night",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/advance-wave/",
+      "status": 400,
+      "description": "The host closes a night window after the night."
+    },
+    {
       "name": "http/game/current_game_active",
       "kind": "http",
       "method": "GET",
@@ -136,6 +184,14 @@
       "path": "/onuw/games/{game_id}/end-discussion/",
       "status": 200,
       "description": "The host ends the talk."
+    },
+    {
+      "name": "http/game/end_discussion_not_a_player",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/end-discussion/",
+      "status": 403,
+      "description": "Someone who does not play in the game ends the talk."
     },
     {
       "name": "http/game/end_discussion_not_host",
@@ -362,6 +418,14 @@
       "description": "/me/ in window 1 for everyone else."
     },
     {
+      "name": "http/game/me_night_window2_after_look",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2: window 1's look is listed, her new prompt open."
+    },
+    {
       "name": "http/game/me_not_found",
       "kind": "http",
       "method": "GET",
@@ -426,12 +490,28 @@
       "description": "Acknowledging results of a game that does not exist."
     },
     {
+      "name": "http/game/players_discussion",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/players/",
+      "status": 200,
+      "description": "The player list in the talk."
+    },
+    {
       "name": "http/game/players_night",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/players/",
       "status": 200,
       "description": "Who is at the table and connected (one phone away)."
+    },
+    {
+      "name": "http/game/players_results",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/players/",
+      "status": 200,
+      "description": "The player list once the game is over."
     },
     {
       "name": "http/game/players_voting",
@@ -474,12 +554,28 @@
       "description": "Results of a game with a Doppelganger, a Drunk and a Tanner."
     },
     {
+      "name": "http/game/results_not_a_player",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 403,
+      "description": "Results asked for by someone who did not play."
+    },
+    {
       "name": "http/game/results_not_ready",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/results/",
       "status": 403,
       "description": "Results asked for before the game ends."
+    },
+    {
+      "name": "http/game/results_tanner",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "Results where the dealt Tanner died (team neutral)."
     },
     {
       "name": "http/game/reveal_votes",
@@ -496,6 +592,14 @@
       "path": "/onuw/games/{game_id}/reveal-votes/",
       "status": 403,
       "description": "Someone other than the host reveals the votes."
+    },
+    {
+      "name": "http/game/reveal_votes_not_voting",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/reveal-votes/",
+      "status": 400,
+      "description": "The host reveals votes before the vote."
     },
     {
       "name": "http/game/start_not_all_ready",
@@ -536,6 +640,14 @@
       "path": "/onuw/games/{game_id}/vote/",
       "status": 400,
       "description": "A vote the server refuses (here: for yourself)."
+    },
+    {
+      "name": "http/game/vote_not_a_player",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 403,
+      "description": "A vote from someone who does not play in the game."
     },
     {
       "name": "http/game/vote_submitted",
@@ -632,6 +744,14 @@
       "path": "/lobbies/{code}/leave/",
       "status": 200,
       "description": "A player leaves the table."
+    },
+    {
+      "name": "http/lobby/left_last_member",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/leave/",
+      "status": 200,
+      "description": "The last member leaves: the table is closed."
     },
     {
       "name": "http/lobby/my_table_after_play_again",
@@ -782,6 +902,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
       "description": "Window 1 prompt: the Doppelganger's look."
     },
     {
@@ -789,13 +913,54 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
       "description": "Her follow-up as the copied Seer, still window 1."
+    },
+    {
+      "name": "ws/game/action_prompt_doppelganger_insomniac",
+      "kind": "ws",
+      "socket": "game",
+      "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Window 2 prompt for a Doppelganger who copied the insomniac."
+    },
+    {
+      "name": "ws/game/action_prompt_doppelganger_mason",
+      "kind": "ws",
+      "socket": "game",
+      "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Window 2 prompt for a Doppelganger who copied the mason."
+    },
+    {
+      "name": "ws/game/action_prompt_doppelganger_werewolf",
+      "kind": "ws",
+      "socket": "game",
+      "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Window 2 prompt for a Doppelganger who copied a Werewolf."
     },
     {
       "name": "ws/game/action_prompt_drunk",
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Gus"
+      ],
       "description": "Window 2 prompt: drunk."
     },
     {
@@ -803,6 +968,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Hana"
+      ],
       "description": "Window 2 prompt: insomniac."
     },
     {
@@ -810,6 +979,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Esme"
+      ],
       "description": "Window 2 prompt: mason."
     },
     {
@@ -817,6 +990,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Dev"
+      ],
       "description": "Window 2 prompt: minion."
     },
     {
@@ -824,6 +1001,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Ben"
+      ],
       "description": "Window 2 prompt: robber."
     },
     {
@@ -831,6 +1012,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
       "description": "Window 2 prompt: seer."
     },
     {
@@ -838,6 +1023,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Dev"
+      ],
       "description": "Window 2 prompt: troublemaker."
     },
     {
@@ -845,6 +1034,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Cleo"
+      ],
       "description": "Window 2 prompt: werewolf lone."
     },
     {
@@ -852,6 +1045,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_prompt",
+      "group": "player",
+      "recipients": [
+        "Cleo"
+      ],
       "description": "Window 2 prompt: werewolf pack."
     },
     {
@@ -859,6 +1056,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
       "description": "Her look, sent at once: she copied the Seer."
     },
     {
@@ -866,6 +1067,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Hana"
+      ],
       "description": "Night result: insomniac."
     },
     {
@@ -873,6 +1078,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
       "description": "Night result: two center cards (her follow-up)."
     },
     {
@@ -880,13 +1089,32 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
       "description": "Night result: peek player."
+    },
+    {
+      "name": "ws/game/action_result_see_team_doppelganger_minion",
+      "kind": "ws",
+      "socket": "game",
+      "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Night result of a Doppelganger who copied the Minion."
     },
     {
       "name": "ws/game/action_result_see_team_lone_werewolf",
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Cleo"
+      ],
       "description": "Night result: see team lone werewolf."
     },
     {
@@ -894,6 +1122,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Esme"
+      ],
       "description": "Night result: see team masons."
     },
     {
@@ -901,6 +1133,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Dev"
+      ],
       "description": "Night result: see team minion."
     },
     {
@@ -908,6 +1144,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Cleo"
+      ],
       "description": "Night result: see team werewolves."
     },
     {
@@ -915,6 +1155,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Ben"
+      ],
       "description": "Night result: skip."
     },
     {
@@ -922,6 +1166,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Dev"
+      ],
       "description": "Night result: swap others."
     },
     {
@@ -929,6 +1177,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Gus"
+      ],
       "description": "Night result: swap with center."
     },
     {
@@ -936,6 +1188,10 @@
       "kind": "ws",
       "socket": "game",
       "type": "action_result",
+      "group": "player",
+      "recipients": [
+        "Ben"
+      ],
       "description": "Night result: swap with player."
     },
     {
@@ -943,13 +1199,51 @@
       "kind": "ws",
       "socket": "game",
       "type": "game_results",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "The game is over (Hunter chain)."
+    },
+    {
+      "name": "ws/game/game_results_tanner",
+      "kind": "ws",
+      "socket": "game",
+      "type": "game_results",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
+      "description": "The dealt Tanner is voted out and wins."
     },
     {
       "name": "ws/game/host_changed_handover",
       "kind": "ws",
       "socket": "game",
       "type": "host_changed",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
       "description": "The owner's phone is away; someone else hosts."
     },
     {
@@ -957,6 +1251,17 @@
       "kind": "ws",
       "socket": "game",
       "type": "host_changed",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
       "description": "The owner is back and hosts again."
     },
     {
@@ -964,6 +1269,15 @@
       "kind": "ws",
       "socket": "game",
       "type": "phase_change",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "The night ends; the talk starts (timed)."
     },
     {
@@ -971,6 +1285,17 @@
       "kind": "ws",
       "socket": "game",
       "type": "phase_change",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
       "description": "The talk starts, with no deadline."
     },
     {
@@ -978,6 +1303,15 @@
       "kind": "ws",
       "socket": "game",
       "type": "phase_change",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "The vote starts (timed)."
     },
     {
@@ -985,6 +1319,17 @@
       "kind": "ws",
       "socket": "game",
       "type": "phase_change",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
       "description": "The vote starts, with no deadline."
     },
     {
@@ -992,6 +1337,15 @@
       "kind": "ws",
       "socket": "game",
       "type": "play_again",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "Back to the lobby."
     },
     {
@@ -999,6 +1353,15 @@
       "kind": "ws",
       "socket": "game",
       "type": "player_presence",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "A phone joined the game."
     },
     {
@@ -1006,6 +1369,15 @@
       "kind": "ws",
       "socket": "game",
       "type": "player_presence",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "A phone dropped."
     },
     {
@@ -1013,6 +1385,15 @@
       "kind": "ws",
       "socket": "game",
       "type": "vote_reveal",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "Everyone voted."
     },
     {
@@ -1020,6 +1401,17 @@
       "kind": "ws",
       "socket": "game",
       "type": "vote_reveal",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
       "description": "Votes revealed; null = did not vote."
     },
     {
@@ -1027,6 +1419,15 @@
       "kind": "ws",
       "socket": "game",
       "type": "vote_submitted",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "Someone voted (not for whom)."
     },
     {
@@ -1034,6 +1435,15 @@
       "kind": "ws",
       "socket": "game",
       "type": "wave_complete",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "A window closed."
     },
     {
@@ -1041,6 +1451,15 @@
       "kind": "ws",
       "socket": "game",
       "type": "wave_start",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "Window 2 opens."
     },
     {
@@ -1048,6 +1467,17 @@
       "kind": "ws",
       "socket": "game",
       "type": "wave_start",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
       "description": "Window 1 opens, with no deadline."
     },
     {
@@ -1055,13 +1485,37 @@
       "kind": "ws",
       "socket": "game",
       "type": "wave_waiting",
+      "group": "player",
+      "recipients": [
+        "Fin"
+      ],
       "description": "Nothing to do this window."
+    },
+    {
+      "name": "ws/game/wave_waiting_window1",
+      "kind": "ws",
+      "socket": "game",
+      "type": "wave_waiting",
+      "group": "player",
+      "recipients": [
+        "Ben"
+      ],
+      "description": "Window 1 is the Doppelganger's: nothing to do."
     },
     {
       "name": "ws/lobby/game_started",
       "kind": "ws",
       "socket": "lobby",
       "type": "game_started",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "The deal."
     },
     {
@@ -1069,6 +1523,17 @@
       "kind": "ws",
       "socket": "lobby",
       "type": "host_changed",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
       "description": "The same, on the lobby socket."
     },
     {
@@ -1076,6 +1541,13 @@
       "kind": "ws",
       "socket": "lobby",
       "type": "host_changed",
+      "group": "broadcast",
+      "recipients": [
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
       "description": "The owner left between games; the table is someone else's now."
     },
     {
@@ -1083,6 +1555,15 @@
       "kind": "ws",
       "socket": "lobby",
       "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "Deck changed."
     },
     {
@@ -1090,6 +1571,11 @@
       "kind": "ws",
       "socket": "lobby",
       "type": "player_joined",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben"
+      ],
       "description": "Someone joined."
     },
     {
@@ -1097,6 +1583,14 @@
       "kind": "ws",
       "socket": "lobby",
       "type": "player_left",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
       "description": "Someone left."
     },
     {
@@ -1104,6 +1598,15 @@
       "kind": "ws",
       "socket": "lobby",
       "type": "player_ready",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
       "description": "Ready toggled."
     }
   ]

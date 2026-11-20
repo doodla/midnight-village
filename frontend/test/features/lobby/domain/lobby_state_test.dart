@@ -83,7 +83,7 @@ void main() {
       expect(lobby.players, hasLength(6));
       expect(lobby.players[0].displayName, 'Ana');
       expect(lobby.players[0].isReady, isTrue);
-      expect(lobby.players[0].joinedAt, DateTime.utc(2026, 11, 19, 20, 51));
+      expect(lobby.players[0].joinedAt, DateTime.utc(2024, 3, 7, 20, 51));
     });
 
     test('fromJson extracts role config from nested settings', () {

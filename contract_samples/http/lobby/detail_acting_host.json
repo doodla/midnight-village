@@ -38,7 +38,7 @@
       },
       "is_ready": true,
       "token": "hare",
-      "joined_at": "2026-11-19T21:00:08Z"
+      "joined_at": "2024-03-07T21:00:08Z"
     },
     {
       "user": {
@@ -48,7 +48,7 @@
       },
       "is_ready": true,
       "token": "scythe",
-      "joined_at": "2026-11-19T21:01:08Z"
+      "joined_at": "2024-03-07T21:01:08Z"
     },
     {
       "user": {
@@ -58,7 +58,7 @@
       },
       "is_ready": true,
       "token": "lantern",
-      "joined_at": "2026-11-19T21:02:08Z"
+      "joined_at": "2024-03-07T21:02:08Z"
     },
     {
       "user": {
@@ -68,7 +68,7 @@
       },
       "is_ready": true,
       "token": "bell",
-      "joined_at": "2026-11-19T21:03:08Z"
+      "joined_at": "2024-03-07T21:03:08Z"
     },
     {
       "user": {
@@ -78,7 +78,7 @@
       },
       "is_ready": true,
       "token": "antler",
-      "joined_at": "2026-11-19T21:04:08Z"
+      "joined_at": "2024-03-07T21:04:08Z"
     },
     {
       "user": {
@@ -88,7 +88,7 @@
       },
       "is_ready": true,
       "token": "key",
-      "joined_at": "2026-11-19T21:05:08Z"
+      "joined_at": "2024-03-07T21:05:08Z"
     },
     {
       "user": {
@@ -98,7 +98,7 @@
       },
       "is_ready": true,
       "token": "crow",
-      "joined_at": "2026-11-19T21:06:08Z"
+      "joined_at": "2024-03-07T21:06:08Z"
     },
     {
       "user": {
@@ -108,8 +108,8 @@
       },
       "is_ready": true,
       "token": "spindle",
-      "joined_at": "2026-11-19T21:07:08Z"
+      "joined_at": "2024-03-07T21:07:08Z"
     }
   ],
-  "created_at": "2026-11-19T21:00:08Z"
+  "created_at": "2024-03-07T21:00:08Z"
 }

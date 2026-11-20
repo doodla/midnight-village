@@ -14,6 +14,9 @@ Three tables, played through the real API (see recorder.py):
   (as the harness plays), so deadlines are null. Host handover and return, the
   host revealing votes with abstentions, the results with the night timeline,
   the debug oracle.
+  Then more games there (play again): she copies a Werewolf (window 2 /me/
+  listing her window-1 look; a dealt Tanner dies), a Mason, an Insomniac, the
+  Minion. Calls from someone who does not play in the game.
 - ``full_table``: ten players fill a table; the join refusals and the ack from
   someone who does not play in the game.
 
@@ -22,6 +25,10 @@ run ``just samples`` and review the new files.
 """
 
 from __future__ import annotations
+
+from unittest.mock import patch
+
+from rest_framework.throttling import SimpleRateThrottle
 
 from apps.core.models import Lobby
 
@@ -46,6 +53,10 @@ RECENT_GAMES = "/onuw/me/recent-games/"
 ONLINE = "/stats/online/"
 RESULTS_SEEN = "/onuw/games/{game_id}/night-results/seen/"
 UNKNOWN_GAME = "00000000-0000-4000-8000-000000000000"
+DEBUG_STATE = "/onuw/games/{game_id}/debug-state/"
+# Signed in at the Doppelganger table but not playing there.
+OUTSIDER = "Zoe"
+DEBUG_FIRE = "/onuw/games/{game_id}/debug-fire-timer/"
 
 UNTIMED = {
     "night_wave_seconds": 0,
@@ -150,6 +161,28 @@ def classic_table(run: Recording) -> None:
         about="A refresh token the server does not accept.",
     )
 
+    t.record(
+        "auth/token_expired",
+        "GET",
+        "Ana",
+        CURRENT_GAME,
+        status=401,
+        about="An authenticated call with an access token that has expired.",
+        bearer=t.expired_access_token("Ana"),
+    )
+    with (
+        patch.object(SimpleRateThrottle, "allow_request", return_value=False),
+        patch.object(SimpleRateThrottle, "wait", return_value=60.0),
+    ):
+        t.record(
+            "auth/guest_throttled",
+            "POST",
+            "",
+            "/auth/guest/",
+            {"display_name": "Zed"},
+            status=429,
+            about="Too many sign-ins from this address (rate limited).",
+        )
     _record_my_table(t, "Ana", "none", "Where am I: at no table.")
     t.record(
         "game/recent_games_none",
@@ -453,6 +486,15 @@ def classic_table(run: Recording) -> None:
         about="A second action in the same window.",
     )
     t.record(
+        "debug/state_night",
+        "GET",
+        "Ana",
+        DEBUG_STATE,
+        status=200,
+        about="The DEBUG-only oracle at night, a window open and its timer armed.",
+        debug=True,
+    )
+    t.record(
         "game/me_night_acted",
         "GET",
         "Ana",
@@ -464,9 +506,19 @@ def classic_table(run: Recording) -> None:
     _act(t, "Dev", "swap_others", {"player_ids": [t.pid("Ana"), t.pid("Ben")]})
     _act(t, "Cleo", "see_team")
     _act(t, "Esme", "see_team")
-    # Everyone has acted; the window closes at its minimum length.
+    # Everyone has acted; the window would close at its minimum length. The
+    # harness's hook closes it now instead.
     t.clock.advance(8)
-    t.fire("{game_id}:wave:2")
+    t.record(
+        "debug/fire_timer",
+        "POST",
+        "Ana",
+        DEBUG_FIRE,
+        {"key": "wave:2"},
+        status=200,
+        about="The DEBUG-only timer hook fires a pending timer (window 2 closes).",
+        debug=True,
+    )
     for name, kind in [
         ("Ana", "peek_player"),
         ("Ben", "swap_with_player"),
@@ -504,6 +556,30 @@ def classic_table(run: Recording) -> None:
         t, [("Ben", "swap_with_player"), ("Dev", "swap_others"), ("Cleo", "see_team")]
     )
     _record_my_table(t, "Ben", "discussion", "Where am I: in a game, in the talk.")
+    t.record(
+        "game/players_discussion",
+        "GET",
+        "Ana",
+        PLAYERS,
+        status=200,
+        about="The player list in the talk.",
+    )
+    t.record(
+        "game/advance_wave_not_night",
+        "POST",
+        "Ana",
+        ADVANCE,
+        status=400,
+        about="The host closes a night window after the night.",
+    )
+    t.record(
+        "game/reveal_votes_not_voting",
+        "POST",
+        "Ana",
+        REVEAL,
+        status=400,
+        about="The host reveals votes before the vote.",
+    )
     t.record(
         "game/night_results_seen",
         "POST",
@@ -687,6 +763,14 @@ def classic_table(run: Recording) -> None:
     )
     _record_my_table(t, "Ben", "results", "Where am I: the game is over.")
     t.record(
+        "game/players_results",
+        "GET",
+        "Ana",
+        PLAYERS,
+        status=200,
+        about="The player list once the game is over.",
+    )
+    t.record(
         "game/recent_games",
         "GET",
         "Ana",
@@ -747,6 +831,16 @@ def classic_table(run: Recording) -> None:
         "host_changed",
         about="The owner left between games; the table is someone else's now.",
     )
+    for name in ["Cleo", "Dev", "Esme"]:
+        t.call("POST", name, "/lobbies/{code}/leave/")
+    t.record(
+        "lobby/left_last_member",
+        "POST",
+        "Ben",
+        "/lobbies/{code}/leave/",
+        status=200,
+        about="The last member leaves: the table is closed.",
+    )
 
 
 def doppelganger_table(run: Recording) -> Table:
@@ -772,7 +866,7 @@ def doppelganger_table(run: Recording) -> Table:
         "Gus": "Drunk",
         "Hana": "Insomniac",
     }
-    _sign_in(t, list(dealt))
+    _sign_in(t, [*dealt, OUTSIDER])
     t.clock.advance(60)
     t.call("POST", "Ana", "/lobbies/", {"game_type": "onuw"})
     t.call("POST", "Ana", "/lobbies/{code}/ready/")
@@ -790,6 +884,22 @@ def doppelganger_table(run: Recording) -> Table:
         "game",
         "wave_start",
         about="Window 1 opens, with no deadline.",
+    )
+    t.record_event(
+        "game/wave_waiting_window1",
+        "Ben",
+        "game",
+        "wave_waiting",
+        about="Window 1 is the Doppelganger's: nothing to do.",
+    )
+    t.record(
+        "game/action_not_a_player",
+        "POST",
+        OUTSIDER,
+        ACTION,
+        {"action_type": "skip", "targets": {}},
+        status=403,
+        about="A night action from someone who does not play in the game.",
     )
     t.record_event(
         "game/action_prompt_doppelganger",
@@ -969,6 +1079,14 @@ def doppelganger_table(run: Recording) -> Table:
         status=200,
         about="/me/ for the player standing in as host.",
     )
+    t.record(
+        "game/end_discussion_not_a_player",
+        "POST",
+        OUTSIDER,
+        END_DISCUSSION,
+        status=403,
+        about="Someone who does not play in the game ends the talk.",
+    )
     t.connect("Ana")
     t.record_event(
         "game/host_changed_returned",
@@ -986,6 +1104,15 @@ def doppelganger_table(run: Recording) -> Table:
         "game",
         "phase_change",
         about="The vote starts, with no deadline.",
+    )
+    t.record(
+        "game/vote_not_a_player",
+        "POST",
+        OUTSIDER,
+        VOTE,
+        {"target_player_id": t.pid("Cleo")},
+        status=403,
+        about="A vote from someone who does not play in the game.",
     )
     _vote(t, "Ana", "Cleo")
     _vote(t, "Ben", "Cleo")
@@ -1013,10 +1140,18 @@ def doppelganger_table(run: Recording) -> Table:
         about="Results of a game with a Doppelganger, a Drunk and a Tanner.",
     )
     t.record(
+        "game/results_not_a_player",
+        "GET",
+        OUTSIDER,
+        RESULTS,
+        status=403,
+        about="Results asked for by someone who did not play.",
+    )
+    t.record(
         "debug/state",
         "GET",
         "Ana",
-        "/onuw/games/{game_id}/debug-state/",
+        DEBUG_STATE,
         status=200,
         about="The DEBUG-only oracle (dev toolbar and harness).",
         debug=True,
@@ -1025,13 +1160,115 @@ def doppelganger_table(run: Recording) -> Table:
         "debug/fire_timer_none",
         "POST",
         "Ana",
-        "/onuw/games/{game_id}/debug-fire-timer/",
+        DEBUG_FIRE,
         {"key": "wave:2"},
         status=200,
         about="The DEBUG-only timer hook when no such timer is pending.",
         debug=True,
     )
+    _doppelganger_copies(t)
     return t
+
+
+def _close_the_night(t: Table) -> None:
+    """Untimed: the host closes every window still open."""
+    while t.request("GET", "Ana", ME)[1]["phase"] == "night":
+        t.call("POST", "Ana", ADVANCE)
+
+
+def _play_out(t: Table) -> None:
+    """Untimed: the host closes the night, ends the talk and reveals the votes."""
+    _close_the_night(t)
+    t.call("POST", "Ana", END_DISCUSSION)
+    t.call("POST", "Ana", REVEAL)
+
+
+def _deal_again(t: Table, dealt: dict[str, str], center: list[str]) -> None:
+    t.call("POST", "Ana", PLAY_AGAIN)
+    t.clock.advance(60)
+    t.start(dealt, center)
+
+
+def _doppelganger_copies(t: Table) -> None:
+    """More games at the Doppelganger table (play again), one per role she can
+    copy that acts in window 2 or with a team view, and a dealt Tanner who
+    dies."""
+    usual = {
+        "Ana": "Doppelganger",
+        "Ben": "Seer",
+        "Cleo": "Werewolf",
+        "Dev": "Minion",
+        "Esme": "Mason",
+        "Fin": "Mason",
+        "Gus": "Drunk",
+        "Hana": "Insomniac",
+    }
+    center = ["Werewolf", "Villager", "Tanner"]
+
+    # She copies a Werewolf (and wakes with them in window 2); Dev is the
+    # Tanner and the table votes him out.
+    _deal_again(t, {**usual, "Dev": "Tanner"}, ["Werewolf", "Villager", "Minion"])
+    _act(t, "Ana", "peek_player", {"player_id": t.pid("Cleo")})
+    t.record_event(
+        "game/action_prompt_doppelganger_werewolf",
+        "Ana",
+        "game",
+        "action_prompt",
+        about="Window 2 prompt for a Doppelganger who copied a Werewolf.",
+    )
+    t.record(
+        "game/me_night_window2_after_look",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in window 2: window 1's look is listed, her new prompt open.",
+    )
+    _close_the_night(t)
+    t.call("POST", "Ana", END_DISCUSSION)
+    for name in usual:
+        _vote(t, name, "Cleo" if name == "Dev" else "Dev")
+    t.record_event(
+        "game/game_results_tanner",
+        "Ben",
+        "game",
+        "game_results",
+        about="The dealt Tanner is voted out and wins.",
+    )
+    t.record(
+        "game/results_tanner",
+        "GET",
+        "Ana",
+        RESULTS,
+        status=200,
+        about="Results where the dealt Tanner died (team neutral).",
+    )
+
+    # She copies a Mason, then an Insomniac: both act in window 2.
+    for copied, kind in [("Esme", "mason"), ("Hana", "insomniac")]:
+        _deal_again(t, usual, center)
+        _act(t, "Ana", "peek_player", {"player_id": t.pid(copied)})
+        t.record_event(
+            f"game/action_prompt_doppelganger_{kind}",
+            "Ana",
+            "game",
+            "action_prompt",
+            about=f"Window 2 prompt for a Doppelganger who copied the {kind}.",
+        )
+        _play_out(t)
+
+    # She copies the Minion: her team view is window 1's follow-up.
+    _deal_again(t, usual, center)
+    _act(t, "Ana", "peek_player", {"player_id": t.pid("Dev")})
+    _act(t, "Ana", "see_team")
+    t.record_event(
+        "game/action_result_see_team_doppelganger_minion",
+        "Ana",
+        "game",
+        "action_result",
+        about="Night result of a Doppelganger who copied the Minion.",
+    )
+    _play_out(t)
 
 
 def full_table(run: Recording, finished: Table) -> None:

@@ -1,0 +1,102 @@
+{
+  "game_id": "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
+  "phase": "night",
+  "current_wave": 2,
+  "center_cards": [
+    "Villager",
+    "Insomniac",
+    "Villager"
+  ],
+  "dealt_center_cards": [
+    "Villager",
+    "Insomniac",
+    "Villager"
+  ],
+  "players": [
+    {
+      "user_id": 1,
+      "display_name": "Ana",
+      "is_host": true,
+      "token": "antler",
+      "seat": 0,
+      "original_role": "Seer",
+      "current_role": "Seer",
+      "doppelganger_copied_role": null,
+      "team": "village",
+      "connected": true
+    },
+    {
+      "user_id": 2,
+      "display_name": "Ben",
+      "is_host": false,
+      "token": "thorn",
+      "seat": 1,
+      "original_role": "Robber",
+      "current_role": "Robber",
+      "doppelganger_copied_role": null,
+      "team": "village",
+      "connected": true
+    },
+    {
+      "user_id": 3,
+      "display_name": "Cleo",
+      "is_host": false,
+      "token": "moth",
+      "seat": 2,
+      "original_role": "Werewolf",
+      "current_role": "Werewolf",
+      "doppelganger_copied_role": null,
+      "team": "werewolf",
+      "connected": true
+    },
+    {
+      "user_id": 4,
+      "display_name": "Dev",
+      "is_host": false,
+      "token": "bell",
+      "seat": 3,
+      "original_role": "Troublemaker",
+      "current_role": "Troublemaker",
+      "doppelganger_copied_role": null,
+      "team": "village",
+      "connected": true
+    },
+    {
+      "user_id": 5,
+      "display_name": "Esme",
+      "is_host": false,
+      "token": "scythe",
+      "seat": 4,
+      "original_role": "Werewolf",
+      "current_role": "Werewolf",
+      "doppelganger_copied_role": null,
+      "team": "werewolf",
+      "connected": true
+    },
+    {
+      "user_id": 6,
+      "display_name": "Fin",
+      "is_host": false,
+      "token": "key",
+      "seat": 5,
+      "original_role": "Hunter",
+      "current_role": "Hunter",
+      "doppelganger_copied_role": null,
+      "team": "village",
+      "connected": true
+    }
+  ],
+  "night_actions_log": [],
+  "votes": {
+    "1": null,
+    "2": null,
+    "3": null,
+    "4": null,
+    "5": null,
+    "6": null
+  },
+  "results": null,
+  "pending_timers": [
+    "wave:2"
+  ]
+}

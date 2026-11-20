@@ -26,10 +26,12 @@ import pytest
 from .recorder import recording
 from .scenarios import record_all
 
-pytestmark = [pytest.mark.contract, pytest.mark.django_db]
+# uses_timers: the recorder keeps real timer rows (it arms no thread).
+pytestmark = [pytest.mark.contract, pytest.mark.django_db, pytest.mark.uses_timers]
 
 SAMPLES_DIR = Path(__file__).resolve().parents[3] / "contract_samples"
 REGENERATE = "Run `just samples` (in backend/ or the repo root) and review the diff."
+SHOWN = 5  # files whose difference is printed in full
 
 
 def _text(payload: Any) -> str:
@@ -82,6 +84,8 @@ def test_committed_samples_match_what_the_server_sends(
 
     problems = _differences(expected, _committed())
     assert not problems, (
-        f"contract_samples/ is out of date with the server. {REGENERATE}\n\n"
-        + "\n\n".join(problems)
+        f"contract_samples/ is out of date with the server: {len(problems)} "
+        f"file(s) differ. {REGENERATE}\n\n"
+        + "\n\n".join(problems[:SHOWN])
+        + (f"\n\n... and {len(problems) - SHOWN} more" if len(problems) > SHOWN else "")
     )
