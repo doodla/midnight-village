@@ -6,11 +6,11 @@ import '../primitives/hold_to_reveal.dart';
 import 'learned_store.dart';
 import 'teach_once.dart';
 
-/// A secret behind a hold that teaches the hold: the thumbprint cue on its
-/// [cover] (`cover(teaching)`) until this device has learned [cue], or for
-/// 3 s after [replay] fires (a tap on the screen's locked gate). A reveal
-/// that counts learns [cue], and the `hold` cue with it. The cue is not
-/// drawn while the face is shown.
+/// A secret behind a hold that teaches the hold: the press-and-hold ring
+/// on its [cover] (`cover(teaching)`) until this device has learned [cue],
+/// or for 3 s after [replay] fires (a tap on the screen's locked gate). The
+/// ring fills while the cover is held ([HoldPress]); the reveal that counts
+/// learns [cue], and the `hold` cue with it, and the ring is gone.
 class TeachingHold extends ConsumerStatefulWidget {
   const TeachingHold({
     super.key,
@@ -41,8 +41,6 @@ class TeachingHold extends ConsumerStatefulWidget {
 }
 
 class _TeachingHoldState extends ConsumerState<TeachingHold> {
-  var _shown = false;
-
   @override
   Widget build(BuildContext context) => TeachOnce(
     cue: widget.cue,
@@ -50,16 +48,13 @@ class _TeachingHoldState extends ConsumerState<TeachingHold> {
     builder: (context, teaching) => HoldToReveal(
       target: widget.target,
       face: widget.face,
-      onRevealChanged: (shown) {
-        if (mounted) setState(() => _shown = shown);
-      },
       onRevealed: () {
         final learned = ref.read(learnedCuesProvider.notifier);
         learned.learn(Cue.hold);
         if (widget.cue != Cue.hold) learned.learn(widget.cue);
         widget.onRevealed?.call();
       },
-      cover: widget.cover(teaching && !_shown),
+      cover: widget.cover(teaching),
     ),
   );
 }

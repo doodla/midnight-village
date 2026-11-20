@@ -10,6 +10,7 @@ import '../layout/space.dart';
 import '../primitives/face_down_card.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/notice.dart';
+import '../primitives/paper_card.dart';
 import '../primitives/primary_button.dart';
 import '../primitives/screen_frame.dart';
 import '../primitives/world_timer.dart';
@@ -26,11 +27,12 @@ import 'night_pick.dart';
 
 /// The night (06), sections 3, 7 and 8 of the first-time play spec.
 ///
-/// - Drawn from [seats] in seat order, the viewer's own captioned "You",
-///   then Left, Middle and Right: the same cards, places, lift and button on
-///   every phone, whatever the role.
+/// - Drawn from [seats]: the other players in seat order, in rows
+///   ([BoardLayout]); in front of them the viewer's own card, "You", on its
+///   paper place, beside Left, Middle and Right on their strip: the same
+///   cards, places, lift and button on every phone, whatever the role.
 /// - Holding "You" shows [face] (what this phone may do); until this device
-///   has held "You" once, the thumbprint cue points at it (`hold_you`).
+///   has held "You" once, the hold ring is on it (`hold_you`).
 ///   Nothing waits on the hold; a tap on "You" picks it at once.
 /// - A tap selects a card the prompt's rule can take (lift plus the
 ///   selection's outline) and unselects a chosen one; a card it cannot take
@@ -94,6 +96,10 @@ class NightBoard extends ConsumerStatefulWidget {
 
   /// The button's words grow further, as far as a held face's.
   static const buttonScale = 1.6;
+
+  /// The candle and the seconds beside the title: this many title lines
+  /// high (at the title's size before the text scale).
+  static const timerLines = 1.3;
 
   @override
   ConsumerState<NightBoard> createState() => _NightBoardState();
@@ -201,7 +207,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final type = skin.typography;
-    final names = [for (final seat in widget.seats) seat.name, NightCopy.you];
+    final names = [for (final seat in widget.seats) seat.name];
     final captions = [for (var i = 0; i < 3; i++) centerName(i)];
     final tilt = [
       for (var i = 0; i < 3; i++) skin.tilt.angle(Tilt.scatter(i)).abs(),
@@ -218,9 +224,9 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           distance: CueWave.boardLift,
           child: card,
         );
-        // The board is the screen: the title and the seconds, the table's
-        // seats in balanced rows, and the table's own three cards on their
-        // strip above the button.
+        // The board is the screen: the title and the seconds, the other
+        // seats in balanced rows, and in front of the player their own card
+        // on its paper place beside the table's three on their strip.
         return MediaQuery.withClampedTextScaling(
           maxScaleFactor: NightBoard.buttonScale,
           child: ScreenFrame(
@@ -240,15 +246,14 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                         // each time the board is laid out.
                         index = 0;
                         final layout = BoardLayout.solve(
-                          seats: widget.seats.length,
+                          others: widget.seats.length - 1,
                           names: names,
+                          you: NightCopy.you,
                           captions: captions,
                           room: room.biggest,
                           nameStyle: type.nameSmall,
                           captionStyle: type.caption,
                           scaler: MediaQuery.textScalerOf(context),
-                          place: NightCopy.you,
-                          placePadding: FaceDownCard.placeCardPadding,
                           tilt: tilt,
                         );
                         return _board(layout, room.biggest, wave);
@@ -273,43 +278,54 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  /// The title, on two lines where one would set it small, and the seconds.
-  Widget _header(BuildContext context) => Row(
-    spacing: Space.md,
-    children: [
-      Expanded(
-        child: Semantics(
-          header: true,
-          child: FitWords(
-            CommonCopy.nightTitle,
-            maxLines: 2,
-            style: context.skin.typography.screenTitle,
+  /// The title on one line, set smaller only where it must, and beside it
+  /// the candle and the seconds as one compact unit, a line and a third
+  /// high.
+  Widget _header(BuildContext context) {
+    final title = context.skin.typography.screenTitle;
+    // At the title's own size, whatever the text scale: the unit sets its
+    // larger digits smaller to keep to it.
+    final line = title.fontSize! * title.height!;
+    return Row(
+      spacing: Space.md,
+      children: [
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: FitWords(CommonCopy.nightTitle, maxLines: 1, style: title),
           ),
         ),
-      ),
-      WorldTimer.candleCompact(secondsLeft: widget.secondsLeft),
-    ],
-  );
+        SizedBox(
+          height: line * NightBoard.timerLines,
+          child: FittedBox(
+            child: WorldTimer.candleCompact(secondsLeft: widget.secondsLeft),
+          ),
+        ),
+      ],
+    );
+  }
 
-  /// The seats in [layout]'s rows, then the table's strip; what is to spare
-  /// goes above the seats and between them and the table, half each.
+  /// The other seats in [layout]'s rows, then the band in front of the
+  /// player; what is to spare goes above the seats and between them and
+  /// the band, half each.
   Widget _board(
     BoardLayout layout,
     Size room,
     Widget Function(Widget card) wave,
   ) {
     final spare = math.max(0.0, room.height - layout.used);
+    final others = [
+      for (final seat in widget.seats)
+        if (seat.id != widget.selfId) seat,
+    ];
+    final me = widget.seats.firstWhere((s) => s.id == widget.selfId);
     var at = 0;
     final rows = [
       for (final count in layout.rows)
-        [for (var i = 0; i < count; i++) widget.seats[at++]],
+        [for (var i = 0; i < count; i++) others[at++]],
     ];
-    Widget seat(NightSeat seat) => SizedBox(
-      width: layout.column,
-      child: wave(
-        seat.id == widget.selfId ? _you(seat, layout) : _player(seat, layout),
-      ),
-    );
+    Widget seat(NightSeat seat) =>
+        SizedBox(width: layout.column, child: wave(_player(seat, layout)));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -323,33 +339,60 @@ class _NightBoardState extends ConsumerState<NightBoard> {
             children: [for (final s in row) seat(s)],
           ),
         ],
-        SizedBox(height: BoardLayout.tableGap + spare / 2),
-        _table(layout, wave),
+        SizedBox(height: BoardLayout.bandGap + spare / 2),
+        _band(me, layout, wave),
       ],
     );
   }
 
-  /// The table's own three cards: smaller, dropped at a slant, on a strip
-  /// of the table.
-  Widget _table(BoardLayout layout, Widget Function(Widget card) wave) {
+  /// In front of the player: their own card on its paper place, and the
+  /// table's three cards, dropped at a slant on a strip of the table.
+  Widget _band(
+    NightSeat me,
+    BoardLayout layout,
+    Widget Function(Widget card) wave,
+  ) {
     final skin = context.skin;
-    return Container(
-      padding: const EdgeInsets.all(BoardLayout.tablePadding),
-      decoration: BoxDecoration(
-        color: context.ground.panel,
-        borderRadius: BorderRadius.circular(skin.shape.radius),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: BoardLayout.tableCardGap,
-        children: [
-          for (var i = 0; i < 3; i++)
-            SizedBox(
-              width: layout.centerColumn,
-              child: wave(_center(i, layout)),
+    const padding = EdgeInsets.symmetric(
+      horizontal: BoardLayout.bandPaddingSide,
+      vertical: BoardLayout.bandPadding,
+    );
+    return Center(
+      child: SizedBox(
+        height: layout.bandHeight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: BoardLayout.placeGap,
+          children: [
+            PaperCard(
+              padding: padding,
+              child: SizedBox(
+                width: layout.bandCard,
+                child: wave(_you(me, layout)),
+              ),
             ),
-        ],
+            Container(
+              padding: padding,
+              decoration: BoxDecoration(
+                color: context.ground.panel,
+                borderRadius: BorderRadius.circular(skin.shape.radius),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: BoardLayout.tableCardGap,
+                children: [
+                  for (var i = 0; i < 3; i++)
+                    SizedBox(
+                      width: layout.bandCard,
+                      child: wave(_center(i, layout)),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -373,7 +416,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     final pick = CenterPick(index);
     return FaceDownCard(
       size: FaceDownSize.board,
-      cardWidth: layout.centerWidth,
+      cardWidth: layout.bandCard,
       caption: centerName(index),
       tilt: Tilt.scatter(index),
       selected: _picks.contains(pick),
@@ -388,12 +431,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     face: widget.face,
     cover: (teaching) => FaceDownCard(
       size: FaceDownSize.board,
-      cardWidth: layout.cardWidth,
+      cardWidth: layout.bandCard,
       nameSize: layout.nameSize,
       nameHeight: layout.nameHeight,
       owner: seat.token,
       ownerName: NightCopy.you,
-      mine: true,
       selected: _picks.contains(const SelfPick()),
       semanticLabel: NightCopy.you,
       hold: teaching,

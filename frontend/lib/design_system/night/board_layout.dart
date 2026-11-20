@@ -6,43 +6,45 @@ import 'package:flutter/painting.dart';
 import '../layout/space.dart';
 import '../primitives/face_down_card.dart';
 
-/// Where the night board's cards go on a phone: how the seats are split into
-/// rows, how wide a card is, the one size every name under a card is set at,
-/// and how large the table's own three cards are. Worked out from the room
-/// the board has, the names at the table and the text scale, never from a
-/// role, so every phone at a table lays out the same board (the names it
-/// measures are everyone's, "You" included, whichever seat is this phone's).
+/// Where the night board's cards go on a phone. Two parts: the other
+/// players' seats, in rows, and under them the band in front of the player:
+/// their own card on its paper place, beside the table's three cards on
+/// their strip. Worked out from the room the board has, every name at the
+/// table and the text scale, never from a role or from which seat is this
+/// phone's, so every phone at a table lays out the same board.
 ///
 /// The rules, in order:
-/// - Every card is on the screen, the table's three too; nothing scrolls.
+/// - Every card is on the screen; nothing scrolls.
 /// - A name is never cut: every name is set at one size, the largest at
 ///   which each fits its column on one line, or on two lines broken between
-///   words; never below [nameFloor] while some split of the rows allows it.
-/// - Rows are balanced and never leave one card alone on a row (5 is 3 + 2,
-///   7 is 4 + 3, 9 is 3 + 3 + 3 or 5 + 4, 10 is 4 + 3 + 3 or 5 + 5).
+///   words.
+/// - The seats' rows are balanced and never leave one card alone on a row
+///   (4 is 4 or 2 + 2, 7 is 4 + 3, 8 is 4 + 4, 9 is 5 + 4 or 3 + 3 + 3).
 /// - Where no split keeps both every card at [smallest] or larger and every
-///   name at its floor (ten long names on a 320 phone), the split that falls
-///   least short of the two, each as a share of its minimum, the name's
-///   counted twice: a name too small to read is worse than a small card.
-/// - Of the splits that keep every name at its floor, the one with the
-///   largest cards; of two within [sameSize] of each other, the one with
-///   fewer rows.
+///   name at [nameFloor] (ten long names on a 320 phone), the split that
+///   falls least short of the two, each as a share of its minimum, the
+///   name's counted twice: a name too small to read is worse than a small
+///   card.
+/// - Of the rest, the one with the largest cards; of two within [sameSize]
+///   of each other, the one with fewer rows.
 /// - A column is as wide as its card and a gap, or its widest name, and no
 ///   wider: the seats sit together as at a table, the rows centred.
+/// - The band's four cards are one size: a seat's, or less where the
+///   phone's width needs it.
 @immutable
 class BoardLayout {
   const BoardLayout._({
     required this.rows,
     required this.column,
     required this.cardWidth,
-    required this.centerWidth,
-    required this.centerColumn,
+    required this.bandCard,
+    required this.bandHeight,
     required this.nameSize,
     required this.nameHeight,
     required this.used,
   });
 
-  /// Cards per row of players, top to bottom.
+  /// Cards per row of the other players, top to bottom.
   final List<int> rows;
 
   /// A player's column: the width a name has under its card.
@@ -51,24 +53,21 @@ class BoardLayout {
   /// A player's card.
   final double cardWidth;
 
-  /// One of the table's three cards, set apart smaller (S06: 62 to 78).
-  final double centerWidth;
+  /// The player's own card and the table's three, in the band.
+  final double bandCard;
 
-  /// A center card's column, for its caption.
-  final double centerColumn;
+  /// The band's height: the place and the strip are drawn this high.
+  final double bandHeight;
 
   /// The font size (before the text scale) every name is set at.
   final double nameSize;
 
-  /// The room under every token for its name: [nameSize]'s lines (two
-  /// when any name wraps), the place card round "You" included.
+  /// The room under every token for its name: [nameSize]'s lines (two when
+  /// any name wraps).
   final double nameHeight;
 
   /// The height the board takes: the rest of the room is to spare.
   final double used;
-
-  /// The table's cards to a player's.
-  static const centerScale = 0.8;
 
   /// Gap between two columns of players.
   static const columnGap = Space.sm;
@@ -80,14 +79,19 @@ class BoardLayout {
   /// Gap between two rows of players: room for a picked card's lift.
   static const rowGap = Space.lg;
 
-  /// Between the last row of players and the table's strip.
-  static const tableGap = Space.lg;
+  /// Between the last row of players and the band.
+  static const bandGap = Space.xl;
 
-  /// Inside the table's strip, round its cards.
-  static const tablePadding = Space.md;
+  /// Inside the place and the strip, above and below their cards, and
+  /// beside them.
+  static const bandPadding = Space.md;
+  static const bandPaddingSide = Space.sm;
+
+  /// Between the place and the strip.
+  static const placeGap = Space.md;
 
   /// Between two of the table's cards.
-  static const tableCardGap = Space.xl;
+  static const tableCardGap = Space.sm;
 
   /// The most cards in a row of players.
   static const mostPerRow = 5;
@@ -100,9 +104,9 @@ class BoardLayout {
   /// as good: the one with fewer rows is calmer.
   static const sameSize = 0.08;
 
-  /// Names are set no smaller than the reading floor for captions.
-  /// As drawn, after the text scale: with large text a name grows where
-  /// there is room and is set back to this where there is not.
+  /// Names are set no smaller than the reading floor for captions, as drawn
+  /// (after the text scale): with large text a name grows where there is
+  /// room and is set back to this where there is not.
   static const nameFloor = 14.0;
 
   /// Text measured is laid out a hair narrower than it fits.
@@ -111,6 +115,10 @@ class BoardLayout {
   /// A card's height for its width.
   static double heightOf(double width) =>
       width * FaceDownSize.board.mock.height / FaceDownSize.board.mock.width;
+
+  /// The band's width for its cards [card] wide.
+  static double bandWidth(double card) =>
+      4 * bandPaddingSide + placeGap + 4 * card + 2 * tableCardGap;
 
   /// Splits [seats] into [rowCount] rows, the longer ones first, as even as
   /// they go.
@@ -133,82 +141,78 @@ class BoardLayout {
     return all;
   }
 
-  /// The board for [seats] seats with [names] under them (every seat's
-  /// name, plus "You") in [room], the names in [nameStyle] (on a place card
-  /// [placePadding] high round "You") and the table's [captions] in
-  /// [captionStyle], all under [scaler]; the table's cards tilt by at most
-  /// [tilt] radians.
+  /// The board for [others] other players in [room]. [names] are every
+  /// seat's name, this phone's own included (so every phone measures the
+  /// same names), in [nameStyle]; [you] is the name under the player's own
+  /// card; the table's [captions] are in [captionStyle]; all under
+  /// [scaler]. The table's cards tilt by at most [tilt] radians.
   factory BoardLayout.solve({
-    required int seats,
+    required int others,
     required Iterable<String> names,
+    required String you,
     required Iterable<String> captions,
     required Size room,
     required TextStyle nameStyle,
     required TextStyle captionStyle,
     required TextScaler scaler,
-    String? place,
-    EdgeInsets placePadding = EdgeInsets.zero,
     double tilt = 0,
   }) {
     final base = nameStyle.fontSize!;
     final needs = [
-      for (final name in names.toSet())
-        _Need.of(
-          name,
-          nameStyle,
-          scaler,
-          name == place ? placePadding.horizontal : 0,
-        ),
+      for (final name in {...names, you}) _Need.of(name, nameStyle, scaler),
     ];
     final captionHeight = _lineHeight(captionStyle, scaler);
-    final captionWidth = captions
-        .map((c) => _widthOf(c, captionStyle, scaler))
-        .reduce(math.max);
-    final centerColumn = math.max(
-      (room.width - 2 * tablePadding - 2 * tableCardGap) / 3,
-      captionWidth,
-    );
     // A tilted card's height: its turned box.
     final turn = math.cos(tilt) + math.sin(tilt.abs()) / heightOf(1);
+    final bandMost =
+        (room.width - bandWidth(0)) /
+        4 *
+        (1 - 0); // four cards share what the paddings leave
+    final youNeed = needs.last;
 
     _Candidate? best;
-    for (final rows in splits(seats)) {
+    for (final rows in splits(others)) {
       final widest = rows.first;
       final column = (room.width - (widest - 1) * columnGap) / widest;
 
-      // The one name size: the largest at which every name fits its column.
-      final fits = needs
-          .map((n) => base * column * _safety / n.narrowest)
-          .reduce(math.min);
-      final size = math.min(base, fits);
+      // The one name size: the largest at which every name fits its column
+      // (and "You" its card in the band).
+      double fitIn(_Need n, double width) =>
+          base * width * _safety / n.narrowest;
+      final size = [
+        base,
+        for (final n in needs) fitIn(n, column),
+      ].reduce(math.min);
       final lines = needs.any((n) => n.oneLine * size / base > column) ? 2 : 1;
       final nameHeight =
-          lines * _lineHeight(nameStyle.copyWith(fontSize: size), scaler) +
-          placePadding.vertical;
+          lines * _lineHeight(nameStyle.copyWith(fontSize: size), scaler);
 
-      double heightFor(double card) {
-        final players =
-            rows.length *
-                (heightOf(card) +
-                    FaceDownCard.ownerTokenFor(card) / 2 +
-                    FaceDownCard.nameGap +
-                    nameHeight) +
-            (rows.length - 1) * rowGap;
-        final table =
-            2 * tablePadding +
-            heightOf(card * centerScale) * turn +
-            FaceDownCard.captionGap +
-            captionHeight;
-        return players + tableGap + table;
+      double band(double card) => math.min(card, bandMost);
+      double bandHeightFor(double card) {
+        final b = band(card);
+        final place =
+            heightOf(b) +
+            FaceDownCard.ownerTokenFor(b) / 2 +
+            FaceDownCard.nameGap +
+            nameHeight;
+        final strip =
+            heightOf(b) * turn + FaceDownCard.captionGap + captionHeight;
+        return 2 * bandPadding + math.max(place, strip);
       }
+
+      double heightFor(double card) =>
+          rows.length *
+              (heightOf(card) +
+                  FaceDownCard.ownerTokenFor(card) / 2 +
+                  FaceDownCard.nameGap +
+                  nameHeight) +
+          (rows.length - 1) * rowGap +
+          bandGap +
+          bandHeightFor(card);
 
       // The widest card that fits its column, the board's size and the
       // height.
-      var card = [
-        column,
-        FaceDownSize.board.mock.width,
-        centerColumn / centerScale,
-      ].reduce(math.min);
+      var card = math.min(column, FaceDownSize.board.mock.width);
       if (heightFor(card) > room.height) {
         var low = 0.0;
         var high = card;
@@ -218,29 +222,27 @@ class BoardLayout {
         }
         card = low;
       }
+      final widestName = needs
+          .where((n) => n != youNeed)
+          .map((n) => n.narrowest * size / base)
+          .fold(0.0, math.max);
       final candidate = _Candidate(
         BoardLayout._(
           rows: rows,
           column: math.min(
             column,
-            math.max(
-              card + seatGap,
-              needs.map((n) => n.narrowest * size / base).reduce(math.max) /
-                  _safety,
-            ),
+            math.max(card + seatGap, widestName / _safety),
           ),
           cardWidth: card,
-          centerWidth: card * centerScale,
-          centerColumn: centerColumn,
+          bandCard: band(card),
+          bandHeight: bandHeightFor(card),
           nameSize: size,
           nameHeight: nameHeight,
           used: heightFor(card),
         ),
         short:
             math.min(1.0, card / smallest) *
-            math
-                .pow(math.min(1.0, scaler.scale(size) / nameFloor), 2)
-                .toDouble(),
+            math.pow(math.min(1.0, scaler.scale(size) / nameFloor), 2),
       );
       if (best == null || candidate.beats(best)) best = candidate;
     }
@@ -275,13 +277,8 @@ class BoardLayout {
 class _Need {
   const _Need(this.oneLine, this.narrowest);
 
-  factory _Need.of(
-    String name,
-    TextStyle style,
-    TextScaler scaler,
-    double padding,
-  ) {
-    final oneLine = BoardLayout._widthOf(name, style, scaler) + padding;
+  factory _Need.of(String name, TextStyle style, TextScaler scaler) {
+    final oneLine = BoardLayout._widthOf(name, style, scaler);
     var narrowest = oneLine;
     final words = name.split(' ');
     for (var at = 1; at < words.length; at++) {
@@ -291,7 +288,7 @@ class _Need {
         style,
         scaler,
       );
-      narrowest = math.min(narrowest, math.max(top, rest) + padding);
+      narrowest = math.min(narrowest, math.max(top, rest));
     }
     return _Need(oneLine, narrowest);
   }
@@ -310,7 +307,7 @@ class _Candidate {
 
   /// How near the cards are to [BoardLayout.smallest] and the names to
   /// their floor, multiplied: 1 when both are there.
-  final double short;
+  final num short;
 
   /// Whether this split is better than [other] (BoardLayout's rules).
   bool beats(_Candidate other) {

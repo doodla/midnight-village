@@ -122,7 +122,7 @@ class PaceTile extends StatelessWidget {
 /// "My night" (S08): a strip of night laid on the day, with a small
 /// face-down card set into it at the skin's thumb tilt, and its title. It is
 /// the cover of a `HoldToReveal`; every player's is the same. The card
-/// carries the thumbprint cue ([teaching]), its word under the title.
+/// carries the hold ring ([teaching]), its word under the title.
 class PeekBox extends StatelessWidget {
   const PeekBox({super.key, required this.title, required this.teaching});
 
@@ -177,7 +177,7 @@ class PeekBox extends StatelessWidget {
 }
 
 /// The small card in the "My night" box: a card back ringed in the mark
-/// colour, tilted, with the thumbprint on it.
+/// colour, tilted, with the hold ring on it while taught.
 class _PeekCard extends StatelessWidget {
   const _PeekCard({required this.teaching});
 

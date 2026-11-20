@@ -69,9 +69,9 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 
 | Cue (`id`) | First appears | What the player sees | Words | Unlocks | Learned when | Later games |
 |---|---|---|---|---|---|---|
-| `hold` | 04, the moment of the deal | The thumbprint ring on the face-down card breathes (bone colour, scale 1.00 to 1.06, 1.4 s loop), with "Hold" at 20 px under it | "Hold" | "Ready" turns amber after a 0.8 s reveal | The first 0.8 s reveal on any face | A static thumbprint glyph |
-| `hold_you` | 06, the first board | The same thumbprint on "You", "Hold" over it (section 8: it points at what this phone may do) | "Hold" | — | The first reveal of "You" | A static thumbprint glyph |
-| `hold_my_night` | 08, the first talk | The same thumbprint on My night's card, "Hold" under the title | "Hold" | — | The first reveal of My night | A static thumbprint glyph |
+| `hold` | 04, the moment of the deal | A plain ring on the face-down card, "Hold" in it at 20 px, breathes (bone colour, scale 1.00 to 1.06, 1.4 s loop); while the card is held the ring fills, in the 0.8 s a reveal takes to count (no thumbprint: product owner, 20 November 2026) | "Hold" | "Ready" turns amber after a 0.8 s reveal | The first 0.8 s reveal on any face | Nothing: the card is a card |
+| `hold_you` | 06, the first board | The same ring on "You", the player's own card in front of the seats (section 8: it points at what this phone may do) | "Hold" | — | The first reveal of "You" | Nothing |
+| `hold_my_night` | 08, the first talk | The same ring, without its word, on My night's card, "Hold" under the title | "Hold" | — | The first reveal of My night | Nothing |
 | `night_choose` | 06, the first window of the first game | When the board opens, each card lifts 8 px in a single left-to-right wave (120 ms each, 90 ms stagger) | none | — | The first successful `choose` | No wave |
 | `vote_lock` | 09, the first vote | The rows nudge 6 px in a single wave | none | — | The first successful lock | No wave |
 
@@ -85,7 +85,7 @@ Hidden-information analysis for the cues:
 - Face text is left out of semantics except on that explicit activation.
 - Night cards and vote rows are selectable buttons labelled with a name, "You", "Left", "Middle" or "Right". The board's spoken headline is the same on every phone.
 - Reduce motion: the ring, the wave, the count flip and the timeline animation become static or instant.
-- At text scale 2.0, the board wraps to rows of at most 4 cards and names ellipsize. Faces cap their own text scale at 1.6.
+- With large text the board's words grow to 1.3 times and its button's to 1.6; names are never cut (they wrap between words, or the board takes fewer cards to a row). Faces cap their own text scale at 1.6.
 
 ## 3. Screens
 
@@ -282,7 +282,8 @@ Every face has exactly one portrait slot and at most 2 lines.
 **06 Night board**
 - **One thing / loudest:** hold "You", tap a card, then Choose; the board.
 - **Locked until:** Choose needs 1 or more picks and a 0.8 s hold of "You" in this window.
-- **Copy:** "The village sleeps"; captions "You", "Left", "Middle", "Right"; candle and number. Button: "Choose a card" (disabled), then "Choose {cards}" or "Keep my card", then "Chosen". "Hold" appears on "You" only as a cue. Held face: role name, instruction, window-1 page. **20 of 20 words.**
+- **Copy:** "The village sleeps"; captions "You", "Left", "Middle", "Right"; candle and number. Button: "Choose a card" (disabled), then "Choose {cards}" or "Keep my card" (doing nothing: "You" alone picked), then "Chosen". "Hold" appears on "You" only as a cue. Held face: role name, instruction, window-1 page. **20 of 20 words.**
+- **Layout (product owner, 20 November 2026):** the other players' cards in balanced rows; the player's own card ("You") is not among them but in front of them, on a paper place beside the table's three cards, in the same place and size on every phone.
 - **Removed:**
   - The pre-selected Cleo (2).
   - "Your turn · Seer" and the role portrait (14).

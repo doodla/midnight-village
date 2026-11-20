@@ -116,7 +116,7 @@ class SkinType {
   /// A code typed or read letter by letter (the table code field, S01).
   final TextStyle code;
 
-  /// The teach-once cue's one word, "Hold" (20, under the thumbprint).
+  /// The teach-once cue's one word, "Hold" (20, in the hold ring).
   final TextStyle cue;
 
   /// Captions under cards and tokens ("Left", "Now").

@@ -95,17 +95,38 @@ Future<ProviderContainer> _pump(
 
 Finder get _cue => find.text(CommonCopy.hold);
 
+/// The cue's ring.
+Finder get _ring => find.descendant(
+  of: find.byType(HoldCue),
+  matching: find.byType(CustomPaint),
+);
+
+/// How much of the ring has filled.
+double _filled(WidgetTester tester) =>
+    ((tester.widget<CustomPaint>(_ring).painter! as dynamic).fill
+            as Animation<double>)
+        .value;
+
 void main() {
   testWidgets('the cue shows on a device that has not learned it, and the '
       'first reveal that counts learns it', (tester) async {
     final app = await _pump(tester);
     expect(_cue, findsOneWidget);
+    expect(_filled(tester), 0);
 
-    final hold = await holdDown(tester, find.byType(FaceDownCard));
-    expect(_cue, findsNothing, reason: 'not drawn while the face is shown');
-    await hold.up();
+    final hold = await tester.startGesture(
+      tester.getCenter(find.byType(FaceDownCard)),
+    );
+    await tester.pump(HoldToReveal.holdDelay);
+    await tester.pump(HoldToReveal.revealedAfter ~/ 2);
+    expect(_cue, findsOneWidget, reason: 'the ring fills while held');
+    expect(_filled(tester), closeTo(0.5, 0.1));
+    await tester.pump(HoldToReveal.revealedAfter ~/ 2);
     await tester.pump();
     expect(app.read(learnedCuesProvider), contains(Cue.hold));
+    expect(_ring, findsNothing, reason: 'learned: the card is a card');
+    await hold.up();
+    await tester.pump();
     expect(_cue, findsNothing);
     expect(find.text(CardCopy.ready), findsOneWidget);
   });
@@ -129,11 +150,11 @@ void main() {
     );
   });
 
-  testWidgets('a device that has learned it shows the still glyph; a tap on '
-      'the locked gate replays the cue for 3 s', (tester) async {
+  testWidgets('a device that has learned it shows nothing on the card; a '
+      'tap on the locked gate replays the cue for 3 s', (tester) async {
     await _pump(tester, learned: {Cue.hold});
     expect(_cue, findsNothing);
-    expect(find.byIcon(Icons.fingerprint), findsOneWidget);
+    expect(_ring, findsNothing);
 
     await tester.tap(find.byType(PrimaryButton));
     await tester.pump();

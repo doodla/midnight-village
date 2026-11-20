@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/night/board_layout.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
@@ -45,7 +46,8 @@ List<int> _rows(WidgetTester tester) {
   final tops = <double, int>{};
   for (final element in find.byType(FaceDownCard).evaluate()) {
     final card = element.widget as FaceDownCard;
-    if (card.ownerName == null) continue;
+    // The seats: "You" is in front, not among them.
+    if (card.ownerName == null || card.ownerName == NightCopy.you) continue;
     final top = tester.getTopLeft(find.byWidget(card)).dy.roundToDouble();
     tops[top] = (tops[top] ?? 0) + 1;
   }
@@ -95,7 +97,7 @@ void main() {
             );
             final where = '$seats seats';
             final rows = _rows(tester);
-            expect(rows.reduce((a, b) => a + b), seats, reason: where);
+            expect(rows.reduce((a, b) => a + b), seats - 1, reason: where);
             if (rows.length > 1 && rows.contains(1)) {
               findings.add('$where: a card alone on a row ($rows)');
             }

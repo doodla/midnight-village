@@ -10,15 +10,15 @@ part 'learned_store.g.dart';
 /// 2): an animation, and for [hold] the word "Hold", shown until the player
 /// has done the thing once on this device.
 enum Cue {
-  /// The breathing thumbprint on a face-down card; learned by the first
+  /// The breathing hold ring on a face-down card; learned by the first
   /// 0.8 s reveal on any face.
   hold('hold'),
 
-  /// The same thumbprint on "You" on the night board, pointing at what this
+  /// The same ring on "You" on the night board, pointing at what this
   /// phone may do (spec section 8); learned by the first reveal of "You".
   holdYou('hold_you'),
 
-  /// The same thumbprint on 08's "My night" (spec section 7); learned by
+  /// The same ring on 08's "My night" (spec section 7); learned by
   /// the first reveal of My night.
   holdMyNight('hold_my_night'),
 

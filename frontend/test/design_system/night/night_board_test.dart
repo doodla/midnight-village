@@ -8,6 +8,7 @@ import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
+import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/skin/skin_tilt.dart';
 import 'package:midnight_village/design_system/teach/cue_wave.dart';
@@ -35,19 +36,19 @@ ChooseAnswer _answered(String sample) => ChooseAnswer.fromStatus(
 );
 
 void main() {
-  testWidgets('it is drawn from the seats in seat order, "You" in yours, '
-      'then Left, Middle, Right', (tester) async {
+  testWidgets('it is drawn from the other seats in seat order, then "You" '
+      'in front, then Left, Middle, Right', (tester) async {
     await BoardHarness.of(Viewer.seer).pump(tester);
     final captions = [
       for (final element in find.byType(FaceDownCard).evaluate())
         (element.widget as FaceDownCard).semanticLabel,
     ];
     expect(captions, [
-      NightCopy.you,
       ben.name,
       cleo.name,
       dev.name,
       esme.name,
+      NightCopy.you,
       ...NightCopy.center,
     ]);
     expect(find.text(ana.name), findsNothing);
@@ -134,7 +135,7 @@ void main() {
     expect(lifted(tester), isEmpty);
   });
 
-  testWidgets('the thumbprint points at "You" until it has been held once on '
+  testWidgets('the hold ring points at "You" until it has been held once on '
       'this device, after 04 taught the hold', (tester) async {
     final board = BoardHarness.of(Viewer.seer, learned: {Cue.hold});
     await board.pump(tester);
@@ -365,16 +366,28 @@ void main() {
       return rows;
     }
 
-    testWidgets('five at the table sit three and two, the table\'s cards '
-        'smaller and tilted on their own strip under them', (tester) async {
+    testWidgets('five at the table: the four others sit two and two; '
+        '"You" is not among them but in front, on its paper place, beside '
+        'the table\'s three, tilted on their strip', (tester) async {
       await BoardHarness.of(Viewer.seer).pump(tester);
       final byTop = rows(tester);
-      final counts = [
-        for (final top in byTop.keys.toList()..sort()) byTop[top]!,
+      final seats = [
+        for (final top in byTop.keys.toList()..sort())
+          [
+            for (final card in byTop[top]!)
+              if (card.owner != null && card.ownerName != NightCopy.you) card,
+          ],
+      ].where((row) => row.isNotEmpty).toList();
+      expect([for (final row in seats) row.length], [2, 2]);
+      expect(
+        find.ancestor(of: you, matching: find.byType(PaperCard)),
+        findsOneWidget,
+      );
+      final center = [
+        for (final element in find.byType(FaceDownCard).evaluate())
+          if ((element.widget as FaceDownCard).caption != null)
+            element.widget as FaceDownCard,
       ];
-      expect([for (final row in counts) row.length], [3, 2, 3]);
-      final seat = tester.getSize(find.byWidget(counts.first.first));
-      final center = counts.last;
       expect(center.map((c) => c.caption), [
         NightCopy.left,
         NightCopy.middle,
@@ -383,25 +396,32 @@ void main() {
       expect(center.map((c) => c.tilt), [
         for (var i = 0; i < 3; i++) Tilt.scatter(i),
       ]);
-      expect(
-        tester.getSize(find.byWidget(center.first)).width,
-        lessThan(seat.width),
-      );
+      // The band in front of the player is under every seat.
+      final lowestSeat = seats.last
+          .map((c) => tester.getRect(find.byWidget(c)).bottom)
+          .reduce((a, b) => a > b ? a : b);
+      expect(tester.getTopLeft(you).dy, greaterThan(lowestSeat));
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('every name is set at one size; "You" alone on its place '
-        'card', (tester) async {
+    testWidgets('every name is set at one size, "You" too', (tester) async {
       await BoardHarness.of(Viewer.drunk).pump(tester);
-      final seats = [
+      final named = [
         for (final element in find.byType(FaceDownCard).evaluate())
           if ((element.widget as FaceDownCard).ownerName != null)
             element.widget as FaceDownCard,
       ];
-      expect(seats.map((c) => c.nameSize).toSet(), hasLength(1));
-      expect(seats.where((c) => c.mine).map((c) => c.ownerName), [
-        NightCopy.you,
-      ]);
+      expect(named, hasLength(9));
+      expect(named.map((c) => c.nameSize).toSet(), hasLength(1));
+    });
+
+    testWidgets('"You" alone picked is doing nothing: "Keep my card"', (
+      tester,
+    ) async {
+      await BoardHarness.of(Viewer.seer).pump(tester);
+      await tapCard(tester, NightCopy.you);
+      expect(lifted(tester), [NightCopy.you]);
+      expect(button(tester), (NightCopy.keep, ButtonPhase.ready));
     });
 
     testWidgets('with large text the words grow only so far, and the cards '
