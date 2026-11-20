@@ -57,8 +57,9 @@ void main() {
       for (final page in ComponentPage.values) {
         for (final ground in page.grounds) {
           testWidgets('${page.name} on ${ground.name}', (tester) async {
-            // Tall enough that no page scrolls, so every line is painted.
-            tester.view.physicalSize = const Size(390, 1500);
+            // Tall enough that no page scrolls, so every line is painted
+            // (11 at ten players, the night open, is the tallest).
+            tester.view.physicalSize = const Size(390, 3000);
             tester.view.devicePixelRatio = 1;
             addTearDown(tester.view.reset);
             await pumpComponentPage(tester, page, ground, skin: skin);

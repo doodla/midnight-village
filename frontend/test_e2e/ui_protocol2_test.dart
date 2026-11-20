@@ -18,6 +18,7 @@ import 'package:midnight_village/features/game/presentation/shell/your_card_scre
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/helpers/test_fonts.dart';
+import 'harness/end_of_game.dart';
 import 'harness/failure_report.dart';
 import 'harness/harness_config.dart';
 import 'harness/live_table.dart';
@@ -28,8 +29,9 @@ import 'harness/ui_harness.dart';
 /// widget tree of the rebuilt shell (`GameEntry` -> `TableShell`), live
 /// socket and all, against the harness backend, from the look stage (04)
 /// through the night windows, the talk (08) and the vote (09) to the count
-/// (10, a placeholder for now); the rest of the table plays through the
-/// API. The phone's own steps are made
+/// (10) and the results (11), checked as the server's oracle says the game
+/// went (`harness/end_of_game.dart`); the rest of the table plays through
+/// the API. The phone's own steps are made
 /// the way a player makes them: a hold, taps, Choose, Ready.
 ///
 /// Per-phone PNG filmstrips at 390 x 844 are written to
@@ -433,11 +435,14 @@ class _Phone {
         }),
       ),
     );
-    await ui.pumpUntil(
-      () => placeholder == AppScreen.count,
-      reason: 'the count after the last lock',
+    // The count and the results, as the server says they went.
+    await endAsTheOracleSays(
+      tester: tester,
+      ui: ui,
+      table: t,
+      name: 'Alice',
+      shoot: shoot,
     );
-    await shoot('count');
   }
 
   // ---------------------------------------------------------------------------

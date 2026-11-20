@@ -9,6 +9,7 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
+import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/night_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/not_built_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
@@ -43,6 +44,7 @@ void main() {
       'me_talk_ready': TalkScreen,
       'me_voting_unpicked': VoteScreen,
       'me_voting_locked': VoteScreen,
+      'me_results_v2': CountScreen,
     };
     for (final MapEntry(key: sample, value: type) in cases.entries) {
       testWidgets('$sample: ${protocolTwoScreens[sample]!.number}', (
@@ -65,6 +67,7 @@ void main() {
             AppScreen.nightBoard,
             AppScreen.talk,
             AppScreen.vote,
+            AppScreen.count,
           }.contains(e.value),
         )) {
       testWidgets('$sample: the ${screen.number} placeholder', (tester) async {

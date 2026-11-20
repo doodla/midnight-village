@@ -25,14 +25,18 @@ changes. Last updated 20 November 2026.
   branch: 04 Your card, the night board, 08 Talk (with My night) and 09 Vote are rebuilt for
   protocol 2, behind the dev-only "Rebuilt screens" switch; 05 shows only while `/me/` loads; under protocol 2, 04 is reachable
   (it was not under protocol 1). The other screens are still the old ones.
+- App, end of the game: 10 The count and 11 Results rebuilt for protocol 2 (the dead card is
+  the final card with its team, the dealt one before it when it moved; who won, every card,
+  the night folded into a strip that opens; play again, edit deck, leave); a restart lands on
+  10 or 11 as the phone left it.
 - Tooling: screen gallery, cold-read pack, e2e harness, subagent model guardrail, commit gate
   routed by path.
 
 ## Next, in order
 
 1. Rebuild the remaining screens for protocol 2, one at a time, from the primitives, checked
-   by eye with `just screens` against the mocks, before/after pictures to the owner: 10 The
-   count, 11 Results, then 01 Join, 02 Table, 03 Deck (+ 03b
+   by eye with `just screens` against the mocks, before/after pictures to the owner: 01 Join,
+   02 Table, 03 Deck (+ 03b
    role sheet). Then remove the dev-only gate with the last placeholder. Delete each old-look file with the last screen using it
    (`docs/dev/old-look-removal.md`).
 2. Rerun the cold-read playtest on the real screens (method in
@@ -54,6 +58,13 @@ changes. Last updated 20 November 2026.
   everyone but this phone; drop that fallback when it lands). No recorded protocol-2 `/me/` of
   an untimed talk or vote, of a vote at more than five, or of a talk after the results ack
   (`night_results_seen` above 0).
+- Recorder gaps at the results: no recorded results where the Werewolves win, where nobody
+  dies, where several die by a tie, or where a dead player's card had moved (the app's tests
+  derive the first two from a recording by its votes; the e2e harness plays them for real);
+  and no results body for game 7, the game of the `/me/` samples and the cold-read pack, so
+  the pack's last two screens are another recorded table.
+- The old 10 and 11 (`components/game/game_results.dart`) stay while protocol 1's
+  `GameContainerScreen` shows them.
 - Protocol 1 only (goes with the cleanup slice): across several server instances a phone can
   get `action_prompt` before `wave_start` and lose its prompt. (The unreachable "your card"
   screen is fixed under protocol 2.)
