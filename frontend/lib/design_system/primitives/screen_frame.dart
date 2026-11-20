@@ -53,6 +53,7 @@ class ScreenFrame extends StatelessWidget {
     this.topArtLayout = TopArtLayout.scene,
     this.topSlot,
     this.actionGap = Space.mdPlus,
+    this.fillHeight = false,
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
@@ -78,6 +79,12 @@ class ScreenFrame extends StatelessWidget {
 
   /// Between the pinned actions.
   final double actionGap;
+
+  /// The body is at least as tall as the space above the actions, so a body
+  /// laid out with `MainAxisAlignment.spaceBetween` can rest its last part
+  /// just above them (the night board, low on the screen so a held face has
+  /// room above the thumb); it still scrolls when it does not fit.
+  final bool fillHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -138,11 +145,23 @@ class ScreenFrame extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.only(
-                      bottom: actions.isEmpty ? Space.screenBottom : Space.md,
-                    ),
-                    child: top,
+                  child: LayoutBuilder(
+                    builder: (context, viewport) {
+                      final bottom = actions.isEmpty
+                          ? Space.screenBottom
+                          : Space.md;
+                      return SingleChildScrollView(
+                        padding: EdgeInsets.only(bottom: bottom),
+                        child: fillHeight
+                            ? ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: viewport.maxHeight - bottom,
+                                ),
+                                child: top,
+                              )
+                            : top,
+                      );
+                    },
                   ),
                 ),
                 if (actions.isNotEmpty)

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../faces/held_face.dart';
 import '../models/role.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
@@ -10,15 +11,15 @@ import 'face_down_card.dart';
 import 'role_card.dart';
 
 /// The pictures a secret can show, at the sizes it shows them: every role's
-/// portrait on your card and in every thumbnail (your role beside "Your
-/// turn", the "My night" box, the deck), and the card back at every
-/// face-down size. Decoding all of them before any is shown means the first
-/// hold never shows an empty card, and revealing a role fetches nothing: no
-/// request for one role's picture crosses the table's Wi-Fi at the moment a
-/// player looks at their card.
+/// portrait in a held face's portrait slot (`HeldFace`) and in every
+/// thumbnail (the deck strips), and the card back at every face-down size.
+/// Decoding all of them before any is shown means the first hold never
+/// shows an empty face, and revealing a role fetches nothing: no request for
+/// one role's picture crosses the table's Wi-Fi at the moment a player looks
+/// at their card.
 List<(ArtImage, Size)> secretArt(Skin skin) => [
   for (final role in RoleId.values) ...[
-    (skin.art.role(role, hero: true), RoleCard.largePortrait),
+    (skin.art.role(role), HeldFace.portraitBox),
     for (final size in RoleCardSize.values)
       if (size.thumbnail case final thumbnail?)
         (skin.art.role(role), thumbnail),

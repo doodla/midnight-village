@@ -47,14 +47,13 @@ const _night = Ground(
   shadow: _ink,
   paper: _paperCream,
   paperEdge: _ink,
-  // At night the primary button is a cream print with a red shadow (E_Card).
-  accent: _paperCream,
+  // The mocks' cream print (E_Card) is lantern amber: the one warm accent is
+  // the primary button's in every skin (first-time play spec, rule 10).
+  accent: _amber,
   onAccent: _ink,
-  selection: _amber,
-  mark: _amber,
+  selection: _cream,
+  mark: _cream,
   onMark: _ink,
-  pick: _deepRed,
-  onPick: _paperCream,
   danger: _deepRed,
   onDanger: _paperCream,
   dangerText: _stampPink,
@@ -65,10 +64,11 @@ const _night = Ground(
     card: Elevation([HardShadow(Offset(6, 6), _ink)]),
     lying: Elevation([HardShadow(Offset(4, 4), _ink)]),
     raised: Elevation([HardShadow(Offset(4, 4), _ink)]),
-    slab: Elevation([HardShadow(Offset(10, 10), _amber)]),
-    heroSlab: Elevation([HardShadow(Offset(10, 10), _amber)]),
+    // The mocks' amber slabs print in red: amber is the primary's alone.
+    slab: Elevation([HardShadow(Offset(10, 10), _red)]),
+    heroSlab: Elevation([HardShadow(Offset(10, 10), _red)]),
     primary: Elevation([HardShadow(Offset(6, 6), _red)]),
-    selected: Elevation([HardShadow(Offset(6, 6), _amber)]),
+    selected: Elevation([HardShadow(Offset(6, 6), _ink)]),
     badge: Elevation([HardShadow(Offset(4, 4), _ink)]),
   ),
 );
@@ -86,13 +86,12 @@ Ground _onCream({required Color ground, required Color paper}) => Ground(
   shadow: _ink,
   paper: paper,
   paperEdge: _ink,
-  accent: _ink,
-  onAccent: _paperCream,
-  selection: _deepRed,
-  mark: _amber,
-  onMark: _ink,
-  pick: _deepRed,
-  onPick: _paperCream,
+  accent: _amber,
+  onAccent: _ink,
+  accentEdge: _ink,
+  selection: _ink,
+  mark: _ink,
+  onMark: _paperCream,
   danger: _deepRed,
   onDanger: _paperCream,
   dangerText: _deepRed,
@@ -144,7 +143,6 @@ TextStyle _alegreya(
 final _type = SkinType(
   heroTitle: _rozha(46, height: 0.95),
   heroCode: _rozha(46, height: 1, em: 0.06),
-  heroRole: _rozha(58, height: 0.9),
   heroVerdict: _rozha(44, height: 0.95),
   heroWinner: _rozha(40, height: 0.95),
   display: _rozha(36, height: 0.95),
@@ -167,13 +165,11 @@ final _type = SkinType(
   body: _alegreya(16, FontWeight.w500, height: 1.3),
   action: _alegreya(16, FontWeight.w800, height: 1.2),
   code: _alegreya(17, FontWeight.w800, height: 1.2, em: 0.12),
-  small: _alegreya(15, FontWeight.w500, height: 1.3),
-  smallStrong: _alegreya(15, FontWeight.w800, height: 1.3),
+  cue: _alegreya(20, FontWeight.w800, height: 1.2),
+  // The reading floor (first-time play spec, copy rule 7): captions at 14.
   caption: _alegreya(14, FontWeight.w500, height: 1.3),
-  tag: _alegreya(13, FontWeight.w800, height: 1.2, em: 0.08),
-  badge: _alegreya(13, FontWeight.w800, height: 1.2),
-  label: _alegreya(12, FontWeight.w800, height: 1.35, em: 0.2),
-  micro: _alegreya(11, FontWeight.w800, height: 1.2, em: 0.16),
+  tag: _alegreya(14, FontWeight.w800, height: 1.2),
+  badge: _alegreya(14, FontWeight.w800, height: 1.2),
 );
 
 /// Night print's pictures: Shadow paper's, printed in its five inks, with
@@ -193,7 +189,6 @@ const nightPrintArt = ArtSet(
     Scene.dawnGallows: Size(1024, 768),
   },
   portraitFocus: Alignment(0, -0.7),
-  heroPortraitFocus: Alignment(0, -0.76),
   sceneFocus: {
     Scene.candle: Alignment(0, 0.24),
     Scene.table: Alignment(0, 0.1),
@@ -248,6 +243,4 @@ final nightPrint = Skin(
   art: nightPrintArt,
   scrim: _ink.withValues(alpha: 0.72),
   dimmed: 0.4,
-  waiting: 0.35,
-  recessed: 0.75,
 );

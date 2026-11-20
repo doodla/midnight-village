@@ -25,8 +25,8 @@ enum PlayerRowSize {
     endPadding: Space.lg,
   ),
 
-  /// In the count (S10): 64 tall, a 48 token, the name at 24, the voters and
-  /// a [Tally] at the end.
+  /// In the count (S10): 64 tall, a 48 token, the name at 24, the voters'
+  /// names under it and a [Tally] at the end.
   count(
     height: 64,
     token: TokenSize.count,
@@ -57,27 +57,39 @@ enum PlayerRowSize {
   };
 }
 
-/// One player as a strip of paper: token, name, and an optional [trailing]
-/// part (a [RowNote], [VoterTokens] and a [Tally], an icon). [picked] fills it
-/// with "your pick" (or the dead player). With [onTap] it is a button.
+/// One player as a strip of paper: token, name, an optional [detail] line
+/// under the name (who voted for them, by name, S10) and an optional
+/// [trailing] part (a [Tally]). With [onTap] it is a button.
 ///
-/// The trailing part keeps its own type; it gets the row's ink as the colour
-/// of plain text and icons.
+/// - [picked]: the player's pick lifts and takes the selection's outline
+///   (ink by day); never a fill (first-time play spec, copy rule 10).
+/// - [own]: the viewer's own row, a thicker outline in the paper's ink (S02).
+/// - [away]: a dropped member, the token dimmed, with no words (S02).
+/// - [dimmed]: the vote once locked, where every row dims the same and none
+///   shows the pick (S09).
 class PlayerRow extends StatelessWidget {
   const PlayerRow({
     super.key,
     required this.token,
     required this.name,
+    this.detail,
     this.trailing,
     this.picked = false,
+    this.own = false,
+    this.away = false,
+    this.dimmed = false,
     this.onTap,
     this.size = PlayerRowSize.compact,
   });
 
   final TokenId? token;
   final String name;
+  final String? detail;
   final Widget? trailing;
   final bool picked;
+  final bool own;
+  final bool away;
+  final bool dimmed;
   final VoidCallback? onTap;
   final PlayerRowSize size;
 
@@ -85,8 +97,7 @@ class PlayerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    final ink = picked ? ground.onPick : skin.paper.text;
-    final quiet = picked ? ground.onPick : skin.paper.quietText;
+    final ink = skin.paper.text;
     final lead = skin.shape.corner(
       size.height,
       skin.shape.rowLeadRoundness,
@@ -101,6 +112,7 @@ class PlayerRow extends StatelessWidget {
       duration: Motion.quick,
       curve: Motion.curve,
       constraints: BoxConstraints(minHeight: size.height),
+      transform: Matrix4.translationValues(0, picked ? -Space.xs : 0, 0),
       padding: EdgeInsets.fromLTRB(
         Space.sm,
         Space.xxs,
@@ -109,38 +121,62 @@ class PlayerRow extends StatelessWidget {
       ),
       decoration: cutPaper(
         context,
-        fill: picked ? ground.pick : ground.paper,
+        fill: ground.paper,
         radius: radius,
         elevation: picked ? ground.elevation.selected : ground.elevation.card,
       ),
+      foregroundDecoration: picked
+          ? ringDecoration(
+              color: ground.selection,
+              width: skin.shape.selectedRing,
+              radius: radius,
+            )
+          : own
+          ? BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(color: ink, width: skin.shape.selectedRing),
+            )
+          : null,
       child: _RowInk(
         ink: ink,
-        quiet: quiet,
         child: Row(
           spacing: size.gap,
           children: [
-            PlayerToken(token, size: size.token, ringColor: ink),
+            PlayerToken(token, size: size.token, ringColor: ink, away: away),
             Expanded(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: size.nameStyle(skin.typography).copyWith(color: ink),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: size.nameStyle(skin.typography).copyWith(color: ink),
+                  ),
+                  if (detail case final detail?)
+                    Text(
+                      detail,
+                      style: skin.typography.body.copyWith(
+                        color: skin.paper.quietText,
+                      ),
+                    ),
+                ],
               ),
             ),
-            if (trailing case final trailing?)
-              DefaultTextStyle.merge(
-                style: TextStyle(color: ink),
-                child: IconTheme.merge(
-                  data: IconThemeData(color: ink),
-                  child: trailing,
-                ),
-              ),
+            ?trailing,
           ],
         ),
       ),
     );
-    if (onTap == null) return row;
+    final shown = AnimatedOpacity(
+      duration: Motion.quick,
+      opacity: dimmed ? skin.dimmed : 1,
+      child: row,
+    );
+    // Once locked (dimmed) a row cannot be picked: it reads as switched off.
+    if (dimmed) return Semantics(enabled: false, child: shown);
+    if (onTap == null) return shown;
     return Semantics(
       button: true,
       selected: picked,
@@ -150,7 +186,8 @@ class PlayerRow extends StatelessWidget {
           onTap: onTap,
           borderRadius: radius,
           highlightColor: Colors.transparent,
-          child: row,
+          splashColor: Colors.transparent,
+          child: shown,
         ),
       ),
     );
@@ -158,32 +195,15 @@ class PlayerRow extends StatelessWidget {
 }
 
 class _RowInk extends InheritedWidget {
-  const _RowInk({required this.ink, required this.quiet, required super.child});
+  const _RowInk({required this.ink, required super.child});
 
   final Color ink;
-  final Color quiet;
 
   static _RowInk? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_RowInk>();
 
   @override
-  bool updateShouldNotify(_RowInk old) => ink != old.ink || quiet != old.quiet;
-}
-
-/// A short note at the end of a [PlayerRow] ("Host · you"), as a label.
-class RowNote extends StatelessWidget {
-  const RowNote(this.text, {super.key});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    text.toUpperCase(),
-    maxLines: 1,
-    style: context.skin.typography.label.copyWith(
-      color: _RowInk.of(context)?.quiet ?? context.ground.quietText,
-    ),
-  );
+  bool updateShouldNotify(_RowInk old) => ink != old.ink;
 }
 
 /// The number of votes at the end of a count row (S10).

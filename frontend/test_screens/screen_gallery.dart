@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 
 import '../test/helpers/test_fonts.dart';
+import 'reading_floor.dart';
 import 'screen_catalogue.dart';
 
 /// Phone height of the mocks, in logical pixels.
@@ -70,11 +71,14 @@ void clearOutput(int width, SkinId skin) {
 /// Builds a screen with [build] at [width] x [screenHeight] and captures it.
 /// Overflows and exceptions reported while it is on screen are collected, not
 /// thrown, so one broken screen does not hide the others; a [build] (or the
-/// capture) that throws gives no picture and a [ScreenCapture.failure].
+/// capture) that throws gives no picture and a [ScreenCapture.failure]. On a
+/// [playerScreen], text drawn below the reading floor is a finding too
+/// (reading_floor.dart).
 Future<ScreenCapture> captureScreen(
   WidgetTester tester,
   Future<void> Function(WidgetTester tester) build, {
   required int width,
+  bool playerScreen = false,
 }) async {
   tester.view.physicalSize = Size(
     width * _pixelRatio,
@@ -101,6 +105,7 @@ Future<ScreenCapture> captureScreen(
       for (var i = 0; i < _settleFrames; i++) {
         await tester.pump(_frameTime);
       }
+      if (playerScreen) findings.addAll(readingFloorBreaches(tester));
     } catch (error, stack) {
       return (null, 'BUILD FAILED: ${_describeError(error, stack)}');
     }

@@ -4,22 +4,20 @@ import 'package:flutter/painting.dart';
 /// The type roles. Each is a complete style but for colour, which comes from
 /// the ground the text sits on.
 ///
-/// The brief's scale (design brief section 4, "Type scale"): headings 26 to
-/// 36, timers 64 to 84 (a compact one 34), counts 28, labels 12 in capitals,
-/// body 15 to 17, and names, buttons and small print 11 to 24. Nothing larger
-/// but one hero line per screen, which follows its mock: [heroTitle] (Join),
-/// [heroCode] (the table code), [heroRole] (your card), [heroVerdict] (who
-/// dies) and [heroWinner] (who won). `test/design_system/skin/
-/// skin_contract_test.dart` holds every skin to it.
-///
-/// [label] and [micro] are set in capitals: `SectionLabel` uppercases its
-/// text; anything else using them must too.
+/// The brief's scale (design brief section 4, "Type scale", as amended by the
+/// first-time play spec): headings 26 to 36, timers 64 to 84 (a compact one
+/// 34), counts 28, anything a player reads to act 16 to 24 (body 16 to 17),
+/// and captions under cards and tokens 14. No capitals tracked as labels.
+/// Nothing larger but one hero line per screen, which follows its mock:
+/// [heroTitle] (Join), [heroCode] (the table code), [heroVerdict] (who dies)
+/// and [heroWinner] (who won). `test/design_system/skin/
+/// skin_contract_test.dart` holds every skin to it, and the screen gallery
+/// fails a player screen whose text is drawn below the floor.
 @immutable
 class SkinType {
   const SkinType({
     required this.heroTitle,
     required this.heroCode,
-    required this.heroRole,
     required this.heroVerdict,
     required this.heroWinner,
     required this.display,
@@ -42,13 +40,10 @@ class SkinType {
     required this.body,
     required this.action,
     required this.code,
-    required this.small,
-    required this.smallStrong,
+    required this.cue,
     required this.caption,
     required this.tag,
     required this.badge,
-    required this.label,
-    required this.micro,
   });
 
   /// Hero: the app's name on Join (S01).
@@ -57,16 +52,13 @@ class SkinType {
   /// Hero: the table code, read aloud across the table (S02).
   final TextStyle heroCode;
 
-  /// Hero: the role name on your card (S04).
-  final TextStyle heroRole;
-
   /// Hero: who dies ("Dev dies.", S10).
   final TextStyle heroVerdict;
 
-  /// Hero: who won ("The Werewolf wins", S11).
+  /// Hero: who won ("The village wins", S11).
   final TextStyle heroWinner;
 
-  /// The biggest ordinary heading ("Cleo's card", the dead player's role).
+  /// The biggest ordinary heading (the dead player's role).
   final TextStyle display;
 
   /// A screen's title under a picture or band ("The village sleeps", "Who
@@ -76,14 +68,14 @@ class SkinType {
   /// A screen title at the top ("Tonight's deck"), a sheet's role name.
   final TextStyle headline;
 
-  /// A prompt; names in the vote; the role beside "Your turn".
+  /// Names in the vote.
   final TextStyle title;
 
   /// The number of votes at the end of a count row.
   final TextStyle tally;
 
   /// Short headings inside a screen ("My night"), pace values, names in the
-  /// count.
+  /// count, a role's name on a held face.
   final TextStyle heading;
 
   /// A player's name in a row.
@@ -109,47 +101,37 @@ class SkinType {
   /// The countdown in a screen's corner (S06).
   final TextStyle timerCompact;
 
-  /// A paragraph read with care (what a role does).
+  /// A paragraph read with care (what a role does, on the role sheet).
   final TextStyle bodyLarge;
 
-  /// The line under the app's name (S01).
+  /// The lines under the app's name (S01).
   final TextStyle lede;
 
-  /// Ordinary text.
+  /// Ordinary text: anything a player reads to act, a held face's lines.
   final TextStyle body;
 
-  /// Secondary button labels and links.
+  /// Secondary button labels, chips and links.
   final TextStyle action;
 
   /// A code typed or read letter by letter (the table code field, S01).
   final TextStyle code;
 
-  /// Meta lines, plain progress counts.
-  final TextStyle small;
+  /// The teach-once cue's one word, "Hold" (20, under the thumbprint).
+  final TextStyle cue;
 
-  /// Progress counts beside tokens, chips, pills.
-  final TextStyle smallStrong;
-
-  /// Hints and footnotes.
+  /// Captions under cards and tokens ("Left", "Now").
   final TextStyle caption;
 
-  /// Team tags; a unit beside a number ("s").
+  /// Team tags.
   final TextStyle tag;
 
-  /// Numbers in small count badges; role names under deck cards.
+  /// Numbers in count badges; role names under deck cards.
   final TextStyle badge;
-
-  /// Section labels, in capitals and tracked.
-  final TextStyle label;
-
-  /// The smallest capitals (pace field names).
-  final TextStyle micro;
 
   /// Every role by name, for the contract test and the type specimen.
   Map<String, TextStyle> get roles => {
     'heroTitle': heroTitle,
     'heroCode': heroCode,
-    'heroRole': heroRole,
     'heroVerdict': heroVerdict,
     'heroWinner': heroWinner,
     'display': display,
@@ -172,12 +154,9 @@ class SkinType {
     'body': body,
     'action': action,
     'code': code,
-    'small': small,
-    'smallStrong': smallStrong,
+    'cue': cue,
     'caption': caption,
     'tag': tag,
     'badge': badge,
-    'label': label,
-    'micro': micro,
   };
 }

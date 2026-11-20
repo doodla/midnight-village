@@ -110,7 +110,6 @@ class ArtSet {
     required this.tokenPixels,
     required this.scenePixels,
     required this.portraitFocus,
-    required this.heroPortraitFocus,
     this.sceneFocus = const {},
   });
 
@@ -125,18 +124,15 @@ class ArtSet {
   /// Each scene's size in pixels.
   final Map<Scene, Size> scenePixels;
 
-  /// Where a role portrait's face is, cropped to a card in a grid or row.
+  /// Where a role portrait's face is, wherever it is cropped.
   final Alignment portraitFocus;
-
-  /// Where it is in the one large portrait a screen is about (your card).
-  final Alignment heroPortraitFocus;
 
   final Map<Scene, Alignment> sceneFocus;
 
-  ArtImage role(RoleId role, {bool hero = false}) => ArtImage(
+  ArtImage role(RoleId role) => ArtImage(
     '$folder/roles/${role.name}.webp',
     pixels: rolePixels,
-    focus: hero ? heroPortraitFocus : portraitFocus,
+    focus: portraitFocus,
   );
 
   ArtImage token(TokenId token) =>

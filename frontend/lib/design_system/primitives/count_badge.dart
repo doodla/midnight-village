@@ -5,10 +5,10 @@ import '../skin/skin.dart';
 
 /// [CountBadge]'s two sizes.
 enum BadgeSize {
-  /// On a thumbnail ("×2", S02, S08): 20 tall, the badge type (12).
+  /// On a thumbnail (S02, S08): 20 tall.
   small(20),
 
-  /// On a card in the deck builder (S03): 24 tall, at 14 and lifted.
+  /// On a card in the deck builder (S03): 24 tall, lifted.
   large(24);
 
   const BadgeSize(this.size);
@@ -16,11 +16,12 @@ enum BadgeSize {
   final double size;
 }
 
-/// A small count on the corner of a card ("2", "×2").
+/// How many of a card are in the deck, as a digit on its corner ("2": the
+/// mocks' "×2" is cut, first-time play spec, copy rule 9).
 class CountBadge extends StatelessWidget {
-  const CountBadge(this.text, {super.key, this.size = BadgeSize.small});
+  const CountBadge(this.count, {super.key, this.size = BadgeSize.small});
 
-  final String text;
+  final int count;
   final BadgeSize size;
 
   @override
@@ -44,9 +45,11 @@ class CountBadge extends StatelessWidget {
         widthFactor: 1,
         heightFactor: 1,
         child: Text(
-          text,
-          style: (large ? skin.typography.smallStrong : skin.typography.badge)
-              .copyWith(color: ground.onMark, height: 1),
+          '$count',
+          style: skin.typography.badge.copyWith(
+            color: ground.onMark,
+            height: 1,
+          ),
         ),
       ),
     );

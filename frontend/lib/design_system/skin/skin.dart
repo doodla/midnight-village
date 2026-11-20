@@ -27,8 +27,6 @@ class Skin extends ThemeExtension<Skin> {
     required this.art,
     required this.scrim,
     required this.dimmed,
-    required this.waiting,
-    required this.recessed,
   });
 
   final Ground night;
@@ -46,14 +44,8 @@ class Skin extends ThemeExtension<Skin> {
   final Color scrim;
 
   /// Opacity of things that are present but switched off (a role not in the
-  /// deck).
+  /// deck, a dropped member's token, the vote rows once locked).
   final double dimmed;
-
-  /// Opacity of a player who has not done the thing being counted yet.
-  final double waiting;
-
-  /// Opacity of choices set back from the main ones (the center cards, S06).
-  final double recessed;
 
   Ground ground(GroundKind kind) => switch (kind) {
     GroundKind.night => night,
@@ -73,8 +65,6 @@ class Skin extends ThemeExtension<Skin> {
     ArtSet? art,
     Color? scrim,
     double? dimmed,
-    double? waiting,
-    double? recessed,
   }) => Skin(
     night: night ?? this.night,
     day: day ?? this.day,
@@ -86,8 +76,6 @@ class Skin extends ThemeExtension<Skin> {
     art: art ?? this.art,
     scrim: scrim ?? this.scrim,
     dimmed: dimmed ?? this.dimmed,
-    waiting: waiting ?? this.waiting,
-    recessed: recessed ?? this.recessed,
   );
 
   /// Skins are swapped whole, never blended: until a theme animation ends the

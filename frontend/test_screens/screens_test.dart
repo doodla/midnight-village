@@ -73,6 +73,7 @@ void main() {
             tester,
             entry.build!,
             width: _width,
+            playerScreen: entry.playerScreen,
           );
           results[entry.id] = saveScreen(
             entry,

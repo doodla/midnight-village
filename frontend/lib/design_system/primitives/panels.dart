@@ -5,10 +5,12 @@ import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
+import '../teach/hold_cue.dart';
 import 'art_picture.dart';
+import 'fit_line.dart';
 
 /// A box drawn as an outline on the ground, holding a summary that opens
-/// something (the deck at the table, S02: thumbnails, "8 cards", "Change").
+/// something (the deck strip at the table, S02: thumbnails and "Edit").
 /// With [onTap] it is a button.
 class OutlinePanel extends StatelessWidget {
   const OutlinePanel({
@@ -55,36 +57,8 @@ class OutlinePanel extends StatelessWidget {
   }
 }
 
-/// A quiet box set into the ground or the paper: a few lines of detail (what a
-/// role wins with, S03b), in the ground's panel colour.
-class InsetPanel extends StatelessWidget {
-  const InsetPanel({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final skin = context.skin;
-    final ground = context.ground;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.mdPlus,
-        vertical: Space.md,
-      ),
-      decoration: BoxDecoration(
-        color: ground.panel,
-        borderRadius: BorderRadius.circular(skin.shape.radius),
-      ),
-      child: DefaultTextStyle.merge(
-        style: skin.typography.small.copyWith(color: ground.quietText),
-        child: child,
-      ),
-    );
-  }
-}
-
-/// One of the table's pace settings (S03): a small label over its value,
-/// in an outline. With [onTap] it is a button.
+/// One of the table's pace settings (S03): its name over its value, in an
+/// outline. With [onTap] it is a button (it opens a stepper).
 class PaceTile extends StatelessWidget {
   const PaceTile({
     super.key,
@@ -115,7 +89,7 @@ class PaceTile extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: Space.smPlus,
-              vertical: 9,
+              vertical: Space.sm,
             ),
             decoration: BoxDecoration(
               borderRadius: radius,
@@ -128,20 +102,13 @@ class PaceTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: Space.hairline,
               children: [
-                Text(
-                  label.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.fade,
-                  softWrap: false,
-                  style: skin.typography.micro.copyWith(
+                FitLine(
+                  label,
+                  style: skin.typography.caption.copyWith(
                     color: ground.quietText,
                   ),
                 ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(value, style: skin.typography.heading),
-                ),
+                FitLine(value, style: skin.typography.heading),
               ],
             ),
           ),
@@ -152,13 +119,14 @@ class PaceTile extends StatelessWidget {
 }
 
 /// "My night" (S08): a strip of night laid on the day, with a small
-/// face-down card set into it at the skin's thumb tilt, a heading and a hint.
-/// It is the cover of a `HoldToReveal`; every player's is the same.
+/// face-down card set into it at the skin's thumb tilt, and its title. It is
+/// the cover of a `HoldToReveal`; every player's is the same. The card
+/// carries the `hold` cue ([teaching]).
 class PeekBox extends StatelessWidget {
-  const PeekBox({super.key, required this.title, required this.hint});
+  const PeekBox({super.key, required this.title, required this.teaching});
 
   final String title;
-  final String hint;
+  final bool teaching;
 
   @override
   Widget build(BuildContext context) {
@@ -181,28 +149,12 @@ class PeekBox extends StatelessWidget {
       ),
       child: GroundScope(
         ground: GroundKind.night,
-        child: Builder(
-          builder: (context) => Row(
-            spacing: Space.mdPlus,
-            children: [
-              const _PeekCard(),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 3,
-                  children: [
-                    Text(title, style: skin.typography.heading),
-                    Text(
-                      hint,
-                      style: skin.typography.small.copyWith(
-                        color: context.ground.quietText,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        child: Row(
+          spacing: Space.mdPlus,
+          children: [
+            _PeekCard(teaching: teaching),
+            Expanded(child: FitWords(title, style: skin.typography.heading)),
+          ],
         ),
       ),
     );
@@ -210,9 +162,11 @@ class PeekBox extends StatelessWidget {
 }
 
 /// The small card in the "My night" box: a card back ringed in the mark
-/// colour, tilted.
+/// colour, tilted, with the thumbprint on it.
 class _PeekCard extends StatelessWidget {
-  const _PeekCard();
+  const _PeekCard({required this.teaching});
+
+  final bool teaching;
 
   /// The mock's 50 x 68.
   static const size = Size(50, 68);
@@ -234,9 +188,18 @@ class _PeekCard extends StatelessWidget {
             strokeAlign: BorderSide.strokeAlignOutside,
           ),
         ),
-        child: ClipRRect(
-          borderRadius: radius,
-          child: ArtPicture(skin.art.cardBack),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRRect(
+              borderRadius: radius,
+              child: ArtPicture(skin.art.cardBack),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(Space.xxs),
+              child: HoldCue(teaching: teaching, size: size.width),
+            ),
+          ],
         ),
       ),
     );

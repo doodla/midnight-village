@@ -28,11 +28,10 @@ class Ground {
     required this.paperEdge,
     required this.accent,
     required this.onAccent,
+    this.accentEdge,
     required this.selection,
     required this.mark,
     required this.onMark,
-    required this.pick,
-    required this.onPick,
     required this.danger,
     required this.onDanger,
     required this.dangerText,
@@ -79,21 +78,24 @@ class Ground {
   /// The edge of a paper stack, seen below a slab.
   final Color paperEdge;
 
-  /// The single warm accent: the primary button.
+  /// The single warm accent (lantern amber): the fill of the one primary
+  /// button on a screen, and of nothing else (first-time play spec, copy
+  /// rule 10). The same on every ground.
   final Color accent;
   final Color onAccent;
 
-  /// The ring around, and the name of, the thing currently selected.
+  /// The line round the accent where it is too close to this ground to
+  /// stand off it (amber on dawn grey is 1.55:1); null where it stands off.
+  final Color? accentEdge;
+
+  /// The outline round the thing currently selected, which also lifts: bone
+  /// on night, ink on day and paper. Never the accent, and never a fill.
   final Color selection;
 
-  /// Counts and marks on cards (a role's count in the deck, the mark on the
-  /// card being looked at). The same on every ground in Shadow paper.
+  /// Counts on cards (a role's count in the deck) and the ring of the "My
+  /// night" card.
   final Color mark;
   final Color onMark;
-
-  /// The fill of "your pick" (the player you vote for).
-  final Color pick;
-  final Color onPick;
 
   /// Danger and the Werewolf team, as a fill.
   final Color danger;

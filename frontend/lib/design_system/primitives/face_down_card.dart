@@ -4,25 +4,24 @@ import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
+import '../teach/hold_cue.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
 import 'player_token.dart';
 
 /// [FaceDownCard]'s sizes in the mocks. A card is at most this wide and
-/// shrinks, keeping its shape, when its parent is narrower (four players'
+/// shrinks, keeping its shape, when its parent is narrower (five players'
 /// cards on a 320-wide phone).
 enum FaceDownSize {
-  /// A center card (S06): 62 x 84.
-  center(Size(62, 84)),
-
-  /// A player's card (S06): 78 x 106.
+  /// A card on the night board (S06): 78 x 106.
   player(Size(78, 106)),
 
-  /// A card dropped on the table to tap while waiting (S05): 84 x 112.
+  /// A card dropped on the table (S05): 84 x 112.
   scatter(Size(84, 112)),
 
-  /// The one card a screen is about, in a paper frame (S07): 270 x 362.
-  hero(Size(270, 362));
+  /// The one card a screen is about, in a paper frame (04, 07): as wide as a
+  /// phone's column (342 of 390) at most, 3 by 4.
+  hero(Size(342, 456));
 
   const FaceDownSize(this.mock);
 
@@ -31,10 +30,10 @@ enum FaceDownSize {
 
 /// A card lying face down: a player's (with their [owner] token and
 /// [ownerName] under it) or a center card (with its [caption], "Left").
-/// When [selected] it lifts, takes the selection ring and shows [mark] (what
-/// tapping it will do: look, swap). [recessed] sets it back (S06's center
-/// cards while a player's card is the likelier pick). [holdHint] puts the
-/// "hold to flip" disc on a hero card.
+/// When [selected] it lifts and takes the selection's outline (first-time
+/// play spec: a selection is lift plus an outline, never a fill). [hold]
+/// puts the thumbprint on it: null for none, else the `hold` cue, teaching
+/// or learned ([HoldCue]).
 class FaceDownCard extends StatelessWidget {
   const FaceDownCard({
     super.key,
@@ -43,9 +42,7 @@ class FaceDownCard extends StatelessWidget {
     this.ownerName,
     this.caption,
     this.selected = false,
-    this.recessed = false,
-    this.mark,
-    this.holdHint,
+    this.hold,
     this.tilt = Tilt.none,
     this.semanticLabel,
     this.onTap,
@@ -56,9 +53,7 @@ class FaceDownCard extends StatelessWidget {
   final String? ownerName;
   final String? caption;
   final bool selected;
-  final bool recessed;
-  final IconData? mark;
-  final String? holdHint;
+  final bool? hold;
   final Tilt tilt;
   final String? semanticLabel;
   final VoidCallback? onTap;
@@ -67,40 +62,29 @@ class FaceDownCard extends StatelessWidget {
   static const _shadowWidth = 78.0;
 
   @override
-  Widget build(BuildContext context) {
-    final skin = context.skin;
-    return Semantics(
-      label: semanticLabel,
-      button: onTap != null,
-      selected: selected,
-      excludeSemantics: semanticLabel != null,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedOpacity(
-          duration: Motion.quick,
-          opacity: recessed && !selected ? skin.recessed : 1,
-          child: AnimatedContainer(
-            duration: Motion.quick,
-            curve: Motion.curve,
-            transform: Matrix4.translationValues(
-              0,
-              selected ? -Space.sm : 0,
-              0,
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.hasBoundedWidth
-                    ? size.mock.width.clamp(0.0, constraints.maxWidth)
-                    : size.mock.width;
-                return _column(context, width);
-              },
-            ),
-          ),
+  Widget build(BuildContext context) => Semantics(
+    label: semanticLabel,
+    button: onTap != null,
+    selected: selected,
+    excludeSemantics: semanticLabel != null,
+    child: GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: Motion.quick,
+        curve: Motion.curve,
+        transform: Matrix4.translationValues(0, selected ? -Space.sm : 0, 0),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.hasBoundedWidth
+                ? size.mock.width.clamp(0.0, constraints.maxWidth)
+                : size.mock.width;
+            return _column(context, width);
+          },
         ),
       ),
-    );
-  }
+    ),
+  );
 
   Widget _column(BuildContext context, double width) {
     final skin = context.skin;
@@ -145,37 +129,27 @@ class FaceDownCard extends StatelessWidget {
           card,
         if (ownerName case final name?) ...[
           const SizedBox(height: Space.xxs),
-          SizedBox(
-            width: width,
-            child: Text(
-              name,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: skin.typography.nameSmall.copyWith(
-                color: selected ? ground.selection : ground.text,
-              ),
-            ),
-          ),
+          _under(name, skin.typography.nameSmall.copyWith(color: ground.text)),
         ],
         if (caption case final caption?) ...[
           const SizedBox(height: Space.xs),
-          SizedBox(
-            width: width,
-            child: Text(
-              caption,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: skin.typography.badge.copyWith(
-                color: selected ? ground.selection : ground.quietText,
-              ),
-            ),
+          _under(
+            caption,
+            skin.typography.caption.copyWith(color: ground.quietText),
           ),
         ],
       ],
     );
   }
+
+  /// A name or caption under the card, one line, cut short when long.
+  Widget _under(String text, TextStyle style) => Text(
+    text,
+    textAlign: TextAlign.center,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: style,
+  );
 
   /// The card back in its ring, lying on the table.
   Widget _back(BuildContext context, double width) {
@@ -185,57 +159,41 @@ class FaceDownCard extends StatelessWidget {
     final lift = selected
         ? ground.elevation.selected
         : ground.elevation.lying.scaled(width / _shadowWidth);
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Container(
-          decoration: cutPaper(
-            context,
-            fill: ground.ground,
-            radius: radius,
-            elevation: lift,
-          ),
-          foregroundDecoration: ringDecoration(
-            color: selected ? ground.selection : ground.hairline,
-            width: selected ? skin.shape.selectedRing : skin.shape.ring,
-            radius: radius,
-          ),
-          child: ClipRRect(
-            borderRadius: radius,
-            child: ArtPicture(skin.art.cardBack),
-          ),
-        ),
-        if (selected && mark != null)
-          // The mock's disc: 40 of the card's 78, its top 38 of 106 down.
-          Positioned(
-            left: 0,
-            right: 0,
-            top: width * 38 / 78,
-            child: Center(
-              child: Container(
-                width: width * 40 / 78,
-                height: width * 40 / 78,
-                decoration: BoxDecoration(
-                  color: ground.mark,
-                  shape: BoxShape.circle,
-                  boxShadow: ground.elevation.badge.boxShadows,
-                ),
-                child: Icon(mark, color: ground.onMark, size: width / 3),
+    return Container(
+      decoration: cutPaper(
+        context,
+        fill: ground.ground,
+        radius: radius,
+        elevation: lift,
+      ),
+      foregroundDecoration: ringDecoration(
+        color: selected ? ground.selection : ground.hairline,
+        width: selected ? skin.shape.selectedRing : skin.shape.ring,
+        radius: radius,
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ArtPicture(skin.art.cardBack),
+            if (hold case final teaching?)
+              Padding(
+                padding: const EdgeInsets.all(Space.xxs),
+                child: HoldCue(teaching: teaching, size: width * 0.45),
               ),
-            ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 
   /// The one card a screen is about: the back in a paper frame, lifted, with
-  /// the hold hint over it (S07).
+  /// the thumbprint on it (04, 07).
   Widget _hero(BuildContext context, double width) {
     final skin = context.skin;
     final ground = context.ground;
-    final night = skin.night;
     final scale = width / size.mock.width;
-    final disc = 132 * scale;
     return DecoratedBox(
       decoration: cutPaper(
         context,
@@ -252,47 +210,11 @@ class FaceDownCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
               child: ArtPicture(skin.art.cardBack),
             ),
-            if (holdHint case final hint?)
+            if (hold case final teaching?)
               Center(
-                child: Container(
-                  width: disc,
-                  height: disc,
-                  padding: const EdgeInsets.all(Space.sm),
-                  decoration: BoxDecoration(
-                    // The mock's veil: the night at 86%, so the back shows
-                    // through a little. It covers the back, never a secret.
-                    color: night.ground.withValues(alpha: 0.86),
-                    shape: BoxShape.circle,
-                  ),
-                  foregroundDecoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: night.selection,
-                      width: skin.shape.selectedRing,
-                      strokeAlign: BorderSide.strokeAlignOutside,
-                    ),
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: Space.xs,
-                      children: [
-                        Icon(
-                          Icons.touch_app_outlined,
-                          color: night.selection,
-                          size: 34,
-                        ),
-                        Text(
-                          hint,
-                          textAlign: TextAlign.center,
-                          style: skin.typography.action.copyWith(
-                            color: night.text,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: HoldCue(
+                  teaching: teaching,
+                  size: HoldCue.maxSize * scale,
                 ),
               ),
           ],

@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
+import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
@@ -55,16 +56,15 @@ Future<void> _pumpAt360(WidgetTester tester, Skin skin, Widget child) async {
 
 void main() {
   for (final MapEntry(key: name, value: skin) in skinsUnderTest.entries) {
-    testWidgets('$name: the deck grid keeps long names whole at 360', (
-      tester,
-    ) async {
+    testWidgets('$name: the deck grid keeps long names whole, at the caption '
+        'floor, at 360', (tester) async {
       await _pumpAt360(
         tester,
         skin,
         GridView.count(
-          crossAxisCount: 4,
+          crossAxisCount: 3,
           crossAxisSpacing: 12,
-          childAspectRatio: 0.6,
+          childAspectRatio: 0.66,
           children: [
             for (final role in _longest)
               RoleCard(role: role, lit: role == RoleId.troublemaker, count: 1),
@@ -81,40 +81,22 @@ void main() {
             matching: find.byType(RoleCard),
           ),
         );
+        // Set smaller to fit, but never under the 14 px caption floor.
+        final drawn = tester.getSize(find.text(role.displayName)).height;
+        final laidOut = tester
+            .renderObject<RenderParagraph>(find.text(role.displayName))
+            .size
+            .height;
+        final size = skin.typography.badge.fontSize! * drawn / laidOut;
+        expect(size, greaterThanOrEqualTo(14), reason: role.displayName);
       }
     });
 
-    testWidgets('$name: a large card half the screen wide keeps them whole', (
-      tester,
-    ) async {
-      await _pumpAt360(
-        tester,
-        skin,
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 12,
-          children: [
-            for (final role in _longest)
-              Expanded(
-                child: RoleCard(
-                  role: role,
-                  size: RoleCardSize.large,
-                  team: 'Village team',
-                ),
-              ),
-          ],
-        ),
-      );
-      expect(tester.takeException(), isNull);
+    testWidgets('$name: the role sheet keeps them whole', (tester) async {
       for (final role in _longest) {
-        _expectWhole(
-          tester,
-          role,
-          find.ancestor(
-            of: find.text(role.displayName),
-            matching: find.byType(RoleCard),
-          ),
-        );
+        await _pumpAt360(tester, skin, RoleSheetBody(role));
+        expect(tester.takeException(), isNull);
+        _expectWhole(tester, role, find.byType(RoleSheetBody));
       }
     });
   }

@@ -10,6 +10,7 @@ import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 
+import '../../helpers/painted_text.dart';
 import '../../helpers/pump_skinned.dart';
 
 // What every skin in the registry must give a screen, checked for each: its
@@ -45,8 +46,6 @@ List<Color> _colours(Ground g) => [
   g.selection,
   g.mark,
   g.onMark,
-  g.pick,
-  g.onPick,
   g.danger,
   g.onDanger,
   g.dangerText,
@@ -55,20 +54,21 @@ List<Color> _colours(Ground g) => [
   g.onDisabled,
 ];
 
-/// The brief's type scale (design brief section 4, "Type scale"), as a size
-/// range for each kind of text.
+/// The brief's type scale (design brief section 4, "Type scale", as the
+/// first-time play spec amends it: the reading floor), as a size range for
+/// each kind of text.
 enum _Kind {
   heading(26, 36),
   timer(64, 84),
   compactTimer(34, 34),
   count(28, 28),
-  body(15, 17),
-  label(12, 12),
-  // Names, buttons and small print.
-  inBetween(11, 24),
-  // One hero line per screen, sized as its mock (the largest is your card's
-  // role name, 58).
-  hero(37, 58);
+  body(16, 17),
+  // Names, buttons, the cue's word: read to act, 16 at least.
+  inBetween(16, 24),
+  // Captions under cards and tokens.
+  caption(14, 15),
+  // One hero line per screen, sized as its mock.
+  hero(37, 46);
 
   const _Kind(this.min, this.max);
 
@@ -81,7 +81,6 @@ enum _Kind {
 const _kinds = {
   'heroTitle': _Kind.hero,
   'heroCode': _Kind.hero,
-  'heroRole': _Kind.hero,
   'heroVerdict': _Kind.hero,
   'heroWinner': _Kind.hero,
   'display': _Kind.heading,
@@ -104,13 +103,10 @@ const _kinds = {
   'body': _Kind.body,
   'action': _Kind.body,
   'code': _Kind.body,
-  'small': _Kind.inBetween,
-  'smallStrong': _Kind.inBetween,
-  'caption': _Kind.inBetween,
-  'tag': _Kind.inBetween,
-  'badge': _Kind.inBetween,
-  'label': _Kind.label,
-  'micro': _Kind.inBetween,
+  'cue': _Kind.inBetween,
+  'caption': _Kind.caption,
+  'tag': _Kind.caption,
+  'badge': _Kind.caption,
 };
 
 Future<Size> _pixels(String path) async {
@@ -155,6 +151,36 @@ void main() {
           for (final colour in _colours(skin.ground(kind))) {
             expect(colour.a, 1, reason: '$kind $colour');
           }
+        }
+      });
+
+      test('one warm accent, the same on every ground, and no other role is '
+          'it; where it is too close to the ground it has an edge', () {
+        final accent = skin.night.accent;
+        for (final kind in GroundKind.values) {
+          final g = skin.ground(kind);
+          expect(g.accent, accent, reason: '$kind');
+          // Every role but the accent itself.
+          final others = _colours(g)..remove(g.accent);
+          expect(
+            others.where((c) => c == accent),
+            isEmpty,
+            reason: 'only the primary button is amber on $kind',
+          );
+          if (contrast(g.accent, g.ground) < 3) {
+            expect(g.accentEdge, isNotNull, reason: '$kind');
+            expect(contrast(g.accentEdge!, g.ground), greaterThan(3));
+          }
+        }
+      });
+
+      test('a selection is outlined in the ground\'s ink, never a fill '
+          'colour of the accent or danger', () {
+        for (final kind in GroundKind.values) {
+          final g = skin.ground(kind);
+          expect(g.selection, isNot(g.accent), reason: '$kind');
+          expect(g.selection, isNot(g.danger), reason: '$kind');
+          expect(contrast(g.selection, g.ground), greaterThan(4.5));
         }
       });
 
@@ -254,7 +280,7 @@ void main() {
           expect(angle.abs(), lessThanOrEqualTo(10 * math.pi / 180));
         }
         expect(tilt.scatter, isNotEmpty);
-        for (final opacity in [skin.dimmed, skin.waiting, skin.recessed]) {
+        for (final opacity in [skin.dimmed]) {
           expect(opacity, inExclusiveRange(0, 1));
         }
       });

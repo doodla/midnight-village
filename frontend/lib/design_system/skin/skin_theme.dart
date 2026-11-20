@@ -64,7 +64,7 @@ ThemeData _build(Skin skin, GroundKind kind) {
     headlineSmall: type.heading,
     titleLarge: type.name,
     titleMedium: type.action,
-    titleSmall: type.small,
+    titleSmall: type.body,
     bodyLarge: type.bodyLarge,
     bodyMedium: type.body,
     bodySmall: type.caption,
@@ -72,7 +72,7 @@ ThemeData _build(Skin skin, GroundKind kind) {
     // (filled) button sets its own, larger label below.
     labelLarge: type.action,
     labelMedium: type.tag,
-    labelSmall: type.label,
+    labelSmall: type.caption,
   ).apply(bodyColor: g.text, displayColor: g.text);
 
   final quiet = TextStyle(color: g.quietText);
@@ -143,8 +143,8 @@ ThemeData _build(Skin skin, GroundKind kind) {
       errorBorder: inputBorder(g.dangerLine),
       focusedErrorBorder: inputBorder(g.dangerLine),
       disabledBorder: inputBorder(g.hairline),
-      labelStyle: type.small.merge(quiet),
-      floatingLabelStyle: type.small.copyWith(color: g.selection),
+      labelStyle: type.body.merge(quiet),
+      floatingLabelStyle: type.caption.copyWith(color: g.selection),
       hintStyle: type.bodyLarge.merge(quiet),
       helperStyle: type.caption.merge(quiet),
       errorStyle: type.caption.copyWith(color: g.dangerText),

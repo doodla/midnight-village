@@ -3,50 +3,87 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../copy/copy.dart';
+import '../faces/face_content.dart';
+import '../faces/held_face.dart';
+import '../layout/space.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 
-/// Secret information behind press-and-hold (design brief section 3, rule 2):
-/// [cover] shows until the player presses and holds, [secret] while they
-/// hold, and the cover again the moment they let go.
+/// How the face came to be shown.
+enum _Shown { held, doubleTapped, activated }
+
+/// A secret behind press-and-hold (first-time play spec, section 2): [cover]
+/// shows until the player presses; [face] is drawn in the one held-face
+/// frame ([HeldFace]) above the touch point, never under the thumb.
 ///
-/// Holding is not possible for everyone, so a screen reader's activate, a
-/// switch or the keyboard (Enter, Space) toggles it instead. A toggled secret
-/// still hides by itself: when focus moves away from it, when another route
-/// covers its screen (a dialog's scrim never has the secret faintly behind
-/// it), when the app leaves the foreground, and after [toggleTimeout]. A
-/// held one hides on all but the timeout, and on letting go.
+/// - The face shows [holdDelay] after the press and hides on release; with a
+///   [cap] it hides after that even if still held (5 s on the night board,
+///   07 and 08; none on 04).
+/// - [onRevealed] fires once the face has been visible [revealedAfter]: a
+///   reveal counts then (it learns the `hold` cue and opens gates).
+/// - A double tap shows the face for [doubleTapShows]; any touch hides it.
+///   It counts as a reveal at once.
+/// - A screen reader's activate, a switch or the keyboard (Enter, Space)
+///   shows it for [activateShows] (with no [cap], until activated again),
+///   reads it aloud, and counts as a reveal at once. Until then the face is
+///   a button labelled "{target}, hidden. Activate to show."
+/// - Each new showing shows the face's next page.
 ///
-/// Nothing about the hidden state depends on the secret: the secret is built
+/// A face shown in any way still hides by itself when focus moves away from
+/// it, when another route covers its screen (a dialog's scrim never has the
+/// secret faintly behind it), and when the app leaves the foreground.
+///
+/// Nothing about the hidden state depends on the secret: the face is built
 /// only while shown (it is not in the tree, or read out, otherwise), and the
-/// widget is always the cover's size, the secret being fitted into it, so
-/// the space it takes says nothing about what is behind it. Show something
-/// whose art is precached (`precacheArt`), so revealing it takes the same
-/// time whatever it is and fetches nothing.
+/// widget is always the cover's size, the face drawn above it in the
+/// overlay at the frame's one fixed size. Its art is precached
+/// (`precacheArt`), so revealing it takes the same time whatever it is and
+/// fetches nothing.
 class HoldToReveal extends StatefulWidget {
   const HoldToReveal({
     super.key,
     required this.cover,
-    required this.secret,
-    required this.semanticLabel,
+    required this.face,
+    required this.target,
+    this.cap,
+    this.onRevealed,
     this.onRevealChanged,
   });
 
   final Widget cover;
-  final WidgetBuilder secret;
+  final FaceContent face;
 
-  /// What this is ("Your card"); the hint says how to reveal it.
-  final String semanticLabel;
+  /// What this is ("Your card", "You", "My night"): its spoken name.
+  final String target;
 
-  /// Told each time the secret is shown (true) or hidden (false).
+  /// The longest a face stays shown; null for no limit (04).
+  final Duration? cap;
+
+  /// Told each time a reveal counts.
+  final VoidCallback? onRevealed;
+
+  /// Told each time the face is shown (true) or hidden (false).
   final ValueChanged<bool>? onRevealChanged;
 
-  /// How long a press must last before it counts as a hold, so a scroll
-  /// that starts on the card does not flash it.
-  static const holdDelay = kPressTimeout;
+  /// How long a press lasts before the face shows: a shorter one is a tap
+  /// (on the night board, a pick).
+  static const holdDelay = Duration(milliseconds: 120);
 
-  /// How long a toggled secret stays shown.
-  static const toggleTimeout = Duration(seconds: 8);
+  /// How long a face must be visible for the reveal to count.
+  static const revealedAfter = Duration(milliseconds: 800);
+
+  /// The cap on the night board, 07 and 08.
+  static const nightCap = Duration(seconds: 5);
+
+  static const doubleTapShows = Duration(seconds: 2);
+  static const activateShows = Duration(seconds: 5);
+
+  /// Between the face's lower edge and the touch point.
+  static const gap = Space.lg;
+
+  /// Below the touch point, room for the thumb, when there is no room above.
+  static const thumb = 72.0;
 
   @override
   State<HoldToReveal> createState() => _HoldToRevealState();
@@ -54,12 +91,19 @@ class HoldToReveal extends StatefulWidget {
 
 class _HoldToRevealState extends State<HoldToReveal>
     with WidgetsBindingObserver {
-  var _revealed = false;
+  final _portal = OverlayPortalController();
+  _Shown? _shown;
 
-  /// Shown by a toggle (not a hold), so letting go of a pointer keeps it.
-  var _toggled = false;
+  /// Where the face is drawn above, in global coordinates.
+  var _anchor = Offset.zero;
+
+  /// How many times the face has been shown: which page is next.
+  var _showings = 0;
   var _focusHighlight = false;
-  Timer? _timeout;
+  Timer? _cap;
+  Timer? _counts;
+
+  bool get _visible => _shown != null;
 
   @override
   void initState() {
@@ -71,57 +115,118 @@ class _HoldToRevealState extends State<HoldToReveal>
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Another route over this one (a dialog, a sheet, the next screen).
-    if (ModalRoute.of(context)?.isCurrent == false && _revealed) {
+    if (ModalRoute.of(context)?.isCurrent == false && _visible) {
       _hideQuietly();
     }
   }
 
   @override
   void dispose() {
-    _timeout?.cancel();
+    _stopTimers();
+    _stopListeningForTouches();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) _set(false);
+    if (state != AppLifecycleState.resumed) _hide();
   }
 
-  void _set(bool revealed, {bool toggled = false}) {
-    _toggled = revealed && toggled;
-    _timeout?.cancel();
-    _timeout = _toggled ? Timer(HoldToReveal.toggleTimeout, _hide) : null;
-    if (revealed == _revealed) return;
-    setState(() => _revealed = revealed);
-    widget.onRevealChanged?.call(revealed);
+  bool get _covered => ModalRoute.of(context)?.isCurrent == false;
+
+  void _show(_Shown how, Offset anchor) {
+    if (_covered) return;
+    _stopTimers();
+    final limit = switch (how) {
+      _Shown.held => widget.cap,
+      _Shown.doubleTapped => HoldToReveal.doubleTapShows,
+      _Shown.activated =>
+        widget.cap == null ? null : HoldToReveal.activateShows,
+    };
+    if (limit != null) _cap = Timer(limit, _hide);
+    if (how == _Shown.held) {
+      _counts = Timer(
+        HoldToReveal.revealedAfter,
+        () => widget.onRevealed?.call(),
+      );
+    } else {
+      widget.onRevealed?.call();
+    }
+    if (how == _Shown.doubleTapped) _listenForTouches();
+    final wasVisible = _visible;
+    setState(() {
+      _shown = how;
+      _anchor = anchor;
+      _showings++;
+    });
+    _portal.show();
+    if (!wasVisible) widget.onRevealChanged?.call(true);
+  }
+
+  void _hide() {
+    if (!mounted || !_visible) return;
+    _stopTimers();
+    _stopListeningForTouches();
+    setState(() => _shown = null);
+    widget.onRevealChanged?.call(false);
   }
 
   /// Hides while this widget is being rebuilt, without calling setState.
   void _hideQuietly() {
-    _revealed = false;
-    _toggled = false;
-    _timeout?.cancel();
-    _timeout = null;
+    _stopTimers();
+    _stopListeningForTouches();
+    _shown = null;
     final changed = widget.onRevealChanged;
     if (changed != null) scheduleMicrotask(() => changed(false));
   }
 
-  void _hide() {
-    if (mounted) _set(false);
+  void _stopTimers() {
+    _cap?.cancel();
+    _counts?.cancel();
+    _cap = _counts = null;
   }
 
-  void _toggle() {
-    if (ModalRoute.of(context)?.isCurrent == false) return;
-    _set(!_revealed, toggled: true);
+  // A double-tapped face hides at any touch, anywhere.
+  var _listening = false;
+
+  void _listenForTouches() {
+    if (_listening) return;
+    _listening = true;
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_onAnyPointer);
+  }
+
+  void _stopListeningForTouches() {
+    if (!_listening) return;
+    _listening = false;
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(_onAnyPointer);
+  }
+
+  void _onAnyPointer(PointerEvent event) {
+    if (event is PointerDownEvent) _hide();
+  }
+
+  /// The middle of the cover, for a face shown with no touch.
+  Offset get _coverCentre {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return Offset.zero;
+    return box.localToGlobal(box.size.center(Offset.zero));
+  }
+
+  void _activate() {
+    if (_shown == _Shown.activated) {
+      _hide();
+    } else {
+      _show(_Shown.activated, _coverCentre);
+    }
   }
 
   void _release() {
-    if (!_toggled) _set(false);
+    if (_shown == _Shown.held) _hide();
   }
 
   void _lostFocus() {
-    if (_toggled) _set(false);
+    if (_shown == _Shown.activated) _hide();
   }
 
   @override
@@ -133,35 +238,13 @@ class _HoldToRevealState extends State<HoldToReveal>
     final focusWidth = skin?.shape.selectedRing ?? 3;
     final radius = BorderRadius.circular(skin?.shape.radius ?? 0);
 
-    final content = Stack(
-      children: [
-        // The cover always sets the size, shown or not.
-        Visibility(
-          visible: !_revealed,
-          maintainSize: true,
-          maintainAnimation: true,
-          maintainState: true,
-          child: widget.cover,
-        ),
-        if (_revealed)
-          Positioned.fill(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.topCenter,
-              child: Builder(builder: widget.secret),
-            ),
-          ),
-      ],
-    );
-
     return Semantics(
       container: true,
       button: true,
-      label: widget.semanticLabel,
-      hint: _revealed
-          ? 'Activate to hide'
-          : 'Press and hold, or activate, to show',
-      onTap: _toggle,
+      label: _visible
+          ? widget.target
+          : SpokenCopy.hidden.fill({'target': widget.target}),
+      onTap: _activate,
       onDidLoseAccessibilityFocus: _lostFocus,
       child: FocusableActionDetector(
         onShowFocusHighlight: (value) =>
@@ -171,48 +254,95 @@ class _HoldToRevealState extends State<HoldToReveal>
         },
         actions: {
           ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) => _toggle(),
+            onInvoke: (_) => _activate(),
           ),
         },
-        child: Container(
-          foregroundDecoration: _focusHighlight
-              ? BoxDecoration(
-                  borderRadius: radius,
-                  border: Border.all(
-                    color: focusColor,
-                    width: focusWidth,
-                    strokeAlign: BorderSide.strokeAlignOutside,
-                  ),
-                )
-              : null,
-          child: Listener(
-            onPointerUp: (_) => _release(),
-            onPointerCancel: (_) => _release(),
-            child: RawGestureDetector(
-              behavior: HitTestBehavior.opaque,
-              // Assistive technology toggles through the Semantics above.
-              excludeFromSemantics: true,
-              gestures: {
-                LongPressGestureRecognizer:
-                    GestureRecognizerFactoryWithHandlers<
-                      LongPressGestureRecognizer
-                    >(
-                      () => LongPressGestureRecognizer(
-                        duration: HoldToReveal.holdDelay,
-                      ),
-                      (recognizer) => recognizer
-                        ..onLongPressStart = ((_) {
-                          if (ModalRoute.of(context)?.isCurrent != false) {
-                            _set(true);
-                          }
-                        })
-                        ..onLongPressEnd = ((_) => _release())
-                        ..onLongPressCancel = _release,
+        child: OverlayPortal(
+          controller: _portal,
+          overlayChildBuilder: _face,
+          child: Container(
+            foregroundDecoration: _focusHighlight
+                ? BoxDecoration(
+                    borderRadius: radius,
+                    border: Border.all(
+                      color: focusColor,
+                      width: focusWidth,
+                      strokeAlign: BorderSide.strokeAlignOutside,
                     ),
-              },
-              child: content,
+                  )
+                : null,
+            child: Listener(
+              onPointerUp: (_) => _release(),
+              onPointerCancel: (_) => _release(),
+              child: RawGestureDetector(
+                behavior: HitTestBehavior.opaque,
+                // Assistive technology shows it through the Semantics above.
+                excludeFromSemantics: true,
+                gestures: {
+                  LongPressGestureRecognizer:
+                      GestureRecognizerFactoryWithHandlers<
+                        LongPressGestureRecognizer
+                      >(
+                        () => LongPressGestureRecognizer(
+                          duration: HoldToReveal.holdDelay,
+                        ),
+                        (recognizer) => recognizer
+                          ..onLongPressStart = ((details) =>
+                              _show(_Shown.held, details.globalPosition))
+                          ..onLongPressEnd = ((_) => _release())
+                          ..onLongPressCancel = _release,
+                      ),
+                  DoubleTapGestureRecognizer:
+                      GestureRecognizerFactoryWithHandlers<
+                        DoubleTapGestureRecognizer
+                      >(
+                        DoubleTapGestureRecognizer.new,
+                        (recognizer) => recognizer
+                          ..onDoubleTapDown = ((details) =>
+                              _anchor = details.globalPosition)
+                          ..onDoubleTap = () =>
+                              _show(_Shown.doubleTapped, _anchor),
+                      ),
+                },
+                // Hidden information: the cover sets the size, shown or not.
+                child: widget.cover,
+              ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  /// The face, in the overlay, above the touch point (below it, clear of
+  /// the thumb, when there is no room above).
+  Widget _face(BuildContext context) {
+    // The portal stays open once used; while hidden it holds nothing.
+    if (!_visible) return const SizedBox.shrink();
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final screen = overlay.size;
+    final size = HeldFace.sizeFor(screen.width);
+    final touch = overlay.globalToLocal(_anchor);
+    final top = MediaQuery.paddingOf(context).top + Space.sm;
+    final above = touch.dy - HoldToReveal.gap - size.height;
+    final y = above >= top
+        ? above
+        : (touch.dy + HoldToReveal.thumb).clamp(
+            top,
+            screen.height - size.height,
+          );
+    final x = (touch.dx - size.width / 2).clamp(
+      Space.gutter,
+      screen.width - Space.gutter - size.width,
+    );
+    return Positioned(
+      left: x,
+      top: y,
+      child: IgnorePointer(
+        child: HeldFace(
+          content: widget.face,
+          page: _showings - 1,
+          announce: _shown == _Shown.activated,
         ),
       ),
     );

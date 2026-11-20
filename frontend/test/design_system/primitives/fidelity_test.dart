@@ -142,15 +142,15 @@ void main() {
     });
   });
 
-  testWidgets('a waiting player\'s token is faded to 0.35 in the idle ring', (
+  testWidgets('a dropped member\'s token is dimmed to 0.4 in the idle ring', (
     tester,
   ) async {
     await _pump(
       tester,
-      const PlayerToken(TokenId.crow, size: TokenSize.pip, waiting: true),
+      const PlayerToken(TokenId.crow, away: true),
       ground: GroundKind.day,
     );
-    expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 0.35);
+    expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 0.4);
     final ring =
         tester
                 .widget<Container>(
@@ -216,37 +216,40 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the picked card\'s mark is a 40 disc, its top 38 down', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        const Center(
-          child: FaceDownCard(selected: true, mark: Icons.visibility),
-        ),
-      );
-      final disc = tester.getRect(
-        find.descendant(
-          of: find.byType(FaceDownCard),
-          matching: find.byType(Icon),
-        ),
-      );
-      final card = tester.getRect(find.byType(FaceDownCard));
-      expect(disc.height, 40); // the icon fills its disc
-      // 38 + 20 down the card, which is lifted 8 while picked.
-      expect(disc.center.dy - card.top, closeTo(38 + 20 - Space.sm, 0.5));
+    testWidgets('a picked card lifts 8 and takes the selection\'s outline; '
+        'it shows nothing of what a pick will do', (tester) async {
+      Future<(Offset, BoxDecoration)> card({required bool selected}) async {
+        await _pump(tester, Center(child: FaceDownCard(selected: selected)));
+        await tester.pumpAndSettle();
+        final back = tester
+            .widgetList<Container>(
+              find.descendant(
+                of: find.byType(FaceDownCard),
+                matching: find.byType(Container),
+              ),
+            )
+            .firstWhere((c) => c.foregroundDecoration is BoxDecoration);
+        return (
+          tester.getTopLeft(find.byType(ClipRRect).first),
+          back.foregroundDecoration! as BoxDecoration,
+        );
+      }
+
+      final (restAt, rest) = await card(selected: false);
+      final (pickedAt, picked) = await card(selected: true);
+      expect(restAt.dy - pickedAt.dy, Space.sm);
+      expect((picked.border! as Border).top.color, _skin.night.selection);
+      expect((rest.border! as Border).top.color, _skin.night.hairline);
+      expect(find.byType(Icon), findsNothing);
     });
   });
 
-  testWidgets('thumbnails keep their mock sizes: 30x40, 44x58, 50x68', (
-    tester,
-  ) async {
+  testWidgets('thumbnails keep their mock sizes: 30x40, 50x68', (tester) async {
     await _pump(
       tester,
       const Wrap(
         children: [
           RoleCard(role: RoleId.seer, size: RoleCardSize.thumbSmall),
-          RoleCard(role: RoleId.seer, size: RoleCardSize.thumb),
           RoleCard(role: RoleId.seer, size: RoleCardSize.mini),
         ],
       ),
@@ -255,27 +258,27 @@ void main() {
       tester
           .widgetList(find.byType(RoleCard))
           .map((card) => tester.getSize(find.byWidget(card))),
-      [const Size(30, 40), const Size(44, 58), const Size(50, 68)],
+      [const Size(30, 40), const Size(50, 68)],
     );
   });
 
-  testWidgets('a deck card\'s count is 24 tall, set at 14', (tester) async {
+  testWidgets('a deck card\'s count is 24 tall, set at the 14 caption floor', (
+    tester,
+  ) async {
     await _pump(
       tester,
-      const Center(child: CountBadge('2', size: BadgeSize.large)),
+      const Center(child: CountBadge(2, size: BadgeSize.large)),
     );
     expect(tester.getSize(find.byType(CountBadge)).height, 24);
     expect(tester.widget<Text>(find.text('2')).style!.fontSize, 14);
   });
 
-  testWidgets('the candle panel: padding 10/22/10/10, two-line caption', (
+  testWidgets('the candle panel: padding 10/22/10/10, the number alone', (
     tester,
   ) async {
     await _pump(
       tester,
-      const Center(
-        child: WorldTimer.candle(secondsLeft: 19, caption: 'seconds\nof night'),
-      ),
+      const Center(child: WorldTimer.candle(secondsLeft: 19)),
     );
     final panel = tester.widget<Container>(
       find
@@ -286,41 +289,32 @@ void main() {
           .first,
     );
     expect(panel.padding, const EdgeInsets.fromLTRB(10, 10, 22, 10));
-    expect(find.text('SECONDS\nOF NIGHT'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(WorldTimer), matching: find.byType(Text)),
+      findsOneWidget,
+      reason: 'the digits stand alone',
+    );
   });
 
-  testWidgets('the corner timer: 34 with its unit at 13 bold, 10 from the '
-      'candle', (tester) async {
+  testWidgets('the corner timer: the number at 34, 10 from the candle, alone', (
+    tester,
+  ) async {
     await _pump(
       tester,
       const Align(child: WorldTimer.candleCompact(secondsLeft: 14)),
     );
-    final text = tester.widget<RichText>(
-      find.descendant(
-        of: find.byType(WorldTimer),
-        matching: find.byType(RichText),
-      ),
-    );
-    final span = (text.text as TextSpan).children!.first as TextSpan;
-    expect(span.style!.fontSize, 34);
-    expect((span.children!.last as TextSpan).style!.fontSize, 13);
+    expect(tester.widget<Text>(find.text('14')).style!.fontSize, 34);
     expect(
-      (span.children!.last as TextSpan).style!.fontWeight,
-      FontWeight.w700,
+      find.descendant(of: find.byType(WorldTimer), matching: find.byType(Text)),
+      findsOneWidget,
     );
   });
 
-  testWidgets('pills and preset chips: 36 and 44 tall', (tester) async {
+  testWidgets('preset chips are 44 tall', (tester) async {
     await _pump(
       tester,
-      Column(
-        children: [
-          const Pill('Night one', lifted: true),
-          PresetChip(label: 'Classic', selected: false, onTap: () {}),
-        ],
-      ),
+      PresetChip(label: 'Classic', selected: false, onTap: () {}),
     );
-    expect(tester.getSize(find.byType(Pill)).height, 36);
     expect(tester.getSize(find.byType(PresetChip)).height, 44);
   });
 
@@ -335,11 +329,7 @@ void main() {
         theme: skinTheme(_skin),
         home: ScreenFrame(
           ground: GroundKind.day,
-          topSlot: const TimerBand.bar(
-            secondsLeft: 18,
-            remaining: 0.3,
-            caption: 'seconds to choose',
-          ),
+          topSlot: const TimerBand.bar(secondsLeft: 18, remaining: 0.3),
           body: const Text('Who dies today?'),
         ),
       ),

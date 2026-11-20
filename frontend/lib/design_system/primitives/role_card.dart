@@ -10,38 +10,32 @@ import 'art_picture.dart';
 import 'count_badge.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
-import 'paper_card.dart';
-import 'tag_chip.dart';
 
-/// [RoleCard]'s sizes. The three thumbnails are at most their mock size and
+/// [RoleCard]'s sizes. The thumbnails are at most their mock size and
 /// shrink, keeping their shape, when their parent is narrower.
 enum RoleCardSize {
-  /// In the deck link at the table (S02): 30 x 40.
+  /// In the deck strip at the table (S02): 30 x 40.
   thumbSmall(Size(30, 40)),
 
-  /// Beside "Your turn" (S06): 44 x 58.
-  thumb(Size(44, 58)),
-
-  /// In the deck row of the talk (S08): 50 x 68.
+  /// In the deck strip of the talk (S08): 50 x 68.
   mini(Size(50, 68)),
 
   /// A card in the deck builder's grid, named underneath; as wide as its
   /// parent allows.
-  small(null),
-
-  /// The card itself: portrait, name, team and what it does.
-  large(null);
+  small(null);
 
   const RoleCardSize(this.thumbnail);
 
-  /// A thumbnail's mock size; null for the cards that fill their parent.
+  /// A thumbnail's mock size; null for the card that fills its parent.
   final Size? thumbnail;
 }
 
-/// A role as a picture. [count] is how many are in the deck (shown when it
-/// says something: above 1 on a thumbnail, above 0 on a small card). A small
-/// card that is not [lit] is in the box, not the deck: dimmed. The name is
-/// never broken: a long name ("Doppelganger") is set smaller instead.
+/// A role as a picture, in the deck. [count] is how many are in it (shown
+/// when it says something: above 1).
+/// A small card that is not [lit] is in the box, not the deck: dimmed; a lit
+/// one takes the selection's outline. The name is never broken: a long name
+/// ("Doppelganger") is set smaller instead. Holding one opens the role sheet
+/// ([onLongPress]; its words are the role text, `RoleSheetBody`).
 class RoleCard extends StatelessWidget {
   const RoleCard({
     super.key,
@@ -49,10 +43,6 @@ class RoleCard extends StatelessWidget {
     this.size = RoleCardSize.small,
     this.count = 0,
     this.lit = true,
-    this.team,
-    this.description,
-    this.semanticLabel,
-    this.tilt = Tilt.card,
     this.onTap,
     this.onLongPress,
   });
@@ -61,86 +51,49 @@ class RoleCard extends StatelessWidget {
   final RoleCardSize size;
   final int count;
   final bool lit;
-
-  /// The large card's team tag ("Village team"); a Werewolf-team role's tag
-  /// is drawn as danger.
-  final String? team;
-
-  /// The large card's text: what the role does.
-  final String? description;
-
-  /// Read out instead of the role's name.
-  final String? semanticLabel;
-
-  /// The large card's tilt.
-  final Tilt tilt;
-
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
-
-  /// The large card's portrait in the mock (S04: a 310-wide card). The art
-  /// for it is precached at this size (`secretArt`).
-  static const largePortrait = Size(286, 318);
-
-  /// The large card's width in the mock; it is never wider.
-  static const largeWidth = 310.0;
 
   /// Width over height of a portrait in the grid (the mocks' 76.5 x 100).
   static const _gridAspect = 0.765;
 
   @override
-  Widget build(BuildContext context) {
-    final card = switch (size) {
-      RoleCardSize.thumbSmall ||
-      RoleCardSize.thumb ||
-      RoleCardSize.mini => _thumbnail(context, size.thumbnail!),
-      RoleCardSize.small => _small(context),
-      RoleCardSize.large => _large(context),
-    };
-    return Semantics(
-      label: semanticLabel ?? role.displayName,
-      button: onTap != null,
-      selected: size == RoleCardSize.small && onTap != null ? lit : null,
-      excludeSemantics: true,
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        behavior: HitTestBehavior.opaque,
-        child: card,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Semantics(
+    label: role.displayName,
+    button: onTap != null,
+    selected: size == RoleCardSize.small && onTap != null ? lit : null,
+    excludeSemantics: true,
+    child: GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      behavior: HitTestBehavior.opaque,
+      child: switch (size.thumbnail) {
+        final thumbnail? => _thumbnail(context, thumbnail),
+        null => _small(context),
+      },
+    ),
+  );
 
   Widget _portrait(
     BuildContext context, {
     required double radius,
-    Color? ringColor,
-    double ringWidth = 0,
-    Color? insetRing,
-    bool dim = false,
-    bool hero = false,
+    required Color ringColor,
+    required double ringWidth,
   }) {
     final skin = context.skin;
     final corners = BorderRadius.circular(radius);
     return AnimatedOpacity(
       duration: Motion.quick,
-      opacity: dim ? skin.dimmed : 1,
+      opacity: lit ? 1 : skin.dimmed,
       child: Container(
-        foregroundDecoration: ringColor != null
-            ? ringDecoration(
-                color: ringColor,
-                width: ringWidth,
-                radius: corners,
-              )
-            : insetRing != null
-            ? BoxDecoration(
-                borderRadius: corners,
-                border: Border.all(color: insetRing, width: skin.shape.ring),
-              )
-            : null,
+        foregroundDecoration: ringDecoration(
+          color: ringColor,
+          width: ringWidth,
+          radius: corners,
+        ),
         child: ClipRRect(
           borderRadius: corners,
-          child: ArtPicture(skin.art.role(role, hero: hero)),
+          child: ArtPicture(skin.art.role(role)),
         ),
       ),
     );
@@ -165,13 +118,12 @@ class RoleCard extends StatelessWidget {
                 radius: skin.shape.radiusSmall,
                 ringColor: context.ground.text,
                 ringWidth: skin.shape.ring,
-                dim: !lit,
               ),
               if (count > 1)
                 Positioned(
                   right: -Space.xs,
                   top: -Space.xs,
-                  child: CountBadge('×$count'),
+                  child: CountBadge(count),
                 ),
             ],
           ),
@@ -194,13 +146,12 @@ class RoleCard extends StatelessWidget {
             radius: skin.shape.radius,
             ringColor: lit ? ground.selection : ground.hairline,
             ringWidth: lit ? skin.shape.selectedRing : skin.shape.ring,
-            dim: !lit,
           ),
-          if (lit && count > 0)
+          if (lit && count > 1)
             Positioned(
               right: -5,
               top: -7,
-              child: CountBadge('$count', size: BadgeSize.large),
+              child: CountBadge(count, size: BadgeSize.large),
             ),
         ],
       ),
@@ -222,64 +173,6 @@ class RoleCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _large(BuildContext context) {
-    final skin = context.skin;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: largeWidth),
-      child: PaperCard(
-        lift: PaperLift.heroSlab,
-        tilt: tilt,
-        padding: const EdgeInsets.fromLTRB(
-          Space.md,
-          Space.md,
-          Space.md,
-          Space.lgPlus + 2,
-        ),
-        child: Builder(
-          builder: (context) => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            spacing: Space.md,
-            children: [
-              AspectRatio(
-                aspectRatio: largePortrait.aspectRatio,
-                child: _portrait(
-                  context,
-                  radius: skin.shape.radiusTiny,
-                  // The mock's faint inset line round the picture.
-                  insetRing: context.ground.text.withValues(alpha: 0.12),
-                  hero: true,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Space.sm),
-                // The tag goes under the name when both do not fit on a line.
-                child: Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: Space.sm,
-                  runSpacing: Space.sm,
-                  children: [
-                    FitLine(role.displayName, style: skin.typography.heroRole),
-                    if (team case final team?)
-                      role.team == TeamId.werewolf
-                          ? TagChip.danger(team)
-                          : TagChip(team),
-                  ],
-                ),
-              ),
-              if (description case final description?)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: Space.sm),
-                  child: Text(description, style: skin.typography.bodyLarge),
-                ),
-            ],
-          ),
-        ),
       ),
     );
   }

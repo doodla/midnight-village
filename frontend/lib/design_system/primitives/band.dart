@@ -117,20 +117,20 @@ class _ArchedFootPainter extends CustomPainter {
 /// A day phase's countdown, edge to edge at the top of the screen (put it in
 /// `ScreenFrame.topSlot`). It shows what it is given and stops at 0.
 ///
-/// - [TimerBand.sun]: the talk (S08): the sky over the rooftops with the sun
-///   [elapsed] of the way along its arc, fading into the day, then the large
-///   number and its caption.
-/// - [TimerBand.bar]: the vote (S09): a strip of night with the number and
-///   caption, and a bar along its foot, [remaining] of it lit in the danger
-///   line.
+/// - [TimerBand.sun]: the talk (S08): the sky over the rooftops with the pale
+///   sun [elapsed] of the way along its arc, fading into the day, then the
+///   large number.
+/// - [TimerBand.bar]: the vote (S09): a strip of night with the number, and
+///   a bar along its foot, [remaining] of it lit in the danger line.
 ///
-/// The number is set smaller rather than pushed off a narrow phone.
+/// The digits stand alone: the mocks' captions ("left to talk", "seconds to
+/// choose") are cut (first-time play spec, copy rule 9). The number is set
+/// smaller rather than pushed off a narrow phone.
 class TimerBand extends StatelessWidget {
   const TimerBand.sun({
     super.key,
     required this.secondsLeft,
     required this.elapsed,
-    required this.caption,
     this.semanticLabel,
   }) : _sun = true,
        remaining = 0;
@@ -139,13 +139,11 @@ class TimerBand extends StatelessWidget {
     super.key,
     required this.secondsLeft,
     required this.remaining,
-    required this.caption,
     this.semanticLabel,
   }) : _sun = false,
        elapsed = 0;
 
   final int secondsLeft;
-  final String caption;
 
   /// The sun: how far through the phase it is, 0 to 1.
   final double elapsed;
@@ -153,7 +151,7 @@ class TimerBand extends StatelessWidget {
   /// The bar: how much of the phase is left, 0 to 1.
   final double remaining;
 
-  /// Read out instead of the number and caption.
+  /// Read out instead of the number.
   final String? semanticLabel;
   final bool _sun;
 
@@ -167,39 +165,17 @@ class TimerBand extends StatelessWidget {
   Widget build(BuildContext context) {
     final number = WorldTimer.format(secondsLeft);
     return Semantics(
-      label: semanticLabel ?? '$number $caption',
+      label: semanticLabel ?? number,
       excludeSemantics: true,
       child: _sun ? _sky(context, number) : _bar(context, number),
     );
   }
 
-  Widget _numberRow(BuildContext context, String number, TextStyle style) {
-    final skin = context.skin;
-    final ground = context.ground;
-    // The number keeps its size up to 60% of the row, then shrinks; the
-    // caption has the rest.
-    return LayoutBuilder(
-      builder: (context, constraints) => Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        spacing: Space.md,
-        children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.6),
-            child: FitLine(number, style: style),
-          ),
-          Expanded(
-            child: FitWords(
-              caption.toUpperCase(),
-              style: skin.typography.label.copyWith(
-                color: _sun ? ground.quietText : ground.text,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  /// The number at the start of its row, set smaller rather than overrun.
+  Widget _number(String number, TextStyle style) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: FitLine(number, style: style),
+  );
 
   Widget _sky(BuildContext context, String number) {
     final skin = context.skin;
@@ -223,7 +199,8 @@ class TimerBand extends StatelessWidget {
                 child: CustomPaint(
                   painter: _SunPainter(
                     elapsed: elapsed.clamp(0, 1),
-                    sun: ground.mark,
+                    // The pale sun: bone, never amber (copy rule 10).
+                    sun: skin.night.text,
                     line: ground.text,
                     lineWidth: skin.shape.ring,
                     outlineWidth: skin.shape.selectedRing,
@@ -248,7 +225,7 @@ class TimerBand extends StatelessWidget {
           offset: const Offset(0, -Space.sm),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
-            child: _numberRow(context, number, skin.typography.timer),
+            child: _number(number, skin.typography.timer),
           ),
         ),
       ],
@@ -275,7 +252,7 @@ class TimerBand extends StatelessWidget {
                 Space.gutter,
                 0,
               ),
-              child: _numberRow(context, number, skin.typography.timerVote),
+              child: _number(number, skin.typography.timerVote),
             ),
             SizedBox(
               height: barHeight,

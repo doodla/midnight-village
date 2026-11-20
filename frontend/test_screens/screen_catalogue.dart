@@ -1,19 +1,26 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:midnight_village/design_system/skin/ground.dart';
+
 import '../test/helpers/component_sheet.dart';
 import 'screen_fixtures.dart';
 
 /// One screen, or one state of a screen, in the gallery.
 class ScreenEntry {
   /// A screen the app has: [build] puts the app into that state.
-  const ScreenEntry(this.id, {required this.mock, required this.build})
-    : notBuilt = null;
+  const ScreenEntry(
+    this.id, {
+    required this.mock,
+    required this.build,
+    this.playerScreen = false,
+  }) : notBuilt = null;
 
   /// A screen the mocks have and the app does not yet: listed so the summary
   /// shows the gap.
   const ScreenEntry.notBuilt(this.id, {required this.mock, required String why})
     : notBuilt = why,
-      build = null;
+      build = null,
+      playerScreen = false;
 
   /// File name stem of the PNG, e.g. `02-table`; states add a suffix.
   final String id;
@@ -25,6 +32,11 @@ class ScreenEntry {
 
   /// For a screen the app lacks: what is missing.
   final String? notBuilt;
+
+  /// A screen built to the first-time play spec, which the gallery holds to
+  /// the reading floor (reading_floor.dart). The app's screens in the old
+  /// look are not, until they are rebuilt.
+  final bool playerScreen;
 }
 
 /// Every screen and state, in the order of the design brief's table, then the
@@ -105,15 +117,21 @@ final screenCatalogue = <ScreenEntry>[
   ...componentSheet,
 ];
 
-/// The component sheet (test/helpers/component_sheet.dart): each mock
-/// rebuilt from the primitives, next to its mock, and each state page on every
-/// ground: `c-<page>-<ground>`.
+/// The component sheet (test/helpers/component_sheet.dart): each screen
+/// rebuilt from the primitives to the spec, next to its mock, and each state
+/// page on every ground: `c-<page>-<ground>`. Its screen pages are player
+/// screens.
 final componentSheet = [
   for (final page in ComponentPage.values)
     for (final ground in page.grounds)
       ScreenEntry(
-        'c-${page.name}-${ground.name}',
+        sheetId(page, ground),
         mock: page.mock,
         build: (tester) => pumpComponentPage(tester, page, ground),
+        playerScreen: page.playerScreen,
       ),
 ];
+
+/// A component sheet page's catalogue id.
+String sheetId(ComponentPage page, GroundKind ground) =>
+    'c-${page.name}-${ground.name}';

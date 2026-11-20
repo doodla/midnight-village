@@ -1,13 +1,12 @@
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
-import '../skin/art_set.dart';
 import '../skin/skin.dart';
-import 'player_token.dart';
 
-/// "3 of 5 ready" as a row of slots and the words. Plain pips count (S04);
-/// token pips ([ProgressPips.tokens]) show who (S07, S08, S09). In a skin
-/// whose pips stretch, plain pips share the row's width as bars.
+/// "3 of 5" as a row of plain pips and the words. Plain on purpose: no token,
+/// no name, so progress never says who is slow (first-time play spec, copy
+/// rule 8). In a skin whose pips stretch, they share the row's width as
+/// bars.
 class ProgressPips extends StatelessWidget {
   const ProgressPips({
     super.key,
@@ -15,53 +14,31 @@ class ProgressPips extends StatelessWidget {
     required this.total,
     required this.label,
     this.centred = false,
-  }) : tokens = const [],
-       doneTokens = const {},
-       tokenSize = TokenSize.pip;
+  });
 
-  /// One token per player, those in [done] at full strength.
-  const ProgressPips.tokens({
-    super.key,
-    required this.tokens,
-    required Set<TokenId> done,
-    required this.label,
-    this.tokenSize = TokenSize.pip,
-    this.centred = false,
-  }) : doneTokens = done,
-       done = 0,
-       total = 0;
-
-  /// Plain pips: how many of [total] are filled.
+  /// How many of [total] are filled.
   final int done;
   final int total;
 
-  /// The words after the pips ("3 of 5 ready"), also what is read out.
+  /// The words after the pips ("3 of 5 ready", `TalkCopy.progress`), also
+  /// what is read out.
   final String label;
 
-  final List<TokenId> tokens;
-  final Set<TokenId> doneTokens;
-
-  /// [TokenSize.waiting] at night (S07), [TokenSize.pip] by day (S08, S09).
-  final TokenSize tokenSize;
-
-  /// Centred under a centred screen (S04, S07); otherwise from the start.
+  /// Centred under a centred screen (S04); otherwise from the start.
   final bool centred;
 
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
-    final ground = context.ground;
-    final plain = tokens.isEmpty;
     final words = Padding(
       padding: const EdgeInsetsDirectional.only(start: Space.xs),
       child: Text(
         label,
-        style: (plain ? skin.typography.small : skin.typography.smallStrong)
-            .copyWith(color: ground.quietText),
+        style: skin.typography.body.copyWith(color: context.ground.quietText),
       ),
     );
     final Widget row;
-    if (plain && skin.shape.pipStretch) {
+    if (skin.shape.pipStretch) {
       row = Row(
         spacing: Space.sm,
         children: [
@@ -78,15 +55,7 @@ class ProgressPips extends StatelessWidget {
         spacing: Space.sm,
         runSpacing: Space.sm,
         children: [
-          if (plain)
-            for (var i = 0; i < total; i++) _Pip(filled: i < done)
-          else
-            for (final token in tokens)
-              PlayerToken(
-                token,
-                size: tokenSize,
-                waiting: !doneTokens.contains(token),
-              ),
+          for (var i = 0; i < total; i++) _Pip(filled: i < done),
           words,
         ],
       );

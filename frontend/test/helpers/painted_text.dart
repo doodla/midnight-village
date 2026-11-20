@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/faces/held_face.dart';
 
 /// One run of text as it was painted: its colour (with the opacity of
 /// everything above it, laid over what is behind it), the colour actually
@@ -72,6 +73,14 @@ Future<List<PaintedText>> readPaintedText(WidgetTester tester) async {
     return result;
   }))!;
 
+  // A held face is drawn over the screen: the text under it is not seen.
+  final faces = [
+    for (final face in find.byType(HeldFace).evaluate())
+      MatrixUtils.transformRect(
+        face.renderObject!.getTransformTo(null),
+        Offset.zero & (face.renderObject! as RenderBox).size,
+      ),
+  ];
   final readings = <PaintedText>[];
   for (final element in find.byType(RichText).evaluate()) {
     final paragraph = element.renderObject;
@@ -84,6 +93,7 @@ Future<List<PaintedText>> readPaintedText(WidgetTester tester) async {
       Offset.zero & paragraph.size,
     );
     if (_behindScrim(element)) continue;
+    if (!_within<HeldFace>(element) && faces.any(rect.overlaps)) continue;
     final disabled = _disabled(element);
     final scale = paragraph.textScaler.scale(1);
     for (final run in _runs(paragraph.text, null)) {
@@ -171,13 +181,16 @@ class BehindScrim extends StatelessWidget {
   Widget build(BuildContext context) => child;
 }
 
-bool _behindScrim(Element element) {
-  var behind = false;
+bool _behindScrim(Element element) => _within<BehindScrim>(element);
+
+/// Whether [element] is inside a widget of type [T].
+bool _within<T extends Widget>(Element element) {
+  var inside = false;
   element.visitAncestorElements((ancestor) {
-    behind = ancestor.widget is BehindScrim;
-    return !behind;
+    inside = ancestor.widget is T;
+    return !inside;
   });
-  return behind;
+  return inside;
 }
 
 bool _disabled(Element element) {

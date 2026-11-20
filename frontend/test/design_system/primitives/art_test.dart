@@ -5,13 +5,14 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/faces/face_content.dart';
+import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/art_picture.dart';
 import 'package:midnight_village/design_system/primitives/art_precache.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/player_token.dart';
-import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
@@ -64,8 +65,8 @@ void main() {
       // 576 x 768: a 44-wide thumbnail at 3x needs 135 pixels: a quarter.
       expect(portrait.decodeWidth(const Size(44, 58), 3), 144);
       expect(portrait.decodeWidth(const Size(50, 68), 3), 288);
-      // Your card at 2x needs more than the picture has: all of it.
-      expect(portrait.decodeWidth(RoleCard.largePortrait, 2), 576);
+      // A held face's tall portrait slot at 2x needs the whole picture.
+      expect(portrait.decodeWidth(HeldFace.portraitBox, 2), 576);
       // Never smaller than a quarter, never larger than the picture.
       expect(portrait.decodeWidth(const Size(4, 5), 1), 144);
       expect(portrait.decodeWidth(Size.infinite, 1), 576);
@@ -113,13 +114,9 @@ void main() {
               child: SizedBox(
                 width: FaceDownSize.hero.mock.width,
                 child: HoldToReveal(
-                  semanticLabel: 'Your card',
+                  target: 'Your card',
                   cover: const FaceDownCard(size: FaceDownSize.hero),
-                  secret: (_) => const RoleCard(
-                    role: RoleId.seer,
-                    size: RoleCardSize.large,
-                    team: 'Village team',
-                  ),
+                  face: FaceContent.roleText(RoleId.seer),
                 ),
               ),
             ),
@@ -134,15 +131,15 @@ void main() {
     await tester.pump(HoldToReveal.holdDelay * 2);
     await tester.pump();
 
-    expect(find.byType(RoleCard), findsOneWidget);
+    expect(find.byType(HeldFace), findsOneWidget);
     expect(bundle.asked, isEmpty, reason: 'nothing fetched at reveal time');
     final drawn = tester.widget<RawImage>(
       find.descendant(
-        of: find.byType(RoleCard),
+        of: find.byType(HeldFace),
         matching: find.byType(RawImage),
       ),
     );
-    expect(drawn.image, isNotNull, reason: 'the card is never empty');
+    expect(drawn.image, isNotNull, reason: 'the face is never empty');
   });
 
   test('the card back ships at a phone size', () async {

@@ -5,41 +5,35 @@ import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
-import 'fit_line.dart';
 
 /// The night's countdown, told by a candle, with the number beside it. It
 /// shows what it is given and stops at 0; the server says when the phase
 /// actually ends. (The day's timers run edge to edge: `TimerBand`.)
 ///
-/// - [WorldTimer.candle]: in its own panel (S05), the caption beside it in two
-///   lines ("seconds\nof night").
-/// - [WorldTimer.candleCompact]: a small candle and the number with its unit,
-///   for a screen's corner (S06).
+/// - [WorldTimer.candle]: in its own panel (S05).
+/// - [WorldTimer.candleCompact]: a small candle and the number, for a
+///   screen's corner (S06).
 ///
-/// On a narrow phone or with large text the candle and the number shrink
-/// rather than push the panel past the screen.
+/// The digits stand alone: the mocks' "seconds of night" and unit are cut
+/// (first-time play spec, copy rule 9). On a narrow phone or with large text
+/// the candle and the number shrink rather than push the panel past the
+/// screen.
 class WorldTimer extends StatelessWidget {
   const WorldTimer.candle({
     super.key,
     required this.secondsLeft,
-    required this.caption,
     this.semanticLabel,
   }) : _compact = false;
 
   const WorldTimer.candleCompact({
     super.key,
     required this.secondsLeft,
-    this.caption = 's',
     this.semanticLabel,
   }) : _compact = true;
 
   final int secondsLeft;
 
-  /// The words beside the number: a label in the panel, the unit when
-  /// compact.
-  final String caption;
-
-  /// Read out instead of the number and caption.
+  /// Read out instead of the number.
   final String? semanticLabel;
 
   final bool _compact;
@@ -59,22 +53,19 @@ class WorldTimer extends StatelessWidget {
   Widget build(BuildContext context) {
     final number = format(secondsLeft);
     return Semantics(
-      label: semanticLabel ?? '$number ${caption.replaceAll('\n', ' ')}',
+      label: semanticLabel ?? number,
       excludeSemantics: true,
       // In a row that gives it unbounded width (a header beside a title) it
       // takes its mock size; given a width, its parts shrink to fit it.
       child: LayoutBuilder(
-        builder: (context, constraints) {
-          final bounded = constraints.hasBoundedWidth;
-          return _compact
-              ? _corner(context, number, bounded)
-              : _panel(context, number, bounded);
-        },
+        builder: (context, constraints) => _compact
+            ? _corner(context, number, constraints.hasBoundedWidth)
+            : _panel(context, number),
       ),
     );
   }
 
-  Widget _panel(BuildContext context, String number, bool bounded) {
+  Widget _panel(BuildContext context, String number) {
     final skin = context.skin;
     final ground = context.ground;
     final radius = BorderRadius.circular(skin.shape.radius);
@@ -103,14 +94,6 @@ class WorldTimer extends StatelessWidget {
               child: Text(number, style: skin.typography.timerSmall),
             ),
           ),
-          _flex(
-            bounded,
-            3,
-            FitWords(
-              caption.toUpperCase(),
-              style: skin.typography.label.copyWith(color: ground.quietText),
-            ),
-          ),
         ],
       ),
     );
@@ -118,7 +101,6 @@ class WorldTimer extends StatelessWidget {
 
   Widget _corner(BuildContext context, String number, bool bounded) {
     final skin = context.skin;
-    final ground = context.ground;
     return Row(
       mainAxisSize: MainAxisSize.min,
       spacing: Space.smPlus,
@@ -126,28 +108,14 @@ class WorldTimer extends StatelessWidget {
         _flex(
           bounded,
           1,
-          _Candle(size: compactCandleSize, ring: ground.hairline),
+          _Candle(size: compactCandleSize, ring: context.ground.hairline),
         ),
         _flex(
           bounded,
           2,
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text.rich(
-              TextSpan(
-                text: number,
-                style: skin.typography.timerCompact,
-                children: [
-                  const WidgetSpan(child: SizedBox(width: 3)),
-                  TextSpan(
-                    text: caption,
-                    style: skin.typography.tag.copyWith(
-                      color: ground.quietText,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: Text(number, style: skin.typography.timerCompact),
           ),
         ),
       ],

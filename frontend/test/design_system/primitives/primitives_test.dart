@@ -40,6 +40,56 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
+    testWidgets('a locked gate keeps its label and, tapped, asks for its cue '
+        'instead of acting', (tester) async {
+      var cue = 0;
+      await pumpSkinned(
+        tester,
+        PrimaryButton.locked(label: 'Ready', onLockedTap: () => cue++),
+      );
+      await tester.tap(find.text('Ready'));
+      expect(cue, 1);
+      expect(
+        tester.getSemantics(find.byType(PrimaryButton)),
+        containsSemantics(label: 'Ready', isEnabled: false),
+      );
+    });
+
+    testWidgets('only a ready button is filled: amber, with an ink edge by '
+        'day; every other phase is an outline', (tester) async {
+      final skin = skinsUnderTest.values.first;
+      Future<BoxDecoration> drawn(Widget button, GroundKind ground) async {
+        await pumpSkinned(tester, button, ground: ground);
+        return tester
+                .widget<AnimatedContainer>(find.byType(AnimatedContainer))
+                .decoration!
+            as BoxDecoration;
+      }
+
+      final night = await drawn(
+        PrimaryButton(label: 'Deal to 5', onPressed: () {}),
+        GroundKind.night,
+      );
+      expect(night.color, skin.night.accent);
+      expect(night.border, isNull);
+      final day = await drawn(
+        PrimaryButton(label: 'Lock in Cleo', onPressed: () {}),
+        GroundKind.day,
+      );
+      expect(day.color, skin.day.accent);
+      expect((day.border! as Border).top.color, skin.day.accentEdge);
+      for (final quiet in [
+        const PrimaryButton(label: 'Pick a name', onPressed: null),
+        PrimaryButton.locked(label: 'Ready', onLockedTap: () {}),
+        const PrimaryButton.done(label: 'Chosen'),
+        PrimaryButton.quiet(label: 'Ready to vote', onPressed: () {}),
+      ]) {
+        final outline = await drawn(quiet, GroundKind.day);
+        expect(outline.color, isNull, reason: quiet.label);
+        expect(outline.border, isNotNull, reason: quiet.label);
+      }
+    });
+
     testWidgets('it goes down while pressed and comes back up', (tester) async {
       await pumpSkinned(
         tester,
@@ -158,13 +208,17 @@ void main() {
       expect(WorldTimer.format(-3), '0');
     });
 
-    testWidgets('reads out as one phrase', (tester) async {
+    testWidgets('reads out its number, or what the screen says instead', (
+      tester,
+    ) async {
       final semantics = tester.ensureSemantics();
+      await pumpSkinned(tester, const WorldTimer.candle(secondsLeft: 19));
+      expect(find.bySemanticsLabel('19'), findsOneWidget);
       await pumpSkinned(
         tester,
-        const WorldTimer.candle(secondsLeft: 19, caption: 'seconds of night'),
+        const WorldTimer.candle(secondsLeft: 19, semanticLabel: '19 left'),
       );
-      expect(find.bySemanticsLabel('19 seconds of night'), findsOneWidget);
+      expect(find.bySemanticsLabel('19 left'), findsOneWidget);
       semantics.dispose();
     });
   });

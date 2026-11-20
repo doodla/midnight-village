@@ -49,11 +49,9 @@ const _night = Ground(
   paperEdge: _paperEdge,
   accent: _amber,
   onAccent: _indigo,
-  selection: _amber,
-  mark: _amber,
+  selection: _bone,
+  mark: _bone,
   onMark: _indigo,
-  pick: _blood,
-  onPick: _bone,
   danger: _blood,
   onDanger: _bone,
   dangerText: _bloodText,
@@ -68,10 +66,11 @@ const _night = Ground(
       HardShadow(Offset(0, 5), _paperEdge),
       HardShadow(Offset(0, 10), _deepShadow),
     ]),
+    // The mock's amber layer is left out: amber is the primary button's
+    // alone (first-time play spec, copy rule 10).
     heroSlab: Elevation([
       HardShadow(Offset(0, 5), _paperEdge),
-      HardShadow(Offset(0, 11), _amber),
-      HardShadow(Offset(0, 17), _deepShadow),
+      HardShadow(Offset(0, 11), _deepShadow),
     ]),
     primary: Elevation([HardShadow(Offset(5, 5), _darkBlood)]),
     // A picked card at night lifts off the table (S06).
@@ -94,13 +93,14 @@ const _day = Ground(
   shadow: _dayShadow,
   paper: _bone,
   paperEdge: _paperEdge,
-  accent: _indigo,
-  onAccent: _bone,
-  selection: _blood,
-  mark: _amber,
-  onMark: _indigo,
-  pick: _blood,
-  onPick: _bone,
+  // Amber by day too (the mocks' ink button read as another kind of
+  // button), with an ink edge to stand off the grey.
+  accent: _amber,
+  onAccent: _indigo,
+  accentEdge: _indigo,
+  selection: _indigo,
+  mark: _indigo,
+  onMark: _bone,
   danger: _blood,
   onDanger: _bone,
   dangerText: _blood,
@@ -138,13 +138,12 @@ const _paper = Ground(
   shadow: _paperEdge,
   paper: _boneInset,
   paperEdge: _paperEdge,
-  accent: _indigo,
-  onAccent: _bone,
-  selection: _blood,
-  mark: _amber,
-  onMark: _indigo,
-  pick: _blood,
-  onPick: _bone,
+  accent: _amber,
+  onAccent: _indigo,
+  accentEdge: _indigo,
+  selection: _indigo,
+  mark: _indigo,
+  onMark: _bone,
   danger: _blood,
   onDanger: _bone,
   dangerText: _blood,
@@ -193,7 +192,6 @@ TextStyle _figtree(
 final _type = SkinType(
   heroTitle: _gloock(46, height: 1, em: -0.02), // S01
   heroCode: _gloock(46, height: 1, em: 0.08), // S02
-  heroRole: _gloock(58, height: 0.9, em: -0.02), // S04
   heroVerdict: _gloock(44, height: 0.95, em: -0.01), // S10
   heroWinner: _gloock(40, height: 0.95, em: -0.01), // S11 (the picture)
   display: _gloock(36, height: 0.95, em: -0.01), // S07, S10
@@ -213,16 +211,15 @@ final _type = SkinType(
   timerCompact: _gloock(34, height: 1), // S06
   bodyLarge: _figtree(17, FontWeight.w500, height: 1.35),
   lede: _figtree(16, FontWeight.w500, height: 1.3), // S01
-  body: _figtree(15, FontWeight.w600, height: 1.35),
-  action: _figtree(15, FontWeight.w700, height: 1.2),
+  // The reading floor (first-time play spec, copy rule 7): 16 for what a
+  // player reads to act (the mocks' 15), 14 for captions (their 12 and 13).
+  body: _figtree(16, FontWeight.w600, height: 1.35),
+  action: _figtree(16, FontWeight.w700, height: 1.2),
   code: _figtree(17, FontWeight.w700, height: 1.2, em: 0.12), // S01
-  small: _figtree(14, FontWeight.w600, height: 1.35),
-  smallStrong: _figtree(14, FontWeight.w700, height: 1.35),
-  caption: _figtree(13, FontWeight.w600, height: 1.3),
-  tag: _figtree(13, FontWeight.w700, height: 1.2),
-  badge: _figtree(12, FontWeight.w700, height: 1.2),
-  label: _figtree(12, FontWeight.w700, height: 1.4, em: 0.14),
-  micro: _figtree(11, FontWeight.w700, height: 1.2, em: 0.1),
+  cue: _figtree(20, FontWeight.w700, height: 1.2),
+  caption: _figtree(14, FontWeight.w600, height: 1.3),
+  tag: _figtree(14, FontWeight.w700, height: 1.2),
+  badge: _figtree(14, FontWeight.w700, height: 1.2),
 );
 
 const shadowPaperArt = ArtSet(
@@ -239,9 +236,8 @@ const shadowPaperArt = ArtSet(
     Scene.dawnRooftops: Size(768, 1024),
     Scene.dawnGallows: Size(1024, 768),
   },
-  // `object-position: 50% 15%` throughout the mocks; 50% 12% on your card.
+  // `object-position: 50% 15%` throughout the mocks.
   portraitFocus: Alignment(0, -0.7),
-  heroPortraitFocus: Alignment(0, -0.76),
   sceneFocus: {
     Scene.candle: Alignment(0, 0.24), // 50% 62%
     Scene.table: Alignment(0, 0.1), // 50% 55%
@@ -288,6 +284,4 @@ final shadowPaper = Skin(
   art: shadowPaperArt,
   scrim: _deepShadow.withValues(alpha: 0.72),
   dimmed: 0.4, // S03
-  waiting: 0.35, // S05, S07, S08, S09
-  recessed: 0.75, // S06's center cards
 );
