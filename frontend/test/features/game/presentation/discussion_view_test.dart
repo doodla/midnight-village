@@ -1,10 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/game/game_timer.dart';
 import 'package:midnight_village/design_system/components/game/role_token_list.dart';
-import 'package:midnight_village/features/game/domain/night_state.dart';
 import 'package:midnight_village/features/game/presentation/discussion_view.dart';
 
 import '../../../design_system/test_helpers/pump_with_tokens.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/game_state_factory.dart';
 
 void main() {
   group('DiscussionView', () {
@@ -27,10 +28,9 @@ void main() {
       await tester.pumpWithTokens(
         DiscussionView(
           deadline: null,
-          rolesInGame: const [
-            RoleInGame(role: 'werewolf', count: 2),
-            RoleInGame(role: 'seer', count: 1),
-          ],
+          rolesInGame: FromSample.game(
+            GameMeJsonBuilder().inPhase('discussion').build(),
+          ).rolesInGame,
           isHost: false,
           onEndDiscussion: () {},
         ),

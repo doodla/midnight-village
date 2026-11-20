@@ -1,6 +1,7 @@
 import 'package:midnight_village/core/host/host_change.dart';
 import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
+import 'package:midnight_village/features/game/domain/voting_state.dart';
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 
 import 'contract_shape.dart';
@@ -37,6 +38,13 @@ abstract final class FromSample {
   static ActionResult result(Map<String, dynamic> result) {
     checkSocketEvent({'type': 'action_result', ...result});
     return actionResultFromServer(result);
+  }
+
+  /// A `vote_reveal` event (`GameEvents.voteReveal`, a map or its JSON).
+  static VoteRevealData voteReveal(Object event) {
+    checkSocketEvent(event);
+    final decoded = ContractShape.plain(event) as Map;
+    return VoteRevealData.fromEvent(decoded.cast<String, dynamic>());
   }
 
   /// A `host_changed` event (`GameEvents.hostChanged`, a map or its JSON).

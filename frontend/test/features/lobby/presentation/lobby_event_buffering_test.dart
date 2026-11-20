@@ -10,14 +10,13 @@ import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/contract/from_sample.dart';
 import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
 class _MockLobbyService extends Mock implements LobbyService {}
-
-class _MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
 
 const _code = 'ABC123';
 const _names = ['Ana', 'Ben', 'Cleo'];
@@ -47,7 +46,7 @@ void main() {
         lobbyServiceProvider.overrideWithValue(service),
         lobbyWebSocketFactoryProvider.overrideWithValue((code) => ws),
         authenticatedClientProvider.overrideWithValue(
-          _MockAuthenticatedClient(),
+          AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
         ),
       ],
     );

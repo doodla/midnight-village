@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
+import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/contract/from_sample.dart';
 import '../../../helpers/contract/server_json.dart';
 import '../../../design_system/test_helpers/midnight_village_theme.dart';
@@ -22,8 +23,6 @@ import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
 class _MockLobbyService extends Mock implements LobbyService {}
-
-class _MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
 
 const _code = 'ABC123';
 
@@ -98,7 +97,7 @@ Future<_Table> _pumpLobby(
           AuthState.authenticated(User(id: userId, displayName: 'Me')),
         ),
         authenticatedClientProvider.overrideWithValue(
-          _MockAuthenticatedClient(),
+          AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
         ),
         lobbyServiceProvider.overrideWithValue(service),
         lobbyWebSocketFactoryProvider.overrideWithValue((code) {
@@ -229,7 +228,7 @@ void main() {
               (code) => MockWebSocketChannel(),
             ),
             authenticatedClientProvider.overrideWithValue(
-              _MockAuthenticatedClient(),
+              AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
             ),
           ],
         );

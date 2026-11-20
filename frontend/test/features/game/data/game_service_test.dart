@@ -32,16 +32,6 @@ void main() {
       expect(state.players.length, 3);
       expect(state.yourRole.originalRole, 'Seer');
     });
-
-    test('throws MalformedResponseException on null body', () async {
-      final (:service, :http) = _createService();
-      http.answer('GET', '/onuw/games/abc123/me/', null, offContract: true);
-
-      expect(
-        () => service.getGameState('abc123'),
-        throwsA(isA<MalformedResponseException>()),
-      );
-    });
   });
 
   group('GameService.submitAction', () {
@@ -145,21 +135,6 @@ void main() {
 
       final results = await service.fetchResults('abc123');
       expect(results['winning_teams'], ['village']);
-    });
-
-    test('throws MalformedResponseException on null body', () async {
-      final (:service, :http) = _createService();
-      http.answer(
-        'GET',
-        '/onuw/games/abc123/results/',
-        null,
-        offContract: true,
-      );
-
-      expect(
-        () => service.fetchResults('abc123'),
-        throwsA(isA<MalformedResponseException>()),
-      );
     });
   });
 

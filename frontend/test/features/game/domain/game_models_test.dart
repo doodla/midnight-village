@@ -7,77 +7,54 @@ import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/contract/server_json.dart';
 
 void main() {
+  /// The recorded `/me/` sample [name].
+  Map<String, dynamic> me(String name) =>
+      ContractSamples.map('http/game/$name');
+  Map<String, dynamic> first(Map<String, dynamic> body, String key) =>
+      ((body[key] as List).first as Map).cast<String, dynamic>();
+
   group('GamePlayer', () {
-    test('fromJson parses snake_case fields', () {
-      final json = {'player_id': 1, 'display_name': 'Alice', 'has_voted': true};
+    test('reads a player as the vote lists them (with has_voted)', () {
+      final json = first(me('me_voting_voted'), 'players');
       final player = GamePlayer.fromJson(json);
-      expect(player.playerId, 1);
-      expect(player.displayName, 'Alice');
-      expect(player.hasVoted, true);
+      expect(player.playerId, json['player_id']);
+      expect(player.displayName, json['display_name']);
+      expect(player.hasVoted, json['has_voted']);
     });
 
-    test('fromJson defaults hasVoted to false when missing', () {
-      final json = {'player_id': 2, 'display_name': 'Bob'};
-      final player = GamePlayer.fromJson(json);
-      expect(player.hasVoted, false);
-    });
-
-    test('toJson produces snake_case keys', () {
-      const player = GamePlayer(
-        playerId: 1,
-        displayName: 'Alice',
-        hasVoted: true,
-      );
-      final json = player.toJson();
-      expect(json['player_id'], 1);
-      expect(json['display_name'], 'Alice');
-      expect(json['has_voted'], true);
+    test('outside the vote the server sends no has_voted: not voted', () {
+      final json = first(me('me_discussion'), 'players');
+      expect(json.containsKey('has_voted'), isFalse);
+      expect(GamePlayer.fromJson(json).hasVoted, isFalse);
     });
 
     test('roundtrip serialization preserves all fields', () {
-      const original = GamePlayer(
-        playerId: 5,
-        displayName: 'Charlie',
-        hasVoted: false,
-      );
-      final json = original.toJson();
-      final restored = GamePlayer.fromJson(json);
-      expect(restored, original);
+      final original = GamePlayer.fromJson(first(me('me_voting'), 'players'));
+      expect(GamePlayer.fromJson(original.toJson()), original);
     });
   });
 
   group('YourRole', () {
-    test('fromJson parses snake_case fields', () {
-      final json = {
-        'original_role': 'seer',
-        'has_acted': false,
-        'current_role': null,
-      };
+    test('during play the card held now is not sent', () {
+      final json = (me('me_night_prompt_seer')['your_role'] as Map)
+          .cast<String, dynamic>();
       final role = YourRole.fromJson(json);
-      expect(role.originalRole, 'seer');
-      expect(role.hasActed, false);
+      expect(role.originalRole, json['original_role']);
+      expect(role.hasActed, json['has_acted']);
       expect(role.currentRole, isNull);
     });
 
-    test('fromJson parses current_role in results phase', () {
-      final json = {
-        'original_role': 'seer',
-        'has_acted': true,
-        'current_role': 'robber',
-      };
-      final role = YourRole.fromJson(json);
-      expect(role.currentRole, 'robber');
+    test('in the results the card held at the end is sent', () {
+      final json = (me('me_results')['your_role'] as Map)
+          .cast<String, dynamic>();
+      expect(YourRole.fromJson(json).currentRole, json['current_role']);
     });
 
     test('roundtrip serialization preserves all fields', () {
-      const original = YourRole(
-        originalRole: 'werewolf',
-        hasActed: true,
-        currentRole: 'villager',
+      final original = YourRole.fromJson(
+        (me('me_results')['your_role'] as Map).cast<String, dynamic>(),
       );
-      final json = original.toJson();
-      final restored = YourRole.fromJson(json);
-      expect(restored, original);
+      expect(YourRole.fromJson(original.toJson()), original);
     });
   });
 
@@ -196,18 +173,18 @@ void main() {
   });
 
   group('RoleInGame', () {
-    test('fromJson parses correctly', () {
-      final json = {'role': 'werewolf', 'count': 2};
+    test('reads the deck as /me/ lists it', () {
+      final json = first(me('me_discussion'), 'roles_in_game');
       final rig = RoleInGame.fromJson(json);
-      expect(rig.role, 'werewolf');
-      expect(rig.count, 2);
+      expect(rig.role, json['role']);
+      expect(rig.count, json['count']);
     });
 
     test('roundtrip serialization preserves all fields', () {
-      const original = RoleInGame(role: 'seer', count: 1);
-      final json = original.toJson();
-      final restored = RoleInGame.fromJson(json);
-      expect(restored, original);
+      final original = RoleInGame.fromJson(
+        first(me('me_discussion'), 'roles_in_game'),
+      );
+      expect(RoleInGame.fromJson(original.toJson()), original);
     });
   });
 

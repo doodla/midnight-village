@@ -5,7 +5,41 @@ import 'package:midnight_village/core/debug/debug_table_controller.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../helpers/contract/contract_samples.dart';
+import '../../helpers/contract/contract_shape.dart';
+import '../../helpers/contract/server_json.dart';
+import '../../helpers/game_state_factory.dart';
+
 class _MockDebugApiClient extends Mock implements DebugApiClient {}
+
+/// What the server answers to [method] [path] with [status]: [body], checked
+/// against the recorded samples like every mocked body (the debug client is
+/// mocked here, so its answers do not pass through `MockHttpClient`).
+Map<String, dynamic> _answer(
+  String method,
+  String path,
+  int status,
+  Map<String, dynamic> body,
+) {
+  checkHttpBody(method, path, status, body);
+  return body;
+}
+
+/// The lobby body for table [code] before a deck is chosen, or with one.
+Map<String, dynamic> _table(String code, {bool deck = false}) =>
+    serverLobby(code: code, deck: deck);
+
+/// `POST .../vote/`: the vote was taken.
+Map<String, dynamic> _voted() => _answer(
+  'POST',
+  '/onuw/games/g1/vote/',
+  200,
+  ContractSamples.map('http/game/vote_submitted'),
+);
+
+/// `POST .../start/`: the dealt game [gameId].
+Map<String, dynamic> _started(String gameId) =>
+    withValues(ContractSamples.map('http/game/started'), {'game_id': gameId});
 
 void main() {
   // These run WITHOUT a backend: the §D2 client is mocked. They verify the
@@ -44,11 +78,20 @@ void main() {
       final data = invocation.namedArguments[#data] as Map<String, dynamic>;
       final name = data['display_name'] as String;
       final id = nameToId[name]!;
-      return {
-        'access': 'access-$id',
-        'refresh': 'refresh-$id',
-        'user': {'id': id, 'display_name': name},
-      };
+      final created = ContractSamples.map('http/auth/guest_created');
+      return _answer(
+        'POST',
+        '/auth/guest/',
+        201,
+        withValues(created, {
+          'access': 'access-$id',
+          'refresh': 'refresh-$id',
+          'user': withValues((created['user'] as Map).cast(), {
+            'id': id,
+            'display_name': name,
+          }),
+        }),
+      );
     });
   }
 
@@ -64,33 +107,55 @@ void main() {
             token: any(named: 'token'),
             data: any(named: 'data'),
           ),
-        ).thenAnswer((_) async => {'code': 'ABCD'});
+        ).thenAnswer(
+          (_) async => _answer('POST', '/lobbies/', 201, _table('ABCD')),
+        );
         when(
           () => client.post(
             any(that: contains('/join/')),
             token: any(named: 'token'),
           ),
-        ).thenAnswer((_) async => const {});
+        ).thenAnswer(
+          (_) async =>
+              _answer('POST', '/lobbies/ABCD/join/', 200, _table('ABCD')),
+        );
         when(
           () => client.post(
             any(that: contains('/ready/')),
             token: any(named: 'token'),
           ),
-        ).thenAnswer((_) async => const {});
+        ).thenAnswer(
+          (_) async =>
+              _answer('POST', '/lobbies/ABCD/ready/', 200, _table('ABCD')),
+        );
         when(
           () => client.patch(
             '/lobbies/ABCD/',
             token: any(named: 'token'),
             data: any(named: 'data'),
           ),
-        ).thenAnswer((_) async => const {});
+        ).thenAnswer(
+          (_) async => _answer(
+            'PATCH',
+            '/lobbies/ABCD/',
+            200,
+            _table('ABCD', deck: true),
+          ),
+        );
         when(
           () => client.post(
             '/onuw/lobbies/ABCD/start/',
             token: any(named: 'token'),
             data: any(named: 'data'),
           ),
-        ).thenAnswer((_) async => {'game_id': 'game-1', 'phase': 'night'});
+        ).thenAnswer(
+          (_) async => _answer(
+            'POST',
+            '/onuw/lobbies/ABCD/start/',
+            201,
+            _started('game-1'),
+          ),
+        );
 
         final table = await controller.createTable(
           playerNames: ['Alice', 'Bob', 'Carol'],
@@ -209,7 +274,14 @@ void main() {
       );
       when(
         () => client.get('/onuw/games/g-pv/me/', token: 'access-2'),
-      ).thenAnswer((_) async => {'phase': 'night', 'action_prompt': null});
+      ).thenAnswer(
+        (_) async => _answer(
+          'GET',
+          '/onuw/games/g-pv/me/',
+          200,
+          GameMeJsonBuilder().withGameId('g-pv').build(),
+        ),
+      );
 
       final view = await controller.playerView(table.playerById(2));
 
@@ -267,7 +339,14 @@ void main() {
             data: any(named: 'data'),
             idempotent409: any(named: 'idempotent409'),
           ),
-        ).thenAnswer((_) async => const {});
+        ).thenAnswer(
+          (_) async => _answer(
+            'POST',
+            '/onuw/games/g1/action/',
+            200,
+            ContractSamples.map('http/game/action_submitted'),
+          ),
+        );
 
         final bob = controller.table!.playerById(2);
         await controller.driveAs(
@@ -300,7 +379,7 @@ void main() {
           data: any(named: 'data'),
           idempotent409: any(named: 'idempotent409'),
         ),
-      ).thenAnswer((_) async => const {});
+      ).thenAnswer((_) async => _voted());
 
       await controller.driveAs(
         controller.table!.playerById(1),
@@ -327,7 +406,7 @@ void main() {
             data: any(named: 'data'),
             idempotent409: any(named: 'idempotent409'),
           ),
-        ).thenAnswer((_) async => const {});
+        ).thenAnswer((_) async => _voted());
 
         await controller.driveAs(
           controller.table!.playerById(1),
@@ -347,6 +426,7 @@ void main() {
     );
 
     test('attachTable re-points driving at a later game', () async {
+      // The only post here is the host ending the talk.
       when(
         () => client.post(
           any(),
@@ -354,7 +434,14 @@ void main() {
           data: any(named: 'data'),
           idempotent409: any(named: 'idempotent409'),
         ),
-      ).thenAnswer((_) async => const {});
+      ).thenAnswer(
+        (_) async => _answer(
+          'POST',
+          '/onuw/games/g7/end-discussion/',
+          200,
+          ContractSamples.map('http/game/end_discussion'),
+        ),
+      );
       final old = controller.table!;
       controller.attachTable(
         DebugTable(
@@ -394,33 +481,21 @@ void main() {
           token: any(named: 'token'),
         ),
       ).thenAnswer(
-        (_) async => {
-          'game_id': 'g2',
-          'phase': 'night',
-          'current_wave': 2,
-          'center_cards': ['Werewolf', 'Minion', 'Drunk'],
-          'players': [
-            {
-              'user_id': 1,
-              'display_name': 'Alice',
-              'is_host': true,
-              'original_role': 'Werewolf',
-              'current_role': 'Werewolf',
-              'doppelganger_copied_role': null,
-              'team': 'werewolf',
-              'connected': true,
-            },
-          ],
-          'night_actions_log': [],
-          'votes': {'1': null, '2': null},
-          'results': null,
-        },
+        (_) async => _answer(
+          'GET',
+          '/onuw/games/g2/debug-state/',
+          200,
+          ContractSamples.map('http/debug/state_night'),
+        ),
       );
 
       final state = await controller.oracle();
-      expect(state.currentWave, 2);
-      expect(state.playerById(1).team, 'werewolf');
-      expect(state.votes, {1: null, 2: null});
+      final recorded = ContractSamples.map('http/debug/state_night');
+      final first = (recorded['players'] as List).first as Map;
+      expect(state.currentWave, recorded['current_wave']);
+      expect(state.playerById(first['user_id'] as int).team, first['team']);
+      expect(state.votes.values, everyElement(isNull));
+      expect(state.votes, hasLength((recorded['votes'] as Map).length));
     });
 
     test('fireTimer posts the timer key', () async {
@@ -430,7 +505,16 @@ void main() {
           token: any(named: 'token'),
           data: any(named: 'data'),
         ),
-      ).thenAnswer((_) async => {'fired': true, 'key': 'voting'});
+      ).thenAnswer(
+        (_) async => _answer(
+          'POST',
+          '/onuw/games/g2/debug-fire-timer/',
+          200,
+          withValues(ContractSamples.map('http/debug/fire_timer'), {
+            'key': 'voting',
+          }),
+        ),
+      );
 
       final fired = await controller.fireTimer(TimerKey.voting);
       expect(fired, isTrue);
@@ -461,7 +545,14 @@ void main() {
           token: any(named: 'token'),
           data: any(named: 'data'),
         ),
-      ).thenAnswer((_) async => {'fired': false, 'key': 'wave:2'});
+      ).thenAnswer(
+        (_) async => _answer(
+          'POST',
+          '/onuw/games/g-ft/debug-fire-timer/',
+          200,
+          ContractSamples.map('http/debug/fire_timer_none'),
+        ),
+      );
 
       expect(await controller.fireTimer(TimerKey.wave(2)), isFalse);
     });
@@ -501,31 +592,41 @@ void _stubLobbyFlow(
       token: any(named: 'token'),
       data: any(named: 'data'),
     ),
-  ).thenAnswer((_) async => {'code': code});
+  ).thenAnswer((_) async => _answer('POST', '/lobbies/', 201, _table(code)));
   when(
     () => client.post(
       any(that: contains('/join/')),
       token: any(named: 'token'),
     ),
-  ).thenAnswer((_) async => const {});
+  ).thenAnswer(
+    (_) async => _answer('POST', '/lobbies/$code/join/', 200, _table(code)),
+  );
   when(
     () => client.post(
       any(that: contains('/ready/')),
       token: any(named: 'token'),
     ),
-  ).thenAnswer((_) async => const {});
+  ).thenAnswer(
+    (_) async => _answer('POST', '/lobbies/$code/ready/', 200, _table(code)),
+  );
   when(
     () => client.patch(
       '/lobbies/$code/',
       token: any(named: 'token'),
       data: any(named: 'data'),
     ),
-  ).thenAnswer((_) async => const {});
+  ).thenAnswer(
+    (_) async =>
+        _answer('PATCH', '/lobbies/$code/', 200, _table(code, deck: true)),
+  );
   when(
     () => client.post(
       '/onuw/lobbies/$code/start/',
       token: any(named: 'token'),
       data: any(named: 'data'),
     ),
-  ).thenAnswer((_) async => {'game_id': gameId, 'phase': 'night'});
+  ).thenAnswer(
+    (_) async =>
+        _answer('POST', '/onuw/lobbies/$code/start/', 201, _started(gameId)),
+  );
 }

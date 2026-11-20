@@ -278,7 +278,8 @@ Map<String, dynamic> serverLogEntry({
 /// The lobby body (`GET /lobbies/<code>/` and the other lobby calls, and
 /// `lobby_update`'s `data`): [seats] in join order, all ready unless in
 /// [notReady]; [hostId] is the effective host, [originalHostId] the owner
-/// (an acting host when they differ).
+/// (an acting host when they differ); [roles] is the deck, and with [deck]
+/// false the host has not chosen one yet (`settings` is empty).
 Map<String, dynamic> serverLobby({
   String code = 'ABC123',
   List<Seat> seats = defaultSeats,
@@ -286,6 +287,7 @@ Map<String, dynamic> serverLobby({
   int? originalHostId,
   String status = 'waiting',
   Map<String, int>? roles,
+  bool deck = true,
   Set<int> notReady = const {},
 }) {
   final sample = ContractSamples.map('http/lobby/detail_waiting');
@@ -306,7 +308,9 @@ Map<String, dynamic> serverLobby({
     'is_acting_host': owner != host,
     'status': status,
     'settings': {
-      'roles': roles ?? {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2},
+      if (deck)
+        'roles':
+            roles ?? {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2},
     },
     'players': [
       for (final (i, seat) in seats.indexed)

@@ -5,65 +5,38 @@ import '../../../helpers/contract/contract_samples.dart';
 
 void main() {
   group('LobbyPlayer', () {
-    test('fromJson parses backend nested player format', () {
-      final json = {
-        'user': {'id': 1, 'username': 'player1', 'display_name': 'Alice'},
-        'is_ready': true,
-        'joined_at': '2026-03-31T06:00:00Z',
-      };
+    /// The members of a recorded lobby body.
+    List<Map<String, dynamic>> members(String sample) => [
+      for (final m in ContractSamples.map(sample)['players'] as List)
+        (m as Map).cast<String, dynamic>(),
+    ];
+
+    test('fromJson reads the member the server nests under user', () {
+      final json = members('http/lobby/detail_waiting').first;
+      final user = (json['user'] as Map).cast<String, dynamic>();
 
       final player = LobbyPlayer.fromJson(json);
 
-      expect(player.id, 1);
-      expect(player.displayName, 'Alice');
-      expect(player.isReady, isTrue);
-      expect(player.joinedAt, DateTime.utc(2026, 3, 31, 6, 0, 0));
+      expect(player.id, user['id']);
+      expect(player.displayName, user['display_name']);
+      expect(player.isReady, json['is_ready']);
+      expect(player.joinedAt, DateTime.parse(json['joined_at'] as String));
     });
 
-    test('fromJson handles is_ready false', () {
-      final json = {
-        'user': {'id': 2, 'username': 'player2', 'display_name': 'Bob'},
-        'is_ready': false,
-        'joined_at': '2026-03-31T06:01:00Z',
-      };
+    test('fromJson reads a member who is not ready', () {
+      final json = members(
+        'http/lobby/joined',
+      ).firstWhere((m) => m['is_ready'] == false);
 
+      expect(LobbyPlayer.fromJson(json).isReady, isFalse);
+    });
+
+    test('copyWith and equality', () {
+      final json = members('http/lobby/detail_waiting').first;
       final player = LobbyPlayer.fromJson(json);
 
-      expect(player.id, 2);
-      expect(player.displayName, 'Bob');
-      expect(player.isReady, isFalse);
-    });
-
-    test('copyWith creates modified copy', () {
-      final player = LobbyPlayer(
-        id: 1,
-        displayName: 'Alice',
-        isReady: false,
-        joinedAt: DateTime.utc(2026, 3, 31),
-      );
-
-      final ready = player.copyWith(isReady: true);
-
-      expect(ready.isReady, isTrue);
-      expect(ready.id, 1);
-      expect(ready.displayName, 'Alice');
-    });
-
-    test('equality works correctly', () {
-      final a = LobbyPlayer(
-        id: 1,
-        displayName: 'Alice',
-        isReady: true,
-        joinedAt: DateTime.utc(2026, 3, 31),
-      );
-      final b = LobbyPlayer(
-        id: 1,
-        displayName: 'Alice',
-        isReady: true,
-        joinedAt: DateTime.utc(2026, 3, 31),
-      );
-
-      expect(a, equals(b));
+      expect(player.copyWith(isReady: false).isReady, isFalse);
+      expect(LobbyPlayer.fromJson(json), equals(player));
     });
   });
 

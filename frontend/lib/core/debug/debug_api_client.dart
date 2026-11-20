@@ -131,10 +131,12 @@ class DebugApiClient {
   }
 
   ApiException _httpError(int status, String path, dynamic data) {
-    final errors = parseServerErrors(data);
-    final detail = errors.values.expand((messages) => messages).join(' ');
+    final detail = serverErrorMessage(data) ?? '';
     return switch (status) {
-      400 => ValidationException(errors),
+      400 => ValidationException(
+        parseServerErrors(data),
+        code: serverErrorCode(data),
+      ),
       403 => const ForbiddenException(),
       404 => NotFoundException(path),
       429 => const RateLimitException(),

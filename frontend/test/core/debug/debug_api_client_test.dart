@@ -7,14 +7,26 @@ import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/debug/debug_api_client.dart';
 
 import '../../helpers/contract/contract_samples.dart';
+import '../../helpers/contract/contract_shape.dart';
+import '../../helpers/game_state_factory.dart';
 
-/// A Dio adapter that returns a canned status + JSON body for any request, and
-/// records the last request's headers so we can assert the explicit Bearer.
-class _StubAdapter implements HttpClientAdapter {
-  _StubAdapter({required this.statusCode, this.body = '{}'});
+/// A Dio adapter that answers every request with the server's own body for
+/// one endpoint (checked against the recorded samples like every mocked
+/// body), and records the last request's headers so a test can assert the
+/// explicit Bearer. The debug client builds its own Dio, so it cannot use
+/// `MockHttpClient`.
+class _ServerAdapter implements HttpClientAdapter {
+  _ServerAdapter(String method, String path, this.statusCode, Object? body)
+    : body = body == null ? '' : jsonEncode(body) {
+    if (body != null) checkHttpBody(method, path, statusCode, body);
+  }
 
-  int statusCode;
-  String body;
+  /// The recorded [sample], the answer to [method] [path] with [status].
+  _ServerAdapter.sample(String method, String path, int status, String sample)
+    : this(method, path, status, ContractSamples.load(sample));
+
+  final int statusCode;
+  final String body;
   RequestOptions? lastRequest;
 
   @override
@@ -37,7 +49,7 @@ class _StubAdapter implements HttpClientAdapter {
   }
 }
 
-DebugApiClient _clientWith(_StubAdapter adapter) {
+DebugApiClient _clientWith(_ServerAdapter adapter) {
   final dio = Dio(BaseOptions(validateStatus: (_) => true));
   dio.httpClientAdapter = adapter;
   return DebugApiClient(
@@ -50,10 +62,15 @@ DebugApiClient _clientWith(_StubAdapter adapter) {
 void main() {
   group('DebugApiClient', () {
     test('attaches an explicit Bearer token per call', () async {
-      final adapter = _StubAdapter(statusCode: 200, body: '{"ok":true}');
+      final adapter = _ServerAdapter.sample(
+        'GET',
+        '/onuw/games/g1/debug-state/',
+        200,
+        'http/debug/state_night',
+      );
       final client = _clientWith(adapter);
 
-      await client.get('/onuw/games/1/debug-state/', token: 'player-7-token');
+      await client.get('/onuw/games/g1/debug-state/', token: 'player-7-token');
 
       expect(
         adapter.lastRequest!.headers['Authorization'],
@@ -65,7 +82,12 @@ void main() {
       // An empty token is the unauthenticated path (e.g. POST /auth/guest/). A
       // `Bearer ` header with no token trips the JWT middleware and 401s before
       // the AllowAny guest view runs; omitting it lets the request through.
-      final adapter = _StubAdapter(statusCode: 201, body: '{"user":{}}');
+      final adapter = _ServerAdapter.sample(
+        'POST',
+        '/auth/guest/',
+        201,
+        'http/auth/guest_created',
+      );
       final client = _clientWith(adapter);
 
       await client.post(
@@ -81,11 +103,16 @@ void main() {
     });
 
     test('fails LOUDLY on 401 (never refreshes)', () async {
-      final adapter = _StubAdapter(statusCode: 401, body: '{"detail":"x"}');
+      final adapter = _ServerAdapter.sample(
+        'GET',
+        '/onuw/me/current-game/',
+        401,
+        'http/auth/token_expired',
+      );
       final client = _clientWith(adapter);
 
       await expectLater(
-        client.get('/onuw/games/1/me/', token: 'stale'),
+        client.get('/onuw/me/current-game/', token: 'stale'),
         throwsA(isA<DebugAuthException>()),
       );
     });
@@ -93,11 +120,16 @@ void main() {
     test(
       'treats 409 as success when idempotent409 is set (re-action)',
       () async {
-        final adapter = _StubAdapter(statusCode: 409, body: '');
+        final adapter = _ServerAdapter.sample(
+          'POST',
+          '/onuw/games/g1/action/',
+          409,
+          'http/game/action_already_acted',
+        );
         final client = _clientWith(adapter);
 
         final result = await client.post(
-          '/onuw/games/1/action/',
+          '/onuw/games/g1/action/',
           token: 't',
           data: const {'action_type': 'peek_player'},
           idempotent409: true,
@@ -106,66 +138,13 @@ void main() {
       },
     );
 
-    test('409 fails loudly by default (real conflict, not opted in)', () async {
-      // e.g. a 409 from lobby join / game start is a genuine conflict and must
-      // NOT be silently swallowed.
-      final adapter = _StubAdapter(statusCode: 409, body: '{"detail":"x"}');
-      final client = _clientWith(adapter);
-
-      await expectLater(
-        client.post('/lobbies/ABC/join/', token: 't'),
-        throwsA(isA<ApiException>()),
-      );
-    });
-
-    test('maps 403 to ForbiddenException (prod-gated endpoint)', () async {
-      final adapter = _StubAdapter(statusCode: 403, body: '{"detail":"no"}');
-      final client = _clientWith(adapter);
-
-      await expectLater(
-        client.get('/onuw/games/1/debug-state/', token: 't'),
-        throwsA(isA<ForbiddenException>()),
-      );
-    });
-
-    test('maps 400 to ValidationException', () async {
-      final adapter = _StubAdapter(
-        statusCode: 400,
-        body: '{"center":["must have exactly 3"]}',
-      );
-      final client = _clientWith(adapter);
-
-      await expectLater(
-        client.post('/onuw/lobbies/AB/start/', token: 't', data: const {}),
-        throwsA(isA<ValidationException>()),
-      );
-    });
-
-    test('reads the field errors the server wraps in "error"', () async {
-      final adapter = _StubAdapter(
-        statusCode: 400,
-        body: jsonEncode(ContractSamples.load('http/auth/guest_invalid_name')),
-      );
-      final client = _clientWith(adapter);
-
-      await expectLater(
-        client.post('/auth/guest/', token: '', data: const {}),
-        throwsA(
-          isA<ValidationException>().having(
-            (e) => e.firstErrorFor('display_name'),
-            'display_name error',
-            'Display name can only contain letters, numbers, and single spaces.',
-          ),
-        ),
-      );
-    });
-
-    test('names the server\'s message for any other refusal', () async {
-      final adapter = _StubAdapter(
-        statusCode: 409,
-        body: jsonEncode(
-          ContractSamples.load('http/lobby/leave_owner_in_game'),
-        ),
+    test('409 fails loudly by default, with the server\'s message', () async {
+      // A conflict the caller did not opt into is never swallowed.
+      final adapter = _ServerAdapter.sample(
+        'POST',
+        '/lobbies/ABC/leave/',
+        409,
+        'http/lobby/leave_owner_in_game',
       );
       final client = _clientWith(adapter);
 
@@ -181,16 +160,77 @@ void main() {
       );
     });
 
-    test('decodes a 200 JSON object', () async {
-      final adapter = _StubAdapter(
-        statusCode: 200,
-        body: '{"game_id":"g1","phase":"night"}',
+    test('maps 403 to ForbiddenException', () async {
+      final adapter = _ServerAdapter.sample(
+        'GET',
+        '/onuw/games/g1/results/',
+        403,
+        'http/game/results_not_ready',
       );
+      final client = _clientWith(adapter);
+
+      await expectLater(
+        client.get('/onuw/games/g1/results/', token: 't'),
+        throwsA(isA<ForbiddenException>()),
+      );
+    });
+
+    test(
+      'maps 400 to ValidationException with the server\'s message',
+      () async {
+        final adapter = _ServerAdapter.sample(
+          'POST',
+          '/onuw/lobbies/AB/start/',
+          400,
+          'http/game/start_not_all_ready',
+        );
+        final client = _clientWith(adapter);
+        final message = ContractSamples.map(
+          'http/game/start_not_all_ready',
+        )['detail'];
+
+        await expectLater(
+          client.post('/onuw/lobbies/AB/start/', token: 't', data: const {}),
+          throwsA(
+            isA<ValidationException>().having(
+              (e) => e.firstErrorFor('detail'),
+              'detail',
+              message,
+            ),
+          ),
+        );
+      },
+    );
+
+    test('reads the field errors the server wraps in "error"', () async {
+      final adapter = _ServerAdapter.sample(
+        'POST',
+        '/auth/guest/',
+        400,
+        'http/auth/guest_invalid_name',
+      );
+      final client = _clientWith(adapter);
+
+      await expectLater(
+        client.post('/auth/guest/', token: '', data: const {}),
+        throwsA(
+          isA<ValidationException>().having(
+            (e) => e.firstErrorFor('display_name'),
+            'display_name error',
+            'Display name can only contain letters, numbers, and single spaces.',
+          ),
+        ),
+      );
+    });
+
+    test('decodes a 200 JSON object', () async {
+      final me = GameMeJsonBuilder().withGameId('g1').build();
+      final adapter = _ServerAdapter('GET', '/onuw/games/g1/me/', 200, me);
       final client = _clientWith(adapter);
 
       final result = await client.get('/onuw/games/g1/me/', token: 't');
       expect(result['game_id'], 'g1');
-      expect(result['phase'], 'night');
+      expect(result['phase'], me['phase']);
     });
   });
 }

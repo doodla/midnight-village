@@ -6,6 +6,7 @@ import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/host/host_change.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
+import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/contract/from_sample.dart';
 import '../../../helpers/contract/server_json.dart';
@@ -25,8 +26,6 @@ import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
 class _MockLobbyService extends Mock implements LobbyService {}
-
-class _MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
 
 const _code = 'ABC123';
 const _names = ['Ana', 'Ben', 'Cleo'];
@@ -82,7 +81,7 @@ Future<_Table> _pump(
           ),
         ),
         authenticatedClientProvider.overrideWithValue(
-          _MockAuthenticatedClient(),
+          AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
         ),
         lobbyServiceProvider.overrideWithValue(service),
         lobbyWebSocketFactoryProvider.overrideWithValue((code) => ws),

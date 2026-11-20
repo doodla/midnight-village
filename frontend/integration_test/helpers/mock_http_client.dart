@@ -99,7 +99,12 @@ class MockHttpClient {
         response.data,
       );
     }
-    _registry[key!] = _MockResponse(statusCode: status, data: response.data);
+    // A copy: the test may go on changing its map, and the app the one it
+    // gets, without either reaching the registered answer.
+    _registry[key!] = _MockResponse(
+      statusCode: status,
+      data: _copy(response.data),
+    );
     _pendingKey = null;
   }
 }
@@ -107,6 +112,15 @@ class MockHttpClient {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/// A deep copy of a JSON-like body (maps and lists copied, the rest shared).
+dynamic _copy(dynamic data) => switch (data) {
+  Map() => <String, dynamic>{
+    for (final e in data.entries) e.key as String: _copy(e.value),
+  },
+  List() => <dynamic>[for (final v in data) _copy(v)],
+  _ => data,
+};
 
 class _MockResponse {
   const _MockResponse({required this.statusCode, this.data});
@@ -131,7 +145,7 @@ class _MockInterceptor extends Interceptor {
       final response = Response<dynamic>(
         requestOptions: options,
         statusCode: mock.statusCode,
-        data: mock.data,
+        data: _copy(mock.data),
       );
       // An error status fails the request, as it does over the network.
       if (options.validateStatus(mock.statusCode)) {

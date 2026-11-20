@@ -155,6 +155,31 @@ void main() {
   });
 
   group('MockHttpClient.requests', () {
+    test('the registered body is a copy, and so is each answer', () async {
+      final client = MockHttpClient();
+      final body = <String, dynamic>{
+        'players': [
+          {'id': 1},
+        ],
+      };
+      _register(client, 'GET', '/api/v1/table/', body);
+      (body['players'] as List).add({'id': 2});
+
+      final first = await client.dio.get<Map<String, dynamic>>(
+        '/api/v1/table/',
+      );
+      (first.data!['players'] as List).clear();
+      final second = await client.dio.get<Map<String, dynamic>>(
+        '/api/v1/table/',
+      );
+
+      expect(second.data, {
+        'players': [
+          {'id': 1},
+        ],
+      });
+    });
+
     test('records each request with its method, path and body', () async {
       final client = MockHttpClient();
       _register(client, 'POST', '/api/v1/act/', <String, dynamic>{});

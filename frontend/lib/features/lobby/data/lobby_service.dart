@@ -95,17 +95,7 @@ class LobbyService {
       final response = await _client.post<Map<String, dynamic>>(
         '/onuw/lobbies/$code/start/',
       );
-      final data = response.data;
-      if (data == null) {
-        throw const MalformedResponseException('Response body is null');
-      }
-      final gameId = data['game_id'];
-      if (gameId is! String) {
-        throw const MalformedResponseException(
-          'Missing or invalid game_id in start response',
-        );
-      }
-      return gameId;
+      return response.data!['game_id'] as String;
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -138,9 +128,8 @@ class LobbyService {
       );
       // The server answers {"game_id", "phase", "lobby_code"}, or
       // {"game": null} when there is no running game.
-      final data = response.data;
-      if (data == null || data['lobby_code']?.toString() != code) return null;
-      return data['game_id']?.toString();
+      final data = response.data!;
+      return data['lobby_code'] == code ? data['game_id'] as String : null;
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -160,11 +149,6 @@ class LobbyService {
     }
   }
 
-  LobbyState _parseLobbyResponse(Response<Map<String, dynamic>> response) {
-    final data = response.data;
-    if (data == null) {
-      throw const MalformedResponseException('Response body is null');
-    }
-    return LobbyState.fromJson(data);
-  }
+  LobbyState _parseLobbyResponse(Response<Map<String, dynamic>> response) =>
+      LobbyState.fromJson(response.data!);
 }

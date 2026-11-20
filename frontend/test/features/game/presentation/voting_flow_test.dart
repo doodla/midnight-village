@@ -171,9 +171,8 @@ void main() {
     testWidgets('shows intermediate tally when voteRevealData is present', (
       tester,
     ) async {
-      final voteReveal = VoteRevealData(
-        votes: {'1': 2, '2': 3, '3': null},
-        tally: {'2': 1, '3': 2},
+      final voteReveal = FromSample.voteReveal(
+        GameEvents.voteReveal(votes: {'1': 2, '2': 3, '3': null}),
       );
 
       final mockNotifier = _MockVotingNotifier(
@@ -194,9 +193,8 @@ void main() {
     testWidgets('displays voter-to-target pairs in intermediate tally', (
       tester,
     ) async {
-      final voteReveal = VoteRevealData(
-        votes: {'1': 2, '2': 3},
-        tally: {'2': 1, '3': 1},
+      final voteReveal = FromSample.voteReveal(
+        GameEvents.voteReveal(votes: {'1': 2, '2': 3, '3': 2}),
       );
 
       final mockNotifier = _MockVotingNotifier(
@@ -217,7 +215,9 @@ void main() {
     });
 
     testWidgets('abstaining players show "Abstained" in tally', (tester) async {
-      final voteReveal = VoteRevealData(votes: {'3': null}, tally: {});
+      final voteReveal = FromSample.voteReveal(
+        GameEvents.voteReveal(votes: {'1': 2, '2': 1, '3': null}),
+      );
 
       final mockNotifier = _MockVotingNotifier(
         AsyncData(_votingState(voteRevealData: voteReveal)),
@@ -238,7 +238,9 @@ void main() {
       'does not show VoteReveal widget while in voting phase (no elimination data)',
       (tester) async {
         // VoteRevealData is present but phase is still 'voting' — no elimination data.
-        final voteReveal = VoteRevealData(votes: {'1': 2}, tally: {'2': 1});
+        final voteReveal = FromSample.voteReveal(
+          GameEvents.voteReveal(votes: {'1': 2, '2': 1, '3': 1}),
+        );
 
         final mockNotifier = _MockVotingNotifier(
           AsyncData(_votingState(voteRevealData: voteReveal)),

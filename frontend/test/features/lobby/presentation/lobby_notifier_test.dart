@@ -10,14 +10,13 @@ import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/contract/from_sample.dart';
 import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
 class MockLobbyService extends Mock implements LobbyService {}
-
-class MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
 
 /// The server's lobby body: Alice (1, ready) and Bob (2) unless [seats] are
 /// given (then all ready but [notReady]), parsed as the app parses it.
@@ -64,7 +63,7 @@ void main() {
         // Override authenticatedClientProvider since lobbyServiceProvider
         // is already overridden and won't use it.
         authenticatedClientProvider.overrideWithValue(
-          MockAuthenticatedClient(),
+          AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
         ),
       ],
     );

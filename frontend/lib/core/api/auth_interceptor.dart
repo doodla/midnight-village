@@ -77,15 +77,10 @@ class AuthInterceptor extends QueuedInterceptorsWrapper {
         data: {'refresh': refreshToken},
       );
 
-      final data = response.data;
-      final newAccess = data?['access'] as String?;
-      final newRefresh = (data?['refresh'] as String?) ?? refreshToken;
-
-      if (newAccess == null) {
-        await _tokenStorage.deleteTokens();
-        _onAuthFailure();
-        return handler.next(err);
-      }
+      // The refresh token is rotated: both come back.
+      final data = response.data!;
+      final newAccess = data['access'] as String;
+      final newRefresh = data['refresh'] as String;
 
       await _tokenStorage.saveTokens(
         accessToken: newAccess,

@@ -523,24 +523,9 @@ class GameNotifier extends _$GameNotifier {
 
   /// Stores vote mapping and starts 5s timeout for game_results.
   void _handleVoteReveal(Map<String, dynamic> data) {
-    _updateState((state) {
-      final votesRaw = data['votes'] as Map<String, dynamic>;
-      final votes = votesRaw.map<String, int?>(
-        (key, value) => MapEntry(key, value as int?),
-      );
-
-      // Compute tally from votes.
-      final tally = <String, int>{};
-      for (final targetId in votes.values) {
-        if (targetId != null) {
-          final key = targetId.toString();
-          tally[key] = (tally[key] ?? 0) + 1;
-        }
-      }
-
-      final voteReveal = VoteRevealData(votes: votes, tally: tally);
-      return state.copyWith(voteRevealData: voteReveal);
-    });
+    _updateState(
+      (state) => state.copyWith(voteRevealData: VoteRevealData.fromEvent(data)),
+    );
 
     // Start 5-second timeout -- if game_results doesn't arrive, fetch via REST.
     _resultsTimeout?.cancel();
