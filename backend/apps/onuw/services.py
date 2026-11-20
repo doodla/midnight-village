@@ -1049,9 +1049,9 @@ def transition_to_discussion(game: Game) -> None:
             ]
         )
 
-        # Reset has_acted for voting phase later
+        # Reset has_acted for voting phase later, and "ready to vote" for the talk.
         # pyrefly: ignore [missing-attribute]
-        game.player_roles.update(has_acted=False)
+        game.player_roles.update(has_acted=False, phase_ready=False)
 
     if discussion_seconds > 0:
         _schedule_after_commit(
@@ -1073,7 +1073,8 @@ def transition_to_discussion(game: Game) -> None:
                     if game.phase_deadline
                     else None,
                 },
-            )
+            ),
+            (f"game_{game.id}", {"type": "progress", **talk_progress(game)}),
         ]
     )
 
@@ -1456,27 +1457,77 @@ def submit_vote(
     return []
 
 
-def stage_progress(game: Game) -> dict[str, Any] | None:
-    """The count for whichever stage the game is in (``/me/`` ``progress``), or
-    None outside the stages that have one."""
-    if game.phase == Phase.VOTING:
-        return vote_progress(game)
-    return None
-
-
-def vote_progress(game: Game) -> dict[str, Any]:
-    """``{"stage": "vote", "done", "needed"}``: how many of the players the vote
-    still waits for (not gone past the grace period) have locked in. Counts only:
-    never a target, never who."""
+def _progress(
+    game: Game, stage: str, is_done: Callable[[PlayerRole], bool]
+) -> dict[str, Any]:
+    """``{"stage", "done", "needed"}``: ``needed`` is the players not gone past the
+    grace period, ``done`` how many of them ``is_done``. Counts only: never who."""
     prs = _player_roles(game)
     grace = _grace_seconds(game)
     now = timezone.now()
     present = [pr for pr in prs if not _is_gone(pr, grace, now)]
     return {
-        "stage": "vote",
-        "done": sum(1 for pr in present if pr.has_acted),
+        "stage": stage,
+        "done": sum(1 for pr in present if is_done(pr)),
         "needed": len(present),
     }
+
+
+def vote_progress(game: Game) -> dict[str, Any]:
+    """The vote's count: players who have LOCKED in (a pick is not counted)."""
+    return _progress(game, "vote", lambda pr: bool(pr.has_acted))
+
+
+def talk_progress(game: Game) -> dict[str, Any]:
+    """The talk's count: players who are ready to vote."""
+    return _progress(game, "talk", lambda pr: bool(pr.phase_ready))
+
+
+def stage_progress(game: Game) -> dict[str, Any] | None:
+    """The count for whichever stage the game is in (``/me/`` ``progress``), or
+    None outside the stages that have one."""
+    if game.phase == Phase.VOTING:
+        return vote_progress(game)
+    if game.phase == Phase.DISCUSSION:
+        return talk_progress(game)
+    return None
+
+
+READY_WRONG_PHASE = "Nothing is waiting for you to be ready right now."
+READY_ERROR_CODES = {
+    READY_WRONG_PHASE: "wrong_phase",
+    VOTE_NOT_A_PLAYER: "not_a_player",
+}
+
+
+def set_ready(game: Game, user_id: int, ready: bool) -> list[str]:
+    """Mark the caller ready (or not) at the stage that asks for it. Returns the
+    list of errors (empty = success); ``READY_ERROR_CODES`` maps them to codes.
+
+    Today that is the talk: when every player not gone past the grace period is
+    ready, the server ends the discussion with the function the host's button
+    uses. One transaction, Game lock then PlayerRole lock, phase re-checked, so a
+    tap racing the host's end or the talk's deadline ends it once. Every tap
+    recounts ``needed`` (nothing else does in the talk: no grace timers) and
+    sends the count.
+    """
+    with transaction.atomic():
+        game = Game.objects.select_for_update().get(id=game.id)
+        if game.phase != Phase.DISCUSSION:
+            return [READY_WRONG_PHASE]
+        try:
+            pr = PlayerRole.objects.select_for_update().get(game=game, user_id=user_id)
+        except PlayerRole.DoesNotExist:
+            return [VOTE_NOT_A_PLAYER]
+
+        if pr.phase_ready != ready:
+            pr.phase_ready = ready
+            pr.save(update_fields=["phase_ready"])
+        progress = talk_progress(game)
+        _send_after_commit([(f"game_{game.id}", {"type": "progress", **progress})])
+        if progress["needed"] >= 1 and progress["done"] == progress["needed"]:
+            end_discussion(game)
+    return []
 
 
 def reveal_votes(game: Game) -> None:
@@ -1843,6 +1894,12 @@ def register_connection(
         if was_connected:
             return False
 
+        grace = _grace_seconds(game)
+        was_gone = (
+            pr.disconnected_at is not None
+            and grace > 0
+            and (timezone.now() - pr.disconnected_at).total_seconds() >= grace
+        )
         if pr.disconnected_at is not None:
             pr.disconnected_at = None
             pr.save(update_fields=["disconnected_at"])
@@ -1859,6 +1916,13 @@ def register_connection(
                 )
             ]
         )
+        if game.phase == Phase.DISCUSSION and was_gone:
+            # The talk has no grace timers and never waits; a phone that was left
+            # out of ``needed`` coming back only changes the count, which the table
+            # is told. Ending the talk stays a tap's job.
+            _send_after_commit(
+                [(f"game_{game.id}", {"type": "progress", **talk_progress(game)})]
+            )
         if game.phase in (Phase.NIGHT, Phase.VOTING):
             try:
                 with transaction.atomic():  # a savepoint: never costs the connect

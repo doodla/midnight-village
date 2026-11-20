@@ -170,6 +170,8 @@ def build_debug_state(game: Game) -> dict[str, Any]:
                 "team": _team_token(pr.user_id, current_roles, doppelganger_copied),
                 # Real presence: any game socket open for this player right now.
                 "connected": pr.user_id in connected_ids,
+                # "Ready to vote" (talk) / "looked at my card" (look stage).
+                "ready": bool(pr.phase_ready),
             }
         )
         # EVERY player is a key; null = has not voted / abstained.

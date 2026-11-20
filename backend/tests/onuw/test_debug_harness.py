@@ -585,6 +585,15 @@ class TestDebugStateOracle:
 
         body = api_client.get(_debug_state_url(game.id)).data
 
+        PlayerRole.objects.filter(game=game, user=users["carol"]).update(
+            phase_ready=True
+        )
+        body = api_client.get(_debug_state_url(game.id)).data
+        assert {p["display_name"]: p["ready"] for p in body["players"]} == {
+            users["alice"].display_name or users["alice"].username: False,
+            users["bob"].display_name or users["bob"].username: False,
+            users["carol"].display_name or users["carol"].username: True,
+        }
         assert body["votes"][str(users["bob"].id)] == users["carol"].id
         assert body["vote_locked"] == {
             str(users["alice"].id): True,

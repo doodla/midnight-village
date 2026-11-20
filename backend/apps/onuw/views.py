@@ -32,6 +32,7 @@ from .serializers import (
     player_identity,
 )
 from .services import (
+    READY_ERROR_CODES,
     VOTE_ERROR_CODES,
     AlreadyActedError,
     acknowledge_night_results,
@@ -43,6 +44,7 @@ from .services import (
     night_timeline_for,
     resolve_doppelganger_look,
     reveal_votes,
+    set_ready,
     start_night_phase,
     submit_vote,
     timer_prefixes,
@@ -586,6 +588,48 @@ class VoteView(APIView):
             return Response({"status": "submitted"})
         # The stored pick, echoed: a lost or reordered request shows what stuck.
         return Response({"status": "picked", "target_player_id": target_player_id})
+
+
+class ReadyView(APIView):
+    """Tap "ready" at the stage that asks for it: ``{"ready": true | false}``.
+
+    In the talk it toggles "ready to vote"; when every present player is ready the
+    server ends the talk (what the host's button does). Answers
+    ``{"status": "ok", "ready": <stored>}``. 400 ``wrong_phase`` anywhere else.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, game_id: str) -> Response:
+        try:
+            game = Game.objects.get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        body = request.data if isinstance(request.data, dict) else {}
+        ready = body.get("ready")
+        if type(ready) is not bool:
+            return _bad_request("ready must be true or false")
+
+        if not PlayerRole.objects.filter(game=game, user=request.user).exists():
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        errors = set_ready(game, request.user.id, ready)  # type: ignore[misc]
+        if errors:
+            return Response(
+                {
+                    "detail": errors[0],
+                    "code": READY_ERROR_CODES.get(errors[0], "bad_request"),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({"status": "ok", "ready": ready})
 
 
 class ForceRevealView(APIView):
