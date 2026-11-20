@@ -834,3 +834,27 @@ Three additions for the rebuilt phone screens; all additive, no migration, proto
   environment): a web app on an allowed origin can read the server's clock from the
   response `Date` header to draw `deadline` and `stage_started_at` against it instead of
   the phone's clock. Origins are unchanged (`CORS_ALLOWED_ORIGINS` per environment).
+
+**The table before the deal (same amendment, protocol-2 tables only unless said).** A table
+whose settings say `night_protocol: 2` gets more in its lobby body (`GET /lobbies/<code>/`,
+every lobby answer, every `lobby_update`); any other table is answered as before.
+
+- **No ready check at the deal.** Everyone at the table is dealt in; a guest who joins and
+  closes the app cannot block it. (The original night keeps "everyone ready".)
+- **`players[].connected`** (bool): the member's phone is at the table (a lobby socket or
+  a socket on the newest game). A phone that drops stays `true` for the table's
+  `disconnect_grace_seconds`; then the table gets a `lobby_update` with `false`. Coming
+  back sends a `lobby_update` at once. A member never seen with a socket is `false`.
+  `lobby_update` is also sent when a member joins or leaves. Not secret at a table.
+- **`deck_preview`**: the automatic deck the deal would build for the players at the
+  table now and `deck_chip`, `{role: count}` (the shape of `settings.roles`), from the
+  deal's own function; null for a custom deck or a player count with no automatic deck.
+- **`deal`**: `{"ok": bool, "need": int, "have": int}`: `ok` is exactly whether the deal
+  would be accepted now (waiting, 3 to 10 players, a legal deck of the right size, valid
+  settings; only the host check is left out); `need` = players + 3; `have` = cards in the
+  deck the deal would use (0 if none). The phone holds no deck-size rule.
+- **One table at a time (every table):** `POST /lobbies/<code>/join/` by a member of
+  another table that is still going (waiting or in a game, active within the resume
+  window) is `409 {"detail": "You are already at another table.", "code":
+  "already_at_table", "lobby_code": "<that table>"}`. A finished table traps nobody; after
+  play again a member leaves that table to sit elsewhere.

@@ -9,9 +9,10 @@ from django.conf import settings as django_settings
 
 from apps.core.games import GameHooks
 
-from . import presence
+from . import deal, presence
 from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
+from .services import DEFAULT_DISCONNECT_GRACE_SECONDS
 
 # What a lobby made with ``defaults: "v2"`` starts with: ONLY what the new screens need
 # to work (a look at the cards, the choose night, the automatic Simple deck). It writes
@@ -64,6 +65,20 @@ class OnuwHooks(GameHooks):
     def newest_game_finished(self, lobby) -> bool:
         game = _newest_game(lobby)
         return game is not None and game.phase == Phase.RESULTS
+
+    def lobby_extras(self, lobby) -> dict[str, Any] | None:
+        return deal.lobby_extras(lobby)
+
+    def presence_grace_seconds(self, lobby) -> int:
+        """The table's ``disconnect_grace_seconds`` (the game's own grace)."""
+        stored = (
+            lobby.settings.get("disconnect_grace_seconds")
+            if isinstance(lobby.settings, dict)
+            else None
+        )
+        if isinstance(stored, int) and not isinstance(stored, bool) and stored >= 0:
+            return stored
+        return DEFAULT_DISCONNECT_GRACE_SECONDS
 
     def member_game(self, lobby, user_id: int) -> dict[str, Any] | None:
         game = _newest_game(lobby)

@@ -31,6 +31,7 @@ from django.urls import reverse
 
 import pytest
 from rest_framework import status
+from rest_framework.test import APIClient
 
 from apps.core.models import LobbyMember
 from apps.onuw import night2, services
@@ -590,7 +591,9 @@ class TestLobbyRequestsResent:
         from tests.onuw.test_play_again import Table
 
         table = Table(players=4)
-        newcomer = Table(players=1).clients[0]  # signed in, at no table yet
+        newcomer = APIClient()  # signed in, at no table yet
+        signed_in = newcomer.post(reverse("core:guest-create"), {}, format="json")
+        newcomer.credentials(HTTP_AUTHORIZATION=f"Bearer {signed_in.data['access']}")
         url = reverse("core:lobby-join", kwargs={"code": table.code})
         assert newcomer.post(url).status_code == status.HTTP_200_OK
         before = self.lobby_state(table)

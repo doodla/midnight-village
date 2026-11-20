@@ -23,10 +23,10 @@ from apps.core.lobbies import ensure_tokens
 from apps.core.models import Lobby, LobbyMember
 
 from . import presence
+from .deal import deal_refusal
 from .debug import ForcedAssignmentError, parse_forced_assignment
 from .engine.assignment import assign_roles
 from .engine.decks import auto_deck
-from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
 from .night2 import CHOOSE_ERROR_CODES, submit_choose
 from .protocol import (
@@ -174,33 +174,16 @@ class GameStartView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Lobby must be in waiting state
-        if lobby.status != Lobby.Status.WAITING:
-            return Response(
-                {"detail": "Lobby is not in waiting state."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         # All players, in join order (their seat order).
         members = list(lobby.players.all())  # type: ignore[misc]
         player_count = len(members)
 
-        # All players must be ready
-        if not all(m.is_ready for m in members):
+        # Waiting, everyone ready (the original night only), valid settings for
+        # this many players: the one rule the lobby body's `deal.ok` reports too.
+        refusal = deal_refusal(lobby, members)
+        if refusal is not None:
             return Response(
-                {"detail": "Not all players are ready."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Validate ONUW settings
-        errors = validate_onuw_settings(
-            lobby.settings,
-            player_count,
-            allow_untimed=getattr(settings, "ONUW_ALLOW_UNTIMED_NIGHT", False),
-        )
-        if errors:
-            return Response(
-                {"detail": errors},
+                {"detail": refusal},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

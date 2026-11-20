@@ -46,7 +46,7 @@ from django.db import transaction
 from django.db.models.functions import Now
 from django.utils import timezone
 
-from apps.core import games, presence, timers
+from apps.core import games, lobbies, presence, timers
 from apps.core.effects import after_commit, schedule_after_commit, send_after_commit
 from apps.core.models import Lobby, LobbyMember, LobbySocket
 
@@ -302,14 +302,63 @@ def register_lobby_connection(
             member.disconnected_at = None
             member.save(update_fields=["disconnected_at"])
         _on_connected(lobby, user_id)
+        lobbies.announce_lobby(lobby)  # back at the table (opted-in games only)
         return True
 
 
 def _lobby_went_offline(lobby: Lobby, member: LobbyMember, user_id: int) -> None:
-    """The member has no fresh lobby socket left (clean close or silent death)."""
+    """The member has no fresh lobby socket left (clean close or silent death).
+
+    At a table whose game shows presence (``GameHooks.lobby_extras``) the member
+    still shows as connected for the game's grace period; the durable presence
+    check is armed for its end, and then announces the drop
+    (``_announce_if_dropped``)."""
     member.disconnected_at = timezone.now()
     member.save(update_fields=["disconnected_at"])
     _on_disconnected(lobby, user_id)
+    hooks = games.hooks_for(lobby)
+    if hooks.lobby_extras(lobby) is None:
+        return
+    schedule_after_commit(
+        presence.check_key("lobby", lobby.pk, user_id),
+        max(float(hooks.presence_grace_seconds(lobby)), 0.0),
+        "presence_check",
+        presence.check_params("lobby", lobby.pk, user_id),
+    )
+
+
+def _announce_if_dropped(lobby_id: Any, user_id: int) -> None:
+    """The presence check fired for a member with no socket row left: once their
+    grace period is over (and they have no game socket either) the table is
+    told (``lobby_update``, ``connected`` false); fired early, it re-arms for
+    the rest of the grace. Only at tables whose game shows presence."""
+    with transaction.atomic():
+        lobby = _lock(int(lobby_id))
+        if lobby is None:
+            return
+        hooks = games.hooks_for(lobby)
+        if hooks.lobby_extras(lobby) is None:
+            return
+        member = (
+            LobbyMember.objects.select_for_update()
+            .filter(lobby=lobby, user_id=user_id)
+            .first()
+        )
+        if member is None or member.disconnected_at is None:
+            return  # left the table, or back already
+        if user_id in hooks.connected_user_ids(lobby):
+            return  # reachable on the game's socket
+        grace = hooks.presence_grace_seconds(lobby)
+        away = (timezone.now() - member.disconnected_at).total_seconds()
+        if away < grace:
+            schedule_after_commit(
+                presence.check_key("lobby", lobby.pk, user_id),
+                grace - away,
+                "presence_check",
+                presence.check_params("lobby", lobby.pk, user_id),
+            )
+            return
+        lobbies.announce_lobby(lobby)
 
 
 def unregister_lobby_connection(
@@ -379,6 +428,8 @@ def check_lobby_presence(lobby_id: Any, user_id: int) -> bool:
     rows = LobbySocket.objects.filter(lobby_id=int(lobby_id), user_id=user_id)
     age = presence.seconds_since_newest(rows)
     if age is None:
+        # No socket left: the end of a dropped member's grace period.
+        _announce_if_dropped(lobby_id, user_id)
         return False
     if age <= presence.stale_seconds():
         rearm(age)

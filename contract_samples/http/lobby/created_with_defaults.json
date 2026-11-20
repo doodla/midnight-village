@@ -25,8 +25,15 @@
       },
       "is_ready": false,
       "token": "moth",
-      "joined_at": "2024-03-07T21:13:38Z"
+      "joined_at": "2024-03-07T21:13:38Z",
+      "connected": false
     }
   ],
-  "created_at": "2024-03-07T21:13:38Z"
+  "created_at": "2024-03-07T21:13:38Z",
+  "deck_preview": null,
+  "deal": {
+    "ok": false,
+    "need": 4,
+    "have": 0
+  }
 }

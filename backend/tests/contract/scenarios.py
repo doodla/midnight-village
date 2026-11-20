@@ -2214,7 +2214,7 @@ def results_tables(run: Recording) -> None:
     (after the tables above, so their samples never move)."""
     _six_results_table(run)
     _three_player_table(run)
-    _ten_player_table(run)
+    _lobby_table(run, busy=_ten_player_table(run))
 
 
 def _six_results_table(run: Recording) -> None:
@@ -2248,7 +2248,7 @@ def _six_results_table(run: Recording) -> None:
     _lock_votes(t, {n: ("Ana" if n == "Fin" else "Fin") for n in SIX})
     _record_results(
         t,
-        "results_v2_werewolves_win",
+        "results_werewolves_win",
         "The table votes out a Villager: no Werewolf dies, the Werewolves win.",
     )
 
@@ -2259,7 +2259,7 @@ def _six_results_table(run: Recording) -> None:
     _lock_votes(t, {n: SIX[(i + 1) % len(SIX)] for i, n in enumerate(SIX)})
     _record_results(
         t,
-        "results_v2_nobody_dies",
+        "results_nobody_dies",
         "Every player gets one vote: nobody dies (a Werewolf is at the table, "
         "so the Werewolves win).",
     )
@@ -2316,7 +2316,7 @@ def _six_results_table(run: Recording) -> None:
     _lock_votes(t, {n: ("Ana" if n == "Ben" else "Ben") for n in SIX})
     _record_results(
         t,
-        "results_v2_moved_card",
+        "results_moved_dead_card",
         "The Robber took a Werewolf's card and is voted out holding it: the dead "
         "player's dealt card (Robber) is not their final card (Werewolf); the "
         "village wins.",
@@ -2394,7 +2394,7 @@ def _three_player_table(run: Recording) -> None:
     )
 
 
-def _ten_player_table(run: Recording) -> None:
+def _ten_player_table(run: Recording) -> Table:
     """Ten players, the largest table: the talk and the vote."""
     t = run.table()
     names = ["Ana", "Ben", "Cleo", "Dev", "Esme", "Fin", "Gus", "Hana", "Ida", "Jon"]
@@ -2432,6 +2432,138 @@ def _ten_player_table(run: Recording) -> None:
         about="/me/ in the vote at a full table: `vote_targets` lists the nine "
         "other seats.",
     )
+    return t
+
+
+def _record_lobby(t: Table, name: str, about: str) -> None:
+    t.record(f"lobby/{name}", "GET", "Kai", LOBBY, status=200, about=about)
+
+
+def _lobby_table(run: Recording, busy: Table) -> None:
+    """A protocol-2 table before its deal: who is connected (one phone drops and
+    comes back), the automatic deck it would deal for each chip at two player
+    counts, whether it can be dealt (`deal`), a custom deck one card short, a join
+    by someone at another table that is still going, and a deal with a member
+    who never tapped ready."""
+    t = run.table()
+    first = ["Kai", "Lia", "Max", "Noa"]
+    later = ["Oli", "Pia", "Rex"]
+    _sign_in(t, [*first, *later])
+    t.clock.advance(60)
+    t.call("POST", "Kai", CREATE, {"game_type": "onuw", "defaults": "v2"})
+    for name in first[1:]:
+        t.clock.advance(60)
+        t.call("POST", name, JOIN)
+    for name in first:
+        t.connect_lobby(name)
+
+    # -- a phone drops, then comes back --------------------------------------
+    t.disconnect_lobby("Noa")
+    t.record(
+        "lobby/detail_v2_member_in_grace",
+        "GET",
+        "Kai",
+        LOBBY,
+        status=200,
+        about="Noa's phone closed a moment ago: still `connected` during the "
+        "table's grace period (`disconnect_grace_seconds`), so a blip shows "
+        "nothing.",
+    )
+    t.clock.advance(30)
+    t.fire(t.lobby_presence_key("Noa"))
+    t.record_event(
+        "lobby/lobby_update_v2_member_dropped",
+        "Kai",
+        "lobby",
+        "lobby_update",
+        about="Noa's phone has been away past the grace period: the table is told "
+        "(`connected` false), calmly, by a lobby_update.",
+    )
+    _record_lobby(
+        t, "detail_v2_member_dropped", "A protocol-2 table with one member dropped."
+    )
+    t.connect_lobby("Noa")
+    t.record_event(
+        "lobby/lobby_update_v2_member_back",
+        "Kai",
+        "lobby",
+        "lobby_update",
+        about="Noa's phone is back: `connected` true again.",
+    )
+
+    # -- the automatic deck at 4 and 7 players, each chip ----------------------
+    for count, joining in ((4, []), (7, later)):
+        for name in joining:
+            t.clock.advance(60)
+            t.call("POST", name, JOIN)
+        for chip in ("simple", "classic", "chaos"):
+            t.call(
+                "PATCH", "Kai", LOBBY, {"settings": {"deck": "auto", "deck_chip": chip}}
+            )
+            _record_lobby(
+                t,
+                f"detail_v2_deck_{chip}_{count}",
+                f"The {chip} automatic deck the deal would build for {count} players "
+                "(`deck_preview`), and `deal` ok.",
+            )
+    t.record_event(
+        "lobby/lobby_update_v2_deck_preview",
+        "Lia",
+        "lobby",
+        "lobby_update",
+        about="Every lobby_update carries `deck_preview` and `deal` (here after a "
+        "chip change at seven players).",
+    )
+
+    # -- a custom deck, then one more player: one card short ----------------
+    deck = {
+        "Werewolf": 2,
+        "Seer": 1,
+        "Robber": 1,
+        "Troublemaker": 1,
+        "Drunk": 1,
+        "Insomniac": 1,
+        "Villager": 3,
+    }
+    t.call("PATCH", "Kai", LOBBY, {"settings": {"deck": "custom", "roles": deck}})
+    _record_lobby(
+        t,
+        "detail_v2_custom_deck_ok",
+        "A custom deck of ten cards at seven players: no preview (its roles are in "
+        "`settings`), `deal` ok.",
+    )
+    t.players["Jon"] = busy.players["Jon"]
+    t.record(
+        "lobby/join_already_at_table",
+        "POST",
+        "Jon",
+        JOIN,
+        status=409,
+        about="Joining while seated at another table that is still going: refused, "
+        "with that table's code (`lobby_code`) so the phone can offer to go there.",
+    )
+    t.guest("Sam")
+    t.clock.advance(60)
+    t.call("POST", "Sam", JOIN)
+    t.record_event(
+        "lobby/lobby_update_v2_joined",
+        "Kai",
+        "lobby",
+        "lobby_update",
+        about="A player joined: the table is sent the whole body (`deal` changes "
+        "with the player count).",
+    )
+    _record_lobby(
+        t,
+        "detail_v2_custom_deck_short",
+        "The same custom deck after an eighth player joined: one card short "
+        "(`deal`: ok false, need 11, have 10).",
+    )
+
+    # -- nobody tapped ready, and the table is dealt --------------------------
+    t.call("PATCH", "Kai", LOBBY, {"settings": {"deck": "auto"}})
+    t.clock.advance(60)
+    t.start_random(11, sample="game/started_v2_nobody_ready")
 
 
 def record_all(run: Recording) -> None:

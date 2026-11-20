@@ -50,6 +50,17 @@ class GameHooks:
         """True if the lobby's newest game exists and is over (results shown)."""
         return False
 
+    def lobby_extras(self, lobby) -> dict[str, Any] | None:
+        """Extra keys for the lobby body (and ``lobby_update``), or None for the
+        original body. A table whose game answers a dict also gets per-member
+        ``connected`` and a ``lobby_update`` when a member joins, leaves, drops
+        (after ``presence_grace_seconds``) or comes back."""
+        return None
+
+    def presence_grace_seconds(self, lobby) -> int:
+        """How long a member who lost their last socket still shows as connected."""
+        return 0
+
     def member_game(self, lobby, user_id: int) -> dict[str, Any] | None:
         """The lobby's newest game as ``{"game_id", "phase"}`` if this user plays in it.
 

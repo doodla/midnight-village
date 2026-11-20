@@ -109,4 +109,40 @@ void main() {
       expect(a, equals(b));
     });
   });
+
+  group('a protocol-2 table', () {
+    LobbyState lobby(String name) =>
+        LobbyState.fromJson(ContractSamples.map('http/lobby/$name'));
+
+    test('carries who is connected, the deck preview and whether it can be '
+        'dealt', () {
+      final dropped = lobby('detail_v2_member_dropped');
+      expect(
+        [for (final p in dropped.players) p.connected],
+        [true, true, true, false],
+      );
+      final chaos = lobby('detail_v2_deck_chaos_4');
+      expect(
+        chaos.deckPreview,
+        (ContractSamples.map(
+                  'http/lobby/detail_v2_deck_chaos_4',
+                )['deck_preview']
+                as Map)
+            .cast<String, int>(),
+      );
+      expect(chaos.deal, const DealReadiness(ok: true, need: 7, have: 7));
+      final short = lobby('detail_v2_custom_deck_short');
+      expect(short.deckPreview, isNull);
+      expect(short.deal, const DealReadiness(ok: false, need: 11, have: 10));
+    });
+
+    test('an original table sends none of it', () {
+      final original = LobbyState.fromJson(
+        ContractSamples.map('http/lobby/detail_waiting'),
+      );
+      expect(original.deal, isNull);
+      expect(original.deckPreview, isNull);
+      expect(original.players.every((p) => p.connected == null), isTrue);
+    });
+  });
 }

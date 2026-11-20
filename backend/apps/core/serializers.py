@@ -54,6 +54,24 @@ class LobbySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["code", "status", "created_at"]
 
+    def to_representation(self, instance: Lobby) -> dict:
+        """The body. A table whose game opts in (``GameHooks.lobby_extras``: ONUW
+        night protocol 2) also gets the game's keys and, per member, ``connected``
+        (``lobbies.connected_members``); any other table is answered exactly as it
+        always was."""
+        from .games import hooks_for
+        from .lobbies import connected_members
+
+        data = super().to_representation(instance)
+        extras = hooks_for(instance).lobby_extras(instance)
+        if extras is None:
+            return data
+        connected = connected_members(instance)
+        for entry in data["players"]:
+            entry["connected"] = entry["user"]["id"] in connected
+        data.update(extras)
+        return data
+
     def get_host(self, lobby: Lobby) -> dict:
         return UserBriefSerializer(lobby.effective_host).data
 

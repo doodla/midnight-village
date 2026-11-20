@@ -49,9 +49,9 @@ from channels.layers import BaseChannelLayer, get_channel_layer
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.core import timers
+from apps.core import host, presence, timers
 from apps.core.consumers import LobbyConsumer
-from apps.core.models import LobbyMember, ScheduledTimer, User
+from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
 from apps.onuw import night2, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.models import Game, PlayerRole
@@ -71,6 +71,8 @@ LOBBY_CODES = (
     "X2PG5N",
     "Y6HM8R",
     "Z4KQ3T",
+    # The lobby table (scenarios.lobby_table).
+    "B7DH4Q",
 )
 # Stand-ins for the game ids, in the order the games are dealt.
 GAME_IDS = (
@@ -439,6 +441,25 @@ class Table:
         with self._capture_on_commit(execute=True):
             if services.unregister_connection(self.game_id, self.pid(name), channel):
                 services.report_game_presence(self.game_id, self.pid(name), False)
+
+    def connect_lobby(self, name: str) -> None:
+        """A lobby socket opens: what ``LobbyConsumer`` does on connect."""
+        with self._capture_on_commit(execute=True):
+            host.register_lobby_connection(
+                self.code, self.pid(name), f"lobby-socket.{self.pid(name)}"
+            )
+
+    def disconnect_lobby(self, name: str) -> None:
+        """The lobby socket closes: what ``LobbyConsumer`` does on disconnect."""
+        with self._capture_on_commit(execute=True):
+            host.unregister_lobby_connection(
+                self.code, self.pid(name), f"lobby-socket.{self.pid(name)}"
+            )
+
+    def lobby_presence_key(self, name: str) -> str:
+        """The durable presence check of ``name`` at this table."""
+        lobby_id = Lobby.objects.get(code=self.code).pk
+        return presence.check_key("lobby", lobby_id, self.pid(name))
 
     # -- the game ---------------------------------------------------------
 

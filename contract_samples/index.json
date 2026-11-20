@@ -1074,6 +1074,22 @@
       "description": "Results of a game with a Doppelganger, a Drunk and a Tanner."
     },
     {
+      "name": "http/game/results_moved_dead_card",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The Robber took a Werewolf's card and is voted out holding it: the dead player's dealt card (Robber) is not their final card (Werewolf); the village wins."
+    },
+    {
+      "name": "http/game/results_nobody_dies",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "Every player gets one vote: nobody dies (a Werewolf is at the table, so the Werewolves win)."
+    },
+    {
       "name": "http/game/results_not_a_player",
       "kind": "http",
       "method": "GET",
@@ -1114,22 +1130,6 @@
       "description": "The Hunter is voted out and takes the player he voted for (a Werewolf) with him."
     },
     {
-      "name": "http/game/results_v2_moved_card",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/results/",
-      "status": 200,
-      "description": "The Robber took a Werewolf's card and is voted out holding it: the dead player's dealt card (Robber) is not their final card (Werewolf); the village wins."
-    },
-    {
-      "name": "http/game/results_v2_nobody_dies",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/results/",
-      "status": 200,
-      "description": "Every player gets one vote: nobody dies (a Werewolf is at the table, so the Werewolves win)."
-    },
-    {
       "name": "http/game/results_v2_tanner",
       "kind": "http",
       "method": "GET",
@@ -1154,7 +1154,7 @@
       "description": "Two players tie on the most votes (two each): both die; one held a Werewolf, so the village wins."
     },
     {
-      "name": "http/game/results_v2_werewolves_win",
+      "name": "http/game/results_werewolves_win",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/results/",
@@ -1240,6 +1240,14 @@
       "path": "/onuw/lobbies/{code}/start/",
       "status": 201,
       "description": "The host deals; everyone opens the game."
+    },
+    {
+      "name": "http/game/started_v2_nobody_ready",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 201,
+      "description": "The host deals; the server built the deck."
     },
     {
       "name": "http/game/vote_after_reveal",
@@ -1410,12 +1418,100 @@
       "description": "A night protocol 2 table with a custom deck, before the deal."
     },
     {
+      "name": "http/lobby/detail_v2_custom_deck_ok",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A custom deck of ten cards at seven players: no preview (its roles are in `settings`), `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_v2_custom_deck_short",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The same custom deck after an eighth player joined: one card short (`deal`: ok false, need 11, have 10)."
+    },
+    {
+      "name": "http/lobby/detail_v2_deck_chaos_4",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The chaos automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_v2_deck_chaos_7",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The chaos automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_v2_deck_classic_4",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The classic automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_v2_deck_classic_7",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The classic automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_v2_deck_simple_4",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The simple automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_v2_deck_simple_7",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The simple automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_v2_member_dropped",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A protocol-2 table with one member dropped."
+    },
+    {
+      "name": "http/lobby/detail_v2_member_in_grace",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "Noa's phone closed a moment ago: still `connected` during the table's grace period (`disconnect_grace_seconds`), so a blip shows nothing."
+    },
+    {
       "name": "http/lobby/detail_waiting",
       "kind": "http",
       "method": "GET",
       "path": "/lobbies/{code}/",
       "status": 200,
       "description": "The table before the deal, everyone ready."
+    },
+    {
+      "name": "http/lobby/join_already_at_table",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 409,
+      "description": "Joining while seated at another table that is still going: refused, with that table's code (`lobby_code`) so the phone can offer to go there."
     },
     {
       "name": "http/lobby/join_already_member",
@@ -2536,6 +2632,69 @@
         "Ida"
       ],
       "description": "A night protocol 2 table whose host picked the cards (`deck: custom`)."
+    },
+    {
+      "name": "ws/lobby/lobby_update_v2_deck_preview",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Kai",
+        "Lia",
+        "Max",
+        "Noa",
+        "Oli",
+        "Pia",
+        "Rex"
+      ],
+      "description": "Every lobby_update carries `deck_preview` and `deal` (here after a chip change at seven players)."
+    },
+    {
+      "name": "ws/lobby/lobby_update_v2_joined",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Kai",
+        "Lia",
+        "Max",
+        "Noa",
+        "Oli",
+        "Pia",
+        "Rex",
+        "Sam"
+      ],
+      "description": "A player joined: the table is sent the whole body (`deal` changes with the player count)."
+    },
+    {
+      "name": "ws/lobby/lobby_update_v2_member_back",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Kai",
+        "Lia",
+        "Max",
+        "Noa"
+      ],
+      "description": "Noa's phone is back: `connected` true again."
+    },
+    {
+      "name": "ws/lobby/lobby_update_v2_member_dropped",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Kai",
+        "Lia",
+        "Max",
+        "Noa"
+      ],
+      "description": "Noa's phone has been away past the grace period: the table is told (`connected` false), calmly, by a lobby_update."
     },
     {
       "name": "ws/lobby/player_joined",

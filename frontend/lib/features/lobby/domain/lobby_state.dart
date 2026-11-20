@@ -23,6 +23,11 @@ abstract class LobbyPlayer with _$LobbyPlayer {
     /// The seat token (public table identity); null for a token this app
     /// does not know, or the blank one a member past the tenth may have.
     TokenId? token,
+
+    /// Whether the member's phone is at the table (`connected`, sent at a
+    /// protocol-2 table only; still true during the table's grace period
+    /// after a drop). Null at a table that does not send it.
+    bool? connected,
   }) = _LobbyPlayer;
 
   /// Parses the backend's nested player format.
@@ -35,8 +40,41 @@ abstract class LobbyPlayer with _$LobbyPlayer {
       isReady: json['is_ready'] as bool,
       joinedAt: DateTime.parse(json['joined_at'] as String),
       token: TokenId.fromServer(json['token'] as String),
+      connected: json['connected'] as bool?,
     );
   }
+}
+
+/// Whether the table can be dealt now (`deal`, protocol-2 tables only): [ok]
+/// is exactly what the server's deal would answer; [need] the cards the deal
+/// needs, [have] the cards in the deck. The app holds no deck-size rule.
+@immutable
+class DealReadiness {
+  const DealReadiness({
+    required this.ok,
+    required this.need,
+    required this.have,
+  });
+
+  factory DealReadiness.fromJson(Map<String, dynamic> json) => DealReadiness(
+    ok: json['ok'] as bool,
+    need: json['need'] as int,
+    have: json['have'] as int,
+  );
+
+  final bool ok;
+  final int need;
+  final int have;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DealReadiness &&
+      other.ok == ok &&
+      other.need == need &&
+      other.have == have;
+
+  @override
+  int get hashCode => Object.hash(ok, need, have);
 }
 
 /// The state of a lobby, including players, settings, and status.
@@ -82,6 +120,15 @@ abstract class LobbyState with _$LobbyState {
     /// Set when the server says the table no longer exists (its last member
     /// left). The screen says so and goes home. Frontend only.
     @Default(false) bool tableClosed,
+
+    /// The automatic deck the deal would build now (`deck_preview`, role name
+    /// to count); null for a custom deck, a player count with no automatic
+    /// deck, or a table that does not send it.
+    Map<String, int>? deckPreview,
+
+    /// Whether the table can be dealt now (`deal`); null at a table that does
+    /// not send it.
+    DealReadiness? deal,
   }) = _LobbyState;
 
   /// Parses the backend's LobbyResponse format.
@@ -91,6 +138,8 @@ abstract class LobbyState with _$LobbyState {
     final settings = json['settings'] as Map<String, dynamic>;
     // A table whose host has not chosen a deck yet has no `roles`.
     final roles = settings['roles'] as Map<String, dynamic>?;
+    final preview = json['deck_preview'] as Map<String, dynamic>?;
+    final deal = json['deal'] as Map<String, dynamic>?;
 
     return LobbyState(
       code: json['code'] as String,
@@ -106,6 +155,8 @@ abstract class LobbyState with _$LobbyState {
       hostName: host['display_name'] as String,
       originalHostId: json['original_host_id'] as int,
       isActingHost: json['is_acting_host'] as bool,
+      deckPreview: preview?.map((k, v) => MapEntry(k, v as int)),
+      deal: deal == null ? null : DealReadiness.fromJson(deal),
     );
   }
 }
