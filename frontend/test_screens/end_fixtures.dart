@@ -146,18 +146,24 @@ Future<void> pumpResultsNight(WidgetTester tester) async {
     viewer: 'Ben',
   );
   await _seeWhoWon(tester, setup);
+  // Eight at the table: the night starts under the fade; scroll to it.
+  await tester.drag(find.byType(Scrollable).first, const Offset(0, -500));
+  await setup.settle(tester);
 }
 
 /// 11 with the night folded by a tap on its red line (the Hunter's game).
 Future<void> pumpResultsFolded(WidgetTester tester) async {
   final setup = await _end(tester, recordedResults('results'), viewer: 'Ana');
   await _seeWhoWon(tester, setup);
-  await tester.tap(find.bySemanticsLabel(ResultsCopy.nightSpoken));
+  final night = find.bySemanticsLabel(ResultsCopy.nightSpoken);
+  await tester.ensureVisible(night);
+  await tester.pump();
+  await tester.tap(night);
   await setup.settle(tester);
 }
 
-/// 11 scrolled to its end: everyone's card, the center (the Hunter's game,
-/// on the host's phone).
+/// 11 scrolled to its end: the last of the night (the Hunter's game, on
+/// the host's phone).
 Future<void> pumpResultsEnd(WidgetTester tester) async {
   final setup = await _end(tester, recordedResults('results'), viewer: 'Ana');
   await _seeWhoWon(tester, setup);

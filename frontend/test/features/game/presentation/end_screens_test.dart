@@ -305,7 +305,10 @@ void main() {
       ]) {
         expect(find.textContaining(line, findRichText: true), findsOneWidget);
       }
-      await tester.tap(find.bySemanticsLabel(ResultsCopy.nightSpoken));
+      final night = find.bySemanticsLabel(ResultsCopy.nightSpoken);
+      await tester.ensureVisible(night);
+      await tester.pump();
+      await tester.tap(night);
       await tester.pump();
       expect(
         find.textContaining('Gus takes Left.', findRichText: true),

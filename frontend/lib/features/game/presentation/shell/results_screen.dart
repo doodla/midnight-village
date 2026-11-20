@@ -114,17 +114,18 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
 }
 
 /// 11 Results, from the results body: who won (the band: the winners'
-/// portrait, the headline, "You won." / "You lost."), then the night, open:
+/// portrait, the headline, "You won." / "You lost."), then everyone's card at
+/// the end (the dealt one before it where it moved) with "Won" or "Died",
+/// one line each where they fit, and the center; then the night, open:
 /// where each Werewolf card went (the red line, headed by the Werewolf's
 /// portrait: "Cara → Bob"; the line that teaches a newcomer the cards
 /// move), then a line per step ("Robber: Ben takes Dev's card.", with the
 /// cards the step showed), arriving one after another ([Motion.stagger]; a
 /// tap finishes them, reduce motion shows them at once), each on a spine
 /// that is red where a werewolf card was looked at or moved; a tap on the
-/// red line folds the steps away (and opens them again). Then everyone's card
-/// at the end (the dealt one before it where it moved) with "Won" or
-/// "Died", and the center. Red is the server's `werewolf` flag on a card,
-/// everywhere. Everything is the server's: the winners, each player's
+/// red line folds the steps away (and opens them again); on a big table it
+/// continues under the fade above the buttons. Red is the server's
+/// `werewolf` flag on a card, everywhere. Everything is the server's: the winners, each player's
 /// outcome, team and cards, the timeline.
 ///
 /// [host]: "Play again" and "Edit deck", side by side, or stacked when a
@@ -238,7 +239,19 @@ class _ResultsViewState extends State<ResultsView>
           builder: (context) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // What everyone looks for first: each player's card at the
+              // end, and who won or died.
+              for (final seat in _seats)
+                _EndRow(seat, own: seat.seat.id == widget.viewerId),
+              const SizedBox(height: Space.sm),
+              Text(
+                ResultsCopy.center.fill({
+                  'roles': nameList(center.map((r) => r.displayName)),
+                }),
+                style: type.body.copyWith(color: context.ground.quietText),
+              ),
               if (_lines.isNotEmpty) ...[
+                const SizedBox(height: Space.lg),
                 _NightHead(
                   paths: _paths,
                   lines: _lines,
@@ -256,17 +269,7 @@ class _ResultsViewState extends State<ResultsView>
                       ],
                     ),
                   ),
-                const SizedBox(height: Space.xl),
               ],
-              for (final seat in _seats)
-                _EndRow(seat, own: seat.seat.id == widget.viewerId),
-              const SizedBox(height: Space.md),
-              Text(
-                ResultsCopy.center.fill({
-                  'roles': nameList(center.map((r) => r.displayName)),
-                }),
-                style: type.body.copyWith(color: context.ground.quietText),
-              ),
             ],
           ),
         ),
@@ -450,7 +453,10 @@ class _EndRow extends StatelessWidget {
             'copied': copied.displayName,
           });
     return Container(
-      padding: const EdgeInsets.all(Space.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.sm,
+        vertical: Space.xs,
+      ),
       decoration: own
           ? BoxDecoration(
               color: ground.panel,
@@ -460,11 +466,15 @@ class _EndRow extends StatelessWidget {
       child: Row(
         spacing: Space.md,
         children: [
-          PlayerToken(seat.seat.token, size: TokenSize.row),
+          PlayerToken(seat.seat.token, size: TokenSize.card),
+          // The name, then the card (the dealt one before it where it
+          // moved), on one line where they fit; the card wraps under the
+          // name where they do not.
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: Space.xxs,
+            child: Wrap(
+              spacing: Space.sm,
+              runSpacing: Space.xxs,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 FitWords(
                   seat.seat.name,
@@ -567,32 +577,25 @@ class _NightHead extends StatelessWidget {
                 RolePortrait(role: line.role, width: RolePortrait.strip),
             ],
           )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: Space.sm,
+        : Wrap(
+            spacing: Space.lg,
+            runSpacing: Space.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               for (final path in paths)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  spacing: Space.smPlus,
+                Wrap(
+                  spacing: Space.xs,
+                  runSpacing: Space.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const RolePortrait(
                       role: RoleId.werewolf,
                       width: RolePortrait.strip,
                     ),
-                    Expanded(
-                      child: Wrap(
-                        spacing: Space.xs,
-                        runSpacing: Space.xs,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          for (final (i, place) in path.places.indexed) ...[
-                            if (i > 0) arrow,
-                            TagChip.danger(place, small: true),
-                          ],
-                        ],
-                      ),
-                    ),
+                    for (final (i, place) in path.places.indexed) ...[
+                      if (i > 0) arrow,
+                      TagChip.danger(place, small: true),
+                    ],
                   ],
                 ),
             ],

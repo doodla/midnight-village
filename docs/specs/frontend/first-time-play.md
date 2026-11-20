@@ -351,7 +351,7 @@ Every face has exactly one portrait slot and at most 2 lines.
   - Host: amber "Play again", quiet "Edit deck", side by side, or stacked when a label would not fit on one line. Guest: "{host} deals next." (only when the host is at the table), quiet "Leave".
   - **13 of 13 words.**
 - **Removed:** "Cleo held the Robber" (1). The footnote (12). "Change the deck".
-- **States:** the night is open: first the red line, each Werewolf card from where it was dealt to where it ended ("Cara → Bob"), headed by the Werewolf's portrait; then the steps, arriving 150 ms apart (instant with reduce motion; a tap finishes them), on a spine that is red where a werewolf card was looked at or moved; a tap on the red line folds the steps. Then every player's card (dealt → final) with "Won" / "Died". Red is the server's `werewolf` flag on a card, everywhere. (Review of the rebuild, 20 November 2026.)
+- **States:** after the band, every player's card (dealt → final) with "Won" / "Died", one compact line each, and the center; then the night, open (starting on the first screen at five players and 390 wide): first the red line, each Werewolf card from where it was dealt to where it ended ("Cara → Bob"), headed by the Werewolf's portrait; then the steps, arriving 150 ms apart (instant with reduce motion; a tap finishes them), on a spine that is red where a werewolf card was looked at or moved; a tap on the red line folds the steps. Red is the server's `werewolf` flag on a card, everywhere. (Review of the rebuild, 20 November 2026.)
 - **Pass:** host says "Play again"; guest says "Wait or Leave".
 
 **Timeline rows on 11** (prefix "{role}:"; a Doppelganger follow-up uses the prefix "Doppelganger · {copied}:")
