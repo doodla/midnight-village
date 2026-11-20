@@ -136,6 +136,26 @@ void main() {
       expect(short.deal, const DealReadiness(ok: false, need: 11, have: 10));
     });
 
+    test(
+      'a protocol-2 body missing any of them is broken, never a default',
+      () {
+        Map<String, dynamic> body() =>
+            ContractSamples.map('http/lobby/detail_v2_member_dropped');
+        for (final key in ['deck_preview', 'deal']) {
+          expect(
+            () => LobbyState.fromJson(body()..remove(key)),
+            throwsA(anything),
+            reason: key,
+          );
+        }
+        final noConnected = body();
+        ((noConnected['players'] as List).first as Map).remove('connected');
+        expect(() => LobbyState.fromJson(noConnected), throwsA(anything));
+        // `deck_preview` is null by design for a custom deck.
+        expect(lobby('detail_v2_custom_deck_ok').deckPreview, isNull);
+      },
+    );
+
     test('an original table sends none of it', () {
       final original = LobbyState.fromJson(
         ContractSamples.map('http/lobby/detail_waiting'),

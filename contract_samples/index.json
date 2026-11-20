@@ -1511,7 +1511,7 @@
       "method": "POST",
       "path": "/lobbies/{code}/join/",
       "status": 409,
-      "description": "Joining while seated at another table that is still going: refused, with that table's code (`lobby_code`) so the phone can offer to go there."
+      "description": "Joining a protocol-2 table while seated at another table that is waiting: refused, with that table's code (`lobby_code`) so the phone can offer to go there (leaving a waiting table always works)."
     },
     {
       "name": "http/lobby/join_already_member",

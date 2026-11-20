@@ -72,13 +72,11 @@ def _deck_size(settings: Any, player_count: int) -> int:
     return sum(c for c in deck.values() if isinstance(c, int) and c > 0)
 
 
-def lobby_extras(lobby: Lobby) -> dict[str, Any] | None:
-    """The lobby body's ONUW keys for a protocol-2 table (None for any other):
+def lobby_extras(lobby: Lobby) -> dict[str, Any]:
+    """The lobby body's ONUW keys for a protocol-2 table (asked only for one):
     ``deck_preview`` and ``deal`` (``ok`` exactly as the deal would answer now;
     ``need`` the cards the deal needs, players + 3; ``have`` the cards in the
     deck)."""
-    if not is_v2_table(lobby.settings):
-        return None
     members = list(lobby.players.all())  # type: ignore[attr-defined]
     count = len(members)
     return {

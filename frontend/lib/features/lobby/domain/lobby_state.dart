@@ -30,8 +30,13 @@ abstract class LobbyPlayer with _$LobbyPlayer {
     bool? connected,
   }) = _LobbyPlayer;
 
-  /// Parses the backend's nested player format.
-  factory LobbyPlayer.fromJson(Map<String, dynamic> json) {
+  /// Parses the backend's nested player format. At a protocol-2 table
+  /// ([protocolTwo]) `connected` is always sent: a missing one is a broken
+  /// payload, never "unknown".
+  factory LobbyPlayer.fromJson(
+    Map<String, dynamic> json, {
+    bool protocolTwo = false,
+  }) {
     // Backend returns { "user": {"id": ..., "display_name": ...}, "is_ready": ..., "joined_at": ... }
     final user = json['user'] as Map<String, dynamic>;
     return LobbyPlayer(
@@ -40,7 +45,9 @@ abstract class LobbyPlayer with _$LobbyPlayer {
       isReady: json['is_ready'] as bool,
       joinedAt: DateTime.parse(json['joined_at'] as String),
       token: TokenId.fromServer(json['token'] as String),
-      connected: json['connected'] as bool?,
+      connected: protocolTwo
+          ? json['connected'] as bool
+          : json['connected'] as bool?,
     );
   }
 }
@@ -138,19 +145,33 @@ abstract class LobbyState with _$LobbyState {
     final settings = json['settings'] as Map<String, dynamic>;
     // A table whose host has not chosen a deck yet has no `roles`.
     final roles = settings['roles'] as Map<String, dynamic>?;
+    final table = TableSettings.fromSettings(settings);
+    final protocolTwo = table.isProtocolTwo;
+    // A protocol-2 table always sends `deck_preview` (null for a custom deck)
+    // and `deal`: missing is a broken payload, as in `GameMe`.
+    if (protocolTwo && !json.containsKey('deck_preview')) {
+      throw FormatException('No deck_preview in a protocol-2 lobby', json);
+    }
     final preview = json['deck_preview'] as Map<String, dynamic>?;
-    final deal = json['deal'] as Map<String, dynamic>?;
+    final deal = protocolTwo
+        ? json['deal'] as Map<String, dynamic>
+        : json['deal'] as Map<String, dynamic>?;
 
     return LobbyState(
       code: json['code'] as String,
       hostId: host['id'] as int,
       players: playersJson
-          .map((p) => LobbyPlayer.fromJson(p as Map<String, dynamic>))
+          .map(
+            (p) => LobbyPlayer.fromJson(
+              p as Map<String, dynamic>,
+              protocolTwo: protocolTwo,
+            ),
+          )
           .toList(),
       status: json['status'] as String,
       maxPlayers: json['max_players'] as int,
       roleConfig: roles?.map((k, v) => MapEntry(k, v as int)) ?? {},
-      table: TableSettings.fromSettings(settings),
+      table: table,
       // `host` is the effective host.
       hostName: host['display_name'] as String,
       originalHostId: json['original_host_id'] as int,

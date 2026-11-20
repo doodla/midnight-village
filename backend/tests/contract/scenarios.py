@@ -2214,7 +2214,8 @@ def results_tables(run: Recording) -> None:
     (after the tables above, so their samples never move)."""
     _six_results_table(run)
     _three_player_table(run)
-    _lobby_table(run, busy=_ten_player_table(run))
+    _ten_player_table(run)
+    _lobby_table(run)
 
 
 def _six_results_table(run: Recording) -> None:
@@ -2439,11 +2440,11 @@ def _record_lobby(t: Table, name: str, about: str) -> None:
     t.record(f"lobby/{name}", "GET", "Kai", LOBBY, status=200, about=about)
 
 
-def _lobby_table(run: Recording, busy: Table) -> None:
+def _lobby_table(run: Recording) -> None:
     """A protocol-2 table before its deal: who is connected (one phone drops and
     comes back), the automatic deck it would deal for each chip at two player
     counts, whether it can be dealt (`deal`), a custom deck one card short, a join
-    by someone at another table that is still going, and a deal with a member
+    by someone seated here to another table, and a deal with a member
     who never tapped ready."""
     t = run.table()
     first = ["Kai", "Lia", "Max", "Noa"]
@@ -2532,16 +2533,6 @@ def _lobby_table(run: Recording, busy: Table) -> None:
         "A custom deck of ten cards at seven players: no preview (its roles are in "
         "`settings`), `deal` ok.",
     )
-    t.players["Jon"] = busy.players["Jon"]
-    t.record(
-        "lobby/join_already_at_table",
-        "POST",
-        "Jon",
-        JOIN,
-        status=409,
-        about="Joining while seated at another table that is still going: refused, "
-        "with that table's code (`lobby_code`) so the phone can offer to go there.",
-    )
     t.guest("Sam")
     t.clock.advance(60)
     t.call("POST", "Sam", JOIN)
@@ -2558,6 +2549,22 @@ def _lobby_table(run: Recording, busy: Table) -> None:
         "detail_v2_custom_deck_short",
         "The same custom deck after an eighth player joined: one card short "
         "(`deal`: ok false, need 11, have 10).",
+    )
+
+    # -- someone seated here tries to sit at another protocol-2 table ---------
+    other = run.table()
+    other.guest("Uma")
+    other.call("POST", "Uma", CREATE, {"game_type": "onuw", "defaults": "v2"})
+    other.players["Rex"] = t.players["Rex"]
+    other.record(
+        "lobby/join_already_at_table",
+        "POST",
+        "Rex",
+        JOIN,
+        status=409,
+        about="Joining a protocol-2 table while seated at another table that is "
+        "waiting: refused, with that table's code (`lobby_code`) so the phone can "
+        "offer to go there (leaving a waiting table always works).",
     )
 
     # -- nobody tapped ready, and the table is dealt --------------------------

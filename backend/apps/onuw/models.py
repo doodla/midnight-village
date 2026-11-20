@@ -50,6 +50,11 @@ class Game(models.Model):
             "(1 = Doppelganger, 2 = everyone else at once)"
         ),
     )
+    # Despite its name (kept: renaming it, or changing its help_text, would be a
+    # migration), this is "when the stage open now opened": the look stage, each
+    # night window, the talk and the vote set it when they open. GET /me/'s
+    # ``stage_started_at`` reads it; the night's minimum-length rule reads it only
+    # inside a night window.
     night_window_opened_at = models.DateTimeField(
         null=True,
         blank=True,

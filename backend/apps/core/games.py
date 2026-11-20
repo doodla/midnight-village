@@ -50,12 +50,20 @@ class GameHooks:
         """True if the lobby's newest game exists and is over (results shown)."""
         return False
 
-    def lobby_extras(self, lobby) -> dict[str, Any] | None:
-        """Extra keys for the lobby body (and ``lobby_update``), or None for the
-        original body. A table whose game answers a dict also gets per-member
-        ``connected`` and a ``lobby_update`` when a member joins, leaves, drops
-        (after ``presence_grace_seconds``) or comes back."""
-        return None
+    def shows_table_extras(self, lobby) -> bool:
+        """Whether this table opts into the newer table (cheap: settings only).
+
+        Such a table's lobby body has ``lobby_extras`` and per-member
+        ``connected``; it hears a ``lobby_update`` when a member joins, leaves,
+        drops (after ``presence_grace_seconds``) or comes back after being shown
+        as gone; and a join of it is refused to someone seated at another waiting
+        table (``already_at_table``). Any other table is answered as before."""
+        return False
+
+    def lobby_extras(self, lobby) -> dict[str, Any]:
+        """The game's extra keys for the lobby body (only asked when
+        ``shows_table_extras``)."""
+        return {}
 
     def presence_grace_seconds(self, lobby) -> int:
         """How long a member who lost their last socket still shows as connected."""

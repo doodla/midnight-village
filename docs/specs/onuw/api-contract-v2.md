@@ -826,8 +826,8 @@ Three additions for the rebuilt phone screens; all additive, no migration, proto
   never `stage_started_at`, so a phone draws the stage as it really ran. Stored in the
   existing `Game.night_window_opened_at`, which every stage now sets when it opens (the
   night's minimum-length rule still reads it only in a night window).
-- **`GET /me/` `vote_targets`** (protocol 2): while voting, the player ids the caller may vote
-  for, in seat order: every player in the game but the caller (no self-votes,
+- **`GET /me/` `vote_targets`** (protocol 2): while voting, the valid targets (`my_vote.locked`
+  says whether the caller may still change), in seat order: every player in the game but the caller (no self-votes,
   `voting-and-resolution.md`), the same list `POST .../vote/` accepts, whoever has picked,
   locked or dropped. Null outside the vote. The phone lists exactly these and holds no rule.
 - **CORS exposes `Date`** (`CORS_EXPOSE_HEADERS = ["Date"]` in the base settings, so every
@@ -844,7 +844,8 @@ every lobby answer, every `lobby_update`); any other table is answered as before
 - **`players[].connected`** (bool): the member's phone is at the table (a lobby socket or
   a socket on the newest game). A phone that drops stays `true` for the table's
   `disconnect_grace_seconds`; then the table gets a `lobby_update` with `false`. Coming
-  back sends a `lobby_update` at once. A member never seen with a socket is `false`.
+  back after being shown as gone sends a `lobby_update` at once (a phone back inside its
+  grace sends nothing). A member never seen with a socket is `false`.
   `lobby_update` is also sent when a member joins or leaves. Not secret at a table.
 - **`deck_preview`**: the automatic deck the deal would build for the players at the
   table now and `deck_chip`, `{role: count}` (the shape of `settings.roles`), from the
@@ -853,8 +854,9 @@ every lobby answer, every `lobby_update`); any other table is answered as before
   would be accepted now (waiting, 3 to 10 players, a legal deck of the right size, valid
   settings; only the host check is left out); `need` = players + 3; `have` = cards in the
   deck the deal would use (0 if none). The phone holds no deck-size rule.
-- **One table at a time (every table):** `POST /lobbies/<code>/join/` by a member of
-  another table that is still going (waiting or in a game, active within the resume
-  window) is `409 {"detail": "You are already at another table.", "code":
-  "already_at_table", "lobby_code": "<that table>"}`. A finished table traps nobody; after
-  play again a member leaves that table to sit elsewhere.
+- **One table at a time (joins of protocol-2 tables only; a protocol-1 join answers as
+  before):** `POST /lobbies/<code>/join/` by a member of another table that is WAITING
+  (active within the resume window) is `409 {"detail": "You are already at another
+  table.", "code": "already_at_table", "lobby_code": "<that table>"}`. Only waiting tables
+  count: anyone can leave one (200), so it never traps; a table in a game (whose owner
+  cannot leave) or finished does not block a join.

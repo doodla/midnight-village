@@ -166,10 +166,7 @@ class TestWhereAmI:
         assert where(guest)["lobby_code"] == table.code
 
     def test_where_am_i_picks_newest_membership(self, table) -> None:
-        # Player 0 hosts the first table and, once its game is over (a table still
-        # going refuses a second seat: ``already_at_table``), sits down at a
-        # second one.
-        Lobby.objects.filter(code=table.code).update(status=Lobby.Status.FINISHED)
+        # Player 0 hosts the first table and later sits down at a second one.
         second = Table(players=3)
         guest = table.host
         response = guest.post(reverse("core:lobby-join", kwargs={"code": second.code}))

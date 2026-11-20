@@ -20,7 +20,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .games import hooks_for_type
+from .games import hooks_for, hooks_for_type
 from .lobbies import (
     LobbyFullError,
     add_member,
@@ -243,9 +243,12 @@ class LobbyJoinView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, code):
-        # The Lobby row is locked from the checks to the insert, so two joins
-        # cannot both take the last seat or the same token.
+        # The joining user's row is locked first, so two joins by one user to
+        # two tables cannot both pass the one-table check; then the Lobby row,
+        # from the checks to the insert, so two joins cannot both take the last
+        # seat or the same token. (Lock order: User, then Lobby.)
         with transaction.atomic():
+            User.objects.select_for_update().filter(pk=request.user.pk).first()
             try:
                 lobby = Lobby.objects.select_for_update().get(code=code)
             except Lobby.DoesNotExist:
@@ -272,9 +275,13 @@ class LobbyJoinView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # One table at a time: a member of another table that is still going
-            # is pointed at it instead of getting a second seat.
-            other = other_active_table(request.user.id, lobby.pk)  # type: ignore[misc]
+            # One table at a time (tables that opt in): a member of another table
+            # still waiting is pointed at it instead of getting a second seat.
+            other = (
+                other_active_table(request.user.id, lobby.pk)  # type: ignore[misc]
+                if hooks_for(lobby).shows_table_extras(lobby)
+                else None
+            )
             if other is not None:
                 return Response(
                     {

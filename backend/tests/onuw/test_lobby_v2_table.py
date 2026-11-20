@@ -251,14 +251,45 @@ class TestConnected:
         for name in t.users:
             t.socket(name)
         p1 = t.users["p1"].id
-        t.socket_closes("p1")
-        t.socket("p1")
         layer.sent.clear()
+        # A flapping phone: gone and back three times inside its grace period.
+        for _ in range(3):
+            t.socket_closes("p1")
+            t.socket("p1")
 
         with t.capture(execute=True):
             host.check_lobby_presence(t.lobby().pk, p1)
 
         assert layer.lobby_updates(t.code) == []
+
+    def test_a_first_socket_is_told_the_table_shows_the_member_arriving(
+        self, table, layer
+    ) -> None:
+        t = table(players=3)
+        layer.sent.clear()
+
+        t.socket("p1")
+
+        (update,) = layer.lobby_updates(t.code)
+        assert connected(update)[t.users["p1"].id] is True
+
+    def test_a_reconnect_replaces_the_grace_check_with_a_staleness_check(
+        self, table
+    ) -> None:
+        from apps.core import presence as core_presence
+
+        t = table({**V2, "disconnect_grace_seconds": 20}, players=3)
+        t.socket("p1")
+        t.socket_closes("p1")
+        scheduled: list[tuple[str, float]] = []
+        with patch(
+            "apps.core.timers.schedule",
+            side_effect=lambda key, delay, *_a, **_k: scheduled.append((key, delay)),
+        ):
+            t.socket("p1")
+
+        key = core_presence.check_key("lobby", t.lobby().pk, t.users["p1"].id)
+        assert (key, core_presence.stale_seconds()) in scheduled
 
     def test_join_and_leave_send_the_whole_body(self, table, layer) -> None:
         t = table(players=3)
@@ -369,7 +400,7 @@ class TestDealOk:
 
 
 class TestOneTableAtATime:
-    def test_a_member_of_a_table_still_going_is_pointed_at_it(self, table) -> None:
+    def test_a_member_of_a_waiting_table_is_pointed_at_it(self, table) -> None:
         first = table(players=3)
         second = table(players=3)
         second.users["p1"] = first.users["p1"]
@@ -386,16 +417,41 @@ class TestOneTableAtATime:
             lobby__code=second.code, user=first.users["p1"]
         ).exists()
 
-    def test_a_table_in_a_game_counts_too(self, table) -> None:
+    def test_a_table_in_a_game_does_not_block_a_join(self, table) -> None:
+        """Its owner cannot leave a running game (409), so it must not block them:
+        ``/me/table/`` routes people back to a running game instead."""
         first = table(players=3)
         assert first.deal().status_code == status.HTTP_201_CREATED
         second = table(players=3)
-        second.users["p2"] = first.users["p2"]
+        second.users["host"] = first.users["host"]
 
-        reply = second.join("p2")
+        assert second.join("host").status_code == status.HTTP_200_OK
 
-        assert reply.status_code == status.HTTP_409_CONFLICT
-        assert reply.data["lobby_code"] == first.code
+    def test_a_protocol_one_table_answers_joins_as_before(self, table) -> None:
+        first = table(players=3)
+        second = table(settings={"roles": CUSTOM_5}, players=3)
+        second.users["p1"] = first.users["p1"]
+
+        assert second.join("p1").status_code == status.HTTP_200_OK
+
+    @pytest.mark.parametrize("who", ["host", "p1"])
+    @pytest.mark.parametrize("protocol", [1, 2])
+    def test_every_table_the_check_counts_can_be_left(
+        self, table, who, protocol
+    ) -> None:
+        """The class test: the check counts only WAITING tables, and from every
+        one of them, as owner or member, of either protocol, a leave answers 200
+        and the join then goes through. The refusal can never trap anyone."""
+        held = table(V2 if protocol == 2 else {"roles": CUSTOM_5}, players=3)
+        assert held.lobby().status == Lobby.Status.WAITING
+        wanted = table(players=3)
+        wanted.users[who] = held.users[who]
+        assert wanted.join(who).status_code == status.HTTP_409_CONFLICT
+
+        left = held.post(who, reverse("core:lobby-leave", kwargs={"code": held.code}))
+
+        assert left.status_code == status.HTTP_200_OK
+        assert wanted.join(who).status_code == status.HTTP_200_OK
 
     def test_a_finished_table_traps_nobody(self, table) -> None:
         first = table(players=3)
@@ -438,3 +494,61 @@ class TestOneTableAtATime:
         second.users["p1"] = first.users["p1"]
 
         assert second.join("p1").status_code == status.HTTP_200_OK
+
+
+class TestJoinRace:
+    @pytest.mark.django_db(transaction=True)
+    def test_two_joins_by_one_user_to_two_tables_seat_them_once(self) -> None:
+        """The User row is locked first, so the one-table check and the insert of
+        one join finish before the other join checks: never two seats."""
+        import threading
+
+        from django.db import connections
+
+        def make_table() -> str:
+            owner = User.objects.create_user(
+                username=f"lv2_race_{next(_names)}", password="pass"
+            )
+            lobby = Lobby.objects.create(
+                host=owner, game_type="onuw", max_players=10, settings=V2
+            )
+            LobbyMember.objects.create(lobby=lobby, user=owner, token="moth")
+            return lobby.code
+
+        for _ in range(5):
+            codes = [make_table(), make_table()]
+            user = User.objects.create_user(
+                username=f"lv2_racer_{next(_names)}", password="pass"
+            )
+            barrier = threading.Barrier(2)
+            answers: list[int] = []
+
+            def join(
+                code: str,
+                user: User,
+                barrier: threading.Barrier,
+                answers: list[int],
+            ) -> None:
+                try:
+                    client = APIClient()
+                    client.force_authenticate(user=user)
+                    barrier.wait()
+                    with patch("apps.core.views.get_channel_layer", return_value=None):
+                        reply = client.post(
+                            reverse("core:lobby-join", kwargs={"code": code})
+                        )
+                    answers.append(reply.status_code)
+                finally:
+                    connections.close_all()
+
+            threads = [
+                threading.Thread(target=join, args=(c, user, barrier, answers))
+                for c in codes
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            assert sorted(answers) == [200, 409]
+            assert LobbyMember.objects.filter(user=user).count() == 1

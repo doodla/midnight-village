@@ -66,7 +66,10 @@ class OnuwHooks(GameHooks):
         game = _newest_game(lobby)
         return game is not None and game.phase == Phase.RESULTS
 
-    def lobby_extras(self, lobby) -> dict[str, Any] | None:
+    def shows_table_extras(self, lobby) -> bool:
+        return deal.is_v2_table(lobby.settings)
+
+    def lobby_extras(self, lobby) -> dict[str, Any]:
         return deal.lobby_extras(lobby)
 
     def presence_grace_seconds(self, lobby) -> int:

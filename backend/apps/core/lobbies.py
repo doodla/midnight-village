@@ -88,15 +88,18 @@ def _resume_cutoff() -> Any:
 
 
 def other_active_table(user_id: int, exclude_lobby_id: int) -> Lobby | None:
-    """The table, other than ``exclude_lobby_id``, the user is seated at and that
-    is still going: waiting or in a game, with activity within
-    ``CORE_TABLE_RESUME_HOURS`` (the "where am I" window). A finished table (its
-    game in the results) is not active, so a played table never traps anyone;
-    after play again the table is waiting again and active."""
+    """The WAITING table, other than ``exclude_lobby_id``, the user is seated at,
+    with activity within ``CORE_TABLE_RESUME_HOURS`` (the "where am I" window).
+
+    Only waiting tables count, because a member can always leave a waiting table
+    (``POST /lobbies/<code>/leave/``, the owner included): a refusal that points
+    there can never trap anyone. A table in a game cannot be left by its owner,
+    so it must not block a join (``/me/table/`` already routes people back to a
+    game); a finished table is over."""
     member = (
         LobbyMember.objects.filter(
             user_id=user_id,
-            lobby__status__in=[Lobby.Status.WAITING, Lobby.Status.IN_GAME],
+            lobby__status=Lobby.Status.WAITING,
             lobby__updated_at__gte=_resume_cutoff(),
         )
         .exclude(lobby_id=exclude_lobby_id)
@@ -111,7 +114,11 @@ def connected_members(lobby: Lobby) -> set[int]:
     """Members shown as connected at the table: a fresh lobby socket or a socket
     on the lobby's newest game, or a phone that went away less than the game's
     ``presence_grace_seconds`` ago (so a blip is not shown). A member never seen
-    with a socket is not connected."""
+    with a socket is not connected.
+
+    The grace is measured on the instance clock (``timezone.now()``), as
+    ``LobbyMember.disconnected_at`` is written with it (like the game's own
+    grace); socket freshness itself is on the database clock."""
     hooks = games.hooks_for(lobby)
     connected = presence.connected_user_ids(
         lobby_id=lobby.pk
@@ -129,11 +136,11 @@ def connected_members(lobby: Lobby) -> set[int]:
 
 def announce_lobby(lobby: Lobby) -> None:
     """After commit, send the lobby body to the table (``lobby_update``), for a
-    table whose game opts in (``GameHooks.lobby_extras``); nothing otherwise. The
+    table whose game opts in (``GameHooks.shows_table_extras``); nothing otherwise. The
     body is built now, inside the caller's transaction."""
     from apps.core.serializers import LobbySerializer
 
-    if games.hooks_for(lobby).lobby_extras(lobby) is None:
+    if not games.hooks_for(lobby).shows_table_extras(lobby):
         return
     send_after_commit(
         [
