@@ -170,9 +170,9 @@ LOGGING = {
 # timer registry is lost with the process). Off in the test settings.
 ONUW_RECOVER_TIMERS_ON_START = True
 
-# How durable timers fire (apps/onuw/timers.py): "memory" = threading.Timer in
+# How durable timers fire (apps/core/timers.py): "memory" = threading.Timer in
 # this process (dev, tests, harness); "vercel_queue" = delayed queue messages
-# handled by apps/onuw/queue_worker.py (no per-process state; see
+# handled by apps/core/queue_worker.py (no per-process state; see
 # docs/dev/deploy-vercel.md).
 ONUW_TIMER_BACKEND = "memory"
 ONUW_TIMER_QUEUE_TOPIC = "onuw-timers"
