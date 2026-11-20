@@ -1,7 +1,10 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
+import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
+import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
@@ -14,6 +17,7 @@ import '../../../helpers/component_sheet.dart' show holdDown;
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/contract/sample_sets.dart';
 import '../../../helpers/shell_setup.dart';
+import '../../../helpers/truncated_text.dart';
 
 /// The label on the screen's one primary button.
 String _button(WidgetTester tester) =>
@@ -207,6 +211,49 @@ void main() {
       await s.close(tester);
     });
 
+    testWidgets('a restart after seeing the card but before Ready: Ready is '
+        'open without another hold (this device kept the stage)', (
+      tester,
+    ) async {
+      final look = recordedMe('me_look_stage');
+      var s = await ShellSetup.pump(tester, look);
+      await s.settle(tester);
+      final gesture = await holdDown(tester, find.byType(FaceDownCard));
+      await gesture.up();
+      await s.settle(tester);
+      expect(_phase(tester), ButtonPhase.ready);
+      await s.close(tester);
+
+      s = await ShellSetup.pump(tester, look, sameDevice: true);
+      await s.settle(tester);
+      expect(_phase(tester), ButtonPhase.ready);
+      await s.close(tester);
+
+      // Another device (or another stage) still holds first.
+      s = await ShellSetup.pump(tester, look);
+      await s.settle(tester);
+      expect(_phase(tester), ButtonPhase.locked);
+      await s.close(tester);
+    });
+
+    testWidgets('while held, the card turns over in its own frame', (
+      tester,
+    ) async {
+      final s = await ShellSetup.pump(tester, recordedMe('me_look_stage'));
+      await s.settle(tester);
+      final frame = tester.getRect(find.byType(FaceDownCard));
+      final gesture = await holdDown(tester, find.byType(FaceDownCard));
+      await tester.pump(HoldToReveal.flip);
+      expect(tester.getRect(find.byType(HeldFace)), frame);
+      await gesture.up();
+      // The turn back: its first frame, then the flip.
+      await tester.pump();
+      await tester.pump(HoldToReveal.flip);
+      await tester.pump(HoldToReveal.flip);
+      expect(find.byType(HeldFace), findsNothing);
+      await s.close(tester);
+    });
+
     testWidgets('a Ready that got no answer: "Not sent." and Try again, '
         'which reads /me/ before sending again', (tester) async {
       final s = await ShellSetup.pump(
@@ -274,6 +321,28 @@ void main() {
       expect(board.secondsLeft, 14);
       await s.close(tester);
     });
+
+    for (final (left, shown) in [(9, '9'), (59, '59'), (600, '10:00')]) {
+      testWidgets('the candle reads $shown with ${left}s left, whole, on a '
+          '320 phone at text x1.3', (tester) async {
+        tester.view.physicalSize = const Size(320, 568);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final me = recordedMe('me_choose_prompt_seer');
+        final deadline = DateTime.parse(me['deadline'] as String);
+        final s = await ShellSetup.pump(
+          tester,
+          me,
+          clock: deadline.subtract(Duration(seconds: left)),
+          textScale: 1.3,
+        );
+        await s.settle(tester);
+        expect(find.text(shown), findsOneWidget);
+        expect(truncatedText(tester), isEmpty);
+        expect(tester.takeException(), isNull);
+        await s.close(tester);
+      });
+    }
 
     testWidgets('Choose: "Chosen" at once, one choose with the stage, then '
         '/me/ again', (tester) async {

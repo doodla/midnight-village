@@ -12,6 +12,7 @@ import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/primitives/progress_pips.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
+import '../../../../design_system/skin/skin_choice.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../../../design_system/teach/teach_once.dart';
@@ -27,12 +28,21 @@ import '../protocol_two_game.dart';
 /// shows "Ready ✓" from the tap on. Under it, how many have looked, as plain
 /// pips: counts only, never who.
 ///
+/// While held, the card turns over where it is (a friendly game: no popup,
+/// no moving it out from under the thumb).
+///
 /// A phone that restarts in the look stage reads its own `ready` from `/me/`:
-/// ready, it opens at "Ready ✓"; not yet, the card is held again (nothing
-/// says what it was holding). The stage ends on the server (everyone ready,
-/// or its backstop); this screen never decides it.
+/// ready, it opens at "Ready ✓". Not yet, but it had seen its card: this
+/// device remembers the stage it was seen in ([lookedPrefix], one key, the
+/// latest stage), so "Ready" is open again without another hold. The stage
+/// ends on the server (everyone ready, or its backstop); this screen never
+/// decides it.
 class YourCardScreen extends ConsumerStatefulWidget {
   const YourCardScreen({super.key, required this.game, required this.gameId});
+
+  /// Where this device keeps the look stage its card was seen in
+  /// (`DevicePreferences`, beside the learned cues).
+  static const lookedPrefix = 'mv.looked.v1.';
 
   /// The game as the shell has it (`/me/` with this phone's taps on it).
   final ProtocolTwoGame game;
@@ -47,6 +57,31 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
 
   /// The stage in which this phone held its card for a reveal that counts.
   String? _revealedIn;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_recall());
+  }
+
+  /// A reveal this device made in this stage before a restart.
+  Future<void> _recall() async {
+    final stage = widget.game.me.stage;
+    if (stage == null) return;
+    final seen = await ref
+        .read(devicePreferencesProvider)
+        .readFlags(YourCardScreen.lookedPrefix);
+    if (mounted && seen.contains('${YourCardScreen.lookedPrefix}$stage')) {
+      setState(() => _revealedIn ??= stage);
+    }
+  }
+
+  Future<void> _remember(String? stage) async {
+    if (stage == null) return;
+    final preferences = ref.read(devicePreferencesProvider);
+    await preferences.clearFlags(YourCardScreen.lookedPrefix);
+    await preferences.setFlag('${YourCardScreen.lookedPrefix}$stage');
+  }
 
   @override
   void dispose() {
@@ -126,7 +161,9 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
     target: CardCopy.headline,
     face: me.report.card,
     replay: _replay,
+    inPlace: true,
     onRevealed: () {
+      if (_revealedIn != me.stage) unawaited(_remember(me.stage));
       if (mounted) setState(() => _revealedIn = me.stage);
     },
     cover: (teaching) =>

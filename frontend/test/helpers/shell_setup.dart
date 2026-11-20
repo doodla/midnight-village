@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/healing/healing.dart';
+import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_choice.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
@@ -21,7 +23,7 @@ import 'package:midnight_village/features/game/presentation/shell/table_shell.da
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 
-import 'component_sheet.dart' show learnedOverrides;
+import 'component_sheet.dart' show SheetLearned;
 import 'contract/contract_samples.dart';
 import 'fake_wakelock_service.dart';
 import 'mock_http_client.dart';
@@ -58,7 +60,8 @@ class ShellSetup {
   /// player past their first game); [clock] is the phone's clock (the
   /// countdown reads it when no `Date` is readable); [textScale] the
   /// system's text size. [hold] holds the first `/me/` until released
-  /// ([meReplies]).
+  /// ([meReplies]). [sameDevice] keeps what this device stored in an
+  /// earlier pump of the test (a restart).
   static Future<ShellSetup> pump(
     WidgetTester tester,
     Map<String, dynamic> me, {
@@ -67,7 +70,12 @@ class ShellSetup {
     double textScale = 1,
     bool holdMe = false,
     bool disableAnimations = false,
+    bool sameDevice = false,
   }) async {
+    // This device's storage (learned cues, the stage its card was seen in):
+    // empty, unless the test restarts the app on the same device.
+    // ignore: invalid_use_of_visible_for_testing_member
+    if (!sameDevice) SharedPreferences.setMockInitialValues({});
     final setup = ShellSetup._(
       me,
       MockHttpClient(),
@@ -108,7 +116,8 @@ class ShellSetup {
     final userId = me['player_id'] as int;
     return ProviderScope(
       overrides: [
-        ...learnedOverrides(learned),
+        devicePreferencesProvider.overrideWithValue(DevicePreferences()),
+        learnedCuesProvider.overrideWith(() => SheetLearned(learned)),
         authProvider.overrideWithValue(
           AuthState.authenticated(User(id: userId, displayName: 'P$userId')),
         ),

@@ -194,6 +194,8 @@ final _type = SkinType(
   heroCode: _gloock(46, height: 1, em: 0.08), // S02
   heroVerdict: _gloock(44, height: 0.95, em: -0.01), // S10
   heroWinner: _gloock(40, height: 0.95, em: -0.01), // S11 (the picture)
+  // S04's 58, to the hero scale's top.
+  heroRole: _gloock(46, height: 0.9, em: -0.02), // S04
   display: _gloock(36, height: 0.95, em: -0.01), // S07, S10
   screenTitle: _gloock(34, height: 1.05, em: -0.01), // S05, S09
   headline: _gloock(32, height: 1, em: -0.01), // S03, S03b

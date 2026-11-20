@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -29,8 +30,13 @@ class HoldPress extends InheritedWidget {
 }
 
 /// A secret behind press-and-hold (first-time play spec, section 2): [cover]
-/// shows until the player presses; [face] is drawn in the one held-face
-/// frame ([HeldFace]) above the touch point, never under the thumb.
+/// shows until the player presses; [face] is drawn as a role card
+/// ([HeldFace]). [inPlace] (04, the card in your hand): the card turns over
+/// where it is, filling the cover's own frame, with a quick cross-fade
+/// (instant with reduce motion; product owner: a friendly game, the card
+/// flips under the thumb). Otherwise the face is drawn above the touch point,
+/// as large as fits there (below it, clear of the thumb, when above has
+/// less room).
 ///
 /// - The face shows [holdDelay] after the press and hides on release, however
 ///   long it is held (no cap: spec section 8).
@@ -50,8 +56,8 @@ class HoldPress extends InheritedWidget {
 ///
 /// Nothing about the hidden state depends on the secret: the face is built
 /// only while shown (it is not in the tree, or read out, otherwise), and the
-/// widget is always the cover's size, the face drawn above it in the
-/// overlay at the frame's one fixed size. Its art is precached
+/// widget is always the cover's size, the face drawn in the cover's box or
+/// above it in the overlay. Its art is precached
 /// (`precacheArt`), so revealing it takes the same time whatever it is and
 /// fetches nothing.
 class HoldToReveal extends StatefulWidget {
@@ -62,9 +68,14 @@ class HoldToReveal extends StatefulWidget {
     required this.target,
     this.onRevealed,
     this.onRevealChanged,
+    this.inPlace = false,
   });
 
   final Widget cover;
+
+  /// The face replaces the cover in its own box instead of being drawn over
+  /// the screen.
+  final bool inPlace;
   final FaceContent face;
 
   /// What this is ("Your card", "You", "My night"): its spoken name.
@@ -88,6 +99,9 @@ class HoldToReveal extends StatefulWidget {
 
   /// Below the touch point, room for the thumb, when there is no room above.
   static const thumb = 72.0;
+
+  /// The face turning over in place.
+  static const flip = Motion.press;
 
   @override
   State<HoldToReveal> createState() => _HoldToRevealState();
@@ -231,7 +245,7 @@ class _HoldToRevealState extends State<HoldToReveal>
         },
         child: OverlayPortal(
           controller: _portal,
-          overlayChildBuilder: _face,
+          overlayChildBuilder: widget.inPlace ? _nothing : _face,
           child: Container(
             foregroundDecoration: _focusHighlight
                 ? BoxDecoration(
@@ -268,7 +282,7 @@ class _HoldToRevealState extends State<HoldToReveal>
                 // Hidden information: the cover sets the size, shown or not.
                 child: HoldPress(
                   held: _shown == _Shown.held,
-                  child: widget.cover,
+                  child: widget.inPlace ? _turned(context) : widget.cover,
                 ),
               ),
             ),
@@ -278,31 +292,61 @@ class _HoldToRevealState extends State<HoldToReveal>
     );
   }
 
-  /// The face, in the overlay, above the touch point (below it, clear of
-  /// the thumb, when there is no room above).
+  static Widget _nothing(BuildContext context) => const SizedBox.shrink();
+
+  /// In place: the cover, or the face in the cover's own box (the cover is
+  /// still laid out under it, so the size never changes).
+  Widget _turned(BuildContext context) {
+    final still = MediaQuery.disableAnimationsOf(context);
+    return Stack(
+      children: [
+        Visibility.maintain(visible: !_visible, child: widget.cover),
+        Positioned.fill(
+          child: AnimatedSwitcher(
+            duration: still ? Duration.zero : HoldToReveal.flip,
+            switchInCurve: Motion.curve,
+            switchOutCurve: Motion.curve,
+            child: _visible
+                ? IgnorePointer(
+                    key: const ValueKey('face'),
+                    child: HeldFace(
+                      content: widget.face,
+                      page: _showings - 1,
+                      announce: _shown == _Shown.activated,
+                      fill: true,
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('cover')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The face, in the overlay, above the touch point, as tall as its words
+  /// and portrait need and the room there allows (below it, clear of the
+  /// thumb, when there is more room below).
   Widget _face(BuildContext context) {
     // The portal stays open once used; while hidden it holds nothing.
     if (!_visible) return const SizedBox.shrink();
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final screen = overlay.size;
-    final size = HeldFace.sizeFor(screen.width);
+    final padding = MediaQuery.paddingOf(context);
+    final width = HeldFace.widthFor(screen.width);
     final touch = overlay.globalToLocal(_anchor);
-    final top = MediaQuery.paddingOf(context).top + Space.sm;
-    final above = touch.dy - HoldToReveal.gap - size.height;
-    final y = above >= top
-        ? above
-        : (touch.dy + HoldToReveal.thumb).clamp(
-            top,
-            screen.height - size.height,
-          );
-    final x = (touch.dx - size.width / 2).clamp(
+    final top = padding.top + Space.sm;
+    final bottom = screen.height - padding.bottom - Space.sm;
+    final roomAbove = touch.dy - HoldToReveal.gap - top;
+    final roomBelow = bottom - (touch.dy + HoldToReveal.thumb);
+    final double x = (touch.dx - width / 2).clamp(
       Space.gutter,
-      screen.width - Space.gutter - size.width,
+      math.max(Space.gutter, screen.width - Space.gutter - width),
     );
-    return Positioned(
-      left: x,
-      top: y,
-      child: IgnorePointer(
+    final face = IgnorePointer(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: math.max(0.0, math.max(roomAbove, roomBelow)),
+        ),
         child: HeldFace(
           content: widget.face,
           page: _showings - 1,
@@ -310,5 +354,18 @@ class _HoldToRevealState extends State<HoldToReveal>
         ),
       ),
     );
+    return roomAbove >= roomBelow
+        ? Positioned(
+            left: x,
+            width: width,
+            bottom: screen.height - (touch.dy - HoldToReveal.gap),
+            child: face,
+          )
+        : Positioned(
+            left: x,
+            width: width,
+            top: touch.dy + HoldToReveal.thumb,
+            child: face,
+          );
   }
 }

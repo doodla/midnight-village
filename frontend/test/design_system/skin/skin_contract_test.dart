@@ -83,6 +83,7 @@ const _kinds = {
   'heroCode': _Kind.hero,
   'heroVerdict': _Kind.hero,
   'heroWinner': _Kind.hero,
+  'heroRole': _Kind.hero,
   'display': _Kind.heading,
   'screenTitle': _Kind.heading,
   'headline': _Kind.heading,
