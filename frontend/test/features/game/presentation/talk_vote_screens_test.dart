@@ -49,11 +49,21 @@ DateTime _before(Map<String, dynamic> me, int seconds) => DateTime.parse(
 
 const _everything = {...Cue.values};
 
+/// Locked on [name]: that row lifted and outlined, not dimmed; every other
+/// row dimmed and not picked.
+void _expectLockedOn(WidgetTester tester, String name) {
+  for (final row in tester.widgetList<PlayerRow>(find.byType(PlayerRow))) {
+    final mine = row.name == name;
+    expect(row.picked, mine, reason: row.name);
+    expect(row.dimmed, !mine, reason: row.name);
+  }
+}
+
 void main() {
   group('08 Talk', () {
-    testWidgets('fed from /me/: the seconds left by the deadline, everyone in '
-        'seat order with whole names, the deck, counts only; "Ready to vote" '
-        'outlined and never locked', (tester) async {
+    testWidgets('fed from /me/: the seconds left by the deadline, the title '
+        'in the band, no names (the vote lists them), the deck, counts only; '
+        '"Ready to vote" outlined and never locked', (tester) async {
       final me = recordedMe('me_discussion_choose_seer');
       final s = await ShellSetup.pump(
         tester,
@@ -64,16 +74,13 @@ void main() {
       await s.settle(tester);
       expect(find.byType(TalkScreen), findsOneWidget);
       expect(find.text(TalkCopy.headline), findsOneWidget);
-      expect(tester.widget<TimerBand>(find.byType(TimerBand)).secondsLeft, 14);
-
-      final names = tester.widget<TableNames>(find.byType(TableNames));
-      expect(names.seats.map((p) => p.name), [
-        'Ana',
-        'Ben',
-        'Cleo',
-        'Dev',
-        'Esme',
-      ]);
+      final band = tester.widget<TimerBand>(find.byType(TimerBand));
+      expect(band.secondsLeft, 14);
+      expect(band.title, TalkCopy.headline);
+      expect(band.elapsed, isNull, reason: 'no stage_started_at: no share');
+      for (final seat in sheet.fiveSeats) {
+        expect(find.text(seat.name), findsNothing);
+      }
       expect(
         find.byType(RoleCard),
         findsNWidgets((me['roles_in_game'] as List).length),
@@ -111,12 +118,14 @@ void main() {
       await tester.pump();
       expect(_button(tester), CommonCopy.readyDone, reason: 'before an answer');
       expect(_phase(tester), ButtonPhase.quiet, reason: 'never locked');
+      expect(find.text('1 of 5 ready'), findsOneWidget, reason: 'counted');
 
       s.answerPost('/ready/', 'game/ready_talk_off');
       await tester.tap(find.byType(PrimaryButton).last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 10));
       expect(_button(tester), TalkCopy.readyToVote);
+      expect(find.text('0 of 5 ready'), findsOneWidget);
       expect(s.posts('/ready/'), 1, reason: 'one in flight at a time');
 
       replies.release();
@@ -129,6 +138,29 @@ void main() {
         {'ready': false, 'stage': me['stage']},
       ]);
       expect(_button(tester), TalkCopy.readyToVote);
+      await s.close(tester);
+    });
+
+    testWidgets('a count event while the tap is unconfirmed fetches /me/ '
+        'instead of adding it again', (tester) async {
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_discussion_choose_seer'),
+        learned: _everything,
+      );
+      await s.settle(tester);
+      s.answerPost('/ready/', 'game/ready_talk');
+      await tester.tap(find.byType(PrimaryButton).last);
+      await s.settle(tester);
+      expect(find.text('1 of 5 ready'), findsOneWidget);
+      // The server now counts it, and says so in the event and in /me/.
+      s.answerMe(recordedMe('me_talk_ready'));
+      final fetched = s.meFetches;
+      s.ws.addServerEvent(ContractSamples.map('ws/game/progress_talk'));
+      await s.settle(tester);
+      expect(s.meFetches, greaterThan(fetched));
+      expect(find.text('1 of 5 ready'), findsOneWidget, reason: 'not 2');
+      expect(_button(tester), CommonCopy.readyDone);
       await s.close(tester);
     });
 
@@ -298,8 +330,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 10));
       expect(_button(tester), VoteCopy.locked);
       expect(_phase(tester), ButtonPhase.done);
-      final rows = tester.widgetList<PlayerRow>(find.byType(PlayerRow));
-      expect(rows.every((r) => r.dimmed && !r.picked), isTrue);
+      _expectLockedOn(tester, sheet.cleo.name);
+      expect(find.text('1 of 5 locked'), findsOneWidget, reason: 'counted');
       expect(s.posts('/vote/'), 1, reason: 'the lock waits for the pick');
 
       replies.release();
@@ -362,9 +394,8 @@ void main() {
       s = await ShellSetup.pump(tester, recordedMe('me_voting_locked'));
       await s.settle(tester);
       expect(_button(tester), VoteCopy.locked);
-      final rows = tester.widgetList<PlayerRow>(find.byType(PlayerRow));
-      expect(rows.every((r) => r.dimmed && !r.picked), isTrue);
-      expect(find.text('1 of 5 locked'), findsOneWidget);
+      _expectLockedOn(tester, sheet.dev.name);
+      expect(find.text('1 of 5 locked'), findsOneWidget, reason: 'the server');
       expect(s.posts('/vote/'), 0);
       await s.close(tester);
     });

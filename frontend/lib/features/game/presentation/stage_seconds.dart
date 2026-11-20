@@ -64,23 +64,23 @@ class _StageSecondsState extends ConsumerState<StageSeconds> {
 }
 
 /// How much of a stage is left, 0 to 1, for the sun's place on its arc (08)
-/// and the vote's bar (09). The stage's length is the table's setting and
-/// `/me/` sends only its deadline, so the most seconds this phone has seen
-/// left in the stage stands for the whole: a phone there from the start
-/// shows the true share; one that opened mid-stage starts its sun at dawn.
-/// Nothing is assumed and nothing waits on it: it only places a picture.
-class StageShare {
-  String? _stage;
-  int _most = 0;
-
-  /// The share of [stage] left with [seconds] to go; 1 when untimed.
-  double left(String? stage, int? seconds) {
-    if (seconds == null) return 1;
-    if (stage != _stage) {
-      _stage = stage;
-      _most = 0;
+/// and the vote's bar (09): the [secondsLeft] (by the server's clock, from
+/// [StageSeconds]) over the stage's length, from the server's own
+/// `stage_started_at` and `deadline`. The same on every phone and after a
+/// restart. Null when the server did not say when the stage started, or it
+/// has no deadline: then no share is drawn (the stage's length is the
+/// table's setting, never assumed).
+abstract final class StageShare {
+  static double? left({
+    required DateTime? startedAt,
+    required DateTime? deadline,
+    required int? secondsLeft,
+  }) {
+    if (startedAt == null || deadline == null || secondsLeft == null) {
+      return null;
     }
-    _most = math.max(_most, seconds);
-    return _most == 0 ? 0 : seconds / _most;
+    final length = deadline.difference(startedAt).inMilliseconds / 1000;
+    if (length <= 0) return 0;
+    return (secondsLeft / length).clamp(0, 1).toDouble();
   }
 }

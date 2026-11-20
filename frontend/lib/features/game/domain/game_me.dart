@@ -83,6 +83,8 @@ class GameMe {
     required this.myVote,
     required this.ready,
     required this.progress,
+    required this.stageStartedAt,
+    required this.voteTargets,
   });
 
   /// A protocol-2 `/me/` body. One without a `stage` key is protocol 1
@@ -106,6 +108,8 @@ class GameMe {
     final rawProgress = me['progress'] as Map<String, dynamic>?;
     final results = me['night_results'] as List;
     final deadline = me['deadline'] as String?;
+    // Sent once the server has it (being added): read when present.
+    final startedAt = me['stage_started_at'] as String?;
     final finalRole = role['current_role'] as String?;
     return GameMe._(
       playerId: me['player_id'] as int,
@@ -133,6 +137,8 @@ class GameMe {
       progress: rawProgress == null
           ? null
           : StageProgress.fromJson(rawProgress),
+      stageStartedAt: startedAt == null ? null : DateTime.parse(startedAt),
+      voteTargets: (me['vote_targets'] as List?)?.cast<int>(),
     );
   }
 
@@ -203,6 +209,15 @@ class GameMe {
   /// Counts at the look, talk and vote; null elsewhere.
   final StageProgress? progress;
 
+  /// When the stage began on the server's clock (`stage_started_at`), so
+  /// its share left is the same on every phone; null while the server does
+  /// not send it.
+  final DateTime? stageStartedAt;
+
+  /// In the vote, the players this phone may vote for (`vote_targets`);
+  /// null while the server does not send it.
+  final List<int>? voteTargets;
+
   /// Results this phone has not acknowledged yet.
   bool get hasUnseenResults => nightResultCount > nightResultsSeen;
 
@@ -243,6 +258,8 @@ class GameMe {
     myVote: clearVote ? null : myVote ?? this.myVote,
     ready: clearReady ? null : ready ?? this.ready,
     progress: progress ?? this.progress,
+    stageStartedAt: stageStartedAt,
+    voteTargets: voteTargets,
   );
 
   /// With this turn's choose sent ([ChoosePrompt.afterChoose]).
@@ -251,11 +268,25 @@ class GameMe {
     return open == null ? this : _with(prompt: open.afterChoose);
   }
 
-  /// With this phone's [ready] flag as tapped.
-  GameMe withReady(bool ready) => _with(ready: ready);
+  /// With this phone's [ready] flag as tapped, and the count with it: the
+  /// table's count shows this phone's own tap at once, then the server's
+  /// number (a count is only ever moved against the `ready` of its own
+  /// `/me/`, so the server's counting it is never added twice).
+  GameMe withReady(bool ready) =>
+      _with(ready: ready, progress: _counted(this.ready ?? false, ready));
 
-  /// With this phone's vote as tapped.
-  GameMe withVote(MyVote vote) => _with(myVote: vote);
+  /// With this phone's vote as tapped; a lock counts at once, as [withReady].
+  GameMe withVote(MyVote vote) => _with(
+    myVote: vote,
+    progress: _counted(myVote?.locked ?? false, vote.locked),
+  );
+
+  /// [progress] with this phone moved from [was] to [now].
+  StageProgress? _counted(bool was, bool now) {
+    final counts = progress;
+    if (counts == null || was == now) return counts;
+    return counts.moved(now ? 1 : -1);
+  }
 
   /// With the server's newer counts, when they are for this stage's counts;
   /// otherwise unchanged (a count for another stage is a reason to fetch).

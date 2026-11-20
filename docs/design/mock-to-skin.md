@@ -181,13 +181,13 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Sky 250 tall, full bleed, gallows picture focus 50% 40%, night behind | `ScreenFrame(topSlot: TimerBand.sun(...))` (`TimerBand.skyHeight`, `skin.art.dawnGallows`) |
 | Dotted arc 2 px at 55%, sun r19 amber with a 3 px indigo stroke | painted by `TimerBand.sun` (`ground.text`; the pale sun in `night.text`, not amber; `shape.ring`, `shape.selectedRing`) |
 | 70 px fade into the day | `TimerBand.sun` (the last 28% of the sky) |
-| "4:12" 84 lh 0.9 -0.02em, margin-top -8; "left to talk" 12/700 quiet, gap 12, baseline | `type.timer`; "left to talk" is **Cut** by the first-time play spec |
-| "My night" box: night ground on day, padding 10/16/10/10, gap 14, radius 6, 4,4 day shadow | `PeekBox(title:, teaching:)` (`night.ground`, day `elevation.raised`), the cover of a `TeachingHold(cue: Cue.holdMyNight)` |
+| "4:12" 84 lh 0.9 -0.02em, margin-top -8; "left to talk" 12/700 quiet, gap 12, baseline | `type.timer`; "left to talk" is **Cut** by the first-time play spec; in its place beside the number, the headline "The village wakes" (`TimerBand.sun(title:)`, `type.screenTitle`, two lines at most; under the number where the two do not fit side by side) |
+| Sun's place on the arc | the share of the talk left from the server's `stage_started_at` and `deadline` (`StageShare`); without `stage_started_at`, the sun rests at `TimerBand.restingSun` |
+| "My night" box: night ground on day, padding 10/16/10/10, gap 14, radius 6, 4,4 day shadow | `PeekBox(title:, teaching:, large: true)` (`night.ground`, day `elevation.raised`; large: a 76 x 103 card, `type.display`, `Space.lg` inset: the one thing on the talk's body), the cover of a `TeachingHold(cue: Cue.holdMyNight)` |
 | Card back 50 x 68, ring 2 amber, rotated -4 | inside `PeekBox` (`ground.mark`: bone, `Tilt.thumb`), with the `HoldCue` on it |
 | "My night" Gloock 24, "Hold to peek" 14/600 quiet | `type.heading`; "Hold to peek" is cut; until My night has been held on this device the cue's "Hold" (`type.cue`) sits under the title |
 | "In the deck tonight" 12/700 day quiet, gap 10 | **Cut** by the first-time play spec ("In the deck tonight") |
 | Deck thumbnails 50 x 68, ring 2 indigo, "×2" badges, gap 10 | `RoleCard(size: RoleCardSize.mini)` in `Flexible` (they shrink: the mock's six overrun 342) |
-| (not in the mock) everyone at the table | **Added** under the deck: `TableNames`, each seat in seat order as `PlayerToken(size: TokenSize.card)` and its whole name (`type.nameSmall`, `FitWords`) in a `Wrap` (`Space.lg` across, `Space.sm` down); nothing about readiness |
 | Token pips 30, waiting ring #8f8a99 at 0.35; "2 of 5 ready to vote" 14/700 day quiet | `ProgressPips` plain, "{d} of {n} ready" (`type.body`) |
 | "I'm ready to vote": indigo, 5,5 blood | `PrimaryButton.quiet`, never locked (section 8): outlined, never amber (08 must not shout "end the talk") |
 
@@ -196,11 +196,11 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Element | Primitive / role |
 |---|---|
 | Night band, full bleed, padding 26 24 0 | `ScreenFrame(topSlot: TimerBand.bar(...))` (`Space.xl` + 2 and the status bar) |
-| "18" 76 lh 0.9 -0.02em; "seconds to choose" 12/700 +0.14em in bone; gap 10 baseline | `type.timerVote`; "seconds to choose" is **Cut** by the first-time play spec |
-| Bar 8 px full bleed, track hairline, 30% danger line | `TimerBand.bar(remaining:)` (`TimerBand.barHeight`, `night.hairline`, `night.dangerLine`) |
-| "Who dies today?" 34 lh 1.05, margin-top 6 | `type.screenTitle`, `Space.xs` |
-| Rows 68 tall, radius 34/6, padding 0 16 0 8, gap 14, token 52, Gloock 26; gap 12 | `PlayerRow(size: PlayerRowSize.large, onTap:)`; `Space.md`. Above six other players, `PlayerRowSize.compact` with `Space.sm` (ten fit a 360 x 780 phone unscrolled) |
-| Picked: blood fill, 4,4 indigo, bone ring | `picked: true`: lifts and takes `ground.selection` (ink) at `shape.selectedRing`; the blood fill is cut. Once locked every row is `dimmed: true`, the same |
+| "18" 76 lh 0.9 -0.02em; "seconds to choose" 12/700 +0.14em in bone; gap 10 baseline | `type.timerVote`; "seconds to choose" is **Cut** by the first-time play spec; in its place beside the number, "Who dies today?" (`TimerBand.bar(title:)`, in bone), so the band is not empty and the rows get the room |
+| Bar 8 px full bleed, track hairline, 30% danger line | `TimerBand.bar(remaining:)` (`TimerBand.barHeight`, `night.hairline`, `night.dangerLine`); the share from `stage_started_at` (`StageShare`), unlit without it |
+| "Who dies today?" 34 lh 1.05, margin-top 6 | `type.screenTitle`, in the band (above) |
+| Rows 68 tall, radius 34/6, padding 0 16 0 8, gap 14, token 52, Gloock 26; gap 12 | `PlayerRow(size: PlayerRowSize.large, onTap:)`; `Space.md`. Sized to the room (`VoteRows`, measuring each name at the text size): `PlayerRowSize.compact` with `Space.sm` when the tall rows do not fit, scrolling with the fade (`FadingScroll`) only when nothing does. Each row keeps `Space.xs` for the lift, out of the gap, so a lifted row leaves the gaps even |
+| Picked: blood fill, 4,4 indigo, bone ring | `picked: true`: lifts and takes `ground.selection` (ink) at `shape.selectedRing`; the blood fill is cut. Once locked the pick stays as it is and every other row is `dimmed: true` (owner, 20 November 2026) |
 | X icon 26, stroke 3.5, "Your pick" | "Lock in {name}": `PrimaryButton(icon: Icons.lock_outline)`; the X is cut (it read as "remove") |
 | Token pips, "3 of 5 locked in" | `ProgressPips` plain, "{d} of {n} locked" |
 | "Lock in Cleo" | `PrimaryButton` |

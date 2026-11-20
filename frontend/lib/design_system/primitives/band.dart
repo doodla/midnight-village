@@ -125,34 +125,44 @@ class _ArchedFootPainter extends CustomPainter {
 ///
 /// The digits stand alone: the mocks' captions ("left to talk", "seconds to
 /// choose") are cut (first-time play spec, copy rule 9). The number is set
-/// smaller rather than pushed off a narrow phone. A stage with no deadline
-/// (null [secondsLeft]) shows no number: the sky alone, or the night strip
-/// with its bar unlit.
+/// smaller rather than pushed off a narrow phone. The screen's [title] sits
+/// beside the number, on two lines at most, where the two fit side by side,
+/// and under it where they do not (large text, a narrow phone).
+///
+/// Nothing is drawn that is not known: with no share of the stage (null
+/// [elapsed] or [remaining]: the server did not say when it started) the sun
+/// stands at one fixed place and the bar is unlit; with no deadline (null
+/// [secondsLeft]) there is no number either.
 class TimerBand extends StatelessWidget {
   const TimerBand.sun({
     super.key,
     required this.secondsLeft,
     required this.elapsed,
+    this.title,
     this.semanticLabel,
   }) : _sun = true,
-       remaining = 0;
+       remaining = null;
 
   const TimerBand.bar({
     super.key,
     required this.secondsLeft,
     required this.remaining,
+    this.title,
     this.semanticLabel,
   }) : _sun = false,
-       elapsed = 0;
+       elapsed = null;
 
   /// Null: the stage has no deadline, and nothing is counted.
   final int? secondsLeft;
 
-  /// The sun: how far through the phase it is, 0 to 1.
-  final double elapsed;
+  /// The sun: how far through the phase it is, 0 to 1; null when unknown.
+  final double? elapsed;
 
-  /// The bar: how much of the phase is left, 0 to 1.
-  final double remaining;
+  /// The bar: how much of the phase is left, 0 to 1; null when unknown.
+  final double? remaining;
+
+  /// The screen's headline, beside or under the number.
+  final String? title;
 
   /// Read out instead of the number.
   final String? semanticLabel;
@@ -164,21 +174,110 @@ class TimerBand extends StatelessWidget {
   /// The vote bar's thickness (S09).
   static const barHeight = 8.0;
 
+  /// Where the sun stands when the share of the talk is not known (the
+  /// mock's place, about a third of the way along).
+  static const restingSun = 0.3;
+
   @override
   Widget build(BuildContext context) {
     final seconds = secondsLeft;
     final number = seconds == null ? null : WorldTimer.format(seconds);
-    final band = _sun ? _sky(context, number) : _bar(context, number);
-    final label = semanticLabel ?? number;
-    if (label == null) return ExcludeSemantics(child: band);
-    return Semantics(label: label, excludeSemantics: true, child: band);
+    return _sun ? _sky(context, number) : _bar(context, number);
   }
 
-  /// The number at the start of its row, set smaller rather than overrun.
-  Widget _number(String number, TextStyle style) => Align(
-    alignment: AlignmentDirectional.centerStart,
-    child: FitLine(number, style: style),
-  );
+  /// The number and the title: side by side when the title fits beside the
+  /// number on two lines, else the title under it.
+  Widget _heading(
+    BuildContext context,
+    String? number,
+    TextStyle numberStyle,
+    Color titleColor,
+  ) {
+    final title = this.title;
+    final spoken = semanticLabel ?? number;
+    Widget digits(String number, {double? width}) => Semantics(
+      label: spoken,
+      excludeSemantics: true,
+      child: width == null
+          ? Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: FitLine(number, style: numberStyle),
+            )
+          : SizedBox(
+              width: width,
+              child: FitLine(number, style: numberStyle),
+            ),
+    );
+    if (title == null) {
+      return number == null ? const SizedBox.shrink() : digits(number);
+    }
+    final titleStyle = context.skin.typography.screenTitle.copyWith(
+      color: titleColor,
+    );
+    final head = Semantics(
+      header: true,
+      child: FitWords(title, style: titleStyle, maxLines: 2),
+    );
+    if (number == null) return head;
+    return LayoutBuilder(
+      builder: (context, room) {
+        final scaler = MediaQuery.textScalerOf(context);
+        final numberWidth = _width(number, numberStyle, scaler).ceilToDouble();
+        final beside = room.maxWidth - numberWidth - Space.lg;
+        if (_fitsTwoLines(title, titleStyle, scaler, beside)) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            spacing: Space.lg,
+            children: [
+              digits(number, width: numberWidth),
+              Expanded(child: head),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          spacing: Space.xs,
+          children: [digits(number), head],
+        );
+      },
+    );
+  }
+
+  static double _width(String text, TextStyle style, TextScaler scaler) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  /// [text] wraps between words into [room] on two lines at most.
+  static bool _fitsTwoLines(
+    String text,
+    TextStyle style,
+    TextScaler scaler,
+    double room,
+  ) {
+    if (room <= 0) return false;
+    final longestWord = text
+        .split(' ')
+        .map((w) => _width(w, style, scaler))
+        .fold<double>(0, (a, b) => a > b ? a : b);
+    if (longestWord > room) return false;
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+    )..layout(maxWidth: room);
+    final lines = painter.computeLineMetrics().length;
+    painter.dispose();
+    return lines <= 2;
+  }
 
   Widget _sky(BuildContext context, String? number) {
     final skin = context.skin;
@@ -188,50 +287,59 @@ class TimerBand extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          height: skyHeight + top,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ColoredBox(
-                color: skin.night.ground,
-                child: ArtPicture(skin.art.dawnGallows),
-              ),
-              Padding(
-                padding: EdgeInsets.only(top: top),
-                child: CustomPaint(
-                  painter: _SunPainter(
-                    elapsed: elapsed.clamp(0, 1),
-                    // The pale sun: bone, never amber (copy rule 10).
-                    sun: skin.night.text,
-                    line: ground.text,
-                    lineWidth: skin.shape.ring,
-                    outlineWidth: skin.shape.selectedRing,
+        ExcludeSemantics(
+          child: SizedBox(
+            height: skyHeight + top,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(
+                  color: skin.night.ground,
+                  child: ArtPicture(skin.art.dawnGallows),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(top: top),
+                  child: CustomPaint(
+                    painter: _SunPainter(
+                      elapsed: elapsed?.clamp(0, 1).toDouble(),
+                      // The pale sun: bone, never amber (copy rule 10).
+                      sun: skin.night.text,
+                      line: ground.text,
+                      lineWidth: skin.shape.ring,
+                      outlineWidth: skin.shape.selectedRing,
+                    ),
                   ),
                 ),
-              ),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    // The mock's fade: the last 70 of 250.
-                    stops: const [0.72, 1],
-                    colors: [ground.ground.withValues(alpha: 0), ground.ground],
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      // The mock's fade: the last 70 of 250.
+                      stops: const [0.72, 1],
+                      colors: [
+                        ground.ground.withValues(alpha: 0),
+                        ground.ground,
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        if (number != null)
-          Transform.translate(
-            offset: const Offset(0, -Space.sm),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
-              child: _number(number, skin.typography.timer),
+              ],
             ),
           ),
+        ),
+        Transform.translate(
+          offset: const Offset(0, -Space.sm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
+            child: _heading(
+              context,
+              number,
+              skin.typography.timer,
+              ground.text,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -240,6 +348,7 @@ class TimerBand extends StatelessWidget {
     final skin = context.skin;
     final night = skin.night;
     final top = MediaQuery.paddingOf(context).top;
+    final lit = remaining;
     return GroundScope(
       ground: GroundKind.night,
       fill: true,
@@ -256,9 +365,12 @@ class TimerBand extends StatelessWidget {
                 Space.gutter,
                 0,
               ),
-              child: number == null
-                  ? null
-                  : _number(number, skin.typography.timerVote),
+              child: _heading(
+                context,
+                number,
+                skin.typography.timerVote,
+                night.text,
+              ),
             ),
             SizedBox(
               height: barHeight,
@@ -266,7 +378,9 @@ class TimerBand extends StatelessWidget {
                 color: night.hairline,
                 child: FractionallySizedBox(
                   alignment: AlignmentDirectional.centerStart,
-                  widthFactor: number == null ? 0 : remaining.clamp(0, 1),
+                  widthFactor: number == null || lit == null
+                      ? 0
+                      : lit.clamp(0, 1).toDouble(),
                   child: ColoredBox(color: night.dangerLine),
                 ),
               ),
@@ -289,7 +403,8 @@ class _SunPainter extends CustomPainter {
     required this.outlineWidth,
   });
 
-  final double elapsed;
+  /// Null: not known; the sun stands at [TimerBand.restingSun].
+  final double? elapsed;
 
   /// How far along the path the sun is at the start (and short of its end
   /// at the finish).
@@ -315,7 +430,7 @@ class _SunPainter extends CustomPainter {
 
     // The sun rises clear of the rooftops and sets before it reaches them
     // again: the ends of the path are the horizon, not the talk.
-    final along = rise + (1 - 2 * rise) * elapsed;
+    final along = rise + (1 - 2 * rise) * (elapsed ?? TimerBand.restingSun);
     final position = metric.getTangentForOffset(metric.length * along)!;
     final radius = size.height * 0.076;
     canvas

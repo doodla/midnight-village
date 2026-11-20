@@ -49,11 +49,11 @@ changes. Last updated 20 November 2026.
   tap of the same lane; closing it needs a per-phone sequence number on the server.
 - Ten long names on a 320-wide phone: the night board falls under the 14 px reading floor.
 - Recorder gap: no contract sample of a Doppelganger who copied the Minion with a follow-up.
-- 08/09 server gaps: `/me/` does not say whom this phone may vote for (09 leaves its own row
-  out, as the rules and the server's `invalid_target` refusal say), nor the talk's and vote's
-  lengths (the sun and the bar measure from when the phone first saw the stage). No recorded
-  protocol-2 `/me/` of an untimed talk or vote, of a vote at more than five, or of a talk after
-  the results ack (`night_results_seen` above 0).
+- 08/09 wait on two `/me/` keys the server is adding: `stage_started_at` (until then the sun
+  rests in one place and the vote's bar is unlit) and `vote_targets` (until then 09 lists
+  everyone but this phone; drop that fallback when it lands). No recorded protocol-2 `/me/` of
+  an untimed talk or vote, of a vote at more than five, or of a talk after the results ack
+  (`night_results_seen` above 0).
 - Protocol 1 only (goes with the cleanup slice): across several server instances a phone can
   get `action_prompt` before `wave_start` and lose its prompt. (The unreachable "your card"
   screen is fixed under protocol 2.)

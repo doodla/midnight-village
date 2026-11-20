@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,6 @@ import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/night/night_pick.dart';
 import '../../../../design_system/primitives/band.dart';
-import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/player_row.dart';
 import '../../../../design_system/primitives/primary_button.dart';
@@ -25,12 +25,12 @@ import '../stage_seconds.dart';
 
 /// 09 Vote, wired to the server: [VoteView] fed from `/me/` (with this
 /// phone's taps on it), the bar and its number from the stage's deadline
-/// ([StageSeconds]); a tap on a row is a pick and "Lock in {name}" the lock,
-/// both through the game's outbox (one lane, so a lock goes after the picks
-/// before it). A restart opens on `/me/`'s own `my_vote`, picked or locked.
-/// The first lock the server takes teaches the rows' nudge away. The vote
-/// ends on the server (every lock, or its deadline); this screen never
-/// decides it.
+/// ([StageSeconds], [StageShare]); a tap on a row is a pick and "Lock in
+/// {name}" the lock, both through the game's outbox (one lane, so a lock
+/// goes after the picks before it). A restart opens on `/me/`'s own
+/// `my_vote`, picked or locked. The first lock the server takes teaches the
+/// rows' nudge away. The vote ends on the server (every lock, or its
+/// deadline); this screen never decides it.
 class VoteScreen extends ConsumerStatefulWidget {
   const VoteScreen({super.key, required this.game, required this.gameId});
 
@@ -43,8 +43,6 @@ class VoteScreen extends ConsumerStatefulWidget {
 }
 
 class _VoteScreenState extends ConsumerState<VoteScreen> {
-  final _share = StageShare();
-
   ProtocolTwoGameNotifier get _notifier =>
       ref.read(protocolTwoGameProvider(widget.gameId).notifier);
 
@@ -76,7 +74,11 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
       builder: (context, seconds) => VoteView(
         me: me,
         secondsLeft: seconds,
-        remaining: _share.left(me.stage, seconds),
+        remaining: StageShare.left(
+          startedAt: me.stageStartedAt,
+          deadline: me.deadline,
+          secondsLeft: seconds,
+        ),
         onPick: (id) => unawaited(_notifier.pickVote(id)),
         onLock: (id) => unawaited(_notifier.lockVote(id)),
         notSent: widget.game.unsent.contains(OutboxLane.vote),
@@ -87,14 +89,20 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
 }
 
 /// 09 Vote as drawn (first-time play spec, section 3): the vote's number and
-/// its bar on a strip of night; "Who dies today?"; every other player as a
-/// row (this phone's own is never listed: the server refuses a vote for
-/// yourself), none picked until a tap; the pick lifts and takes the
-/// selection's outline, a tap on another row moves it; how many have locked
-/// in, as plain pips, never who; then the one amber action, "Lock in
-/// {name}", or "Pick a name" while there is no pick. Locking is final, and
-/// says so only by the button: "Locked", and every row dims the same, the
-/// pick no longer shown. In a first vote the rows nudge once, in a wave.
+/// "Who dies today?" on a strip of night, its bar along the foot; the
+/// players this phone may vote for as rows, none picked until a tap; the
+/// pick lifts and takes the selection's outline, a tap on another row moves
+/// it; how many have locked in, as plain pips (this phone's own lock
+/// counted at once), never who; then the one amber action, "Lock in
+/// {name}", or "Pick a name" while there is no pick. Locking is final and
+/// says so only by the button, "Locked": the pick stays lifted and outlined
+/// and the other rows dim (owner, 20 November 2026: a neighbour could read
+/// "Lock in Cleo" already; hiding it only costs the player the sight of
+/// their own choice). In a first vote the rows nudge once, in a wave.
+///
+/// The rows are sized to the room ([VoteRows]): the vote's tall rows when
+/// they all fit, the table's compact ones when only those do, and the
+/// compact ones scrolling, with the fade below them, where nothing fits.
 ///
 /// It takes plain data and callbacks: [me] is `/me/` with this phone's taps
 /// on it (its own [GameMe.myVote]).
@@ -115,8 +123,9 @@ class VoteView extends StatelessWidget {
   /// Null: the vote has no deadline (no number, the bar unlit).
   final int? secondsLeft;
 
-  /// How much of the vote is left, 0 to 1.
-  final double remaining;
+  /// How much of the vote is left, 0 to 1; null when the server does not
+  /// say when it started (the bar unlit).
+  final double? remaining;
 
   /// A row tapped: pick that player.
   final ValueChanged<int> onPick;
@@ -128,54 +137,44 @@ class VoteView extends StatelessWidget {
   final bool notSent;
   final VoidCallback? onTryAgain;
 
-  /// The most other players shown in the vote's tall rows.
-  static const largeRowsUpTo = 6;
+  /// The players this phone may vote for, in seat order: `/me/`'s
+  /// `vote_targets`; until the server sends it, everyone but this phone (the
+  /// rules, and the server's `invalid_target` refusal). Cleanup: drop the
+  /// fallback once every server sends `vote_targets`.
+  static List<NightSeat> votable(GameMe me) {
+    final targets = me.voteTargets;
+    return [
+      for (final seat in me.seats)
+        if (targets == null
+            ? seat.id != me.playerId
+            : targets.contains(seat.id))
+          seat,
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
-    final skin = context.skin;
-    final others = [
-      for (final seat in me.seats)
-        if (seat.id != me.playerId) seat,
-    ];
+    final others = votable(me);
     final vote = me.myVote;
     final locked = vote?.locked ?? false;
     final pick = others.where((s) => s.id == vote?.targetId).firstOrNull;
     final progress = me.progress;
-    // Up to six others, the vote's tall rows; more, the table's, so a table
-    // of ten shows nearly every name without scrolling.
-    final size = others.length > largeRowsUpTo
-        ? PlayerRowSize.compact
-        : PlayerRowSize.large;
     return ScreenFrame(
       ground: GroundKind.day,
-      topSlot: TimerBand.bar(secondsLeft: secondsLeft, remaining: remaining),
+      fitsHeight: true,
+      topSlot: TimerBand.bar(
+        secondsLeft: secondsLeft,
+        remaining: remaining,
+        title: VoteCopy.headline,
+      ),
       body: TeachOnce(
         cue: Cue.voteLock,
-        builder: (context, teaching) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: size == PlayerRowSize.compact ? Space.sm : Space.md,
-          children: [
-            Semantics(
-              header: true,
-              child: FitWords(
-                VoteCopy.headline,
-                style: skin.typography.screenTitle,
-              ),
-            ),
-            for (final (i, seat) in others.indexed)
-              CueWave(
-                play: teaching && !locked,
-                index: i,
-                distance: CueWave.rowNudge,
-                child: _row(
-                  seat,
-                  size,
-                  picked: !locked && seat == pick,
-                  locked: locked,
-                ),
-              ),
-          ],
+        builder: (context, teaching) => VoteRows(
+          seats: others,
+          pick: pick?.id,
+          locked: locked,
+          nudge: teaching && !locked,
+          onPick: onPick,
         ),
       ),
       actions: [
@@ -207,20 +206,127 @@ class VoteView extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _row(
-    NightSeat seat,
-    PlayerRowSize size, {
-    required bool picked,
-    required bool locked,
-  }) => PlayerRow(
-    token: seat.token,
-    name: seat.name,
-    size: size,
-    picked: picked,
-    dimmed: locked,
-    // The picked row stays a button (it reads as selected); a tap on it
-    // changes nothing.
-    onTap: locked ? null : (picked ? () {} : () => onPick(seat.id)),
+/// The vote's rows, sized to the room they are given: [PlayerRowSize.large]
+/// with [Space.md] between when every row fits, else
+/// [PlayerRowSize.compact] with [Space.sm], else the compact rows scrolling
+/// ([FadingScroll]). Each row's height is measured from its name at the
+/// text size (a name wraps to two lines before it is set smaller). A
+/// lifted row keeps its place in the column, so the gaps stay even.
+class VoteRows extends StatelessWidget {
+  const VoteRows({
+    super.key,
+    required this.seats,
+    required this.pick,
+    required this.locked,
+    required this.nudge,
+    required this.onPick,
+  });
+
+  final List<NightSeat> seats;
+  final int? pick;
+  final bool locked;
+  final bool nudge;
+  final ValueChanged<int> onPick;
+
+  /// Every size, tallest first, with the gap it is set at.
+  static const sizes = [
+    (PlayerRowSize.large, Space.md),
+    (PlayerRowSize.compact, Space.sm),
+  ];
+
+  /// The height [seats] take at [size] with [gap] between, [width] wide.
+  static double heightOf(
+    BuildContext context,
+    List<NightSeat> seats,
+    PlayerRowSize size,
+    double gap,
+    double width,
+  ) {
+    final skin = context.skin;
+    final scaler = MediaQuery.textScalerOf(context);
+    final style = size.nameStyle(skin.typography);
+    final nameRoom =
+        width - Space.sm - size.token.size - size.gap - size.endPadding;
+    var total = 0.0;
+    for (final seat in seats) {
+      final painter = TextPainter(
+        text: TextSpan(text: seat.name, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+        maxLines: 2,
+      )..layout(maxWidth: math.max(1, nameRoom));
+      final content = math.max(size.token.size, painter.height);
+      painter.dispose();
+      total += math.max(size.height, content + 2 * Space.xxs) + _lift;
+    }
+    return total + (gap - _lift) * math.max(0, seats.length - 1);
+  }
+
+  /// The room each row keeps for the lift (above when lifted, else below),
+  /// so the gaps between the papers stay even; it is taken out of the gap,
+  /// so the papers are still [sizes]' gap apart.
+  static const _lift = Space.xs;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, room) {
+      final (size, gap) = sizes.firstWhere(
+        (s) =>
+            heightOf(context, seats, s.$1, s.$2, room.maxWidth) <=
+            room.maxHeight,
+        orElse: () => sizes.last,
+      );
+      final fits =
+          heightOf(context, seats, size, gap, room.maxWidth) <= room.maxHeight;
+      final column = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: gap - _lift,
+        children: [
+          for (final (i, seat) in seats.indexed)
+            CueWave(
+              play: nudge,
+              index: i,
+              distance: CueWave.rowNudge,
+              child: _row(seat, size),
+            ),
+        ],
+      );
+      return Align(
+        alignment: Alignment.topCenter,
+        child: fits ? column : FadingScroll(child: column),
+      );
+    },
   );
+
+  Widget _row(NightSeat seat, PlayerRowSize size) {
+    final mine = seat.id == pick;
+    final lifted = mine;
+    final row = PlayerRow(
+      token: seat.token,
+      name: seat.name,
+      size: size,
+      picked: lifted,
+      // Once locked, the others dim; this phone's own pick stays as it is.
+      dimmed: locked && !mine,
+      onTap: locked
+          ? null
+          : mine
+          // The picked row stays a button (it reads as selected); a tap on
+          // it changes nothing.
+          ? () {}
+          : () => onPick(seat.id),
+    );
+    return AnimatedPadding(
+      duration: Motion.quick,
+      curve: Motion.curve,
+      // The lift draws the row up by the same room it keeps above.
+      padding: EdgeInsets.only(
+        top: lifted ? _lift : 0,
+        bottom: lifted ? 0 : _lift,
+      ),
+      child: locked && mine ? Semantics(selected: true, child: row) : row,
+    );
+  }
 }

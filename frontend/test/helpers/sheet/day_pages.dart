@@ -48,7 +48,7 @@ class _TalkPageState extends State<TalkPage> {
   Widget build(BuildContext context) => TalkView(
     me: _me.withReady(_ready),
     secondsLeft: 252,
-    elapsed: 0.3,
+    elapsed: null,
     onReady: () => setState(() => _ready = !_ready),
   );
 }
@@ -73,7 +73,7 @@ class _VotePageState extends ConsumerState<VotePage> {
     return VoteView(
       me: vote == null ? _me : _me.withVote(vote),
       secondsLeft: 72,
-      remaining: 0.8,
+      remaining: null,
       onPick: (id) => setState(() => _vote = MyVote.local(id, locked: false)),
       onLock: (id) {
         setState(() => _vote = MyVote.local(id, locked: true));

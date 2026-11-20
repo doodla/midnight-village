@@ -11,6 +11,7 @@ import 'package:midnight_village/app.dart';
 import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/core/api/auth_interceptor.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/core/healing/healing.dart';
 import 'package:midnight_village/core/router/app_router.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
@@ -307,17 +308,24 @@ class UiHarness {
   ///    so those futures complete against a live container rather than throwing
   ///    `UnmountedRefException` when they touch a disposed `ref`.
   /// 3. Dispose the container (tears down providers + their resources).
-  /// 4. Advance the fake clock past the only residual timers — bounded ~3s HTTP
-  ///    keep-alive idle timers (`_HttpClientConnection.startTimer`) — so they
-  ///    fire-and-clear and leave nothing pending.
+  /// 4. Unmount again and advance the fake clock past every residual timer:
+  ///    HTTP keep-alive idle timers (`_HttpClientConnection.startTimer`, 15 s
+  ///    by default) and any heal or poll timer a late answer armed
+  ///    ([HealTiming], the longest `tablePoll`), so they fire into a disposed
+  ///    container and leave nothing pending, whatever the phone was doing.
   Future<void> tearDownHarness() async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
     container.dispose();
-    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(_drain);
   }
+
+  /// Longer than any timer the app or an idle connection arms.
+  static final _drain =
+      const HealTiming().tablePoll + const Duration(seconds: 5);
 
   /// Captures the current frame as a PNG inside [WidgetTester.runAsync] (raw
   /// `toImage` hangs the test clock otherwise — flutter#50783) and writes it to

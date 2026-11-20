@@ -212,11 +212,15 @@ void main() {
       replies.releaseAll();
       await s.settle(tester);
       expect(_button(tester), CommonCopy.readyDone);
-      // The count is the server's, from its event to every phone.
-      expect(find.text('0 of 5'), findsOneWidget);
+      // This phone's own Ready is counted at once; then the server's count,
+      // read with this phone's flag from one /me/ (the event, arriving
+      // before that is confirmed, fetches it): still one, never two.
+      expect(find.text('1 of 5'), findsOneWidget);
+      s.answerMe(recordedMe('me_look_ready'));
       s.ws.addServerEvent(ContractSamples.map('ws/game/progress_look'));
       await s.settle(tester);
       expect(find.text('1 of 5'), findsOneWidget);
+      expect(_button(tester), CommonCopy.readyDone);
       await s.close(tester);
     });
 

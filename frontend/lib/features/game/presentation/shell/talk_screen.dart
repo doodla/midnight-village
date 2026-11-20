@@ -6,12 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/models/role.dart';
-import '../../../../design_system/night/night_pick.dart';
 import '../../../../design_system/primitives/band.dart';
-import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/panels.dart';
-import '../../../../design_system/primitives/player_token.dart';
 import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/primitives/progress_pips.dart';
 import '../../../../design_system/primitives/role_card.dart';
@@ -19,7 +16,6 @@ import '../../../../design_system/primitives/role_sheet_body.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../../design_system/skin/ground.dart';
-import '../../../../design_system/skin/skin.dart';
 import '../../../../design_system/teach/learned_store.dart';
 import '../../../../design_system/teach/teaching_hold.dart';
 import '../../domain/game_me.dart';
@@ -44,8 +40,6 @@ class TalkScreen extends ConsumerStatefulWidget {
 }
 
 class _TalkScreenState extends ConsumerState<TalkScreen> {
-  final _share = StageShare();
-
   ProtocolTwoGameNotifier get _notifier =>
       ref.read(protocolTwoGameProvider(widget.gameId).notifier);
 
@@ -55,29 +49,36 @@ class _TalkScreenState extends ConsumerState<TalkScreen> {
     return StageSeconds(
       gameId: widget.gameId,
       deadline: me.deadline,
-      builder: (context, seconds) => TalkView(
-        me: me,
-        secondsLeft: seconds,
-        elapsed: 1 - _share.left(me.stage, seconds),
-        // A toggle; taps in a row go out in order, the latest last.
-        onReady: () => unawaited(_notifier.setReady(!(me.ready ?? false))),
-        onMyNightSeen: () => unawaited(_notifier.acknowledgeNightResults()),
-        notSent: widget.game.unsent.contains(OutboxLane.ready),
-        onTryAgain: () => unawaited(_notifier.retry(OutboxLane.ready)),
-      ),
+      builder: (context, seconds) {
+        final left = StageShare.left(
+          startedAt: me.stageStartedAt,
+          deadline: me.deadline,
+          secondsLeft: seconds,
+        );
+        return TalkView(
+          me: me,
+          secondsLeft: seconds,
+          elapsed: left == null ? null : 1 - left,
+          // A toggle; taps in a row go out in order, the latest last.
+          onReady: () => unawaited(_notifier.setReady(!(me.ready ?? false))),
+          onMyNightSeen: () => unawaited(_notifier.acknowledgeNightResults()),
+          notSent: widget.game.unsent.contains(OutboxLane.ready),
+          onTryAgain: () => unawaited(_notifier.retry(OutboxLane.ready)),
+        );
+      },
     );
   }
 }
 
 /// 08 Talk as drawn (first-time play spec, section 3 and section 7): the sun
-/// over the rooftops and the talk's number, loudest; "The village wakes";
-/// My night, a hold box whose face is this phone's night (the result
-/// first, window 1's page when it ran, then "Dealt"), with the first-game
-/// hold ring on it; the deck tonight (a held portrait opens the role's
-/// sheet); everyone at the table in seat order, token and whole name; then how
-/// many are ready, as plain pips, and "Ready to vote", outlined and never
-/// locked: "Ready ✓" once tapped, tapped again to take it back. Nothing else
-/// to read: the table talks.
+/// over the rooftops, the talk's number loudest with "The village wakes"
+/// beside it; My night, large, a hold box whose face is this phone's night
+/// (the result first, window 1's page when it ran, then "Dealt"), with the
+/// first-game hold ring on it; the deck tonight (a held portrait opens the
+/// role's sheet); then how many are ready, as plain pips (this phone's own
+/// tap counted at once), and "Ready to vote", outlined and never locked:
+/// "Ready ✓" once tapped, tapped again to take it back. Nothing else to
+/// read: the table talks (who is at it is the vote's list, 09).
 ///
 /// It takes plain data and callbacks: [me] is `/me/` with this phone's taps
 /// on it (its own [GameMe.ready]).
@@ -98,8 +99,9 @@ class TalkView extends StatelessWidget {
   /// Null: the talk has no deadline (no number).
   final int? secondsLeft;
 
-  /// How far through the talk the sun is, 0 to 1.
-  final double elapsed;
+  /// How far through the talk the sun is, 0 to 1; null when the server does
+  /// not say when the talk started (the sun rests in one place).
+  final double? elapsed;
 
   /// "Ready to vote" / "Ready ✓" tapped.
   final VoidCallback onReady;
@@ -113,33 +115,31 @@ class TalkView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final skin = context.skin;
     final progress = me.progress;
     final ready = me.ready ?? false;
     return ScreenFrame(
       ground: GroundKind.day,
-      topSlot: TimerBand.sun(secondsLeft: secondsLeft, elapsed: elapsed),
+      topSlot: TimerBand.sun(
+        secondsLeft: secondsLeft,
+        elapsed: elapsed,
+        title: TalkCopy.headline,
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: Space.lg,
         children: [
-          Semantics(
-            header: true,
-            child: FitWords(
-              TalkCopy.headline,
-              style: skin.typography.screenTitle,
-            ),
-          ),
           TeachingHold(
             target: TalkCopy.myNight,
             face: me.report.myNight,
             cue: Cue.holdMyNight,
             onRevealed: onMyNightSeen,
-            cover: (teaching) =>
-                PeekBox(title: TalkCopy.myNight, teaching: teaching),
+            cover: (teaching) => PeekBox(
+              title: TalkCopy.myNight,
+              teaching: teaching,
+              large: true,
+            ),
           ),
           _DeckStrip(deck: me.deck),
-          TableNames(seats: me.seats),
         ],
       ),
       actions: [
@@ -163,42 +163,6 @@ class TalkView extends StatelessWidget {
           label: ready ? CommonCopy.readyDone : TalkCopy.readyToVote,
           onPressed: onReady,
         ),
-      ],
-    );
-  }
-}
-
-/// Everyone at the table in seat order: each player's token and whole name
-/// (wrapped between words where it must, never cut), so the table can name
-/// each other while it talks. Nothing about anyone's progress.
-class TableNames extends StatelessWidget {
-  const TableNames({super.key, required this.seats});
-
-  final List<NightSeat> seats;
-
-  @override
-  Widget build(BuildContext context) {
-    final skin = context.skin;
-    final style = skin.typography.nameSmall.copyWith(
-      color: context.ground.text,
-    );
-    return Wrap(
-      spacing: Space.lg,
-      runSpacing: Space.sm,
-      children: [
-        for (final seat in seats)
-          Semantics(
-            label: seat.name,
-            excludeSemantics: true,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: Space.sm,
-              children: [
-                PlayerToken(seat.token, size: TokenSize.card),
-                Flexible(child: FitWords(seat.name, style: style)),
-              ],
-            ),
-          ),
       ],
     );
   }
