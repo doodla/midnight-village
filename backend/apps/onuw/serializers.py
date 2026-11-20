@@ -164,6 +164,13 @@ class GameMeSerializer(serializers.Serializer):
         if player_role is None:
             return None
 
+        from .services import choose_prompt_for, is_choose_night
+
+        if is_choose_night(game):
+            # Night protocol 2: every player has a prompt, shaped alike, for as long
+            # as the window is open (it says how many chooses the caller has sent).
+            return choose_prompt_for(game, player_role)
+
         # If the player has already acted this wave, no prompt needed
         if player_role.has_acted:
             return None
@@ -235,12 +242,12 @@ class GameMeSerializer(serializers.Serializer):
     def get_ready(self, game: Game) -> bool | None:
         """The caller's own "ready" flag at the stages that have one (the talk and,
         later, the card look); None elsewhere."""
-        from .services import _in_look_stage
+        from .services import in_look_stage
 
         player_role = self.context.get("player_role")
         if player_role is None:
             return None
-        if game.phase != Phase.DISCUSSION and not _in_look_stage(game):
+        if game.phase != Phase.DISCUSSION and not in_look_stage(game):
             return None
         return bool(player_role.phase_ready)
 

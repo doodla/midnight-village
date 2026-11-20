@@ -32,6 +32,7 @@ from .serializers import (
     player_identity,
 )
 from .services import (
+    CHOOSE_ERROR_CODES,
     READY_ERROR_CODES,
     VOTE_ERROR_CODES,
     AlreadyActedError,
@@ -42,10 +43,12 @@ from .services import (
     end_discussion,
     ensure_timers,
     get_player_acting_role_for_wave,
+    is_choose_night,
     night_timeline_for,
     resolve_doppelganger_look,
     reveal_votes,
     set_ready,
+    submit_choose,
     submit_vote,
     timer_prefixes,
     validate_night_action,
@@ -158,7 +161,11 @@ class GameStartView(APIView):
             )
 
         # Validate ONUW settings
-        errors = validate_onuw_settings(lobby.settings, player_count)
+        errors = validate_onuw_settings(
+            lobby.settings,
+            player_count,
+            allow_untimed=getattr(settings, "ONUW_ALLOW_UNTIMED_NIGHT", False),
+        )
         if errors:
             return Response(
                 {"detail": errors},
@@ -299,6 +306,9 @@ class NightActionView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        if is_choose_night(game):
+            return self._choose(request, game)
+
         # 2. Validate game is in NIGHT phase
         if game.phase != Phase.NIGHT:
             return Response(
@@ -401,6 +411,39 @@ class NightActionView(APIView):
         game.refresh_from_db()
         check_and_maybe_advance(game)
 
+        return Response({"status": "submitted"})
+
+    def _choose(self, request: Request, game: Game) -> Response:
+        """Night protocol 2: every phone sends ``{"action_type": "choose", "picks":
+        [...]}``. The answer is ``{"status": "submitted"}`` for everyone; the only
+        refusals are ``wrong_phase``, ``already_chosen`` (409) and ``bad_request``,
+        and none of them depends on the caller's role. What the picks MEAN is the
+        server's business (``services.submit_choose``)."""
+        body = request.data if isinstance(request.data, dict) else {}
+        if body.get("action_type") != "choose" or "picks" not in body:
+            return _bad_request("Invalid action.")
+        if not PlayerRole.objects.filter(game=game, user=request.user).exists():
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            errors = submit_choose(game, request.user.id, body["picks"])  # type: ignore[misc]
+        except AlreadyActedError:
+            return Response(
+                {"detail": "You have already chosen.", "code": "already_chosen"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if errors:
+            return Response(
+                {
+                    "detail": errors[0],
+                    "code": CHOOSE_ERROR_CODES.get(errors[0], "bad_request"),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        game.refresh_from_db()
+        check_and_maybe_advance(game)
         return Response({"status": "submitted"})
 
 

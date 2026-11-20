@@ -25,6 +25,10 @@ DEBUG = True
 # (production, base.py, drops it so an older instance keeps its sockets open).
 ONUW_STRICT_SOCKET_EVENTS = True
 
+# The harness (which inherits this file) and `just dev` drive the night by hand:
+# zero night timers are allowed (see base.py).
+ONUW_ALLOW_UNTIMED_NIGHT = True
+
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 # Database

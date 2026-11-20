@@ -20,6 +20,9 @@ DEBUG = False
 # (production, base.py, drops it so an older instance keeps its sockets open).
 ONUW_STRICT_SOCKET_EVENTS = True
 
+# Tests drive the night by hand: zero night timers are allowed (see base.py).
+ONUW_ALLOW_UNTIMED_NIGHT = True
+
 # Tests never recover timers at import time (they build their own state).
 ONUW_RECOVER_TIMERS_ON_START = False
 

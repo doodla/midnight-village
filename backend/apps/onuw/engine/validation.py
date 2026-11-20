@@ -92,8 +92,50 @@ def validate_pace(settings: dict) -> list[str]:
     return []
 
 
+# Night protocol 1 is the original per-role night; 2 is "every phone sends one
+# choose" (see ``choose.py``). Absent means 1.
+NIGHT_PROTOCOLS: tuple[int, ...] = (1, 2)
+# Under protocol 2 the close of a window must not depend on roles, so a window with
+# no deadline (one idle phone could stall the table and a window 1 with no length
+# singles out the Doppelganger) and a minimum window shorter than this are refused,
+# unless the server allows untimed nights (tests, development, the harness).
+MIN_PROTOCOL_2_MIN_WINDOW_SECONDS = 5
+PROTOCOL_2_TIMED_KEYS: tuple[str, ...] = (
+    "night_wave_seconds",
+    "night_doppelganger_window_seconds",
+)
+
+
+def validate_night_protocol(settings: dict, *, allow_untimed: bool = True) -> list[str]:
+    """``night_protocol`` (if present) must be 1 or 2. Under 2, unless
+    ``allow_untimed``: no zero night timers and a minimum window of at least 5 s."""
+    if "night_protocol" not in settings:
+        return []
+    protocol = settings["night_protocol"]
+    if type(protocol) is not int or protocol not in NIGHT_PROTOCOLS:
+        return ["'night_protocol' must be 1 or 2."]
+    if protocol != 2 or allow_untimed:
+        return []
+    errors = [
+        f"{key!r} cannot be 0 when every phone chooses at night."
+        for key in PROTOCOL_2_TIMED_KEYS
+        if settings.get(key) == 0 and type(settings.get(key)) is int
+    ]
+    window_min = settings.get("night_min_window_seconds")
+    if type(window_min) is int and window_min < MIN_PROTOCOL_2_MIN_WINDOW_SECONDS:
+        errors.append(
+            "'night_min_window_seconds' must be at least "
+            f"{MIN_PROTOCOL_2_MIN_WINDOW_SECONDS} when every phone chooses at night."
+        )
+    return errors
+
+
 def validate_onuw_settings(
-    settings: dict, player_count: int, *, check_deck: bool = True
+    settings: dict,
+    player_count: int,
+    *,
+    check_deck: bool = True,
+    allow_untimed: bool = True,
 ) -> list[str]:
     """
     Validate ONUW role configuration.
@@ -106,6 +148,8 @@ def validate_onuw_settings(
                     does; a settings change that does not touch ``roles`` (a pace
                     label, a timer) skips it, because who joined meanwhile is not
                     that change's fault and the deal checks again.
+        allow_untimed: Allow zero night timers and a short minimum window under
+                    night protocol 2 (the server's ``ONUW_ALLOW_UNTIMED_NIGHT``).
 
     Returns:
         List of error messages. Empty list means valid.
@@ -113,7 +157,11 @@ def validate_onuw_settings(
     if not isinstance(settings, dict):
         return ["Settings must be an object."]
 
-    errors: list[str] = [*validate_timer_settings(settings), *validate_pace(settings)]
+    errors: list[str] = [
+        *validate_timer_settings(settings),
+        *validate_pace(settings),
+        *validate_night_protocol(settings, allow_untimed=allow_untimed),
+    ]
     if not check_deck:
         return errors
 

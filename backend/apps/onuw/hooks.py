@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from django.conf import settings as django_settings
+
 from apps.core.games import GameHooks
 
 from . import presence
@@ -20,7 +22,10 @@ def _newest_game(lobby) -> Game | None:
 class OnuwHooks(GameHooks):
     def validate_settings(self, settings, player_count: int, changed=None) -> list[str]:
         return validate_onuw_settings(
-            settings, player_count, check_deck=changed is None or "roles" in changed
+            settings,
+            player_count,
+            check_deck=changed is None or "roles" in changed,
+            allow_untimed=getattr(django_settings, "ONUW_ALLOW_UNTIMED_NIGHT", False),
         )
 
     def newest_game_group(self, lobby) -> str | None:

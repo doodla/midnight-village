@@ -39,6 +39,21 @@ sections below say otherwise, this list wins:
   Troublemaker (and a Doppelganger follow-up as one of them), when the prompt's
   `action_types` includes `skip`. The Drunk and the Doppelganger's first look cannot skip.
   "Same action with empty targets" (§D4) is still how a lone Werewolf declines the peek.
+- **Night protocol 2** (`night_protocol: 2` in the table's settings; the harness settings
+  set `ONUW_ALLOW_UNTIMED_NIGHT = True`, so zero timers are allowed; protocol 1 stays the
+  default and every scenario below uses it): every player posts
+  `{"action_type":"choose","picks":[...]}` (0 to 2 of `{"player_id"}`, `{"center_index"}`,
+  `{"self":true}`) and always gets `{"status":"submitted"}`; the only refusals are
+  `wrong_phase`, `already_chosen` (409) and `bad_request`. The server reads the picks per
+  role (`backend/apps/onuw/engine/choose.py`); a pick with no valid meaning is a timeout.
+  Window 1 takes two chooses per phone, window 2 one; window 2 closes when EVERY present
+  phone has chosen once (and the minimum passed), window 1 on its timer (`wave:1`
+  fire-timer). The only night events are group `night_window {window, deadline}` and
+  `wave_complete`; a phone reads its `action_prompt` (`kind`, `chosen`, `max_chooses`, the
+  board) and `night_results` from `GET /me/`, where the Doppelganger's look is listed as
+  soon as it resolves. With `card_look_seconds` > 0 the deal opens window 0: every phone
+  posts `ready {"ready": true}` (`progress {stage: "look"}` events), `advance-wave
+  {"from_window": 0}` or `debug-fire-timer look` opens the night.
 - **Scenarios** = `docs/specs/onuw/reference-games.md`, data in
   `backend/tests/onuw/data/reference_games.json` (23 full games + 6 night-only
   Doppelganger games). The old nine-scenario matrix (§3) and its `nightScript` DSL (§D4)
