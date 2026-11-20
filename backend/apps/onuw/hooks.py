@@ -13,6 +13,22 @@ from . import presence
 from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
 
+# What a lobby made with ``defaults: "v2"`` starts with: Normal pace, a 30 s look at
+# the cards, the Normal Doppelganger window, the choose night and the automatic
+# Simple deck (``docs/specs/frontend/first-time-play.md``). Nothing is written unless
+# the create body asks for it.
+V2_DEFAULTS: dict[str, Any] = {
+    "pace": "normal",
+    "discussion_seconds": 300,
+    "voting_seconds": 90,
+    "night_wave_seconds": 30,
+    "card_look_seconds": 30,
+    "night_doppelganger_window_seconds": 15,
+    "night_protocol": 2,
+    "deck": "auto",
+    "deck_chip": "simple",
+}
+
 
 def _newest_game(lobby) -> Game | None:
     # pyrefly: ignore [missing-attribute]
@@ -27,6 +43,9 @@ class OnuwHooks(GameHooks):
             check_deck=changed is None or "roles" in changed,
             allow_untimed=getattr(django_settings, "ONUW_ALLOW_UNTIMED_NIGHT", False),
         )
+
+    def default_settings(self, name: str) -> dict[str, Any] | None:
+        return dict(V2_DEFAULTS) if name == "v2" else None
 
     def newest_game_group(self, lobby) -> str | None:
         game = _newest_game(lobby)

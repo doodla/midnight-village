@@ -24,6 +24,7 @@ from apps.core.models import Lobby, LobbyMember
 from . import presence
 from .debug import ForcedAssignmentError, parse_forced_assignment
 from .engine.assignment import assign_roles
+from .engine.decks import auto_deck
 from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
 from .serializers import (
@@ -173,7 +174,15 @@ class GameStartView(APIView):
             )
 
         player_ids = [m.user_id for m in members]
-        role_counts = lobby.settings["roles"]
+        game_settings = dict(lobby.settings)
+        if game_settings.get("deck") == "auto":
+            # The deck is built here, under the Lobby lock, for the players at the
+            # table now; the lobby keeps saying "auto" for the next game. (The
+            # validation above refused a table size with no deck.)
+            game_settings["roles"] = auto_deck(
+                player_count, game_settings.get("deck_chip")
+            )
+        role_counts = game_settings["roles"]
 
         # DEBUG-only assignment override. Honored ONLY when settings.DEBUG is
         # True; in production the `debug` key is ignored entirely, so it cannot
@@ -219,7 +228,7 @@ class GameStartView(APIView):
             lobby=lobby,
             phase=Phase.NIGHT,
             random_seed=seed,
-            settings=lobby.settings,
+            settings=game_settings,
             center_cards=center_cards,
             # The night overwrites center_cards as cards are swapped.
             dealt_center_cards=list(center_cards),

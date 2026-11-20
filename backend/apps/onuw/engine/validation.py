@@ -6,6 +6,7 @@ NO Django imports allowed in this module. This is pure game logic.
 
 from __future__ import annotations
 
+from .decks import DECK_CHIPS
 from .roles import ROLE_REGISTRY
 
 # Every timer setting the server reads, in seconds. 0 disables that timer
@@ -92,6 +93,21 @@ def validate_pace(settings: dict) -> list[str]:
     return []
 
 
+DECK_MODES: tuple[str, ...] = ("auto", "custom")
+
+
+def validate_deck_choice(settings: dict) -> list[str]:
+    """``deck`` (``auto`` or ``custom``) and ``deck_chip`` (a chip of ``engine.decks``),
+    if present. Under ``auto`` the server builds the deck at the deal; under
+    ``custom`` (or no ``deck`` at all) the ``roles`` the host chose are the deck."""
+    errors: list[str] = []
+    if "deck" in settings and settings["deck"] not in DECK_MODES:
+        errors.append(f"'deck' must be one of: {', '.join(DECK_MODES)}.")
+    if "deck_chip" in settings and settings["deck_chip"] not in DECK_CHIPS:
+        errors.append(f"'deck_chip' must be one of: {', '.join(DECK_CHIPS)}.")
+    return errors
+
+
 # Night protocol 1 is the original per-role night; 2 is "every phone sends one
 # choose" (see ``choose.py``). Absent means 1.
 NIGHT_PROTOCOLS: tuple[int, ...] = (1, 2)
@@ -161,6 +177,7 @@ def validate_onuw_settings(
         *validate_timer_settings(settings),
         *validate_pace(settings),
         *validate_night_protocol(settings, allow_untimed=allow_untimed),
+        *validate_deck_choice(settings),
     ]
     if not check_deck:
         return errors
@@ -170,6 +187,11 @@ def validate_onuw_settings(
 
     if player_count > 10:
         errors.append(f"At most 10 players allowed, got {player_count}.")
+
+    if settings.get("deck") == "auto":
+        # The server builds the deck at the deal for the players then at the table
+        # (``engine.decks``): any card list lying around is ignored.
+        return errors
 
     roles = settings.get("roles")
     if roles is None:

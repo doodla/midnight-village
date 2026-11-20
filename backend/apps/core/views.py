@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .games import hooks_for_type
 from .lobbies import LobbyFullError, add_member, current_table, touch
 from .models import Lobby, LobbyMember, User
 from .name_generator import generate_display_name
@@ -94,6 +95,26 @@ class LobbyCreateView(CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        # ``defaults`` (optional) names a set of settings the game offers for a new
+        # table; the settings given in the body win over it. Nothing is written
+        # unless the body asks.
+        if "defaults" in request.data:
+            name = request.data["defaults"]
+            offered = (
+                hooks_for_type(serializer.validated_data["game_type"]).default_settings(
+                    name
+                )
+                if isinstance(name, str)
+                else None
+            )
+            if offered is None:
+                return Response(
+                    {"detail": "Unknown defaults.", "code": "bad_request"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            given = serializer.validated_data.get("settings") or {}
+            serializer.validated_data["settings"] = {**offered, **given}
         self.perform_create(serializer)
 
         # Return full lobby data
