@@ -54,6 +54,10 @@ sections below say otherwise, this list wins:
   soon as it resolves. With `card_look_seconds` > 0 the deal opens window 0: every phone
   posts `ready {"ready": true}` (`progress {stage: "look"}` events), `advance-wave
   {"from_window": 0}` or `debug-fire-timer look` opens the night.
+  `frontend/test_e2e/api_protocol2_test.dart` drives these over real HTTP and sockets
+  (look stage, a plain choose night, a Doppelganger table with window 1's two chooses,
+  ready to vote, a lock-in vote with a changed pick, the automatic deck at 5 and 9
+  players with `defaults: "v2"`); it asserts no per-player night event is heard.
 - **Scenarios** = `docs/specs/onuw/reference-games.md`, data in
   `backend/tests/onuw/data/reference_games.json` (23 full games + 6 night-only
   Doppelganger games). The old nine-scenario matrix (§3) and its `nightScript` DSL (§D4)
