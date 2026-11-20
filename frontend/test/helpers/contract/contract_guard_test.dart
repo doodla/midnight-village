@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../../integration_test/helpers/server_bodies.dart';
 import '../game_events.dart';
-import '../game_state_factory.dart';
 import 'contract_samples.dart';
 import 'contract_shape.dart';
 import 'server_json.dart';
@@ -76,128 +75,87 @@ void main() {
       );
     });
 
-    test('the night protocol of every sample is told by one helper', () {
-      final byProtocol = <NightProtocol?, List<String>>{};
-      for (final info in ContractSamples.index) {
-        (byProtocol[ContractSamples.protocolOf(info)] ??= []).add(info.name);
+    // PROTOCOL 1: delete this test with the filter in contract_samples.dart.
+    test("the server's protocol-1 samples are left out of the index", () {
+      final names = {for (final s in ContractSamples.index) s.name};
+      for (final protocolOne in [
+        'http/game/me_night_prompt_seer',
+        'http/game/me_voting',
+        'http/game/me_results',
+        'ws/game/action_prompt_seer',
+        'ws/game/action_result_peek_player',
+        'ws/game/wave_start',
+        'ws/game/wave_waiting',
+        'ws/game/vote_submitted',
+      ]) {
+        expect(names, isNot(contains(protocolOne)));
       }
-      final meOne = byProtocol[NightProtocol.one]!;
-      final meTwo = byProtocol[NightProtocol.two]!;
-      // Protocol 1 as recorded before protocol 2 existed, protocol 2 as the
-      // server's stages sent it.
-      expect(meOne, contains('http/game/me_night_prompt_seer'));
-      expect(meOne, contains('http/game/me_voting'));
-      expect(meTwo, contains('http/game/me_look_stage'));
-      expect(meTwo, contains('http/game/me_choose_prompt_seer'));
-      expect(meTwo, contains('http/game/me_discussion_choose_seer'));
-      expect(meTwo, contains('ws/game/progress_look'));
-      expect(meTwo, contains('ws/game/night_window_1'));
-      expect(meTwo, contains('ws_sequence/look_stage'));
-      expect(
-        [...meOne, ...meTwo],
-        isNot(contains('ws/game/phase_change_voting')),
-        reason: 'an event both protocols send is not told apart',
-      );
-      // Every /me/ body is told apart: one or the other, never undecided.
+      for (final kept in [
+        'http/game/me_look_stage',
+        'http/game/me_choose_prompt_seer',
+        'http/game/me_discussion_choose_seer',
+        'http/game/me_results_v2',
+        'http/game/me_not_found',
+        'ws/game/night_window_1',
+        'ws/game/progress_look',
+        'ws/game/phase_change_voting',
+        'ws/game/wave_complete',
+        'ws/game/vote_reveal',
+        'ws_sequence/look_stage',
+      ]) {
+        expect(names, contains(kept));
+      }
       for (final info in ContractSamples.index.where(
         (s) =>
             s.isHttp && s.status == 200 && s.matchesPath('/onuw/games/g/me/'),
       )) {
-        expect(ContractSamples.protocolOf(info), isNotNull, reason: info.name);
+        expect(
+          ContractSamples.map(info.name),
+          contains('stage'),
+          reason: info.name,
+        );
       }
     });
   });
 
-  group('the check keeps the night protocols apart', () {
-    Map<String, dynamic> one(String name) => ContractSamples.map(name);
-    Map<String, dynamic> two(String name) => ContractSamples.map(name);
+  group('a /me/ is the one the server sends now', () {
+    Map<String, dynamic> sample(String name) => ContractSamples.map(name);
     void check(Map<String, dynamic> body) =>
         checkHttpBody('GET', '/onuw/games/g/me/', 200, body);
     void refused(dynamic Function() fn) =>
         expect(fn, throwsA(isA<OffContractPayload>()));
 
-    test('the helper reads `stage`, and only on a /me/ body', () {
-      const path = '/onuw/games/{game_id}/me/';
-      expect(
-        nightProtocolOf(body: {'phase': 'night'}, httpPath: path),
-        NightProtocol.one,
-      );
-      expect(
-        nightProtocolOf(
-          body: {'phase': 'night', 'stage': null},
-          httpPath: path,
-        ),
-        NightProtocol.two,
-        reason: 'a null stage is still the key protocol 2 sends',
-      );
-      expect(
-        nightProtocolOf(body: {'detail': 'Game not found.'}, httpPath: path),
-        isNull,
-        reason: 'an error body says nothing',
-      );
-      expect(
-        nightProtocolOf(body: {'stage': 'x'}, httpPath: '/lobbies/'),
-        isNull,
-      );
-      expect(nightProtocolOf(eventType: 'progress'), NightProtocol.two);
-      expect(nightProtocolOf(eventType: 'phase_change'), isNull);
-      expect(nightProtocolOf(heardTypes: {'progress'}), NightProtocol.two);
-      expect(nightProtocolOf(heardTypes: {'phase_change'}), isNull);
+    test('a protocol-1 /me/ (no stage) is refused', () {
+      refused(() => check(sample('http/game/me_night_prompt_seer')));
+      refused(() => check(sample('http/game/me_discussion')));
+      refused(() => check(sample('http/game/me_look_stage')..remove('stage')));
     });
 
-    test('a protocol-1 /me/ cannot borrow protocol-2 keys', () {
-      for (final key in ['my_vote', 'ready', 'progress']) {
-        final body = one('http/game/me_night_prompt_seer')..[key] = null;
-        refused(() => check(body));
-      }
-      // The prompt of a protocol-2 table, in a protocol-1 /me/.
-      final body = one('http/game/me_night_prompt_seer')
-        ..['action_prompt'] = two(
-          'http/game/me_choose_prompt_seer',
-        )['action_prompt'];
-      refused(() => check(body));
-      final prompt = one('http/game/me_night_prompt_seer');
-      (prompt['action_prompt'] as Map)['kind'] = 'choose';
-      refused(() => check(prompt));
-    });
-
-    test('a protocol-2 /me/ cannot borrow protocol-1 keys', () {
-      final hasVoted = two('http/game/me_voting_picked');
-      for (final p in hasVoted['players'] as List) {
-        (p as Map)['has_voted'] = false;
-      }
-      refused(() => check(hasVoted));
-      // The prompt of a protocol-1 table, in a protocol-2 /me/.
-      final body = two('http/game/me_choose_prompt_seer')
-        ..['action_prompt'] = one(
+    test('a protocol-1 prompt is refused in a /me/', () {
+      final body = sample('http/game/me_choose_prompt_seer')
+        ..['action_prompt'] = sample(
           'http/game/me_night_prompt_seer',
         )['action_prompt'];
       refused(() => check(body));
-      // Without `stage` it is a protocol-1 payload, and lacks nothing it
-      // may send but carries what protocol 1 never does.
-      refused(() => check(two('http/game/me_look_stage')..remove('stage')));
     });
 
-    test('a protocol-2 /me/ is not a protocol-1 /me/ of its phase', () {
-      // A voting /me/ with every protocol-2 key is a protocol-2 voting /me/ ...
-      check(two('http/game/me_voting_picked'));
-      // ... and cannot lose what only protocol 2 always sends.
+    test('what the server always sends cannot be left out', () {
+      check(sample('http/game/me_voting_picked'));
       for (final key in ['stage', 'my_vote', 'ready', 'progress']) {
-        refused(() => check(two('http/game/me_voting_picked')..remove(key)));
+        refused(() => check(sample('http/game/me_voting_picked')..remove(key)));
       }
     });
 
-    test('each protocol\'s own samples still pass', () {
-      check(one('http/game/me_night_prompt_seer'));
-      check(one('http/game/me_discussion'));
-      check(two('http/game/me_choose_prompt_seer'));
-      check(two('http/game/me_discussion_choose_seer'));
-      check(two('http/game/me_look_stage'));
+    test("the samples' own bodies pass", () {
+      check(sample('http/game/me_choose_prompt_seer'));
+      check(sample('http/game/me_discussion_choose_seer'));
+      check(sample('http/game/me_look_stage'));
     });
   });
 
   group('the check refuses', () {
-    Map<String, dynamic> me() => GameMeJsonBuilder().withPrompt('seer').build();
+    Map<String, dynamic> me() =>
+        ContractSamples.map('http/game/me_choose_prompt_seer');
     void check(Map<String, dynamic> body) =>
         checkHttpBody('GET', '/onuw/games/g/me/', 200, body);
 
@@ -210,7 +168,7 @@ void main() {
     test('nested targets where the server sends them flat', () {
       final body = me();
       body['action_prompt']['valid_targets'] = {
-        'peek_player': {
+        'player_ids': {
           'players': [2, 3],
         },
       };
@@ -218,7 +176,7 @@ void main() {
     });
 
     test('an always-sent key left out', () {
-      for (final key in ['has_voted', 'action_prompt', 'night_results']) {
+      for (final key in ['stage', 'action_prompt', 'night_results']) {
         expect(
           () => check(me()..remove(key)),
           throwsA(isA<OffContractPayload>()),
@@ -257,57 +215,44 @@ void main() {
           expect(check, throwsA(isA<OffContractPayload>()));
 
       test('a night /me/ with the results-only current_role', () {
-        final body = sample('http/game/me_night_prompt_seer');
+        final body = sample('http/game/me_choose_prompt_seer');
         body['your_role']['current_role'] = 'Seer';
         refused(() => check(body));
       });
 
       test('a discussion /me/ with a Seer prompt', () {
-        final body = sample('http/game/me_discussion')
+        final body = sample('http/game/me_discussion_choose_seer')
           ..['action_prompt'] = sample(
-            'http/game/me_night_prompt_seer',
+            'http/game/me_choose_prompt_seer',
           )['action_prompt'];
         refused(() => check(body));
       });
 
-      test('the vote-only has_voted on the players at night', () {
-        final body = sample('http/game/me_night_prompt_seer');
-        for (final p in body['players'] as List) {
-          (p as Map)['has_voted'] = false;
-        }
-        refused(() => check(body));
-      });
-
       test('a Seer prompt with a team view target', () {
-        final event = sample('ws/game/action_prompt_seer');
-        event['valid_targets']['see_team'] = [2];
-        refused(() => checkSocketEvent(event));
-        final body = sample('http/game/me_night_prompt_seer');
+        final body = sample('http/game/me_choose_prompt_seer');
         body['action_prompt']['valid_targets']['see_team'] = [2];
         refused(() => check(body));
       });
 
       test('a Seer result carrying a team view', () {
-        final event = sample('ws/game/action_result_peek_player');
-        event['revealed_info']['teammate_names'] = ['Bob'];
-        refused(() => checkSocketEvent(event));
-        final body = sample('http/game/me_discussion');
+        final body = sample('http/game/me_discussion_choose_seer');
         body['night_results'][0]['revealed_info']['teammate_names'] = ['Bob'];
         refused(() => check(body));
       });
 
-      test('a Minion team view with a lone Werewolf\'s centre card', () {
-        final event = sample('ws/game/action_result_see_team_minion');
-        event['revealed_info']['center_card'] = {'index': 0, 'role': 'seer'};
-        refused(() => checkSocketEvent(event));
+      test("a Minion team view with a lone Werewolf's centre card", () {
+        final body = sample('http/game/me_discussion_result_see_team_minion');
+        body['night_results'][0]['revealed_info']['center_card'] = {
+          'index': 0,
+          'role': 'Seer',
+        };
+        refused(() => check(body));
       });
 
-      test('but each situation\'s own sample passes', () {
-        check(sample('http/game/me_night_prompt_seer'));
-        check(sample('http/game/me_discussion'));
-        checkSocketEvent(
-          sample('ws/game/action_result_see_team_lone_werewolf'),
-        );
+      test("but each situation's own sample passes", () {
+        check(sample('http/game/me_choose_prompt_seer'));
+        check(sample('http/game/me_discussion_choose_seer'));
+        check(sample('http/game/me_discussion_choose_werewolf_lone'));
       });
     });
 
@@ -353,46 +298,14 @@ void main() {
   });
 
   group('every builder output is on contract', () {
-    test('GameMeJsonBuilder, in every phase and with every prompt', () {
-      for (final phase in ['night', 'discussion', 'voting', 'results']) {
-        GameMeJsonBuilder().inPhase(phase).asHost().build();
-      }
-      for (final kind in promptKinds) {
-        GameMeJsonBuilder()
-            .withDeck({
-              'Doppelganger': 1,
-              'Werewolf': 2,
-              'Seer': 1,
-              'Villager': 2,
-            })
-            .withWave(kind.startsWith('doppelganger') ? 1 : 2)
-            .withPrompt(kind)
-            .build();
-      }
-      GameMeJsonBuilder()
-          .inPhase('voting')
-          .hasVoted(true)
-          .withPlayersHavingVoted({2: true})
-          .build();
-      GameMeJsonBuilder().inPhase('discussion').withNightResults([
-        for (final kind in nightResultKinds) serverNightResult(kind),
-      ]).build();
-    });
-
     test('GameEvents, every factory', () {
       final events = [
-        GameEvents.waveStart(wave: 2, deadline: '2026-11-19T21:00:30+00:00'),
-        GameEvents.waveStart(wave: 1),
-        for (final kind in promptKinds) GameEvents.actionPrompt(kind),
-        for (final kind in nightResultKinds) GameEvents.actionResult(kind),
         GameEvents.waveComplete(),
-        GameEvents.waveWaiting(),
         GameEvents.phaseChange(phase: 'discussion'),
         GameEvents.phaseChange(
           phase: 'voting',
           deadline: '2026-11-19T21:00:30+00:00',
         ),
-        GameEvents.voteSubmitted(playerId: 2),
         GameEvents.voteReveal(votes: {'1': 2, '2': null}),
         GameEvents.gameResults(eliminatedPlayers: [2]),
         GameEvents.playerPresence(playerId: 2, connected: false),
@@ -459,19 +372,7 @@ void main() {
       );
     });
 
-    test('player list, results and lobby', () {
-      checkHttpBody(
-        'GET',
-        '/onuw/games/g/players/',
-        200,
-        serverPlayerList(away: {2}),
-      );
-      checkHttpBody(
-        'GET',
-        '/onuw/games/g/players/',
-        200,
-        serverPlayerList(hasVoted: {1: true}),
-      );
+    test('results and lobby', () {
       checkHttpBody(
         'GET',
         '/onuw/games/g/results/',

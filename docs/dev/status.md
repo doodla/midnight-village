@@ -31,31 +31,34 @@ changes. Last updated 20 November 2026.
   the final card with its team, the dealt one before it when it moved; who won, every card,
   the night folded into a strip that opens; play again, edit deck, leave); a restart lands on
   10 or 11 as the phone left it.
-- Tooling: screen gallery, cold-read pack, e2e harness, subagent model guardrail, commit gate
-  routed by path.
+- App cleanup: the old game screens, protocol 1 on the app side (the old notifier, state and
+  per-role prompt handling) and the old look (components, tokens, google_fonts, the
+  analyze gate) are deleted; every game opens in the table's shell, and a `/me/` without
+  `stage` is a calm "This game can't be shown." with "Leave". The app's tests ignore the
+  server's protocol-1 samples through one marked filter (`ContractSamples.index`).
+- Tooling: screen gallery, cold-read pack, e2e harness (a free port per run, stopping only
+  its own backend; reference games 1, 4, 5, 8 and 21 through the new screens), subagent
+  model guardrail, commit gate routed by path.
 
 ## Next, in order
 
-1. Rebuild the remaining screens for protocol 2, one at a time, from the primitives, checked
-   by eye with `just screens` against the mocks, before/after pictures to the owner (01 to 04,
-   06 and 08 to 11 are done). Delete each old-look file with the last screen using it
-   (`docs/dev/old-look-removal.md`).
-2. Rerun the cold-read playtest on the real screens (method in
+1. Rerun the cold-read playtest on the real screens (method in
    `docs/dev/playtests/2026-11-19-mocks-cold-read.md`). A screen passes when 4 of 5 simulated
    players name the right first action and nobody makes an unrecoverable mistake.
-3. One cleanup slice: delete protocol 1, the legacy vote fields, the per-role prompt events and
-   the staging paragraph in `docs/specs/onuw/api-contract-v2.md`.
-4. Open the pull request; split it if it is too big to review.
+2. The server slice: delete protocol 1, the legacy vote fields, the per-role prompt events,
+   their contract samples and the staging paragraph in `docs/specs/onuw/api-contract-v2.md`;
+   port the e2e API runner (`test_e2e/api_runner_test.dart`, `api_lifecycle_test.dart` and
+   `scenario_runner.dart` drive the protocol-1 API) to protocol 2; then delete the app's
+   marked protocol-1 leftovers (`grep -rn "PROTOCOL 1" frontend/`) and
+   `docs/dev/old-look-removal.md` with its line in `.claude/agents/frontend-developer.md`.
+3. Open the pull request; split it if it is too big to review.
 
 ## Open items
 
-- `PrimaryButton.done` looks like `PrimaryButton.locked`.
 - A request whose answer was lost but which the server processes late can overtake a newer
   tap of the same lane; closing it needs a per-phone sequence number on the server.
 - Ten long names on a 320-wide phone: the night board falls under the 14 px reading floor.
-- The old 10 and 11 (`components/game/game_results.dart`) stay while protocol 1's
-  `GameContainerScreen` shows them.
-- Protocol 1 only (goes with the cleanup slice): across several server instances a phone can
+- Protocol 1 only, server side (goes with the server slice): across several server instances a phone can
   get `action_prompt` before `wave_start` and lose its prompt. (The unreachable "your card"
   screen is fixed under protocol 2.)
 - The server now sends `CORS_EXPOSE_HEADERS = ["Date"]` (base settings) and `/me/`

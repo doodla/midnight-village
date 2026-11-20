@@ -77,9 +77,16 @@ void main() {
     expect(host.change.hostId, 8);
   });
 
+  // PROTOCOL 1: the server still sends these to a protocol-1 game; the app's
+  // samples leave them out, so they are read raw here. Delete this loop with
+  // the server's protocol 1.
   test("protocol 1's per-role events mean nothing here", () {
     for (final name in ['action_prompt_seer', 'wave_waiting', 'wave_start']) {
-      expect(event(name), isA<IgnoredEvent>(), reason: name);
+      expect(
+        GameEvent.parse(ContractSamples.map('ws/game/$name')),
+        isA<IgnoredEvent>(),
+        reason: name,
+      );
     }
     expect(GameEvent.parse('not json'), isA<IgnoredEvent>());
     expect(GameEvent.parse(42), isA<IgnoredEvent>());

@@ -84,6 +84,14 @@ class JoinFlow extends _$JoinFlow {
     if (state.banner != null) state = JoinFlowState(busy: state.busy);
   }
 
+  /// The game this phone was in is gone (its table closed: the server
+  /// answered 404): 01, where it lands, says so until the next edit.
+  void tableClosed() {
+    if (state.busy == null) {
+      state = const JoinFlowState(banner: BannerCopy.tableClosed);
+    }
+  }
+
   /// "Go there": `/me/table/` is read again, and its table shows.
   void goThere() {
     clearBanner();

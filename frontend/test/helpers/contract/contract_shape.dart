@@ -20,12 +20,10 @@ import 'contract_samples.dart';
 /// `role_acting_as` of a prompt, the kind of a night result). A key the server
 /// sends only at night is refused in a discussion `/me/`. When no sample has
 /// the payload's discriminator value, every sample of the endpoint counts.
-/// Before any of that, the night protocol (`nightProtocolOf`): a protocol-1
-/// payload is compared only with protocol-1 samples and a protocol-2 one only
-/// with protocol-2 samples (nested prompts and results too), so neither can
-/// borrow the other's keys; and when no sample of the payload's protocol
-/// exists that is a violation, not a fallback. Still not checked: values (casing of role names, window numbers; the
-/// builders take care of those) and the order of events.
+/// The samples are those of night protocol 2 only (`ContractSamples.index`
+/// leaves the server's protocol-1 samples out). Still not checked: values
+/// (casing of role names, window numbers; the builders take care of those)
+/// and the order of events.
 ///
 /// Dictionary objects (data as keys: role names in `settings.roles` and a
 /// lobby's `deck_preview`, player ids in `votes`) have their keys collapsed
@@ -166,11 +164,7 @@ const _httpVariants = {
     parts: {'action_prompt': _prompt, 'night_results[]': _result},
   ),
 };
-const _socketVariants = {
-  'phase_change': Variant(_phase),
-  'action_prompt': _prompt,
-  'action_result': _result,
-};
+const _socketVariants = {'phase_change': Variant(_phase)};
 
 /// A payload a test fed to a mock is not something the server sends.
 class OffContractPayload implements Exception {
@@ -217,37 +211,16 @@ Iterable<dynamic> _at(dynamic value, String path) sync* {
   }
 }
 
-/// The problems of [payload] against [samples]: those of its own night
-/// protocol (when [protocolOf] tells it), then its own [variant] of it.
-/// [protocolOf] is for the top level only; a part is checked against a pool
-/// that is already of one protocol.
+/// The problems of [payload] against [samples]: those of its own [variant].
 List<String> _check(
   String key,
   List<dynamic> samples,
   dynamic payload,
   Variant? variant, {
   String at = '',
-  NightProtocol? Function(dynamic payload)? protocolOf,
 }) {
   var own = samples;
   var ownKey = key;
-  final protocol = protocolOf?.call(payload);
-  if (protocol != null) {
-    own = [
-      for (final s in samples)
-        if (protocolOf!(s) == protocol) s,
-    ];
-    ownKey = '$key[protocol ${protocol.number}]';
-    if (own.isEmpty) {
-      return [
-        '${at.isEmpty ? '(root)' : at}: is a protocol ${protocol.number} '
-            'payload and no protocol ${protocol.number} sample of this is '
-            'recorded',
-      ];
-    }
-  }
-  final protocolKey = ownKey;
-  final protocolSamples = own;
   if (variant != null) {
     final situation = variant.discriminator(payload);
     final same = [
@@ -265,19 +238,18 @@ List<String> _check(
     opaque: parts.keys.toSet(),
   );
   final problems = shape.violations(payload, at: at);
-  // A part is checked against the same part of EVERY sample of the endpoint
-  // of the payload's protocol: a discussion `/me/`'s night results are the
-  // night's results.
+  // A part is checked against the same part of EVERY sample of the endpoint:
+  // a discussion `/me/`'s night results are the night's results.
   for (final MapEntry(key: path, value: part) in parts.entries) {
-    final pool = _pools['$protocolKey>$path'] ??= [
-      for (final s in protocolSamples)
+    final pool = _pools['$key>$path'] ??= [
+      for (final s in samples)
         for (final v in _at(s, path))
           if (v != null) v,
     ];
     for (final value in _at(payload, path)) {
       if (value == null) continue;
       problems.addAll(
-        _check('$protocolKey>$path', pool, value, part, at: _joined(at, path)),
+        _check('$key>$path', pool, value, part, at: _joined(at, path)),
       );
     }
   }
@@ -315,7 +287,6 @@ void checkHttpBody(String method, String path, int status, dynamic body) {
     _samplesOf(key, infos),
     ContractShape.plain(body),
     _httpVariants[infos.first.path],
-    protocolOf: (p) => nightProtocolOf(body: p, httpPath: infos.first.path),
   );
   if (problems.isNotEmpty) throw OffContractPayload(what, problems);
 }
@@ -338,7 +309,6 @@ void checkSocketEvent(dynamic event) {
     _samplesOf('ws:$type', infos),
     decoded,
     _socketVariants[type],
-    protocolOf: (p) => nightProtocolOf(eventType: type as String?),
   );
   if (problems.isNotEmpty) {
     throw OffContractPayload('socket event $type', problems);

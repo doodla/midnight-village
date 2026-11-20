@@ -7,7 +7,6 @@ import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
-import 'package:midnight_village/features/game/presentation/shell/not_built_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
 import 'package:midnight_village/features/lobby/presentation/at_table_screen.dart';
 import 'package:midnight_village/features/lobby/presentation/deck_screen.dart';
@@ -18,6 +17,7 @@ import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/outcome_samples.dart';
 import '../../../helpers/shell_setup.dart';
+import '../../../helpers/game_events.dart';
 import '../../../helpers/truncated_text.dart';
 
 // 10 The count and 11 Results through the real shell, on phones at the end
@@ -67,9 +67,8 @@ Future<void> _seeWhoWon(WidgetTester tester, ShellSetup s) async {
 }
 
 /// The screen the table's shell decides ([tableScreenProvider]), checked
-/// to be the real one on screen (01 to 03 are built: never a placeholder).
+/// to be the real one on screen.
 AppScreen? _screen(WidgetTester tester, ShellSetup s) {
-  expect(find.byType(NotBuiltScreen), findsNothing);
   final screen = s.screenOn(tester);
   final widget = switch (screen) {
     AppScreen.join => JoinScreen,
@@ -384,6 +383,25 @@ void main() {
       await s.settle(tester);
       expect(find.textContaining('deals next'), findsNothing);
       expect(find.text(CommonCopy.leave), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('the host role moves to this phone (host_changed): 11 gives '
+        'it "Play again" at once', (tester) async {
+      final results = recordedResults('results');
+      final s = await _end(tester, results, disableAnimations: true);
+      await _seeWhoWon(tester, s);
+      expect(find.text(ResultsCopy.playAgain), findsNothing, reason: 'a guest');
+      final me = s.me;
+      s.ws.addServerEvent(
+        GameEvents.hostChanged(
+          hostId: me['player_id'] as int,
+          hostName: 'Ben',
+          originalHostId: me['host_id'] as int,
+        ),
+      );
+      await s.settle(tester);
+      expect(find.text(ResultsCopy.playAgain), findsOneWidget);
       await s.close(tester);
     });
 

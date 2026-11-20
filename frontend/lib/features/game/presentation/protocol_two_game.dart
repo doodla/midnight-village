@@ -11,14 +11,14 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/night/night_pick.dart';
 import '../../lobby/domain/where_am_i.dart';
+import '../../lobby/presentation/join_flow.dart';
 import '../../lobby/presentation/lobby_notifier.dart';
 import '../../lobby/presentation/where_am_i_provider.dart';
 import '../data/game_service.dart';
 import '../domain/game_event.dart';
 import '../domain/game_me.dart';
 import '../domain/game_outcome.dart';
-import 'game_notifier.dart'
-    show gameConnectionStateProvider, gameWebSocketStreamProvider;
+import 'game_socket.dart';
 import 'outbox.dart';
 
 export 'outbox.dart';
@@ -101,8 +101,7 @@ class ProtocolTwoGame {
   );
 }
 
-/// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-/// old screens keep [GameNotifier] on protocol 1). The game id comes from
+/// A game for the shell's screens, keyed by game id. The game id comes from
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
 /// Server state in: `/me/` fetches go out one at a time (a request made
@@ -196,7 +195,8 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
       _afterApply(fetched.me);
       return ProtocolTwoGame._(server: fetched.me, outbox: Outbox.empty);
     } catch (e) {
-      _scheduleRetry();
+      // A game this app cannot play is final: no retry.
+      if (e is! UnplayableGameException) _scheduleRetry();
       rethrow;
     } finally {
       _building = false;
@@ -244,6 +244,10 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
       if (!ref.mounted) return;
       _invalidateTable();
       _update((s) => s.copyWith(tableClosed: true));
+      // 01 follows (the table screen), and says why.
+      ref.read(joinFlowProvider.notifier).tableClosed();
+    } on UnplayableGameException catch (e, stack) {
+      if (ref.mounted) state = AsyncError(e, stack);
     } catch (e, stack) {
       if (!ref.mounted) return;
       logger.w('ProtocolTwoGame: fetch failed', error: e);

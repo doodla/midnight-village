@@ -12,8 +12,9 @@ import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/night_screen.dart';
-import 'package:midnight_village/features/game/presentation/shell/not_built_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/unplayable_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
 
@@ -56,34 +57,87 @@ void main() {
         final s = await ShellSetup.pump(tester, recordedMe(sample));
         await s.settle(tester);
         expect(find.byType(type), findsOneWidget);
-        expect(find.byType(NotBuiltScreen), findsNothing);
         await s.close(tester);
       });
     }
 
-    // Every recorded protocol-2 /me/ of a screen not rebuilt yet: its
-    // placeholder, named by the brief, and nothing else.
+    // Every recorded /me/: the screen stated for it, the real one (every
+    // screen is built; there is no placeholder).
+    const built = <AppScreen, Type>{
+      AppScreen.yourCard: YourCardScreen,
+      AppScreen.nightBoard: NightScreen,
+      AppScreen.talk: TalkScreen,
+      AppScreen.vote: VoteScreen,
+      AppScreen.count: CountScreen,
+      AppScreen.results: ResultsScreen,
+    };
     for (final MapEntry(key: sample, value: screen)
-        in protocolTwoScreens.entries.where(
-          (e) => !{
-            AppScreen.yourCard,
-            AppScreen.nightBoard,
-            AppScreen.talk,
-            AppScreen.vote,
-            AppScreen.count,
-          }.contains(e.value),
-        )) {
-      testWidgets('$sample: the ${screen.number} placeholder', (tester) async {
+        in protocolTwoScreens.entries) {
+      testWidgets('$sample: the real ${screen.number}', (tester) async {
         final s = await ShellSetup.pump(tester, recordedMe(sample));
         await s.settle(tester);
-        expect(
-          tester.widget<NotBuiltScreen>(find.byType(NotBuiltScreen)).screen,
-          screen,
-        );
-        expect(find.text('${screen.number} ${screen.briefName}'), findsOne);
+        expect(find.byType(built[screen]!), findsOneWidget);
         await s.close(tester);
       });
     }
+
+    testWidgets('a game whose /me/ has no stage (a night this app does not '
+        'play): one calm line and Leave, never fetched in a loop; Leave goes '
+        'to 01', (tester) async {
+      final me = recordedMe('me_discussion_choose_seer');
+      final s = await ShellSetup.pump(
+        tester,
+        me,
+        before: (s) => s.http.answer(
+          'GET',
+          '/onuw/games/${me['game_id']}/me/',
+          Map.of(me)..remove('stage'),
+          offContract: true,
+        ),
+      );
+      await s.settle(tester);
+      expect(find.byType(UnplayableScreen), findsOneWidget);
+      expect(find.text(BannerCopy.cannotPlay), findsOneWidget);
+      final fetched = s.meFetches;
+      await tester.pump(const Duration(minutes: 1));
+      expect(s.meFetches, fetched, reason: 'final: not fetched again');
+
+      final code = me['lobby_code'] as String;
+      s.http.answer(
+        'POST',
+        '/lobbies/$code/leave/',
+        ContractSamples.load('http/lobby/left'),
+      );
+      s.answerTable(ContractSamples.map('http/lobby/my_table_none'));
+      s.answerHome();
+      await tester.tap(find.text(CommonCopy.leave));
+      await s.settle(tester);
+      expect(
+        s.http.requests.where((r) => r.path == '/lobbies/$code/leave/'),
+        hasLength(1),
+      );
+      expect(find.byType(JoinScreen), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('the game is gone (404, its table closed): 01, which says so', (
+      tester,
+    ) async {
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_discussion_choose_seer'),
+      );
+      await s.settle(tester);
+      expect(find.byType(TalkScreen), findsOneWidget);
+      s.refuseMe();
+      s.answerTable(ContractSamples.map('http/lobby/my_table_none'));
+      s.answerHome();
+      s.resume();
+      await s.settle(tester);
+      expect(find.byType(JoinScreen), findsOneWidget);
+      expect(find.text(BannerCopy.tableClosed), findsOneWidget);
+      await s.close(tester);
+    });
 
     testWidgets('at no table: 01 Join', (tester) async {
       final s = await ShellSetup.pump(tester, recordedMe('me_look_stage'));

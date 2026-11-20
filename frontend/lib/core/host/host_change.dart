@@ -51,42 +51,6 @@ class HostChange {
   int get hashCode => Object.hash(hostId, hostName, originalHostId, reason);
 }
 
-/// The quiet line everyone sees when the host changes.
-///
-/// - handover: "Ben is hosting while Ana is away"; for the new host
-///   "You are hosting while Ana is away"; for the original host, who sees it
-///   once back, "Ben is hosting while you are away".
-/// - returned: "Ana is hosting again" / "You are hosting again".
-/// - transferred: "Ben is the host now" / "You are the host now".
-///
-/// [originalHostName] is looked up by the caller in the table's player list;
-/// without it the line says "the host".
-String hostChangeLine({
-  required HostChange change,
-  required int? viewerId,
-  String? originalHostName,
-}) {
-  final viewerIsHost = viewerId != null && viewerId == change.hostId;
-  switch (change.reason) {
-    case HostChangeReason.returned:
-      return viewerIsHost
-          ? 'You are hosting again'
-          : '${change.hostName} is hosting again';
-    case HostChangeReason.transferred:
-      return viewerIsHost
-          ? 'You are the host now'
-          : '${change.hostName} is the host now';
-    case HostChangeReason.handover:
-      final viewerIsOriginal =
-          viewerId != null && viewerId == change.originalHostId;
-      final who = viewerIsHost ? 'You are' : '${change.hostName} is';
-      final away = viewerIsOriginal
-          ? 'you are away'
-          : '${originalHostName ?? 'the host'} is away';
-      return '$who hosting while $away';
-  }
-}
-
 /// Said when a host-only action is refused because the role has just moved.
 const String kNoLongerHostMessage = 'You are no longer the host.';
 
@@ -102,6 +66,3 @@ class NoLongerHostException implements Exception {
 /// How long the "hosting again" / "is the host now" line and a "no longer
 /// the host" line stay.
 const Duration kHostNoticeDuration = Duration(seconds: 6);
-
-/// Said when the table is gone (its last member left).
-const String kTableClosedMessage = 'This table has closed.';

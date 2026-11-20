@@ -8,7 +8,6 @@ import 'package:midnight_village/core/debug/debug_api_client.dart';
 
 import '../../helpers/contract/contract_samples.dart';
 import '../../helpers/contract/contract_shape.dart';
-import '../../helpers/game_state_factory.dart';
 
 /// A Dio adapter that answers every request with the server's own body for
 /// one endpoint (checked against the recorded samples like every mocked
@@ -224,7 +223,8 @@ void main() {
     });
 
     test('decodes a 200 JSON object', () async {
-      final me = GameMeJsonBuilder().withGameId('g1').build();
+      final me = ContractSamples.map('http/game/me_look_stage')
+        ..['game_id'] = 'g1';
       final adapter = _ServerAdapter('GET', '/onuw/games/g1/me/', 200, me);
       final client = _clientWith(adapter);
 

@@ -8,8 +8,7 @@ part of 'protocol_two_game.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-/// old screens keep [GameNotifier] on protocol 1). The game id comes from
+/// A game for the shell's screens, keyed by game id. The game id comes from
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
 /// Server state in: `/me/` fetches go out one at a time (a request made
@@ -34,8 +33,7 @@ part of 'protocol_two_game.dart';
 @ProviderFor(ProtocolTwoGameNotifier)
 const protocolTwoGameProvider = ProtocolTwoGameNotifierFamily._();
 
-/// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-/// old screens keep [GameNotifier] on protocol 1). The game id comes from
+/// A game for the shell's screens, keyed by game id. The game id comes from
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
 /// Server state in: `/me/` fetches go out one at a time (a request made
@@ -58,8 +56,7 @@ const protocolTwoGameProvider = ProtocolTwoGameNotifierFamily._();
 /// fetches itself, and a Riverpod rebuild would drop the taps in flight.
 final class ProtocolTwoGameNotifierProvider
     extends $AsyncNotifierProvider<ProtocolTwoGameNotifier, ProtocolTwoGame> {
-  /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-  /// old screens keep [GameNotifier] on protocol 1). The game id comes from
+  /// A game for the shell's screens, keyed by game id. The game id comes from
   /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
   ///
   /// Server state in: `/me/` fetches go out one at a time (a request made
@@ -118,10 +115,9 @@ final class ProtocolTwoGameNotifierProvider
 }
 
 String _$protocolTwoGameNotifierHash() =>
-    r'995666f831b125221dedce569fdbadf906e99301';
+    r'f8d6cafa0487a4f6f69163e922b7e7e842c782da';
 
-/// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-/// old screens keep [GameNotifier] on protocol 1). The game id comes from
+/// A game for the shell's screens, keyed by game id. The game id comes from
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
 /// Server state in: `/me/` fetches go out one at a time (a request made
@@ -161,8 +157,7 @@ final class ProtocolTwoGameNotifierFamily extends $Family
         isAutoDispose: true,
       );
 
-  /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-  /// old screens keep [GameNotifier] on protocol 1). The game id comes from
+  /// A game for the shell's screens, keyed by game id. The game id comes from
   /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
   ///
   /// Server state in: `/me/` fetches go out one at a time (a request made
@@ -191,8 +186,7 @@ final class ProtocolTwoGameNotifierFamily extends $Family
   String toString() => r'protocolTwoGameProvider';
 }
 
-/// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-/// old screens keep [GameNotifier] on protocol 1). The game id comes from
+/// A game for the shell's screens, keyed by game id. The game id comes from
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
 /// Server state in: `/me/` fetches go out one at a time (a request made

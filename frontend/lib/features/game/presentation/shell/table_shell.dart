@@ -17,27 +17,30 @@ import '../../../lobby/presentation/at_table_screen.dart';
 import '../../../lobby/presentation/deck_screen.dart';
 import '../../../lobby/presentation/join_screen.dart';
 import '../../domain/screen_table.dart';
-import '../game_notifier.dart' show gameConnectionStateProvider;
+import '../../data/game_service.dart' show UnplayableGameException;
+import '../game_socket.dart';
 import '../protocol_two_game.dart';
 import '../table_screen.dart';
 import 'count_screen.dart';
 import 'night_screen.dart';
-import 'not_built_screen.dart';
 import 'results_screen.dart';
 import 'talk_screen.dart';
+import 'unplayable_screen.dart';
 import 'vote_screen.dart';
 import 'your_card_screen.dart';
 
-/// The rebuilt screens' one place (night protocol 2): it shows exactly the
-/// screen [tableScreenProvider] names ([screenFor] on `/me/table/`, the
+/// The app's one place for a table: it shows exactly the screen
+/// [tableScreenProvider] names ([screenFor] on `/me/table/`, the
 /// table's game's `/me/` and the local steps) and nothing else decides
 /// which. No socket event, timer or tap navigates: they change what the
 /// server is fetched to say, and the screen follows.
 ///
 /// - 01 Join, 02 Table, 03 Deck (`features/lobby`), 04 Your card, the
 ///   night board (06, 05 while `/me/` loads), 08 Talk, 09 Vote, 10 The count
-///   and 11 Results (their calm wait while the results load) are built;
-///   every other screen is a [NotBuiltScreen] for now.
+///   and 11 Results (their calm wait while the results load). 08 and 09
+///   show their day ground, nothing on it, while their `/me/` loads.
+/// - A game whose `/me/` has no `stage` (a night this app does not play)
+///   is [UnplayableScreen]: a calm line and "Leave", never a retry loop.
 /// - A change of screen fades quickly ([Motion.settle]); with reduce motion
 ///   it is instant. Nothing waits for it.
 /// - While nothing is known yet (the first `/me/table/`), the night ground
@@ -87,12 +90,19 @@ class _TableShellState extends ConsumerState<TableShell>
     final at = ref.watch(tableScreenProvider);
     final shown = at.value;
     final gameId = shown?.gameId;
-    final game = gameId == null
+    final gameAsync = gameId == null
         ? null
-        : ref.watch(protocolTwoGameProvider(gameId)).value;
-    final (key, screen) = shown == null
-        ? ('nothing', const _Nothing())
-        : _screen(shown, game);
+        : ref.watch(protocolTwoGameProvider(gameId));
+    final game = gameAsync?.value;
+    final unplayable = gameAsync?.error is UnplayableGameException;
+    final (key, screen) = switch (shown) {
+      null => ('nothing', const _Nothing()),
+      _ when unplayable && _inGame(shown.screen) => (
+        'unplayable|$gameId',
+        const UnplayableScreen(),
+      ),
+      _ => _screen(shown, game),
+    };
     // Offline: nothing fetched yet and the fetch fails, or the socket is
     // down and the fetches fail too (a socket refused while fetches work
     // changes nothing on the screen).
@@ -153,9 +163,19 @@ class _TableShellState extends ConsumerState<TableShell>
         key,
         ResultsScreen(gameId: gameId, game: game),
       ),
-      final other => (key, NotBuiltScreen(screen: other)),
+      // 08 and 09 while their `/me/` loads (and a game screen with no game,
+      // which the screen table never names): the screen's ground, nothing
+      // on it.
+      AppScreen.talk || AppScreen.vote => (key, const _Nothing(day: true)),
+      _ => (key, const _Nothing()),
     };
   }
+
+  /// A screen of the game (not 01 to 03, which never read it).
+  static bool _inGame(AppScreen screen) => switch (screen) {
+    AppScreen.join || AppScreen.table || AppScreen.deck => false,
+    _ => true,
+  };
 
   static bool _boardOpen(ProtocolTwoGame? game) {
     final me = game?.me;
@@ -170,13 +190,18 @@ class _TableShellState extends ConsumerState<TableShell>
       };
 }
 
-/// Before the first answer: the night's ground, nothing on it.
+/// Before the first answer: the night's (or the day's) ground, nothing on
+/// it.
 class _Nothing extends StatelessWidget {
-  const _Nothing();
+  const _Nothing({this.day = false});
+
+  final bool day;
 
   @override
-  Widget build(BuildContext context) =>
-      const ScreenFrame(ground: GroundKind.night, body: SizedBox.shrink());
+  Widget build(BuildContext context) => ScreenFrame(
+    ground: day ? GroundKind.day : GroundKind.night,
+    body: const SizedBox.shrink(),
+  );
 }
 
 /// "One moment", over the top of whatever is shown: this phone is offline.

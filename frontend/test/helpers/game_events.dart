@@ -18,58 +18,19 @@ abstract final class GameEvents {
   }
 
   // ---------------------------------------------------------------------------
-  // Night
+  // Night (a window opening is `night_window`: see `FromSample.event`)
   // ---------------------------------------------------------------------------
-
-  /// A night window opens (1 = the Doppelganger's, 2 = everyone else's).
-  static String waveStart({required int wave, String? deadline}) =>
-      _event('ws/game/wave_start', {'wave': wave, 'deadline': deadline});
-
-  /// The server's prompt of [kind] (see [promptKinds]) in window [wave],
-  /// aimed at [playerIds] (the other players) where it takes players.
-  static String actionPrompt(
-    String kind, {
-    int wave = 2,
-    List<int> playerIds = const [2, 3],
-    List<int>? seeTeam,
-  }) => jsonEncode({
-    'type': 'action_prompt',
-    ...serverPrompt(kind, wave: wave, playerIds: playerIds, seeTeam: seeTeam),
-  });
-
-  /// A night result of [kind] (see [nightResultKinds]) for window [wave],
-  /// with [info] written over the values of its `revealed_info`.
-  static String actionResult(
-    String kind, {
-    int wave = 2,
-    Map<String, dynamic> info = const {},
-  }) => jsonEncode({
-    'type': 'action_result',
-    ...serverNightResult(kind, wave: wave, info: info),
-  });
-
-  /// The `action_result` event carrying [result], a [serverNightResult] (the
-  /// same entry `/me/`'s `night_results` has).
-  static String actionResultOf(Map<String, dynamic> result) {
-    final event = {'type': 'action_result', ...result};
-    checkSocketEvent(event);
-    return jsonEncode(event);
-  }
 
   /// A window closed.
   static String waveComplete({int wave = 2}) =>
       _event('ws/game/wave_complete', {'wave': wave});
-
-  /// The player has nothing to do in this window.
-  static String waveWaiting({int wave = 2}) =>
-      _event('ws/game/wave_waiting', {'wave': wave});
 
   // ---------------------------------------------------------------------------
   // Phases
   // ---------------------------------------------------------------------------
 
   /// The talk or the vote starts. The server sends `phase_change` for these
-  /// two only: the night opens with `wave_start`, the end comes as
+  /// two only: the night opens with `night_window`, the end comes as
   /// `game_results`.
   static String phaseChange({required String phase, String? deadline}) {
     if (phase != 'discussion' && phase != 'voting') {
@@ -88,10 +49,6 @@ abstract final class GameEvents {
   // ---------------------------------------------------------------------------
   // Vote and results
   // ---------------------------------------------------------------------------
-
-  /// A player voted (not for whom).
-  static String voteSubmitted({required int playerId}) =>
-      _event('ws/game/vote_submitted', {'player_id': playerId});
 
   /// Every vote, voter id (as a string) -> target id, null = did not vote.
   static String voteReveal({required Map<String, int?> votes}) =>

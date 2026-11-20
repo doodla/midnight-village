@@ -94,9 +94,8 @@ void main() {
     },
   );
 
-  testWidgets('a table is protocol 2 (v2) unless the switch is turned off', (
-    tester,
-  ) async {
+  testWidgets('every table is protocol 2 (v2); auto-drive acts for everyone '
+      'but the phone shown, through stage-scoped requests', (tester) async {
     when(
       () => controller.createTable(
         playerNames: any(named: 'playerNames'),
@@ -106,19 +105,21 @@ void main() {
         protocolTwo: any(named: 'protocolTwo'),
       ),
     ).thenAnswer((_) async => _table);
+    when(() => controller.switchTo(any())).thenAnswer((_) async {});
+    when(
+      () => controller.stagedAs(
+        any(),
+        any(),
+        any(),
+        lenient: any(named: 'lenient'),
+      ),
+    ).thenAnswer((_) async {});
 
     await tester.pumpWidget(buildApp());
     await tester.tap(find.text('Starter'));
     await tester.pump();
     await tester.tap(find.byKey(const Key('debug-create-table')));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('debug-protocol-two')));
-    await tester.tap(find.byKey(const Key('debug-protocol-two')));
-    await tester.pump();
-    await tester.ensureVisible(find.byKey(const Key('debug-create-table')));
-    await tester.tap(find.byKey(const Key('debug-create-table')));
-    await tester.pumpAndSettle();
-
     final made = verify(
       () => controller.createTable(
         playerNames: any(named: 'playerNames'),
@@ -128,7 +129,21 @@ void main() {
         protocolTwo: captureAny(named: 'protocolTwo'),
       ),
     ).captured;
-    expect(made, [true, false]);
+    expect(made, [true]);
+
+    // This phone is Bob's: the others are driven, he is not.
+    await tester.ensureVisible(find.byKey(const Key('debug-switch-2')));
+    await tester.tap(find.byKey(const Key('debug-switch-2')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('debug-everyone-ready')));
+    await tester.tap(find.byKey(const Key('debug-everyone-ready')));
+    await tester.pumpAndSettle();
+    final driven = verify(
+      () => controller.stagedAs(captureAny(), 'ready', {
+        'ready': true,
+      }, lenient: true),
+    ).captured;
+    expect(driven.map((p) => (p as DebugPlayer).userId), [1]);
   });
 
   testWidgets('tapping Become switches perspective via the controller', (

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/game/presentation/shell/game_entry.dart';
+import '../../features/game/presentation/shell/table_shell.dart';
 import '../../features/lobby/presentation/home_gate.dart';
 
 part 'routes.g.dart';
@@ -29,8 +29,8 @@ class JoinRoute extends GoRouteData with $JoinRoute {
       HomeGate(code: code.toUpperCase());
 }
 
-/// A table by its code: the old game screen goes here after play again.
-/// The table a player sits at is `/me/table/`'s, so this is home.
+/// A table by its code (an old link). The table a player sits at is
+/// `/me/table/`'s, so this is home.
 @TypedGoRoute<LobbyRoute>(path: '/lobby/:code')
 class LobbyRoute extends GoRouteData with $LobbyRoute {
   const LobbyRoute({required this.code});
@@ -41,10 +41,9 @@ class LobbyRoute extends GoRouteData with $LobbyRoute {
   Widget build(BuildContext context, GoRouterState state) => const HomeGate();
 }
 
-/// Game route — active game screen identified by [gameId]. The table it
-/// belongs to comes with the game's state (`lobby_code` in every phase).
-/// [GameEntry] decides by the game's night protocol: the rebuilt shell for
-/// protocol 2, the old game screen for protocol 1.
+/// A game's link (the router sends a player with a game running here). The
+/// screen is the table's shell, which shows what `/me/table/` and the
+/// table's game's `/me/` say ([gameId] is the link's, not an input).
 @TypedGoRoute<GameRoute>(path: '/game/:gameId')
 class GameRoute extends GoRouteData with $GameRoute {
   const GameRoute({required this.gameId});
@@ -52,6 +51,5 @@ class GameRoute extends GoRouteData with $GameRoute {
   final String gameId;
 
   @override
-  Widget build(BuildContext context, GoRouterState state) =>
-      GameEntry(gameId: gameId);
+  Widget build(BuildContext context, GoRouterState state) => const TableShell();
 }

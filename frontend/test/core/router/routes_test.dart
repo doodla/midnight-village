@@ -8,31 +8,19 @@ import 'package:midnight_village/core/router/app_router.dart';
 import 'package:midnight_village/core/router/routes.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/design_system/skin/skin_choice.dart';
-import 'package:midnight_village/design_system/tokens/firelit_gothic_theme.dart';
-import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
-import 'package:midnight_village/features/game/presentation/game_notifier.dart';
+import 'package:midnight_village/features/game/presentation/game_socket.dart';
 import 'package:midnight_village/features/lobby/data/home_service.dart';
 
 import '../../helpers/contract/contract_samples.dart';
-import '../../helpers/contract/server_json.dart';
 import '../../helpers/fake_wakelock_service.dart';
-import '../../helpers/game_state_factory.dart';
 import '../../helpers/mock_http_client.dart';
 import '../../helpers/mock_websocket.dart';
 
 /// The running game the server reports for the player.
 final _running = ContractSamples.map('http/game/current_game_active');
-
-/// The running game's own answers, for the game screen the router opens.
-void _registerGame(MockHttpClient http) {
-  final gameId = _running['game_id'] as String;
-  final me = GameMeJsonBuilder().withGameId(gameId).build();
-  http.answer('GET', '/onuw/games/$gameId/me/', me);
-  http.answer('GET', '/onuw/games/$gameId/players/', serverPlayerList());
-}
 
 /// Lets the redirect run and the screen it opens build. The game screen
 /// animates for as long as it is open, so this does not wait for it to settle.
@@ -109,8 +97,8 @@ void main() {
           homeServiceProvider.overrideWithValue(
             HomeService(client: ApiClient(dio: http.dio)),
           ),
-          activeThemeProvider.overrideWithValue(const FirelitGothicTheme()),
-          // The game screen the router may open: no real socket or wakelock.
+          // The table's shell the game link opens: no real socket or
+          // wakelock (it shows what `/me/table/` says: 01 here).
           gameWebSocketProvider.overrideWith((ref, gameId) => null),
           gameWebSocketStreamProvider.overrideWith(
             (ref, gameId) => MockWebSocketChannel().stream,
@@ -211,7 +199,6 @@ void main() {
       'authenticated user at / with active game is redirected to /game/:id',
       (tester) async {
         currentGame('http/game/current_game_active');
-        _registerGame(http);
 
         final router = await pumpRouterApp(
           tester,
@@ -230,7 +217,6 @@ void main() {
       'a player who left a finished game is not sent back into it from /',
       (tester) async {
         currentGame('http/game/current_game_active');
-        _registerGame(http);
         final router = await pumpRouterApp(
           tester,
           authState: AuthState.authenticated(User(id: 1, displayName: 'Alice')),

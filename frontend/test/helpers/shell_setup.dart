@@ -19,8 +19,7 @@ import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/data/game_service.dart';
-import 'package:midnight_village/features/game/presentation/game_notifier.dart';
-import 'package:midnight_village/features/game/presentation/shell/game_entry.dart';
+import 'package:midnight_village/features/game/presentation/game_socket.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
 import 'package:midnight_village/features/game/presentation/table_screen.dart';
 import 'package:go_router/go_router.dart';
@@ -73,10 +72,11 @@ class ShellSetup {
   /// countdown reads it when no `Date` is readable); [textScale] the
   /// system's text size. [hold] holds the first `/me/` until released
   /// ([meReplies]). [sameDevice] keeps what this device stored in an
-  /// earlier pump of the test (a restart). [entry] opens the game route
-  /// (`GameEntry`, under a router whose `/` is [home]) instead of the shell;
-  /// [userId] is the signed-in player when [me] does not say (protocol 1);
-  /// [before] changes the answers before the first frame.
+  /// earlier pump of the test (a restart). [entry] opens the game's link
+  /// (`/game/<id>`, under a router whose `/` is [home]) instead of the
+  /// shell; [userId] is the signed-in player when [me] does not say (a
+  /// malformed `/me/`); [wakelock] is the platform's (one that refuses, for
+  /// a test of that); [before] changes the answers before the first frame.
   static Future<ShellSetup> pump(
     WidgetTester tester,
     Map<String, dynamic> me, {
@@ -88,6 +88,7 @@ class ShellSetup {
     bool sameDevice = false,
     bool entry = false,
     int? userId,
+    FakeWakelockService? wakelock,
     void Function(ShellSetup setup)? before,
   }) async {
     // This device's storage (learned cues, the stage its card was seen in):
@@ -101,7 +102,7 @@ class ShellSetup {
       me,
       MockHttpClient(),
       MockWebSocketChannel(),
-      FakeWakelockService(),
+      wakelock ?? FakeWakelockService(),
     );
     if (holdMe) {
       setup.meReplies = setup.http.hold(
@@ -200,8 +201,7 @@ class ShellSetup {
                 ),
                 GoRoute(
                   path: '/game/:gameId',
-                  builder: (_, state) =>
-                      GameEntry(gameId: state.pathParameters['gameId']!),
+                  builder: (_, _) => const TableShell(),
                 ),
               ],
             ),

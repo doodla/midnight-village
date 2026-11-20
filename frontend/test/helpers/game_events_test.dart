@@ -9,49 +9,8 @@ void main() {
       jsonDecode(event) as Map<String, dynamic>;
 
   group('GameEvents', () {
-    test('waveStart carries the window and its deadline', () {
-      expect(decode(GameEvents.waveStart(wave: 2)), {
-        'type': 'wave_start',
-        'wave': 2,
-        'deadline': null,
-      });
-      expect(
-        decode(
-          GameEvents.waveStart(wave: 1, deadline: '2026-11-19T21:00:10+00:00'),
-        )['deadline'],
-        '2026-11-19T21:00:10+00:00',
-      );
-    });
-
-    test('actionPrompt is the server prompt with flat targets and skip', () {
-      expect(decode(GameEvents.actionPrompt('robber', playerIds: [2, 3])), {
-        'type': 'action_prompt',
-        'wave': 2,
-        'role_acting_as': 'Robber',
-        'action_types': ['swap_with_player', 'skip'],
-        'valid_targets': {
-          'player_ids': [2, 3],
-        },
-      });
-    });
-
-    test('actionResult takes values for the keys the server sends', () {
-      final event = decode(
-        GameEvents.actionResult(
-          'swap_with_player',
-          info: {'target_name': 'Bob', 'new_role': 'werewolf'},
-        ),
-      );
-      expect(event, {
-        'type': 'action_result',
-        'wave': 2,
-        'action_type': 'swap_with_player',
-        'revealed_info': {'target_name': 'Bob', 'new_role': 'werewolf'},
-      });
-      expect(
-        () => GameEvents.actionResult('peek_player', info: {'player_id': 3}),
-        throwsArgumentError,
-      );
+    test('waveComplete carries the window that closed', () {
+      expect(decode(GameEvents.waveComplete(wave: 1))['wave'], 1);
     });
 
     test('phaseChange exists only for the talk and the vote', () {

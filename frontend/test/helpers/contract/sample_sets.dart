@@ -50,13 +50,11 @@ const protocolTwoScreens = <String, AppScreen>{
   'me_results_v2': AppScreen.count,
 };
 
-/// Every recorded protocol-2 `/me/` sample, by its name under `http/game/`.
+/// Every recorded `/me/` sample (night protocol 2: the index holds no
+/// other), by its name under `http/game/`.
 List<String> protocolTwoMeSamples() => [
   for (final s in ContractSamples.index)
-    if (s.isHttp &&
-        s.status == 200 &&
-        s.matchesPath('/onuw/games/g/me/') &&
-        ContractSamples.protocolOf(s) == NightProtocol.two)
+    if (s.isHttp && s.status == 200 && s.matchesPath('/onuw/games/g/me/'))
       s.name.substring('http/game/'.length),
 ];
 

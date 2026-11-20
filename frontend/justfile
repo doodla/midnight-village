@@ -124,10 +124,9 @@ flutter-golden-check:
 
 # --- Code Quality ---
 
-# Analyze code. Old-look uses are allowed only in the files listed in
-# tool/old_look_users.txt; anything else fails (see tool/analyze_gate.sh).
+# Analyze code; fails on any issue (errors, warnings and infos alike)
 analyze:
-    tool/analyze_gate.sh
+    flutter analyze
 
 # Format code
 format:

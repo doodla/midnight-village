@@ -15,9 +15,10 @@ import '../../lobby/domain/role_config.dart';
 /// DEBUG-ONLY developer toolbar (contract §D3), reachable at `/debug` ONLY when
 /// const [Env.isDev] is true (the route is not registered in prod).
 ///
-/// Lets a human spin up a forced-assignment table, switch to any player's
-/// perspective, watch all players' ground truth via the oracle god panel, and
-/// auto-drive the game.
+/// Lets a human spin up a forced-assignment table (night protocol 2, as
+/// every table the app opens), switch to any player's perspective, watch all
+/// players' ground truth via the oracle god panel, auto-drive everyone else,
+/// and reset what this device has learned.
 ///
 /// IMPORTANT: the perspective switcher and god panel show other players' true
 /// roles — this screen is the human-facing analogue of the DEBUG-gated oracle.
@@ -38,10 +39,9 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
   bool _busy = false;
   String? _status;
 
-  /// The table plays night protocol 2 (`defaults: "v2"`), as every table
-  /// the app opens does. Off: a protocol-1 table for the old game screen,
-  /// until protocol 1 is deleted.
-  bool _protocolTwo = true;
+  /// The player whose phone this is now (the last "Become"); auto-drive
+  /// acts for everyone else. Null: nobody chosen yet, so everyone.
+  int? _perspective;
 
   // Forced-assignment editor: player index → role name, and the 3 center cards.
   final Map<int, String> _playerRoleEditor = {};
@@ -184,13 +184,6 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
         ),
         const SizedBox(height: 12),
         _buildForcedAssignmentEditor(),
-        SwitchListTile(
-          key: const Key('debug-protocol-two'),
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Rebuilt screens (night protocol 2, v2 table)'),
-          value: _protocolTwo,
-          onChanged: _busy ? null : (v) => setState(() => _protocolTwo = v),
-        ),
         ElevatedButton(
           key: const Key('debug-create-table'),
           onPressed: _busy || _selectedPreset == null ? null : _createTable,
@@ -259,9 +252,12 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
         roleCounts: roleCounts,
         playerRolesByName: rolesByName,
         centerCards: List.of(_centerEditor),
-        protocolTwo: _protocolTwo,
+        protocolTwo: true,
       );
-      setState(() => _table = table);
+      setState(() {
+        _table = table;
+        _perspective = null;
+      });
     });
   }
 
@@ -332,6 +328,7 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
   Future<void> _switchTo(DebugPlayer player) async {
     await _run('Switching to ${player.displayName}...', () async {
       await _controller.switchTo(player);
+      setState(() => _perspective = player.userId);
     });
   }
 
@@ -414,42 +411,69 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _buildAutoDrive(DebugTable table) {
+    final target = _perspective == null
+        ? table.host
+        : table.playerById(_perspective!);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Auto-drive',
+          'Auto-drive (everyone but this phone)',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
+          runSpacing: 8,
           children: [
             ElevatedButton(
+              key: const Key('debug-everyone-ready'),
               onPressed: _busy
                   ? null
-                  : () => _drive(table.host, const DebugAction.advanceWave()),
-              child: const Text('Advance wave'),
+                  : () => _everyoneElse(
+                      table,
+                      'Everyone ready',
+                      (p) => _controller.stagedAs(p, 'ready', {
+                        'ready': true,
+                      }, lenient: true),
+                    ),
+              child: const Text('Everyone ready'),
             ),
             ElevatedButton(
+              key: const Key('debug-everyone-chooses'),
               onPressed: _busy
                   ? null
-                  : () => _drive(table.host, const DebugAction.endDiscussion()),
-              child: const Text('End discussion'),
+                  : () => _everyoneElse(
+                      table,
+                      'Everyone keeps their card',
+                      (p) => _controller.stagedAs(p, 'action', {
+                        'action_type': 'choose',
+                        'picks': const <Object>[],
+                      }, lenient: true),
+                    ),
+              child: const Text('Everyone keeps their card'),
             ),
             ElevatedButton(
+              key: const Key('debug-everyone-votes'),
               onPressed: _busy
                   ? null
-                  : () => _drive(table.host, const DebugAction.revealVotes()),
-              child: const Text('Reveal votes'),
+                  : () => _everyoneElse(
+                      table,
+                      'Everyone votes ${target.displayName}',
+                      (p) => _controller.stagedAs(p, 'vote', {
+                        'target_player_id': p.userId == target.userId
+                            ? table.players
+                                  .firstWhere((o) => o.userId != p.userId)
+                                  .userId
+                            : target.userId,
+                        'lock': true,
+                      }, lenient: true),
+                    ),
+              child: Text('Everyone votes ${target.displayName}'),
             ),
             ElevatedButton(
               onPressed: _busy ? null : () => _fireTimer(TimerKey.current),
               child: const Text('Fire pending timer'),
-            ),
-            ElevatedButton(
-              onPressed: _busy ? null : () => _everyoneVotesHost(table),
-              child: const Text('Everyone votes host'),
             ),
           ],
         ),
@@ -457,28 +481,23 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
     );
   }
 
-  Future<void> _drive(DebugPlayer player, DebugAction action) async {
-    await _run('Driving ${action.kind.name}...', () async {
-      await _controller.driveAs(player, action, lenient: true);
+  /// [act] for every player but this phone's, one after the other.
+  Future<void> _everyoneElse(
+    DebugTable table,
+    String what,
+    Future<void> Function(DebugPlayer p) act,
+  ) async {
+    await _run('$what...', () async {
+      for (final p in table.players) {
+        if (p.userId == _perspective) continue;
+        await act(p);
+      }
     });
   }
 
   Future<void> _fireTimer(TimerKey key) async {
     await _run('Firing timer ${key.key}...', () async {
       await _controller.fireTimer(key);
-    });
-  }
-
-  Future<void> _everyoneVotesHost(DebugTable table) async {
-    await _run('Everyone votes host...', () async {
-      for (final p in table.players) {
-        if (p.userId == table.host.userId) continue;
-        await _controller.driveAs(
-          p,
-          DebugAction.vote(voteTargetUserId: table.host.userId),
-          lenient: true,
-        );
-      }
     });
   }
 

@@ -31,21 +31,31 @@ abstract final class ContractSamples {
     }
   }
 
-  /// Every recorded sample, as listed in `index.json`.
+  /// Every recorded sample, as listed in `index.json`, that the app speaks.
   static List<SampleInfo> get index => _index ??= [
     for (final entry in (_decode('index') as Map)['samples'] as List)
       SampleInfo.fromJson((entry as Map).cast<String, dynamic>()),
-  ];
+  ].where((s) => !_protocolOne(s)).toList(); // PROTOCOL 1: delete this line.
 
-  /// The night protocol sample [info] was recorded under, or null when its
-  /// payload is the same under both (see [nightProtocolOf]).
-  static NightProtocol? protocolOf(SampleInfo info) => info.isSequence
-      ? nightProtocolOf(heardTypes: sequenceEventTypes(info.name))
-      : nightProtocolOf(
-          body: load(info.name),
-          httpPath: info.isHttp ? info.path : null,
-          eventType: info.type,
-        );
+  /// PROTOCOL 1: delete with the line above, once the server slice has
+  /// removed night protocol 1 and its samples. The server still records its
+  /// protocol-1 night beside protocol 2; the app speaks protocol 2 only, so
+  /// its tests never see those samples: a `/me/` without a `stage` key and
+  /// the events only protocol 1 sends. A fixture of either is refused as
+  /// having no sample.
+  static bool _protocolOne(SampleInfo s) =>
+      (s.isHttp &&
+          s.path == '/onuw/games/{game_id}/me/' &&
+          s.status == 200 &&
+          !map(s.name).containsKey('stage')) ||
+      (s.isEvent &&
+          const {
+            'action_prompt',
+            'action_result',
+            'wave_start',
+            'wave_waiting',
+            'vote_submitted',
+          }.contains(s.type));
 
   /// A `ws_sequence/*` sample: per seat (player name), the types of the game
   /// socket events that seat heard, in order. It is a list of event TYPES, not
@@ -148,55 +158,4 @@ class SampleInfo {
     );
     return pattern.hasMatch(requestPath);
   }
-}
-
-/// The server's night protocol a payload belongs to. Protocol 1 is the wave
-/// night the app speaks; protocol 2 (`night_protocol: 2` games: stages, a look
-/// stage, per-seat `ready`, `progress` counts) shapes `/me/` and some events
-/// differently.
-enum NightProtocol {
-  one(1),
-  two(2);
-
-  const NightProtocol(this.number);
-
-  final int number;
-}
-
-/// Socket events only a protocol-2 game sends.
-const protocolTwoEventTypes = {'night_window', 'progress'};
-
-/// The one place that tells which night protocol a payload is from.
-///
-/// `index.json` does not record it (the recorder keeps only kind, request,
-/// status and socket), so it is read from the payload itself:
-/// - a `/me/` [body] (it has a `phase`; an error body has none) is protocol 2
-///   exactly when it has a `stage` key: the server sends one in every
-///   protocol-2 `/me/` (a token or null) and never in protocol 1;
-/// - a socket event is protocol 2 when its [eventType] is one only protocol 2
-///   sends ([protocolTwoEventTypes]);
-/// - a `ws_sequence` ([heardTypes]: every type heard) is protocol 2 when it
-///   holds such a type;
-/// - anything else (login, lobby, results, ...) is the same under both: null.
-///
-/// If the server starts recording the protocol in `index.json`, read it there
-/// and keep this only as a cross-check.
-NightProtocol? nightProtocolOf({
-  dynamic body,
-  String? httpPath,
-  String? eventType,
-  Set<String>? heardTypes,
-}) {
-  if (heardTypes != null && heardTypes.any(protocolTwoEventTypes.contains)) {
-    return NightProtocol.two;
-  }
-  if (httpPath == '/onuw/games/{game_id}/me/' &&
-      body is Map &&
-      body.containsKey('phase')) {
-    return body.containsKey('stage') ? NightProtocol.two : NightProtocol.one;
-  }
-  if (eventType != null && protocolTwoEventTypes.contains(eventType)) {
-    return NightProtocol.two;
-  }
-  return null;
 }

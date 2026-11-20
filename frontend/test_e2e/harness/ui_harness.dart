@@ -15,13 +15,11 @@ import 'package:midnight_village/core/healing/healing.dart';
 import 'package:midnight_village/core/router/app_router.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
-import 'package:midnight_village/features/game/presentation/game_notifier.dart';
+import 'package:midnight_village/features/game/presentation/game_socket.dart';
 import 'package:midnight_village/features/game/presentation/protocol_two_game.dart';
-import 'package:midnight_village/features/game/presentation/shell/game_entry.dart';
 import 'package:midnight_village/features/lobby/domain/where_am_i.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
-import 'package:midnight_village/features/game/presentation/timer_provider.dart';
 import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart';
 import 'package:web_socket_channel/io.dart';
@@ -33,15 +31,14 @@ import 'harness_config.dart';
 ///
 /// The production app bakes the dev `:8000` URLs into its clients at
 /// construction. To point the SAME widget tree at the harness backend
-/// (`127.0.0.1:8001`) WITHOUT touching production code, this overrides these
-/// providers (see [_overrides]):
-/// - `apiClientProvider` + `authenticatedClientProvider` → REST at `:8001` (the
-///   latter keeps the real [AuthInterceptor] so the adopted token is injected);
-/// - `gameWebSocketProvider` → a LIVE socket to the harness backend with the
-///   `Origin` header the server requires (built inside the real async zone: see
-///   [openGame]);
-/// - `gameTimerProvider` → a one-shot countdown (the production periodic timer
-///   would trip the binding's end-of-test `!timersPending` invariant).
+/// (`127.0.0.1:<port>`, [HarnessConfig.port]) WITHOUT touching production
+/// code, this overrides these providers (see [_overrides]):
+/// - `apiClientProvider` + `authenticatedClientProvider` → REST at the
+///   harness (the latter keeps the real [AuthInterceptor] so the adopted
+///   token is injected);
+/// - `gameWebSocketProvider` and the lobby's socket factory → LIVE sockets to
+///   the harness backend with the `Origin` header the server requires (built
+///   inside the real async zone: see [openShell]).
 class UiHarness {
   UiHarness(this.tester);
 
@@ -97,11 +94,10 @@ class UiHarness {
       );
     }),
     // A LIVE game socket, pointed at the harness backend with the Origin header
-    // channels' OriginValidator demands (dart:io sends none). The night's results
-    // arrive ONLY over the socket (all together, as a window closes), so the UI
-    // runner needs it to see them.
+    // channels' OriginValidator demands (dart:io sends none): the events that
+    // make the phone fetch `/me/` again arrive over it.
     //
-    // It must be created in the REAL async zone ([openGame] reads this provider
+    // It must be created in the REAL async zone ([openShell] reads this provider
     // inside `runAsync` before the screen can watch it): a socket created under
     // the automated binding's fake zone schedules zero-length fake read-event
     // timers that never drain and trip the end-of-test `!timersPending`
@@ -141,22 +137,10 @@ class UiHarness {
         return ws;
       };
     }),
-    // Replace the live countdown with a SINGLE emitted value that then
-    // completes. The production `gameTimer` loops on `Future.delayed(1s)`
-    // forever while the deadline is in the future; that pending timer trips the
-    // automated binding's end-of-test `!timersPending` assertion and there is no
-    // clean way to drain an infinite periodic timer at teardown. The displayed
-    // countdown is irrelevant to filmstrip capture, so a one-shot stream that
-    // shows the initial remaining time and completes is the right test seam.
-    gameTimerProvider.overrideWith((ref, deadline) async* {
-      if (deadline == null) return;
-      final remaining = deadline.difference(DateTime.now());
-      yield remaining.isNegative ? Duration.zero : remaining;
-    }),
   ];
 
   /// Drives the auth notifier to adopt [player]'s session (no refresh), then
-  /// invalidates the four game providers so the prior socket is disposed and
+  /// invalidates the game's providers so the prior socket is disposed and
   /// the new one attaches — exactly the §D1 `switchTo` behavior, applied to the
   /// UI runner's container.
   ///
@@ -181,7 +165,6 @@ class UiHarness {
           );
     });
     container
-      ..invalidate(gameProvider(gameId))
       ..invalidate(gameWebSocketProvider(gameId))
       ..invalidate(gameWebSocketStreamProvider(gameId))
       ..invalidate(gameConnectionStateProvider(gameId))
@@ -242,23 +225,13 @@ class UiHarness {
     throw TimeoutException('$provider did not load as expected');
   }
 
-  /// Reads which night [gameId] runs in the REAL zone (the game route asks
-  /// before it shows anything: [GameEntry]), so the route renders at once.
-  Future<void> _knowProtocol(String gameId) => tester.runAsync(() async {
-    container.listen(gameProtocolProvider(gameId), (_, _) {});
-    await container
-        .read(gameProtocolProvider(gameId).future)
-        .timeout(const Duration(seconds: 15));
-  });
-
-  /// Opens a night protocol 2 game: the rebuilt shell ([GameEntry] ->
-  /// `TableShell`). Everything the shell reads first (the protocol,
-  /// `/me/table/`, the game's `/me/` and its socket) is built in the REAL
+  /// Opens a game: its link (`/game/<id>`), which is the table's shell
+  /// (`TableShell`). Everything the shell reads first (`/me/table/`, the
+  /// game's `/me/` and its socket) is built in the REAL
   /// zone and kept alive, so its network completes; every later fetch is
   /// started by a socket event or a tap made in the real zone
   /// ([tapAndSubmit]) and completes too.
   Future<void> openShell(String gameId) async {
-    await _knowProtocol(gameId);
     await tester.runAsync(() async {
       // Home (`/`) is the table's shell too, so `/me/table/` may have been
       // started under a pump, in the FAKE zone, where it never completes
@@ -287,57 +260,8 @@ class UiHarness {
     container.read(appRouterProvider).go('/game/$gameId');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-    // As [openGame]: let the server put this socket in the game's groups.
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 600)),
-    );
-  }
-
-  /// Navigates to the game screen for [gameId] with its state pre-loaded.
-  ///
-  /// `GameNotifier.build` awaits `getGameState` (real network). If that build is
-  /// first triggered by a widget `pump` (the automated binding's FAKE async
-  /// zone), the Dio request's socket I/O never completes and the provider hangs
-  /// in `AsyncLoading` forever — the screen is stuck on its loading spinner.
-  /// [SPIKE-style finding] The fix: invalidate the provider (drop any
-  /// fake-zone-captured build) and await its future INSIDE `runAsync`, so the
-  /// rebuild's network runs in the REAL zone. Only then pump to mount the screen
-  /// — it renders straight to data, no hung load.
-  Future<void> openGame(String gameId) async {
-    // Create the live socket in the REAL zone first (see [_overrides]); the
-    // screen then reuses this instance when it watches the provider.
-    // (Listened, not read: the socket provider is autoDispose and would
-    // close again before the screen watches it.)
-    await tester.runAsync(() async {
-      container.listen(gameWebSocketProvider(gameId), (_, _) {});
-    });
-    await _knowProtocol(gameId);
-
-    // Navigate so the screen mounts and watches `gameProvider` (its build
-    // starts but hangs — it was kicked off inside a pump's FAKE async zone).
-    container.read(appRouterProvider).go('/game/$gameId');
-    await tester.pump();
-
-    // Now drop that fake-zone-captured build and re-run it in the REAL zone, so
-    // its `getGameState` network actually completes. Tolerate a late microtask
-    // boundary on `.future` — the data still lands in the provider (verified);
-    // the pump below surfaces it.
-    await tester.runAsync(() async {
-      container.invalidate(gameProvider(gameId));
-      try {
-        await container
-            .read(gameProvider(gameId).future)
-            .timeout(const Duration(seconds: 15));
-      } catch (_) {
-        // fall through — the pump renders whatever state landed.
-      }
-    });
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-
-    // Give the server a moment to register this socket in the game's groups:
-    // events sent before that are not replayed (a client recovers them by
-    // re-reading `/me/`, which is what the app does on reconnect).
+    // Let the server put this socket in the game's groups: events sent before
+    // that are not replayed (a phone recovers them by reading `/me/` again).
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 600)),
     );
@@ -367,18 +291,6 @@ class UiHarness {
   String get currentLocation =>
       container.read(appRouterProvider).routeInformationProvider.value.uri.path;
 
-  /// True once the real game screen has mounted — the stable anchor proving
-  /// switch-in + live game state rendered, as opposed to the loading spinner or
-  /// the home screen.
-  ///
-  /// Anchored on the `PhaseIndicator`'s phase labels (`Night` + `Vote`, which
-  /// render together in the indicator and never both appear on the home screen)
-  /// rather than a widget type, so it survives any wrapper and does not import
-  /// the design system into the harness.
-  bool get gameScreenRendered =>
-      find.text('Night').evaluate().isNotEmpty &&
-      find.text('Vote').evaluate().isNotEmpty;
-
   /// Tears the harness down cleanly so the automated binding's end-of-test
   /// `!timersPending` assertion holds.
   ///
@@ -387,8 +299,8 @@ class UiHarness {
   ///
   /// Ordering matters:
   /// 1. Unmount the widget tree first (fake-zone `pumpWidget(SizedBox)`): each
-  ///    `State.dispose()` runs, cancelling widget timers (the role-reveal 4s
-  ///    one-shot, AnimatedSwitcher) and stopping provider WATCHERS — so nothing
+  ///    `State.dispose()` runs, cancelling widget timers (the countdowns,
+  ///    AnimatedSwitcher) and stopping provider WATCHERS — so nothing
   ///    re-reads `ref` after the next step.
   /// 2. Drain in-flight real async (router redirect / provider rebuilds kicked
   ///    off by the last pump) inside `runAsync` BEFORE disposing the container,

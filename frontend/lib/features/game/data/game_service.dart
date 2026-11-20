@@ -8,142 +8,20 @@ import '../../../core/logging/app_logger.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../domain/game_me.dart';
 import '../domain/game_outcome.dart';
-import '../domain/game_session_state.dart';
-import '../domain/night_protocol.dart';
 import 'stage_requests.dart';
 
 export 'stage_requests.dart';
 
 part 'game_service.g.dart';
 
-/// HTTP service for all game-related API calls.
+/// HTTP service for the game's requests (night protocol 2: every
+/// stage-scoped request echoes `/me/`'s `stage`).
 ///
-/// Uses [AuthenticatedClient] for JWT-authenticated requests. Handles 409
-/// responses on action/vote submission as success (idempotent -- player
-/// already acted).
+/// Uses [AuthenticatedClient] for JWT-authenticated requests.
 class GameService {
   GameService({required AuthenticatedClient client}) : _client = client;
 
   final AuthenticatedClient _client;
-
-  /// Fetches the current player's view of the game state.
-  ///
-  /// `GET /onuw/games/{id}/me/`
-  Future<GameSessionState> getGameState(String gameId) async {
-    try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/onuw/games/$gameId/me/',
-      );
-      return gameStateFromServer(response.data!);
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
-  /// Fetches who is connected, as `player_id -> connected`.
-  ///
-  /// `GET /onuw/games/{id}/players/`
-  /// Presence is a courtesy: callers treat a failure as "everyone
-  /// connected", never as an error.
-  Future<Map<int, bool>> fetchPresence(String gameId) async {
-    try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/onuw/games/$gameId/players/',
-      );
-      return {
-        for (final p in response.data!['players'] as List)
-          (p as Map)['player_id'] as int: p['connected'] as bool,
-      };
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
-  /// Submits a night action for the current player.
-  ///
-  /// `POST /onuw/games/{id}/action/`
-  /// 409 is treated as success (player already acted this wave).
-  /// 400 means invalid action for current state -- surfaces to caller.
-  Future<void> submitAction(
-    String gameId,
-    String actionType,
-    Map<String, dynamic> targets,
-  ) async {
-    try {
-      await _client.post<Map<String, dynamic>>(
-        '/onuw/games/$gameId/action/',
-        data: {'action_type': actionType, 'targets': targets},
-      );
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 409) {
-        logger.d(
-          'GameService.submitAction: 409 -- already acted, treating as success',
-        );
-        return;
-      }
-      throw mapDioException(e);
-    }
-  }
-
-  /// Submits a vote for the current player.
-  ///
-  /// `POST /onuw/games/{id}/vote/`
-  /// 409 is treated as success (player already voted).
-  Future<void> submitVote(String gameId, int targetPlayerId) async {
-    try {
-      await _client.post<Map<String, dynamic>>(
-        '/onuw/games/$gameId/vote/',
-        data: {'target_player_id': targetPlayerId},
-      );
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 409) {
-        logger.d(
-          'GameService.submitVote: 409 -- already voted, treating as success',
-        );
-        return;
-      }
-      throw mapDioException(e);
-    }
-  }
-
-  /// Ends the discussion phase (host only).
-  ///
-  /// `POST /onuw/games/{id}/end-discussion/`
-  Future<void> endDiscussion(String gameId) async {
-    try {
-      await _client.post<Map<String, dynamic>>(
-        '/onuw/games/$gameId/end-discussion/',
-      );
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
-  /// Closes the current night window now (host only).
-  ///
-  /// `POST /onuw/games/{id}/advance-wave/`
-  Future<void> advanceNight(String gameId) async {
-    try {
-      await _client.post<Map<String, dynamic>>(
-        '/onuw/games/$gameId/advance-wave/',
-      );
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
-  /// Reveals the votes now (host only); players who have not voted abstain.
-  ///
-  /// `POST /onuw/games/{id}/reveal-votes/`
-  Future<void> revealVotes(String gameId) async {
-    try {
-      await _client.post<Map<String, dynamic>>(
-        '/onuw/games/$gameId/reveal-votes/',
-      );
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
 
   /// Fetches full game results.
   ///
@@ -160,25 +38,11 @@ class GameService {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Night protocol 2. Every stage-scoped request echoes `/me/`'s `stage` and
-  // answers a [StageReply]: a 409 is "fetch /me/ again", never an error.
-  // ---------------------------------------------------------------------------
+  // Every stage-scoped request answers a [StageReply]: a 409 is "fetch /me/
+  // again", never an error.
 
-  /// Which night [gameId] runs (`GET /onuw/games/{id}/me/`, read only for
-  /// its `stage` key): decides which screens show it.
-  Future<NightProtocol> fetchNightProtocol(String gameId) async {
-    try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/onuw/games/$gameId/me/',
-      );
-      return NightProtocol.of(response.data!);
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
-  /// `GET /onuw/games/{id}/me/` of a protocol-2 game.
+  /// `GET /onuw/games/{id}/me/`. A `/me/` without a `stage` key is a game
+  /// this app cannot play ([UnplayableGameException]).
   Future<GameMe> fetchMe(String gameId) async =>
       (await fetchMeTimed(gameId)).me;
 
@@ -189,8 +53,10 @@ class GameService {
       final response = await _client.get<Map<String, dynamic>>(
         '/onuw/games/$gameId/me/',
       );
+      final body = response.data!;
+      if (!body.containsKey('stage')) throw const UnplayableGameException();
       return FetchedMe(
-        GameMe.fromJson(response.data!),
+        GameMe.fromJson(body),
         serverDate: parseHttpDate(response.headers.value('date')),
       );
     } on DioException catch (e) {
@@ -248,6 +114,16 @@ class GameService {
 
   Future<StageAnswer> _hostStage(String path, String stage) async =>
       (await _stage(path, {'stage': stage})).answer;
+}
+
+/// A game whose `/me/` has no `stage`: it runs a night this app does not
+/// play (night protocol 1, from before every table was opened with
+/// `defaults: "v2"`). Final: fetching again gives the same answer.
+class UnplayableGameException implements Exception {
+  const UnplayableGameException();
+
+  @override
+  String toString() => 'UnplayableGameException: /me/ has no stage';
 }
 
 /// A `/me/` and the server's clock when it answered (null: not readable,

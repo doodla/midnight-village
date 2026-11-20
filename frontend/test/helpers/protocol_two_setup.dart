@@ -9,7 +9,7 @@ import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/data/game_service.dart';
-import 'package:midnight_village/features/game/presentation/game_notifier.dart';
+import 'package:midnight_village/features/game/presentation/game_socket.dart';
 import 'package:midnight_village/features/game/presentation/protocol_two_game.dart';
 import 'package:midnight_village/features/game/presentation/table_screen.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';

@@ -1,28 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/game_result.dart';
 import 'package:midnight_village/design_system/models/role.dart';
+import 'package:midnight_village/features/game/domain/game_outcome.dart';
 
+import '../../../helpers/contract/contract_shape.dart';
 import '../../../helpers/contract/server_json.dart';
-import '../../../helpers/game_events.dart';
-import '../../../helpers/game_state_factory.dart';
-import '../../../helpers/game_test_setup.dart';
 
-/// The app's [GameResult] for the server's results body [resultsJson],
-/// reached the way a phone gets it: the vote is on, `game_results` arrives,
-/// the app fetches `GET .../results/`.
+/// The app's [GameResult] for the server's results body [resultsJson], read
+/// as 10 and 11 read it (`GET .../results/` through [GameOutcome]).
 Future<GameResult> _resultsFor(Map<String, dynamic> resultsJson) async {
-  final setup = GameTestSetup.create(
-    gameMeJson: GameMeJsonBuilder().inPhase('voting').build(),
-  );
-  addTearDown(setup.dispose);
-  setup.registerResults(resultsJson: resultsJson);
-  await setup.readGameState();
-
-  setup.ws.addServerEvent(GameEvents.gameResults());
-  await Future<void>.delayed(const Duration(milliseconds: 50));
-
-  expect(setup.currentState.phase, 'results');
-  return setup.currentState.results!;
+  checkHttpBody('GET', '/onuw/games/g/results/', 200, resultsJson);
+  return GameOutcome.fromJson(resultsJson).result;
 }
 
 ResultSeat _seat(

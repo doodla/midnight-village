@@ -264,6 +264,33 @@ class DebugTableController {
     }
   }
 
+  /// A stage-scoped request (night protocol 2: `ready`, `action` with a
+  /// `choose`, `vote`) AS [player], naming the stage their `/me/` carries
+  /// now; a choose answers the prompt as `/me/` shows it (its `chosen`).
+  /// STRICT by default like [driveAs]; [lenient] treats a 409 (the stage
+  /// moved on, or it was already taken) as done, for the toolbar.
+  Future<void> stagedAs(
+    DebugPlayer player,
+    String tail,
+    Map<String, dynamic> data, {
+    bool lenient = false,
+  }) async {
+    final gameId = _requireTable().gameId;
+    final me = await playerView(player);
+    final prompt = me['action_prompt'] as Map<String, dynamic>?;
+    await _client.post(
+      '/onuw/games/$gameId/$tail/',
+      token: player.accessToken,
+      data: {
+        ...data,
+        'stage': me['stage'],
+        if (data['action_type'] == 'choose')
+          'chosen': prompt == null ? 0 : prompt['chosen'] as int,
+      },
+      idempotent409: lenient,
+    );
+  }
+
   /// Reads what the server tells [player] about the game (`GET .../me/`): the
   /// same player-scoped view their phone gets, including the pending
   /// `action_prompt`. Issued with that player's own token; the visible

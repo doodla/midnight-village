@@ -4,7 +4,6 @@ import 'package:midnight_village/design_system/skin/ground.dart';
 
 import '../test/helpers/component_sheet.dart';
 import 'end_fixtures.dart';
-import 'screen_fixtures.dart';
 import 'shell_fixtures.dart';
 import 'table_fixtures.dart';
 
@@ -37,8 +36,8 @@ class ScreenEntry {
   final String? notBuilt;
 
   /// A screen built to the first-time play spec, which the gallery holds to
-  /// the reading floor (reading_floor.dart). The app's screens in the old
-  /// look are not, until they are rebuilt.
+  /// the reading floor (reading_floor.dart): every app screen, and the
+  /// component sheet's screen pages.
   final bool playerScreen;
 }
 
@@ -79,7 +78,7 @@ final screenCatalogue = <ScreenEntry>[
   ..._rebuilt('03b-deck-role', '03b-deck-role-explained.png', {
     '': pumpDeckRole,
   }),
-  // The rebuilt screens, through the real shell (shell_fixtures.dart).
+  // 04 to 11, through the real shell (shell_fixtures.dart, end_fixtures.dart).
   ..._rebuilt('04-your-card', '04-your-card.png', {
     '': pumpYourCard,
     '-held': pumpYourCardHeld,
@@ -100,35 +99,6 @@ final screenCatalogue = <ScreenEntry>[
     '-10-long': pumpNightTenLong,
     '-x1.3': (tester) => pumpNightBoard(tester, textScale: 1.3),
   }),
-  // The old look's night (protocol 1), until it is deleted.
-  ScreenEntry(
-    '05-night-waiting',
-    mock: '05-night-waiting.png',
-    build: pumpSeerWaiting,
-  ),
-  ScreenEntry(
-    '06-night-action-seer',
-    mock: '06-night-action.png',
-    build: pumpSeerPrompt,
-  ),
-  ScreenEntry(
-    '06-night-action-seer-player',
-    mock: '06-night-action.png',
-    build: (tester) async {
-      await pumpSeerPrompt(tester);
-      await tester.tap(find.text("Look at a player's card"));
-    },
-  ),
-  ScreenEntry(
-    '06-night-action-robber',
-    mock: '06-night-action.png',
-    build: pumpRobberPrompt,
-  ),
-  ScreenEntry(
-    '07-night-what-you-saw',
-    mock: '07-night-what-you-saw.png',
-    build: pumpSeerResult,
-  ),
   ..._rebuilt('08-talk', '08-talk.png', {
     '': pumpTalkOpen,
     '-held': pumpTalkHeld,
@@ -150,9 +120,6 @@ final screenCatalogue = <ScreenEntry>[
     '-10-long': pumpVoteTenLong,
     '-x1.3': (tester) => pumpVoteOpen(tester, textScale: 1.3),
   }),
-  ScreenEntry('10-the-count', mock: '10-the-count.png', build: pumpCount),
-  ScreenEntry('11-results', mock: '11-results.png', build: pumpResults),
-  // 10 and 11 rebuilt (night protocol 2), through the real shell.
   ..._rebuilt('10-count', '10-the-count.png', {
     '-one': pumpCountOne,
     '-opening': pumpCountOpening,

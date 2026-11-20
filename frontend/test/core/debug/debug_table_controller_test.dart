@@ -8,7 +8,6 @@ import 'package:mocktail/mocktail.dart';
 import '../../helpers/contract/contract_samples.dart';
 import '../../helpers/contract/contract_shape.dart';
 import '../../helpers/contract/server_json.dart';
-import '../../helpers/game_state_factory.dart';
 
 class _MockDebugApiClient extends Mock implements DebugApiClient {}
 
@@ -317,7 +316,7 @@ void main() {
           'GET',
           '/onuw/games/g-pv/me/',
           200,
-          GameMeJsonBuilder().withGameId('g-pv').build(),
+          ContractSamples.map('http/game/me_look_stage')..['game_id'] = 'g-pv',
         ),
       );
 
@@ -404,6 +403,53 @@ void main() {
               'targets': {'player_id': 1},
             },
             idempotent409: false,
+          ),
+        ).called(1);
+      },
+    );
+
+    test(
+      'stagedAs names the stage /me/ carries; a choose its chosen',
+      () async {
+        final me = ContractSamples.map('http/game/me_choose_prompt_seer')
+          ..['game_id'] = 'g1';
+        when(
+          () => client.get('/onuw/games/g1/me/', token: 'access-2'),
+        ).thenAnswer(
+          (_) async => _answer('GET', '/onuw/games/g1/me/', 200, me),
+        );
+        when(
+          () => client.post(
+            '/onuw/games/g1/action/',
+            token: any(named: 'token'),
+            data: any(named: 'data'),
+            idempotent409: any(named: 'idempotent409'),
+          ),
+        ).thenAnswer(
+          (_) async => _answer(
+            'POST',
+            '/onuw/games/g1/action/',
+            200,
+            ContractSamples.map('http/game/choose_submitted_seer'),
+          ),
+        );
+
+        await controller.stagedAs(controller.table!.playerById(2), 'action', {
+          'action_type': 'choose',
+          'picks': const <Object>[],
+        }, lenient: true);
+
+        verify(
+          () => client.post(
+            '/onuw/games/g1/action/',
+            token: 'access-2',
+            data: {
+              'action_type': 'choose',
+              'picks': const <Object>[],
+              'stage': me['stage'],
+              'chosen': (me['action_prompt'] as Map)['chosen'],
+            },
+            idempotent409: true,
           ),
         ).called(1);
       },

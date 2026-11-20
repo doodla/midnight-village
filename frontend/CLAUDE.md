@@ -5,22 +5,21 @@ part you change, and keep it true:
 
 - `lib/design_system/README.md`: the skin, the primitives, the first-time-play pieces (copy,
   cues, hold to reveal, the night board).
-- `lib/features/game/README.md`: the protocol-2 data layer (`GameMe`, screen table, outbox,
-  healing fetches).
+- `lib/features/game/README.md`: the game's data layer (`GameMe`, screen table, outbox,
+  healing fetches) and the screens 04 to 11.
 - `test/README.md`: the e2e harness, fonts, goldens, the screen gallery.
 - `test/helpers/contract/README.md`: the contract guard and its helpers.
-- `docs/dev/old-look-removal.md`: which old-look file dies with which screen.
 
 ## Commands
 
 ```bash
 just test              # flutter test --exclude-tags e2e
-just analyze           # flutter analyze through tool/analyze_gate.sh (old-look rule below)
+just analyze           # flutter analyze: fails on any issue
 just format-check      # dart format check of lib, test, test_screens
 just gen               # Riverpod code generation, after changing any provider
 just screens [width] [report|strict]  # every screen and the component sheet as PNGs beside the mocks
 just playtest-pack     # the cold-read pack: four first-game journeys to build/playtest/
-just test-harness      # boots the backend on :8001 and replays the reference games (not in `just test`)
+just test-harness      # boots its own backend on a free port, runs the e2e harness (not in `just test`)
 just skin-art          # regenerate assets/skins/shadow_paper/ from docs/design/art/
 just flutter-golden-update  # regenerate goldens (Linux only)
 ```
@@ -28,27 +27,30 @@ just flutter-golden-update  # regenerate goldens (Linux only)
 ## Traps
 
 - **Forgot `just gen`**: analyzer errors in `*.g.dart` that look like real bugs.
-- **Port 8001 is shared** by every worktree's harness: check it is free before `just test-harness`.
+- **The harness runs side by side**: each `just test-harness` takes a free port (or
+  `HARNESS_PORT`) and stops only the backend it started; the throwaway database is shared.
 - **Goldens are Linux only** (`dart_test.yaml` skips them elsewhere); CI is the source of truth.
 - **`MockHttpClient`** lives in `integration_test/helpers/` (the web integration build cannot
   import out of its root); `test/helpers/mock_http_client.dart` re-exports it.
-- **Test fonts**: real Gloock and Figtree are loaded in tests; other families are Figtree
-  stand-ins, so a golden never proves an unbundled font.
+- **Test fonts**: real Gloock and Figtree are loaded in tests; `Roboto` (Material's default,
+  the debug toolbar's) is a Figtree stand-in.
 
 ## Server payloads in tests
 
 Every mocked HTTP body and socket event is built from `contract_samples/` and checked against
 the samples of its own situation; a request with no mock fails the test; domain objects come
 from `FromSample`, never a constructor with made-up values; `fixture_sources_test.dart` fails
-any test that goes around this. Night inputs come from recorded protocol-2 samples
-(`recordedMe`), never by hand. A test about malformed input says so (`offContract: true`).
+any test that goes around this. Night inputs come from recorded samples (`recordedMe`), never
+by hand. A test about malformed input says so (`offContract: true`). The server still records
+its old night (protocol 1) until the server slice deletes it; the app's tests never see those
+samples (one marked filter in `contract_samples.dart`).
 After a payload change: `just samples` in `backend/`, then fix the fixtures that fail.
 
 ## The app's rules
 
 - **The server decides.** Screens show what `/me/` says. `screenFor` is the one server-state
   to screen table; the only local inputs are `LocalSteps`.
-- **Taps change what others can see at once, never on the response.** All protocol-2 taps go
+- **Taps change what others can see at once, never on the response.** All taps go
   through the one `Outbox`; a choose is never sent twice for a turn; after any taken choose
   the phone re-reads `/me/` and trusts `chosen` and `chooses_left`.
 - **Every fetch a screen depends on heals**: retried with backoff or polled until its reason
@@ -70,15 +72,9 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 
 ## Screens
 
-Rebuild one screen at a time from the primitives, against its mock in `docs/design/mocks/`
-(`docs/design/mock-to-skin.md` maps every element), to the copy in
-`docs/specs/frontend/first-time-play.md`. Check it by eye with `just screens` at 320, 360 and
-390 wide, `strict` before merging, and send before/after pictures to the owner.
-
-## Removing the old look
-
-The old look (`lib/design_system/components/` and `lib/design_system/tokens/`) stays only while screens use it.
-Every old-look file is marked `// OLD LOOK` and `@Deprecated`; `just analyze` fails on any new
-use outside `tool/old_look_users.txt`. Delete a file with the change that rebuilds the last
-screen using it, and its line from that list. Which file dies with which screen:
-`docs/dev/old-look-removal.md`.
+Every screen (01 to 11) is built from the primitives, against its mock in
+`docs/design/mocks/` (`docs/design/mock-to-skin.md` maps every element), to the copy in
+`docs/specs/frontend/first-time-play.md`. A change to one is checked by eye with
+`just screens` at 320, 360 and 390 wide, `strict` before merging, and before/after pictures go
+to the owner. A game whose `/me/` has no `stage` (a night from an older app) is a calm line and
+"Leave" (`UnplayableScreen`), never a retry loop.

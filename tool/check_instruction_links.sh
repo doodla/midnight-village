@@ -30,7 +30,7 @@ recipes=$(for j in justfile backend/justfile frontend/justfile; do
 done | tr ' ' '\n' | sort -u)
 
 files=(CLAUDE.md backend/CLAUDE.md frontend/CLAUDE.md docs/dev/status.md docs/dev/environment.md
-  docs/claude-architecture.md docs/dev/models/README.md docs/dev/old-look-removal.md .claude/agents/*.md
+  docs/claude-architecture.md docs/dev/models/README.md .claude/agents/*.md
   backend/apps/core/README.md backend/apps/onuw/README.md backend/tests/README.md
   frontend/lib/design_system/README.md frontend/lib/features/game/README.md
   frontend/test/README.md frontend/test/helpers/contract/README.md)

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 
-import '../test/helpers/test_fonts.dart';
 import '../test/helpers/truncated_text.dart';
 import 'reading_floor.dart';
 import 'screen_catalogue.dart';
@@ -90,11 +89,8 @@ Future<ScreenCapture> captureScreen(
   FlutterError.onError = (details) => findings.add(_describe(details));
   addTearDown(() => FlutterError.onError = reportError);
 
-  // The old theme's fonts cannot load here (see test_fonts.dart), so every
-  // pump happens inside quietRetiredFonts. The body must not throw: a future
-  // failing inside that zone never reaches an await outside it, so each error
-  // comes back as a value.
-  final (png, failure) = await quietRetiredFonts(() async {
+  // The body must not throw: each error comes back as a value.
+  final (png, failure) = await () async {
     try {
       await build(tester);
       for (var i = 0; i < _settleFrames; i++) {
@@ -113,7 +109,7 @@ Future<ScreenCapture> captureScreen(
     } catch (error, stack) {
       return (null, 'CAPTURE FAILED: ${_describeError(error, stack)}');
     }
-  });
+  }();
   // Given back before the caller's expectations run: a test that fails with
   // the handler still replaced never ends.
   FlutterError.onError = reportError;
@@ -225,11 +221,7 @@ String summarize(
       'Screens at ${width}x${screenHeight.toInt()} '
       '(${strict ? 'strict' : 'findings reported, not failed'})',
     )
-    ..writeln(
-      'Fonts: Gloock, Figtree and the icons are the real ones; text in the '
-      'old theme\'s fonts is drawn in Figtree stand-ins until the old look is '
-      'removed (test/helpers/test_fonts.dart).',
-    );
+    ..writeln('Fonts: Gloock, Figtree and the icons are the real ones.');
   final idWidth = screenCatalogue
       .map((e) => e.id.length)
       .reduce((a, b) => a > b ? a : b);
