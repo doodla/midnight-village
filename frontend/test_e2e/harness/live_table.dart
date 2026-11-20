@@ -224,11 +224,14 @@ class LiveTable {
     DebugTable(gameId: gameId, lobbyCode: lobbyCode, players: table.players),
   );
 
-  /// `POST` one of the game's host-only endpoints as [player].
+  /// `POST` one of the game's host-only endpoints as [player], naming the
+  /// stage [player]'s `/me/` carries (a stage that is over is 409).
   Future<void> hostAction(DebugPlayer player, String endpoint) async {
+    final stage = (await me(player))['stage'];
     await client.post(
       '/onuw/games/$gameId/$endpoint/',
       token: player.accessToken,
+      data: {'stage': stage},
     );
   }
 }

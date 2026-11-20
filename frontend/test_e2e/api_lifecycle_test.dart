@@ -12,8 +12,9 @@ import 'harness/scenario_runner.dart';
 import 'harness/time_budget.dart';
 
 /// API runner, table lifecycle: play again, dropped phones and host handover,
-/// through the real server over real HTTP and real WebSockets. PROTOCOL 1: its
-/// tables play the protocol-1 night; the server slice ports it to protocol 2.
+/// through the real server over real HTTP and real WebSockets. Every phone
+/// plays as the app does: one `choose` per night window, lock-in votes, every
+/// stage-scoped request naming the stage its `/me/` carries.
 ///
 /// Each scenario asserts BOTH what the clients are told (HTTP bodies, socket
 /// events) AND the truth in the debug-state oracle. Nothing is slept on: the
@@ -144,9 +145,9 @@ void main() {
         // The controller follows the new game: a move driven through it lands
         // there, not in the old one.
         expect(t.controller.table!.gameId, started['game_id']);
-        expect((await t.me(alice))['your_role']['has_acted'], isFalse);
-        await _act(t, alice, 'see_team', {'center_index': 0});
-        expect((await t.me(alice))['your_role']['has_acted'], isTrue);
+        expect((await t.me(alice))['action_prompt']['chosen'], 0);
+        await _choose(t, alice, [_center0]);
+        expect((await t.me(alice))['action_prompt']['chosen'], 1);
         expect(
           (await t.controller.playerView(alice))['game_id'],
           started['game_id'],
@@ -228,15 +229,17 @@ void main() {
         containsAll(['wave:2', 'grace:${carol.userId}']),
       );
 
-      // Everyone else acts (Dave has no action). The Drunk has not.
-      await _act(t, alice, 'see_team', {'center_index': 0});
-      await _act(t, bob, 'skip');
+      // Every other phone chooses (Dave has nothing to choose). The Drunk has
+      // not.
+      await _choose(t, alice, [_center0]);
+      await _choose(t, bob);
+      await _choose(t, dave);
       final state = await grace.readInside(t.oracleJson);
       expect([state['phase'], state['current_wave']], ['night', 2]);
       final results = await grace.readInside(
         () async => [
           for (final p in [alice, bob, dave])
-            t.gameWire(p).ofType('action_result').length,
+            ((await t.me(p))['night_results'] as List).length,
         ],
       );
       expect(results, [
@@ -285,7 +288,10 @@ void main() {
       final mine = (view['night_results'] as List).cast<Map>();
       expect(mine, hasLength(1));
       expect(mine.single['action_type'], 'swap_with_center');
-      expect(mine.single['revealed_info'], {'card_index': index});
+      expect(mine.single['revealed_info'], {
+        'card_index': index,
+        'nothing_chosen': true,
+      });
       // Nobody else's /me/ carries her card index.
       for (final p in [alice, bob, dave]) {
         final others = ((await t.me(p))['night_results'] as List).cast<Map>();
@@ -321,8 +327,9 @@ void main() {
       await t.dropGame(carol);
       await _presence(aliceWire, carol, false, after: mark);
       expect(await t.pendingTimers(), contains('grace:${carol.userId}'));
-      await _act(t, alice, 'see_team', {'center_index': 0});
-      await _act(t, bob, 'skip');
+      await _choose(t, alice, [_center0]);
+      await _choose(t, bob);
+      await _choose(t, t.player('Dave'));
 
       mark = aliceWire.mark;
       await t.connectGame(carol);
@@ -336,14 +343,16 @@ void main() {
       expect(timers, contains('wave:2'));
       expect(await grace.readInside(t.phase), 'night');
 
-      // She answers herself: it closes at once, nowhere near the grace period.
-      await _act(t, carol, 'swap_with_center', {'center_index': 2});
+      // She chooses herself: it closes at once, nowhere near the grace period.
+      await _choose(t, carol, [
+        {'center_index': 2},
+      ]);
       await _phaseChange(aliceWire, 'discussion', after: mark);
       await grace.readInside(() async {});
       final end = await t.oracleJson();
       expect(_player(end, carol)['current_role'], _center[2]);
       expect((end['center_cards'] as List)[2], 'Drunk');
-      final result = t.gameWire(carol).ofType('action_result').single;
+      final result = ((await t.me(carol))['night_results'] as List).single;
       expect(result['revealed_info'], {'card_index': 2});
     });
 
@@ -785,9 +794,11 @@ void main() {
           'Dave': 'Insomniac',
         },
         centerCards: ['Werewolf', 'Robber', 'Drunk'],
+        protocolTwo: true,
         // Window 1 has a real timer for the hook to fire; grace is off.
         timerSettings: {
           ...fastTimers,
+          'card_look_seconds': 0,
           'night_doppelganger_window_seconds': 600,
           'disconnect_grace_seconds': 0,
         },
@@ -799,11 +810,16 @@ void main() {
       await t.connectGame(bob);
 
       // Her look (copying the Seer), then her follow-up (looking at Carol).
-      await _act(t, alice, 'peek_player', {'player_id': bob.userId});
-      await _act(t, alice, 'peek_player', {'player_id': carol.userId});
-      // Window 1 is still open: nothing is in her /me/ yet, not even the look
-      // she was sent at once.
-      expect((await t.me(alice))['night_results'], isEmpty);
+      await _choose(t, alice, [
+        {'player_id': bob.userId},
+      ]);
+      await _choose(t, alice, [
+        {'player_id': carol.userId},
+      ]);
+      // Window 1 is still open: her /me/ has her look (she needed it to
+      // choose), not the follow-up, which resolves when the window closes.
+      final open = (await t.me(alice))['night_results'] as List;
+      expect(open.single['revealed_info']['copied_role'], 'Seer');
 
       final mark = t.gameWire(bob).mark;
       await t.dropGame(alice);
@@ -820,7 +836,7 @@ void main() {
       expect(results[0]['action_type'], 'peek_player');
       expect((results[0]['revealed_info'] as Map)['copied_role'], 'Seer');
       expect(results[1]['action_type'], 'peek_player');
-      expect((results[1]['revealed_info'] as Map)['role'], 'werewolf');
+      expect((results[1]['revealed_info'] as Map)['role'], 'Werewolf');
       expect(results[0]['wave'], results[1]['wave']);
       expect((await t.me(bob))['night_results'], isEmpty);
     });
@@ -878,7 +894,10 @@ Future<LiveTable> _openTable([Map<String, int> extra = const {}]) =>
       roleCounts: _roleCounts,
       playerRolesByName: _dealt,
       centerCards: _center,
-      timerSettings: {...fastTimers, ...extra},
+      // No look stage: the deal opens window 2 at once (the timing scenarios
+      // count from the deal).
+      timerSettings: {...fastTimers, 'card_look_seconds': 0, ...extra},
+      protocolTwo: true,
     );
 
 /// Opens every player's game socket (and, with [lobby], lobby socket).
@@ -889,19 +908,24 @@ Future<void> _connectEveryone(LiveTable t, {bool lobby = false}) async {
   }
 }
 
-Future<void> _act(
+/// [player]'s one `choose` for the open window (naming the stage and the
+/// prompt's `chosen` their `/me/` shows).
+Future<void> _choose(
   LiveTable t,
-  DebugPlayer player,
-  String type, [
-  Map<String, dynamic> targets = const {},
-]) => t.controller.driveAs(
-  player,
-  DebugAction.nightAction(actionType: type, targets: targets),
-);
+  DebugPlayer player, [
+  List<Map<String, Object>> picks = const [],
+]) => t.controller.stagedAs(player, 'action', {
+  'action_type': 'choose',
+  'picks': picks,
+});
 
+/// The lone Werewolf's look at the first centre card.
+const _center0 = {'center_index': 0};
+
+/// [voter] picks [target] and locks in one request.
 Future<void> _vote(LiveTable t, DebugPlayer voter, DebugPlayer target) => t
     .controller
-    .driveAs(voter, DebugAction.vote(voteTargetUserId: target.userId));
+    .stagedAs(voter, 'vote', {'target_player_id': target.userId, 'lock': true});
 
 /// Waits for [about]'s `player_presence` (connected or not) on [wire].
 Future<Map<String, dynamic>> _presence(
@@ -929,14 +953,17 @@ Future<Map<String, dynamic>> _phaseChange(
 );
 
 /// Window 2 with everyone present: the lone Werewolf looks at the center, the
-/// Seer skips, the Drunk swaps with the middle card. The window closes when the
-/// last of them has answered.
+/// Seer picks nothing, the Drunk swaps with the middle card, the Villager has
+/// nothing to choose. The window closes when the last phone has chosen.
 Future<void> _playNight(LiveTable t) async {
   final alice = t.player('Alice');
   final mark = t.gameWire(alice).mark;
-  await _act(t, alice, 'see_team', {'center_index': 0});
-  await _act(t, t.player('Bob'), 'skip');
-  await _act(t, t.player('Carol'), 'swap_with_center', {'center_index': 1});
+  await _choose(t, alice, [_center0]);
+  await _choose(t, t.player('Bob'));
+  await _choose(t, t.player('Carol'), [
+    {'center_index': 1},
+  ]);
+  await _choose(t, t.player('Dave'));
   await _phaseChange(t.gameWire(alice), 'discussion', after: mark);
 }
 
@@ -955,8 +982,8 @@ Future<void> _playDay(LiveTable t) async {
   await wire.waitForEvent('game_results', after: mark, timeout: eventTimeout);
 }
 
-/// A table where [dropped] loses their phone, then every other player acts
-/// (Dave has nothing to do). The window must still be open when they have, for
+/// A table where [dropped] loses their phone, then every other phone chooses
+/// (Dave has nothing to choose). The window must still be open when they have, for
 /// the whole grace period. Returns how long after the drop it closed and what
 /// Alice's phone was told up to and including the discussion.
 Future<({Duration closedAfter, List<String> trace})> _dropThenEveryoneElseActs(
@@ -972,14 +999,17 @@ Future<({Duration closedAfter, List<String> trace})> _dropThenEveryoneElseActs(
   final mark = wire.mark;
   await t.dropGame(player);
   await _presence(wire, player, false, after: mark);
-  final moves = {
-    'Alice': ('see_team', {'center_index': 0}),
-    'Bob': ('skip', <String, dynamic>{}),
-    'Carol': ('swap_with_center', {'center_index': 1}),
+  final picks = <String, List<Map<String, Object>>>{
+    'Alice': [_center0],
+    'Bob': [],
+    'Carol': [
+      {'center_index': 1},
+    ],
+    'Dave': [],
   };
-  for (final entry in moves.entries) {
+  for (final entry in picks.entries) {
     if (entry.key != dropped) {
-      await _act(t, t.player(entry.key), entry.value.$1, entry.value.$2);
+      await _choose(t, t.player(entry.key), entry.value);
     }
   }
 
