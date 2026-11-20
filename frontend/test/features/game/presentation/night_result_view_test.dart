@@ -1,21 +1,20 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/game/role_card.dart';
-import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
 import 'package:midnight_village/features/game/presentation/night_result_view.dart';
 
 import '../../../design_system/test_helpers/pump_with_tokens.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/game_state_factory.dart';
 
-/// Helper to build a test ActionResult.
-ActionResult _makeResult(String actionType, Map<String, dynamic> extra) =>
-    ActionResult(wave: 1, revealedInfo: {'action_type': actionType, ...extra});
+/// The server's night result of [kind] (`action_result_<kind>`), with
+/// [info] as its values, parsed as the app parses it.
+ActionResult _makeResult(String kind, Map<String, dynamic> info) =>
+    FromSample.result(serverNightResult(kind, info: info));
 
-/// Test players list.
-const _players = [
-  GamePlayer(playerId: 1, displayName: 'Alice'),
-  GamePlayer(playerId: 2, displayName: 'Bob'),
-  GamePlayer(playerId: 3, displayName: 'Charlie'),
-];
+/// Alice, Bob and Charlie, as `/me/` lists them.
+final _players = FromSample.game(GameMeJsonBuilder().build()).players;
 
 void main() {
   group('NightResultView — peek_player', () {
@@ -41,7 +40,6 @@ void main() {
         NightResultView(
           result: _makeResult('peek_center', {
             'roles': ['seer', 'villager'],
-            'card_indices': [0, 2],
           }),
           players: _players,
         ),
@@ -103,8 +101,7 @@ void main() {
     testWidgets('shows fellow werewolf names', (tester) async {
       await tester.pumpWithTokens(
         NightResultView(
-          result: _makeResult('see_team', {
-            'role_acting_as': 'Werewolf',
+          result: _makeResult('see_team_werewolves', {
             'teammate_names': ['Bob'],
           }),
           players: _players,
@@ -122,10 +119,7 @@ void main() {
     ) async {
       await tester.pumpWithTokens(
         NightResultView(
-          result: _makeResult('see_team', {
-            'role_acting_as': 'Werewolf',
-            'teammate_names': [],
-          }),
+          result: _makeResult('see_team_werewolves', {'teammate_names': []}),
           players: _players,
         ),
       );
@@ -137,8 +131,7 @@ void main() {
     testWidgets('shows peeked center card when present', (tester) async {
       await tester.pumpWithTokens(
         NightResultView(
-          result: _makeResult('see_team', {
-            'role_acting_as': 'Werewolf',
+          result: _makeResult('see_team_lone_werewolf', {
             'teammate_names': [],
             'center_card': {'index': 0, 'role': 'tanner'},
           }),
@@ -155,10 +148,7 @@ void main() {
     testWidgets('shows lone mason message', (tester) async {
       await tester.pumpWithTokens(
         NightResultView(
-          result: _makeResult('see_team', {
-            'role_acting_as': 'Mason',
-            'teammate_names': [],
-          }),
+          result: _makeResult('see_team_masons', {'teammate_names': []}),
           players: _players,
         ),
       );
@@ -171,10 +161,7 @@ void main() {
     testWidgets('shows no werewolves message', (tester) async {
       await tester.pumpWithTokens(
         NightResultView(
-          result: _makeResult('see_team', {
-            'role_acting_as': 'Minion',
-            'teammate_names': [],
-          }),
+          result: _makeResult('see_team_minion', {'teammate_names': []}),
           players: _players,
         ),
       );
@@ -187,8 +174,7 @@ void main() {
     testWidgets('shows werewolf names', (tester) async {
       await tester.pumpWithTokens(
         NightResultView(
-          result: _makeResult('see_team', {
-            'role_acting_as': 'Minion',
+          result: _makeResult('see_team_minion', {
             'teammate_names': ['Alice', 'Charlie'],
           }),
           players: _players,
@@ -255,19 +241,6 @@ void main() {
       await tester.pump();
 
       expect(continued, 1);
-    });
-  });
-
-  group('NightResultView — unknown action type', () {
-    testWidgets('renders without crashing for unknown type', (tester) async {
-      await tester.pumpWithTokens(
-        NightResultView(
-          result: _makeResult('unknown_action', {}),
-          players: _players,
-        ),
-      );
-
-      expect(tester.takeException(), isNull);
     });
   });
 }

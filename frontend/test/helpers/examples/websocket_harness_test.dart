@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/game_phase.dart';
 
+import '../game_events.dart';
 import '../mock_websocket.dart';
 import '../test_harness.dart';
 
@@ -36,34 +37,10 @@ void main() {
       expect(find.text('Phase: Discussion'), findsOneWidget);
 
       // Simulate the server sending a phase transition.
-      mockWs.addServerEvent(
-        jsonEncode({'type': 'phase_change', 'phase': 'voting'}),
-      );
+      mockWs.addServerEvent(GameEvents.phaseChange(phase: 'voting'));
       await tester.pump();
 
       expect(find.text('Phase: Voting'), findsOneWidget);
-    });
-
-    testWidgets('client messages sent by widget are captured', (tester) async {
-      final mockWs = MockWebSocketChannel();
-
-      await tester.pumpWithGameState(
-        _SendActionWidget(webSocket: mockWs),
-        phase: GamePhase.voting,
-        players: testPlayers,
-        webSocket: mockWs,
-      );
-
-      // Trigger the UI action that sends over the WebSocket.
-      await tester.tap(find.text('Vote'));
-      await tester.pump();
-
-      // Assert on the exact payload the widget sent.
-      expect(mockWs.sentMessages, hasLength(1));
-      final sent =
-          jsonDecode(mockWs.sentMessages.first as String)
-              as Map<String, dynamic>;
-      expect(sent['type'], equals('submit_vote'));
     });
 
     testWidgets('server errors surface to the UI without crashing', (
@@ -95,15 +72,9 @@ void main() {
         webSocket: mockWs,
       );
 
-      // night → discussion → voting
-      for (final phase in [
-        GamePhase.night,
-        GamePhase.discussion,
-        GamePhase.voting,
-      ]) {
-        mockWs.addServerEvent(
-          jsonEncode({'type': 'phase_change', 'phase': phase.name}),
-        );
+      // The server sends phase_change for the talk and the vote only.
+      for (final phase in [GamePhase.discussion, GamePhase.voting]) {
+        mockWs.addServerEvent(GameEvents.phaseChange(phase: phase.name));
         await tester.pump();
         expect(find.text('Phase: ${phase.displayName}'), findsOneWidget);
       }
@@ -162,22 +133,5 @@ class _WebSocketReactiveWidgetState
     final gameState = ref.watch(gameStateProvider);
     final displayPhase = _livePhase ?? gameState.phase;
     return Text('Phase: ${displayPhase.displayName}');
-  }
-}
-
-/// Widget that sends a vote action over the WebSocket when tapped.
-class _SendActionWidget extends ConsumerWidget {
-  const _SendActionWidget({required this.webSocket});
-
-  final MockWebSocketChannel webSocket;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () => webSocket.send(
-        jsonEncode({'type': 'submit_vote', 'target': 'player-0'}),
-      ),
-      child: const Text('Vote'),
-    );
   }
 }

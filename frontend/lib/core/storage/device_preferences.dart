@@ -1,22 +1,28 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../logging/app_logger.dart';
 
-/// Cosmetic choices remembered on this device (not game state, not synced).
+/// Cosmetic choices remembered on this device (not game state, not synced, not
+/// secret), kept in the platform's plain preferences: NSUserDefaults,
+/// Android's SharedPreferences, and the browser's localStorage. localStorage
+/// works on a page served over plain http too, where the secure storage used
+/// for tokens (WebCrypto) is not available.
+///
 /// A failed read or write is logged and otherwise ignored: losing a cosmetic
 /// preference must never stop the app.
 class DevicePreferences {
-  DevicePreferences({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+  DevicePreferences({Future<SharedPreferences> Function()? open})
+    : _open = open ?? SharedPreferences.getInstance;
 
-  final FlutterSecureStorage _storage;
+  final Future<SharedPreferences> Function() _open;
 
   static const _skinKey = 'skin';
 
-  /// The name of the chosen skin, or null when none was saved.
-  Future<String?> get skin async {
+  /// The name of the chosen skin, or null when none was saved or it could
+  /// not be read. Fast enough to await before the first frame.
+  Future<String?> readSkin() async {
     try {
-      return await _storage.read(key: _skinKey);
+      return (await _open()).getString(_skinKey);
     } catch (e) {
       logger.w('DevicePreferences: could not read the skin: $e');
       return null;
@@ -25,7 +31,7 @@ class DevicePreferences {
 
   Future<void> saveSkin(String name) async {
     try {
-      await _storage.write(key: _skinKey, value: name);
+      await (await _open()).setString(_skinKey, name);
     } catch (e) {
       logger.w('DevicePreferences: could not save the skin: $e');
     }

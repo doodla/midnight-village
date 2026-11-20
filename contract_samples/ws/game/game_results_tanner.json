@@ -1,0 +1,12 @@
+{
+  "type": "game_results",
+  "data": {
+    "winning_teams": [
+      "tanner"
+    ],
+    "reason": "Tanner was eliminated and wins!",
+    "eliminated_players": [
+      10
+    ]
+  }
+}

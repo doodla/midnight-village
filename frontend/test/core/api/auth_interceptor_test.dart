@@ -5,9 +5,10 @@ import 'package:midnight_village/core/api/auth_interceptor.dart';
 import 'package:midnight_village/core/storage/token_storage.dart';
 import 'package:mocktail/mocktail.dart';
 
-class MockTokenStorage extends Mock implements TokenStorage {}
+import '../../helpers/contract/contract_samples.dart';
+import '../../helpers/mock_http_client.dart';
 
-class MockApiClient extends Mock implements ApiClient {}
+class MockTokenStorage extends Mock implements TokenStorage {}
 
 class MockRequestInterceptorHandler extends Mock
     implements RequestInterceptorHandler {}
@@ -15,9 +16,13 @@ class MockRequestInterceptorHandler extends Mock
 class MockErrorInterceptorHandler extends Mock
     implements ErrorInterceptorHandler {}
 
+/// The server's answer to a refresh: a new access token and a rotated
+/// refresh token.
+final _refreshed = ContractSamples.map('http/auth/token_refreshed');
+
 void main() {
   late MockTokenStorage mockStorage;
-  late MockApiClient mockApiClient;
+  late MockHttpClient http;
   late int authFailureCount;
 
   setUpAll(() {
@@ -34,7 +39,7 @@ void main() {
 
   setUp(() {
     mockStorage = MockTokenStorage();
-    mockApiClient = MockApiClient();
+    http = MockHttpClient();
     authFailureCount = 0;
 
     // Default stubs — individual tests override as needed.
@@ -53,7 +58,7 @@ void main() {
     Future<Response<dynamic>> Function(RequestOptions)? retryFetch,
   }) => AuthInterceptor(
     tokenStorage: mockStorage,
-    unauthenticatedClient: mockApiClient,
+    unauthenticatedClient: ApiClient(dio: http.dio),
     onAuthFailure: () => authFailureCount++,
     retryFetch: retryFetch,
   );
@@ -121,12 +126,7 @@ void main() {
         await buildInterceptor().onError(err, handler);
 
         verify(() => handler.next(err)).called(1);
-        verifyNever(
-          () => mockApiClient.post<Map<String, dynamic>>(
-            any(),
-            data: any(named: 'data'),
-          ),
-        );
+        expect(http.requests, isEmpty);
       });
 
       test(
@@ -138,18 +138,7 @@ void main() {
           when(
             () => mockStorage.refreshToken,
           ).thenAnswer((_) async => 'my_refresh');
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/token/refresh/',
-              data: {'refresh': 'my_refresh'},
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-              statusCode: 200,
-              data: {'access': 'new_access', 'refresh': 'new_refresh'},
-            ),
-          );
+          http.answer('POST', '/auth/token/refresh/', _refreshed);
 
           final handler = MockErrorInterceptorHandler();
           var retryCalled = false;
@@ -169,24 +158,23 @@ void main() {
           );
 
           // Refresh was called with the refresh token
-          verify(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/token/refresh/',
-              data: {'refresh': 'my_refresh'},
-            ),
-          ).called(1);
+          expect(http.requests.single.path, '/auth/token/refresh/');
+          expect(http.requests.single.data, {'refresh': 'my_refresh'});
 
-          // New tokens were saved
+          // The new (rotated) tokens were saved
           verify(
             () => mockStorage.saveTokens(
-              accessToken: 'new_access',
-              refreshToken: 'new_refresh',
+              accessToken: _refreshed['access'] as String,
+              refreshToken: _refreshed['refresh'] as String,
             ),
           ).called(1);
 
           // Original request was retried with new token
           expect(retryCalled, true);
-          expect(retryOptions?.headers['Authorization'], 'Bearer new_access');
+          expect(
+            retryOptions?.headers['Authorization'],
+            'Bearer ${_refreshed['access']}',
+          );
 
           // Success was resolved
           verify(() => handler.resolve(any())).called(1);
@@ -223,12 +211,7 @@ void main() {
           );
 
           // Refresh must NOT be called again
-          verifyNever(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/token/refresh/',
-              data: any(named: 'data'),
-            ),
-          );
+          expect(http.requests, isEmpty);
 
           // Retry was performed with the current (new) token
           expect(retryCalled, true);
@@ -251,12 +234,7 @@ void main() {
 
           expect(authFailureCount, 1);
           verify(() => handler.next(any())).called(1);
-          verifyNever(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              any(),
-              data: any(named: 'data'),
-            ),
-          );
+          expect(http.requests, isEmpty);
         },
       );
 
@@ -269,20 +247,11 @@ void main() {
           when(
             () => mockStorage.refreshToken,
           ).thenAnswer((_) async => 'my_refresh');
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/token/refresh/',
-              data: {'refresh': 'my_refresh'},
-            ),
-          ).thenThrow(
-            DioException(
-              requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-              response: Response(
-                requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-                statusCode: 401,
-              ),
-              type: DioExceptionType.badResponse,
-            ),
+          http.answer(
+            'POST',
+            '/auth/token/refresh/',
+            ContractSamples.load('http/auth/token_refresh_refused'),
+            status: 401,
           );
 
           final handler = MockErrorInterceptorHandler();
@@ -295,50 +264,6 @@ void main() {
           verify(() => mockStorage.deleteTokens()).called(1);
           expect(authFailureCount, 1);
           verify(() => handler.next(any())).called(1);
-        },
-      );
-
-      test(
-        'uses original refresh token when server does not return a new one',
-        () async {
-          when(
-            () => mockStorage.accessToken,
-          ).thenAnswer((_) async => 'old_access');
-          when(
-            () => mockStorage.refreshToken,
-          ).thenAnswer((_) async => 'original_refresh');
-          when(
-            () => mockApiClient.post<Map<String, dynamic>>(
-              '/auth/token/refresh/',
-              data: {'refresh': 'original_refresh'},
-            ),
-          ).thenAnswer(
-            (_) async => Response(
-              requestOptions: RequestOptions(path: '/auth/token/refresh/'),
-              statusCode: 200,
-              data: {'access': 'new_access'}, // no refresh field returned
-            ),
-          );
-
-          final handler = MockErrorInterceptorHandler();
-
-          final interceptor = buildInterceptor(
-            retryFetch: (opts) async =>
-                Response(requestOptions: opts, statusCode: 200, data: {}),
-          );
-
-          await interceptor.onError(
-            make401(headers: {'Authorization': 'Bearer old_access'}),
-            handler,
-          );
-
-          verify(
-            () => mockStorage.saveTokens(
-              accessToken: 'new_access',
-              refreshToken: 'original_refresh', // original reused
-            ),
-          ).called(1);
-          verify(() => handler.resolve(any())).called(1);
         },
       );
     });

@@ -61,7 +61,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       final started = next.value?.startedGameId;
       if (started != null && started != previous?.value?.startedGameId) {
         if (mounted) {
-          GameRoute(gameId: started, lobby: widget.code).go(context);
+          GameRoute(gameId: started).go(context);
         }
       }
     });
@@ -232,8 +232,8 @@ String? _hostLine(LobbyState lobby, int? viewerId) {
     return hostChangeLine(
       change: HostChange(
         hostId: lobby.hostId,
-        hostName: lobby.hostName ?? nameOf(lobby.hostId) ?? 'Someone',
-        originalHostId: lobby.originalHostId ?? lobby.hostId,
+        hostName: lobby.hostName,
+        originalHostId: lobby.originalHostId,
         reason: HostChangeReason.handover,
       ),
       viewerId: viewerId,

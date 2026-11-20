@@ -1,8 +1,10 @@
 import 'package:flutter/widgets.dart';
 
+import '../layout/space.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
+import '../skin/skin_tilt.dart';
 import 'cut_paper.dart';
 
 /// How high a [PaperCard] lies.
@@ -10,22 +12,20 @@ enum PaperLift { card, raised, slab, heroSlab }
 
 /// A piece of paper on the ground: a panel, a code, a role card. Its content
 /// is on paper ([GroundKind.paper]), so text and tokens in it take paper's ink.
-/// [tilted] gives it the skin's card tilt.
+/// [tilt] turns it by one of the skin's tilts.
 class PaperCard extends StatelessWidget {
   const PaperCard({
     super.key,
     required this.child,
     this.lift = PaperLift.card,
-    this.padding,
-    this.tilted = false,
+    this.padding = const EdgeInsets.all(Space.md),
+    this.tilt = Tilt.none,
   });
 
   final Widget child;
   final PaperLift lift;
-
-  /// Defaults to the skin's medium spacing.
-  final EdgeInsetsGeometry? padding;
-  final bool tilted;
+  final EdgeInsetsGeometry padding;
+  final Tilt tilt;
 
   @override
   Widget build(BuildContext context) {
@@ -44,10 +44,11 @@ class PaperCard extends StatelessWidget {
         },
       ),
       child: Padding(
-        padding: padding ?? EdgeInsets.all(skin.spacing.md),
+        padding: padding,
         child: GroundScope(ground: GroundKind.paper, child: child),
       ),
     );
-    return tilted ? Transform.rotate(angle: skin.tilt.card, child: card) : card;
+    final angle = skin.tilt.angle(tilt);
+    return angle == 0 ? card : Transform.rotate(angle: angle, child: card);
   }
 }

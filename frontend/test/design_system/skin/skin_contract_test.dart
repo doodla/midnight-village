@@ -1,23 +1,24 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
-import 'package:midnight_village/design_system/skin/skin.dart';
+import 'package:midnight_village/design_system/skin/skin_id.dart';
 
 import '../../helpers/pump_skinned.dart';
 
-// What every skin must give a screen, checked for each skin: complete,
-// inside the brief's type scale, hard-edged, slight, and with every picture it
-// names in the bundle.
+// What every skin in the registry must give a screen, checked for each: its
+// type inside the brief's scale (the rule, not ranges widened to fit a skin),
+// its faces and pictures really there, hard-edged shadows, slight shapes.
 
 List<Elevation> _elevations(Ground g) => [
   g.elevation.card,
+  g.elevation.lying,
   g.elevation.raised,
   g.elevation.slab,
   g.elevation.heroSlab,
@@ -33,6 +34,7 @@ List<Color> _colours(Ground g) => [
   g.quietText,
   g.faintText,
   g.hairline,
+  g.idle,
   g.outline,
   g.edge,
   g.shadow,
@@ -53,34 +55,80 @@ List<Color> _colours(Ground g) => [
   g.onDisabled,
 ];
 
-/// The brief's type scale (section 4, "Type scale"), by role.
-Map<String, (TextStyle, double, double)> _scale(Skin skin) {
-  final t = skin.typography;
-  return {
-    'display': (t.display, 26, 36),
-    'headline': (t.headline, 26, 36),
-    'title': (t.title, 26, 36),
-    'timer': (t.timer, 64, 84),
-    'timerSmall': (t.timerSmall, 64, 84),
-    'bodyLarge': (t.bodyLarge, 15, 18),
-    'body': (t.body, 15, 18),
-    'label': (t.label, 12, 13),
-    // The in-between sizes the mocks use for names, buttons and small print.
-    'heading': (t.heading, 11, 26),
-    'name': (t.name, 11, 26),
-    'nameSmall': (t.nameSmall, 11, 26),
-    'buttonLabel': (t.buttonLabel, 11, 26),
-    'action': (t.action, 11, 26),
-    'small': (t.small, 11, 26),
-    'caption': (t.caption, 11, 26),
-    'tag': (t.tag, 11, 26),
-    'badge': (t.badge, 11, 26),
-    'micro': (t.micro, 11, 26),
-  };
+/// The brief's type scale (design brief section 4, "Type scale"), as a size
+/// range for each kind of text.
+enum _Kind {
+  heading(26, 36),
+  timer(64, 84),
+  compactTimer(34, 34),
+  count(28, 28),
+  body(15, 17),
+  label(12, 12),
+  // Names, buttons and small print.
+  inBetween(11, 24),
+  // One hero line per screen, sized as its mock (the largest is your card's
+  // role name, 58).
+  hero(37, 58);
+
+  const _Kind(this.min, this.max);
+
+  final double min;
+  final double max;
+}
+
+/// Every type role's kind. A new role must be added here, so it is held to
+/// the scale like the rest.
+const _kinds = {
+  'heroTitle': _Kind.hero,
+  'heroCode': _Kind.hero,
+  'heroRole': _Kind.hero,
+  'heroVerdict': _Kind.hero,
+  'heroWinner': _Kind.hero,
+  'display': _Kind.heading,
+  'screenTitle': _Kind.heading,
+  'headline': _Kind.heading,
+  'title': _Kind.heading,
+  'tally': _Kind.count,
+  'heading': _Kind.inBetween,
+  'name': _Kind.inBetween,
+  'nameSmall': _Kind.inBetween,
+  'buttonLabelLarge': _Kind.inBetween,
+  'buttonLabel': _Kind.inBetween,
+  'buttonLabelSmall': _Kind.inBetween,
+  'timer': _Kind.timer,
+  'timerVote': _Kind.timer,
+  'timerSmall': _Kind.timer,
+  'timerCompact': _Kind.compactTimer,
+  'bodyLarge': _Kind.body,
+  'lede': _Kind.body,
+  'body': _Kind.body,
+  'action': _Kind.body,
+  'code': _Kind.body,
+  'small': _Kind.inBetween,
+  'smallStrong': _Kind.inBetween,
+  'caption': _Kind.inBetween,
+  'tag': _Kind.inBetween,
+  'badge': _Kind.inBetween,
+  'label': _Kind.label,
+  'micro': _Kind.inBetween,
+};
+
+Future<Size> _pixels(String path) async {
+  final bytes = await rootBundle.load(path);
+  final codec = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
+  final frame = await codec.getNextFrame();
+  final size = Size(
+    frame.image.width.toDouble(),
+    frame.image.height.toDouble(),
+  );
+  frame.image.dispose();
+  codec.dispose();
+  return size;
 }
 
 void main() {
   late Set<String> bundledFamilies;
+  late Set<String> assets;
 
   setUpAll(() async {
     final manifest =
@@ -90,6 +138,14 @@ void main() {
       for (final entry in manifest.cast<Map<String, dynamic>>())
         entry['family'] as String,
     };
+    assets = (await AssetManifest.loadFromAssetBundle(
+      rootBundle,
+    )).listAssets().toSet();
+  });
+
+  test('every type role has a kind in the scale', () {
+    final roles = SkinId.fallback.skin.typography.roles.keys.toSet();
+    expect(roles, _kinds.keys.toSet());
   });
 
   for (final MapEntry(key: name, value: skin) in skinsUnderTest.entries) {
@@ -107,11 +163,10 @@ void main() {
         expect(skin.day.ground.computeLuminance(), greaterThan(0.5));
       });
 
-      test('every type role is complete, colourless and in a bundled face', () {
-        for (final MapEntry(key: role, value: (style, _, _)) in _scale(
-          skin,
-        ).entries) {
-          expect(style.fontFamily, isIn(bundledFamilies), reason: role);
+      test('every type role is complete and colourless', () {
+        for (final MapEntry(key: role, value: style)
+            in skin.typography.roles.entries) {
+          expect(style.fontFamily, isNotNull, reason: role);
           expect(style.fontSize, isNotNull, reason: role);
           expect(style.fontWeight, isNotNull, reason: role);
           expect(style.height, isNotNull, reason: role);
@@ -121,16 +176,35 @@ void main() {
       });
 
       test('every type role is inside the brief\'s scale', () {
-        for (final MapEntry(key: role, value: (style, min, max)) in _scale(
-          skin,
-        ).entries) {
-          expect(
-            style.fontSize,
-            inInclusiveRange(min, max),
-            reason: '$role is ${style.fontSize}',
-          );
-        }
+        final outside = [
+          for (final MapEntry(key: role, value: style)
+              in skin.typography.roles.entries)
+            if (_kinds[role] case final kind?)
+              if (style.fontSize! < kind.min || style.fontSize! > kind.max)
+                '$role is ${style.fontSize}, a ${kind.name} is '
+                    '${kind.min} to ${kind.max}',
+        ];
+        expect(outside, isEmpty);
       });
+
+      test(
+        'every face it names is bundled or loaded on demand from assets',
+        () {
+          final onDemand = skin.fonts.onDemand;
+          for (final MapEntry(key: role, value: style)
+              in skin.typography.roles.entries) {
+            final family = style.fontFamily!;
+            expect(
+              bundledFamilies.contains(family) || onDemand.containsKey(family),
+              isTrue,
+              reason: '$role is in $family',
+            );
+          }
+          for (final file in onDemand.values.expand((files) => files)) {
+            expect(assets, contains(file));
+          }
+        },
+      );
 
       test('every shadow is a hard offset copy: no blur, no spread', () {
         for (final kind in GroundKind.values) {
@@ -163,91 +237,108 @@ void main() {
           shape.tokenRoundness,
           shape.badgeRoundness,
           shape.pipRoundness,
+          shape.archRoundness,
           shape.pressKeep,
         ]) {
           expect(v, inInclusiveRange(0, 1));
         }
+        final tilt = skin.tilt;
         for (final angle in [
-          skin.tilt.card,
-          skin.tilt.stamp,
-          skin.tilt.badge,
+          tilt.card,
+          tilt.stamp,
+          tilt.badge,
+          tilt.thumb,
+          tilt.hero,
+          ...tilt.scatter,
         ]) {
           expect(angle.abs(), lessThanOrEqualTo(10 * math.pi / 180));
         }
-        expect(skin.dimmed, inExclusiveRange(0, 1));
-      });
-
-      test('every picture the art set names is in the bundle', () async {
-        final art = skin.art;
-        final paths = [
-          for (final role in RoleId.values) art.role(role).path,
-          for (final scene in Scene.values) art.scene(scene).path,
-          for (final token in TokenId.values)
-            if (art.token(token) case TokenPicture(:final image)) image.path,
-        ];
-        for (final path in paths) {
-          final bytes = await rootBundle.load(path);
-          expect(bytes.lengthInBytes, greaterThan(0), reason: path);
+        expect(tilt.scatter, isNotEmpty);
+        for (final opacity in [skin.dimmed, skin.waiting, skin.recessed]) {
+          expect(opacity, inExclusiveRange(0, 1));
         }
       });
+
+      test(
+        'every picture is in the bundle at the size its art set says',
+        () async {
+          final art = skin.art;
+          final pictures = [
+            for (final role in RoleId.values) art.role(role),
+            for (final scene in Scene.values) art.scene(scene),
+            for (final token in TokenId.values) art.token(token),
+          ];
+          for (final picture in pictures) {
+            expect(
+              await _pixels(picture.path),
+              picture.pixels,
+              reason: picture.path,
+            );
+          }
+        },
+      );
     });
   }
 
-  group('art set', () {
-    final art = skinsUnderTest.values.first.art;
-
-    test('the five drawn tokens have pictures; the rest fall back', () {
-      final drawn = {
-        TokenId.crow,
-        TokenId.key,
-        TokenId.moth,
-        TokenId.bell,
-        TokenId.thorn,
-      };
-      for (final token in TokenId.values) {
+  test('each skin differs from every other in more than name', () {
+    final skins = skinsUnderTest.entries.toList();
+    for (var i = 0; i < skins.length; i++) {
+      for (var j = i + 1; j < skins.length; j++) {
+        final (a, b) = (skins[i].value, skins[j].value);
+        final pair = '${skins[i].key} and ${skins[j].key}';
+        expect(a.night.ground, isNot(b.night.ground), reason: pair);
         expect(
-          art.token(token),
-          drawn.contains(token) ? isA<TokenPicture>() : isA<TokenFallback>(),
-          reason: token.name,
+          a.typography.display.fontFamily,
+          isNot(b.typography.display.fontFamily),
+          reason: pair,
         );
+        expect(a.art.folder, isNot(b.art.folder), reason: pair);
+      }
+    }
+  });
+
+  test('only the default skin\'s faces are loaded at start', () {
+    expect(SkinId.fallback.skin.fonts.onDemand, isEmpty);
+    for (final id in SkinId.values.skip(1)) {
+      for (final family in id.skin.fonts.onDemand.keys) {
+        expect(bundledFamilies, isNot(contains(family)), reason: id.label);
+      }
+    }
+  });
+
+  group('tokens', () {
+    test('every seat has a drawn token', () {
+      final art = SkinId.fallback.skin.art;
+      for (final token in TokenId.values) {
+        expect(assets, contains(art.token(token).path));
       }
     });
 
-    test('fallback tokens are told apart by their letters', () {
-      final letters = [
-        for (final token in TokenId.values)
-          if (art.token(token) case TokenFallback(:final initials)) initials,
-      ];
-      expect(letters.toSet(), hasLength(letters.length));
-    });
-
-    test('a role is found by the name the server gives it', () {
-      const server = [
-        'Werewolf',
-        'Minion',
-        'Villager',
-        'Seer',
-        'Robber',
-        'Troublemaker',
-        'Drunk',
-        'Insomniac',
-        'Mason',
-        'Hunter',
-        'Tanner',
-        'Doppelganger',
-      ];
-      expect(server.map(RoleId.fromServer).toSet(), RoleId.values.toSet());
-      expect(RoleId.fromServer('werewolf'), isNull);
+    test('a token is found by the name the server gives it', () {
+      expect(TokenId.fromServer('crow'), TokenId.crow);
+      expect(TokenId.fromServer('scythe'), TokenId.scythe);
+      // A newer server's token: the app draws a plain disc (PlayerToken).
+      expect(TokenId.fromServer('owl'), isNull);
+      expect(TokenId.fromServer(null), isNull);
     });
   });
 
-  test('the two skins differ in more than name: colour, type and shape', () {
-    final [a, b] = skinsUnderTest.values.toList();
-    expect(a.night.ground, isNot(b.night.ground));
-    expect(
-      a.typography.display.fontFamily,
-      isNot(b.typography.display.fontFamily),
-    );
-    expect(a.shape.radius, isNot(b.shape.radius));
+  test('a role is found by the name the server gives it', () {
+    const server = [
+      'Werewolf',
+      'Minion',
+      'Villager',
+      'Seer',
+      'Robber',
+      'Troublemaker',
+      'Drunk',
+      'Insomniac',
+      'Mason',
+      'Hunter',
+      'Tanner',
+      'Doppelganger',
+    ];
+    expect(server.map(RoleId.fromServer).toSet(), RoleId.values.toSet());
+    expect(RoleId.fromServer('werewolf'), isNull);
   });
 }

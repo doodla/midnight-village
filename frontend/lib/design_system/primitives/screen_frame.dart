@@ -1,16 +1,48 @@
 import 'package:flutter/material.dart';
 
+import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
+import 'art_picture.dart';
+
+/// How a picture sits across the top of a screen, from the mocks. All three
+/// grow by the status bar's height, so on a phone with a notch the picture
+/// still reaches the top and the body still starts below the bar.
+enum TopArtLayout {
+  /// A scene (S01 Join, S05 the village sleeps): 330 tall, the body from 282,
+  /// fading from 160.
+  scene(height: 330, bodyTop: 282, fadeFrom: 160),
+
+  /// A strip (S02 the table): 180 tall, the body from 118, fading from 80.
+  banner(height: 180, bodyTop: 118, fadeFrom: 80),
+
+  /// A backdrop behind the whole top of the screen (S04 your card): 520 tall,
+  /// the body from 52, fading from 300.
+  backdrop(height: 520, bodyTop: 52, fadeFrom: 300);
+
+  const TopArtLayout({
+    required this.height,
+    required this.bodyTop,
+    required this.fadeFrom,
+  });
+
+  final double height;
+  final double bodyTop;
+  final double fadeFrom;
+}
 
 /// A whole screen, laid out as a stack (design brief section 3, rule 6): an
-/// optional picture across the top fading into the ground, the [body]
-/// (scrolling when it does not fit), and [actions] pinned to the bottom. Each
-/// part starts where the one above ends, so larger text pushes things down
-/// instead of overlapping. On a wide screen the phone layout is centred and
-/// the ground fills the rest.
+/// optional top (a picture behind the body's start, or a band in
+/// [topSlot]), the [body] (scrolling when it does not fit), and [actions]
+/// pinned to the bottom. Each part starts where the one above ends, so larger
+/// text pushes things down instead of overlapping. On a wide screen the phone
+/// layout is centred and the ground fills the rest.
+///
+/// Screens never build their own Scaffold: anything that must run edge to
+/// edge at the top (the sun, the vote's band, the count's band) goes in
+/// [topSlot], which scrolls with the body and reaches under the status bar.
 class ScreenFrame extends StatelessWidget {
   const ScreenFrame({
     super.key,
@@ -18,9 +50,13 @@ class ScreenFrame extends StatelessWidget {
     required this.body,
     this.actions = const [],
     this.topArt,
-    this.topArtHeight = 0,
-    this.topArtOverlap = 0,
-  });
+    this.topArtLayout = TopArtLayout.scene,
+    this.topSlot,
+    this.actionGap = Space.mdPlus,
+  }) : assert(
+         topArt == null || topSlot == null,
+         'A screen has a top picture or a top band, not both.',
+       );
 
   /// The widest the phone layout gets.
   static const maxWidth = 440.0;
@@ -28,48 +64,66 @@ class ScreenFrame extends StatelessWidget {
   final GroundKind ground;
   final Widget body;
 
-  /// Stacked at the bottom, full width, primary action first.
+  /// Stacked at the bottom, full width, primary action first (or the
+  /// progress line under it, as the mocks have).
   final List<Widget> actions;
 
-  /// A picture across the top, [topArtHeight] tall, under the status bar.
+  /// A picture across the top, under the status bar, fading into the ground.
   final ArtImage? topArt;
-  final double topArtHeight;
+  final TopArtLayout topArtLayout;
 
-  /// How far the body reaches up into the picture's faded foot.
-  final double topArtOverlap;
+  /// A full-width part above the body (`TimerBand`, `Band`), under the status
+  /// bar; it lays out its own safe-area inset.
+  final Widget? topSlot;
+
+  /// Between the pinned actions.
+  final double actionGap;
 
   @override
   Widget build(BuildContext context) {
-    final skin = context.skin;
-    final colors = skin.ground(ground);
-    final space = skin.spacing;
+    final colors = context.skin.ground(ground);
+    final safeTop = MediaQuery.paddingOf(context).top;
     final art = topArt;
+    final slot = topSlot;
 
-    final padded = Padding(
-      padding: EdgeInsets.symmetric(horizontal: space.gutter),
-      child: body,
-    );
-    final top = art == null
-        ? SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.only(top: space.screenTop),
-              child: padded,
+    const padded = EdgeInsets.symmetric(horizontal: Space.gutter);
+    final Widget top;
+    if (art != null) {
+      final layout = topArtLayout;
+      top = Stack(
+        children: [
+          SizedBox(
+            height: layout.height + safeTop,
+            width: double.infinity,
+            child: _TopArt(
+              art: art,
+              fadeTo: colors.ground,
+              fadeFrom: (layout.fadeFrom + safeTop) / (layout.height + safeTop),
             ),
-          )
-        : Stack(
-            children: [
-              SizedBox(
-                height: topArtHeight,
-                width: double.infinity,
-                child: _TopArt(art: art, fadeTo: colors.ground),
-              ),
-              Padding(
-                padding: EdgeInsets.only(top: topArtHeight - topArtOverlap),
-                child: padded,
-              ),
-            ],
-          );
+          ),
+          Padding(
+            padding: padded.copyWith(top: layout.bodyTop + safeTop),
+            child: body,
+          ),
+        ],
+      );
+    } else if (slot != null) {
+      top = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          slot,
+          Padding(
+            padding: padded.copyWith(top: Space.lg),
+            child: body,
+          ),
+        ],
+      );
+    } else {
+      top = Padding(
+        padding: padded.copyWith(top: Space.screenTop + safeTop),
+        child: body,
+      );
+    }
 
     return Scaffold(
       backgroundColor: colors.ground,
@@ -78,13 +132,15 @@ class ScreenFrame extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: maxWidth),
+            // The top runs under the status bar: each kind of top clears it
+            // by itself (above).
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.only(
-                      bottom: actions.isEmpty ? space.screenBottom : space.md,
+                      bottom: actions.isEmpty ? Space.screenBottom : Space.md,
                     ),
                     child: top,
                   ),
@@ -93,15 +149,15 @@ class ScreenFrame extends StatelessWidget {
                   SafeArea(
                     top: false,
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        space.gutter,
-                        space.xs,
-                        space.gutter,
-                        space.screenBottom,
+                      padding: const EdgeInsets.fromLTRB(
+                        Space.gutter,
+                        Space.xs,
+                        Space.gutter,
+                        Space.screenBottom,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        spacing: space.md,
+                        spacing: actionGap,
                         children: actions,
                       ),
                     ),
@@ -117,22 +173,29 @@ class ScreenFrame extends StatelessWidget {
 
 /// The top picture, its lower part fading into the ground.
 class _TopArt extends StatelessWidget {
-  const _TopArt({required this.art, required this.fadeTo});
+  const _TopArt({
+    required this.art,
+    required this.fadeTo,
+    required this.fadeFrom,
+  });
 
   final ArtImage art;
   final Color fadeTo;
+
+  /// Where the fade starts, as a fraction of the height.
+  final double fadeFrom;
 
   @override
   Widget build(BuildContext context) => Stack(
     fit: StackFit.expand,
     children: [
-      Image(image: art.provider, fit: BoxFit.cover, alignment: art.focus),
+      ArtPicture(art),
       DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            stops: const [0.5, 1],
+            stops: [fadeFrom.clamp(0, 1), 1],
             colors: [fadeTo.withValues(alpha: 0), fadeTo],
           ),
         ),

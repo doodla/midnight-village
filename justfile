@@ -47,6 +47,10 @@ makemigrations *args:
 test *args:
     {{backend_just}} test {{args}}
 
+# Re-record contract_samples/ from the real server (see backend/CLAUDE.md)
+samples:
+    {{backend_just}} samples
+
 # Run backend tests with coverage
 test-cov:
     {{backend_just}} test-cov

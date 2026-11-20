@@ -18,6 +18,14 @@ Future<void> _settleSubmit(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 401));
 }
 
+/// A deck with a Doppelganger (so the night has window 1).
+const _deckWithDoppelganger = {
+  'Doppelganger': 1,
+  'Werewolf': 2,
+  'Seer': 1,
+  'Villager': 2,
+};
+
 void main() {
   group('Night two-window progression', () {
     testWidgets(
@@ -26,7 +34,10 @@ void main() {
         // A Doppelganger who copies the Seer: look (window 1), follow-up as
         // Seer (window 1), then she waits through window 2 like everyone else.
         final setup = await tester.pumpGameFlow(
-          gameMeJson: GameMeJsonBuilder().withRole('doppelganger').build(),
+          gameMeJson: GameMeJsonBuilder()
+              .withRole('Doppelganger')
+              .withWave(1)
+              .build(),
         );
         addTearDown(setup.dispose);
         setup.registerActionSubmit();
@@ -37,14 +48,7 @@ void main() {
         // --- Window 1 opens and she is prompted for the look ---
         setup.ws.addServerEvent(GameEvents.waveStart(wave: 1));
         setup.ws.addServerEvent(
-          GameEvents.actionPrompt(
-            role: 'Doppelganger',
-            actionTypes: ['peek_player'],
-            validTargets: {
-              'player_ids': [2, 3],
-            },
-            wave: 1,
-          ),
+          GameEvents.actionPrompt('doppelganger', wave: 1),
         );
         await tester.pump();
         expect(find.byType(NightActionPrompt), findsOneWidget);
@@ -52,25 +56,13 @@ void main() {
         // --- Her look result arrives at once, then the follow-up prompt ---
         setup.ws.addServerEvent(
           GameEvents.actionResult(
+            'doppelganger_look',
             wave: 1,
-            revealedInfo: {
-              'target_name': 'Bob',
-              'role': 'seer',
-              'copied_role': 'Seer',
-            },
-            actionType: 'peek_player',
+            info: {'target_name': 'Bob'},
           ),
         );
         setup.ws.addServerEvent(
-          GameEvents.actionPrompt(
-            role: 'Seer',
-            actionTypes: ['peek_player', 'peek_center', 'skip'],
-            validTargets: {
-              'player_ids': [2, 3],
-              'center_indices': [0, 1, 2],
-            },
-            wave: 1,
-          ),
+          GameEvents.actionPrompt('doppelganger_followup', wave: 1),
         );
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 401));
@@ -102,13 +94,7 @@ void main() {
         });
 
         // --- Window 1 closes (her follow-up result), window 2 opens ---
-        setup.ws.addServerEvent(
-          GameEvents.actionResult(
-            wave: 1,
-            revealedInfo: {},
-            actionType: 'skip',
-          ),
-        );
+        setup.ws.addServerEvent(GameEvents.actionResult('skip', wave: 1));
         setup.ws.addServerEvent(GameEvents.waveComplete(wave: 1));
         setup.ws.addServerEvent(GameEvents.waveStart(wave: 2));
         // She has nothing to do in window 2.
@@ -141,23 +127,14 @@ void main() {
       'submit then wait: no result until the window closes, results arrive together',
       (tester) async {
         final setup = await tester.pumpGameFlow(
-          gameMeJson: GameMeJsonBuilder().withRole('robber').build(),
+          gameMeJson: GameMeJsonBuilder().withRole('Robber').build(),
         );
         addTearDown(setup.dispose);
         setup.registerActionSubmit();
 
         // Window 2 opens; the Robber may rob someone or skip.
         setup.ws.addServerEvent(GameEvents.waveStart(wave: 2));
-        setup.ws.addServerEvent(
-          GameEvents.actionPrompt(
-            role: 'Robber',
-            actionTypes: ['swap_with_player', 'skip'],
-            validTargets: {
-              'player_ids': [2, 3],
-            },
-            wave: 2,
-          ),
-        );
+        setup.ws.addServerEvent(GameEvents.actionPrompt('robber'));
         await tester.pump();
 
         // One real action plus skip is NOT a choice screen: straight to the
@@ -184,9 +161,8 @@ void main() {
         // The window closes: result, wave_complete, then the discussion.
         setup.ws.addServerEvent(
           GameEvents.actionResult(
-            wave: 2,
-            revealedInfo: {'target_name': 'Bob', 'new_role': 'villager'},
-            actionType: 'swap_with_player',
+            'swap_with_player',
+            info: {'target_name': 'Bob', 'new_role': 'villager'},
           ),
         );
         setup.ws.addServerEvent(GameEvents.waveComplete(wave: 2));
@@ -197,10 +173,15 @@ void main() {
       },
     );
 
-    testWidgets('wave_waiting skips wave for non-acting player', (
+    testWidgets('wave_waiting: the Seer waits through window 1', (
       tester,
     ) async {
-      final setup = await tester.pumpGameFlow();
+      final setup = await tester.pumpGameFlow(
+        gameMeJson: GameMeJsonBuilder()
+            .withDeck(_deckWithDoppelganger)
+            .withWave(1)
+            .build(),
+      );
       addTearDown(setup.dispose);
 
       // --- Initial state: night waiting ---
@@ -234,21 +215,7 @@ void main() {
       expect(find.text('The village sleeps\u2026'), findsOneWidget);
 
       // --- Action prompt for Seer in wave 2 ---
-      setup.ws.addServerEvent(
-        GameEvents.actionPrompt(
-          role: 'Seer',
-          actionTypes: ['peek_player', 'peek_center'],
-          validTargets: {
-            'peek_player': {
-              'players': [2, 3],
-            },
-            'peek_center': {
-              'card_indices': [0, 1, 2],
-            },
-          },
-          wave: 2,
-        ),
-      );
+      setup.ws.addServerEvent(GameEvents.actionPrompt('seer'));
       await tester.pump();
 
       // SeerChoiceView shown for wave 2 action.
@@ -258,9 +225,15 @@ void main() {
     });
 
     testWidgets(
-      'rapid wave progression (no action in any wave) stays waiting throughout',
+      'rapid window progression (no action in any window) stays waiting throughout',
       (tester) async {
-        final setup = await tester.pumpGameFlow();
+        final setup = await tester.pumpGameFlow(
+          gameMeJson: GameMeJsonBuilder()
+              .withRole('Villager')
+              .withDeck(_deckWithDoppelganger)
+              .withWave(1)
+              .build(),
+        );
         addTearDown(setup.dispose);
 
         // --- Initial state: night waiting ---

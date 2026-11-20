@@ -63,6 +63,12 @@ test *args:
 test-migrations:
     uv run pytest --migrations --create-db --no-cov -m migration
 
+# Re-record contract_samples/ (repo root) from the real server, after a change
+# to any payload: review the diff, commit it, and update the app's fixtures if
+# a test now fails. `just test` fails while the committed samples are stale.
+samples:
+    UPDATE_CONTRACT_SAMPLES=1 uv run pytest tests/contract/test_contract_samples.py --no-cov -q
+
 # Run tests with coverage report (uses pyproject.toml config)
 test-cov:
     uv run pytest

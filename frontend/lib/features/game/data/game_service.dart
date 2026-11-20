@@ -6,7 +6,6 @@ import '../../../core/api/authenticated_client.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../domain/game_session_state.dart';
-import '../domain/night_state.dart';
 
 part 'game_service.g.dart';
 
@@ -28,15 +27,7 @@ class GameService {
       final response = await _client.get<Map<String, dynamic>>(
         '/onuw/games/$gameId/me/',
       );
-      final data = response.data;
-      if (data == null) {
-        throw const MalformedResponseException('Response body is null');
-      }
-      // `night_results` mirrors the `action_result` socket event; parse it
-      // here (absent means none) so one bad entry cannot fail the fetch.
-      return GameSessionState.fromJson(
-        data,
-      ).copyWith(nightResults: parseNightResults(data['night_results']));
+      return gameStateFromServer(response.data!);
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -45,19 +36,16 @@ class GameService {
   /// Fetches who is connected, as `player_id -> connected`.
   ///
   /// `GET /onuw/games/{id}/players/`
-  /// A player without the flag counts as connected. Presence is a courtesy:
-  /// callers treat a failure as "everyone connected", never as an error.
+  /// Presence is a courtesy: callers treat a failure as "everyone
+  /// connected", never as an error.
   Future<Map<int, bool>> fetchPresence(String gameId) async {
     try {
       final response = await _client.get<Map<String, dynamic>>(
         '/onuw/games/$gameId/players/',
       );
-      final players = response.data?['players'];
-      if (players is! List) return const {};
       return {
-        for (final p in players)
-          if (p is Map && p['player_id'] is int)
-            p['player_id'] as int: p['connected'] != false,
+        for (final p in response.data!['players'] as List)
+          (p as Map)['player_id'] as int: p['connected'] as bool,
       };
     } on DioException catch (e) {
       throw mapDioException(e);
@@ -159,11 +147,7 @@ class GameService {
       final response = await _client.get<Map<String, dynamic>>(
         '/onuw/games/$gameId/results/',
       );
-      final data = response.data;
-      if (data == null) {
-        throw const MalformedResponseException('Results response body is null');
-      }
-      return data;
+      return response.data!;
     } on DioException catch (e) {
       throw mapDioException(e);
     }

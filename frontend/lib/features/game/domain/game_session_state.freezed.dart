@@ -17,8 +17,9 @@ mixin _$GamePlayer {
 
 @JsonKey(name: 'player_id') int get playerId;@JsonKey(name: 'display_name') String get displayName;/// Visible in voting phase only.
 @JsonKey(name: 'has_voted') bool get hasVoted;/// Whether the player's phone is connected. Public to the whole table.
-/// Absent in the response means connected.
- bool get connected;
+/// Not part of `/me/`: merged in from `GET .../players/` and kept up to
+/// date by `player_presence` events.
+@JsonKey(includeFromJson: false, includeToJson: false) bool get connected;
 /// Create a copy of GamePlayer
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -51,7 +52,7 @@ abstract mixin class $GamePlayerCopyWith<$Res>  {
   factory $GamePlayerCopyWith(GamePlayer value, $Res Function(GamePlayer) _then) = _$GamePlayerCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'player_id') int playerId,@JsonKey(name: 'display_name') String displayName,@JsonKey(name: 'has_voted') bool hasVoted, bool connected
+@JsonKey(name: 'player_id') int playerId,@JsonKey(name: 'display_name') String displayName,@JsonKey(name: 'has_voted') bool hasVoted,@JsonKey(includeFromJson: false, includeToJson: false) bool connected
 });
 
 
@@ -159,7 +160,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted,  bool connected)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(includeFromJson: false, includeToJson: false)  bool connected)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GamePlayer() when $default != null:
 return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected);case _:
@@ -180,7 +181,7 @@ return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected)
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted,  bool connected)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(includeFromJson: false, includeToJson: false)  bool connected)  $default,) {final _that = this;
 switch (_that) {
 case _GamePlayer():
 return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected);case _:
@@ -200,7 +201,7 @@ return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected)
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted,  bool connected)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'player_id')  int playerId, @JsonKey(name: 'display_name')  String displayName, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(includeFromJson: false, includeToJson: false)  bool connected)?  $default,) {final _that = this;
 switch (_that) {
 case _GamePlayer() when $default != null:
 return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected);case _:
@@ -215,7 +216,7 @@ return $default(_that.playerId,_that.displayName,_that.hasVoted,_that.connected)
 @JsonSerializable()
 
 class _GamePlayer implements GamePlayer {
-  const _GamePlayer({@JsonKey(name: 'player_id') required this.playerId, @JsonKey(name: 'display_name') required this.displayName, @JsonKey(name: 'has_voted') this.hasVoted = false, this.connected = true});
+  const _GamePlayer({@JsonKey(name: 'player_id') required this.playerId, @JsonKey(name: 'display_name') required this.displayName, @JsonKey(name: 'has_voted') this.hasVoted = false, @JsonKey(includeFromJson: false, includeToJson: false) this.connected = true});
   factory _GamePlayer.fromJson(Map<String, dynamic> json) => _$GamePlayerFromJson(json);
 
 @override@JsonKey(name: 'player_id') final  int playerId;
@@ -223,8 +224,9 @@ class _GamePlayer implements GamePlayer {
 /// Visible in voting phase only.
 @override@JsonKey(name: 'has_voted') final  bool hasVoted;
 /// Whether the player's phone is connected. Public to the whole table.
-/// Absent in the response means connected.
-@override@JsonKey() final  bool connected;
+/// Not part of `/me/`: merged in from `GET .../players/` and kept up to
+/// date by `player_presence` events.
+@override@JsonKey(includeFromJson: false, includeToJson: false) final  bool connected;
 
 /// Create a copy of GamePlayer
 /// with the given fields replaced by the non-null parameter values.
@@ -259,7 +261,7 @@ abstract mixin class _$GamePlayerCopyWith<$Res> implements $GamePlayerCopyWith<$
   factory _$GamePlayerCopyWith(_GamePlayer value, $Res Function(_GamePlayer) _then) = __$GamePlayerCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'player_id') int playerId,@JsonKey(name: 'display_name') String displayName,@JsonKey(name: 'has_voted') bool hasVoted, bool connected
+@JsonKey(name: 'player_id') int playerId,@JsonKey(name: 'display_name') String displayName,@JsonKey(name: 'has_voted') bool hasVoted,@JsonKey(includeFromJson: false, includeToJson: false) bool connected
 });
 
 
@@ -564,20 +566,24 @@ as String?,
 /// @nodoc
 mixin _$GameSessionState {
 
-@JsonKey(name: 'game_id') String get gameId; String get phase;@JsonKey(name: 'current_wave') int get currentWave; DateTime? get deadline;@JsonKey(name: 'your_role') YourRole get yourRole; List<GamePlayer> get players;@JsonKey(name: 'has_voted') bool get hasVoted;@JsonKey(name: 'action_prompt') ActionPrompt? get actionPrompt;@JsonKey(name: 'last_action_result') ActionResult? get lastActionResult;/// Frontend-only display state for the night phase sub-view.
+@JsonKey(name: 'game_id') String get gameId; String get phase;@JsonKey(name: 'current_wave') int get currentWave;/// Null when the phase has no time limit (always sent).
+@JsonKey(required: true) DateTime? get deadline;@JsonKey(name: 'your_role') YourRole get yourRole; List<GamePlayer> get players;@JsonKey(name: 'has_voted') bool get hasVoted;/// Null when this player has nothing to do now (always sent).
+@JsonKey(name: 'action_prompt', required: true) ActionPrompt? get actionPrompt;/// The night result on screen (from `action_result` or `night_results`;
+/// `/me/` has no such key).
+@JsonKey(includeFromJson: false, includeToJson: false) ActionResult? get lastActionResult;/// Frontend-only display state for the night phase sub-view.
 @JsonKey(includeFromJson: false, includeToJson: false) NightSubView get nightSubView;/// Roles present in this game with their counts.
 @JsonKey(name: 'roles_in_game') List<RoleInGame> get rolesInGame;/// Vote progress tracking during voting phase.
 @JsonKey(includeFromJson: false, includeToJson: false) VoteProgress get voteProgress;/// Vote reveal data received after voting completes.
 @JsonKey(includeFromJson: false, includeToJson: false) VoteRevealData? get voteRevealData;/// Full game results fetched from REST after game_results event.
 @JsonKey(includeFromJson: false, includeToJson: false) GameResult? get results;/// Whether the current player is the game host (from server response).
-@JsonKey(name: 'is_host') bool get isHost;/// The effective (current) host's player id, when the server says. When
-/// present, [isHost] follows it, and `host_changed` events update both.
-@JsonKey(name: 'host_id') int? get hostId;/// The latest host change, for the quiet line everyone sees ("Ben is
+@JsonKey(name: 'is_host') bool get isHost;/// The effective (current) host's player id. [isHost] follows it, and
+/// `host_changed` events update both.
+@JsonKey(name: 'host_id') int get hostId;/// The latest host change, for the quiet line everyone sees ("Ben is
 /// hosting while Ana is away").
 @JsonKey(includeFromJson: false, includeToJson: false) HostChange? get hostNotice;/// A plain line about a host action that was refused because the role had
 /// just moved ("You are no longer the host.").
-@JsonKey(includeFromJson: false, includeToJson: false) String? get hostActionNotice;/// Code of the table (lobby) this game belongs to, when the server says.
-@JsonKey(name: 'lobby_code') String? get lobbyCode;/// This player's own results for night windows that have already closed,
+@JsonKey(includeFromJson: false, includeToJson: false) String? get hostActionNotice;/// Code of the table (lobby) this game belongs to (in every phase).
+@JsonKey(name: 'lobby_code') String get lobbyCode;/// This player's own results for night windows that have already closed,
 /// in order (from `night_results`). Parsed by [GameService]; the later
 /// "My night" feature reads it.
 @JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> get nightResults;/// Night results already put in front of the player (shown, or queued to
@@ -623,7 +629,7 @@ abstract mixin class $GameSessionStateCopyWith<$Res>  {
   factory $GameSessionStateCopyWith(GameSessionState value, $Res Function(GameSessionState) _then) = _$GameSessionStateCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'game_id') String gameId, String phase,@JsonKey(name: 'current_wave') int currentWave, DateTime? deadline,@JsonKey(name: 'your_role') YourRole yourRole, List<GamePlayer> players,@JsonKey(name: 'has_voted') bool hasVoted,@JsonKey(name: 'action_prompt') ActionPrompt? actionPrompt,@JsonKey(name: 'last_action_result') ActionResult? lastActionResult,@JsonKey(includeFromJson: false, includeToJson: false) NightSubView nightSubView,@JsonKey(name: 'roles_in_game') List<RoleInGame> rolesInGame,@JsonKey(includeFromJson: false, includeToJson: false) VoteProgress voteProgress,@JsonKey(includeFromJson: false, includeToJson: false) VoteRevealData? voteRevealData,@JsonKey(includeFromJson: false, includeToJson: false) GameResult? results,@JsonKey(name: 'is_host') bool isHost,@JsonKey(name: 'host_id') int? hostId,@JsonKey(includeFromJson: false, includeToJson: false) HostChange? hostNotice,@JsonKey(includeFromJson: false, includeToJson: false) String? hostActionNotice,@JsonKey(name: 'lobby_code') String? lobbyCode,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> nightResults,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> shownNightResults,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> pendingNightResults,@JsonKey(includeFromJson: false, includeToJson: false) bool tableClosed,@JsonKey(includeFromJson: false, includeToJson: false) String? playAgainLobbyCode
+@JsonKey(name: 'game_id') String gameId, String phase,@JsonKey(name: 'current_wave') int currentWave,@JsonKey(required: true) DateTime? deadline,@JsonKey(name: 'your_role') YourRole yourRole, List<GamePlayer> players,@JsonKey(name: 'has_voted') bool hasVoted,@JsonKey(name: 'action_prompt', required: true) ActionPrompt? actionPrompt,@JsonKey(includeFromJson: false, includeToJson: false) ActionResult? lastActionResult,@JsonKey(includeFromJson: false, includeToJson: false) NightSubView nightSubView,@JsonKey(name: 'roles_in_game') List<RoleInGame> rolesInGame,@JsonKey(includeFromJson: false, includeToJson: false) VoteProgress voteProgress,@JsonKey(includeFromJson: false, includeToJson: false) VoteRevealData? voteRevealData,@JsonKey(includeFromJson: false, includeToJson: false) GameResult? results,@JsonKey(name: 'is_host') bool isHost,@JsonKey(name: 'host_id') int hostId,@JsonKey(includeFromJson: false, includeToJson: false) HostChange? hostNotice,@JsonKey(includeFromJson: false, includeToJson: false) String? hostActionNotice,@JsonKey(name: 'lobby_code') String lobbyCode,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> nightResults,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> shownNightResults,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> pendingNightResults,@JsonKey(includeFromJson: false, includeToJson: false) bool tableClosed,@JsonKey(includeFromJson: false, includeToJson: false) String? playAgainLobbyCode
 });
 
 
@@ -640,7 +646,7 @@ class _$GameSessionStateCopyWithImpl<$Res>
 
 /// Create a copy of GameSessionState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? gameId = null,Object? phase = null,Object? currentWave = null,Object? deadline = freezed,Object? yourRole = null,Object? players = null,Object? hasVoted = null,Object? actionPrompt = freezed,Object? lastActionResult = freezed,Object? nightSubView = null,Object? rolesInGame = null,Object? voteProgress = null,Object? voteRevealData = freezed,Object? results = freezed,Object? isHost = null,Object? hostId = freezed,Object? hostNotice = freezed,Object? hostActionNotice = freezed,Object? lobbyCode = freezed,Object? nightResults = null,Object? shownNightResults = null,Object? pendingNightResults = null,Object? tableClosed = null,Object? playAgainLobbyCode = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? gameId = null,Object? phase = null,Object? currentWave = null,Object? deadline = freezed,Object? yourRole = null,Object? players = null,Object? hasVoted = null,Object? actionPrompt = freezed,Object? lastActionResult = freezed,Object? nightSubView = null,Object? rolesInGame = null,Object? voteProgress = null,Object? voteRevealData = freezed,Object? results = freezed,Object? isHost = null,Object? hostId = null,Object? hostNotice = freezed,Object? hostActionNotice = freezed,Object? lobbyCode = null,Object? nightResults = null,Object? shownNightResults = null,Object? pendingNightResults = null,Object? tableClosed = null,Object? playAgainLobbyCode = freezed,}) {
   return _then(_self.copyWith(
 gameId: null == gameId ? _self.gameId : gameId // ignore: cast_nullable_to_non_nullable
 as String,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
@@ -657,11 +663,11 @@ as List<RoleInGame>,voteProgress: null == voteProgress ? _self.voteProgress : vo
 as VoteProgress,voteRevealData: freezed == voteRevealData ? _self.voteRevealData : voteRevealData // ignore: cast_nullable_to_non_nullable
 as VoteRevealData?,results: freezed == results ? _self.results : results // ignore: cast_nullable_to_non_nullable
 as GameResult?,isHost: null == isHost ? _self.isHost : isHost // ignore: cast_nullable_to_non_nullable
-as bool,hostId: freezed == hostId ? _self.hostId : hostId // ignore: cast_nullable_to_non_nullable
-as int?,hostNotice: freezed == hostNotice ? _self.hostNotice : hostNotice // ignore: cast_nullable_to_non_nullable
+as bool,hostId: null == hostId ? _self.hostId : hostId // ignore: cast_nullable_to_non_nullable
+as int,hostNotice: freezed == hostNotice ? _self.hostNotice : hostNotice // ignore: cast_nullable_to_non_nullable
 as HostChange?,hostActionNotice: freezed == hostActionNotice ? _self.hostActionNotice : hostActionNotice // ignore: cast_nullable_to_non_nullable
-as String?,lobbyCode: freezed == lobbyCode ? _self.lobbyCode : lobbyCode // ignore: cast_nullable_to_non_nullable
-as String?,nightResults: null == nightResults ? _self.nightResults : nightResults // ignore: cast_nullable_to_non_nullable
+as String?,lobbyCode: null == lobbyCode ? _self.lobbyCode : lobbyCode // ignore: cast_nullable_to_non_nullable
+as String,nightResults: null == nightResults ? _self.nightResults : nightResults // ignore: cast_nullable_to_non_nullable
 as List<ActionResult>,shownNightResults: null == shownNightResults ? _self.shownNightResults : shownNightResults // ignore: cast_nullable_to_non_nullable
 as List<ActionResult>,pendingNightResults: null == pendingNightResults ? _self.pendingNightResults : pendingNightResults // ignore: cast_nullable_to_non_nullable
 as List<ActionResult>,tableClosed: null == tableClosed ? _self.tableClosed : tableClosed // ignore: cast_nullable_to_non_nullable
@@ -817,7 +823,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'game_id')  String gameId,  String phase, @JsonKey(name: 'current_wave')  int currentWave,  DateTime? deadline, @JsonKey(name: 'your_role')  YourRole yourRole,  List<GamePlayer> players, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(name: 'action_prompt')  ActionPrompt? actionPrompt, @JsonKey(name: 'last_action_result')  ActionResult? lastActionResult, @JsonKey(includeFromJson: false, includeToJson: false)  NightSubView nightSubView, @JsonKey(name: 'roles_in_game')  List<RoleInGame> rolesInGame, @JsonKey(includeFromJson: false, includeToJson: false)  VoteProgress voteProgress, @JsonKey(includeFromJson: false, includeToJson: false)  VoteRevealData? voteRevealData, @JsonKey(includeFromJson: false, includeToJson: false)  GameResult? results, @JsonKey(name: 'is_host')  bool isHost, @JsonKey(name: 'host_id')  int? hostId, @JsonKey(includeFromJson: false, includeToJson: false)  HostChange? hostNotice, @JsonKey(includeFromJson: false, includeToJson: false)  String? hostActionNotice, @JsonKey(name: 'lobby_code')  String? lobbyCode, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> nightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> shownNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> pendingNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  bool tableClosed, @JsonKey(includeFromJson: false, includeToJson: false)  String? playAgainLobbyCode)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'game_id')  String gameId,  String phase, @JsonKey(name: 'current_wave')  int currentWave, @JsonKey(required: true)  DateTime? deadline, @JsonKey(name: 'your_role')  YourRole yourRole,  List<GamePlayer> players, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(name: 'action_prompt', required: true)  ActionPrompt? actionPrompt, @JsonKey(includeFromJson: false, includeToJson: false)  ActionResult? lastActionResult, @JsonKey(includeFromJson: false, includeToJson: false)  NightSubView nightSubView, @JsonKey(name: 'roles_in_game')  List<RoleInGame> rolesInGame, @JsonKey(includeFromJson: false, includeToJson: false)  VoteProgress voteProgress, @JsonKey(includeFromJson: false, includeToJson: false)  VoteRevealData? voteRevealData, @JsonKey(includeFromJson: false, includeToJson: false)  GameResult? results, @JsonKey(name: 'is_host')  bool isHost, @JsonKey(name: 'host_id')  int hostId, @JsonKey(includeFromJson: false, includeToJson: false)  HostChange? hostNotice, @JsonKey(includeFromJson: false, includeToJson: false)  String? hostActionNotice, @JsonKey(name: 'lobby_code')  String lobbyCode, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> nightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> shownNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> pendingNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  bool tableClosed, @JsonKey(includeFromJson: false, includeToJson: false)  String? playAgainLobbyCode)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GameSessionState() when $default != null:
 return $default(_that.gameId,_that.phase,_that.currentWave,_that.deadline,_that.yourRole,_that.players,_that.hasVoted,_that.actionPrompt,_that.lastActionResult,_that.nightSubView,_that.rolesInGame,_that.voteProgress,_that.voteRevealData,_that.results,_that.isHost,_that.hostId,_that.hostNotice,_that.hostActionNotice,_that.lobbyCode,_that.nightResults,_that.shownNightResults,_that.pendingNightResults,_that.tableClosed,_that.playAgainLobbyCode);case _:
@@ -838,7 +844,7 @@ return $default(_that.gameId,_that.phase,_that.currentWave,_that.deadline,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'game_id')  String gameId,  String phase, @JsonKey(name: 'current_wave')  int currentWave,  DateTime? deadline, @JsonKey(name: 'your_role')  YourRole yourRole,  List<GamePlayer> players, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(name: 'action_prompt')  ActionPrompt? actionPrompt, @JsonKey(name: 'last_action_result')  ActionResult? lastActionResult, @JsonKey(includeFromJson: false, includeToJson: false)  NightSubView nightSubView, @JsonKey(name: 'roles_in_game')  List<RoleInGame> rolesInGame, @JsonKey(includeFromJson: false, includeToJson: false)  VoteProgress voteProgress, @JsonKey(includeFromJson: false, includeToJson: false)  VoteRevealData? voteRevealData, @JsonKey(includeFromJson: false, includeToJson: false)  GameResult? results, @JsonKey(name: 'is_host')  bool isHost, @JsonKey(name: 'host_id')  int? hostId, @JsonKey(includeFromJson: false, includeToJson: false)  HostChange? hostNotice, @JsonKey(includeFromJson: false, includeToJson: false)  String? hostActionNotice, @JsonKey(name: 'lobby_code')  String? lobbyCode, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> nightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> shownNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> pendingNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  bool tableClosed, @JsonKey(includeFromJson: false, includeToJson: false)  String? playAgainLobbyCode)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'game_id')  String gameId,  String phase, @JsonKey(name: 'current_wave')  int currentWave, @JsonKey(required: true)  DateTime? deadline, @JsonKey(name: 'your_role')  YourRole yourRole,  List<GamePlayer> players, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(name: 'action_prompt', required: true)  ActionPrompt? actionPrompt, @JsonKey(includeFromJson: false, includeToJson: false)  ActionResult? lastActionResult, @JsonKey(includeFromJson: false, includeToJson: false)  NightSubView nightSubView, @JsonKey(name: 'roles_in_game')  List<RoleInGame> rolesInGame, @JsonKey(includeFromJson: false, includeToJson: false)  VoteProgress voteProgress, @JsonKey(includeFromJson: false, includeToJson: false)  VoteRevealData? voteRevealData, @JsonKey(includeFromJson: false, includeToJson: false)  GameResult? results, @JsonKey(name: 'is_host')  bool isHost, @JsonKey(name: 'host_id')  int hostId, @JsonKey(includeFromJson: false, includeToJson: false)  HostChange? hostNotice, @JsonKey(includeFromJson: false, includeToJson: false)  String? hostActionNotice, @JsonKey(name: 'lobby_code')  String lobbyCode, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> nightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> shownNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> pendingNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  bool tableClosed, @JsonKey(includeFromJson: false, includeToJson: false)  String? playAgainLobbyCode)  $default,) {final _that = this;
 switch (_that) {
 case _GameSessionState():
 return $default(_that.gameId,_that.phase,_that.currentWave,_that.deadline,_that.yourRole,_that.players,_that.hasVoted,_that.actionPrompt,_that.lastActionResult,_that.nightSubView,_that.rolesInGame,_that.voteProgress,_that.voteRevealData,_that.results,_that.isHost,_that.hostId,_that.hostNotice,_that.hostActionNotice,_that.lobbyCode,_that.nightResults,_that.shownNightResults,_that.pendingNightResults,_that.tableClosed,_that.playAgainLobbyCode);case _:
@@ -858,7 +864,7 @@ return $default(_that.gameId,_that.phase,_that.currentWave,_that.deadline,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'game_id')  String gameId,  String phase, @JsonKey(name: 'current_wave')  int currentWave,  DateTime? deadline, @JsonKey(name: 'your_role')  YourRole yourRole,  List<GamePlayer> players, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(name: 'action_prompt')  ActionPrompt? actionPrompt, @JsonKey(name: 'last_action_result')  ActionResult? lastActionResult, @JsonKey(includeFromJson: false, includeToJson: false)  NightSubView nightSubView, @JsonKey(name: 'roles_in_game')  List<RoleInGame> rolesInGame, @JsonKey(includeFromJson: false, includeToJson: false)  VoteProgress voteProgress, @JsonKey(includeFromJson: false, includeToJson: false)  VoteRevealData? voteRevealData, @JsonKey(includeFromJson: false, includeToJson: false)  GameResult? results, @JsonKey(name: 'is_host')  bool isHost, @JsonKey(name: 'host_id')  int? hostId, @JsonKey(includeFromJson: false, includeToJson: false)  HostChange? hostNotice, @JsonKey(includeFromJson: false, includeToJson: false)  String? hostActionNotice, @JsonKey(name: 'lobby_code')  String? lobbyCode, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> nightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> shownNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> pendingNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  bool tableClosed, @JsonKey(includeFromJson: false, includeToJson: false)  String? playAgainLobbyCode)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'game_id')  String gameId,  String phase, @JsonKey(name: 'current_wave')  int currentWave, @JsonKey(required: true)  DateTime? deadline, @JsonKey(name: 'your_role')  YourRole yourRole,  List<GamePlayer> players, @JsonKey(name: 'has_voted')  bool hasVoted, @JsonKey(name: 'action_prompt', required: true)  ActionPrompt? actionPrompt, @JsonKey(includeFromJson: false, includeToJson: false)  ActionResult? lastActionResult, @JsonKey(includeFromJson: false, includeToJson: false)  NightSubView nightSubView, @JsonKey(name: 'roles_in_game')  List<RoleInGame> rolesInGame, @JsonKey(includeFromJson: false, includeToJson: false)  VoteProgress voteProgress, @JsonKey(includeFromJson: false, includeToJson: false)  VoteRevealData? voteRevealData, @JsonKey(includeFromJson: false, includeToJson: false)  GameResult? results, @JsonKey(name: 'is_host')  bool isHost, @JsonKey(name: 'host_id')  int hostId, @JsonKey(includeFromJson: false, includeToJson: false)  HostChange? hostNotice, @JsonKey(includeFromJson: false, includeToJson: false)  String? hostActionNotice, @JsonKey(name: 'lobby_code')  String lobbyCode, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> nightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> shownNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  List<ActionResult> pendingNightResults, @JsonKey(includeFromJson: false, includeToJson: false)  bool tableClosed, @JsonKey(includeFromJson: false, includeToJson: false)  String? playAgainLobbyCode)?  $default,) {final _that = this;
 switch (_that) {
 case _GameSessionState() when $default != null:
 return $default(_that.gameId,_that.phase,_that.currentWave,_that.deadline,_that.yourRole,_that.players,_that.hasVoted,_that.actionPrompt,_that.lastActionResult,_that.nightSubView,_that.rolesInGame,_that.voteProgress,_that.voteRevealData,_that.results,_that.isHost,_that.hostId,_that.hostNotice,_that.hostActionNotice,_that.lobbyCode,_that.nightResults,_that.shownNightResults,_that.pendingNightResults,_that.tableClosed,_that.playAgainLobbyCode);case _:
@@ -873,13 +879,14 @@ return $default(_that.gameId,_that.phase,_that.currentWave,_that.deadline,_that.
 @JsonSerializable()
 
 class _GameSessionState implements GameSessionState {
-  const _GameSessionState({@JsonKey(name: 'game_id') required this.gameId, required this.phase, @JsonKey(name: 'current_wave') this.currentWave = 0, this.deadline, @JsonKey(name: 'your_role') required this.yourRole, required final  List<GamePlayer> players, @JsonKey(name: 'has_voted') this.hasVoted = false, @JsonKey(name: 'action_prompt') this.actionPrompt, @JsonKey(name: 'last_action_result') this.lastActionResult, @JsonKey(includeFromJson: false, includeToJson: false) this.nightSubView = NightSubView.waiting, @JsonKey(name: 'roles_in_game') final  List<RoleInGame> rolesInGame = const [], @JsonKey(includeFromJson: false, includeToJson: false) this.voteProgress = const VoteProgress(), @JsonKey(includeFromJson: false, includeToJson: false) this.voteRevealData, @JsonKey(includeFromJson: false, includeToJson: false) this.results, @JsonKey(name: 'is_host') this.isHost = false, @JsonKey(name: 'host_id') this.hostId, @JsonKey(includeFromJson: false, includeToJson: false) this.hostNotice, @JsonKey(includeFromJson: false, includeToJson: false) this.hostActionNotice, @JsonKey(name: 'lobby_code') this.lobbyCode, @JsonKey(includeFromJson: false, includeToJson: false) final  List<ActionResult> nightResults = const [], @JsonKey(includeFromJson: false, includeToJson: false) final  List<ActionResult> shownNightResults = const [], @JsonKey(includeFromJson: false, includeToJson: false) final  List<ActionResult> pendingNightResults = const [], @JsonKey(includeFromJson: false, includeToJson: false) this.tableClosed = false, @JsonKey(includeFromJson: false, includeToJson: false) this.playAgainLobbyCode}): _players = players,_rolesInGame = rolesInGame,_nightResults = nightResults,_shownNightResults = shownNightResults,_pendingNightResults = pendingNightResults;
+  const _GameSessionState({@JsonKey(name: 'game_id') required this.gameId, required this.phase, @JsonKey(name: 'current_wave') required this.currentWave, @JsonKey(required: true) required this.deadline, @JsonKey(name: 'your_role') required this.yourRole, required final  List<GamePlayer> players, @JsonKey(name: 'has_voted') required this.hasVoted, @JsonKey(name: 'action_prompt', required: true) required this.actionPrompt, @JsonKey(includeFromJson: false, includeToJson: false) this.lastActionResult, @JsonKey(includeFromJson: false, includeToJson: false) this.nightSubView = NightSubView.waiting, @JsonKey(name: 'roles_in_game') required final  List<RoleInGame> rolesInGame, @JsonKey(includeFromJson: false, includeToJson: false) this.voteProgress = const VoteProgress(), @JsonKey(includeFromJson: false, includeToJson: false) this.voteRevealData, @JsonKey(includeFromJson: false, includeToJson: false) this.results, @JsonKey(name: 'is_host') required this.isHost, @JsonKey(name: 'host_id') required this.hostId, @JsonKey(includeFromJson: false, includeToJson: false) this.hostNotice, @JsonKey(includeFromJson: false, includeToJson: false) this.hostActionNotice, @JsonKey(name: 'lobby_code') required this.lobbyCode, @JsonKey(includeFromJson: false, includeToJson: false) final  List<ActionResult> nightResults = const [], @JsonKey(includeFromJson: false, includeToJson: false) final  List<ActionResult> shownNightResults = const [], @JsonKey(includeFromJson: false, includeToJson: false) final  List<ActionResult> pendingNightResults = const [], @JsonKey(includeFromJson: false, includeToJson: false) this.tableClosed = false, @JsonKey(includeFromJson: false, includeToJson: false) this.playAgainLobbyCode}): _players = players,_rolesInGame = rolesInGame,_nightResults = nightResults,_shownNightResults = shownNightResults,_pendingNightResults = pendingNightResults;
   factory _GameSessionState.fromJson(Map<String, dynamic> json) => _$GameSessionStateFromJson(json);
 
 @override@JsonKey(name: 'game_id') final  String gameId;
 @override final  String phase;
 @override@JsonKey(name: 'current_wave') final  int currentWave;
-@override final  DateTime? deadline;
+/// Null when the phase has no time limit (always sent).
+@override@JsonKey(required: true) final  DateTime? deadline;
 @override@JsonKey(name: 'your_role') final  YourRole yourRole;
  final  List<GamePlayer> _players;
 @override List<GamePlayer> get players {
@@ -889,8 +896,11 @@ class _GameSessionState implements GameSessionState {
 }
 
 @override@JsonKey(name: 'has_voted') final  bool hasVoted;
-@override@JsonKey(name: 'action_prompt') final  ActionPrompt? actionPrompt;
-@override@JsonKey(name: 'last_action_result') final  ActionResult? lastActionResult;
+/// Null when this player has nothing to do now (always sent).
+@override@JsonKey(name: 'action_prompt', required: true) final  ActionPrompt? actionPrompt;
+/// The night result on screen (from `action_result` or `night_results`;
+/// `/me/` has no such key).
+@override@JsonKey(includeFromJson: false, includeToJson: false) final  ActionResult? lastActionResult;
 /// Frontend-only display state for the night phase sub-view.
 @override@JsonKey(includeFromJson: false, includeToJson: false) final  NightSubView nightSubView;
 /// Roles present in this game with their counts.
@@ -910,17 +920,17 @@ class _GameSessionState implements GameSessionState {
 @override@JsonKey(includeFromJson: false, includeToJson: false) final  GameResult? results;
 /// Whether the current player is the game host (from server response).
 @override@JsonKey(name: 'is_host') final  bool isHost;
-/// The effective (current) host's player id, when the server says. When
-/// present, [isHost] follows it, and `host_changed` events update both.
-@override@JsonKey(name: 'host_id') final  int? hostId;
+/// The effective (current) host's player id. [isHost] follows it, and
+/// `host_changed` events update both.
+@override@JsonKey(name: 'host_id') final  int hostId;
 /// The latest host change, for the quiet line everyone sees ("Ben is
 /// hosting while Ana is away").
 @override@JsonKey(includeFromJson: false, includeToJson: false) final  HostChange? hostNotice;
 /// A plain line about a host action that was refused because the role had
 /// just moved ("You are no longer the host.").
 @override@JsonKey(includeFromJson: false, includeToJson: false) final  String? hostActionNotice;
-/// Code of the table (lobby) this game belongs to, when the server says.
-@override@JsonKey(name: 'lobby_code') final  String? lobbyCode;
+/// Code of the table (lobby) this game belongs to (in every phase).
+@override@JsonKey(name: 'lobby_code') final  String lobbyCode;
 /// This player's own results for night windows that have already closed,
 /// in order (from `night_results`). Parsed by [GameService]; the later
 /// "My night" feature reads it.
@@ -999,7 +1009,7 @@ abstract mixin class _$GameSessionStateCopyWith<$Res> implements $GameSessionSta
   factory _$GameSessionStateCopyWith(_GameSessionState value, $Res Function(_GameSessionState) _then) = __$GameSessionStateCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'game_id') String gameId, String phase,@JsonKey(name: 'current_wave') int currentWave, DateTime? deadline,@JsonKey(name: 'your_role') YourRole yourRole, List<GamePlayer> players,@JsonKey(name: 'has_voted') bool hasVoted,@JsonKey(name: 'action_prompt') ActionPrompt? actionPrompt,@JsonKey(name: 'last_action_result') ActionResult? lastActionResult,@JsonKey(includeFromJson: false, includeToJson: false) NightSubView nightSubView,@JsonKey(name: 'roles_in_game') List<RoleInGame> rolesInGame,@JsonKey(includeFromJson: false, includeToJson: false) VoteProgress voteProgress,@JsonKey(includeFromJson: false, includeToJson: false) VoteRevealData? voteRevealData,@JsonKey(includeFromJson: false, includeToJson: false) GameResult? results,@JsonKey(name: 'is_host') bool isHost,@JsonKey(name: 'host_id') int? hostId,@JsonKey(includeFromJson: false, includeToJson: false) HostChange? hostNotice,@JsonKey(includeFromJson: false, includeToJson: false) String? hostActionNotice,@JsonKey(name: 'lobby_code') String? lobbyCode,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> nightResults,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> shownNightResults,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> pendingNightResults,@JsonKey(includeFromJson: false, includeToJson: false) bool tableClosed,@JsonKey(includeFromJson: false, includeToJson: false) String? playAgainLobbyCode
+@JsonKey(name: 'game_id') String gameId, String phase,@JsonKey(name: 'current_wave') int currentWave,@JsonKey(required: true) DateTime? deadline,@JsonKey(name: 'your_role') YourRole yourRole, List<GamePlayer> players,@JsonKey(name: 'has_voted') bool hasVoted,@JsonKey(name: 'action_prompt', required: true) ActionPrompt? actionPrompt,@JsonKey(includeFromJson: false, includeToJson: false) ActionResult? lastActionResult,@JsonKey(includeFromJson: false, includeToJson: false) NightSubView nightSubView,@JsonKey(name: 'roles_in_game') List<RoleInGame> rolesInGame,@JsonKey(includeFromJson: false, includeToJson: false) VoteProgress voteProgress,@JsonKey(includeFromJson: false, includeToJson: false) VoteRevealData? voteRevealData,@JsonKey(includeFromJson: false, includeToJson: false) GameResult? results,@JsonKey(name: 'is_host') bool isHost,@JsonKey(name: 'host_id') int hostId,@JsonKey(includeFromJson: false, includeToJson: false) HostChange? hostNotice,@JsonKey(includeFromJson: false, includeToJson: false) String? hostActionNotice,@JsonKey(name: 'lobby_code') String lobbyCode,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> nightResults,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> shownNightResults,@JsonKey(includeFromJson: false, includeToJson: false) List<ActionResult> pendingNightResults,@JsonKey(includeFromJson: false, includeToJson: false) bool tableClosed,@JsonKey(includeFromJson: false, includeToJson: false) String? playAgainLobbyCode
 });
 
 
@@ -1016,7 +1026,7 @@ class __$GameSessionStateCopyWithImpl<$Res>
 
 /// Create a copy of GameSessionState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? gameId = null,Object? phase = null,Object? currentWave = null,Object? deadline = freezed,Object? yourRole = null,Object? players = null,Object? hasVoted = null,Object? actionPrompt = freezed,Object? lastActionResult = freezed,Object? nightSubView = null,Object? rolesInGame = null,Object? voteProgress = null,Object? voteRevealData = freezed,Object? results = freezed,Object? isHost = null,Object? hostId = freezed,Object? hostNotice = freezed,Object? hostActionNotice = freezed,Object? lobbyCode = freezed,Object? nightResults = null,Object? shownNightResults = null,Object? pendingNightResults = null,Object? tableClosed = null,Object? playAgainLobbyCode = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? gameId = null,Object? phase = null,Object? currentWave = null,Object? deadline = freezed,Object? yourRole = null,Object? players = null,Object? hasVoted = null,Object? actionPrompt = freezed,Object? lastActionResult = freezed,Object? nightSubView = null,Object? rolesInGame = null,Object? voteProgress = null,Object? voteRevealData = freezed,Object? results = freezed,Object? isHost = null,Object? hostId = null,Object? hostNotice = freezed,Object? hostActionNotice = freezed,Object? lobbyCode = null,Object? nightResults = null,Object? shownNightResults = null,Object? pendingNightResults = null,Object? tableClosed = null,Object? playAgainLobbyCode = freezed,}) {
   return _then(_GameSessionState(
 gameId: null == gameId ? _self.gameId : gameId // ignore: cast_nullable_to_non_nullable
 as String,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
@@ -1033,11 +1043,11 @@ as List<RoleInGame>,voteProgress: null == voteProgress ? _self.voteProgress : vo
 as VoteProgress,voteRevealData: freezed == voteRevealData ? _self.voteRevealData : voteRevealData // ignore: cast_nullable_to_non_nullable
 as VoteRevealData?,results: freezed == results ? _self.results : results // ignore: cast_nullable_to_non_nullable
 as GameResult?,isHost: null == isHost ? _self.isHost : isHost // ignore: cast_nullable_to_non_nullable
-as bool,hostId: freezed == hostId ? _self.hostId : hostId // ignore: cast_nullable_to_non_nullable
-as int?,hostNotice: freezed == hostNotice ? _self.hostNotice : hostNotice // ignore: cast_nullable_to_non_nullable
+as bool,hostId: null == hostId ? _self.hostId : hostId // ignore: cast_nullable_to_non_nullable
+as int,hostNotice: freezed == hostNotice ? _self.hostNotice : hostNotice // ignore: cast_nullable_to_non_nullable
 as HostChange?,hostActionNotice: freezed == hostActionNotice ? _self.hostActionNotice : hostActionNotice // ignore: cast_nullable_to_non_nullable
-as String?,lobbyCode: freezed == lobbyCode ? _self.lobbyCode : lobbyCode // ignore: cast_nullable_to_non_nullable
-as String?,nightResults: null == nightResults ? _self._nightResults : nightResults // ignore: cast_nullable_to_non_nullable
+as String?,lobbyCode: null == lobbyCode ? _self.lobbyCode : lobbyCode // ignore: cast_nullable_to_non_nullable
+as String,nightResults: null == nightResults ? _self._nightResults : nightResults // ignore: cast_nullable_to_non_nullable
 as List<ActionResult>,shownNightResults: null == shownNightResults ? _self._shownNightResults : shownNightResults // ignore: cast_nullable_to_non_nullable
 as List<ActionResult>,pendingNightResults: null == pendingNightResults ? _self._pendingNightResults : pendingNightResults // ignore: cast_nullable_to_non_nullable
 as List<ActionResult>,tableClosed: null == tableClosed ? _self.tableClosed : tableClosed // ignore: cast_nullable_to_non_nullable

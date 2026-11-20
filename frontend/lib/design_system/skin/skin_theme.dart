@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../layout/space.dart';
 import 'ground.dart';
 import 'skin.dart';
 
@@ -90,9 +91,7 @@ ThemeData _build(Skin skin, GroundKind kind) {
     ),
     textStyle: WidgetStatePropertyAll(type.buttonLabel),
     minimumSize: const WidgetStatePropertyAll(Size(64, 56)),
-    padding: WidgetStatePropertyAll(
-      EdgeInsets.symmetric(horizontal: skin.spacing.xl),
-    ),
+    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: Space.xl)),
     shape: WidgetStatePropertyAll(cornered),
     elevation: const WidgetStatePropertyAll(0),
   );
@@ -135,8 +134,8 @@ ThemeData _build(Skin skin, GroundKind kind) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       contentPadding: EdgeInsets.symmetric(
-        horizontal: skin.spacing.lg,
-        vertical: skin.spacing.lg,
+        horizontal: Space.lg,
+        vertical: Space.lg,
       ),
       border: inputBorder(g.outline),
       enabledBorder: inputBorder(g.outline),

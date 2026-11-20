@@ -4,9 +4,7 @@ import '../art_set.dart';
 import '../elevation.dart';
 import '../ground.dart';
 import '../skin.dart';
-import '../skin_motion.dart';
 import '../skin_shape.dart';
-import '../skin_spacing.dart';
 import '../skin_tilt.dart';
 import '../skin_type.dart';
 
@@ -43,6 +41,7 @@ const _night = Ground(
   quietText: _moonQuiet,
   faintText: _moonFaint,
   hairline: _nightHairline,
+  idle: _moonQuiet,
   outline: _moonQuiet,
   edge: _indigo,
   shadow: _deepShadow,
@@ -63,6 +62,7 @@ const _night = Ground(
   onDisabled: _moonFaint,
   elevation: GroundElevation(
     card: Elevation([HardShadow(Offset(3, 3), _deepShadow)]),
+    lying: Elevation([HardShadow(Offset(0, 4), _deepShadow)]),
     raised: Elevation([HardShadow(Offset(4, 4), _deepShadow)]),
     slab: Elevation([
       HardShadow(Offset(0, 5), _paperEdge),
@@ -88,6 +88,7 @@ const _day = Ground(
   quietText: _dayQuiet,
   faintText: _dayFaint,
   hairline: _dayShadow,
+  idle: _dayShadow,
   outline: _indigo,
   edge: _indigo,
   shadow: _dayShadow,
@@ -108,6 +109,7 @@ const _day = Ground(
   onDisabled: _dayQuiet,
   elevation: GroundElevation(
     card: Elevation([HardShadow(Offset(3, 3), _dayShadow)]),
+    lying: Elevation([HardShadow(Offset(0, 4), _dayShadow)]),
     raised: Elevation([HardShadow(Offset(4, 4), _dayShadow)]),
     slab: Elevation([
       HardShadow(Offset(0, 5), _paperEdge),
@@ -130,6 +132,7 @@ const _paper = Ground(
   quietText: _paperQuiet,
   faintText: _paperQuiet,
   hairline: _paperEdge,
+  idle: _paperQuiet,
   outline: _indigo,
   edge: _indigo,
   shadow: _paperEdge,
@@ -150,11 +153,13 @@ const _paper = Ground(
   onDisabled: _paperQuiet,
   elevation: GroundElevation(
     card: Elevation([HardShadow(Offset(3, 3), _paperEdge)]),
+    lying: Elevation([HardShadow(Offset(0, 4), _paperEdge)]),
     raised: Elevation([HardShadow(Offset(4, 4), _paperEdge)]),
     slab: Elevation([HardShadow(Offset(0, 5), _paperEdge)]),
     // The portrait in the role sheet (S03b).
     heroSlab: Elevation([HardShadow(Offset(5, 5), _blood)]),
-    primary: Elevation([HardShadow(Offset(4, 4), _blood)]),
+    // The mock's sheet button (S03b) is the compact size: 4,4.
+    primary: Elevation([HardShadow(Offset(5, 5), _blood)]),
     selected: Elevation([HardShadow(Offset(4, 4), _indigo)]),
     badge: Elevation([HardShadow(Offset(0, 2), _paperEdge)]),
   ),
@@ -186,19 +191,33 @@ TextStyle _figtree(
 );
 
 final _type = SkinType(
-  display: _gloock(36, height: 1, em: -0.01),
-  headline: _gloock(32, height: 1, em: -0.01),
-  title: _gloock(26, height: 1.15, em: -0.01),
-  heading: _gloock(24, height: 1),
-  name: _gloock(21, height: 1.1),
-  nameSmall: _gloock(18, height: 1.1),
+  heroTitle: _gloock(46, height: 1, em: -0.02), // S01
+  heroCode: _gloock(46, height: 1, em: 0.08), // S02
+  heroRole: _gloock(58, height: 0.9, em: -0.02), // S04
+  heroVerdict: _gloock(44, height: 0.95, em: -0.01), // S10
+  heroWinner: _gloock(40, height: 0.95, em: -0.01), // S11 (the picture)
+  display: _gloock(36, height: 0.95, em: -0.01), // S07, S10
+  screenTitle: _gloock(34, height: 1.05, em: -0.01), // S05, S09
+  headline: _gloock(32, height: 1, em: -0.01), // S03, S03b
+  title: _gloock(26, height: 1.15, em: -0.01), // S06, S09
+  tally: _gloock(28, height: 1), // S10
+  heading: _gloock(24, height: 1), // S03 pace, S08, S10 names
+  name: _gloock(21, height: 1.1), // S02
+  nameSmall: _gloock(18, height: 1.1), // S06
+  buttonLabelLarge: _gloock(21, height: 1), // S01, S04
   buttonLabel: _gloock(20, height: 1),
-  timer: _gloock(84, height: 0.9, em: -0.02),
-  timerSmall: _gloock(64, height: 1),
+  buttonLabelSmall: _gloock(19, height: 1), // S01 Join, S03b Close
+  timer: _gloock(84, height: 0.9, em: -0.02), // S08
+  timerVote: _gloock(76, height: 0.9, em: -0.02), // S09
+  timerSmall: _gloock(64, height: 1), // S05
+  timerCompact: _gloock(34, height: 1), // S06
   bodyLarge: _figtree(17, FontWeight.w500, height: 1.35),
+  lede: _figtree(16, FontWeight.w500, height: 1.3), // S01
   body: _figtree(15, FontWeight.w600, height: 1.35),
   action: _figtree(15, FontWeight.w700, height: 1.2),
+  code: _figtree(17, FontWeight.w700, height: 1.2, em: 0.12), // S01
   small: _figtree(14, FontWeight.w600, height: 1.35),
+  smallStrong: _figtree(14, FontWeight.w700, height: 1.35),
   caption: _figtree(13, FontWeight.w600, height: 1.3),
   tag: _figtree(13, FontWeight.w700, height: 1.2),
   badge: _figtree(12, FontWeight.w700, height: 1.2),
@@ -206,44 +225,29 @@ final _type = SkinType(
   micro: _figtree(11, FontWeight.w700, height: 1.2, em: 0.1),
 );
 
-const shadowPaperSpacing = SkinSpacing(
-  xxs: 4,
-  xs: 6,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-  xxl: 32,
-  gutter: 24,
-  screenTop: 40,
-  screenBottom: 28,
-);
-
-/// Not in a mock (the mocks are still pictures): short, firm movements.
-const shadowPaperMotion = SkinMotion(
-  press: Duration(milliseconds: 90),
-  quick: Duration(milliseconds: 160),
-  settle: Duration(milliseconds: 260),
-  reveal: Duration(milliseconds: 400),
-  curve: Curves.easeOutCubic,
-);
-
 const shadowPaperArt = ArtSet(
   folder: 'assets/skins/shadow_paper',
-  drawnTokens: {
-    TokenId.crow,
-    TokenId.key,
-    TokenId.moth,
-    TokenId.bell,
-    TokenId.thorn,
+  rolePixels: Size(576, 768),
+  tokenPixels: Size.square(192),
+  scenePixels: {
+    Scene.cardBack: Size(600, 800),
+    Scene.candle: Size(768, 1024),
+    Scene.table: Size(1024, 768),
+    Scene.streetDoor: Size(768, 1024),
+    Scene.sleepingVillage: Size(768, 1024),
+    Scene.nightVillage: Size(768, 1024),
+    Scene.dawnRooftops: Size(768, 1024),
+    Scene.dawnGallows: Size(1024, 768),
   },
-  // `object-position: 50% 15%` throughout the mocks.
+  // `object-position: 50% 15%` throughout the mocks; 50% 12% on your card.
   portraitFocus: Alignment(0, -0.7),
+  heroPortraitFocus: Alignment(0, -0.76),
   sceneFocus: {
     Scene.candle: Alignment(0, 0.24), // 50% 62%
     Scene.table: Alignment(0, 0.1), // 50% 55%
     Scene.streetDoor: Alignment(0, -0.76), // 50% 12%
-    Scene.sleepingVillage: Alignment.topCenter,
+    Scene.sleepingVillage: Alignment.topCenter, // 50% 0%
+    Scene.nightVillage: Alignment.topCenter, // 50% 0%
     Scene.dawnGallows: Alignment(0, -0.2), // 50% 40%
   },
 );
@@ -253,6 +257,7 @@ final shadowPaper = Skin(
   day: _day,
   paper: _paper,
   typography: _type,
+  fonts: const SkinFonts.bundled(),
   shape: const SkinShape(
     radius: 6,
     radiusSmall: 4,
@@ -269,11 +274,20 @@ final shadowPaper = Skin(
     pip: Size.square(12),
     pipRoundness: 1,
     pipEmptyStroke: 0,
+    pipStretch: false,
+    archRoundness: 1,
   ),
-  spacing: shadowPaperSpacing,
-  motion: shadowPaperMotion,
-  tilt: SkinTilt.none,
+  tilt: const SkinTilt(
+    card: 0,
+    stamp: 0,
+    badge: 0,
+    scatter: [-4 * SkinTilt.degree, 1 * SkinTilt.degree, 5 * SkinTilt.degree],
+    thumb: -4 * SkinTilt.degree, // S08
+    hero: -3 * SkinTilt.degree, // S11
+  ),
   art: shadowPaperArt,
   scrim: _deepShadow.withValues(alpha: 0.72),
-  dimmed: 0.4,
+  dimmed: 0.4, // S03
+  waiting: 0.35, // S05, S07, S08, S09
+  recessed: 0.75, // S06's center cards
 );

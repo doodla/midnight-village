@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/design_system/tokens/firelit_gothic_theme.dart';
@@ -8,6 +7,7 @@ import 'package:midnight_village/features/game/presentation/timer_provider.dart'
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 
+import '../test/helpers/contract/server_json.dart';
 import '../test/helpers/game_events.dart';
 import '../test/helpers/game_state_factory.dart';
 import '../test/helpers/game_test_setup.dart';
@@ -16,12 +16,10 @@ import '../test/helpers/mock_websocket.dart';
 import '../test/helpers/pump_app.dart';
 
 // One game at one table, from the deal to the results, as the server tells it:
-// every payload has the shape and casing of backend/apps/core/serializers.py
-// (lobby), backend/apps/onuw/serializers.py (/me), engine/night.py (prompts),
-// services.py (socket events) and views.py (results), and the screens are
-// reached through the events the server sends, in its order. Helper defaults
-// that differ from the server (e.g. GameMeJsonBuilder's lowercase roles) are
-// overridden here.
+// every payload is built from the server's recorded samples
+// (contract_samples/, see test/helpers/contract/), so it has the server's keys
+// and casing, and the screens are reached through the events the server
+// sends, in its order.
 //
 // Five players, the mocks' names. Ana set the table up, so she hosts.
 
@@ -65,15 +63,12 @@ const _nightDeadline = '2026-11-19T21:00:14+00:00';
 const _talkDeadline = '2026-11-19T21:04:12+00:00';
 const _voteDeadline = '2026-11-19T21:00:48+00:00';
 
+final _seats = [
+  for (var id = ana; id <= esme; id++) (id: id, name: _players[id - 1]),
+];
+
 AuthState _signedInAs(int id) =>
     AuthState.authenticated(User(id: id, displayName: _players[id - 1]));
-
-Map<String, dynamic> _user(int id) => {
-  'id': id,
-  // The server names guests with a UUID; players see the display name.
-  'username': '00000000-0000-4000-8000-00000000000$id',
-  'display_name': _players[id - 1],
-};
 
 // ---------------------------------------------------------------------------
 // Home and lobby
@@ -88,17 +83,8 @@ Future<void> pumpHome(WidgetTester tester, {required bool signedIn}) =>
 /// The lobby on [viewer]'s phone, everyone ready, through the real lobby
 /// service (mock HTTP) and a mock socket.
 Future<void> pumpLobby(WidgetTester tester, {int viewer = ana}) {
-  final http = MockHttpClient();
-  const path = '/lobbies/$_tableCode/';
-  http
-      .when(method: 'GET', path: path)
-      .thenReturn(
-        Response(
-          requestOptions: RequestOptions(path: path),
-          statusCode: 200,
-          data: _lobbyJson(),
-        ),
-      );
+  final http = MockHttpClient()
+    ..answer('GET', '/lobbies/$_tableCode/', _lobbyJson());
   return tester.pumpApp(
     initialRoute: '/lobby/$_tableCode',
     auth: _signedInAs(viewer),
@@ -115,83 +101,33 @@ Future<void> pumpLobby(WidgetTester tester, {int viewer = ana}) {
   );
 }
 
-/// `GET /lobbies/<code>/` (LobbySerializer).
-Map<String, dynamic> _lobbyJson() => {
-  'code': _tableCode,
-  'host': _user(ana),
-  'original_host_id': ana,
-  'is_acting_host': false,
-  'game_type': 'onuw',
-  'status': 'waiting',
-  'max_players': 10,
-  'settings': {'roles': _deck},
-  'players': [
-    for (var id = ana; id <= esme; id++)
-      {
-        'user': _user(id),
-        'is_ready': true,
-        'joined_at': '2026-11-19T20:5$id:00+00:00',
-      },
-  ],
-  'created_at': '2026-11-19T20:50:00+00:00',
-};
+/// `GET /lobbies/<code>/`, everyone ready.
+Map<String, dynamic> _lobbyJson() =>
+    serverLobby(code: _tableCode, seats: _seats, hostId: ana, roles: _deck);
 
 // ---------------------------------------------------------------------------
 // The night (window 2)
 // ---------------------------------------------------------------------------
 
 /// `GET /me/` during the night window on [viewer]'s phone.
-GameMeJsonBuilder _nightMe(int viewer, {bool hasActed = false}) {
-  final me = GameMeJsonBuilder()
-      .withGameId(_gameId)
-      .inPhase('night')
-      .withWave(_window)
-      .withDeadline(_nightDeadline)
-      .withRole(_dealt[viewer]!, hasActed: hasActed)
-      .withPlayers([
-        for (var id = ana; id <= esme; id++)
-          {'player_id': id, 'display_name': _players[id - 1]},
-      ])
-      .withRolesInGame([
-        for (final MapEntry(:key, :value) in _deck.entries)
-          {'role': key, 'count': value},
-      ])
-      .withLobbyCode(_tableCode)
-      .withHostId(ana);
-  return viewer == ana ? me.asHost() : me;
-}
-
-/// The window's prompt for [viewer], as engine/night.py builds it: the
-/// role's action types plus `skip`, and only the targets those types take.
-Map<String, dynamic> _prompt(int viewer, List<String> actionTypes) {
-  final others = [
-    for (var id = ana; id <= esme; id++)
-      if (id != viewer) id,
-  ];
-  return {
-    'role_acting_as': _dealt[viewer],
-    'action_types': [...actionTypes, 'skip'],
-    'valid_targets': {
-      if (actionTypes.any((t) => t.endsWith('player'))) 'player_ids': others,
-      if (actionTypes.contains('peek_center')) 'center_indices': [0, 1, 2],
-    },
-    'wave': _window,
-  };
-}
+GameMeJsonBuilder _nightMe(int viewer, {bool hasActed = false}) =>
+    GameMeJsonBuilder()
+        .withGameId(_gameId)
+        .withSeats(_seats)
+        .forViewer(viewer)
+        .withRole(_dealt[viewer]!, hasActed: hasActed)
+        .withDeck(_deck)
+        .withDeadline(_nightDeadline)
+        .withLobbyCode(_tableCode)
+        .withHostId(ana);
 
 /// Ana, the Seer, is asked what to look at.
-Future<GameTestSetup> pumpSeerPrompt(WidgetTester tester) => _pumpGame(
-  tester,
-  ana,
-  _nightMe(ana).withActionPrompt(_prompt(ana, ['peek_player', 'peek_center'])),
-);
+Future<GameTestSetup> pumpSeerPrompt(WidgetTester tester) =>
+    _pumpGame(tester, ana, _nightMe(ana).withPrompt('seer'));
 
 /// Ben, the Robber, is asked whom to rob.
-Future<GameTestSetup> pumpRobberPrompt(WidgetTester tester) => _pumpGame(
-  tester,
-  ben,
-  _nightMe(ben).withActionPrompt(_prompt(ben, ['swap_with_player'])),
-);
+Future<GameTestSetup> pumpRobberPrompt(WidgetTester tester) =>
+    _pumpGame(tester, ben, _nightMe(ben).withPrompt('robber'));
 
 /// Ana has chosen; nobody is told anything until the window closes.
 Future<GameTestSetup> pumpSeerWaiting(WidgetTester tester) =>
@@ -204,9 +140,9 @@ Future<GameTestSetup> pumpSeerResult(WidgetTester tester) async {
   game.ws
     ..addServerEvent(
       GameEvents.actionResult(
+        'peek_player',
         wave: _window,
-        actionType: 'peek_player',
-        revealedInfo: {'target_name': 'Cleo', 'role': 'werewolf'},
+        info: {'target_name': 'Cleo', 'role': 'werewolf'},
       ),
     )
     ..addServerEvent(GameEvents.waveComplete(wave: _window))
@@ -263,92 +199,65 @@ Future<GameTestSetup> pumpResults(WidgetTester tester) async {
   final game = await pumpCount(tester);
   final results = _resultsJson();
   game.registerResults(resultsJson: results);
-  game.ws.addServerEvent(
-    GameEvents.gameResults(
-      data: {
-        'winning_teams': results['winning_teams'],
-        'reason': results['reason'],
-        'eliminated_players': [cleo],
-      },
-    ),
-  );
+  game.ws.addServerEvent(GameEvents.gameResults(eliminatedPlayers: [cleo]));
   await _settle(tester);
   return game;
 }
 
-/// `GET /results/` (views.GameResultsView).
-Map<String, dynamic> _resultsJson() => {
-  'winning_teams': ['village'],
-  'reason': 'A Werewolf was eliminated.',
-  'eliminated_players': [
-    {
-      'player_id': cleo,
-      'display_name': 'Cleo',
-      'role': 'Werewolf',
-      'elimination_reason': 'vote',
-    },
-  ],
-  'players': [
-    for (var id = ana; id <= esme; id++)
-      {
-        'player_id': id,
-        'display_name': _players[id - 1],
+/// `GET /results/`: Cleo, a Werewolf, dies; the village wins.
+Map<String, dynamic> _resultsJson() => serverResults(
+  winningTeams: ['village'],
+  reason: 'A Werewolf was eliminated.',
+  players: [
+    for (final seat in _seats)
+      ResultSeat(
+        seat,
         // Ben and Dev did nothing, so no card moved.
-        'original_role': _dealt[id],
-        'final_role': _dealt[id],
-        'team': _dealt[id] == 'Werewolf' ? 'werewolf' : 'village',
-        'is_eliminated': id == cleo,
-        'elimination_reason': id == cleo ? 'vote' : null,
-        'outcome': _dealt[id] == 'Werewolf' ? 'lose' : 'win',
-        'vote_target_id': _votes[id],
-      },
+        originalRole: _dealt[seat.id]!,
+        team: _dealt[seat.id] == 'Werewolf' ? 'werewolf' : 'village',
+        won: _dealt[seat.id] != 'Werewolf',
+        eliminatedBy: seat.id == cleo ? 'vote' : null,
+        votedFor: _votes[seat.id],
+      ),
   ],
-  'center_cards': _center,
-  'night_actions_log': [
-    for (final (i, werewolf) in [cleo, esme].indexed)
-      _logEntry(
-        2,
-        i,
-        werewolf,
-        'Werewolf',
-        'see_team',
+  centerCards: _center,
+  nightActionsLog: [
+    for (final (i, (werewolf, other)) in [(cleo, esme), (esme, cleo)].indexed)
+      serverLogEntry(
+        orderGroup: 2,
+        order: i,
+        playerId: werewolf,
+        role: 'Werewolf',
+        actionType: 'see_team',
         result: {
-          'werewolves': [cleo, esme],
+          'werewolves': [other],
         },
       ),
-    _logEntry(
-      3,
-      0,
-      ana,
-      'Seer',
-      'peek_player',
+    serverLogEntry(
+      orderGroup: 3,
+      order: 0,
+      playerId: ana,
+      role: 'Seer',
+      actionType: 'peek_player',
       targets: {'player_id': cleo},
       result: {'peeked_role': 'Werewolf'},
     ),
-    _logEntry(3, 1, ben, 'Robber', 'skip'),
-    _logEntry(3, 2, dev, 'Troublemaker', 'skip'),
+    serverLogEntry(
+      orderGroup: 3,
+      order: 1,
+      playerId: ben,
+      role: 'Robber',
+      actionType: 'skip',
+    ),
+    serverLogEntry(
+      orderGroup: 3,
+      order: 2,
+      playerId: dev,
+      role: 'Troublemaker',
+      actionType: 'skip',
+    ),
   ],
-};
-
-/// One stored night log entry (services.persist_wave_results); [orderGroup]
-/// is the wake-order step it resolved in.
-Map<String, dynamic> _logEntry(
-  int orderGroup,
-  int order,
-  int playerId,
-  String role,
-  String actionType, {
-  Map<String, dynamic> targets = const {},
-  Map<String, dynamic> result = const {},
-}) => {
-  'wave': orderGroup,
-  'player_id': playerId,
-  'action_type': actionType,
-  'targets': targets,
-  'result': result,
-  'timestamp_order': order,
-  'role_acting_as': role,
-};
+);
 
 // ---------------------------------------------------------------------------
 
@@ -360,13 +269,7 @@ Future<GameTestSetup> _pumpGame(
   GameMeJsonBuilder me,
 ) => tester.pumpGameFlow(
   gameId: _gameId,
-  gameMeJson: {
-    // Sent by the server in every phase; the builder leaves them out.
-    'has_voted': false,
-    'action_prompt': null,
-    'night_results': <dynamic>[],
-    ...me.build(),
-  },
+  gameMeJson: me.build(),
   playerName: _players[viewer - 1],
   userId: viewer,
   theme: const FirelitGothicTheme(),

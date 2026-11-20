@@ -1,0 +1,679 @@
+{
+  "winning_teams": [
+    "village"
+  ],
+  "reason": "A Werewolf was eliminated.",
+  "eliminated_players": [
+    {
+      "player_id": 9,
+      "display_name": "Cleo",
+      "role": "Werewolf",
+      "elimination_reason": "vote"
+    }
+  ],
+  "players": [
+    {
+      "player_id": 7,
+      "display_name": "Ana",
+      "token": "hare",
+      "seat": 0,
+      "original_role": "Doppelganger",
+      "final_role": "Doppelganger",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 9
+    },
+    {
+      "player_id": 8,
+      "display_name": "Ben",
+      "token": "scythe",
+      "seat": 1,
+      "original_role": "Seer",
+      "final_role": "Seer",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 9
+    },
+    {
+      "player_id": 9,
+      "display_name": "Cleo",
+      "token": "lantern",
+      "seat": 2,
+      "original_role": "Werewolf",
+      "final_role": "Werewolf",
+      "team": "werewolf",
+      "is_eliminated": true,
+      "elimination_reason": "vote",
+      "outcome": "lose",
+      "vote_target_id": null
+    },
+    {
+      "player_id": 10,
+      "display_name": "Dev",
+      "token": "bell",
+      "seat": 3,
+      "original_role": "Minion",
+      "final_role": "Minion",
+      "team": "werewolf",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": null
+    },
+    {
+      "player_id": 11,
+      "display_name": "Esme",
+      "token": "antler",
+      "seat": 4,
+      "original_role": "Mason",
+      "final_role": "Mason",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": null
+    },
+    {
+      "player_id": 12,
+      "display_name": "Fin",
+      "token": "key",
+      "seat": 5,
+      "original_role": "Mason",
+      "final_role": "Mason",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": null
+    },
+    {
+      "player_id": 13,
+      "display_name": "Gus",
+      "token": "crow",
+      "seat": 6,
+      "original_role": "Drunk",
+      "final_role": "Werewolf",
+      "team": "werewolf",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": null
+    },
+    {
+      "player_id": 14,
+      "display_name": "Hana",
+      "token": "spindle",
+      "seat": 7,
+      "original_role": "Insomniac",
+      "final_role": "Insomniac",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": null
+    }
+  ],
+  "center_cards": [
+    "Drunk",
+    "Villager",
+    "Tanner"
+  ],
+  "night_actions_log": [
+    {
+      "wave": 1,
+      "result": {
+        "copied_role": "Seer"
+      },
+      "targets": {
+        "player_id": 8
+      },
+      "player_id": 7,
+      "action_type": "peek_player",
+      "role_acting_as": "Doppelganger",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 1,
+      "result": {
+        "peeked_center": [
+          {
+            "role": "Werewolf",
+            "index": 0
+          },
+          {
+            "role": "Tanner",
+            "index": 2
+          }
+        ]
+      },
+      "targets": {
+        "center_indices": [
+          0,
+          2
+        ]
+      },
+      "player_id": 7,
+      "action_type": "peek_center",
+      "role_acting_as": "Seer",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 2,
+      "result": {
+        "werewolves": [],
+        "center_card": {
+          "role": "Villager",
+          "index": 1
+        }
+      },
+      "targets": {
+        "center_index": 1
+      },
+      "player_id": 9,
+      "action_type": "see_team",
+      "role_acting_as": "Werewolf",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 2,
+      "result": {
+        "werewolves": [
+          9
+        ]
+      },
+      "targets": {},
+      "player_id": 10,
+      "action_type": "see_team",
+      "role_acting_as": "Minion",
+      "timestamp_order": 1
+    },
+    {
+      "wave": 2,
+      "result": {
+        "masons": [
+          12
+        ]
+      },
+      "targets": {},
+      "player_id": 11,
+      "action_type": "see_team",
+      "role_acting_as": "Mason",
+      "timestamp_order": 2
+    },
+    {
+      "wave": 2,
+      "result": {
+        "masons": [
+          11
+        ]
+      },
+      "targets": {},
+      "player_id": 12,
+      "action_type": "see_team",
+      "role_acting_as": "Mason",
+      "timestamp_order": 3
+    },
+    {
+      "wave": 3,
+      "result": {},
+      "targets": {},
+      "player_id": 8,
+      "action_type": "skip",
+      "role_acting_as": "Seer",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 3,
+      "result": {},
+      "targets": {
+        "center_index": 0
+      },
+      "player_id": 13,
+      "action_type": "swap_with_center",
+      "role_acting_as": "Drunk",
+      "timestamp_order": 1
+    },
+    {
+      "wave": 4,
+      "result": {
+        "current_role": "Insomniac"
+      },
+      "targets": {},
+      "player_id": 14,
+      "action_type": "none",
+      "role_acting_as": "Insomniac",
+      "timestamp_order": 0
+    }
+  ],
+  "night_timeline": {
+    "seats": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "cards": [
+      {
+        "card_id": "k0",
+        "role": "Doppelganger",
+        "werewolf": false
+      },
+      {
+        "card_id": "k1",
+        "role": "Seer",
+        "werewolf": false
+      },
+      {
+        "card_id": "k2",
+        "role": "Werewolf",
+        "werewolf": true
+      },
+      {
+        "card_id": "k3",
+        "role": "Minion",
+        "werewolf": false
+      },
+      {
+        "card_id": "k4",
+        "role": "Mason",
+        "werewolf": false
+      },
+      {
+        "card_id": "k5",
+        "role": "Mason",
+        "werewolf": false
+      },
+      {
+        "card_id": "k6",
+        "role": "Drunk",
+        "werewolf": false
+      },
+      {
+        "card_id": "k7",
+        "role": "Insomniac",
+        "werewolf": false
+      },
+      {
+        "card_id": "k8",
+        "role": "Werewolf",
+        "werewolf": true
+      },
+      {
+        "card_id": "k9",
+        "role": "Villager",
+        "werewolf": false
+      },
+      {
+        "card_id": "k10",
+        "role": "Tanner",
+        "werewolf": false
+      }
+    ],
+    "dealt": {
+      "players": {
+        "7": "k0",
+        "8": "k1",
+        "9": "k2",
+        "10": "k3",
+        "11": "k4",
+        "12": "k5",
+        "13": "k6",
+        "14": "k7"
+      },
+      "center": [
+        "k8",
+        "k9",
+        "k10"
+      ]
+    },
+    "steps": [
+      {
+        "step": 1,
+        "window": 1,
+        "order_group": 1,
+        "role": "Doppelganger",
+        "actors": [
+          7
+        ],
+        "doppelganger_actors": [
+          7
+        ],
+        "action": "copy",
+        "made_by_server": false,
+        "looked_at": [
+          {
+            "player_id": 8,
+            "card_id": "k1"
+          }
+        ],
+        "team": [],
+        "copied_role": "Seer",
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "7": "k0",
+            "8": "k1",
+            "9": "k2",
+            "10": "k3",
+            "11": "k4",
+            "12": "k5",
+            "13": "k6",
+            "14": "k7"
+          },
+          "center": [
+            "k8",
+            "k9",
+            "k10"
+          ]
+        }
+      },
+      {
+        "step": 2,
+        "window": 1,
+        "order_group": 1,
+        "role": "Seer",
+        "actors": [
+          7
+        ],
+        "doppelganger_actors": [
+          7
+        ],
+        "action": "peek_center",
+        "made_by_server": false,
+        "looked_at": [
+          {
+            "center_index": 0,
+            "card_id": "k8"
+          },
+          {
+            "center_index": 2,
+            "card_id": "k10"
+          }
+        ],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "7": "k0",
+            "8": "k1",
+            "9": "k2",
+            "10": "k3",
+            "11": "k4",
+            "12": "k5",
+            "13": "k6",
+            "14": "k7"
+          },
+          "center": [
+            "k8",
+            "k9",
+            "k10"
+          ]
+        }
+      },
+      {
+        "step": 3,
+        "window": 2,
+        "order_group": 2,
+        "role": "Werewolf",
+        "actors": [
+          9
+        ],
+        "doppelganger_actors": [],
+        "action": "peek_center",
+        "made_by_server": false,
+        "looked_at": [
+          {
+            "center_index": 1,
+            "card_id": "k9"
+          }
+        ],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "7": "k0",
+            "8": "k1",
+            "9": "k2",
+            "10": "k3",
+            "11": "k4",
+            "12": "k5",
+            "13": "k6",
+            "14": "k7"
+          },
+          "center": [
+            "k8",
+            "k9",
+            "k10"
+          ]
+        }
+      },
+      {
+        "step": 4,
+        "window": 2,
+        "order_group": 2,
+        "role": "Minion",
+        "actors": [
+          10
+        ],
+        "doppelganger_actors": [],
+        "action": "see_team",
+        "made_by_server": false,
+        "looked_at": [],
+        "team": [
+          9
+        ],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "7": "k0",
+            "8": "k1",
+            "9": "k2",
+            "10": "k3",
+            "11": "k4",
+            "12": "k5",
+            "13": "k6",
+            "14": "k7"
+          },
+          "center": [
+            "k8",
+            "k9",
+            "k10"
+          ]
+        }
+      },
+      {
+        "step": 5,
+        "window": 2,
+        "order_group": 2,
+        "role": "Mason",
+        "actors": [
+          11,
+          12
+        ],
+        "doppelganger_actors": [],
+        "action": "see_team",
+        "made_by_server": false,
+        "looked_at": [],
+        "team": [
+          11,
+          12
+        ],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "7": "k0",
+            "8": "k1",
+            "9": "k2",
+            "10": "k3",
+            "11": "k4",
+            "12": "k5",
+            "13": "k6",
+            "14": "k7"
+          },
+          "center": [
+            "k8",
+            "k9",
+            "k10"
+          ]
+        }
+      },
+      {
+        "step": 6,
+        "window": 2,
+        "order_group": 3,
+        "role": "Seer",
+        "actors": [
+          8
+        ],
+        "doppelganger_actors": [],
+        "action": "skip",
+        "made_by_server": false,
+        "looked_at": [],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "7": "k0",
+            "8": "k1",
+            "9": "k2",
+            "10": "k3",
+            "11": "k4",
+            "12": "k5",
+            "13": "k6",
+            "14": "k7"
+          },
+          "center": [
+            "k8",
+            "k9",
+            "k10"
+          ]
+        }
+      },
+      {
+        "step": 7,
+        "window": 2,
+        "order_group": 3,
+        "role": "Drunk",
+        "actors": [
+          13
+        ],
+        "doppelganger_actors": [],
+        "action": "swap_with_center",
+        "made_by_server": false,
+        "looked_at": [],
+        "team": [],
+        "copied_role": null,
+        "moves": [
+          {
+            "card_id": "k6",
+            "from": {
+              "player_id": 13
+            },
+            "to": {
+              "center_index": 0
+            }
+          },
+          {
+            "card_id": "k8",
+            "from": {
+              "center_index": 0
+            },
+            "to": {
+              "player_id": 13
+            }
+          }
+        ],
+        "positions_after": {
+          "players": {
+            "7": "k0",
+            "8": "k1",
+            "9": "k2",
+            "10": "k3",
+            "11": "k4",
+            "12": "k5",
+            "13": "k8",
+            "14": "k7"
+          },
+          "center": [
+            "k6",
+            "k9",
+            "k10"
+          ]
+        }
+      },
+      {
+        "step": 8,
+        "window": 2,
+        "order_group": 4,
+        "role": "Insomniac",
+        "actors": [
+          14
+        ],
+        "doppelganger_actors": [],
+        "action": "look_own",
+        "made_by_server": false,
+        "looked_at": [
+          {
+            "player_id": 14,
+            "card_id": "k7"
+          }
+        ],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "7": "k0",
+            "8": "k1",
+            "9": "k2",
+            "10": "k3",
+            "11": "k4",
+            "12": "k5",
+            "13": "k8",
+            "14": "k7"
+          },
+          "center": [
+            "k6",
+            "k9",
+            "k10"
+          ]
+        }
+      }
+    ],
+    "final": {
+      "players": {
+        "7": "k0",
+        "8": "k1",
+        "9": "k2",
+        "10": "k3",
+        "11": "k4",
+        "12": "k5",
+        "13": "k8",
+        "14": "k7"
+      },
+      "center": [
+        "k6",
+        "k9",
+        "k10"
+      ]
+    },
+    "center_moved": [
+      true,
+      false,
+      false
+    ]
+  }
+}

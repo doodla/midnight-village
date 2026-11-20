@@ -1,66 +1,45 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/host/host_change.dart';
 
-void main() {
-  const handover = HostChange(
-    hostId: 2,
-    hostName: 'Ben',
-    originalHostId: 1,
-    reason: HostChangeReason.handover,
-  );
-  const returned = HostChange(
-    hostId: 1,
-    hostName: 'Ana',
-    originalHostId: 1,
-    reason: HostChangeReason.returned,
-  );
+import '../../helpers/contract/contract_samples.dart';
+import '../../helpers/contract/from_sample.dart';
+import '../../helpers/game_events.dart';
 
-  const transferred = HostChange(
-    hostId: 2,
-    hostName: 'Ben',
-    originalHostId: 2,
-    reason: HostChangeReason.transferred,
+void main() {
+  final handover = FromSample.hostChange(
+    GameEvents.hostChanged(hostId: 2, hostName: 'Ben', originalHostId: 1),
+  );
+  final returned = FromSample.hostChange(
+    GameEvents.hostChanged(
+      hostId: 1,
+      hostName: 'Ana',
+      originalHostId: 1,
+      reason: 'returned',
+    ),
+  );
+  final transferred = FromSample.hostChange(
+    GameEvents.hostChanged(
+      hostId: 2,
+      hostName: 'Ben',
+      originalHostId: 2,
+      reason: 'transferred',
+    ),
   );
 
   group('HostChange.fromEvent', () {
-    test('reads a transferred event (the new owner is host and original)', () {
-      final change = HostChange.fromEvent({
-        'type': 'host_changed',
-        'host_id': 2,
-        'host_name': 'Ben',
-        'original_host_id': 2,
-        'reason': 'transferred',
-      });
-
-      expect(change, transferred);
-    });
-
-    test('reads the host_changed event', () {
-      final change = HostChange.fromEvent({
-        'type': 'host_changed',
-        'host_id': 2,
-        'host_name': 'Ben',
-        'original_host_id': 1,
-        'reason': 'handover',
-      });
-
-      expect(change, handover);
-    });
-
-    test('reads a returned event', () {
-      final change = HostChange.fromEvent({
-        'host_id': 1,
-        'host_name': 'Ana',
-        'original_host_id': 1,
-        'reason': 'returned',
-      });
-
-      expect(change?.reason, HostChangeReason.returned);
-    });
-
-    test('is null for an unknown reason or a missing host', () {
-      expect(HostChange.fromEvent({'host_id': 2, 'reason': 'mystery'}), isNull);
-      expect(HostChange.fromEvent({'reason': 'handover'}), isNull);
+    test('reads each recorded host_changed event', () {
+      for (final name in [
+        'ws/game/host_changed_handover',
+        'ws/game/host_changed_returned',
+        'ws/lobby/host_changed_transferred',
+      ]) {
+        final event = ContractSamples.map(name);
+        final change = HostChange.fromEvent(event);
+        expect(change.hostId, event['host_id']);
+        expect(change.hostName, event['host_name']);
+        expect(change.originalHostId, event['original_host_id']);
+        expect(change.reason.name, event['reason']);
+      }
     });
   });
 

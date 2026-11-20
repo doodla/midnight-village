@@ -1,0 +1,8 @@
+{
+  "access": "access-token-1",
+  "refresh": "refresh-token-1",
+  "user": {
+    "id": 1,
+    "display_name": "Ana"
+  }
+}

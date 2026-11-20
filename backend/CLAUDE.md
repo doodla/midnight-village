@@ -115,6 +115,7 @@ Then add `"apps.myapp"` to `INSTALLED_APPS` in `config/settings/base.py` and cre
 just test              # pytest (all tests)
 just test tests/path/to/test_file.py  # specific file
 just test-cov          # pytest with coverage
+just samples           # re-record contract_samples/ (see Contract samples)
 just test-unit         # Unit tests only
 just lint              # Ruff check
 just format            # Ruff format
@@ -123,6 +124,10 @@ just check             # All of the above
 ```
 
 Pre-commit hooks must be run from the **repo root** (not `backend/`), because `.pre-commit-config.yaml` lives at the root and scopes to `backend/` files via the `files: ^backend/` pattern.
+
+## Contract samples
+
+`tests/contract/` records what the server sends, for the app's tests: `scenarios.py` plays three tables (a classic six-player game with the default timers, "where am I" in every state, the night results ack, recent games and online stats; an untimed eight-player game with a Doppelganger, every remaining prompt kind and the night timeline, then more games there by play again (she copies a Werewolf, a Mason, an Insomniac, the Minion; a dealt Tanner dies); a full ten-player table for the join refusals) through the real API (`recorder.Table`: DRF test client against the URL conf; a `RecordingLayer` channel layer whose group messages are turned into client frames by the consumers' own handlers; on-commit effects run per request; real timer rows with no thread, `is_scheduled` = the row exists, fired by claiming the row; clock frozen at a past date, user ids from 1, fixed lobby codes and forced-deal seed; game ids, guest usernames and tokens replaced by stable stand-ins). Each socket sample's index entry has `group` (`player` or `broadcast`) and `recipients`; `test_contract_privacy.py` fails if a night prompt, result or `wave_waiting` is broadcast, or a game broadcast before the results names a role. `test_contract_samples.py` writes them to `contract_samples/` at the repo root with `UPDATE_CONTRACT_SAMPLES=1` (`just samples`) and otherwise fails, with a diff, if the committed files differ. A new endpoint, event or situation is a `table.record(...)` / `table.record_event(...)` line in `scenarios.py`, then `just samples`. A payload change shows up as a diff of the samples (review it), and may fail the app's tests where a fixture relied on the old shape.
 
 ## Debug / Harness (DEBUG-only)
 

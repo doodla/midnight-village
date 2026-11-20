@@ -1,0 +1,9 @@
+{
+  "type": "action_result",
+  "wave": 2,
+  "action_type": "swap_others",
+  "revealed_info": {
+    "player1_name": "Ana",
+    "player2_name": "Ben"
+  }
+}
