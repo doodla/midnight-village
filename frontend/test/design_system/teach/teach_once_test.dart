@@ -103,9 +103,7 @@ Finder get _ring => find.descendant(
 
 /// How much of the ring has filled.
 double _filled(WidgetTester tester) =>
-    ((tester.widget<CustomPaint>(_ring).painter! as dynamic).fill
-            as Animation<double>)
-        .value;
+    (tester.widget<CustomPaint>(_ring).painter! as HoldRingPainter).fill.value;
 
 void main() {
   testWidgets('the cue shows on a device that has not learned it, and the '

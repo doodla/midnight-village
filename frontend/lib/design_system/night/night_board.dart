@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,6 +18,7 @@ import '../primitives/world_timer.dart';
 import '../skin/ground.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
+import '../skin/skin_type.dart';
 import '../teach/cue_wave.dart';
 import '../teach/learned_store.dart';
 import '../teach/teach_once.dart';
@@ -117,6 +119,20 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   /// Which send is the latest: an answer to an older one, or to an earlier
   /// turn, is ignored.
   var _sends = 0;
+
+  /// The last layout and what it was worked out from: the board is rebuilt
+  /// every second (the countdown) and on every tap, and measures its names
+  /// again only when the names, the room, the text or the skin change.
+  (_LayoutKey, BoardLayout)? _layout;
+
+  BoardLayout _layoutFor(_LayoutKey key, BoardLayout Function() solve) {
+    if (_layout case (final last, final layout) when last == key) {
+      return layout;
+    }
+    final layout = solve();
+    _layout = (key, layout);
+    return layout;
+  }
 
   @override
   void didUpdateWidget(NightBoard old) {
@@ -245,16 +261,25 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                         // The wave runs left to right, top to bottom, from 0
                         // each time the board is laid out.
                         index = 0;
-                        final layout = BoardLayout.solve(
-                          others: widget.seats.length - 1,
-                          names: names,
-                          you: NightCopy.you,
-                          captions: captions,
-                          room: room.biggest,
-                          nameStyle: type.nameSmall,
-                          captionStyle: type.caption,
-                          scaler: MediaQuery.textScalerOf(context),
-                          tilt: tilt,
+                        final layout = _layoutFor(
+                          _LayoutKey(
+                            names: names,
+                            room: room.biggest,
+                            scale: MediaQuery.textScalerOf(context).scale(1),
+                            type: type,
+                            tilt: tilt,
+                          ),
+                          () => BoardLayout.solve(
+                            others: widget.seats.length - 1,
+                            names: names,
+                            you: NightCopy.you,
+                            captions: captions,
+                            room: room.biggest,
+                            nameStyle: type.nameSmall,
+                            captionStyle: type.caption,
+                            scaler: MediaQuery.textScalerOf(context),
+                            tilt: tilt,
+                          ),
                         );
                         return _board(layout, room.biggest, wave);
                       },
@@ -365,13 +390,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: BoardLayout.placeGap,
           children: [
-            PaperCard(
-              padding: padding,
-              child: SizedBox(
-                width: layout.bandCard,
-                child: wave(_you(me, layout)),
-              ),
-            ),
+            _you(me, layout, wave, padding),
             Container(
               padding: padding,
               decoration: BoxDecoration(
@@ -385,7 +404,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                 children: [
                   for (var i = 0; i < 3; i++)
                     SizedBox(
-                      width: layout.bandCard,
+                      width: layout.bandCell,
                       child: wave(_center(i, layout)),
                     ),
                 ],
@@ -425,21 +444,74 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  Widget _you(NightSeat seat, BoardLayout layout) => TeachingHold(
-    target: NightCopy.you,
-    cue: Cue.holdYou,
-    face: widget.face,
-    cover: (teaching) => FaceDownCard(
-      size: FaceDownSize.board,
-      cardWidth: layout.bandCard,
-      nameSize: layout.nameSize,
-      nameHeight: layout.nameHeight,
-      owner: seat.token,
-      ownerName: NightCopy.you,
-      selected: _picks.contains(const SelfPick()),
-      semanticLabel: NightCopy.you,
-      hold: teaching,
-      onTap: () => _tap(const SelfPick()),
-    ),
-  );
+  /// The player's own card on its paper place: a tap anywhere on the place
+  /// picks it, a hold anywhere on it shows [NightBoard.face].
+  Widget _you(
+    NightSeat seat,
+    BoardLayout layout,
+    Widget Function(Widget card) wave,
+    EdgeInsets padding,
+  ) {
+    void pick() => _tap(const SelfPick());
+    return TeachingHold(
+      target: NightCopy.you,
+      cue: Cue.holdYou,
+      face: widget.face,
+      cover: (teaching) => GestureDetector(
+        onTap: pick,
+        behavior: HitTestBehavior.opaque,
+        excludeFromSemantics: true,
+        child: PaperCard(
+          padding: padding,
+          child: SizedBox(
+            width: layout.bandCell,
+            child: wave(
+              FaceDownCard(
+                size: FaceDownSize.board,
+                cardWidth: layout.bandCard,
+                nameSize: layout.nameSize,
+                nameHeight: layout.nameHeight,
+                owner: seat.token,
+                ownerName: NightCopy.you,
+                selected: _picks.contains(const SelfPick()),
+                semanticLabel: NightCopy.you,
+                hold: teaching,
+                onTap: pick,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What a [BoardLayout] is worked out from.
+@immutable
+class _LayoutKey {
+  const _LayoutKey({
+    required this.names,
+    required this.room,
+    required this.scale,
+    required this.type,
+    required this.tilt,
+  });
+
+  final List<String> names;
+  final Size room;
+  final double scale;
+  final SkinType type;
+  final double tilt;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _LayoutKey &&
+      listEquals(other.names, names) &&
+      other.room == room &&
+      other.scale == scale &&
+      identical(other.type, type) &&
+      other.tilt == tilt;
+
+  @override
+  int get hashCode => Object.hash(Object.hashAll(names), room, scale, tilt);
 }

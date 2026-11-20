@@ -22,12 +22,33 @@ import '../../helpers/truncated_text.dart';
 // drawn whole (never cut, never broken inside a word), and every card is on
 // the screen above the button.
 
-const _widths = [320.0, 360.0, 390.0];
+/// The phones: the mocks' shape at 320, 360 and 390 wide, and the short
+/// ones (an iPhone SE's 320 x 568, a small Android's 360 x 640).
+const _phones = [
+  Size(320, 692),
+  Size(320, 568),
+  Size(360, 779),
+  Size(360, 640),
+  Size(390, 844),
+];
 const _textScales = [1.0, 1.3, 2.0];
 
-/// Game 8's table (nine, the Drunk's phone) at [seats], long names or the
-/// recorded short ones. Seats leave from the front; the Drunk stays.
-Map<String, dynamic> _table(int seats, {required bool long}) {
+/// The names at the table: as recorded (short), long, or short with two
+/// names of three words that wrap (the last two seats, so every table from
+/// 3 up has them).
+enum _Names {
+  short({}),
+  long(longNames),
+  wrapping({'Hana': 'Mary Jane Lee', 'Ida': 'Ana Paula Silva'});
+
+  const _Names(this.rename);
+
+  final Map<String, String> rename;
+}
+
+/// Game 8's table (nine, the Drunk's phone) at [seats], named [names].
+/// Seats leave from the front; the Drunk stays.
+Map<String, dynamic> _table(int seats, _Names names) {
   final me = Viewer.drunk.nightMe;
   final others = [
     for (final seat in NightSeat.seatsOf(me))
@@ -37,7 +58,7 @@ Map<String, dynamic> _table(int seats, {required bool long}) {
     me,
     leave: {...others.take(9 - seats.clamp(1, 9))},
     add: seats > 9 ? seats - 9 : 0,
-    rename: long ? longNames : const {},
+    rename: names.rename,
   );
 }
 
@@ -74,13 +95,14 @@ void main() {
     );
   });
 
-  for (final long in [false, true]) {
-    for (final width in _widths) {
+  for (final names in _Names.values) {
+    for (final phone in _phones) {
       for (final scale in _textScales) {
-        testWidgets('${long ? 'long' : 'short'} names at $width wide, text '
-            'x$scale: 3 to 10 seats, no card alone on a row, every name '
-            'whole, every card on screen', (tester) async {
-          tester.view.physicalSize = Size(width, width * 844 / 390);
+        testWidgets('${names.name} names on a ${phone.width.round()} x '
+            '${phone.height.round()} phone, text x$scale: 3 to 10 seats, no '
+            'card alone on a row, every name whole, every card on screen and '
+            'a thumb wide', (tester) async {
+          tester.view.physicalSize = phone;
           tester.view.devicePixelRatio = 1;
           tester.platformDispatcher.textScaleFactorTestValue = scale;
           addTearDown(tester.view.reset);
@@ -92,7 +114,7 @@ void main() {
               tester,
               BoardPage(
                 viewer: Viewer.drunk,
-                table: (_) => _table(seats, long: long),
+                table: (_) => _table(seats, names),
               ),
             );
             final where = '$seats seats';
@@ -105,6 +127,13 @@ void main() {
               for (final cut in truncatedText(tester)) '$where: $cut',
               for (final word in brokenWords(tester)) '$where: $word',
               for (final card in offBoard(tester)) '$where: $card',
+              for (final element in find.byType(FaceDownCard).evaluate())
+                if (tester.getSize(find.byWidget(element.widget)) case final hit
+                    when hit.width < BoardLayout.minTap - 0.5 ||
+                        hit.height < BoardLayout.minTap - 0.5)
+                  '$where: "${(element.widget as FaceDownCard).semanticLabel}" '
+                      'is tapped in ${hit.width.toStringAsFixed(1)} x '
+                      '${hit.height.toStringAsFixed(1)}',
             ]);
             final error = tester.takeException();
             if (error != null) findings.add('$where: $error');

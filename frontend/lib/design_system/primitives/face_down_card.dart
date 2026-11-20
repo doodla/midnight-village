@@ -252,7 +252,7 @@ class FaceDownCard extends StatelessWidget {
   }
 
   /// The one card a screen is about: the back in a paper frame, lifted, with
-  /// the thumbprint on it (04, 07).
+  /// the hold ring on it while the hold is taught (04).
   Widget _hero(BuildContext context, double width) {
     final skin = context.skin;
     final ground = context.ground;

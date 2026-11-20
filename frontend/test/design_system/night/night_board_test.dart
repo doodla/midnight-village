@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -413,6 +414,28 @@ void main() {
       ];
       expect(named, hasLength(9));
       expect(named.map((c) => c.nameSize).toSet(), hasLength(1));
+    });
+
+    testWidgets('a tap anywhere in a seat\'s column picks it, and anywhere '
+        'on the paper place picks "You"', (tester) async {
+      await BoardHarness.of(Viewer.seer).pump(tester);
+      final column = tester.getRect(card(ben.name));
+      final back = tester.getRect(
+        find
+            .descendant(of: card(ben.name), matching: find.byType(ClipRRect))
+            .first,
+      );
+      expect(column.width, greaterThan(back.width));
+      await tester.tapAt(column.centerLeft + const Offset(2, 0));
+      await tester.pump();
+      expect(lifted(tester), [ben.name]);
+
+      final place = tester.getRect(
+        find.ancestor(of: you, matching: find.byType(PaperCard)),
+      );
+      await tester.tapAt(place.topLeft + const Offset(3, 3));
+      await tester.pump();
+      expect(lifted(tester), [NightCopy.you]);
     });
 
     testWidgets('"You" alone picked is doing nothing: "Keep my card"', (

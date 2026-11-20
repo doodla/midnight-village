@@ -48,6 +48,24 @@ void main() {
     }
   });
 
+  testWidgets('a second line cut by its own box\'s height is found', (
+    tester,
+  ) async {
+    expect(
+      await _cut(
+        tester,
+        const SizedBox(
+          height: 20,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Text('Mary Jane Lee', style: TextStyle(fontSize: 16)),
+          ),
+        ),
+      ),
+      [contains('taller than its box')],
+    );
+  });
+
   testWidgets('glyphs lost to a clip round the text are found', (tester) async {
     expect(
       await _cut(

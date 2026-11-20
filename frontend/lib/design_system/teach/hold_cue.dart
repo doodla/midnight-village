@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
+import '../layout/space.dart';
 import '../primitives/hold_to_reveal.dart';
 import '../skin/skin.dart';
 
@@ -41,9 +42,9 @@ class HoldCue extends StatefulWidget {
   static const breath = Duration(milliseconds: 1400);
   static const breathScale = 1.06;
 
-  /// The word is never set smaller than this (the reading floor for what a
-  /// player reads to act): a ring too small for it goes without.
-  static const wordFloor = 16.0;
+  /// The word is never set smaller than this (the reading floor for a
+  /// caption on a card): a ring too small for it goes without.
+  static const wordFloor = ReadingFloor.caption;
 
   /// The word's share of the ring's width at most.
   static const _wordShare = 0.72;
@@ -132,7 +133,7 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
           child: SizedBox.square(
             dimension: ring,
             child: CustomPaint(
-              painter: _Ring(
+              painter: HoldRingPainter(
                 fill: _fill,
                 veil: night.ground.withValues(alpha: _veil),
                 track: night.text.withValues(alpha: _track),
@@ -165,9 +166,9 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
 }
 
 /// The ring: a veiled disc, its track, and the arc filled so far from the
-/// top, clockwise.
-class _Ring extends CustomPainter {
-  _Ring({
+/// top, clockwise ([fill]).
+class HoldRingPainter extends CustomPainter {
+  HoldRingPainter({
     required this.fill,
     required this.veil,
     required this.track,
@@ -204,7 +205,7 @@ class _Ring extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_Ring old) =>
+  bool shouldRepaint(HoldRingPainter old) =>
       old.veil != veil ||
       old.track != track ||
       old.ink != ink ||

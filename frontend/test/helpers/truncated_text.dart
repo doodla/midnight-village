@@ -14,8 +14,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Every run of visible text on screen that is drawn cut, one line each:
 /// - more lines than its `maxLines` allows (what is past the limit is not
 ///   drawn, with or without an ellipsis);
-/// - one unwrapped line wider than its box, ending in an ellipsis, a fade or
-///   a clip;
+/// - one unwrapped line wider than its box, or lines taller than it,
+///   ending in an ellipsis, a fade or a clip;
 /// - glyphs outside a clip of a box round it (a scrolling list's edge aside:
 ///   scrolled text is not cut, it is further down).
 List<String> truncatedText(WidgetTester tester) {
@@ -83,6 +83,11 @@ String? _cutByItself(RenderParagraph paragraph) {
     if (over > 0.5 && paragraph.overflow != TextOverflow.visible) {
       return 'is ${over.toStringAsFixed(1)} px wider than its box and is cut '
           '(${paragraph.overflow.name})';
+    }
+    final below = painter.height - paragraph.size.height;
+    if (below > 0.5 && paragraph.overflow != TextOverflow.visible) {
+      return 'is ${below.toStringAsFixed(1)} px taller than its box and is '
+          'cut (${paragraph.overflow.name})';
     }
     return null;
   } finally {

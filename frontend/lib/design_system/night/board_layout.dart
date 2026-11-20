@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show kMinInteractiveDimension;
 import 'package:flutter/painting.dart';
 
 import '../layout/space.dart';
@@ -31,6 +32,9 @@ import '../primitives/face_down_card.dart';
 ///   wider: the seats sit together as at a table, the rows centred.
 /// - The band's four cards are one size: a seat's, or less where the
 ///   phone's width needs it.
+/// - A tap reaches a seat's whole column and a band card's cell, at least
+///   [minTap] wide where the width allows; a split that cannot give that
+///   falls short like a small card.
 @immutable
 class BoardLayout {
   const BoardLayout._({
@@ -38,6 +42,7 @@ class BoardLayout {
     required this.column,
     required this.cardWidth,
     required this.bandCard,
+    required this.bandCell,
     required this.bandHeight,
     required this.nameSize,
     required this.nameHeight,
@@ -55,6 +60,10 @@ class BoardLayout {
 
   /// The player's own card and the table's three, in the band.
   final double bandCard;
+
+  /// A card's cell in the band, what a tap on it reaches: the card, or
+  /// [minTap] where the card is narrower.
+  final double bandCell;
 
   /// The band's height: the place and the strip are drawn this high.
   final double bandHeight;
@@ -107,7 +116,11 @@ class BoardLayout {
   /// Names are set no smaller than the reading floor for captions, as drawn
   /// (after the text scale): with large text a name grows where there is
   /// room and is set back to this where there is not.
-  static const nameFloor = 14.0;
+  static const nameFloor = ReadingFloor.caption;
+
+  /// The smallest width a tap on a card reaches: its column, or its cell in
+  /// the band (the platforms' 44 px target).
+  static const minTap = kMinInteractiveDimension;
 
   /// Text measured is laid out a hair narrower than it fits.
   static const _safety = 0.98;
@@ -116,7 +129,7 @@ class BoardLayout {
   static double heightOf(double width) =>
       width * FaceDownSize.board.mock.height / FaceDownSize.board.mock.width;
 
-  /// The band's width for its cards [card] wide.
+  /// The band's width for its cells [card] wide.
   static double bandWidth(double card) =>
       4 * bandPaddingSide + placeGap + 4 * card + 2 * tableCardGap;
 
@@ -158,17 +171,16 @@ class BoardLayout {
     double tilt = 0,
   }) {
     final base = nameStyle.fontSize!;
+    // The seats' names (a player may be called "You" too), and "You".
     final needs = [
-      for (final name in {...names, you}) _Need.of(name, nameStyle, scaler),
+      for (final name in names.toSet()) _Need.of(name, nameStyle, scaler),
     ];
+    final youNeed = _Need.of(you, nameStyle, scaler);
     final captionHeight = _lineHeight(captionStyle, scaler);
     // A tilted card's height: its turned box.
     final turn = math.cos(tilt) + math.sin(tilt.abs()) / heightOf(1);
-    final bandMost =
-        (room.width - bandWidth(0)) /
-        4 *
-        (1 - 0); // four cards share what the paddings leave
-    final youNeed = needs.last;
+    // The band's four cells share what its paddings leave of the width.
+    final bandMost = (room.width - bandWidth(0)) / 4;
 
     _Candidate? best;
     for (final rows in splits(others)) {
@@ -182,6 +194,7 @@ class BoardLayout {
       final size = [
         base,
         for (final n in needs) fitIn(n, column),
+        fitIn(youNeed, column),
       ].reduce(math.min);
       final lines = needs.any((n) => n.oneLine * size / base > column) ? 2 : 1;
       final nameHeight =
@@ -222,19 +235,22 @@ class BoardLayout {
         }
         card = low;
       }
+      // A column is no narrower than its names as they are laid out: on one
+      // line when every name fits one, else on their narrowest two.
       final widestName = needs
-          .where((n) => n != youNeed)
-          .map((n) => n.narrowest * size / base)
+          .map((n) => (lines == 1 ? n.oneLine : n.narrowest) * size / base)
           .fold(0.0, math.max);
+      final seatColumn = math.min(
+        column,
+        [card + seatGap, widestName / _safety, minTap].reduce(math.max),
+      );
       final candidate = _Candidate(
         BoardLayout._(
           rows: rows,
-          column: math.min(
-            column,
-            math.max(card + seatGap, widestName / _safety),
-          ),
+          column: seatColumn,
           cardWidth: card,
           bandCard: band(card),
+          bandCell: math.min(bandMost, math.max(band(card), minTap)),
           bandHeight: bandHeightFor(card),
           nameSize: size,
           nameHeight: nameHeight,
@@ -242,6 +258,10 @@ class BoardLayout {
         ),
         short:
             math.min(1.0, card / smallest) *
+            math.min(
+              1.0,
+              math.min(seatColumn, math.max(band(card), minTap)) / minTap,
+            ) *
             math.pow(math.min(1.0, scaler.scale(size) / nameFloor), 2),
       );
       if (best == null || candidate.beats(best)) best = candidate;
