@@ -41,8 +41,9 @@ PickKind = Literal["player", "center", "self"]
 
 MAX_PICKS = 2
 # How many ``choose`` a phone may send in a night window. Window 1 takes two from
-# every phone (the Doppelganger's look, then her follow-up, so a second tap is not a
-# tell); window 2 takes exactly one.
+# every phone (the Doppelganger's look, then her follow-up, so a second choose gets
+# the same answer from anyone; that her phone SENDS a second request is visible on the
+# network, an accepted tell); window 2 takes exactly one.
 MAX_CHOOSES = {1: 2, 2: 1}
 
 
@@ -212,6 +213,24 @@ def is_lone_werewolf(state: GameState, player_id: int) -> bool:
     )
 
 
+def chooses_left(window: int, acting_role: str | None, chosen: int) -> int:
+    """How many ``choose`` this phone is still expected to send in the window: 0 or
+    1, the same width for everyone.
+
+    One per window for every phone, plus one in window 1 for the Doppelganger once
+    her look has given her a role that acts there (her follow-up): the only prompt
+    with a role to act as in window 1 after a choose. It says nothing her own
+    ``kind`` does not (her follow-up prompt already names the copied role's kind,
+    and a copied Minion is waited for twice, as ``night2.ready_to_close`` says), and
+    only to her: it is in her own ``GET /me/``. ``max_chooses`` stays what the
+    server ACCEPTS (two from anyone in window 1); this is what the phone should
+    send. (Her second request in window 1 is itself visible on the network: an
+    accepted tell, ``docs/specs/onuw/api-contract-v2.md``, "Third amendment".)
+    """
+    expected = 2 if window == 1 and chosen >= 1 and acting_role is not None else 1
+    return max(0, expected - chosen)
+
+
 def build_choose_prompt(
     state: GameState,
     player_id: int,
@@ -227,7 +246,8 @@ def build_choose_prompt(
     There are no teammates in it: teams are shown with the results. ``acting_role``
     is None for a player with no action in this window; ``chosen`` is how many
     ``choose`` the caller has already sent in it (so a restarted phone shows
-    "Chosen").
+    "Chosen"; the next choose echoes it); ``chooses_left`` how many it should still
+    send (``chooses_left``).
     """
     lone = (
         acting_role == "Werewolf" and is_lone_werewolf(state, player_id) and window == 2
@@ -248,6 +268,7 @@ def build_choose_prompt(
         "max_picks": MAX_PICKS,
         "max_chooses": max_chooses(window),
         "chosen": chosen,
+        "chooses_left": chooses_left(window, acting_role, chosen),
         "valid_targets": {
             "player_ids": [pid for pid in state.player_roles if pid != player_id],
             "center_indices": list(range(len(state.center_cards))),

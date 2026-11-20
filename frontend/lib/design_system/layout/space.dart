@@ -30,6 +30,17 @@ abstract final class Space {
   static const screenBottom = 28.0;
 }
 
+/// The reading floor (first-time play spec, copy rule 7): the smallest a
+/// player's words are drawn at text scale 1.0, after any shrinking to fit.
+/// The screen gallery holds every player screen to it.
+abstract final class ReadingFloor {
+  /// Anything a player reads to act.
+  static const act = 16.0;
+
+  /// Captions under cards and tokens.
+  static const caption = 14.0;
+}
+
 /// How long things take to move: the same in every skin.
 abstract final class Motion {
   /// A button going down or coming back up.

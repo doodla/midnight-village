@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 
 import '../test/helpers/test_fonts.dart';
+import '../test/helpers/truncated_text.dart';
 import 'reading_floor.dart';
 import 'screen_catalogue.dart';
 
@@ -99,6 +100,9 @@ Future<ScreenCapture> captureScreen(
       for (var i = 0; i < _settleFrames; i++) {
         await tester.pump(_frameTime);
       }
+      findings.addAll([
+        for (final cut in truncatedText(tester)) 'cut short: $cut',
+      ]);
       if (playerScreen) findings.addAll(readingFloorBreaches(tester));
     } catch (error, stack) {
       return (null, 'BUILD FAILED: ${_describeError(error, stack)}');

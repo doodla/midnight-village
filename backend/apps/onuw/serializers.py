@@ -67,6 +67,8 @@ class GameMeSerializer(serializers.Serializer):
         it always was, and none of that is even computed for it."""
         data = super().to_representation(instance)
         if is_choose_night(instance):
+            # The caller's own id (the app had to take it from the login).
+            data["player_id"] = self.context["player_role"].user_id
             data["my_vote"] = self._my_vote(instance)
             data["ready"] = self._ready(instance)
             data["progress"] = self._progress(instance)

@@ -5,6 +5,7 @@ import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import '../skin/skin_type.dart';
 import 'cut_paper.dart';
+import 'fit_line.dart';
 import 'player_token.dart';
 
 /// [PlayerRow]'s sizes, from the mocks.
@@ -148,10 +149,11 @@ class PlayerRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  // A long name wraps between words, then is set smaller;
+                  // never cut short.
+                  FitWords(
                     name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                     style: size.nameStyle(skin.typography).copyWith(color: ink),
                   ),
                   if (detail case final detail?)

@@ -1,0 +1,41 @@
+---
+title: "Protocol-2 game: deal to results (3 phones, one Doppelganger)"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: start
+    lg1: night
+    lg2: Breaks FollowUpFromFollowUpRequest
+    lg3: Breaks FollowUpNotRefused in some cases
+    lg4: Path to the FollowUpFromFollowUpRequest or FollowUpNotRefused bug
+  }
+  class lg0 tan
+  class lg1 purple
+  class lg2 breaks
+  class lg3 mayBreak
+  class lg4 bugPath
+  s0: Looking at cards
+  s1: Doppelganger window: nothing copied yet
+  s2: Doppelganger window: she copied the Robber
+  s3: Doppelganger window: her repeated look is stored as her rob
+  s4: Night window
+  [*] --> s0
+  s0 --> s1: the host moves on
+  s1 --> s2: she looks at a player
+  s2 --> s3: her phone resends the look (answer lost)
+  s3 --> s3: she sends her rob
+  s3 --> s4: the host moves on
+  classDef breaks fill:#ffecee,stroke:#e72e3b,stroke-width:2.5px,color:#cd2834
+  classDef mayBreak fill:#fff3e6,stroke:#e8730c,stroke-width:2.5px,color:#b85a06
+  class s0 tan
+  class s0 bugPath
+  class s1 purple
+  class s1 bugPath
+  class s2 purple
+  class s2 bugPath
+  class s3 purple
+  class s3 mayBreak
+  class s3 bugPath
+  class s4 purple
+  class s4 breaks
+  class s4 bugPath

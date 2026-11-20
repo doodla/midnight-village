@@ -11,7 +11,9 @@ import 'harness/harness_config.dart';
 import 'harness/live_table.dart';
 import 'harness/time_budget.dart';
 
-/// A stage-scoped request names the stage `/me/` carries now (or a stale one).
+/// A stage-scoped request names the stage `/me/` carries now (or a stale one),
+/// and a `choose` answers the prompt as `/me/` shows it now (`chosen`, unless
+/// [data] names a count: a resend).
 Future<Map<String, dynamic>> _staged(
   LiveTable t,
   DebugPlayer p,
@@ -19,11 +21,19 @@ Future<Map<String, dynamic>> _staged(
   Map<String, dynamic> data, {
   String? stage,
 }) async {
-  final named = stage ?? (await t.me(p))['stage'] as String;
+  final me = await t.me(p);
+  final named = stage ?? me['stage'] as String;
+  final answers =
+      data['action_type'] == 'choose' && !data.containsKey('chosen');
+  final prompt = me['action_prompt'] as Map<String, dynamic>?;
   return t.client.post(
     '/onuw/games/${t.gameId}/$tail/',
     token: p.accessToken,
-    data: {...data, 'stage': named},
+    data: {
+      ...data,
+      'stage': named,
+      if (answers) 'chosen': prompt == null ? 0 : prompt['chosen'] as int,
+    },
   );
 }
 
@@ -345,6 +355,17 @@ void main() {
       });
       expect(me['action_prompt']['kind'], 'seer');
       expect(me['action_prompt']['chosen'], 1);
+      // Her look's answer was lost, so her phone sends it again (`chosen` 0):
+      // the server has taken that one, answers alike and reads nothing.
+      final resent = await _staged(t, alice, 'action', {
+        'action_type': 'choose',
+        'picks': [
+          {'player_id': bob.userId},
+        ],
+        'chosen': 0,
+      });
+      expect(resent, {'status': 'submitted'});
+      expect((await t.me(alice))['action_prompt']['chosen'], 1);
       await choose(alice, [
         {'center_index': 0},
         {'center_index': 1},

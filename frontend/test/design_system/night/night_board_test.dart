@@ -1,12 +1,17 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
+import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
+import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/skin/skin_tilt.dart';
 import 'package:midnight_village/design_system/teach/cue_wave.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 
@@ -32,19 +37,19 @@ ChooseAnswer _answered(String sample) => ChooseAnswer.fromStatus(
 );
 
 void main() {
-  testWidgets('it is drawn from the seats in seat order, "You" in yours, '
-      'then Left, Middle, Right', (tester) async {
+  testWidgets('it is drawn from the other seats in seat order, then "You" '
+      'in front, then Left, Middle, Right', (tester) async {
     await BoardHarness.of(Viewer.seer).pump(tester);
     final captions = [
       for (final element in find.byType(FaceDownCard).evaluate())
         (element.widget as FaceDownCard).semanticLabel,
     ];
     expect(captions, [
-      NightCopy.you,
       ben.name,
       cleo.name,
       dev.name,
       esme.name,
+      NightCopy.you,
       ...NightCopy.center,
     ]);
     expect(find.text(ana.name), findsNothing);
@@ -131,7 +136,7 @@ void main() {
     expect(lifted(tester), isEmpty);
   });
 
-  testWidgets('the thumbprint points at "You" until it has been held once on '
+  testWidgets('the hold ring points at "You" until it has been held once on '
       'this device, after 04 taught the hold', (tester) async {
     final board = BoardHarness.of(Viewer.seer, learned: {Cue.hold});
     await board.pump(tester);
@@ -350,17 +355,112 @@ void main() {
     });
   });
 
-  testWidgets('with large text it wraps to rows of four', (tester) async {
-    tester.platformDispatcher.textScaleFactorTestValue = 2;
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await BoardHarness.of(Viewer.drunk).pump(tester);
-    final rows = <double, int>{};
-    for (final element in find.byType(FaceDownCard).evaluate()) {
-      final top = tester.getTopLeft(find.byWidget(element.widget)).dy;
-      rows[top] = (rows[top] ?? 0) + 1;
+  group('the look', () {
+    /// The seats' cards and the table's, by the top of where they lie.
+    Map<double, List<FaceDownCard>> rows(WidgetTester tester) {
+      final rows = <double, List<FaceDownCard>>{};
+      for (final element in find.byType(FaceDownCard).evaluate()) {
+        final card = element.widget as FaceDownCard;
+        final top = tester.getTopLeft(find.byWidget(card)).dy;
+        (rows[top] ??= []).add(card);
+      }
+      return rows;
     }
-    expect(rows.values, everyElement(lessThanOrEqualTo(4)));
-    expect(tester.takeException(), isNull);
+
+    testWidgets('five at the table: the four others sit two and two; '
+        '"You" is not among them but in front, on its paper place, beside '
+        'the table\'s three, tilted on their strip', (tester) async {
+      await BoardHarness.of(Viewer.seer).pump(tester);
+      final byTop = rows(tester);
+      final seats = [
+        for (final top in byTop.keys.toList()..sort())
+          [
+            for (final card in byTop[top]!)
+              if (card.owner != null && card.ownerName != NightCopy.you) card,
+          ],
+      ].where((row) => row.isNotEmpty).toList();
+      expect([for (final row in seats) row.length], [2, 2]);
+      expect(
+        find.ancestor(of: you, matching: find.byType(PaperCard)),
+        findsOneWidget,
+      );
+      final center = [
+        for (final element in find.byType(FaceDownCard).evaluate())
+          if ((element.widget as FaceDownCard).caption != null)
+            element.widget as FaceDownCard,
+      ];
+      expect(center.map((c) => c.caption), [
+        NightCopy.left,
+        NightCopy.middle,
+        NightCopy.right,
+      ]);
+      expect(center.map((c) => c.tilt), [
+        for (var i = 0; i < 3; i++) Tilt.scatter(i),
+      ]);
+      // The band in front of the player is under every seat.
+      final lowestSeat = seats.last
+          .map((c) => tester.getRect(find.byWidget(c)).bottom)
+          .reduce((a, b) => a > b ? a : b);
+      expect(tester.getTopLeft(you).dy, greaterThan(lowestSeat));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('every name is set at one size, "You" too', (tester) async {
+      await BoardHarness.of(Viewer.drunk).pump(tester);
+      final named = [
+        for (final element in find.byType(FaceDownCard).evaluate())
+          if ((element.widget as FaceDownCard).ownerName != null)
+            element.widget as FaceDownCard,
+      ];
+      expect(named, hasLength(9));
+      expect(named.map((c) => c.nameSize).toSet(), hasLength(1));
+    });
+
+    testWidgets('a tap anywhere in a seat\'s column picks it, and anywhere '
+        'on the paper place picks "You"', (tester) async {
+      await BoardHarness.of(Viewer.seer).pump(tester);
+      final column = tester.getRect(card(ben.name));
+      final back = tester.getRect(
+        find
+            .descendant(of: card(ben.name), matching: find.byType(ClipRRect))
+            .first,
+      );
+      expect(column.width, greaterThan(back.width));
+      await tester.tapAt(column.centerLeft + const Offset(2, 0));
+      await tester.pump();
+      expect(lifted(tester), [ben.name]);
+
+      final place = tester.getRect(
+        find.ancestor(of: you, matching: find.byType(PaperCard)),
+      );
+      await tester.tapAt(place.topLeft + const Offset(3, 3));
+      await tester.pump();
+      expect(lifted(tester), [NightCopy.you]);
+    });
+
+    testWidgets('"You" alone picked is doing nothing: "Keep my card"', (
+      tester,
+    ) async {
+      await BoardHarness.of(Viewer.seer).pump(tester);
+      await tapCard(tester, NightCopy.you);
+      expect(lifted(tester), [NightCopy.you]);
+      expect(button(tester), (NightCopy.keep, ButtonPhase.ready));
+    });
+
+    testWidgets('with large text the words grow only so far, and the cards '
+        'stay the board\'s', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await BoardHarness.of(Viewer.drunk).pump(tester);
+      double scaleOf(String text) => tester
+          .renderObject<RenderParagraph>(find.text(text).first)
+          .textScaler
+          .scale(1);
+      expect(scaleOf(NightCopy.you), NightBoard.labelScale);
+      expect(scaleOf(CommonCopy.nightTitle), NightBoard.labelScale);
+      expect(scaleOf(NightCopy.chooseNone), NightBoard.buttonScale);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   test('picks go to the server as the contract has them', () {

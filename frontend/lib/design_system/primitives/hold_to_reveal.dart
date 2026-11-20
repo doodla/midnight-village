@@ -13,6 +13,21 @@ import '../skin/skin.dart';
 /// How the face came to be shown.
 enum _Shown { held, activated }
 
+/// Whether the [HoldToReveal] round this cover is being held now: the
+/// hold cue's ring fills while it is ([HoldCue]).
+class HoldPress extends InheritedWidget {
+  const HoldPress({super.key, required this.held, required super.child});
+
+  final bool held;
+
+  /// False outside a [HoldToReveal].
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<HoldPress>()?.held ?? false;
+
+  @override
+  bool updateShouldNotify(HoldPress old) => old.held != held;
+}
+
 /// A secret behind press-and-hold (first-time play spec, section 2): [cover]
 /// shows until the player presses; [face] is drawn in the one held-face
 /// frame ([HeldFace]) above the touch point, never under the thumb.
@@ -251,7 +266,10 @@ class _HoldToRevealState extends State<HoldToReveal>
                       ),
                 },
                 // Hidden information: the cover sets the size, shown or not.
-                child: widget.cover,
+                child: HoldPress(
+                  held: _shown == _Shown.held,
+                  child: widget.cover,
+                ),
               ),
             ),
           ),

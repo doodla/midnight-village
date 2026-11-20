@@ -56,6 +56,16 @@ Design constraints (verified by tests):
 - API responses are player-scoped — never return another player's hidden info
 - No hidden information leaks in error messages, WebSocket events, or validation responses
 
+## Subagents: model and effort
+
+A hook blocks any Agent or workflow `agent()` call that is not on an allowed model. Set `model` and `effort` on every call, or use a `.claude/agents/` type that pins them.
+
+- Only `opus` or `sonnet`, never the main session's model, never `haiku`.
+- Opus for design-heavy or tricky work and for reviews. Sonnet for well-specified work and lookups.
+- Effort: `low` for lookups, `medium` for routine edits, `high` for design and review.
+- Forks are not allowed (they inherit the main model). Spawn a fresh agent with the context in its prompt.
+- Change the allowed list in `.claude/guardrails/config.toml`.
+
 ## Game Specs
 
 The authoritative ONUW game rules live in `docs/specs/onuw/`. Read these before implementing or reviewing any game mechanic:

@@ -129,6 +129,25 @@ void main() {
     });
   });
 
+  testWidgets('text drawn cut short is reported, on any screen', (
+    tester,
+  ) async {
+    final capture = await _capture(
+      tester,
+      const SizedBox(
+        width: 60,
+        child: Text(
+          'Maximiliano',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+    expect(capture.findings, [
+      allOf(contains('cut short'), contains('"Maximiliano"')),
+    ]);
+  });
+
   testWidgets('a clean screen has no findings', (tester) async {
     final capture = await _capture(tester, const Text('fine'));
 

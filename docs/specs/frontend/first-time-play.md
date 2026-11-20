@@ -69,9 +69,9 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 
 | Cue (`id`) | First appears | What the player sees | Words | Unlocks | Learned when | Later games |
 |---|---|---|---|---|---|---|
-| `hold` | 04, the moment of the deal | The thumbprint ring on the face-down card breathes (bone colour, scale 1.00 to 1.06, 1.4 s loop), with "Hold" at 20 px under it | "Hold" | "Ready" turns amber after a 0.8 s reveal | The first 0.8 s reveal on any face | A static thumbprint glyph |
-| `hold_you` | 06, the first board | The same thumbprint on "You", "Hold" over it (section 8: it points at what this phone may do) | "Hold" | — | The first reveal of "You" | A static thumbprint glyph |
-| `hold_my_night` | 08, the first talk | The same thumbprint on My night's card, "Hold" under the title | "Hold" | — | The first reveal of My night | A static thumbprint glyph |
+| `hold` | 04, the moment of the deal | A plain ring on the face-down card, "Hold" in it at 20 px, breathes (bone colour, scale 1.00 to 1.06, 1.4 s loop); while the card is held the ring fills, in the 0.8 s a reveal takes to count (no thumbprint: product owner, 20 November 2026) | "Hold" | "Ready" turns amber after a 0.8 s reveal | The first 0.8 s reveal on any face | Nothing: the card is a card |
+| `hold_you` | 06, the first board | The same ring on "You", the player's own card in front of the seats (section 8: it points at what this phone may do) | "Hold" | — | The first reveal of "You" | Nothing |
+| `hold_my_night` | 08, the first talk | The same ring, without its word, on My night's card, "Hold" under the title | "Hold" | — | The first reveal of My night | Nothing |
 | `night_choose` | 06, the first window of the first game | When the board opens, each card lifts 8 px in a single left-to-right wave (120 ms each, 90 ms stagger) | none | — | The first successful `choose` | No wave |
 | `vote_lock` | 09, the first vote | The rows nudge 6 px in a single wave | none | — | The first successful lock | No wave |
 
@@ -85,7 +85,7 @@ Hidden-information analysis for the cues:
 - Face text is left out of semantics except on that explicit activation.
 - Night cards and vote rows are selectable buttons labelled with a name, "You", "Left", "Middle" or "Right". The board's spoken headline is the same on every phone.
 - Reduce motion: the ring, the wave, the count flip and the timeline animation become static or instant.
-- At text scale 2.0, the board wraps to rows of at most 4 cards and names ellipsize. Faces cap their own text scale at 1.6.
+- With large text the board's words grow to 1.3 times and its button's to 1.6; names are never cut (they wrap between words, or the board takes fewer cards to a row). Faces cap their own text scale at 1.6.
 
 ## 3. Screens
 
@@ -282,7 +282,8 @@ Every face has exactly one portrait slot and at most 2 lines.
 **06 Night board**
 - **One thing / loudest:** hold "You", tap a card, then Choose; the board.
 - **Locked until:** Choose needs 1 or more picks and a 0.8 s hold of "You" in this window.
-- **Copy:** "The village sleeps"; captions "You", "Left", "Middle", "Right"; candle and number. Button: "Choose a card" (disabled), then "Choose {cards}" or "Keep my card", then "Chosen". "Hold" appears on "You" only as a cue. Held face: role name, instruction, window-1 page. **20 of 20 words.**
+- **Copy:** "The village sleeps"; captions "You", "Left", "Middle", "Right"; candle and number. Button: "Choose a card" (disabled), then "Choose {cards}" or "Keep my card" (doing nothing: "You" alone picked), then "Chosen". "Hold" appears on "You" only as a cue. Held face: role name, instruction, window-1 page. **20 of 20 words.**
+- **Layout (product owner, 20 November 2026):** the other players' cards in balanced rows; the player's own card ("You") is not among them but in front of them, on a paper place beside the table's three cards, in the same place and size on every phone.
 - **Removed:**
   - The pre-selected Cleo (2).
   - "Your turn · Seer" and the role portrait (14).
@@ -434,7 +435,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 **(b) New needs beyond the contract.** These replace the contract's `sleep` action, `sleep_prompt` and Rule B wording.
 
 1. **`choose` action.** `POST .../action/ {"action_type":"choose","picks":[{"player_id":14}|{"center_index":0}|{"self":true}]}`, with 0 to 2 distinct picks in order. The server interprets it per the "How the server reads a `choose`" table. Reason: the phone never decides what a pick means.
-2. **Identical answers.** Every `choose` is answered `{"status":"submitted"}`. The only errors are `wrong_phase`, `already_chosen` (409) and malformed `bad_request`, and none of them depends on role. A pick that is invalid for the role is not an error. Test every role for byte-identical responses. Reason: responses must leak nothing.
+2. **Identical answers.** Every `choose` is answered `{"status":"submitted"}`, a resend of one already taken included (the request carries the prompt's `chosen`; `docs/specs/onuw/api-contract-v2.md`, "Third amendment"). The only errors are `wrong_phase`, `already_chosen` (409) and malformed `bad_request`, and none of them depends on role. A pick that is invalid for the role is not an error. Test every role for byte-identical responses. Reason: responses must leak nothing.
 3. **Choosing twice in window 1.** Window 1 accepts up to 2 `choose` from any phone and stays fixed-length. Window 2 accepts exactly 1, and its all-tap close counts `choose` submissions. Reason: every phone may Choose twice, so the Doppelganger's follow-up is not a tell.
 4. **Doing nothing.** A lone Werewolf with no center pick, and a Doppelganger look with no other-player pick, both resolve as skip or timeout. A Drunk with no center pick gets the seeded swap (`made_by_server: true`). Reason: "Keep my card" must be valid for every role.
 5. **Window opening.** Every phone gets the same group event `night_window {window, deadline}` in one after-commit batch. Each phone then reads its own prompt from `/me`; there are no per-role prompt events. Reason: identical traffic and timing.

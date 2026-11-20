@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
+import 'package:midnight_village/design_system/faces/night_report.dart';
+import 'package:midnight_village/design_system/night/choose_prompt.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
@@ -120,33 +122,40 @@ class WaitPage extends StatelessWidget {
   }
 }
 
-/// 06: the night board, as [viewer]'s phone had it in the recorded game.
-/// With [fails] the choose gets no answer (the phone is offline).
+/// 06: the night board, as [viewer]'s phone had it in the recorded game,
+/// or at that game's [table] changed (`tableOf`). With [fails] the choose
+/// gets no answer (the phone is offline).
 class BoardPage extends StatelessWidget {
   const BoardPage({
     super.key,
     required this.viewer,
+    this.table,
     this.textScale = 1,
     this.fails = false,
   });
 
   final Viewer viewer;
+  final Map<String, dynamic> Function(Map<String, dynamic> me)? table;
   final double textScale;
   final bool fails;
 
   @override
-  Widget build(BuildContext context) => MediaQuery(
-    data: MediaQuery.of(
-      context,
-    ).copyWith(textScaler: TextScaler.linear(textScale)),
-    child: NightBoard(
-      seats: viewer.seats,
-      selfId: viewer.selfId,
-      prompt: viewer.prompt,
-      face: viewer.you,
-      secondsLeft: 14,
-      onChoose: (_, _) async =>
-          fails ? ChooseAnswer.notSent : ChooseAnswer.taken,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final me = table?.call(viewer.nightMe) ?? viewer.nightMe;
+    final prompt = ChoosePrompt.fromMe(me);
+    return MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(textScale)),
+      child: NightBoard(
+        seats: NightSeat.seatsOf(me),
+        selfId: selfIn(me),
+        prompt: prompt,
+        face: NightReport.fromMe(me).you(prompt),
+        secondsLeft: 14,
+        onChoose: (_, _) async =>
+            fails ? ChooseAnswer.notSent : ChooseAnswer.taken,
+      ),
+    );
+  }
 }

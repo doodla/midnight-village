@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../layout/space.dart';
 import '../skin/skin.dart';
 import 'cut_paper.dart';
+import 'fit_line.dart';
 
 /// A text field in the skin (S01):
 /// - [SkinField.paper]: a piece of paper raised off the ground, the words in
@@ -71,8 +72,10 @@ class SkinField extends StatelessWidget {
       style: style,
       cursorColor: _paper ? skin.paper.text : ground.selection,
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: style.copyWith(color: hintColor),
+        // Set smaller on a narrow field with large text, never cut short.
+        hint: hint == null
+            ? null
+            : FitLine(hint!, style: style.copyWith(color: hintColor)),
         counterText: '',
         isDense: true,
         filled: false,

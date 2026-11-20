@@ -66,6 +66,8 @@ enum ComponentPage {
   ),
   actionNine(mock: '06-night-action.png', viewer: Viewer.drunk),
   actionNineLarge(mock: '06-night-action.png', viewer: Viewer.drunk),
+  actionThree(mock: '06-night-action.png'),
+  actionTenLong(mock: '06-night-action.png', viewer: Viewer.drunk),
   talk(mock: '08-talk.png', day: true),
   talkHeld(mock: '08-talk.png', day: true),
   talkRobber(mock: '08-talk.png', day: true, viewer: Viewer.robber),
@@ -124,7 +126,9 @@ enum ComponentPage {
     actionNotSent ||
     actionFollowUpHeld ||
     actionNine ||
-    actionNineLarge => const {Cue.hold},
+    actionNineLarge ||
+    actionThree ||
+    actionTenLong => const {Cue.hold},
     _ => Cue.values.toSet(),
   };
 
@@ -322,6 +326,16 @@ class ComponentSheetPage extends StatelessWidget {
     ComponentPage.actionNine => BoardPage(viewer: viewer),
     ComponentPage.actionNotSent => BoardPage(viewer: viewer, fails: true),
     ComponentPage.actionNineLarge => BoardPage(viewer: viewer, textScale: 2),
+    // Three at the table: game 7 without Dev and Esme.
+    ComponentPage.actionThree => BoardPage(
+      viewer: viewer,
+      table: (me) => tableOf(me, leave: {dev.name, esme.name}),
+    ),
+    // Ten at the table, as many as the server seats, with long names.
+    ComponentPage.actionTenLong => BoardPage(
+      viewer: viewer,
+      table: (me) => tableOf(me, add: 1, rename: longNames),
+    ),
     ComponentPage.talk ||
     ComponentPage.talkHeld ||
     ComponentPage.talkRobber ||

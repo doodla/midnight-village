@@ -142,16 +142,17 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | "Your turn" 12/700 +0.14em quiet | **Cut** by the first-time play spec ("Your turn") |
 | "Seer" Gloock 26 lh 1.1 | **Cut**: the board's headline is "The village sleeps" on every phone (`type.screenTitle`, `FitWords`); the role is on the held face of "You" |
 | Header gap 10 | `Space.smPlus` |
-| Corner timer: candle 44 x 58 with hairline ring, gap 10, "14" 34 lh 1, "s" 13/700 quiet at 3 | `WorldTimer.candleCompact` (`compactCandleSize`, `type.timerCompact`); the "s" is cut |
+| Corner timer: candle 44 x 58 with hairline ring, gap 10, "14" 34 lh 1, "s" 13/700 quiet at 3 | `WorldTimer.candleCompact` (`compactCandleSize`, `type.timerCompact`), set as one unit `NightBoard.timerLines` (1.3) title lines high; the "s" is cut. Beside it the title on one line (`FitWords(maxLines: 1)`, set smaller only where it must); the board's words grow with the text size to `NightBoard.labelScale` (1.3) |
 | Prompt 26 lh 1.15, margin-top 4 | **Cut**: what this phone may do is on the held face of "You" (the `hold_you` cue points at it until this device has held it) |
-| Player cards 78 x 106, radius 6, ring 2 hairline, 0 4 deep; margin-top 14 | `FaceDownCard(owner:, ownerName:)` in `Expanded` (shrinks to fit; `elevation.lying`) |
+| Player cards 78 x 106, radius 6, ring 2 hairline, 0 4 deep; margin-top 14 | `FaceDownCard(owner:, ownerName:)` (`elevation.lying`), placed by `BoardLayout`: balanced rows, never one card alone on a row, the largest cards that keep every name at its floor and every row on screen, up to `FaceDownSize.board`; columns as wide as a card and `Space.lg`, or the widest name; `Space.sm` between columns, `Space.lg` between rows |
 | Picked card: ring 3 amber, 0 8 deep, up 8 | `selected: true`: lifts `Space.sm` and takes `ground.selection` (bone) at `shape.selectedRing`; never amber or a fill |
 | Mark disc 40 amber at top 38, eye icon 26, 0 2 deep | **Cut** by the first-time play spec: the mark said what a pick would do, which tells the role |
-| Owner token 36 overlapping by 18, ring bone (amber when picked) | `TokenSize.card`, placed by `FaceDownCard` |
-| Name Gloock 18 at 4, amber when picked | `type.nameSmall`, `ground.text` (the name does not change when picked) |
-| Rule 2 px hairline, margin-top 6, padding-top 14 | **Cut**: the center cards are the board's last row, `Space.lg` below the players; the board sits high under the title, four cards to a row for six seats or fewer (five beyond, four with large text); it never scrolls (`ScreenFrame(fitsHeight: true)`, a one-line title): the cards shrink from `FaceDownSize.board` until every row is on screen |
+| Owner token 36 overlapping by 18, ring bone (amber when picked) | `TokenSize.card`, placed by `FaceDownCard`; smaller on a small card (`ownerTokenShare` of its width) |
+| Name Gloock 18 at 4, amber when picked | `type.nameSmall`, `ground.text` (the name does not change when picked); every name on the board at one size, the largest that fits every column (on two lines between words where it must; never below 14 px drawn while a split allows it), never cut |
+| (not in the mock) the viewer's own card | **Added**: not among the seats but in front of them, at the left of the band above the button: `FaceDownCard(owner:, ownerName: "You")` on a `PaperCard` (paper ground: ink name, ink ring when picked), one size with the table's cards (`BoardLayout.bandCard`); its first-game cue is `HoldCue`, a plain ring with "Hold" in it that breathes and fills while held (no thumbprint) |
+| Rule 2 px hairline, margin-top 6, padding-top 14 | A strip of the table instead, beside "You" in the band: `ground.panel`, `shape.radius`, `Space.md` above and below, `Space.sm` beside; `Space.xl` under the seats, with what is to spare split half above the seats and half above the band; the board never scrolls (`ScreenFrame(fitsHeight: true)`) |
 | "Center" centred label | **Cut** by the first-time play spec ("Center"): Left, Middle and Right follow the players on the same board |
-| Center cards 62 x 84, radius 5, 0 3 deep, 0.75 opacity, gap 22 | Every card the same size, `FaceDownSize.player`, with `caption:` (`type.caption` 14, `ground.quietText`); no recess |
+| Center cards 62 x 84, radius 5, 0 3 deep, 0.75 opacity, gap 22 | `FaceDownCard(caption:, tilt: Tilt.scatter(i))` at the band's size (`BoardLayout.bandCard`, at most a seat's), dropped at S05's slants, `Space.sm` apart on the strip; no opacity (the captions keep their contrast) |
 | "Left / Middle / Right" 12/700 quiet, gap 6 | `caption:` (`type.caption` 14, `ground.quietText`) |
 | "Look at Cleo's card" 56 | `PrimaryButton`: "Choose a card" and "Choose 1 more" `.locked` (a tap replays the wave), then "Choose {cards}" or "Keep my card", then `.done` "Chosen"; a send that gets no answer adds `Notice` "Not sent." with "Try again" (a `409` is done, not a failure; any other `4xx` arms the board again); a phone whose turn the server already has (`chosen`) opens at "Chosen" |
 | "Do nothing tonight" 48, 2 px quiet outline, 15/700 | **Cut** by the first-time play spec: doing nothing is picking "You" ("Keep my card") |
@@ -168,7 +169,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | "You looked at" centred | **Cut** ("You looked at"), and 07 with it |
 | Token 44 + "Cleo's card" 36 lh 1, gap 12 | **Cut** by the first-time play spec (the target's token and name: they are on the held face) |
 | Card: 270 x 362, padding 10, paper, heroSlab | On 04: `FaceDownCard(size: FaceDownSize.hero)` (`ground.paper`, `elevation.heroSlab`; back at `shape.radiusTiny`) |
-| Hold disc 132, night at 86%, ring 3 amber, icon 34 amber, "Hold to flip" 15/700 | `FaceDownCard(hold: teaching)`: `HoldCue`, a bone ring that breathes round a thumbprint with "Hold" (`type.cue`, 20) under it until this device has learned the hold, then the thumbprint alone |
+| Hold disc 132, night at 86%, ring 3 amber, icon 34 amber, "Hold to flip" 15/700 | `FaceDownCard(hold: teaching)`: `HoldCue`, a plain bone ring on the night at 86% with "Hold" (`type.cue`, 20) in it, breathing, that fills while held, until this device has learned the hold; then nothing (the thumbprint is cut: product owner, 20 November 2026) |
 | Press and hold to turn it over | `HoldToReveal(cover:, face: FaceContent)`: the face is a `HeldFace` drawn above the touch point, for as long as it is held |
 | "Done" | **Cut** with 07 (its 4 s gate was an added wait) |
 | Token pips 26, done ring bone, waiting 0.35 quiet ring; "2 of 5 done" 14/700 | `ProgressPips` is plain on every screen (copy rule 8); 07 has none |
@@ -243,8 +244,9 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 - **S04's soft glow** under the card (`0 34px 44px`) is not drawn: the brief allows hard
   shadows only.
 - **S03b's hyphenated "Trouble-maker"**: names are never broken (`FitLine` sets them smaller).
-- **S10's fixed 62-wide name column** is an `Expanded` name, so a long name is cut short rather
-  than overrunning the voters.
+- **S10's fixed 62-wide name column** is an `Expanded` name that wraps between words and is set
+  smaller to fit two lines (`FitWords`), rather than overrunning the voters; no name is ever cut
+  short (the fit sweep and `just screens ... strict` fail on text drawn cut).
 - **Snaps** of 1 to 2 px: 5 to 6 (grid and center-card radius, grid name gap is kept at 5 inside
   `RoleCard`), 7 to 8 (deck-link gap), 22 to 24 (center-card gap), 26 to 24 + 2 (vote band top),
   13 to 12 (S01's field label, to the brief's 12 px labels), S04's tag padding 7/12 to 6/10.

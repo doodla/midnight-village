@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,26 +11,30 @@ import '../layout/space.dart';
 import '../primitives/face_down_card.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/notice.dart';
-import '../primitives/player_token.dart';
+import '../primitives/paper_card.dart';
 import '../primitives/primary_button.dart';
 import '../primitives/screen_frame.dart';
 import '../primitives/world_timer.dart';
 import '../skin/ground.dart';
 import '../skin/skin.dart';
+import '../skin/skin_tilt.dart';
+import '../skin/skin_type.dart';
 import '../teach/cue_wave.dart';
 import '../teach/learned_store.dart';
 import '../teach/teach_once.dart';
 import '../teach/teaching_hold.dart';
+import 'board_layout.dart';
 import 'choose_prompt.dart';
 import 'night_pick.dart';
 
 /// The night (06), sections 3, 7 and 8 of the first-time play spec.
 ///
-/// - Drawn from [seats] in seat order, the viewer's own captioned "You",
-///   then Left, Middle and Right: the same cards, places, lift and button on
-///   every phone, whatever the role.
+/// - Drawn from [seats]: the other players in seat order, in rows
+///   ([BoardLayout]); in front of them the viewer's own card, "You", on its
+///   paper place, beside Left, Middle and Right on their strip: the same
+///   cards, places, lift and button on every phone, whatever the role.
 /// - Holding "You" shows [face] (what this phone may do); until this device
-///   has held "You" once, the thumbprint cue points at it (`hold_you`).
+///   has held "You" once, the hold ring is on it (`hold_you`).
 ///   Nothing waits on the hold; a tap on "You" picks it at once.
 /// - A tap selects a card the prompt's rule can take (lift plus the
 ///   selection's outline) and unselects a chosen one; a card it cannot take
@@ -86,17 +91,17 @@ class NightBoard extends ConsumerStatefulWidget {
   final Future<ChooseAnswer> Function(String stage, List<NightPick> picks)
   onChoose;
 
-  /// Cards per row at most: four for a small table, five for a large one,
-  /// and four with large text.
-  static const perRowSmallTable = 4;
-  static const perRow = 5;
-  static const perRowLargeText = 4;
+  /// The board's words (the title, the seconds, the names and captions)
+  /// grow with the text size up to this: the cards are what the board
+  /// shows, and larger words would leave no room for them.
+  static const labelScale = 1.3;
 
-  /// A table this small or smaller has [perRowSmallTable] to a row.
-  static const smallTable = 6;
+  /// The button's words grow further, as far as a held face's.
+  static const buttonScale = 1.6;
 
-  /// From this text scale the board wraps to [perRowLargeText].
-  static const largeText = 1.3;
+  /// The candle and the seconds beside the title: this many title lines
+  /// high (at the title's size before the text scale).
+  static const timerLines = 1.3;
 
   @override
   ConsumerState<NightBoard> createState() => _NightBoardState();
@@ -114,6 +119,20 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   /// Which send is the latest: an answer to an older one, or to an earlier
   /// turn, is ignored.
   var _sends = 0;
+
+  /// The last layout and what it was worked out from: the board is rebuilt
+  /// every second (the countdown) and on every tap, and measures its names
+  /// again only when the names, the room, the text or the skin change.
+  (_LayoutKey, BoardLayout)? _layout;
+
+  BoardLayout _layoutFor(_LayoutKey key, BoardLayout Function() solve) {
+    if (_layout case (final last, final layout) when last == key) {
+      return layout;
+    }
+    final layout = solve();
+    _layout = (key, layout);
+    return layout;
+  }
 
   @override
   void didUpdateWidget(NightBoard old) {
@@ -202,23 +221,13 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   @override
   Widget build(BuildContext context) {
-    final type = context.skin.typography;
-    final large =
-        MediaQuery.textScalerOf(context).scale(1) >= NightBoard.largeText;
-    final perRow = large
-        ? NightBoard.perRowLargeText
-        : widget.seats.length <= NightBoard.smallTable
-        ? NightBoard.perRowSmallTable
-        : NightBoard.perRow;
-    final cards = <Widget Function(double)>[
-      for (final seat in widget.seats)
-        seat.id == widget.selfId
-            ? (width) => _you(seat, width)
-            : (width) => _player(seat, width),
-    ];
-    final center = <Widget Function(double)>[
-      for (var i = 0; i < 3; i++) (width) => _center(i, width),
-    ];
+    final skin = context.skin;
+    final type = skin.typography;
+    final names = [for (final seat in widget.seats) seat.name];
+    final captions = [for (var i = 0; i < 3; i++) centerName(i)];
+    final tilt = [
+      for (var i = 0; i < 3; i++) skin.tilt.angle(Tilt.scatter(i)).abs(),
+    ].reduce(math.max);
 
     return TeachOnce(
       cue: Cue.nightChoose,
@@ -231,127 +240,189 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           distance: CueWave.boardLift,
           child: card,
         );
-        // The board is the screen: high, under the title, every card on it.
-        return ScreenFrame(
-          ground: GroundKind.night,
-          fitsHeight: true,
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                spacing: Space.md,
+        // The board is the screen: the title and the seconds, the other
+        // seats in balanced rows, and in front of the player their own card
+        // on its paper place beside the table's three on their strip.
+        return MediaQuery.withClampedTextScaling(
+          maxScaleFactor: NightBoard.buttonScale,
+          child: ScreenFrame(
+            ground: GroundKind.night,
+            fitsHeight: true,
+            body: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: NightBoard.labelScale,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  _header(context),
+                  const SizedBox(height: Space.xl),
                   Expanded(
-                    child: Semantics(
-                      header: true,
-                      child: FitLine(
-                        CommonCopy.nightTitle,
-                        style: type.screenTitle,
-                      ),
+                    child: LayoutBuilder(
+                      builder: (context, room) {
+                        // The wave runs left to right, top to bottom, from 0
+                        // each time the board is laid out.
+                        index = 0;
+                        final layout = _layoutFor(
+                          _LayoutKey(
+                            names: names,
+                            room: room.biggest,
+                            scale: MediaQuery.textScalerOf(context).scale(1),
+                            type: type,
+                            tilt: tilt,
+                          ),
+                          () => BoardLayout.solve(
+                            others: widget.seats.length - 1,
+                            names: names,
+                            you: NightCopy.you,
+                            captions: captions,
+                            room: room.biggest,
+                            nameStyle: type.nameSmall,
+                            captionStyle: type.caption,
+                            scaler: MediaQuery.textScalerOf(context),
+                            tilt: tilt,
+                          ),
+                        );
+                        return _board(layout, room.biggest, wave);
+                      },
                     ),
                   ),
-                  WorldTimer.candleCompact(secondsLeft: widget.secondsLeft),
                 ],
               ),
-              const SizedBox(height: Space.xl),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, room) {
-                    // The wave runs left to right, top to bottom, from 0
-                    // each time the board is laid out.
-                    index = 0;
-                    final rows = [
-                      for (var at = 0; at < cards.length; at += perRow)
-                        [for (final card in cards.skip(at).take(perRow)) card],
-                    ];
-                    final column = _column(room, perRow);
-                    final width = _cardWidth(
-                      context,
-                      room,
-                      perRow,
-                      rows.length,
-                    );
-                    // A name keeps its column's width when the card shrinks.
-                    Widget row(List<Widget Function(double)> slots) => Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: Space.xs,
-                      children: [
-                        for (final card in slots)
-                          SizedBox(width: column, child: wave(card(width))),
-                      ],
-                    );
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      spacing: Space.lg,
-                      children: [for (final r in rows) row(r), row(center)],
-                    );
-                  },
+            ),
+            actions: [
+              if (_failed)
+                Notice(
+                  message: BannerCopy.notSent,
+                  action: BannerCopy.tryAgain,
+                  onAction: _retry,
                 ),
-              ),
+              _button(),
             ],
           ),
-          actions: [
-            if (_failed)
-              Notice(
-                message: BannerCopy.notSent,
-                action: BannerCopy.tryAgain,
-                onAction: _retry,
-              ),
-            _button(),
-          ],
         );
       },
     );
   }
 
-  /// The width every card on the board takes: a column's width at most
-  /// ([FaceDownSize.board] at most), and less when that is what it takes for
-  /// [playerRows] rows of players and the center row to fit [room]'s height
-  /// with their tokens and names, so no card is ever off the screen.
-  double _cardWidth(
-    BuildContext context,
-    BoxConstraints room,
-    int perRow,
-    int playerRows,
-  ) {
-    final type = context.skin.typography;
-    final scaler = MediaQuery.textScalerOf(context);
-    double line(TextStyle style) {
-      final painter = TextPainter(
-        text: TextSpan(text: NightCopy.you, style: style),
-        textScaler: scaler,
-        textDirection: TextDirection.ltr,
-      )..layout();
-      final height = painter.height;
-      painter.dispose();
-      return height;
-    }
-
-    final column = _column(room, perRow);
-    final under = TokenSize.card.size / 2 + Space.xxs + line(type.nameSmall);
-    final caption = Space.xs + line(type.caption);
-    final cardsHigh =
-        room.maxHeight -
-        Space.lg * playerRows -
-        playerRows * under -
-        caption -
-        // A picked card lifts this far into the gap above it.
-        Space.sm;
-    final shape = FaceDownSize.board.mock;
-    final byHeight = cardsHigh / (playerRows + 1) * shape.width / shape.height;
-    return [column, byHeight, shape.width].reduce(math.min);
+  /// The title on one line, set smaller only where it must, and beside it
+  /// the candle and the seconds as one compact unit, a line and a third
+  /// high.
+  Widget _header(BuildContext context) {
+    final title = context.skin.typography.screenTitle;
+    // At the title's own size, whatever the text scale: the unit sets its
+    // larger digits smaller to keep to it.
+    final line = title.fontSize! * title.height!;
+    return Row(
+      spacing: Space.md,
+      children: [
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: FitWords(CommonCopy.nightTitle, maxLines: 1, style: title),
+          ),
+        ),
+        SizedBox(
+          height: line * NightBoard.timerLines,
+          child: FittedBox(
+            child: WorldTimer.candleCompact(secondsLeft: widget.secondsLeft),
+          ),
+        ),
+      ],
+    );
   }
 
-  /// A column's width: [perRow] columns across [room] with their gaps.
-  static double _column(BoxConstraints room, int perRow) =>
-      (room.maxWidth - (perRow - 1) * Space.xs) / perRow;
+  /// The other seats in [layout]'s rows, then the band in front of the
+  /// player; what is to spare goes above the seats and between them and
+  /// the band, half each.
+  Widget _board(
+    BoardLayout layout,
+    Size room,
+    Widget Function(Widget card) wave,
+  ) {
+    final spare = math.max(0.0, room.height - layout.used);
+    final others = [
+      for (final seat in widget.seats)
+        if (seat.id != widget.selfId) seat,
+    ];
+    final me = widget.seats.firstWhere((s) => s.id == widget.selfId);
+    var at = 0;
+    final rows = [
+      for (final count in layout.rows)
+        [for (var i = 0; i < count; i++) others[at++]],
+    ];
+    Widget seat(NightSeat seat) =>
+        SizedBox(width: layout.column, child: wave(_player(seat, layout)));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(height: spare / 2),
+        for (final (i, row) in rows.indexed) ...[
+          if (i > 0) const SizedBox(height: BoardLayout.rowGap),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: BoardLayout.columnGap,
+            children: [for (final s in row) seat(s)],
+          ),
+        ],
+        SizedBox(height: BoardLayout.bandGap + spare / 2),
+        _band(me, layout, wave),
+      ],
+    );
+  }
 
-  Widget _player(NightSeat seat, double width) {
+  /// In front of the player: their own card on its paper place, and the
+  /// table's three cards, dropped at a slant on a strip of the table.
+  Widget _band(
+    NightSeat me,
+    BoardLayout layout,
+    Widget Function(Widget card) wave,
+  ) {
+    final skin = context.skin;
+    const padding = EdgeInsets.symmetric(
+      horizontal: BoardLayout.bandPaddingSide,
+      vertical: BoardLayout.bandPadding,
+    );
+    return Center(
+      child: SizedBox(
+        height: layout.bandHeight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: BoardLayout.placeGap,
+          children: [
+            _you(me, layout, wave, padding),
+            Container(
+              padding: padding,
+              decoration: BoxDecoration(
+                color: context.ground.panel,
+                borderRadius: BorderRadius.circular(skin.shape.radius),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: BoardLayout.tableCardGap,
+                children: [
+                  for (var i = 0; i < 3; i++)
+                    SizedBox(
+                      width: layout.bandCell,
+                      child: wave(_center(i, layout)),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _player(NightSeat seat, BoardLayout layout) {
     final pick = PlayerPick(seat.id);
     return FaceDownCard(
       size: FaceDownSize.board,
-      cardWidth: width,
+      cardWidth: layout.cardWidth,
+      nameSize: layout.nameSize,
+      nameHeight: layout.nameHeight,
       owner: seat.token,
       ownerName: seat.name,
       selected: _picks.contains(pick),
@@ -360,31 +431,87 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  Widget _center(int index, double width) {
+  Widget _center(int index, BoardLayout layout) {
     final pick = CenterPick(index);
     return FaceDownCard(
       size: FaceDownSize.board,
-      cardWidth: width,
+      cardWidth: layout.bandCard,
       caption: centerName(index),
+      tilt: Tilt.scatter(index),
       selected: _picks.contains(pick),
       semanticLabel: centerName(index),
       onTap: () => _tap(pick),
     );
   }
 
-  Widget _you(NightSeat seat, double width) => TeachingHold(
-    target: NightCopy.you,
-    cue: Cue.holdYou,
-    face: widget.face,
-    cover: (teaching) => FaceDownCard(
-      size: FaceDownSize.board,
-      cardWidth: width,
-      owner: seat.token,
-      ownerName: NightCopy.you,
-      selected: _picks.contains(const SelfPick()),
-      semanticLabel: NightCopy.you,
-      hold: teaching,
-      onTap: () => _tap(const SelfPick()),
-    ),
-  );
+  /// The player's own card on its paper place: a tap anywhere on the place
+  /// picks it, a hold anywhere on it shows [NightBoard.face].
+  Widget _you(
+    NightSeat seat,
+    BoardLayout layout,
+    Widget Function(Widget card) wave,
+    EdgeInsets padding,
+  ) {
+    void pick() => _tap(const SelfPick());
+    return TeachingHold(
+      target: NightCopy.you,
+      cue: Cue.holdYou,
+      face: widget.face,
+      cover: (teaching) => GestureDetector(
+        onTap: pick,
+        behavior: HitTestBehavior.opaque,
+        excludeFromSemantics: true,
+        child: PaperCard(
+          padding: padding,
+          child: SizedBox(
+            width: layout.bandCell,
+            child: wave(
+              FaceDownCard(
+                size: FaceDownSize.board,
+                cardWidth: layout.bandCard,
+                nameSize: layout.nameSize,
+                nameHeight: layout.nameHeight,
+                owner: seat.token,
+                ownerName: NightCopy.you,
+                selected: _picks.contains(const SelfPick()),
+                semanticLabel: NightCopy.you,
+                hold: teaching,
+                onTap: pick,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What a [BoardLayout] is worked out from.
+@immutable
+class _LayoutKey {
+  const _LayoutKey({
+    required this.names,
+    required this.room,
+    required this.scale,
+    required this.type,
+    required this.tilt,
+  });
+
+  final List<String> names;
+  final Size room;
+  final double scale;
+  final SkinType type;
+  final double tilt;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _LayoutKey &&
+      listEquals(other.names, names) &&
+      other.room == room &&
+      other.scale == scale &&
+      identical(other.type, type) &&
+      other.tilt == tilt;
+
+  @override
+  int get hashCode => Object.hash(Object.hashAll(names), room, scale, tilt);
 }

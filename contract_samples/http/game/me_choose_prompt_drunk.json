@@ -82,6 +82,7 @@
     "max_picks": 2,
     "max_chooses": 1,
     "chosen": 0,
+    "chooses_left": 1,
     "valid_targets": {
       "player_ids": [
         32,
@@ -140,6 +141,7 @@
   ],
   "night_results": [],
   "night_results_seen": 0,
+  "player_id": 38,
   "my_vote": null,
   "ready": null,
   "progress": null,

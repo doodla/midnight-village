@@ -4,6 +4,7 @@ import 'package:midnight_village/design_system/faces/night_report.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/night/choose_prompt.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
+import 'package:midnight_village/design_system/skin/art_set.dart';
 
 import '../contract/contract_samples.dart';
 
@@ -42,6 +43,63 @@ final esme = fiveSeats[4];
 
 /// Game 8's table: the largest recorded.
 final nineSeats = NightSeat.seatsOf(recordedMe('me_choose_prompt_drunk'));
+
+/// A recorded board's table, changed in its values only (the night board's
+/// sizes are not in any recorded game): the seats named in [leave] gone from
+/// the table and the prompt, [add] more seats like the last (new ids, the
+/// tokens no one has, the next seats), then every name in [rename] renamed.
+/// The server's names are 20 characters at most (`display_name`).
+Map<String, dynamic> tableOf(
+  Map<String, dynamic> me, {
+  Set<String> leave = const {},
+  int add = 0,
+  Map<String, String> rename = const {},
+}) {
+  final players = (me['players'] as List).cast<Map<String, dynamic>>();
+  final targets =
+      ((me['action_prompt'] as Map)['valid_targets'] as Map)['player_ids']
+          as List;
+  final gone = {
+    for (final p in players)
+      if (leave.contains(p['display_name'])) p['player_id'],
+  };
+  players.removeWhere((p) => gone.contains(p['player_id']));
+  targets.removeWhere(gone.contains);
+  final unused = TokenId.values
+      .map((t) => t.name)
+      .where((t) => !players.any((p) => p['token'] == t))
+      .toList();
+  for (var i = 0; i < add; i++) {
+    final last = players.last;
+    final id = (last['player_id'] as int) + 1;
+    players.add({
+      ...last,
+      'player_id': id,
+      'display_name': 'Seat $id',
+      'token': unused[i],
+      'seat': (last['seat'] as int) + 1,
+    });
+    targets.add(id);
+  }
+  for (final p in players) {
+    p['display_name'] = rename[p['display_name']] ?? p['display_name'];
+  }
+  return me;
+}
+
+/// Long names as a table has them, at most the server's 20 characters: one
+/// name of two words that has to wrap, and short ones beside them.
+const longNames = {
+  'Ana': 'Christopher',
+  'Ben': 'Maximiliano',
+  'Cleo': 'Jo',
+  'Dev': 'Esmeralda',
+  'Esme': 'Bartholomew',
+  'Fin': 'Ida',
+  'Hana': 'Rosalind Fairweather',
+  'Ida': 'Wolfgang',
+  'Seat 41': 'Penelope',
+};
 
 /// Game 7's deck, as the strips and the builder count it.
 final deckCounts = deckOf(recordedMe('me_choose_prompt_seer'));

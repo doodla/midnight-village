@@ -15,9 +15,11 @@ class FitLine extends StatelessWidget {
   );
 }
 
-/// Text that may wrap between words but never inside one: when its longest
-/// word is wider than the space, the whole text is set smaller until that
-/// word fits ("The Werewolf wins" in a narrow band, with large text).
+/// Text that may wrap between words but never inside one, and is never cut
+/// short: when its longest word is wider than the space, the whole text is
+/// set smaller until that word fits ("The Werewolf wins" in a narrow band,
+/// with large text); with [maxLines], smaller again until it fits that many
+/// lines (a button's label, a name under a card).
 class FitWords extends StatelessWidget {
   const FitWords(
     this.text, {
@@ -31,8 +33,11 @@ class FitWords extends StatelessWidget {
   final TextStyle style;
   final TextAlign? textAlign;
 
-  /// At most this many lines, the last ending in an ellipsis.
+  /// At most this many lines: the text is set smaller until it fits them.
   final int? maxLines;
+
+  /// Measured text is set a hair smaller than the size it fits at.
+  static const _safety = 0.99;
 
   @override
   Widget build(BuildContext context) {
@@ -42,38 +47,59 @@ class FitWords extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         var fitted = base;
-        if (constraints.hasBoundedWidth) {
+        final size = base.fontSize;
+        if (constraints.hasBoundedWidth && size != null) {
+          final room = constraints.maxWidth;
+          TextPainter painter(String text, double factor, {int? lines}) =>
+              TextPainter(
+                text: TextSpan(text: text, style: _scaled(base, factor)),
+                textDirection: direction,
+                textScaler: scaler,
+                textAlign: textAlign ?? TextAlign.start,
+                maxLines: lines,
+              )..layout(maxWidth: lines == 1 ? double.infinity : room);
+          double width(String word) {
+            final p = painter(word, 1, lines: 1);
+            final w = p.width;
+            p.dispose();
+            return w;
+          }
+
           final widest = text
               .split(RegExp(r'\s+'))
               .where((word) => word.isNotEmpty)
-              .map((word) {
-                final painter = TextPainter(
-                  text: TextSpan(text: word, style: base),
-                  textDirection: direction,
-                  textScaler: scaler,
-                  maxLines: 1,
-                )..layout();
-                final width = painter.width;
-                painter.dispose();
-                return width;
-              })
+              .map(width)
               .fold(0.0, (a, b) => a > b ? a : b);
-          if (widest > constraints.maxWidth && base.fontSize != null) {
-            final factor = constraints.maxWidth / widest * 0.99;
-            fitted = base.copyWith(
-              fontSize: base.fontSize! * factor,
-              letterSpacing: (base.letterSpacing ?? 0) * factor,
-            );
+          var factor = widest > room ? room / widest * _safety : 1.0;
+          if (maxLines case final most?) {
+            bool fits(double f) {
+              final p = painter(text, f);
+              final lines = p.computeLineMetrics().length;
+              p.dispose();
+              return lines <= most;
+            }
+
+            if (!fits(factor)) {
+              var low = 0.0;
+              var high = factor;
+              for (var i = 0; i < 20; i++) {
+                final mid = (low + high) / 2;
+                fits(mid) ? low = mid : high = mid;
+              }
+              factor = low * _safety;
+            }
           }
+          if (factor < 1) fitted = _scaled(base, factor);
         }
-        return Text(
-          text,
-          style: fitted,
-          textAlign: textAlign,
-          maxLines: maxLines,
-          overflow: maxLines == null ? null : TextOverflow.ellipsis,
-        );
+        return Text(text, style: fitted, textAlign: textAlign);
       },
     );
   }
+
+  static TextStyle _scaled(TextStyle style, double factor) => factor == 1
+      ? style
+      : style.copyWith(
+          fontSize: style.fontSize! * factor,
+          letterSpacing: (style.letterSpacing ?? 0) * factor,
+        );
 }

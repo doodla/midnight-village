@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
@@ -7,6 +9,7 @@ import '../skin/skin_tilt.dart';
 import '../teach/hold_cue.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
+import 'fit_line.dart';
 import 'player_token.dart';
 
 /// [FaceDownCard]'s sizes in the mocks. A card is at most this wide and
@@ -36,10 +39,16 @@ enum FaceDownSize {
 /// [ownerName] under it) or a center card (with its [caption], "Left").
 /// When [selected] it lifts and takes the selection's outline (first-time
 /// play spec: a selection is lift plus an outline, never a fill). [hold]
-/// puts the thumbprint on it: null for none, else the `hold` cue, teaching
-/// or learned ([HoldCue]). [cardWidth] sets the card's own width when its
+/// puts the press-and-hold ring on it while the `hold` cue is taught
+/// ([HoldCue]; null or false for none). [cardWidth] sets the card's own width when its
 /// name or caption may run wider, across the parent's width (the board's
-/// columns when its cards shrink to fit the screen).
+/// columns).
+///
+/// A name or caption is never cut short: it wraps between words, on two
+/// lines at most, and is set smaller when a word is wider than the space
+/// ([FitWords]). [nameSize] sets the name's size and [nameHeight] the room
+/// under the token (the night board sets every name at one size that fits
+/// them all, in the same room, so a name on two lines moves no card).
 class FaceDownCard extends StatelessWidget {
   const FaceDownCard({
     super.key,
@@ -51,6 +60,8 @@ class FaceDownCard extends StatelessWidget {
     this.hold,
     this.tilt = Tilt.none,
     this.cardWidth,
+    this.nameSize,
+    this.nameHeight,
     this.semanticLabel,
     this.onTap,
   });
@@ -63,11 +74,30 @@ class FaceDownCard extends StatelessWidget {
   final bool? hold;
   final Tilt tilt;
   final double? cardWidth;
+  final double? nameSize;
+  final double? nameHeight;
   final String? semanticLabel;
   final VoidCallback? onTap;
 
   /// The mock's player card width, which the lying shadow is drawn for.
   static const _shadowWidth = 78.0;
+
+  /// The owner's token takes at most this share of a card's width: the
+  /// mocks' 36 on a card 86 or wider, smaller on a small card.
+  static const ownerTokenShare = 0.42;
+
+  /// The owner's token under a card [width] wide.
+  static double ownerTokenFor(double width) =>
+      math.min(TokenSize.card.size, width * ownerTokenShare);
+
+  /// Between the token and the name under it.
+  static const nameGap = Space.xxs;
+
+  /// Between a card and its caption.
+  static const captionGap = Space.xs;
+
+  /// The hold ring's share of a card back's width.
+  static const holdShare = 0.8;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -109,6 +139,7 @@ class FaceDownCard extends StatelessWidget {
     );
     if (angle != 0) card = Transform.rotate(angle: angle, child: card);
 
+    final token = ownerTokenFor(width);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -117,7 +148,7 @@ class FaceDownCard extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Padding(
-                padding: EdgeInsets.only(bottom: TokenSize.card.size / 2),
+                padding: EdgeInsets.only(bottom: token / 2),
                 child: card,
               ),
               Positioned(
@@ -125,10 +156,15 @@ class FaceDownCard extends StatelessWidget {
                 right: 0,
                 bottom: 0,
                 child: Center(
-                  child: PlayerToken(
-                    owner,
-                    size: TokenSize.card,
-                    ringColor: selected ? ground.selection : null,
+                  child: SizedBox.square(
+                    dimension: token,
+                    child: FittedBox(
+                      child: PlayerToken(
+                        owner,
+                        size: TokenSize.card,
+                        ringColor: selected ? ground.selection : null,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -137,27 +173,40 @@ class FaceDownCard extends StatelessWidget {
         else
           card,
         if (ownerName case final name?) ...[
-          const SizedBox(height: Space.xxs),
-          _under(name, skin.typography.nameSmall.copyWith(color: ground.text)),
+          const SizedBox(height: nameGap),
+          if (nameHeight case final height?)
+            SizedBox(
+              height: height,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: _name(context, name),
+              ),
+            )
+          else
+            _name(context, name),
         ],
         if (caption case final caption?) ...[
-          const SizedBox(height: Space.xs),
-          _under(
+          const SizedBox(height: captionGap),
+          FitWords(
             caption,
-            skin.typography.caption.copyWith(color: ground.quietText),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: skin.typography.caption.copyWith(color: ground.quietText),
           ),
         ],
       ],
     );
   }
 
-  /// A name or caption under the card, one line, cut short when long.
-  Widget _under(String text, TextStyle style) => Text(
-    text,
+  /// The owner's name under the token.
+  Widget _name(BuildContext context, String name) => FitWords(
+    name,
     textAlign: TextAlign.center,
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
-    style: style,
+    maxLines: 2,
+    style: context.skin.typography.nameSmall.copyWith(
+      fontSize: nameSize,
+      color: context.ground.text,
+    ),
   );
 
   /// The card back in its ring, lying on the table.
@@ -186,16 +235,14 @@ class FaceDownCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             ArtPicture(skin.art.cardBack),
-            if (hold case final teaching?)
+            // Over the card's eye, clear of the token on its lower edge.
+            if (hold case final teaching? when teaching)
               Padding(
-                padding: const EdgeInsets.all(Space.xxs),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: HoldCue(
-                    teaching: teaching,
-                    size: width * 0.45,
-                    wordAbove: true,
-                  ),
+                padding: EdgeInsets.only(
+                  bottom: owner == null ? 0 : ownerTokenFor(width) / 2,
+                ),
+                child: Center(
+                  child: HoldCue(teaching: teaching, size: width * holdShare),
                 ),
               ),
           ],
@@ -205,7 +252,7 @@ class FaceDownCard extends StatelessWidget {
   }
 
   /// The one card a screen is about: the back in a paper frame, lifted, with
-  /// the thumbprint on it (04, 07).
+  /// the hold ring on it while the hold is taught (04).
   Widget _hero(BuildContext context, double width) {
     final skin = context.skin;
     final ground = context.ground;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
 
 import '../test/helpers/painted_text.dart';
@@ -10,10 +11,10 @@ import '../test/helpers/painted_text.dart';
 // fails a player screen with a breach.
 
 /// Anything a player reads to act, at text scale 1.0.
-const readingFloor = 16.0;
+const readingFloor = ReadingFloor.act;
 
 /// Captions under cards and tokens.
-const captionFloor = 14.0;
+const captionFloor = ReadingFloor.caption;
 
 /// Tracked capitals smaller than this are a micro-label.
 const _labelSize = 20.0;
