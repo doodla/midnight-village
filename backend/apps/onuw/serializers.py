@@ -235,8 +235,12 @@ class GameMeSerializer(serializers.Serializer):
     def get_ready(self, game: Game) -> bool | None:
         """The caller's own "ready" flag at the stages that have one (the talk and,
         later, the card look); None elsewhere."""
+        from .services import _in_look_stage
+
         player_role = self.context.get("player_role")
-        if player_role is None or game.phase != Phase.DISCUSSION:
+        if player_role is None:
+            return None
+        if game.phase != Phase.DISCUSSION and not _in_look_stage(game):
             return None
         return bool(player_role.phase_ready)
 

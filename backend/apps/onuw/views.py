@@ -37,6 +37,7 @@ from .services import (
     AlreadyActedError,
     acknowledge_night_results,
     advance_wave,
+    begin_night,
     check_and_maybe_advance,
     end_discussion,
     ensure_timers,
@@ -45,7 +46,6 @@ from .services import (
     resolve_doppelganger_look,
     reveal_votes,
     set_ready,
-    start_night_phase,
     submit_vote,
     timer_prefixes,
     validate_night_action,
@@ -223,7 +223,7 @@ class GameStartView(APIView):
         # Open the first window in the SAME transaction that creates the game,
         # so there is no committed night that never opened (an instance dying
         # between the two). Its sends and timers still run after the commit.
-        start_night_phase(game)
+        begin_night(game)
 
         return game
 
@@ -463,6 +463,15 @@ class WaveAdvanceView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # ``from_window`` (optional): the window the host saw when they tapped. A
+        # stale tap (the window already moved on) must not close the next one.
+        body = request.data if isinstance(request.data, dict) else {}
+        from_window = body.get("from_window")
+        if "from_window" in body and (
+            type(from_window) is not int or not 0 <= from_window <= 2
+        ):
+            return _bad_request("from_window must be 0, 1 or 2")
+
         # Acquire row lock and re-check phase to prevent race with timer
         # callbacks. Without this, concurrent timer + host requests can
         # double-process a wave, duplicating log entries and resetting
@@ -474,7 +483,15 @@ class WaveAdvanceView(APIView):
                     {"detail": "Game is not in the night phase."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            advance_wave(game)
+            if from_window is not None and from_window != game.current_wave:
+                return Response(
+                    {
+                        "detail": "That window is already over.",
+                        "code": "wrong_window",
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            advance_wave(game)  # at window 0 it opens the first window
 
         # Refresh to get updated state
         game.refresh_from_db()

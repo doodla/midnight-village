@@ -31,7 +31,10 @@ sections below say otherwise, this list wins:
   `debug-fire-timer` a real timer to fire.
 - **`debug-fire-timer` `wave:{n}` closes night window `n` now** (ignoring the fixed and
   minimum lengths). `fired:false` = no timer pending (e.g. that window's timer setting is
-  0, or it already closed): use the host's `advance-wave`.
+  0, or it already closed): use the host's `advance-wave`. `advance-wave` takes an optional
+  `{"from_window": n}` and answers 409 `wrong_window` when the game is in another window;
+  at window 0 (the look stage, `card_look_seconds` > 0) it opens the first window.
+  `debug-fire-timer` `look` fires the look stage's backstop.
 - **"Do nothing"** is `{"action_type":"skip","targets":{}}` for Seer, Robber,
   Troublemaker (and a Doppelganger follow-up as one of them), when the prompt's
   `action_types` includes `skip`. The Drunk and the Doppelganger's first look cannot skip.
@@ -279,11 +282,11 @@ already-fired key is a safe no-op (cannot double-transition).
 
 **Request body:**
 ```jsonc
-{ "key": "wave:1" | "wave:2" | "discussion" | "voting" | "current" }
+{ "key": "wave:1" | "wave:2" | "discussion" | "voting" | "look" | "current" }
 ```
 - `wave:{n}` — `n` must be a non-negative integer; only `1` and `2` name a night window.
   Firing it closes that window now.
-- `discussion`, `voting` — the phase timers.
+- `discussion`, `voting` — the phase timers. `look` — the look stage's backstop (`card_look_seconds`): opens the first night window now.
 - `current` — resolves to the **single** registry key under prefix `f"{game_id}:"`;
   rejected (400) if there are 0 or >1 pending timers for the game.
 - Caller must be a player in the game (same membership bar as all game endpoints).

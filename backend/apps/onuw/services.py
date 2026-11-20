@@ -438,10 +438,56 @@ def start_night_phase(game: Game) -> None:
     with transaction.atomic():
         locked = Game.objects.select_for_update().get(id=game.id)
         if locked.phase == Phase.NIGHT and locked.current_wave == 0:
+            # The look stage (if there was one) is over: its backstop is moot.
+            _cancel_after_commit(_look_timer_key(locked))
             _open_window(locked, first_window)
         # else: already opened (start-up recovery or a lazy ensure_timers got
         # there first); opening twice would re-prompt everyone.
     game.refresh_from_db()
+
+
+def _look_timer_key(game: Game) -> str:
+    return f"{game.id}:look"
+
+
+def begin_night(game: Game) -> None:
+    """The deal's last step: open the night, through the look stage if the game
+    asks for one (``card_look_seconds`` > 0), else straight into the first window."""
+    seconds = get_timer_seconds(game, "card_look_seconds", 0)
+    if seconds > 0:
+        _start_look_stage(game, seconds)
+    else:
+        start_night_phase(game)
+
+
+def _in_look_stage(game: Game) -> bool:
+    """Night, window 0, with a look deadline. (A night at window 0 with no
+    deadline is a night that is about to open, or never did: the stuck rule's.)"""
+    return (
+        game.phase == Phase.NIGHT
+        and game.current_wave == 0
+        and game.phase_deadline is not None
+    )
+
+
+def _start_look_stage(game: Game, seconds: int) -> None:
+    """Hold the night at window 0 until everyone has looked at their card, or the
+    backstop fires, or the host moves on. Shows nothing about roles."""
+    with transaction.atomic():
+        game.phase_deadline = timezone.now() + timedelta(seconds=seconds)
+        game.save(update_fields=["phase_deadline", "updated_at"])
+    _schedule_after_commit(
+        _look_timer_key(game), seconds, "card_look", {"game_id": str(game.id)}
+    )
+    _send_after_commit(
+        [(f"game_{game.id}", {"type": "progress", **look_progress(game)})]
+    )
+
+
+def _open_night_after_look(game: Game) -> None:
+    """The look backstop fired (the Game row is locked, the phase is night)."""
+    if game.current_wave == 0:
+        start_night_phase(game)
 
 
 def _open_window(game: Game, window: int) -> None:
@@ -449,9 +495,9 @@ def _open_window(game: Game, window: int) -> None:
     with transaction.atomic():
         game.current_wave = window
         game.save(update_fields=["current_wave", "updated_at"])
-        # Fresh window: nobody has acted in it yet.
+        # Fresh window: nobody has acted in it yet (and nobody is "ready").
         # pyrefly: ignore [missing-attribute]
-        game.player_roles.update(has_acted=False)
+        game.player_roles.update(has_acted=False, phase_ready=False)
 
     send_wave_prompts(game, window)
 
@@ -875,8 +921,14 @@ def advance_wave(game: Game) -> None:
     Closing here ignores the minimum length: the host and the maximum timer
     both come through this function. The minimum is enforced by
     _close_or_defer.
+
+    At window 0 (the look stage, or a night that has not opened) there is nothing
+    to close: the host's tap opens the first window instead.
     """
     window = game.current_wave
+    if window == 0:
+        start_night_phase(game)
+        return
     _cancel_after_commit(_window_timer_key(game, window))
     if window == 1 and _doppelganger_look_submitted(game):
         # A look that is stored but not resolved yet (the window job got the lock
@@ -1483,50 +1535,89 @@ def talk_progress(game: Game) -> dict[str, Any]:
     return _progress(game, "talk", lambda pr: bool(pr.phase_ready))
 
 
+def look_progress(game: Game) -> dict[str, Any]:
+    """The look stage's count: players who have looked at their card."""
+    return _progress(game, "look", lambda pr: bool(pr.phase_ready))
+
+
 def stage_progress(game: Game) -> dict[str, Any] | None:
     """The count for whichever stage the game is in (``/me/`` ``progress``), or
-    None outside the stages that have one."""
+    None outside the stages that have one (look, talk, vote)."""
     if game.phase == Phase.VOTING:
         return vote_progress(game)
     if game.phase == Phase.DISCUSSION:
         return talk_progress(game)
+    if _in_look_stage(game):
+        return look_progress(game)
     return None
 
 
+def _stage_is_ready(game: Game) -> bool:
+    """True when every player the current "ready" stage (the look, the talk) waits
+    for has tapped: all who are not gone past the grace period, and at least one.
+
+    The ONE readiness rule. ``set_ready`` (a tap), ``_evaluate_presence`` (a grace
+    period ended, a phone came back) and ``ensure_timers`` (the look timer was lost)
+    all ask it, so what "everyone is ready" means cannot differ between them.
+    """
+    progress = stage_progress(game)
+    if progress is None or progress["stage"] == "vote":
+        return False
+    return progress["needed"] >= 1 and progress["done"] == progress["needed"]
+
+
+def _advance_stage_if_ready(game: Game) -> bool:
+    """Move past the look stage (open the night) or the talk (open the vote) if
+    ``_stage_is_ready``. The caller holds the Game lock. Returns whether it did."""
+    if not _stage_is_ready(game):
+        return False
+    if game.phase == Phase.DISCUSSION:
+        end_discussion(game)
+    else:
+        start_night_phase(game)
+    return True
+
+
 READY_WRONG_PHASE = "Nothing is waiting for you to be ready right now."
+READY_ONE_WAY = "Looking at your card cannot be undone."
 READY_ERROR_CODES = {
     READY_WRONG_PHASE: "wrong_phase",
+    READY_ONE_WAY: "bad_request",
     VOTE_NOT_A_PLAYER: "not_a_player",
 }
 
 
 def set_ready(game: Game, user_id: int, ready: bool) -> list[str]:
-    """Mark the caller ready (or not) at the stage that asks for it. Returns the
-    list of errors (empty = success); ``READY_ERROR_CODES`` maps them to codes.
+    """Mark the caller ready at the stage that asks for it. Returns the list of
+    errors (empty = success); ``READY_ERROR_CODES`` maps them to codes.
 
-    Today that is the talk: when every player not gone past the grace period is
-    ready, the server ends the discussion with the function the host's button
-    uses. One transaction, Game lock then PlayerRole lock, phase re-checked, so a
-    tap racing the host's end or the talk's deadline ends it once. Every tap
-    recounts ``needed`` (nothing else does in the talk: no grace timers) and
-    sends the count.
+    Two stages ask: the look at the card (night, window 0: ``True`` only, looking is
+    one way) and the talk (``True`` or ``False``). When every player not gone past
+    the grace period is ready, the look opens the night and the talk ends with the
+    function the host's button uses. One transaction, Game lock then PlayerRole
+    lock, the stage re-checked, so a tap racing the host, the backstop or the
+    talk's deadline moves on once. Every tap recounts ``needed`` and sends the
+    count.
     """
     with transaction.atomic():
         game = Game.objects.select_for_update().get(id=game.id)
-        if game.phase != Phase.DISCUSSION:
+        looking = _in_look_stage(game)
+        if not looking and game.phase != Phase.DISCUSSION:
             return [READY_WRONG_PHASE]
         try:
             pr = PlayerRole.objects.select_for_update().get(game=game, user_id=user_id)
         except PlayerRole.DoesNotExist:
             return [VOTE_NOT_A_PLAYER]
+        if looking and not ready:
+            return [READY_ONE_WAY]
 
         if pr.phase_ready != ready:
             pr.phase_ready = ready
             pr.save(update_fields=["phase_ready"])
-        progress = talk_progress(game)
-        _send_after_commit([(f"game_{game.id}", {"type": "progress", **progress})])
-        if progress["needed"] >= 1 and progress["done"] == progress["needed"]:
-            end_discussion(game)
+        progress = stage_progress(game)
+        if progress is not None:  # looking or in the talk: both have a count
+            _send_after_commit([(f"game_{game.id}", {"type": "progress", **progress})])
+        _advance_stage_if_ready(game)
     return []
 
 
@@ -1745,18 +1836,24 @@ def _votes_ready(game: Game) -> bool:
     return bool(present) and all(pr.has_acted for pr in present)
 
 
-def _evaluate_presence(game: Game) -> None:
-    """Re-check whether the night window / the vote can now proceed.
+def _evaluate_presence(game: Game, *, announce: bool = True) -> None:
+    """Re-check whether the look stage / the night window / the vote can now proceed.
 
-    The caller holds the Game row lock. Called when a grace period ends.
+    The caller holds the Game row lock. Called when a grace period ends, and when
+    a phone comes back. If the stage stays open, ``announce`` tells the table the
+    count again (``needed`` may have changed).
     """
     if game.phase == Phase.NIGHT and game.current_wave in NIGHT_WINDOWS:
         _advance_if_ready(game)
+    elif _in_look_stage(game):
+        if not _advance_stage_if_ready(game) and announce:
+            _send_after_commit(
+                [(f"game_{game.id}", {"type": "progress", **look_progress(game)})]
+            )
     elif game.phase == Phase.VOTING:
         if _votes_ready(game):
             reveal_votes(game)
-        else:
-            # ``needed`` may have changed (a grace period ended, a phone is back).
+        elif announce:
             _send_after_commit(
                 [(f"game_{game.id}", {"type": "progress", **vote_progress(game)})]
             )
@@ -1926,7 +2023,7 @@ def register_connection(
         if game.phase in (Phase.NIGHT, Phase.VOTING):
             try:
                 with transaction.atomic():  # a savepoint: never costs the connect
-                    _evaluate_presence(game)
+                    _evaluate_presence(game, announce=was_gone)
             except Exception:
                 logger.exception("Presence check failed for game %s", game_id)
         return True
@@ -2121,6 +2218,14 @@ def _job_voting_deadline(game_id: str) -> None:
     make_idempotent_callback(game_id, Phase.VOTING, _auto_reveal_votes, reraise=True)()
 
 
+@timers.job("card_look")
+def _job_card_look(game_id: str) -> None:
+    """The look stage's backstop: open the night (a no-op if it already opened)."""
+    make_idempotent_callback(
+        game_id, Phase.NIGHT, _open_night_after_look, reraise=True
+    )()
+
+
 @timers.job("grace_expired")
 def _job_grace_expired(game_id: str, user_id: int) -> None:
     _grace_expired(game_id, user_id)
@@ -2233,6 +2338,10 @@ def _phase_timer_plan(
     overdue / nearly due deadline is first given the reconnect allowance.
     """
     _grant_reconnect_allowance(game)
+    if _in_look_stage(game) and game.phase_deadline is not None:
+        # The look backstop (the allowance above never clears a deadline).
+        delay = max(0.0, (game.phase_deadline - timezone.now()).total_seconds())
+        return (_look_timer_key(game), delay, "card_look", {"game_id": str(game.id)})
     if game.phase == Phase.NIGHT and game.current_wave in NIGHT_WINDOWS:
         key = _window_timer_key(game, game.current_wave)
         plan = _night_timer_plan(game)
@@ -2269,21 +2378,30 @@ def ensure_timers(game: Game, player_roles: list[PlayerRole] | None = None) -> N
     """
     if game.phase not in TIMED_PHASES:
         return
+    looking = _in_look_stage(game)
     if game.phase == Phase.NIGHT and game.current_wave not in NIGHT_WINDOWS:
         # A committed night whose first window never opened (the instance died
         # between creating the game and opening it): open it, once the game has
         # had time to open on its own. start_night_phase is idempotent under
-        # the Game lock, so a race with the starter is harmless.
-        if game.current_wave == 0 and _night_start_is_stuck(game):
-            start_night_phase(game)
-        return
+        # the Game lock, so a race with the starter is harmless. A night in the
+        # look stage (it has a deadline) is not stuck: it is waiting for the taps.
+        if not looking:
+            if game.current_wave == 0 and _night_start_is_stuck(game):
+                start_night_phase(game)
+            return
 
-    plan_key = (
-        _window_timer_key(game, game.current_wave)
-        if game.phase == Phase.NIGHT
-        else f"{game.id}:{game.phase}"
-    )
+    if looking:
+        plan_key = _look_timer_key(game)
+    elif game.phase == Phase.NIGHT:
+        plan_key = _window_timer_key(game, game.current_wave)
+    else:
+        plan_key = f"{game.id}:{game.phase}"
     if not timers.is_scheduled(plan_key):
+        if looking and _stage_is_ready(game):
+            # Everyone present had looked (a grace period ended while nothing was
+            # running): the stage is over, not waiting for a timer.
+            start_night_phase(game)
+            return
         plan = _phase_timer_plan(game)
         if plan is not None:
             key, delay, job, params = plan
@@ -2332,9 +2450,14 @@ def recover_timers() -> int:
     for game in Game.objects.filter(phase__in=TIMED_PHASES):
         count += 1
         try:
-            if game.phase == Phase.NIGHT and game.current_wave == 0:
+            if (
+                game.phase == Phase.NIGHT
+                and game.current_wave == 0
+                and not _in_look_stage(game)
+            ):
                 # Crashed between creating the game and opening its first
                 # window: open it now (a no-op if another worker already did).
+                # A look stage is not that: ensure_timers rebuilds its backstop.
                 start_night_phase(game)
             else:
                 ensure_timers(game)

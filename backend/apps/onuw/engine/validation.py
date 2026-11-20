@@ -18,6 +18,7 @@ TIMER_SETTING_KEYS: tuple[str, ...] = (
     "voting_seconds",
     "disconnect_grace_seconds",
     "host_handover_seconds",
+    "card_look_seconds",
 )
 MAX_TIMER_SECONDS = 3600
 # Per-setting ceilings that are lower than MAX_TIMER_SECONDS. The disconnect
@@ -27,6 +28,9 @@ MAX_TIMER_SECONDS = 3600
 TIMER_SETTING_MAX_SECONDS: dict[str, int] = {
     "disconnect_grace_seconds": 60,
     "host_handover_seconds": 600,
+    # The look stage's backstop: how long the table may take to look at its cards
+    # (0 = no look stage: the night opens at the deal).
+    "card_look_seconds": 120,
 }
 
 
