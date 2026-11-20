@@ -2,10 +2,27 @@
 
 Hooks and automation that enforce quality mechanically — agents don't need to remember these rules.
 
-**Last updated:** 2026-03-30
+**Last updated:** 2026-11-20
 **Update rule:** If you modify anything in `.claude/`, update this doc in the same commit.
 
 ## Hooks
+
+### PreToolUse on Agent|Task|Workflow: Subagent Model Guardrail (`guardrails/runner.py`)
+
+Blocks any subagent spawn that is not explicitly on an allowed model. The main session's top-tier model is too expensive for subagents, so only Opus and Sonnet are allowed.
+
+- `model` and `effort` must be pinned, in the call or by the agent's `.claude/agents/*.md` frontmatter. The call's model wins over the definition's; whichever applies must be allowed.
+- Allowed means the model name (alias or full id) contains an entry of `allowed_models` in `.claude/guardrails/config.toml` (`["opus", "sonnet"]`). `haiku` and `inherit` are blocked.
+- `subagent_type: "fork"` is blocked (`allow_forks = false`): a fork inherits the main model. The message says to spawn a fresh opus/sonnet agent.
+- Built-in types (general-purpose, Explore, Plan, ...) have no definition, so the call must carry the model.
+- Workflow scripts: every `agent(...)` needs an inline `model:` string literal that is allowed. A variable or expression is a violation.
+- Failure: a crash in the runner (bad stdin or config, Python < 3.11) prints the cause to stderr and exits 2, which blocks. `onFailure: "block"` covers a missing `python3`. Bypass for one session with `GUARDRAILS_OFF=runner`; a single rule with `GUARDRAILS_OFF=subagent_model_effort`.
+
+**Change the allowed models:** edit `allowed_models` in `.claude/guardrails/config.toml`, and keep every `.claude/agents/*.md` `model:` inside it (a test checks this).
+
+**Add a rule:** add `rules/<name>.py` (`EVENTS`, optional `TOOLS`, `check(hook, opts) -> list[str]`), a `[rules.<name>]` section in `config.toml` starting at `mode = "warn"`, route its tool in the `settings.json` matcher, add tests. Details in `.claude/guardrails/README.md`. Tests: `just test-guardrails` (also run by root `just test`).
+
+**Why:** Cost control that depends on the agent remembering to pick a cheaper model does not hold. Ported from the planroom project's guardrails; its `context_restore` rule is not used here.
 
 ### PreToolUse on Bash: Commit Gate (`pre-commit-gate.sh`)
 
@@ -53,13 +70,14 @@ Has a loop guard: if the stop hook already fired once (`stop_hook_active`), it p
 | Python and Dart auto-formatted after edits | Code correctness beyond what tests cover |
 | Backend/frontend tests pass before session ends (scoped to what changed) | UX quality (requires playtesting) |
 | CWD reset to project root after every command | Which review agents to run |
+| Subagents pinned to Opus or Sonnet with an effort, no forks | Which of the two, and which effort |
 
 ## Agents
 
-13 specialized agents in `.claude/agents/`. Key design decisions:
+Specialized agents in `.claude/agents/`. Each pins `model:` (opus or sonnet) and `effort:` in its frontmatter, which the guardrail requires. Key design decisions:
 
 - **Reviewers are read-only** — reviewers that can edit code fix issues silently instead of flagging them, hiding problems
-- **Haiku for fast checks** — `devex-reviewer` and `yagni-reviewer` run on Haiku for speed (seconds, not minutes)
+- **Opus for developers and reviewers, Sonnet for docs and lookups** — Haiku is not allowed
 - **Implementation agents have full tool access** — `backend-developer`, `frontend-developer`, `test-writer`
 
 Run `ls .claude/agents/` for the full list. Each agent file contains its description and configuration.

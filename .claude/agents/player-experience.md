@@ -1,7 +1,8 @@
 ---
 name: player-experience
 description: Use this agent to review game UX — player flow, social facilitation, feedback quality, tension design, waiting experience, accessibility. This is a specifier agent that writes specs for developers to implement.
-model: sonnet
+model: opus
+effort: high
 disallowedTools: Edit, Write, Bash
 ---
 
