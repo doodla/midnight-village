@@ -21,6 +21,7 @@ import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/primitives/role_card.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/tag_chip.dart';
+import '../../../../design_system/primitives/you_tag.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../domain/outcome_view.dart';
@@ -52,6 +53,7 @@ class CountScreen extends ConsumerWidget {
     }
     return CountView(
       count: TheCount.of(outcome),
+      viewerId: game?.me.playerId,
       onSeeWhoWon: () =>
           unawaited(ref.read(localStepsProvider.notifier).seeWhoWon(gameId)),
     );
@@ -98,10 +100,18 @@ class EndWaiting extends StatelessWidget {
 ///   who won" works at once, any other tap finishes it, and with reduce
 ///   motion it starts finished.
 class CountView extends StatefulWidget {
-  const CountView({super.key, required this.count, required this.onSeeWhoWon});
+  const CountView({
+    super.key,
+    required this.count,
+    required this.onSeeWhoWon,
+    this.viewerId,
+  });
 
   final TheCount count;
   final VoidCallback onSeeWhoWon;
+
+  /// This phone's player: its row and its dead card say "You".
+  final int? viewerId;
 
   @override
   State<CountView> createState() => _CountViewState();
@@ -177,6 +187,7 @@ class _CountViewState extends State<CountView>
                   if (i > 0) const SizedBox(height: Space.md),
                   _DeadCard(
                     death,
+                    you: death.seat.id == widget.viewerId,
                     flip: flip,
                     captions: i == 0,
                     compact: dead.length > 1,
@@ -195,6 +206,7 @@ class _CountViewState extends State<CountView>
                       trailing: Tally(row.votes),
                       // Voted out: the Hunter's pick was not.
                       picked: row.player.diedBy == EliminationReason.vote,
+                      own: row.player.seat.id == widget.viewerId,
                     ),
                   ),
                 ],
@@ -320,12 +332,16 @@ class _Verdict extends StatelessWidget {
 class _DeadCard extends StatelessWidget {
   const _DeadCard(
     this.death, {
+    required this.you,
     required this.flip,
     required this.captions,
     required this.compact,
   });
 
   final EndSeat death;
+
+  /// It is this phone's player: "You" beside the name.
+  final bool you;
 
   /// 0: face down; 1: turned over.
   final double flip;
@@ -421,6 +437,7 @@ class _DeadCard extends StatelessWidget {
                     style: type.name.copyWith(color: ground.text),
                   ),
                 ),
+                if (you) YouTag(ink: ground.text),
               ],
             ),
             Opacity(

@@ -34,7 +34,7 @@ class ProgressPips extends StatelessWidget {
       padding: const EdgeInsetsDirectional.only(start: Space.xs),
       child: Text(
         label,
-        style: skin.typography.body.copyWith(color: context.ground.quietText),
+        style: skin.typography.body.copyWith(color: context.ground.text),
       ),
     );
     final Widget row;

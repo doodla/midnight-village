@@ -152,18 +152,20 @@ void main() {
       await hold.up();
     });
 
-    testWidgets('each new showing shows the next page', (tester) async {
+    testWidgets('every showing shows every page at once, stacked: nothing '
+        'waits behind a second hold', (tester) async {
       await tester.pumpWidget(_Harness(face: _myNight).build());
-      final first = _myNight.pages.first.lines.single;
-      final shown = <bool>[];
-      for (var i = 0; i < 3; i++) {
+      final lines = [for (final page in _myNight.pages) ...page.lines];
+      expect(lines, hasLength(greaterThan(1)));
+      for (var i = 0; i < 2; i++) {
         final hold = await _press(tester);
         await tester.pump(HoldToReveal.holdDelay);
-        shown.add(find.text(first).evaluate().isNotEmpty);
+        for (final line in lines) {
+          expect(find.text(line), findsOneWidget, reason: 'showing $i: $line');
+        }
         await hold.up();
         await tester.pump();
       }
-      expect(shown, [true, false, true], reason: 'page 1, page 2, page 1');
     });
   });
 

@@ -94,6 +94,7 @@ final screenCatalogue = <ScreenEntry>[
   }),
   ..._rebuilt('06-night-board', '06-night-action.png', {
     '': pumpNightBoard,
+    '-sleeper': pumpNightSleeper,
     '-picked': pumpNightPicked,
     '-chosen': pumpNightChosen,
     '-follow-up': pumpNightFollowUp,

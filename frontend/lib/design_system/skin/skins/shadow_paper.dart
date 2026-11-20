@@ -21,16 +21,16 @@ const _bone = Color(0xFFE9E2D0); // paper; text on night
 const _boneInset = Color(0xFFDCD4BF); // a box set into paper (S03b)
 const _paperEdge = Color(0xFFBFB69F);
 const _amber = Color(0xFFE3A13A); // the one warm accent
-const _blood = Color(0xFF8F2A24);
+const _blood = Color(0xFF80241E); // 7.4:1 under bone words
 const _darkBlood = Color(0xFF5C0F0C); // the primary button's shadow at night
 const _bloodLine = Color(0xFFC2413A); // thin red lines on night
-const _bloodText = Color(0xFFE0786C); // red words on night (S11)
+const _bloodText = Color(0xFFF29D93); // red words on night (S11), 7.4:1
 const _moonQuiet = Color(0xFFAAB0CF); // quiet text on night
-const _moonFaint = Color(0xFF8A90B4); // roles not in the deck (S03)
+const _moonFaint = Color(0xFF9EA4C8); // roles not in the deck (S03), 7.2:1
 const _nightHairline = Color(0xFF2C3160);
 const _dayShadow = Color(0xFF8F8A99); // rows' shadows, idle rings on day
-const _dayQuiet = Color(0xFF3B3950);
-const _paperQuiet = Color(0xFF5A5670);
+const _dayQuiet = Color(0xFF36344B); // 7.5:1 on the day ground
+const _paperQuiet = Color(0xFF3F3B54); // 8.3:1 on paper, 7.2 inset
 // Not in a mock: faint text on day. The mocks' #5a5670 fails AA on the day
 // grey (4.4:1), so this is the nearest darker grey that passes (5.0:1).
 const _dayFaint = Color(0xFF524E66);

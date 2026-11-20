@@ -93,6 +93,11 @@ Future<void> pumpNightBoard(WidgetTester tester, {double textScale = 1}) =>
       textScale: textScale,
     );
 
+/// 06 on a phone with nothing to choose (Esme, the Villager): the village
+/// sleeps, "Nothing to do" quiet in the button's place.
+Future<void> pumpNightSleeper(WidgetTester tester) =>
+    _shell(tester, sheet.recordedMe('me_choose_prompt_villager'));
+
 /// 06 with Cleo picked: "Choose Cleo".
 Future<void> pumpNightPicked(WidgetTester tester) async {
   await pumpNightBoard(tester);

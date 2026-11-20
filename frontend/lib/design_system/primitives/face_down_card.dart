@@ -191,7 +191,9 @@ class FaceDownCard extends StatelessWidget {
             caption,
             textAlign: TextAlign.center,
             maxLines: 2,
-            style: skin.typography.caption.copyWith(color: ground.quietText),
+            // In full ink: "Left", "Middle", "Right" name what a player
+            // taps (cold read: too faint in the quiet tone).
+            style: skin.typography.caption.copyWith(color: ground.text),
           ),
         ],
       ],

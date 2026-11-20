@@ -5,6 +5,8 @@ import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
+import 'package:midnight_village/design_system/primitives/text_action.dart';
+import 'package:midnight_village/design_system/primitives/you_tag.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
@@ -279,6 +281,70 @@ void main() {
         expect(find.text(CommonCopy.leave), findsOneWidget);
         await s.close(tester);
       }
+    });
+
+    testWidgets('a guest waits for the next game: "{host} deals next." is the '
+        'message, and Leave is a quiet word beside it, never a button', (
+      tester,
+    ) async {
+      final s = await _end(tester, recordedResults('results'), viewer: 'Ben');
+      await _seeWhoWon(tester, s);
+      final leave = find.widgetWithText(TextAction, CommonCopy.leave);
+      expect(leave, findsOneWidget);
+      expect(find.byType(SecondaryButton), findsNothing);
+      expect(find.byType(PrimaryButton), findsNothing);
+      final message = tester.getRect(find.text('Ana deals next.'));
+      final word = tester.getRect(leave);
+      expect(word.left, greaterThan(message.right), reason: 'beside it');
+      expect(word.width, lessThan(message.width), reason: 'the smaller');
+      await s.close(tester);
+    });
+
+    testWidgets('the night scrolls fully clear of the pinned line: its last '
+        'step ends above "{host} deals next."', (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final s = await _end(
+        tester,
+        recordedResults('results_doppelganger'),
+        viewer: 'Ben',
+      );
+      await _seeWhoWon(tester, s);
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(SingleChildScrollView).first,
+        const Offset(0, -4000),
+      );
+      await tester.pumpAndSettle();
+      final message = tester.getRect(find.textContaining('deals next.'));
+      final last = find.descendant(
+        of: find.byType(SingleChildScrollView).first,
+        matching: find.byType(RichText),
+      );
+      final bottom = last
+          .evaluate()
+          .map((e) => tester.getRect(find.byElementPredicate((x) => x == e)))
+          .map((r) => r.bottom)
+          .reduce((a, b) => a > b ? a : b);
+      expect(bottom, lessThanOrEqualTo(message.top));
+      await s.close(tester);
+    });
+
+    testWidgets('"You" marks the viewer on 10 and 11', (tester) async {
+      // Fin, voted out, is the viewer: his row on 10 and on 11 say "You".
+      final s = await _end(tester, recordedResults('results'), viewer: 'Fin');
+      expect(
+        find.descendant(
+          of: find.widgetWithText(PlayerRow, 'Fin'),
+          matching: find.byType(YouTag),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(YouTag), findsNWidgets(2), reason: 'dead card, row');
+      await _seeWhoWon(tester, s);
+      expect(find.byType(YouTag), findsOneWidget);
+      await s.close(tester);
     });
 
     testWidgets("each player's card at the end; the dealt one where it moved; "

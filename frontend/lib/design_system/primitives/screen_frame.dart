@@ -248,8 +248,10 @@ class _ScrollBody extends StatefulWidget {
   final double bottom;
   final Widget child;
 
-  /// How tall the fade is.
-  static const fade = Space.xxl;
+  /// How tall the fade is: tall enough that what runs on under the pinned
+  /// actions visibly dissolves well before them (11's night, cold read on
+  /// the real screens), never a line cut at the edge.
+  static const fade = Space.xxl * 2;
 
   @override
   State<_ScrollBody> createState() => _ScrollBodyState();

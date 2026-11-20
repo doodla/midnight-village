@@ -424,9 +424,9 @@ class _Row extends StatelessWidget {
       away: away,
     );
     if (!away) return row;
-    // A third of the way from present to the skin's switched-off: the row
-    // reads as away at a glance, its name still clears the contrast floor.
-    return Opacity(opacity: 1 - (1 - context.skin.dimmed) / 3, child: row);
+    // A sixth of the way from present to the skin's switched-off (its token
+    // more): the row reads as away, its name still at the reading contrast.
+    return Opacity(opacity: 1 - (1 - context.skin.dimmed) / 6, child: row);
   }
 }
 

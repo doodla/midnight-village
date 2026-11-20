@@ -440,7 +440,7 @@ void main() {
       await s.close(tester);
     });
 
-    for (final (left, shown) in [(9, '9'), (59, '59'), (600, '10:00')]) {
+    for (final (left, shown) in [(9, '9 s'), (59, '59 s'), (600, '10:00')]) {
       testWidgets('the candle reads $shown with ${left}s left, whole, on a '
           '320 phone at text x1.3', (tester) async {
         tester.view.physicalSize = const Size(320, 568);

@@ -41,17 +41,23 @@ final _exemptNames = {
 };
 const _appName = 'Midnight Village';
 
+/// Unit symbols, read with their number as one thing ("14 s"): not words,
+/// as digits are not.
+const _units = {'s'};
+
 final _letter = RegExp(r'\p{L}', unicode: true);
 final _gap = RegExp(r'\{\w+\}');
 final _edgePunctuation = RegExp(r"^[^\p{L}\d{]+|[^\p{L}\d}]+$", unicode: true);
 
 /// The words of [line] as rule 1 counts them: split on whitespace, a word is
 /// a piece with a letter in it, and gaps (`{name}`), the role names and
-/// their plurals, "Midnight Village", digits and glyphs are not words.
+/// their plurals, "Midnight Village", digits, unit symbols and glyphs are
+/// not words.
 List<String> words(String line) => [
   for (final piece in line.replaceAll(_appName, ' ').split(RegExp(r'\s+')))
     if (_letter.hasMatch(piece) &&
         !_gap.hasMatch(piece) &&
+        !_units.contains(piece) &&
         !_exemptNames.contains(piece.replaceAll(_edgePunctuation, '')))
       piece,
 ];

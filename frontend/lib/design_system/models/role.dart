@@ -42,4 +42,8 @@ extension RoleIdX on RoleId {
     RoleId.tanner => 'Tanner',
     RoleId.doppelganger => 'Doppelganger',
   };
+
+  /// More than one of it in a deck ("3 Villagers", "2 Werewolves").
+  String get pluralName =>
+      this == RoleId.werewolf ? 'Werewolves' : '${displayName}s';
 }

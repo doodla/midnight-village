@@ -164,7 +164,7 @@ void main() {
           ),
           ground: GroundKind.day,
         );
-        final number = tester.getRect(find.text('18'));
+        final number = tester.getRect(find.text('18 s'));
         final title = tester.getRect(find.text(VoteCopy.headline));
         if (scale == 1) {
           expect(title.left, greaterThan(number.right), reason: 'beside');

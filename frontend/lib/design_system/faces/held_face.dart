@@ -16,8 +16,12 @@ import 'face_content.dart';
 /// Every secret, drawn as the role card it is (S04): a piece of paper with
 /// the portrait large across its top, the role's name as the hero line with
 /// its team tag beside it, the page's lines under them in the mock's body
-/// type, and dots for the pages when there are several. One design for
-/// 04's card, "You" on the night board and 08's My night.
+/// type. A face of several pages (My night, "You" after window 1) shows them
+/// all at once, stacked: the first page as above, each other page under it
+/// as a row, a small portrait beside its words, so nothing waits behind a
+/// gesture nobody finds (cold read on the real screens: two dots and no way
+/// to the second page). One design for 04's card, "You" on the night board
+/// and 08's My night.
 ///
 /// - [fill]: the face takes the whole box it is given (04: the card turns
 ///   over in place, in the face-down card's own frame); the portrait takes
@@ -50,7 +54,8 @@ class HeldFace extends StatelessWidget {
 
   final FaceContent content;
 
-  /// Which page shows: each new hold shows the next.
+  /// Which page is first: kept for the hold count; a face of several pages
+  /// always shows them all, the first one large.
   final int page;
 
   /// Read the page aloud (the player activated the face with a screen
@@ -70,6 +75,10 @@ class HeldFace extends StatelessWidget {
   /// for any role's face, whole. The words step down first, then the whole
   /// card is set smaller.
   static const minPortraitShare = 0.55;
+
+  /// The same with other pages stacked under the first: the first page's
+  /// portrait gives up more, so the pages stay at the reading floor.
+  static const minStackedPortraitShare = 0.35;
 
   /// Faces cap their own text scale.
   static const maxTextScale = 1.6;
@@ -97,7 +106,8 @@ class HeldFace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shown = content.pages[page % content.pages.length];
+    final shown = content.pages.first;
+    final more = content.pages.skip(1).toList();
     final card = GroundScope(
       ground: GroundKind.night,
       child: MediaQuery.withClampedTextScaling(
@@ -117,8 +127,7 @@ class HeldFace extends StatelessWidget {
                 padding: padding,
                 child: _Content(
                   page: shown,
-                  index: page % content.pages.length,
-                  pages: content.pages.length,
+                  more: more,
                   height: constraints.maxHeight - padding.vertical,
                   fill: fill,
                 ),
@@ -132,7 +141,7 @@ class HeldFace extends StatelessWidget {
     return Semantics(
       container: true,
       liveRegion: true,
-      label: shown.spoken,
+      label: [for (final p in content.pages) p.spoken].join('. '),
       child: ExcludeSemantics(child: card),
     );
   }
@@ -146,15 +155,15 @@ class HeldFace extends StatelessWidget {
 class _Content extends StatefulWidget {
   const _Content({
     required this.page,
-    required this.index,
-    required this.pages,
+    required this.more,
     required this.height,
     required this.fill,
   });
 
   final FacePage page;
-  final int index;
-  final int pages;
+
+  /// The face's other pages, stacked under [page].
+  final List<FacePage> more;
   final double height;
   final bool fill;
 
@@ -169,6 +178,7 @@ class _ContentState extends State<_Content> {
   /// What the choice depends on: the page, the room, the text size.
   Object _room(double width) => (
     widget.page.spoken,
+    widget.more.length,
     widget.height,
     widget.fill,
     width,
@@ -188,6 +198,9 @@ class _ContentState extends State<_Content> {
           child: _PortraitOverWords(
             height: widget.height,
             fill: widget.fill,
+            least: widget.more.isEmpty
+                ? HeldFace.minPortraitShare
+                : HeldFace.minStackedPortraitShare,
             onCramped: compact
                 ? null
                 : () => WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -195,12 +208,7 @@ class _ContentState extends State<_Content> {
                   }),
             children: [
               _Portrait(widget.page.portrait),
-              _Words(
-                page: widget.page,
-                index: widget.index,
-                pages: widget.pages,
-                compact: compact,
-              ),
+              _Words(page: widget.page, more: widget.more, compact: compact),
             ],
           ),
         ),
@@ -209,19 +217,14 @@ class _ContentState extends State<_Content> {
   );
 }
 
-/// The page's name, tag, lines and page dots, in the paper's ink: in the
-/// mock's type, or [compact] (a heading-size name, 16 px lines, closer).
+/// The page's name, tag and lines, then the face's other pages as rows, in
+/// the paper's ink: in the mock's type, or [compact] (a heading-size name,
+/// 16 px lines, closer).
 class _Words extends StatelessWidget {
-  const _Words({
-    required this.page,
-    required this.index,
-    required this.pages,
-    required this.compact,
-  });
+  const _Words({required this.page, required this.more, required this.compact});
 
   final FacePage page;
-  final int index;
-  final int pages;
+  final List<FacePage> more;
   final bool compact;
 
   @override
@@ -259,7 +262,62 @@ class _Words extends StatelessWidget {
             ),
           for (final line in page.lines)
             _Balanced(line, style: body.copyWith(color: ink)),
-          if (pages > 1) _Dots(current: index, count: pages),
+          for (final other in more) _PageRow(other),
+        ],
+      ),
+    );
+  }
+}
+
+/// Another page of the face, under the first: a hairline, then its small
+/// portrait beside its name and lines (at the reading floor).
+class _PageRow extends StatelessWidget {
+  const _PageRow(this.page);
+
+  final FacePage page;
+
+  /// The small portrait's width.
+  static const portrait = 56.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = context.skin;
+    final ground = context.ground;
+    final type = skin.typography;
+    return Container(
+      padding: const EdgeInsets.only(top: Space.sm),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: ground.hairline, width: skin.shape.ring),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: Space.md,
+        children: [
+          SizedBox(
+            width: portrait,
+            height: portrait * HeldFace.portraitShape,
+            child: _Portrait(page.portrait),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              spacing: Space.xxs,
+              children: [
+                if (page.name case final name?)
+                  FitLine(
+                    name,
+                    style: type.heading.copyWith(color: ground.text),
+                  ),
+                // Beside the small portrait: wraps between words, never
+                // inside one ("Dealt: Doppelganger" at large text).
+                for (final line in page.lines)
+                  FitWords(line, style: type.body.copyWith(color: ground.text)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -375,32 +433,6 @@ class _Portrait extends StatelessWidget {
   }
 }
 
-class _Dots extends StatelessWidget {
-  const _Dots({required this.current, required this.count});
-
-  final int current;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final ground = context.ground;
-    return Row(
-      spacing: Space.xs,
-      children: [
-        for (var i = 0; i < count; i++)
-          Container(
-            width: Space.sm,
-            height: Space.sm,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: i == current ? ground.text : ground.hairline,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 /// Lays the portrait (first child) over the words (second), [HeldFace.gap]
 /// apart. The portrait is as tall as [height] leaves ([fill]) or its
 /// natural shape, whichever is less (otherwise), and never less than
@@ -411,12 +443,16 @@ class _PortraitOverWords extends MultiChildRenderObjectWidget {
   const _PortraitOverWords({
     required this.height,
     required this.fill,
+    required this.least,
     required this.onCramped,
     required super.children,
   });
 
   final double height;
   final bool fill;
+
+  /// The least share of the width the portrait keeps.
+  final double least;
   final VoidCallback? onCramped;
 
   @override
@@ -424,6 +460,7 @@ class _PortraitOverWords extends MultiChildRenderObjectWidget {
       _RenderPortraitOverWords(
         height: height,
         fill: fill,
+        least: least,
         onCramped: onCramped,
       );
 
@@ -434,6 +471,7 @@ class _PortraitOverWords extends MultiChildRenderObjectWidget {
   ) => renderObject
     ..height = height
     ..fill = fill
+    ..least = least
     ..onCramped = onCramped;
 }
 
@@ -446,9 +484,18 @@ class _RenderPortraitOverWords extends RenderBox
   _RenderPortraitOverWords({
     required double height,
     required bool fill,
+    required double least,
     this.onCramped,
   }) : _height = height,
-       _fill = fill;
+       _fill = fill,
+       _least = least;
+
+  double _least;
+  set least(double value) {
+    if (value == _least) return;
+    _least = value;
+    markNeedsLayout();
+  }
 
   double _height;
   set height(double value) {
@@ -477,7 +524,7 @@ class _RenderPortraitOverWords extends RenderBox
   /// The portrait's height for [width] under words [words] tall, and
   /// whether that is the least it keeps (the words cramp it).
   (double, bool) _portraitFor(double width, double words) {
-    final least = width * HeldFace.minPortraitShare;
+    final least = width * _least;
     final room = _height - words - HeldFace.gap;
     final wanted = _fill && _height.isFinite
         ? room

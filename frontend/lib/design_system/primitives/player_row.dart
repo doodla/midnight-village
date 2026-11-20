@@ -7,6 +7,7 @@ import '../skin/skin_type.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
 import 'player_token.dart';
+import 'you_tag.dart';
 
 /// [PlayerRow]'s sizes, from the mocks.
 enum PlayerRowSize {
@@ -64,7 +65,8 @@ enum PlayerRowSize {
 ///
 /// - [picked]: the player's pick lifts and takes the selection's outline
 ///   (ink by day); never a fill (first-time play spec, copy rule 10).
-/// - [own]: the viewer's own row, a thicker outline in the paper's ink (S02).
+/// - [own]: the viewer's own row, a thicker outline in the paper's ink and
+///   "You" ([YouTag]) after the name (S02, S10).
 /// - [away]: a dropped member, the token dimmed, with no words (S02).
 /// - [dimmed]: the vote once locked, where every row dims the same and none
 ///   shows the pick (S09).
@@ -156,6 +158,8 @@ class PlayerRow extends StatelessWidget {
                     maxLines: 2,
                     style: size.nameStyle(skin.typography).copyWith(color: ink),
                   ),
+                  // Under the name, so a long name keeps its room.
+                  if (own) YouTag(ink: ink),
                   // Names wrap between words, never inside one.
                   if (detail case final detail?)
                     FitWords(

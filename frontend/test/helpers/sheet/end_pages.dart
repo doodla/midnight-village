@@ -73,9 +73,12 @@ int endViewerId(EndGame game, Viewer viewer) {
 
 /// 10, run to its end (the rows landed, the card turned).
 class CountPage extends StatelessWidget {
-  const CountPage({super.key, this.game = EndGame.hunter});
+  const CountPage({super.key, this.game = EndGame.hunter, this.viewerId});
 
   final EndGame game;
+
+  /// The phone's own player, whose row says "You".
+  final int? viewerId;
 
   @override
   Widget build(BuildContext context) => MediaQuery(
@@ -83,6 +86,7 @@ class CountPage extends StatelessWidget {
     data: MediaQuery.of(context).copyWith(disableAnimations: true),
     child: CountView(
       count: TheCount.of(outcomeOf(game.body)),
+      viewerId: viewerId,
       onSeeWhoWon: () {},
     ),
   );

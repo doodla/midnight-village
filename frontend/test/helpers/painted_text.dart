@@ -37,6 +37,11 @@ class PaintedText {
 
   bool get passes => disabled || ratio >= minimum - 0.005;
 
+  /// What a player reads by on a player screen: [readingContrast] for text
+  /// below large size; large text and icons as [passes].
+  bool get readable =>
+      passes && (large || icon || disabled || ratio >= readingContrast - 0.005);
+
   @override
   String toString() =>
       '"$text" ${_hex(foreground)} on ${_hex(background)}: '
@@ -45,6 +50,10 @@ class PaintedText {
 
 String _hex(Color c) =>
     '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+
+/// The contrast text below large size keeps on a player screen: WCAG AAA
+/// (1.4.6).
+const readingContrast = 7.0;
 
 /// WCAG 2.1 relative luminance.
 double luminance(Color c) {

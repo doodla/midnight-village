@@ -254,11 +254,11 @@ void main() {
     });
 
     test('writes seconds as the mocks do and stops at nothing', () {
-      expect(WorldTimer.format(19), '19');
+      expect(WorldTimer.format(19), '19 s');
       expect(WorldTimer.format(60), '1:00');
       expect(WorldTimer.format(252), '4:12');
-      expect(WorldTimer.format(0), '0');
-      expect(WorldTimer.format(-3), '0');
+      expect(WorldTimer.format(0), '0 s');
+      expect(WorldTimer.format(-3), '0 s');
     });
 
     testWidgets('reads out its number, or what the screen says instead', (
@@ -266,7 +266,7 @@ void main() {
     ) async {
       final semantics = tester.ensureSemantics();
       await pumpSkinned(tester, const WorldTimer.candle(secondsLeft: 19));
-      expect(find.bySemanticsLabel('19'), findsOneWidget);
+      expect(find.bySemanticsLabel('19 s'), findsOneWidget);
       await pumpSkinned(
         tester,
         const WorldTimer.candle(secondsLeft: 19, semanticLabel: '19 left'),

@@ -224,6 +224,8 @@ final screens = <String, Screen>{
         for (final MapEntry(:key, :value) in _you.entries)
           '$label, $key': [
             headline(CommonCopy.nightTitle),
+            // The candle's number in its last minute.
+            text(CommonCopy.seconds),
             text(NightCopy.you),
             for (final side in NightCopy.center) text(side),
             cue(CommonCopy.hold),
@@ -240,6 +242,7 @@ final screens = <String, Screen>{
         headline(TalkCopy.headline),
         text(TalkCopy.myNight),
         cue(CommonCopy.hold),
+        text(TalkCopy.deckCount),
         text(TalkCopy.progress),
         button(TalkCopy.readyToVote),
       ],
@@ -248,6 +251,7 @@ final screens = <String, Screen>{
           '$ready, $key': [
             headline(TalkCopy.headline),
             text(TalkCopy.myNight),
+            text(TalkCopy.deckCount),
             text(TalkCopy.progress),
             button(ready),
             ..._face(value),

@@ -35,6 +35,11 @@ abstract final class CommonCopy {
 
   /// Night and dawn share the title (05, 06).
   static const nightTitle = 'The village sleeps';
+
+  /// A clock under a minute (05, 06, 08, 09, the deck's lengths): a bare
+  /// "14" was not read as seconds (cold read on the real screens). From a
+  /// minute it is "4:12", which reads as a clock.
+  static const seconds = Template('{n} s');
 }
 
 /// 01 Join.
@@ -214,6 +219,10 @@ abstract final class TalkCopy {
 
   /// My night's first page.
   static const dealt = Template('Dealt: {role}');
+
+  /// Tonight's deck on 08: a role with more than one
+  /// card in it ("3 Villagers").
+  static const deckCount = Template('{n} {roles}');
 }
 
 /// 09 Vote.

@@ -303,7 +303,7 @@ void main() {
       tester,
       const Align(child: WorldTimer.candleCompact(secondsLeft: 14)),
     );
-    expect(tester.widget<Text>(find.text('14')).style!.fontSize, 34);
+    expect(tester.widget<Text>(find.text('14 s')).style!.fontSize, 34);
     expect(
       find.descendant(of: find.byType(WorldTimer), matching: find.byType(Text)),
       findsOneWidget,
@@ -338,11 +338,11 @@ void main() {
     expect(band.top, 0);
     expect(band.width, 390);
     expect(
-      tester.getRect(find.text('18')).top,
+      tester.getRect(find.text('18 s')).top,
       greaterThan(47),
       reason: 'the number clears the status bar',
     );
-    expect(tester.widget<Text>(find.text('18')).style!.fontSize, 76);
+    expect(tester.widget<Text>(find.text('18 s')).style!.fontSize, 76);
     final bar = tester.getRect(
       find.descendant(
         of: find.byType(TimerBand),

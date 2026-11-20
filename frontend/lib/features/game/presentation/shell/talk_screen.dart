@@ -7,6 +7,7 @@ import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/models/role.dart';
 import '../../../../design_system/primitives/band.dart';
+import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/panels.dart';
 import '../../../../design_system/primitives/primary_button.dart';
@@ -16,6 +17,7 @@ import '../../../../design_system/primitives/role_sheet_body.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../../design_system/skin/ground.dart';
+import '../../../../design_system/skin/skin.dart';
 import '../../../../design_system/teach/learned_store.dart';
 import '../../../../design_system/teach/teaching_hold.dart';
 import '../../domain/game_me.dart';
@@ -168,25 +170,28 @@ class TalkView extends StatelessWidget {
   }
 }
 
-/// The deck tonight: each role once, its count where it is more than one;
-/// a held portrait opens the role's sheet (03b).
+/// The deck tonight: each role once, as a small portrait with its name,
+/// "3 Villagers" where there is more than one (the cold read on the real
+/// screens: a row of tiny unnamed cards with number badges was not read as
+/// the deck; a heading would put the talk over its word budget, and the
+/// names say it). A tap or a hold opens the role's sheet (03b).
 class _DeckStrip extends StatelessWidget {
   const _DeckStrip({required this.deck});
 
   final Map<RoleId, int> deck;
 
   @override
-  Widget build(BuildContext context) => Row(
-    spacing: Space.smPlus,
+  Widget build(BuildContext context) => Wrap(
+    spacing: Space.sm,
+    runSpacing: Space.sm,
     children: [
       for (final MapEntry(key: role, value: count) in deck.entries)
-        Flexible(
-          child: RoleCard(
-            role: role,
-            size: RoleCardSize.mini,
-            count: count,
-            onLongPress: () => unawaited(_openRole(context, role)),
-          ),
+        _DeckChip(
+          role: role,
+          label: count > 1
+              ? TalkCopy.deckCount.fill({'n': count, 'roles': role.pluralName})
+              : role.displayName,
+          onOpen: () => unawaited(_openRole(context, role)),
         ),
     ],
   );
@@ -206,4 +211,59 @@ class _DeckStrip extends StatelessWidget {
           child: RoleSheetBody(role),
         ),
       );
+}
+
+/// One role of tonight's deck: its small portrait and its name, outlined.
+class _DeckChip extends StatelessWidget {
+  const _DeckChip({
+    required this.role,
+    required this.label,
+    required this.onOpen,
+  });
+
+  final RoleId role;
+  final String label;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = context.skin;
+    final ground = context.ground;
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onOpen,
+        onLongPress: onOpen,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(
+            Space.xxs,
+            Space.xxs,
+            Space.md,
+            Space.xxs,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(skin.shape.radius),
+            border: Border.all(color: ground.outline, width: skin.shape.ring),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: Space.sm,
+            children: [
+              RoleCard(role: role, size: RoleCardSize.thumbSmall),
+              Flexible(
+                child: FitWords(
+                  label,
+                  maxLines: 1,
+                  style: skin.typography.action.copyWith(color: ground.text),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

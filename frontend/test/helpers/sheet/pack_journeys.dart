@@ -38,10 +38,9 @@ enum PackScreen {
   boardPicked,
   boardChosen,
 
-  /// 08, My night held (its first page), held again (its next page).
+  /// 08, then My night held (every page of it at once).
   talk,
   talkHeld,
-  talkHeldNext,
 
   /// 09 as the step's `/me/` has it; then the viewer's pick, then locked.
   vote,
@@ -171,11 +170,6 @@ const packJourneys = <String, PackJourney>{
         'http/game/me_discussion_choose_robber',
         12,
       ),
-      PackStep(
-        PackScreen.talkHeldNext,
-        'http/game/me_discussion_choose_robber',
-        16,
-      ),
       PackStep(PackScreen.vote, 'http/game/pack_vote_robber', 6),
       PackStep(PackScreen.votePicked, 'http/game/pack_vote_robber', 25),
       PackStep(PackScreen.voteLocked, 'http/game/pack_vote_robber', 28),
@@ -223,11 +217,6 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.boardChosen, 'http/game/me_choose_prompt_seer', 10),
       PackStep(PackScreen.talk, 'http/game/me_discussion_choose_seer', 4),
       PackStep(PackScreen.talkHeld, 'http/game/me_discussion_choose_seer', 9),
-      PackStep(
-        PackScreen.talkHeldNext,
-        'http/game/me_discussion_choose_seer',
-        13,
-      ),
       PackStep(PackScreen.vote, 'http/game/me_voting_unpicked', 3),
       PackStep(PackScreen.votePicked, 'http/game/me_voting_picked', 22),
       PackStep(PackScreen.count, _results),

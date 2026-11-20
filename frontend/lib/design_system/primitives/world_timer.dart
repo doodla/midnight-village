@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
@@ -14,8 +15,9 @@ import 'cut_paper.dart';
 /// - [WorldTimer.candleCompact]: a small candle and the number, for a
 ///   screen's corner (S06).
 ///
-/// The digits stand alone: the mocks' "seconds of night" and unit are cut
-/// (first-time play spec, copy rule 9). On a narrow phone or with large text
+/// The mocks' "seconds of night" is cut (first-time play spec, copy rule 9);
+/// under a minute the number keeps its unit ("14 s"), which a bare number did
+/// not say (cold read on the real screens). On a narrow phone or with large text
 /// the candle and the number shrink rather than push the panel past the
 /// screen.
 class WorldTimer extends StatelessWidget {
@@ -44,10 +46,10 @@ class WorldTimer extends StatelessWidget {
   static const candleSize = Size(66, 88);
   static const compactCandleSize = Size(44, 58);
 
-  /// Seconds as the mocks write them: "19" under a minute, "4:12" above.
+  /// Seconds as a clock: "19 s" under a minute, "4:12" from a minute.
   static String format(int seconds) {
     final s = seconds < 0 ? 0 : seconds;
-    if (s < 60) return '$s';
+    if (s < 60) return CommonCopy.seconds.fill({'n': s});
     return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
   }
 

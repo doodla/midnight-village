@@ -11,6 +11,12 @@ import '../../helpers/pump_skinned.dart';
 // each run of text is checked against the colour actually painted behind
 // it, with the opacity of everything above it. Text in a disabled control is
 // exempt, as WCAG has it; large text and icons need 3:1, the rest 4.5:1.
+// On a player screen (a page that rebuilds one) text below large size needs
+// 7:1, WCAG AAA (`readingContrast`): the cold read on the real screens found
+// small text in the quiet tones, every one of it AA, too faint for a reader
+// in reading glasses ("Left / Middle / Right", the "0 of 5" counts, the
+// voters' names on 10, the moved cards on 11). The size floor (`just
+// screens`) could not see it: it measures size, and those are at 14 or 16.
 
 void main() {
   test('the WCAG formula gives its known answers', () {
@@ -70,6 +76,12 @@ void main() {
               for (final r in readings)
                 if (!r.passes) '$r',
             ], isEmpty);
+            if (page.playerScreen) {
+              expect([
+                for (final r in readings)
+                  if (!r.readable) '$r, below $readingContrast:1',
+              ], isEmpty);
+            }
           });
         }
       }

@@ -17,6 +17,8 @@ import '../../../../design_system/primitives/role_card.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/secondary_button.dart';
 import '../../../../design_system/primitives/tag_chip.dart';
+import '../../../../design_system/primitives/text_action.dart';
+import '../../../../design_system/primitives/you_tag.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../../lobby/domain/where_am_i.dart';
@@ -33,7 +35,7 @@ import 'count_screen.dart' show EndWaiting;
 ///
 /// - Host: "Play again" takes the table back to waiting (every phone then
 ///   goes to 02, by `/me/table/`); "Edit deck" does that and opens 03 on
-///   this phone. Guest: "{host} deals next." and "Leave" (to 01).
+///   this phone. Guest: "{host} deals next." with "Leave" (to 01) quiet beside it.
 /// - A request that fails: "Not sent." with "Try again"; nothing moves until
 ///   the server says the table did.
 /// - Until the results arrive: the night's ground, and "One moment" while
@@ -130,7 +132,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
 ///
 /// [host]: "Play again" and "Edit deck", side by side, or stacked when a
 /// label would not fit on one line. A guest: "{host} deals next." (when the
-/// host is at the table) and "Leave".
+/// host is at the table), the message, and "Leave" quiet beside it.
 class ResultsView extends StatefulWidget {
   const ResultsView({
     super.key,
@@ -294,18 +296,27 @@ class _ResultsViewState extends State<ResultsView>
           onPlayAgain: widget.onPlayAgain,
           onEditDeck: widget.onEditDeck,
         )
-      else ...[
-        if (hostName != null)
-          Text(
-            ResultsCopy.hostDealsNext.fill({'host': hostName}),
-            textAlign: TextAlign.center,
-            style: type.body.copyWith(color: context.ground.text),
-          ),
-        SecondaryButton(
-          label: CommonCopy.leave,
-          onPressed: widget.busy ? null : widget.onLeave,
+      else
+        // A guest waits for the next game: that is the message; leaving is
+        // a quiet word at its side, never the loud thing a non-reader taps.
+        Row(
+          spacing: Space.md,
+          children: [
+            Expanded(
+              child: hostName == null
+                  ? const SizedBox.shrink()
+                  // A long name wraps between words or is set smaller.
+                  : FitWords(
+                      ResultsCopy.hostDealsNext.fill({'host': hostName}),
+                      style: type.title.copyWith(color: context.ground.text),
+                    ),
+            ),
+            TextAction(
+              label: CommonCopy.leave,
+              onPressed: widget.busy ? null : widget.onLeave,
+            ),
+          ],
         ),
-      ],
     ];
   }
 }
@@ -481,24 +492,28 @@ class _EndRow extends StatelessWidget {
                   maxLines: 2,
                   style: type.name.copyWith(color: ground.text),
                 ),
+                if (own) YouTag(ink: ground.text),
                 Wrap(
                   spacing: Space.xs,
                   runSpacing: Space.xxs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     if (seat.moved) ...[
+                      // Dealt, then where the card went: both in full
+                      // ink, the arrow at the name's size (cold read: the
+                      // quiet tone and a small arrow were not read).
                       FitWords(
                         seat.dealt.displayName,
                         style: type.body.copyWith(
                           color: seat.werewolfDealt
                               ? ground.dangerText
-                              : ground.quietText,
+                              : ground.text,
                         ),
                       ),
                       Icon(
                         Icons.arrow_forward,
-                        size: type.body.fontSize,
-                        color: ground.quietText,
+                        size: type.title.fontSize,
+                        color: ground.text,
                       ),
                     ],
                     _CardChip(card, werewolf: seat.werewolfNow),

@@ -50,8 +50,7 @@ Set<Cue> _teaches(PackScreen screen) => switch (screen) {
   PackScreen.cardHeld => const {Cue.hold},
   PackScreen.boardHeld => const {Cue.hold, Cue.holdYou},
   PackScreen.boardChosen => const {Cue.nightChoose},
-  PackScreen.talkHeld ||
-  PackScreen.talkHeldNext => const {Cue.hold, Cue.holdMyNight},
+  PackScreen.talkHeld => const {Cue.hold, Cue.holdMyNight},
   PackScreen.voteLocked => const {Cue.voteLock},
   _ => const {},
 };
@@ -151,7 +150,7 @@ Future<void> _pump(
           await tester.pump();
         default:
       }
-    case PackScreen.talk || PackScreen.talkHeld || PackScreen.talkHeldNext:
+    case PackScreen.talk || PackScreen.talkHeld:
       await _pumpView(
         tester,
         TalkPage(
@@ -162,10 +161,7 @@ Future<void> _pump(
         ),
         learned,
       );
-      if (step.screen == PackScreen.talkHeldNext) {
-        await holdAndLetGo(tester, find.byType(PeekBox));
-      }
-      if (step.screen != PackScreen.talk) {
+      if (step.screen == PackScreen.talkHeld) {
         await holdDown(tester, find.byType(PeekBox));
       }
     case PackScreen.vote || PackScreen.votePicked || PackScreen.voteLocked:
@@ -188,7 +184,14 @@ Future<void> _pump(
         }
       }
     case PackScreen.count:
-      await _pumpView(tester, const CountPage(game: EndGame.five), learned);
+      await _pumpView(
+        tester,
+        CountPage(
+          game: EndGame.five,
+          viewerId: viewerIn(body!, journey.viewer),
+        ),
+        learned,
+      );
     case PackScreen.results:
       await _pumpView(
         tester,

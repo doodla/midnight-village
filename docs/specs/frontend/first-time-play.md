@@ -110,9 +110,9 @@ Shared rules for every phone at night:
 
 | Moment | What every phone shows | Held face of "You" | What the phone sends |
 |---|---|---|---|
-| Opens | 06: "The village sleeps", the board, Choose locked, candle | The dealt role name, then the instruction. Doppelganger: "Copy 1 player's card." Everyone else: "Nothing to choose. Tap any card." | `GET /me` |
+| Opens | 06: "The village sleeps", the board, Choose locked, candle | The dealt role name, then the instruction. Doppelganger: "Copy 1 player's card." Everyone else: "Nothing to do tonight." (section 8) | `GET /me` |
 | "You" held 0.8 s and at least 1 pick | Choose turns amber: "Choose {cards}", or "Keep my card" when only "You" is picked | same | nothing |
-| First Choose | The picks clear and Choose locks again (hold "You" 0.8 s again, every phone) | Doppelganger, once her result arrives: "You copied {name}.", the copied role's portrait, then its window-1 instruction (from the instruction table below) or "Nothing to choose. Tap any card." Everyone else: unchanged | `POST choose {picks}` → the same 200 for everyone |
+| First Choose | The picks clear and Choose locks again (hold "You" 0.8 s again, every phone) | Doppelganger, once her result arrives: "You copied {name}.", the copied role's portrait, then its window-1 instruction (from the instruction table below) or "Nothing to do tonight." Everyone else: unchanged | `POST choose {picks}` → the same 200 for everyone |
 | Second Choose | The picks stay lifted; the button reads "Chosen" | unchanged | `POST choose {picks}` → the same 200 for everyone. The server ignores it unless it is the Doppelganger's follow-up |
 | Fixed deadline | Every phone goes to the window-2 board at the same moment. No 07 appears in window 1. | — | `GET /me` |
 
@@ -161,8 +161,8 @@ Shared rules for every phone at night:
 
 | Prompt | Line (words) |
 |---|---|
-| No choice | "Nothing to choose. Tap any card." (6) |
-| Seer | "Look at 1 card, or 2 center cards." (6) |
+| No choice | "Nothing to do tonight." (4; section 8: a phone with nothing to choose is asked nothing, "Nothing to do" quiet where the button was) |
+| Seer | "Look at 1 player's card, or 2 center cards." (7; cold read: "1 card" did not say whose) |
 | Robber | "Swap with 1 player. See your new card." (7) |
 | Troublemaker | "Swap 2 other players' cards." (4) |
 | Drunk | "Swap with 1 center card. Don't look." (6) |
@@ -348,7 +348,7 @@ Every face has exactly one portrait slot and at most 2 lines.
   - Headline: "The village wins" / "The Werewolves win" / "The Tanner wins" / "The village and the Tanner win" / "The Werewolves and the Tanner win" / "Nobody wins".
   - Timeline rows: listed separately below.
   - Final row: "Won" / "Died". Then "Center: {roles}".
-  - Host: amber "Play again", quiet "Edit deck", side by side, or stacked when a label would not fit on one line. Guest: "{host} deals next." (only when the host is at the table), quiet "Leave".
+  - Host: amber "Play again", quiet "Edit deck", side by side, or stacked when a label would not fit on one line. Guest: "{host} deals next." (only when the host is at the table) as the message, "Leave" a quiet word beside it, never a button (cold read: a non-reader tapped the only button and left).
   - **13 of 13 words.**
 - **Removed:** "Cleo held the Robber" (1). The footnote (12). "Change the deck".
 - **States:** after the band, every player's card (dealt → final) with "Won" / "Died", one compact line each, and the center; then the night, open (starting on the first screen at five players and 390 wide): first the red line, each Werewolf card from where it was dealt to where it ended ("Cara → Bob"), headed by the Werewolf's portrait; then the steps, arriving 150 ms apart (instant with reduce motion; a tap finishes them), on a spine that is red where a werewolf card was looked at or moved; a tap on the red line folds the steps. Red is the server's `werewolf` flag on a card, everywhere. (Review of the rebuild, 20 November 2026.)
