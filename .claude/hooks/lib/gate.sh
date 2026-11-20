@@ -149,7 +149,7 @@ gate_check_commit() {
   root="$(git rev-parse --show-toplevel)" || return 1
   cd "$root" || return 1
 
-  if ! out=$(tool/check_instruction_links.sh 2>&1); then
+  if ! out=$(tool/check_instruction_links.sh --staged 2>&1); then
     echo "BLOCKED: an instruction file names a path or recipe that does not exist." >&2
     echo "$out" | tail -20 >&2
     failed=1

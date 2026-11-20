@@ -8,13 +8,25 @@
 # starting with "/" is an API path, not a file. A bare file name
 # must exist somewhere in the repo. `just <recipe>` must be a recipe of the root,
 # backend or frontend justfile. Gitignored paths count as existing (they are
-# made locally, e.g. backend/.env). Run by `just check` and the commit gate.
+# made locally, e.g. backend/.env). Run by `just check` (on the working tree)
+# and by the git pre-commit hook with --staged (on what is being committed: the
+# files' staged text, checked against the paths and recipes in the index).
+# usage: tool/check_instruction_links.sh [--staged] [file...]
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
+staged=""
+if [ "${1:-}" = "--staged" ]; then staged=1; shift; fi
 
+tmpj=$(mktemp -d)
+trap 'rm -rf "$tmpj"' EXIT
 recipes=$(for j in justfile backend/justfile frontend/justfile; do
-  just --justfile "$j" --summary 2>/dev/null
+  src="$j"
+  if [ -n "$staged" ]; then
+    src="$tmpj/$(echo "$j" | tr / _)"
+    git show ":$j" > "$src" 2>/dev/null || continue
+  fi
+  just --justfile "$src" --working-directory . --summary 2>/dev/null
 done | tr ' ' '\n' | sort -u)
 
 files=(CLAUDE.md backend/CLAUDE.md frontend/CLAUDE.md docs/dev/status.md docs/dev/environment.md
@@ -24,14 +36,29 @@ files=(CLAUDE.md backend/CLAUDE.md frontend/CLAUDE.md docs/dev/status.md docs/de
   frontend/test/README.md frontend/test/helpers/contract/README.md)
 [ $# -gt 0 ] && files=("$@")   # or the files given (used by the gate's tests)
 
-RECIPES="$recipes" python3 - "${files[@]}" <<'EOF'
+RECIPES="$recipes" STAGED="$staged" python3 - "${files[@]}" <<'EOF'
 import os, re, subprocess, sys
 from pathlib import Path
 
 recipes = set(os.environ["RECIPES"].split())
-known = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"],
-                       capture_output=True, text=True, check=True).stdout.split("\n")
-basenames = {Path(p).name for p in known if p}
+STAGED = bool(os.environ.get("STAGED"))
+listing = ["git", "ls-files", "--cached"] + ([] if STAGED else ["--others", "--exclude-standard"])
+known = [p for p in subprocess.run(listing, capture_output=True, text=True, check=True).stdout.split("\n") if p]
+basenames = {Path(p).name for p in known}
+known_set = set(known)
+known_dirs = {str(parent) for p in known for parent in Path(p).parents}
+
+def exists(path):
+    if not STAGED:
+        return path.exists()
+    p = os.path.normpath(str(path))
+    return p in known_set or p in known_dirs
+
+def text_of(f):
+    if not STAGED:
+        return Path(f).read_text()
+    r = subprocess.run(["git", "show", f":{f}"], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else ""   # not in the commit: nothing to check
 EXT = re.compile(r"\.(md|py|dart|sh|json|toml|ya?ml|txt|tla|cfg|mjs|html|png|webp|lock)$")
 SKIP = re.compile(r"[\s<>*{}$=@(),|]|://|^[-/~]|^\.\.\.|^\.\w+$")
 bad = []
@@ -47,7 +74,7 @@ def path_ok(token, here):
         return t in basenames
     t = t.lstrip("/")
     bases = [*([] if here.is_absolute() else [here, *here.parents]), *BASES]
-    if any((base / t).exists() for base in bases):
+    if any(exists(base / t) for base in bases):
         return True
     # a gitignored path (backend/.env, build/...) may not exist in a fresh checkout
     return any(subprocess.run(["git", "check-ignore", "-q", "--no-index", str(base / t) + slash],
@@ -77,7 +104,7 @@ def check_just(words, f, n):
 for f in sys.argv[1:]:
     here = Path(f).parent
     fenced = False
-    for n, line in enumerate(Path(f).read_text().splitlines(), 1):
+    for n, line in enumerate(text_of(f).splitlines(), 1):
         if line.lstrip().startswith("```"):
             fenced = not fenced
             continue

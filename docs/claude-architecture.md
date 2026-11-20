@@ -6,11 +6,12 @@ commit as any change under `.claude/`.
 ## The commit gate: git's own hooks (`.claude/hooks/git/`)
 
 Enabled by `git config core.hooksPath .claude/hooks/git` (shared by every worktree of the
-clone; `tool/setup_env.sh` sets it; the Bash guard blocks a commit while it is not set, and does
-not set it itself because an isolated worktree agent may not change the clone's config). They check what git is really about to
-commit, however the commit was typed (`-a`, pathspecs, `-C`, global options):
+clone), which `hooks/session-start.sh` sets at the start of every session (and
+`tool/setup_env.sh` calls). The Bash guard blocks a commit while it is not set and says to run
+that script. The hooks check what git is really about to commit, however the commit was typed
+(`-a`, pathspecs, `-C`, global options):
 
-- `pre-commit`: the instruction link check, then the suites the commit's paths need
+- `pre-commit`: the instruction link check on the staged text (`--staged`), then the suites the commit's paths need
   (`git diff --cached --no-renames`, so a file moved out of code still runs its suite), in
   parallel. `pre-merge-commit` runs the same for a merge git commits by itself, on everything
   the merge changes; a merge with conflicts is finished with `git commit`, which runs
@@ -32,6 +33,7 @@ Tests: `hooks/test_gate_routing.sh` (in `just test-guardrails`).
 |---|---|---|
 | PreToolUse Agent, Task, Workflow | `guardrails/runner.py` | Blocks a subagent not pinned to `opus` or `sonnet` with an effort, and forks. |
 | PreToolUse Bash | `hooks/git_guard.py` | Blocks a commit unless `core.hooksPath` is the git hooks; blocks `--no-verify`, `commit -n`, hooksPath changes, `GIT_*=` and HUSKY/SKIP switches, cherry-pick/revert without `--no-commit`, rebase and am (git runs no commit hooks for those); asks a committing call for timeout 600000 or the background. |
+| SessionStart startup, resume, compact | `hooks/session-start.sh` | Sets `core.hooksPath` to the git hooks if it is anything else and makes the hooks executable; silent, one line if it cannot, never fails the session. |
 | PostToolUse Edit, Write | `hooks/post-edit-format.sh` | Formats the edited `.py` (ruff) or `.dart` file. |
 | Stop | `hooks/verify-done.sh` | With uncommitted `.py`/`.dart` work, runs the tests it touches, unless they already passed on the same inputs. |
 

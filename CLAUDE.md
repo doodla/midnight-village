@@ -54,7 +54,7 @@ More: `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `just --list`. Setup: `docs/dev
 ## Commits
 
 - `type(scope): description`; types feat, fix, test, refactor, docs, chore. Tests: descriptive names, seeded, several players; coverage 80% minimum.
-- Git's own hooks (`.claude/hooks/git/`, on once per clone via `tool/setup_env.sh`) run the checks for what you commit; never `--no-verify` or any other bypass. Give a committing Bash call `timeout` 600000 or run it in the background: the suites take minutes.
+- Git's own hooks (`.claude/hooks/git/`, switched on by `.claude/hooks/session-start.sh` at every session start) run the checks for what you commit; never `--no-verify` or any other bypass. Give a committing Bash call `timeout` 600000 or run it in the background: the suites take minutes.
 - A change under `.claude/` updates `docs/claude-architecture.md` in the same commit.
 
 ## Pointers

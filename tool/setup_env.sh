@@ -27,8 +27,8 @@ fi
 # run under dev settings, so it never belongs here.
 sed -i -e "s/^DB_NAME=.*/DB_NAME=$db/" -e '/^DJANGO_SETTINGS_MODULE=/d' "$env_file"
 
-# The commit gate is git's own hooks; the setting is shared by every worktree.
-git -C "$root" config core.hooksPath .claude/hooks/git
+# The commit gate is git's own hooks (core.hooksPath, shared by every worktree).
+"$root/.claude/hooks/session-start.sh" "$root"
 
 (cd "$root/backend" && just install)
 (cd "$root/frontend" && flutter pub get)

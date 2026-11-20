@@ -19,8 +19,9 @@ tool/setup_env.sh <db_name>
 
 It starts Postgres, writes `backend/.env` from `backend/.env.example` (or fixes the existing
 one) with that `DB_NAME` and without `DJANGO_SETTINGS_MODULE`, turns on the commit gate
-(`git config core.hooksPath .claude/hooks/git`, shared by every worktree of the clone), then
-runs `just install` in `backend/` and `flutter pub get` in `frontend/`.
+(`.claude/hooks/session-start.sh`: `core.hooksPath` = `.claude/hooks/git`, shared by every
+worktree of the clone; the same script runs at the start of every Claude session), then runs
+`just install` in `backend/` and `flutter pub get` in `frontend/`.
 
 - **One database per checkout.** Parallel agents each work in their own worktree with their
   own `DB_NAME` (pytest creates `test_<DB_NAME>`); two checkouts on one name break each

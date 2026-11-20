@@ -5,9 +5,9 @@ is really about to commit. This hook only makes sure they cannot be skipped:
 
 - a command that commits runs with `core.hooksPath` = `.claude/hooks/git`
   (from the clone's config, or `-c core.hooksPath=.claude/hooks/git` on the
-  command); otherwise it is blocked. The guard does not write the setting
-  itself: in an isolated worktree that shared setting is the person's call
-  (`tool/setup_env.sh` sets it);
+  command); otherwise it is blocked and told to run
+  `.claude/hooks/session-start.sh`, which sets it (it also runs at the start of
+  every session);
 - no `--no-verify`, no `-n` on commit, no other value for core.hooksPath, no
   `GIT_*=` variables on the command line, no HUSKY / SKIP style hook switches;
 - cherry-pick and revert only with `--no-commit` and no rebase or am: git runs
@@ -177,8 +177,8 @@ def hooks_path_problem(cwd, command):
     if cur == HOOKS_PATH or re.search(r"-c\s*['\"]?core\.hooksPath=" + re.escape(HOOKS_PATH), command):
         return None
     return (f"core.hooksPath is {('`' + cur + '`') if cur else 'not set'}, so git would skip the commit "
-            f"gate: run `tool/setup_env.sh` (or `git config core.hooksPath {HOOKS_PATH}`) in the "
-            f"checkout, or ask the person to; for one command, `git -c core.hooksPath={HOOKS_PATH} commit ...`.")
+            f"gate: run `.claude/hooks/session-start.sh` (it sets core.hooksPath to `{HOOKS_PATH}`), "
+            f"then commit again.")
 
 
 def main():

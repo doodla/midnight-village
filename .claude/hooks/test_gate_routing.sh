@@ -178,6 +178,39 @@ guard 0 'git status' 120000
 guard 2 'git commit -m "docs: x"'
 (cd "$R" && git config core.hooksPath .claude/hooks/git)
 
+# ---- session-start.sh turns the gate on, silently, and never fails ----
+(cd "$R" && git config --unset core.hooksPath)
+out=$("$HOOKS/session-start.sh" "$R" 2>&1); rc=$?
+[ "$rc" = 0 ] && [ -z "$out" ] || fail "session-start: want silent exit 0, got $rc '$out'"
+[ "$(cd "$R" && git config core.hooksPath)" = ".claude/hooks/git" ] || fail "session-start did not set core.hooksPath"
+(cd "$R" && git config core.hooksPath /tmp/none)
+"$HOOKS/session-start.sh" "$R" >/dev/null 2>&1
+[ "$(cd "$R" && git config core.hooksPath)" = ".claude/hooks/git" ] || fail "session-start did not replace a wrong core.hooksPath"
+chmod -x "$R/.claude/hooks/git/pre-commit"
+"$HOOKS/session-start.sh" "$R" >/dev/null 2>&1
+[ -x "$R/.claude/hooks/git/pre-commit" ] || fail "session-start did not make the hooks executable"
+mkdir -p "$TMP/plain"
+out=$("$HOOKS/session-start.sh" "$TMP/plain" 2>&1); rc=$?
+[ "$rc" = 0 ] && [ -z "$out" ] || fail "session-start outside a repository: want silent exit 0"
+(cd "$R" && git config core.hooksPath /tmp/none)
+touch "$R/.git/config.lock"   # git cannot write its config while this exists
+out=$(CLAUDE_PROJECT_DIR="$R" "$HOOKS/session-start.sh" 2>&1); rc=$?
+rm -f "$R/.git/config.lock"
+[ "$rc" = 0 ] || fail "session-start failed the session when it could not write the config"
+[ "$(printf '%s\n' "$out" | wc -l)" = 1 ] && [ -n "$out" ] || fail "session-start: want one line when it fails, got '$out'"
+(cd "$R" && git config core.hooksPath .claude/hooks/git)
+
+# ---- the link check reads what is staged when asked (the pre-commit hook) ----
+cp "$REPO/tool/check_instruction_links.sh" "$R/tool/links_real.sh"
+printf 'see `docs/z.md`\n' > "$R/CLAUDE.md"; (cd "$R" && git add CLAUDE.md)
+printf 'see `docs/no_such.md`\n' > "$R/CLAUDE.md"
+"$R/tool/links_real.sh" --staged CLAUDE.md >/dev/null 2>&1 || fail "staged link check read the working tree"
+"$R/tool/links_real.sh" CLAUDE.md >/dev/null 2>&1 && fail "working-tree link check missed a bad path"
+printf 'see `docs/no_such.md`\n' > "$R/CLAUDE.md"; (cd "$R" && git add CLAUDE.md)
+printf 'see `docs/z.md`\n' > "$R/CLAUDE.md"
+"$R/tool/links_real.sh" --staged CLAUDE.md >/dev/null 2>&1 && fail "staged link check missed a staged bad path"
+(cd "$R" && git reset -q CLAUDE.md && rm -f CLAUDE.md tool/links_real.sh)
+
 # ---- the instruction link check ----
 probe="$TMP/probe.md"
 printf 'see `backend/no_such_file.py` and `just no-such-recipe`\n' > "$probe"

@@ -21,17 +21,19 @@ changes. Last updated 20 November 2026.
 - Contract samples recorded from the real server, with drift, privacy and shape guards.
 - App: the Shadow paper skin and primitives (the only look); the first-time-play pieces (copy,
   cues, hold to reveal, the night board); the protocol-2 data layer (`GameMe`, screen table,
-  one outbox, healing fetches), model-checked (`docs/dev/models/phone/`). The screens are still
-  the old ones on protocol 1.
+  one outbox, healing fetches), model-checked (`docs/dev/models/phone/`). With the screens
+  branch: 04 Your card and the night board are rebuilt for protocol 2, behind the dev-only
+  "Rebuilt screens" switch; 05 shows only while `/me/` loads; under protocol 2, 04 is reachable
+  (it was not under protocol 1). The other screens are still the old ones.
 - Tooling: screen gallery, cold-read pack, e2e harness, subagent model guardrail, commit gate
   routed by path.
 
 ## Next, in order
 
-1. Rebuild screens 01 to 11 for protocol 2, one at a time, from the primitives, checked by eye
-   with `just screens` against the mocks, before/after pictures to the owner: 01 Join, 02
-   Table, 03 Deck (+ 03b role sheet), 04 Your card, 05/06 night board, 08 Talk with "My night",
-   09 Vote, 10 The count, 11 Results. Delete each old-look file with the last screen using it
+1. Rebuild the remaining screens for protocol 2, one at a time, from the primitives, checked
+   by eye with `just screens` against the mocks, before/after pictures to the owner: 08 Talk
+   with "My night", 09 Vote, 10 The count, 11 Results, then 01 Join, 02 Table, 03 Deck (+ 03b
+   role sheet). Then remove the dev-only gate with the last placeholder. Delete each old-look file with the last screen using it
    (`docs/dev/old-look-removal.md`).
 2. Rerun the cold-read playtest on the real screens (method in
    `docs/dev/playtests/2026-11-19-mocks-cold-read.md`). A screen passes when 4 of 5 simulated
@@ -43,15 +45,18 @@ changes. Last updated 20 November 2026.
 ## Open items
 
 - `PrimaryButton.done` looks like `PrimaryButton.locked`.
-- The server should expose its time to the web app (`Date` exposed to the browser, or a
-  `server_time` field); without it the web app times fetches by the phone's clock.
 - A request whose answer was lost but which the server processes late can overtake a newer
   tap of the same lane; closing it needs a per-phone sequence number on the server.
 - Ten long names on a 320-wide phone: the night board falls under the 14 px reading floor.
 - Recorder gap: no contract sample of a Doppelganger who copied the Minion with a follow-up.
-- Protocol 1 only (goes with the cleanup slice): the "your card" screen is unreachable (it
-  waits for an event the server never sends); across several server instances a phone can get
-  `action_prompt` before `wave_start` and lose its prompt.
+- Protocol 1 only (goes with the cleanup slice): across several server instances a phone can
+  get `action_prompt` before `wave_start` and lose its prompt. (The unreachable "your card"
+  screen is fixed under protocol 2.)
+- The server should send `CORS_EXPOSE_HEADERS = ["Date"]` (or a `server_time` field) so the web
+  app can read the server's clock; until then it times fetches by the phone's clock. Tell the
+  deployment session when it is added.
+- `ENV` defaults to dev, so a build without `--dart-define=ENV=prod` includes the dev-only
+  shell and gate.
 - Untidy protocol-1 payloads still open: `docs/dev/server-payload-quirks.md`.
 - DRF throttles are per instance on Vercel and keyed on a spoofable header: a courtesy, not
   protection.
