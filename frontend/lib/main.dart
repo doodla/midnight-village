@@ -8,13 +8,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'design_system/skin/skin_choice.dart';
 import 'design_system/skin_loader.dart';
+import 'design_system/teach/learned_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   registerFontLicences();
-  // The saved skin and its fonts before the first frame, so it is right.
+  // The saved skin and its fonts, and the cues this device has learned,
+  // before the first frame, so it is right.
   final loader = SkinLoader();
-  final skin = await restoreSkin(loader: loader);
+  final (skin, _) = await (restoreSkin(loader: loader), restoreLearned()).wait;
   runApp(
     ProviderScope(
       overrides: [skinLoaderProvider.overrideWithValue(loader)],

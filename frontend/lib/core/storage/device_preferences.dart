@@ -18,6 +18,9 @@ class DevicePreferences {
 
   static const _skinKey = 'skin';
 
+  /// The value a set flag holds.
+  static const _flagOn = '1';
+
   /// The name of the chosen skin, or null when none was saved or it could
   /// not be read. Fast enough to await before the first frame.
   Future<String?> readSkin() async {
@@ -34,6 +37,41 @@ class DevicePreferences {
       await (await _open()).setString(_skinKey, name);
     } catch (e) {
       logger.w('DevicePreferences: could not save the skin: $e');
+    }
+  }
+
+  /// The keys starting with [prefix] whose flag is set (an empty set when
+  /// they could not be read). Fast enough to await before the first frame.
+  Future<Set<String>> readFlags(String prefix) async {
+    try {
+      final preferences = await _open();
+      return {
+        for (final key in preferences.getKeys())
+          if (key.startsWith(prefix) && preferences.get(key) == _flagOn) key,
+      };
+    } catch (e) {
+      logger.w('DevicePreferences: could not read the flags $prefix*: $e');
+      return {};
+    }
+  }
+
+  Future<void> setFlag(String key) async {
+    try {
+      await (await _open()).setString(key, _flagOn);
+    } catch (e) {
+      logger.w('DevicePreferences: could not set the flag $key: $e');
+    }
+  }
+
+  /// Clears every flag whose key starts with [prefix].
+  Future<void> clearFlags(String prefix) async {
+    try {
+      final preferences = await _open();
+      for (final key in preferences.getKeys().toList()) {
+        if (key.startsWith(prefix)) await preferences.remove(key);
+      }
+    } catch (e) {
+      logger.w('DevicePreferences: could not clear the flags $prefix*: $e');
     }
   }
 }
