@@ -1362,7 +1362,8 @@ def transition_to_voting(game: Game) -> None:
                     if game.phase_deadline
                     else None,
                 },
-            )
+            ),
+            (f"game_{game.id}", {"type": "progress", **vote_progress(game)}),
         ]
     )
 
@@ -1374,80 +1375,108 @@ def end_discussion(game: Game) -> None:
     transition_to_voting(game)
 
 
-def submit_vote(game: Game, voter_id: int, target_player_id: int) -> list[str]:
+VOTE_WRONG_PHASE = "Game is not in the voting phase."
+VOTE_SELF = "You cannot vote for yourself."
+VOTE_BAD_TARGET = "Invalid vote target."
+VOTE_NOT_A_PLAYER = "You are not a player in this game."
+VOTE_ERROR_CODES = {
+    VOTE_WRONG_PHASE: "wrong_phase",
+    VOTE_SELF: "invalid_target",
+    VOTE_BAD_TARGET: "invalid_target",
+    VOTE_NOT_A_PLAYER: "not_a_player",
+}
+
+
+def submit_vote(
+    game: Game, voter_id: int, target_player_id: int, *, lock: bool = True
+) -> list[str]:
     """
-    Submit a vote. Returns list of errors (empty = success).
+    Pick (``lock=False``) or lock in (``lock=True``) a vote. Returns the list of
+    errors (empty = success); ``VOTE_ERROR_CODES`` maps each to its API code.
 
-    Validates:
-    - Game is in VOTING phase
-    - Voter is in the game
-    - Voter hasn't already voted (has_acted or vote_target is set)
-    - Target is not the voter (no self-votes)
-    - Target is a valid player in the game
+    A vote is *picked* (``vote_target`` set, changeable, never announced) and then
+    *locked* (``has_acted``, final: ``AlreadyActedError``). Everything happens in
+    ONE transaction taking the Game row lock first and the voter's PlayerRole
+    second (the project's lock order), so the phase cannot change between the
+    check and the write and two last locks cannot both reveal.
 
-    On success:
-    - Sets PlayerRole.vote_target = target user
-    - Sets PlayerRole.has_acted = True
-    - Broadcasts vote_submitted (WHO voted, NOT their target) to game group
-    - Checks if all players have voted -> if so, trigger reveal
+    Validates: the game is in VOTING (re-read under the lock), the voter plays in
+    it, has not locked, does not vote for themselves, and the target plays in it.
+
+    A pick sends nothing. A lock sends the legacy ``vote.submitted`` (WHO locked,
+    never the target) and the count-only ``progress`` after the commit, and reveals
+    the vote when everyone being waited for has locked (``_votes_ready``).
     """
-    errors: list[str] = []
-
-    if game.phase != Phase.VOTING:
-        errors.append("Game is not in the voting phase.")
-        return errors
-
-    # Lock the voter's PlayerRole row to prevent TOCTOU race on has_acted.
     with transaction.atomic():
+        game = Game.objects.select_for_update().get(id=game.id)
+        if game.phase != Phase.VOTING:
+            return [VOTE_WRONG_PHASE]
+
         try:
             voter_pr = PlayerRole.objects.select_for_update().get(
                 game=game, user_id=voter_id
             )
         except PlayerRole.DoesNotExist:
-            errors.append("You are not a player in this game.")
-            return errors
+            return [VOTE_NOT_A_PLAYER]
 
         if voter_pr.has_acted:
-            raise AlreadyActedError("You have already voted.")
+            raise AlreadyActedError("You have already locked in your vote.")
 
         # No self-votes per spec
         if voter_id == target_player_id:
-            errors.append("You cannot vote for yourself.")
-            return errors
+            return [VOTE_SELF]
 
-        # Validate target is a valid player in the game
         # pyrefly: ignore [missing-attribute]
         game_player_ids = set(game.player_roles.values_list("user_id", flat=True))
         if target_player_id not in game_player_ids:
-            errors.append("Invalid vote target.")
-            return errors
+            return [VOTE_BAD_TARGET]
 
-        # Store vote
         # pyrefly: ignore [missing-attribute]
         voter_pr.vote_target_id = target_player_id
+        if not lock:
+            voter_pr.save(update_fields=["vote_target"])
+            return []
+
         voter_pr.has_acted = True
         voter_pr.save(update_fields=["vote_target", "has_acted"])
-
-    # Broadcast and auto-reveal OUTSIDE the transaction to avoid
-    # holding the row lock during channel operations.
-    _send_after_commit(
-        [(f"game_{game.id}", {"type": "vote.submitted", "player_id": voter_id})]
-    )
-
-    # Check if all players have voted -> auto-reveal.
-    # Lock the Game row to prevent double-fire when two players
-    # submit simultaneously and both see all votes in.
-    with transaction.atomic():
-        game = Game.objects.select_for_update().get(id=game.id)
-        if game.phase != Phase.VOTING:
-            # Already revealed by another concurrent request
-            return errors
-        # Reveal once everyone has voted, or everyone still being waited for
-        # has (a player gone past the grace period counts as a non-voter).
+        _send_after_commit(
+            [
+                (
+                    f"game_{game.id}",
+                    {"type": "vote.submitted", "player_id": voter_id},
+                ),
+                (f"game_{game.id}", {"type": "progress", **vote_progress(game)}),
+            ]
+        )
+        # Reveal once everyone has locked, or everyone still being waited for has
+        # (a player gone past the grace period is a non-voter at the deadline too).
         if _votes_ready(game):
             reveal_votes(game)
 
-    return errors
+    return []
+
+
+def stage_progress(game: Game) -> dict[str, Any] | None:
+    """The count for whichever stage the game is in (``/me/`` ``progress``), or
+    None outside the stages that have one."""
+    if game.phase == Phase.VOTING:
+        return vote_progress(game)
+    return None
+
+
+def vote_progress(game: Game) -> dict[str, Any]:
+    """``{"stage": "vote", "done", "needed"}``: how many of the players the vote
+    still waits for (not gone past the grace period) have locked in. Counts only:
+    never a target, never who."""
+    prs = _player_roles(game)
+    grace = _grace_seconds(game)
+    now = timezone.now()
+    present = [pr for pr in prs if not _is_gone(pr, grace, now)]
+    return {
+        "stage": "vote",
+        "done": sum(1 for pr in present if pr.has_acted),
+        "needed": len(present),
+    }
 
 
 def reveal_votes(game: Game) -> None:
@@ -1672,8 +1701,14 @@ def _evaluate_presence(game: Game) -> None:
     """
     if game.phase == Phase.NIGHT and game.current_wave in NIGHT_WINDOWS:
         _advance_if_ready(game)
-    elif game.phase == Phase.VOTING and _votes_ready(game):
-        reveal_votes(game)
+    elif game.phase == Phase.VOTING:
+        if _votes_ready(game):
+            reveal_votes(game)
+        else:
+            # ``needed`` may have changed (a grace period ended, a phone is back).
+            _send_after_commit(
+                [(f"game_{game.id}", {"type": "progress", **vote_progress(game)})]
+            )
 
 
 def _grace_expired(game_id: Any, user_id: int) -> None:

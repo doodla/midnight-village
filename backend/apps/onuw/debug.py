@@ -155,6 +155,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
 
     players: list[dict[str, Any]] = []
     votes: dict[str, int | None] = {}
+    vote_locked: dict[str, bool] = {}
     for pr in player_roles_qs:
         players.append(
             {
@@ -173,6 +174,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
         )
         # EVERY player is a key; null = has not voted / abstained.
         votes[str(pr.user_id)] = pr.vote_target_id
+        vote_locked[str(pr.user_id)] = bool(pr.has_acted)
 
     night_actions_log = _build_night_actions_log(game)
 
@@ -190,6 +192,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
         "players": players,
         "night_actions_log": night_actions_log,
         "votes": votes,
+        "vote_locked": vote_locked,
         "results": results,
         "pending_timers": _pending_timers(game),
     }

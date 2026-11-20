@@ -162,6 +162,17 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
             }
         )
 
+    async def progress(self, event):
+        """Broadcast: how many players have locked in / are ready (counts only)."""
+        await self.send_json(
+            {
+                "type": "progress",
+                "stage": event["stage"],
+                "done": event["done"],
+                "needed": event["needed"],
+            }
+        )
+
     async def vote_reveal(self, event):
         """Broadcast: all votes revealed simultaneously."""
         await self.send_json(

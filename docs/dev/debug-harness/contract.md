@@ -245,7 +245,8 @@ drifted in 5 fields):**
       "action_type": "swap_with_player", "targets": {...}, "result": {...}, "timestamp_order": 2,
       "made_by_server": false }   // true only for a move the server made for a player who timed out / was gone past the grace period (the Drunk's seeded swap)
   ],
-  "votes": { "12": 14, "13": null },          // EVERY player is a key; null = has not voted/abstained
+  "votes": { "12": 14, "13": null },          // EVERY player is a key; the stored PICK, locked or not (every pick counts at any reveal); null = no pick / abstained
+  "vote_locked": { "12": true, "13": false }, // EVERY player is a key; true = locked in (final), false = picked (or nothing)
   "results": { ... } | null,                  // present once phase=results; winning_teams = list of lowercase tokens ⊂ {"village","werewolf","tanner"}, asserted as a SET
   "pending_timers": ["grace:14", "wave:2"]    // sorted names of the ScheduledTimer rows pending now: this game's keys without the "<game id>:" prefix (wave:N, discussion, voting, grace:<user id>) plus "host_handover" while the lobby's handover timer is armed
 }

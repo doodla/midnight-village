@@ -32,6 +32,7 @@ from .serializers import (
     player_identity,
 )
 from .services import (
+    VOTE_ERROR_CODES,
     AlreadyActedError,
     acknowledge_night_results,
     advance_wave,
@@ -51,6 +52,14 @@ from .services import (
 logger = logging.getLogger(__name__)
 
 MAX_NIGHT_RESULTS_SEEN = 10
+
+
+def _bad_request(detail: str) -> Response:
+    """A malformed request: 400 with the machine-readable ``bad_request`` code."""
+    return Response(
+        {"detail": detail, "code": "bad_request"},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
 
 def _snapshot_player_roles(
@@ -530,21 +539,21 @@ class VoteView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Extract target_player_id from request body
-        target_player_id = request.data.get("target_player_id")
-        if target_player_id is None:
-            return Response(
-                {"detail": "target_player_id is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        body = request.data if isinstance(request.data, dict) else None
+        if body is None:
+            return _bad_request("Body must be an object.")
 
-        try:
-            target_player_id = int(target_player_id)
-        except (TypeError, ValueError):
-            return Response(
-                {"detail": "target_player_id must be an integer."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # A plain JSON integer only: a bool, float or string is never coerced.
+        target_player_id = body.get("target_player_id")
+        if target_player_id is None:
+            return _bad_request("target_player_id is required.")
+        if type(target_player_id) is not int:
+            return _bad_request("target_player_id must be an integer.")
+
+        # ``lock`` defaults to true: pick and lock in one call, as before.
+        lock = body.get("lock", True)
+        if type(lock) is not bool:
+            return _bad_request("lock must be true or false")
 
         # Check player membership (403) before delegating to service
         if not PlayerRole.objects.filter(game=game, user=request.user).exists():
@@ -554,19 +563,29 @@ class VoteView(APIView):
             )
 
         try:
-            errors = submit_vote(game, request.user.id, target_player_id)  # type: ignore[misc]
+            errors = submit_vote(game, request.user.id, target_player_id, lock=lock)  # type: ignore[misc]
         except AlreadyActedError:
             return Response(
-                {"detail": "You have already voted."},
+                {
+                    "detail": "You have already locked in your vote.",
+                    "code": "vote_locked",
+                },
                 status=status.HTTP_409_CONFLICT,
             )
         if errors:
+            # ``detail`` stays a list of messages, as it always was.
             return Response(
-                {"detail": errors},
+                {
+                    "detail": errors,
+                    "code": VOTE_ERROR_CODES.get(errors[0], "bad_request"),
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        return Response({"status": "submitted"})
+        if lock:
+            return Response({"status": "submitted"})
+        # The stored pick, echoed: a lost or reordered request shows what stuck.
+        return Response({"status": "picked", "target_player_id": target_player_id})
 
 
 class ForceRevealView(APIView):

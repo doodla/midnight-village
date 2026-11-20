@@ -58,6 +58,9 @@ class GameMeSerializer(serializers.Serializer):
     roles_in_game = serializers.SerializerMethodField()
     night_results = serializers.SerializerMethodField()
     night_results_seen = serializers.SerializerMethodField()
+    my_vote = serializers.SerializerMethodField()
+    ready = serializers.SerializerMethodField()
+    progress = serializers.SerializerMethodField()
 
     def get_deadline(self, game: Game) -> str | None:
         """
@@ -213,6 +216,36 @@ class GameMeSerializer(serializers.Serializer):
         """
         player_role = self.context.get("player_role")
         return 0 if player_role is None else player_role.night_results_seen
+
+    def get_my_vote(self, game: Game) -> dict[str, Any] | None:
+        """The caller's own pick while voting: ``{"target_player_id", "locked"}``,
+        or None (not voting, or nothing picked yet). Never anyone else's."""
+        player_role = self.context.get("player_role")
+        if (
+            game.phase != Phase.VOTING
+            or player_role is None
+            or player_role.vote_target_id is None
+        ):
+            return None
+        return {
+            "target_player_id": player_role.vote_target_id,
+            "locked": bool(player_role.has_acted),
+        }
+
+    def get_ready(self, game: Game) -> bool | None:
+        """The caller's own "ready" flag at the stages that have one (the talk and,
+        later, the card look); None elsewhere."""
+        player_role = self.context.get("player_role")
+        if player_role is None or game.phase != Phase.DISCUSSION:
+            return None
+        return bool(player_role.phase_ready)
+
+    def get_progress(self, game: Game) -> dict[str, Any] | None:
+        """``{"stage", "done", "needed"}`` at the look, talk and vote stages: a
+        count of the table's taps, never who tapped. None elsewhere."""
+        from .services import stage_progress
+
+        return stage_progress(game)
 
     def get_roles_in_game(self, game: Game) -> list[dict[str, Any]]:
         """

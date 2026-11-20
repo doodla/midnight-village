@@ -30,7 +30,7 @@ After the night phase, a player's role is the card **currently in front of them*
 | Must vote | Every player must vote — no abstaining |
 | No self-votes | Players cannot vote for themselves |
 | Simultaneous | All votes are revealed at the same instant |
-| Final | Votes cannot be changed after the count |
+| Final | Votes cannot be changed after the count (in the app: after locking in; a pick before that may change) |
 
 ### Digital Implementation
 
@@ -40,6 +40,16 @@ In the app, voting works differently from the physical game:
 2. Votes are hidden from all players until all votes are in (or the timer expires)
 3. If a player does not submit a vote before the timer expires, their vote is **skipped** (they effectively abstain — their vote is not counted)
 4. Once all votes are collected (or the timer expires), all votes are revealed simultaneously to all players
+
+#### Picking and locking in
+
+A vote has two states. A player first **picks** someone (and may change the pick as often as they like; nobody else is told, not even that a pick exists), then **locks in** (final). The app may send both at once (`lock` defaults to true on the vote request).
+
+- The vote is revealed early once every player the table still waits for (not gone past the grace period) has **locked in**. Others see only a count ("3 of 5 locked in"), never who, never at whom.
+- **At any reveal (early, the voting deadline, or the host's force-reveal) every stored pick counts, locked or not.** A player who picked but did not lock in before the deadline has voted for that pick. A player with no pick at all is a non-voter.
+- The same rule covers a player who dropped: their pick counts, locked or not.
+- An unlocked pick is a vote like any other for the **Hunter chain**: a Hunter who picked a target and never locked in still takes that target with them if they die.
+- Locking is final: a second pick or lock after locking is refused (409).
 
 ## Resolution Phase
 
@@ -144,6 +154,7 @@ The Minion has unique win conditions:
 | Hunter dies, voted for a Villager | Villager also dies → check other win conditions |
 | Hunter dies, voted for Tanner | Tanner also dies → Tanner wins |
 | Hunter dies in a tie | Hunter ability still triggers |
+| Hunter picked a target but never locked in | The pick counts: the target dies with the Hunter |
 | Hunter's target was already dying (in same tie) | No additional effect (already dead) |
 | Player who now holds Hunter card (after swap) dies | That player's vote target dies (not the original Hunter's target) |
 
