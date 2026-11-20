@@ -10,6 +10,9 @@ import 'failure_report.dart';
 import 'live_table.dart';
 import 'scenario_dsl.dart';
 
+/// PROTOCOL 1: the reference games are replayed through the protocol-1 API
+/// (`DebugAction`); the server slice ports this runner to protocol 2.
+///
 /// Game timers for the harness: every night window closes as soon as its last
 /// actor has submitted (`night_min_window_seconds` and
 /// `night_doppelganger_window_seconds` are 0), discussion and voting wait for the

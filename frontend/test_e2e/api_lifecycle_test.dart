@@ -12,7 +12,8 @@ import 'harness/scenario_runner.dart';
 import 'harness/time_budget.dart';
 
 /// API runner, table lifecycle: play again, dropped phones and host handover,
-/// through the real server over real HTTP and real WebSockets.
+/// through the real server over real HTTP and real WebSockets. PROTOCOL 1: its
+/// tables play the protocol-1 night; the server slice ports it to protocol 2.
 ///
 /// Each scenario asserts BOTH what the clients are told (HTTP bodies, socket
 /// events) AND the truth in the debug-state oracle. Nothing is slept on: the

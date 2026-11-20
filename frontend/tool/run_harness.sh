@@ -53,7 +53,10 @@ cleanup() {
   backend_pid=""
 }
 trap cleanup EXIT
-trap 'exit 130' INT TERM
+# An interrupted run is never reported as passed, whatever the test runner
+# exits with when it is stopped.
+interrupted=0
+trap 'interrupted=1; echo "[harness] INTERRUPTED" >&2; exit 130' INT TERM
 
 echo "[harness] booting backend harness on 127.0.0.1:${HARNESS_PORT}..."
 # Job control on: the background job gets a process group of its own (its
@@ -113,7 +116,10 @@ flutter test --tags e2e \
   test_e2e/ui_protocol2_journey_test.dart
 test_exit=$?
 
-if [[ "$test_exit" -ne 0 ]]; then
+if [[ "$interrupted" -ne 0 ]]; then
+  echo "[harness] INTERRUPTED: not a result."
+  exit 130
+elif [[ "$test_exit" -ne 0 ]]; then
   echo "[harness] FAILED (exit $test_exit). Machine-readable failures:"
   echo "[harness]   $SCREENSHOTS_DIR/failures.jsonl"
   echo "[harness]   filmstrips: $SCREENSHOTS_DIR/<scenario>/"

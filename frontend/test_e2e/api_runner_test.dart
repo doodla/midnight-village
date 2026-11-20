@@ -24,7 +24,9 @@ import 'harness/time_budget.dart';
 /// learned during the night, and (full games) votes, who was voted out, who died,
 /// the winners, who won, and the stated reason.
 ///
-/// This targets the BOOTED HARNESS BACKEND on 127.0.0.1:8001 and mocks nothing.
+/// This targets the BOOTED HARNESS BACKEND (127.0.0.1, the run's port:
+/// [HarnessConfig.port]) and mocks nothing. PROTOCOL 1: it drives the
+/// protocol-1 API; the server slice ports it to protocol 2.
 /// It runs headless on the host VM under `flutter test`; real Dio/WS work because
 /// [HarnessConfig.setUp] clears `HttpOverrides.global`.
 void main() {

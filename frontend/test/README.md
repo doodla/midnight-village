@@ -16,16 +16,9 @@ harness, `just test-harness`) and `test_screens/` (the screen gallery and the co
 
 ## The web integration test (`integration_test/auth_flow_test.dart`)
 
-`just test-integration-ci` drives it in headless Chrome through `flutter drive`, which needs a
-chromedriver of Chrome's own version listening on port 4444. CI installs both
-(`.github/workflows/flutter-tests.yml`). In the cloud container (20 November 2026) Chrome
-is Chrome for Testing 153.0.8010.12 (`/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`,
-also `/usr/bin/google-chrome`) but the only chromedriver is 147.0.7727.24
-(`/opt/node-tools/node_modules/chromedriver/`), which refuses it. The matching driver is
-`https://storage.googleapis.com/chrome-for-testing-public/153.0.8010.12/linux64/chromedriver-linux64.zip`
-(it downloads); with it: start `chromedriver --port=4444`, then
-`CHROME_EXECUTABLE=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome just test-integration-ci`.
-An agent session may not run a downloaded binary, so it is not run there.
+`just test-integration-ci` drives it in headless Chrome through `flutter drive`, with a
+chromedriver of Chrome's own version on port 4444; CI installs both. Running it in the cloud
+container: `docs/dev/environment.md`.
 
 ## Fonts in tests
 
