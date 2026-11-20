@@ -1335,8 +1335,8 @@ CREATE = "/lobbies/"
 
 
 def _v2_lobby(t: Table, names: list[str], *, sample: str | None = None) -> None:
-    """A table the way the new screens make it: ``defaults: "v2"`` (Normal pace,
-    the card look, night protocol 2, the automatic Simple deck)."""
+    """A table the way the new screens make it: ``defaults: "v2"`` (the card look,
+    night protocol 2, the automatic Simple deck)."""
     _sign_in(t, names)
     body = {"game_type": "onuw", "defaults": "v2"}
     if sample:
@@ -1415,8 +1415,9 @@ def _plain_choose_table(run: Recording) -> None:
         {"game_type": "onuw", "defaults": "v2"},
         status=201,
         about=(
-            "The host opens a table with `defaults: v2`: Normal pace, a 30 s look "
-            "at the cards, night protocol 2 and the automatic Simple deck."
+            "The host opens a table with `defaults: v2`: a 30 s look at the cards, "
+            "night protocol 2 and the automatic Simple deck, and nothing else (no "
+            "timer length is written)."
         ),
     )
     _join_and_ready(t, names[1:])
@@ -1521,13 +1522,14 @@ def _plain_choose_table(run: Recording) -> None:
         about="A night window opened: the same event for every phone.",
     )
     t.record(
-        "game/ready_wrong_phase",
+        "game/ready_wrong_stage",
         "POST",
         "Ana",
         GAME_READY,
         {"ready": True},
-        status=400,
-        about="Ready when nothing is waiting for it (the night is open).",
+        status=409,
+        about="Ready while a night window is open: the request names the window's "
+        "stage, which does not take ready.",
     )
     for name, kind in [
         ("Ana", "seer"),
@@ -1600,6 +1602,7 @@ def _plain_choose_table(run: Recording) -> None:
     _choose(t, "Ben", [_player(t, "Ana")])
     _choose(t, "Dev", [_player(t, "Ana"), _player(t, "Ben")])
     _choose(t, "Cleo", [{"center_index": 0}])
+    window_stage = t.stage_now()
     t.fire("{game_id}:wave:2")  # every phone has chosen: the close at the minimum
     t.record_sequence(
         "window_2",
@@ -1614,13 +1617,23 @@ def _plain_choose_table(run: Recording) -> None:
         about="The window closed: every phone reads its results from /me/.",
     )
     t.record(
-        "game/choose_wrong_phase",
+        "game/choose_wrong_stage",
         "POST",
         "Ana",
         ACTION,
-        {"action_type": "choose", "picks": []},
+        {"action_type": "choose", "picks": [], "stage": window_stage},
+        status=409,
+        about="A late choose for a window that is over: the same answer for every "
+        "role, nothing stored, and it can never land in the next stage.",
+    )
+    t.record(
+        "game/choose_stage_missing",
+        "POST",
+        "Ana",
+        ACTION,
+        {"action_type": "choose", "picks": [], "stage": None},
         status=400,
-        about="A choose when no window is open.",
+        about="A choose that does not name its stage.",
     )
     for name, kind in [
         ("Ana", "seer"),
@@ -1784,6 +1797,7 @@ def _plain_choose_table(run: Recording) -> None:
         about="The oracle under night protocol 2: per-player ready, vote_locked.",
         debug=True,
     )
+    vote_stage = t.stage_now()
     for name in names[1:]:
         target = "Dev" if name == "Cleo" else "Cleo"
         t.call("POST", name, VOTE, {"target_player_id": t.pid(target)})
@@ -1797,17 +1811,19 @@ def _plain_choose_table(run: Recording) -> None:
         "POST",
         "Ana",
         VOTE,
-        {"target_player_id": t.pid("Cleo")},
-        status=400,
-        about="A vote after the reveal.",
+        {"target_player_id": t.pid("Cleo"), "stage": vote_stage},
+        status=409,
+        about="A vote that was on its way when the vote was revealed: the stage is "
+        "over, nothing is stored.",
     )
 
 
 def _doppelganger_choose_table(run: Recording) -> None:
-    """Eight players with a Doppelganger: window 1 takes two chooses from every
-    phone (her look, then her follow-up as the copied Seer), window 2 one."""
+    """Nine players with a Doppelganger and a Werewolf pack: window 1 takes a choose
+    from every phone, and a second from the Doppelganger (her follow-up as the
+    copied Seer); window 2 one."""
     t = run.table()
-    names = ["Ana", "Ben", "Cleo", "Dev", "Esme", "Fin", "Gus", "Hana"]
+    names = ["Ana", "Ben", "Cleo", "Dev", "Esme", "Fin", "Gus", "Hana", "Ida"]
     dealt = {
         "Ana": "Doppelganger",
         "Ben": "Seer",
@@ -1817,10 +1833,11 @@ def _doppelganger_choose_table(run: Recording) -> None:
         "Fin": "Mason",
         "Gus": "Drunk",
         "Hana": "Insomniac",
+        "Ida": "Werewolf",
     }
     _v2_lobby(t, names)
     deck: dict[str, int] = {}
-    for role in [*dealt.values(), "Werewolf", "Villager", "Tanner"]:
+    for role in [*dealt.values(), "Villager", "Villager", "Tanner"]:
         deck[role] = deck.get(role, 0) + 1
     t.call(
         "PATCH",
@@ -1829,7 +1846,7 @@ def _doppelganger_choose_table(run: Recording) -> None:
         {"settings": {"deck": "custom", "roles": deck}},
     )
     t.clock.advance(60)
-    t.start(dealt, ["Werewolf", "Villager", "Tanner"])
+    t.start(dealt, ["Villager", "Villager", "Tanner"])
     for name in names:
         t.connect(name)
     _everyone(t, names[:-1], GAME_READY, {"ready": True})
@@ -1888,7 +1905,8 @@ def _doppelganger_choose_table(run: Recording) -> None:
         ACTION,
         {"action_type": "choose", "picks": [{"self": True}]},
         status=200,
-        about="Window 1 takes a second choose from every phone.",
+        about="The server accepts a second choose in window 1 from anyone (only "
+        "the Doppelganger's is read), so a second tap is never a tell.",
     )
     t.record(
         "game/choose_window1_third_refused",
@@ -1943,6 +1961,7 @@ def _doppelganger_choose_table(run: Recording) -> None:
     )
     for name, kind in [
         ("Ana", "doppelganger"),
+        ("Cleo", "werewolf_pack"),
         ("Dev", "minion"),
         ("Esme", "mason"),
         ("Hana", "insomniac"),

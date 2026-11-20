@@ -108,6 +108,8 @@ def test_under_night_protocol_2_every_seat_hears_the_same_events_in_the_same_ord
     for seat, heard in sequences.items():
         assert heard == reference, f"{seat} heard something different"
     assert not {event for event in reference if event in PRIVATE}
+    # Who locked in is never announced under protocol 2: counts only.
+    assert "vote_submitted" not in reference
 
 
 @pytest.mark.parametrize(

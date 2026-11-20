@@ -46,6 +46,14 @@
   "action_prompt": {
     "window": 2,
     "kind": "seer",
+    "shapes": [
+      {
+        "players": 1
+      },
+      {
+        "center": 2
+      }
+    ],
     "role_acting_as": "Seer",
     "action_types": [
       "choose"
@@ -93,5 +101,6 @@
   "night_results_seen": 0,
   "my_vote": null,
   "ready": null,
-  "progress": null
+  "progress": null,
+  "stage": "w2.000000000007"
 }

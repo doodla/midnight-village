@@ -83,5 +83,6 @@
     "stage": "talk",
     "done": 0,
     "needed": 5
-  }
+  },
+  "stage": "talk.000000000007"
 }

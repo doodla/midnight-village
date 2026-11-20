@@ -3,7 +3,7 @@
   "lobby_code": "T8NB6C",
   "phase": "night",
   "current_wave": 2,
-  "deadline": "2024-03-07T21:27:08+00:00",
+  "deadline": "2024-03-07T21:28:08+00:00",
   "your_role": {
     "original_role": "Minion",
     "has_acted": false
@@ -59,11 +59,22 @@
       "display_name": "Hana",
       "token": "hare",
       "seat": 7
+    },
+    {
+      "player_id": 40,
+      "display_name": "Ida",
+      "token": "moth",
+      "seat": 8
     }
   ],
   "action_prompt": {
     "window": 2,
     "kind": "none",
+    "shapes": [
+      {
+        "any": 1
+      }
+    ],
     "role_acting_as": "Minion",
     "action_types": [
       "choose"
@@ -79,7 +90,8 @@
         36,
         37,
         38,
-        39
+        39,
+        40
       ],
       "center_indices": [
         0,
@@ -111,7 +123,7 @@
     },
     {
       "role": "Villager",
-      "count": 1
+      "count": 2
     },
     {
       "role": "Werewolf",
@@ -130,5 +142,6 @@
   "night_results_seen": 0,
   "my_vote": null,
   "ready": null,
-  "progress": null
+  "progress": null,
+  "stage": "w2.000000000008"
 }

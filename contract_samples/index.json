@@ -194,6 +194,14 @@
       "description": "Any other action_type under night protocol 2."
     },
     {
+      "name": "http/game/choose_stage_missing",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 400,
+      "description": "A choose that does not name its stage."
+    },
+    {
       "name": "http/game/choose_submitted_doppelganger_look",
       "kind": "http",
       "method": "POST",
@@ -223,7 +231,7 @@
       "method": "POST",
       "path": "/onuw/games/{game_id}/action/",
       "status": 200,
-      "description": "Window 1 takes a second choose from every phone."
+      "description": "The server accepts a second choose in window 1 from anyone (only the Doppelganger's is read), so a second tap is never a tell."
     },
     {
       "name": "http/game/choose_window1_third_refused",
@@ -234,12 +242,12 @@
       "description": "A third choose in window 1."
     },
     {
-      "name": "http/game/choose_wrong_phase",
+      "name": "http/game/choose_wrong_stage",
       "kind": "http",
       "method": "POST",
       "path": "/onuw/games/{game_id}/action/",
-      "status": 400,
-      "description": "A choose when no window is open."
+      "status": 409,
+      "description": "A late choose for a window that is over: the same answer for every role, nothing stored, and it can never land in the next stage."
     },
     {
       "name": "http/game/current_game_active",
@@ -504,6 +512,14 @@
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in the talk: the werewolf lone's night results."
+    },
+    {
+      "name": "http/game/me_discussion_choose_werewolf_pack",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the werewolf_pack's night results, canonical names."
     },
     {
       "name": "http/game/me_discussion_doppelganger",
@@ -890,12 +906,12 @@
       "description": "In the talk a player may take their ready back."
     },
     {
-      "name": "http/game/ready_wrong_phase",
+      "name": "http/game/ready_wrong_stage",
       "kind": "http",
       "method": "POST",
       "path": "/onuw/games/{game_id}/ready/",
-      "status": 400,
-      "description": "Ready when nothing is waiting for it (the night is open)."
+      "status": 409,
+      "description": "Ready while a night window is open: the request names the window's stage, which does not take ready."
     },
     {
       "name": "http/game/recent_games",
@@ -1030,8 +1046,8 @@
       "kind": "http",
       "method": "POST",
       "path": "/onuw/games/{game_id}/vote/",
-      "status": 400,
-      "description": "A vote after the reveal."
+      "status": 409,
+      "description": "A vote that was on its way when the vote was revealed: the stage is over, nothing is stored."
     },
     {
       "name": "http/game/vote_already_locked",
@@ -1143,7 +1159,7 @@
       "method": "POST",
       "path": "/lobbies/",
       "status": 201,
-      "description": "The host opens a table with `defaults: v2`: Normal pace, a 30 s look at the cards, night protocol 2 and the automatic Simple deck."
+      "description": "The host opens a table with `defaults: v2`: a 30 s look at the cards, night protocol 2 and the automatic Simple deck, and nothing else (no timer length is written)."
     },
     {
       "name": "http/lobby/detail_acting_host",
@@ -1790,7 +1806,8 @@
         "Esme",
         "Fin",
         "Gus",
-        "Hana"
+        "Hana",
+        "Ida"
       ],
       "description": "Window 1 (the Doppelganger's) opens: the same event for everyone."
     },
@@ -1823,7 +1840,8 @@
         "Esme",
         "Fin",
         "Gus",
-        "Hana"
+        "Hana",
+        "Ida"
       ],
       "description": "Window 2 opens after window 1."
     },

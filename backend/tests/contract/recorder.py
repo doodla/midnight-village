@@ -54,7 +54,8 @@ from apps.core.consumers import LobbyConsumer
 from apps.core.models import LobbyMember, ScheduledTimer, User
 from apps.onuw import services
 from apps.onuw.consumers import GameConsumer
-from apps.onuw.models import PlayerRole
+from apps.onuw.models import Game, PlayerRole
+from apps.onuw.protocol import is_choose_night, stage_token
 
 START = datetime(2024, 3, 7, 20, 50, tzinfo=UTC)
 LOBBY_CODES = (
@@ -228,10 +229,41 @@ class Table:
             client = self.players[who].client if who else APIClient()
         ids = {"code": self.code, "game_id": self.game_id, **fill}
         url = "/api" + path.format(**ids)
+        body = self._staged(path, body, ids["game_id"])
         send = getattr(client, method.lower())
         with self._capture_on_commit(execute=True), override_settings(DEBUG=debug):
             response = send(url, body, format="json")
         return response.status_code, json.loads(response.content or b"null")
+
+    STAGE_ENDPOINTS = (
+        "/action/",
+        "/ready/",
+        "/vote/",
+        "/advance-wave/",
+        "/end-discussion/",
+        "/reveal-votes/",
+    )
+
+    def _staged(
+        self, path: str, body: dict[str, Any] | None, game_id: str
+    ) -> dict[str, Any] | None:
+        """The way the app sends it: a request to a stage-scoped endpoint of a game
+        that plays night protocol 2 names the stage the game is in NOW (read from
+        ``/me/``'s own function), unless the scenario names one (a stale token)."""
+        if not game_id or not path.endswith(self.STAGE_ENDPOINTS):
+            return body
+        if body is not None and not isinstance(body, dict):
+            return body
+        game = Game.objects.filter(id=game_id).first()
+        if game is None or not is_choose_night(game) or "stage" in (body or {}):
+            return body
+        return {**(body or {}), "stage": stage_token(game)}
+
+    def stage_now(self) -> str:
+        """The stage token the game is in now, to be sent LATER as a stale one."""
+        token = stage_token(Game.objects.get(id=self.game_id))
+        assert token is not None
+        return token
 
     def record(
         self,
@@ -409,7 +441,7 @@ class Table:
             )
         assert got == 201, payload
         self.game_id = payload["game_id"]
-        self.recorder.stable(self.game_id, next(self._game_ids))
+        self._pin_game_id()
         if sample:
             self.recorder.add(
                 f"http/{sample}",
@@ -422,6 +454,13 @@ class Table:
                 },
                 payload,
             )
+
+    def _pin_game_id(self) -> None:
+        """The game id is random: its stand-in, and the piece of it a stage token
+        carries (``/me/``'s ``stage``), are fixed."""
+        stand_in = next(self._game_ids)
+        self.recorder.stable(self.game_id, stand_in)
+        self.recorder.stable(self.game_id.replace("-", "")[:12], stand_in[-12:])
 
     def start_random(self, seed: int, *, sample: str | None = None) -> dict[str, Any]:
         """The host deals a random hand from a fixed seed (the DEBUG seed), as
@@ -436,7 +475,7 @@ class Table:
         )
         assert got == 201, payload
         self.game_id = payload["game_id"]
-        self.recorder.stable(self.game_id, next(self._game_ids))
+        self._pin_game_id()
         if sample:
             self.recorder.add(
                 f"http/{sample}",

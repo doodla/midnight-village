@@ -12,14 +12,9 @@
   "max_players": 10,
   "settings": {
     "deck": "auto",
-    "pace": "normal",
     "deck_chip": "simple",
     "night_protocol": 2,
-    "voting_seconds": 90,
-    "card_look_seconds": 30,
-    "discussion_seconds": 300,
-    "night_wave_seconds": 30,
-    "night_doppelganger_window_seconds": 15
+    "card_look_seconds": 30
   },
   "players": [
     {

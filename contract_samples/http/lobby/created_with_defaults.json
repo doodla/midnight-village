@@ -11,12 +11,7 @@
   "status": "waiting",
   "max_players": 10,
   "settings": {
-    "pace": "normal",
-    "discussion_seconds": 300,
-    "voting_seconds": 90,
-    "night_wave_seconds": 30,
     "card_look_seconds": 30,
-    "night_doppelganger_window_seconds": 15,
     "night_protocol": 2,
     "deck": "auto",
     "deck_chip": "simple"

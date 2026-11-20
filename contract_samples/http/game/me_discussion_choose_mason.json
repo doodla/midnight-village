@@ -3,7 +3,7 @@
   "lobby_code": "T8NB6C",
   "phase": "discussion",
   "current_wave": 0,
-  "deadline": "2024-03-07T21:31:38+00:00",
+  "deadline": "2024-03-07T21:32:38+00:00",
   "your_role": {
     "original_role": "Mason",
     "has_acted": false
@@ -59,6 +59,12 @@
       "display_name": "Hana",
       "token": "hare",
       "seat": 7
+    },
+    {
+      "player_id": 40,
+      "display_name": "Ida",
+      "token": "moth",
+      "seat": 8
     }
   ],
   "action_prompt": null,
@@ -85,7 +91,7 @@
     },
     {
       "role": "Villager",
-      "count": 1
+      "count": 2
     },
     {
       "role": "Werewolf",
@@ -118,6 +124,7 @@
   "progress": {
     "stage": "talk",
     "done": 0,
-    "needed": 8
-  }
+    "needed": 9
+  },
+  "stage": "talk.000000000008"
 }

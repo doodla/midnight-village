@@ -38,5 +38,10 @@
     "wave_complete",
     "phase_change",
     "progress"
+  ],
+  "Ida": [
+    "wave_complete",
+    "phase_change",
+    "progress"
   ]
 }

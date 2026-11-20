@@ -3,41 +3,41 @@
   "lobby_code": "V9YC2J",
   "phase": "night",
   "current_wave": 0,
-  "deadline": "2024-03-07T21:32:08+00:00",
+  "deadline": "2024-03-07T21:33:08+00:00",
   "your_role": {
     "original_role": "Werewolf",
     "has_acted": false
   },
   "is_host": true,
-  "host_id": 40,
+  "host_id": 41,
   "has_voted": false,
   "players": [
     {
-      "player_id": 40,
+      "player_id": 41,
       "display_name": "Ana",
       "token": "bell",
       "seat": 0
     },
     {
-      "player_id": 41,
+      "player_id": 42,
       "display_name": "Ben",
       "token": "hare",
       "seat": 1
     },
     {
-      "player_id": 42,
+      "player_id": 43,
       "display_name": "Cleo",
       "token": "thorn",
       "seat": 2
     },
     {
-      "player_id": 43,
+      "player_id": 44,
       "display_name": "Dev",
       "token": "key",
       "seat": 3
     },
     {
-      "player_id": 44,
+      "player_id": 45,
       "display_name": "Esme",
       "token": "moth",
       "seat": 4
@@ -82,5 +82,6 @@
     "stage": "look",
     "done": 0,
     "needed": 5
-  }
+  },
+  "stage": "look.000000000009"
 }

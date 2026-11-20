@@ -74,5 +74,6 @@
     "stage": "look",
     "done": 0,
     "needed": 5
-  }
+  },
+  "stage": "look.000000000007"
 }

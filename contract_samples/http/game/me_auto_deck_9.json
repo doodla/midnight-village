@@ -3,65 +3,65 @@
   "lobby_code": "W3XF7K",
   "phase": "night",
   "current_wave": 0,
-  "deadline": "2024-03-07T21:41:08+00:00",
+  "deadline": "2024-03-07T21:42:08+00:00",
   "your_role": {
     "original_role": "Seer",
     "has_acted": false
   },
   "is_host": true,
-  "host_id": 45,
+  "host_id": 46,
   "has_voted": false,
   "players": [
     {
-      "player_id": 45,
+      "player_id": 46,
       "display_name": "Ana",
       "token": "crow",
       "seat": 0
     },
     {
-      "player_id": 46,
+      "player_id": 47,
       "display_name": "Ben",
       "token": "hare",
       "seat": 1
     },
     {
-      "player_id": 47,
+      "player_id": 48,
       "display_name": "Cleo",
       "token": "key",
       "seat": 2
     },
     {
-      "player_id": 48,
+      "player_id": 49,
       "display_name": "Dev",
       "token": "antler",
       "seat": 3
     },
     {
-      "player_id": 49,
+      "player_id": 50,
       "display_name": "Esme",
       "token": "scythe",
       "seat": 4
     },
     {
-      "player_id": 50,
+      "player_id": 51,
       "display_name": "Fin",
       "token": "moth",
       "seat": 5
     },
     {
-      "player_id": 51,
+      "player_id": 52,
       "display_name": "Gus",
       "token": "bell",
       "seat": 6
     },
     {
-      "player_id": 52,
+      "player_id": 53,
       "display_name": "Hana",
       "token": "lantern",
       "seat": 7
     },
     {
-      "player_id": 53,
+      "player_id": 54,
       "display_name": "Ida",
       "token": "spindle",
       "seat": 8
@@ -118,5 +118,6 @@
     "stage": "look",
     "done": 0,
     "needed": 9
-  }
+  },
+  "stage": "look.000000000010"
 }

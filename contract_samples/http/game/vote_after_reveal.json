@@ -1,6 +1,4 @@
 {
-  "detail": [
-    "Game is not in the voting phase."
-  ],
-  "code": "wrong_phase"
+  "detail": "That stage is over.",
+  "code": "wrong_stage"
 }

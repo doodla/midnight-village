@@ -46,6 +46,11 @@
   "action_prompt": {
     "window": 2,
     "kind": "robber",
+    "shapes": [
+      {
+        "players": 1
+      }
+    ],
     "role_acting_as": "Robber",
     "action_types": [
       "choose"
@@ -93,5 +98,6 @@
   "night_results_seen": 0,
   "my_vote": null,
   "ready": null,
-  "progress": null
+  "progress": null,
+  "stage": "w2.000000000007"
 }
