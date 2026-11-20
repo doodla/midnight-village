@@ -1,0 +1,4 @@
+{
+  "detail": "chosen is required (the prompt's chosen).",
+  "code": "bad_request"
+}

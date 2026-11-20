@@ -123,6 +123,10 @@
         "roles": [
           "Villager",
           "Villager"
+        ],
+        "center_indices": [
+          0,
+          1
         ]
       }
     }

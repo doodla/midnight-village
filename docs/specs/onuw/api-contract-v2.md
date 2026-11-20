@@ -721,4 +721,65 @@ the legacy vote fields (`vote_submitted.player_id`, `has_voted`), the per-role p
 and this paragraph are deleted in one cleanup slice (tracked in `frontend/CLAUDE.md`,
 "Removing the old look").
 
-**Stages (20 November 2026, `docs/specs/frontend/first-time-play.md` sections 7 and 8).** Under `night_protocol: 2` every stage-scoped request (`choose`, `ready`, `vote`, and the host's `advance-wave`, `end-discussion`, `reveal-votes`) carries the `stage` string that `GET /me/` returns, and a request for a stage that has passed is `409 {"code":"wrong_stage"}` and does nothing; this replaces `from_window` for protocol 2. A phone chooses once per window (only the Doppelganger sends a second in window 1; the server takes a harmless second from anyone), the prompt carries `shapes` (which picks would do something, as data), and `vote_submitted {player_id}` is not sent: votes announce counts only. `defaults: "v2"` writes only `card_look_seconds`, `night_protocol` and the automatic deck (no timer length). See `backend/CLAUDE.md`, "Night protocol 2".
+**Stages (20 November 2026, `docs/specs/frontend/first-time-play.md` sections 7 and 8).** Under `night_protocol: 2` every stage-scoped request (`choose`, `ready`, `vote`, and the host's `advance-wave`, `end-discussion`, `reveal-votes`) carries the `stage` string that `GET /me/` returns, and a request for a stage that has passed is `409 {"code":"wrong_stage"}` and does nothing; this replaces `from_window` for protocol 2. A phone chooses once per window (only the Doppelganger sends a second in window 1; the server takes a second from anyone, and every choose names the prompt it answers so a resend is never taken for a second: see "Third amendment" below), the prompt carries `shapes` (which picks would do something, as data), and `vote_submitted {player_id}` is not sent: votes announce counts only. `defaults: "v2"` writes only `card_look_seconds`, `night_protocol` and the automatic deck (no timer length). See `backend/CLAUDE.md`, "Night protocol 2".
+
+## Third amendment: a lost answer and a resend (20 November 2026)
+
+A phone whose answer is lost sends the same request again, with the same `stage`. A model
+of the protocol-2 game (`docs/dev/models/night2/`) found that this was not safe for
+`choose`: the Doppelganger's resent look was counted as her second choose and read as the
+copied role's action (as Robber she robbed the player she had looked at), and her real
+follow-up was refused `409 already_chosen`. Taking "a harmless second choose from anyone"
+was only harmless for phones whose second choose is never read. The rule now, for every
+protocol-2 request: **sending it twice leaves the game as sending it once did.**
+
+**`choose` names the prompt it answers.** The body carries `chosen`: the `chosen` of the
+`action_prompt` the phone is answering (`GET /me/`; after a `200` the phone's own count is
+one higher, so the Doppelganger's follow-up sends `1`). Under the Game lock, after the stage
+check:
+
+- `chosen` LOWER than the server's count for the window: a resend of a choose already
+  taken. `200 {"status": "submitted"}`, the same bytes as the original, for every role;
+  nothing is stored, read or sent (the picks of the resend are not looked at).
+- equal: a new choose, read as before.
+- higher: a prompt the server never showed: `400 bad_request`.
+- missing, not a plain JSON integer, or negative: `400 bad_request`. Required, because no
+  client spoke protocol 2 yet when this was added (the app in this repository has the
+  night board but no protocol-2 request yet; the harness and the samples send it).
+
+`409 already_chosen` stays for exactly one case: a choose that answers a prompt that is
+used up (`chosen` == `max_chooses`): a second phone of the same player, or a client that
+ignores its prompt. A resend never gets it. A resend that arrives after its stage ended
+(the copy of the last choose that closed window 2) names a stage that is over: `409
+wrong_stage`, nothing stored, as for any late tap; the phone reads `/me/`.
+
+**The other requests**, each checked by a test that sends it twice
+(`backend/tests/onuw/test_resend.py`):
+
+| Request | A resend while its stage is open | A resend after its first copy ended the stage |
+|---|---|---|
+| `ready` (look, talk) | sets the flag to the same value: same answer | `409 wrong_stage` |
+| `vote` pick | stores the same pick: same answer | n/a (a pick ends nothing) |
+| `vote` lock | **same lock again: `200 {"status":"submitted"}`, nothing stored or sent** (was `409 vote_locked`); any other pick or lock after locking is still `409 vote_locked`; protocol 1 unchanged | `409 wrong_stage` (the last lock revealed) |
+| `night-results/seen` | `GREATEST`: same answer | no stage |
+| `advance-wave`, `end-discussion`, `reveal-votes` | always end their stage | `409 wrong_stage` |
+| lobby `start` | n/a | `400` "Lobby is not in waiting state." (Lobby row lock: one game) |
+| lobby `play-again` | `200`, the same lobby body | `409` once the next game is dealt |
+
+A stale resend that overtakes a NEWER request of the same phone (a pick resent after a
+different pick) is a client ordering matter: the app sends a phone's requests one at a
+time and retries only the latest.
+
+**Two additions to the viewer's own `night_results` (protocol 2 only).** Nothing of anyone
+else's; protocol 1 is unchanged.
+
+- `peek_center`: `revealed_info` gains `center_indices` (`[i, j]`, the centre cards in the
+  order of `roles`: "Left: X, Right: Y"). The viewer chose them.
+- `"nothing_chosen": true` in `revealed_info` when the result is the role's default because
+  nothing the player picked meant anything for the role (or they did not choose): an entry
+  `{"action_type": "skip", "revealed_info": {"nothing_chosen": true}}` for a Seer, Robber,
+  Troublemaker or the Doppelganger's look (protocol 1 omits skips; protocol 2 lists the
+  viewer's own), the Drunk's swap made by the server (`{"card_index": n,
+  "nothing_chosen": true}`), and a lone Werewolf who looked at no centre card
+  (`see_team` without `center_card`). Absent on a result the player's picks made.
+  `night_results_seen` counts these entries like any other.

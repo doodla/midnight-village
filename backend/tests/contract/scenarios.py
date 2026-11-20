@@ -1565,13 +1565,34 @@ def _plain_choose_table(run: Recording) -> None:
         about="The same answer for a player with nothing to choose.",
     )
     t.record(
+        "game/choose_resent",
+        "POST",
+        "Ana",
+        ACTION,
+        {"action_type": "choose", "picks": [_player(t, "Cleo")], "chosen": 0},
+        status=200,
+        about="The same choose sent again (its answer was lost): it names the prompt "
+        "it answered (`chosen` 0), the server has already taken that one, so the "
+        "answer is the original's and nothing is stored.",
+    )
+    t.record(
         "game/choose_already_chosen",
         "POST",
         "Ana",
         ACTION,
         {"action_type": "choose", "picks": []},
         status=409,
-        about="A second choose in window 2.",
+        about="A choose answering a prompt that is used up (`chosen` 1 of "
+        "`max_chooses` 1 in window 2).",
+    )
+    t.record(
+        "game/choose_chosen_missing",
+        "POST",
+        "Ben",
+        ACTION,
+        {"action_type": "choose", "picks": [], "chosen": None},
+        status=400,
+        about="A choose that does not say which prompt it answers (`chosen`).",
     )
     t.record(
         "game/choose_bad_request",
@@ -1772,6 +1793,16 @@ def _plain_choose_table(run: Recording) -> None:
         about="Counts only, in the vote.",
     )
     t.record(
+        "game/vote_lock_resent",
+        "POST",
+        "Ana",
+        VOTE,
+        {"target_player_id": t.pid("Dev"), "lock": True},
+        status=200,
+        about="The same lock sent again (its answer was lost): the original's answer, "
+        "nothing stored or sent.",
+    )
+    t.record(
         "game/vote_already_locked",
         "POST",
         "Ana",
@@ -1887,6 +1918,16 @@ def _doppelganger_choose_table(run: Recording) -> None:
         about="Her first choose is the look; the answer is the same as anyone's.",
     )
     t.record(
+        "game/choose_resent_doppelganger_look",
+        "POST",
+        "Ana",
+        ACTION,
+        {"action_type": "choose", "picks": [_player(t, "Ben")], "chosen": 0},
+        status=200,
+        about="Her look sent again (its answer was lost): taken already, so it is "
+        "not read as her follow-up; the same answer as anyone's.",
+    )
+    t.record(
         "game/me_choose_doppelganger_followup",
         "GET",
         "Ana",
@@ -1975,6 +2016,15 @@ def _doppelganger_choose_table(run: Recording) -> None:
             status=200,
             about=f"/me/ in the talk: the {kind}'s night results, canonical names.",
         )
+    t.record(
+        "game/me_discussion_choose_seer_nothing_chosen",
+        "GET",
+        "Ben",
+        ME,
+        status=200,
+        about="/me/ in the talk: a Seer whose choose held nothing valid is told so "
+        "(a `skip` result with `nothing_chosen`), only on their own phone.",
+    )
     t.call("POST", "Ana", END_DISCUSSION)
     t.call("POST", "Ana", REVEAL)
 

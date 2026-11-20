@@ -1,0 +1,874 @@
+"""
+A lost answer and a resend: every protocol-2 request is safe to send twice.
+
+A phone whose answer is lost sends the SAME request again (same body, same ``stage``).
+The server must then leave the game exactly as the first copy left it, and answer so
+the phone can carry on. The bug that made this a rule (found by a model checker,
+``docs/dev/models/night2/``): in window 1 the Doppelganger's resent look was counted
+as her SECOND choose and read as the copied role's action (as Robber she robbed the
+player she had looked at), and her real follow-up was refused 409 ``already_chosen``.
+
+The mechanism, for every phone and both windows: a ``choose`` names the prompt it
+answers (``chosen``, the count ``GET /me/``'s prompt showed). Under the Game lock a
+``chosen`` LOWER than the stored count is a resend of a choose already taken: the
+same ``200 {"status": "submitted"}``, nothing stored. Every other stage request is
+idempotent by what it does (a flag set to a value, a pick replaced by the same pick,
+a lock repeated, a count raised with GREATEST), or ends its stage so the copy names
+a stage that is over (409 ``wrong_stage``, nothing stored).
+
+All through the real API, seat order different from user-id order (``Night``),
+seeded.
+"""
+
+from __future__ import annotations
+
+import random
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
+
+from django.urls import reverse
+
+import pytest
+from rest_framework import status
+
+from apps.onuw import night2, services
+from apps.onuw.models import Game, Phase, PlayerRole
+from tests.onuw.stages import staged
+from tests.onuw.test_night_windows import Night
+
+pytestmark = pytest.mark.integration
+
+CENTER = ["Villager", "Tanner", "Hunter"]
+SELF = {"self": True}
+SUBMITTED = b'{"status":"submitted"}'
+
+# The model's table, made bigger: a Doppelganger, the role she copies, and others.
+DOPPEL_ROBBER = {
+    "dop": "Doppelganger",
+    "robber": "Robber",
+    "villager": "Villager",
+    "wolf": "Werewolf",
+    "seer": "Seer",
+}
+LONE = {
+    "wolf": "Werewolf",
+    "seer": "Seer",
+    "robber": "Robber",
+    "villager": "Villager",
+    "hunter": "Hunter",
+}
+
+
+@pytest.fixture
+def make_p2(make_night):
+    """A protocol-2 Night: window 1 (if any) is a fixed 15 s, nothing else waits."""
+
+    def factory(roles, center=None, **settings) -> Night:
+        merged = {
+            "night_protocol": 2,
+            "night_wave_seconds": 60,
+            "night_doppelganger_window_seconds": 15,
+            "discussion_seconds": 300,
+            "voting_seconds": 120,
+            **settings,
+        }
+        return make_night(roles, center or CENTER, **merged)
+
+    return factory
+
+
+# ── sending what a phone sends ───────────────────────────────────────────────
+
+
+def pid(night: Night, name: str) -> int:
+    return night.users[name].id
+
+
+def player(night: Night, name: str) -> dict[str, int]:
+    return {"player_id": pid(night, name)}
+
+
+def chosen_now(night: Night, who: str) -> int:
+    game = Game.objects.get(id=night.game.id)
+    pr = PlayerRole.objects.get(game=game, user=night.users[who])
+    return night2.chose_count(pr, game.current_wave)
+
+
+def choose_body(night: Night, who: str, picks: list) -> dict[str, Any]:
+    """A choose as a phone builds it from its prompt NOW: the stage and ``chosen``
+    are fixed in the body, so sending the body again is a true resend."""
+    return staged(
+        night,
+        {"action_type": "choose", "picks": picks, "chosen": chosen_now(night, who)},
+    )
+
+
+def send(night: Night, who: str, url_name: str, body: Any) -> Any:
+    """POST ``body`` as ``who`` (unchanged: the caller staged it)."""
+    night.client.force_authenticate(user=night.users[who])
+    with night.committed():
+        return night.client.post(
+            reverse(url_name, kwargs={"game_id": str(night.game.id)}),
+            body,
+            format="json",
+        )
+
+
+def choose(night: Night, who: str, picks: list) -> Any:
+    return send(night, who, "onuw:night-action", choose_body(night, who, picks))
+
+
+def me(night: Night, who: str) -> dict[str, Any]:
+    night.client.force_authenticate(user=night.users[who])
+    response = night.client.get(
+        reverse("onuw:game-me", kwargs={"game_id": str(night.game.id)})
+    )
+    assert response.status_code == status.HTTP_200_OK
+    return response.data
+
+
+def snapshot(night: Night) -> tuple:
+    """Everything a request can change: the game row's play state, every player's
+    row, the timers scheduled and the events sent (both only ever appended)."""
+    game = Game.objects.get(id=night.game.id)
+    rows = {
+        pr.user_id: (
+            pr.current_role,
+            pr.night_action_data,
+            pr.has_acted,
+            pr.phase_ready,
+            pr.vote_target_id,
+            pr.night_results_seen,
+        )
+        for pr in PlayerRole.objects.filter(game=game)
+    }
+    return (
+        game.phase,
+        game.current_wave,
+        list(game.center_cards),
+        list(game.night_actions_log),
+        game.phase_deadline,
+        game.night_window_opened_at,
+        game.results,
+        rows,
+        len(night.scheduled),
+    )
+
+
+def to_talk(night: Night) -> None:
+    with night.committed():
+        services.transition_to_discussion(Game.objects.get(id=night.game.id))
+    night.refresh()
+
+
+def to_vote(night: Night) -> None:
+    to_talk(night)
+    with night.committed():
+        services.transition_to_voting(Game.objects.get(id=night.game.id))
+    night.refresh()
+    assert night.game.phase == Phase.VOTING
+
+
+# ── the bug the model found, replayed ────────────────────────────────────────
+
+
+class TestTheDoppelgangersResentLook:
+    def test_a_resent_look_is_not_read_as_her_robber_followup(self, make_p2) -> None:
+        """The model's path: window 1 opens, she looks at the Robber (copies the
+        Robber), the answer is lost and her phone resends the SAME body, then she
+        sends her real follow-up (rob the Villager), then window 1 ends.
+
+        It used to end with her holding the ROBBER's card (the resend robbed him)
+        and her real follow-up refused 409 ``already_chosen``."""
+        night = make_p2(DOPPEL_ROBBER)
+        night.start()
+        assert night.refresh().current_wave == 1
+
+        look = choose_body(night, "dop", [player(night, "robber")])
+        first = send(night, "dop", "onuw:night-action", look)
+        events_after_look = len(night.recorder.events)
+        resend = send(night, "dop", "onuw:night-action", look)
+        followup = choose(night, "dop", [player(night, "villager")])
+
+        assert first.content == resend.content == followup.content == SUBMITTED
+        assert (
+            len(night.recorder.events) == events_after_look
+        )  # the resend sent nothing
+        assert night.role_of("dop").night_action_data["chose_1"] == 2
+
+        night.fire_timer(1)
+
+        # She robbed whom she chose: the Villager, not the Robber she looked at.
+        assert night.role_of("dop").current_role == "Villager"
+        assert night.role_of("villager").current_role == "Doppelganger"
+        assert night.role_of("robber").current_role == "Robber"
+        hers = [
+            e
+            for e in night.refresh().night_actions_log
+            if e["player_id"] == pid(night, "dop")
+        ]
+        assert [(e["role_acting_as"], e["action_type"]) for e in hers] == [
+            ("Doppelganger", "peek_player"),
+            ("Robber", "swap_with_player"),
+        ]
+        assert hers[1]["targets"] == {"player_id": pid(night, "villager")}
+        assert [r["action_type"] for r in me(night, "dop")["night_results"]] == [
+            "peek_player",
+            "swap_with_player",
+        ]
+
+    def test_without_the_lost_answer_the_same_night_ends_the_same(
+        self, make_p2
+    ) -> None:
+        """Control: the same choices with no resend reach the same table."""
+        night = make_p2(DOPPEL_ROBBER)
+        night.start()
+        choose(night, "dop", [player(night, "robber")])
+        choose(night, "dop", [player(night, "villager")])
+        night.fire_timer(1)
+
+        assert night.role_of("dop").current_role == "Villager"
+        assert night.role_of("robber").current_role == "Robber"
+
+    @pytest.mark.parametrize(
+        ("copied", "followup", "expect"),
+        [
+            ("Seer", lambda n: [player(n, "villager")], "peek_player"),
+            ("Robber", lambda n: [player(n, "villager")], "swap_with_player"),
+            (
+                "Troublemaker",
+                lambda n: [player(n, "villager"), player(n, "wolf")],
+                "swap_others",
+            ),
+            ("Drunk", lambda n: [{"center_index": 2}], "swap_with_center"),
+            ("Minion", lambda n: [SELF], "see_team"),
+        ],
+    )
+    def test_for_every_role_with_a_followup_the_resend_costs_her_nothing(
+        self, make_p2, copied, followup, expect
+    ) -> None:
+        table = {
+            "dop": "Doppelganger",
+            "target": copied,
+            "villager": "Villager",
+            "wolf": "Werewolf",
+        }
+        night = make_p2(table)
+        night.start()
+        look = choose_body(night, "dop", [player(night, "target")])
+        send(night, "dop", "onuw:night-action", look)
+        send(night, "dop", "onuw:night-action", look)  # lost answer: sent again
+        assert me(night, "dop")["action_prompt"]["chosen"] == 1  # still one taken
+
+        assert choose(night, "dop", followup(night)).content == SUBMITTED
+        night.fire_timer(1)
+
+        followups = [
+            e
+            for e in night.refresh().night_actions_log
+            if e["player_id"] == pid(night, "dop") and e["role_acting_as"] == copied
+        ]
+        assert [e["action_type"] for e in followups] == [expect]
+        assert not followups[0].get("made_by_server", False)
+
+
+# ── choose: the mechanism ────────────────────────────────────────────────────
+
+
+class TestChooseResend:
+    def test_a_resent_window_two_choose_is_answered_alike_and_stores_nothing(
+        self, make_p2
+    ) -> None:
+        night = make_p2(LONE)
+        night.start()
+        body = choose_body(night, "seer", [player(night, "wolf")])
+        first = send(night, "seer", "onuw:night-action", body)
+        before = snapshot(night)
+        events = len(night.recorder.events)
+
+        again = send(night, "seer", "onuw:night-action", body)
+
+        assert again.status_code == first.status_code == status.HTTP_200_OK
+        assert again.content == first.content == SUBMITTED
+        assert snapshot(night) == before
+        assert len(night.recorder.events) == events
+
+    def test_the_first_copy_counts_even_if_the_resend_holds_other_picks(
+        self, make_p2
+    ) -> None:
+        """A choose answering a prompt already answered is never read: what was
+        taken stays taken (the phone reads ``/me/`` to see where it stands)."""
+        night = make_p2(LONE)
+        night.start()
+        send(night, "robber", "onuw:night-action", choose_body(night, "robber", [SELF]))
+        stale = staged(
+            night,
+            {
+                "action_type": "choose",
+                "picks": [player(night, "wolf")],
+                "chosen": 0,
+            },
+        )
+
+        assert send(night, "robber", "onuw:night-action", stale).content == SUBMITTED
+        for name in ("wolf", "seer", "villager", "hunter"):
+            choose(night, name, [])
+        assert night.refresh().phase == Phase.DISCUSSION
+        assert night.role_of("robber").current_role == "Robber"  # robbed nobody
+
+    def test_a_resend_is_the_same_bytes_for_every_role(self, make_p2) -> None:
+        table = {
+            "dop": "Doppelganger",
+            "wolf": "Werewolf",
+            "seer": "Seer",
+            "drunk": "Drunk",
+            "villager": "Villager",
+        }
+        night = make_p2(table)
+        night.start()
+        bodies = {name: choose_body(night, name, []) for name in table}
+        firsts = {n: send(night, n, "onuw:night-action", b) for n, b in bodies.items()}
+        resends = {n: send(night, n, "onuw:night-action", b) for n, b in bodies.items()}
+
+        assert {r.content for r in [*firsts.values(), *resends.values()]} == {SUBMITTED}
+        assert all(chosen_now(night, n) == 1 for n in table)
+
+    def test_a_resent_followup_is_also_a_resend(self, make_p2) -> None:
+        night = make_p2(DOPPEL_ROBBER)
+        night.start()
+        choose(night, "dop", [player(night, "robber")])
+        followup = choose_body(night, "dop", [player(night, "villager")])
+        send(night, "dop", "onuw:night-action", followup)
+        before = snapshot(night)
+
+        again = send(night, "dop", "onuw:night-action", followup)
+
+        assert again.content == SUBMITTED
+        assert snapshot(night) == before
+
+    def test_the_last_choose_resent_after_it_closed_the_window_is_wrong_stage(
+        self, make_p2
+    ) -> None:
+        """The copy names a stage the first copy ended: 409 ``wrong_stage``, the
+        same for every role, nothing stored, never landing in the next stage."""
+        night = make_p2(LONE)
+        night.start()
+        for name in ("wolf", "seer", "robber", "villager"):
+            choose(night, name, [])
+        last = choose_body(night, "hunter", [])
+        assert send(night, "hunter", "onuw:night-action", last).status_code == 200
+        assert night.refresh().phase == Phase.DISCUSSION
+        before = snapshot(night)
+
+        again = send(night, "hunter", "onuw:night-action", last)
+
+        assert again.status_code == status.HTTP_409_CONFLICT
+        assert again.data["code"] == "wrong_stage"
+        assert snapshot(night) == before
+
+    @pytest.mark.parametrize("value", [None, True, False, -1, 1.0, "0", [0], {}])
+    def test_chosen_is_required_and_must_be_a_count(self, make_p2, value) -> None:
+        night = make_p2(LONE)
+        night.start()
+        body = choose_body(night, "seer", [])
+        if value is None:
+            del body["chosen"]
+        else:
+            body["chosen"] = value
+        replies = {n: send(night, n, "onuw:night-action", body) for n in LONE}
+
+        assert {r.status_code for r in replies.values()} == {400}
+        assert len({r.content for r in replies.values()}) == 1
+        assert all(r.data["code"] == "bad_request" for r in replies.values())
+        assert not PlayerRole.objects.filter(game=night.game, has_acted=True).exists()
+
+    def test_a_count_the_server_never_showed_is_bad_request(self, make_p2) -> None:
+        night = make_p2(LONE)
+        night.start()
+        body = choose_body(night, "seer", [])
+        body["chosen"] = 1  # the prompt says 0
+
+        reply = send(night, "seer", "onuw:night-action", body)
+
+        assert reply.status_code == status.HTTP_400_BAD_REQUEST
+        assert reply.data["code"] == "bad_request"
+        assert chosen_now(night, "seer") == 0
+
+    def test_already_chosen_is_left_for_a_choose_on_a_used_up_prompt(
+        self, make_p2
+    ) -> None:
+        """After the fix ``409 already_chosen`` means one thing: a choose that
+        answers a prompt whose ``chosen`` already equals ``max_chooses`` (a second
+        phone of the same player, a client that ignores its prompt). A resend never
+        gets it."""
+        night = make_p2(LONE)
+        night.start()
+        choose(night, "seer", [])
+        assert me(night, "seer")["action_prompt"]["chosen"] == 1
+
+        reply = choose(night, "seer", [])  # answers the prompt at chosen 1 of 1
+
+        assert reply.status_code == status.HTTP_409_CONFLICT
+        assert reply.data == {
+            "detail": "You have already chosen.",
+            "code": "already_chosen",
+        }
+
+
+# ── every other protocol-2 request ───────────────────────────────────────────
+
+
+class TestOtherRequestsResent:
+    def test_a_resent_lock_is_answered_alike_and_sends_nothing(self, make_p2) -> None:
+        night = make_p2(LONE)
+        night.start()
+        to_vote(night)
+        body = staged(night, {"target_player_id": pid(night, "wolf"), "lock": True})
+        first = send(night, "seer", "onuw:vote", body)
+        before = snapshot(night)
+        events = len(night.recorder.events)
+
+        again = send(night, "seer", "onuw:vote", body)
+
+        assert first.content == again.content == SUBMITTED
+        assert snapshot(night) == before
+        assert len(night.recorder.events) == events  # no second progress
+
+    def test_after_locking_any_other_vote_is_still_refused(self, make_p2) -> None:
+        night = make_p2(LONE)
+        night.start()
+        to_vote(night)
+        lock = staged(night, {"target_player_id": pid(night, "wolf"), "lock": True})
+        send(night, "seer", "onuw:vote", lock)
+
+        other = staged(night, {"target_player_id": pid(night, "robber"), "lock": True})
+        same_pick = staged(
+            night, {"target_player_id": pid(night, "wolf"), "lock": False}
+        )
+        for body in (other, same_pick):
+            reply = send(night, "seer", "onuw:vote", body)
+            assert reply.status_code == status.HTTP_409_CONFLICT
+            assert reply.data["code"] == "vote_locked"
+        assert night.role_of("seer").vote_target_id == pid(night, "wolf")
+
+    def test_protocol_one_still_refuses_a_second_lock(self, make_night) -> None:
+        night = make_night(LONE, CENTER, night_wave_seconds=60, voting_seconds=120)
+        night.start()
+        to_vote(night)
+        body = {"target_player_id": pid(night, "wolf")}
+        send(night, "seer", "onuw:vote", body)
+
+        again = send(night, "seer", "onuw:vote", body)
+
+        assert again.status_code == status.HTTP_409_CONFLICT
+        assert again.data == {"detail": "You have already voted."}
+
+    def test_a_resent_pick_stores_the_same_pick(self, make_p2) -> None:
+        night = make_p2(LONE)
+        night.start()
+        to_vote(night)
+        body = staged(night, {"target_player_id": pid(night, "wolf"), "lock": False})
+        first = send(night, "seer", "onuw:vote", body)
+        before = snapshot(night)
+
+        again = send(night, "seer", "onuw:vote", body)
+
+        assert first.content == again.content
+        assert snapshot(night) == before
+
+    def test_a_resent_ready_in_the_talk_changes_nothing(self, make_p2) -> None:
+        night = make_p2(LONE)
+        night.start()
+        to_talk(night)
+        for value in (True, False):
+            body = staged(night, {"ready": value})
+            first = send(night, "seer", "onuw:ready", body)
+            before = snapshot(night)
+            again = send(night, "seer", "onuw:ready", body)
+            assert first.content == again.content
+            assert snapshot(night) == before
+
+    def test_a_resent_look_ready_changes_nothing(self, make_p2) -> None:
+        night = make_p2(LONE, card_look_seconds=30)
+        with night.committed():
+            services.begin_night(night.game)
+        body = staged(night, {"ready": True})
+        first = send(night, "seer", "onuw:ready", body)
+        before = snapshot(night)
+
+        again = send(night, "seer", "onuw:ready", body)
+
+        assert first.content == again.content == b'{"status":"ok","ready":true}'
+        assert snapshot(night) == before
+
+    def test_a_results_ack_resent_changes_nothing(self, make_p2) -> None:
+        night = make_p2(LONE)
+        night.start()
+        for name in LONE:
+            choose(night, name, [player(night, "wolf")] if name == "seer" else [])
+        first = send(night, "seer", "onuw:night-results-seen", {"seen": 1})
+        before = snapshot(night)
+
+        again = send(night, "seer", "onuw:night-results-seen", {"seen": 1})
+
+        assert first.content == again.content == b'{"night_results_seen":1}'
+        assert snapshot(night) == before
+
+    @pytest.mark.parametrize(
+        ("url_name", "to_stage"),
+        [
+            ("onuw:wave-advance", lambda n: None),
+            ("onuw:end-discussion", to_talk),
+            ("onuw:reveal-votes", to_vote),
+        ],
+    )
+    def test_a_resent_host_button_names_a_stage_that_is_over(
+        self, make_p2, url_name, to_stage
+    ) -> None:
+        night = make_p2(DOPPEL_ROBBER)
+        night.start()
+        to_stage(night)
+        body = staged(night, {})
+        assert send(night, "dop", url_name, body).status_code == status.HTTP_200_OK
+        before = snapshot(night)
+
+        again = send(night, "dop", url_name, body)
+
+        assert again.status_code == status.HTTP_409_CONFLICT
+        assert again.data["code"] == "wrong_stage"
+        assert snapshot(night) == before
+
+
+class TestLobbyRequestsResent:
+    """Start and play again are lobby requests (no stage): the Lobby row lock and
+    the status check make a copy do nothing."""
+
+    def test_a_resent_start_deals_one_game(self, settings, db) -> None:
+        from tests.onuw.test_play_again import Table
+
+        settings.DEBUG = True
+        table = Table()
+        assert table.start().status_code == status.HTTP_201_CREATED
+
+        again = table.start()
+
+        assert again.status_code == status.HTTP_400_BAD_REQUEST
+        assert table.lobby().games.count() == 1
+
+    def test_a_resent_play_again_answers_alike(self, settings, db) -> None:
+        from tests.onuw.test_play_again import Table
+
+        settings.DEBUG = True
+        table = Table()
+        game_id = table.start().data["game_id"]
+        Game.objects.filter(id=game_id).update(phase=Phase.RESULTS)
+        first = table.play_again()
+        lobby = table.lobby()
+
+        again = table.play_again()
+
+        assert first.status_code == again.status_code == status.HTTP_200_OK
+        assert first.data == again.data
+        assert table.lobby().status == lobby.status
+        assert table.lobby().games.count() == 1
+
+
+# ── the property: twice is once ──────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class Case:
+    name: str
+    roles: dict[str, str]
+    setup: Callable[[Night], None]
+    who: str
+    url_name: str
+    body: Callable[[Night], Any]
+    look_stage: bool = False  # the deal opens a look stage, begun by setup
+
+
+def _w1(night: Night) -> None:
+    pass
+
+
+def _dop_looked(night: Night) -> None:
+    choose(night, "dop", [player(night, "robber")])
+
+
+def _all_but_hunter_chose(night: Night) -> None:
+    for name in ("wolf", "seer", "robber", "villager"):
+        choose(night, name, [])
+
+
+def _look_stage(night: Night) -> None:
+    with night.committed():
+        services.begin_night(night.game)
+
+
+def _all_but_villager_looked(night: Night) -> None:
+    _look_stage(night)
+    for name in ("wolf", "seer", "robber", "hunter"):
+        send(night, name, "onuw:ready", staged(night, {"ready": True}))
+
+
+def _talk_all_but_villager_ready(night: Night) -> None:
+    to_talk(night)
+    for name in ("wolf", "seer", "robber", "hunter"):
+        send(night, name, "onuw:ready", staged(night, {"ready": True}))
+
+
+def _vote_all_but_villager_locked(night: Night) -> None:
+    to_vote(night)
+    for name in ("wolf", "seer", "robber", "hunter"):
+        target = "seer" if name == "wolf" else "wolf"
+        send(
+            night,
+            name,
+            "onuw:vote",
+            staged(night, {"target_player_id": pid(night, target), "lock": True}),
+        )
+
+
+def _window_two_closed(night: Night) -> None:
+    for name in LONE:
+        choose(night, name, [player(night, "wolf")] if name == "seer" else [])
+
+
+CASES = [
+    Case(
+        "look",
+        DOPPEL_ROBBER,
+        _w1,
+        "dop",
+        "onuw:night-action",
+        lambda n: choose_body(n, "dop", [player(n, "robber")]),
+    ),
+    Case(
+        "followup",
+        DOPPEL_ROBBER,
+        _dop_looked,
+        "dop",
+        "onuw:night-action",
+        lambda n: choose_body(n, "dop", [player(n, "villager")]),
+    ),
+    Case(
+        "window-1 sleeper",
+        DOPPEL_ROBBER,
+        _w1,
+        "wolf",
+        "onuw:night-action",
+        lambda n: choose_body(n, "wolf", [SELF]),
+    ),
+    Case(
+        "window-2 choose",
+        LONE,
+        _w1,
+        "robber",
+        "onuw:night-action",
+        lambda n: choose_body(n, "robber", [player(n, "wolf")]),
+    ),
+    Case(
+        "window-2 last choose",
+        LONE,
+        _all_but_hunter_chose,
+        "hunter",
+        "onuw:night-action",
+        lambda n: choose_body(n, "hunter", []),
+    ),
+    Case(
+        "look ready",
+        LONE,
+        _look_stage,
+        "seer",
+        "onuw:ready",
+        lambda n: staged(n, {"ready": True}),
+        True,
+    ),
+    Case(
+        "last look ready",
+        LONE,
+        _all_but_villager_looked,
+        "villager",
+        "onuw:ready",
+        lambda n: staged(n, {"ready": True}),
+        True,
+    ),
+    Case(
+        "talk ready",
+        LONE,
+        to_talk,
+        "seer",
+        "onuw:ready",
+        lambda n: staged(n, {"ready": True}),
+    ),
+    Case(
+        "last talk ready",
+        LONE,
+        _talk_all_but_villager_ready,
+        "villager",
+        "onuw:ready",
+        lambda n: staged(n, {"ready": True}),
+    ),
+    Case(
+        "vote pick",
+        LONE,
+        to_vote,
+        "seer",
+        "onuw:vote",
+        lambda n: staged(n, {"target_player_id": pid(n, "wolf"), "lock": False}),
+    ),
+    Case(
+        "vote lock",
+        LONE,
+        to_vote,
+        "seer",
+        "onuw:vote",
+        lambda n: staged(n, {"target_player_id": pid(n, "wolf"), "lock": True}),
+    ),
+    Case(
+        "last vote lock",
+        LONE,
+        _vote_all_but_villager_locked,
+        "villager",
+        "onuw:vote",
+        lambda n: staged(n, {"target_player_id": pid(n, "wolf"), "lock": True}),
+    ),
+    Case(
+        "results ack",
+        LONE,
+        _window_two_closed,
+        "seer",
+        "onuw:night-results-seen",
+        lambda n: {"seen": 1},
+    ),
+    Case(
+        "advance window 1",
+        DOPPEL_ROBBER,
+        _w1,
+        "dop",
+        "onuw:wave-advance",
+        lambda n: staged(n, {}),
+    ),
+    Case(
+        "advance window 2",
+        LONE,
+        _w1,
+        "wolf",
+        "onuw:wave-advance",
+        lambda n: staged(n, {}),
+    ),
+    Case(
+        "advance the look",
+        LONE,
+        _look_stage,
+        "wolf",
+        "onuw:wave-advance",
+        lambda n: staged(n, {}),
+        True,
+    ),
+    Case(
+        "end the talk",
+        LONE,
+        to_talk,
+        "wolf",
+        "onuw:end-discussion",
+        lambda n: staged(n, {}),
+    ),
+    Case(
+        "reveal the vote",
+        LONE,
+        to_vote,
+        "wolf",
+        "onuw:reveal-votes",
+        lambda n: staged(n, {}),
+    ),
+]
+
+
+class TestTwiceIsOnce:
+    @pytest.mark.parametrize("case", CASES, ids=lambda c: c.name)
+    def test_any_request_sent_twice_leaves_the_state_sending_it_once_did(
+        self, make_p2, case: Case
+    ) -> None:
+        night = make_p2(case.roles, card_look_seconds=30 if case.look_stage else 0)
+        if not case.look_stage:  # a look stage is begun by its own setup
+            night.start()
+        case.setup(night)
+        body = case.body(night)  # built ONCE: the copy is byte for byte the same
+
+        first = send(night, case.who, case.url_name, body)
+        once = snapshot(night)
+        second = send(night, case.who, case.url_name, body)
+
+        assert first.status_code == status.HTTP_200_OK, first.data
+        assert snapshot(night) == once
+        if second.status_code == status.HTTP_200_OK:
+            assert second.content == first.content
+        else:  # the first copy ended its stage
+            assert second.status_code == status.HTTP_409_CONFLICT
+            assert second.data["code"] == "wrong_stage"
+
+    @pytest.mark.parametrize("seed", range(12))
+    def test_a_whole_seeded_game_with_every_request_resent_ends_as_without(
+        self, make_p2, seed: int
+    ) -> None:
+        """Random picks for a random Doppelganger table: every request of the game
+        (chooses in both windows, ready, locks) is sent, then sent again, and the
+        copy never changes anything; the night ends as the picks say."""
+        rng = random.Random(seed)  # noqa: S311 (seeded test data, not secret)
+        others = ["Robber", "Seer", "Troublemaker", "Drunk", "Werewolf", "Villager"]
+        rng.shuffle(others)
+        roles = {"dop": "Doppelganger"} | {
+            f"p{i}": role for i, role in enumerate(others[:4])
+        }
+        night = make_p2(roles)
+        night.start()
+        names = list(roles)
+
+        def random_picks(who: str) -> list:
+            board = [player(night, n) for n in names if n != who]
+            board += [{"center_index": i} for i in range(3)] + [SELF]
+            return rng.sample(board, rng.randint(0, 2))
+
+        def twice(who: str, url_name: str, body: Any) -> None:
+            first = send(night, who, url_name, body)
+            once = snapshot(night)
+            second = send(night, who, url_name, body)
+            assert first.status_code == status.HTTP_200_OK, (who, body, first.data)
+            assert snapshot(night) == once, (who, body)
+            assert second.status_code == 200 or second.data["code"] == "wrong_stage"
+
+        # Window 1: she looks, then (if she copied) follows up; everyone else once.
+        order = names[:]
+        rng.shuffle(order)
+        for who in order:
+            twice(who, "onuw:night-action", choose_body(night, who, random_picks(who)))
+        twice(
+            "dop", "onuw:night-action", choose_body(night, "dop", random_picks("dop"))
+        )
+        expected_chosen = {n: 2 if n == "dop" else 1 for n in names}
+        assert {n: chosen_now(night, n) for n in names} == expected_chosen
+        night.fire_timer(1)
+        assert night.refresh().current_wave == 2
+
+        rng.shuffle(order)
+        for who in order:
+            twice(who, "onuw:night-action", choose_body(night, who, random_picks(who)))
+        assert night.refresh().phase == Phase.DISCUSSION
+        # One log entry per action: no resend added one.
+        log = night.game.night_actions_log
+        keys = [(e["player_id"], e["role_acting_as"], e["wave"]) for e in log]
+        assert len(keys) == len(set(keys))
+
+        for who in names:
+            twice(who, "onuw:ready", staged(night, {"ready": True}))
+        assert night.refresh().phase == Phase.VOTING
+        for i, who in enumerate(names):
+            target = names[(i + 1) % len(names)]
+            twice(
+                who,
+                "onuw:vote",
+                staged(night, {"target_player_id": pid(night, target), "lock": True}),
+            )
+        assert night.refresh().phase == Phase.RESULTS

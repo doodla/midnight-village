@@ -455,14 +455,21 @@ class NightActionView(APIView):
 
     def _choose(self, request: Request, game: Game) -> Response:
         """Night protocol 2: every phone sends ``{"action_type": "choose", "picks":
-        [...], "stage": <the stage from /me/>}``. The answer is ``{"status":
-        "submitted"}`` for everyone; the only refusals are ``wrong_stage`` (409),
-        ``wrong_phase``, ``already_chosen`` (409) and ``bad_request``, none of them
-        depending on the caller's role. What the picks MEAN is the server's business,
-        decided when the stage ends (``night2``)."""
+        [...], "chosen": <the prompt's chosen>, "stage": <the stage from /me/>}``.
+        The answer is ``{"status": "submitted"}`` for everyone, a resend of a choose
+        already taken included (``chosen`` lower than the stored count); the only
+        refusals are ``wrong_stage`` (409), ``wrong_phase``, ``already_chosen`` (409)
+        and ``bad_request``, none of them depending on the caller's role. What the
+        picks MEAN is the server's business, decided when the stage ends
+        (``night2``)."""
         body = request.data if isinstance(request.data, dict) else {}
         if body.get("action_type") != "choose" or "picks" not in body:
             return _bad_request("Invalid action.")
+        answered = body.get("chosen")
+        # A plain JSON integer only (a bool is not a count): required, so a resend
+        # can always be told from a new choose.
+        if type(answered) is not int or answered < 0:
+            return _bad_request("chosen is required (the prompt's chosen).")
         stage, refusal = _stage_of(request, game)
         if refusal is not None:
             return refusal
@@ -472,7 +479,13 @@ class NightActionView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         try:
-            errors = submit_choose(game, request.user.id, body["picks"], stage or "")  # type: ignore[misc]
+            errors = submit_choose(
+                game,
+                request.user.id,  # type: ignore[misc]
+                body["picks"],
+                stage or "",
+                answered,
+            )
         except WrongStageError:
             return _wrong_stage()
         except AlreadyActedError:

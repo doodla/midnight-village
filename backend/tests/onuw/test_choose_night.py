@@ -19,7 +19,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
-from apps.onuw import services
+from apps.onuw import night2, services
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import current_stage, staged
 from tests.onuw.test_night_windows import Night
@@ -89,13 +89,27 @@ def center(index: int) -> dict[str, int]:
 
 
 SELF = {"self": True}
+# A window-2 result that says "you chose, and nothing happened".
+NOTHING_CHOSEN_W2 = [
+    {"wave": 2, "action_type": "skip", "revealed_info": {"nothing_chosen": True}}
+]
+
+
+def chosen_now(night: Night, who: str) -> int:
+    """What ``who``'s prompt says now (``action_prompt.chosen``): their count in the
+    open window."""
+    game = Game.objects.get(id=night.game.id)
+    pr = PlayerRole.objects.get(game=game, user=night.users[who])
+    return night2.chose_count(pr, game.current_wave)
 
 
 def choose(night: Night, who: str, picks: Any = None, **body: Any) -> Any:
-    """A choose naming the CURRENT stage (``stage=`` names another)."""
+    """A choose the way a phone sends it: naming the CURRENT stage and answering the
+    prompt as it is now (``chosen``); ``stage=`` / ``chosen=`` name others."""
     night.client.force_authenticate(user=night.users[who])
     payload = {"action_type": "choose", "picks": [] if picks is None else picks}
     payload.update(body)
+    payload.setdefault("chosen", chosen_now(night, who))
     payload = staged(night, payload)
     with night.committed():
         return night.client.post(
@@ -517,6 +531,7 @@ class TestIdenticalAnswers:
             {
                 "action_type": "choose",
                 "picks": [],
+                "chosen": 0,
                 "stage": current_stage(night.game.id),
             },
             format="json",
@@ -574,14 +589,19 @@ class TestReadingsThroughTheNight:
         (result,) = results(night, "seer")
 
         assert result["action_type"] == "peek_center"
-        assert result["revealed_info"]["roles"] == ["Hunter", "Villager"]
+        # Which centre cards, in the order of the roles (the order she tapped).
+        assert result["revealed_info"] == {
+            "roles": ["Hunter", "Villager"],
+            "center_indices": [2, 0],
+        }
 
     def test_a_seer_who_picks_nothing_valid_sees_nothing(self, make_p2) -> None:
         night = make_p2(TEN)
         night.start()
         finish_window_two(night, {"seer": [center(1), SELF]})
 
-        assert results(night, "seer") == []
+        # Told that the choice did nothing (not left to guess from a missing entry).
+        assert results(night, "seer") == NOTHING_CHOSEN_W2
         skipped = [
             e
             for e in night.refresh().night_actions_log
@@ -610,7 +630,7 @@ class TestReadingsThroughTheNight:
         night.start()
         finish_window_two(night, {"robber": [center(0), SELF]})
 
-        assert results(night, "robber") == []
+        assert results(night, "robber") == NOTHING_CHOSEN_W2
         assert night.role_of("robber").current_role == "Robber"
 
     def test_a_troublemaker_swaps_two_other_players(self, make_p2) -> None:
@@ -662,6 +682,14 @@ class TestReadingsThroughTheNight:
         assert entry["targets"] == {"center_index": expected}
         assert entry["made_by_server"] is True
         assert night.role_of("drunk").current_role == CENTER[expected]
+        # Only the Drunk is told the swap was the server's, not their pick.
+        assert results(night, "drunk") == [
+            {
+                "wave": 2,
+                "action_type": "swap_with_center",
+                "revealed_info": {"card_index": expected, "nothing_chosen": True},
+            }
+        ]
 
     def test_a_lone_werewolf_looks_at_the_first_centre_card(self, make_p2) -> None:
         night = make_p2(LONE, ["Villager", "Robber", "Tanner"])
@@ -673,6 +701,7 @@ class TestReadingsThroughTheNight:
         assert result["action_type"] == "see_team"
         assert result["revealed_info"]["teammate_names"] == []
         assert result["revealed_info"]["center_card"] == {"index": 1, "role": "Robber"}
+        assert "nothing_chosen" not in result["revealed_info"]
 
     def test_a_lone_werewolf_with_no_centre_pick_still_learns_it_is_alone(
         self, make_p2
@@ -685,6 +714,7 @@ class TestReadingsThroughTheNight:
 
         assert result["revealed_info"]["teammate_names"] == []
         assert "center_card" not in result["revealed_info"]
+        assert result["revealed_info"]["nothing_chosen"] is True
 
     def test_a_pack_werewolf_cannot_look_at_the_centre_and_still_sees_the_pack(
         self, make_p2
@@ -898,7 +928,13 @@ class TestWindowOne:
         choose(night, "dop", [center(0)])
         night.fire_timer(1)
 
-        assert results(night, "dop") == []
+        assert results(night, "dop") == [
+            {
+                "wave": 1,
+                "action_type": "skip",
+                "revealed_info": {"nothing_chosen": True},
+            }
+        ]
         assert "copied_role" not in night.role_of("dop").night_action_data
         assert night.game.current_wave == 2
 
@@ -915,7 +951,7 @@ class TestWindowOne:
         assert results(night, "dop") == []
         assert "copied_role" not in night.role_of("dop").night_action_data
         night.fire_timer(1)
-        assert results(night, "dop") == []
+        assert [r["action_type"] for r in results(night, "dop")] == ["skip"]
         assert night.game.current_wave == 2
 
     def test_a_player_who_is_not_the_doppelganger_chooses_twice_to_no_effect(
@@ -1313,7 +1349,7 @@ class TestStages:
 
         reply = table.clients[0].post(
             reverse("onuw:night-action", kwargs={"game_id": second}),
-            {"action_type": "choose", "picks": [], "stage": old},
+            {"action_type": "choose", "picks": [], "chosen": 0, "stage": old},
             format="json",
         )
 
@@ -1330,11 +1366,13 @@ class TestStages:
             reply = raw_post(
                 night,
                 "seer",
-                {"action_type": "choose", "picks": [], "stage": stage},
+                {"action_type": "choose", "picks": [], "chosen": 0, "stage": stage},
             )
             assert reply.status_code == status.HTTP_400_BAD_REQUEST, stage
             assert reply.data["code"] == "bad_request"
-        reply = raw_post(night, "seer", {"action_type": "choose", "picks": []})
+        reply = raw_post(
+            night, "seer", {"action_type": "choose", "picks": [], "chosen": 0}
+        )
         assert reply.status_code == status.HTTP_400_BAD_REQUEST
         assert "chose_2" not in night.role_of("seer").night_action_data
 
@@ -1558,7 +1596,7 @@ class TestChooseRaces:
             barrier.wait(timeout=10)
             reply = client.post(
                 reverse("onuw:night-action", kwargs={"game_id": str(night.game.id)}),
-                {"action_type": "choose", "picks": [], "stage": token},
+                {"action_type": "choose", "picks": [], "chosen": 0, "stage": token},
                 format="json",
             )
             out.append((reply.status_code, reply.data.get("code")))
@@ -1607,9 +1645,12 @@ class TestChooseRaces:
         assert night.refresh().phase == Phase.DISCUSSION
         assert len(night.broadcasts("wave.complete")) == 1
 
-    def test_two_requests_for_the_same_stage_from_one_phone_store_one(
+    def test_two_copies_of_one_choose_at_once_store_one_and_answer_both_alike(
         self, make_p2
     ) -> None:
+        """A phone that resends while its first request is still in flight: the
+        Game lock orders them, the second is a resend of the first (both answered
+        the prompt at ``chosen`` 0), so both get the same 200 and one is stored."""
         import threading
 
         night = make_p2(LONE)
@@ -1620,7 +1661,7 @@ class TestChooseRaces:
 
         self.run_all([lambda: self.post_choose(night, "seer", token, out, barrier)] * 2)
 
-        assert sorted(out, key=str) == [(200, None), (409, "already_chosen")]
+        assert out == [(200, None), (200, None)]
         assert night.role_of("seer").night_action_data["chose_2"] == 1
 
     def test_the_hosts_advance_and_the_last_choose_close_the_window_once(

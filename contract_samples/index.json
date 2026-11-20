@@ -175,7 +175,7 @@
       "method": "POST",
       "path": "/onuw/games/{game_id}/action/",
       "status": 409,
-      "description": "A second choose in window 2."
+      "description": "A choose answering a prompt that is used up (`chosen` 1 of `max_chooses` 1 in window 2)."
     },
     {
       "name": "http/game/choose_bad_request",
@@ -186,12 +186,36 @@
       "description": "Picks that are not a list of at most two cards."
     },
     {
+      "name": "http/game/choose_chosen_missing",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 400,
+      "description": "A choose that does not say which prompt it answers (`chosen`)."
+    },
+    {
       "name": "http/game/choose_not_a_choose",
       "kind": "http",
       "method": "POST",
       "path": "/onuw/games/{game_id}/action/",
       "status": 400,
       "description": "Any other action_type under night protocol 2."
+    },
+    {
+      "name": "http/game/choose_resent",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "The same choose sent again (its answer was lost): it names the prompt it answered (`chosen` 0), the server has already taken that one, so the answer is the original's and nothing is stored."
+    },
+    {
+      "name": "http/game/choose_resent_doppelganger_look",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "Her look sent again (its answer was lost): taken already, so it is not read as her follow-up; the same answer as anyone's."
     },
     {
       "name": "http/game/choose_stage_missing",
@@ -496,6 +520,14 @@
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in the talk: the seer's night results."
+    },
+    {
+      "name": "http/game/me_discussion_choose_seer_nothing_chosen",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: a Seer whose choose held nothing valid is told so (a `skip` result with `nothing_chosen`), only on their own phone."
     },
     {
       "name": "http/game/me_discussion_choose_villager",
@@ -1088,6 +1120,14 @@
       "path": "/onuw/games/{game_id}/vote/",
       "status": 400,
       "description": "A lock flag that is not true or false."
+    },
+    {
+      "name": "http/game/vote_lock_resent",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 200,
+      "description": "The same lock sent again (its answer was lost): the original's answer, nothing stored or sent."
     },
     {
       "name": "http/game/vote_locked_v2",
