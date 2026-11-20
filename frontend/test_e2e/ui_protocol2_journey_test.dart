@@ -87,6 +87,14 @@ void main() {
       }
       expect(startOpen(), isTrue, reason: 'a name opens "Start a table"');
       await ui.tapAndSubmit(start);
+      // Signed in first (the guest account the tap makes): a read of
+      // `/me/table/` before the token is stored is a 401, which signs the
+      // phone out mid-way.
+      await ui.pumpUntil(
+        () => ui.container.read(authProvider) is AuthAuthenticated,
+        reason: 'the guest account Start a table makes',
+        rounds: 200,
+      );
       final seat = await ui.followTable(until: (t) => t != null);
       expect(seat, isNotNull, reason: 'the server seats Alice at her table');
       final code = seat!.lobbyCode;

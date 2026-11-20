@@ -370,15 +370,22 @@ class UiHarness {
   /// never satisfied. This is the only safe wait against the live reconnecting
   /// socket — `pumpAndSettle` never returns because the socket keeps scheduling
   /// reconnect/heartbeat work.
-  Future<void> pumpUntil(bool Function() condition, {String? reason}) async {
+  ///
+  /// [rounds] is the bound (60: about 3 s of fake clock and 3.6 s real); a
+  /// wait on the server's next answer, which a loaded machine slows, may
+  /// take more.
+  Future<void> pumpUntil(
+    bool Function() condition, {
+    String? reason,
+    int rounds = 60,
+  }) async {
     // BOUNDED iterations, not a wall-clock loop. Each round advances the WIDGET
     // clock a small fixed step (so the 400ms phase AnimatedSwitcher settles)
     // then yields a real-time slice inside runAsync (so live WebSocket/Dio
     // frames arrive). A wall-clock loop that pumps a duration on EVERY tick
     // would keep re-arming the reconnecting socket's timers and never return —
     // capping the rounds keeps the advanced fake-time small and bounded.
-    const maxRounds =
-        60; // ~3s of fake clock + ~3.6s real, well under any phase
+    final maxRounds = rounds;
     for (var i = 0; i < maxRounds; i++) {
       await tester.pump(const Duration(milliseconds: 50));
       if (condition()) return;

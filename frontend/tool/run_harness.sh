@@ -91,8 +91,8 @@ fi
 echo "[harness] backend healthy."
 
 # This run's filmstrips only (frames of an earlier run would mix in).
-rm -rf "$SCREENSHOTS_DIR"
 mkdir -p "$SCREENSHOTS_DIR"
+find "$SCREENSHOTS_DIR" -mindepth 1 -maxdepth 1 ! -name .gitkeep -exec rm -rf {} +
 
 echo "[harness] running the e2e suite headless (flutter test, --tags e2e)..."
 cd "$FRONTEND_DIR"

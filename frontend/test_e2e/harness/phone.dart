@@ -184,7 +184,13 @@ class Phone {
     await shoot('talk-ready');
 
     await api(() => everyoneElse((p) => staged(p, 'ready', {'ready': true})));
-    await ui.pumpUntil(shows<VoteScreen>, reason: 'the vote');
+    // The vote's own `/me/` (its rows), not only its screen: the table can
+    // name the vote before the phone's `/me/` of it lands.
+    await ui.pumpUntil(
+      () => shows<VoteScreen>() && text(accuse),
+      reason: 'the vote, with its rows',
+      rounds: 200,
+    );
     await ui.settle();
     expect(button.label, VoteCopy.pickName);
     expect(find.text(alice.displayName), findsNothing, reason: 'not herself');
