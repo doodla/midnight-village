@@ -370,6 +370,14 @@
       "description": "/me/ in window 1 after her look: it is listed at once, and her follow-up prompt (as the copied Seer) is open."
     },
     {
+      "name": "http/game/me_choose_doppelganger_minion_followup",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 1 after she looked at the Minion: her follow-up is armed (`kind: none`, `chooses_left: 1`); she sends one more choose and learns the Werewolves when the window closes."
+    },
+    {
       "name": "http/game/me_choose_prompt_doppelganger_look",
       "kind": "http",
       "method": "GET",
@@ -488,6 +496,14 @@
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in the talk: the doppelganger's night results, canonical names."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger_minion",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the Doppelganger-Minion's night results (her look, then the Werewolves she saw)."
     },
     {
       "name": "http/game/me_discussion_choose_drunk",
@@ -818,6 +834,30 @@
       "description": "/me/ in the talk after tapping ready."
     },
     {
+      "name": "http/game/me_talk_results_seen",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk after the night results were acknowledged (`night_results_seen` equals the results listed)."
+    },
+    {
+      "name": "http/game/me_talk_ten",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk at a full table (ten seats)."
+    },
+    {
+      "name": "http/game/me_talk_untimed_v2",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in an untimed talk (`discussion_seconds` 0): no deadline and no stage start."
+    },
+    {
       "name": "http/game/me_voting",
       "kind": "http",
       "method": "GET",
@@ -842,6 +882,14 @@
       "description": "/me/ with a pick that is not locked yet (`my_vote`, own only)."
     },
     {
+      "name": "http/game/me_voting_ten",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the vote at a full table: `vote_targets` lists the nine other seats."
+    },
+    {
       "name": "http/game/me_voting_unpicked",
       "kind": "http",
       "method": "GET",
@@ -856,6 +904,14 @@
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in a vote with no deadline."
+    },
+    {
+      "name": "http/game/me_voting_untimed_v2",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in an untimed vote (`voting_seconds` 0): no deadline and no stage start; the vote ends when everyone has locked in (or the host)."
     },
     {
       "name": "http/game/me_voting_voted",
@@ -896,6 +952,14 @@
       "path": "/onuw/games/{game_id}/night-results/seen/",
       "status": 404,
       "description": "Acknowledging results of a game that does not exist."
+    },
+    {
+      "name": "http/game/night_results_seen_v2",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 200,
+      "description": "The Seer has seen her night result (after the dawn screen)."
     },
     {
       "name": "http/game/players_discussion",
@@ -1032,6 +1096,70 @@
       "path": "/onuw/games/{game_id}/results/",
       "status": 200,
       "description": "Results where the dealt Tanner died (team neutral)."
+    },
+    {
+      "name": "http/game/results_v2",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The results of the five-player game the playtest pack plays (game 7), so one journey runs from the deal to the results on recorded payloads."
+    },
+    {
+      "name": "http/game/results_v2_hunter_chain",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The Hunter is voted out and takes the player he voted for (a Werewolf) with him."
+    },
+    {
+      "name": "http/game/results_v2_moved_card",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The Robber took a Werewolf's card and is voted out holding it: the dead player's dealt card (Robber) is not their final card (Werewolf); the village wins."
+    },
+    {
+      "name": "http/game/results_v2_nobody_dies",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "Every player gets one vote: nobody dies (a Werewolf is at the table, so the Werewolves win)."
+    },
+    {
+      "name": "http/game/results_v2_tanner",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The Tanner is voted out under night protocol 2: the Tanner wins."
+    },
+    {
+      "name": "http/game/results_v2_three_players",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The results of a three-player game: the Seer found the Werewolf."
+    },
+    {
+      "name": "http/game/results_v2_tie",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "Two players tie on the most votes (two each): both die; one held a Werewolf, so the village wins."
+    },
+    {
+      "name": "http/game/results_v2_werewolves_win",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The table votes out a Villager: no Werewolf dies, the Werewolves win."
     },
     {
       "name": "http/game/reveal_votes",

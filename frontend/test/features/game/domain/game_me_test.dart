@@ -136,6 +136,35 @@ void main() {
       expect(talk.withProgress(newer).progress, newer);
     });
 
+    test('the stage start and the vote list are carried as the server sent '
+        'them', () {
+      for (final name in protocolTwoMeSamples()) {
+        final json = recordedMe(name);
+        final parsed = me(name);
+        final started = json['stage_started_at'] as String?;
+        expect(
+          parsed.stageStartedAt,
+          started == null ? null : DateTime.parse(started),
+          reason: name,
+        );
+        // A start only beside a deadline.
+        if (parsed.deadline == null) {
+          expect(parsed.stageStartedAt, isNull, reason: name);
+        }
+        expect(parsed.voteTargets, json['vote_targets'], reason: name);
+      }
+      final ten = me('me_voting_ten');
+      expect(ten.voteTargets, hasLength(9));
+      expect(ten.voteTargets, isNot(contains(ten.playerId)));
+      expect(ten.stageStartedAt!.isBefore(ten.deadline!), isTrue);
+      final untimed = me('me_voting_untimed_v2');
+      expect((untimed.deadline, untimed.stageStartedAt), (null, null));
+      expect(me('me_talk_ten').voteTargets, isNull);
+      // Carried through a local change.
+      expect(ten.withReady(true).voteTargets, ten.voteTargets);
+      expect(ten.withReady(true).stageStartedAt, ten.stageStartedAt);
+    });
+
     test('acknowledged results only go up', () {
       final talk = me('me_talk_ready');
       expect(talk.hasUnseenResults, isTrue);

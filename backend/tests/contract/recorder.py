@@ -67,12 +67,16 @@ LOBBY_CODES = (
     "T8NB6C",
     "V9YC2J",
     "W3XF7K",
+    # The results, three-player and ten-player tables (scenarios.results_tables).
+    "X2PG5N",
+    "Y6HM8R",
+    "Z4KQ3T",
 )
 # Stand-ins for the game ids, in the order the games are dealt.
 GAME_IDS = (
     "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
     "9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e",
-    *(f"00000000-0000-4000-a000-{n:012d}" for n in range(3, 20)),
+    *(f"00000000-0000-4000-a000-{n:012d}" for n in range(3, 40)),
 )
 FORCED_SEED = 424242
 

@@ -1,6 +1,6 @@
 """The games whose payloads become the contract samples.
 
-Three tables, played through the real API (see recorder.py):
+Tables played through the real API (see recorder.py):
 
 - ``classic_table``: six players, no Doppelganger (so the night is window 2
   only), the default timers. Sign-in, lobby set-up and every lobby event, the
@@ -19,6 +19,10 @@ Three tables, played through the real API (see recorder.py):
   Minion. Calls from someone who does not play in the game.
 - ``full_table``: ten players fill a table; the join refusals and the ack from
   someone who does not play in the game.
+- ``protocol_two_tables`` and ``results_tables``: night protocol 2 (see
+  ``tests/README.md``): the look stage, the choose night, ready to vote, lock-in
+  voting, the automatic deck; then every way a vote ends, three and ten seats,
+  an untimed talk and vote.
 
 Adding a situation: drive it here with ``table.record`` / ``table.record_event``,
 run ``just samples`` and review the new files.
@@ -1894,6 +1898,15 @@ def _plain_choose_table(run: Recording) -> None:
         status=200,
         about="/me/ in the results phase under night protocol 2.",
     )
+    t.record(
+        "game/results_v2",
+        "GET",
+        "Ana",
+        RESULTS,
+        status=200,
+        about="The results of the five-player game the playtest pack plays (game 7), "
+        "so one journey runs from the deal to the results on recorded payloads.",
+    )
 
 
 def _doppelganger_choose_table(run: Recording) -> None:
@@ -2125,7 +2138,304 @@ def _auto_deck_table(run: Recording, names: list[str], chip: str, players: int) 
     )
 
 
+# -- the results tables (night protocol 2) ----------------------------------
+
+
+def _deal_v2(
+    t: Table,
+    dealt: dict[str, str],
+    center: list[str],
+    *,
+    again: bool = True,
+    settings: dict | None = None,
+) -> None:
+    """Deal the given cards at a protocol-2 table (play again first unless it is
+    the table's first game), open the sockets and let everyone look at their card:
+    the night opens."""
+    if again:
+        t.call("POST", "Ana", PLAY_AGAIN)
+    deck: dict[str, int] = {}
+    for role in [*dealt.values(), *center]:
+        deck[role] = deck.get(role, 0) + 1
+    t.call(
+        "PATCH",
+        "Ana",
+        LOBBY,
+        {"settings": {"deck": "custom", "roles": deck, **(settings or {})}},
+    )
+    t.clock.advance(60)
+    t.start(dealt, center)
+    for name in dealt:
+        t.connect(name)
+    _everyone(t, list(dealt), GAME_READY, {"ready": True})
+
+
+def _night_v2(t: Table, names: list[str], picks: dict[str, list[dict]]) -> None:
+    """Window 2 only: every phone chooses once (``picks`` by name, nothing for the
+    rest) and the window closes at its minimum."""
+    t.clock.advance(5)
+    for name in names:
+        _choose(t, name, picks.get(name, []))
+    t.clock.advance(5)
+    t.fire("{game_id}:wave:2")
+
+
+def _to_vote(t: Table, names: list[str]) -> None:
+    """Everyone is ready to vote 60 s into the talk."""
+    t.clock.advance(60)
+    _everyone(t, names, GAME_READY, {"ready": True})
+
+
+def _lock_votes(t: Table, votes: dict[str, str]) -> None:
+    """Every phone locks its vote 30 s into the vote; the last lock reveals."""
+    t.clock.advance(30)
+    for voter, target in votes.items():
+        t.call("POST", voter, VOTE, {"target_player_id": t.pid(target), "lock": True})
+
+
+def _record_results(t: Table, name: str, about: str) -> None:
+    t.record(f"game/{name}", "GET", "Ana", RESULTS, status=200, about=about)
+
+
+SIX = ["Ana", "Ben", "Cleo", "Dev", "Esme", "Fin"]
+SIX_DEALT = {
+    "Ana": "Seer",
+    "Ben": "Robber",
+    "Cleo": "Werewolf",
+    "Dev": "Villager",
+    "Esme": "Werewolf",
+    "Fin": "Villager",
+}
+SIX_CENTER = ["Villager", "Troublemaker", "Insomniac"]
+
+
+def results_tables(run: Recording) -> None:
+    """More protocol-2 games played to the results: every way a vote can end
+    (after the tables above, so their samples never move)."""
+    _six_results_table(run)
+    _three_player_table(run)
+    _ten_player_table(run)
+
+
+def _six_results_table(run: Recording) -> None:
+    """Six players, one game per way the vote can end (play again between them),
+    and a Doppelganger who copies the Minion."""
+    t = run.table()
+    _v2_lobby(t, SIX)
+
+    # -- the Werewolves win: the table votes out a Villager --------------
+    _deal_v2(t, SIX_DEALT, SIX_CENTER, again=False)
+    _night_v2(t, SIX, {"Ana": [_player(t, "Cleo")]})
+    t.record(
+        "game/night_results_seen_v2",
+        "POST",
+        "Ana",
+        RESULTS_SEEN,
+        {"seen": 1},
+        status=200,
+        about="The Seer has seen her night result (after the dawn screen).",
+    )
+    t.record(
+        "game/me_talk_results_seen",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in the talk after the night results were acknowledged "
+        "(`night_results_seen` equals the results listed).",
+    )
+    _to_vote(t, SIX)
+    _lock_votes(t, {n: ("Ana" if n == "Fin" else "Fin") for n in SIX})
+    _record_results(
+        t,
+        "results_v2_werewolves_win",
+        "The table votes out a Villager: no Werewolf dies, the Werewolves win.",
+    )
+
+    # -- nobody dies: one vote each ---------------------------------------
+    _deal_v2(t, SIX_DEALT, SIX_CENTER)
+    _night_v2(t, SIX, {})
+    _to_vote(t, SIX)
+    _lock_votes(t, {n: SIX[(i + 1) % len(SIX)] for i, n in enumerate(SIX)})
+    _record_results(
+        t,
+        "results_v2_nobody_dies",
+        "Every player gets one vote: nobody dies (a Werewolf is at the table, "
+        "so the Werewolves win).",
+    )
+
+    # -- a tie that kills two ---------------------------------------------
+    _deal_v2(t, SIX_DEALT, SIX_CENTER)
+    _night_v2(t, SIX, {})
+    _to_vote(t, SIX)
+    _lock_votes(
+        t,
+        {
+            "Ana": "Cleo",
+            "Ben": "Cleo",
+            "Cleo": "Dev",
+            "Dev": "Fin",
+            "Esme": "Dev",
+            "Fin": "Ana",
+        },
+    )
+    _record_results(
+        t,
+        "results_v2_tie",
+        "Two players tie on the most votes (two each): both die; one held a "
+        "Werewolf, so the village wins.",
+    )
+
+    # -- the Hunter chain ---------------------------------------------------
+    _deal_v2(t, {**SIX_DEALT, "Fin": "Hunter"}, SIX_CENTER)
+    _night_v2(t, SIX, {})
+    _to_vote(t, SIX)
+    _lock_votes(t, {n: ("Cleo" if n == "Fin" else "Fin") for n in SIX})
+    _record_results(
+        t,
+        "results_v2_hunter_chain",
+        "The Hunter is voted out and takes the player he voted for (a Werewolf) "
+        "with him.",
+    )
+
+    # -- the Tanner dies ----------------------------------------------------
+    _deal_v2(t, {**SIX_DEALT, "Dev": "Tanner"}, SIX_CENTER)
+    _night_v2(t, SIX, {})
+    _to_vote(t, SIX)
+    _lock_votes(t, {n: ("Ana" if n == "Dev" else "Dev") for n in SIX})
+    _record_results(
+        t,
+        "results_v2_tanner",
+        "The Tanner is voted out under night protocol 2: the Tanner wins.",
+    )
+
+    # -- a dead player whose card had moved -------------------------------
+    _deal_v2(t, SIX_DEALT, SIX_CENTER)
+    _night_v2(t, SIX, {"Ben": [_player(t, "Cleo")]})
+    _to_vote(t, SIX)
+    _lock_votes(t, {n: ("Ana" if n == "Ben" else "Ben") for n in SIX})
+    _record_results(
+        t,
+        "results_v2_moved_card",
+        "The Robber took a Werewolf's card and is voted out holding it: the dead "
+        "player's dealt card (Robber) is not their final card (Werewolf); the "
+        "village wins.",
+    )
+
+    # -- a Doppelganger who copies the Minion -----------------------------
+    dealt = {**SIX_DEALT, "Ana": "Doppelganger", "Dev": "Minion"}
+    _deal_v2(t, dealt, ["Villager", "Seer", "Insomniac"])
+    t.clock.advance(3)
+    _choose(t, "Ana", [_player(t, "Dev")])
+    t.record(
+        "game/me_choose_doppelganger_minion_followup",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in window 1 after she looked at the Minion: her follow-up is "
+        "armed (`kind: none`, `chooses_left: 1`); she sends one more choose and "
+        "learns the Werewolves when the window closes.",
+    )
+    _choose(t, "Ana", [])
+    for name in SIX[1:]:
+        _choose(t, name, [])
+    t.clock.advance(7)
+    t.fire("{game_id}:wave:1")
+    _night_v2(t, SIX, {})
+    t.record(
+        "game/me_discussion_choose_doppelganger_minion",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in the talk: the Doppelganger-Minion's night results (her look, "
+        "then the Werewolves she saw).",
+    )
+
+
+def _three_player_table(run: Recording) -> None:
+    """Three players, the smallest table; the talk and the vote are untimed."""
+    t = run.table()
+    names = ["Ana", "Ben", "Cleo"]
+    _v2_lobby(t, names)
+    _deal_v2(
+        t,
+        {"Ana": "Werewolf", "Ben": "Seer", "Cleo": "Villager"},
+        ["Robber", "Troublemaker", "Villager"],
+        again=False,
+        settings={"discussion_seconds": 0, "voting_seconds": 0},
+    )
+    _night_v2(t, names, {"Ben": [_player(t, "Ana")]})
+    t.record(
+        "game/me_talk_untimed_v2",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in an untimed talk (`discussion_seconds` 0): no deadline and "
+        "no stage start.",
+    )
+    _to_vote(t, names)
+    t.record(
+        "game/me_voting_untimed_v2",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in an untimed vote (`voting_seconds` 0): no deadline and no "
+        "stage start; the vote ends when everyone has locked in (or the host).",
+    )
+    _lock_votes(t, {"Ana": "Cleo", "Ben": "Ana", "Cleo": "Ana"})
+    _record_results(
+        t,
+        "results_v2_three_players",
+        "The results of a three-player game: the Seer found the Werewolf.",
+    )
+
+
+def _ten_player_table(run: Recording) -> None:
+    """Ten players, the largest table: the talk and the vote."""
+    t = run.table()
+    names = ["Ana", "Ben", "Cleo", "Dev", "Esme", "Fin", "Gus", "Hana", "Ida", "Jon"]
+    _v2_lobby(t, names)
+    roles = [
+        "Seer",
+        "Werewolf",
+        "Robber",
+        "Mason",
+        "Troublemaker",
+        "Mason",
+        "Drunk",
+        "Werewolf",
+        "Insomniac",
+        "Minion",
+    ]
+    dealt = dict(zip(names, roles, strict=True))
+    _deal_v2(t, dealt, ["Villager", "Hunter", "Tanner"], again=False)
+    _night_v2(t, names, {})
+    t.record(
+        "game/me_talk_ten",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in the talk at a full table (ten seats).",
+    )
+    _to_vote(t, names)
+    t.record(
+        "game/me_voting_ten",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in the vote at a full table: `vote_targets` lists the nine "
+        "other seats.",
+    )
+
+
 def record_all(run: Recording) -> None:
     classic_table(run)
     full_table(run, finished=doppelganger_table(run))
     protocol_two_tables(run)
+    results_tables(run)

@@ -1,0 +1,101 @@
+{
+  "game_id": "00000000-0000-4000-a000-000000000011",
+  "lobby_code": "X2PG5N",
+  "phase": "discussion",
+  "current_wave": 0,
+  "deadline": "2024-03-07T21:52:48+00:00",
+  "your_role": {
+    "original_role": "Seer",
+    "has_acted": false
+  },
+  "is_host": true,
+  "host_id": 55,
+  "has_voted": false,
+  "players": [
+    {
+      "player_id": 55,
+      "display_name": "Ana",
+      "token": "hare",
+      "seat": 0
+    },
+    {
+      "player_id": 56,
+      "display_name": "Ben",
+      "token": "moth",
+      "seat": 1
+    },
+    {
+      "player_id": 57,
+      "display_name": "Cleo",
+      "token": "thorn",
+      "seat": 2
+    },
+    {
+      "player_id": 58,
+      "display_name": "Dev",
+      "token": "spindle",
+      "seat": 3
+    },
+    {
+      "player_id": 59,
+      "display_name": "Esme",
+      "token": "key",
+      "seat": 4
+    },
+    {
+      "player_id": 60,
+      "display_name": "Fin",
+      "token": "bell",
+      "seat": 5
+    }
+  ],
+  "action_prompt": null,
+  "roles_in_game": [
+    {
+      "role": "Seer",
+      "count": 1
+    },
+    {
+      "role": "Robber",
+      "count": 1
+    },
+    {
+      "role": "Villager",
+      "count": 3
+    },
+    {
+      "role": "Werewolf",
+      "count": 2
+    },
+    {
+      "role": "Insomniac",
+      "count": 1
+    },
+    {
+      "role": "Troublemaker",
+      "count": 1
+    }
+  ],
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "peek_player",
+      "revealed_info": {
+        "target_name": "Cleo",
+        "role": "Werewolf"
+      }
+    }
+  ],
+  "night_results_seen": 1,
+  "player_id": 55,
+  "my_vote": null,
+  "ready": false,
+  "progress": {
+    "stage": "talk",
+    "done": 0,
+    "needed": 6
+  },
+  "stage": "talk.000000000011",
+  "stage_started_at": "2024-03-07T21:47:48+00:00",
+  "vote_targets": null
+}
