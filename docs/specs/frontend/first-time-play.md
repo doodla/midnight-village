@@ -506,3 +506,37 @@ every phone. In a player's first game the `hold` cue breathes on "My night"; "Re
 stays locked until it has been held once this game, as already specified. The results ack is
 sent the first time "My night" has been held for 0.8 s. Screen 07 and its copy ("What you
 saw", "Done") are removed; 05 is shown only while `/me/` loads.
+
+## 8. Fun first (20 November 2026): where secrecy stops
+
+Product owner: do not over-index on secrecy; the game must hang together and be fun, and
+nobody waits. This section overrides anything above that costs a player time, taps or a
+wasted turn in order to hide something. The test for any rule: would a table of friends
+notice the protection, or only the friction?
+
+**Kept (free for players):** secrets (your card, what you may do tonight, what you saw, your
+team) show only while held; every player has a card to tap at night; progress is counts, never
+names; a request names its stage; one look for the Doppelganger; no sound or vibration at
+night.
+
+**Relaxed:**
+
+| Was | Now |
+|---|---|
+| Choose locked until "You" is held 0.8 s, every window, every phone | No gate at night. Holding "You" shows what you may do; the `hold` cue points at it in a first game only. |
+| Any taps accepted; a pick that means nothing to your role silently does nothing | The phone reads the SERVER's prompt (which cards and how many your role may pick) and the button follows it: "Choose a card" (disabled) / "Choose 1 more" (disabled) / "Choose Cleo" / "Choose Left, Right" / "Keep my card". A turn cannot be wasted by a slip. Players with nothing to choose may pick any one card. Deliberately doing nothing is picking "You". The phone holds no rules: it compares picks with the prompt's shapes. |
+| Every phone chooses twice in window 1 | Every phone chooses once per window. Only the Doppelganger, after her look, gets a second pick in window 1 (her board re-arms when her result arrives). |
+| A held face hides after 5 s | No cap anywhere. It hides on release. |
+| "Ready to vote" locked until "My night" was held | Never locked. In a first game the `hold` cue breathes on "My night". |
+| A tap on a locked gate replays the cue | Unchanged, but the only gates left are 04 "Ready" (you must have seen your card) and buttons waiting for a valid pick. |
+| One fixed frame, one portrait, no red, 2 lines for every face | A face is drawn above the thumb and may use the full role card (portrait and colour included). Keep faces a similar size; do not police their content. |
+| Cross-role identical widget trees for the night board | The board's LAYOUT and motion are the same for every role (same cards, same lift, same button position). Button text and enabled state follow the player's own picks. |
+
+**Pace.** Every length is the table's setting; nothing here adds to it. Each stage ends the
+moment everyone present has done their part (looked, chosen, readied, locked); the timers are
+backstops. No animation blocks input: the count's flips and the results timeline finish on a
+tap.
+
+**Accepted tells** (the card game has them too): an actor may take a little longer than a
+sleeper; a neighbour who reads your button can see how many cards you are picking; the
+Doppelganger taps twice. None of these is worth a wait or a wasted turn.
