@@ -21,6 +21,11 @@ run-device device:
 gen:
     dart run build_runner build --delete-conflicting-outputs
 
+# Fail when the committed generated code is not what `just gen` makes now
+# (about 50 s: CI runs it, the commit gate does not)
+gen-check: gen
+    git diff --exit-code -- '*.g.dart' '*.freezed.dart'
+
 # Run code generation (watch mode)
 watch:
     dart run build_runner watch --delete-conflicting-outputs

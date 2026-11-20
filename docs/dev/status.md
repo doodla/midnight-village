@@ -46,11 +46,25 @@ changes. Last updated 20 November 2026.
    `docs/dev/playtests/2026-11-19-mocks-cold-read.md`). A screen passes when 4 of 5 simulated
    players name the right first action and nobody makes an unrecoverable mistake.
 2. The server slice: delete protocol 1, the legacy vote fields, the per-role prompt events,
-   their contract samples and the staging paragraph in `docs/specs/onuw/api-contract-v2.md`;
-   port the e2e API runner (`test_e2e/api_runner_test.dart`, `api_lifecycle_test.dart` and
-   `scenario_runner.dart` drive the protocol-1 API) to protocol 2; then delete the app's
-   marked protocol-1 leftovers (`grep -rn "PROTOCOL 1" frontend/`) and
-   `docs/dev/old-look-removal.md` with its line in `.claude/agents/frontend-developer.md`.
+   their contract samples and the staging paragraph in `docs/specs/onuw/api-contract-v2.md`.
+   Then the app's leftovers, each marked `PROTOCOL 1` (`grep -rn "PROTOCOL 1" frontend/`
+   finds every one):
+   - `test/helpers/contract/contract_samples.dart`: the sample filter (one line and its
+     predicate); `contract_guard_test.dart`: the test that checks the filter and the two that
+     name protocol-1 samples; `game_event_test.dart`: the loop over protocol-1 events.
+   - `lib/features/game/domain/game_event.dart`: `wave_complete` (if the server stops it).
+   - `lib/features/lobby/domain/lobby_state.dart`: the lenient reading of a table without
+     `night_protocol`, `deck_preview` or `deal` (three places).
+   - The unplayable game: `UnplayableGameException` (`game_service.dart`), its handling in
+     `protocol_two_game.dart` and `table_shell.dart`, `UnplayableScreen` and
+     `BannerCopy.cannotPlay` (with its line in the copy test's `banners`).
+   - `lib/core/router/routes.dart`: `LobbyRoute`.
+   - `lib/core/debug/debug_table_controller.dart`: `createTable(protocolTwo: false)` and
+     `driveAs`'s protocol-1 requests (`DebugAction`), which only the e2e API runners use:
+     port `test_e2e/api_runner_test.dart`, `api_lifecycle_test.dart` and
+     `harness/scenario_runner.dart` to protocol 2 first.
+   - `docs/dev/old-look-removal.md` (a done note) with its line in
+     `.claude/agents/frontend-developer.md` (agent configuration: for the main session).
 3. Open the pull request; split it if it is too big to review.
 
 ## Open items
@@ -58,6 +72,8 @@ changes. Last updated 20 November 2026.
 - A request whose answer was lost but which the server processes late can overtake a newer
   tap of the same lane; closing it needs a per-phone sequence number on the server.
 - Ten long names on a 320-wide phone: the night board falls under the 14 px reading floor.
+- 04 held, the Minion's face on a 320-wide phone: the role name (13.2 px) and its Night
+  line (15.1 px) fall under the reading floor (`just screens 320`, `04-your-card-held-minion`).
 - Protocol 1 only, server side (goes with the server slice): across several server instances a phone can
   get `action_prompt` before `wave_start` and lose its prompt. (The unreachable "your card"
   screen is fixed under protocol 2.)

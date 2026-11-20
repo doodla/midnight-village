@@ -1,16 +1,10 @@
-# midnight_village
+# Midnight Village: the app
 
-A new Flutter project.
+Flutter (web, iOS, Android). Start at `CLAUDE.md` in this folder (commands, traps, the app's
+rules); each part is described where it lives:
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- `lib/design_system/README.md`: the skin, the primitives, the first-time-play pieces.
+- `lib/features/game/README.md`: the game's data layer and screens 04 to 11.
+- `lib/features/lobby/README.md`: 01 Join, 02 Table, 03 Deck.
+- `test/README.md`: the tests, the e2e harness, goldens, the screen gallery.
+- `test/helpers/contract/README.md`: how test payloads come from `contract_samples/`.

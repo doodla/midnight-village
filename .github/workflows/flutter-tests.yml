@@ -68,6 +68,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # The committed *.g.dart / *.freezed.dart are what `just gen` makes now
+      # (the same check as `just gen-check`; about 50 s, so CI only).
+      - name: Generated code is current
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          git diff --exit-code -- '*.g.dart' '*.freezed.dart'
+
       # Excludes golden-tagged tests to avoid running them in this job
       - name: Widget tests
         run: flutter test --exclude-tags golden

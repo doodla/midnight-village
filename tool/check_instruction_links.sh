@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Fails when an instruction file names a repo path or a `just` recipe that does
-# not exist. Checked: the CLAUDE.md files, .claude/agents/*.md,
-# docs/dev/status.md and docs/claude-architecture.md.
+# not exist. Checked: the CLAUDE.md files, .claude/agents/*.md, docs/dev/*.md,
+# docs/claude-architecture.md, the READMEs the CLAUDE.md files point to,
+# frontend/docs/*.md and frontend/dart_test.yaml.
 # A path is any backticked text with a "/" or a file extension (also the first
 # word of a line in a code block); it may be relative to the repo root, to the
-# file's own folder, to backend/, frontend/, frontend/lib/ or .claude/; text
+# file's own folder, to backend/, frontend/, frontend/lib/ or .claude/, or a
+# contract sample's name (contract_samples/<name>.json); text
 # starting with "/" is an API path, not a file. A bare file name
 # must exist somewhere in the repo. `just <recipe>` must be a recipe of the root,
 # backend or frontend justfile. Gitignored paths count as existing (they are
@@ -29,11 +31,14 @@ recipes=$(for j in justfile backend/justfile frontend/justfile; do
   just --justfile "$src" --working-directory . --summary 2>/dev/null
 done | tr ' ' '\n' | sort -u)
 
-files=(CLAUDE.md backend/CLAUDE.md frontend/CLAUDE.md docs/dev/status.md docs/dev/environment.md
+shopt -s nullglob
+files=(CLAUDE.md backend/CLAUDE.md frontend/CLAUDE.md docs/dev/*.md
   docs/claude-architecture.md docs/dev/models/README.md .claude/agents/*.md
   backend/apps/core/README.md backend/apps/onuw/README.md backend/tests/README.md
-  frontend/lib/design_system/README.md frontend/lib/features/game/README.md
-  frontend/test/README.md frontend/test/helpers/contract/README.md)
+  frontend/README.md frontend/lib/design_system/README.md frontend/lib/features/game/README.md
+  frontend/lib/features/lobby/README.md frontend/test/README.md
+  frontend/test/helpers/contract/README.md frontend/docs/*.md frontend/dart_test.yaml)
+shopt -u nullglob
 [ $# -gt 0 ] && files=("$@")   # or the files given (used by the gate's tests)
 
 RECIPES="$recipes" STAGED="$staged" python3 - "${files[@]}" <<'EOF'
@@ -73,6 +78,9 @@ def path_ok(token, here):
     if "/" not in t:
         return t in basenames
     t = t.lstrip("/")
+    # a contract sample by its name (`http/game/me_voting`, `ws/lobby/...`)
+    if exists(Path("contract_samples") / (t + ".json")):
+        return True
     bases = [*([] if here.is_absolute() else [here, *here.parents]), *BASES]
     if any(exists(base / t) for base in bases):
         return True
