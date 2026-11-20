@@ -450,6 +450,14 @@
       "description": "/me/ before voting."
     },
     {
+      "name": "http/game/me_voting_untimed",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in a vote with no deadline."
+    },
+    {
       "name": "http/game/me_voting_voted",
       "kind": "http",
       "method": "GET",
@@ -730,6 +738,14 @@
       "description": "A player joins the table."
     },
     {
+      "name": "http/lobby/leave_not_found",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/leave/",
+      "status": 404,
+      "description": "Leave at a table that is gone."
+    },
+    {
       "name": "http/lobby/leave_owner_in_game",
       "kind": "http",
       "method": "POST",
@@ -832,6 +848,14 @@
       "path": "/lobbies/{code}/play-again/",
       "status": 409,
       "description": "Play again while the game is still running."
+    },
+    {
+      "name": "http/lobby/play_again_not_found",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/play-again/",
+      "status": 404,
+      "description": "Play again at a table that is gone."
     },
     {
       "name": "http/lobby/play_again_not_host",

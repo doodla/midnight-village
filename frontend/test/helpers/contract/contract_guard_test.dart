@@ -84,6 +84,75 @@ void main() {
       );
     });
 
+    group('a key of another situation (variants, not a union)', () {
+      Map<String, dynamic> sample(String name) => ContractSamples.map(name);
+      void refused(dynamic Function() check) =>
+          expect(check, throwsA(isA<OffContractPayload>()));
+
+      test('a night /me/ with the results-only current_role', () {
+        final body = sample('http/game/me_night_prompt_seer');
+        body['your_role']['current_role'] = 'Seer';
+        refused(() => check(body));
+      });
+
+      test('a discussion /me/ with a Seer prompt', () {
+        final body = sample('http/game/me_discussion')
+          ..['action_prompt'] = sample(
+            'http/game/me_night_prompt_seer',
+          )['action_prompt'];
+        refused(() => check(body));
+      });
+
+      test('the vote-only has_voted on the players at night', () {
+        final body = sample('http/game/me_night_prompt_seer');
+        for (final p in body['players'] as List) {
+          (p as Map)['has_voted'] = false;
+        }
+        refused(() => check(body));
+      });
+
+      test('a Seer prompt with a team view target', () {
+        final event = sample('ws/game/action_prompt_seer');
+        event['valid_targets']['see_team'] = [2];
+        refused(() => checkSocketEvent(event));
+        final body = sample('http/game/me_night_prompt_seer');
+        body['action_prompt']['valid_targets']['see_team'] = [2];
+        refused(() => check(body));
+      });
+
+      test('a Seer result carrying a team view', () {
+        final event = sample('ws/game/action_result_peek_player');
+        event['revealed_info']['teammate_names'] = ['Bob'];
+        refused(() => checkSocketEvent(event));
+        final body = sample('http/game/me_discussion');
+        body['night_results'][0]['revealed_info']['teammate_names'] = ['Bob'];
+        refused(() => check(body));
+      });
+
+      test('a Minion team view with a lone Werewolf\'s centre card', () {
+        final event = sample('ws/game/action_result_see_team_minion');
+        event['revealed_info']['center_card'] = {'index': 0, 'role': 'seer'};
+        refused(() => checkSocketEvent(event));
+      });
+
+      test('but each situation\'s own sample passes', () {
+        check(sample('http/game/me_night_prompt_seer'));
+        check(sample('http/game/me_discussion'));
+        checkSocketEvent(
+          sample('ws/game/action_result_see_team_lone_werewolf'),
+        );
+      });
+    });
+
+    test('an error body for an endpoint with no such error recorded', () {
+      expect(
+        () => checkHttpBody('POST', '/onuw/games/g/action/', 404, {
+          'detail': 'Game not found.',
+        }),
+        throwsA(isA<OffContractPayload>()),
+      );
+    });
+
     test('an endpoint with no recorded sample', () {
       expect(
         () => checkHttpBody('GET', '/onuw/games/g/secrets/', 200, {}),

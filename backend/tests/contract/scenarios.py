@@ -243,6 +243,19 @@ def classic_table(run: Recording) -> None:
         about="A table code that does not exist (or was closed).",
         code="ZZZZZZ",
     )
+    for action, path in [
+        ("leave", "/lobbies/{code}/leave/"),
+        ("play_again", PLAY_AGAIN),
+    ]:
+        t.record(
+            f"lobby/{action}_not_found",
+            "POST",
+            "Ben",
+            path,
+            status=404,
+            about=f"{action.replace('_', ' ').capitalize()} at a table that is gone.",
+            code="ZZZZZZ",
+        )
     _join_and_ready(t, ["Cleo", "Dev", "Esme", "Fin"])
     t.record(
         "lobby/ready",
@@ -1104,6 +1117,14 @@ def doppelganger_table(run: Recording) -> Table:
         "game",
         "phase_change",
         about="The vote starts, with no deadline.",
+    )
+    t.record(
+        "game/me_voting_untimed",
+        "GET",
+        "Ben",
+        ME,
+        status=200,
+        about="/me/ in a vote with no deadline.",
     )
     t.record(
         "game/vote_not_a_player",
