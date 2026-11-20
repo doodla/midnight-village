@@ -36,6 +36,7 @@ class ProtocolTwoGame {
     this.presence = const {},
     this.hostNotice,
     this.tableClosed = false,
+    this.fetchFailing = false,
   });
 
   /// The last `/me/` the server sent.
@@ -57,6 +58,11 @@ class ProtocolTwoGame {
   /// The game (its table) is gone: the last fetch was answered 404.
   final bool tableClosed;
 
+  /// The last `/me/` fetch got no answer (it is being made again): with the
+  /// socket down, this phone is offline ("One moment"). A socket refused
+  /// while fetches work is not shown.
+  final bool fetchFailing;
+
   /// What the screens show: `/me/` with this phone's taps on it. Everything
   /// the table can see on this phone changes on the tap, never on the
   /// answer.
@@ -76,6 +82,7 @@ class ProtocolTwoGame {
     HostChange? hostNotice,
     bool clearHostNotice = false,
     bool? tableClosed,
+    bool? fetchFailing,
   }) => ProtocolTwoGame._(
     server: server ?? this.server,
     outbox: outbox ?? this.outbox,
@@ -83,6 +90,7 @@ class ProtocolTwoGame {
     presence: presence ?? this.presence,
     hostNotice: clearHostNotice ? null : hostNotice ?? this.hostNotice,
     tableClosed: tableClosed ?? this.tableClosed,
+    fetchFailing: fetchFailing ?? this.fetchFailing,
   );
 }
 
@@ -236,6 +244,7 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
       if (current == null) {
         state = AsyncError(e, stack);
       } else {
+        _update((s) => s.copyWith(fetchFailing: true));
         _armHealing(current.server);
       }
       // Whatever asked for this fetch (a taken choose, an event, a "Try
@@ -255,7 +264,12 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
     state = AsyncData(
       current == null
           ? ProtocolTwoGame._(server: me, outbox: outbox)
-          : current.copyWith(server: me, outbox: outbox, tableClosed: false),
+          : current.copyWith(
+              server: me,
+              outbox: outbox,
+              tableClosed: false,
+              fetchFailing: false,
+            ),
     );
     _afterApply(me);
     // A queued tap whose lane was waiting on a dropped request goes now.

@@ -97,7 +97,7 @@ abstract final class RoleSheetCopy {
 abstract final class RoleCopy {
   static const nightLabel = 'Night:';
   static const winsLabel = 'Wins:';
-  static const shared = 'You are your last card. Anyone may lie.';
+  static const shared = 'You are your last card.';
   static const villageWins =
       'A Werewolf dies. No Werewolf player: nobody dies.';
 

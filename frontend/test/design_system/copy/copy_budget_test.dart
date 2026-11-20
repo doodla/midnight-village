@@ -42,7 +42,7 @@ void main() {
     });
 
     test('the role text totals are the spec\'s', () {
-      // The spec's table: Werewolf 23 ... Tanner 14.
+      // The spec's table: Werewolf 20 ... Tanner 11.
       final totals = {
         for (final (role, lines) in [
           for (final s in screens['03b Role sheet']!.states.entries)
@@ -51,18 +51,18 @@ void main() {
           role: lines.fold(0, (sum, l) => sum + wordCount(l.text)),
       };
       expect(totals, {
-        'werewolf': 23,
-        'minion': 29,
-        'villager': 18,
-        'seer': 24,
-        'robber': 25,
-        'troublemaker': 23,
-        'drunk': 24,
-        'insomniac': 23,
-        'mason': 20,
-        'hunter': 24,
-        'tanner': 14,
-        'doppelganger': 24,
+        'werewolf': 20,
+        'minion': 26,
+        'villager': 15,
+        'seer': 21,
+        'robber': 22,
+        'troublemaker': 20,
+        'drunk': 21,
+        'insomniac': 20,
+        'mason': 17,
+        'hunter': 21,
+        'tanner': 11,
+        'doppelganger': 21,
       });
     });
   });

@@ -294,13 +294,14 @@ class _HoldToRevealState extends State<HoldToReveal>
 
   static Widget _nothing(BuildContext context) => const SizedBox.shrink();
 
-  /// In place: the cover, or the face in the cover's own box (the cover is
-  /// still laid out under it, so the size never changes).
+  /// In place: the face fades in over the cover, in the cover's own box,
+  /// and out again. The cover stays drawn under it (an opaque card over an
+  /// opaque card: no glimpse of the ground between them), and sets the size.
   Widget _turned(BuildContext context) {
     final still = MediaQuery.disableAnimationsOf(context);
     return Stack(
       children: [
-        Visibility.maintain(visible: !_visible, child: widget.cover),
+        widget.cover,
         Positioned.fill(
           child: AnimatedSwitcher(
             duration: still ? Duration.zero : HoldToReveal.flip,

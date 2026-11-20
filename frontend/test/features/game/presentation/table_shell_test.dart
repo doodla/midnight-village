@@ -120,19 +120,26 @@ void main() {
       expect(s.wakelock.isEnabled, isFalse);
     });
 
-    testWidgets('"One moment" while the game socket is down, gone when back', (
-      tester,
-    ) async {
-      final s = await ShellSetup.pump(
-        tester,
-        recordedMe('me_choose_prompt_seer'),
-      );
+    testWidgets('"One moment" while the socket is down and the fetches fail '
+        'too; a refused socket alone changes nothing', (tester) async {
+      final me = recordedMe('me_choose_prompt_seer');
+      final s = await ShellSetup.pump(tester, me);
       await s.settle(tester);
-      expect(find.text(BannerCopy.offline), findsNothing);
       s.socket(connected: false);
       await s.settle(tester);
+      expect(
+        find.text(BannerCopy.offline),
+        findsNothing,
+        reason: 'fetches work',
+      );
+
+      s.failMe();
+      s.resume();
+      await s.settle(tester);
       expect(find.text(BannerCopy.offline), findsOneWidget);
-      s.socket(connected: true);
+
+      // Back: the next retry lands.
+      s.answerMe(me);
       await s.settle(tester);
       expect(find.text(BannerCopy.offline), findsNothing);
       await s.close(tester);
@@ -231,6 +238,26 @@ void main() {
 
       // Another device (or another stage) still holds first.
       s = await ShellSetup.pump(tester, look);
+      await s.settle(tester);
+      expect(_phase(tester), ButtonPhase.locked);
+      await s.close(tester);
+    });
+
+    testWidgets("another player's phone (a /debug perspective switch) does "
+        "not carry this player's reveal", (tester) async {
+      final look = recordedMe('me_look_stage');
+      final s = await ShellSetup.pump(tester, look);
+      await s.settle(tester);
+      final gesture = await holdDown(tester, find.byType(FaceDownCard));
+      await gesture.up();
+      await s.settle(tester);
+      expect(_phase(tester), ButtonPhase.ready);
+
+      // The same look stage, as the next seat's phone has it.
+      final next = recordedMe('me_look_stage');
+      next['player_id'] = ((next['players'] as List)[1] as Map)['player_id'];
+      s.answerMe(next);
+      s.resume();
       await s.settle(tester);
       expect(_phase(tester), ButtonPhase.locked);
       await s.close(tester);

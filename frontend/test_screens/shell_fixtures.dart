@@ -63,6 +63,15 @@ Future<void> pumpYourCardHeld(WidgetTester tester) async {
   await holdDown(tester, find.byType(FaceDownCard));
 }
 
+/// 04 held on the Minion's phone: the longest role text. Game 9's deal
+/// (its deck holds the Minion), this phone dealt her (a value changed).
+Future<void> pumpYourCardHeldMinion(WidgetTester tester) async {
+  final me = sheet.recordedMe('me_auto_deck_9');
+  (me['your_role'] as Map<String, dynamic>)['original_role'] = 'Minion';
+  await _shell(tester, me, learned: const {});
+  await holdDown(tester, find.byType(FaceDownCard));
+}
+
 /// 04 after Ready, as `/me/` has it (a restart lands here too).
 Future<void> pumpYourCardReady(WidgetTester tester) =>
     _shell(tester, sheet.recordedMe('me_look_ready'));

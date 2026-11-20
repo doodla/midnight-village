@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/role.dart';
 import '../art_set.dart';
 import '../elevation.dart';
 import '../ground.dart';
@@ -240,6 +241,22 @@ const shadowPaperArt = ArtSet(
   },
   // `object-position: 50% 15%` throughout the mocks.
   portraitFocus: Alignment(0, -0.7),
+  // Read off the portraits in docs/design/art/ (the face's middle, from the
+  // top): a held face cut short keeps it whole.
+  faceCentres: {
+    RoleId.doppelganger: 0.37,
+    RoleId.drunk: 0.32,
+    RoleId.hunter: 0.18,
+    RoleId.insomniac: 0.35,
+    RoleId.mason: 0.3,
+    RoleId.minion: 0.5,
+    RoleId.robber: 0.43,
+    RoleId.seer: 0.41,
+    RoleId.tanner: 0.31,
+    RoleId.troublemaker: 0.36,
+    RoleId.villager: 0.33,
+    RoleId.werewolf: 0.35,
+  },
   sceneFocus: {
     Scene.candle: Alignment(0, 0.24), // 50% 62%
     Scene.table: Alignment(0, 0.1), // 50% 55%

@@ -50,8 +50,8 @@ class NightScreen extends ConsumerWidget {
         selfId: me.playerId,
         prompt: prompt,
         face: me.report.you(prompt),
-        // An untimed window (a debug setting) has no countdown to show.
-        secondsLeft: seconds ?? 0,
+        // An untimed window (a debug setting): the candle alone.
+        secondsLeft: seconds,
         onChoose: (stage, picks) async =>
             (await notifier.choose(stage, picks)).forBoard,
       ),

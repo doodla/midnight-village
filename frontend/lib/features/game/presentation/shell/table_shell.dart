@@ -32,8 +32,9 @@ import 'your_card_screen.dart';
 /// - A change of screen fades quickly ([Motion.settle]); with reduce motion
 ///   it is instant. Nothing waits for it.
 /// - While nothing is known yet (the first `/me/table/`), the night ground
-///   and nothing on it; when that fetch fails (it is retried until it
-///   succeeds) and while the game's socket is down, "One moment".
+///   and nothing on it; "One moment" when that fetch fails (it is retried
+///   until it succeeds), and while the game's socket is down and its
+///   fetches fail too.
 /// - The screen is kept awake while the shell is shown.
 class TableShell extends ConsumerStatefulWidget {
   const TableShell({super.key});
@@ -83,9 +84,14 @@ class _TableShellState extends ConsumerState<TableShell>
     final (key, screen) = shown == null
         ? ('nothing', const _Nothing())
         : _screen(shown, game);
+    // Offline: nothing fetched yet and the fetch fails, or the socket is
+    // down and the fetches fail too (a socket refused while fetches work
+    // changes nothing on the screen).
     final offline =
         (shown == null && at.hasError) ||
-        (gameId != null && _offline(ref, gameId));
+        (gameId != null &&
+            _socketDown(ref, gameId) &&
+            (game?.fetchFailing ?? false));
     final still = MediaQuery.disableAnimationsOf(context);
     return Stack(
       children: [
@@ -105,7 +111,9 @@ class _TableShellState extends ConsumerState<TableShell>
   /// The screen for [shown], and the key that says when it is another one.
   (String, Widget) _screen(TableScreen shown, ProtocolTwoGame? game) {
     final gameId = shown.gameId;
-    final key = '${shown.screen.name}|$gameId';
+    // The player too: a `/debug` perspective switch is another phone, and
+    // nothing of one player's screen (a reveal, picks) carries to the next.
+    final key = '${shown.screen.name}|$gameId|${game?.me.playerId}';
     return switch (shown.screen) {
       AppScreen.yourCard when game != null => (
         key,
@@ -125,7 +133,7 @@ class _TableShellState extends ConsumerState<TableShell>
     return me != null && me.inWindow && me.prompt != null;
   }
 
-  static bool _offline(WidgetRef ref, String gameId) =>
+  static bool _socketDown(WidgetRef ref, String gameId) =>
       switch (ref.watch(gameConnectionStateProvider(gameId)).value) {
         WebSocketConnectionState.disconnected ||
         WebSocketConnectionState.reconnecting => true,

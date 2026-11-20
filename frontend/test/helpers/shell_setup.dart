@@ -19,7 +19,9 @@ import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/data/game_service.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
+import 'package:midnight_village/features/game/presentation/shell/game_entry.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
+import 'package:go_router/go_router.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 
@@ -61,7 +63,10 @@ class ShellSetup {
   /// countdown reads it when no `Date` is readable); [textScale] the
   /// system's text size. [hold] holds the first `/me/` until released
   /// ([meReplies]). [sameDevice] keeps what this device stored in an
-  /// earlier pump of the test (a restart).
+  /// earlier pump of the test (a restart). [entry] opens the game route
+  /// (`GameEntry`, under a router whose `/` is [home]) instead of the shell;
+  /// [userId] is the signed-in player when [me] does not say (protocol 1);
+  /// [before] changes the answers before the first frame.
   static Future<ShellSetup> pump(
     WidgetTester tester,
     Map<String, dynamic> me, {
@@ -71,6 +76,9 @@ class ShellSetup {
     bool holdMe = false,
     bool disableAnimations = false,
     bool sameDevice = false,
+    bool entry = false,
+    int? userId,
+    void Function(ShellSetup setup)? before,
   }) async {
     // This device's storage (learned cues, the stage its card was seen in):
     // empty, unless the test restarts the app on the same device.
@@ -90,12 +98,15 @@ class ShellSetup {
     }
     setup.answerMe(me);
     if (me['phase'] == 'results') setup.answerResults();
+    before?.call(setup);
     await tester.pumpWidget(
       setup._app(
         learned: learned,
         clock: clock ?? sampleClockStart,
         textScale: textScale,
         disableAnimations: disableAnimations,
+        entry: entry,
+        userId: userId ?? me['player_id'] as int,
       ),
     );
     await tester.pump();
@@ -106,14 +117,19 @@ class ShellSetup {
   /// The first `/me/`, held ([pump]'s `holdMe`).
   HeldReplies? meReplies;
 
+  /// The home screen of [pump]'s `entry` router.
+  static const home = Key('home');
+  GoRouter? _router;
+
   Widget _app({
     required Set<Cue> learned,
     required DateTime clock,
     required double textScale,
     required bool disableAnimations,
+    required bool entry,
+    required int userId,
   }) {
     final client = AuthenticatedClient.forTesting(dio: http.dio);
-    final userId = me['player_id'] as int;
     return ProviderScope(
       overrides: [
         devicePreferencesProvider.overrideWithValue(DevicePreferences()),
@@ -135,18 +151,42 @@ class ShellSetup {
         wakelockServiceProvider.overrideWithValue(wakelock),
       ],
       child: Consumer(
-        builder: (context, ref, _) => MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: ref.watch(appThemeProvider),
-          builder: (context, child) => MediaQuery(
+        builder: (context, ref, _) {
+          Widget builder(BuildContext context, Widget? child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(
               textScaler: TextScaler.linear(textScale),
               disableAnimations: disableAnimations,
             ),
             child: GroundScope(ground: GroundKind.night, child: child!),
-          ),
-          home: const TableShell(),
-        ),
+          );
+          if (!entry) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: ref.watch(appThemeProvider),
+              builder: builder,
+              home: const TableShell(),
+            );
+          }
+          return MaterialApp.router(
+            debugShowCheckedModeBanner: false,
+            theme: ref.watch(appThemeProvider),
+            builder: builder,
+            routerConfig: _router ??= GoRouter(
+              initialLocation: '/game/$gameId',
+              routes: [
+                GoRoute(
+                  path: '/',
+                  builder: (_, _) => const SizedBox(key: home),
+                ),
+                GoRoute(
+                  path: '/game/:gameId',
+                  builder: (_, state) =>
+                      GameEntry(gameId: state.pathParameters['gameId']!),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -185,6 +225,18 @@ class ShellSetup {
         ContractSamples.load('http/$sample'),
         status: status,
       );
+
+  /// `GET /me/` gives no readable answer (a 5xx: the network is down).
+  void failMe() =>
+      http.answer('GET', '$_base/me/', 'Server Error', status: 503);
+
+  /// `GET /me/` is refused: the game is gone (404).
+  void refuseMe() => http.answer(
+    'GET',
+    '$_base/me/',
+    ContractSamples.load('http/game/me_not_found'),
+    status: 404,
+  );
 
   /// `POST <base><endpoint>` gives no readable answer (a 5xx).
   void failPost(String endpoint) =>

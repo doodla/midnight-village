@@ -34,7 +34,8 @@ import '../protocol_two_game.dart';
 /// A phone that restarts in the look stage reads its own `ready` from `/me/`:
 /// ready, it opens at "Ready ✓". Not yet, but it had seen its card: this
 /// device remembers the stage it was seen in ([lookedPrefix], one key, the
-/// latest stage), so "Ready" is open again without another hold. The stage
+/// latest stage, by player), so "Ready" is open again without another
+/// hold. The stage
 /// ends on the server (everyone ready, or its backstop); this screen never
 /// decides it.
 class YourCardScreen extends ConsumerStatefulWidget {
@@ -64,23 +65,28 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
     unawaited(_recall());
   }
 
+  /// The flag for [me]'s stage, by player (the `/debug` toolbar plays
+  /// several on one device) and stage; never the role.
+  static String _flag(GameMe me) =>
+      '${YourCardScreen.lookedPrefix}${me.playerId}.${me.stage}';
+
   /// A reveal this device made in this stage before a restart.
   Future<void> _recall() async {
-    final stage = widget.game.me.stage;
-    if (stage == null) return;
+    final me = widget.game.me;
+    if (me.stage == null) return;
     final seen = await ref
         .read(devicePreferencesProvider)
         .readFlags(YourCardScreen.lookedPrefix);
-    if (mounted && seen.contains('${YourCardScreen.lookedPrefix}$stage')) {
-      setState(() => _revealedIn ??= stage);
+    if (mounted && seen.contains(_flag(me))) {
+      setState(() => _revealedIn ??= me.stage);
     }
   }
 
-  Future<void> _remember(String? stage) async {
-    if (stage == null) return;
+  Future<void> _remember(GameMe me) async {
+    if (me.stage == null) return;
     final preferences = ref.read(devicePreferencesProvider);
     await preferences.clearFlags(YourCardScreen.lookedPrefix);
-    await preferences.setFlag('${YourCardScreen.lookedPrefix}$stage');
+    await preferences.setFlag(_flag(me));
   }
 
   @override
@@ -163,7 +169,7 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
     replay: _replay,
     inPlace: true,
     onRevealed: () {
-      if (_revealedIn != me.stage) unawaited(_remember(me.stage));
+      if (_revealedIn != me.stage) unawaited(_remember(me));
       if (mounted) setState(() => _revealedIn = me.stage);
     },
     cover: (teaching) =>

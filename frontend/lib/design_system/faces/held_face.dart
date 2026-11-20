@@ -27,9 +27,13 @@ import 'face_content.dart';
 ///   its natural shape need, at most the height it is given; the portrait
 ///   gives up what the height lacks. Never an empty lower half.
 ///
-/// Its text is set at most [maxTextScale] times larger, and the whole card
-/// smaller rather than out of its box when the words leave the portrait less
-/// than [minPortraitShare] of the card's width.
+/// Its text is set at most [maxTextScale] times larger. When the words leave
+/// the portrait less than [minPortraitShare] of the card's width, they step
+/// down to a compact type still at the reading floor (the name as a heading,
+/// the lines at 16); only when even that leaves too little is the whole card
+/// set smaller. The portrait is never a strip, and a short portrait is cut
+/// around the role's face (`ArtSet.portraitCrop`), never through it. Lines
+/// are balanced, so no paragraph ends on one word alone.
 ///
 /// Hidden information: the words are left out of what a screen reader reads
 /// unless the player asked for them ([announce], the explicit activation).
@@ -62,9 +66,10 @@ class HeldFace extends StatelessWidget {
   /// A portrait's natural shape, height over width (S04: 318 over 286).
   static const portraitShape = 1.1;
 
-  /// The least of the card's width the portrait keeps before the whole card
-  /// is set smaller instead.
-  static const minPortraitShare = 0.3;
+  /// The least of the card's width the portrait keeps (its height): enough
+  /// for any role's face, whole. The words step down first, then the whole
+  /// card is set smaller.
+  static const minPortraitShare = 0.55;
 
   /// Faces cap their own text scale.
   static const maxTextScale = 1.6;
@@ -133,9 +138,12 @@ class HeldFace extends StatelessWidget {
   }
 }
 
-/// The portrait over the words, in [height] at most (infinite: no limit),
-/// set smaller as a whole when the words leave the portrait too little.
-class _Content extends StatelessWidget {
+/// The portrait over the words, in [height] at most (infinite: no limit).
+/// The words are in the mock's type; when that leaves the portrait less
+/// than its least share, the next frame sets them in the compact type (one
+/// set of words in the tree, never both), and when even that is too tall the
+/// whole is set smaller.
+class _Content extends StatefulWidget {
   const _Content({
     required this.page,
     required this.index,
@@ -151,45 +159,85 @@ class _Content extends StatelessWidget {
   final bool fill;
 
   @override
+  State<_Content> createState() => _ContentState();
+}
+
+class _ContentState extends State<_Content> {
+  /// The words are compact, for the room this was found in.
+  Object? _compactFor;
+
+  /// What the choice depends on: the page, the room, the text size.
+  Object _room(double width) => (
+    widget.page.spoken,
+    widget.height,
+    widget.fill,
+    width,
+    MediaQuery.textScalerOf(context),
+  );
+
+  @override
   Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.topCenter,
-      child: SizedBox(
-        width: constraints.maxWidth,
-        child: _PortraitOverWords(
-          height: height,
-          fill: fill,
-          children: [
-            _Portrait(page.portrait),
-            _Words(page: page, index: index, pages: pages),
-          ],
+    builder: (context, constraints) {
+      final room = _room(constraints.maxWidth);
+      final compact = _compactFor == room;
+      return FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          width: constraints.maxWidth,
+          child: _PortraitOverWords(
+            height: widget.height,
+            fill: widget.fill,
+            onCramped: compact
+                ? null
+                : () => WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _compactFor = room);
+                  }),
+            children: [
+              _Portrait(widget.page.portrait),
+              _Words(
+                page: widget.page,
+                index: widget.index,
+                pages: widget.pages,
+                compact: compact,
+              ),
+            ],
+          ),
         ),
-      ),
-    ),
+      );
+    },
   );
 }
 
-/// The page's name, tag, lines and page dots, in the paper's ink.
+/// The page's name, tag, lines and page dots, in the paper's ink: in the
+/// mock's type, or [compact] (a heading-size name, 16 px lines, closer).
 class _Words extends StatelessWidget {
-  const _Words({required this.page, required this.index, required this.pages});
+  const _Words({
+    required this.page,
+    required this.index,
+    required this.pages,
+    required this.compact,
+  });
 
   final FacePage page;
   final int index;
   final int pages;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ink = context.ground.text;
     final type = skin.typography;
+    final name = compact ? type.headline : type.heroRole;
+    final body = compact ? type.body : type.bodyLarge;
     return Padding(
       // S04: the description sits 8 in from the portrait's edges.
       padding: const EdgeInsets.symmetric(horizontal: Space.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
-        spacing: Space.sm,
+        spacing: compact ? Space.xs : Space.sm,
         children: [
           if (page.name != null || page.tag != null)
             Row(
@@ -202,7 +250,7 @@ class _Words extends StatelessWidget {
                           alignment: AlignmentDirectional.centerStart,
                           child: FitLine(
                             page.name!,
-                            style: type.heroRole.copyWith(color: ink),
+                            style: name.copyWith(color: ink),
                           ),
                         ),
                 ),
@@ -210,7 +258,7 @@ class _Words extends StatelessWidget {
               ],
             ),
           for (final line in page.lines)
-            Text(line, style: type.bodyLarge.copyWith(color: ink)),
+            _Balanced(line, style: body.copyWith(color: ink)),
           if (pages > 1) _Dots(current: index, count: pages),
         ],
       ),
@@ -218,8 +266,74 @@ class _Words extends StatelessWidget {
   }
 }
 
-/// The face's portrait: a role, or the moon over the sleeping village (a
-/// page that saw no card).
+/// A paragraph that never ends on one word alone (a widow): set at the full
+/// width, and only when its last line would hold a single word, as narrow
+/// as it can be in the same number of lines (CSS's `text-wrap: balance`),
+/// which brings a word or two down to keep it company.
+class _Balanced extends StatelessWidget {
+  const _Balanced(this.text, {required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  /// The width to set [painter]'s text at in [width]: [width], or the
+  /// balanced width when the last line would be one word.
+  static double balanced(TextPainter painter, double width) {
+    painter.layout(maxWidth: width);
+    final lines = painter.computeLineMetrics();
+    if (lines.length <= 1) return width;
+    final last = lines.last;
+    final start = painter.getPositionForOffset(
+      Offset(0, last.baseline - last.ascent / 2),
+    );
+    final tail = painter.plainText.substring(start.offset).trim();
+    if (tail.contains(' ')) return width;
+    var low = width / 2;
+    var high = width;
+    for (var i = 0; i < 10; i++) {
+      final middle = (low + high) / 2;
+      painter.layout(maxWidth: middle);
+      if (painter.computeLineMetrics().length > lines.length) {
+        low = middle;
+      } else {
+        high = middle;
+      }
+    }
+    return high;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          textScaler: scaler,
+          textDirection: Directionality.of(context),
+        );
+        final width = constraints.hasBoundedWidth
+            ? balanced(painter, constraints.maxWidth)
+            : null;
+        painter.dispose();
+        return Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: SizedBox(
+            // A hair over the measured width: the paragraph lays out as
+            // measured, whatever the rounding.
+            width: width == null
+                ? null
+                : math.min(constraints.maxWidth, width + 0.5),
+            child: Text(text, style: style),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The face's portrait: a role, cut around its face; or the moon over the
+/// sleeping village (a page that saw no card).
 class _Portrait extends StatelessWidget {
   const _Portrait(this.portrait);
 
@@ -231,25 +345,31 @@ class _Portrait extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
-    final ring = context.ground.hairline;
+    final radius = BorderRadius.circular(skin.shape.radiusTiny);
     return Container(
       foregroundDecoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
-        border: Border.all(color: ring, width: skin.shape.ring),
+        borderRadius: radius,
+        border: Border.all(
+          color: context.ground.hairline,
+          width: skin.shape.ring,
+        ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
-        child: switch (portrait) {
-          RoleFacePortrait(:final role) => ArtPicture(
-            skin.art.role(role),
-            decodeAt: HeldFace.portraitBox,
-          ),
-          MoonFacePortrait() => ArtPicture(
-            skin.art.sleepingVillage,
-            focus: moonFocus,
-            decodeAt: HeldFace.portraitBox,
-          ),
-        },
+        borderRadius: radius,
+        child: LayoutBuilder(
+          builder: (context, box) => switch (portrait) {
+            RoleFacePortrait(:final role) => ArtPicture(
+              skin.art.role(role),
+              focus: skin.art.portraitCrop(role, box.biggest),
+              decodeAt: HeldFace.portraitBox,
+            ),
+            MoonFacePortrait() => ArtPicture(
+              skin.art.sleepingVillage,
+              focus: moonFocus,
+              decodeAt: HeldFace.portraitBox,
+            ),
+          },
+        ),
       ),
     );
   }
@@ -282,23 +402,30 @@ class _Dots extends StatelessWidget {
 }
 
 /// Lays the portrait (first child) over the words (second), [HeldFace.gap]
-/// apart: the words at their own height, the portrait as tall as [height]
-/// leaves ([fill]) or its natural shape, whichever is less (otherwise), and
-/// never less than [HeldFace.minPortraitShare] of the width (then the whole
-/// is taller than [height] and the caller sets it smaller).
+/// apart. The portrait is as tall as [height] leaves ([fill]) or its
+/// natural shape, whichever is less (otherwise), and never less than
+/// [HeldFace.minPortraitShare] of the width: when the words leave it less,
+/// [onCramped] is told (the words step down), and the whole is taller than
+/// [height] (the caller sets it smaller).
 class _PortraitOverWords extends MultiChildRenderObjectWidget {
   const _PortraitOverWords({
     required this.height,
     required this.fill,
+    required this.onCramped,
     required super.children,
   });
 
   final double height;
   final bool fill;
+  final VoidCallback? onCramped;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderPortraitOverWords(height: height, fill: fill);
+      _RenderPortraitOverWords(
+        height: height,
+        fill: fill,
+        onCramped: onCramped,
+      );
 
   @override
   void updateRenderObject(
@@ -306,7 +433,8 @@ class _PortraitOverWords extends MultiChildRenderObjectWidget {
     _RenderPortraitOverWords renderObject,
   ) => renderObject
     ..height = height
-    ..fill = fill;
+    ..fill = fill
+    ..onCramped = onCramped;
 }
 
 class _Slot extends ContainerBoxParentData<RenderBox> {}
@@ -315,9 +443,12 @@ class _RenderPortraitOverWords extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _Slot>,
         RenderBoxContainerDefaultsMixin<RenderBox, _Slot> {
-  _RenderPortraitOverWords({required double height, required bool fill})
-    : _height = height,
-      _fill = fill;
+  _RenderPortraitOverWords({
+    required double height,
+    required bool fill,
+    this.onCramped,
+  }) : _height = height,
+       _fill = fill;
 
   double _height;
   set height(double value) {
@@ -333,28 +464,67 @@ class _RenderPortraitOverWords extends RenderBox
     markNeedsLayout();
   }
 
+  VoidCallback? onCramped;
+
+  RenderBox get _portrait => firstChild!;
+  RenderBox get _words => childAfter(_portrait)!;
+
   @override
   void setupParentData(RenderBox child) {
     if (child.parentData is! _Slot) child.parentData = _Slot();
   }
 
+  /// The portrait's height for [width] under words [words] tall, and
+  /// whether that is the least it keeps (the words cramp it).
+  (double, bool) _portraitFor(double width, double words) {
+    final least = width * HeldFace.minPortraitShare;
+    final room = _height - words - HeldFace.gap;
+    final wanted = _fill && _height.isFinite
+        ? room
+        : math.min(width * HeldFace.portraitShape, room);
+    return wanted < least ? (least, true) : (wanted, false);
+  }
+
+  double _heightFor(double width, double words) =>
+      _portraitFor(width, words).$1 + HeldFace.gap + words;
+
+  @override
+  Size computeDryLayout(covariant BoxConstraints constraints) {
+    final width = constraints.maxWidth;
+    final words = _words
+        .getDryLayout(BoxConstraints.tightFor(width: width))
+        .height;
+    return constraints.constrain(Size(width, _heightFor(width, words)));
+  }
+
   @override
   void performLayout() {
     final width = constraints.maxWidth;
-    final portrait = firstChild!;
-    final words = childAfter(portrait)!;
-    words.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
-    final room = _height - words.size.height - HeldFace.gap;
-    final natural = width * HeldFace.portraitShape;
-    var tall = _fill && _height.isFinite ? room : math.min(natural, room);
-    tall = math.max(tall, width * HeldFace.minPortraitShare);
-    portrait.layout(BoxConstraints.tight(Size(width, tall)));
-    (portrait.parentData! as _Slot).offset = Offset.zero;
-    (words.parentData! as _Slot).offset = Offset(0, tall + HeldFace.gap);
+    _words.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
+    final (portrait, cramped) = _portraitFor(width, _words.size.height);
+    if (cramped) onCramped?.call();
+    _portrait.layout(BoxConstraints.tight(Size(width, portrait)));
+    (_portrait.parentData! as _Slot).offset = Offset.zero;
+    (_words.parentData! as _Slot).offset = Offset(0, portrait + HeldFace.gap);
     size = constraints.constrain(
-      Size(width, tall + HeldFace.gap + words.size.height),
+      Size(width, portrait + HeldFace.gap + _words.size.height),
     );
   }
+
+  @override
+  double computeMinIntrinsicWidth(double height) => 0;
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      _words.getMaxIntrinsicWidth(double.infinity);
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      _heightFor(width, _words.getMinIntrinsicHeight(width));
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      _heightFor(width, _words.getMaxIntrinsicHeight(width));
 
   @override
   void paint(PaintingContext context, Offset offset) =>

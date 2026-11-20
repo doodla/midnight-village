@@ -78,6 +78,7 @@ final screenCatalogue = <ScreenEntry>[
   ..._rebuilt('04-your-card', '04-your-card.png', {
     '': pumpYourCard,
     '-held': pumpYourCardHeld,
+    '-held-minion': pumpYourCardHeldMinion,
     '-ready': pumpYourCardReady,
     '-x1.3': (tester) => pumpYourCard(tester, textScale: 1.3),
   }),
