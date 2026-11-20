@@ -24,9 +24,13 @@ import 'sheet_data.dart';
 /// locked until a 0.8 s reveal (a tap on it replays the hold cue); plain
 /// pips.
 class CardPage extends StatefulWidget {
-  const CardPage({super.key, required this.viewer});
+  const CardPage({super.key, required this.viewer, this.look});
 
   final Viewer viewer;
+
+  /// The viewer's own `/me/` in the look stage (its card and the count);
+  /// game 7's Ana's count with [viewer]'s card when not given.
+  final Map<String, dynamic>? look;
 
   @override
   State<CardPage> createState() => _CardPageState();
@@ -34,7 +38,12 @@ class CardPage extends StatefulWidget {
 
 class _CardPageState extends State<CardPage> {
   /// Game 7's look stage: who has looked, as the server counts it.
-  final _look = recordedMe('me_look_stage')['progress'] as Map<String, dynamic>;
+  late final _look =
+      (widget.look ?? recordedMe('me_look_stage'))['progress']
+          as Map<String, dynamic>;
+  late final _face = widget.look == null
+      ? widget.viewer.card
+      : NightReport.fromMe(widget.look!).card;
   final _replay = CueReplay();
   var _revealed = false;
 
@@ -61,7 +70,7 @@ class _CardPageState extends State<CardPage> {
           ),
           TeachingHold(
             target: CardCopy.headline,
-            face: widget.viewer.card,
+            face: _face,
             replay: _replay,
             inPlace: true,
             onRevealed: () => setState(() => _revealed = true),
@@ -133,12 +142,16 @@ class BoardPage extends StatelessWidget {
     this.table,
     this.textScale = 1,
     this.fails = false,
+    this.secondsLeft = 14,
   });
 
   final Viewer viewer;
   final Map<String, dynamic> Function(Map<String, dynamic> me)? table;
   final double textScale;
   final bool fails;
+
+  /// What the candle's number says.
+  final int secondsLeft;
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +166,7 @@ class BoardPage extends StatelessWidget {
         selfId: selfIn(me),
         prompt: prompt,
         face: NightReport.fromMe(me).you(prompt),
-        secondsLeft: 14,
+        secondsLeft: secondsLeft,
         onChoose: (_, _) async =>
             fails ? ChooseAnswer.notSent : ChooseAnswer.taken,
       ),

@@ -30,7 +30,11 @@ enum EndGame {
   tanner,
 
   /// Ten at the table with long names (the Doppelganger's game, widened).
-  tenLong;
+  tenLong,
+
+  /// Recorded (`results_five`): game 7, the cold-read pack's. Cleo, the
+  /// Werewolf, is voted out; the village wins.
+  five;
 
   Map<String, dynamic> get body => switch (this) {
     hunter => recordedResults('results'),
@@ -42,6 +46,7 @@ enum EndGame {
       add: 2,
       rename: longEndNames,
     ),
+    five => recordedResults('results_five'),
   };
 
   /// The host's name at that table.
@@ -91,16 +96,20 @@ class ResultsPage extends StatelessWidget {
     required this.viewer,
     this.game = EndGame.hunter,
     this.guest = false,
+    this.viewerId,
   });
 
   final Viewer viewer;
   final EndGame game;
   final bool guest;
 
+  /// The phone's own seat, when it is not [viewer]'s ([endViewerId]).
+  final int? viewerId;
+
   @override
   Widget build(BuildContext context) => ResultsView(
     outcome: outcomeOf(game.body),
-    viewerId: endViewerId(game, viewer),
+    viewerId: viewerId ?? endViewerId(game, viewer),
     host: !guest,
     hostName: game.host,
     onPlayAgain: () {},

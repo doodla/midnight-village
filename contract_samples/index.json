@@ -666,6 +666,38 @@
       "description": "Acknowledging results of a game that does not exist."
     },
     {
+      "name": "http/game/pack_look_robber",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The playtest pack's guest (game 7): Ben's /me/ in the look stage, before he has looked (Ana has)."
+    },
+    {
+      "name": "http/game/pack_look_villager",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The playtest pack's sleeper (game 7): Esme's /me/ in the look stage, the last to look."
+    },
+    {
+      "name": "http/game/pack_vote_robber",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The playtest pack (game 7): Ben's /me/ as the vote opens."
+    },
+    {
+      "name": "http/game/pack_vote_villager",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The playtest pack (game 7): Esme's /me/ as the vote opens."
+    },
+    {
       "name": "http/game/players_discussion",
       "kind": "http",
       "method": "GET",

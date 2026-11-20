@@ -1115,7 +1115,25 @@ def _plain_choose_table(run: Recording) -> None:
         status=200,
         about="/me/ in the look stage after tapping ready.",
     )
+    t.record(
+        "game/pack_look_robber",
+        "GET",
+        "Ben",
+        ME,
+        status=200,
+        about="The playtest pack's guest (game 7): Ben's /me/ in the look stage, "
+        "before he has looked (Ana has).",
+    )
     _everyone(t, names[1:4], GAME_READY, {"ready": True})
+    t.record(
+        "game/pack_look_villager",
+        "GET",
+        "Esme",
+        ME,
+        status=200,
+        about="The playtest pack's sleeper (game 7): Esme's /me/ in the look "
+        "stage, the last to look.",
+    )
     since_night = t.mark()
     t.call("POST", "Esme", GAME_READY, {"ready": True})
     t.record_sequence(
@@ -1345,6 +1363,15 @@ def _plain_choose_table(run: Recording) -> None:
         about="/me/ in the vote before the caller has picked anyone (`my_vote` "
         "is null).",
     )
+    for name, kind in [("Ben", "robber"), ("Esme", "villager")]:
+        t.record(
+            f"game/pack_vote_{kind}",
+            "GET",
+            name,
+            ME,
+            status=200,
+            about=f"The playtest pack (game 7): {name}'s /me/ as the vote opens.",
+        )
     t.record(
         "game/end_discussion_wrong_stage",
         "POST",

@@ -257,3 +257,58 @@ Future<void> _openDeck(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 50));
   }
 }
+
+// ---------------------------------------------------------------------------
+// The cold-read pack's table (game 7): its own recorded lobby bodies
+// ---------------------------------------------------------------------------
+
+/// 02 on [viewer]'s phone at the table of `contract_samples/http/lobby/
+/// [sample].json`.
+Future<void> pumpTableOf(WidgetTester tester, String sample, String viewer) =>
+    TableSetup.pump(tester, lobby: v2Lobby(sample), viewer: viewer);
+
+/// 03 opened from that 02; with [edit] its grid opened on the chip's cards,
+/// with [role] a card of it held (03b).
+Future<void> pumpDeckOf(
+  WidgetTester tester,
+  String sample,
+  String viewer, {
+  bool edit = false,
+  bool role = false,
+}) async {
+  await pumpTableOf(tester, sample, viewer);
+  await _openDeck(tester);
+  if (!edit && !role) return;
+  final open = find.text(TableCopy.editDeck);
+  await tester.ensureVisible(open);
+  await tester.pumpAndSettle();
+  await tester.tap(open);
+  await tester.pump(const Duration(milliseconds: 300));
+  if (!role) return;
+  await tester.longPress(
+    find.byWidgetPredicate(
+      (w) => w is RoleCard && w.role == RoleId.troublemaker,
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+/// 01 from the table's link, signed out; with [name] typed.
+Future<void> pumpJoinLinkTo(
+  WidgetTester tester,
+  String code, {
+  String? name,
+}) async {
+  await TableSetup.pump(tester, route: '/join/$code');
+  if (name == null) return;
+  await tester.enterText(find.byType(TextField), name);
+  await tester.pump();
+}
+
+/// 01 on a new phone; with [name] typed.
+Future<void> pumpJoinAs(WidgetTester tester, {String? name}) async {
+  await pumpJoinFresh(tester);
+  if (name == null) return;
+  await tester.enterText(find.byType(TextField), name);
+  await tester.pump();
+}
