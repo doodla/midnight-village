@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_exception.dart';
@@ -160,16 +161,24 @@ class GameService {
 
   // ---------------------------------------------------------------------------
   // Night protocol 2. Every stage-scoped request echoes `/me/`'s `stage` and
-  // answers a [StageAnswer]: a 409 is "fetch /me/ again", never an error.
+  // answers a [StageReply]: a 409 is "fetch /me/ again", never an error.
   // ---------------------------------------------------------------------------
 
   /// `GET /onuw/games/{id}/me/` of a protocol-2 game.
-  Future<GameMe> fetchMe(String gameId) async {
+  Future<GameMe> fetchMe(String gameId) async =>
+      (await fetchMeTimed(gameId)).me;
+
+  /// [fetchMe] with the server's clock at the answer (its `Date` header),
+  /// when the response lets the app read it.
+  Future<FetchedMe> fetchMeTimed(String gameId) async {
     try {
       final response = await _client.get<Map<String, dynamic>>(
         '/onuw/games/$gameId/me/',
       );
-      return GameMe.fromJson(response.data!);
+      return FetchedMe(
+        GameMe.fromJson(response.data!),
+        serverDate: parseHttpDate(response.headers.value('date')),
+      );
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -179,71 +188,92 @@ class GameService {
   Future<GameOutcome> fetchOutcome(String gameId) async =>
       GameOutcome.fromJson(await fetchResults(gameId));
 
-  Future<StageAnswer> _stage(String path, Map<String, Object> body) async {
+  /// Sends [request] (choose, ready, vote or the results ack) as it is.
+  Future<StageReply> send(String gameId, StageRequest request) =>
+      _stage(switch (request) {
+        ChooseRequest() => '/onuw/games/$gameId/action/',
+        ReadyRequest() => '/onuw/games/$gameId/ready/',
+        VoteRequest() => '/onuw/games/$gameId/vote/',
+        AckRequest() => '/onuw/games/$gameId/night-results/seen/',
+      }, request.toJson());
+
+  Future<StageReply> _stage(String path, Map<String, Object> body) async {
     try {
-      await _client.post<Map<String, dynamic>>(path, data: body);
-      return StageAnswer.taken;
+      final response = await _client.post<Map<String, dynamic>>(
+        path,
+        data: body,
+      );
+      return StageReply(StageAnswer.taken, response.data);
     } on DioException catch (e) {
       final answer = stageAnswerOf(e);
       logger.d(
         'GameService: $path answered ${e.response?.statusCode} '
         '(${answer.name})',
       );
-      return answer;
+      return StageReply(answer);
     }
   }
 
-  /// `POST .../action/` `{"action_type": "choose", "picks", "stage"}`.
-  Future<StageAnswer> choose(String gameId, ChooseRequest request) =>
-      _stage('/onuw/games/$gameId/action/', request.toJson());
-
-  /// `POST .../ready/` `{"ready", "stage"}`: "I've looked at my card" at the
-  /// look (true only), "ready to vote" in the talk (true or false).
-  Future<StageAnswer> setReady(
-    String gameId, {
-    required String stage,
-    required bool ready,
-  }) => _stage('/onuw/games/$gameId/ready/', {'ready': ready, 'stage': stage});
-
-  /// `POST .../vote/` `{"target_player_id", "lock", "stage"}`: a pick
-  /// (`lock: false`, may change) or locking in (final; it carries the target,
-  /// so a lost pick can never lock the wrong name).
-  Future<StageAnswer> vote(
-    String gameId, {
-    required String stage,
-    required int targetId,
-    required bool lock,
-  }) => _stage('/onuw/games/$gameId/vote/', {
-    'target_player_id': targetId,
-    'lock': lock,
-    'stage': stage,
-  });
-
-  /// `POST .../night-results/seen/` `{"seen": n}`: this phone has shown the
-  /// first [seen] night results. Answers the stored (monotonic) count.
-  Future<int> acknowledgeNightResults(String gameId, int seen) async {
-    try {
-      final response = await _client.post<Map<String, dynamic>>(
-        '/onuw/games/$gameId/night-results/seen/',
-        data: {'seen': seen},
-      );
-      return response.data!['night_results_seen'] as int;
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
+  // The host's stage requests. The contract keeps them under protocol 2
+  // (each names its stage); the rebuilt screens have no button for them
+  // (first-time play spec: the look, the talk and the vote never wait on the
+  // host), so nothing in the app calls them. Delete them if the contract
+  // drops them.
 
   /// Host: open the night now (look) or close the window now, for [stage].
   Future<StageAnswer> advanceStage(String gameId, {required String stage}) =>
-      _stage('/onuw/games/$gameId/advance-wave/', {'stage': stage});
+      _hostStage('/onuw/games/$gameId/advance-wave/', stage);
 
   /// Host: end the talk now, for [stage].
   Future<StageAnswer> endTalk(String gameId, {required String stage}) =>
-      _stage('/onuw/games/$gameId/end-discussion/', {'stage': stage});
+      _hostStage('/onuw/games/$gameId/end-discussion/', stage);
 
   /// Host: reveal the votes now, for [stage].
   Future<StageAnswer> revealVotesAt(String gameId, {required String stage}) =>
-      _stage('/onuw/games/$gameId/reveal-votes/', {'stage': stage});
+      _hostStage('/onuw/games/$gameId/reveal-votes/', stage);
+
+  Future<StageAnswer> _hostStage(String path, String stage) async =>
+      (await _stage(path, {'stage': stage})).answer;
+}
+
+/// A `/me/` and the server's clock when it answered (null: not readable,
+/// e.g. a browser that is not shown the `Date` header).
+@immutable
+class FetchedMe {
+  const FetchedMe(this.me, {this.serverDate});
+
+  final GameMe me;
+  final DateTime? serverDate;
+}
+
+const _months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+final _httpDate = RegExp(
+  r'^\w{3}, (\d{2}) (\w{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) GMT$',
+);
+
+/// An HTTP date (`Thu, 07 Mar 2024 21:13:00 GMT`, RFC 9110), or null when
+/// there is none or it cannot be read.
+DateTime? parseHttpDate(String? value) {
+  final match = _httpDate.firstMatch(value?.trim() ?? '');
+  if (match == null) return null;
+  final month = _months.indexOf(match.group(2)!);
+  if (month < 0) return null;
+  int part(int i) => int.parse(match.group(i)!);
+  return DateTime.utc(part(3), month + 1, part(1), part(4), part(5), part(6));
 }
 
 /// Provides the game service with an authenticated client.

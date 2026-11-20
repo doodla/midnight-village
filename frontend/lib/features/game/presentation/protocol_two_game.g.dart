@@ -8,36 +8,134 @@ part of 'protocol_two_game.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
+
+@ProviderFor(healTiming)
+const healTimingProvider = HealTimingProvider._();
+
+final class HealTimingProvider
+    extends $FunctionalProvider<HealTiming, HealTiming, HealTiming>
+    with $Provider<HealTiming> {
+  const HealTimingProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'healTimingProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$healTimingHash();
+
+  @$internal
+  @override
+  $ProviderElement<HealTiming> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  HealTiming create(Ref ref) {
+    return healTiming(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(HealTiming value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<HealTiming>(value),
+    );
+  }
+}
+
+String _$healTimingHash() => r'c64c9b0391f799d323e9d1cff22c6c37b64b8ea2';
+
+/// Counts the app coming back to the foreground (each value a new resume).
+
+@ProviderFor(appResumes)
+const appResumesProvider = AppResumesProvider._();
+
+/// Counts the app coming back to the foreground (each value a new resume).
+
+final class AppResumesProvider
+    extends $FunctionalProvider<AsyncValue<int>, int, Stream<int>>
+    with $FutureModifier<int>, $StreamProvider<int> {
+  /// Counts the app coming back to the foreground (each value a new resume).
+  const AppResumesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'appResumesProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$appResumesHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<int> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<int> create(Ref ref) {
+    return appResumes(ref);
+  }
+}
+
+String _$appResumesHash() => r'ebcdbb303b188fcc6a52cd00bd80c1e8232ba161';
+
 /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-/// old screens keep [GameNotifier] on protocol 1).
+/// old screens keep [GameNotifier] on protocol 1). The game id comes from
+/// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
-/// The one rule: the screen is a function of fetched state. Socket events
-/// only ask for `/me/` again or update a value `/me/` holds in the same form
-/// ([GameEvent]); a missed event is healed by the next fetch (reconnect, the
-/// stage's deadline, the next event), so events in any order, repeated or
-/// dropped, then a fetch, end in the same state as a cold start.
+/// Server state in: `/me/` fetches go out one at a time (a request made
+/// while one is out runs once after it), each numbered; a reply older than
+/// one applied, or of an earlier stage, is dropped. Socket events only ask
+/// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
+/// reconnect, resume and the stage's deadline fetch too, so anything missed
+/// heals and the screen is a function of fetched state alone.
+///
+/// Taps out: through the [Outbox], one request per kind in flight, later
+/// taps coalescing to the latest, each keyed to its stage (and turn) and
+/// dropped when that ends. The shown state is derived from it.
 
 @ProviderFor(ProtocolTwoGameNotifier)
 const protocolTwoGameProvider = ProtocolTwoGameNotifierFamily._();
 
 /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-/// old screens keep [GameNotifier] on protocol 1).
+/// old screens keep [GameNotifier] on protocol 1). The game id comes from
+/// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
-/// The one rule: the screen is a function of fetched state. Socket events
-/// only ask for `/me/` again or update a value `/me/` holds in the same form
-/// ([GameEvent]); a missed event is healed by the next fetch (reconnect, the
-/// stage's deadline, the next event), so events in any order, repeated or
-/// dropped, then a fetch, end in the same state as a cold start.
+/// Server state in: `/me/` fetches go out one at a time (a request made
+/// while one is out runs once after it), each numbered; a reply older than
+/// one applied, or of an earlier stage, is dropped. Socket events only ask
+/// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
+/// reconnect, resume and the stage's deadline fetch too, so anything missed
+/// heals and the screen is a function of fetched state alone.
+///
+/// Taps out: through the [Outbox], one request per kind in flight, later
+/// taps coalescing to the latest, each keyed to its stage (and turn) and
+/// dropped when that ends. The shown state is derived from it.
 final class ProtocolTwoGameNotifierProvider
     extends $AsyncNotifierProvider<ProtocolTwoGameNotifier, ProtocolTwoGame> {
   /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-  /// old screens keep [GameNotifier] on protocol 1).
+  /// old screens keep [GameNotifier] on protocol 1). The game id comes from
+  /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
   ///
-  /// The one rule: the screen is a function of fetched state. Socket events
-  /// only ask for `/me/` again or update a value `/me/` holds in the same form
-  /// ([GameEvent]); a missed event is healed by the next fetch (reconnect, the
-  /// stage's deadline, the next event), so events in any order, repeated or
-  /// dropped, then a fetch, end in the same state as a cold start.
+  /// Server state in: `/me/` fetches go out one at a time (a request made
+  /// while one is out runs once after it), each numbered; a reply older than
+  /// one applied, or of an earlier stage, is dropped. Socket events only ask
+  /// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
+  /// reconnect, resume and the stage's deadline fetch too, so anything missed
+  /// heals and the screen is a function of fetched state alone.
+  ///
+  /// Taps out: through the [Outbox], one request per kind in flight, later
+  /// taps coalescing to the latest, each keyed to its stage (and turn) and
+  /// dropped when that ends. The shown state is derived from it.
   const ProtocolTwoGameNotifierProvider._({
     required ProtocolTwoGameNotifierFamily super.from,
     required String super.argument,
@@ -76,16 +174,22 @@ final class ProtocolTwoGameNotifierProvider
 }
 
 String _$protocolTwoGameNotifierHash() =>
-    r'0253d13160a374cec20a258f329007926fa6faf2';
+    r'8c908891efe3c3a7138d86168c2c4c56bb46182f';
 
 /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-/// old screens keep [GameNotifier] on protocol 1).
+/// old screens keep [GameNotifier] on protocol 1). The game id comes from
+/// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
-/// The one rule: the screen is a function of fetched state. Socket events
-/// only ask for `/me/` again or update a value `/me/` holds in the same form
-/// ([GameEvent]); a missed event is healed by the next fetch (reconnect, the
-/// stage's deadline, the next event), so events in any order, repeated or
-/// dropped, then a fetch, end in the same state as a cold start.
+/// Server state in: `/me/` fetches go out one at a time (a request made
+/// while one is out runs once after it), each numbered; a reply older than
+/// one applied, or of an earlier stage, is dropped. Socket events only ask
+/// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
+/// reconnect, resume and the stage's deadline fetch too, so anything missed
+/// heals and the screen is a function of fetched state alone.
+///
+/// Taps out: through the [Outbox], one request per kind in flight, later
+/// taps coalescing to the latest, each keyed to its stage (and turn) and
+/// dropped when that ends. The shown state is derived from it.
 
 final class ProtocolTwoGameNotifierFamily extends $Family
     with
@@ -106,13 +210,19 @@ final class ProtocolTwoGameNotifierFamily extends $Family
       );
 
   /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-  /// old screens keep [GameNotifier] on protocol 1).
+  /// old screens keep [GameNotifier] on protocol 1). The game id comes from
+  /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
   ///
-  /// The one rule: the screen is a function of fetched state. Socket events
-  /// only ask for `/me/` again or update a value `/me/` holds in the same form
-  /// ([GameEvent]); a missed event is healed by the next fetch (reconnect, the
-  /// stage's deadline, the next event), so events in any order, repeated or
-  /// dropped, then a fetch, end in the same state as a cold start.
+  /// Server state in: `/me/` fetches go out one at a time (a request made
+  /// while one is out runs once after it), each numbered; a reply older than
+  /// one applied, or of an earlier stage, is dropped. Socket events only ask
+  /// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
+  /// reconnect, resume and the stage's deadline fetch too, so anything missed
+  /// heals and the screen is a function of fetched state alone.
+  ///
+  /// Taps out: through the [Outbox], one request per kind in flight, later
+  /// taps coalescing to the latest, each keyed to its stage (and turn) and
+  /// dropped when that ends. The shown state is derived from it.
 
   ProtocolTwoGameNotifierProvider call(String gameId) =>
       ProtocolTwoGameNotifierProvider._(argument: gameId, from: this);
@@ -122,13 +232,19 @@ final class ProtocolTwoGameNotifierFamily extends $Family
 }
 
 /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-/// old screens keep [GameNotifier] on protocol 1).
+/// old screens keep [GameNotifier] on protocol 1). The game id comes from
+/// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
-/// The one rule: the screen is a function of fetched state. Socket events
-/// only ask for `/me/` again or update a value `/me/` holds in the same form
-/// ([GameEvent]); a missed event is healed by the next fetch (reconnect, the
-/// stage's deadline, the next event), so events in any order, repeated or
-/// dropped, then a fetch, end in the same state as a cold start.
+/// Server state in: `/me/` fetches go out one at a time (a request made
+/// while one is out runs once after it), each numbered; a reply older than
+/// one applied, or of an earlier stage, is dropped. Socket events only ask
+/// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
+/// reconnect, resume and the stage's deadline fetch too, so anything missed
+/// heals and the screen is a function of fetched state alone.
+///
+/// Taps out: through the [Outbox], one request per kind in flight, later
+/// taps coalescing to the latest, each keyed to its stage (and turn) and
+/// dropped when that ends. The shown state is derived from it.
 
 abstract class _$ProtocolTwoGameNotifier
     extends $AsyncNotifier<ProtocolTwoGame> {
@@ -151,101 +267,4 @@ abstract class _$ProtocolTwoGameNotifier
             >;
     element.handleValue(ref, created);
   }
-}
-
-/// The screen for game [gameId] (night protocol 2), from `/me/table/` and the
-/// game's `/me/`: loading until both are in.
-
-@ProviderFor(protocolTwoScreen)
-const protocolTwoScreenProvider = ProtocolTwoScreenFamily._();
-
-/// The screen for game [gameId] (night protocol 2), from `/me/table/` and the
-/// game's `/me/`: loading until both are in.
-
-final class ProtocolTwoScreenProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<AppScreen>,
-          AsyncValue<AppScreen>,
-          AsyncValue<AppScreen>
-        >
-    with $Provider<AsyncValue<AppScreen>> {
-  /// The screen for game [gameId] (night protocol 2), from `/me/table/` and the
-  /// game's `/me/`: loading until both are in.
-  const ProtocolTwoScreenProvider._({
-    required ProtocolTwoScreenFamily super.from,
-    required String super.argument,
-  }) : super(
-         retry: null,
-         name: r'protocolTwoScreenProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
-
-  @override
-  String debugGetCreateSourceHash() => _$protocolTwoScreenHash();
-
-  @override
-  String toString() {
-    return r'protocolTwoScreenProvider'
-        ''
-        '($argument)';
-  }
-
-  @$internal
-  @override
-  $ProviderElement<AsyncValue<AppScreen>> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
-
-  @override
-  AsyncValue<AppScreen> create(Ref ref) {
-    final argument = this.argument as String;
-    return protocolTwoScreen(ref, argument);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(AsyncValue<AppScreen> value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<AsyncValue<AppScreen>>(value),
-    );
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return other is ProtocolTwoScreenProvider && other.argument == argument;
-  }
-
-  @override
-  int get hashCode {
-    return argument.hashCode;
-  }
-}
-
-String _$protocolTwoScreenHash() => r'e58d971280ced02abd657c193968d91ecf741e28';
-
-/// The screen for game [gameId] (night protocol 2), from `/me/table/` and the
-/// game's `/me/`: loading until both are in.
-
-final class ProtocolTwoScreenFamily extends $Family
-    with $FunctionalFamilyOverride<AsyncValue<AppScreen>, String> {
-  const ProtocolTwoScreenFamily._()
-    : super(
-        retry: null,
-        name: r'protocolTwoScreenProvider',
-        dependencies: null,
-        $allTransitiveDependencies: null,
-        isAutoDispose: true,
-      );
-
-  /// The screen for game [gameId] (night protocol 2), from `/me/table/` and the
-  /// game's `/me/`: loading until both are in.
-
-  ProtocolTwoScreenProvider call(String gameId) =>
-      ProtocolTwoScreenProvider._(argument: gameId, from: this);
-
-  @override
-  String toString() => r'protocolTwoScreenProvider';
 }

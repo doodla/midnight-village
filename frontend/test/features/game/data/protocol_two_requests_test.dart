@@ -43,11 +43,11 @@ void main() {
 
     test('sends the picks in tap order and echoes the stage', () async {
       answer('/action/', 'game/choose_submitted_seer');
-      final answer_ = await service.choose(
+      final reply = await service.send(
         'g7',
         ChooseRequest.of(seer.prompt!, picks),
       );
-      expect(answer_, ChooseAnswer.taken);
+      expect(reply.answer, ChooseAnswer.taken);
       expect(sent(), {
         'action_type': 'choose',
         'picks': [
@@ -91,7 +91,10 @@ void main() {
       test('$sample ($status) is ${expected.name}, never an error', () async {
         answer('/action/', sample, status: status);
         expect(
-          await service.choose('g7', ChooseRequest.of(seer.prompt!, picks)),
+          (await service.send(
+            'g7',
+            ChooseRequest.of(seer.prompt!, picks),
+          )).answer,
           expected,
         );
       });
@@ -100,7 +103,10 @@ void main() {
     test('no readable answer (a 5xx) is notSent', () async {
       http.answer('POST', '$_game/action/', 'Bad Gateway', status: 502);
       expect(
-        await service.choose('g7', ChooseRequest.of(seer.prompt!, picks)),
+        (await service.send(
+          'g7',
+          ChooseRequest.of(seer.prompt!, picks),
+        )).answer,
         ChooseAnswer.notSent,
       );
     });
@@ -118,17 +124,22 @@ void main() {
     test('ready echoes the stage', () async {
       final look = FromSample.gameMe(recordedMe('me_look_stage'));
       answer('/ready/', 'game/ready_look');
-      expect(
-        await service.setReady('g7', stage: look.stage!, ready: true),
-        ChooseAnswer.taken,
+      final reply = await service.send(
+        'g7',
+        ReadyRequest(look.stage!, ready: true),
       );
+      expect(reply.answer, ChooseAnswer.taken);
+      expect(reply.body!['ready'], isTrue, reason: 'the server echoes it');
       expect(sent(), {'ready': true, 'stage': look.stage});
     });
 
     test('a ready for a stage that is over is stale', () async {
       answer('/ready/', 'game/ready_wrong_stage', status: 409);
       expect(
-        await service.setReady('g7', stage: 'look.x', ready: true),
+        (await service.send(
+          'g7',
+          const ReadyRequest('look.x', ready: true),
+        )).answer,
         ChooseAnswer.stale,
       );
     });
@@ -136,14 +147,21 @@ void main() {
     test('a pick and a lock both carry the target and the stage', () async {
       final vote = FromSample.gameMe(recordedMe('me_voting_picked'));
       answer('/vote/', 'game/vote_picked');
-      await service.vote('g7', stage: vote.stage!, targetId: 29, lock: false);
+      final picked = await service.send(
+        'g7',
+        VoteRequest(vote.stage!, targetId: 29, lock: false),
+      );
+      expect(picked.body!['target_player_id'], 29, reason: 'echoed');
       expect(sent(), {
         'target_player_id': 29,
         'lock': false,
         'stage': vote.stage,
       });
       answer('/vote/', 'game/vote_locked_v2');
-      await service.vote('g7', stage: vote.stage!, targetId: 29, lock: true);
+      await service.send(
+        'g7',
+        VoteRequest(vote.stage!, targetId: 29, lock: true),
+      );
       expect(sent(), {
         'target_player_id': 29,
         'lock': true,
@@ -159,7 +177,10 @@ void main() {
       test('vote: $sample is ${expected.name}', () async {
         answer('/vote/', sample, status: status);
         expect(
-          await service.vote('g7', stage: 'vote.x', targetId: 1, lock: true),
+          (await service.send(
+            'g7',
+            const VoteRequest('vote.x', targetId: 1, lock: true),
+          )).answer,
           expected,
         );
       });
@@ -167,7 +188,8 @@ void main() {
 
     test('night results acknowledged as a count', () async {
       answer('/night-results/seen/', 'game/night_results_seen');
-      expect(await service.acknowledgeNightResults('g7', 1), 1);
+      final reply = await service.send('g7', const AckRequest(1));
+      expect(reply.body!['night_results_seen'], 1);
       expect(sent(), {'seen': 1});
     });
   });
@@ -196,6 +218,15 @@ void main() {
         expect(sent(), {'stage': 'w2.x'});
       });
     }
+  });
+
+  test('the server clock is read from the Date header', () {
+    expect(
+      parseHttpDate('Thu, 07 Mar 2024 21:13:05 GMT'),
+      DateTime.utc(2024, 3, 7, 21, 13, 5),
+    );
+    expect(parseHttpDate(null), isNull);
+    expect(parseHttpDate('yesterday'), isNull);
   });
 
   test('fetchMe reads a protocol-2 /me/', () async {

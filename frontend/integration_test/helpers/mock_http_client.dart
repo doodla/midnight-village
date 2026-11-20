@@ -55,7 +55,7 @@ typedef ResponseCheck =
 /// ```
 class MockHttpClient {
   MockHttpClient() : dio = Dio() {
-    dio.interceptors.add(_MockInterceptor(_registry, requests));
+    dio.interceptors.add(_MockInterceptor(_registry, requests, _holds));
   }
 
   final Dio dio;
@@ -64,7 +64,18 @@ class MockHttpClient {
   /// test can assert what the app sent (method, path, body).
   final List<RequestOptions> requests = [];
   final Map<String, _MockResponse> _registry = {};
+  final Map<String, HeldReplies> _holds = {};
   String? _pendingKey;
+
+  /// From now on, requests for [method] [path] are answered only when the
+  /// test releases them (in any order): a slow network, replies that cross.
+  /// Each held reply is the answer registered when its request was made.
+  HeldReplies hold({required String method, required String path}) =>
+      _holds['${method.toUpperCase()}:$path'] = HeldReplies._();
+
+  /// Answers [method] [path] at once again (held requests stay held).
+  void stopHolding({required String method, required String path}) =>
+      _holds.remove('${method.toUpperCase()}:$path');
 
   /// Run on every body passed to [thenReturn] (unless `offContract`). The
   /// unit and widget tests set it (test/flutter_test_config.dart) to the
@@ -104,6 +115,7 @@ class MockHttpClient {
     _registry[key!] = _MockResponse(
       statusCode: status,
       data: _copy(response.data),
+      headers: response.headers.map,
     );
     _pendingKey = null;
   }
@@ -122,18 +134,44 @@ dynamic _copy(dynamic data) => switch (data) {
   _ => data,
 };
 
+/// Requests waiting for the test to answer them ([MockHttpClient.hold]).
+class HeldReplies {
+  HeldReplies._();
+
+  final List<void Function()> _waiting = [];
+
+  /// How many requests are waiting.
+  int get length => _waiting.length;
+
+  /// Answers the waiting request at [index] (0: the oldest).
+  void release([int index = 0]) => _waiting.removeAt(index)();
+
+  /// Answers every waiting request, oldest first.
+  void releaseAll() {
+    while (_waiting.isNotEmpty) {
+      release();
+    }
+  }
+}
+
 class _MockResponse {
-  const _MockResponse({required this.statusCode, this.data});
+  const _MockResponse({
+    required this.statusCode,
+    this.data,
+    this.headers = const {},
+  });
 
   final int statusCode;
   final dynamic data;
+  final Map<String, List<String>> headers;
 }
 
 class _MockInterceptor extends Interceptor {
-  _MockInterceptor(this._registry, this._requests);
+  _MockInterceptor(this._registry, this._requests, this._holds);
 
   final Map<String, _MockResponse> _registry;
   final List<RequestOptions> _requests;
+  final Map<String, HeldReplies> _holds;
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
@@ -146,19 +184,29 @@ class _MockInterceptor extends Interceptor {
         requestOptions: options,
         statusCode: mock.statusCode,
         data: _copy(mock.data),
+        headers: Headers.fromMap(mock.headers),
       );
-      // An error status fails the request, as it does over the network.
-      if (options.validateStatus(mock.statusCode)) {
-        handler.resolve(response, true);
+      void answer() {
+        // An error status fails the request, as it does over the network.
+        if (options.validateStatus(mock.statusCode)) {
+          handler.resolve(response, true);
+        } else {
+          handler.reject(
+            DioException.badResponse(
+              statusCode: mock.statusCode,
+              requestOptions: options,
+              response: response,
+            ),
+            true,
+          );
+        }
+      }
+
+      final held = _holds[key];
+      if (held != null) {
+        held._waiting.add(answer);
       } else {
-        handler.reject(
-          DioException.badResponse(
-            statusCode: mock.statusCode,
-            requestOptions: options,
-            response: response,
-          ),
-          true,
-        );
+        answer();
       }
     } else {
       final error = UnmockedEndpointException(options.method, options.path);

@@ -58,16 +58,20 @@ class TableView {
         );
 
   /// A lobby body as [viewerId] sees it. A lobby does not say its game's
-  /// phase: a finished table's game is over (results), a running one's is
-  /// read from `/me/`.
+  /// phase, nor whether the viewer plays in it: only a game this phone knows
+  /// it started ([LobbyState.startedGameId]) is named; a finished one is over
+  /// (results), a running one's phase is read from `/me/`.
   factory TableView.fromLobby(LobbyState lobby, {required int viewerId}) {
     final status = TableStatus.fromServer(lobby.status);
+    final gameId = lobby.startedGameId;
     return TableView._(
       atTable: lobby.players.any((p) => p.id == viewerId),
       status: status,
       isHost: lobby.hostId == viewerId,
-      gameId: lobby.startedGameId,
-      gamePhase: status == TableStatus.finished ? GamePhase.results : null,
+      gameId: gameId,
+      gamePhase: gameId != null && status == TableStatus.finished
+          ? GamePhase.results
+          : null,
     );
   }
 
@@ -100,14 +104,15 @@ class LocalSteps {
 /// |---|---|
 /// | at no table | 01 Join |
 /// | table waiting (also after play again, the last game still `results`) | 02 Table; 03 Deck for the host who opened it |
+/// | table playing or finished, no game of this player's named | 02 Table |
 /// | night, window 0 (the look stage) | 04 Your card |
 /// | night, window 1 or 2; or night with no `/me/` yet | night board (05 while loading, 06) |
 /// | discussion | 08 Talk |
 /// | voting | 09 Vote |
 /// | results | 10 The count; 11 Results once "See who won" was tapped |
 ///
-/// `/me/` decides when it is the table's game (or the table names none). The
-/// game phase only moves forward, so when `/me/table/` already names a later
+/// `/me/` decides when it is the table's game. The game phase only moves
+/// forward, so when `/me/table/` already names a later
 /// phase than a `/me/` fetched before it, the later one wins (and the caller
 /// fetches `/me/` again).
 AppScreen screenFor(
@@ -119,9 +124,11 @@ AppScreen screenFor(
   if (table.status == TableStatus.waiting) {
     return table.isHost && local.editingDeck ? AppScreen.deck : AppScreen.table;
   }
-  final own = me != null && (table.gameId == null || me.gameId == table.gameId)
-      ? me
-      : null;
+  final gameId = table.gameId;
+  // A table that names no game of this player's (joined while it played,
+  // or its game is unknown here): the table, never a board that waits.
+  if (gameId == null) return AppScreen.table;
+  final own = me?.gameId == gameId ? me : null;
   final tablePhase = table.gamePhase;
   if (own != null &&
       (tablePhase == null || own.phase.index >= tablePhase.index)) {

@@ -91,10 +91,10 @@ void main() {
       for (final viewer in lobby.players) {
         final table = TableView.fromLobby(lobby, viewerId: viewer.id);
         final host = viewer.id == lobby.hostId;
+        // A lobby body names no game of the viewer's (only a game this
+        // phone saw start does): the table, never a board that waits.
         final expected = switch (lobby.status) {
-          'waiting' => AppScreen.table,
-          'in_game' => AppScreen.nightBoard,
-          'finished' => AppScreen.count,
+          'waiting' || 'in_game' || 'finished' => AppScreen.table,
           _ => fail('$name: unknown status'),
         };
         expect(screen(table), expected, reason: name);
@@ -168,6 +168,17 @@ void main() {
         ),
       );
       expect(screenFor(next, me: talk), AppScreen.nightBoard);
+    });
+
+    test('a table that names no game of mine is the table, not a board', () {
+      // Playing or finished, but this player has no game there (joined while
+      // it ran): a defined screen, never the night board waiting forever.
+      for (final status in ['in_game', 'finished']) {
+        final body = ContractSamples.map('http/lobby/my_table_waiting');
+        (body['table'] as Map)['status'] = status;
+        final table = TableView.fromMyTable(FromSample.myTable(body));
+        expect(screenFor(table, me: talk), AppScreen.table, reason: status);
+      }
     });
 
     test('a waiting table is the table, whatever an old /me/ says', () {

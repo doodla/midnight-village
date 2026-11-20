@@ -198,6 +198,14 @@ class GameMe {
   /// Counts at the look, talk and vote; null elsewhere.
   final StageProgress? progress;
 
+  /// This `/me/` is of an earlier stage of the same game than [other]: the
+  /// game only moves forward (look, window 1, window 2, talk, vote,
+  /// results), so a reply that is behind is an old one arriving late.
+  bool isBehind(GameMe other) =>
+      gameId == other.gameId &&
+      (phase.index < other.phase.index ||
+          phase == other.phase && window < other.window);
+
   /// Results this phone has not acknowledged yet.
   bool get hasUnseenResults => nightResultCount > nightResultsSeen;
 

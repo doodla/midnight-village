@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_exception.dart';
@@ -10,49 +12,81 @@ import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/night/night_pick.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
+import '../../lobby/domain/where_am_i.dart';
 import '../../lobby/presentation/lobby_notifier.dart';
 import '../../lobby/presentation/where_am_i_provider.dart';
 import '../data/game_service.dart';
 import '../domain/game_event.dart';
 import '../domain/game_me.dart';
 import '../domain/game_outcome.dart';
-import '../domain/screen_table.dart';
 import 'game_notifier.dart'
     show gameConnectionStateProvider, gameWebSocketStreamProvider;
+import 'outbox.dart';
+
+export 'outbox.dart';
 
 part 'protocol_two_game.g.dart';
 
-/// How long after a stage's deadline this phone asks `/me/` again when it
-/// has heard nothing (a close event it missed). From the spec's "Drops and
-/// missed closes" table; it never delays what a player sees: the screen
-/// moves the moment the server's event or answer arrives.
-const missedCloseGrace = Duration(seconds: 2);
+/// How this phone heals what it may have missed. None of it is a wait a
+/// player can feel: the screen moves the moment the server's event or answer
+/// arrives; these only bound how long a missed one can go unnoticed.
+@immutable
+class HealTiming {
+  const HealTiming({
+    this.afterDeadline = const Duration(seconds: 2),
+    this.poll = const Duration(seconds: 5),
+    this.firstRetry = const Duration(seconds: 1),
+    this.maxRetry = const Duration(seconds: 10),
+  });
 
-/// A request whose answer never came: its state stays as tapped, and the
-/// screen offers "Try again" ([ProtocolTwoGameNotifier.retry]). The night
-/// board keeps its own (`ChooseAnswer.notSent`).
-enum UnsentRequest { ready, pick, lock }
+  /// After a stage's deadline (by the server's clock), one fetch: a close
+  /// this phone did not hear about (spec: "Drops and missed closes").
+  final Duration afterDeadline;
 
-/// A night protocol 2 game as this phone holds it: the server's last `/me/`
-/// with what this phone has tapped since laid over it, and the results once
-/// the game is over.
+  /// Past the deadline and still in the same stage: fetch this often until
+  /// it changes (the server's backstop may be late, never the phone's call).
+  final Duration poll;
+
+  /// A first `/me/` that failed is fetched again after this, doubling up to
+  /// [maxRetry].
+  final Duration firstRetry;
+  final Duration maxRetry;
+}
+
+@riverpod
+HealTiming healTiming(Ref ref) => const HealTiming();
+
+/// Counts the app coming back to the foreground (each value a new resume).
+@riverpod
+Stream<int> appResumes(Ref ref) {
+  final resumes = StreamController<int>();
+  var count = 0;
+  final listener = AppLifecycleListener(onResume: () => resumes.add(++count));
+  ref.onDispose(() {
+    listener.dispose();
+    resumes.close();
+  });
+  return resumes.stream;
+}
+
+/// A night protocol 2 game as this phone holds it: the server's last `/me/`,
+/// the taps it has not seen yet ([outbox]), and the results once over.
 @immutable
 class ProtocolTwoGame {
   const ProtocolTwoGame._({
     required this.server,
-    required this.overlay,
+    required this.outbox,
     this.outcome,
     this.presence = const {},
     this.hostNotice,
-    this.unsent,
-    this.countSeen = false,
     this.tableClosed = false,
   });
 
   /// The last `/me/` the server sent.
   final GameMe server;
 
-  final Overlay overlay;
+  /// This phone's taps in flight, unsent or confirming.
+  final Outbox outbox;
 
   /// `GET .../results/`, fetched once the game is in the results.
   final GameOutcome? outcome;
@@ -60,141 +94,94 @@ class ProtocolTwoGame {
   /// Who has a phone connected (public), from `player_presence`.
   final Map<int, bool> presence;
 
-  /// The latest host change, for the quiet line about it.
+  /// The latest host change, for the quiet line about it (until cleared).
   final HostChange? hostNotice;
-
-  /// A request that may not have arrived.
-  final UnsentRequest? unsent;
-
-  /// "See who won" was tapped (10 -> 11). Local; lost on a restart.
-  final bool countSeen;
 
   /// The game (its table) is gone.
   final bool tableClosed;
 
-  /// What the screens show: the server's `/me/` with this phone's taps on it
-  /// (see [Overlay]). Everything the rest of the table can see on this phone
-  /// changes on the tap, never on the answer.
-  GameMe get me => overlay.on(server);
+  /// What the screens show: `/me/` with this phone's taps on it. Everything
+  /// the table can see on this phone changes on the tap, never on the
+  /// answer.
+  GameMe get me => outbox.on(server);
 
-  /// The screen for this game, given where `/me/table/` says the player is.
-  AppScreen screenAt(TableView table) => screenFor(
-    table,
-    me: me,
-    local: LocalSteps(countSeen: countSeen),
-  );
+  /// The taps whose answer never came ("Try again", [ProtocolTwoGameNotifier
+  /// .retry]); the board shows its own for a choose.
+  Set<OutboxLane> get unsent => outbox.unsent;
 
   ProtocolTwoGame copyWith({
     GameMe? server,
-    Overlay? overlay,
+    Outbox? outbox,
     GameOutcome? outcome,
     Map<int, bool>? presence,
     HostChange? hostNotice,
-    UnsentRequest? unsent,
-    bool clearUnsent = false,
-    bool? countSeen,
+    bool clearHostNotice = false,
     bool? tableClosed,
   }) => ProtocolTwoGame._(
     server: server ?? this.server,
-    overlay: (overlay ?? this.overlay).forStage((server ?? this.server).stage),
+    outbox: outbox ?? this.outbox,
     outcome: outcome ?? this.outcome,
     presence: presence ?? this.presence,
-    hostNotice: hostNotice ?? this.hostNotice,
-    unsent: clearUnsent ? null : unsent ?? this.unsent,
-    countSeen: countSeen ?? this.countSeen,
+    hostNotice: clearHostNotice ? null : hostNotice ?? this.hostNotice,
     tableClosed: tableClosed ?? this.tableClosed,
   );
 }
 
-/// This phone's taps the server may not have answered yet (or answered
-/// before a fetch that left earlier came back), laid over `/me/`. Each is
-/// for one stage: a new stage drops them (the new `/me/` is the truth).
-@immutable
-class Overlay {
-  const Overlay({
-    this.stage,
-    this.chosen = false,
-    this.ready,
-    this.vote,
-    this.seen,
-  });
-
-  static const empty = Overlay();
-
-  /// The stage the taps were made in.
-  final String? stage;
-
-  /// This turn's choose was sent.
-  final bool chosen;
-  final bool? ready;
-  final MyVote? vote;
-
-  /// Night results acknowledged (not stage-bound: the count only goes up).
-  final int? seen;
-
-  /// The overlay for a `/me/` in [next]: the taps of another stage are gone.
-  Overlay forStage(String? next) =>
-      next == stage ? this : Overlay(stage: next, seen: seen);
-
-  GameMe on(GameMe me) {
-    var shown = me;
-    if (seen != null) shown = shown.withSeen(seen!);
-    if (stage != me.stage) return shown;
-    if (chosen) shown = shown.withChosen();
-    if (ready != null) shown = shown.withReady(ready!);
-    if (vote != null) shown = shown.withVote(vote!);
-    return shown;
-  }
-
-  Overlay copyWith({
-    bool? chosen,
-    bool? ready,
-    bool clearReady = false,
-    MyVote? vote,
-    bool clearVote = false,
-    int? seen,
-    bool clearSeen = false,
-  }) => Overlay(
-    stage: stage,
-    chosen: chosen ?? this.chosen,
-    ready: clearReady ? null : ready ?? this.ready,
-    vote: clearVote ? null : vote ?? this.vote,
-    seen: clearSeen ? null : seen ?? this.seen,
-  );
-}
-
 /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
-/// old screens keep [GameNotifier] on protocol 1).
+/// old screens keep [GameNotifier] on protocol 1). The game id comes from
+/// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.
 ///
-/// The one rule: the screen is a function of fetched state. Socket events
-/// only ask for `/me/` again or update a value `/me/` holds in the same form
-/// ([GameEvent]); a missed event is healed by the next fetch (reconnect, the
-/// stage's deadline, the next event), so events in any order, repeated or
-/// dropped, then a fetch, end in the same state as a cold start.
+/// Server state in: `/me/` fetches go out one at a time (a request made
+/// while one is out runs once after it), each numbered; a reply older than
+/// one applied, or of an earlier stage, is dropped. Socket events only ask
+/// for a fetch or update a value `/me/` holds in the same form ([GameEvent]);
+/// reconnect, resume and the stage's deadline fetch too, so anything missed
+/// heals and the screen is a function of fetched state alone.
+///
+/// Taps out: through the [Outbox], one request per kind in flight, later
+/// taps coalescing to the latest, each keyed to its stage (and turn) and
+/// dropped when that ends. The shown state is derived from it.
 @riverpod
 class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
   StreamSubscription<dynamic>? _events;
-  Timer? _deadlineTimer;
-  String? _deadlineKey;
+  Timer? _healTimer;
+  Timer? _retryTimer;
+  Duration? _retryDelay;
   bool _wasDisconnected = false;
 
-  /// True while a fetch of `/me/` is in flight: an event meanwhile asks for
-  /// one more fetch after it, so an older snapshot never has the last word.
-  bool _fetching = false;
-  bool _fetchAgain = false;
-  Future<void>? _refreshing;
+  bool _building = false;
+  Future<void>? _loop;
+  bool _again = false;
 
-  /// Which vote tap is the latest: an answer to an older one changes nothing.
-  int _voteTaps = 0;
-  Future<void> Function()? _retry;
+  /// `/me/` fetches sent, and the number of the last one applied.
+  int _sentFetches = 0;
+  int _appliedFetch = 0;
+
+  /// The server's clock at the last applied fetch, and the time since.
+  DateTime? _serverDate;
+  final _sinceFetch = Stopwatch();
+
+  /// The stage and deadline whose deadline has passed (polling).
+  String? _passedKey;
+
+  /// Asked once per mismatch: the table behind `/me/`, `/me/` behind it.
+  String? _tableAskedAt;
+  String? _meAskedAt;
+
+  int _ids = 0;
+
+  /// The results count this phone has acknowledged (once per count).
+  int? _acked;
 
   GameService get _service => ref.read(gameServiceProvider);
+  HealTiming get _timing => ref.read(healTimingProvider);
 
   @override
   Future<ProtocolTwoGame> build(String gameId) async {
     ref.onDispose(() {
       _events?.cancel();
-      _deadlineTimer?.cancel();
+      _healTimer?.cancel();
+      _retryTimer?.cancel();
     });
     // Listen first, so nothing said while the first fetch is out is missed.
     _events = ref
@@ -203,26 +190,33 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
           _onMessage,
           onError: (Object e) => logger.w('ProtocolTwoGame: socket', error: e),
         );
-    // Closed with the provider.
     ref.listen(
       gameConnectionStateProvider(gameId),
       (_, next) => _onConnection(next.value),
     );
-    _fetching = true;
+    ref.listen(appResumesProvider, (_, next) {
+      if (next.hasValue) _healEverything();
+    });
+    ref.listen(myTableProvider, (_, next) => _compareTable(next.value));
+
+    _building = true;
+    final seq = ++_sentFetches;
     try {
-      final me = await _service.fetchMe(gameId);
-      final first = ProtocolTwoGame._(
-        server: me,
-        overlay: Overlay(stage: me.stage),
-        outcome: await _outcomeFor(me, null),
-      );
-      _afterFetch(first);
+      final fetched = await _service.fetchMeTimed(gameId);
+      _appliedFetch = seq;
+      _clockFrom(fetched);
+      _retryDelay = null;
+      final first = ProtocolTwoGame._(server: fetched.me, outbox: Outbox.empty);
+      _afterApply(fetched.me);
       return first;
+    } catch (e) {
+      _scheduleRetry();
+      rethrow;
     } finally {
-      _fetching = false;
-      if (_fetchAgain) {
+      _building = false;
+      if (_again) {
         // After the state is set (the event loop's next turn), not before.
-        _fetchAgain = false;
+        _again = false;
         Timer.run(() => unawaited(refresh()));
       }
     }
@@ -232,76 +226,180 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
   // Server state in
   // ---------------------------------------------------------------------------
 
-  /// Fetches `/me/` (and the results, once over). Calls made while one is
-  /// out run once more after it.
+  /// Fetches `/me/` now, or once more after the fetch that is out. Works
+  /// before the first load succeeded too (it then is the first load).
   Future<void> refresh() {
-    if (!ref.mounted || state.value == null) {
-      _fetchAgain = _fetchAgain || _fetching;
+    if (!ref.mounted) return Future.value();
+    if (_building) {
+      _again = true;
       return Future.value();
     }
-    final running = _refreshing;
+    final running = _loop;
     if (running != null) {
-      _fetchAgain = true;
+      _again = true;
       return running;
     }
-    return _refreshing = _refreshLoop().whenComplete(() => _refreshing = null);
+    return _loop = _runLoop().whenComplete(() => _loop = null);
   }
 
-  Future<void> _refreshLoop() async {
+  Future<void> _runLoop() async {
     do {
-      _fetchAgain = false;
+      _again = false;
       await _fetchOnce();
-    } while (_fetchAgain && ref.mounted);
+    } while (_again && ref.mounted);
   }
 
   Future<void> _fetchOnce() async {
-    _fetching = true;
+    final seq = ++_sentFetches;
     try {
-      final me = await _service.fetchMe(gameId);
-      if (!ref.mounted) return;
-      final outcome = await _outcomeFor(me, state.value?.outcome);
-      if (!ref.mounted) return;
-      final next = state.requireValue.copyWith(server: me, outcome: outcome);
-      state = AsyncData(next);
-      _afterFetch(next);
+      final fetched = await _service.fetchMeTimed(gameId);
+      if (ref.mounted) _accept(seq, fetched);
     } on NotFoundException {
-      _update((s) => s.copyWith(tableClosed: true));
-    } catch (e) {
+      if (!ref.mounted) return;
+      _invalidateTable();
+      final current = state.value;
+      if (current != null) {
+        state = AsyncData(current.copyWith(tableClosed: true));
+      }
+    } catch (e, stack) {
+      if (!ref.mounted) return;
       logger.w('ProtocolTwoGame: fetch failed', error: e);
-    } finally {
-      _fetching = false;
+      final current = state.value;
+      if (current == null) {
+        state = AsyncError(e, stack);
+        _scheduleRetry();
+      } else {
+        _armHealing(current.server); // keep healing through a bad patch
+      }
     }
   }
 
-  Future<GameOutcome?> _outcomeFor(GameMe me, GameOutcome? known) async {
-    if (me.phase != GamePhase.results || known != null) return known;
+  /// Applies fetch number [seq] unless a later one was applied already or
+  /// it is of an earlier stage than what this phone has.
+  void _accept(int seq, FetchedMe fetched) {
+    final current = state.value;
+    final me = fetched.me;
+    if (current != null &&
+        (seq <= _appliedFetch || me.isBehind(current.server))) {
+      return;
+    }
+    _appliedFetch = seq;
+    _clockFrom(fetched);
+    _retryDelay = null;
+    _retryTimer?.cancel();
+    final outbox = (current?.outbox ?? Outbox.empty).afterFetch(me, seq);
+    state = AsyncData(
+      current == null
+          ? ProtocolTwoGame._(server: me, outbox: outbox)
+          : current.copyWith(server: me, outbox: outbox),
+    );
+    _afterApply(me);
+    // A queued tap whose lane was waiting on a dropped request goes now.
+    for (final lane in OutboxLane.values) {
+      _next(lane);
+    }
+  }
+
+  void _afterApply(GameMe me) {
+    _armHealing(me);
+    final table = ref.exists(myTableProvider)
+        ? ref.read(myTableProvider).value
+        : null;
+    _compareTable(table, me: me);
+    if (me.phase == GamePhase.results && state.value?.outcome == null) {
+      unawaited(_loadOutcome());
+    }
+  }
+
+  Future<void> _loadOutcome() async {
     try {
-      return await _service.fetchOutcome(gameId);
+      final outcome = await _service.fetchOutcome(gameId);
+      _update((s) => s.copyWith(outcome: outcome));
     } catch (e) {
+      // The next fetch in the results tries again.
       logger.w('ProtocolTwoGame: results not fetched', error: e);
-      return null;
     }
   }
 
-  /// Arms one fetch [missedCloseGrace] after the stage's deadline, once per
-  /// stage and deadline: a close this phone did not hear about still moves
-  /// it on. The countdown itself is read from the deadline by the screen.
-  void _afterFetch(ProtocolTwoGame game) {
-    final deadline = game.server.deadline;
-    final key = '${game.server.stage}@$deadline';
-    if (deadline == null || key == _deadlineKey) return;
-    _deadlineKey = key;
-    _deadlineTimer?.cancel();
-    final now = ref.read(clockProvider)();
-    final wait = deadline.add(missedCloseGrace).difference(now);
-    _deadlineTimer = Timer(wait.isNegative ? Duration.zero : wait, refresh);
+  void _clockFrom(FetchedMe fetched) {
+    _serverDate = fetched.serverDate;
+    _sinceFetch
+      ..reset()
+      ..start();
+  }
+
+  /// How long until [time] on the server's clock: from the last answer's
+  /// `Date` and the time since it arrived, so the phone's own clock is never
+  /// compared with the server's. Without a readable `Date`, the phone's
+  /// clock times the fetch (and only the fetch: what it shows decides).
+  Duration _untilServer(DateTime time) {
+    final date = _serverDate;
+    if (date != null) return time.difference(date) - _sinceFetch.elapsed;
+    return time.difference(ref.read(clockProvider)());
+  }
+
+  /// One fetch after the stage's deadline; while a fetch past it still
+  /// shows the same stage, one every [HealTiming.poll] until it changes. A
+  /// stage with no deadline heals on reconnect and resume.
+  void _armHealing(GameMe me) {
+    _healTimer?.cancel();
+    final deadline = me.deadline;
+    if (deadline == null) return;
+    final key = '${me.stage}@$deadline';
+    if (key == _passedKey) {
+      _healTimer = Timer(_timing.poll, refresh);
+      return;
+    }
+    final wait = _untilServer(deadline) + _timing.afterDeadline;
+    _healTimer = Timer(wait.isNegative ? Duration.zero : wait, () {
+      _passedKey = key;
+      unawaited(refresh());
+    });
+  }
+
+  void _scheduleRetry() {
+    final delay = _retryDelay = _retryDelay == null
+        ? _timing.firstRetry
+        : Duration(
+            microseconds: math.min(
+              _retryDelay!.inMicroseconds * 2,
+              _timing.maxRetry.inMicroseconds,
+            ),
+          );
+    _retryTimer?.cancel();
+    _retryTimer = Timer(delay, () => unawaited(refresh()));
+  }
+
+  /// `/me/table/` and `/me/` agree on the game's phase; when one is behind,
+  /// it is fetched again (once per mismatch).
+  void _compareTable(MyTable? table, {GameMe? me}) {
+    final own = me ?? state.value?.server;
+    if (table == null || own == null || table.gameId != gameId) return;
+    final phase = table.gamePhase;
+    if (phase == null) return;
+    final at = '${own.stage}|${phase.server}';
+    if (phase.index > own.phase.index && _meAskedAt != at) {
+      _meAskedAt = at;
+      unawaited(refresh());
+    } else if (own.phase.index > phase.index && _tableAskedAt != at) {
+      _tableAskedAt = at;
+      _invalidateTable();
+    }
+  }
+
+  void _invalidateTable() => ref.invalidate(myTableProvider);
+
+  /// Reconnect and resume: anything may have happened.
+  void _healEverything() {
+    _invalidateTable();
+    unawaited(refresh());
   }
 
   void _onConnection(WebSocketConnectionState? connection) {
     switch (connection) {
       case WebSocketConnectionState.connected when _wasDisconnected:
         _wasDisconnected = false;
-        unawaited(refresh());
+        _healEverything();
       case WebSocketConnectionState.disconnected ||
           WebSocketConnectionState.reconnecting:
         _wasDisconnected = true;
@@ -325,14 +423,14 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
   /// One socket event (public for tests that drive events directly).
   void apply(GameEvent event) {
     if (state.value == null) {
-      // The first fetch is out: it may predate this, so fetch once more.
-      if (event is! IgnoredEvent) _fetchAgain = true;
+      // The first fetch is out (or failed): it may predate this.
+      if (event is! IgnoredEvent) unawaited(refresh());
       return;
     }
     switch (event) {
       case ProgressEvent(:final progress):
         final current = state.requireValue.server;
-        if (_fetching || current.progress?.stage != progress.stage) {
+        if (_loop != null || current.progress?.stage != progress.stage) {
           unawaited(refresh());
         } else {
           _update((s) => s.copyWith(server: current.withProgress(progress)));
@@ -354,11 +452,13 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
             hostNotice: change,
           ),
         );
-        if (_fetching) unawaited(refresh());
+        _invalidateTable(); // its is_host
+        if (_loop != null) unawaited(refresh());
       case RefetchEvent():
+        _invalidateTable();
         unawaited(refresh());
       case TableMovedEvent():
-        ref.invalidate(myTableProvider);
+        _invalidateTable();
         unawaited(refresh());
       case IgnoredEvent():
     }
@@ -370,203 +470,240 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
   }
 
   void _update(ProtocolTwoGame Function(ProtocolTwoGame) change) {
+    if (!ref.mounted) return;
     final current = state.value;
-    if (current != null && ref.mounted) state = AsyncData(change(current));
+    if (current != null) state = AsyncData(change(current));
   }
 
   ProtocolTwoGame get _game => state.requireValue;
 
+  void _setOutbox(Outbox outbox) => _update((s) => s.copyWith(outbox: outbox));
+
+  /// The quiet host line has been shown.
+  void clearHostNotice() => _update((s) => s.copyWith(clearHostNotice: true));
+
   // ---------------------------------------------------------------------------
-  // Taps out. Each shows its result at once; the answer only ever undoes it
-  // (refused), fetches (stale) or offers "Try again" (not sent).
+  // Taps out, through the outbox.
   // ---------------------------------------------------------------------------
 
-  /// The night board's Choose ([NightBoard.onChoose]): sends [picks] for the
-  /// prompt of [stage]. The board shows "Chosen" itself; this keeps the
-  /// prompt chosen across fetches until the answer says otherwise.
-  Future<ChooseAnswer> choose(String stage, List<NightPick> picks) async {
-    final prompt = _game.server.prompt;
-    if (prompt == null || prompt.stage != stage || prompt.used) {
-      // The window moved on, or the server has this turn already.
-      unawaited(refresh());
-      return ChooseAnswer.stale;
-    }
-    _update((s) => s.copyWith(overlay: s.overlay.copyWith(chosen: true)));
-    final answer = await _service.choose(
-      gameId,
-      ChooseRequest.of(prompt, picks),
-    );
-    if (!ref.mounted) return answer;
-    switch (answer) {
-      case ChooseAnswer.taken || ChooseAnswer.notSent:
-        break;
-      case ChooseAnswer.stale:
-        unawaited(refresh());
-      case ChooseAnswer.refused:
-        if (_game.overlay.stage == stage) {
-          _update(
-            (s) => s.copyWith(overlay: s.overlay.copyWith(chosen: false)),
-          );
-        }
-    }
-    return answer;
-  }
-
-  /// 04's "Ready" (`true` only: looking is one way) and 08's "Ready to vote"
-  /// (a toggle). The button and its tick change on the tap.
-  Future<StageAnswer> setReady(bool ready) async {
-    final me = _game.me;
-    final stage = me.stage;
-    if (stage == null || me.ready == null) return ChooseAnswer.stale;
-    if (me.inLook && !ready) return ChooseAnswer.refused;
-    _update(
-      (s) => s.copyWith(
-        overlay: s.overlay.copyWith(ready: ready),
-        clearUnsent: true,
-      ),
-    );
-    final answer = await _service.setReady(gameId, stage: stage, ready: ready);
-    _settle(
-      answer,
-      stage: stage,
-      kind: UnsentRequest.ready,
-      undo: (o) => o.copyWith(clearReady: true),
-      retry: () => setReady(ready),
-    );
-    return answer;
-  }
-
-  /// 09: a tap on a row picks it (nobody else hears of it); it can change
-  /// until locked.
-  Future<StageAnswer> pickVote(int targetId) =>
-      _vote(targetId, lock: false, kind: UnsentRequest.pick);
-
-  /// 09: "Lock in {name}": final. It carries the target, so a lost pick can
-  /// never lock the wrong name.
-  Future<StageAnswer> lockVote(int targetId) =>
-      _vote(targetId, lock: true, kind: UnsentRequest.lock);
-
-  Future<StageAnswer> _vote(
-    int targetId, {
-    required bool lock,
-    required UnsentRequest kind,
-  }) async {
-    final me = _game.me;
-    final stage = me.stage;
-    if (me.phase != GamePhase.voting || stage == null) {
-      return ChooseAnswer.stale;
-    }
-    if (me.myVote?.locked ?? false) return ChooseAnswer.stale;
-    final tap = ++_voteTaps;
-    _update(
-      (s) => s.copyWith(
-        overlay: s.overlay.copyWith(vote: MyVote.local(targetId, locked: lock)),
-        clearUnsent: true,
-      ),
-    );
-    final answer = await _service.vote(
-      gameId,
-      stage: stage,
-      targetId: targetId,
-      lock: lock,
-    );
-    if (tap == _voteTaps) {
-      _settle(
-        answer,
-        stage: stage,
-        kind: kind,
-        undo: (o) => o.copyWith(clearVote: true),
-        retry: () => _vote(targetId, lock: lock, kind: kind),
+  /// Sends [request] for [lane] now, or queues it as the latest behind the
+  /// one in flight (replacing an older queued tap). A new tap supersedes an
+  /// unsent or confirming one of its lane.
+  Future<TapOutcome> _submit(
+    OutboxLane lane,
+    String key,
+    StageRequest request,
+  ) async {
+    final box = _game.outbox;
+    if (box.current(lane)?.leg == Leg.inFlight) {
+      _setOutbox(
+        box.withQueued(
+          OutboxItem(
+            id: ++_ids,
+            lane: lane,
+            key: key,
+            request: request,
+            leg: Leg.queued,
+          ),
+        ),
       );
+      return const Queued();
     }
-    return answer;
+    final item = OutboxItem(
+      id: ++_ids,
+      lane: lane,
+      key: key,
+      request: request,
+      leg: Leg.inFlight,
+    );
+    _setOutbox(box.withCurrent(item).withoutQueued(lane));
+    return Answered(await _send(item));
   }
 
-  void _settle(
-    StageAnswer answer, {
-    required String stage,
-    required UnsentRequest kind,
-    required Overlay Function(Overlay) undo,
-    required Future<void> Function() retry,
-  }) {
-    if (!ref.mounted) return;
-    switch (answer) {
+  Future<StageAnswer> _send(OutboxItem item) async {
+    final reply = await _service.send(gameId, item.request);
+    if (!ref.mounted) return reply.answer;
+    final box = _game.outbox;
+    if (box.current(item.lane)?.id != item.id) {
+      // Its stage or turn ended while it was out: the answer changes nothing.
+      _next(item.lane);
+      return reply.answer;
+    }
+    switch (reply.answer) {
       case ChooseAnswer.taken:
-        break;
-      case ChooseAnswer.stale:
-        if (_game.overlay.stage == stage) {
-          _update((s) => s.copyWith(overlay: undo(s.overlay)));
+        _setOutbox(box.withCurrent(_confirming(item)));
+        // Every phone fetches once after a choose is taken (the same on the
+        // wire for every role): the Doppelganger's follow-up arrives so.
+        // A ready or a pick whose echo differs from the tap fetches too.
+        if (item.lane == OutboxLane.choose ||
+            _echoDiffers(item.request, reply.body)) {
+          unawaited(refresh());
         }
+      case ChooseAnswer.stale:
+        // Shown until the fetch lands, so the tap does not flicker off first.
+        _setOutbox(box.withCurrent(_confirming(item)));
         unawaited(refresh());
       case ChooseAnswer.refused:
-        if (_game.overlay.stage == stage) {
-          _update((s) => s.copyWith(overlay: undo(s.overlay)));
-        }
+        _setOutbox(box.withoutCurrent(item.lane));
       case ChooseAnswer.notSent:
-        _retry = retry;
-        _update((s) => s.copyWith(unsent: kind));
+        _setOutbox(box.withCurrent(item.copyWith(leg: Leg.unsent)));
     }
-  }
-
-  /// "Try again" after [ProtocolTwoGame.unsent].
-  Future<void> retry() async {
-    final again = _retry;
-    _retry = null;
-    _update((s) => s.copyWith(clearUnsent: true));
-    if (again != null) await again();
-  }
-
-  /// My night has been held for the first time this game: acknowledge every
-  /// night result `/me/` lists, so a restart does not offer them as new.
-  /// Every phone sends it alike, results or not.
-  Future<void> acknowledgeNightResults() async {
-    final count = _game.me.nightResultCount;
-    if (_game.overlay.seen == count) return; // sent already
-    _update((s) => s.copyWith(overlay: s.overlay.copyWith(seen: count)));
-    try {
-      await _service.acknowledgeNightResults(gameId, count);
-    } catch (e) {
-      logger.w('ProtocolTwoGame: results ack not sent', error: e);
-      if (ref.mounted) {
-        _update(
-          (s) => s.copyWith(overlay: s.overlay.copyWith(clearSeen: true)),
-        );
-      }
+    if (item.request case AckRequest(
+      :final seen,
+    ) when reply.answer == ChooseAnswer.taken) {
+      _acked = math.max(_acked ?? 0, seen);
     }
+    _next(item.lane);
+    return reply.answer;
   }
 
-  /// 10 -> 11.
-  void seeWhoWon() => _update((s) => s.copyWith(countSeen: true));
+  OutboxItem _confirming(OutboxItem item) =>
+      item.copyWith(leg: Leg.confirming, confirmAfter: _sentFetches + 1);
 
-  /// Host, at the results: the table goes back to waiting (02 for everyone,
-  /// by `/me/table/`). Errors reach the caller.
+  /// The queued tap of [lane] goes out once nothing of its lane is in
+  /// flight; one asking for what was just confirmed is not sent again.
+  void _next(OutboxLane lane) {
+    if (!ref.mounted || state.value == null) return;
+    final box = _game.outbox;
+    final queued = box.queued(lane);
+    final current = box.current(lane);
+    if (queued == null || current?.leg == Leg.inFlight) return;
+    if (current?.leg == Leg.confirming && current!.request == queued.request) {
+      _setOutbox(box.withoutQueued(lane));
+      return;
+    }
+    final item = queued.copyWith(leg: Leg.inFlight);
+    _setOutbox(box.withCurrent(item).withoutQueued(lane));
+    unawaited(_send(item));
+  }
+
+  static bool _echoDiffers(StageRequest request, Map<String, dynamic>? body) =>
+      switch (request) {
+        ReadyRequest(:final ready) =>
+          body != null && body.containsKey('ready') && body['ready'] != ready,
+        VoteRequest(:final targetId) =>
+          body != null &&
+              body.containsKey('target_player_id') &&
+              body['target_player_id'] != targetId,
+        _ => false,
+      };
+
+  /// Whether `/me/` [server] shows [request] already stored.
+  static bool _landed(StageRequest request, GameMe server) => switch (request) {
+    ChooseRequest(:final stage, :final chosen) =>
+      server.prompt?.stage == stage && server.prompt!.chosen > chosen,
+    ReadyRequest(:final ready) => server.ready == ready,
+    VoteRequest(:final targetId, :final lock) =>
+      server.myVote == MyVote.local(targetId, locked: lock),
+    AckRequest(:final seen) => server.nightResultsSeen >= seen,
+  };
+
+  /// "Try again" for [lane]: `/me/` first; if it shows the lost request
+  /// stored, it landed and nothing is sent; otherwise the ORIGINAL request
+  /// goes again, unchanged. An unsent tap of an ended stage is gone.
+  Future<TapOutcome> retry(OutboxLane lane) async {
+    final item = state.value?.outbox.current(lane);
+    if (item == null || item.leg != Leg.unsent) {
+      return const Declined(DeclineReason.nothingToRetry);
+    }
+    await refresh();
+    if (!ref.mounted) return const Declined(DeclineReason.nothingToRetry);
+    final now = _game.outbox.current(lane);
+    if (now?.id != item.id || now!.leg != Leg.unsent) {
+      return const Declined(DeclineReason.notThisStage);
+    }
+    if (_landed(item.request, _game.server)) {
+      _setOutbox(_game.outbox.withCurrent(_confirming(item)));
+      return const Landed();
+    }
+    final again = item.copyWith(leg: Leg.inFlight);
+    _setOutbox(_game.outbox.withCurrent(again));
+    return Answered(await _send(again));
+  }
+
+  /// The night board's Choose ([NightBoard.onChoose]; give it
+  /// `TapOutcome.forBoard`): sends [picks] for the prompt of [stage], once
+  /// per turn. A second press while that choose is out or chosen is
+  /// declined; after a lost answer it is the board's "Try again".
+  Future<TapOutcome> choose(String stage, List<NightPick> picks) async {
+    final server = _game.server;
+    final prompt = server.prompt;
+    if (prompt == null || prompt.stage != stage) {
+      unawaited(refresh());
+      return const Declined(DeclineReason.notThisStage);
+    }
+    final key = laneKey(OutboxLane.choose, server)!;
+    final current = _game.outbox.current(OutboxLane.choose);
+    if (current != null && current.key == key) {
+      return current.leg == Leg.unsent
+          ? retry(OutboxLane.choose)
+          : const Declined(DeclineReason.alreadyChosen);
+    }
+    if (prompt.used) return const Declined(DeclineReason.alreadyChosen);
+    return _submit(OutboxLane.choose, key, ChooseRequest.of(prompt, picks));
+  }
+
+  /// 04's "Ready" (true only: looking is one way) and 08's "Ready to vote"
+  /// (a toggle; taps in a row go out in order, the latest last).
+  Future<TapOutcome> setReady(bool ready) async {
+    final server = _game.server;
+    final stage = server.stage;
+    if (stage == null || server.ready == null) {
+      return const Declined(DeclineReason.notThisStage);
+    }
+    if (server.inLook && !ready) {
+      return const Declined(DeclineReason.lookIsFinal);
+    }
+    if (_game.me.ready == ready) return const Declined(DeclineReason.unchanged);
+    return _submit(OutboxLane.ready, stage, ReadyRequest(stage, ready: ready));
+  }
+
+  /// 09: a tap on a row picks it (nobody else hears of it).
+  Future<TapOutcome> pickVote(int targetId) => _vote(targetId, lock: false);
+
+  /// 09: "Lock in {name}": final, after any pick still on its way.
+  Future<TapOutcome> lockVote(int targetId) => _vote(targetId, lock: true);
+
+  Future<TapOutcome> _vote(int targetId, {required bool lock}) async {
+    final server = _game.server;
+    final stage = server.stage;
+    if (server.phase != GamePhase.voting || stage == null) {
+      return const Declined(DeclineReason.notThisStage);
+    }
+    if (_game.me.myVote?.locked ?? false) {
+      return const Declined(DeclineReason.locked);
+    }
+    return _submit(
+      OutboxLane.vote,
+      stage,
+      VoteRequest(stage, targetId: targetId, lock: lock),
+    );
+  }
+
+  /// My night held for the first time this game: acknowledge every night
+  /// result `/me/` lists. Every phone sends it once per count, results or
+  /// not.
+  Future<TapOutcome> acknowledgeNightResults() async {
+    final count = _game.server.nightResultCount;
+    final acked = _acked;
+    final shown = _game.outbox.shown(OutboxLane.ack)?.request;
+    if (acked != null && acked >= count ||
+        shown is AckRequest && shown.seen >= count) {
+      return const Declined(DeclineReason.unchanged);
+    }
+    return _submit(OutboxLane.ack, gameId, AckRequest(count));
+  }
+
+  /// Host, at the results: the table goes back to waiting. Errors reach the
+  /// caller.
   Future<void> playAgain() async {
     await ref.read(lobbyServiceProvider).playAgain(_game.server.lobbyCode);
-    ref.invalidate(myTableProvider);
+    _invalidateTable();
   }
 
   /// Leaves the table this game was played at.
   Future<void> leaveTable() async {
     await ref.read(lobbyServiceProvider).leaveLobby(_game.server.lobbyCode);
-    ref.invalidate(myTableProvider);
+    _invalidateTable();
   }
-}
-
-/// The screen for game [gameId] (night protocol 2), from `/me/table/` and the
-/// game's `/me/`: loading until both are in.
-@riverpod
-AsyncValue<AppScreen> protocolTwoScreen(Ref ref, String gameId) {
-  final table = ref.watch(myTableProvider);
-  final game = ref.watch(protocolTwoGameProvider(gameId));
-  return switch ((table, game)) {
-    (AsyncData(value: final t), AsyncData(value: final g)) => AsyncData(
-      g.screenAt(TableView.fromMyTable(t)),
-    ),
-    (AsyncError(:final error, :final stackTrace), _) ||
-    (
-      _,
-      AsyncError(:final error, :final stackTrace),
-    ) => AsyncError(error, stackTrace),
-    _ => const AsyncLoading(),
-  };
 }
