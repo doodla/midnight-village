@@ -1,8 +1,8 @@
 """Make the skins' phone-sized art from the originals in docs/design/art/.
 
-    uv run --with pillow --with numpy python tool/skin_art.py [shadow_paper|night_print ...]
+    uv run --with pillow --with numpy python tool/skin_art.py [shadow_paper|night_print|warm_blood ...]
 
-(`just skin-art`, from frontend/.) With no skin named, makes both. Writes
+(`just skin-art`, from frontend/.) With no skin named, makes them all. Writes
 assets/skins/<skin>/{roles,tokens,scenes}/<name>.webp at the sizes the skins'
 ArtSets declare (lib/design_system/skin/skins/). The output is deterministic:
 run it twice and the files do not change.
@@ -10,6 +10,9 @@ run it twice and the files do not change.
 - shadow_paper: the originals, resized and encoded as WebP.
 - night_print: each original printed in five inks by linocut_art.py, with the
   recipe for its kind (role, token, card back, scene), then encoded.
+- warm_blood: each original filmed by thermal_art.py's heat camera at the
+  size it ships at, with the recipe for its kind, then encoded without loss
+  (a frame is a few flat colours in square cells, which lossy coding smears).
 """
 
 from __future__ import annotations
@@ -19,6 +22,8 @@ from pathlib import Path
 
 from linocut_art import flatten_token, lino, recipe_for
 from PIL import Image
+from thermal_art import recipe_for as thermal_recipe_for
+from thermal_art import thermal
 
 ROOT = Path(__file__).resolve().parents[2]
 ART = ROOT / "docs" / "design" / "art"
@@ -28,16 +33,21 @@ ASSETS = ROOT / "frontend" / "assets" / "skins"
 ROLE = (576, 768)
 TOKEN = (192, 192)
 CARD_BACK = (600, 800)  # drawn at most 250 wide (S07): sharp at 2.4x
-QUALITY = {"shadow_paper": 75, "night_print": 80}
+# How each skin's pictures are encoded as WebP.
+ENCODING = {
+    "shadow_paper": {"quality": 75},
+    "night_print": {"quality": 80},
+    "warm_blood": {"lossless": True, "quality": 100},
+}
 
 
 def _fit(im: Image.Image, size: tuple[int, int]) -> Image.Image:
     return im if im.size == size else im.resize(size, Image.LANCZOS)
 
 
-def _save(im: Image.Image, path: Path, quality: int) -> None:
+def _save(im: Image.Image, path: Path, encoding: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    im.convert("RGB").save(path, "WEBP", quality=quality, method=6)
+    im.convert("RGB").save(path, "WEBP", method=6, **encoding)
 
 
 def _jobs():
@@ -57,7 +67,7 @@ def _jobs():
 
 
 def make(skin: str) -> None:
-    quality = QUALITY[skin]
+    encoding = ENCODING[skin]
     for kind, src, folder, name, size in _jobs():
         im = Image.open(src).convert("RGB")
         if skin == "night_print":
@@ -66,15 +76,21 @@ def make(skin: str) -> None:
             # Print at the source's size (the recipes are tuned for it), then
             # resize.
             im = lino(im, recipe_for(kind, name))
-        _save(_fit(im, size), ASSETS / skin / folder / f"{name}.webp", quality)
+        elif skin == "warm_blood":
+            if kind == "token":
+                im = flatten_token(im)
+            # Film at the size it ships at, so the sensor's cells stay square
+            # and sharp.
+            im = thermal(im, thermal_recipe_for(kind, name), size)
+        _save(_fit(im, size), ASSETS / skin / folder / f"{name}.webp", encoding)
         print(f"{skin}/{folder}/{name}.webp")
 
 
 def main(argv: list[str]) -> None:
-    skins = argv or ["shadow_paper", "night_print"]
+    skins = argv or list(ENCODING)
     for skin in skins:
-        if skin not in QUALITY:
-            sys.exit(f"unknown skin {skin!r}; one of {', '.join(QUALITY)}")
+        if skin not in ENCODING:
+            sys.exit(f"unknown skin {skin!r}; one of {', '.join(ENCODING)}")
         make(skin)
 
 

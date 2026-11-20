@@ -32,6 +32,9 @@ const _fontLicences = [
   // Night print's faces, loaded only when that skin is chosen.
   ('Rozha One', 'assets/fonts/rozhaone/OFL.txt'),
   ('Alegreya Sans', 'assets/fonts/alegreyasans/OFL.txt'),
+  // Warm blood's faces, loaded only when that skin is chosen.
+  ('Big Shoulders Display', 'assets/fonts/bigshouldersdisplay/OFL.txt'),
+  ('Barlow', 'assets/fonts/barlow/OFL.txt'),
 ];
 
 /// Lists the bundled fonts' licences on the app's licences page, as the SIL
