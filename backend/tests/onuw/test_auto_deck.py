@@ -4,8 +4,8 @@ Automatic decks and lobby defaults.
 A lobby with ``deck: "auto"`` and a ``deck_chip`` (``simple``, ``classic``, ``chaos``)
 has no card list of its own: the server builds the deck at the deal for the number
 of players then at the table, from ONE table in code that the doc shows too. A lobby
-created with ``defaults: "v2"`` starts with a card look, night protocol 2 and the
-automatic Simple deck, and nothing else (no timer length is assumed).
+created with ``defaults: "v2"`` starts with a card look and the automatic Simple
+deck, and nothing else (no timer length is assumed).
 """
 
 import re
@@ -168,11 +168,6 @@ def new_client() -> tuple[APIClient, int]:
 def join(table: Table) -> None:
     client, user_id = new_client()
     client.post(reverse("core:lobby-join", kwargs={"code": table.code}))
-    client.post(
-        reverse("core:lobby-ready", kwargs={"code": table.code}),
-        {"is_ready": True},
-        format="json",
-    )
     table.clients.append(client)
     table.ids.append(user_id)
 
@@ -321,16 +316,19 @@ class TestDefaults:
             reverse("core:lobby-list"), {"game_type": "onuw", **body}, format="json"
         )
 
-    # ONLY what the new screens need to work. No timer the server already defaults
-    # and never the Doppelganger's window (the table's own setting, or the server's).
+    # ONLY what the app's screens need to start: a look at the cards and the
+    # automatic Simple deck. No timer the server already defaults, never the
+    # Doppelganger's window (the table's own setting, or the server's). The night
+    # flag is for the code before the cleanup only (``deal.OLD_CODE_NIGHT_FLAG``):
+    # this code ignores it.
     EXPECTED = {
         "card_look_seconds": 30,
-        "night_protocol": 2,
         "deck": "auto",
         "deck_chip": "simple",
+        "night_protocol": 2,
     }
 
-    def test_v2_defaults_are_written_when_the_create_body_asks(self, db) -> None:
+    def test_the_app_defaults_are_written_when_the_create_body_asks(self, db) -> None:
         reply = self.create(defaults="v2")
 
         assert reply.status_code == status.HTTP_201_CREATED
@@ -359,9 +357,9 @@ class TestDefaults:
         ]
         assert set(written) == {
             "card_look_seconds",
-            "night_protocol",
             "deck",
             "deck_chip",
+            "night_protocol",
         }
 
     def test_nothing_is_written_unless_the_body_asks(self, db) -> None:
@@ -403,6 +401,6 @@ class TestDefaults:
 
         game = Game.objects.get(id=table.start().data["game_id"])
 
-        assert game.settings["night_protocol"] == 2
+        assert game.settings["night_protocol"] == 2  # for the code before (deal.py)
         assert (game.phase, game.current_wave) == ("night", 0)  # the look stage
         assert dealt_roles(game) == DECK_TABLE[(5, "simple")]

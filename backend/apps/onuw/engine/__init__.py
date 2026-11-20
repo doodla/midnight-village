@@ -19,8 +19,6 @@ from .behaviors import (
 )
 from .night import (
     action_order_group,
-    build_prompt,
-    build_role_prompt,
     get_required_actions,
     get_required_actions_for_window,
     resolve_night,
@@ -53,8 +51,6 @@ __all__ = [
     "Team",
     "action_order_group",
     "apply_hunter",
-    "build_prompt",
-    "build_role_prompt",
     "count_votes",
     "determine_elimination",
     "evaluate_winner",

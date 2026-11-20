@@ -14,16 +14,17 @@ from .engine.validation import validate_onuw_settings
 from .models import Game, Phase, PlayerRole
 from .services import DEFAULT_DISCONNECT_GRACE_SECONDS
 
-# What a lobby made with ``defaults: "v2"`` starts with: ONLY what the new screens need
-# to work (a look at the cards, the choose night, the automatic Simple deck). It writes
-# no timer value the server already defaults and never the Doppelganger's window:
-# every length is the table's own setting or the server's existing default. Nothing is
-# written unless the create body asks for it.
-V2_DEFAULTS: dict[str, Any] = {
+# What a lobby made with ``defaults: "v2"`` (the app's name for its starting set)
+# starts with: a look at the cards and the automatic Simple deck. It writes no timer
+# value the server already defaults and never the Doppelganger's window: every length
+# is the table's own setting or the server's existing default. Nothing is written
+# unless the create body asks for it.
+# It also carries ``deal.OLD_CODE_NIGHT_FLAG`` for the code before the cleanup.
+APP_DEFAULTS: dict[str, Any] = {
     "card_look_seconds": 30,
-    "night_protocol": 2,
     "deck": "auto",
     "deck_chip": "simple",
+    **deal.OLD_CODE_NIGHT_FLAG,
 }
 
 
@@ -39,10 +40,11 @@ class OnuwHooks(GameHooks):
             player_count,
             check_deck=changed is None or "roles" in changed,
             allow_untimed=getattr(django_settings, "ONUW_ALLOW_UNTIMED_NIGHT", False),
+            changed=None if changed is None else frozenset(changed),
         )
 
     def default_settings(self, name: str) -> dict[str, Any] | None:
-        return dict(V2_DEFAULTS) if name == "v2" else None
+        return dict(APP_DEFAULTS) if name == "v2" else None
 
     def newest_game_group(self, lobby) -> str | None:
         game = _newest_game(lobby)
@@ -67,7 +69,7 @@ class OnuwHooks(GameHooks):
         return game is not None and game.phase == Phase.RESULTS
 
     def shows_table_extras(self, lobby) -> bool:
-        return deal.is_v2_table(lobby.settings)
+        return True  # every ONUW table: deck_preview, deal and presence
 
     def lobby_extras(self, lobby) -> dict[str, Any]:
         return deal.lobby_extras(lobby)

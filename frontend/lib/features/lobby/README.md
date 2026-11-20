@@ -8,7 +8,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   table (03 for a host who opened it, a step of this phone's only: a restart lands on 02), the
   game's screens in a game. So a player who comes back to a table they sit at is there with no
   tap. `/join/<code>` (a table's link and QR code) is 01 with the name and "Join", or the table
-  itself for a player already at it; `/lobby/<code>` is home (the old game screen goes there).
+  itself for a player already at it.
 - **01** (`join_screen.dart`): the name is this device's own guest account's or empty and
   focused; "Join a table" first, then "Start a table", locked until a name is typed; Enter in
   the name opens the code (with a code, or from a link, it joins; never a table of one's own
@@ -73,4 +73,4 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   one card short, a player joining, a phone dropping and coming back, the 409; the deal's
   verdicts in `lobby_state_test.dart`); the gallery's 01 to 03b states are
   `test_screens/table_fixtures.dart`; the whole way from 01 to 11 and back to 02 against a
-  real server is `test_e2e/ui_protocol2_journey_test.dart`.
+  real server is `test_e2e/ui_journey_test.dart`.

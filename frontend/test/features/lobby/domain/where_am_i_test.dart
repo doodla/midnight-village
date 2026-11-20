@@ -25,11 +25,10 @@ void main() {
       }
     });
 
-    test('a v2 table with a chip: protocol 2, the deck automatic', () {
+    test('a v2 table with a chip: the deck automatic', () {
       final lobby = FromSample.lobby(
-        ContractSamples.map('http/lobby/detail_v2_auto_deck_5'),
+        ContractSamples.map('http/lobby/detail_auto_deck_5'),
       );
-      expect(lobby.table.isProtocolTwo, isTrue);
       expect(lobby.table.autoDeck, isTrue);
       expect(lobby.table.deckChip, DeckChip.classic);
       expect(lobby.table.cardLookSeconds, 30);
@@ -38,15 +37,12 @@ void main() {
 
     test('a v2 table whose cards were edited: custom, the cards are read', () {
       final lobby = FromSample.lobby(
-        ContractSamples.map('http/lobby/detail_v2_custom_deck'),
+        ContractSamples.map('http/lobby/detail_custom_deck'),
       );
-      expect(lobby.table.isProtocolTwo, isTrue);
       expect(lobby.table.autoDeck, isFalse);
       expect(lobby.roleConfig['Doppelganger'], 1);
       // The update the table hears is the same body.
-      final update = ContractSamples.map(
-        'ws/lobby/lobby_update_v2_custom_deck',
-      );
+      final update = ContractSamples.map('ws/lobby/lobby_update_custom_deck');
       expect(
         LobbyState.fromJson(
           (update['data'] as Map).cast<String, dynamic>(),
@@ -63,7 +59,7 @@ void main() {
       expect(lobby.players.single.token, TokenId.moth);
     });
 
-    test('a table that says nothing is protocol 1 with a custom deck', () {
+    test('a table that says nothing has a custom deck and no look', () {
       final lobby = FromSample.lobby(
         ContractSamples.map('http/lobby/detail_waiting'),
       );

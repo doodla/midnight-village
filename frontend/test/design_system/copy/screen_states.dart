@@ -374,7 +374,6 @@ final banners = <(String, String?)>[
   (BannerCopy.copied, null),
   (BannerCopy.deckDoesNotFit, null),
   (BannerCopy.cannotDeal, null),
-  (BannerCopy.cannotPlay, CommonCopy.leave),
 ];
 
 /// Everything a screen reader says that no screen shows.

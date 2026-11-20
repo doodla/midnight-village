@@ -14,7 +14,7 @@ export 'stage_requests.dart';
 
 part 'game_service.g.dart';
 
-/// HTTP service for the game's requests (night protocol 2: every
+/// HTTP service for the game's requests (every
 /// stage-scoped request echoes `/me/`'s `stage`).
 ///
 /// Uses [AuthenticatedClient] for JWT-authenticated requests.
@@ -41,8 +41,7 @@ class GameService {
   // Every stage-scoped request answers a [StageReply]: a 409 is "fetch /me/
   // again", never an error.
 
-  /// `GET /onuw/games/{id}/me/`. A `/me/` without a `stage` key is a game
-  /// this app cannot play ([UnplayableGameException]).
+  /// `GET /onuw/games/{id}/me/`.
   Future<GameMe> fetchMe(String gameId) async =>
       (await fetchMeTimed(gameId)).me;
 
@@ -53,10 +52,8 @@ class GameService {
       final response = await _client.get<Map<String, dynamic>>(
         '/onuw/games/$gameId/me/',
       );
-      final body = response.data!;
-      if (!body.containsKey('stage')) throw const UnplayableGameException();
       return FetchedMe(
-        GameMe.fromJson(body),
+        GameMe.fromJson(response.data!),
         serverDate: parseHttpDate(response.headers.value('date')),
       );
     } on DioException catch (e) {
@@ -94,7 +91,7 @@ class GameService {
     }
   }
 
-  // The host's stage requests. The contract keeps them under protocol 2
+  // The host's stage requests. The contract keeps them
   // (each names its stage); the screens have no button for them
   // (first-time play spec: the look, the talk and the vote never wait on the
   // host), so nothing in the app calls them. Delete them if the contract
@@ -114,17 +111,6 @@ class GameService {
 
   Future<StageAnswer> _hostStage(String path, String stage) async =>
       (await _stage(path, {'stage': stage})).answer;
-}
-
-/// PROTOCOL 1: a game whose `/me/` has no `stage`: it runs a night this app
-/// does not
-/// play (night protocol 1, from before every table was opened with
-/// `defaults: "v2"`). Final: fetching again gives the same answer.
-class UnplayableGameException implements Exception {
-  const UnplayableGameException();
-
-  @override
-  String toString() => 'UnplayableGameException: /me/ has no stage';
 }
 
 /// A `/me/` and the server's clock when it answered (null: not readable,

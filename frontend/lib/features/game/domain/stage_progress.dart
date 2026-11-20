@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// The stages that count who is done (night protocol 2): looking at your
+/// The stages that count who is done: looking at your
 /// card, ready to vote, locked in.
 enum ProgressStage {
   look('look'),

@@ -12,9 +12,9 @@ import 'time_budget.dart';
 /// order, so a test can check WHAT the server sends WHEN (the night's delivery
 /// rules) rather than only where the game ends up.
 ///
-/// Events keep the wire's underscore names: `wave_start`, `action_prompt`,
-/// `action_result`, `wave_complete`, `wave_waiting`, `phase_change`,
-/// `player_presence`, `host_changed`, `play_again` (game socket);
+/// Events keep the wire's underscore names: `night_window`, `progress`,
+/// `phase_change`, `vote_reveal`, `game_results`, `player_presence`,
+/// `host_changed`, `play_again` (game socket);
 /// `lobby_update`, `host_changed`, `game_started` (lobby socket).
 class PlayerWire {
   PlayerWire._(this.player, this._channel);
@@ -68,12 +68,13 @@ class PlayerWire {
   /// Everything received so far, oldest first.
   final List<Map<String, dynamic>> events = [];
 
-  /// `type[:wave]` for each event, e.g. `wave_start:2`, `phase_change:discussion`.
+  /// `type[:window]` for each event, e.g. `night_window:2`,
+  /// `phase_change:discussion`.
   List<String> get trace => [
     for (final e in events)
       switch (e['type']) {
         'phase_change' => 'phase_change:${e['phase']}',
-        final String t when e.containsKey('wave') => '$t:${e['wave']}',
+        final String t when e.containsKey('window') => '$t:${e['window']}',
         final String t => t,
         _ => '?',
       },

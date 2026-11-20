@@ -15,55 +15,50 @@ changes. Last updated 20 November 2026.
 
 ## Merged on the branch
 
-- Server: night protocol 2 (one `choose` per window, stage tokens, look stage, lock-in vote,
-  ready to vote, automatic decks, night timeline), tokens and seats, where-am-I, home extras;
-  protocol 1 unchanged beside it. Runs on Vercel (durable timers and presence rows).
-- Contract samples recorded from the real server, with drift, privacy and shape guards.
+- Server: one game flow (one `choose` per window, stage tokens, look stage, lock-in vote,
+  ready to vote, automatic decks, night timeline), tokens and seats, where-am-I, home extras.
+  The original per-role night (protocol 1), its endpoints' old requests, the per-role night
+  events, `wave_complete`, `vote_submitted`, `has_voted`, `your_role.has_acted` and the
+  lobby ready flag (endpoint, `player_ready`, `is_ready` in bodies) are deleted; a stored
+  `night_protocol` key on an older table is ignored, a lobby PATCH checks only the keys it
+  gives and the deal clamps stored timer values the server refuses today. New tables and
+  dealt games still carry `night_protocol: 2` for the previous code during a deploy (see
+  "Next", 3). Runs on Vercel (durable timers and presence rows).
+- Contract samples recorded from the real server, with drift, privacy and shape guards; the
+  protocol-1 samples are gone and the app's tests read every sample.
 - App: the Shadow paper skin and primitives (the only look); the first-time-play pieces (copy,
-  cues, hold to reveal, the night board); the protocol-2 data layer (`GameMe`, screen table,
+  cues, hold to reveal, the night board); the data layer (`GameMe`, screen table,
   one outbox, healing fetches), model-checked (`docs/dev/models/phone/`). With the screens
-  branch: 04 Your card, the night board, 08 Talk (with My night) and 09 Vote are rebuilt for
-  protocol 2; 05 shows only while `/me/` loads; under protocol 2, 04 is reachable (it was not
-  under protocol 1). 01 Join, 02 Table and 03 Deck (+ 03b) are rebuilt and the old home and
+  branch: 04 Your card, the night board, 08 Talk (with My night) and 09 Vote are rebuilt;
+  05 shows only while `/me/` loads; 04 is reachable. 01 Join, 02 Table and 03 Deck (+ 03b) are rebuilt and the old home and
   lobby are deleted: every table is opened with `defaults: "v2"` and every build reaches the
   table's shell (no dev-only gate).
-- App, end of the game: 10 The count and 11 Results rebuilt for protocol 2 (the dead card is
+- App, end of the game: 10 The count and 11 Results rebuilt (the dead card is
   the final card with its team, the dealt one before it when it moved; who won, every card,
   the night folded into a strip that opens; play again, edit deck, leave); a restart lands on
   10 or 11 as the phone left it.
-- App cleanup: the old game screens, protocol 1 on the app side (the old notifier, state and
-  per-role prompt handling) and the old look (components, tokens, google_fonts, the
-  analyze gate) are deleted; every game opens in the table's shell, and a `/me/` without
-  `stage` is a calm "This game can't be shown." with "Leave". The app's tests ignore the
-  server's protocol-1 samples through one marked filter (`ContractSamples.index`).
+- App cleanup: the old game screens, the old night on the app side (the old notifier, state
+  and per-role prompt handling, the unplayable-game screen, the lenient lobby parsing,
+  `LobbyRoute`, `wave_complete`, the debug controller's `driveAs`) and the old look
+  (components, tokens, google_fonts, the analyze gate) are deleted; every game opens in the
+  table's shell. The game notifier is `LiveGameNotifier` (`live_game.dart`).
 - Tooling: screen gallery, cold-read pack, e2e harness (a free port per run, stopping only
-  its own backend; reference games 1, 4, 5, 8 and 21 through the new screens), subagent
-  model guardrail, commit gate routed by path.
+  its own backend; all 29 reference games through the choose API, 1, 4, 5, 8 and 21 through
+  the new screens; the backend replays the 29 through the API too), subagent model
+  guardrail, commit gate routed by path.
 
 ## Next, in order
 
 1. Rerun the cold-read playtest on the real screens (method in
    `docs/dev/playtests/2026-11-19-mocks-cold-read.md`). A screen passes when 4 of 5 simulated
    players name the right first action and nobody makes an unrecoverable mistake.
-2. The server slice: delete protocol 1, the legacy vote fields, the per-role prompt events,
-   their contract samples and the staging paragraph in `docs/specs/onuw/api-contract-v2.md`.
-   Then the app's leftovers, each marked `PROTOCOL 1` (`grep -rn "PROTOCOL 1" frontend/`
-   finds every one):
-   - `test/helpers/contract/contract_samples.dart`: the sample filter (one line and its
-     predicate); `contract_guard_test.dart`: the test that checks the filter and the two that
-     name protocol-1 samples; `game_event_test.dart`: the loop over protocol-1 events.
-   - `lib/features/game/domain/game_event.dart`: `wave_complete` (if the server stops it).
-   - `lib/features/lobby/domain/lobby_state.dart`: the lenient reading of a table without
-     `night_protocol`, `deck_preview` or `deal` (three places).
-   - The unplayable game: `UnplayableGameException` (`game_service.dart`), its handling in
-     `protocol_two_game.dart` and `table_shell.dart`, `UnplayableScreen` and
-     `BannerCopy.cannotPlay` (with its line in the copy test's `banners`).
-   - `lib/core/router/routes.dart`: `LobbyRoute`.
-   - `lib/core/debug/debug_table_controller.dart`: `createTable(protocolTwo: false)` and
-     `driveAs`'s protocol-1 requests (`DebugAction`), which only the e2e API runners use:
-     port `test_e2e/api_runner_test.dart`, `api_lifecycle_test.dart` and
-     `harness/scenario_runner.dart` to protocol 2 first.
-3. Open the pull request; split it if it is too big to review.
+2. Open the pull request; split it if it is too big to review.
+3. A later push, once no instance of the code before the protocol-1 cleanup serves: stop
+   writing `night_protocol: 2` (`deal.OLD_CODE_NIGHT_FLAG`, used by `hooks.APP_DEFAULTS` and
+   `deal.dealt_settings`; `tests/onuw/test_old_code_reads_new_rows.py` goes with it) and the
+   play-again write of `LobbyMember.is_ready` (`core/lobbies.py`). After that, a later
+   migration may drop `LobbyMember.is_ready` (nothing reads it; the deploy-safe two-step:
+   the code stops writing it first, the column goes in the next push).
 
 ## Open items
 
@@ -72,9 +67,6 @@ changes. Last updated 20 November 2026.
 - Ten long names on a 320-wide phone: the night board falls under the 14 px reading floor.
 - 04 held, the Minion's face on a 320-wide phone: the role name (13.2 px) and its Night
   line (15.1 px) fall under the reading floor (`just screens 320`, `04-your-card-held-minion`).
-- Protocol 1 only, server side (goes with the server slice): across several server instances a phone can
-  get `action_prompt` before `wave_start` and lose its prompt. (The unreachable "your card"
-  screen is fixed under protocol 2.)
 - The server now sends `CORS_EXPOSE_HEADERS = ["Date"]` (base settings) and `/me/`
   `stage_started_at`; the app does not read either yet (it times fetches by the phone's
   clock). The deployment session has to be told the CORS change.
@@ -86,7 +78,18 @@ changes. Last updated 20 November 2026.
   in-app QR scanning (the phone's camera opens the link); path URLs for `/join/<code>` (the link
   is `<origin>/#/join/<code>` until the web host rewrites `/join/*`); a public origin for
   native builds (`--dart-define=PUBLIC_ORIGIN`); skin art for Share (the platform's glyph).
-- Untidy protocol-1 payloads still open: `docs/dev/server-payload-quirks.md`.
+- Untidy payloads still open: `docs/dev/server-payload-quirks.md`.
+- `CLAUDE.md` files and `.claude/agents/` still describe protocol 1 in a few lines (the
+  cleanup did not edit them: they need the owner's go-ahead): `backend/CLAUDE.md` ("the
+  night, protocol 2" and the rule "Protocol 1 answers exactly as before"),
+  `frontend/CLAUDE.md` (the sample filter and `UnplayableScreen`),
+  `.claude/agents/backend-developer.md` ("an original (protocol 1) sample must not change")
+  and `.claude/agents/frontend-developer.md` ("the protocol-2 data layer").
+- Renames made with the cleanup: the night module is `apps/onuw/choose_night.py`, the `_v2` samples have
+  plain names (`started_with_look`, `results_five`, `detail_*`, ...), the e2e runners are
+  `api_game_test.dart` and `ui_game_test.dart`, `ui_end_test.dart`, `ui_journey_test.dart`,
+  `ui_roles_test.dart`. Not renamed: `docs/specs/onuw/api-contract-v2.md` (linked from
+  many places) and the app's `defaults: "v2"` request value (the server accepts it).
 - DRF throttles are per instance on Vercel and keyed on a spoofable header: a courtesy, not
   protection.
 - Parallel agents set their own `DB_NAME` by hand; nothing enforces it.

@@ -1,16 +1,14 @@
 {
-  "game_id": "00000000-0000-4000-a000-000000000017",
+  "game_id": "00000000-0000-4000-a000-000000000014",
   "lobby_code": "X2PG5N",
   "phase": "night",
   "current_wave": 1,
-  "deadline": "2024-03-07T22:03:48+00:00",
+  "deadline": "2024-03-07T22:00:48+00:00",
   "your_role": {
-    "original_role": "Doppelganger",
-    "has_acted": true
+    "original_role": "Doppelganger"
   },
   "is_host": true,
   "host_id": 55,
-  "has_voted": false,
   "players": [
     {
       "player_id": 55,
@@ -126,7 +124,7 @@
   "my_vote": null,
   "ready": null,
   "progress": null,
-  "stage": "w1.000000000017",
-  "stage_started_at": "2024-03-07T22:03:38+00:00",
+  "stage": "w1.000000000014",
+  "stage_started_at": "2024-03-07T22:00:38+00:00",
   "vote_targets": null
 }

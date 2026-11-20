@@ -9,10 +9,6 @@ void main() {
       jsonDecode(event) as Map<String, dynamic>;
 
   group('GameEvents', () {
-    test('waveComplete carries the window that closed', () {
-      expect(decode(GameEvents.waveComplete(wave: 1))['wave'], 1);
-    });
-
     test('phaseChange exists only for the talk and the vote', () {
       expect(
         decode(GameEvents.phaseChange(phase: 'voting'))['phase'],
@@ -38,12 +34,6 @@ void main() {
     test('lobby joins and leaves carry only a username', () {
       expect(decode(GameEvents.playerJoined()).keys, {'type', 'username'});
       expect(decode(GameEvents.playerLeft()).keys, {'type', 'username'});
-    });
-
-    test('playerReady carries the id and the flag', () {
-      final event = decode(GameEvents.playerReady(playerId: 2, isReady: true));
-      expect(event['user_id'], 2);
-      expect(event['is_ready'], true);
     });
 
     test('lobbyUpdate carries the whole lobby with the new deck', () {

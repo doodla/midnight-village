@@ -1,9 +1,8 @@
 """
 Lock-in voting: a vote is *picked* (changeable, private) and then *locked* (final).
 
-``POST /api/onuw/games/<id>/vote/`` takes ``lock`` (default true, so a client that
-never heard of it behaves exactly as before). A pick sends no socket event at all;
-a lock sends the legacy ``vote_submitted`` and a count-only ``progress``. At any
+``POST /api/onuw/games/<id>/vote/`` requires ``lock`` (true or false). A pick sends
+no socket event at all; a lock sends a count-only ``progress``, never who. At any
 reveal (everyone locked, the deadline, the host) every stored pick counts, locked or
 not, so a pick never needs to be sent twice and a dropped player's pick still counts.
 
@@ -43,7 +42,7 @@ CENTER = ["Villager", "Tanner", "Villager"]
 @pytest.fixture
 def vote_night(make_night) -> Night:
     """Five players at the vote, a deadline far away."""
-    night = make_night(ROLES, CENTER, night_protocol=2, voting_seconds=120)
+    night = make_night(ROLES, CENTER, voting_seconds=120)
     night.start()
     to_voting(night)
     night.recorder.events.clear()
@@ -144,18 +143,21 @@ class TestPickAndLock:
 
         assert stored(night, "robber") == (night.users["seer"].id, True)
 
-    def test_vote_without_lock_field_locks_like_before(self, vote_night) -> None:
+    def test_a_vote_without_the_lock_field_is_a_bad_request(self, vote_night) -> None:
         night = vote_night
 
         response = vote(night, "robber", "seer")
 
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data == {"status": "submitted"}
-        assert stored(night, "robber") == (night.users["seer"].id, True)
-        # Protocol 2 never announces WHO locked: only the count.
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["code"] == "bad_request"
+        assert stored(night, "robber") == (None, False)
+        # A lock never announces WHO locked: only the count.
+        assert lock(night, "robber", "seer").data == {"status": "submitted"}
         assert night.broadcasts("vote.submitted") == []
-        assert me(night, "robber")["has_voted"] is True
-        assert vote(night, "robber", "wolf").status_code == status.HTTP_409_CONFLICT
+        assert me(night, "robber")["my_vote"] == {
+            "target_player_id": night.users["seer"].id,
+            "locked": True,
+        }
 
     def test_nobody_is_told_who_locked_in(self, vote_night) -> None:
         night = vote_night
@@ -164,8 +166,8 @@ class TestPickAndLock:
         body = me(night, "wolf")
 
         assert all("has_voted" not in p for p in body["players"])
-        assert body["has_voted"] is False  # your own, as ever
-        assert me(night, "robber")["has_voted"] is True
+        assert body["my_vote"] is None  # your own, as ever
+        assert me(night, "robber")["my_vote"]["locked"] is True
         assert [e for _, e in night.recorder.events if "player_id" in e] == []
         # The players list endpoint says nothing about who locked either.
         night.client.force_authenticate(user=night.users["wolf"])
@@ -174,13 +176,12 @@ class TestPickAndLock:
         )
         assert all("has_voted" not in p for p in listing.data["players"])
 
-    def test_an_unlocked_pick_is_not_a_vote_cast_for_has_voted(
-        self, vote_night
-    ) -> None:
+    def test_an_unlocked_pick_is_not_a_locked_vote(self, vote_night) -> None:
         night = vote_night
         pick(night, "robber", "seer")
 
-        assert me(night, "robber")["has_voted"] is False
+        assert me(night, "robber")["my_vote"]["locked"] is False
+        assert me(night, "robber")["progress"]["done"] == 0
 
     def test_a_pick_repeated_for_the_same_target_is_harmless(self, vote_night) -> None:
         night = vote_night
@@ -223,7 +224,7 @@ class TestPickAndLock:
     def test_a_vote_while_it_is_still_night_is_for_a_stage_that_is_not_here(
         self, make_night
     ) -> None:
-        night = make_night(ROLES, CENTER, night_protocol=2)
+        night = make_night(ROLES, CENTER)
         night.start()
         assert night.game.phase == Phase.NIGHT
 
@@ -319,7 +320,7 @@ class TestSocketEvents:
         ]
 
     def test_opening_the_vote_announces_done_zero(self, make_night) -> None:
-        night = make_night(ROLES, CENTER, night_protocol=2, voting_seconds=120)
+        night = make_night(ROLES, CENTER, voting_seconds=120)
         night.start()
 
         to_voting(night)
@@ -616,7 +617,7 @@ class TestMe:
         }
 
     def test_my_vote_and_progress_are_null_outside_the_vote(self, make_night) -> None:
-        night = make_night(ROLES, CENTER, night_protocol=2)
+        night = make_night(ROLES, CENTER)
         night.start()
 
         body = me(night, "seer")
@@ -633,42 +634,3 @@ class TestMe:
 
         assert body["my_vote"] is None
         assert body["progress"] is None
-
-
-class TestTheOriginalNightIsAnsweredAsBefore:
-    """A game without ``night_protocol: 2`` gets today's bodies, byte for byte: no
-    stage keys in ``/me/``, no ``code`` in vote errors, the old 409 wording."""
-
-    @pytest.fixture
-    def old_night(self, make_night) -> Night:
-        night = make_night(ROLES, CENTER, voting_seconds=120)
-        night.start()
-        to_voting(night)
-        return night
-
-    def test_me_has_no_stage_keys(self, old_night) -> None:
-        assert not {"my_vote", "ready", "progress"} & set(me(old_night, "seer"))
-
-    def test_the_old_error_bodies(self, old_night) -> None:
-        night = old_night
-        assert lock(night, "robber", "seer").data == {"status": "submitted"}
-
-        again = lock(night, "robber", "wolf")
-        self_vote = vote(night, "seer", "seer")
-        bad_target = post_vote(night, "seer", {"target_player_id": "5"})
-
-        assert again.status_code == status.HTTP_409_CONFLICT
-        assert again.data == {"detail": "You have already voted."}
-        assert self_vote.data == {"detail": ["You cannot vote for yourself."]}
-        assert bad_target.data == {"detail": "target_player_id must be an integer."}
-
-    def test_a_pick_works_the_same(self, old_night) -> None:
-        night = old_night
-
-        reply = pick(night, "robber", "seer")
-
-        assert reply.data == {
-            "status": "picked",
-            "target_player_id": night.users["seer"].id,
-        }
-        assert night.role_of("robber").has_acted is False

@@ -32,7 +32,7 @@ class MyVote {
   factory MyVote.fromJson(Map<String, dynamic> json) =>
       MyVote._(json['target_player_id'] as int, locked: json['locked'] as bool);
 
-  /// The vote as this phone holds it from the tap on (see `ProtocolTwoGame`).
+  /// The vote as this phone holds it from the tap on (see `LiveGame`).
   const MyVote.local(this.targetId, {required this.locked});
 
   final int targetId;
@@ -51,7 +51,7 @@ class MyVote {
   String toString() => 'MyVote($targetId${locked ? ', locked' : ''})';
 }
 
-/// `GET /onuw/games/<id>/me/` of a night protocol 2 game, everything this
+/// `GET /onuw/games/<id>/me/`, everything this
 /// phone may know, parsed strictly (a key the server always sends is
 /// required; a missing one throws, so a fixture cannot lean on a default).
 ///
@@ -87,22 +87,18 @@ class GameMe {
     required this.voteTargets,
   });
 
-  /// A `/me/` body (night protocol 2). One without a `stage` key is refused
-  /// here (`GameService.fetchMe` reports it first, as
-  /// `UnplayableGameException`).
+  /// A `/me/` body. One without a `stage` key is a broken payload (a failed
+  /// fetch, healed like any other).
   factory GameMe.fromJson(Map<String, dynamic> me) {
     if (!me.containsKey('stage')) {
-      throw FormatException('Not a night protocol 2 /me/ (no stage)', me);
+      throw FormatException('No stage in /me/', me);
     }
-    // Sent in every protocol-2 /me/, null or not: a missing one is a broken
-    // payload, never "nothing".
+    // Sent in every /me/, null or not: a missing one is a broken payload,
+    // never "nothing".
     for (final key in _alwaysSent) {
       if (!me.containsKey(key)) throw FormatException('No $key in /me/', me);
     }
     final role = me['your_role'] as Map<String, dynamic>;
-    // `your_role.has_acted` and `has_voted` (protocol 1's flags, still sent)
-    // are not read: protocol 2 says the same with `chosen`, `ready` and
-    // `my_vote`, and the server drops them with protocol 1.
     final rawVote = me['my_vote'] as Map<String, dynamic>?;
     final rawProgress = me['progress'] as Map<String, dynamic>?;
     final results = me['night_results'] as List;

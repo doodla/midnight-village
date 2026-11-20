@@ -53,7 +53,7 @@ void main() {
   testWidgets('six at 390 x 844: the rows, the deck and Deal in view', (
     tester,
   ) async {
-    final body = v2Lobby('detail_v2_deck_classic_7');
+    final body = v2Lobby('detail_deck_classic_7');
     (body['players'] as List).removeLast();
     final setup = await _pumpAt(tester, const Size(390, 844), body, 'Kai');
 
@@ -68,7 +68,7 @@ void main() {
     final setup = await _pumpAt(
       tester,
       const Size(360, 640),
-      v2Lobby('detail_v2_auto_deck_5'),
+      v2Lobby('detail_auto_deck_5'),
       'Ana',
     );
 
@@ -82,7 +82,7 @@ void main() {
     final setup = await _pumpAt(
       tester,
       const Size(320, 692),
-      v2Lobby('detail_v2_auto_deck_5'),
+      v2Lobby('detail_auto_deck_5'),
       'Ana',
     );
 

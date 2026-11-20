@@ -250,7 +250,7 @@ class TestAStartedNightAlwaysOpens:
 
         assert response.status_code == status.HTTP_200_OK
         assert night.refresh().current_wave == 2
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+        assert night.windows_opened() == [2]
 
     def test_a_night_that_has_only_just_started_is_left_to_its_starter(
         self, make_night
@@ -277,4 +277,4 @@ class TestAStartedNightAlwaysOpens:
         with night.committed():
             night.client.get(url)
 
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+        assert night.windows_opened() == [2]

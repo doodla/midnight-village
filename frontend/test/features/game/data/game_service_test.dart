@@ -35,11 +35,9 @@ void main() {
       expect(me.stage, body['stage']);
     });
 
-    test('a /me/ without a stage is a game this app cannot play: final, '
-        'never a parse error retried in a loop', () async {
+    test('a /me/ without a stage is a broken payload (a failed fetch, healed '
+        'like any other)', () async {
       final (:service, :http) = _createService();
-      // A night from before every table was opened as v2 (night protocol
-      // 1): the app's samples hold none, so this one is marked malformed.
       http.answer(
         'GET',
         '/onuw/games/g1/me/',
@@ -47,10 +45,7 @@ void main() {
         offContract: true,
       );
 
-      await expectLater(
-        service.fetchMe('g1'),
-        throwsA(isA<UnplayableGameException>()),
-      );
+      await expectLater(service.fetchMe('g1'), throwsA(isA<FormatException>()));
     });
   });
 }

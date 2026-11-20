@@ -52,7 +52,7 @@ void main() {
 
     test('nothing for an untimed stage (the server sends no start and no '
         'deadline): no length is assumed', () {
-      for (final name in ['me_talk_untimed_v2', 'me_voting_untimed_v2']) {
+      for (final name in ['me_talk_untimed', 'me_voting_untimed']) {
         final me = GameMe.fromJson(sheet.recordedMe(name));
         expect((me.stageStartedAt, me.deadline), (null, null), reason: name);
         expect(
@@ -185,7 +185,7 @@ void main() {
       for (final name in [
         'me_voting_unpicked',
         'me_voting_ten',
-        'me_voting_untimed_v2',
+        'me_voting_untimed',
       ]) {
         final json = sheet.recordedMe(name);
         final me = GameMe.fromJson(json);

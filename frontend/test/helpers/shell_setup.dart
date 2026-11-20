@@ -36,10 +36,10 @@ import 'contract/server_json.dart' show serverOnlineStats;
 import 'fake_wakelock_service.dart';
 import 'mock_http_client.dart';
 import 'mock_websocket.dart';
-import 'protocol_two_setup.dart'
+import 'live_game_setup.dart'
     show httpDate, sampleClockStart, tableOf, testHealTiming;
 
-export 'protocol_two_setup.dart' show recordedMe, sampleClockStart;
+export 'live_game_setup.dart' show recordedMe, sampleClockStart;
 
 /// The rebuilt shell ([TableShell]) on one phone of a recorded game, in the
 /// app's theme, every answer a recorded server payload: the strict HTTP mock
@@ -54,7 +54,7 @@ class ShellSetup {
   /// The lobby's socket (02 and 03 listen to it).
   final lobbyWs = MockWebSocketChannel();
 
-  /// The `/me/` the server starts at (a recorded protocol-2 `/me/`).
+  /// The `/me/` the server starts at (a recorded `/me/`).
   final Map<String, dynamic> me;
   final MockHttpClient http;
   final MockWebSocketChannel ws;
@@ -238,7 +238,7 @@ class ShellSetup {
       http.answer('GET', '/me/table/', body);
 
   /// What `GET /lobbies/<code>/` answers (02 and 03 read the lobby): the
-  /// recorded protocol-2 table [sample] (`http/lobby/<sample>`), under
+  /// recorded table [sample] (`http/lobby/<sample>`), under
   /// [code].
   void answerLobby(String code, {String sample = 'settings_deck_chip'}) {
     final body = ContractSamples.map('http/lobby/$sample');

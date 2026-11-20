@@ -1,11 +1,11 @@
-"""Private socket events reach only their player (principle 2), checked on the
-recorded samples.
+"""What the sockets tell the table never gives a seat away (principle 2),
+checked on the recorded samples.
 
 Every socket sample's index entry says which group delivered it and who got
 it (``recorder.Table.record_event``); ``test_contract_samples.py`` keeps the
-committed index equal to what the server sends. So if a change moved a night
-prompt or result onto the table's broadcast group, the samples' diff would show
-it and this test would fail on the regenerated index.
+committed index equal to what the server sends. The night sends no event to one
+player: prompts and results are read from ``/me/``, so a seat's socket hears
+exactly what every other seat hears.
 """
 
 from __future__ import annotations
@@ -23,8 +23,9 @@ pytestmark = pytest.mark.contract
 
 SAMPLES_DIR = Path(__file__).resolve().parents[3] / "contract_samples"
 
-# Events about one player's own night: never for anyone else.
-PRIVATE = {"action_prompt", "action_result", "wave_waiting"}
+# Events about one player's own night: never sent at all (a phone that got one
+# while the others did not would be telling the table it acts).
+PRIVATE = {"action_prompt", "action_result", "wave_waiting", "wave_start"}
 # The end of the game: every card is shown to everyone.
 AFTER_RESULTS = {"game_results"}
 ROLE_NAME = re.compile(
@@ -49,14 +50,9 @@ def test_every_socket_sample_says_who_received_it() -> None:
         assert sample["recipients"], sample["name"]
 
 
-@pytest.mark.parametrize(
-    "sample",
-    [s for s in _socket_samples() if s["type"] in PRIVATE],
-    ids=lambda s: s["name"],
-)
-def test_a_night_event_goes_to_its_player_alone(sample: dict[str, Any]) -> None:
-    assert sample["group"] == "player"
-    assert len(sample["recipients"]) == 1
+def test_no_socket_sample_is_a_per_player_night_event() -> None:
+    names = [s["name"] for s in _socket_samples() if s["type"] in PRIVATE]
+    assert names == []
 
 
 @pytest.mark.parametrize(
@@ -82,7 +78,7 @@ def _sequence_samples() -> list[dict[str, Any]]:
     return [s for s in index["samples"] if s["kind"] == "ws_sequence"]
 
 
-def test_there_are_night_protocol_2_sequences_to_check() -> None:
+def test_there_are_window_sequences_to_check() -> None:
     names = {s["name"] for s in _sequence_samples()}
     assert {
         "ws_sequence/look_stage",
@@ -94,7 +90,7 @@ def test_there_are_night_protocol_2_sequences_to_check() -> None:
 
 
 @pytest.mark.parametrize("sample", _sequence_samples(), ids=lambda s: s["name"])
-def test_under_night_protocol_2_every_seat_hears_the_same_events_in_the_same_order(
+def test_every_seat_hears_the_same_events_in_the_same_order(
     sample: dict[str, Any],
 ) -> None:
     """The types and the order of what each seat's socket received in a window are
@@ -108,24 +104,20 @@ def test_under_night_protocol_2_every_seat_hears_the_same_events_in_the_same_ord
     for seat, heard in sequences.items():
         assert heard == reference, f"{seat} heard something different"
     assert not {event for event in reference if event in PRIVATE}
-    # Who locked in is never announced under protocol 2: counts only.
+    # Who voted or locked in is never announced: counts only.
     assert "vote_submitted" not in reference
 
 
 @pytest.mark.parametrize(
     "sample",
-    [
-        s
-        for s in _socket_samples()
-        if s["type"] in {"night_window", "progress", "wave_complete"}
-    ],
+    [s for s in _socket_samples() if s["type"] in {"night_window", "progress"}],
     ids=lambda s: s["name"],
 )
-def test_the_night_window_progress_and_close_events_go_to_the_whole_table(
+def test_the_night_window_and_progress_events_go_to_the_whole_table(
     sample: dict[str, Any],
 ) -> None:
     assert sample["group"] == "broadcast"
     assert len(sample["recipients"]) >= 5
     # Counts and window numbers only: no player id, no role.
-    allowed = {"type", "stage", "done", "needed", "window", "deadline", "wave"}
+    allowed = {"type", "stage", "done", "needed", "window", "deadline"}
     assert set(_payload(sample)) <= allowed

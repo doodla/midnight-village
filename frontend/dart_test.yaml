@@ -1,6 +1,6 @@
 # Test runner config (honored by `flutter test`).
 #
-# `e2e` tags the live-backend integration harness in test_e2e/ (the api_* and ui_protocol2_*
+# `e2e` tags the live-backend integration harness in test_e2e/ (the api_* and ui_*
 # suites). They need the harness backend `just test-harness` boots (its own free port).
 #
 # PRIMARY exclusion is STRUCTURAL: the suites live in test_e2e/, not test/, so

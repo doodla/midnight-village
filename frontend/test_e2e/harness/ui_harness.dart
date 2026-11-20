@@ -16,7 +16,7 @@ import 'package:midnight_village/core/router/app_router.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/presentation/game_socket.dart';
-import 'package:midnight_village/features/game/presentation/protocol_two_game.dart';
+import 'package:midnight_village/features/game/presentation/live_game.dart';
 import 'package:midnight_village/features/lobby/domain/where_am_i.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
@@ -168,7 +168,7 @@ class UiHarness {
       ..invalidate(gameWebSocketProvider(gameId))
       ..invalidate(gameWebSocketStreamProvider(gameId))
       ..invalidate(gameConnectionStateProvider(gameId))
-      ..invalidate(protocolTwoGameProvider(gameId))
+      ..invalidate(liveGameProvider(gameId))
       ..invalidate(myTableProvider);
     await tester.pump();
   }
@@ -242,10 +242,10 @@ class UiHarness {
       container
         ..invalidate(myTableProvider)
         ..invalidate(gameWebSocketProvider(gameId))
-        ..invalidate(protocolTwoGameProvider(gameId))
+        ..invalidate(liveGameProvider(gameId))
         ..listen(gameWebSocketProvider(gameId), (_, _) {})
         ..listen(myTableProvider, (_, _) {})
-        ..listen(protocolTwoGameProvider(gameId), (_, _) {});
+        ..listen(liveGameProvider(gameId), (_, _) {});
       final waited = Stopwatch()..start();
       while (!container.read(myTableProvider).hasValue) {
         if (waited.elapsed > const Duration(seconds: 15)) {
@@ -254,7 +254,7 @@ class UiHarness {
         await Future<void>.delayed(const Duration(milliseconds: 50));
       }
       await container
-          .read(protocolTwoGameProvider(gameId).future)
+          .read(liveGameProvider(gameId).future)
           .timeout(const Duration(seconds: 15));
     });
     container.read(appRouterProvider).go('/game/$gameId');

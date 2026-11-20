@@ -25,7 +25,9 @@ class LobbyMemberSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LobbyMember
-        fields = ["user", "is_ready", "token", "joined_at"]
+        # ``is_ready`` stays in the table (no migration) but gates nothing and is no
+        # longer sent: the deal has no ready check (``docs/dev/status.md``).
+        fields = ["user", "token", "joined_at"]
 
 
 class LobbySerializer(serializers.ModelSerializer):
@@ -55,10 +57,9 @@ class LobbySerializer(serializers.ModelSerializer):
         read_only_fields = ["code", "status", "created_at"]
 
     def to_representation(self, instance: Lobby) -> dict:
-        """The body. A table whose game opts in (``GameHooks.shows_table_extras``: ONUW
-        night protocol 2) also gets the game's keys and, per member, ``connected``
-        (``lobbies.connected_members``); any other table is answered exactly as it
-        always was."""
+        """The body. A table whose game opts in (``GameHooks.shows_table_extras``:
+        every ONUW table) also gets the game's keys and, per member, ``connected``
+        (``lobbies.connected_members``)."""
         from .games import hooks_for
         from .lobbies import connected_members
 

@@ -82,7 +82,7 @@ void main() {
     });
 
     testWidgets('starting a table makes this device\'s guest account, opens '
-        'a protocol-2 table and shows it', (tester) async {
+        'a table and shows it', (tester) async {
       final setup = await TableSetup.pump(tester, realAuth: true);
       final created = v2Lobby('created_with_defaults');
       setup.http
@@ -123,7 +123,7 @@ void main() {
         signedInAs: 'Ben',
         userId: 42,
       );
-      final table = v2Lobby('detail_v2_auto_deck_5');
+      final table = v2Lobby('detail_auto_deck_5');
       setup.http.answer(
         'POST',
         '/lobbies/V9YC2J/join/',
@@ -185,7 +185,7 @@ void main() {
         ContractSamples.map('http/lobby/join_already_member'),
         status: 400,
       );
-      setup.sitAt(v2Lobby('detail_v2_auto_deck_5'), 'Ben');
+      setup.sitAt(v2Lobby('detail_auto_deck_5'), 'Ben');
 
       await _tap(tester, setup, find.text(JoinCopy.joinTable));
       await tester.enterText(find.byType(TextField).last, 'V9YC2J');
@@ -216,7 +216,7 @@ void main() {
         status: 409,
       );
       // The table the server says this player is at.
-      setup.sitAt(v2Lobby('detail_v2_deck_classic_4'), 'Lia');
+      setup.sitAt(v2Lobby('detail_deck_classic_4'), 'Lia');
 
       await _tap(tester, setup, find.text(JoinCopy.joinTable));
       await tester.enterText(find.byType(TextField).last, 'V9YC2J');
@@ -252,7 +252,7 @@ void main() {
         'another table." and "Go there", never a second seat', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
         route: '/join/ZZZZZZ',
       );
@@ -284,7 +284,7 @@ void main() {
         '/lobbies/V9YC2J/join/',
         ContractSamples.map('http/lobby/joined'),
       );
-      setup.sitAt(v2Lobby('detail_v2_auto_deck_5'), 'Ben');
+      setup.sitAt(v2Lobby('detail_auto_deck_5'), 'Ben');
 
       await tester.showKeyboard(find.byType(TextField).first);
       await tester.testTextInput.receiveAction(TextInputAction.go);
@@ -304,7 +304,7 @@ void main() {
     ) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
       );
 
@@ -322,7 +322,7 @@ void main() {
         'everyone, the chip and "Deal to 5"', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ana',
       );
 
@@ -356,7 +356,7 @@ void main() {
     ) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_custom_deck_short'),
+        lobby: v2Lobby('detail_custom_deck_short'),
         viewer: 'Kai',
       );
 
@@ -370,12 +370,12 @@ void main() {
         'card" as the socket brings the eighth', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_custom_deck_ok', asRecorded: true),
+        lobby: v2Lobby('detail_custom_deck_ok', asRecorded: true),
         viewer: 'Kai',
       );
       expect(_onPressed(tester, TableCopy.deal.fill({'n': 7})), isNotNull);
 
-      setup.event(ContractSamples.map('ws/lobby/lobby_update_v2_joined'));
+      setup.event(ContractSamples.map('ws/lobby/lobby_update_joined'));
       await setup.settle(tester);
 
       expect(find.text('Sam'), findsOneWidget);
@@ -390,7 +390,7 @@ void main() {
     ]) {
       testWidgets('the $label chip shows the server\'s deck for the table, '
           'face up', (tester) async {
-        final body = v2Lobby('detail_v2_deck_${chip}_7');
+        final body = v2Lobby('detail_deck_${chip}_7');
         final setup = await TableSetup.pump(tester, lobby: body, viewer: 'Kai');
 
         final preview = {
@@ -413,7 +413,7 @@ void main() {
         'back bright', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_member_in_grace', asRecorded: true),
+        lobby: v2Lobby('detail_member_in_grace', asRecorded: true),
         viewer: 'Kai',
       );
       bool away(String name) => tester
@@ -427,14 +427,12 @@ void main() {
       // In the grace period the server still counts the phone at the table.
       expect(away('Noa'), isFalse);
 
-      setup.event(
-        ContractSamples.map('ws/lobby/lobby_update_v2_member_dropped'),
-      );
+      setup.event(ContractSamples.map('ws/lobby/lobby_update_member_dropped'));
       await setup.settle(tester);
       expect(away('Noa'), isTrue);
       expect(away('Kai'), isFalse);
 
-      setup.event(ContractSamples.map('ws/lobby/lobby_update_v2_member_back'));
+      setup.event(ContractSamples.map('ws/lobby/lobby_update_member_back'));
       await setup.settle(tester);
       expect(away('Noa'), isFalse);
       await setup.close(tester);
@@ -443,7 +441,7 @@ void main() {
     testWidgets('this phone\'s own row is never dimmed', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_member_dropped', asRecorded: true),
+        lobby: v2Lobby('detail_member_dropped', asRecorded: true),
         viewer: 'Noa',
       );
 
@@ -459,7 +457,7 @@ void main() {
     ) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
       );
 
@@ -482,7 +480,7 @@ void main() {
       const long = 'Rosalind Fairweather';
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_9', rename: {'Cleo': long}),
+        lobby: v2Lobby('detail_auto_deck_9', rename: {'Cleo': long}),
         viewer: 'Ana',
       );
 
@@ -496,14 +494,14 @@ void main() {
     ) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ana',
       );
       final reads = setup.count('GET', '/me/table/');
       setup.http.answer(
         'POST',
         '/onuw/lobbies/V9YC2J/start/',
-        ContractSamples.map('http/game/started_v2'),
+        ContractSamples.map('http/game/started_with_look'),
         status: 201,
       );
 
@@ -518,7 +516,7 @@ void main() {
         'deals', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ana',
       );
       setup.http.answer(
@@ -534,7 +532,7 @@ void main() {
       setup.http.answer(
         'POST',
         '/onuw/lobbies/V9YC2J/start/',
-        ContractSamples.map('http/game/started_v2'),
+        ContractSamples.map('http/game/started_with_look'),
         status: 201,
       );
       await _tap(tester, setup, find.text(BannerCopy.tryAgain));
@@ -549,7 +547,7 @@ void main() {
     ) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
       );
       final reads = setup.count('GET', '/me/table/');
@@ -568,7 +566,7 @@ void main() {
         'layout, with no words about it', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
       );
       expect(find.text(TableCopy.editDeck), findsNothing);
@@ -590,7 +588,7 @@ void main() {
     testWidgets('a guest leaves: back to 01', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
       );
       setup.http
@@ -618,7 +616,7 @@ void main() {
     ) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
       );
       setup.http.answer(
@@ -647,7 +645,7 @@ void main() {
         'says "Copied"', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ana',
       );
       setup.shareCopies = true;
@@ -662,7 +660,7 @@ void main() {
         'leaves', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ana',
       );
       setup.http.answer(
@@ -698,13 +696,13 @@ void main() {
       (tester) async {
         final setup = await TableSetup.pump(
           tester,
-          lobby: v2Lobby('detail_v2_auto_deck_5'),
+          lobby: v2Lobby('detail_auto_deck_5'),
           viewer: 'Ana',
         );
         setup.http.answer(
           'POST',
           '/onuw/lobbies/V9YC2J/start/',
-          ContractSamples.map('http/game/start_not_all_ready'),
+          ContractSamples.map('http/game/start_bad_seed'),
           status: 400,
         );
 
@@ -723,7 +721,7 @@ void main() {
         'once it answers', (tester) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
         lobbyDown: true,
       );
@@ -747,7 +745,7 @@ void main() {
     ) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ana',
       );
 
@@ -763,7 +761,7 @@ void main() {
   group('03 Deck', () {
     Future<TableSetup> openDeck(
       WidgetTester tester, {
-      String sample = 'detail_v2_auto_deck_5',
+      String sample = 'detail_auto_deck_5',
       String viewer = 'Ana',
     }) async {
       final setup = await TableSetup.pump(
@@ -792,13 +790,13 @@ void main() {
         'its cards show face up when the server answers', (tester) async {
       final setup = await openDeck(
         tester,
-        sample: 'detail_v2_deck_classic_7',
+        sample: 'detail_deck_classic_7',
         viewer: 'Kai',
       );
       expect(_chip(tester, 'Classic').selected, isTrue);
-      expect(shown(tester), previewOf(v2Lobby('detail_v2_deck_classic_7')));
+      expect(shown(tester), previewOf(v2Lobby('detail_deck_classic_7')));
       final held = setup.http.hold(method: 'PATCH', path: '/lobbies/B7DH4Q/');
-      final answer = v2Lobby('detail_v2_deck_chaos_7');
+      final answer = v2Lobby('detail_deck_chaos_7');
       setup.answerPatch(answer);
 
       await _tap(tester, setup, find.text('Chaos'));
@@ -822,10 +820,10 @@ void main() {
     ) async {
       final setup = await openDeck(
         tester,
-        sample: 'detail_v2_deck_simple_7',
+        sample: 'detail_deck_simple_7',
         viewer: 'Kai',
       );
-      final preview = previewOf(v2Lobby('detail_v2_deck_simple_7'));
+      final preview = previewOf(v2Lobby('detail_deck_simple_7'));
 
       await _tap(
         tester,
@@ -844,7 +842,7 @@ void main() {
         'the server\'s deal needs', (tester) async {
       final setup = await openDeck(
         tester,
-        sample: 'detail_v2_custom_deck_short',
+        sample: 'detail_custom_deck_short',
         viewer: 'Kai',
       );
       // Ten cards for eight: the server needs eleven.
@@ -854,7 +852,7 @@ void main() {
 
     testWidgets('Edit opens the grid; the deck is sent with "Use this deck", '
         'amber only at a card for everyone and three more', (tester) async {
-      final setup = await openDeck(tester, sample: 'detail_v2_custom_deck');
+      final setup = await openDeck(tester, sample: 'detail_custom_deck');
       // The grid is open on the host's own deck of twelve, for nine.
       expect(find.byType(RoleCard), findsNWidgets(deckOrder.length));
       expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
@@ -914,7 +912,7 @@ void main() {
 
     testWidgets('holding a card opens the role sheet: the role text and '
         'Close, nothing that changes the deck', (tester) async {
-      final setup = await openDeck(tester, sample: 'detail_v2_custom_deck');
+      final setup = await openDeck(tester, sample: 'detail_custom_deck');
 
       await tester.ensureVisible(_role(RoleId.troublemaker));
       await tester.longPress(_role(RoleId.troublemaker));
@@ -938,7 +936,7 @@ void main() {
 
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_auto_deck_5'),
+        lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ana',
       );
 

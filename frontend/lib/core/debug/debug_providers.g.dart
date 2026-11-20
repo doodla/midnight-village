@@ -126,4 +126,4 @@ final class DebugTableControllerProvider
 }
 
 String _$debugTableControllerHash() =>
-    r'd19923142d6f66162b81d9b5a2644bf553523a2a';
+    r'062fa52de5567895c43084e8e5f737dc1d5f05d9';

@@ -125,4 +125,4 @@ final class TableScreenProvider
   }
 }
 
-String _$tableScreenHash() => r'ca565b9423c8a266d42fe7c77b09868b930e2479';
+String _$tableScreenHash() => r'dacb1c3c288c292b18a2675ca634e1d9fee630f7';

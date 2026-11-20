@@ -70,11 +70,13 @@ class TestGameSocket:
         await layer.group_send(
             f"game_{game.id}_player_{users[0].id}", FROM_A_NEWER_INSTANCE
         )
-        await layer.group_send(f"game_{game.id}", {"type": "wave.start", "wave": 2})
+        await layer.group_send(
+            f"game_{game.id}", {"type": "night.window", "window": 2, "deadline": None}
+        )
 
         first = await communicator.receive_json_from(timeout=2)
-        assert first["type"] == "wave_start"  # nothing of the unknown event came first
-        assert first["wave"] == 2
+        assert first["type"] == "night_window"  # nothing of the unknown one came first
+        assert first["window"] == 2
         await communicator.disconnect()
 
 

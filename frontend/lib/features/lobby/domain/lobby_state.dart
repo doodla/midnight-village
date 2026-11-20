@@ -10,51 +10,42 @@ part 'lobby_state.freezed.dart';
 ///
 /// Serialized from the backend's nested player format:
 /// ```json
-/// { "user": {"id": 1, "display_name": "Alice"}, "is_ready": true,
-///   "token": "moth", "joined_at": "..." }
+/// { "user": {"id": 1, "display_name": "Alice"}, "token": "moth",
+///   "joined_at": "...", "connected": true }
 /// ```
 @freezed
 abstract class LobbyPlayer with _$LobbyPlayer {
   const factory LobbyPlayer({
     required int id,
     required String displayName,
-    required bool isReady,
     required DateTime joinedAt,
 
     /// The seat token (public table identity); null for a token this app
     /// does not know, or the blank one a member past the tenth may have.
     TokenId? token,
 
-    /// Whether the member's phone is at the table (`connected`, sent at a
-    /// protocol-2 table only; still true during the table's grace period
-    /// after a drop). False is a dropped phone: its row is dimmed, with no
-    /// words. Null at a table that does not send it.
-    bool? connected,
+    /// Whether the member's phone is at the table (`connected`; still true
+    /// during the table's grace period after a drop). False is a dropped
+    /// phone: its row is dimmed, with no words.
+    required bool connected,
   }) = _LobbyPlayer;
 
-  /// Parses the backend's nested player format. At a protocol-2 table
-  /// ([protocolTwo]) `connected` is always sent: a missing one is a broken
-  /// payload, never "unknown".
-  factory LobbyPlayer.fromJson(
-    Map<String, dynamic> json, {
-    bool protocolTwo = false,
-  }) {
-    // Backend returns { "user": {"id": ..., "display_name": ...}, "is_ready": ..., "joined_at": ... }
+  /// Parses the backend's nested player format. `connected` is always sent:
+  /// a missing one is a broken payload, never "unknown".
+  factory LobbyPlayer.fromJson(Map<String, dynamic> json) {
+    // Backend returns { "user": {"id": ..., "display_name": ...}, "joined_at": ... }
     final user = json['user'] as Map<String, dynamic>;
     return LobbyPlayer(
       id: user['id'] as int,
       displayName: user['display_name'] as String,
-      isReady: json['is_ready'] as bool,
       joinedAt: DateTime.parse(json['joined_at'] as String),
       token: TokenId.fromServer(json['token'] as String),
-      connected: protocolTwo
-          ? json['connected'] as bool
-          : json['connected'] as bool?,
+      connected: json['connected'] as bool,
     );
   }
 }
 
-/// Whether the table can be dealt now (`deal`, protocol-2 tables only): [ok]
+/// Whether the table can be dealt now (`deal`): [ok]
 /// is exactly what the server's deal would answer; [need] the cards the deal
 /// needs, [have] the cards in the deck. The app holds no deck-size rule.
 @immutable
@@ -99,8 +90,7 @@ abstract class LobbyState with _$LobbyState {
     required int maxPlayers,
     @Default({}) Map<String, int> roleConfig,
 
-    /// The table's deck choice and night (protocol 2 settings; see
-    /// [TableSettings]).
+    /// The table's deck choice, look and lengths (see [TableSettings]).
     @Default(TableSettings.none) TableSettings table,
 
     /// The game this table has just started (from `game_started`, or found in
@@ -145,12 +135,12 @@ abstract class LobbyState with _$LobbyState {
     @Default(false) bool tableClosed,
 
     /// The automatic deck the deal would build now (`deck_preview`, role name
-    /// to count); null for a custom deck, a player count with no automatic
-    /// deck, or a table that does not send it.
+    /// to count); null for a custom deck or a player count with no automatic
+    /// deck.
     Map<String, int>? deckPreview,
 
-    /// Whether the table can be dealt now (`deal`); null at a table that does
-    /// not send it.
+    /// Whether the table can be dealt now (`deal`, always sent); null only in
+    /// a state built before its first body.
     DealReadiness? deal,
   }) = _LobbyState;
 
@@ -162,30 +152,19 @@ abstract class LobbyState with _$LobbyState {
     // A table whose host has not chosen a deck yet has no `roles`.
     final roles = settings['roles'] as Map<String, dynamic>?;
     final table = TableSettings.fromSettings(settings);
-    // PROTOCOL 1: a table made before `defaults: "v2"` (and the server's
-    // protocol-1 lobby samples) sends no `night_protocol`, `deck_preview` or
-    // `deal`; read leniently until the server slice deletes them.
-    final protocolTwo = table.isProtocolTwo;
-    // A protocol-2 table always sends `deck_preview` (null for a custom deck)
-    // and `deal`: missing is a broken payload, as in `GameMe`.
-    if (protocolTwo && !json.containsKey('deck_preview')) {
-      throw FormatException('No deck_preview in a protocol-2 lobby', json);
+    // Every table sends `deck_preview` (null for a custom deck) and `deal`:
+    // missing is a broken payload, as in `GameMe`.
+    if (!json.containsKey('deck_preview')) {
+      throw FormatException('No deck_preview in a lobby', json);
     }
     final preview = json['deck_preview'] as Map<String, dynamic>?;
-    final deal = protocolTwo
-        ? json['deal'] as Map<String, dynamic>
-        : json['deal'] as Map<String, dynamic>?;
+    final deal = json['deal'] as Map<String, dynamic>;
 
     return LobbyState(
       code: json['code'] as String,
       hostId: host['id'] as int,
       players: playersJson
-          .map(
-            (p) => LobbyPlayer.fromJson(
-              p as Map<String, dynamic>,
-              protocolTwo: protocolTwo,
-            ),
-          )
+          .map((p) => LobbyPlayer.fromJson(p as Map<String, dynamic>))
           .toList(),
       status: json['status'] as String,
       maxPlayers: json['max_players'] as int,
@@ -199,7 +178,7 @@ abstract class LobbyState with _$LobbyState {
       deckPreviewChip: preview != null && settings['deck_chip'] != null
           ? DeckChip.fromServer(settings['deck_chip'])
           : null,
-      deal: deal == null ? null : DealReadiness.fromJson(deal),
+      deal: DealReadiness.fromJson(deal),
     );
   }
 }
@@ -262,14 +241,13 @@ enum Pace {
       .firstOrNull;
 }
 
-/// What a lobby's `settings` say about the deck and the night, beyond the
-/// card list ([LobbyState.roleConfig]). Every key is optional on the server
-/// (a table made without `defaults: "v2"` has none of them); a key that is
-/// there must have its type.
+/// What a lobby's `settings` say about the deck, the look and the lengths,
+/// beyond the card list ([LobbyState.roleConfig]). Every key is optional on
+/// the server (a table made without `defaults: "v2"` has none of them); a key
+/// that is there must have its type.
 @immutable
 class TableSettings {
   const TableSettings._({
-    required this.nightProtocol,
     required this.autoDeck,
     required this.deckChip,
     required this.cardLookSeconds,
@@ -281,9 +259,8 @@ class TableSettings {
     Map<String, dynamic> raw = const {},
   }) : _raw = raw;
 
-  /// A table that says nothing: protocol 1, a custom deck.
+  /// A table that says nothing: a custom deck, no look.
   static const none = TableSettings._(
-    nightProtocol: 1,
     autoDeck: false,
     deckChip: null,
     cardLookSeconds: null,
@@ -297,9 +274,6 @@ class TableSettings {
     }
     final chip = settings['deck_chip'];
     return TableSettings._(
-      // Absent means 1 (the server's rule). PROTOCOL 1: always 2 once the
-      // server slice deletes protocol 1.
-      nightProtocol: settings['night_protocol'] as int? ?? 1,
       autoDeck: deck == 'auto',
       deckChip: chip == null ? null : DeckChip.fromServer(chip),
       cardLookSeconds: settings['card_look_seconds'] as int?,
@@ -319,9 +293,6 @@ class TableSettings {
       TableSettings.fromSettings({..._raw, ...patch});
 
   final Map<String, dynamic> _raw;
-
-  /// 2: the rebuilt night (stages, one `choose` per window, counts only).
-  final int nightProtocol;
 
   /// The server builds the deck at the deal from [deckChip] (`deck: "auto"`);
   /// otherwise the card list is the deck.
@@ -345,12 +316,9 @@ class TableSettings {
   /// The Doppelganger's window ("Copy").
   final int? copySeconds;
 
-  bool get isProtocolTwo => nightProtocol == 2;
-
   @override
   bool operator ==(Object other) =>
       other is TableSettings &&
-      other.nightProtocol == nightProtocol &&
       other.autoDeck == autoDeck &&
       other.deckChip == deckChip &&
       other.cardLookSeconds == cardLookSeconds &&
@@ -362,7 +330,6 @@ class TableSettings {
 
   @override
   int get hashCode => Object.hash(
-    nightProtocol,
     autoDeck,
     deckChip,
     cardLookSeconds,
@@ -385,8 +352,8 @@ sealed class DealState {
   factory DealState.of(LobbyState lobby) {
     final players = lobby.players.length;
     final deal = lobby.deal;
-    // PROTOCOL 1: a table that sends no verdict (never made by this app):
-    // the button is offered and the server's answer to the deal judges.
+    // No verdict yet (a state built before its first body): the button is
+    // offered and the server's answer to the deal judges.
     if (deal == null || deal.ok) return CanDeal(players);
     if (players < minPlayers) return const NeedPlayers();
     if (lobby.table.autoDeck) return const CannotDeal();

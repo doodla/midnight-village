@@ -10,13 +10,13 @@ import 'live_table.dart';
 import 'time_budget.dart';
 import 'ui_harness.dart';
 
-/// The end of a protocol-2 game on [name]'s phone, already open on the
+/// The end of a game on [name]'s phone, already open on the
 /// game's shell, checked against the oracle, not against anything typed by
 /// the caller: 10's headline names whom the server eliminated by the vote
 /// (in seat order) and each the Hunter took; "See who won"; 11 says the
 /// server's winning teams and this phone's own outcome. Shared by the
-/// protocol-2 UI runners (`ui_protocol2_end_test.dart` opens a phone at the
-/// results; `ui_protocol2_test.dart` plays its phone there).
+/// UI runners (`ui_end_test.dart` opens a phone at the
+/// results; `ui_game_test.dart` plays its phone there).
 Future<void> endAsTheOracleSays({
   required WidgetTester tester,
   required UiHarness ui,

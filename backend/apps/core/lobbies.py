@@ -184,8 +184,7 @@ def play_again(code: str, user_id: int) -> Lobby:
     """Reopen a lobby whose game has finished, for the host to deal again.
 
     Keeps the members and the lobby's settings (the deck); sets the lobby back
-    to waiting with everyone ready so the host can start straight away (anyone
-    can still un-ready or leave). Atomic. After commit, tells the old game's
+    to waiting so the host can deal straight away (anyone can still leave). Atomic. After commit, tells the old game's
     players (``play.again``) and the lobby screens (``lobby.update``). The old
     game and its results are left untouched. A repeated request while the lobby
     is already waiting is a no-op that returns the lobby.
@@ -210,6 +209,9 @@ def play_again(code: str, user_id: int) -> Lobby:
 
         lobby.status = Lobby.Status.WAITING
         lobby.save(update_fields=["status", "updated_at"])
+        # For the code before the cleanup only (it checked readiness at the deal of a
+        # table without ``night_protocol: 2``) while a deploy is promoted; nothing here
+        # reads the column. Goes with the column (``docs/dev/status.md``).
         LobbyMember.objects.filter(lobby=lobby).update(is_ready=True)
 
         messages = [

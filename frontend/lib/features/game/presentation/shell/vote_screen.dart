@@ -20,7 +20,7 @@ import '../../../../design_system/teach/learned_store.dart';
 import '../../../../design_system/teach/teach_once.dart';
 import '../../data/stage_requests.dart';
 import '../../domain/game_me.dart';
-import '../protocol_two_game.dart';
+import '../live_game.dart';
 import '../stage_seconds.dart';
 
 /// 09 Vote, wired to the server: [VoteView] fed from `/me/` (with this
@@ -35,7 +35,7 @@ class VoteScreen extends ConsumerStatefulWidget {
   const VoteScreen({super.key, required this.game, required this.gameId});
 
   /// The game as the shell has it (`/me/` with this phone's taps on it).
-  final ProtocolTwoGame game;
+  final LiveGame game;
   final String gameId;
 
   @override
@@ -43,12 +43,12 @@ class VoteScreen extends ConsumerStatefulWidget {
 }
 
 class _VoteScreenState extends ConsumerState<VoteScreen> {
-  ProtocolTwoGameNotifier get _notifier =>
-      ref.read(protocolTwoGameProvider(widget.gameId).notifier);
+  LiveGameNotifier get _notifier =>
+      ref.read(liveGameProvider(widget.gameId).notifier);
 
   /// The server has this phone's lock: answered (taken, or a 409 that it
   /// was locked already), or `/me/` says so.
-  static bool _lockTaken(ProtocolTwoGame game) {
+  static bool _lockTaken(LiveGame game) {
     final item = game.outbox.current(OutboxLane.vote);
     final answered =
         item?.leg == Leg.confirming &&
@@ -61,7 +61,7 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
   Widget build(BuildContext context) {
     // The first lock the server takes teaches the rows' nudge away (a lock
     // can wait behind a pick, so it is read from the game, not the tap).
-    ref.listen(protocolTwoGameProvider(widget.gameId), (_, next) {
+    ref.listen(liveGameProvider(widget.gameId), (_, next) {
       final game = next.value;
       if (game != null && _lockTaken(game)) {
         ref.read(learnedCuesProvider.notifier).learn(Cue.voteLock);

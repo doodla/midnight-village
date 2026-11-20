@@ -10,8 +10,8 @@ import '../../../helpers/sheet/sheet_data.dart' show recordedMe;
 void main() {
   GameMe me(String name) => FromSample.gameMe(recordedMe(name));
 
-  test('every protocol-2 /me/ parses, the night by the design system', () {
-    final names = protocolTwoMeSamples();
+  test('every recorded /me/ parses, the night by the design system', () {
+    final names = meSamples();
     expect(names, hasLength(greaterThan(20)));
     for (final name in names) {
       final json = recordedMe(name);
@@ -47,23 +47,16 @@ void main() {
     }
   });
 
-  test("protocol 1's legacy flags are not read: the server may drop them", () {
-    final json = recordedMe('me_voting_picked')..remove('has_voted');
-    (json['your_role'] as Map).remove('has_acted');
-    expect(
-      GameMe.fromJson(json).stage,
-      recordedMe('me_voting_picked')['stage'],
-    );
-  });
-
   group('the look stage', () {
     test('window 0, ready false, counts of who looked, its own deadline', () {
       final look = me('me_look_stage');
       expect(look.phase, GamePhase.night);
       expect(look.inLook, isTrue);
       expect(look.inWindow, isFalse);
-      expect(look.stage, 'look.000000000007');
-      expect(look.deadline, DateTime.utc(2024, 3, 7, 21, 19, 8));
+      final recorded = recordedMe('me_look_stage');
+      expect(look.stage, recorded['stage']);
+      expect(look.stage, startsWith('look.'));
+      expect(look.deadline, DateTime.parse(recorded['deadline'] as String));
       expect(look.ready, isFalse);
       expect(look.progress, FromSample.progress('look', done: 0, needed: 5));
       expect(look.prompt, isNull);
@@ -147,7 +140,7 @@ void main() {
 
     test('the stage start and the vote list are carried as the server sent '
         'them', () {
-      for (final name in protocolTwoMeSamples()) {
+      for (final name in meSamples()) {
         final json = recordedMe(name);
         final parsed = me(name);
         final started = json['stage_started_at'] as String?;
@@ -166,7 +159,7 @@ void main() {
       expect(ten.voteTargets, hasLength(9));
       expect(ten.voteTargets, isNot(contains(ten.playerId)));
       expect(ten.stageStartedAt!.isBefore(ten.deadline!), isTrue);
-      final untimed = me('me_voting_untimed_v2');
+      final untimed = me('me_voting_untimed');
       expect((untimed.deadline, untimed.stageStartedAt), (null, null));
       expect(me('me_talk_ten').voteTargets, isNull);
       // Carried through a local change.
@@ -194,7 +187,7 @@ void main() {
   });
 
   test('the results: no stage, no deadline, the card held at the end', () {
-    final results = me('me_results_v2');
+    final results = me('me_results');
     expect(results.phase, GamePhase.results);
     expect(results.stage, isNull);
     expect(results.deadline, isNull);

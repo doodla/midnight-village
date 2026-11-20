@@ -4,7 +4,7 @@ import '../skin/art_set.dart';
 
 /// One seat at the table: what the night board draws a card for. The same
 /// list on every phone, read from the server's `players`. It is the app's
-/// player model for protocol 2 (`GameMe.seats`): public table identity only.
+/// player model (`GameMe.seats`): public table identity only.
 @immutable
 class NightSeat {
   const NightSeat._({
@@ -14,7 +14,7 @@ class NightSeat {
     this.token,
   });
 
-  /// One entry of `/me/`'s `players` (every protocol-2 players list carries
+  /// One entry of `/me/`'s `players` (every players list carries
   /// `token` and `seat`; a token this app does not know is drawn plain).
   factory NightSeat.fromPlayer(Map<String, dynamic> player) => NightSeat._(
     id: player['player_id'] as int,

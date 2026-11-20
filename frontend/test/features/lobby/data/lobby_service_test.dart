@@ -32,7 +32,7 @@ void main() {
 
   group('LobbyService', () {
     test(
-      'createTable opens a night protocol 2 table and reads it back',
+      'createTable opens a table with defaults v2 and reads it back',
       () async {
         http.answer(
           'POST',
@@ -45,7 +45,6 @@ void main() {
 
         expect(sent().$2, '/lobbies/');
         expect(sent().$3, {'game_type': 'onuw', 'defaults': 'v2'});
-        expect(lobby.table.isProtocolTwo, isTrue);
         expect(lobby.table.deckChip, DeckChip.simple);
       },
     );

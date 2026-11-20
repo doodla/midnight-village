@@ -14,7 +14,6 @@ import 'package:midnight_village/features/game/presentation/shell/count_screen.d
 import 'package:midnight_village/features/game/presentation/shell/night_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
-import 'package:midnight_village/features/game/presentation/shell/unplayable_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
 
@@ -48,12 +47,10 @@ void main() {
       'me_talk_ready': TalkScreen,
       'me_voting_unpicked': VoteScreen,
       'me_voting_locked': VoteScreen,
-      'me_results_v2': CountScreen,
+      'me_results': CountScreen,
     };
     for (final MapEntry(key: sample, value: type) in cases.entries) {
-      testWidgets('$sample: ${protocolTwoScreens[sample]!.number}', (
-        tester,
-      ) async {
+      testWidgets('$sample: ${meScreens[sample]!.number}', (tester) async {
         final s = await ShellSetup.pump(tester, recordedMe(sample));
         await s.settle(tester);
         expect(find.byType(type), findsOneWidget);
@@ -71,8 +68,7 @@ void main() {
       AppScreen.count: CountScreen,
       AppScreen.results: ResultsScreen,
     };
-    for (final MapEntry(key: sample, value: screen)
-        in protocolTwoScreens.entries) {
+    for (final MapEntry(key: sample, value: screen) in meScreens.entries) {
       testWidgets('$sample: the real ${screen.number}', (tester) async {
         final s = await ShellSetup.pump(tester, recordedMe(sample));
         await s.settle(tester);
@@ -81,42 +77,34 @@ void main() {
       });
     }
 
-    testWidgets('a game whose /me/ has no stage (a night this app does not '
-        'play): one calm line and Leave, never fetched in a loop; Leave goes '
-        'to 01', (tester) async {
+    testWidgets('a /me/ without its stage is a failed fetch: fetched again '
+        'until a good answer, then its screen', (tester) async {
       final me = recordedMe('me_discussion_choose_seer');
+      final path = '/onuw/games/${me['game_id']}/me/';
       final s = await ShellSetup.pump(
         tester,
         me,
         before: (s) => s.http.answer(
           'GET',
-          '/onuw/games/${me['game_id']}/me/',
+          path,
           Map.of(me)..remove('stage'),
           offContract: true,
         ),
       );
       await s.settle(tester);
-      expect(find.byType(UnplayableScreen), findsOneWidget);
-      expect(find.text(BannerCopy.cannotPlay), findsOneWidget);
+      expect(find.byType(TalkScreen), findsNothing);
       final fetched = s.meFetches;
       await tester.pump(const Duration(minutes: 1));
-      expect(s.meFetches, fetched, reason: 'final: not fetched again');
-
-      final code = me['lobby_code'] as String;
-      s.http.answer(
-        'POST',
-        '/lobbies/$code/leave/',
-        ContractSamples.load('http/lobby/left'),
-      );
-      s.answerTable(ContractSamples.map('http/lobby/my_table_none'));
-      s.answerHome();
-      await tester.tap(find.text(CommonCopy.leave));
-      await s.settle(tester);
       expect(
-        s.http.requests.where((r) => r.path == '/lobbies/$code/leave/'),
-        hasLength(1),
+        s.meFetches,
+        greaterThan(fetched),
+        reason: 'healed: fetched again',
       );
-      expect(find.byType(JoinScreen), findsOneWidget);
+
+      s.http.answer('GET', path, me);
+      await tester.pump(const Duration(minutes: 1));
+      await s.settle(tester);
+      expect(find.byType(TalkScreen), findsOneWidget);
       await s.close(tester);
     });
 
@@ -161,41 +149,6 @@ void main() {
       held.releaseAll();
       await s.settle(tester);
       expect(find.byType(VoteScreen), findsOneWidget);
-      await s.close(tester);
-    });
-
-    testWidgets('the unplayable game: a Leave with no answer says "Not sent." '
-        'and Try again; a table already gone is 01, saying so', (tester) async {
-      final me = recordedMe('me_discussion_choose_seer');
-      final s = await ShellSetup.pump(
-        tester,
-        me,
-        before: (s) => s.http.answer(
-          'GET',
-          '/onuw/games/${me['game_id']}/me/',
-          Map.of(me)..remove('stage'),
-          offContract: true,
-        ),
-      );
-      await s.settle(tester);
-      final leave = '/lobbies/${me['lobby_code']}/leave/';
-      s.http.answer('POST', leave, 'Server Error', status: 503);
-      await tester.tap(find.text(CommonCopy.leave));
-      await s.settle(tester);
-      expect(find.byType(UnplayableScreen), findsOneWidget);
-      expect(find.text(BannerCopy.notSent), findsOneWidget);
-      s.http.answer(
-        'POST',
-        leave,
-        ContractSamples.load('http/lobby/leave_not_found'),
-        status: 404,
-      );
-      s.answerTable(ContractSamples.map('http/lobby/my_table_none'));
-      s.answerHome();
-      await tester.tap(find.text(BannerCopy.tryAgain));
-      await s.settle(tester);
-      expect(find.byType(JoinScreen), findsOneWidget);
-      expect(find.text(BannerCopy.tableClosed), findsOneWidget);
       await s.close(tester);
     });
 

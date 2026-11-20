@@ -182,48 +182,25 @@ class TestLeaveLobby:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-class TestLobbyReady:
-    """Test lobby ready state endpoint."""
+class TestNoLobbyReady:
+    """The lobby has no ready flag any more: the deal checks nobody's readiness."""
 
-    def test_player_can_toggle_ready(self, api_client, db):
-        """Players can toggle their ready state."""
+    def test_the_ready_endpoint_is_gone_and_members_carry_no_flag(self, api_client, db):
         from apps.core.models import Lobby, LobbyMember, User
 
         host = User.objects.create_user(username="host", password="pass")
         player = User.objects.create_user(username="player", password="pass")
         lobby = Lobby.objects.create(host=host, game_type="onuw")
         LobbyMember.objects.create(lobby=lobby, user=player)
-
         api_client.force_authenticate(user=player)
-        url = reverse("core:lobby-ready", kwargs={"code": lobby.code})
 
-        # Toggle to ready
-        response = api_client.post(url, {"is_ready": True}, format="json")
-        assert response.status_code == status.HTTP_200_OK
+        gone = api_client.post(
+            f"/api/lobbies/{lobby.code}/ready/", {"is_ready": True}, format="json"
+        )
+        body = api_client.get(reverse("core:lobby-detail", kwargs={"code": lobby.code}))
 
-        player_in_lobby = LobbyMember.objects.get(lobby=lobby, user=player)
-        assert player_in_lobby.is_ready is True
-
-        # Toggle to not ready
-        response = api_client.post(url, {"is_ready": False}, format="json")
-        assert response.status_code == status.HTTP_200_OK
-
-        player_in_lobby.refresh_from_db()
-        assert not player_in_lobby.is_ready
-
-    def test_non_member_cannot_ready(self, api_client, db):
-        """Users not in lobby cannot set ready state."""
-        from apps.core.models import Lobby, User
-
-        host = User.objects.create_user(username="host", password="pass")
-        outsider = User.objects.create_user(username="outsider", password="pass")
-        lobby = Lobby.objects.create(host=host, game_type="onuw")
-
-        api_client.force_authenticate(user=outsider)
-        url = reverse("core:lobby-ready", kwargs={"code": lobby.code})
-        response = api_client.post(url, {"is_ready": True}, format="json")
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert gone.status_code == status.HTTP_404_NOT_FOUND
+        assert all("is_ready" not in p for p in body.data["players"])
 
 
 class TestLobbyBroadcasts:
@@ -309,43 +286,6 @@ class TestLobbyBroadcasts:
             assert response.status_code == status.HTTP_200_OK
             # Verify no broadcast was made
             mock_async_to_sync.assert_not_called()
-
-    def test_ready_broadcasts_player_ready(self, api_client, db):
-        """Toggling ready state broadcasts player_ready event."""
-        from unittest.mock import MagicMock, patch
-
-        from apps.core.models import Lobby, LobbyMember, User
-
-        host = User.objects.create_user(username="host", password="pass")
-        player = User.objects.create_user(username="player", password="pass")
-        lobby = Lobby.objects.create(host=host, game_type="onuw")
-        LobbyMember.objects.create(lobby=lobby, user=player)
-
-        # Mock the channel layer
-        mock_channel_layer = MagicMock()
-        with patch(
-            "apps.core.views.get_channel_layer", return_value=mock_channel_layer
-        ):
-            with patch("apps.core.views.async_to_sync") as mock_async_to_sync:
-                api_client.force_authenticate(user=player)
-                url = reverse("core:lobby-ready", kwargs={"code": lobby.code})
-                response = api_client.post(url, {"is_ready": True}, format="json")
-
-                assert response.status_code == status.HTTP_200_OK
-
-                # Verify group_send was called with correct arguments
-                mock_async_to_sync.assert_called_once_with(
-                    mock_channel_layer.group_send
-                )
-                mock_async_to_sync.return_value.assert_called_once_with(
-                    f"lobby_{lobby.code}",
-                    {
-                        "type": "player.ready",
-                        "username": "player",
-                        "user_id": player.id,
-                        "is_ready": True,
-                    },
-                )
 
     def test_broadcasts_handle_no_channel_layer(self, api_client, db):
         """Actions work correctly when channel layer is None."""

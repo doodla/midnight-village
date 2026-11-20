@@ -3,26 +3,23 @@
 Tables played through the real API (see recorder.py):
 
 - ``classic_table``: six players, no Doppelganger (so the night is window 2
-  only), the default timers. Sign-in, lobby set-up and every lobby event, the
-  Seer, Robber, Troublemaker and a Werewolf pack, a player with no night action,
-  the close at the minimum window length, the talk, the vote with a Hunter
-  chain, the results, play again and the owner leaving; "where am I" in every
-  state, online stats, the night results ack, recent games. Most error bodies.
-- ``doppelganger_table``: eight players and every remaining prompt kind: the
-  Doppelganger's look and her follow-up (window 1), the lone Werewolf's center
-  peek, Minion, Masons, Drunk, Insomniac, a Seer who skips. Every timer is 0
-  (as the harness plays), so deadlines are null. Host handover and return, the
-  host revealing votes with abstentions, the results with the night timeline,
-  the debug oracle.
-  Then more games there (play again): she copies a Werewolf (window 2 /me/
-  listing her window-1 look; a dealt Tanner dies), a Mason, an Insomniac, the
-  Minion. Calls from someone who does not play in the game.
+  only), no look stage, the default timers. Sign-in, lobby set-up and every
+  lobby event, the night closed by the harness's timer hook, the talk, the vote
+  with a Hunter chain, the results, play again and the owner leaving; "where am
+  I" in every state, online stats, the night results ack, recent games. Most
+  error bodies.
+- ``doppelganger_table``: eight players, every timer 0 (as the harness plays),
+  so deadlines are null. Window 1 (her look and follow-up), the host closing
+  window 2, host handover and return, the host revealing votes with
+  abstentions, the results with the night timeline, the debug oracle. Then a
+  second game there (play again): she copies a Werewolf and a dealt Tanner dies.
+  Calls from someone who does not play in the game.
 - ``full_table``: ten players fill a table; the join refusals and the ack from
   someone who does not play in the game.
-- ``protocol_two_tables`` and ``results_tables``: night protocol 2 (see
-  ``tests/README.md``): the look stage, the choose night, ready to vote, lock-in
-  voting, the automatic deck; then every way a vote ends, three and ten seats,
-  an untimed talk and vote.
+- ``choose_tables`` and ``results_tables``: tables made the way the app makes
+  them (``defaults: "v2"``): the look stage, every prompt of the choose night,
+  ready to vote, lock-in voting, the automatic deck; then every way a vote ends,
+  three and ten seats, an untimed talk and vote.
 
 Adding a situation: drive it here with ``table.record`` / ``table.record_event``,
 run ``just samples`` and review the new files.
@@ -51,7 +48,6 @@ REVEAL = "/onuw/games/{game_id}/reveal-votes/"
 RESULTS = "/onuw/games/{game_id}/results/"
 PLAY_AGAIN = "/lobbies/{code}/play-again/"
 JOIN = "/lobbies/{code}/join/"
-READY = "/lobbies/{code}/ready/"
 MY_TABLE = "/me/table/"
 RECENT_GAMES = "/onuw/me/recent-games/"
 ONLINE = "/stats/online/"
@@ -77,34 +73,14 @@ def _sign_in(table: Table, names: list[str]) -> None:
         table.guest(name)
 
 
-def _join_and_ready(table: Table, names: list[str]) -> None:
+def _join(table: Table, names: list[str]) -> None:
     for name in names:
         table.clock.advance(60)
         table.call("POST", name, "/lobbies/{code}/join/")
-    for name in names:
-        table.call("POST", name, "/lobbies/{code}/ready/")
-
-
-def _act(table: Table, who: str, action: str, targets: dict | None = None) -> None:
-    table.call("POST", who, ACTION, {"action_type": action, "targets": targets or {}})
 
 
 def _vote(table: Table, who: str, target: str) -> None:
-    table.call("POST", who, VOTE, {"target_player_id": table.pid(target)})
-
-
-def _record_night_results(t: Table, players: list[tuple[str, str]]) -> None:
-    """`/me/` in the talk for each player, with their night result of that kind
-    (`night_results` carries every kind the socket does)."""
-    for name, kind in players:
-        t.record(
-            f"game/me_discussion_result_{kind}",
-            "GET",
-            name,
-            ME,
-            status=200,
-            about=f"/me/ in the talk with a {kind.replace('_', ' ')} result.",
-        )
+    table.call("POST", who, VOTE, {"target_player_id": table.pid(target), "lock": True})
 
 
 def _record_my_table(t: Table, who: str, state: str, about: str) -> None:
@@ -260,36 +236,7 @@ def classic_table(run: Recording) -> None:
             about=f"{action.replace('_', ' ').capitalize()} at a table that is gone.",
             code="ZZZZZZ",
         )
-    _join_and_ready(t, ["Cleo", "Dev", "Esme", "Fin"])
-    t.record(
-        "lobby/ready",
-        "POST",
-        "Ana",
-        "/lobbies/{code}/ready/",
-        status=200,
-        about="A player toggles ready.",
-    )
-    t.record(
-        "lobby/ready_invalid",
-        "POST",
-        "Ana",
-        READY,
-        {"is_ready": "yes"},
-        status=400,
-        about="A ready flag that is not true or false.",
-    )
-    t.record_event(
-        "lobby/player_ready", "Ben", "lobby", "player_ready", about="Ready toggled."
-    )
-    t.record(
-        "game/start_not_all_ready",
-        "POST",
-        "Ana",
-        START,
-        status=400,
-        about="The host deals before everyone is ready.",
-    )
-    t.call("POST", "Ben", "/lobbies/{code}/ready/")
+    _join(t, ["Cleo", "Dev", "Esme", "Fin"])
     t.record(
         "lobby/settings_not_host",
         "PATCH",
@@ -326,7 +273,7 @@ def classic_table(run: Recording) -> None:
         "Ben",
         LOBBY,
         status=200,
-        about="The table before the deal, everyone ready.",
+        about="The table before the deal.",
     )
     t.record(
         "game/start_not_host",
@@ -335,6 +282,17 @@ def classic_table(run: Recording) -> None:
         START,
         status=403,
         about="Someone other than the host deals.",
+    )
+    t.record(
+        "game/start_bad_seed",
+        "POST",
+        "Ana",
+        START,
+        {"debug": {"seed": "x"}},
+        status=400,
+        about="A deal refused for a reason no screen names (here the DEBUG-only "
+        "seeded deal with a seed that is not a number).",
+        debug=True,
     )
 
     # -- the deal and the night (window 2 only) --------------------------
@@ -350,6 +308,14 @@ def classic_table(run: Recording) -> None:
         LOBBY,
         status=200,
         about="The table while its game runs.",
+    )
+    t.record(
+        "game/start_not_waiting",
+        "POST",
+        "Ana",
+        START,
+        status=400,
+        about="A second deal while the game runs (the table is not waiting).",
     )
     t.record(
         "game/current_game_active",
@@ -369,14 +335,6 @@ def classic_table(run: Recording) -> None:
         status=409,
         about="The host changes the deck while a game runs.",
     )
-    t.record(
-        "lobby/ready_in_game",
-        "POST",
-        "Ben",
-        READY,
-        status=409,
-        about="Toggling ready while a game runs.",
-    )
     for name in dealt:
         t.connect(name)
     t.record_event(
@@ -385,45 +343,6 @@ def classic_table(run: Recording) -> None:
         "game",
         "player_presence",
         about="A phone joined the game.",
-    )
-    t.record_event(
-        "game/wave_start", "Ana", "game", "wave_start", about="Window 2 opens."
-    )
-    for name, kind in [
-        ("Ana", "seer"),
-        ("Ben", "robber"),
-        ("Dev", "troublemaker"),
-        ("Cleo", "werewolf_pack"),
-    ]:
-        t.record_event(
-            f"game/action_prompt_{kind}",
-            name,
-            "game",
-            "action_prompt",
-            about=f"Window 2 prompt: {kind.replace('_', ' ')}.",
-        )
-        t.record(
-            f"game/me_night_prompt_{kind}",
-            "GET",
-            name,
-            ME,
-            status=200,
-            about=f"/me/ in window 2 with the {kind.replace('_', ' ')} prompt.",
-        )
-    t.record_event(
-        "game/wave_waiting",
-        "Fin",
-        "game",
-        "wave_waiting",
-        about="Nothing to do this window.",
-    )
-    t.record(
-        "game/me_night_no_action",
-        "GET",
-        "Fin",
-        ME,
-        status=200,
-        about="/me/ at night for a player with no action.",
     )
     t.record(
         "core/online_stats",
@@ -466,42 +385,7 @@ def classic_table(run: Recording) -> None:
         status=403,
         about="Someone other than the host closes the window.",
     )
-    t.record(
-        "game/action_not_an_actor",
-        "POST",
-        "Fin",
-        ACTION,
-        {"action_type": "skip", "targets": {}},
-        status=400,
-        about="An action from a player with nothing to do this window.",
-    )
-    t.record(
-        "game/action_invalid",
-        "POST",
-        "Ana",
-        ACTION,
-        {"action_type": "peek_player", "targets": {"player_id": t.pid("Ana")}},
-        status=400,
-        about="An action the server refuses (generic message).",
-    )
-    t.record(
-        "game/action_submitted",
-        "POST",
-        "Ana",
-        ACTION,
-        {"action_type": "peek_player", "targets": {"player_id": t.pid("Cleo")}},
-        status=200,
-        about="A night action is accepted.",
-    )
-    t.record(
-        "game/action_already_acted",
-        "POST",
-        "Ana",
-        ACTION,
-        {"action_type": "peek_player", "targets": {"player_id": t.pid("Cleo")}},
-        status=409,
-        about="A second action in the same window.",
-    )
+    _choose(t, "Ana", [_player(t, "Cleo")])
     t.record(
         "debug/state_night",
         "GET",
@@ -511,19 +395,11 @@ def classic_table(run: Recording) -> None:
         about="The DEBUG-only oracle at night, a window open and its timer armed.",
         debug=True,
     )
-    t.record(
-        "game/me_night_acted",
-        "GET",
-        "Ana",
-        ME,
-        status=200,
-        about="/me/ after acting, the window still open.",
-    )
-    _act(t, "Ben", "swap_with_player", {"player_id": t.pid("Dev")})
-    _act(t, "Dev", "swap_others", {"player_ids": [t.pid("Ana"), t.pid("Ben")]})
-    _act(t, "Cleo", "see_team")
-    _act(t, "Esme", "see_team")
-    # Everyone has acted; the window would close at its minimum length. The
+    _choose(t, "Ben", [_player(t, "Dev")])
+    _choose(t, "Dev", [_player(t, "Ana"), _player(t, "Ben")])
+    for name in ["Cleo", "Esme", "Fin"]:
+        _choose(t, name, [])
+    # Every phone has chosen; the window would close at its minimum length. The
     # harness's hook closes it now instead.
     t.clock.advance(8)
     t.record(
@@ -536,22 +412,6 @@ def classic_table(run: Recording) -> None:
         about="The DEBUG-only timer hook fires a pending timer (window 2 closes).",
         debug=True,
     )
-    for name, kind in [
-        ("Ana", "peek_player"),
-        ("Ben", "swap_with_player"),
-        ("Dev", "swap_others"),
-        ("Cleo", "see_team_werewolves"),
-    ]:
-        t.record_event(
-            f"game/action_result_{kind}",
-            name,
-            "game",
-            "action_result",
-            about=f"Night result: {kind.replace('_', ' ')}.",
-        )
-    t.record_event(
-        "game/wave_complete", "Ana", "game", "wave_complete", about="A window closed."
-    )
     t.record_event(
         "game/phase_change_discussion",
         "Ana",
@@ -561,17 +421,6 @@ def classic_table(run: Recording) -> None:
     )
 
     # -- the talk ---------------------------------------------------------
-    t.record(
-        "game/me_discussion",
-        "GET",
-        "Ana",
-        ME,
-        status=200,
-        about="/me/ in the talk, with the night's result.",
-    )
-    _record_night_results(
-        t, [("Ben", "swap_with_player"), ("Dev", "swap_others"), ("Cleo", "see_team")]
-    )
     _record_my_table(t, "Ben", "discussion", "Where am I: in a game, in the talk.")
     t.record(
         "game/players_discussion",
@@ -580,22 +429,6 @@ def classic_table(run: Recording) -> None:
         PLAYERS,
         status=200,
         about="The player list in the talk.",
-    )
-    t.record(
-        "game/advance_wave_not_night",
-        "POST",
-        "Ana",
-        ADVANCE,
-        status=400,
-        about="The host closes a night window after the night.",
-    )
-    t.record(
-        "game/reveal_votes_not_voting",
-        "POST",
-        "Ana",
-        REVEAL,
-        status=400,
-        about="The host reveals votes before the vote.",
     )
     t.record(
         "game/night_results_seen",
@@ -626,15 +459,6 @@ def classic_table(run: Recording) -> None:
         game_id=UNKNOWN_GAME,
     )
     t.record(
-        "game/action_not_night",
-        "POST",
-        "Ben",
-        ACTION,
-        {"action_type": "skip", "targets": {}},
-        status=400,
-        about="A night action after the night.",
-    )
-    t.record(
         "game/end_discussion_not_host",
         "POST",
         "Ben",
@@ -651,14 +475,6 @@ def classic_table(run: Recording) -> None:
         status=200,
         about="The host ends the talk.",
     )
-    t.record(
-        "game/end_discussion_wrong_phase",
-        "POST",
-        "Ana",
-        END_DISCUSSION,
-        status=400,
-        about="Ending a talk that is over.",
-    )
     t.record_event(
         "game/phase_change_voting",
         "Ana",
@@ -668,9 +484,6 @@ def classic_table(run: Recording) -> None:
     )
 
     # -- the vote ---------------------------------------------------------
-    t.record(
-        "game/me_voting", "GET", "Ana", ME, status=200, about="/me/ before voting."
-    )
     _record_my_table(t, "Ben", "voting", "Where am I: in a game, in the vote.")
     t.record(
         "lobby/play_again_not_finished",
@@ -688,25 +501,7 @@ def classic_table(run: Recording) -> None:
         status=403,
         about="Results asked for before the game ends.",
     )
-    t.record(
-        "game/vote_submitted",
-        "POST",
-        "Ana",
-        VOTE,
-        {"target_player_id": t.pid("Fin")},
-        status=200,
-        about="A vote is accepted.",
-    )
-    t.record_event(
-        "game/vote_submitted",
-        "Ben",
-        "game",
-        "vote_submitted",
-        about="Someone voted (not for whom).",
-    )
-    t.record(
-        "game/me_voting_voted", "GET", "Ana", ME, status=200, about="/me/ after voting."
-    )
+    _vote(t, "Ana", "Fin")
     t.record(
         "game/players_voting",
         "GET",
@@ -716,20 +511,11 @@ def classic_table(run: Recording) -> None:
         about="The player list during the vote.",
     )
     t.record(
-        "game/vote_already_voted",
-        "POST",
-        "Ana",
-        VOTE,
-        {"target_player_id": t.pid("Ben")},
-        status=409,
-        about="A second vote.",
-    )
-    t.record(
         "game/vote_invalid_target",
         "POST",
         "Ben",
         VOTE,
-        {"target_player_id": t.pid("Ben")},
+        {"target_player_id": t.pid("Ben"), "lock": True},
         status=400,
         about="A vote the server refuses (here: for yourself).",
     )
@@ -761,7 +547,6 @@ def classic_table(run: Recording) -> None:
     )
 
     # -- results and after ------------------------------------------------
-    t.record("game/me_results", "GET", "Ana", ME, status=200, about="/me/ at the end.")
     t.record(
         "game/results",
         "GET",
@@ -886,122 +671,34 @@ def doppelganger_table(run: Recording) -> Table:
     _sign_in(t, [*dealt, OUTSIDER])
     t.clock.advance(60)
     t.call("POST", "Ana", "/lobbies/", {"game_type": "onuw"})
-    t.call("POST", "Ana", "/lobbies/{code}/ready/")
-    _join_and_ready(t, list(dealt)[1:])
+    _join(t, list(dealt)[1:])
     t.call("PATCH", "Ana", LOBBY, {"settings": {"roles": deck, **UNTIMED}})
     t.clock.advance(60)
     t.start(dealt, ["Werewolf", "Villager", "Tanner"])
     for name in dealt:
         t.connect(name)
 
-    # -- window 1: the Doppelganger --------------------------------------
-    t.record_event(
-        "game/wave_start_untimed",
-        "Ben",
-        "game",
-        "wave_start",
-        about="Window 1 opens, with no deadline.",
-    )
-    t.record_event(
-        "game/wave_waiting_window1",
-        "Ben",
-        "game",
-        "wave_waiting",
-        about="Window 1 is the Doppelganger's: nothing to do.",
-    )
+    # -- window 1: the Doppelganger looks, then acts as the copied Seer ----
     t.record(
-        "game/action_not_a_player",
+        "game/choose_not_a_player",
         "POST",
         OUTSIDER,
         ACTION,
-        {"action_type": "skip", "targets": {}},
+        {"action_type": "choose", "picks": []},
         status=403,
-        about="A night action from someone who does not play in the game.",
+        about="A choose from someone who does not play in the game.",
     )
-    t.record_event(
-        "game/action_prompt_doppelganger",
-        "Ana",
-        "game",
-        "action_prompt",
-        about="Window 1 prompt: the Doppelganger's look.",
-    )
-    t.record(
-        "game/me_night_prompt_doppelganger",
-        "GET",
-        "Ana",
-        ME,
-        status=200,
-        about="/me/ in window 1 with the Doppelganger's prompt.",
-    )
-    t.record(
-        "game/me_night_window1_waiting",
-        "GET",
-        "Ben",
-        ME,
-        status=200,
-        about="/me/ in window 1 for everyone else.",
-    )
-    _act(t, "Ana", "peek_player", {"player_id": t.pid("Ben")})
-    t.record_event(
-        "game/action_result_doppelganger_look",
-        "Ana",
-        "game",
-        "action_result",
-        about="Her look, sent at once: she copied the Seer.",
-    )
-    t.record_event(
-        "game/action_prompt_doppelganger_followup",
-        "Ana",
-        "game",
-        "action_prompt",
-        about="Her follow-up as the copied Seer, still window 1.",
-    )
-    t.record(
-        "game/me_night_prompt_doppelganger_followup",
-        "GET",
-        "Ana",
-        ME,
-        status=200,
-        about="/me/ with the Doppelganger's follow-up prompt.",
-    )
-    _act(t, "Ana", "peek_center", {"center_indices": [0, 2]})
-    t.record_event(
-        "game/action_result_peek_center",
-        "Ana",
-        "game",
-        "action_result",
-        about="Night result: two center cards (her follow-up).",
-    )
+    _choose(t, "Ana", [_player(t, "Ben")])
+    _choose(t, "Ana", [{"center_index": 0}, {"center_index": 2}])
+    for name in list(dealt)[1:]:
+        _choose(t, name, [])
 
     # -- window 2: everyone else ------------------------------------------
-    for name, kind in [
-        ("Cleo", "werewolf_lone"),
-        ("Dev", "minion"),
-        ("Esme", "mason"),
-        ("Gus", "drunk"),
-        ("Hana", "insomniac"),
-    ]:
-        t.record_event(
-            f"game/action_prompt_{kind}",
-            name,
-            "game",
-            "action_prompt",
-            about=f"Window 2 prompt: {kind.replace('_', ' ')}.",
-        )
-        t.record(
-            f"game/me_night_prompt_{kind}",
-            "GET",
-            name,
-            ME,
-            status=200,
-            about=f"/me/ in window 2 with the {kind.replace('_', ' ')} prompt.",
-        )
-    _act(t, "Ben", "skip")
-    _act(t, "Cleo", "see_team", {"center_index": 1})
-    _act(t, "Dev", "see_team")
-    _act(t, "Esme", "see_team")
-    _act(t, "Fin", "see_team")
-    _act(t, "Gus", "swap_with_center", {"center_index": 0})
+    _choose(t, "Ben", [])
+    _choose(t, "Cleo", [{"center_index": 1}])
+    for name in ["Dev", "Esme", "Fin"]:
+        _choose(t, name, [])
+    _choose(t, "Gus", [{"center_index": 0}])
     # Hana (Insomniac) has not tapped: the host closes the window; her look
     # is automatic and still happens.
     t.record(
@@ -1012,53 +709,12 @@ def doppelganger_table(run: Recording) -> Table:
         status=200,
         about="The host closes the night window now.",
     )
-    for name, kind in [
-        ("Cleo", "see_team_lone_werewolf"),
-        ("Dev", "see_team_minion"),
-        ("Esme", "see_team_masons"),
-        ("Gus", "swap_with_center"),
-        ("Hana", "insomniac"),
-        ("Ben", "skip"),
-    ]:
-        t.record_event(
-            f"game/action_result_{kind}",
-            name,
-            "game",
-            "action_result",
-            about=f"Night result: {kind.replace('_', ' ')}.",
-        )
     t.record_event(
         "game/phase_change_discussion_untimed",
         "Ben",
         "game",
         "phase_change",
         about="The talk starts, with no deadline.",
-    )
-    t.record(
-        "game/me_discussion_doppelganger",
-        "GET",
-        "Ana",
-        ME,
-        status=200,
-        about="/me/ in the talk: the Doppelganger's look and follow-up results.",
-    )
-    t.record(
-        "game/me_discussion_skipped",
-        "GET",
-        "Ben",
-        ME,
-        status=200,
-        about="/me/ in the talk for a Seer who did nothing (no result).",
-    )
-    _record_night_results(
-        t,
-        [
-            ("Cleo", "see_team_lone_werewolf"),
-            ("Dev", "see_team_minion"),
-            ("Esme", "see_team_masons"),
-            ("Gus", "swap_with_center"),
-            ("Hana", "insomniac"),
-        ],
     )
 
     # -- host handover while the owner's phone is away ---------------------
@@ -1123,19 +779,11 @@ def doppelganger_table(run: Recording) -> Table:
         about="The vote starts, with no deadline.",
     )
     t.record(
-        "game/me_voting_untimed",
-        "GET",
-        "Ben",
-        ME,
-        status=200,
-        about="/me/ in a vote with no deadline.",
-    )
-    t.record(
         "game/vote_not_a_player",
         "POST",
         OUTSIDER,
         VOTE,
-        {"target_player_id": t.pid("Cleo")},
+        {"target_player_id": t.pid("Cleo"), "lock": True},
         status=403,
         about="A vote from someone who does not play in the game.",
     )
@@ -1201,13 +849,6 @@ def _close_the_night(t: Table) -> None:
         t.call("POST", "Ana", ADVANCE)
 
 
-def _play_out(t: Table) -> None:
-    """Untimed: the host closes the night, ends the talk and reveals the votes."""
-    _close_the_night(t)
-    t.call("POST", "Ana", END_DISCUSSION)
-    t.call("POST", "Ana", REVEAL)
-
-
 def _deal_again(t: Table, dealt: dict[str, str], center: list[str]) -> None:
     t.call("POST", "Ana", PLAY_AGAIN)
     t.clock.advance(60)
@@ -1215,40 +856,21 @@ def _deal_again(t: Table, dealt: dict[str, str], center: list[str]) -> None:
 
 
 def _doppelganger_copies(t: Table) -> None:
-    """More games at the Doppelganger table (play again), one per role she can
-    copy that acts in window 2 or with a team view, and a dealt Tanner who
-    dies."""
+    """Another game at the Doppelganger table (play again): she copies a Werewolf
+    (and wakes with them in window 2); Dev is dealt the Tanner and the table votes
+    him out."""
     usual = {
         "Ana": "Doppelganger",
         "Ben": "Seer",
         "Cleo": "Werewolf",
-        "Dev": "Minion",
+        "Dev": "Tanner",
         "Esme": "Mason",
         "Fin": "Mason",
         "Gus": "Drunk",
         "Hana": "Insomniac",
     }
-    center = ["Werewolf", "Villager", "Tanner"]
-
-    # She copies a Werewolf (and wakes with them in window 2); Dev is the
-    # Tanner and the table votes him out.
-    _deal_again(t, {**usual, "Dev": "Tanner"}, ["Werewolf", "Villager", "Minion"])
-    _act(t, "Ana", "peek_player", {"player_id": t.pid("Cleo")})
-    t.record_event(
-        "game/action_prompt_doppelganger_werewolf",
-        "Ana",
-        "game",
-        "action_prompt",
-        about="Window 2 prompt for a Doppelganger who copied a Werewolf.",
-    )
-    t.record(
-        "game/me_night_window2_after_look",
-        "GET",
-        "Ana",
-        ME,
-        status=200,
-        about="/me/ in window 2: window 1's look is listed, her new prompt open.",
-    )
+    _deal_again(t, usual, ["Werewolf", "Villager", "Minion"])
+    _choose(t, "Ana", [_player(t, "Cleo")])
     _close_the_night(t)
     t.call("POST", "Ana", END_DISCUSSION)
     for name in usual:
@@ -1268,32 +890,6 @@ def _doppelganger_copies(t: Table) -> None:
         status=200,
         about="Results where the dealt Tanner died (team neutral).",
     )
-
-    # She copies a Mason, then an Insomniac: both act in window 2.
-    for copied, kind in [("Esme", "mason"), ("Hana", "insomniac")]:
-        _deal_again(t, usual, center)
-        _act(t, "Ana", "peek_player", {"player_id": t.pid(copied)})
-        t.record_event(
-            f"game/action_prompt_doppelganger_{kind}",
-            "Ana",
-            "game",
-            "action_prompt",
-            about=f"Window 2 prompt for a Doppelganger who copied the {kind}.",
-        )
-        _play_out(t)
-
-    # She copies the Minion: her team view is window 1's follow-up.
-    _deal_again(t, usual, center)
-    _act(t, "Ana", "peek_player", {"player_id": t.pid("Dev")})
-    _act(t, "Ana", "see_team")
-    t.record_event(
-        "game/action_result_see_team_doppelganger_minion",
-        "Ana",
-        "game",
-        "action_result",
-        about="Night result of a Doppelganger who copied the Minion.",
-    )
-    _play_out(t)
 
 
 def full_table(run: Recording, finished: Table) -> None:
@@ -1338,9 +934,9 @@ GAME_READY = "/onuw/games/{game_id}/ready/"
 CREATE = "/lobbies/"
 
 
-def _v2_lobby(t: Table, names: list[str], *, sample: str | None = None) -> None:
-    """A table the way the new screens make it: ``defaults: "v2"`` (the card look,
-    night protocol 2, the automatic Simple deck)."""
+def _app_lobby(t: Table, names: list[str], *, sample: str | None = None) -> None:
+    """A table the way the app makes it: ``defaults: "v2"`` (the card look and
+    the automatic Simple deck)."""
     _sign_in(t, names)
     body = {"game_type": "onuw", "defaults": "v2"}
     if sample:
@@ -1356,8 +952,7 @@ def _v2_lobby(t: Table, names: list[str], *, sample: str | None = None) -> None:
         )
     else:
         t.call("POST", names[0], CREATE, body)
-    _join_and_ready(t, names[1:])
-    t.call("POST", names[0], "/lobbies/{code}/ready/")
+    _join(t, names[1:])
 
 
 def _everyone(t: Table, names: list[str], path: str, body: dict) -> None:
@@ -1373,10 +968,10 @@ def _player(t: Table, name: str) -> dict:
     return {"player_id": t.pid(name)}
 
 
-def protocol_two_tables(run: Recording) -> None:
-    """Night protocol 2: the look stage, the choose night (a plain table, then a
-    Doppelganger table with window 1), lock-in voting, ready to vote, the
-    automatic deck and the create defaults."""
+def choose_tables(run: Recording) -> None:
+    """The look stage, the choose night (a plain table, then a Doppelganger
+    table with window 1), lock-in voting, ready to vote, the automatic deck and
+    the create defaults."""
     _plain_choose_table(run)
     _doppelganger_choose_table(run)
     _auto_deck_table(run, ["Ana", "Ben", "Cleo", "Dev", "Esme"], "classic", 5)
@@ -1419,13 +1014,12 @@ def _plain_choose_table(run: Recording) -> None:
         {"game_type": "onuw", "defaults": "v2"},
         status=201,
         about=(
-            "The host opens a table with `defaults: v2`: a 30 s look at the cards, "
-            "night protocol 2 and the automatic Simple deck, and nothing else (no "
-            "timer length is written)."
+            "The host opens a table with `defaults: v2`: a 30 s look at the cards "
+            "and the automatic Simple deck, and nothing else (no timer length is "
+            "written)."
         ),
     )
-    _join_and_ready(t, names[1:])
-    t.call("POST", "Ana", "/lobbies/{code}/ready/")
+    _join(t, names[1:])
     t.record(
         "lobby/settings_deck_chip_invalid",
         "PATCH",
@@ -1447,7 +1041,9 @@ def _plain_choose_table(run: Recording) -> None:
 
     # -- the deal and the look stage -------------------------------------
     t.clock.advance(60)
-    t.start(dealt, ["Werewolf", "Villager", "Villager"], sample="game/started_v2")
+    t.start(
+        dealt, ["Werewolf", "Villager", "Villager"], sample="game/started_with_look"
+    )
     for name in names:
         t.connect(name)
     since_deal = t.mark()
@@ -1614,7 +1210,7 @@ def _plain_choose_table(run: Recording) -> None:
         ACTION,
         {"action_type": "skip", "targets": {}},
         status=400,
-        about="Any other action_type under night protocol 2.",
+        about="Any other action_type (only `choose` is a night action).",
     )
     t.record(
         "game/me_choose_chosen",
@@ -1633,13 +1229,6 @@ def _plain_choose_table(run: Recording) -> None:
         "window_2",
         since_night,
         about="What every seat's socket heard while window 2 was open.",
-    )
-    t.record_event(
-        "game/wave_complete_v2",
-        "Ana",
-        "game",
-        "wave_complete",
-        about="The window closed: every phone reads its results from /me/.",
     )
     t.record(
         "game/choose_wrong_stage",
@@ -1793,7 +1382,7 @@ def _plain_choose_table(run: Recording) -> None:
         about="A target that is not a JSON integer.",
     )
     t.record(
-        "game/vote_self_v2",
+        "game/vote_self",
         "POST",
         "Ben",
         VOTE,
@@ -1811,7 +1400,7 @@ def _plain_choose_table(run: Recording) -> None:
         about="A lock flag that is not true or false.",
     )
     t.record(
-        "game/vote_locked_v2",
+        "game/vote_locked",
         "POST",
         "Ana",
         VOTE,
@@ -1854,18 +1443,18 @@ def _plain_choose_table(run: Recording) -> None:
         about="/me/ after locking in.",
     )
     t.record(
-        "debug/state_v2",
+        "debug/state_talk_vote",
         "GET",
         "Ana",
         DEBUG_STATE,
         status=200,
-        about="The oracle under night protocol 2: per-player ready, vote_locked.",
+        about="The oracle with per-player ready and vote_locked.",
         debug=True,
     )
     vote_stage = t.stage_now()
     for name in names[1:]:
         target = "Dev" if name == "Cleo" else "Cleo"
-        t.call("POST", name, VOTE, {"target_player_id": t.pid(target)})
+        _vote(t, name, target)
     t.record_sequence(
         "talk_and_vote",
         since_vote,
@@ -1876,7 +1465,7 @@ def _plain_choose_table(run: Recording) -> None:
         "POST",
         "Ana",
         VOTE,
-        {"target_player_id": t.pid("Cleo"), "stage": vote_stage},
+        {"target_player_id": t.pid("Cleo"), "lock": True, "stage": vote_stage},
         status=409,
         about="A vote that was on its way when the vote was revealed: the stage is "
         "over, nothing is stored.",
@@ -1891,15 +1480,15 @@ def _plain_choose_table(run: Recording) -> None:
         about="The host's reveal after the last lock already revealed the vote.",
     )
     t.record(
-        "game/me_results_v2",
+        "game/me_results",
         "GET",
         "Ana",
         ME,
         status=200,
-        about="/me/ in the results phase under night protocol 2.",
+        about="/me/ in the results phase.",
     )
     t.record(
-        "game/results_v2",
+        "game/results_five",
         "GET",
         "Ana",
         RESULTS,
@@ -1926,7 +1515,7 @@ def _doppelganger_choose_table(run: Recording) -> None:
         "Hana": "Insomniac",
         "Ida": "Werewolf",
     }
-    _v2_lobby(t, names)
+    _app_lobby(t, names)
     deck: dict[str, int] = {}
     for role in [*dealt.values(), "Villager", "Villager", "Tanner"]:
         deck[role] = deck.get(role, 0) + 1
@@ -1937,19 +1526,19 @@ def _doppelganger_choose_table(run: Recording) -> None:
         {"settings": {"deck": "custom", "roles": deck}},
     )
     t.record_event(
-        "lobby/lobby_update_v2_custom_deck",
+        "lobby/lobby_update_custom_deck",
         "Ben",
         "lobby",
         "lobby_update",
-        about="A night protocol 2 table whose host picked the cards (`deck: custom`).",
+        about="A table whose host picked the cards (`deck: custom`).",
     )
     t.record(
-        "lobby/detail_v2_custom_deck",
+        "lobby/detail_custom_deck",
         "GET",
         "Ben",
         LOBBY,
         status=200,
-        about="A night protocol 2 table with a custom deck, before the deal.",
+        about="A table with a custom deck, before the deal.",
     )
     t.clock.advance(60)
     t.start(dealt, ["Villager", "Villager", "Tanner"])
@@ -2107,22 +1696,22 @@ def _doppelganger_choose_table(run: Recording) -> None:
 def _auto_deck_table(run: Recording, names: list[str], chip: str, players: int) -> None:
     """The server builds the deck at the deal for the players at the table."""
     t = run.table()
-    _v2_lobby(t, names)
+    _app_lobby(t, names)
     t.call("PATCH", "Ana", LOBBY, {"settings": {"deck": "auto", "deck_chip": chip}})
     t.record_event(
-        f"lobby/lobby_update_v2_auto_deck_{players}",
+        f"lobby/lobby_update_auto_deck_{players}",
         "Ben",
         "lobby",
         "lobby_update",
-        about=f"A night protocol 2 table with the automatic deck ({chip} chip).",
+        about=f"A table with the automatic deck ({chip} chip).",
     )
     t.record(
-        f"lobby/detail_v2_auto_deck_{players}",
+        f"lobby/detail_auto_deck_{players}",
         "GET",
         "Ben",
         LOBBY,
         status=200,
-        about=f"A night protocol 2 table with the automatic deck ({chip} chip), "
+        about=f"A table with the automatic deck ({chip} chip), "
         "before the deal: the server builds the cards at the deal.",
     )
     t.clock.advance(60)
@@ -2138,10 +1727,10 @@ def _auto_deck_table(run: Recording, names: list[str], chip: str, players: int) 
     )
 
 
-# -- the results tables (night protocol 2) ----------------------------------
+# -- the results tables --------------------------------------------------------
 
 
-def _deal_v2(
+def _deal_table(
     t: Table,
     dealt: dict[str, str],
     center: list[str],
@@ -2149,7 +1738,7 @@ def _deal_v2(
     again: bool = True,
     settings: dict | None = None,
 ) -> None:
-    """Deal the given cards at a protocol-2 table (play again first unless it is
+    """Deal the given cards at a table (play again first unless it is
     the table's first game), open the sockets and let everyone look at their card:
     the night opens."""
     if again:
@@ -2170,7 +1759,7 @@ def _deal_v2(
     _everyone(t, list(dealt), GAME_READY, {"ready": True})
 
 
-def _night_v2(t: Table, names: list[str], picks: dict[str, list[dict]]) -> None:
+def _choose_night(t: Table, names: list[str], picks: dict[str, list[dict]]) -> None:
     """Window 2 only: every phone chooses once (``picks`` by name, nothing for the
     rest) and the window closes at its minimum."""
     t.clock.advance(5)
@@ -2210,7 +1799,7 @@ SIX_CENTER = ["Villager", "Troublemaker", "Insomniac"]
 
 
 def results_tables(run: Recording) -> None:
-    """More protocol-2 games played to the results: every way a vote can end
+    """More games played to the results: every way a vote can end
     (after the tables above, so their samples never move)."""
     _six_results_table(run)
     _three_player_table(run)
@@ -2222,13 +1811,13 @@ def _six_results_table(run: Recording) -> None:
     """Six players, one game per way the vote can end (play again between them),
     and a Doppelganger who copies the Minion."""
     t = run.table()
-    _v2_lobby(t, SIX)
+    _app_lobby(t, SIX)
 
     # -- the Werewolves win: the table votes out a Villager --------------
-    _deal_v2(t, SIX_DEALT, SIX_CENTER, again=False)
-    _night_v2(t, SIX, {"Ana": [_player(t, "Cleo")]})
+    _deal_table(t, SIX_DEALT, SIX_CENTER, again=False)
+    _choose_night(t, SIX, {"Ana": [_player(t, "Cleo")]})
     t.record(
-        "game/night_results_seen_v2",
+        "game/night_results_seen_in_talk",
         "POST",
         "Ana",
         RESULTS_SEEN,
@@ -2254,8 +1843,8 @@ def _six_results_table(run: Recording) -> None:
     )
 
     # -- nobody dies: one vote each ---------------------------------------
-    _deal_v2(t, SIX_DEALT, SIX_CENTER)
-    _night_v2(t, SIX, {})
+    _deal_table(t, SIX_DEALT, SIX_CENTER)
+    _choose_night(t, SIX, {})
     _to_vote(t, SIX)
     _lock_votes(t, {n: SIX[(i + 1) % len(SIX)] for i, n in enumerate(SIX)})
     _record_results(
@@ -2266,8 +1855,8 @@ def _six_results_table(run: Recording) -> None:
     )
 
     # -- a tie that kills two ---------------------------------------------
-    _deal_v2(t, SIX_DEALT, SIX_CENTER)
-    _night_v2(t, SIX, {})
+    _deal_table(t, SIX_DEALT, SIX_CENTER)
+    _choose_night(t, SIX, {})
     _to_vote(t, SIX)
     _lock_votes(
         t,
@@ -2282,37 +1871,37 @@ def _six_results_table(run: Recording) -> None:
     )
     _record_results(
         t,
-        "results_v2_tie",
+        "results_tie",
         "Two players tie on the most votes (two each): both die; one held a "
         "Werewolf, so the village wins.",
     )
 
     # -- the Hunter chain ---------------------------------------------------
-    _deal_v2(t, {**SIX_DEALT, "Fin": "Hunter"}, SIX_CENTER)
-    _night_v2(t, SIX, {})
+    _deal_table(t, {**SIX_DEALT, "Fin": "Hunter"}, SIX_CENTER)
+    _choose_night(t, SIX, {})
     _to_vote(t, SIX)
     _lock_votes(t, {n: ("Cleo" if n == "Fin" else "Fin") for n in SIX})
     _record_results(
         t,
-        "results_v2_hunter_chain",
+        "results_hunter_chain",
         "The Hunter is voted out and takes the player he voted for (a Werewolf) "
         "with him.",
     )
 
     # -- the Tanner dies ----------------------------------------------------
-    _deal_v2(t, {**SIX_DEALT, "Dev": "Tanner"}, SIX_CENTER)
-    _night_v2(t, SIX, {})
+    _deal_table(t, {**SIX_DEALT, "Dev": "Tanner"}, SIX_CENTER)
+    _choose_night(t, SIX, {})
     _to_vote(t, SIX)
     _lock_votes(t, {n: ("Ana" if n == "Dev" else "Dev") for n in SIX})
     _record_results(
         t,
-        "results_v2_tanner",
-        "The Tanner is voted out under night protocol 2: the Tanner wins.",
+        "results_tanner_alone",
+        "The Tanner is voted out: the Tanner wins.",
     )
 
     # -- a dead player whose card had moved -------------------------------
-    _deal_v2(t, SIX_DEALT, SIX_CENTER)
-    _night_v2(t, SIX, {"Ben": [_player(t, "Cleo")]})
+    _deal_table(t, SIX_DEALT, SIX_CENTER)
+    _choose_night(t, SIX, {"Ben": [_player(t, "Cleo")]})
     _to_vote(t, SIX)
     _lock_votes(t, {n: ("Ana" if n == "Ben" else "Ben") for n in SIX})
     _record_results(
@@ -2325,7 +1914,7 @@ def _six_results_table(run: Recording) -> None:
 
     # -- a Doppelganger who copies the Minion -----------------------------
     dealt = {**SIX_DEALT, "Ana": "Doppelganger", "Dev": "Minion"}
-    _deal_v2(t, dealt, ["Villager", "Seer", "Insomniac"])
+    _deal_table(t, dealt, ["Villager", "Seer", "Insomniac"])
     t.clock.advance(3)
     _choose(t, "Ana", [_player(t, "Dev")])
     t.record(
@@ -2343,7 +1932,7 @@ def _six_results_table(run: Recording) -> None:
         _choose(t, name, [])
     t.clock.advance(7)
     t.fire("{game_id}:wave:1")
-    _night_v2(t, SIX, {})
+    _choose_night(t, SIX, {})
     t.record(
         "game/me_discussion_choose_doppelganger_minion",
         "GET",
@@ -2359,17 +1948,17 @@ def _three_player_table(run: Recording) -> None:
     """Three players, the smallest table; the talk and the vote are untimed."""
     t = run.table()
     names = ["Ana", "Ben", "Cleo"]
-    _v2_lobby(t, names)
-    _deal_v2(
+    _app_lobby(t, names)
+    _deal_table(
         t,
         {"Ana": "Werewolf", "Ben": "Seer", "Cleo": "Villager"},
         ["Robber", "Troublemaker", "Villager"],
         again=False,
         settings={"discussion_seconds": 0, "voting_seconds": 0},
     )
-    _night_v2(t, names, {"Ben": [_player(t, "Ana")]})
+    _choose_night(t, names, {"Ben": [_player(t, "Ana")]})
     t.record(
-        "game/me_talk_untimed_v2",
+        "game/me_talk_untimed",
         "GET",
         "Ana",
         ME,
@@ -2379,7 +1968,7 @@ def _three_player_table(run: Recording) -> None:
     )
     _to_vote(t, names)
     t.record(
-        "game/me_voting_untimed_v2",
+        "game/me_voting_untimed",
         "GET",
         "Ana",
         ME,
@@ -2390,7 +1979,7 @@ def _three_player_table(run: Recording) -> None:
     _lock_votes(t, {"Ana": "Cleo", "Ben": "Ana", "Cleo": "Ana"})
     _record_results(
         t,
-        "results_v2_three_players",
+        "results_three_players",
         "The results of a three-player game: the Seer found the Werewolf.",
     )
 
@@ -2399,7 +1988,7 @@ def _ten_player_table(run: Recording) -> Table:
     """Ten players, the largest table: the talk and the vote."""
     t = run.table()
     names = ["Ana", "Ben", "Cleo", "Dev", "Esme", "Fin", "Gus", "Hana", "Ida", "Jon"]
-    _v2_lobby(t, names)
+    _app_lobby(t, names)
     roles = [
         "Seer",
         "Werewolf",
@@ -2413,8 +2002,8 @@ def _ten_player_table(run: Recording) -> Table:
         "Minion",
     ]
     dealt = dict(zip(names, roles, strict=True))
-    _deal_v2(t, dealt, ["Villager", "Hunter", "Tanner"], again=False)
-    _night_v2(t, names, {})
+    _deal_table(t, dealt, ["Villager", "Hunter", "Tanner"], again=False)
+    _choose_night(t, names, {})
     t.record(
         "game/me_talk_ten",
         "GET",
@@ -2441,7 +2030,7 @@ def _record_lobby(t: Table, name: str, about: str) -> None:
 
 
 def _lobby_table(run: Recording) -> None:
-    """A protocol-2 table before its deal: who is connected (one phone drops and
+    """A table before its deal: who is connected (one phone drops and
     comes back), the automatic deck it would deal for each chip at two player
     counts, whether it can be dealt (`deal`), a custom deck one card short, a join
     by someone seated here to another table, and a deal with a member
@@ -2461,7 +2050,7 @@ def _lobby_table(run: Recording) -> None:
     # -- a phone drops, then comes back --------------------------------------
     t.disconnect_lobby("Noa")
     t.record(
-        "lobby/detail_v2_member_in_grace",
+        "lobby/detail_member_in_grace",
         "GET",
         "Kai",
         LOBBY,
@@ -2473,19 +2062,17 @@ def _lobby_table(run: Recording) -> None:
     t.clock.advance(30)
     t.fire(t.lobby_presence_key("Noa"))
     t.record_event(
-        "lobby/lobby_update_v2_member_dropped",
+        "lobby/lobby_update_member_dropped",
         "Kai",
         "lobby",
         "lobby_update",
         about="Noa's phone has been away past the grace period: the table is told "
         "(`connected` false), calmly, by a lobby_update.",
     )
-    _record_lobby(
-        t, "detail_v2_member_dropped", "A protocol-2 table with one member dropped."
-    )
+    _record_lobby(t, "detail_member_dropped", "A table with one member dropped.")
     t.connect_lobby("Noa")
     t.record_event(
-        "lobby/lobby_update_v2_member_back",
+        "lobby/lobby_update_member_back",
         "Kai",
         "lobby",
         "lobby_update",
@@ -2503,12 +2090,12 @@ def _lobby_table(run: Recording) -> None:
             )
             _record_lobby(
                 t,
-                f"detail_v2_deck_{chip}_{count}",
+                f"detail_deck_{chip}_{count}",
                 f"The {chip} automatic deck the deal would build for {count} players "
                 "(`deck_preview`), and `deal` ok.",
             )
     t.record_event(
-        "lobby/lobby_update_v2_deck_preview",
+        "lobby/lobby_update_deck_preview",
         "Lia",
         "lobby",
         "lobby_update",
@@ -2529,7 +2116,7 @@ def _lobby_table(run: Recording) -> None:
     t.call("PATCH", "Kai", LOBBY, {"settings": {"deck": "custom", "roles": deck}})
     _record_lobby(
         t,
-        "detail_v2_custom_deck_ok",
+        "detail_custom_deck_ok",
         "A custom deck of ten cards at seven players: no preview (its roles are in "
         "`settings`), `deal` ok.",
     )
@@ -2537,7 +2124,7 @@ def _lobby_table(run: Recording) -> None:
     t.clock.advance(60)
     t.call("POST", "Sam", JOIN)
     t.record_event(
-        "lobby/lobby_update_v2_joined",
+        "lobby/lobby_update_joined",
         "Kai",
         "lobby",
         "lobby_update",
@@ -2546,12 +2133,12 @@ def _lobby_table(run: Recording) -> None:
     )
     _record_lobby(
         t,
-        "detail_v2_custom_deck_short",
+        "detail_custom_deck_short",
         "The same custom deck after an eighth player joined: one card short "
         "(`deal`: ok false, need 11, have 10).",
     )
 
-    # -- someone seated here tries to sit at another protocol-2 table ---------
+    # -- someone seated here tries to sit at another table -------------------
     other = run.table()
     other.guest("Uma")
     other.call("POST", "Uma", CREATE, {"game_type": "onuw", "defaults": "v2"})
@@ -2562,7 +2149,7 @@ def _lobby_table(run: Recording) -> None:
         "Rex",
         JOIN,
         status=409,
-        about="Joining a protocol-2 table while seated at another table that is "
+        about="Joining a table while seated at another table that is "
         "waiting: refused, with that table's code (`lobby_code`) so the phone can "
         "offer to go there (leaving a waiting table always works).",
     )
@@ -2570,11 +2157,11 @@ def _lobby_table(run: Recording) -> None:
     # -- nobody tapped ready, and the table is dealt --------------------------
     t.call("PATCH", "Kai", LOBBY, {"settings": {"deck": "auto"}})
     t.clock.advance(60)
-    t.start_random(11, sample="game/started_v2_nobody_ready")
+    t.start_random(11, sample="game/started_nobody_ready")
 
 
 def record_all(run: Recording) -> None:
     classic_table(run)
     full_table(run, finished=doppelganger_table(run))
-    protocol_two_tables(run)
+    choose_tables(run)
     results_tables(run)

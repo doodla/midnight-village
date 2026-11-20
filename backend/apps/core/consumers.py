@@ -116,17 +116,6 @@ class LobbyConsumer(TolerantJsonWebsocketConsumer):
             }
         )
 
-    async def player_ready(self, event):
-        """Handle player ready state change."""
-        await self.send_json(
-            {
-                "type": "player_ready",
-                "username": event["username"],
-                "user_id": event["user_id"],
-                "is_ready": event["is_ready"],
-            }
-        )
-
     async def lobby_update(self, event):
         """Handle generic lobby update."""
         await self.send_json(

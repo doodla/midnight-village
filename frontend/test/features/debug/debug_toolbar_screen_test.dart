@@ -74,7 +74,6 @@ void main() {
           roleCounts: any(named: 'roleCounts'),
           playerRolesByName: any(named: 'playerRolesByName'),
           centerCards: any(named: 'centerCards'),
-          protocolTwo: any(named: 'protocolTwo'),
         ),
       ).thenAnswer((_) async => _table);
 
@@ -94,57 +93,57 @@ void main() {
     },
   );
 
-  testWidgets('every table is protocol 2 (v2); auto-drive acts for everyone '
-      'but the phone shown, through stage-scoped requests', (tester) async {
-    when(
-      () => controller.createTable(
-        playerNames: any(named: 'playerNames'),
-        roleCounts: any(named: 'roleCounts'),
-        playerRolesByName: any(named: 'playerRolesByName'),
-        centerCards: any(named: 'centerCards'),
-        protocolTwo: any(named: 'protocolTwo'),
-      ),
-    ).thenAnswer((_) async => _table);
-    when(() => controller.switchTo(any())).thenAnswer((_) async {});
-    when(
-      () => controller.stagedAs(
-        any(),
-        any(),
-        any(),
-        lenient: any(named: 'lenient'),
-      ),
-    ).thenAnswer((_) async {});
+  testWidgets(
+    'a table is made as the app makes one; auto-drive acts for everyone '
+    'but the phone shown, through stage-scoped requests',
+    (tester) async {
+      when(
+        () => controller.createTable(
+          playerNames: any(named: 'playerNames'),
+          roleCounts: any(named: 'roleCounts'),
+          playerRolesByName: any(named: 'playerRolesByName'),
+          centerCards: any(named: 'centerCards'),
+        ),
+      ).thenAnswer((_) async => _table);
+      when(() => controller.switchTo(any())).thenAnswer((_) async {});
+      when(
+        () => controller.stagedAs(
+          any(),
+          any(),
+          any(),
+          lenient: any(named: 'lenient'),
+        ),
+      ).thenAnswer((_) async {});
 
-    await tester.pumpWidget(buildApp());
-    await tester.tap(find.text('Starter'));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('debug-create-table')));
-    await tester.pumpAndSettle();
-    final made = verify(
-      () => controller.createTable(
-        playerNames: any(named: 'playerNames'),
-        roleCounts: any(named: 'roleCounts'),
-        playerRolesByName: any(named: 'playerRolesByName'),
-        centerCards: any(named: 'centerCards'),
-        protocolTwo: captureAny(named: 'protocolTwo'),
-      ),
-    ).captured;
-    expect(made, [true]);
+      await tester.pumpWidget(buildApp());
+      await tester.tap(find.text('Starter'));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('debug-create-table')));
+      await tester.pumpAndSettle();
+      verify(
+        () => controller.createTable(
+          playerNames: any(named: 'playerNames'),
+          roleCounts: any(named: 'roleCounts'),
+          playerRolesByName: any(named: 'playerRolesByName'),
+          centerCards: any(named: 'centerCards'),
+        ),
+      ).called(1);
 
-    // This phone is Bob's: the others are driven, he is not.
-    await tester.ensureVisible(find.byKey(const Key('debug-switch-2')));
-    await tester.tap(find.byKey(const Key('debug-switch-2')));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('debug-everyone-ready')));
-    await tester.tap(find.byKey(const Key('debug-everyone-ready')));
-    await tester.pumpAndSettle();
-    final driven = verify(
-      () => controller.stagedAs(captureAny(), 'ready', {
-        'ready': true,
-      }, lenient: true),
-    ).captured;
-    expect(driven.map((p) => (p as DebugPlayer).userId), [1]);
-  });
+      // This phone is Bob's: the others are driven, he is not.
+      await tester.ensureVisible(find.byKey(const Key('debug-switch-2')));
+      await tester.tap(find.byKey(const Key('debug-switch-2')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('debug-everyone-ready')));
+      await tester.tap(find.byKey(const Key('debug-everyone-ready')));
+      await tester.pumpAndSettle();
+      final driven = verify(
+        () => controller.stagedAs(captureAny(), 'ready', {
+          'ready': true,
+        }, lenient: true),
+      ).captured;
+      expect(driven.map((p) => (p as DebugPlayer).userId), [1]);
+    },
+  );
 
   testWidgets('tapping Become switches perspective via the controller', (
     tester,
@@ -155,7 +154,6 @@ void main() {
         roleCounts: any(named: 'roleCounts'),
         playerRolesByName: any(named: 'playerRolesByName'),
         centerCards: any(named: 'centerCards'),
-        protocolTwo: any(named: 'protocolTwo'),
       ),
     ).thenAnswer((_) async => _table);
     when(() => controller.switchTo(any())).thenAnswer((_) async {});
@@ -183,7 +181,6 @@ void main() {
         roleCounts: any(named: 'roleCounts'),
         playerRolesByName: any(named: 'playerRolesByName'),
         centerCards: any(named: 'centerCards'),
-        protocolTwo: any(named: 'protocolTwo'),
       ),
     ).thenAnswer((_) async => _table);
     when(() => controller.oracle()).thenThrow(Exception('no backend'));

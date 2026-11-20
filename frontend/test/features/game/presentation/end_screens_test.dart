@@ -429,7 +429,7 @@ void main() {
     String code(ShellSetup s) => s.me['lobby_code'] as String;
 
     /// `/me/table/` after play again: the table waits for its next deal; 02
-    /// reads the lobby (a recorded protocol-2 table, waiting).
+    /// reads the lobby (a recorded table, waiting).
     Map<String, dynamic> waiting(ShellSetup s, {required bool host}) {
       s.answerLobby(code(s));
       return serverMyTable(

@@ -23,7 +23,7 @@ import '../../../lobby/domain/where_am_i.dart';
 import '../../../lobby/presentation/where_am_i_provider.dart';
 import '../../domain/game_outcome.dart';
 import '../../domain/outcome_view.dart';
-import '../protocol_two_game.dart';
+import '../live_game.dart';
 import '../table_screen.dart';
 import 'count_screen.dart' show EndWaiting;
 
@@ -42,7 +42,7 @@ class ResultsScreen extends ConsumerStatefulWidget {
   const ResultsScreen({super.key, required this.gameId, required this.game});
 
   final String gameId;
-  final ProtocolTwoGame? game;
+  final LiveGame? game;
 
   @override
   ConsumerState<ResultsScreen> createState() => _ResultsScreenState();
@@ -54,8 +54,8 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
   _Act? _busy;
   _Act? _failed;
 
-  ProtocolTwoGameNotifier get _notifier =>
-      ref.read(protocolTwoGameProvider(widget.gameId).notifier);
+  LiveGameNotifier get _notifier =>
+      ref.read(liveGameProvider(widget.gameId).notifier);
 
   Future<void> _run(_Act act) async {
     if (_busy != null) return;

@@ -12,9 +12,9 @@
   "max_players": 10,
   "settings": {
     "card_look_seconds": 30,
-    "night_protocol": 2,
     "deck": "auto",
-    "deck_chip": "simple"
+    "deck_chip": "simple",
+    "night_protocol": 2
   },
   "players": [
     {
@@ -23,13 +23,12 @@
         "username": "00000000-0000-4000-8000-000000000027",
         "display_name": "Ana"
       },
-      "is_ready": false,
       "token": "moth",
-      "joined_at": "2024-03-07T21:13:38Z",
+      "joined_at": "2024-03-07T21:10:38Z",
       "connected": false
     }
   ],
-  "created_at": "2024-03-07T21:13:38Z",
+  "created_at": "2024-03-07T21:10:38Z",
   "deck_preview": null,
   "deal": {
     "ok": false,

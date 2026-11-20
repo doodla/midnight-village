@@ -1,7 +1,8 @@
 """
 Integration tests for the ONUW Night Phase API endpoints.
 
-Tests the NightActionView and WaveAdvanceView with various scenarios.
+Tests the NightActionView (every phone's ``choose``) and WaveAdvanceView with
+various scenarios. Every request names the stage ``GET /me/`` shows.
 """
 
 from unittest.mock import patch
@@ -12,7 +13,9 @@ import pytest
 from rest_framework import status
 
 from apps.core.models import Lobby, LobbyMember, User
+from apps.onuw import choose_night
 from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.protocol import stage_token
 
 pytestmark = pytest.mark.integration
 
@@ -88,6 +91,36 @@ def _advance_url(game_id):
     return reverse("onuw:wave-advance", kwargs={"game_id": str(game_id)})
 
 
+def _stage(game) -> str | None:
+    return stage_token(Game.objects.get(id=game.id))
+
+
+def _choose(api_client, game, user, picks=None, *, chosen=None):
+    """``user``'s phone chooses ``picks`` for the open window (the stage and the
+    prompt's ``chosen`` as ``GET /me/`` shows them, unless ``chosen`` is given)."""
+    api_client.force_authenticate(user=user)
+    if chosen is None:
+        fresh = Game.objects.get(id=game.id)
+        pr = PlayerRole.objects.get(game=fresh, user=user)
+        chosen = choose_night.chose_count(pr, fresh.current_wave)
+    return api_client.post(
+        _action_url(game.id),
+        {
+            "action_type": "choose",
+            "picks": picks or [],
+            "chosen": chosen,
+            "stage": _stage(game),
+        },
+        format="json",
+    )
+
+
+def _advance(api_client, game, stage=None):
+    return api_client.post(
+        _advance_url(game.id), {"stage": stage or _stage(game)}, format="json"
+    )
+
+
 def _patch_channels():
     """Context manager to mock out channel layer so WebSocket sends are no-ops."""
     return patch("apps.core.effects.get_channel_layer", return_value=None)
@@ -96,147 +129,96 @@ def _patch_channels():
 class TestNightActionSubmission:
     """Tests for POST /api/onuw/games/<game_id>/action/."""
 
-    def test_seer_can_submit_peek_player_action(self, api_client, db):
-        """Seer can submit a peek_player action targeting another player."""
+    ROLES = {
+        "host_seer": "Seer",
+        "p1_ww": "Werewolf",
+        "p2_rob": "Robber",
+        "p3_vill": "Villager",
+        "p4_drunk": "Drunk",
+    }
+
+    def test_seer_can_choose_a_player_to_look_at(self, api_client, db):
+        """A Seer's choose of another player is stored as a look at that card."""
         game, users = _create_game(
-            {
-                "host_seer": "Seer",
-                "p1_ww": "Werewolf",
-                "p2_rob": "Robber",
-                "p3_vill": "Villager",
-                "p4_drunk": "Drunk",
-            },
-            center_cards=["Troublemaker", "Insomniac", "Villager"],
-            current_wave=2,
+            self.ROLES, center_cards=["Troublemaker", "Insomniac", "Villager"]
         )
 
-        seer_user = users["host_seer"]
-        target_user = users["p1_ww"]
-        api_client.force_authenticate(user=seer_user)
-
         with _patch_channels():
-            response = api_client.post(
-                _action_url(game.id),
-                {
-                    "action_type": "peek_player",
-                    "targets": {"player_id": target_user.id},
-                },
-                format="json",
+            response = _choose(
+                api_client, game, users["host_seer"], [{"player_id": users["p1_ww"].id}]
             )
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["status"] == "submitted"
+        assert response.data == {"status": "submitted"}
 
-        # Verify DB state
-        pr = PlayerRole.objects.get(game=game, user=seer_user)
+        pr = PlayerRole.objects.get(game=game, user=users["host_seer"])
         assert pr.has_acted is True
         assert pr.night_action_data["action_type"] == "peek_player"
         assert pr.night_action_data["role_acting_as"] == "Seer"
 
-    def test_wrong_action_type_rejected(self, api_client, db):
-        """Submitting an action type not allowed for the role returns 400."""
+    def test_a_request_that_is_not_a_choose_is_refused(self, api_client, db):
+        """Only ``choose`` exists at night: any other action type is a 400."""
         game, users = _create_game(
-            {
-                "host_seer2": "Seer",
-                "p1_ww2": "Werewolf",
-                "p2_rob2": "Robber",
-                "p3_vill2": "Villager",
-                "p4_drunk2": "Drunk",
-            },
-            center_cards=["Troublemaker", "Insomniac", "Villager"],
-            current_wave=2,
+            self.ROLES, center_cards=["Troublemaker", "Insomniac", "Villager"]
         )
-
-        seer_user = users["host_seer2"]
-        target_user = users["p1_ww2"]
-        api_client.force_authenticate(user=seer_user)
+        api_client.force_authenticate(user=users["host_seer"])
 
         with _patch_channels():
             response = api_client.post(
                 _action_url(game.id),
                 {
-                    "action_type": "swap_with_player",
-                    "targets": {"player_id": target_user.id},
+                    "action_type": "peek_player",
+                    "targets": {"player_id": users["p1_ww"].id},
+                    "stage": _stage(game),
                 },
                 format="json",
             )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["code"] == "bad_request"
+        assert not PlayerRole.objects.get(game=game, user=users["host_seer"]).has_acted
 
-    def test_player_cannot_submit_in_wrong_wave(self, api_client, db):
-        """A Werewolf cannot submit in window 1 (they act in window 2)."""
+    def test_a_choose_in_a_window_the_role_does_not_act_in_reads_as_nothing(
+        self, api_client, db
+    ):
+        """A Werewolf's choose in window 1 is taken like anyone's, and means nothing."""
         game, users = _create_game(
-            {
-                "host_ww3": "Werewolf",
-                "p1_seer3": "Seer",
-                "p2_rob3": "Robber",
-                "p3_vill3": "Villager",
-                "p4_drunk3": "Drunk",
-            },
+            self.ROLES,
             center_cards=["Troublemaker", "Insomniac", "Villager"],
             current_wave=1,
         )
 
-        ww_user = users["host_ww3"]
-        api_client.force_authenticate(user=ww_user)
-
         with _patch_channels():
-            response = api_client.post(
-                _action_url(game.id),
-                {
-                    "action_type": "see_team",
-                    "targets": {},
-                },
-                format="json",
-            )
+            response = _choose(api_client, game, users["p1_ww"], [{"center_index": 0}])
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_200_OK
+        data = PlayerRole.objects.get(game=game, user=users["p1_ww"]).night_action_data
+        assert data["chose_1"] == 1
+        assert "action_type" not in data
 
-    def test_duplicate_action_returns_409(self, api_client, db):
-        """A duplicate action returns 409 Conflict so the frontend treats it as idempotent."""
+    def test_a_second_choose_in_window_two_is_409_and_a_resend_changes_nothing(
+        self, api_client, db
+    ):
+        """A phone chooses once in window 2: a second (answering a used-up prompt)
+        is 409 ``already_chosen``; a resend of the first is the same 200."""
         game, users = _create_game(
-            {
-                "host_seer4": "Seer",
-                "p1_ww4": "Werewolf",
-                "p2_rob4": "Robber",
-                "p3_vill4": "Villager",
-                "p4_drunk4": "Drunk",
-            },
-            center_cards=["Troublemaker", "Insomniac", "Villager"],
-            current_wave=2,
+            self.ROLES, center_cards=["Troublemaker", "Insomniac", "Villager"]
         )
-
-        seer_user = users["host_seer4"]
-        target_user = users["p1_ww4"]
-        api_client.force_authenticate(user=seer_user)
+        seer = users["host_seer"]
+        look = [{"player_id": users["p1_ww"].id}]
 
         with _patch_channels():
-            # First submission
-            response = api_client.post(
-                _action_url(game.id),
-                {
-                    "action_type": "peek_player",
-                    "targets": {"player_id": target_user.id},
-                },
-                format="json",
-            )
-            assert response.status_code == status.HTTP_200_OK
+            assert _choose(api_client, game, seer, look).status_code == 200
+            resend = _choose(api_client, game, seer, [], chosen=0)
+            again = _choose(api_client, game, seer, look)
 
-            # Second submission returns 409 (not 400) for idempotent handling
-            response = api_client.post(
-                _action_url(game.id),
-                {
-                    "action_type": "peek_player",
-                    "targets": {"player_id": target_user.id},
-                },
-                format="json",
-            )
-            assert response.status_code == status.HTTP_409_CONFLICT
-
-            # Original action preserved — retry didn't clobber it
-            pr = PlayerRole.objects.get(game=game, user=seer_user)
-            assert pr.has_acted is True
-            assert pr.night_action_data["action_type"] == "peek_player"
+        assert resend.status_code == status.HTTP_200_OK
+        assert again.status_code == status.HTTP_409_CONFLICT
+        assert again.data["code"] == "already_chosen"
+        # The original choose is kept: neither request clobbered it.
+        pr = PlayerRole.objects.get(game=game, user=seer)
+        assert pr.night_action_data["action_type"] == "peek_player"
+        assert pr.night_action_data["chose_2"] == 1
 
     def test_non_player_gets_403(self, api_client, db):
         """A user not in the game gets 403."""
@@ -249,7 +231,6 @@ class TestNightActionSubmission:
                 "p4_np": "Drunk",
             },
             center_cards=["Troublemaker", "Insomniac", "Villager"],
-            current_wave=2,
         )
         outsider = User.objects.create_user(username="outsider_na", password="pass")
         api_client.force_authenticate(user=outsider)
@@ -258,16 +239,18 @@ class TestNightActionSubmission:
             response = api_client.post(
                 _action_url(game.id),
                 {
-                    "action_type": "peek_player",
-                    "targets": {"player_id": 999},
+                    "action_type": "choose",
+                    "picks": [],
+                    "chosen": 0,
+                    "stage": _stage(game),
                 },
                 format="json",
             )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_action_in_wrong_phase_rejected(self, api_client, db):
-        """Cannot submit an action when the game is not in night phase."""
+    def test_a_choose_after_the_night_names_a_stage_that_is_over(self, api_client, db):
+        """A choose in the talk is 409 ``wrong_stage`` and stores nothing."""
         game, users = _create_game(
             {
                 "host_wp": "Seer",
@@ -281,28 +264,25 @@ class TestNightActionSubmission:
             current_wave=0,
         )
 
-        seer_user = users["host_wp"]
-        api_client.force_authenticate(user=seer_user)
-
         with _patch_channels():
-            response = api_client.post(
-                _action_url(game.id),
-                {
-                    "action_type": "peek_player",
-                    "targets": {"player_id": users["p1_wp"].id},
-                },
-                format="json",
+            response = _choose(
+                api_client,
+                game,
+                users["host_wp"],
+                [{"player_id": users["p1_wp"].id}],
+                chosen=0,
             )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data["code"] == "wrong_stage"
 
 
 class TestWaveAdvancement:
     """Tests for auto-advance and force-advance mechanics."""
 
-    def test_window_closes_when_all_actors_submit(self, api_client, db):
-        """Window 2 closes only once EVERY actor in it has submitted, and no
-        result is stored or delivered before that."""
+    def test_window_closes_when_every_phone_has_chosen(self, api_client, db):
+        """Window 2 closes only once EVERY phone has chosen, and no result is
+        stored before that."""
         game, users = _create_game(
             {
                 "host_aa": "Werewolf",
@@ -315,31 +295,25 @@ class TestWaveAdvancement:
             current_wave=2,
         )
 
-        def submit(name, payload):
-            api_client.force_authenticate(user=users[name])
-            response = api_client.post(_action_url(game.id), payload, format="json")
+        def submit(name, picks=None):
+            response = _choose(api_client, game, users[name], picks)
             assert response.status_code == status.HTTP_200_OK
 
         with _patch_channels():
-            submit("host_aa", {"action_type": "see_team", "targets": {}})
-            submit("p1_aa", {"action_type": "see_team", "targets": {}})
-            submit(
-                "p2_aa",
-                {
-                    "action_type": "peek_player",
-                    "targets": {"player_id": users["p4_aa"].id},
-                },
-            )
+            submit("host_aa")
+            submit("p1_aa")
+            submit("p2_aa", [{"player_id": users["p4_aa"].id}])
+            submit("p4_aa")
 
-            # The Robber has not submitted: the window is still open and
-            # nobody has a stored result yet.
+            # The Robber has not chosen: the window is still open and nobody
+            # has a stored result yet.
             game.refresh_from_db()
             assert game.phase == Phase.NIGHT
             assert game.current_wave == 2
             pr_ww1 = PlayerRole.objects.get(game=game, user=users["host_aa"])
             assert "wave_2_result" not in pr_ww1.night_action_data
 
-            submit("p3_aa", {"action_type": "skip", "targets": {}})
+            submit("p3_aa")
 
         game.refresh_from_db()
         assert game.phase == Phase.DISCUSSION
@@ -363,21 +337,13 @@ class TestWaveAdvancement:
             current_wave=2,
         )
 
-        # Only Werewolf 1 submits
+        # Only Werewolf 1 chooses
         with _patch_channels():
-            api_client.force_authenticate(user=users["host_fa"])
-            response = api_client.post(
-                _action_url(game.id),
-                {"action_type": "see_team", "targets": {}},
-                format="json",
-            )
+            response = _choose(api_client, game, users["host_fa"])
             assert response.status_code == status.HTTP_200_OK
 
             # Host force-advances
-            response = api_client.post(
-                _advance_url(game.id),
-                format="json",
-            )
+            response = _advance(api_client, game)
             assert response.status_code == status.HTTP_200_OK
             assert response.data["status"] == "advanced"
 
@@ -390,9 +356,9 @@ class TestWaveAdvancement:
         assert "werewolves" in pr_ww2.night_action_data["wave_2_result"]
 
     def test_force_advance_is_noop_if_timer_already_advanced(self, api_client, db):
-        """If the wave timer already advanced the wave, the host force-advance
-        is a no-op (400). This prevents duplicate wave processing that could
-        overwrite log entries and reset has_acted for the next wave."""
+        """If the wave timer already advanced the wave, the host's tap names a stage
+        that is over: a no-op (409). This prevents duplicate wave processing that
+        could overwrite log entries and reset has_acted for the next wave."""
         game, users = _create_game(
             {
                 "host_race_fa": "Werewolf",
@@ -406,6 +372,7 @@ class TestWaveAdvancement:
         )
 
         api_client.force_authenticate(user=users["host_race_fa"])
+        tapped_in = _stage(game)  # the window the host saw
 
         # Simulate: the timer callback fires and transitions to discussion
         # before the host request acquires the lock.
@@ -414,19 +381,16 @@ class TestWaveAdvancement:
         game.save(update_fields=["phase", "current_wave"])
 
         with _patch_channels():
-            response = api_client.post(
-                _advance_url(game.id),
-                format="json",
-            )
+            response = _advance(api_client, game, tapped_in)
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data["code"] == "wrong_stage"
         # Phase should still be DISCUSSION, not re-processed
         game.refresh_from_db()
         assert game.phase == Phase.DISCUSSION
 
     def test_game_transitions_to_discussion_after_all_waves(self, api_client, db):
-        """Game transitions to discussion when no more active waves remain."""
-        # Use only roles that act in wave 2 (no wave 3 or 4 roles)
+        """Game transitions to discussion once window 2, the last, has closed."""
         game, users = _create_game(
             {
                 "host_td": "Werewolf",
@@ -440,22 +404,10 @@ class TestWaveAdvancement:
         )
 
         with _patch_channels():
-            # Both werewolves submit
-            api_client.force_authenticate(user=users["host_td"])
-            api_client.post(
-                _action_url(game.id),
-                {"action_type": "see_team", "targets": {}},
-                format="json",
-            )
+            for user in users.values():
+                assert _choose(api_client, game, user).status_code == 200
 
-            api_client.force_authenticate(user=users["p1_td"])
-            api_client.post(
-                _action_url(game.id),
-                {"action_type": "see_team", "targets": {}},
-                format="json",
-            )
-
-        # Should transition to discussion (no wave 3 or 4 actors)
+        # Should transition to discussion
         game.refresh_from_db()
         assert game.phase == Phase.DISCUSSION
         assert game.current_wave == 0
@@ -477,10 +429,7 @@ class TestWaveAdvancement:
         api_client.force_authenticate(user=users["p1_nh"])
 
         with _patch_channels():
-            response = api_client.post(
-                _advance_url(game.id),
-                format="json",
-            )
+            response = _advance(api_client, game)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -513,10 +462,10 @@ class TestTimeoutAutoResolution:
             current_wave=2,
         )
 
-        # Force-close the window WITHOUT the Insomniac submitting
+        # Force-close the window WITHOUT the Insomniac choosing
         api_client.force_authenticate(user=users["host_ito"])
         with _patch_channels():
-            response = api_client.post(_advance_url(game.id), format="json")
+            response = _advance(api_client, game)
         assert response.status_code == status.HTTP_200_OK
 
         # Insomniac should have auto-resolved result with their current role
@@ -543,7 +492,7 @@ class TestTimeoutAutoResolution:
 
         api_client.force_authenticate(user=users["host_ial"])
         with _patch_channels():
-            api_client.post(_advance_url(game.id), format="json")
+            _advance(api_client, game)
 
         game.refresh_from_db()
         wave_4_entries = [e for e in game.night_actions_log if e["wave"] == 4]
@@ -565,10 +514,10 @@ class TestTimeoutAutoResolution:
             current_wave=2,
         )
 
-        # Neither Werewolf submits. Host force-advances.
+        # Neither Werewolf chooses. Host force-advances.
         api_client.force_authenticate(user=users["host_wto"])
         with _patch_channels():
-            api_client.post(_advance_url(game.id), format="json")
+            _advance(api_client, game)
 
         # Both Werewolves should have auto-resolved results with teammate info
         pr_ww1 = PlayerRole.objects.get(game=game, user=users["host_wto"])
@@ -588,7 +537,7 @@ class TestTimeoutAutoResolution:
 
     def test_seer_still_skipped_on_timeout(self, api_client, db):
         """Roles with meaningful choices (Seer) are still skipped on timeout,
-        because the player forfeited their choice by not submitting."""
+        because the player forfeited their choice by not choosing."""
         game, users = _create_game(
             {
                 "host_sst": "Werewolf",
@@ -601,10 +550,10 @@ class TestTimeoutAutoResolution:
             current_wave=2,
         )
 
-        # Nobody submits. Host closes the window.
+        # Nobody chooses. Host closes the window.
         api_client.force_authenticate(user=users["host_sst"])
         with _patch_channels():
-            api_client.post(_advance_url(game.id), format="json")
+            _advance(api_client, game)
 
         # Seer should have been skipped (no result stored)
         pr_seer = PlayerRole.objects.get(game=game, user=users["p1_sst"])

@@ -8,7 +8,7 @@ import '../test/helpers/shell_setup.dart';
 
 // 10 The count and 11 Results through the real shell (TableShell), as a
 // phone at the end of a recorded game has them: `/me/` at the results
-// (`me_results_v2` at that game's table) and the results body
+// (`me_results` at that game's table) and the results body
 // (test/helpers/outcome_samples.dart, every one recorded). 11 is reached the way a player reaches it: "See who won".
 
 /// The shell at the end of the game of [results] on [viewer]'s phone,

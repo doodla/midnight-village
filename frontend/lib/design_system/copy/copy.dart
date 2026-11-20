@@ -304,10 +304,6 @@ abstract final class BannerCopy {
   static const offline = 'One moment';
   static const leftGame = 'You left this game.';
 
-  /// A game this app cannot play (its night is from an older app), with
-  /// "Leave".
-  static const cannotPlay = "This game can't be shown.";
-
   /// 02's Share copied the link (no share sheet on this device).
   static const copied = 'Copied';
 

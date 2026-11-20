@@ -90,60 +90,12 @@
       "description": "The DEBUG-only oracle at night, a window open and its timer armed."
     },
     {
-      "name": "http/debug/state_v2",
+      "name": "http/debug/state_talk_vote",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/debug-state/",
       "status": 200,
-      "description": "The oracle under night protocol 2: per-player ready, vote_locked."
-    },
-    {
-      "name": "http/game/action_already_acted",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/action/",
-      "status": 409,
-      "description": "A second action in the same window."
-    },
-    {
-      "name": "http/game/action_invalid",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/action/",
-      "status": 400,
-      "description": "An action the server refuses (generic message)."
-    },
-    {
-      "name": "http/game/action_not_a_player",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/action/",
-      "status": 403,
-      "description": "A night action from someone who does not play in the game."
-    },
-    {
-      "name": "http/game/action_not_an_actor",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/action/",
-      "status": 400,
-      "description": "An action from a player with nothing to do this window."
-    },
-    {
-      "name": "http/game/action_not_night",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/action/",
-      "status": 400,
-      "description": "A night action after the night."
-    },
-    {
-      "name": "http/game/action_submitted",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/action/",
-      "status": 200,
-      "description": "A night action is accepted."
+      "description": "The oracle with per-player ready and vote_locked."
     },
     {
       "name": "http/game/advance_wave",
@@ -160,14 +112,6 @@
       "path": "/onuw/games/{game_id}/advance-wave/",
       "status": 403,
       "description": "Someone other than the host closes the window."
-    },
-    {
-      "name": "http/game/advance_wave_not_night",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/advance-wave/",
-      "status": 400,
-      "description": "The host closes a night window after the night."
     },
     {
       "name": "http/game/advance_wave_wrong_stage",
@@ -207,7 +151,15 @@
       "method": "POST",
       "path": "/onuw/games/{game_id}/action/",
       "status": 400,
-      "description": "Any other action_type under night protocol 2."
+      "description": "Any other action_type (only `choose` is a night action)."
+    },
+    {
+      "name": "http/game/choose_not_a_player",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 403,
+      "description": "A choose from someone who does not play in the game."
     },
     {
       "name": "http/game/choose_resent",
@@ -320,14 +272,6 @@
       "path": "/onuw/games/{game_id}/end-discussion/",
       "status": 403,
       "description": "Someone other than the host ends the talk."
-    },
-    {
-      "name": "http/game/end_discussion_wrong_phase",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/end-discussion/",
-      "status": 400,
-      "description": "Ending a talk that is over."
     },
     {
       "name": "http/game/end_discussion_wrong_stage",
@@ -474,14 +418,6 @@
       "description": "/me/ in window 1 for everyone else: nothing to choose, same shape."
     },
     {
-      "name": "http/game/me_discussion",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk, with the night's result."
-    },
-    {
       "name": "http/game/me_discussion_acting_host",
       "kind": "http",
       "method": "GET",
@@ -586,86 +522,6 @@
       "description": "/me/ in the talk: the werewolf_pack's night results, canonical names."
     },
     {
-      "name": "http/game/me_discussion_doppelganger",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk: the Doppelganger's look and follow-up results."
-    },
-    {
-      "name": "http/game/me_discussion_result_insomniac",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk with a insomniac result."
-    },
-    {
-      "name": "http/game/me_discussion_result_see_team",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk with a see team result."
-    },
-    {
-      "name": "http/game/me_discussion_result_see_team_lone_werewolf",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk with a see team lone werewolf result."
-    },
-    {
-      "name": "http/game/me_discussion_result_see_team_masons",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk with a see team masons result."
-    },
-    {
-      "name": "http/game/me_discussion_result_see_team_minion",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk with a see team minion result."
-    },
-    {
-      "name": "http/game/me_discussion_result_swap_others",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk with a swap others result."
-    },
-    {
-      "name": "http/game/me_discussion_result_swap_with_center",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk with a swap with center result."
-    },
-    {
-      "name": "http/game/me_discussion_result_swap_with_player",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk with a swap with player result."
-    },
-    {
-      "name": "http/game/me_discussion_skipped",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the talk for a Seer who did nothing (no result)."
-    },
-    {
       "name": "http/game/me_look_ready",
       "kind": "http",
       "method": "GET",
@@ -682,126 +538,6 @@
       "description": "/me/ in the look stage: night, window 0, the look deadline."
     },
     {
-      "name": "http/game/me_night_acted",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ after acting, the window still open."
-    },
-    {
-      "name": "http/game/me_night_no_action",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ at night for a player with no action."
-    },
-    {
-      "name": "http/game/me_night_prompt_doppelganger",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 1 with the Doppelganger's prompt."
-    },
-    {
-      "name": "http/game/me_night_prompt_doppelganger_followup",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ with the Doppelganger's follow-up prompt."
-    },
-    {
-      "name": "http/game/me_night_prompt_drunk",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 2 with the drunk prompt."
-    },
-    {
-      "name": "http/game/me_night_prompt_insomniac",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 2 with the insomniac prompt."
-    },
-    {
-      "name": "http/game/me_night_prompt_mason",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 2 with the mason prompt."
-    },
-    {
-      "name": "http/game/me_night_prompt_minion",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 2 with the minion prompt."
-    },
-    {
-      "name": "http/game/me_night_prompt_robber",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 2 with the robber prompt."
-    },
-    {
-      "name": "http/game/me_night_prompt_seer",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 2 with the seer prompt."
-    },
-    {
-      "name": "http/game/me_night_prompt_troublemaker",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 2 with the troublemaker prompt."
-    },
-    {
-      "name": "http/game/me_night_prompt_werewolf_lone",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 2 with the werewolf lone prompt."
-    },
-    {
-      "name": "http/game/me_night_prompt_werewolf_pack",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 2 with the werewolf pack prompt."
-    },
-    {
-      "name": "http/game/me_night_window1_waiting",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 1 for everyone else."
-    },
-    {
-      "name": "http/game/me_night_window2_after_look",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in window 2: window 1's look is listed, her new prompt open."
-    },
-    {
       "name": "http/game/me_not_found",
       "kind": "http",
       "method": "GET",
@@ -815,15 +551,7 @@
       "method": "GET",
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
-      "description": "/me/ at the end."
-    },
-    {
-      "name": "http/game/me_results_v2",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ in the results phase under night protocol 2."
+      "description": "/me/ in the results phase."
     },
     {
       "name": "http/game/me_talk_ready",
@@ -850,20 +578,12 @@
       "description": "/me/ in the talk at a full table (ten seats)."
     },
     {
-      "name": "http/game/me_talk_untimed_v2",
+      "name": "http/game/me_talk_untimed",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in an untimed talk (`discussion_seconds` 0): no deadline and no stage start."
-    },
-    {
-      "name": "http/game/me_voting",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ before voting."
     },
     {
       "name": "http/game/me_voting_locked",
@@ -903,23 +623,7 @@
       "method": "GET",
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
-      "description": "/me/ in a vote with no deadline."
-    },
-    {
-      "name": "http/game/me_voting_untimed_v2",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
       "description": "/me/ in an untimed vote (`voting_seconds` 0): no deadline and no stage start; the vote ends when everyone has locked in (or the host)."
-    },
-    {
-      "name": "http/game/me_voting_voted",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/me/",
-      "status": 200,
-      "description": "/me/ after voting."
     },
     {
       "name": "http/game/night_results_seen",
@@ -928,6 +632,14 @@
       "path": "/onuw/games/{game_id}/night-results/seen/",
       "status": 200,
       "description": "The phone showed the night's results (acknowledged)."
+    },
+    {
+      "name": "http/game/night_results_seen_in_talk",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 200,
+      "description": "The Seer has seen her night result (after the dawn screen)."
     },
     {
       "name": "http/game/night_results_seen_invalid",
@@ -952,14 +664,6 @@
       "path": "/onuw/games/{game_id}/night-results/seen/",
       "status": 404,
       "description": "Acknowledging results of a game that does not exist."
-    },
-    {
-      "name": "http/game/night_results_seen_v2",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/night-results/seen/",
-      "status": 200,
-      "description": "The Seer has seen her night result (after the dawn screen)."
     },
     {
       "name": "http/game/players_discussion",
@@ -1074,6 +778,22 @@
       "description": "Results of a game with a Doppelganger, a Drunk and a Tanner."
     },
     {
+      "name": "http/game/results_five",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The results of the five-player game the playtest pack plays (game 7), so one journey runs from the deal to the results on recorded payloads."
+    },
+    {
+      "name": "http/game/results_hunter_chain",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The Hunter is voted out and takes the player he voted for (a Werewolf) with him."
+    },
+    {
       "name": "http/game/results_moved_dead_card",
       "kind": "http",
       "method": "GET",
@@ -1114,31 +834,15 @@
       "description": "Results where the dealt Tanner died (team neutral)."
     },
     {
-      "name": "http/game/results_v2",
+      "name": "http/game/results_tanner_alone",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/results/",
       "status": 200,
-      "description": "The results of the five-player game the playtest pack plays (game 7), so one journey runs from the deal to the results on recorded payloads."
+      "description": "The Tanner is voted out: the Tanner wins."
     },
     {
-      "name": "http/game/results_v2_hunter_chain",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/results/",
-      "status": 200,
-      "description": "The Hunter is voted out and takes the player he voted for (a Werewolf) with him."
-    },
-    {
-      "name": "http/game/results_v2_tanner",
-      "kind": "http",
-      "method": "GET",
-      "path": "/onuw/games/{game_id}/results/",
-      "status": 200,
-      "description": "The Tanner is voted out under night protocol 2: the Tanner wins."
-    },
-    {
-      "name": "http/game/results_v2_three_players",
+      "name": "http/game/results_three_players",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/results/",
@@ -1146,7 +850,7 @@
       "description": "The results of a three-player game: the Seer found the Werewolf."
     },
     {
-      "name": "http/game/results_v2_tie",
+      "name": "http/game/results_tie",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/results/",
@@ -1178,14 +882,6 @@
       "description": "Someone other than the host reveals the votes."
     },
     {
-      "name": "http/game/reveal_votes_not_voting",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/reveal-votes/",
-      "status": 400,
-      "description": "The host reveals votes before the vote."
-    },
-    {
       "name": "http/game/reveal_votes_wrong_stage",
       "kind": "http",
       "method": "POST",
@@ -1194,12 +890,12 @@
       "description": "The host's reveal after the last lock already revealed the vote."
     },
     {
-      "name": "http/game/start_not_all_ready",
+      "name": "http/game/start_bad_seed",
       "kind": "http",
       "method": "POST",
       "path": "/onuw/lobbies/{code}/start/",
       "status": 400,
-      "description": "The host deals before everyone is ready."
+      "description": "A deal refused for a reason no screen names (here the DEBUG-only seeded deal with a seed that is not a number)."
     },
     {
       "name": "http/game/start_not_host",
@@ -1208,6 +904,14 @@
       "path": "/onuw/lobbies/{code}/start/",
       "status": 403,
       "description": "Someone other than the host deals."
+    },
+    {
+      "name": "http/game/start_not_waiting",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 400,
+      "description": "A second deal while the game runs (the table is not waiting)."
     },
     {
       "name": "http/game/started",
@@ -1234,20 +938,20 @@
       "description": "The host deals; the server built the deck."
     },
     {
-      "name": "http/game/started_v2",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/lobbies/{code}/start/",
-      "status": 201,
-      "description": "The host deals; everyone opens the game."
-    },
-    {
-      "name": "http/game/started_v2_nobody_ready",
+      "name": "http/game/started_nobody_ready",
       "kind": "http",
       "method": "POST",
       "path": "/onuw/lobbies/{code}/start/",
       "status": 201,
       "description": "The host deals; the server built the deck."
+    },
+    {
+      "name": "http/game/started_with_look",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 201,
+      "description": "The host deals; everyone opens the game."
     },
     {
       "name": "http/game/vote_after_reveal",
@@ -1264,14 +968,6 @@
       "path": "/onuw/games/{game_id}/vote/",
       "status": 409,
       "description": "A pick or lock after locking in."
-    },
-    {
-      "name": "http/game/vote_already_voted",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/vote/",
-      "status": 409,
-      "description": "A second vote."
     },
     {
       "name": "http/game/vote_bad_target_type",
@@ -1306,7 +1002,7 @@
       "description": "The same lock sent again (its answer was lost): the original's answer, nothing stored or sent."
     },
     {
-      "name": "http/game/vote_locked_v2",
+      "name": "http/game/vote_locked",
       "kind": "http",
       "method": "POST",
       "path": "/onuw/games/{game_id}/vote/",
@@ -1338,20 +1034,12 @@
       "description": "A pick can change until it is locked."
     },
     {
-      "name": "http/game/vote_self_v2",
+      "name": "http/game/vote_self",
       "kind": "http",
       "method": "POST",
       "path": "/onuw/games/{game_id}/vote/",
       "status": 400,
       "description": "A vote for yourself, with its code."
-    },
-    {
-      "name": "http/game/vote_submitted",
-      "kind": "http",
-      "method": "POST",
-      "path": "/onuw/games/{game_id}/vote/",
-      "status": 200,
-      "description": "A vote is accepted."
     },
     {
       "name": "http/lobby/create_unknown_defaults",
@@ -1375,7 +1063,7 @@
       "method": "POST",
       "path": "/lobbies/",
       "status": 201,
-      "description": "The host opens a table with `defaults: v2`: a 30 s look at the cards, night protocol 2 and the automatic Simple deck, and nothing else (no timer length is written)."
+      "description": "The host opens a table with `defaults: v2`: a 30 s look at the cards and the automatic Simple deck, and nothing else (no timer length is written)."
     },
     {
       "name": "http/lobby/detail_acting_host",
@@ -1386,6 +1074,94 @@
       "description": "The table while someone stands in for the owner."
     },
     {
+      "name": "http/lobby/detail_auto_deck_5",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A table with the automatic deck (classic chip), before the deal: the server builds the cards at the deal."
+    },
+    {
+      "name": "http/lobby/detail_auto_deck_9",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A table with the automatic deck (chaos chip), before the deal: the server builds the cards at the deal."
+    },
+    {
+      "name": "http/lobby/detail_custom_deck",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A table with a custom deck, before the deal."
+    },
+    {
+      "name": "http/lobby/detail_custom_deck_ok",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A custom deck of ten cards at seven players: no preview (its roles are in `settings`), `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_custom_deck_short",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The same custom deck after an eighth player joined: one card short (`deal`: ok false, need 11, have 10)."
+    },
+    {
+      "name": "http/lobby/detail_deck_chaos_4",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The chaos automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_deck_chaos_7",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The chaos automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_deck_classic_4",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The classic automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_deck_classic_7",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The classic automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_deck_simple_4",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The simple automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_deck_simple_7",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The simple automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
+    },
+    {
       "name": "http/lobby/detail_in_game",
       "kind": "http",
       "method": "GET",
@@ -1394,103 +1170,15 @@
       "description": "The table while its game runs."
     },
     {
-      "name": "http/lobby/detail_v2_auto_deck_5",
+      "name": "http/lobby/detail_member_dropped",
       "kind": "http",
       "method": "GET",
       "path": "/lobbies/{code}/",
       "status": 200,
-      "description": "A night protocol 2 table with the automatic deck (classic chip), before the deal: the server builds the cards at the deal."
+      "description": "A table with one member dropped."
     },
     {
-      "name": "http/lobby/detail_v2_auto_deck_9",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "A night protocol 2 table with the automatic deck (chaos chip), before the deal: the server builds the cards at the deal."
-    },
-    {
-      "name": "http/lobby/detail_v2_custom_deck",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "A night protocol 2 table with a custom deck, before the deal."
-    },
-    {
-      "name": "http/lobby/detail_v2_custom_deck_ok",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "A custom deck of ten cards at seven players: no preview (its roles are in `settings`), `deal` ok."
-    },
-    {
-      "name": "http/lobby/detail_v2_custom_deck_short",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "The same custom deck after an eighth player joined: one card short (`deal`: ok false, need 11, have 10)."
-    },
-    {
-      "name": "http/lobby/detail_v2_deck_chaos_4",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "The chaos automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
-    },
-    {
-      "name": "http/lobby/detail_v2_deck_chaos_7",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "The chaos automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
-    },
-    {
-      "name": "http/lobby/detail_v2_deck_classic_4",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "The classic automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
-    },
-    {
-      "name": "http/lobby/detail_v2_deck_classic_7",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "The classic automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
-    },
-    {
-      "name": "http/lobby/detail_v2_deck_simple_4",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "The simple automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
-    },
-    {
-      "name": "http/lobby/detail_v2_deck_simple_7",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "The simple automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
-    },
-    {
-      "name": "http/lobby/detail_v2_member_dropped",
-      "kind": "http",
-      "method": "GET",
-      "path": "/lobbies/{code}/",
-      "status": 200,
-      "description": "A protocol-2 table with one member dropped."
-    },
-    {
-      "name": "http/lobby/detail_v2_member_in_grace",
+      "name": "http/lobby/detail_member_in_grace",
       "kind": "http",
       "method": "GET",
       "path": "/lobbies/{code}/",
@@ -1503,7 +1191,7 @@
       "method": "GET",
       "path": "/lobbies/{code}/",
       "status": 200,
-      "description": "The table before the deal, everyone ready."
+      "description": "The table before the deal."
     },
     {
       "name": "http/lobby/join_already_at_table",
@@ -1511,7 +1199,7 @@
       "method": "POST",
       "path": "/lobbies/{code}/join/",
       "status": 409,
-      "description": "Joining a protocol-2 table while seated at another table that is waiting: refused, with that table's code (`lobby_code`) so the phone can offer to go there (leaving a waiting table always works)."
+      "description": "Joining a table while seated at another table that is waiting: refused, with that table's code (`lobby_code`) so the phone can offer to go there (leaving a waiting table always works)."
     },
     {
       "name": "http/lobby/join_already_member",
@@ -1682,30 +1370,6 @@
       "description": "Someone other than the host starts another game."
     },
     {
-      "name": "http/lobby/ready",
-      "kind": "http",
-      "method": "POST",
-      "path": "/lobbies/{code}/ready/",
-      "status": 200,
-      "description": "A player toggles ready."
-    },
-    {
-      "name": "http/lobby/ready_in_game",
-      "kind": "http",
-      "method": "POST",
-      "path": "/lobbies/{code}/ready/",
-      "status": 409,
-      "description": "Toggling ready while a game runs."
-    },
-    {
-      "name": "http/lobby/ready_invalid",
-      "kind": "http",
-      "method": "POST",
-      "path": "/lobbies/{code}/ready/",
-      "status": 400,
-      "description": "A ready flag that is not true or false."
-    },
-    {
       "name": "http/lobby/settings_deck_chip",
       "kind": "http",
       "method": "PATCH",
@@ -1752,303 +1416,6 @@
       "path": "/lobbies/{code}/",
       "status": 200,
       "description": "The host sets the deck."
-    },
-    {
-      "name": "ws/game/action_prompt_doppelganger",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Ana"
-      ],
-      "description": "Window 1 prompt: the Doppelganger's look."
-    },
-    {
-      "name": "ws/game/action_prompt_doppelganger_followup",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Ana"
-      ],
-      "description": "Her follow-up as the copied Seer, still window 1."
-    },
-    {
-      "name": "ws/game/action_prompt_doppelganger_insomniac",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Ana"
-      ],
-      "description": "Window 2 prompt for a Doppelganger who copied the insomniac."
-    },
-    {
-      "name": "ws/game/action_prompt_doppelganger_mason",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Ana"
-      ],
-      "description": "Window 2 prompt for a Doppelganger who copied the mason."
-    },
-    {
-      "name": "ws/game/action_prompt_doppelganger_werewolf",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Ana"
-      ],
-      "description": "Window 2 prompt for a Doppelganger who copied a Werewolf."
-    },
-    {
-      "name": "ws/game/action_prompt_drunk",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Gus"
-      ],
-      "description": "Window 2 prompt: drunk."
-    },
-    {
-      "name": "ws/game/action_prompt_insomniac",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Hana"
-      ],
-      "description": "Window 2 prompt: insomniac."
-    },
-    {
-      "name": "ws/game/action_prompt_mason",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Esme"
-      ],
-      "description": "Window 2 prompt: mason."
-    },
-    {
-      "name": "ws/game/action_prompt_minion",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Dev"
-      ],
-      "description": "Window 2 prompt: minion."
-    },
-    {
-      "name": "ws/game/action_prompt_robber",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Ben"
-      ],
-      "description": "Window 2 prompt: robber."
-    },
-    {
-      "name": "ws/game/action_prompt_seer",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Ana"
-      ],
-      "description": "Window 2 prompt: seer."
-    },
-    {
-      "name": "ws/game/action_prompt_troublemaker",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Dev"
-      ],
-      "description": "Window 2 prompt: troublemaker."
-    },
-    {
-      "name": "ws/game/action_prompt_werewolf_lone",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Cleo"
-      ],
-      "description": "Window 2 prompt: werewolf lone."
-    },
-    {
-      "name": "ws/game/action_prompt_werewolf_pack",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_prompt",
-      "group": "player",
-      "recipients": [
-        "Cleo"
-      ],
-      "description": "Window 2 prompt: werewolf pack."
-    },
-    {
-      "name": "ws/game/action_result_doppelganger_look",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Ana"
-      ],
-      "description": "Her look, sent at once: she copied the Seer."
-    },
-    {
-      "name": "ws/game/action_result_insomniac",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Hana"
-      ],
-      "description": "Night result: insomniac."
-    },
-    {
-      "name": "ws/game/action_result_peek_center",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Ana"
-      ],
-      "description": "Night result: two center cards (her follow-up)."
-    },
-    {
-      "name": "ws/game/action_result_peek_player",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Ana"
-      ],
-      "description": "Night result: peek player."
-    },
-    {
-      "name": "ws/game/action_result_see_team_doppelganger_minion",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Ana"
-      ],
-      "description": "Night result of a Doppelganger who copied the Minion."
-    },
-    {
-      "name": "ws/game/action_result_see_team_lone_werewolf",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Cleo"
-      ],
-      "description": "Night result: see team lone werewolf."
-    },
-    {
-      "name": "ws/game/action_result_see_team_masons",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Esme"
-      ],
-      "description": "Night result: see team masons."
-    },
-    {
-      "name": "ws/game/action_result_see_team_minion",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Dev"
-      ],
-      "description": "Night result: see team minion."
-    },
-    {
-      "name": "ws/game/action_result_see_team_werewolves",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Cleo"
-      ],
-      "description": "Night result: see team werewolves."
-    },
-    {
-      "name": "ws/game/action_result_skip",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Ben"
-      ],
-      "description": "Night result: skip."
-    },
-    {
-      "name": "ws/game/action_result_swap_others",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Dev"
-      ],
-      "description": "Night result: swap others."
-    },
-    {
-      "name": "ws/game/action_result_swap_with_center",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Gus"
-      ],
-      "description": "Night result: swap with center."
-    },
-    {
-      "name": "ws/game/action_result_swap_with_player",
-      "kind": "ws",
-      "socket": "game",
-      "type": "action_result",
-      "group": "player",
-      "recipients": [
-        "Ben"
-      ],
-      "description": "Night result: swap with player."
     },
     {
       "name": "ws/game/game_results",
@@ -2414,109 +1781,6 @@
       "description": "Votes revealed; null = did not vote."
     },
     {
-      "name": "ws/game/vote_submitted",
-      "kind": "ws",
-      "socket": "game",
-      "type": "vote_submitted",
-      "group": "broadcast",
-      "recipients": [
-        "Ana",
-        "Ben",
-        "Cleo",
-        "Dev",
-        "Esme",
-        "Fin"
-      ],
-      "description": "Someone voted (not for whom)."
-    },
-    {
-      "name": "ws/game/wave_complete",
-      "kind": "ws",
-      "socket": "game",
-      "type": "wave_complete",
-      "group": "broadcast",
-      "recipients": [
-        "Ana",
-        "Ben",
-        "Cleo",
-        "Dev",
-        "Esme",
-        "Fin"
-      ],
-      "description": "A window closed."
-    },
-    {
-      "name": "ws/game/wave_complete_v2",
-      "kind": "ws",
-      "socket": "game",
-      "type": "wave_complete",
-      "group": "broadcast",
-      "recipients": [
-        "Ana",
-        "Ben",
-        "Cleo",
-        "Dev",
-        "Esme"
-      ],
-      "description": "The window closed: every phone reads its results from /me/."
-    },
-    {
-      "name": "ws/game/wave_start",
-      "kind": "ws",
-      "socket": "game",
-      "type": "wave_start",
-      "group": "broadcast",
-      "recipients": [
-        "Ana",
-        "Ben",
-        "Cleo",
-        "Dev",
-        "Esme",
-        "Fin"
-      ],
-      "description": "Window 2 opens."
-    },
-    {
-      "name": "ws/game/wave_start_untimed",
-      "kind": "ws",
-      "socket": "game",
-      "type": "wave_start",
-      "group": "broadcast",
-      "recipients": [
-        "Ana",
-        "Ben",
-        "Cleo",
-        "Dev",
-        "Esme",
-        "Fin",
-        "Gus",
-        "Hana"
-      ],
-      "description": "Window 1 opens, with no deadline."
-    },
-    {
-      "name": "ws/game/wave_waiting",
-      "kind": "ws",
-      "socket": "game",
-      "type": "wave_waiting",
-      "group": "player",
-      "recipients": [
-        "Fin"
-      ],
-      "description": "Nothing to do this window."
-    },
-    {
-      "name": "ws/game/wave_waiting_window1",
-      "kind": "ws",
-      "socket": "game",
-      "type": "wave_waiting",
-      "group": "player",
-      "recipients": [
-        "Ben"
-      ],
-      "description": "Window 1 is the Doppelganger's: nothing to do."
-    },
-    {
       "name": "ws/lobby/game_started",
       "kind": "ws",
       "socket": "lobby",
@@ -2581,7 +1845,7 @@
       "description": "Deck changed."
     },
     {
-      "name": "ws/lobby/lobby_update_v2_auto_deck_5",
+      "name": "ws/lobby/lobby_update_auto_deck_5",
       "kind": "ws",
       "socket": "lobby",
       "type": "lobby_update",
@@ -2593,10 +1857,10 @@
         "Dev",
         "Esme"
       ],
-      "description": "A night protocol 2 table with the automatic deck (classic chip)."
+      "description": "A table with the automatic deck (classic chip)."
     },
     {
-      "name": "ws/lobby/lobby_update_v2_auto_deck_9",
+      "name": "ws/lobby/lobby_update_auto_deck_9",
       "kind": "ws",
       "socket": "lobby",
       "type": "lobby_update",
@@ -2612,10 +1876,10 @@
         "Hana",
         "Ida"
       ],
-      "description": "A night protocol 2 table with the automatic deck (chaos chip)."
+      "description": "A table with the automatic deck (chaos chip)."
     },
     {
-      "name": "ws/lobby/lobby_update_v2_custom_deck",
+      "name": "ws/lobby/lobby_update_custom_deck",
       "kind": "ws",
       "socket": "lobby",
       "type": "lobby_update",
@@ -2631,10 +1895,10 @@
         "Hana",
         "Ida"
       ],
-      "description": "A night protocol 2 table whose host picked the cards (`deck: custom`)."
+      "description": "A table whose host picked the cards (`deck: custom`)."
     },
     {
-      "name": "ws/lobby/lobby_update_v2_deck_preview",
+      "name": "ws/lobby/lobby_update_deck_preview",
       "kind": "ws",
       "socket": "lobby",
       "type": "lobby_update",
@@ -2651,7 +1915,7 @@
       "description": "Every lobby_update carries `deck_preview` and `deal` (here after a chip change at seven players)."
     },
     {
-      "name": "ws/lobby/lobby_update_v2_joined",
+      "name": "ws/lobby/lobby_update_joined",
       "kind": "ws",
       "socket": "lobby",
       "type": "lobby_update",
@@ -2669,7 +1933,7 @@
       "description": "A player joined: the table is sent the whole body (`deal` changes with the player count)."
     },
     {
-      "name": "ws/lobby/lobby_update_v2_member_back",
+      "name": "ws/lobby/lobby_update_member_back",
       "kind": "ws",
       "socket": "lobby",
       "type": "lobby_update",
@@ -2683,7 +1947,7 @@
       "description": "Noa's phone is back: `connected` true again."
     },
     {
-      "name": "ws/lobby/lobby_update_v2_member_dropped",
+      "name": "ws/lobby/lobby_update_member_dropped",
       "kind": "ws",
       "socket": "lobby",
       "type": "lobby_update",
@@ -2722,22 +1986,6 @@
         "Esme"
       ],
       "description": "Someone left."
-    },
-    {
-      "name": "ws/lobby/player_ready",
-      "kind": "ws",
-      "socket": "lobby",
-      "type": "player_ready",
-      "group": "broadcast",
-      "recipients": [
-        "Ana",
-        "Ben",
-        "Cleo",
-        "Dev",
-        "Esme",
-        "Fin"
-      ],
-      "description": "Ready toggled."
     },
     {
       "name": "ws_sequence/look_stage",

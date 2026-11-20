@@ -18,7 +18,7 @@ enum EndGame {
   /// Fin, the Hunter, is voted out and takes Esme: the village wins.
   hunter,
 
-  /// Recorded (`results_werewolves_win`, a six-player protocol-2 game): Fin,
+  /// Recorded (`results_werewolves_win`, a six-player game): Fin,
   /// a Villager, is voted out; the Werewolves win.
   werewolves,
 

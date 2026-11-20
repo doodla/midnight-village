@@ -14,13 +14,12 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$LobbyPlayer {
 
- int get id; String get displayName; bool get isReady; DateTime get joinedAt;/// The seat token (public table identity); null for a token this app
+ int get id; String get displayName; DateTime get joinedAt;/// The seat token (public table identity); null for a token this app
 /// does not know, or the blank one a member past the tenth may have.
- TokenId? get token;/// Whether the member's phone is at the table (`connected`, sent at a
-/// protocol-2 table only; still true during the table's grace period
-/// after a drop). False is a dropped phone: its row is dimmed, with no
-/// words. Null at a table that does not send it.
- bool? get connected;
+ TokenId? get token;/// Whether the member's phone is at the table (`connected`; still true
+/// during the table's grace period after a drop). False is a dropped
+/// phone: its row is dimmed, with no words.
+ bool get connected;
 /// Create a copy of LobbyPlayer
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -31,16 +30,16 @@ $LobbyPlayerCopyWith<LobbyPlayer> get copyWith => _$LobbyPlayerCopyWithImpl<Lobb
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LobbyPlayer&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.isReady, isReady) || other.isReady == isReady)&&(identical(other.joinedAt, joinedAt) || other.joinedAt == joinedAt)&&(identical(other.token, token) || other.token == token)&&(identical(other.connected, connected) || other.connected == connected));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LobbyPlayer&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.joinedAt, joinedAt) || other.joinedAt == joinedAt)&&(identical(other.token, token) || other.token == token)&&(identical(other.connected, connected) || other.connected == connected));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,displayName,isReady,joinedAt,token,connected);
+int get hashCode => Object.hash(runtimeType,id,displayName,joinedAt,token,connected);
 
 @override
 String toString() {
-  return 'LobbyPlayer(id: $id, displayName: $displayName, isReady: $isReady, joinedAt: $joinedAt, token: $token, connected: $connected)';
+  return 'LobbyPlayer(id: $id, displayName: $displayName, joinedAt: $joinedAt, token: $token, connected: $connected)';
 }
 
 
@@ -51,7 +50,7 @@ abstract mixin class $LobbyPlayerCopyWith<$Res>  {
   factory $LobbyPlayerCopyWith(LobbyPlayer value, $Res Function(LobbyPlayer) _then) = _$LobbyPlayerCopyWithImpl;
 @useResult
 $Res call({
- int id, String displayName, bool isReady, DateTime joinedAt, TokenId? token, bool? connected
+ int id, String displayName, DateTime joinedAt, TokenId? token, bool connected
 });
 
 
@@ -68,15 +67,14 @@ class _$LobbyPlayerCopyWithImpl<$Res>
 
 /// Create a copy of LobbyPlayer
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? displayName = null,Object? isReady = null,Object? joinedAt = null,Object? token = freezed,Object? connected = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? displayName = null,Object? joinedAt = null,Object? token = freezed,Object? connected = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
-as String,isReady: null == isReady ? _self.isReady : isReady // ignore: cast_nullable_to_non_nullable
-as bool,joinedAt: null == joinedAt ? _self.joinedAt : joinedAt // ignore: cast_nullable_to_non_nullable
+as String,joinedAt: null == joinedAt ? _self.joinedAt : joinedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,token: freezed == token ? _self.token : token // ignore: cast_nullable_to_non_nullable
-as TokenId?,connected: freezed == connected ? _self.connected : connected // ignore: cast_nullable_to_non_nullable
-as bool?,
+as TokenId?,connected: null == connected ? _self.connected : connected // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -161,10 +159,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String displayName,  bool isReady,  DateTime joinedAt,  TokenId? token,  bool? connected)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String displayName,  DateTime joinedAt,  TokenId? token,  bool connected)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LobbyPlayer() when $default != null:
-return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.token,_that.connected);case _:
+return $default(_that.id,_that.displayName,_that.joinedAt,_that.token,_that.connected);case _:
   return orElse();
 
 }
@@ -182,10 +180,10 @@ return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.to
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String displayName,  bool isReady,  DateTime joinedAt,  TokenId? token,  bool? connected)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String displayName,  DateTime joinedAt,  TokenId? token,  bool connected)  $default,) {final _that = this;
 switch (_that) {
 case _LobbyPlayer():
-return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.token,_that.connected);case _:
+return $default(_that.id,_that.displayName,_that.joinedAt,_that.token,_that.connected);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -202,10 +200,10 @@ return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.to
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String displayName,  bool isReady,  DateTime joinedAt,  TokenId? token,  bool? connected)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String displayName,  DateTime joinedAt,  TokenId? token,  bool connected)?  $default,) {final _that = this;
 switch (_that) {
 case _LobbyPlayer() when $default != null:
-return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.token,_that.connected);case _:
+return $default(_that.id,_that.displayName,_that.joinedAt,_that.token,_that.connected);case _:
   return null;
 
 }
@@ -217,21 +215,19 @@ return $default(_that.id,_that.displayName,_that.isReady,_that.joinedAt,_that.to
 
 
 class _LobbyPlayer implements LobbyPlayer {
-  const _LobbyPlayer({required this.id, required this.displayName, required this.isReady, required this.joinedAt, this.token, this.connected});
+  const _LobbyPlayer({required this.id, required this.displayName, required this.joinedAt, this.token, required this.connected});
   
 
 @override final  int id;
 @override final  String displayName;
-@override final  bool isReady;
 @override final  DateTime joinedAt;
 /// The seat token (public table identity); null for a token this app
 /// does not know, or the blank one a member past the tenth may have.
 @override final  TokenId? token;
-/// Whether the member's phone is at the table (`connected`, sent at a
-/// protocol-2 table only; still true during the table's grace period
-/// after a drop). False is a dropped phone: its row is dimmed, with no
-/// words. Null at a table that does not send it.
-@override final  bool? connected;
+/// Whether the member's phone is at the table (`connected`; still true
+/// during the table's grace period after a drop). False is a dropped
+/// phone: its row is dimmed, with no words.
+@override final  bool connected;
 
 /// Create a copy of LobbyPlayer
 /// with the given fields replaced by the non-null parameter values.
@@ -243,16 +239,16 @@ _$LobbyPlayerCopyWith<_LobbyPlayer> get copyWith => __$LobbyPlayerCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LobbyPlayer&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.isReady, isReady) || other.isReady == isReady)&&(identical(other.joinedAt, joinedAt) || other.joinedAt == joinedAt)&&(identical(other.token, token) || other.token == token)&&(identical(other.connected, connected) || other.connected == connected));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LobbyPlayer&&(identical(other.id, id) || other.id == id)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.joinedAt, joinedAt) || other.joinedAt == joinedAt)&&(identical(other.token, token) || other.token == token)&&(identical(other.connected, connected) || other.connected == connected));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,displayName,isReady,joinedAt,token,connected);
+int get hashCode => Object.hash(runtimeType,id,displayName,joinedAt,token,connected);
 
 @override
 String toString() {
-  return 'LobbyPlayer(id: $id, displayName: $displayName, isReady: $isReady, joinedAt: $joinedAt, token: $token, connected: $connected)';
+  return 'LobbyPlayer(id: $id, displayName: $displayName, joinedAt: $joinedAt, token: $token, connected: $connected)';
 }
 
 
@@ -263,7 +259,7 @@ abstract mixin class _$LobbyPlayerCopyWith<$Res> implements $LobbyPlayerCopyWith
   factory _$LobbyPlayerCopyWith(_LobbyPlayer value, $Res Function(_LobbyPlayer) _then) = __$LobbyPlayerCopyWithImpl;
 @override @useResult
 $Res call({
- int id, String displayName, bool isReady, DateTime joinedAt, TokenId? token, bool? connected
+ int id, String displayName, DateTime joinedAt, TokenId? token, bool connected
 });
 
 
@@ -280,15 +276,14 @@ class __$LobbyPlayerCopyWithImpl<$Res>
 
 /// Create a copy of LobbyPlayer
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? displayName = null,Object? isReady = null,Object? joinedAt = null,Object? token = freezed,Object? connected = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? displayName = null,Object? joinedAt = null,Object? token = freezed,Object? connected = null,}) {
   return _then(_LobbyPlayer(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
-as String,isReady: null == isReady ? _self.isReady : isReady // ignore: cast_nullable_to_non_nullable
-as bool,joinedAt: null == joinedAt ? _self.joinedAt : joinedAt // ignore: cast_nullable_to_non_nullable
+as String,joinedAt: null == joinedAt ? _self.joinedAt : joinedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,token: freezed == token ? _self.token : token // ignore: cast_nullable_to_non_nullable
-as TokenId?,connected: freezed == connected ? _self.connected : connected // ignore: cast_nullable_to_non_nullable
-as bool?,
+as TokenId?,connected: null == connected ? _self.connected : connected // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -298,8 +293,7 @@ as bool?,
 /// @nodoc
 mixin _$LobbyState {
 
- String get code; int get hostId; List<LobbyPlayer> get players; String get status; int get maxPlayers; Map<String, int> get roleConfig;/// The table's deck choice and night (protocol 2 settings; see
-/// [TableSettings]).
+ String get code; int get hostId; List<LobbyPlayer> get players; String get status; int get maxPlayers; Map<String, int> get roleConfig;/// The table's deck choice, look and lengths (see [TableSettings]).
  TableSettings get table;/// The game this table has just started (from `game_started`, or found in
 /// the player's current game). The screen opens it. A table can run
 /// several games one after another, so each start sets a new id.
@@ -322,10 +316,10 @@ mixin _$LobbyState {
  DeckChip? get deckPreviewChip;/// Set when the server says the table no longer exists (its last member
 /// left). The screen says so and goes home. Frontend only.
  bool get tableClosed;/// The automatic deck the deal would build now (`deck_preview`, role name
-/// to count); null for a custom deck, a player count with no automatic
-/// deck, or a table that does not send it.
- Map<String, int>? get deckPreview;/// Whether the table can be dealt now (`deal`); null at a table that does
-/// not send it.
+/// to count); null for a custom deck or a player count with no automatic
+/// deck.
+ Map<String, int>? get deckPreview;/// Whether the table can be dealt now (`deal`, always sent); null only in
+/// a state built before its first body.
  DealReadiness? get deal;
 /// Create a copy of LobbyState
 /// with the given fields replaced by the non-null parameter values.
@@ -557,8 +551,7 @@ class _LobbyState implements LobbyState {
   return EqualUnmodifiableMapView(_roleConfig);
 }
 
-/// The table's deck choice and night (protocol 2 settings; see
-/// [TableSettings]).
+/// The table's deck choice, look and lengths (see [TableSettings]).
 @override@JsonKey() final  TableSettings table;
 /// The game this table has just started (from `game_started`, or found in
 /// the player's current game). The screen opens it. A table can run
@@ -592,12 +585,12 @@ class _LobbyState implements LobbyState {
 /// left). The screen says so and goes home. Frontend only.
 @override@JsonKey() final  bool tableClosed;
 /// The automatic deck the deal would build now (`deck_preview`, role name
-/// to count); null for a custom deck, a player count with no automatic
-/// deck, or a table that does not send it.
+/// to count); null for a custom deck or a player count with no automatic
+/// deck.
  final  Map<String, int>? _deckPreview;
 /// The automatic deck the deal would build now (`deck_preview`, role name
-/// to count); null for a custom deck, a player count with no automatic
-/// deck, or a table that does not send it.
+/// to count); null for a custom deck or a player count with no automatic
+/// deck.
 @override Map<String, int>? get deckPreview {
   final value = _deckPreview;
   if (value == null) return null;
@@ -606,8 +599,8 @@ class _LobbyState implements LobbyState {
   return EqualUnmodifiableMapView(value);
 }
 
-/// Whether the table can be dealt now (`deal`); null at a table that does
-/// not send it.
+/// Whether the table can be dealt now (`deal`, always sent); null only in
+/// a state built before its first body.
 @override final  DealReadiness? deal;
 
 /// Create a copy of LobbyState

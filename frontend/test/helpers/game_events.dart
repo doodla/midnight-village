@@ -18,14 +18,6 @@ abstract final class GameEvents {
   }
 
   // ---------------------------------------------------------------------------
-  // Night (a window opening is `night_window`: see `FromSample.event`)
-  // ---------------------------------------------------------------------------
-
-  /// A window closed.
-  static String waveComplete({int wave = 2}) =>
-      _event('ws/game/wave_complete', {'wave': wave});
-
-  // ---------------------------------------------------------------------------
   // Phases
   // ---------------------------------------------------------------------------
 
@@ -115,15 +107,6 @@ abstract final class GameEvents {
       _event('ws/lobby/player_left', {'username': username});
 
   static const _someone = '00000000-0000-4000-8000-000000000009';
-
-  /// A player toggled ready.
-  static String playerReady({required int playerId, required bool isReady}) =>
-      _event('ws/lobby/player_ready', {
-        'username':
-            '00000000-0000-4000-8000-${playerId.toString().padLeft(12, '0')}',
-        'user_id': playerId,
-        'is_ready': isReady,
-      });
 
   /// The lobby changed (the host set the deck, or play again): the whole lobby
   /// body, [serverLobby] with the deck [roleConfig].

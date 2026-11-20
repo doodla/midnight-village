@@ -6,9 +6,8 @@ phone never holds a "players + 3" rule and the button can never disagree with th
 server. ``deck_preview`` is the automatic deck the deal would build for the
 players at the table now (``engine.decks.auto_deck``, the deal's own call).
 
-A night protocol 2 table (``night_protocol: 2``) has no ready check at the deal:
-everyone at the table is dealt in, so a guest who closes the app right after
-joining cannot block it. The original night keeps "every member ready".
+There is no ready check at the deal: everyone at the table is dealt in, so a
+guest who closes the app right after joining cannot block it.
 """
 
 from __future__ import annotations
@@ -20,32 +19,51 @@ from django.conf import settings as django_settings
 from apps.core.models import Lobby, LobbyMember
 
 from .engine.decks import auto_deck
-from .engine.validation import validate_onuw_settings
+from .engine.validation import clamp_night_timing, validate_onuw_settings
 
 NOT_WAITING = "Lobby is not in waiting state."
-NOT_READY = "Not all players are ready."
+
+# ``night_protocol: 2``, written for the code BEFORE the cleanup, which still serves
+# for a moment while a deploy is promoted: it reads a table or game without it as the
+# old night (a refused look, a ready check at the deal, a ``/me/`` with no stage). This
+# code ignores the key. ``hooks.APP_DEFAULTS`` writes it on a new table and
+# ``dealt_settings`` on every dealt game. Stop writing it in a later push, once no
+# instance of the older code is left (``docs/dev/status.md``).
+OLD_CODE_NIGHT_FLAG: dict[str, Any] = {"night_protocol": 2}
 
 
-def is_v2_table(settings: Any) -> bool:
-    """The lobby plays night protocol 2 (the rebuilt screens' tables)."""
-    return isinstance(settings, dict) and settings.get("night_protocol") == 2
+def _allow_untimed() -> bool:
+    return getattr(django_settings, "ONUW_ALLOW_UNTIMED_NIGHT", False)
+
+
+def dealt_settings(settings: Any) -> dict[str, Any]:
+    """The settings a deal of a table with ``settings`` uses: stored timer values the
+    server refuses today (a table older code wrote) clamped, so no stored table is
+    stuck (``engine.validation.clamp_night_timing``), and ``night_protocol: 2`` for
+    the code before the cleanup, which reads a game without it as the old night
+    while a deploy is promoted (``OLD_CODE_NIGHT_FLAG``; this code ignores it).
+    A new dict."""
+    base = settings if isinstance(settings, dict) else {}
+    return {
+        **clamp_night_timing(base, allow_untimed=_allow_untimed()),
+        **OLD_CODE_NIGHT_FLAG,
+    }
 
 
 def deal_refusal(lobby: Lobby, members: list[LobbyMember]) -> Any | None:
     """Why the table cannot be dealt now (the 400 body's ``detail``), or None.
 
-    Everything the deal checks except who taps (host only): the table is waiting,
-    every member is ready (the original night only), and the settings are valid
-    for this many players (3 to 10, the deck the right size and legal, the
-    automatic deck existing for the count, the timers)."""
+    Everything the deal checks except who taps (host only): the table is waiting
+    and the settings are valid for this many players (3 to 10, the deck the right
+    size and legal, the automatic deck existing for the count, the timers)."""
     if lobby.status != Lobby.Status.WAITING:
         return NOT_WAITING
-    if not is_v2_table(lobby.settings) and not all(m.is_ready for m in members):
-        return NOT_READY
+    if not isinstance(lobby.settings, dict):
+        return ["Settings must be an object."]
     errors = validate_onuw_settings(
-        lobby.settings,
+        dealt_settings(lobby.settings),
         len(members),
-        allow_untimed=getattr(django_settings, "ONUW_ALLOW_UNTIMED_NIGHT", False),
+        allow_untimed=_allow_untimed(),
     )
     return errors or None
 
@@ -73,8 +91,7 @@ def _deck_size(settings: Any, player_count: int) -> int:
 
 
 def lobby_extras(lobby: Lobby) -> dict[str, Any]:
-    """The lobby body's ONUW keys for a protocol-2 table (asked only for one):
-    ``deck_preview`` and ``deal`` (``ok`` exactly as the deal would answer now;
+    """The lobby body's ONUW keys: ``deck_preview`` and ``deal`` (``ok`` exactly as the deal would answer now;
     ``need`` the cards the deal needs, players + 3; ``have`` the cards in the
     deck)."""
     members = list(lobby.players.all())  # type: ignore[attr-defined]

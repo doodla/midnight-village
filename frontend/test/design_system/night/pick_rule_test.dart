@@ -9,7 +9,7 @@ import '../../helpers/sheet/sheet_data.dart';
 // (first-time play spec, section 8), read from every prompt the server
 // recorded.
 
-/// Every recorded protocol-2 prompt.
+/// Every recorded prompt.
 final _prompts = [
   for (final info in ContractSamples.index)
     if (info.name.startsWith('http/game/me_choose_prompt_') ||

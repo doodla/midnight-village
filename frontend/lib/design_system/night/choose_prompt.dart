@@ -6,7 +6,7 @@ import '../faces/face_content.dart';
 import 'pick_rule.dart';
 
 /// This phone's turn on the night board, read from `/me/` during a night
-/// window (protocol 2): the stage to name, what the prompt asks, what it lets
+/// window: the stage to name, what the prompt asks, what it lets
 /// the phone pick, and which choose of the stage this is.
 ///
 /// This is THE parsed night prompt: the app's `/me/` model (`GameMe`) holds
@@ -26,7 +26,7 @@ class ChoosePrompt {
   });
 
   /// `/me/` with an `action_prompt`. Strict: every key the server always
-  /// sends is read, and a prompt that is not a `choose` prompt (protocol 1)
+  /// sends is read, and a prompt that is not a `choose` prompt
   /// is a broken payload here.
   factory ChoosePrompt.fromMe(Map<String, dynamic> me) {
     final prompt = me['action_prompt'] as Map<String, dynamic>;

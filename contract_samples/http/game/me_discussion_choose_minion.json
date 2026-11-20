@@ -1,16 +1,14 @@
 {
-  "game_id": "00000000-0000-4000-a000-000000000008",
+  "game_id": "00000000-0000-4000-a000-000000000005",
   "lobby_code": "T8NB6C",
   "phase": "discussion",
   "current_wave": 0,
-  "deadline": "2024-03-07T21:32:38+00:00",
+  "deadline": "2024-03-07T21:29:38+00:00",
   "your_role": {
-    "original_role": "Minion",
-    "has_acted": false
+    "original_role": "Minion"
   },
   "is_host": false,
   "host_id": 32,
-  "has_voted": false,
   "players": [
     {
       "player_id": 32,
@@ -128,7 +126,7 @@
     "done": 0,
     "needed": 9
   },
-  "stage": "talk.000000000008",
-  "stage_started_at": "2024-03-07T21:27:38+00:00",
+  "stage": "talk.000000000005",
+  "stage_started_at": "2024-03-07T21:24:38+00:00",
   "vote_targets": null
 }

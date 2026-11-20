@@ -32,7 +32,7 @@ Future<void> runPhone(
   } catch (e) {
     FailureReport.record(
       scenario: name,
-      checkpoint: 'ui-protocol2',
+      checkpoint: 'ui-game',
       message: e.toString(),
       pngPath: 'integration_test/screenshots/$name/',
     );
@@ -68,7 +68,6 @@ class Phone {
   }) async {
     table = (await tester.runAsync(
       () => LiveTable.open(
-        protocolTwo: true,
         playerNames: roles.keys.toList(),
         roleCounts: roleCounts,
         playerRolesByName: roles,

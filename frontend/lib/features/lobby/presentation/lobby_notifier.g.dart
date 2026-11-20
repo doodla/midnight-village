@@ -119,7 +119,6 @@ String _$lobbyWebSocketFactoryHash() =>
 ///
 /// WebSocket event handling per the API contract:
 /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-/// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
@@ -144,7 +143,6 @@ const lobbyProvider = LobbyNotifierFamily._();
 ///
 /// WebSocket event handling per the API contract:
 /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-/// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
@@ -167,7 +165,6 @@ final class LobbyNotifierProvider
   ///
   /// WebSocket event handling per the API contract:
   /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-  /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
   /// - `lobby_update` -> update settings (role configuration changed by host)
   /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
   ///
@@ -212,7 +209,7 @@ final class LobbyNotifierProvider
   }
 }
 
-String _$lobbyNotifierHash() => r'81888d0a00e4f2828c0546d9489005334361a02a';
+String _$lobbyNotifierHash() => r'8cfc560907d0014db7b65bbb938f890fae4eafa8';
 
 /// Manages lobby state for a given lobby code.
 ///
@@ -226,7 +223,6 @@ String _$lobbyNotifierHash() => r'81888d0a00e4f2828c0546d9489005334361a02a';
 ///
 /// WebSocket event handling per the API contract:
 /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-/// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
@@ -266,7 +262,6 @@ final class LobbyNotifierFamily extends $Family
   ///
   /// WebSocket event handling per the API contract:
   /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-  /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
   /// - `lobby_update` -> update settings (role configuration changed by host)
   /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
   ///
@@ -295,7 +290,6 @@ final class LobbyNotifierFamily extends $Family
 ///
 /// WebSocket event handling per the API contract:
 /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-/// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///

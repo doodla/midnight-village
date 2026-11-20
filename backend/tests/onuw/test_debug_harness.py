@@ -575,7 +575,6 @@ class TestDebugStateOracle:
             phase=Phase.VOTING,
             wave=0,
         )
-        Game.objects.filter(id=game.id).update(settings={"night_protocol": 2})
         PlayerRole.objects.filter(game=game, user=users["alice"]).update(
             vote_target=users["bob"], has_acted=True
         )

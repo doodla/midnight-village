@@ -50,7 +50,7 @@ sealed class StageRequest {
   Map<String, Object> toJson();
 }
 
-/// `POST /onuw/games/<id>/action/` under night protocol 2: one `choose`,
+/// `POST /onuw/games/<id>/action/`: one `choose`,
 /// built from the prompt it answers so it always names that prompt's stage.
 final class ChooseRequest extends StageRequest {
   const ChooseRequest._(this.stage, this.turn, this.chosen, this.picks);

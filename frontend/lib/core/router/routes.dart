@@ -29,19 +29,6 @@ class JoinRoute extends GoRouteData with $JoinRoute {
       HomeGate(code: code.toUpperCase());
 }
 
-/// A table by its code (an old link). The table a player sits at is
-/// `/me/table/`'s, so this is home. PROTOCOL 1: the old game screen's
-/// route after play again; delete it with the server slice.
-@TypedGoRoute<LobbyRoute>(path: '/lobby/:code')
-class LobbyRoute extends GoRouteData with $LobbyRoute {
-  const LobbyRoute({required this.code});
-
-  final String code;
-
-  @override
-  Widget build(BuildContext context, GoRouterState state) => const HomeGate();
-}
-
 /// A game's link (the router sends a player with a game running here). The
 /// screen is the table's shell, which shows what `/me/table/` and the
 /// table's game's `/me/` say ([gameId] is the link's, not an input).

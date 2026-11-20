@@ -60,15 +60,6 @@ def looking(make_night) -> Night:
     return night
 
 
-def make_v2(night: Night) -> None:
-    """Let the game answer with the stage keys (``night_protocol: 2``) from here on,
-    without changing how its night opens in this test."""
-    Game.objects.filter(id=night.game.id).update(
-        settings={**night.game.settings, "night_protocol": 2}
-    )
-    night.refresh()
-
-
 def post_ready(night: Night, who: str, body: Any) -> Any:
     night.client.force_authenticate(user=night.users[who])
     with night.committed():
@@ -125,9 +116,9 @@ class TestOff:
 
         assert night.game.current_wave == 2  # no Doppelganger: window 2 straight away
         assert look_timers(night) == []
-        assert night.broadcasts("wave.start")
+        assert night.windows_opened() == [2]
         assert night.broadcasts("progress") == []
-        assert "progress" not in me(night, "seer")  # the original night's payload
+        assert me(night, "seer")["progress"] is None  # no count in a night window
 
     def test_a_zero_setting_is_off_too(self, make_night) -> None:
         night = make_night(ROLES, CENTER, card_look_seconds=0)
@@ -150,8 +141,8 @@ class TestTheStage:
     def test_the_deal_opens_no_window_and_announces_the_stage(self, looking) -> None:
         night = looking
 
-        assert night.broadcasts("wave.start") == []
-        assert night.events_to("seer", "action.prompt") == []
+        assert night.windows_opened() == []
+        assert night.prompt("seer") is None
         assert night.broadcasts("progress") == [
             {"type": "progress", "stage": "look", "done": 0, "needed": 5}
         ]
@@ -160,14 +151,8 @@ class TestTheStage:
         remaining = (night.game.phase_deadline - timezone.now()).total_seconds()
         assert 28 < remaining <= 30
 
-    def test_the_original_night_payload_has_no_stage_keys(self, looking) -> None:
-        body = me(looking, "seer")
-
-        assert not {"progress", "ready", "my_vote"} & set(body)
-
     def test_me_during_the_stage_is_the_same_for_every_role(self, looking) -> None:
         night = looking
-        make_v2(night)
         look(night, "wolf")
 
         bodies = {name: me(night, name) for name in ROLES}
@@ -199,8 +184,8 @@ class TestTheStage:
         look(night, "villager")
 
         assert night.refresh().current_wave == 2
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
-        assert night.events_to("seer", "action.prompt")
+        assert night.windows_opened() == [2]
+        assert night.prompt("seer")["kind"] == "seer"
         # The window has its own deadline now, not the look's.
         assert night.game.phase_deadline > timezone.now() + timedelta(seconds=50)
 
@@ -231,7 +216,7 @@ class TestTheStage:
         fire_look_timer(night)
 
         assert night.game.current_wave == 2
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+        assert night.windows_opened() == [2]
 
     def test_a_late_backstop_after_the_night_opened_does_nothing(self, looking) -> None:
         night = looking
@@ -242,7 +227,7 @@ class TestTheStage:
         fire_look_timer(night)
 
         assert night.game.current_wave == 2
-        assert len(night.broadcasts("wave.start")) == 1
+        assert night.windows_opened() == [2]
 
     def test_look_ready_false_rejected(self, looking) -> None:
         night = looking
@@ -260,7 +245,7 @@ class TestTheStage:
             assert look(night, "seer").status_code == status.HTTP_200_OK
         assert night.refresh().current_wave == 0
 
-    def test_a_night_action_during_the_stage_is_refused_like_any_early_one(
+    def test_a_choose_during_the_stage_is_refused_like_any_early_one(
         self, looking
     ) -> None:
         night = looking
@@ -269,7 +254,8 @@ class TestTheStage:
             "seer", "peek_player", {"player_id": night.users["wolf"].id}
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data["code"] == "wrong_stage"
         assert night.role_of("seer").has_acted is False
 
     def test_the_flags_start_clear_when_the_first_window_opens(self, looking) -> None:
@@ -281,7 +267,6 @@ class TestTheStage:
 
     def test_the_talk_after_the_night_starts_with_nobody_ready(self, looking) -> None:
         night = looking
-        make_v2(night)
         for name in ROLES:
             look(night, name)
         with night.committed():
@@ -395,28 +380,19 @@ class TestDroppedPhones:
 class TestHostAndRestart:
     def test_host_advance_during_look_opens_window_once(self, looking) -> None:
         night = looking
+        tapped_in = current_stage(night.game.id)
 
-        first = host_advance(night, {"from_window": 0})
-        second = host_advance(night, {"from_window": 0})
+        first = host_advance(night, {"stage": tapped_in})
+        second = host_advance(night, {"stage": tapped_in})
 
         assert first.status_code == status.HTTP_200_OK
         assert first.data["current_wave"] == 2
         assert second.status_code == status.HTTP_409_CONFLICT
-        assert second.data["code"] == "wrong_window"
+        assert second.data["code"] == "wrong_stage"
         # The second tap did not close the window it was not aimed at.
         assert night.refresh().current_wave == 2
         assert night.game.phase == Phase.NIGHT
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
-
-    def test_host_advance_without_from_window_opens_the_night_at_window_zero(
-        self, looking
-    ) -> None:
-        night = looking
-
-        response = host_advance(night)
-
-        assert response.status_code == status.HTTP_200_OK
-        assert night.refresh().current_wave == 2
+        assert night.windows_opened() == [2]
 
     def test_a_stale_host_tap_cannot_close_a_later_window(self, make_night) -> None:
         night = make_night(
@@ -425,21 +401,13 @@ class TestHostAndRestart:
         night.start()
         assert night.game.current_wave == 1
 
-        stale = host_advance(night, {"from_window": 0})
+        stale = host_advance(night, {"stage": f"look.{night.game.id.hex[:12]}"})
 
         assert stale.status_code == status.HTTP_409_CONFLICT
         assert night.refresh().current_wave == 1
-        ok = host_advance(night, {"from_window": 1})
+        ok = host_advance(night)
         assert ok.status_code == status.HTTP_200_OK
         assert night.refresh().current_wave == 2
-
-    @pytest.mark.parametrize("bad", ["1", 1.5, True, None, -1, [1]], ids=repr)
-    def test_from_window_must_be_a_whole_number(self, looking, bad) -> None:
-        response = host_advance(looking, {"from_window": bad})
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data["code"] == "bad_request"
-        assert looking.refresh().current_wave == 0
 
     def test_a_non_host_cannot_advance(self, looking) -> None:
         night = looking
@@ -447,7 +415,7 @@ class TestHostAndRestart:
 
         response = night.client.post(
             reverse("onuw:wave-advance", kwargs={"game_id": str(night.game.id)}),
-            {"from_window": 0},
+            staged(night, {}),
             format="json",
         )
 
@@ -491,7 +459,7 @@ class TestHostAndRestart:
         me(night, "seer")
 
         assert night.refresh().current_wave == 0
-        assert night.broadcasts("wave.start") == []
+        assert night.windows_opened() == []
 
     def test_a_night_that_never_opened_without_a_look_stage_is_still_opened(
         self, make_night
@@ -581,11 +549,10 @@ class TestHostAndRestart:
             t.join(timeout=30)
 
         # The tap opened the night (200), or the backstop did first and the tap
-        # got the ordinary "nothing is waiting for you" refusal. Never both.
-        assert codes in ([status.HTTP_200_OK], [status.HTTP_400_BAD_REQUEST])
+        # named a stage that is over (409 wrong_stage). Never both.
+        assert codes in ([status.HTTP_200_OK], [status.HTTP_409_CONFLICT])
         assert night.refresh().current_wave == 2
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
-        assert len(night.events_to("seer", "action.prompt")) == 1
+        assert night.windows_opened() == [2]
 
 
 # ── the setting ──────────────────────────────────────────────────────────────
@@ -603,12 +570,12 @@ class TestSetting:
 
     @pytest.mark.parametrize("value", [0, 1, 30, 120])
     def test_valid_values(self, value) -> None:
-        settings = {"roles": self.DECK, "card_look_seconds": value, "night_protocol": 2}
+        settings = {"roles": self.DECK, "card_look_seconds": value}
         assert validate_onuw_settings(settings, 6) == []
 
     @pytest.mark.parametrize("value", [-1, 121, 3600, "30", 1.5, True, None, [30]])
     def test_invalid_values(self, value) -> None:
-        settings = {"roles": self.DECK, "card_look_seconds": value, "night_protocol": 2}
+        settings = {"roles": self.DECK, "card_look_seconds": value}
 
         errors = validate_onuw_settings(settings, 6)
 
@@ -675,13 +642,7 @@ class TestTheDealThroughTheApi:
         if seconds is not None:
             reply = table.host.patch(
                 reverse("core:lobby-detail", kwargs={"code": table.code}),
-                {
-                    "settings": {
-                        "card_look_seconds": seconds,
-                        "night_protocol": 2,
-                        **extra,
-                    }
-                },
+                {"settings": {"card_look_seconds": seconds, **extra}},
                 format="json",
             )
             assert reply.status_code == status.HTTP_200_OK, reply.data
@@ -701,7 +662,7 @@ class TestTheDealThroughTheApi:
     def test_the_setting_on_holds_the_night_at_window_zero(self, deal_api) -> None:
         table, scheduled, sent, _ = deal_api
 
-        game = self.deal(deal_api, 30, night_protocol=2)
+        game = self.deal(deal_api, 30)
 
         assert (game.phase, game.current_wave) == (Phase.NIGHT, 0)
         assert (f"{game.id}:look", 30, "card_look") in scheduled
@@ -737,24 +698,12 @@ class TestTheDealThroughTheApi:
         assert game.current_wave == 2
         assert [e["window"] for _, e in sent if e["type"] == "night.window"] == [2]
 
-    def test_the_look_stage_belongs_to_protocol_2(self, deal_api) -> None:
-        table, *_ = deal_api
-
-        reply = table.host.patch(
-            reverse("core:lobby-detail", kwargs={"code": table.code}),
-            {"settings": {"card_look_seconds": 30}},
-            format="json",
-        )
-
-        assert reply.status_code == status.HTTP_400_BAD_REQUEST
-        assert "card_look_seconds" in str(reply.data)
-
     def test_a_lobby_patch_over_the_limit_is_refused(self, deal_api) -> None:
         table, *_ = deal_api
 
         reply = table.host.patch(
             reverse("core:lobby-detail", kwargs={"code": table.code}),
-            {"settings": {"card_look_seconds": 121, "night_protocol": 2}},
+            {"settings": {"card_look_seconds": 121}},
             format="json",
         )
 

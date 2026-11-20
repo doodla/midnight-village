@@ -1,5 +1,7 @@
 # Models of ordering and concurrency
 
+> These models predate the protocol-1 cleanup (20 November 2026): they speak of "protocol 2", the contract's "Third amendment" (now `docs/specs/onuw/api-contract-v2.md`, sections 5 and 9), `ProtocolTwoGameNotifier` (now `LiveGameNotifier`), the server module night2 (now `apps/onuw/choose_night.py`) and sample names ending in `_v2` (now plain names); the one flow they model is the only one left.
+
 Logic whose bugs live in the order of events (the server's stage handling, the phone's
 outbox and fetch loop) is checked with small TLA+ models, one focused slice at a time.
 Tests check the paths someone thought of; a model checker walks every interleaving of
@@ -7,7 +9,7 @@ requests, answers, lost messages, timers and restarts inside a small bound.
 
 ## When
 
-- A change to how the server orders, locks, retries or closes a stage (`apps/onuw/night2.py`,
+- A change to how the server orders, locks, retries or closes a stage (`apps/onuw/choose_night.py`,
   `protocol.py`, `services` timer and presence paths, `apps/core/timers.py`).
 - A change to how the phone sends taps or re-reads state (`Outbox`, the protocol-2 game
   notifier, `core/healing/`).

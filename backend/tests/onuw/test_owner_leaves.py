@@ -85,12 +85,6 @@ class TestTheOwnerLeavesAtTheResultsScreen:
             {"settings": {"roles": four, **{"night_wave_seconds": 0}}},
             format="json",
         )
-        for client in table.clients[1:]:
-            client.post(
-                reverse("core:lobby-ready", kwargs={"code": table.code}),
-                {"is_ready": True},
-                format="json",
-            )
 
         started = table.clients[1].post(
             reverse("onuw:game-start", kwargs={"code": table.code}),

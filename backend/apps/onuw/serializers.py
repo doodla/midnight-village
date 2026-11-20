@@ -7,7 +7,7 @@ from typing import Any
 from rest_framework import serializers
 
 from .models import Game, Phase, PlayerRole
-from .protocol import in_look_stage, is_choose_night, stage_token
+from .protocol import in_look_stage, stage_token
 
 
 def player_identity(pr: PlayerRole) -> dict[str, Any]:
@@ -38,9 +38,9 @@ class GameMeSerializer(serializers.Serializer):
     """
     Player-scoped game state serializer.
 
-    Returns only the information a specific player is allowed to see.
-    Includes a players list and, during night phase, an action_prompt
-    if the player needs to act in the current wave.
+    Returns only the information a specific player is allowed to see:
+    the players list (public identity only), the caller's own role, prompt,
+    night results, vote and ready flag, and the stage with its count and clock.
     """
 
     game_id = serializers.UUIDField(source="id")
@@ -53,7 +53,6 @@ class GameMeSerializer(serializers.Serializer):
     your_role = serializers.SerializerMethodField()
     is_host = serializers.SerializerMethodField()
     host_id = serializers.SerializerMethodField()
-    has_voted = serializers.SerializerMethodField()
     players = serializers.SerializerMethodField()
     action_prompt = serializers.SerializerMethodField()
     roles_in_game = serializers.SerializerMethodField()
@@ -61,21 +60,16 @@ class GameMeSerializer(serializers.Serializer):
     night_results_seen = serializers.SerializerMethodField()
 
     def to_representation(self, instance: Game) -> dict[str, Any]:
-        """The body. A game that plays night protocol 2 also gets ``player_id``,
-        ``my_vote``, ``ready``, ``progress``, ``stage``, ``stage_started_at`` and
-        ``vote_targets`` (and its players list says nothing about
-        who locked in); a game that plays the original night is answered exactly as
-        it always was, and none of that is even computed for it."""
+        """The body, plus ``player_id`` (the caller's own), ``my_vote``, ``ready``,
+        ``progress``, ``stage``, ``stage_started_at`` and ``vote_targets``."""
         data = super().to_representation(instance)
-        if is_choose_night(instance):
-            # The caller's own id (the app had to take it from the login).
-            data["player_id"] = self.context["player_role"].user_id
-            data["my_vote"] = self._my_vote(instance)
-            data["ready"] = self._ready(instance)
-            data["progress"] = self._progress(instance)
-            data["stage"] = stage_token(instance)
-            data["stage_started_at"] = self._stage_started_at(instance)
-            data["vote_targets"] = self._vote_targets(instance)
+        data["player_id"] = self.context["player_role"].user_id
+        data["my_vote"] = self._my_vote(instance)
+        data["ready"] = self._ready(instance)
+        data["progress"] = self._progress(instance)
+        data["stage"] = stage_token(instance)
+        data["stage_started_at"] = self._stage_started_at(instance)
+        data["vote_targets"] = self._vote_targets(instance)
         return data
 
     def _stage_started_at(self, game: Game) -> str | None:
@@ -139,117 +133,48 @@ class GameMeSerializer(serializers.Serializer):
 
     def get_your_role(self, game: Game) -> dict:
         """
-        Get the requesting player's role data, scoped by game phase.
+        The requesting player's role data, scoped by game phase.
 
-        During RESULTS phase, reveal both original and current role plus
-        night action data so the player can see what happened.
-
-        During all other phases, only reveal original_role and has_acted.
-        Players learn night action outcomes through WebSocket action_result
-        events, NOT through this endpoint. current_role is hidden because
-        a player should not know if they were swapped by Troublemaker/Robber
-        unless their own role tells them.
+        In the RESULTS phase, both the original and the current role plus the
+        night action data, so the player can see what happened. In every other
+        phase only ``original_role``: what the night showed them is in
+        ``night_results``, and ``current_role`` stays hidden (a player must not
+        know they were swapped unless their own role tells them).
         """
         player_role = self.context.get("player_role")
         if player_role is None:
             return {}
-        data: dict[str, Any] = {
-            "original_role": player_role.original_role,
-            "has_acted": player_role.has_acted,
-        }
+        data: dict[str, Any] = {"original_role": player_role.original_role}
         if game.phase == Phase.RESULTS:
             data["current_role"] = player_role.current_role
             data["night_action_data"] = player_role.night_action_data
         return data
 
-    def get_has_voted(self, game: Game) -> bool:
-        """
-        Whether the player has submitted their vote.
-
-        Only meaningful during the VOTING phase. During other phases,
-        returns False.
-
-        CRITICAL: Do NOT reveal the vote target here. Only reveal
-        whether or not the player has voted.
-        """
-        if game.phase != "voting":
-            return False
-        player_role = self.context.get("player_role")
-        if player_role is None:
-            return False
-        return bool(player_role.has_acted)
-
     def get_players(self, game: Game) -> list[dict[str, Any]]:
         """
-        List of all players with public info only.
+        List of all players with public info only (who they are, where they sit).
 
-        During voting phase, includes has_voted status for each player.
-        CRITICAL: Never include roles or vote targets.
+        CRITICAL: Never include roles, votes or who has voted.
         """
-        all_player_roles = self.context.get("all_player_roles", [])
-        result: list[dict[str, Any]] = []
-        for pr in all_player_roles:
-            entry = player_identity(pr)
-            if game.phase == Phase.VOTING and not is_choose_night(game):
-                # Who locked in: only the original night says (protocol 2: counts).
-                entry["has_voted"] = bool(pr.has_acted)
-            result.append(entry)
-        return result
+        return [player_identity(pr) for pr in self.context.get("all_player_roles", [])]
 
     def get_action_prompt(self, game: Game) -> dict[str, Any] | None:
-        """
-        During night phase, return the action prompt if the player
-        needs to act in the current wave. None otherwise.
-
-        This allows reconnecting clients to rebuild their night UI
-        from a single GET call.
-        """
-        if game.phase != Phase.NIGHT or game.current_wave == 0:
-            return None
-
+        """The caller's prompt in an open night window (``choose_night.prompt_for``):
+        every player has one, shaped alike, for as long as the window is open (it
+        says whether the caller has chosen in it). None outside a window."""
         player_role = self.context.get("player_role")
-        if player_role is None:
+        if game.phase != Phase.NIGHT or game.current_wave == 0 or player_role is None:
             return None
+        from . import choose_night
 
-        if is_choose_night(game):
-            # Night protocol 2: every player has a prompt, shaped alike, for as long
-            # as a stage is open (it says whether the caller has chosen in it).
-            from . import night2
-
-            return night2.prompt_for(game, player_role)
-
-        # If the player has already acted this wave, no prompt needed
-        if player_role.has_acted:
-            return None
-
-        # Use the service layer to determine if/what role they act as
-        from .services import get_player_acting_role_for_wave
-
-        acting_role = get_player_acting_role_for_wave(player_role, game.current_wave)
-        if acting_role is None:
-            return None
-
-        # Build the prompt with valid targets
-        from .engine.night import build_role_prompt
-        from .services import build_game_state
-
-        state = build_game_state(game)
-        prompt = build_role_prompt(state, player_role.user_id, acting_role)
-        return {
-            "role_acting_as": prompt["role_acting_as"],
-            "action_types": prompt["action_types"],
-            "valid_targets": prompt["valid_targets"],
-            "wave": game.current_wave,
-        }
+        return choose_night.prompt_for(game, player_role)
 
     def get_night_results(self, game: Game) -> list[dict[str, Any]]:
         """
-        The requesting player's own night results for every closed window.
-
-        Lets a phone that was offline when a window closed catch up: each entry
-        has the same shape as the ``action_result`` socket event (``wave``,
-        ``action_type``, ``revealed_info``) and is built by the same transform.
-        Only this player's results, and nothing about a window still open.
+        The requesting player's own night results for every closed window (and the
+        Doppelganger's look as soon as it resolves): ``wave``, ``action_type``,
+        ``revealed_info``. Only this player's results, nothing about a window still
+        open.
         """
         player_role = self.context.get("player_role")
         if player_role is None:
@@ -287,8 +212,8 @@ class GameMeSerializer(serializers.Serializer):
         }
 
     def _ready(self, game: Game) -> bool | None:
-        """The caller's own "ready" flag at the stages that have one (the talk and,
-        later, the card look); None elsewhere."""
+        """The caller's own "ready" flag at the stages that have one (the look and
+        the talk); None elsewhere."""
         player_role = self.context.get("player_role")
         if player_role is None:
             return None

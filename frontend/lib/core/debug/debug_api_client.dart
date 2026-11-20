@@ -149,7 +149,7 @@ class DebugApiClient {
   /// `ws://127.0.0.1:8001/ws/game/<id>/`) with [token] appended as a query
   /// param and the required `Origin` header set.
   ///
-  /// Used by `driveAs`/connection helpers when the harness needs a raw socket
+  /// Used by the harness's connection helpers when it needs a raw socket
   /// for a player that is NOT the visible perspective.
   IOWebSocketChannel connectWebSocket(String wsUrl, {required String token}) {
     final base = Uri.parse(wsUrl);

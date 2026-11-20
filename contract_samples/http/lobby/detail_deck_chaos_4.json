@@ -1,0 +1,75 @@
+{
+  "code": "B7DH4Q",
+  "host": {
+    "id": 74,
+    "username": "00000000-0000-4000-8000-000000000074",
+    "display_name": "Kai"
+  },
+  "original_host_id": 74,
+  "is_acting_host": false,
+  "game_type": "onuw",
+  "status": "waiting",
+  "max_players": 10,
+  "settings": {
+    "deck": "auto",
+    "deck_chip": "chaos",
+    "night_protocol": 2,
+    "card_look_seconds": 30
+  },
+  "players": [
+    {
+      "user": {
+        "id": 74,
+        "username": "00000000-0000-4000-8000-000000000074",
+        "display_name": "Kai"
+      },
+      "token": "hare",
+      "joined_at": "2024-03-07T22:17:48Z",
+      "connected": true
+    },
+    {
+      "user": {
+        "id": 75,
+        "username": "00000000-0000-4000-8000-000000000075",
+        "display_name": "Lia"
+      },
+      "token": "thorn",
+      "joined_at": "2024-03-07T22:18:48Z",
+      "connected": true
+    },
+    {
+      "user": {
+        "id": 76,
+        "username": "00000000-0000-4000-8000-000000000076",
+        "display_name": "Max"
+      },
+      "token": "antler",
+      "joined_at": "2024-03-07T22:19:48Z",
+      "connected": true
+    },
+    {
+      "user": {
+        "id": 77,
+        "username": "00000000-0000-4000-8000-000000000077",
+        "display_name": "Noa"
+      },
+      "token": "key",
+      "joined_at": "2024-03-07T22:20:48Z",
+      "connected": true
+    }
+  ],
+  "created_at": "2024-03-07T22:17:48Z",
+  "deck_preview": {
+    "Werewolf": 2,
+    "Seer": 1,
+    "Robber": 1,
+    "Troublemaker": 1,
+    "Drunk": 1,
+    "Tanner": 1
+  },
+  "deal": {
+    "ok": true,
+    "need": 7,
+    "have": 7
+  }
+}

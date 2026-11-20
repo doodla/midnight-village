@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/host/host_change.dart';
 import 'stage_progress.dart';
 
-/// A game socket event as a night protocol 2 phone reads it.
+/// A game socket event as a phone reads it.
 ///
 /// The rule that keeps a restarted phone on the right screen: an event never
 /// carries state of its own into the app. It either names a reason to fetch
@@ -35,13 +35,10 @@ sealed class GameEvent {
         connected: event['connected'] as bool,
       ),
       'host_changed' => HostEvent(HostChange.fromEvent(event)),
-      // A window opened or closed, the phase moved, the votes are out, the
+      // A window opened, the phase moved, the votes are out, the
       // game is over, the table went back to the lobby: what this phone sees
       // next is in `/me/` (and `/me/table/`), never in the event.
       'night_window' ||
-      // PROTOCOL 1: the old night's window event, still sent beside
-      // `night_window`; drop it when the server slice stops sending it.
-      'wave_complete' ||
       'phase_change' ||
       'vote_reveal' ||
       'game_results' => RefetchEvent(type as String),
@@ -94,8 +91,8 @@ final class HostEvent extends GameEvent {
   final HostChange change;
 }
 
-/// A type this phone does nothing with (protocol 1's per-role events, or a
-/// type added later: consumers drop unknown types, so does the app).
+/// A type this phone does nothing with (a type added later: consumers drop
+/// unknown types, so does the app).
 final class IgnoredEvent extends GameEvent {
   const IgnoredEvent(this.type);
 

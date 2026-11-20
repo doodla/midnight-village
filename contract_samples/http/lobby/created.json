@@ -18,10 +18,16 @@
         "username": "00000000-0000-4000-8000-000000000001",
         "display_name": "Ana"
       },
-      "is_ready": false,
       "token": "antler",
-      "joined_at": "2024-03-07T20:51:00Z"
+      "joined_at": "2024-03-07T20:51:00Z",
+      "connected": false
     }
   ],
-  "created_at": "2024-03-07T20:51:00Z"
+  "created_at": "2024-03-07T20:51:00Z",
+  "deck_preview": null,
+  "deal": {
+    "ok": false,
+    "need": 4,
+    "have": 0
+  }
 }

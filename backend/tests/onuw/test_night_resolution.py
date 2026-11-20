@@ -1003,6 +1003,15 @@ class TestResolveNight:
         assert w4_results[0].revealed_info["current_role"] == "Villager"
 
 
+def _team(state: GameState, player_id: int, role: str) -> list[int]:
+    """The team ``player_id`` is shown acting as ``role`` (a see_team result)."""
+    _, results = resolve_wave(
+        state, [NightAction(player_id, role, "see_team", {})], wave=2
+    )
+    info = results[0].revealed_info
+    return info["masons"] if role == "Mason" else info["werewolves"]
+
+
 # ── get_required_actions Tests ───────────────────────────────────────────────
 
 
@@ -1067,14 +1076,11 @@ class TestGetRequiredActions:
         assert 2 in w3_player_ids
         assert 3 in w3_player_ids
 
-    def test_prompt_includes_valid_targets(self):
+    def test_an_actor_is_named_with_the_role_it_acts_as(self):
         state = _make_state()
         prompts = get_required_actions(state, wave=3)
-        seer_prompt = next(p for p in prompts if p["player_id"] == 2)
-        assert "player_ids" in seer_prompt["valid_targets"]
-        assert "center_indices" in seer_prompt["valid_targets"]
-        # Seer cannot target self
-        assert 2 not in seer_prompt["valid_targets"]["player_ids"]
+        assert {"player_id": 2, "role_acting_as": "Seer"} in prompts
+        assert all(set(p) == {"player_id", "role_acting_as"} for p in prompts)
 
     def test_see_team_werewolf_sees_other_werewolves(self):
         state = _make_state(
@@ -1086,11 +1092,8 @@ class TestGetRequiredActions:
                 5: "Seer",
             }
         )
-        prompts = get_required_actions(state, wave=2)
-        ww1 = next(p for p in prompts if p["player_id"] == 1)
-        assert ww1["valid_targets"]["see_team"] == [2]
-        ww2 = next(p for p in prompts if p["player_id"] == 2)
-        assert ww2["valid_targets"]["see_team"] == [1]
+        assert _team(state, 1, "Werewolf") == [2]
+        assert _team(state, 2, "Werewolf") == [1]
 
     def test_see_team_lone_werewolf_sees_empty(self):
         state = _make_state(
@@ -1102,9 +1105,7 @@ class TestGetRequiredActions:
                 5: "Seer",
             }
         )
-        prompts = get_required_actions(state, wave=2)
-        ww = next(p for p in prompts if p["player_id"] == 1)
-        assert ww["valid_targets"]["see_team"] == []
+        assert _team(state, 1, "Werewolf") == []
 
     def test_see_team_minion_sees_werewolves(self):
         state = _make_state(
@@ -1116,9 +1117,7 @@ class TestGetRequiredActions:
                 5: "Seer",
             }
         )
-        prompts = get_required_actions(state, wave=2)
-        minion = next(p for p in prompts if p["player_id"] == 3)
-        assert sorted(minion["valid_targets"]["see_team"]) == [1, 2]
+        assert sorted(_team(state, 3, "Minion")) == [1, 2]
 
     def test_see_team_mason_sees_other_masons(self):
         state = _make_state(
@@ -1130,11 +1129,8 @@ class TestGetRequiredActions:
                 5: "Seer",
             }
         )
-        prompts = get_required_actions(state, wave=2)
-        mason2 = next(p for p in prompts if p["player_id"] == 2)
-        assert mason2["valid_targets"]["see_team"] == [3]
-        mason3 = next(p for p in prompts if p["player_id"] == 3)
-        assert mason3["valid_targets"]["see_team"] == [2]
+        assert _team(state, 2, "Mason") == [3]
+        assert _team(state, 3, "Mason") == [2]
 
     def test_see_team_doppelganger_as_werewolf_included(self):
         """Doppelganger who copied Werewolf appears in werewolf see_team lists."""
@@ -1156,10 +1152,8 @@ class TestGetRequiredActions:
             },
             doppelganger_copied_role={2: "Werewolf"},
         )
-        prompts = get_required_actions(state, wave=2)
-        ww = next(p for p in prompts if p["player_id"] == 1)
         # Werewolf should see the Doppelganger-as-Werewolf as a teammate
-        assert 2 in ww["valid_targets"]["see_team"]
+        assert 2 in _team(state, 1, "Werewolf")
 
     def test_see_team_doppelganger_as_mason_included(self):
         """Doppelganger who copied Mason appears in mason see_team lists."""
@@ -1181,9 +1175,7 @@ class TestGetRequiredActions:
             },
             doppelganger_copied_role={2: "Mason"},
         )
-        prompts = get_required_actions(state, wave=2)
-        mason = next(p for p in prompts if p["player_id"] == 1)
-        assert 2 in mason["valid_targets"]["see_team"]
+        assert 2 in _team(state, 1, "Mason")
 
     def test_wave_4_uses_original_role_after_troublemaker_swap(self):
         """After Troublemaker swaps Insomniac away, original Insomniac still wakes in wave 4."""

@@ -7,7 +7,7 @@ import '../../lobby/domain/where_am_i.dart';
 import '../../lobby/presentation/where_am_i_provider.dart';
 import '../domain/game_me.dart';
 import '../domain/screen_table.dart';
-import 'protocol_two_game.dart';
+import 'live_game.dart';
 
 part 'table_screen.g.dart';
 
@@ -122,7 +122,7 @@ AsyncValue<TableScreen> tableScreen(Ref ref) {
   final gameId = table?.gameId;
   GameMe? me;
   if (gameId != null && table!.status != TableStatus.waiting) {
-    final game = ref.watch(protocolTwoGameProvider(gameId)).value;
+    final game = ref.watch(liveGameProvider(gameId)).value;
     if (game != null && game.tableClosed) {
       return const AsyncData(TableScreen(AppScreen.join));
     }

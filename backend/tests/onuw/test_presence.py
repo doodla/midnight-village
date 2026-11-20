@@ -30,6 +30,7 @@ from apps.onuw import presence, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
+from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night
 
 pytestmark = pytest.mark.integration
@@ -106,7 +107,7 @@ def vote(night: Night, voter: str, target: str) -> Any:
     with night.committed():
         return night.client.post(
             reverse("onuw:vote", kwargs={"game_id": str(night.game.id)}),
-            {"target_player_id": night.users[target].id},
+            staged(night, {"target_player_id": night.users[target].id, "lock": True}),
             format="json",
         )
 
@@ -244,6 +245,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer", seconds_ago=5)
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
 
         assert night.refresh().phase == Phase.NIGHT
         assert night.game.current_wave == 2
@@ -264,6 +266,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer")
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         assert night.refresh().phase == Phase.NIGHT
 
         PlayerRole.objects.filter(game=night.game, user=night.users["seer"]).update(
@@ -279,7 +282,7 @@ class TestNightWithADroppedPlayer:
             if e["player_id"] == night.users["seer"].id
         ]
         assert [e["action_type"] for e in log] == ["skip"]
-        assert night.events_to("seer", "action.result")[0]["action_type"] == "skip"
+        assert night.results("seer")[0]["action_type"] == "skip"
 
     def test_a_player_who_returns_inside_the_grace_period_is_still_waited_for(
         self, make_night
@@ -289,6 +292,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer", seconds_ago=10)
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         stale = grace_callbacks(night, "seer")[-1]
 
         with patch("apps.core.timers.cancel") as cancel:
@@ -309,10 +313,7 @@ class TestNightWithADroppedPlayer:
         )
         assert response.status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.DISCUSSION
-        assert (
-            night.events_to("seer", "action.result")[0]["revealed_info"]["role"]
-            == "werewolf"
-        )
+        assert night.results("seer")[0]["revealed_info"]["role"] == "Werewolf"
 
     def test_a_player_who_returns_after_the_grace_period_can_still_act(
         self, make_night
@@ -320,7 +321,8 @@ class TestNightWithADroppedPlayer:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
         drop(night, "seer", seconds_ago=40)
-        night.post("wolf", "see_team")  # the robber has not acted yet
+        night.post("wolf", "see_team")  # the robber has not chosen yet
+        night.post("villager", "none")
         fire_grace(night, "seer")
         assert night.game.phase == Phase.NIGHT  # still waiting for the robber
 
@@ -332,10 +334,7 @@ class TestNightWithADroppedPlayer:
 
         assert response.status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.DISCUSSION
-        assert (
-            night.events_to("seer", "action.result")[0]["revealed_info"]["role"]
-            == "villager"
-        )
+        assert night.results("seer")[0]["revealed_info"]["role"] == "Villager"
 
     def test_coming_back_lifts_the_hold_so_the_window_can_close(
         self, make_night
@@ -346,6 +345,7 @@ class TestNightWithADroppedPlayer:
         night.post("seer", "skip")
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         assert night.refresh().phase == Phase.NIGHT  # held: the Seer's phone is out
 
         connect(night, "seer")
@@ -379,6 +379,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer")
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         night.pretend_window_opened(30)
         PlayerRole.objects.filter(game=night.game, user=night.users["seer"]).update(
             disconnected_at=timezone.now() - timedelta(seconds=26)
@@ -401,6 +402,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer", seconds_ago=30)  # already gone
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         night.pretend_window_opened(30)
         fire_grace(night, "seer")  # ready: the close is deferred to the minimum
         assert night.game.phase == Phase.NIGHT
@@ -429,6 +431,7 @@ class TestNightWithADroppedPlayer:
         night.post("wolf", "see_team")
         night.post("seer", "skip")
         night.post("robber", "skip")
+        night.post("villager", "none")
         assert night.refresh().phase == Phase.NIGHT
         assert 0 < night.timer_delays(2)[-1] <= 40
 
@@ -442,6 +445,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer", seconds_ago=30)
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         fire_grace(night, "seer")
         deferred = [cb for k, _, cb in night.scheduled if k.endswith(":wave:2")][-1]
         connect(night, "seer")
@@ -505,6 +509,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer", seconds_ago=500)
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
 
         assert night.refresh().phase == Phase.NIGHT  # waits for the Seer as ever
         assert grace_callbacks(night, "seer") == []
@@ -650,6 +655,7 @@ class TestTalkAndHost:
         night.post("wolf", "see_team")
         night.post("seer", "skip")
         night.post("robber", "skip")
+        night.post("villager", "none")
         assert night.refresh().phase == Phase.DISCUSSION
         deadline = night.game.phase_deadline
 
@@ -703,7 +709,9 @@ class TestTalkAndHost:
 
         with night.committed():
             ended = night.client.post(
-                reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)})
+                reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)}),
+                staged(night, {}),
+                format="json",
             )
         assert ended.status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.VOTING
@@ -712,7 +720,9 @@ class TestTalkAndHost:
         night.client.force_authenticate(user=night.host)
         with night.committed():
             revealed = night.client.post(
-                reverse("onuw:reveal-votes", kwargs={"game_id": str(night.game.id)})
+                reverse("onuw:reveal-votes", kwargs={"game_id": str(night.game.id)}),
+                staged(night, {}),
+                format="json",
             )
 
         assert revealed.status_code == status.HTTP_200_OK
@@ -732,12 +742,15 @@ class TestTalkAndHost:
         assert night.host == night.users["wolf"]
         night.post("seer", "skip")
         night.post("robber", "skip")
+        night.post("villager", "none")
         fire_grace(night, "wolf")
 
         assert night.game.phase == Phase.DISCUSSION  # went on without the host
         night.client.force_authenticate(user=night.users["seer"])
         refused = night.client.post(
-            reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)})
+            reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)}),
+            staged(night, {}),
+            format="json",
         )
         assert refused.status_code == status.HTTP_403_FORBIDDEN  # nobody else may
 
@@ -1080,6 +1093,7 @@ class TestSocketRowsAndHeartbeats:
         (_, check) = presence_checks(night, "seer")[0]
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         assert night.refresh().phase == Phase.NIGHT  # waiting for the Seer
         age_rows(night, "seer", 100)
         with night.committed():

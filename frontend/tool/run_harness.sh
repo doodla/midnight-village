@@ -109,11 +109,11 @@ flutter test --tags e2e \
   --dart-define=HARNESS_PORT="$HARNESS_PORT" \
   test_e2e/api_runner_test.dart \
   test_e2e/api_lifecycle_test.dart \
-  test_e2e/api_protocol2_test.dart \
-  test_e2e/ui_protocol2_test.dart \
-  test_e2e/ui_protocol2_roles_test.dart \
-  test_e2e/ui_protocol2_end_test.dart \
-  test_e2e/ui_protocol2_journey_test.dart
+  test_e2e/api_game_test.dart \
+  test_e2e/ui_game_test.dart \
+  test_e2e/ui_roles_test.dart \
+  test_e2e/ui_end_test.dart \
+  test_e2e/ui_journey_test.dart
 test_exit=$?
 
 if [[ "$interrupted" -ne 0 ]]; then

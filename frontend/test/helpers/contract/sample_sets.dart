@@ -2,11 +2,11 @@ import 'package:midnight_village/features/game/domain/screen_table.dart';
 
 import 'contract_samples.dart';
 
-/// The screen each recorded protocol-2 `/me/` is, stated per sample (the
+/// The screen each recorded `/me/` is, stated per sample (the
 /// first-time play spec, section 3, as amended by sections 7 and 8), at its
 /// own game's table with no local step taken. A recorded sample missing here
 /// fails `screen_table_test.dart`.
-const protocolTwoScreens = <String, AppScreen>{
+const meScreens = <String, AppScreen>{
   'me_auto_deck_5': AppScreen.yourCard,
   'me_auto_deck_9': AppScreen.yourCard,
   'me_look_stage': AppScreen.yourCard,
@@ -41,18 +41,18 @@ const protocolTwoScreens = <String, AppScreen>{
   'me_talk_ready': AppScreen.talk,
   'me_talk_results_seen': AppScreen.talk,
   'me_talk_ten': AppScreen.talk,
-  'me_talk_untimed_v2': AppScreen.talk,
+  'me_talk_untimed': AppScreen.talk,
+  'me_discussion_acting_host': AppScreen.talk,
   'me_voting_unpicked': AppScreen.vote,
   'me_voting_picked': AppScreen.vote,
   'me_voting_locked': AppScreen.vote,
   'me_voting_ten': AppScreen.vote,
-  'me_voting_untimed_v2': AppScreen.vote,
-  'me_results_v2': AppScreen.count,
+  'me_voting_untimed': AppScreen.vote,
+  'me_results': AppScreen.count,
 };
 
-/// Every recorded `/me/` sample (night protocol 2: the index holds no
-/// other), by its name under `http/game/`.
-List<String> protocolTwoMeSamples() => [
+/// Every recorded `/me/` sample, by its name under `http/game/`.
+List<String> meSamples() => [
   for (final s in ContractSamples.index)
     if (s.isHttp && s.status == 200 && s.matchesPath('/onuw/games/g/me/'))
       s.name.substring('http/game/'.length),

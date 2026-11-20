@@ -145,8 +145,6 @@ final screenCatalogue = <ScreenEntry>[
     '-ten-long': pumpResultsTen,
     '-x1.3': (tester) => pumpResultsVillage(tester, textScale: 1.3),
   }),
-  // A game this app cannot play (no `stage` in its `/me/`).
-  ..._rebuilt('unplayable', null, {'': pumpUnplayable}),
   ...componentSheet,
 ];
 

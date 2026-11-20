@@ -28,12 +28,12 @@ Map<String, dynamic> _answer(
 Map<String, dynamic> _table(String code, {bool deck = false}) =>
     serverLobby(code: code, deck: deck);
 
-/// `POST .../vote/`: the vote was taken.
+/// `POST .../vote/`: the vote was locked in.
 Map<String, dynamic> _voted() => _answer(
   'POST',
   '/onuw/games/g1/vote/',
   200,
-  ContractSamples.map('http/game/vote_submitted'),
+  ContractSamples.map('http/game/vote_locked'),
 );
 
 /// `POST .../start/`: the dealt game [gameId].
@@ -117,15 +117,6 @@ void main() {
         ).thenAnswer(
           (_) async =>
               _answer('POST', '/lobbies/ABCD/join/', 200, _table('ABCD')),
-        );
-        when(
-          () => client.post(
-            any(that: contains('/ready/')),
-            token: any(named: 'token'),
-          ),
-        ).thenAnswer(
-          (_) async =>
-              _answer('POST', '/lobbies/ABCD/ready/', 200, _table('ABCD')),
         );
         when(
           () => client.patch(
@@ -219,6 +210,7 @@ void main() {
               ).captured.single
               as Map<String, dynamic>;
       expect(patched['settings'], {
+        'deck': 'custom',
         'roles': {'Werewolf': 1, 'Villager': 4},
         'night_min_window_seconds': 0,
         'night_doppelganger_window_seconds': 0,
@@ -246,12 +238,13 @@ void main() {
               ).captured.single
               as Map<String, dynamic>;
       expect(patched['settings'], {
+        'deck': 'custom',
         'roles': {'Werewolf': 1, 'Villager': 4},
       });
     });
 
-    test('a protocol-2 table is made with defaults v2 and a custom deck, so '
-        'the forced deal matches it', () async {
+    test('a table is made with defaults v2 and a custom deck, so the forced '
+        'deal matches it', () async {
       stubGuests({'Alice': 10, 'Bob': 11});
       _stubLobbyFlow(client, code: 'V2', gameId: 'g-v2');
 
@@ -261,7 +254,6 @@ void main() {
         playerRolesByName: {'Alice': 'Werewolf', 'Bob': 'Villager'},
         centerCards: ['Villager', 'Villager', 'Villager'],
         timerSettings: {'card_look_seconds': 120},
-        protocolTwo: true,
       );
 
       final created = verify(
@@ -354,7 +346,7 @@ void main() {
     });
   });
 
-  group('driveAs', () {
+  group('stagedAs', () {
     setUp(() async {
       stubGuests({'Alice': 1, 'Bob': 2});
       _stubLobbyFlow(client, code: 'XY', gameId: 'g1');
@@ -365,48 +357,6 @@ void main() {
         centerCards: ['Villager', 'Villager', 'Villager'],
       );
     });
-
-    test(
-      'night action posts with the actor token (not the global one)',
-      () async {
-        when(
-          () => client.post(
-            '/onuw/games/g1/action/',
-            token: any(named: 'token'),
-            data: any(named: 'data'),
-            idempotent409: any(named: 'idempotent409'),
-          ),
-        ).thenAnswer(
-          (_) async => _answer(
-            'POST',
-            '/onuw/games/g1/action/',
-            200,
-            ContractSamples.map('http/game/action_submitted'),
-          ),
-        );
-
-        final bob = controller.table!.playerById(2);
-        await controller.driveAs(
-          bob,
-          const DebugAction.nightAction(
-            actionType: 'peek_player',
-            targets: {'player_id': 1},
-          ),
-        );
-
-        verify(
-          () => client.post(
-            '/onuw/games/g1/action/',
-            token: 'access-2',
-            data: {
-              'action_type': 'peek_player',
-              'targets': {'player_id': 1},
-            },
-            idempotent409: false,
-          ),
-        ).called(1);
-      },
-    );
 
     test(
       'stagedAs names the stage /me/ carries; a choose its chosen',
@@ -455,7 +405,12 @@ void main() {
       },
     );
 
-    test('vote posts the target_player_id', () async {
+    test('a vote names the stage; lenient treats a 409 as done', () async {
+      final me = ContractSamples.map('http/game/me_voting_unpicked')
+        ..['game_id'] = 'g1';
+      when(
+        () => client.get('/onuw/games/g1/me/', token: 'access-1'),
+      ).thenAnswer((_) async => _answer('GET', '/onuw/games/g1/me/', 200, me));
       when(
         () => client.post(
           '/onuw/games/g1/vote/',
@@ -465,51 +420,27 @@ void main() {
         ),
       ).thenAnswer((_) async => _voted());
 
-      await controller.driveAs(
-        controller.table!.playerById(1),
-        const DebugAction.vote(voteTargetUserId: 2),
-      );
+      await controller.stagedAs(controller.table!.playerById(1), 'vote', {
+        'target_player_id': 2,
+        'lock': true,
+      }, lenient: true);
 
       verify(
         () => client.post(
           '/onuw/games/g1/vote/',
           token: 'access-1',
-          data: {'target_player_id': 2},
-          idempotent409: false,
+          data: {'target_player_id': 2, 'lock': true, 'stage': me['stage']},
+          idempotent409: true,
         ),
       ).called(1);
     });
 
-    test(
-      'lenient driving treats a 409 as already done (toolbar only)',
-      () async {
-        when(
-          () => client.post(
-            '/onuw/games/g1/vote/',
-            token: any(named: 'token'),
-            data: any(named: 'data'),
-            idempotent409: any(named: 'idempotent409'),
-          ),
-        ).thenAnswer((_) async => _voted());
-
-        await controller.driveAs(
-          controller.table!.playerById(1),
-          const DebugAction.vote(voteTargetUserId: 2),
-          lenient: true,
-        );
-
-        verify(
-          () => client.post(
-            '/onuw/games/g1/vote/',
-            token: 'access-1',
-            data: {'target_player_id': 2},
-            idempotent409: true,
-          ),
-        ).called(1);
-      },
-    );
-
     test('attachTable re-points driving at a later game', () async {
+      final me = ContractSamples.map('http/game/me_talk_untimed')
+        ..['game_id'] = 'g7';
+      when(
+        () => client.get('/onuw/games/g7/me/', token: 'access-1'),
+      ).thenAnswer((_) async => _answer('GET', '/onuw/games/g7/me/', 200, me));
       // The only post here is the host ending the talk.
       when(
         () => client.post(
@@ -535,13 +466,15 @@ void main() {
         ),
       );
 
-      await controller.driveAs(
-        old.players.first,
-        const DebugAction.endDiscussion(),
-      );
+      await controller.stagedAs(old.players.first, 'end-discussion', {});
 
       verify(
-        () => client.post('/onuw/games/g7/end-discussion/', token: 'access-1'),
+        () => client.post(
+          '/onuw/games/g7/end-discussion/',
+          token: 'access-1',
+          data: {'stage': me['stage']},
+          idempotent409: false,
+        ),
       ).called(1);
     });
   });
@@ -664,7 +597,7 @@ void main() {
   });
 }
 
-/// Stubs the lobby create/join/ready/patch/start chain for a 2-player table.
+/// Stubs the lobby create/join/patch/start chain for a 2-player table.
 void _stubLobbyFlow(
   _MockDebugApiClient client, {
   required String code,
@@ -684,14 +617,6 @@ void _stubLobbyFlow(
     ),
   ).thenAnswer(
     (_) async => _answer('POST', '/lobbies/$code/join/', 200, _table(code)),
-  );
-  when(
-    () => client.post(
-      any(that: contains('/ready/')),
-      token: any(named: 'token'),
-    ),
-  ).thenAnswer(
-    (_) async => _answer('POST', '/lobbies/$code/ready/', 200, _table(code)),
   );
   when(
     () => client.patch(

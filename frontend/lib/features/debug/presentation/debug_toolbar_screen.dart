@@ -15,7 +15,7 @@ import '../../lobby/domain/role_config.dart';
 /// DEBUG-ONLY developer toolbar (contract §D3), reachable at `/debug` ONLY when
 /// const [Env.isDev] is true (the route is not registered in prod).
 ///
-/// Lets a human spin up a forced-assignment table (night protocol 2, as
+/// Lets a human spin up a forced-assignment table (as
 /// every table the app opens), switch to any player's perspective, watch all
 /// players' ground truth via the oracle god panel, auto-drive everyone else,
 /// and reset what this device has learned.
@@ -252,7 +252,6 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
         roleCounts: roleCounts,
         playerRolesByName: rolesByName,
         centerCards: List.of(_centerEditor),
-        protocolTwo: true,
       );
       setState(() {
         _table = table;

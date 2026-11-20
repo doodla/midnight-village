@@ -128,8 +128,15 @@ class TestDealtCenterIsKept:
         dealt = Game.objects.get(id=game_id).dealt_center_cards
         assert dealt == ["Werewolf", "Villager", "Villager"]
 
-        # The Drunk does not act: the server swaps them with a center card.
-        table.host.post(reverse("onuw:wave-advance", kwargs={"game_id": game_id}))
+        # The Drunk does not choose: the server swaps them with a center card.
+        stage = table.host.get(
+            reverse("onuw:game-me", kwargs={"game_id": game_id})
+        ).data["stage"]
+        table.host.post(
+            reverse("onuw:wave-advance", kwargs={"game_id": game_id}),
+            {"stage": stage},
+            format="json",
+        )
 
         game = Game.objects.get(id=game_id)
         assert game.center_cards != dealt  # the live center was overwritten
@@ -156,15 +163,15 @@ class TestARefusedDealWritesNothing:
 
     @pytest.mark.parametrize(
         "cause",
-        ["not_host", "not_ready", "bad_settings", "bad_assignment", "bad_seed"],
+        ["not_host", "not_waiting", "bad_settings", "bad_assignment", "bad_seed"],
     )
     def test_a_refused_start_changes_nothing(self, table, cause) -> None:
         LobbyMember.objects.filter(lobby__code=table.code).update(token="")
         client, body = table.host, {}
         if cause == "not_host":
             client = table.clients[1]
-        elif cause == "not_ready":
-            LobbyMember.objects.filter(user_id=table.ids[2]).update(is_ready=False)
+        elif cause == "not_waiting":
+            Lobby.objects.filter(code=table.code).update(status=Lobby.Status.FINISHED)
         elif cause == "bad_settings":
             Lobby.objects.filter(code=table.code).update(
                 settings={"roles": {"Seer": 1}}
@@ -178,12 +185,13 @@ class TestARefusedDealWritesNothing:
                 "pk", "token", "is_ready"
             )
         )
+        status_before = Lobby.objects.get(code=table.code).status
 
         response = self.start(table, client, body)
 
         assert 400 <= response.status_code < 500
         assert Game.objects.filter(lobby__code=table.code).count() == 0
-        assert Lobby.objects.get(code=table.code).status == Lobby.Status.WAITING
+        assert Lobby.objects.get(code=table.code).status == status_before
         assert (
             list(
                 LobbyMember.objects.filter(lobby__code=table.code).values_list(

@@ -9,7 +9,7 @@ import 'package:midnight_village/design_system/skin/art_set.dart';
 import '../contract/contract_samples.dart';
 
 // The games the component sheet's pages show, as the server recorded them
-// (contract_samples/http/game/, night protocol 2). Every night input (the
+// (contract_samples/http/game/). Every night input (the
 // table, a phone's prompt, its faces, what it tapped) is read from those
 // payloads, never written here (night_fixture_sources_test.dart checks).
 //

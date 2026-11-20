@@ -87,7 +87,6 @@ void main() {
       },
       centerCards: ['Werewolf', 'Robber', 'Drunk'],
       timerSettings: {...timers, 'card_look_seconds': 0},
-      protocolTwo: true,
     );
 
     Future<void> choose(
@@ -101,7 +100,7 @@ void main() {
     Future<List<dynamic>> results(DebugPlayer p) async =>
         (await me(p))['night_results'] as List;
 
-    /// The events the original night sent to one player; this night sends none.
+    /// Per-player night events: the night sends none.
     const perPlayerEvents = {
       'action_prompt',
       'action_result',

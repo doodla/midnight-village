@@ -26,6 +26,7 @@ from apps.core import host, queue_worker, timers
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer
 from apps.onuw import presence, services
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
+from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night, _Recorder
 
 pytestmark = [pytest.mark.uses_timers, pytest.mark.django_db(transaction=True)]
@@ -168,7 +169,8 @@ class TestANightWindowOnTheQueue:
         key = key_of(n, "wave:2")
         n.post("wolf", "see_team")
         n.post("seer", "skip")
-        n.post("robber", "skip")  # everyone is done: closes now, cancels the timer
+        n.post("robber", "skip")
+        n.post("villager", "none")  # everyone is done: closes now, cancels the timer
         assert n.refresh().phase == Phase.DISCUSSION
         queue.make_due(key)
 
@@ -184,6 +186,7 @@ class TestANightWindowOnTheQueue:
         n.post("wolf", "see_team")
         n.post("seer", "skip")
         n.post("robber", "skip")
+        n.post("villager", "none")
         first, second = (m[0] for m in queue.for_key(key))
         assert n.refresh().phase == Phase.NIGHT  # held for the minimum
         assert first["token"] != second["token"]
@@ -235,7 +238,9 @@ class TestAVoteOnTheQueue:
         n.host_close_window()
         n.client.force_authenticate(user=n.host)
         n.client.post(
-            reverse("onuw:end-discussion", kwargs={"game_id": str(n.game.id)})
+            reverse("onuw:end-discussion", kwargs={"game_id": str(n.game.id)}),
+            staged(n, {}),
+            format="json",
         )
         assert n.refresh().phase == Phase.VOTING
         return n
@@ -244,7 +249,7 @@ class TestAVoteOnTheQueue:
         n.client.force_authenticate(user=n.users[voter])
         return n.client.post(
             reverse("onuw:vote", kwargs={"game_id": str(n.game.id)}),
-            {"target_player_id": n.users[target].id},
+            staged(n, {"target_player_id": n.users[target].id, "lock": True}),
             format="json",
         )
 
@@ -464,7 +469,9 @@ class TestAFailingJobKeepsItsTimer:
         n.host_close_window()
         n.client.force_authenticate(user=n.host)
         n.client.post(
-            reverse("onuw:end-discussion", kwargs={"game_id": str(n.game.id)})
+            reverse("onuw:end-discussion", kwargs={"game_id": str(n.game.id)}),
+            staged(n, {}),
+            format="json",
         )
         key = key_of(n, "voting")
         queue.make_due(key)
@@ -513,6 +520,7 @@ class TestAFailingJobKeepsItsTimer:
         key = key_of(n, f"grace:{user_id}")
         n.post("wolf", "see_team")
         n.post("robber", "skip")
+        n.post("villager", "none")
         assert n.refresh().phase == Phase.NIGHT  # still inside the Seer's grace
         PlayerRole.objects.filter(game=n.game, user_id=user_id).update(
             disconnected_at=timezone.now() - timedelta(seconds=40)

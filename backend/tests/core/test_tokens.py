@@ -196,12 +196,6 @@ class TestCapacity:
 
     def test_the_game_refuses_to_deal_a_table_that_is_too_small(self, db) -> None:
         code, clients = seat_everyone(2, max_players=2)
-        for client in clients:
-            client.post(
-                reverse("core:lobby-ready", kwargs={"code": code}),
-                {"is_ready": True},
-                format="json",
-            )
 
         response = clients[0].post(reverse("onuw:game-start", kwargs={"code": code}))
 
@@ -273,40 +267,6 @@ class TestCapacity:
         assert len(seated) == capacity
         assert len({m.token for m in seated}) == capacity
         assert all(m.token in EXPECTED_TOKENS for m in seated)
-
-
-class TestStrictReadyFlag:
-    def ready(self, client: APIClient, code: str, body):
-        return client.post(
-            reverse("core:lobby-ready", kwargs={"code": code}), body, format="json"
-        )
-
-    @pytest.mark.parametrize("junk", ["false", "true", 0, 1, None, [], {}])
-    def test_is_ready_must_be_a_real_boolean(self, db, junk) -> None:
-        code, clients = seat_everyone(3)
-
-        response = self.ready(clients[1], code, {"is_ready": junk})
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data["code"] == "bad_request"
-        member = LobbyMember.objects.get(lobby__code=code, user__username="p1")
-        assert member.is_ready is False
-
-    def test_the_string_false_does_not_ready_a_player(self, db) -> None:
-        code, clients = seat_everyone(3)
-
-        self.ready(clients[1], code, {"is_ready": "false"})
-
-        assert not LobbyMember.objects.filter(lobby__code=code, is_ready=True).exists()
-
-    def test_booleans_and_the_toggle_still_work(self, db) -> None:
-        code, clients = seat_everyone(3)
-
-        assert self.ready(clients[1], code, {"is_ready": True}).status_code == 200
-        assert LobbyMember.objects.get(user__username="p1").is_ready is True
-        assert self.ready(clients[1], code, {}).status_code == 200  # toggle
-        assert LobbyMember.objects.get(user__username="p1").is_ready is False
-        assert self.ready(clients[1], code, {"is_ready": False}).status_code == 200
 
 
 class TestJoinRefusalsCarryACode:

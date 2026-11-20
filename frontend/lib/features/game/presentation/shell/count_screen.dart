@@ -24,11 +24,11 @@ import '../../../../design_system/primitives/tag_chip.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../domain/outcome_view.dart';
-import '../protocol_two_game.dart';
+import '../live_game.dart';
 import '../table_screen.dart';
 
 /// 10 The count (first-time play spec, section 3), wired to the game: the
-/// results body ([ProtocolTwoGame.outcome], fetched again until it loads)
+/// results body ([LiveGame.outcome], fetched again until it loads)
 /// drawn by [CountView]; "See who won" is this phone's own step to 11
 /// ([LocalStepsNotifier.seeWhoWon], kept on this device so a restart lands
 /// there again). Until the results arrive: the day's ground and nothing on
@@ -39,7 +39,7 @@ class CountScreen extends ConsumerWidget {
   final String gameId;
 
   /// The game as the shell has it; null while its first `/me/` loads.
-  final ProtocolTwoGame? game;
+  final LiveGame? game;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

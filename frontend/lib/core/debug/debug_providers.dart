@@ -2,7 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../features/auth/presentation/auth_notifier.dart';
 import '../../features/game/presentation/game_socket.dart';
-import '../../features/game/presentation/protocol_two_game.dart';
+import '../../features/game/presentation/live_game.dart';
 import '../../features/game/presentation/table_screen.dart';
 import '../../features/lobby/presentation/where_am_i_provider.dart';
 import '../config/env.dart';
@@ -60,7 +60,7 @@ DebugTableController debugTableController(Ref ref) {
         ..invalidate(gameWebSocketProvider(gameId))
         ..invalidate(gameWebSocketStreamProvider(gameId))
         ..invalidate(gameConnectionStateProvider(gameId))
-        ..invalidate(protocolTwoGameProvider(gameId))
+        ..invalidate(liveGameProvider(gameId))
         ..invalidate(myTableProvider)
         ..invalidate(localStepsProvider);
     },

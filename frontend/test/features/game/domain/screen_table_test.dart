@@ -37,17 +37,16 @@ void main() {
     return s;
   }
 
-  test('every recorded protocol-2 /me/ is listed with its screen', () {
+  test('every recorded /me/ is listed with its screen', () {
     expect(
-      protocolTwoScreens.keys.toSet(),
-      protocolTwoMeSamples().toSet(),
+      meScreens.keys.toSet(),
+      meSamples().toSet(),
       reason: 'a new /me/ sample needs its screen stated in sample_sets.dart',
     );
   });
 
-  test('every recorded protocol-2 /me/ maps to the screen stated for it', () {
-    for (final MapEntry(key: name, value: expected)
-        in protocolTwoScreens.entries) {
+  test('every recorded /me/ maps to the screen stated for it', () {
+    for (final MapEntry(key: name, value: expected) in meScreens.entries) {
       final me = FromSample.gameMe(recordedMe(name));
       // The deck step means nothing during a game.
       for (final local in _allLocal.take(2)) {
@@ -59,7 +58,7 @@ void main() {
       }
     }
     // At the results, "See who won" goes on to 11.
-    final results = FromSample.gameMe(recordedMe('me_results_v2'));
+    final results = FromSample.gameMe(recordedMe('me_results'));
     expect(
       screen(
         tableDuring(results),

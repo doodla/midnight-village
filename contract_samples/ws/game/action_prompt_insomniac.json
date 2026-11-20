@@ -1,9 +1,0 @@
-{
-  "type": "action_prompt",
-  "wave": 2,
-  "role_acting_as": "Insomniac",
-  "action_types": [
-    "none"
-  ],
-  "valid_targets": {}
-}

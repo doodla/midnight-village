@@ -233,12 +233,12 @@ void main() {
         final exception = mapDioException(
           createDioException(
             statusCode: 400,
-            data: ContractSamples.load('http/game/action_invalid'),
+            data: ContractSamples.load('http/game/vote_invalid_target'),
           ),
         );
 
         expect((exception as ValidationException).errors, {
-          'detail': ['Cannot target yourself.'],
+          'detail': ['You cannot vote for yourself.'],
         });
       });
 

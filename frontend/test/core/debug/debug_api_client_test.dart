@@ -123,14 +123,14 @@ void main() {
           'POST',
           '/onuw/games/g1/action/',
           409,
-          'http/game/action_already_acted',
+          'http/game/choose_already_chosen',
         );
         final client = _clientWith(adapter);
 
         final result = await client.post(
           '/onuw/games/g1/action/',
           token: 't',
-          data: const {'action_type': 'peek_player'},
+          data: const {'action_type': 'choose'},
           idempotent409: true,
         );
         expect(result, isEmpty);
@@ -181,11 +181,11 @@ void main() {
           'POST',
           '/onuw/lobbies/AB/start/',
           400,
-          'http/game/start_not_all_ready',
+          'http/game/start_not_waiting',
         );
         final client = _clientWith(adapter);
         final message = ContractSamples.map(
-          'http/game/start_not_all_ready',
+          'http/game/start_not_waiting',
         )['detail'];
 
         await expectLater(

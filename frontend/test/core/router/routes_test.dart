@@ -31,11 +31,6 @@ Future<void> _settle(WidgetTester tester) async {
 
 void main() {
   group('Route resolution', () {
-    test('/lobby/:code resolves to LobbyRoute(code: ...)', () {
-      const route = LobbyRoute(code: 'ABC123');
-      expect(route.location, '/lobby/ABC123');
-    });
-
     test('/game/:gameId resolves to GameRoute(gameId: ...)', () {
       const route = GameRoute(gameId: '550e8400-uuid');
       expect(route.location, '/game/550e8400-uuid');
@@ -128,21 +123,6 @@ void main() {
 
     String location(GoRouter router) =>
         router.routerDelegate.currentConfiguration.uri.toString();
-
-    testWidgets(
-      'unauthenticated user navigating to /lobby/:code is redirected to /',
-      (tester) async {
-        final router = await pumpRouterApp(
-          tester,
-          authState: const AuthState.unauthenticated(),
-        );
-
-        router.go('/lobby/ABC');
-        await tester.pumpAndSettle();
-
-        expect(location(router), '/');
-      },
-    );
 
     testWidgets(
       'unauthenticated user navigating to /game/:id is redirected to /',

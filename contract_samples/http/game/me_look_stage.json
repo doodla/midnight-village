@@ -1,16 +1,14 @@
 {
-  "game_id": "00000000-0000-4000-a000-000000000007",
+  "game_id": "00000000-0000-4000-a000-000000000004",
   "lobby_code": "R5ZD3H",
   "phase": "night",
   "current_wave": 0,
-  "deadline": "2024-03-07T21:19:08+00:00",
+  "deadline": "2024-03-07T21:16:08+00:00",
   "your_role": {
-    "original_role": "Seer",
-    "has_acted": false
+    "original_role": "Seer"
   },
   "is_host": true,
   "host_id": 27,
-  "has_voted": false,
   "players": [
     {
       "player_id": 27,
@@ -76,7 +74,7 @@
     "done": 0,
     "needed": 5
   },
-  "stage": "look.000000000007",
-  "stage_started_at": "2024-03-07T21:18:38+00:00",
+  "stage": "look.000000000004",
+  "stage_started_at": "2024-03-07T21:15:38+00:00",
   "vote_targets": null
 }

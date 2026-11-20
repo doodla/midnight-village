@@ -58,6 +58,7 @@ def finish_window_two(night: Night) -> None:
     night.post("wolf", "see_team")
     night.post("seer", "peek_player", {"player_id": night.users["robber"].id})
     night.post("robber", "swap_with_player", {"player_id": night.users["villager"].id})
+    night.post("villager", "none")
     night.post("insomniac", "none")
     assert night.refresh().phase == Phase.DISCUSSION
 
@@ -133,25 +134,26 @@ class TestSeenCount:
     def test_an_ack_cannot_cover_a_result_that_is_not_visible_yet(
         self, make_night
     ) -> None:
-        """The Doppelganger's look reaches her by socket while window 1 is open, but
-        ``night_results`` lists it only once the window closes: an ack sent before
-        that is clamped to nothing, so the look is still shown after a restart."""
+        """The Doppelganger's look is listed while window 1 is open, her follow-up
+        only once it closes: an ack sent before that is clamped to what she can see,
+        so the follow-up is still shown after a restart."""
         night = make_night(
             {"d": "Doppelganger", "s": "Seer", "w": "Werewolf", "v": "Villager"},
             ["Robber", "Tanner", "Hunter"],
         )
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["s"].id})
-        assert night.refresh().current_wave == 1  # her follow-up is pending
-        assert me(night, "d")["night_results"] == []  # held back while open
-
-        early = ack(night, "d", {"seen": 1})
-
-        assert early.data == {"night_results_seen": 0}
         night.post("d", "peek_center", {"center_indices": [0, 1]})
+        assert night.refresh().current_wave == 1  # the others have not chosen
+        assert len(me(night, "d")["night_results"]) == 1  # the look only
+
+        early = ack(night, "d", {"seen": 2})
+
+        assert early.data == {"night_results_seen": 1}
+        night.rest_choose()
         assert night.refresh().current_wave == 2
         assert len(me(night, "d")["night_results"]) == 2
-        assert me(night, "d")["night_results_seen"] == 0  # both still unseen
+        assert me(night, "d")["night_results_seen"] == 1  # the follow-up is unseen
         assert ack(night, "d", {"seen": 2}).data == {"night_results_seen": 2}
 
     @pytest.mark.django_db(transaction=True)

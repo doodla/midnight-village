@@ -72,12 +72,9 @@ class DebugTableController {
   /// defaults (the real window lengths); the harness passes zeros so a night
   /// window closes as soon as every actor has submitted.
   ///
-  /// [protocolTwo] opens the table as the app does (`defaults: "v2"`: the
-  /// look stage, night protocol 2), with the deck made custom from
-  /// [roleCounts] (an automatic deck is built at the deal and would not match
-  /// a forced assignment). The toolbar always passes it. PROTOCOL 1: false
-  /// (the default) is for the e2e API runner, which still drives the
-  /// protocol-1 API; it goes when the server slice ports that runner.
+  /// The table is opened as the app opens one (`defaults: "v2"`: the look
+  /// stage), with the deck made custom from [roleCounts] (an automatic deck
+  /// is built at the deal and would not match a forced assignment).
   ///
   /// [roleCounts] is TitleCase role name → count, exactly as PATCHed.
   /// [playerRolesByName] maps each player's display name → TitleCase role.
@@ -89,7 +86,6 @@ class DebugTableController {
     Map<String, String>? playerRolesByName,
     List<String>? centerCards,
     Map<String, int>? timerSettings,
-    bool protocolTwo = false,
   }) async {
     if (playerNames.isEmpty) {
       throw const _DebugTableException('playerNames must not be empty');
@@ -110,7 +106,7 @@ class DebugTableController {
     final lobbyResp = await _client.post(
       '/lobbies/',
       token: host.accessToken,
-      data: {'game_type': 'onuw', if (protocolTwo) 'defaults': 'v2'},
+      data: {'game_type': 'onuw', 'defaults': 'v2'},
     );
     final lobbyCode = _requireString(lobbyResp, 'code', '/lobbies/');
 
@@ -119,24 +115,12 @@ class DebugTableController {
       await _client.post('/lobbies/$lobbyCode/join/', token: guest.accessToken);
     }
 
-    // 4. Everyone readies up.
-    for (final guest in guests) {
-      await _client.post(
-        '/lobbies/$lobbyCode/ready/',
-        token: guest.accessToken,
-      );
-    }
-
-    // 5. Host PATCHes the role config (TitleCase keys).
+    // 4. Host PATCHes the role config (TitleCase keys).
     await _client.patch(
       '/lobbies/$lobbyCode/',
       token: host.accessToken,
       data: {
-        'settings': {
-          if (protocolTwo) 'deck': 'custom',
-          'roles': roleCounts,
-          ...?timerSettings,
-        },
+        'settings': {'deck': 'custom', 'roles': roleCounts, ...?timerSettings},
       },
     );
 
@@ -196,7 +180,7 @@ class DebugTableController {
   }
 
   /// Points the controller at [table] (a later game of the same lobby, after a
-  /// play again), so [driveAs], [playerView], [oracle] and [fireTimer] act on
+  /// play again), so [stagedAs], [playerView], [oracle] and [fireTimer] act on
   /// that game.
   void attachTable(DebugTable table) => _table = table;
 
@@ -219,59 +203,16 @@ class DebugTableController {
     }
   }
 
-  /// Issues [action] AS [player] WITHOUT changing the visible perspective,
-  /// via the explicit-per-player-token client. PROTOCOL 1: these are the
-  /// protocol-1 requests the e2e API runner makes (no `stage`); a protocol-2
-  /// game is driven with [stagedAs].
+  /// A stage-scoped request (`ready`, `action` with a `choose`, `vote`, and
+  /// the host's `advance-wave`, `end-discussion`, `reveal-votes`) AS
+  /// [player], WITHOUT changing the visible perspective, naming the stage
+  /// their `/me/` carries now; a choose answers the prompt as `/me/` shows it
+  /// (its `chosen`).
   ///
-  /// STRICT by default: anything the server refuses (including a 409 "already
-  /// acted / already voted") throws, so a runner can never mistake a refused
-  /// move for a made one. The debug toolbar's one-tap helpers re-send moves on
-  /// purpose and pass [lenient] = true to treat a 409 as already done.
-  Future<void> driveAs(
-    DebugPlayer player,
-    DebugAction action, {
-    bool lenient = false,
-  }) async {
-    final gameId = _requireTable().gameId;
-    switch (action.kind) {
-      case DebugActionKind.nightAction:
-        await _client.post(
-          '/onuw/games/$gameId/action/',
-          token: player.accessToken,
-          data: {'action_type': action.actionType, 'targets': action.targets},
-          idempotent409: lenient,
-        );
-      case DebugActionKind.vote:
-        await _client.post(
-          '/onuw/games/$gameId/vote/',
-          token: player.accessToken,
-          data: {'target_player_id': action.voteTargetUserId},
-          idempotent409: lenient,
-        );
-      case DebugActionKind.endDiscussion:
-        await _client.post(
-          '/onuw/games/$gameId/end-discussion/',
-          token: player.accessToken,
-        );
-      case DebugActionKind.advanceWave:
-        await _client.post(
-          '/onuw/games/$gameId/advance-wave/',
-          token: player.accessToken,
-        );
-      case DebugActionKind.revealVotes:
-        await _client.post(
-          '/onuw/games/$gameId/reveal-votes/',
-          token: player.accessToken,
-        );
-    }
-  }
-
-  /// A stage-scoped request (night protocol 2: `ready`, `action` with a
-  /// `choose`, `vote`) AS [player], naming the stage their `/me/` carries
-  /// now; a choose answers the prompt as `/me/` shows it (its `chosen`).
-  /// STRICT by default like [driveAs]; [lenient] treats a 409 (the stage
-  /// moved on, or it was already taken) as done, for the toolbar.
+  /// STRICT by default: anything the server refuses throws, so a runner can
+  /// never mistake a refused move for a made one. The debug toolbar's
+  /// one-tap helpers re-send moves on purpose and pass [lenient] = true to
+  /// treat a 409 (the stage moved on, or it was already taken) as done.
   Future<void> stagedAs(
     DebugPlayer player,
     String tail,

@@ -13,6 +13,7 @@ from rest_framework import status
 
 from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.protocol import stage_token
 
 pytestmark = pytest.mark.integration
 
@@ -83,6 +84,16 @@ def _me_url(game_id):
     return reverse("onuw:game-me", kwargs={"game_id": str(game_id)})
 
 
+def _staged(game, **body):
+    """A stage-scoped body naming the stage the game is in now (``GET /me/``)."""
+    return {**body, "stage": stage_token(Game.objects.get(id=game.id))}
+
+
+def _vote(game, target_id):
+    """A vote that picks and locks ``target_id`` in one request."""
+    return _staged(game, target_player_id=target_id, lock=True)
+
+
 def _patch_channels():
     """Context manager to mock out channel layer so WebSocket sends are no-ops."""
     return patch("apps.core.effects.get_channel_layer", return_value=None)
@@ -106,7 +117,9 @@ class TestEndDiscussion:
         api_client.force_authenticate(user=host)
 
         with _patch_channels():
-            response = api_client.post(_end_discussion_url(game.id))
+            response = api_client.post(
+                _end_discussion_url(game.id), _staged(game), format="json"
+            )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["status"] == "voting_started"
@@ -129,7 +142,9 @@ class TestEndDiscussion:
         api_client.force_authenticate(user=users["p1_ned"])
 
         with _patch_channels():
-            response = api_client.post(_end_discussion_url(game.id))
+            response = api_client.post(
+                _end_discussion_url(game.id), _staged(game), format="json"
+            )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -152,9 +167,13 @@ class TestEndDiscussion:
         api_client.force_authenticate(user=host)
 
         with _patch_channels():
-            response = api_client.post(_end_discussion_url(game.id))
+            response = api_client.post(
+                _end_discussion_url(game.id), _staged(game), format="json"
+            )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert (
+            response.status_code == status.HTTP_409_CONFLICT
+        )  # a stage that is not the talk
 
     def test_end_discussion_is_noop_if_timer_already_transitioned(self, api_client, db):
         """If the discussion timer already transitioned to voting, the host
@@ -178,9 +197,11 @@ class TestEndDiscussion:
         game.save(update_fields=["phase"])
 
         with _patch_channels():
-            response = api_client.post(_end_discussion_url(game.id))
+            response = api_client.post(
+                _end_discussion_url(game.id), _staged(game), format="json"
+            )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_409_CONFLICT  # the talk is over
         # Phase should still be VOTING, not re-transitioned
         game.refresh_from_db()
         assert game.phase == Phase.VOTING
@@ -207,7 +228,7 @@ class TestVoting:
         with _patch_channels():
             response = api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": target.id},
+                _vote(game, target.id),
                 format="json",
             )
 
@@ -240,7 +261,7 @@ class TestVoting:
             # First vote
             response = api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": target.id},
+                _vote(game, target.id),
                 format="json",
             )
             assert response.status_code == status.HTTP_200_OK
@@ -248,7 +269,7 @@ class TestVoting:
             # Second vote returns 409 (not 400) for idempotent handling
             response = api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": users["p2_vt"].id},
+                _vote(game, users["p2_vt"].id),
                 format="json",
             )
             assert response.status_code == status.HTTP_409_CONFLICT
@@ -275,17 +296,18 @@ class TestVoting:
         with _patch_channels():
             response = api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": users["host_wp"].id},
+                _vote(game, users["host_wp"].id),
                 format="json",
             )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_409_CONFLICT  # not the vote
 
-    def test_vote_does_not_reveal_target_in_broadcast(
+    def test_a_lock_tells_the_table_only_the_count(
         self, api_client, db, django_capture_on_commit_callbacks
     ):
         """
-        The vote_submitted broadcast contains player_id but NOT target_player_id.
+        A lock sends the table one ``progress`` (counts only): never who voted, never
+        the target.
         """
         game, users, _host = _create_game(
             {
@@ -312,24 +334,20 @@ class TestVoting:
             with django_capture_on_commit_callbacks(execute=True):
                 response = api_client.post(
                     _vote_url(game.id),
-                    {"target_player_id": target.id},
+                    _vote(game, target.id),
                     format="json",
                 )
             assert response.status_code == status.HTTP_200_OK
 
-            # Find the vote.submitted call
             send_fn = mock_a2s.return_value
-            vote_submitted_calls = [
-                call
-                for call in send_fn.call_args_list
-                if call[0][1].get("type") == "vote.submitted"
-            ]
-            assert len(vote_submitted_calls) == 1
-
-            event = vote_submitted_calls[0][0][1]
-            assert event["player_id"] == voter.id
-            assert "target_player_id" not in event
-            assert "target" not in event
+            events = [call[0][1] for call in send_fn.call_args_list]
+            assert [e["type"] for e in events] == ["progress"]
+            assert events[0] == {
+                "type": "progress",
+                "stage": "vote",
+                "done": 1,
+                "needed": 3,
+            }
 
     def test_non_player_cannot_vote(self, api_client, db):
         """A user not in the game gets an error when trying to vote."""
@@ -349,7 +367,7 @@ class TestVoting:
         with _patch_channels():
             response = api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": users["host_np"].id},
+                _vote(game, users["host_np"].id),
                 format="json",
             )
 
@@ -373,7 +391,7 @@ class TestVoting:
         with _patch_channels():
             response = api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": voter.id},
+                _vote(game, voter.id),
                 format="json",
             )
 
@@ -397,7 +415,7 @@ class TestVoting:
         with _patch_channels():
             response = api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": 99999},
+                _vote(game, 99999),
                 format="json",
             )
 
@@ -424,14 +442,16 @@ class TestForceReveal:
         with _patch_channels():
             api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": host.id},
+                _vote(game, host.id),
                 format="json",
             )
 
         # Host force-reveals
         api_client.force_authenticate(user=host)
         with _patch_channels():
-            response = api_client.post(_reveal_url(game.id))
+            response = api_client.post(
+                _reveal_url(game.id), _staged(game), format="json"
+            )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["status"] == "revealed"
@@ -454,7 +474,9 @@ class TestForceReveal:
         api_client.force_authenticate(user=users["p1_nfr"])
 
         with _patch_channels():
-            response = api_client.post(_reveal_url(game.id))
+            response = api_client.post(
+                _reveal_url(game.id), _staged(game), format="json"
+            )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -486,7 +508,9 @@ class TestForceReveal:
         game.save(update_fields=["phase", "results"])
 
         with _patch_channels():
-            response = api_client.post(_reveal_url(game.id))
+            response = api_client.post(
+                _reveal_url(game.id), _staged(game), format="json"
+            )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         # Phase should still be RESULTS, not re-processed
@@ -517,7 +541,7 @@ class TestForceReveal:
                 api_client.force_authenticate(user=users[uname])
                 response = api_client.post(
                     _vote_url(game.id),
-                    {"target_player_id": target.id},
+                    _vote(game, target.id),
                     format="json",
                 )
                 assert response.status_code == status.HTTP_200_OK
@@ -547,7 +571,7 @@ class TestForceReveal:
         with _patch_channels():
             api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": users["p1_nv"].id},
+                _vote(game, users["p1_nv"].id),
                 format="json",
             )
 
@@ -562,7 +586,9 @@ class TestForceReveal:
         ):
             api_client.force_authenticate(user=host)
             with django_capture_on_commit_callbacks(execute=True):
-                response = api_client.post(_reveal_url(game.id))
+                response = api_client.post(
+                    _reveal_url(game.id), _staged(game), format="json"
+                )
             assert response.status_code == status.HTTP_200_OK
 
             # Find the vote.reveal call
@@ -589,8 +615,8 @@ class TestForceReveal:
 class TestMeEndpointVotingStatus:
     """Tests for /me/ endpoint during voting phase."""
 
-    def test_me_shows_has_voted_false_before_voting(self, api_client, db):
-        """Before voting, has_voted is False."""
+    def test_me_shows_no_vote_before_voting(self, api_client, db):
+        """Before voting, my_vote is null."""
         game, users, _host = _create_game(
             {
                 "host_mev": "Werewolf",
@@ -605,10 +631,10 @@ class TestMeEndpointVotingStatus:
         response = api_client.get(_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["has_voted"] is False
+        assert response.data["my_vote"] is None
 
-    def test_me_shows_has_voted_true_after_voting(self, api_client, db):
-        """After voting, has_voted is True."""
+    def test_me_shows_the_callers_own_locked_vote(self, api_client, db):
+        """After voting, my_vote is the caller's own locked vote."""
         game, users, _host = _create_game(
             {
                 "host_mev2": "Werewolf",
@@ -626,16 +652,19 @@ class TestMeEndpointVotingStatus:
         with _patch_channels():
             api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": target.id},
+                _vote(game, target.id),
                 format="json",
             )
 
         response = api_client.get(_me_url(game.id))
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["has_voted"] is True
+        assert response.data["my_vote"] == {
+            "target_player_id": target.id,
+            "locked": True,
+        }
 
     def test_me_does_not_reveal_vote_target_during_voting(self, api_client, db):
-        """The /me/ response during voting does not include the vote target."""
+        """Another player's /me/ during voting says nothing of anyone's vote."""
         game, users, _host = _create_game(
             {
                 "host_mev3": "Werewolf",
@@ -653,13 +682,16 @@ class TestMeEndpointVotingStatus:
         with _patch_channels():
             api_client.post(
                 _vote_url(game.id),
-                {"target_player_id": target.id},
+                _vote(game, target.id),
                 format="json",
             )
 
+        api_client.force_authenticate(user=users["p2_mev3"])
         response = api_client.get(_me_url(game.id))
         assert response.status_code == status.HTTP_200_OK
 
-        # Ensure vote_target is not in the response anywhere
-        response_str = str(response.data)
-        assert "vote_target" not in response_str
+        # Nothing about the voter's choice, nor that they voted.
+        assert response.data["my_vote"] is None
+        assert response.data["progress"] == {"stage": "vote", "done": 1, "needed": 3}
+        for player in response.data["players"]:
+            assert set(player) == {"player_id", "display_name", "token", "seat"}

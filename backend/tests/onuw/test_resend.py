@@ -1,5 +1,5 @@
 """
-A lost answer and a resend: every protocol-2 request is safe to send twice.
+A lost answer and a resend: every stage request is safe to send twice.
 
 A phone whose answer is lost sends the SAME request again (same body, same ``stage``).
 The server must then leave the game exactly as the first copy left it, and answer so
@@ -31,9 +31,10 @@ from django.urls import reverse
 
 import pytest
 from rest_framework import status
+from rest_framework.test import APIClient
 
 from apps.core.models import LobbyMember
-from apps.onuw import night2, services
+from apps.onuw import choose_night, services
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night
@@ -63,11 +64,10 @@ LONE = {
 
 @pytest.fixture
 def make_p2(make_night):
-    """A protocol-2 Night: window 1 (if any) is a fixed 15 s, nothing else waits."""
+    """A Night whose window 1 (if any) is a fixed 15 s; nothing else waits."""
 
     def factory(roles, center=None, **settings) -> Night:
         merged = {
-            "night_protocol": 2,
             "night_wave_seconds": 60,
             "night_doppelganger_window_seconds": 15,
             "discussion_seconds": 300,
@@ -93,7 +93,7 @@ def player(night: Night, name: str) -> dict[str, int]:
 def chosen_now(night: Night, who: str) -> int:
     game = Game.objects.get(id=night.game.id)
     pr = PlayerRole.objects.get(game=game, user=night.users[who])
-    return night2.chose_count(pr, game.current_wave)
+    return choose_night.chose_count(pr, game.current_wave)
 
 
 def choose_body(night: Night, who: str, picks: list) -> dict[str, Any]:
@@ -417,7 +417,7 @@ class TestChooseResend:
         }
 
 
-# ── every other protocol-2 request ───────────────────────────────────────────
+# ── every other stage request ────────────────────────────────────────────────
 
 
 class TestOtherRequestsResent:
@@ -452,18 +452,6 @@ class TestOtherRequestsResent:
             assert reply.status_code == status.HTTP_409_CONFLICT
             assert reply.data["code"] == "vote_locked"
         assert night.role_of("seer").vote_target_id == pid(night, "wolf")
-
-    def test_protocol_one_still_refuses_a_second_lock(self, make_night) -> None:
-        night = make_night(LONE, CENTER, night_wave_seconds=60, voting_seconds=120)
-        night.start()
-        to_vote(night)
-        body = {"target_player_id": pid(night, "wolf")}
-        send(night, "seer", "onuw:vote", body)
-
-        again = send(night, "seer", "onuw:vote", body)
-
-        assert again.status_code == status.HTTP_409_CONFLICT
-        assert again.data == {"detail": "You have already voted."}
 
     def test_a_resent_pick_stores_the_same_pick(self, make_p2) -> None:
         night = make_p2(LONE)
@@ -590,7 +578,9 @@ class TestLobbyRequestsResent:
         from tests.onuw.test_play_again import Table
 
         table = Table(players=4)
-        newcomer = Table(players=1).clients[0]  # signed in, at no table yet
+        newcomer = APIClient()  # signed in, at no table yet
+        guest = newcomer.post(reverse("core:guest-create"), {}, format="json")
+        newcomer.credentials(HTTP_AUTHORIZATION=f"Bearer {guest.data['access']}")
         url = reverse("core:lobby-join", kwargs={"code": table.code})
         assert newcomer.post(url).status_code == status.HTTP_200_OK
         before = self.lobby_state(table)
@@ -614,15 +604,13 @@ class TestLobbyRequestsResent:
         assert again.status_code == status.HTTP_400_BAD_REQUEST
         assert self.lobby_state(table) == before
 
-    def test_a_resent_settings_patch_and_ready_answer_alike(self, db) -> None:
+    def test_a_resent_settings_patch_answers_alike(self, db) -> None:
         from tests.onuw.test_play_again import Table
 
         table = Table()
         detail = reverse("core:lobby-detail", kwargs={"code": table.code})
-        ready = reverse("core:lobby-ready", kwargs={"code": table.code})
         for client, url, body, method in (
             (table.host, detail, {"settings": {"pace": "quick"}}, "patch"),
-            (table.clients[1], ready, {"is_ready": False}, "post"),
         ):
             first = getattr(client, method)(url, body, format="json")
             before = self.lobby_state(table)
@@ -887,7 +875,7 @@ class TestTwiceIsOnce:
 
 
 def _play_seeded_game(make_p2, seed: int, prefix: str, *, resend: bool) -> dict:
-    """Play one seeded protocol-2 game to the results and return its outcome with
+    """Play one seeded game to the results and return its outcome with
     every player id replaced by the player's seat (comparable across tables)."""
     rng = random.Random(seed)  # noqa: S311 (seeded test data, not secret)
     others = ["Robber", "Seer", "Troublemaker", "Drunk", "Werewolf", "Villager"]

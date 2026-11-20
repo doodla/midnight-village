@@ -17,9 +17,9 @@ class LobbyService {
   final AuthenticatedClient _client;
 
   /// Opens a table: POST /lobbies/ with
-  /// `{"game_type": "onuw", "defaults": "v2"}`, always (every table plays
-  /// night protocol 2). The server writes the table's defaults (the look
-  /// stage, night protocol 2, the automatic Simple deck) and no timer length.
+  /// `{"game_type": "onuw", "defaults": "v2"}`, always (the app's starting
+  /// set). The server writes the table's defaults (the look stage, the
+  /// automatic Simple deck) and no timer length.
   Future<LobbyState> createTable() async {
     try {
       final response = await _client.post<Map<String, dynamic>>(

@@ -57,6 +57,11 @@ def validate_timer_settings(settings: dict) -> list[str]:
     latter is set above 0 (the minimum length of a window cannot be longer
     than its maximum). These are host-facing settings, so errors are explicit.
     """
+    return timer_value_errors(settings) + window_order_errors(settings)
+
+
+def timer_value_errors(settings: dict) -> list[str]:
+    """Each timer key present is a whole number of seconds in its range."""
     errors: list[str] = []
     for key in TIMER_SETTING_KEYS:
         if key not in settings:
@@ -66,7 +71,13 @@ def validate_timer_settings(settings: dict) -> list[str]:
             errors.append(
                 f"{key!r} must be a whole number of seconds from 0 to {maximum}."
             )
+    return errors
 
+
+def window_order_errors(settings: dict) -> list[str]:
+    """The minimum length of a night window cannot be longer than its maximum
+    (when that is set above 0)."""
+    errors: list[str] = []
     wave_max = settings.get("night_wave_seconds")
     window_min = settings.get("night_min_window_seconds")
     if (
@@ -108,47 +119,67 @@ def validate_deck_choice(settings: dict) -> list[str]:
     return errors
 
 
-# Night protocol 1 is the original per-role night; 2 is "every phone sends one
-# choose" (see ``choose.py``). Absent means 1.
-NIGHT_PROTOCOLS: tuple[int, ...] = (1, 2)
-# Under protocol 2 the close of a window must not depend on roles, so a window with
-# no deadline (one idle phone could stall the table and a window 1 with no length
-# singles out the Doppelganger) and a minimum window shorter than this are refused,
-# unless the server allows untimed nights (tests, development, the harness).
-MIN_PROTOCOL_2_MIN_WINDOW_SECONDS = 5
-PROTOCOL_2_TIMED_KEYS: tuple[str, ...] = (
+# The close of a window must not depend on roles, so a window with no deadline (one
+# idle phone could stall the table, and a window 1 with no length singles out the
+# Doppelganger) and a minimum window shorter than this are refused, unless the server
+# allows untimed nights (tests, development, the harness).
+MIN_WINDOW_FLOOR_SECONDS = 5
+TIMED_NIGHT_KEYS: tuple[str, ...] = (
     "night_wave_seconds",
     "night_doppelganger_window_seconds",
 )
 
 
-def validate_night_protocol(settings: dict, *, allow_untimed: bool = True) -> list[str]:
-    """``night_protocol`` (if present) must be 1 or 2. Under 2, unless
-    ``allow_untimed``: no zero night timers and a minimum window of at least 5 s. The look stage
-    (``card_look_seconds`` above 0) belongs to protocol 2 only."""
-    protocol = settings.get("night_protocol", 1)
-    if "night_protocol" in settings and (
-        type(protocol) is not int or protocol not in NIGHT_PROTOCOLS
-    ):
-        return ["'night_protocol' must be 1 or 2."]
-    errors: list[str] = []
-    look = settings.get("card_look_seconds")
-    if protocol != 2 and type(look) is int and look > 0:
-        errors.append("'card_look_seconds' needs 'night_protocol' 2.")
-    if protocol != 2 or allow_untimed:
-        return errors
-    errors += [
+def clamp_night_timing(settings: dict, *, allow_untimed: bool = True) -> dict:
+    """``settings`` with every stored timer value the server would refuse today
+    replaced, so a table older code wrote is never stuck: a timer value out of
+    range is dropped (the server's default applies, as ``get_timer_seconds``
+    reads it anyway); unless ``allow_untimed``, a night timer of 0 is dropped
+    too (its default is a real length) and a minimum window under 5 s becomes 5
+    (and a night window shorter than that minimum becomes the minimum). A new
+    dict; the input is not changed."""
+    out = dict(settings)
+    for key in TIMER_SETTING_KEYS:
+        if key in out and not is_valid_timer_value(out[key], max_seconds_for(key)):
+            del out[key]
+    if allow_untimed:
+        return out
+    for key in TIMED_NIGHT_KEYS:
+        if out.get(key) == 0:
+            del out[key]
+    window_min = out.get("night_min_window_seconds")
+    if isinstance(window_min, int) and window_min < MIN_WINDOW_FLOOR_SECONDS:
+        out["night_min_window_seconds"] = MIN_WINDOW_FLOOR_SECONDS
+    wave = out.get("night_wave_seconds")
+    floor = out.get("night_min_window_seconds", 0)
+    if isinstance(wave, int) and isinstance(floor, int) and 0 < wave < floor:
+        out["night_wave_seconds"] = floor
+    return out
+
+
+def validate_night_timing(settings: dict, *, allow_untimed: bool = True) -> list[str]:
+    """Unless ``allow_untimed``: no zero night timers and a minimum window of at
+    least 5 s. (Keys the server does not know, such as a protocol flag older
+    tables carry, are ignored: every table plays the one night there is.)"""
+    if allow_untimed:
+        return []
+    errors = [
         f"{key!r} cannot be 0 when every phone chooses at night."
-        for key in PROTOCOL_2_TIMED_KEYS
+        for key in TIMED_NIGHT_KEYS
         if type(settings.get(key)) is int and settings.get(key) == 0
     ]
     window_min = settings.get("night_min_window_seconds")
-    if type(window_min) is int and window_min < MIN_PROTOCOL_2_MIN_WINDOW_SECONDS:
+    if type(window_min) is int and window_min < MIN_WINDOW_FLOOR_SECONDS:
         errors.append(
             "'night_min_window_seconds' must be at least "
-            f"{MIN_PROTOCOL_2_MIN_WINDOW_SECONDS} when every phone chooses at night."
+            f"{MIN_WINDOW_FLOOR_SECONDS} when every phone chooses at night."
         )
     return errors
+
+
+def _changed_keys(settings: dict, changed: set[str] | frozenset[str]) -> dict:
+    """The part of ``settings`` a change touched."""
+    return {key: settings[key] for key in changed if key in settings}
 
 
 def validate_onuw_settings(
@@ -157,6 +188,7 @@ def validate_onuw_settings(
     *,
     check_deck: bool = True,
     allow_untimed: bool = True,
+    changed: set[str] | frozenset[str] | None = None,
 ) -> list[str]:
     """
     Validate ONUW role configuration.
@@ -169,8 +201,12 @@ def validate_onuw_settings(
                     does; a settings change that does not touch ``roles`` (a pace
                     label, a timer) skips it, because who joined meanwhile is not
                     that change's fault and the deal checks again.
-        allow_untimed: Allow zero night timers and a short minimum window under
-                    night protocol 2 (the server's ``ONUW_ALLOW_UNTIMED_NIGHT``).
+        allow_untimed: Allow zero night timers and a short minimum window (the
+                    server's ``ONUW_ALLOW_UNTIMED_NIGHT``).
+        changed: The keys a settings change gives (a lobby PATCH); only those
+                    are checked, so a value older code stored and nobody touches
+                    never blocks a change (the deal clamps it:
+                    ``clamp_night_timing``). None checks every key.
 
     Returns:
         List of error messages. Empty list means valid.
@@ -178,11 +214,19 @@ def validate_onuw_settings(
     if not isinstance(settings, dict):
         return ["Settings must be an object."]
 
+    scope = settings if changed is None else _changed_keys(settings, changed)
+    order = (
+        window_order_errors(settings)
+        if changed is None
+        or changed & {"night_wave_seconds", "night_min_window_seconds"}
+        else []
+    )
     errors: list[str] = [
-        *validate_timer_settings(settings),
-        *validate_pace(settings),
-        *validate_night_protocol(settings, allow_untimed=allow_untimed),
-        *validate_deck_choice(settings),
+        *timer_value_errors(scope),
+        *order,
+        *validate_pace(scope),
+        *validate_night_timing(scope, allow_untimed=allow_untimed),
+        *validate_deck_choice(scope),
     ]
     if not check_deck:
         return errors

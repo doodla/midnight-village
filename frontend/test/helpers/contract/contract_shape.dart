@@ -20,8 +20,7 @@ import 'contract_samples.dart';
 /// `role_acting_as` of a prompt, the kind of a night result). A key the server
 /// sends only at night is refused in a discussion `/me/`. When no sample has
 /// the payload's discriminator value, every sample of the endpoint counts.
-/// The samples are those of night protocol 2 only (`ContractSamples.index`
-/// leaves the server's protocol-1 samples out). Still not checked: values
+/// Still not checked: values
 /// (casing of role names, window numbers; the builders take care of those)
 /// and the order of events.
 ///

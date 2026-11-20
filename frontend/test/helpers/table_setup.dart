@@ -30,33 +30,33 @@ import 'contract/server_json.dart';
 import 'fake_wakelock_service.dart';
 import 'mock_http_client.dart';
 import 'mock_websocket.dart';
-import 'protocol_two_setup.dart' show testHealTiming;
+import 'live_game_setup.dart' show testHealTiming;
 
 // 01 Join, 02 Table and 03 Deck through the app's real routes and providers
 // (`HomeGate`, the table's shell), every answer a recorded server payload
 // (contract_samples/), changed in its values only: the lobby bodies of a
-// night protocol 2 table (`detail_v2_*`), `/me/table/`, the online count
+// table made with `defaults: "v2"` (`detail_*`), `/me/table/`, the online count
 // and the recent games. The lobby socket is a fake the test pushes events
 // into.
 
-/// The recorded protocol-2 lobby bodies, every name in [rename] renamed.
+/// The recorded lobby bodies, every name in [rename] renamed.
 /// The member count, the deck, its preview and the `deal` verdict are the
 /// server's, as recorded: a test picks the sample of its situation.
 ///
-/// The older recordings (`detail_v2_auto_deck_*`, `detail_v2_custom_deck`,
+/// The older recordings (`detail_auto_deck_*`, `detail_custom_deck`,
 /// `created_with_defaults`) were made with no socket open, so they say every
 /// phone has dropped: unless [asRecorded], every member is `connected` but
 /// those in [dropped].
 ///
-/// - `detail_v2_auto_deck_5`: Ana's table of five, the Classic chip.
-/// - `detail_v2_auto_deck_9`: nine, the Chaos chip.
-/// - `detail_v2_custom_deck`: nine, Ana's own deck of twelve cards.
+/// - `detail_auto_deck_5`: Ana's table of five, the Classic chip.
+/// - `detail_auto_deck_9`: nine, the Chaos chip.
+/// - `detail_custom_deck`: nine, Ana's own deck of twelve cards.
 /// - `created_with_defaults`: Ana alone, the Simple chip.
-/// - `detail_v2_deck_<chip>_4` and `_7`: Kai's table of four or seven, that
+/// - `detail_deck_<chip>_4` and `_7`: Kai's table of four or seven, that
 ///   chip, its cards.
-/// - `detail_v2_custom_deck_ok`, `_short`: Kai's own deck of ten for seven,
+/// - `detail_custom_deck_ok`, `_short`: Kai's own deck of ten for seven,
 ///   then an eighth player: one card short.
-/// - `detail_v2_member_dropped`: Kai's four, Noa's phone dropped.
+/// - `detail_member_dropped`: Kai's four, Noa's phone dropped.
 Map<String, dynamic> v2Lobby(
   String sample, {
   Map<String, String> rename = const {},

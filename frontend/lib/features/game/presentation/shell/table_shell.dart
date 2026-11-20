@@ -18,15 +18,13 @@ import '../../../lobby/presentation/deck_screen.dart';
 import '../../../lobby/presentation/join_screen.dart';
 import '../../domain/game_me.dart' show GamePhase;
 import '../../domain/screen_table.dart';
-import '../../data/game_service.dart' show UnplayableGameException;
 import '../game_socket.dart';
-import '../protocol_two_game.dart';
+import '../live_game.dart';
 import '../table_screen.dart';
 import 'count_screen.dart';
 import 'night_screen.dart';
 import 'results_screen.dart';
 import 'talk_screen.dart';
-import 'unplayable_screen.dart';
 import 'vote_screen.dart';
 import 'your_card_screen.dart';
 
@@ -40,9 +38,6 @@ import 'your_card_screen.dart';
 ///   night board (06, 05 while `/me/` loads), 08 Talk, 09 Vote, 10 The count
 ///   and 11 Results (their calm wait while the results load). 08 and 09
 ///   show their day ground, nothing on it, while their `/me/` loads.
-/// - PROTOCOL 1: a game whose `/me/` has no `stage` (a night this app does
-///   not play)
-///   is [UnplayableScreen]: a calm line and "Leave", never a retry loop.
 /// - A change of screen fades quickly ([Motion.settle]); with reduce motion
 ///   it is instant. Nothing waits for it.
 /// - While nothing is known yet (the first `/me/table/`), the night ground
@@ -94,15 +89,10 @@ class _TableShellState extends ConsumerState<TableShell>
     final gameId = shown?.gameId;
     final gameAsync = gameId == null
         ? null
-        : ref.watch(protocolTwoGameProvider(gameId));
+        : ref.watch(liveGameProvider(gameId));
     final game = gameAsync?.value;
-    final unplayable = gameAsync?.error is UnplayableGameException;
     final (key, screen) = switch (shown) {
       null => ('nothing', const _Nothing()),
-      _ when unplayable && _inGame(shown.screen) => (
-        'unplayable|$gameId',
-        const UnplayableScreen(),
-      ),
       _ => _screen(shown, game),
     };
     // Offline: nothing fetched yet and the fetch fails, or the socket is
@@ -130,7 +120,7 @@ class _TableShellState extends ConsumerState<TableShell>
   }
 
   /// The screen for [shown], and the key that says when it is another one.
-  (String, Widget) _screen(TableScreen shown, ProtocolTwoGame? game) {
+  (String, Widget) _screen(TableScreen shown, LiveGame? game) {
     final gameId = shown.gameId;
     // The player too: a `/debug` perspective switch is another phone, and
     // nothing of one player's screen (a reveal, picks) carries to the next.
@@ -139,7 +129,7 @@ class _TableShellState extends ConsumerState<TableShell>
     // table names a later phase than the `/me/` held (it is being fetched),
     // the screen waits on its ground with nothing on it, never showing the
     // earlier phase's values (the talk's count as the vote's).
-    ProtocolTwoGame? at(GamePhase phase) =>
+    LiveGame? at(GamePhase phase) =>
         game != null && game.me.phase == phase ? game : null;
     final night = at(GamePhase.night);
     final talk = at(GamePhase.discussion);
@@ -183,13 +173,7 @@ class _TableShellState extends ConsumerState<TableShell>
     };
   }
 
-  /// A screen of the game (not 01 to 03, which never read it).
-  static bool _inGame(AppScreen screen) => switch (screen) {
-    AppScreen.join || AppScreen.table || AppScreen.deck => false,
-    _ => true,
-  };
-
-  static bool _boardOpen(ProtocolTwoGame? game) {
+  static bool _boardOpen(LiveGame? game) {
     final me = game?.me;
     return me != null && me.inWindow && me.prompt != null;
   }

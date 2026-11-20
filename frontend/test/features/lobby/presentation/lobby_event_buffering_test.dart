@@ -26,7 +26,6 @@ LobbyState _lobby({int hostId = 1}) => FromSample.lobby(
     code: _code,
     seats: [for (final (i, n) in _names.indexed) (id: i + 1, name: n)],
     hostId: hostId,
-    notReady: {for (var i = 1; i <= _names.length; i++) i},
     roles: const {'Werewolf': 2},
   ),
 );
@@ -88,23 +87,20 @@ void main() {
       expect(current().status, 'in_game');
     });
 
-    test('player_ready and lobby_update are applied in order', () async {
+    test('lobby_updates are applied in order', () async {
       final fetch = Completer<LobbyState>();
       when(() => service.fetchLobby(_code)).thenAnswer((_) => fetch.future);
       final sub = container.listen(lobbyProvider(_code), (_, _) {});
       addTearDown(sub.close);
 
       await _tick();
-      // lobby_update is the whole lobby (everyone ready in it); the flags
-      // after it are applied on top, in order.
+      // Each lobby_update is the whole lobby: the last one heard wins.
       ws
-        ..addServerEvent(GameEvents.lobbyUpdate(roleConfig: {'Seer': 1}))
-        ..addServerEvent(GameEvents.playerReady(playerId: 2, isReady: true))
-        ..addServerEvent(GameEvents.playerReady(playerId: 2, isReady: false));
+        ..addServerEvent(GameEvents.lobbyUpdate(roleConfig: {'Robber': 1}))
+        ..addServerEvent(GameEvents.lobbyUpdate(roleConfig: {'Seer': 1}));
       fetch.complete(_lobby());
       await container.read(lobbyProvider(_code).future);
 
-      expect(current().players[1].isReady, isFalse);
       expect(current().roleConfig, {'Seer': 1});
     });
 
@@ -161,24 +157,6 @@ void main() {
       await refreshing;
 
       expect(current().hostId, 2);
-    });
-
-    test('a player_ready during a player_joined refetch survives it', () async {
-      when(() => service.fetchLobby(_code)).thenAnswer((_) async => _lobby());
-      final sub = container.listen(lobbyProvider(_code), (_, _) {});
-      addTearDown(sub.close);
-      await container.read(lobbyProvider(_code).future);
-
-      final fetch = Completer<LobbyState>();
-      when(() => service.fetchLobby(_code)).thenAnswer((_) => fetch.future);
-      ws.addServerEvent(GameEvents.playerJoined());
-      await _tick();
-      ws.addServerEvent(GameEvents.playerReady(playerId: 3, isReady: true));
-      fetch.complete(_lobby());
-      await _tick();
-      await _tick();
-
-      expect(current().players[2].isReady, isTrue);
     });
 
     test('a game_started during a refetch is not lost', () async {

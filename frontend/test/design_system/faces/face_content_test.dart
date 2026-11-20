@@ -8,8 +8,8 @@ import 'package:midnight_village/design_system/night/choose_prompt.dart';
 
 import '../../helpers/sheet/sheet_data.dart';
 
-// The faces read from what the server recorded (contract_samples/, night
-// protocol 2): every prompt, every talk.
+// The faces read from what the server recorded (contract_samples/): every
+// prompt, every talk.
 
 const _game7Prompts = [
   'me_choose_prompt_seer',

@@ -12,7 +12,7 @@ import '../test/helpers/table_setup.dart';
 
 // 01 Join, 02 Table, 03 Deck and 03b through the app's real routes and
 // providers (test/helpers/table_setup.dart), every answer a recorded
-// protocol-2 lobby payload, each state reached the way a player reaches it.
+// lobby payload, each state reached the way a player reaches it.
 // Ana sets the table up; Ben joins it.
 
 /// Long names as a table has them, at most the server's 20 characters.
@@ -92,7 +92,7 @@ Future<void> pumpJoinLinkNamed(WidgetTester tester) async {
 /// A table's link opened by a player seated at another table.
 Future<void> pumpJoinLinkElsewhere(WidgetTester tester) => TableSetup.pump(
   tester,
-  lobby: v2Lobby('detail_v2_auto_deck_5'),
+  lobby: v2Lobby('detail_auto_deck_5'),
   viewer: 'Ben',
   route: '/join/W3XF7K',
 );
@@ -109,7 +109,7 @@ Future<void> pumpJoinLink(WidgetTester tester) =>
 Future<void> pumpTableHost(WidgetTester tester, {double textScale = 1}) =>
     TableSetup.pump(
       tester,
-      lobby: v2Lobby('detail_v2_auto_deck_5'),
+      lobby: v2Lobby('detail_auto_deck_5'),
       viewer: 'Ana',
       textScale: textScale,
     );
@@ -117,7 +117,7 @@ Future<void> pumpTableHost(WidgetTester tester, {double textScale = 1}) =>
 /// 02, the host's: Kai's table of four, the Simple chip's cards.
 Future<void> pumpTableHostFour(WidgetTester tester) => TableSetup.pump(
   tester,
-  lobby: v2Lobby('detail_v2_deck_simple_4'),
+  lobby: v2Lobby('detail_deck_simple_4'),
   viewer: 'Kai',
 );
 
@@ -126,7 +126,7 @@ Future<void> pumpTableHostFour(WidgetTester tester) => TableSetup.pump(
 Future<void> pumpTableHostChaos(WidgetTester tester) async {
   await TableSetup.pump(
     tester,
-    lobby: v2Lobby('detail_v2_deck_chaos_7'),
+    lobby: v2Lobby('detail_deck_chaos_7'),
     viewer: 'Kai',
   );
   await tester.ensureVisible(find.text(TableCopy.editDeck));
@@ -143,28 +143,28 @@ Future<void> pumpTableHostAlone(WidgetTester tester) => TableSetup.pump(
 /// 02, the host's, at nine with long names, the Chaos chip's twelve cards.
 Future<void> pumpTableHostNine(WidgetTester tester) => TableSetup.pump(
   tester,
-  lobby: v2Lobby('detail_v2_auto_deck_9', rename: longNames),
+  lobby: v2Lobby('detail_auto_deck_9', rename: longNames),
   viewer: 'Christopher',
 );
 
 /// 02, the host's, with her own deck of twelve for nine.
 Future<void> pumpTableHostCustom(WidgetTester tester) => TableSetup.pump(
   tester,
-  lobby: v2Lobby('detail_v2_custom_deck'),
+  lobby: v2Lobby('detail_custom_deck'),
   viewer: 'Ana',
 );
 
 /// 02, the host's own deck of ten, an eighth player in: "Add 1 card".
 Future<void> pumpTableHostMismatch(WidgetTester tester) => TableSetup.pump(
   tester,
-  lobby: v2Lobby('detail_v2_custom_deck_short', asRecorded: true),
+  lobby: v2Lobby('detail_custom_deck_short', asRecorded: true),
   viewer: 'Kai',
 );
 
 /// 02, the host's: Noa's phone has dropped (her row dimmed, no words).
 Future<void> pumpTableDropped(WidgetTester tester) => TableSetup.pump(
   tester,
-  lobby: v2Lobby('detail_v2_member_dropped', asRecorded: true),
+  lobby: v2Lobby('detail_member_dropped', asRecorded: true),
   viewer: 'Kai',
 );
 
@@ -172,7 +172,7 @@ Future<void> pumpTableDropped(WidgetTester tester) => TableSetup.pump(
 Future<void> pumpTableGuest(WidgetTester tester, {double textScale = 1}) =>
     TableSetup.pump(
       tester,
-      lobby: v2Lobby('detail_v2_auto_deck_5'),
+      lobby: v2Lobby('detail_auto_deck_5'),
       viewer: 'Ben',
       textScale: textScale,
     );
@@ -192,7 +192,7 @@ Future<void> pumpTableHandover(WidgetTester tester) async {
 
 Future<TableSetup> pumpTableGuestSetup(WidgetTester tester) => TableSetup.pump(
   tester,
-  lobby: v2Lobby('detail_v2_auto_deck_5'),
+  lobby: v2Lobby('detail_auto_deck_5'),
   viewer: 'Ben',
 );
 

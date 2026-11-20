@@ -58,7 +58,6 @@ LobbyWebSocketFactory lobbyWebSocketFactory(Ref ref) {
 ///
 /// WebSocket event handling per the API contract:
 /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-/// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
@@ -222,8 +221,6 @@ class LobbyNotifier extends _$LobbyNotifier {
         case 'player_joined':
         case 'player_left':
           _onPlayerListChanged();
-        case 'player_ready':
-          _onPlayerReady(message);
         case 'lobby_update':
           _onLobbyUpdate(message);
         case 'game_started':
@@ -369,30 +366,6 @@ class LobbyNotifier extends _$LobbyNotifier {
       }
       throw const NoLongerHostException();
     }
-  }
-
-  /// Update a player's ready state in-place.
-  ///
-  /// The `player_ready` event has complete data (`user_id`, `is_ready`),
-  /// so we can update locally without re-fetching.
-  void _onPlayerReady(Map<String, dynamic> message) {
-    final userId = message['user_id'];
-    final isReady = message['is_ready'] as bool?;
-    if (userId == null || isReady == null) return;
-
-    final current = _current;
-    if (current == null) return;
-
-    final targetId = userId is int ? userId : int.tryParse(userId.toString());
-
-    final updatedPlayers = current.players.map((player) {
-      if (player.id == targetId) {
-        return player.copyWith(isReady: isReady);
-      }
-      return player;
-    }).toList();
-
-    _set(current.copyWith(players: updatedPlayers));
   }
 
   /// `lobby_update` carries the whole lobby body (a settings change, play

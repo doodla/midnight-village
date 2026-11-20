@@ -1,9 +1,0 @@
-{
-  "type": "action_result",
-  "wave": 2,
-  "action_type": "swap_with_player",
-  "revealed_info": {
-    "target_name": "Dev",
-    "new_role": "troublemaker"
-  }
-}

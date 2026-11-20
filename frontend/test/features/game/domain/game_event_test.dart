@@ -9,38 +9,29 @@ void main() {
   GameEvent event(String name) =>
       FromSample.event(ContractSamples.map('ws/game/$name'));
 
-  test('every game socket event a protocol-2 phone hears is read', () {
-    // The types each seat heard in the recorded protocol-2 stretches.
+  test('every game socket event a phone hears is read', () {
+    // The types each seat heard in the recorded stretches.
     final heard = {
       for (final s in ContractSamples.index)
         if (s.isSequence) ...ContractSamples.sequenceEventTypes(s.name),
     };
-    expect(
-      heard,
-      containsAll([
-        'progress',
-        'night_window',
-        'wave_complete',
-        'phase_change',
-      ]),
-    );
+    expect(heard, containsAll(['progress', 'night_window', 'phase_change']));
     for (final sample in ContractSamples.index) {
       if (!sample.isEvent || sample.socket != 'game') continue;
       if (!heard.contains(sample.type)) continue;
       expect(
         event(sample.name.substring('ws/game/'.length)),
         isNot(isA<IgnoredEvent>()),
-        reason: '${sample.name} is heard under protocol 2',
+        reason: '${sample.name} is heard at a table',
       );
     }
   });
 
-  test('a window opening or closing, a phase, the votes, the end: fetch', () {
+  test('a window opening, a phase, the votes, the end: fetch', () {
     for (final name in [
       'night_window_1',
       'night_window_2',
       'night_window_2_doppelganger',
-      'wave_complete_v2',
       'phase_change_discussion',
       'phase_change_voting_untimed',
       'vote_reveal',
@@ -77,15 +68,17 @@ void main() {
     expect(host.change.hostId, 8);
   });
 
-  // PROTOCOL 1: the server still sends these to a protocol-1 game; the app's
-  // samples leave them out, so they are read raw here. Delete this loop with
-  // the server's protocol 1.
-  test("protocol 1's per-role events mean nothing here", () {
-    for (final name in ['action_prompt_seer', 'wave_waiting', 'wave_start']) {
+  test('a type the phone does not know, or no event at all, means nothing', () {
+    // A recorded event under a type the server may add later (the consumers
+    // drop unknown types; so does the app).
+    for (final type in ['wave_complete', 'action_prompt', 'later_event']) {
       expect(
-        GameEvent.parse(ContractSamples.map('ws/game/$name')),
+        GameEvent.parse({
+          ...ContractSamples.map('ws/game/night_window_2'),
+          'type': type,
+        }),
         isA<IgnoredEvent>(),
-        reason: name,
+        reason: type,
       );
     }
     expect(GameEvent.parse('not json'), isA<IgnoredEvent>());

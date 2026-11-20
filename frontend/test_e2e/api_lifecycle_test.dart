@@ -93,17 +93,11 @@ void main() {
           expect(update['data'], body, reason: '${p.displayName} lobby_update');
         }
 
-        // The lobby: waiting, the same members (all ready) and the same settings.
+        // The lobby: waiting, the same members and the same settings.
         final after = await t.lobby(alice);
         expect(after, body);
         expect(after['status'], 'waiting');
         expect(_memberIds(after), _memberIds(before));
-        expect(
-          (after['players'] as List).every(
-            (m) => (m as Map)['is_ready'] == true,
-          ),
-          isTrue,
-        );
         expect(after['settings'], before['settings']);
 
         // Nobody is sent back into the finished game; it is still readable.
@@ -794,7 +788,6 @@ void main() {
           'Dave': 'Insomniac',
         },
         centerCards: ['Werewolf', 'Robber', 'Drunk'],
-        protocolTwo: true,
         // Window 1 has a real timer for the hook to fire; grace is off.
         timerSettings: {
           ...fastTimers,
@@ -897,7 +890,6 @@ Future<LiveTable> _openTable([Map<String, int> extra = const {}]) =>
       // No look stage: the deal opens window 2 at once (the timing scenarios
       // count from the deal).
       timerSettings: {...fastTimers, 'card_look_seconds': 0, ...extra},
-      protocolTwo: true,
     );
 
 /// Opens every player's game socket (and, with [lobby], lobby socket).

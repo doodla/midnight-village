@@ -1,13 +1,12 @@
 """
-Night protocol 2: every phone sends one ``choose``.
+The night: every phone sends one ``choose``.
 
-``settings["night_protocol"] == 2`` turns the night into this: ``POST .../action/``
-takes ``{"action_type": "choose", "picks": [0 to 2 picks], "stage": <from /me/>}``
-from EVERY phone, whatever it was dealt; the server reads the picks per role, answers
-every phone alike, sends one group event per window, and each phone reads its own
-prompt, stage and results from ``GET /me/``. A request names the stage it was aimed
-at: one for a stage that is over is 409 ``wrong_stage`` and stores nothing. Games without that setting keep the original night (the
-rest of the suite).
+``POST .../action/`` takes ``{"action_type": "choose", "picks": [0 to 2 picks],
+"chosen": n, "stage": <from /me/>}`` from EVERY phone, whatever it was dealt; the
+server reads the picks per role, answers every phone alike, sends one group event per
+window, and each phone reads its own prompt, stage and results from ``GET /me/``. A
+request names the stage it was aimed at: one for a stage that is over is 409
+``wrong_stage`` and stores nothing.
 
 All through the real API with seat order different from user-id order (``Night``).
 """
@@ -19,7 +18,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
-from apps.onuw import night2, services
+from apps.onuw import choose_night, services
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import current_stage, staged
 from tests.onuw.test_night_windows import Night
@@ -62,11 +61,10 @@ DOPPEL = {
 
 @pytest.fixture
 def make_p2(make_night):
-    """A Night that plays protocol 2 (window 1, if any, is a fixed 15 s)."""
+    """A Night whose window 1 (if any) is a fixed 15 s."""
 
     def factory(roles, center=None, **settings) -> Night:
         merged = {
-            "night_protocol": 2,
             "night_wave_seconds": 60,
             "night_doppelganger_window_seconds": 15,
             **settings,
@@ -100,7 +98,7 @@ def chosen_now(night: Night, who: str) -> int:
     open window."""
     game = Game.objects.get(id=night.game.id)
     pr = PlayerRole.objects.get(game=game, user=night.users[who])
-    return night2.chose_count(pr, game.current_wave)
+    return choose_night.chose_count(pr, game.current_wave)
 
 
 def choose(night: Night, who: str, picks: Any = None, **body: Any) -> Any:
@@ -204,9 +202,7 @@ class TestOpening:
         # What the table does hear is role-free.
         assert [e["type"] for _, e in night.recorder.events] == [
             "night.window",
-            "wave.complete",
             "night.window",
-            "wave.complete",
             "phase.change",
             "progress",
         ]
@@ -349,7 +345,6 @@ class TestPrompts:
             assert me(night, name)["action_prompt"]["max_chooses"] == 2
 
     def test_get_me_names_the_viewer(self, make_p2) -> None:
-        """Protocol 2 only (protocol 1's /me/ is unchanged: its samples are)."""
         night = make_p2(LONE)
         night.start()
 
@@ -381,16 +376,6 @@ class TestPrompts:
         assert after["chosen"] == 1
         assert after["max_chooses"] == 2
         assert me(night, "seer")["action_prompt"]["kind"] == "none"  # not her window
-
-    def test_the_prompt_is_the_same_on_every_game_in_protocol_one(
-        self, make_night
-    ) -> None:
-        night = make_night(TEN, CENTER, night_wave_seconds=60)  # no night_protocol
-        night.start()
-
-        body = me(night, "villager" if "villager" in TEN else "wolf1")
-
-        assert body["action_prompt"]["action_types"] != ["choose"]
 
 
 # ── every phone gets the same answer ─────────────────────────────────────────
@@ -833,19 +818,6 @@ class TestReadingsThroughTheNight:
             == "Insomniac"
         )
 
-    def test_protocol_one_still_lowercases(self, make_night) -> None:
-        night = make_night(
-            {"seer": "Seer", "wolf": "Werewolf", "robber": "Robber", "v": "Villager"},
-            CENTER,
-            night_wave_seconds=60,
-        )
-        night.start()
-        night.post("seer", "peek_player", {"player_id": pid(night, "wolf")})
-        night.post("robber", "skip")
-        night.post("wolf", "see_team")
-
-        assert results(night, "seer")[0]["revealed_info"]["role"] == "werewolf"
-
 
 # ── the Doppelganger's window ────────────────────────────────────────────────
 
@@ -1016,9 +988,8 @@ class TestWindowOne:
     def test_with_the_fixed_length_off_window_one_ends_when_everyone_chose_once(
         self, make_night
     ) -> None:
-        night = make_night(
-            DOPPEL, CENTER, night_protocol=2, night_wave_seconds=60
-        )  # night_doppelganger_window_seconds = 0 (the make_night default)
+        # night_doppelganger_window_seconds = 0 (the make_night default)
+        night = make_night(DOPPEL, CENTER, night_wave_seconds=60)
         night.start()
         names = list(DOPPEL)
         for name in names[:-1]:
@@ -1032,7 +1003,7 @@ class TestWindowOne:
     def test_with_the_fixed_length_off_a_copying_doppelganger_is_waited_for_twice(
         self, make_night
     ) -> None:
-        night = make_night(DOPPEL, CENTER, night_protocol=2, night_wave_seconds=60)
+        night = make_night(DOPPEL, CENTER, night_wave_seconds=60)
         night.start()
         choose(night, "dop", [player(night, "seer")])  # copies the Seer
         for name in ("seer", "wolf", "villager", "drunk"):
@@ -1284,68 +1255,77 @@ class TestTheSetting:
             {"roles": self.DECK, **extra}, 6, allow_untimed=False
         )
 
-    @pytest.mark.parametrize("value", [1, 2])
-    def test_protocols_one_and_two_are_valid(self, value) -> None:
+    @pytest.mark.parametrize("value", [1, 2, 0, "2", None], ids=repr)
+    def test_a_protocol_flag_older_tables_carry_is_ignored(self, value) -> None:
+        """Lobby rows written before the cleanup may still hold ``night_protocol``
+        (older code wrote 1 or 2): it is never a reason to refuse them."""
         assert self.errors(night_protocol=value) == []
 
-    @pytest.mark.parametrize("value", [0, 3, "2", 2.0, True, None, [2]], ids=repr)
-    def test_anything_else_is_refused(self, value) -> None:
-        assert any("night_protocol" in e for e in self.errors(night_protocol=value))
+    @pytest.mark.parametrize("stored", [1, 2, None], ids=["1", "2", "absent"])
+    def test_a_table_stored_by_older_code_plays_the_choose_night(
+        self, make_night, stored
+    ) -> None:
+        """A table whose settings older code wrote (``night_protocol`` 1, 2 or no
+        key at all) deals into the one night there is: every phone has a choose
+        prompt and a choose is taken."""
+        extra = {} if stored is None else {"night_protocol": stored}
+        night = make_night(LONE, CENTER, night_wave_seconds=60, **extra)
+        night.start()
+
+        for name in LONE:
+            assert me(night, name)["action_prompt"]["action_types"] == ["choose"]
+        reply = choose(night, "seer", [player(night, "wolf")])
+
+        assert reply.status_code == status.HTTP_200_OK
+        assert reply.data == {"status": "submitted"}
+        assert chosen_now(night, "seer") == 1
 
     def test_a_server_that_does_not_allow_untimed_nights_refuses_zero_timers(
         self,
     ) -> None:
         for key in ("night_wave_seconds", "night_doppelganger_window_seconds"):
-            errors = self.errors(night_protocol=2, **{key: 0})
+            errors = self.errors(**{key: 0})
             assert any(key in e for e in errors), key
 
     def test_and_a_minimum_window_under_five_seconds(self) -> None:
         assert any(
             "night_min_window_seconds" in e
-            for e in self.errors(night_protocol=2, night_min_window_seconds=4)
+            for e in self.errors(night_min_window_seconds=4)
         )
-        assert self.errors(night_protocol=2, night_min_window_seconds=5) == []
+        assert self.errors(night_min_window_seconds=5) == []
 
-    def test_protocol_one_keeps_every_old_timer_value(self) -> None:
-        assert (
-            self.errors(
-                night_wave_seconds=0,
-                night_min_window_seconds=0,
-                night_doppelganger_window_seconds=0,
-            )
-            == []
-        )
+    def test_absent_timers_are_fine(self) -> None:
+        assert self.errors() == []
 
-    def test_absent_timers_are_fine_under_protocol_two(self) -> None:
-        assert self.errors(night_protocol=2) == []
-
-    def test_the_deal_refuses_an_untimed_protocol_two_night_where_it_is_not_allowed(
+    def test_the_deal_clamps_a_stored_untimed_night_where_it_is_not_allowed(
         self, settings, db
     ) -> None:
+        """A table stored with zero night timers (older code allowed them) is not
+        stuck: the game gets the default lengths and a 5 s minimum window."""
         from apps.core.models import Lobby
         from tests.onuw.test_play_again import Table
 
         settings.DEBUG = True
-        settings.ONUW_ALLOW_UNTIMED_NIGHT = False
         table = Table()  # its timers are all 0
-        lobby = Lobby.objects.get(code=table.code)
-        lobby.settings = {**lobby.settings, "night_protocol": 2}
-        lobby.save()
+        settings.ONUW_ALLOW_UNTIMED_NIGHT = False
+        assert Lobby.objects.get(code=table.code).settings["night_wave_seconds"] == 0
 
         reply = table.start()
 
-        assert reply.status_code == status.HTTP_400_BAD_REQUEST
-        assert not Game.objects.filter(lobby__code=table.code).exists()
+        assert reply.status_code == status.HTTP_201_CREATED
+        game = Game.objects.get(id=reply.data["game_id"])
+        assert "night_wave_seconds" not in game.settings
+        assert game.settings["night_min_window_seconds"] == 5
 
     def test_a_lobby_patch_refuses_it_too(self, settings, db) -> None:
         from tests.onuw.test_play_again import Table
 
-        settings.ONUW_ALLOW_UNTIMED_NIGHT = False
         table = Table()
+        settings.ONUW_ALLOW_UNTIMED_NIGHT = False
 
         reply = table.host.patch(
             reverse("core:lobby-detail", kwargs={"code": table.code}),
-            {"settings": {"night_protocol": 2, "night_wave_seconds": 0}},
+            {"settings": {"night_wave_seconds": 0}},
             format="json",
         )
 
@@ -1360,15 +1340,6 @@ class TestTheSetting:
         assert development.ONUW_ALLOW_UNTIMED_NIGHT is True
         assert harness.ONUW_ALLOW_UNTIMED_NIGHT is True
         assert test.ONUW_ALLOW_UNTIMED_NIGHT is True
-
-    def test_the_old_protocol_refuses_choose_as_it_always_did(self, make_night) -> None:
-        night = make_night(LONE, CENTER, night_wave_seconds=60)
-        night.start()
-
-        response = choose(night, "seer", [])
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "code" not in response.data
 
 
 # ── stages: a request names the stage it is aimed at ─────────────────────────
@@ -1390,12 +1361,6 @@ class TestStages:
         flat = [token for group in tokens for token in group]
         assert [t.split(".")[0] for t in flat] == ["w1", "w2", "talk"]
         assert len(set(flat)) == 3
-
-    def test_the_original_night_has_no_stage(self, make_night) -> None:
-        night = make_night(LONE, CENTER, night_wave_seconds=60)  # no protocol
-        night.start()
-
-        assert "stage" not in me(night, "seer")
 
     def test_a_token_from_another_game_never_matches(self, make_p2) -> None:
         a = make_p2({f"a_{n}": r for n, r in LONE.items()})
@@ -1419,9 +1384,6 @@ class TestStages:
 
         settings.DEBUG = True
         table = Table()
-        lobby = table.lobby()
-        lobby.settings = {**lobby.settings, "night_protocol": 2}
-        lobby.save()
         first = table.start().data["game_id"]
         old = current_stage(first)
         assert old is not None and old.startswith("w2.")
@@ -1726,7 +1688,7 @@ class TestChooseRaces:
         # either way the window closed exactly once.
         assert out in ([(200, None)], [(409, "wrong_stage")])
         assert night.refresh().phase == Phase.DISCUSSION
-        assert len(night.broadcasts("wave.complete")) == 1
+        assert len(night.broadcasts("phase.change")) == 1
 
     def test_two_copies_of_one_choose_at_once_store_one_and_answer_both_alike(
         self, make_p2
@@ -1788,4 +1750,4 @@ class TestChooseRaces:
         assert advance in ([200], [409])
         assert out in ([(200, None)], [(409, "wrong_stage")])
         assert night.refresh().phase == Phase.DISCUSSION
-        assert len(night.broadcasts("wave.complete")) == 1
+        assert len(night.broadcasts("phase.change")) == 1

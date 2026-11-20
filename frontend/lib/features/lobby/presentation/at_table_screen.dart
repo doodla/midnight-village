@@ -248,7 +248,7 @@ class AtTableView extends StatelessWidget {
                     // This phone is here: its own row is never dimmed.
                     away:
                         player.id != viewerId &&
-                        (player.connected == false || away.contains(player.id)),
+                        (!player.connected || away.contains(player.id)),
                   ),
               ],
               spacing: roomy ? Space.md : Space.xs,

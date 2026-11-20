@@ -25,7 +25,7 @@ import 'sheet_data.dart';
 // states no lobby body carries yet (a dropped phone, dimmed with no words).
 
 /// Ana's table of five, as the server recorded it (the Classic chip).
-LobbyState _table() => FromSample.lobby(v2Lobby('detail_v2_auto_deck_5'));
+LobbyState _table() => FromSample.lobby(v2Lobby('detail_auto_deck_5'));
 
 /// The table's join link, as the app makes it.
 Uri _link(LobbyState lobby) =>

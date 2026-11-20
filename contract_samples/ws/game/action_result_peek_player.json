@@ -1,9 +1,0 @@
-{
-  "type": "action_result",
-  "wave": 2,
-  "action_type": "peek_player",
-  "revealed_info": {
-    "target_name": "Cleo",
-    "role": "werewolf"
-  }
-}

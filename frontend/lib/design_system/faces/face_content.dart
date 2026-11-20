@@ -108,7 +108,7 @@ sealed class NightResult {
         for (final (i, role) in (info['roles'] as List).indexed)
           ((info['center_indices'] as List)[i] as int, serverRole(role)),
       ]),
-      // Chose, and nothing picked meant anything for the role (protocol 2
+      // Chose, and nothing picked meant anything for the role (the server
       // lists the viewer's own skip, marked `nothing_chosen`).
       'skip' => const DidNothingResult._(),
       'swap_with_player' => NewCardResult._(serverRole(info['new_role'])),

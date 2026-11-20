@@ -24,7 +24,7 @@ import '../../../helpers/truncated_text.dart';
 
 // 08 Talk and 09 Vote through the real shell, on a phone of recorded game 7
 // (Ana, the Seer and the host) unless a test says: every answer a recorded
-// protocol-2 payload.
+// payload.
 
 PrimaryButton _primary(WidgetTester tester) =>
     tester.widget<PrimaryButton>(find.byType(PrimaryButton).last);
@@ -330,7 +330,7 @@ void main() {
       expect(_button(tester), 'Lock in Cleo');
       expect(_phase(tester), ButtonPhase.ready);
 
-      s.answerPost('/vote/', 'game/vote_locked_v2');
+      s.answerPost('/vote/', 'game/vote_locked');
       await tester.tap(find.byType(PrimaryButton).last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 10));
@@ -437,7 +437,7 @@ void main() {
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(_button(tester), VoteCopy.locked, reason: 'still shown');
 
-      s.answerPost('/vote/', 'game/vote_locked_v2');
+      s.answerPost('/vote/', 'game/vote_locked');
       await tester.tap(find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       final bodies = _bodies(s, '/vote/');

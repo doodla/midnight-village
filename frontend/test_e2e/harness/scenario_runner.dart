@@ -70,7 +70,6 @@ class ReferenceGameRunner {
       },
       centerCards: game.center,
       timerSettings: timerSettings,
-      protocolTwo: true,
     );
     _table = table;
     return table;

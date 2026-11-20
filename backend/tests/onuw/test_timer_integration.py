@@ -2,7 +2,7 @@
 Integration tests for phase timer lifecycles.
 
 Covers:
-- Night wave timers: wave_start event includes 'deadline' field, scheduling,
+- Night wave timers: the night_window event includes 'deadline', scheduling,
   auto-advance, early cancellation, host force-advance, deadline clearing,
   per-wave timer keys
 - Discussion timers: auto-transition to voting, early cancellation via
@@ -16,12 +16,15 @@ import functools
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+from django.db import transaction
+
 import pytest
 
 from apps.core import timers
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
 from apps.onuw import services
 from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.protocol import stage_token
 
 pytestmark = [pytest.mark.integration, pytest.mark.uses_timers]
 
@@ -180,8 +183,8 @@ class TestWaveTimerLifecycle:
         assert game.phase_deadline is None
         assert not any(":wave:2" in k for k in scheduled_keys)
 
-    def test_wave_start_event_includes_deadline(self, db):
-        """The wave_start broadcast event contains a non-null ISO 8601 deadline."""
+    def test_night_window_event_includes_deadline(self, db):
+        """The night.window broadcast event contains a non-null ISO 8601 deadline."""
         game, *_ = _make_night_game(night_wave_seconds=60)
         broadcast_events: list = []
 
@@ -198,7 +201,7 @@ class TestWaveTimerLifecycle:
         ):
             services.send_wave_prompts(game, 2)
 
-        wave_events = [e for e in broadcast_events if e.get("type") == "wave.start"]
+        wave_events = [e for e in broadcast_events if e.get("type") == "night.window"]
         assert len(wave_events) == 1
         event = wave_events[0]
         assert "deadline" in event
@@ -206,8 +209,8 @@ class TestWaveTimerLifecycle:
         # Verify it parses as a valid ISO 8601 datetime.
         datetime.fromisoformat(event["deadline"])
 
-    def test_wave_start_event_deadline_null_when_untimed(self, db):
-        """The wave_start broadcast has deadline=null when night_wave_seconds == 0."""
+    def test_night_window_event_deadline_null_when_untimed(self, db):
+        """The night.window broadcast has deadline=null when night_wave_seconds == 0."""
         game, *_ = _make_night_game(night_wave_seconds=0)
         broadcast_events: list = []
 
@@ -223,7 +226,7 @@ class TestWaveTimerLifecycle:
         ):
             services.send_wave_prompts(game, 2)
 
-        wave_events = [e for e in broadcast_events if e.get("type") == "wave.start"]
+        wave_events = [e for e in broadcast_events if e.get("type") == "night.window"]
         assert len(wave_events) == 1
         assert wave_events[0]["deadline"] is None
 
@@ -268,9 +271,9 @@ class TestWaveTimerLifecycle:
         assert len(wave_2_entries) == 1
         assert wave_2_entries[0]["action_type"] == "see_team"
 
-    def test_all_acted_cancels_wave_timer(self, db):
+    def test_everyone_having_chosen_cancels_wave_timer(self, db):
         """
-        check_and_maybe_advance() cancels the wave timer when all actors submit.
+        The close that follows the last choose cancels the wave timer.
         """
         game, werewolf_user, seer_user, _ = _make_night_game(
             night_wave_seconds=300, wave=2
@@ -284,7 +287,8 @@ class TestWaveTimerLifecycle:
         with timers._lock:
             assert timer_key in timers._registry
 
-        # Mark every actor in the window (Werewolf and Seer) as having acted.
+        # Every phone has chosen in the window (the Werewolf and the Seer acted,
+        # the Villager chose nothing).
         PlayerRole.objects.filter(game=game, user=werewolf_user).update(
             has_acted=True,
             night_action_data={
@@ -292,6 +296,7 @@ class TestWaveTimerLifecycle:
                 "role_acting_as": "Werewolf",
                 "action_type": "see_team",
                 "targets": {},
+                "chose_2": 1,
             },
         )
         PlayerRole.objects.filter(game=game, user=seer_user).update(
@@ -301,15 +306,20 @@ class TestWaveTimerLifecycle:
                 "role_acting_as": "Seer",
                 "action_type": "skip",
                 "targets": {},
+                "chose_2": 1,
             },
         )
+        PlayerRole.objects.filter(game=game).exclude(
+            user__in=[werewolf_user, seer_user]
+        ).update(has_acted=True, night_action_data={"chose_2": 1})
 
-        # check_and_maybe_advance should cancel the timer before advancing.
+        # The close check a choose runs (Game locked) cancels the timer first.
         with (
             patch("apps.core.effects.get_channel_layer", return_value=None),
             patch("apps.core.timers.schedule"),  # Prevent next-wave timer
+            transaction.atomic(),
         ):
-            services.check_and_maybe_advance(game)
+            services._advance_if_ready(Game.objects.select_for_update().get(id=game.id))
 
         with timers._lock:
             assert timer_key not in timers._registry
@@ -601,6 +611,7 @@ class TestVotingTimerLifecycle:
             assert timer_key in timers._registry
 
         usernames = list(users.keys())
+        stage = stage_token(Game.objects.get(id=game.id))
         # Submit votes for all players
         vote_pairs = [
             (usernames[0], users[usernames[1]].id),
@@ -610,7 +621,9 @@ class TestVotingTimerLifecycle:
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
             for voter_name, target_id in vote_pairs:
-                errors = services.submit_vote(game, users[voter_name].id, target_id)
+                errors = services.submit_vote(
+                    game, users[voter_name].id, target_id, stage=stage
+                )
                 # Ignore "Game is not in voting phase" after auto-reveal on last vote
                 _ = errors
 
@@ -740,6 +753,7 @@ class TestVotingTimerLifecycle:
             services.transition_to_voting(game)
 
         usernames = list(users.keys())
+        stage = stage_token(Game.objects.get(id=game.id))
         vote_pairs = [
             (usernames[0], users[usernames[1]].id),
             (usernames[1], users[usernames[0]].id),
@@ -748,7 +762,7 @@ class TestVotingTimerLifecycle:
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
             for voter_name, target_id in vote_pairs:
-                services.submit_vote(game, users[voter_name].id, target_id)
+                services.submit_vote(game, users[voter_name].id, target_id, stage=stage)
 
         game.refresh_from_db()
         assert game.phase == Phase.RESULTS
@@ -776,10 +790,11 @@ class TestVotingTimerLifecycle:
 
         # Submit all votes to trigger auto-reveal
         usernames = list(users.keys())
+        stage = stage_token(Game.objects.get(id=game.id))
         with patch("apps.core.effects.get_channel_layer", return_value=None):
             for i, name in enumerate(usernames):
                 target = users[usernames[(i + 1) % len(usernames)]].id
-                services.submit_vote(game, users[name].id, target)
+                services.submit_vote(game, users[name].id, target, stage=stage)
 
         game.refresh_from_db()
         assert game.phase == Phase.RESULTS

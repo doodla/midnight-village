@@ -1,7 +1,7 @@
 """
 The night as one ``choose``: how the server reads what a phone picked.
 
-Under night protocol 2 every phone sends the same thing, ``choose`` with 0 to 2
+At night every phone sends the same thing, ``choose`` with 0 to 2
 ordered picks, whatever its role, and the server alone decides what the picks mean
 for the role the player acts as. A pick that holds no valid action for the role is
 not an error: it reads as "nothing", and the window close then gives the role its
@@ -221,11 +221,11 @@ def chooses_left(window: int, acting_role: str | None, chosen: int) -> int:
     her look has given her a role that acts there (her follow-up): the only prompt
     with a role to act as in window 1 after a choose. It says nothing her own
     ``kind`` does not (her follow-up prompt already names the copied role's kind,
-    and a copied Minion is waited for twice, as ``night2.ready_to_close`` says), and
+    and a copied Minion is waited for twice, as ``choose_night.ready_to_close`` says), and
     only to her: it is in her own ``GET /me/``. ``max_chooses`` stays what the
     server ACCEPTS (two from anyone in window 1); this is what the phone should
     send. (Her second request in window 1 is itself visible on the network: an
-    accepted tell, ``docs/specs/onuw/api-contract-v2.md``, "Third amendment".)
+    accepted tell, ``docs/specs/onuw/api-contract-v2.md``, section 10.)
     """
     expected = 2 if window == 1 and chosen >= 1 and acting_role is not None else 1
     return max(0, expected - chosen)

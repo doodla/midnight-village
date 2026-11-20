@@ -28,9 +28,9 @@
         "username": "00000000-0000-4000-8000-000000000001",
         "display_name": "Ana"
       },
-      "is_ready": true,
       "token": "antler",
-      "joined_at": "2024-03-07T20:51:00Z"
+      "joined_at": "2024-03-07T20:51:00Z",
+      "connected": false
     },
     {
       "user": {
@@ -38,9 +38,9 @@
         "username": "00000000-0000-4000-8000-000000000002",
         "display_name": "Ben"
       },
-      "is_ready": true,
       "token": "thorn",
-      "joined_at": "2024-03-07T20:52:00Z"
+      "joined_at": "2024-03-07T20:52:00Z",
+      "connected": false
     },
     {
       "user": {
@@ -48,9 +48,9 @@
         "username": "00000000-0000-4000-8000-000000000003",
         "display_name": "Cleo"
       },
-      "is_ready": true,
       "token": "moth",
-      "joined_at": "2024-03-07T20:53:00Z"
+      "joined_at": "2024-03-07T20:53:00Z",
+      "connected": false
     },
     {
       "user": {
@@ -58,9 +58,9 @@
         "username": "00000000-0000-4000-8000-000000000004",
         "display_name": "Dev"
       },
-      "is_ready": true,
       "token": "bell",
-      "joined_at": "2024-03-07T20:54:00Z"
+      "joined_at": "2024-03-07T20:54:00Z",
+      "connected": false
     },
     {
       "user": {
@@ -68,9 +68,9 @@
         "username": "00000000-0000-4000-8000-000000000005",
         "display_name": "Esme"
       },
-      "is_ready": true,
       "token": "scythe",
-      "joined_at": "2024-03-07T20:55:00Z"
+      "joined_at": "2024-03-07T20:55:00Z",
+      "connected": false
     },
     {
       "user": {
@@ -78,10 +78,16 @@
         "username": "00000000-0000-4000-8000-000000000006",
         "display_name": "Fin"
       },
-      "is_ready": true,
       "token": "key",
-      "joined_at": "2024-03-07T20:56:00Z"
+      "joined_at": "2024-03-07T20:56:00Z",
+      "connected": false
     }
   ],
-  "created_at": "2024-03-07T20:51:00Z"
+  "created_at": "2024-03-07T20:51:00Z",
+  "deck_preview": null,
+  "deal": {
+    "ok": true,
+    "need": 9,
+    "have": 9
+  }
 }

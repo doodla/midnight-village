@@ -1,9 +1,9 @@
-"""Tests for action_result WebSocket event transformation.
+"""The night results a phone reads in ``GET /me/`` (``night_results``).
 
 The service layer transforms the engine's raw revealed_info into the
-client-friendly format the frontend expects. These tests verify that
-each role's action result is correctly transformed with display names,
-consistent key names, and the correct action_type.
+client-friendly format the app reads. These tests verify that each role's
+result is transformed with display names, canonical role names, consistent key
+names and the right action_type.
 """
 
 import pytest
@@ -81,7 +81,7 @@ class TestClientActionType:
 class TestTransformSeerPeekPlayer:
     """Seer peeks at a player's card."""
 
-    def test_includes_target_name_and_lowercase_role(self):
+    def test_includes_target_name_and_canonical_role(self):
         action = NightAction(
             player_id=1,
             role_acting_as="Seer",
@@ -94,7 +94,7 @@ class TestTransformSeerPeekPlayer:
             state_mutations=[],
         )
         out = _transform_revealed_info(action, result, PLAYER_NAMES)
-        assert out == {"target_name": "Bob", "role": "werewolf"}
+        assert out == {"target_name": "Bob", "role": "Werewolf"}
 
     def test_unknown_target_uses_fallback_name(self):
         action = NightAction(
@@ -118,7 +118,7 @@ class TestTransformSeerPeekPlayer:
 class TestTransformSeerPeekCenter:
     """Seer peeks at two center cards."""
 
-    def test_extracts_lowercase_roles_from_peeked_center(self):
+    def test_extracts_roles_and_indices_from_peeked_center(self):
         action = NightAction(
             player_id=1,
             role_acting_as="Seer",
@@ -136,7 +136,7 @@ class TestTransformSeerPeekCenter:
             state_mutations=[],
         )
         out = _transform_revealed_info(action, result, PLAYER_NAMES)
-        assert out == {"roles": ["werewolf", "tanner"]}
+        assert out == {"roles": ["Werewolf", "Tanner"], "center_indices": [0, 2]}
 
 
 # ── Robber: swap_with_player ─────────────────────────────────────────────────
@@ -145,7 +145,7 @@ class TestTransformSeerPeekCenter:
 class TestTransformRobber:
     """Robber swaps with a target and learns the target's role."""
 
-    def test_includes_target_name_and_lowercase_new_role(self):
+    def test_includes_target_name_and_canonical_new_role(self):
         action = NightAction(
             player_id=1,
             role_acting_as="Robber",
@@ -158,7 +158,7 @@ class TestTransformRobber:
             state_mutations=["Player 1 swapped roles with player 3."],
         )
         out = _transform_revealed_info(action, result, PLAYER_NAMES)
-        assert out == {"target_name": "Charlie", "new_role": "seer"}
+        assert out == {"target_name": "Charlie", "new_role": "Seer"}
 
 
 # ── Troublemaker: swap_others ────────────────────────────────────────────────
@@ -262,7 +262,7 @@ class TestTransformWerewolfSeeTeam:
         )
         out = _transform_revealed_info(action, result, PLAYER_NAMES)
         assert out["teammate_names"] == []
-        assert out["center_card"] == {"index": 0, "role": "tanner"}
+        assert out["center_card"] == {"index": 0, "role": "Tanner"}
 
 
 # ── Mason: see_team ──────────────────────────────────────────────────────────
@@ -334,7 +334,7 @@ class TestTransformMinionSeeTeam:
 class TestTransformInsomniac:
     """Insomniac peeks at their own card (may have changed via swap)."""
 
-    def test_lowercases_current_role(self):
+    def test_shows_the_current_role(self):
         action = NightAction(
             player_id=1,
             role_acting_as="Insomniac",
@@ -347,7 +347,7 @@ class TestTransformInsomniac:
             state_mutations=[],
         )
         out = _transform_revealed_info(action, result, PLAYER_NAMES)
-        assert out == {"current_role": "robber"}
+        assert out == {"current_role": "Robber"}
 
     def test_unchanged_role(self):
         action = NightAction(
@@ -362,7 +362,7 @@ class TestTransformInsomniac:
             state_mutations=[],
         )
         out = _transform_revealed_info(action, result, PLAYER_NAMES)
-        assert out == {"current_role": "insomniac"}
+        assert out == {"current_role": "Insomniac"}
 
 
 # ── Doppelganger ─────────────────────────────────────────────────────────────
@@ -385,7 +385,7 @@ class TestTransformDoppelganger:
         )
         out = _transform_revealed_info(action, result, PLAYER_NAMES)
         assert out["target_name"] == "Charlie"
-        assert out["role"] == "seer"
+        assert out["role"] == "Seer"
         # copied_role preserved at original case for engine follow-up.
         assert out["copied_role"] == "Seer"
 
@@ -396,7 +396,7 @@ class TestTransformDoppelganger:
 class TestTransformSkip:
     """Skipped actions return empty revealed_info."""
 
-    def test_skip_returns_empty_dict(self):
+    def test_skip_says_nothing_was_chosen(self):
         action = NightAction(
             player_id=1,
             role_acting_as="Seer",
@@ -409,4 +409,4 @@ class TestTransformSkip:
             state_mutations=["Action skipped."],
         )
         out = _transform_revealed_info(action, result, PLAYER_NAMES)
-        assert out == {}
+        assert out == {"nothing_chosen": True}

@@ -75,12 +75,6 @@ class Table:
         self.code = response.data["code"]
         for client in self.clients[1:]:
             client.post(reverse("core:lobby-join", kwargs={"code": self.code}))
-        for client in self.clients:
-            client.post(
-                reverse("core:lobby-ready", kwargs={"code": self.code}),
-                {"is_ready": True},
-                format="json",
-            )
 
     # -- the lobby ---------------------------------------------------------
 
@@ -114,21 +108,32 @@ class Table:
         assert response.status_code == status.HTTP_201_CREATED, response.data
         return self.finish_game(response.data["game_id"])
 
+    def stage(self, game_id: str, client: APIClient | None = None) -> str:
+        """The stage ``GET /me/`` names now (every stage-scoped request sends it)."""
+        me = (client or self.host).get(
+            reverse("onuw:game-me", kwargs={"game_id": game_id})
+        )
+        return me.data["stage"]
+
+    def staged(self, client: APIClient, name: str, game_id: str, body=None):
+        """POST a stage-scoped request as ``client``, naming the current stage."""
+        return client.post(
+            reverse(name, kwargs={"game_id": game_id}),
+            {**(body or {}), "stage": self.stage(game_id, client)},
+            format="json",
+        )
+
     def finish_game(self, game_id: str) -> str:
         """Close the night, end the talk, everyone votes: the game reaches results."""
-        kw = {"game_id": game_id}
-        assert (
-            self.host.post(reverse("onuw:wave-advance", kwargs=kw)).status_code == 200
-        )
-        assert (
-            self.host.post(reverse("onuw:end-discussion", kwargs=kw)).status_code == 200
-        )
+        while Game.objects.get(id=game_id).phase == Phase.NIGHT:
+            reply = self.staged(self.host, "onuw:wave-advance", game_id)
+            assert reply.status_code == 200, reply.data
+        reply = self.staged(self.host, "onuw:end-discussion", game_id)
+        assert reply.status_code == 200, reply.data
         for i, client in enumerate(self.clients):
             target = self.ids[(i + 1) % len(self.ids)]
-            reply = client.post(
-                reverse("onuw:vote", kwargs=kw),
-                {"target_player_id": target},
-                format="json",
+            reply = self.staged(
+                client, "onuw:vote", game_id, {"target_player_id": target, "lock": True}
             )
             assert reply.status_code == status.HTTP_200_OK
         assert Game.objects.get(id=game_id).phase == Phase.RESULTS
@@ -220,7 +225,7 @@ class TestTwoGamesOnOneLobby:
         me = table.clients[0].get(reverse("onuw:game-me", kwargs={"game_id": game_id}))
         assert me.data["phase"] == "night"
         assert me.data["night_results"] == []
-        assert me.data["has_voted"] is False
+        assert me.data["my_vote"] is None
         assert (
             Game.objects.get(id=game_id).player_roles.filter(has_acted=True).count()
             == 0
@@ -306,16 +311,16 @@ class TestPlayAgainRules:
         assert response.data["settings"]["roles"] == DECK
         assert {p["user"]["id"] for p in response.data["players"]} == set(table.ids)
 
-    def test_everyone_is_ready_so_the_host_can_deal_straight_away(self, table) -> None:
+    def test_the_host_can_deal_straight_away(self, table) -> None:
         table.play_to_results()
-        # Someone un-readied before the game ended; the table is reopened ready.
+        # A ready flag older code left behind gates nothing.
         LobbyMember.objects.filter(lobby=table.lobby(), user_id=table.ids[2]).update(
             is_ready=False
         )
 
         response = table.play_again()
 
-        assert all(p["is_ready"] for p in response.data["players"])
+        assert all("is_ready" not in p for p in response.data["players"])
         assert table.start(seed=9).status_code == status.HTTP_201_CREATED
 
     def test_a_double_tap_is_harmless(self, table) -> None:
@@ -388,12 +393,6 @@ class TestBetweenGames:
             format="json",
         )
         assert patched.status_code == status.HTTP_200_OK
-        for client in table.clients[:4]:
-            client.post(
-                reverse("core:lobby-ready", kwargs={"code": table.code}),
-                {"is_ready": True},
-                format="json",
-            )
         second = table.start(seed=8)
         assert second.status_code == status.HTTP_201_CREATED
         game = Game.objects.get(id=second.data["game_id"])

@@ -23,7 +23,8 @@
       "current_role": "Seer",
       "doppelganger_copied_role": null,
       "team": "village",
-      "connected": true
+      "connected": true,
+      "ready": false
     },
     {
       "user_id": 2,
@@ -35,7 +36,8 @@
       "current_role": "Robber",
       "doppelganger_copied_role": null,
       "team": "village",
-      "connected": true
+      "connected": true,
+      "ready": false
     },
     {
       "user_id": 3,
@@ -47,7 +49,8 @@
       "current_role": "Werewolf",
       "doppelganger_copied_role": null,
       "team": "werewolf",
-      "connected": true
+      "connected": true,
+      "ready": false
     },
     {
       "user_id": 4,
@@ -59,7 +62,8 @@
       "current_role": "Troublemaker",
       "doppelganger_copied_role": null,
       "team": "village",
-      "connected": true
+      "connected": true,
+      "ready": false
     },
     {
       "user_id": 5,
@@ -71,7 +75,8 @@
       "current_role": "Werewolf",
       "doppelganger_copied_role": null,
       "team": "werewolf",
-      "connected": true
+      "connected": true,
+      "ready": false
     },
     {
       "user_id": 6,
@@ -83,7 +88,8 @@
       "current_role": "Hunter",
       "doppelganger_copied_role": null,
       "team": "village",
-      "connected": true
+      "connected": true,
+      "ready": false
     }
   ],
   "night_actions_log": [],
@@ -94,6 +100,14 @@
     "4": null,
     "5": null,
     "6": null
+  },
+  "vote_locked": {
+    "1": true,
+    "2": false,
+    "3": false,
+    "4": false,
+    "5": false,
+    "6": false
   },
   "results": null,
   "pending_timers": [

@@ -31,31 +31,11 @@ abstract final class ContractSamples {
     }
   }
 
-  /// Every recorded sample, as listed in `index.json`, that the app speaks.
+  /// Every recorded sample, as listed in `index.json`.
   static List<SampleInfo> get index => _index ??= [
     for (final entry in (_decode('index') as Map)['samples'] as List)
       SampleInfo.fromJson((entry as Map).cast<String, dynamic>()),
-  ].where((s) => !_protocolOne(s)).toList(); // PROTOCOL 1: delete this line.
-
-  /// PROTOCOL 1: delete with the line above, once the server slice has
-  /// removed night protocol 1 and its samples. The server still records its
-  /// protocol-1 night beside protocol 2; the app speaks protocol 2 only, so
-  /// its tests never see those samples: a `/me/` without a `stage` key and
-  /// the events only protocol 1 sends. A fixture of either is refused as
-  /// having no sample.
-  static bool _protocolOne(SampleInfo s) =>
-      (s.isHttp &&
-          s.path == '/onuw/games/{game_id}/me/' &&
-          s.status == 200 &&
-          !map(s.name).containsKey('stage')) ||
-      (s.isEvent &&
-          const {
-            'action_prompt',
-            'action_result',
-            'wave_start',
-            'wave_waiting',
-            'vote_submitted',
-          }.contains(s.type));
+  ];
 
   /// A `ws_sequence/*` sample: per seat (player name), the types of the game
   /// socket events that seat heard, in order. It is a list of event TYPES, not

@@ -19,7 +19,7 @@ import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/teach/learned_store.dart';
 import '../../../../design_system/teach/teaching_hold.dart';
 import '../../domain/game_me.dart';
-import '../protocol_two_game.dart';
+import '../live_game.dart';
 import '../stage_seconds.dart';
 
 /// 08 Talk, wired to the server: [TalkView] fed from `/me/` (with this
@@ -32,7 +32,7 @@ class TalkScreen extends ConsumerStatefulWidget {
   const TalkScreen({super.key, required this.game, required this.gameId});
 
   /// The game as the shell has it (`/me/` with this phone's taps on it).
-  final ProtocolTwoGame game;
+  final LiveGame game;
   final String gameId;
 
   @override
@@ -40,8 +40,8 @@ class TalkScreen extends ConsumerStatefulWidget {
 }
 
 class _TalkScreenState extends ConsumerState<TalkScreen> {
-  ProtocolTwoGameNotifier get _notifier =>
-      ref.read(protocolTwoGameProvider(widget.gameId).notifier);
+  LiveGameNotifier get _notifier =>
+      ref.read(liveGameProvider(widget.gameId).notifier);
 
   @override
   Widget build(BuildContext context) {

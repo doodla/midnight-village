@@ -16,8 +16,14 @@ from rest_framework.test import APIClient
 
 from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.protocol import stage_token
 
 pytestmark = pytest.mark.integration
+
+
+def _staged(game, **body):
+    """A stage-scoped body naming the stage the game is in now (``GET /me/``)."""
+    return {**body, "stage": stage_token(Game.objects.get(id=game.id))}
 
 
 def _patch_channels():
@@ -97,7 +103,7 @@ class TestDiscussionToVotingE2E:
         3. 4 of 5 players submit votes
         4. Host force-reveals -> vote_reveal includes all votes (4 targets + 1 null)
         5. Game transitions to results phase
-        6. Verify: /me/ shows has_voted correctly throughout
+        6. Verify: /me/ shows each phone its own vote throughout
         """
         game, users, host = self._setup_game()
         client = APIClient()
@@ -114,19 +120,19 @@ class TestDiscussionToVotingE2E:
             game.refresh_from_db()
             assert game.phase == Phase.DISCUSSION
 
-            # ── Step 2: Verify has_voted is False during discussion ───────
+            # ── Step 2: Verify there is no vote during discussion ─────────
             client.force_authenticate(user=users["p1"])
             response = client.get(me_url)
             # pyrefly: ignore [missing-attribute]
             assert response.status_code == status.HTTP_200_OK
             # pyrefly: ignore [missing-attribute]
-            assert response.data["has_voted"] is False
+            assert response.data["my_vote"] is None
             # pyrefly: ignore [missing-attribute]
             assert response.data["deadline"] is None
 
             # ── Step 3: Host ends discussion ──────────────────────────────
             client.force_authenticate(user=host)
-            response = client.post(end_discussion_url)
+            response = client.post(end_discussion_url, _staged(game), format="json")
             # pyrefly: ignore [missing-attribute]
             assert response.status_code == status.HTTP_200_OK
             # pyrefly: ignore [missing-attribute]
@@ -135,11 +141,11 @@ class TestDiscussionToVotingE2E:
             game.refresh_from_db()
             assert game.phase == Phase.VOTING
 
-            # ── Step 4: Verify has_voted is False before voting ───────────
+            # ── Step 4: Verify nobody has voted yet ───────────────────────
             client.force_authenticate(user=users["p2"])
             response = client.get(me_url)
             # pyrefly: ignore [missing-attribute]
-            assert response.data["has_voted"] is False
+            assert response.data["my_vote"] is None
             # pyrefly: ignore [missing-attribute]
             assert response.data["deadline"] is None
 
@@ -151,7 +157,7 @@ class TestDiscussionToVotingE2E:
                 response = client.post(
                     vote_url,
                     # pyrefly: ignore [missing-attribute]
-                    {"target_player_id": target.id},
+                    _staged(game, target_player_id=target.id, lock=True),
                     format="json",
                 )
                 # pyrefly: ignore [missing-attribute]
@@ -161,26 +167,31 @@ class TestDiscussionToVotingE2E:
             game.refresh_from_db()
             assert game.phase == Phase.VOTING
 
-            # ── Step 6: Verify has_voted status ───────────────────────────
-            # p1 (voted) should show has_voted=True
+            # ── Step 6: Verify each phone sees only its own vote ──────────
+            # p1 (voted) sees its own locked vote
             client.force_authenticate(user=users["p1"])
             response = client.get(me_url)
             # pyrefly: ignore [missing-attribute]
-            assert response.data["has_voted"] is True
+            assert response.data["my_vote"] == {
+                "target_player_id": target.id,
+                "locked": True,
+            }
             # pyrefly: ignore [missing-attribute]
             assert response.data["deadline"] is None
 
-            # p4 (not voted) should show has_voted=False
+            # p4 (not voted) sees no vote and only the count
             client.force_authenticate(user=users["p4"])
             response = client.get(me_url)
             # pyrefly: ignore [missing-attribute]
-            assert response.data["has_voted"] is False
+            assert response.data["my_vote"] is None
+            # pyrefly: ignore [missing-attribute]
+            assert response.data["progress"]["done"] == 4
             # pyrefly: ignore [missing-attribute]
             assert response.data["deadline"] is None
 
             # ── Step 7: Host force-reveals ────────────────────────────────
             client.force_authenticate(user=host)
-            response = client.post(reveal_url)
+            response = client.post(reveal_url, _staged(game), format="json")
             # pyrefly: ignore [missing-attribute]
             assert response.status_code == status.HTTP_200_OK
             # pyrefly: ignore [missing-attribute]
@@ -229,7 +240,7 @@ class TestDiscussionToVotingE2E:
                 response = client.post(
                     vote_url,
                     # pyrefly: ignore [missing-attribute]
-                    {"target_player_id": target.id},
+                    _staged(game, target_player_id=target.id, lock=True),
                     format="json",
                 )
                 # pyrefly: ignore [missing-attribute]
@@ -266,28 +277,29 @@ class TestDiscussionToVotingE2E:
             client.post(
                 vote_url,
                 # pyrefly: ignore [missing-attribute]
-                {"target_player_id": target.id},
+                _staged(game, target_player_id=target.id, lock=True),
                 format="json",
             )
 
-        # Check /me/ - should show has_voted but NOT reveal target
+        # Another player's /me/ shows the count, never who voted or for whom
+        client.force_authenticate(user=users["p2"])
         response = client.get(me_url)
         # pyrefly: ignore [missing-attribute]
         assert response.status_code == status.HTTP_200_OK
         # pyrefly: ignore [missing-attribute]
-        assert response.data["has_voted"] is True
+        assert response.data["my_vote"] is None
+        # pyrefly: ignore [missing-attribute]
+        assert response.data["progress"]["done"] == 1
         # pyrefly: ignore [missing-attribute]
         assert response.data["deadline"] is None
-
-        # vote_target should not appear anywhere in the response
         # pyrefly: ignore [missing-attribute]
-        response_str = str(response.data)
-        assert "vote_target" not in response_str
+        for player in response.data["players"]:
+            assert set(player) == {"player_id", "display_name", "token", "seat"}
 
     def test_discussion_resets_has_acted_for_voting(self, db):
         """
-        Transitioning from discussion to voting resets has_acted so
-        all players start with has_voted=False.
+        Transitioning from discussion to voting resets has_acted so every
+        player starts the vote unlocked (the night's chooses set it).
         """
         game, _users, host = self._setup_game(phase=Phase.DISCUSSION)
 
@@ -302,7 +314,7 @@ class TestDiscussionToVotingE2E:
         client.force_authenticate(user=host)
 
         with _patch_channels():
-            response = client.post(end_discussion_url)
+            response = client.post(end_discussion_url, _staged(game), format="json")
             # pyrefly: ignore [missing-attribute]
             assert response.status_code == status.HTTP_200_OK
 

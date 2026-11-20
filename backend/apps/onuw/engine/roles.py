@@ -24,8 +24,8 @@ class ActionType(StrEnum):
     SWAP_OTHERS = "swap_others"
     SEE_TEAM = "see_team"
     NONE = "none"
-    # Explicit "do nothing" choice. Never listed in RoleDefinition.action_types;
-    # advertised in prompts only for roles flagged ``skippable``.
+    # "Did nothing": logged for a Seer, Robber, Troublemaker or Doppelganger look
+    # whose choose meant nothing. Never in RoleDefinition.action_types.
     SKIP = "skip"
 
 
@@ -39,18 +39,6 @@ class RoleDefinition:
     ]  # allowed action types (some roles have choices)
     min_count: int = 0
     max_count: int = 3
-    skippable: bool = False  # may explicitly choose to do nothing (optional action)
-
-    @property
-    def prompt_action_types(self) -> tuple[ActionType, ...]:
-        """Action types a player acting as this role may submit.
-
-        Equals ``action_types`` plus the explicit ``skip`` choice for roles
-        whose rules say the player "may" act.
-        """
-        if self.skippable:
-            return (*self.action_types, ActionType.SKIP)
-        return self.action_types
 
 
 # ── Role Definitions ──────────────────────────────────────────────────────────
@@ -91,7 +79,6 @@ SEER = _register(
         wave=3,
         action_types=(ActionType.PEEK_PLAYER, ActionType.PEEK_CENTER),
         max_count=1,
-        skippable=True,
     )
 )
 
@@ -102,7 +89,6 @@ ROBBER = _register(
         wave=3,
         action_types=(ActionType.SWAP_WITH_PLAYER,),
         max_count=1,
-        skippable=True,
     )
 )
 
@@ -113,7 +99,6 @@ TROUBLEMAKER = _register(
         wave=3,
         action_types=(ActionType.SWAP_OTHERS,),
         max_count=1,
-        skippable=True,
     )
 )
 

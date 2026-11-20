@@ -12,13 +12,13 @@ import 'contract/contract_shape.dart';
 // - `results_doppelganger`: eight; Cleo, the lone Werewolf, is voted out:
 //   the village wins (Ana, the Doppelganger, copied the Seer).
 // - `results_tanner`: eight; Dev, the Tanner, is voted out and wins alone.
-// - `results_werewolves_win`: six (protocol 2); Fin, a Villager, is voted
+// - `results_werewolves_win`: six; Fin, a Villager, is voted
 //   out: no Werewolf dies, the Werewolves win.
 // - `results_nobody_dies`: six; one vote each: nobody dies, the Werewolves
 //   win.
 // - `results_moved_dead_card`: six; Ben, dealt the Robber, robbed Cleo's
 //   Werewolf and is voted out holding it: the village wins.
-// - and the other protocol-2 ends (`results_v2*`: game 7, a tie that kills
+// - and the other ends (`results_five*`: game 7, a tie that kills
 //   two, the Hunter chain, the Tanner, three players).
 //
 // Every body is checked against the samples before it is used.
@@ -121,7 +121,7 @@ const longEndNames = {
   'Seat 16': 'Annabelle Whitlock',
 };
 
-/// The recorded `/me/` at the results (`me_results_v2`), as the phone of
+/// The recorded `/me/` at the results (`me_results`), as the phone of
 /// [viewer] (a display name) at the table of [results] sees it: the same
 /// game's players, and [host] (a display name) the host. Values only.
 Map<String, dynamic> resultsMeFor(
@@ -129,7 +129,7 @@ Map<String, dynamic> resultsMeFor(
   required String viewer,
   required String host,
 }) {
-  final me = ContractSamples.map('http/game/me_results_v2');
+  final me = ContractSamples.map('http/game/me_results');
   final players = (results['players'] as List).cast<Map<String, dynamic>>();
   int idOf(String name) =>
       players.firstWhere((p) => p['display_name'] == name)['player_id'] as int;

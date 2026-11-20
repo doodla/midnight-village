@@ -1,16 +1,20 @@
 """
 Service- and API-level tests for the two-window night.
 
-Window 1 is the Doppelganger alone. Window 2 prompts every remaining actor at
-once and resolves when it closes. Covered here:
+Window 1 is the Doppelganger's. Window 2 asks every phone at once and resolves when
+it closes. Every phone sends one ``choose`` per window (``Night.post`` sends the
+choose whose picks mean a move, ``Night.rest_choose`` the empty choose of every
+phone that has not chosen yet). Covered here:
 
-- everyone in window 2 is prompted together
-- nothing is delivered to a player before the window closes
+- window 2 opens with one group event and every phone has a prompt
+- nothing is shown to a player before the window closes
 - the Insomniac sees swaps made in the same window
 - minimum window length (deferred close, close at the maximum, host override)
 - windows are never skipped for lack of actors
-- "skip" for Seer, Robber, Troublemaker (and rejected elsewhere, generically)
+- an empty choose changes nothing and is logged as a skip
 - teams come from DEALT cards (a stolen Werewolf card does not move the wake-up)
+- the fixed-length Doppelganger window
+- side effects wait for the commit; garbage timer settings cannot break a night
 """
 
 import functools
@@ -30,14 +34,35 @@ from rest_framework.test import APIClient
 from apps.core import timers
 from apps.core.lobbies import add_member
 from apps.core.models import Lobby, User
-from apps.onuw import services
-from apps.onuw.engine.roles import ROLE_REGISTRY
+from apps.onuw import choose_night, services
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import staged
 
 pytestmark = pytest.mark.integration
 
-GENERIC_INVALID_TYPE = "Invalid action type for this wave."
+# The events a night used to send to one player; nothing in a night is sent to one
+# player now (each phone reads its prompt and results from GET /me/).
+PER_PLAYER_NIGHT_EVENTS = {"action.prompt", "action.result", "wave.waiting"}
+
+
+def picks_for(action_type: str, targets: dict[str, Any]) -> list[dict[str, Any]]:
+    """The picks of the ``choose`` that means a night move, in the move's words:
+    ``peek_player`` / ``swap_with_player`` one player, ``peek_center`` two centre
+    cards, ``swap_others`` two players, ``swap_with_center`` one centre card,
+    ``see_team`` (a lone Werewolf's centre look, if any); ``skip``, ``none`` and a
+    plain ``see_team``: nothing."""
+    if action_type in ("peek_player", "swap_with_player"):
+        return [{"player_id": targets["player_id"]}]
+    if action_type == "peek_center":
+        return [{"center_index": i} for i in targets["center_indices"]]
+    if action_type == "swap_others":
+        return [{"player_id": p} for p in targets["player_ids"]]
+    if action_type == "swap_with_center":
+        return [{"center_index": targets["center_index"]}]
+    if action_type == "see_team" and "center_index" in targets:
+        return [{"center_index": targets["center_index"]}]
+    assert action_type in ("skip", "none", "see_team"), action_type
+    return []
 
 
 class _Recorder:
@@ -119,25 +144,46 @@ class Night:
             services.start_night_phase(self.game)
         self.game.refresh_from_db()
 
+    def chosen(self, name: str) -> int:
+        """How many chooses ``name``'s phone has sent in the open window (its
+        prompt's ``chosen``)."""
+        game = Game.objects.get(id=self.game.id)
+        pr = PlayerRole.objects.get(game=game, user=self.users[name])
+        return choose_night.chose_count(pr, game.current_wave)
+
+    def choose(self, name: str, picks: list[dict[str, Any]] | None = None) -> Any:
+        """``name``'s phone sends its ``choose`` for the open window, naming the
+        stage and answering the prompt as ``GET /me/`` shows them now."""
+        self.client.force_authenticate(user=self.users[name])
+        url = reverse("onuw:night-action", kwargs={"game_id": str(self.game.id)})
+        body = {
+            "action_type": "choose",
+            "picks": picks or [],
+            "chosen": self.chosen(name),
+        }
+        with self.committed():
+            return self.client.post(url, staged(self, body), format="json")
+
     def post(
         self, name: str, action_type: str, targets: dict[str, Any] | None = None
     ) -> Any:
-        self.client.force_authenticate(user=self.users[name])
-        url = reverse("onuw:night-action", kwargs={"game_id": str(self.game.id)})
-        with self.committed():
-            return self.client.post(
-                url,
-                {"action_type": action_type, "targets": targets or {}},
-                format="json",
-            )
+        """``name`` makes a night move: the choose whose picks mean it
+        (``picks_for``)."""
+        return self.choose(name, picks_for(action_type, targets or {}))
+
+    def rest_choose(self) -> None:
+        """Every phone that has not chosen in the open window chooses nothing."""
+        for name in self.users:
+            if self.refresh().phase != Phase.NIGHT:
+                return
+            if self.chosen(name) < 1:
+                self.choose(name)
 
     def host_close_window(self) -> Any:
         self.client.force_authenticate(user=self.host)
         url = reverse("onuw:wave-advance", kwargs={"game_id": str(self.game.id)})
         with self.committed():
-            # Protocol 2 games name the stage (the original night sends no body).
-            body = staged(self, {})
-            return self.client.post(url, body or None, format="json")
+            return self.client.post(url, staged(self, {}), format="json")
 
     def fire_timer(self, window: int) -> None:
         """Run the most recently scheduled callback for a window (timer expiry)."""
@@ -170,6 +216,33 @@ class Night:
     def role_of(self, name: str) -> PlayerRole:
         return PlayerRole.objects.get(game=self.game, user=self.users[name])
 
+    def me(self, name: str) -> dict[str, Any]:
+        """``GET /me/`` as ``name``."""
+        self.client.force_authenticate(user=self.users[name])
+        response = self.client.get(
+            reverse("onuw:game-me", kwargs={"game_id": str(self.game.id)})
+        )
+        assert response.status_code == status.HTTP_200_OK
+        return response.data
+
+    def prompt(self, name: str) -> dict[str, Any] | None:
+        """``name``'s ``action_prompt``, as ``GET /me/`` builds it (read without the
+        request, whose timer repair would add to the timers a test counts)."""
+        return choose_night.prompt_for(self.refresh(), self.role_of(name))
+
+    def results(self, name: str) -> list[dict[str, Any]]:
+        """``name``'s own ``night_results``, as ``GET /me/`` builds them."""
+        game = self.refresh()
+        names = {
+            pr.user_id: pr.user.display_name or pr.user.username
+            for pr in game.player_roles.select_related("user")
+        }
+        return services.night_results_for_player(game, self.users[name].id, names)
+
+    def display_name(self, name: str) -> str:
+        user = self.users[name]
+        return user.display_name or user.username
+
     def events_to(self, name: str, kind: str | None = None) -> list[dict[str, Any]]:
         group = f"game_{self.game.id}_player_{self.users[name].id}"
         return [
@@ -189,8 +262,8 @@ class Night:
     def all_event_types(self) -> list[str]:
         return [e["type"] for _, e in self.recorder.events]
 
-    def result_events(self) -> list[dict[str, Any]]:
-        return [e for _, e in self.recorder.events if e["type"] == "action.result"]
+    def windows_opened(self) -> list[int]:
+        return [e["window"] for e in self.broadcasts("night.window")]
 
 
 @pytest.fixture
@@ -218,8 +291,8 @@ def make_night(db, django_capture_on_commit_callbacks):
             **settings: Any,
         ) -> Night:
             # Defaults: no minimum length and no fixed Doppelganger window, so
-            # windows close as soon as there is nothing left to wait for. Tests
-            # of those rules set them explicitly.
+            # windows close as soon as every phone has chosen. Tests of those
+            # rules set them explicitly.
             merged = {
                 "roles": {},
                 "night_min_window_seconds": 0,
@@ -238,7 +311,7 @@ def make_night(db, django_capture_on_commit_callbacks):
         yield factory
 
 
-# ── Window 2: everyone is prompted together ──────────────────────────────────
+# ── Window 2: everyone is asked together ─────────────────────────────────────
 
 
 class TestSharedWindowPrompts:
@@ -255,70 +328,46 @@ class TestSharedWindowPrompts:
         "villager": "Villager",
     }
 
-    def test_all_window_2_actors_are_prompted_together(self, make_night) -> None:
+    def test_window_2_opens_once_for_everyone_and_every_phone_has_a_prompt(
+        self, make_night
+    ) -> None:
         night = make_night(self.ROLES, night_min_window_seconds=8)
         night.start()
 
         assert night.game.current_wave == 2
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
-
-        prompted = {
-            name: night.events_to(name, "action.prompt")
-            for name in self.ROLES
-            if night.events_to(name, "action.prompt")
+        assert night.windows_opened() == [2]
+        kinds = {name: night.prompt(name)["kind"] for name in self.ROLES}
+        assert kinds == {
+            "wolf": "lone_werewolf",
+            "minion": "none",
+            "mason_a": "none",
+            "mason_b": "none",
+            "seer": "seer",
+            "robber": "robber",
+            "trouble": "troublemaker",
+            "drunk": "drunk",
+            "insomniac": "none",
+            "villager": "none",
         }
-        assert {n: p[0]["role_acting_as"] for n, p in prompted.items()} == {
-            "wolf": "Werewolf",
-            "minion": "Minion",
-            "mason_a": "Mason",
-            "mason_b": "Mason",
-            "seer": "Seer",
-            "robber": "Robber",
-            "trouble": "Troublemaker",
-            "drunk": "Drunk",
-            "insomniac": "Insomniac",
-        }
-        assert all(len(p) == 1 and p[0]["wave"] == 2 for p in prompted.values())
+        assert {night.prompt(n)["window"] for n in self.ROLES} == {2}
+        assert not PER_PLAYER_NIGHT_EVENTS & set(night.all_event_types())
 
-        # The player with no action is told to wait, in the same window.
-        waiting = night.events_to("villager", "wave.waiting")
-        assert [e["wave"] for e in waiting] == [2]
-        assert night.events_to("villager", "action.prompt") == []
-
-    def test_optional_roles_are_offered_skip_and_the_drunk_is_not(
-        self, make_night
-    ) -> None:
-        night = make_night(self.ROLES)
-        night.start()
-
-        def offered(name: str) -> list[str]:
-            return night.events_to(name, "action.prompt")[0]["action_types"]
-
-        assert "skip" in offered("seer")
-        assert "skip" in offered("robber")
-        assert "skip" in offered("trouble")
-        assert "skip" not in offered("drunk")
-        assert "skip" not in offered("wolf")
-        assert "skip" not in offered("insomniac")
-
-    def test_window_2_stays_open_until_every_actor_has_submitted(
-        self, make_night
-    ) -> None:
+    def test_window_2_stays_open_until_every_phone_has_chosen(self, make_night) -> None:
         night = make_night(
             {"a": "Seer", "b": "Robber", "c": "Villager", "d": "Villager"}
         )
         night.start()
 
-        assert night.post("a", "skip").status_code == status.HTTP_200_OK
+        for name in ("a", "b", "c"):
+            assert night.choose(name).status_code == status.HTTP_200_OK
+            assert night.refresh().phase == Phase.NIGHT
+            assert night.game.current_wave == 2
 
-        assert night.refresh().phase == Phase.NIGHT
-        assert night.game.current_wave == 2
-
-        assert night.post("b", "skip").status_code == status.HTTP_200_OK
+        assert night.choose("d").status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.DISCUSSION
 
 
-# ── Nothing is delivered before the window closes ────────────────────────────
+# ── Nothing is shown before the window closes ────────────────────────────────
 
 
 class TestResultsOnlyWhenTheWindowCloses:
@@ -332,7 +381,7 @@ class TestResultsOnlyWhenTheWindowCloses:
             "villager": "Villager",
         }
 
-    def test_no_result_is_delivered_or_stored_while_someone_is_still_choosing(
+    def test_no_result_is_shown_or_stored_while_someone_is_still_choosing(
         self, make_night
     ) -> None:
         night = make_night(self._roles())
@@ -342,13 +391,14 @@ class TestResultsOnlyWhenTheWindowCloses:
         night.post("wolf_b", "see_team")
         night.post("seer", "peek_player", {"player_id": night.users["robber"].id})
         night.post("insomniac", "none")
+        night.post("villager", "none")
 
         # The Robber has not chosen: the window is open, nothing was shown.
         assert night.refresh().phase == Phase.NIGHT
-        assert night.result_events() == []
-        assert "wave.complete" not in night.all_event_types()
         for name in ("wolf_a", "wolf_b", "seer", "insomniac"):
+            assert night.results(name) == [], name
             assert "wave_2_result" not in night.role_of(name).night_action_data
+        assert night.refresh().night_actions_log == []
 
         night.post(
             "robber", "swap_with_player", {"player_id": night.users["wolf_a"].id}
@@ -365,26 +415,25 @@ class TestResultsOnlyWhenTheWindowCloses:
         night.post("wolf_b", "see_team")
         night.post("seer", "peek_player", {"player_id": night.users["robber"].id})
         night.post("insomniac", "none")
+        night.post("villager", "none")
         night.post(
             "robber", "swap_with_player", {"player_id": night.users["wolf_a"].id}
         )
 
         for name in ("wolf_a", "wolf_b", "seer", "robber", "insomniac"):
-            assert len(night.events_to(name, "action.result")) == 1, name
-        assert night.events_to("villager", "action.result") == []
+            assert len(night.results(name)) == 1, name
+        assert night.results("villager") == []
 
         # Each result belongs to window 2 and stays private to its player.
-        seer = night.events_to("seer", "action.result")[0]
+        seer = night.results("seer")[0]
         assert seer["wave"] == 2
-        assert seer["revealed_info"]["role"] == "robber"  # before the Robber moved
-        robber = night.events_to("robber", "action.result")[0]
-        assert robber["revealed_info"]["new_role"] == "werewolf"
+        assert seer["revealed_info"]["role"] == "Robber"  # before the Robber moved
+        robber = night.results("robber")[0]
+        assert robber["revealed_info"]["new_role"] == "Werewolf"
 
-        # Results are sent, then the window is announced complete, then the day.
-        types = night.all_event_types()
-        last_result = max(i for i, t in enumerate(types) if t == "action.result")
-        assert last_result < types.index("wave.complete") < types.index("phase.change")
-        assert [e["wave"] for e in night.broadcasts("wave.complete")] == [2]
+        # The table is told only that the day began; nothing went to one player.
+        assert [e["phase"] for e in night.broadcasts("phase.change")] == ["discussion"]
+        assert not PER_PLAYER_NIGHT_EVENTS & set(night.all_event_types())
 
     def test_results_are_stored_per_window_and_the_log_stays_in_wake_order(
         self, make_night
@@ -396,6 +445,7 @@ class TestResultsOnlyWhenTheWindowCloses:
         )
         night.post("seer", "skip")
         night.post("insomniac", "none")
+        night.post("villager", "none")
         night.post("wolf_b", "see_team")
         night.post("wolf_a", "see_team")
 
@@ -422,19 +472,20 @@ class TestResultsOnlyWhenTheWindowCloses:
         night.start()
         ids = {name: user.id for name, user in night.users.items()}
 
-        # The Insomniac submits FIRST; the swaps still count.
+        # The Insomniac chooses FIRST; the swaps still count.
         night.post("insomniac", "none")
         night.post(
             "trouble", "swap_others", {"player_ids": [ids["insomniac"], ids["wolf"]]}
         )
         night.post("wolf", "see_team")
+        night.post("villager", "none")
         night.post("robber", "swap_with_player", {"player_id": ids["insomniac"]})
 
         # Robber took the Insomniac card, then the Troublemaker swapped the
         # Insomniac's seat with the Werewolf's.
-        result = night.events_to("insomniac", "action.result")[0]
+        result = night.results("insomniac")[0]
         assert result["action_type"] == "insomniac"
-        assert result["revealed_info"] == {"current_role": "werewolf"}
+        assert result["revealed_info"] == {"current_role": "Werewolf"}
         assert night.role_of("insomniac").night_action_data["wave_2_result"] == {
             "current_role": "Werewolf"
         }
@@ -456,7 +507,7 @@ class TestMinimumWindowLength:
 
         assert 7 < services._min_close_delay(night.game) <= 8
 
-    def test_close_is_deferred_when_everyone_submits_early(self, make_night) -> None:
+    def test_close_is_deferred_when_everyone_chooses_early(self, make_night) -> None:
         night = make_night(
             self.ROLES, night_min_window_seconds=8, night_wave_seconds=30
         )
@@ -465,18 +516,20 @@ class TestMinimumWindowLength:
 
         night.post("wolf", "see_team")
         night.post("seer", "skip")
+        night.rest_choose()
 
         # Everyone is done, but the window is not allowed to close yet.
         assert night.refresh().phase == Phase.NIGHT
         assert night.game.current_wave == 2
-        assert night.result_events() == []
+        assert night.results("wolf") == []
         deferred = night.timer_delays(2)[-1]
         assert 0 < deferred <= 8
 
-        # When the minimum is reached the close fires and results go out.
+        # When the minimum is reached the close fires and the results are there.
         night.fire_timer(2)
         assert night.game.phase == Phase.DISCUSSION
-        assert len(night.result_events()) == 2
+        assert len(night.results("wolf")) == 1
+        assert len(night.results("seer")) == 1
 
     def test_a_window_that_is_already_old_enough_closes_at_once(
         self, make_night
@@ -487,17 +540,19 @@ class TestMinimumWindowLength:
 
         night.post("wolf", "see_team")
         night.post("seer", "skip")
+        night.rest_choose()
 
         assert night.refresh().phase == Phase.DISCUSSION
 
-    def test_window_closes_at_the_maximum_when_someone_never_submits(
+    def test_window_closes_at_the_maximum_when_someone_never_chooses(
         self, make_night
     ) -> None:
         night = make_night(
             self.ROLES, night_min_window_seconds=8, night_wave_seconds=30
         )
         night.start()
-        night.post("wolf", "see_team")  # the Seer never submits
+        for name in ("wolf", "v1", "v2"):  # the Seer never chooses
+            night.choose(name)
 
         assert night.refresh().phase == Phase.NIGHT
         assert night.timer_delays(2) == [30]  # nothing earlier was scheduled
@@ -517,8 +572,7 @@ class TestMinimumWindowLength:
             self.ROLES, night_min_window_seconds=60, night_wave_seconds=5
         )
         night.start()
-        night.post("wolf", "see_team")
-        night.post("seer", "skip")
+        night.rest_choose()
 
         assert night.refresh().phase == Phase.NIGHT
         assert 0 < night.timer_delays(2)[-1] <= 5
@@ -563,17 +617,18 @@ class TestWindowsAlwaysRun:
         night.start()
 
         assert night.game.current_wave == 1
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [1]
+        assert night.windows_opened() == [1]
         for name in ("a", "b", "c"):
-            assert [e["wave"] for e in night.events_to(name, "wave.waiting")] == [1]
-            assert night.events_to(name, "action.prompt") == []
+            assert night.prompt(name)["kind"] == "none"
 
-        # Nobody can act, yet it still lasts its minimum length.
-        assert night.game.phase == Phase.NIGHT
+        # Nobody can act, yet it lasts until every phone has chosen and then
+        # still its minimum length.
+        night.rest_choose()
+        assert night.refresh().phase == Phase.NIGHT
         assert 0 < night.timer_delays(1)[-1] <= 8
         night.fire_timer(1)
         assert night.game.current_wave == 2
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [1, 2]
+        assert night.windows_opened() == [1, 2]
 
     def test_window_1_does_not_run_when_the_doppelganger_is_not_in_the_deck(
         self, make_night
@@ -582,9 +637,9 @@ class TestWindowsAlwaysRun:
         night.start()
 
         assert night.game.current_wave == 2
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+        assert night.windows_opened() == [2]
 
-    def test_empty_window_1_passes_straight_to_window_2_when_minimum_is_zero(
+    def test_empty_window_1_passes_to_window_2_once_every_phone_chose(
         self, make_night
     ) -> None:
         night = make_night(
@@ -592,10 +647,10 @@ class TestWindowsAlwaysRun:
             center=["Doppelganger", "Robber", "Tanner"],
         )
         night.start()
+        night.rest_choose()
 
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [1, 2]
-        assert [e["wave"] for e in night.broadcasts("wave.complete")] == [1]
-        assert night.game.current_wave == 2
+        assert night.windows_opened() == [1, 2]
+        assert night.refresh().current_wave == 2
 
     def test_an_all_villager_table_still_gets_window_2(self, make_night) -> None:
         night = make_night(
@@ -606,30 +661,32 @@ class TestWindowsAlwaysRun:
 
         assert night.game.phase == Phase.NIGHT
         assert night.game.current_wave == 2
-        for name in ("a", "b", "c"):
-            assert [e["wave"] for e in night.events_to(name, "wave.waiting")] == [2]
+        assert {night.prompt(n)["kind"] for n in ("a", "b", "c")} == {"none"}
 
-        # Nobody has a choice, so it lasts exactly its minimum length.
+        # Nobody has a choice, so it lasts its minimum length once all chose.
+        night.rest_choose()
         assert 0 < night.timer_delays(2)[-1] <= 8
         night.fire_timer(2)
         assert night.game.phase == Phase.DISCUSSION
-        assert [e["wave"] for e in night.broadcasts("wave.complete")] == [2]
 
-    def test_an_all_villager_table_with_no_minimum_goes_straight_to_the_day(
+    def test_an_all_villager_table_with_no_minimum_goes_to_the_day_once_all_chose(
         self, make_night
     ) -> None:
         night = make_night({"a": "Villager", "b": "Villager", "c": "Villager"})
         night.start()
+        assert night.game.phase == Phase.NIGHT
 
-        assert night.game.phase == Phase.DISCUSSION
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
-        assert [e["wave"] for e in night.broadcasts("wave.complete")] == [2]
+        night.rest_choose()
+
+        assert night.refresh().phase == Phase.DISCUSSION
+        assert night.windows_opened() == [2]
 
     def test_current_wave_is_zero_outside_the_night(self, make_night) -> None:
         night = make_night({"a": "Villager", "b": "Villager", "c": "Villager"})
         night.start()
+        night.rest_choose()
 
-        assert night.game.current_wave == 0
+        assert night.refresh().current_wave == 0
         # The open time now belongs to the talk (``/me/`` ``stage_started_at``),
         # set when the talk opened: no night window's is left behind.
         assert night.game.phase == Phase.DISCUSSION
@@ -639,10 +696,10 @@ class TestWindowsAlwaysRun:
         )
 
 
-# ── skip ─────────────────────────────────────────────────────────────────────
+# ── Choosing nothing ─────────────────────────────────────────────────────────
 
 
-class TestSkip:
+class TestChoosingNothing:
     ROLES = {
         "seer": "Seer",
         "robber": "Robber",
@@ -653,28 +710,16 @@ class TestSkip:
         "villager": "Villager",
     }
 
-    @pytest.mark.parametrize("who", ["seer", "robber", "trouble"])
-    def test_skip_is_accepted_for_seer_robber_and_troublemaker(
-        self, make_night, who: str
+    def test_choosing_nothing_changes_nothing_and_is_logged_as_a_skip(
+        self, make_night
     ) -> None:
         night = make_night(self.ROLES)
         night.start()
-
-        response = night.post(who, "skip")
-
-        assert response.status_code == status.HTTP_200_OK
-        data = night.role_of(who).night_action_data
-        assert data["action_type"] == "skip"
-        assert data["targets"] == {}
-
-    def test_skipping_changes_nothing_and_is_logged(self, make_night) -> None:
-        night = make_night(self.ROLES)
-        night.start()
-        # (The Drunk is left out: one who never acts is swapped by the server.)
+        # (The Drunk is left out: one who keeps their card is swapped by the server.)
         others = [n for n in self.ROLES if n != "drunk"]
         before = {n: night.role_of(n).current_role for n in others}
         for who in ("seer", "robber", "trouble"):
-            night.post(who, "skip")
+            night.choose(who)
         night.host_close_window()
 
         assert {n: night.role_of(n).current_role for n in others} == before
@@ -686,64 +731,18 @@ class TestSkip:
             if e["action_type"] == "skip" and e["player_id"] in skippers
         ]
         assert len(skips) == 3
-        assert night.result_events()  # the skippers are told it was a skip
-        seer_result = night.events_to("seer", "action.result")[0]
-        assert seer_result["action_type"] == "skip"
-        assert seer_result["revealed_info"] == {}
-
-    def test_skip_is_rejected_for_the_drunk_with_a_generic_error(
-        self, make_night
-    ) -> None:
-        night = make_night(self.ROLES)
-        night.start()
-
-        response = night.post("drunk", "skip")
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data["detail"] == [GENERIC_INVALID_TYPE]
-        assert not night.role_of("drunk").has_acted
-
-        # Indistinguishable from any other invalid action type.
-        other = night.post("seer", "no_such_action")
-        assert other.data["detail"] == response.data["detail"]
-        # And it names no role.
-        text = str(response.data).lower()
-        assert not any(name.lower() in text for name in ROLE_REGISTRY)
-
-    @pytest.mark.parametrize("who", ["wolf", "insomniac"])
-    def test_skip_is_rejected_for_view_only_roles(self, make_night, who: str) -> None:
-        night = make_night(self.ROLES)
-        night.start()
-
-        response = night.post(who, "skip")
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data["detail"] == [GENERIC_INVALID_TYPE]
-
-    def test_skip_is_rejected_for_the_doppelgangers_first_look(
-        self, make_night
-    ) -> None:
-        night = make_night({"d": "Doppelganger", "s": "Seer", "v": "Villager"})
-        night.start()
-        assert night.game.current_wave == 1
-
-        response = night.post("d", "skip")
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data["detail"] == [GENERIC_INVALID_TYPE]
-        assert night.refresh().current_wave == 1
-
-    def test_skip_with_targets_is_rejected(self, make_night) -> None:
-        night = make_night(self.ROLES)
-        night.start()
-
-        response = night.post("seer", "skip", {"player_id": night.users["wolf"].id})
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert not night.role_of("seer").has_acted
+        # The phone is told its choice did nothing; nobody else is told anything.
+        assert night.results("seer") == [
+            {
+                "wave": 2,
+                "action_type": "skip",
+                "revealed_info": {"nothing_chosen": True},
+            }
+        ]
+        assert night.results("villager") == []
 
     @pytest.mark.parametrize("copied", ["Seer", "Robber", "Troublemaker"])
-    def test_doppelganger_can_skip_the_follow_up_of_an_optional_role(
+    def test_a_doppelganger_may_choose_nothing_for_the_follow_up(
         self, make_night, copied: str
     ) -> None:
         night = make_night(
@@ -757,36 +756,23 @@ class TestSkip:
         )
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["target"].id})
-        follow_up = night.events_to("d", "action.prompt")[-1]
+        follow_up = night.prompt("d")
         assert follow_up["role_acting_as"] == copied
-        assert "skip" in follow_up["action_types"]
+        assert follow_up["chooses_left"] == 1
 
-        response = night.post("d", "skip")
+        response = night.choose("d")
+        night.rest_choose()
 
         assert response.status_code == status.HTTP_200_OK
         assert night.refresh().current_wave == 2  # window 1 closed, window 2 opened
         assert night.role_of("d").current_role == "Doppelganger"
-
-    def test_doppelganger_cannot_skip_a_drunk_follow_up(self, make_night) -> None:
-        night = make_night(
-            {"d": "Doppelganger", "drunk": "Drunk", "w": "Werewolf", "v": "Villager"}
-        )
-        night.start()
-        night.post("d", "peek_player", {"player_id": night.users["drunk"].id})
-
-        response = night.post("d", "skip")
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data["detail"] == [GENERIC_INVALID_TYPE]
-        follow_up = night.events_to("d", "action.prompt")[-1]
-        assert "skip" not in follow_up["action_types"]
 
 
 # ── Window 1: the Doppelganger ───────────────────────────────────────────────
 
 
 class TestDoppelgangerWindow:
-    def test_the_look_is_delivered_at_once_but_the_follow_up_waits_for_the_close(
+    def test_the_look_is_shown_at_once_but_the_follow_up_waits_for_the_close(
         self, make_night
     ) -> None:
         night = make_night(
@@ -796,15 +782,16 @@ class TestDoppelgangerWindow:
         night.start()
 
         night.post("d", "peek_player", {"player_id": night.users["r"].id})
-        looks = night.events_to("d", "action.result")
+        looks = night.results("d")
         assert [e["revealed_info"]["copied_role"] for e in looks] == ["Robber"]
-        assert night.broadcasts("wave.complete") == []  # nobody learns she copied
+        assert night.windows_opened() == [1]  # nobody learns she copied
 
         night.post("d", "swap_with_player", {"player_id": night.users["w"].id})
+        night.rest_choose()
 
-        # Everything is submitted; the window waits out its minimum.
+        # Everything is chosen; the window waits out its minimum.
         assert night.refresh().current_wave == 1
-        assert len(night.events_to("d", "action.result")) == 1
+        assert len(night.results("d")) == 1
         assert night.role_of("d").current_role == "Doppelganger"  # not applied yet
 
         night.fire_timer(1)
@@ -812,13 +799,13 @@ class TestDoppelgangerWindow:
         assert night.game.current_wave == 2
         assert night.role_of("d").current_role == "Werewolf"
         assert night.role_of("w").current_role == "Doppelganger"
-        results = night.events_to("d", "action.result")
+        results = night.results("d")
         assert [e["action_type"] for e in results] == [
             "peek_player",
             "swap_with_player",
         ]
-        assert results[1]["revealed_info"]["new_role"] == "werewolf"
-        assert [e["wave"] for e in night.broadcasts("wave.complete")] == [1]
+        assert results[1]["revealed_info"]["new_role"] == "Werewolf"
+        assert night.windows_opened() == [1, 2]
 
     def test_window_1_deadline_does_not_reveal_a_follow_up(self, make_night) -> None:
         night = make_night(
@@ -840,68 +827,67 @@ class TestDoppelgangerWindow:
         )
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["w1"].id})
+        night.rest_choose()
 
         assert night.refresh().current_wave == 2
-        prompt = night.events_to("d", "action.prompt")[-1]
+        prompt = night.prompt("d")
         assert prompt["role_acting_as"] == "Werewolf"
-        assert prompt["wave"] == 2
+        assert prompt["window"] == 2
 
-        night.post("d", "see_team")
-        night.post("w1", "see_team")
-        night.post("w2", "see_team")
+        night.rest_choose()
 
         assert night.refresh().phase == Phase.DISCUSSION
-        result = night.events_to("d", "action.result")[-1]
+        result = night.results("d")[-1]
         assert set(result["revealed_info"]["teammate_names"]) == {
-            night.users["w1"].display_name or night.users["w1"].username,
-            night.users["w2"].display_name or night.users["w2"].username,
+            night.display_name("w1"),
+            night.display_name("w2"),
         }
         # At most one result in window 2 (plus the look from window 1).
-        assert [e["wave"] for e in night.events_to("d", "action.result")] == [1, 2]
+        assert [e["wave"] for e in night.results("d")] == [1, 2]
 
 
 # ── Teams come from DEALT cards ──────────────────────────────────────────────
 
 
 class TestDealtCardsDecideWhoWakes:
-    def _steal_the_wolf_in_window_1(self, night: Night, victim: str) -> None:
+    def _steal_in_window_1(self, night: Night, victim: str) -> None:
         """The Doppelganger copies the Robber, then robs `victim` in window 1."""
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["r"].id})
         night.post("d", "swap_with_player", {"player_id": night.users[victim].id})
+        night.rest_choose()
         assert night.refresh().current_wave == 2
 
-    def test_dealt_werewolf_whose_card_was_stolen_is_still_prompted_and_is_lone(
+    def test_dealt_werewolf_whose_card_was_stolen_still_wakes_and_is_lone(
         self, make_night
     ) -> None:
         night = make_night(
             {"d": "Doppelganger", "w": "Werewolf", "r": "Robber", "v": "Villager"},
             center=["Seer", "Villager", "Tanner"],
         )
-        self._steal_the_wolf_in_window_1(night, victim="w")
+        self._steal_in_window_1(night, victim="w")
         assert night.role_of("d").current_role == "Werewolf"  # the thief holds it
         assert night.role_of("w").current_role == "Doppelganger"
 
-        # The victim is prompted as a Werewolf, and nobody else is on the team.
-        prompt = night.events_to("w", "action.prompt")[-1]
-        assert prompt["role_acting_as"] == "Werewolf"
-        assert prompt["valid_targets"]["see_team"] == []
-        # The thief is not prompted: she woke (and acted) as the Robber.
-        assert night.events_to("d", "action.prompt")[-1]["wave"] == 1
-        assert [e["wave"] for e in night.events_to("d", "wave.waiting")] == [2]
+        # The victim is asked as the lone Werewolf; the thief has nothing to do:
+        # she woke (and acted) as the Robber.
+        assert night.prompt("w")["kind"] == "lone_werewolf"
+        assert night.prompt("w")["role_acting_as"] == "Werewolf"
+        assert night.prompt("d")["kind"] == "none"
         assert sorted(services.get_wave_actors(night.game, 2)) == sorted(
             [night.users["w"].id, night.users["r"].id]
         )
 
-        # So the victim may look at a center card; the thief may not act.
-        assert night.post("d", "see_team").status_code == status.HTTP_400_BAD_REQUEST
-        peek = night.post("w", "see_team", {"center_index": 0})
-        assert peek.status_code == status.HTTP_200_OK
+        # So the victim may look at a centre card; the thief's picks mean nothing.
+        night.choose("d", [{"center_index": 1}])
+        night.post("w", "see_team", {"center_index": 0})
         night.post("r", "skip")
+        night.rest_choose()
 
-        result = night.events_to("w", "action.result")[-1]
+        result = night.results("w")[-1]
         assert result["revealed_info"]["teammate_names"] == []
-        assert result["revealed_info"]["center_card"] == {"index": 0, "role": "seer"}
+        assert result["revealed_info"]["center_card"] == {"index": 0, "role": "Seer"}
+        assert [e["wave"] for e in night.results("d")] == [1, 1]
 
     def test_a_werewolf_whose_partner_was_robbed_is_not_lone(self, make_night) -> None:
         night = make_night(
@@ -914,23 +900,19 @@ class TestDealtCardsDecideWhoWakes:
             },
             center=["Seer", "Villager", "Tanner"],
         )
-        self._steal_the_wolf_in_window_1(night, victim="w2")
+        self._steal_in_window_1(night, victim="w2")
 
-        # w2's card moved, but w2 still wakes: w1 sees w2 and may not peek.
-        prompt = night.events_to("w1", "action.prompt")[-1]
-        assert prompt["valid_targets"]["see_team"] == [night.users["w2"].id]
-        refused = night.post("w1", "see_team", {"center_index": 0})
-        assert refused.status_code == status.HTTP_400_BAD_REQUEST
-        assert refused.data["detail"] == ["Center card peek is not available."]
-
-        assert night.post("w1", "see_team").status_code == status.HTTP_200_OK
-        assert night.post("w2", "see_team").status_code == status.HTTP_200_OK
-        # The thief (holding a Werewolf card) is NOT shown to them.
+        # w2's card moved, but w2 still wakes: w1 is in a pack and its centre pick
+        # means nothing.
+        assert night.prompt("w1")["kind"] == "none"
+        night.choose("w1", [{"center_index": 0}])
         night.post("r", "skip")
-        seen = night.events_to("w1", "action.result")[-1]
-        assert seen["revealed_info"]["teammate_names"] == [
-            night.users["w2"].display_name or night.users["w2"].username
-        ]
+        night.rest_choose()
+
+        # The thief (holding a Werewolf card) is NOT shown to them.
+        seen = night.results("w1")[-1]
+        assert seen["revealed_info"]["teammate_names"] == [night.display_name("w2")]
+        assert "center_card" not in seen["revealed_info"]
 
     def test_minion_is_shown_the_dealt_werewolves_not_the_thief(
         self, make_night
@@ -944,16 +926,13 @@ class TestDealtCardsDecideWhoWakes:
                 "v": "Villager",
             }
         )
-        self._steal_the_wolf_in_window_1(night, victim="w")
+        self._steal_in_window_1(night, victim="w")
 
-        night.post("m", "see_team")
-        night.post("w", "see_team")
         night.post("r", "skip")
+        night.rest_choose()
 
-        shown = night.events_to("m", "action.result")[-1]
-        assert shown["revealed_info"]["teammate_names"] == [
-            night.users["w"].display_name or night.users["w"].username
-        ]
+        shown = night.results("m")[-1]
+        assert shown["revealed_info"]["teammate_names"] == [night.display_name("w")]
 
     def test_the_seer_dealt_the_card_still_wakes_after_it_was_taken(
         self, make_night
@@ -962,13 +941,11 @@ class TestDealtCardsDecideWhoWakes:
         night = make_night(
             {"d": "Doppelganger", "s": "Seer", "r": "Robber", "v": "Villager"}
         )
-        self._steal_the_wolf_in_window_1(night, victim="s")
+        self._steal_in_window_1(night, victim="s")
 
-        prompt = night.events_to("s", "action.prompt")[-1]
-        assert prompt["role_acting_as"] == "Seer"
-        assert (
-            night.events_to("d", "action.prompt")[-1]["wave"] == 1
-        )  # none in window 2
+        assert night.prompt("s")["kind"] == "seer"
+        assert night.prompt("s")["role_acting_as"] == "Seer"
+        assert night.prompt("d")["kind"] == "none"  # nothing for her in window 2
 
 
 # ── Window 1 has a fixed length ──────────────────────────────────────────────
@@ -1014,12 +991,12 @@ class TestFixedDoppelgangerWindow:
         )
         night.start()
 
-        start = night.broadcasts("wave.start")[0]
+        opened = night.broadcasts("night.window")[0]
         game = night.refresh()
         assert game.night_window_opened_at is not None
         expected = game.night_window_opened_at + timedelta(seconds=self.SECONDS)
         assert game.phase_deadline == expected
-        assert start["deadline"] == expected.isoformat()
+        assert opened["deadline"] == expected.isoformat()
         assert night.timer_delays(1) == [self.SECONDS]
 
     def test_card_in_the_center_nobody_can_act_still_lasts_the_full_length(
@@ -1032,6 +1009,7 @@ class TestFixedDoppelgangerWindow:
         )
         night.start()
         deadline = night.game.phase_deadline
+        night.rest_choose()
 
         self._assert_one_untouched_timer(night, deadline)
         night.fire_timer(1)
@@ -1048,9 +1026,10 @@ class TestFixedDoppelgangerWindow:
         deadline = night.game.phase_deadline
 
         night.post("d", "peek_player", {"player_id": night.users["v1"].id})
+        night.rest_choose()
 
-        # The look is resolved and delivered at once ...
-        assert len(night.events_to("d", "action.result")) == 1
+        # The look is resolved and shown to her at once ...
+        assert len(night.results("d")) == 1
         # ... but the window runs to its fixed length, like every other case.
         self._assert_one_untouched_timer(night, deadline)
         night.fire_timer(1)
@@ -1065,25 +1044,27 @@ class TestFixedDoppelgangerWindow:
         deadline = night.game.phase_deadline
 
         night.post("d", "peek_player", {"player_id": night.users["s"].id})
-        # The follow-up prompt goes out at once, with no new timer or deadline.
-        prompt = night.events_to("d", "action.prompt")[-1]
+        # Her follow-up is armed at once, with no new timer or deadline.
+        prompt = night.prompt("d")
         assert prompt["role_acting_as"] == "Seer"
+        assert prompt["chooses_left"] == 1
         self._assert_one_untouched_timer(night, deadline)
 
         night.post("d", "peek_player", {"player_id": night.users["w"].id})
-        # Everything submitted: still no early close, and the follow-up's
-        # result is held until the window closes.
+        night.rest_choose()
+        # Everything chosen: still no early close, and the follow-up's result is
+        # held until the window closes.
         self._assert_one_untouched_timer(night, deadline)
-        assert len(night.events_to("d", "action.result")) == 1
+        assert len(night.results("d")) == 1
 
         night.fire_timer(1)
 
         assert night.game.current_wave == 2
-        results = night.events_to("d", "action.result")
+        results = night.results("d")
         assert [e["action_type"] for e in results] == ["peek_player", "peek_player"]
-        assert results[1]["revealed_info"]["role"] == "werewolf"
+        assert results[1]["revealed_info"]["role"] == "Werewolf"
 
-    def test_follow_up_not_submitted_is_skipped_when_the_timer_fires(
+    def test_follow_up_not_chosen_is_skipped_when_the_timer_fires(
         self, make_night
     ) -> None:
         night = self._night(
@@ -1104,9 +1085,7 @@ class TestFixedDoppelgangerWindow:
         ]
         assert [e["action_type"] for e in entries] == ["peek_player", "skip"]
 
-    def test_look_not_submitted_is_skipped_when_the_timer_fires(
-        self, make_night
-    ) -> None:
+    def test_look_not_chosen_is_skipped_when_the_timer_fires(self, make_night) -> None:
         night = self._night(
             make_night, {"d": "Doppelganger", "s": "Seer", "v": "Villager"}
         )
@@ -1137,7 +1116,7 @@ class TestFixedDoppelgangerWindow:
         assert night.timer_delays(2) == [30]  # night_wave_seconds, not the fixed length
 
     def test_zero_turns_the_fixed_length_off(self, make_night) -> None:
-        # 0: window 1 closes like window 2, as soon as its actors are done
+        # 0: window 1 closes like window 2, as soon as every phone has chosen
         # (no sooner than the minimum, no later than night_wave_seconds).
         night = make_night(
             {"d": "Doppelganger", "v1": "Villager", "v2": "Villager"},
@@ -1149,10 +1128,12 @@ class TestFixedDoppelgangerWindow:
         assert night.timer_delays(1) == [30]
 
         night.post("d", "peek_player", {"player_id": night.users["v1"].id})
+        night.rest_choose()
 
-        # Window 1 closed at once (window 2 then had nobody to wait for).
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [1, 2]
-        assert [e["wave"] for e in night.broadcasts("wave.complete")] == [1, 2]
+        assert night.refresh().current_wave == 2
+        night.rest_choose()
+        assert night.windows_opened() == [1, 2]
+        assert night.refresh().phase == Phase.DISCUSSION
 
 
 # ── Side effects wait for the commit ─────────────────────────────────────────
@@ -1177,10 +1158,10 @@ class TestSideEffectsWaitForCommit:
         for callback in callbacks:  # the commit happens
             callback()
 
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+        assert night.windows_opened() == [2]
         assert [k for k, _, _ in night.scheduled] == [f"{night.game.id}:wave:2"]
 
-    def test_closing_a_window_sends_results_only_after_the_commit(
+    def test_closing_a_window_tells_the_table_only_after_the_commit(
         self, make_night, django_capture_on_commit_callbacks
     ) -> None:
         night = make_night({"s": "Seer", "r": "Robber", "v": "Villager"})
@@ -1196,8 +1177,8 @@ class TestSideEffectsWaitForCommit:
         for callback in callbacks:
             callback()
         types = [e["type"] for _, e in night.recorder.events[sent_before:]]
-        assert types.index("action.result") < types.index("wave.complete")
-        assert types.index("wave.complete") < types.index("phase.change")
+        assert "phase.change" in types
+        assert not PER_PLAYER_NIGHT_EVENTS & set(types)
 
     def test_a_failure_while_opening_the_next_window_changes_and_sends_nothing(
         self, make_night, django_capture_on_commit_callbacks
@@ -1251,108 +1232,6 @@ class TestSideEffectsWaitForCommit:
         # The host can still carry on.
         assert night.host_close_window().status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.DISCUSSION
-
-
-# ── Malformed input is a 400 ─────────────────────────────────────────────────
-
-BAD_VALUES = [
-    pytest.param("abc", id="word"),
-    pytest.param("3", id="numeric-string"),
-    pytest.param(None, id="null"),
-    pytest.param(True, id="true"),
-    pytest.param(False, id="false"),
-    pytest.param(1.5, id="float"),
-    pytest.param([0], id="list"),
-    pytest.param([[0]], id="nested-list"),
-    pytest.param({"a": 1}, id="object"),
-]
-
-
-class TestMalformedTargetsAreRejected:
-    ROLES = {
-        "seer": "Seer",
-        "robber": "Robber",
-        "trouble": "Troublemaker",
-        "drunk": "Drunk",
-        "wolf": "Werewolf",
-        "villager": "Villager",
-    }
-
-    def _cases(self, night: Night, bad: Any) -> list[tuple[str, str, dict[str, Any]]]:
-        good = night.users["villager"].id
-        return [
-            ("seer", "peek_player", {"player_id": bad}),
-            ("seer", "peek_center", {"center_indices": [bad, 1]}),
-            ("seer", "peek_center", {"center_indices": [0, bad]}),
-            ("seer", "peek_center", {"center_indices": bad}),
-            ("robber", "swap_with_player", {"player_id": bad}),
-            ("trouble", "swap_others", {"player_ids": [bad, good]}),
-            ("trouble", "swap_others", {"player_ids": [good, bad]}),
-            ("trouble", "swap_others", {"player_ids": bad}),
-            ("drunk", "swap_with_center", {"center_index": bad}),
-            # null center_index just means "no peek": valid for a lone Werewolf.
-            *([("wolf", "see_team", {"center_index": bad})] if bad is not None else []),
-        ]
-
-    @pytest.mark.parametrize("bad", BAD_VALUES)
-    def test_wrong_typed_target_values_get_a_400_not_a_500(
-        self, make_night, bad: Any
-    ) -> None:
-        night = make_night(self.ROLES)
-        night.start()
-
-        for who, action_type, targets in self._cases(night, bad):
-            response = night.post(who, action_type, targets)
-            assert response.status_code == status.HTTP_400_BAD_REQUEST, (
-                who,
-                action_type,
-                targets,
-                response.data,
-            )
-            assert not night.role_of(who).has_acted
-
-        # Nothing was recorded, and the window still works afterwards.
-        assert night.refresh().phase == Phase.NIGHT
-        ok = night.post("seer", "peek_player", {"player_id": night.users["wolf"].id})
-        assert ok.status_code == status.HTTP_200_OK
-
-    def test_malformed_values_get_the_generic_message(self, make_night) -> None:
-        night = make_night(self.ROLES)
-        night.start()
-
-        response = night.post("seer", "peek_player", {"player_id": "abc"})
-
-        assert response.data["detail"] == [services.MALFORMED_TARGET]
-
-    def test_malformed_look_target_is_rejected_for_the_doppelganger(
-        self, make_night
-    ) -> None:
-        night = make_night({"d": "Doppelganger", "s": "Seer", "v": "Villager"})
-        night.start()
-
-        for bad in ("abc", None, True, [1], {"a": 1}):
-            response = night.post("d", "peek_player", {"player_id": bad})
-            assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert night.refresh().current_wave == 1
-        assert not night.role_of("d").has_acted
-
-    def test_non_object_targets_and_non_string_action_types_are_rejected(
-        self, make_night
-    ) -> None:
-        night = make_night(self.ROLES)
-        night.start()
-        night.client.force_authenticate(user=night.users["seer"])
-        url = reverse("onuw:night-action", kwargs={"game_id": str(night.game.id)})
-
-        for payload in (
-            {"action_type": "peek_player", "targets": [1]},
-            {"action_type": "peek_player", "targets": "x"},
-            {"action_type": ["peek_player"], "targets": {}},
-            {"action_type": {"a": 1}, "targets": {}},
-        ):
-            with night.committed():
-                response = night.client.post(url, payload, format="json")
-            assert response.status_code == status.HTTP_400_BAD_REQUEST, payload
 
 
 # ── Bad stored timer values cannot break a night ─────────────────────────────

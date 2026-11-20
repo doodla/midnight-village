@@ -75,36 +75,7 @@ void main() {
       );
     });
 
-    // PROTOCOL 1: delete this test with the filter in contract_samples.dart.
-    test("the server's protocol-1 samples are left out of the index", () {
-      final names = {for (final s in ContractSamples.index) s.name};
-      for (final protocolOne in [
-        'http/game/me_night_prompt_seer',
-        'http/game/me_voting',
-        'http/game/me_results',
-        'ws/game/action_prompt_seer',
-        'ws/game/action_result_peek_player',
-        'ws/game/wave_start',
-        'ws/game/wave_waiting',
-        'ws/game/vote_submitted',
-      ]) {
-        expect(names, isNot(contains(protocolOne)));
-      }
-      for (final kept in [
-        'http/game/me_look_stage',
-        'http/game/me_choose_prompt_seer',
-        'http/game/me_discussion_choose_seer',
-        'http/game/me_results_v2',
-        'http/game/me_not_found',
-        'ws/game/night_window_1',
-        'ws/game/progress_look',
-        'ws/game/phase_change_voting',
-        'ws/game/wave_complete',
-        'ws/game/vote_reveal',
-        'ws_sequence/look_stage',
-      ]) {
-        expect(names, contains(kept));
-      }
+    test('every recorded /me/ names its stage', () {
       for (final info in ContractSamples.index.where(
         (s) =>
             s.isHttp && s.status == 200 && s.matchesPath('/onuw/games/g/me/'),
@@ -118,27 +89,15 @@ void main() {
     });
   });
 
-  // PROTOCOL 1: these name the server's protocol-1 samples; delete the
-  // first two tests with them.
-  group('a /me/ is the one the server sends now', () {
+  group('a /me/ is the one the server sends', () {
     Map<String, dynamic> sample(String name) => ContractSamples.map(name);
     void check(Map<String, dynamic> body) =>
         checkHttpBody('GET', '/onuw/games/g/me/', 200, body);
     void refused(dynamic Function() fn) =>
         expect(fn, throwsA(isA<OffContractPayload>()));
 
-    test('a protocol-1 /me/ (no stage) is refused', () {
-      refused(() => check(sample('http/game/me_night_prompt_seer')));
-      refused(() => check(sample('http/game/me_discussion')));
+    test('a /me/ without its stage is refused', () {
       refused(() => check(sample('http/game/me_look_stage')..remove('stage')));
-    });
-
-    test('a protocol-1 prompt is refused in a /me/', () {
-      final body = sample('http/game/me_choose_prompt_seer')
-        ..['action_prompt'] = sample(
-          'http/game/me_night_prompt_seer',
-        )['action_prompt'];
-      refused(() => check(body));
     });
 
     test('what the server always sends cannot be left out', () {
@@ -243,7 +202,7 @@ void main() {
       });
 
       test("a Minion team view with a lone Werewolf's centre card", () {
-        final body = sample('http/game/me_discussion_result_see_team_minion');
+        final body = sample('http/game/me_discussion_choose_minion');
         body['night_results'][0]['revealed_info']['center_card'] = {
           'index': 0,
           'role': 'Seer',
@@ -302,7 +261,6 @@ void main() {
   group('every builder output is on contract', () {
     test('GameEvents, every factory', () {
       final events = [
-        GameEvents.waveComplete(),
         GameEvents.phaseChange(phase: 'discussion'),
         GameEvents.phaseChange(
           phase: 'voting',
@@ -321,7 +279,6 @@ void main() {
         GameEvents.playAgain(lobbyCode: 'ABC123'),
         GameEvents.playerJoined(),
         GameEvents.playerLeft(),
-        GameEvents.playerReady(playerId: 2, isReady: false),
         GameEvents.lobbyUpdate(roleConfig: {'Werewolf': 2, 'Seer': 1}),
         GameEvents.gameStarted(gameId: 'g'),
       ];

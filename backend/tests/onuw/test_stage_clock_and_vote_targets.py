@@ -1,5 +1,5 @@
 """
-Night protocol 2 ``GET /me/``: ``stage_started_at`` and ``vote_targets``.
+``GET /me/``: ``stage_started_at`` and ``vote_targets``.
 
 ``stage_started_at`` is when the timed stage that is open now (the look, a night
 window, the talk, the vote) opened, in ``deadline``'s format, so a phone that
@@ -117,7 +117,6 @@ class TestStageStartedAt:
         night = make_night(
             ROLES,
             CENTER,
-            night_protocol=2,
             card_look_seconds=LOOK,
             night_doppelganger_window_seconds=WINDOW_1,
             night_wave_seconds=WAVE,
@@ -177,7 +176,8 @@ class TestStageStartedAt:
         clock.advance(5)
         for name in night.users:
             target = "wolf" if name != "wolf" else "seer"
-            post(night, name, "vote", {"target_player_id": night.users[target].id})
+            body = {"target_player_id": night.users[target].id, "lock": True}
+            post(night, name, "vote", body)
         assert night.refresh().phase == Phase.RESULTS
         assert clock_of_every_seat(night) == (None, None)
 
@@ -185,7 +185,6 @@ class TestStageStartedAt:
         night = make_night(
             ROLES,
             CENTER,
-            night_protocol=2,
             night_doppelganger_window_seconds=0,
             night_wave_seconds=0,
             night_min_window_seconds=0,
@@ -209,7 +208,7 @@ class TestStageStartedAt:
     def test_a_late_deadline_keeps_the_stage_start(self, make_night, clock) -> None:
         """A restart's reconnect allowance moves the deadline, never the start: the
         phone draws the stage as it really ran."""
-        night = make_night(ROLES, CENTER, night_protocol=2, voting_seconds=VOTE)
+        night = make_night(ROLES, CENTER, voting_seconds=VOTE)
         night.start()
         to_voting(night)
         started, _ = clock_of_every_seat(night)
@@ -223,19 +222,11 @@ class TestStageStartedAt:
         assert later_deadline is not None
         assert datetime.fromisoformat(later_deadline) > clock.now
 
-    def test_the_original_night_does_not_have_the_keys(self, make_night) -> None:
-        night = make_night(ROLES, CENTER, voting_seconds=VOTE)
-        night.start()
-        to_voting(night)
-        for body in map_me(night):
-            assert "stage_started_at" not in body
-            assert "vote_targets" not in body
-
 
 class TestVoteTargets:
     @pytest.fixture
     def voting(self, make_night) -> Night:
-        night = make_night(ROLES, CENTER, night_protocol=2, voting_seconds=VOTE)
+        night = make_night(ROLES, CENTER, voting_seconds=VOTE)
         night.start()
         to_voting(night)
         return night
@@ -284,7 +275,6 @@ class TestVoteTargets:
         night = make_night(
             ROLES,
             CENTER,
-            night_protocol=2,
             night_doppelganger_window_seconds=0,
             night_wave_seconds=0,
             night_min_window_seconds=0,
@@ -299,6 +289,7 @@ class TestVoteTargets:
         everyone(night, "ready", {"ready": True})
         for name in night.users:
             target = "wolf" if name != "wolf" else "seer"
-            post(night, name, "vote", {"target_player_id": night.users[target].id})
+            body = {"target_player_id": night.users[target].id, "lock": True}
+            post(night, name, "vote", body)
         assert night.refresh().phase == Phase.RESULTS
         assert {b["vote_targets"] for b in map_me(night)} == {None}

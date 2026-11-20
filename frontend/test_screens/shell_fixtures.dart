@@ -7,12 +7,11 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 
 import '../test/helpers/component_sheet.dart' show holdDown;
-import '../test/helpers/mock_http_client.dart';
 import '../test/helpers/sheet/sheet_data.dart' as sheet;
 import '../test/helpers/shell_setup.dart';
 
 // The rebuilt screens through the real shell (TableShell), as a phone of a
-// recorded game has them: every answer is a recorded protocol-2 payload
+// recorded game has them: every answer is a recorded payload
 // (contract_samples/), each state reached the way a player reaches it (a
 // hold, taps, Choose) or the way the server moves on (a fetch, an event).
 // Game 7 (five at the table, no Doppelganger): Ana the Seer is the phone.
@@ -289,7 +288,7 @@ Future<ShellSetup> pumpVotePicked(WidgetTester tester) async {
 /// 09 after Lock in: "Locked", every row dimmed alike.
 Future<void> pumpVoteLocked(WidgetTester tester) async {
   final setup = await pumpVotePicked(tester);
-  setup.answerPost('/vote/', 'game/vote_locked_v2');
+  setup.answerPost('/vote/', 'game/vote_locked');
   await tester.tap(find.byType(PrimaryButton).last);
   await setup.settle(tester);
 }
@@ -328,20 +327,3 @@ Future<void> pumpVoteThree(WidgetTester tester) => _shell(
   ),
   learned: Cue.values.toSet(),
 );
-
-/// A game this app cannot play (its `/me/` has no `stage`): the calm line
-/// and Leave.
-Future<void> pumpUnplayable(WidgetTester tester) async {
-  final me = sheet.recordedMe('me_discussion_choose_seer');
-  final setup = await ShellSetup.pump(
-    tester,
-    me,
-    before: (s) => s.http.answer(
-      'GET',
-      '/onuw/games/${me['game_id']}/me/',
-      Map.of(me)..remove('stage'),
-      offContract: true,
-    ),
-  );
-  await setup.settle(tester);
-}

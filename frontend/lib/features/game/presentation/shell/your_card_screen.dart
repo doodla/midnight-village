@@ -18,7 +18,7 @@ import '../../../../design_system/skin/skin.dart';
 import '../../../../design_system/teach/teach_once.dart';
 import '../../../../design_system/teach/teaching_hold.dart';
 import '../../domain/game_me.dart';
-import '../protocol_two_game.dart';
+import '../live_game.dart';
 
 /// 04 Your card (first-time play spec, section 3, the look stage): the dealt
 /// card face down, as large as the screen allows; holding it shows the role
@@ -46,7 +46,7 @@ class YourCardScreen extends ConsumerStatefulWidget {
   static const lookedPrefix = 'mv.looked.v1.';
 
   /// The game as the shell has it (`/me/` with this phone's taps on it).
-  final ProtocolTwoGame game;
+  final LiveGame game;
   final String gameId;
 
   @override
@@ -95,8 +95,8 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
     super.dispose();
   }
 
-  ProtocolTwoGameNotifier get _notifier =>
-      ref.read(protocolTwoGameProvider(widget.gameId).notifier);
+  LiveGameNotifier get _notifier =>
+      ref.read(liveGameProvider(widget.gameId).notifier);
 
   @override
   Widget build(BuildContext context) {

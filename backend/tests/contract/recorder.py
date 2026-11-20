@@ -52,17 +52,17 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apps.core import host, presence, timers
 from apps.core.consumers import LobbyConsumer
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
-from apps.onuw import night2, services
+from apps.onuw import choose_night, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.models import Game, PlayerRole
-from apps.onuw.protocol import is_choose_night, stage_token
+from apps.onuw.protocol import stage_token
 
 START = datetime(2024, 3, 7, 20, 50, tzinfo=UTC)
 LOBBY_CODES = (
     "K7QX4M",
     "M2RV8P",
     "Q4TW9N",
-    # The night-protocol-2 tables (scenarios.protocol_two_tables) come after.
+    # The choose tables (scenarios.choose_tables) come after.
     "R5ZD3H",
     "T8NB6C",
     "V9YC2J",
@@ -255,7 +255,7 @@ class Table:
         self, path: str, body: dict[str, Any] | None, game_id: str, who: str
     ) -> dict[str, Any] | None:
         """The way the app sends it: a request to a stage-scoped endpoint of a game
-        that plays night protocol 2 names the stage the game is in NOW (read from
+        names the stage the game is in NOW (read from
         ``/me/``'s own function), unless the scenario names one (a stale token), and
         a ``choose`` answers the caller's prompt as it is now (``chosen``), unless
         the scenario names a count (a resend)."""
@@ -264,7 +264,7 @@ class Table:
         if body is not None and not isinstance(body, dict):
             return body
         game = Game.objects.filter(id=game_id).first()
-        if game is None or not is_choose_night(game):
+        if game is None:
             return body
         staged = dict(body or {})
         if "stage" not in staged:
@@ -279,7 +279,7 @@ class Table:
                 else None
             )
             staged["chosen"] = (
-                0 if pr is None else night2.chose_count(pr, game.current_wave)
+                0 if pr is None else choose_night.chose_count(pr, game.current_wave)
             )
         return staged
 
@@ -541,7 +541,7 @@ class Table:
         """Keep, per player, the TYPES of the game messages that player's socket
         received since ``since``, in order, as ``ws_sequence/<name>``: the
         broadcast group and the player's own group (what their phone would see).
-        Under night protocol 2 these lists must be the same for every seat."""
+        These lists must be the same for every seat."""
         sequences: dict[str, list[str]] = {}
         for who in self.players:
             groups = self._groups(who, "game")

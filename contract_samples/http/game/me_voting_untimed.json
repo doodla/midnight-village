@@ -1,72 +1,32 @@
 {
-  "game_id": "9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e",
-  "lobby_code": "M2RV8P",
+  "game_id": "00000000-0000-4000-a000-000000000015",
+  "lobby_code": "Y6HM8R",
   "phase": "voting",
   "current_wave": 0,
   "deadline": null,
   "your_role": {
-    "original_role": "Seer",
-    "has_acted": false
+    "original_role": "Werewolf"
   },
-  "is_host": false,
-  "host_id": 7,
-  "has_voted": false,
+  "is_host": true,
+  "host_id": 61,
   "players": [
     {
-      "player_id": 7,
+      "player_id": 61,
       "display_name": "Ana",
-      "token": "hare",
-      "seat": 0,
-      "has_voted": false
+      "token": "antler",
+      "seat": 0
     },
     {
-      "player_id": 8,
+      "player_id": 62,
       "display_name": "Ben",
-      "token": "scythe",
-      "seat": 1,
-      "has_voted": false
+      "token": "bell",
+      "seat": 1
     },
     {
-      "player_id": 9,
+      "player_id": 63,
       "display_name": "Cleo",
       "token": "lantern",
-      "seat": 2,
-      "has_voted": false
-    },
-    {
-      "player_id": 10,
-      "display_name": "Dev",
-      "token": "bell",
-      "seat": 3,
-      "has_voted": false
-    },
-    {
-      "player_id": 11,
-      "display_name": "Esme",
-      "token": "antler",
-      "seat": 4,
-      "has_voted": false
-    },
-    {
-      "player_id": 12,
-      "display_name": "Fin",
-      "token": "key",
-      "seat": 5,
-      "has_voted": false
-    },
-    {
-      "player_id": 13,
-      "display_name": "Gus",
-      "token": "crow",
-      "seat": 6,
-      "has_voted": false
-    },
-    {
-      "player_id": 14,
-      "display_name": "Hana",
-      "token": "spindle",
-      "seat": 7,
-      "has_voted": false
+      "seat": 2
     }
   ],
   "action_prompt": null,
@@ -76,38 +36,46 @@
       "count": 1
     },
     {
-      "role": "Drunk",
-      "count": 1
-    },
-    {
-      "role": "Mason",
-      "count": 2
-    },
-    {
-      "role": "Minion",
-      "count": 1
-    },
-    {
-      "role": "Tanner",
+      "role": "Robber",
       "count": 1
     },
     {
       "role": "Villager",
-      "count": 1
-    },
-    {
-      "role": "Werewolf",
       "count": 2
     },
     {
-      "role": "Insomniac",
+      "role": "Werewolf",
       "count": 1
     },
     {
-      "role": "Doppelganger",
+      "role": "Troublemaker",
       "count": 1
     }
   ],
-  "night_results": [],
-  "night_results_seen": 0
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "see_team",
+      "revealed_info": {
+        "teammate_names": [],
+        "role_acting_as": "Werewolf",
+        "nothing_chosen": true
+      }
+    }
+  ],
+  "night_results_seen": 0,
+  "player_id": 61,
+  "my_vote": null,
+  "ready": null,
+  "progress": {
+    "stage": "vote",
+    "done": 0,
+    "needed": 3
+  },
+  "stage": "vote.000000000015",
+  "stage_started_at": null,
+  "vote_targets": [
+    62,
+    63
+  ]
 }

@@ -43,9 +43,7 @@ CENTER = ["Villager", "Tanner", "Villager"]
 @pytest.fixture
 def talk_night(make_night) -> Night:
     """Five players in the talk, a deadline far away."""
-    night = make_night(
-        ROLES, CENTER, night_protocol=2, discussion_seconds=300, voting_seconds=120
-    )
+    night = make_night(ROLES, CENTER, discussion_seconds=300, voting_seconds=120)
     night.start()
     with night.committed():
         services.transition_to_discussion(night.game)
@@ -123,7 +121,7 @@ class TestTheTap:
         assert night.refresh().phase == Phase.DISCUSSION
 
     def test_the_talk_announces_done_zero_when_it_opens(self, make_night) -> None:
-        night = make_night(ROLES, CENTER, night_protocol=2, discussion_seconds=300)
+        night = make_night(ROLES, CENTER, discussion_seconds=300)
         night.start()
         night.recorder.events.clear()
 
@@ -135,7 +133,7 @@ class TestTheTap:
         ]
 
     def test_the_flags_start_clear_when_the_talk_opens(self, make_night) -> None:
-        night = make_night(ROLES, CENTER, night_protocol=2, discussion_seconds=300)
+        night = make_night(ROLES, CENTER, discussion_seconds=300)
         night.start()
         PlayerRole.objects.filter(game=night.game).update(phase_ready=True)
 
@@ -246,7 +244,7 @@ class TestRefusals:
 
     def test_ready_during_an_open_night_window_is_wrong_stage(self, make_night) -> None:
         # The look stage takes ``true``; an open window never takes ready.
-        night = make_night(ROLES, CENTER, night_protocol=2)
+        night = make_night(ROLES, CENTER)
         night.start()
         assert night.game.current_wave in (1, 2)
 
@@ -255,7 +253,7 @@ class TestRefusals:
         assert response.status_code == status.HTTP_409_CONFLICT
         assert response.data["code"] == "wrong_stage"
 
-    def test_ready_needs_a_stage_under_protocol_2(self, talk_night) -> None:
+    def test_ready_needs_a_stage(self, talk_night) -> None:
         response = post_ready(talk_night, "seer", {"ready": True, "stage": None})
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST

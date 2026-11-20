@@ -22,13 +22,12 @@ import '../../../helpers/mock_websocket.dart';
 
 class MockLobbyService extends Mock implements LobbyService {}
 
-/// The server's lobby body: Alice (1, ready) and Bob (2) unless [seats] are
-/// given (then all ready but [notReady]), parsed as the app parses it.
+/// The server's lobby body: Alice (1) and Bob (2) unless [seats] are given,
+/// parsed as the app parses it.
 LobbyState _testLobbyState({
   String code = 'ABC123',
   int hostId = 1,
   List<Seat> seats = const [(id: 1, name: 'Alice'), (id: 2, name: 'Bob')],
-  Set<int> notReady = const {2},
   String status = 'waiting',
   Map<String, int>? roleConfig,
 }) => FromSample.lobby(
@@ -36,7 +35,6 @@ LobbyState _testLobbyState({
     code: code,
     seats: seats,
     hostId: hostId,
-    notReady: notReady,
     status: status,
     roles: roleConfig ?? {'Werewolf': 2, 'Seer': 1},
   ),
@@ -125,7 +123,6 @@ void main() {
             (id: 2, name: 'Bob'),
             (id: 3, name: 'Charlie'),
           ],
-          notReady: {2, 3},
         );
         when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
           final result = updatedState;
@@ -172,30 +169,6 @@ void main() {
         final state = container.read(lobbyProvider('ABC123'));
         expect(state.value?.players, hasLength(1));
       });
-
-      test(
-        'player_ready updates player isReady in-place without re-fetch',
-        () async {
-          container = createContainer();
-          await container.read(lobbyProvider('ABC123').future);
-
-          // Reset verification count from initial fetch
-          clearInteractions(mockService);
-
-          mockWebSocket.addServerEvent(
-            GameEvents.playerReady(playerId: 2, isReady: true),
-          );
-
-          final state = container.read(lobbyProvider('ABC123'));
-          final bob = state.value?.players.firstWhere(
-            (p) => p.displayName == 'Bob',
-          );
-          expect(bob?.isReady, isTrue);
-
-          // No re-fetch should have occurred
-          verifyNever(() => mockService.fetchLobby(any()));
-        },
-      );
 
       test('lobby_update updates role configuration', () async {
         container = createContainer();
@@ -247,14 +220,11 @@ void main() {
 
         // Send as Map directly (some WS implementations do this)
         mockWebSocket.addServerEvent(
-          jsonDecode(GameEvents.playerReady(playerId: 2, isReady: true)),
+          jsonDecode(GameEvents.lobbyUpdate(roleConfig: {'Seer': 1})),
         );
 
         final state = container.read(lobbyProvider('ABC123'));
-        final bob = state.value?.players.firstWhere(
-          (p) => p.displayName == 'Bob',
-        );
-        expect(bob?.isReady, isTrue);
+        expect(state.value?.roleConfig, {'Seer': 1});
       });
 
       test('ignores unknown event types without error', () async {
@@ -360,7 +330,7 @@ void main() {
           await container.read(lobbyProvider('ABC123').future);
 
           final update = ContractSamples.map(
-            'ws/lobby/lobby_update_v2_auto_deck_9',
+            'ws/lobby/lobby_update_auto_deck_9',
           );
           mockWebSocket.addServerEvent(update);
           await Future<void>.delayed(Duration.zero);
@@ -430,7 +400,7 @@ void main() {
     });
 
     test('no reason worth saying: nothing is said', () {
-      final body = ContractSamples.map('http/game/start_not_all_ready');
+      final body = ContractSamples.map('http/game/start_bad_seed');
       expect(
         LobbyNotifier.dealRefusal(ValidationException(parseServerErrors(body))),
         (answered: true, why: null),

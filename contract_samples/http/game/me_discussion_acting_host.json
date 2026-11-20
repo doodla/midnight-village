@@ -5,12 +5,10 @@
   "current_wave": 0,
   "deadline": null,
   "your_role": {
-    "original_role": "Seer",
-    "has_acted": false
+    "original_role": "Seer"
   },
   "is_host": true,
   "host_id": 8,
-  "has_voted": false,
   "players": [
     {
       "player_id": 7,
@@ -100,6 +98,25 @@
       "count": 1
     }
   ],
-  "night_results": [],
-  "night_results_seen": 0
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "skip",
+      "revealed_info": {
+        "nothing_chosen": true
+      }
+    }
+  ],
+  "night_results_seen": 0,
+  "player_id": 8,
+  "my_vote": null,
+  "ready": false,
+  "progress": {
+    "stage": "talk",
+    "done": 0,
+    "needed": 7
+  },
+  "stage": "talk.2f4a6b8c0d1e",
+  "stage_started_at": null,
+  "vote_targets": null
 }

@@ -18,7 +18,6 @@ import pytest
 from apps.onuw.engine import (
     GameState,
     NightAction,
-    build_role_prompt,
     get_required_actions,
     get_required_actions_for_window,
     order_groups_for_window,
@@ -110,7 +109,7 @@ class TestTeamsComeFromDealtCards:
             "center_card": {"index": 1, "role": "Tanner"},
         }
 
-    def test_lone_werewolf_prompt_lists_nobody_when_the_other_card_was_taken(
+    def test_a_werewolf_whose_card_was_taken_still_sees_the_other_dealt_one(
         self,
     ) -> None:
         # Two dealt Werewolves; player 1's card was taken, but player 1 still wakes.
@@ -120,8 +119,10 @@ class TestTeamsComeFromDealtCards:
             held=["Werewolf", "Doppelganger", "Werewolf"],
             copied={2: "Robber"},
         )
-        prompt = build_role_prompt(state, 0, "Werewolf")
-        assert prompt["valid_targets"]["see_team"] == [1]
+        _, results = resolve_window(
+            state, [NightAction(0, "Werewolf", "see_team", {})], window=2
+        )
+        assert results[0].revealed_info["werewolves"] == [1]
 
 
 class TestWhoActsIsDecidedFromDealtCards:
@@ -355,32 +356,6 @@ class TestResolveWindowOne:
         actions = [NightAction(0, "Seer", "peek_player", {"player_id": 2})]
         _, results = resolve_window(state, actions, window=1)
         assert [r.revealed_info for r in results] == [{"peeked_role": "Werewolf"}]
-
-
-# ── Skip ─────────────────────────────────────────────────────────────────────
-
-
-class TestSkipAdvertisement:
-    @pytest.mark.parametrize("role", ["Seer", "Robber", "Troublemaker"])
-    def test_prompt_advertises_skip_for_optional_roles(self, role: str) -> None:
-        state = _state(["Villager", role, "Villager"], ["Villager", "Tanner", "Hunter"])
-        assert "skip" in build_role_prompt(state, 1, role)["action_types"]
-
-    @pytest.mark.parametrize(
-        "role",
-        ["Drunk", "Werewolf", "Minion", "Mason", "Insomniac", "Doppelganger"],
-    )
-    def test_prompt_does_not_advertise_skip_for_the_rest(self, role: str) -> None:
-        state = _state(["Villager", role, "Villager"], ["Villager", "Tanner", "Hunter"])
-        assert "skip" not in build_role_prompt(state, 1, role)["action_types"]
-
-    def test_skip_adds_no_targets(self) -> None:
-        state = _state(
-            ["Villager", "Seer", "Villager"], ["Villager", "Tanner", "Hunter"]
-        )
-        prompt = build_role_prompt(state, 1, "Seer")
-        assert prompt["action_types"] == ["peek_player", "peek_center", "skip"]
-        assert set(prompt["valid_targets"]) == {"player_ids", "center_indices"}
 
 
 # ── resolve_night keeps working ──────────────────────────────────────────────
