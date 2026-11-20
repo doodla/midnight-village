@@ -4,6 +4,7 @@ import 'package:midnight_village/design_system/skin/ground.dart';
 
 import '../test/helpers/component_sheet.dart';
 import 'screen_fixtures.dart';
+import 'shell_fixtures.dart';
 
 /// One screen, or one state of a screen, in the gallery.
 class ScreenEntry {
@@ -73,15 +74,27 @@ final screenCatalogue = <ScreenEntry>[
     mock: '03b-deck-role-explained.png',
     why: 'no role sheet (press and hold a role card)',
   ),
-  const ScreenEntry.notBuilt(
-    '04-your-card',
-    mock: '04-your-card.png',
-    why:
-        'unreachable: the app shows the role reveal only on a phase_change to '
-        'night (game_notifier.dart _handlePhaseChange), which the server never '
-        'sends (services.py sends phase.change for discussion and voting '
-        'only), and GET /me never selects it',
-  ),
+  // The rebuilt screens, through the real shell (shell_fixtures.dart).
+  ..._rebuilt('04-your-card', '04-your-card.png', {
+    '': pumpYourCard,
+    '-held': pumpYourCardHeld,
+    '-ready': pumpYourCardReady,
+    '-x1.3': (tester) => pumpYourCard(tester, textScale: 1.3),
+  }),
+  ..._rebuilt('05-night-loading', '05-night-waiting.png', {
+    '': pumpNightLoading,
+  }),
+  ..._rebuilt('06-night-board', '06-night-action.png', {
+    '': pumpNightBoard,
+    '-picked': pumpNightPicked,
+    '-chosen': pumpNightChosen,
+    '-follow-up': pumpNightFollowUp,
+    '-3': pumpNightThree,
+    '-9': pumpNightNine,
+    '-10-long': pumpNightTenLong,
+    '-x1.3': (tester) => pumpNightBoard(tester, textScale: 1.3),
+  }),
+  // The old look's night (protocol 1), until it is deleted.
   ScreenEntry(
     '05-night-waiting',
     mock: '05-night-waiting.png',
@@ -115,6 +128,17 @@ final screenCatalogue = <ScreenEntry>[
   ScreenEntry('10-the-count', mock: '10-the-count.png', build: pumpCount),
   ScreenEntry('11-results', mock: '11-results.png', build: pumpResults),
   ...componentSheet,
+];
+
+/// A rebuilt screen's states ([states]: suffix to builder), each a player
+/// screen next to [mock].
+List<ScreenEntry> _rebuilt(
+  String id,
+  String mock,
+  Map<String, Future<void> Function(WidgetTester tester)> states,
+) => [
+  for (final MapEntry(key: suffix, value: build) in states.entries)
+    ScreenEntry('$id$suffix', mock: mock, build: build, playerScreen: true),
 ];
 
 /// The component sheet (test/helpers/component_sheet.dart): each screen

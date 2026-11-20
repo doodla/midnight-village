@@ -93,6 +93,38 @@ void main() {
     },
   );
 
+  testWidgets('the rebuilt-screens switch makes a protocol-2 (v2) table', (
+    tester,
+  ) async {
+    when(
+      () => controller.createTable(
+        playerNames: any(named: 'playerNames'),
+        roleCounts: any(named: 'roleCounts'),
+        playerRolesByName: any(named: 'playerRolesByName'),
+        centerCards: any(named: 'centerCards'),
+        protocolTwo: any(named: 'protocolTwo'),
+      ),
+    ).thenAnswer((_) async => _table);
+
+    await tester.pumpWidget(buildApp());
+    await tester.tap(find.text('Starter'));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('debug-protocol-two')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('debug-create-table')));
+    await tester.pumpAndSettle();
+
+    verify(
+      () => controller.createTable(
+        playerNames: any(named: 'playerNames'),
+        roleCounts: any(named: 'roleCounts'),
+        playerRolesByName: any(named: 'playerRolesByName'),
+        centerCards: any(named: 'centerCards'),
+        protocolTwo: true,
+      ),
+    ).called(1);
+  });
+
   testWidgets('tapping Become switches perspective via the controller', (
     tester,
   ) async {

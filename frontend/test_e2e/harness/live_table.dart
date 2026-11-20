@@ -33,13 +33,15 @@ class LiveTable {
   LiveTable._(this.client, this.controller);
 
   /// Creates the guests, the lobby and the started game (see
-  /// [DebugTableController.createTable]).
+  /// [DebugTableController.createTable]; [protocolTwo]: a table made as the
+  /// `/debug` toolbar makes one for the rebuilt screens).
   static Future<LiveTable> open({
     required List<String> playerNames,
     required Map<String, int> roleCounts,
     required Map<String, String> playerRolesByName,
     required List<String> centerCards,
     required Map<String, int> timerSettings,
+    bool protocolTwo = false,
   }) async {
     final clients = harnessClients();
     await clients.controller.createTable(
@@ -48,6 +50,7 @@ class LiveTable {
       playerRolesByName: playerRolesByName,
       centerCards: centerCards,
       timerSettings: timerSettings,
+      protocolTwo: protocolTwo,
     );
     return LiveTable._(clients.client, clients.controller);
   }

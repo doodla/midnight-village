@@ -16,6 +16,22 @@ import '../../helpers/pump_skinned.dart';
 
 void main() {
   group('PrimaryButton', () {
+    testWidgets('a label ending in a check mark draws the mark as an icon '
+        "(the skin's fonts have none) and still says it whole", (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpSkinned(
+        tester,
+        const PrimaryButton.done(label: 'Ready${PrimaryButton.checkMark}'),
+      );
+      expect(find.text('Ready'), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Ready${PrimaryButton.checkMark}'),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
     testWidgets('a tap acts; disabled or busy, it does not', (tester) async {
       var taps = 0;
       Future<void> pump({bool enabled = true, bool busy = false}) =>
@@ -200,6 +216,14 @@ void main() {
   });
 
   group('WorldTimer', () {
+    testWidgets('with no deadline known it is the candle alone, no number', (
+      tester,
+    ) async {
+      await pumpSkinned(tester, const WorldTimer.candle(secondsLeft: null));
+      expect(find.byType(Text), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     test('writes seconds as the mocks do and stops at nothing', () {
       expect(WorldTimer.format(19), '19');
       expect(WorldTimer.format(60), '1:00');

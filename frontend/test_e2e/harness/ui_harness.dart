@@ -15,6 +15,9 @@ import 'package:midnight_village/core/router/app_router.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
+import 'package:midnight_village/features/game/presentation/protocol_two_game.dart';
+import 'package:midnight_village/features/game/presentation/shell/game_entry.dart';
+import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
 import 'package:midnight_village/features/game/presentation/timer_provider.dart';
 import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart';
@@ -158,8 +161,48 @@ class UiHarness {
       ..invalidate(gameProvider(gameId))
       ..invalidate(gameWebSocketProvider(gameId))
       ..invalidate(gameWebSocketStreamProvider(gameId))
-      ..invalidate(gameConnectionStateProvider(gameId));
+      ..invalidate(gameConnectionStateProvider(gameId))
+      ..invalidate(protocolTwoGameProvider(gameId))
+      ..invalidate(myTableProvider);
     await tester.pump();
+  }
+
+  /// Reads which night [gameId] runs in the REAL zone (the game route asks
+  /// before it shows anything: [GameEntry]), so the route renders at once.
+  Future<void> _knowProtocol(String gameId) => tester.runAsync(() async {
+    container.listen(gameProtocolProvider(gameId), (_, _) {});
+    await container
+        .read(gameProtocolProvider(gameId).future)
+        .timeout(const Duration(seconds: 15));
+  });
+
+  /// Opens a night protocol 2 game: the rebuilt shell ([GameEntry] ->
+  /// `TableShell`). Everything the shell reads first (the protocol,
+  /// `/me/table/`, the game's `/me/` and its socket) is built in the REAL
+  /// zone and kept alive, so its network completes; every later fetch is
+  /// started by a socket event or a tap made in the real zone
+  /// ([tapAndSubmit]) and completes too.
+  Future<void> openShell(String gameId) async {
+    await _knowProtocol(gameId);
+    await tester.runAsync(() async {
+      container
+        ..listen(gameWebSocketProvider(gameId), (_, _) {})
+        ..listen(myTableProvider, (_, _) {})
+        ..listen(protocolTwoGameProvider(gameId), (_, _) {});
+      await container
+          .read(myTableProvider.future)
+          .timeout(const Duration(seconds: 15));
+      await container
+          .read(protocolTwoGameProvider(gameId).future)
+          .timeout(const Duration(seconds: 15));
+    });
+    container.read(appRouterProvider).go('/game/$gameId');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    // As [openGame]: let the server put this socket in the game's groups.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 600)),
+    );
   }
 
   /// Navigates to the game screen for [gameId] with its state pre-loaded.
@@ -180,6 +223,7 @@ class UiHarness {
     await tester.runAsync(() async {
       container.listen(gameWebSocketProvider(gameId), (_, _) {});
     });
+    await _knowProtocol(gameId);
 
     // Navigate so the screen mounts and watches `gameProvider` (its build
     // starts but hangs — it was kicked off inside a pump's FAKE async zone).
@@ -280,6 +324,7 @@ class UiHarness {
   /// `integration_test/screenshots/<scenarioDir>/<frame>.png`.
   Future<void> captureFrame(String scenarioDir, String frame) async {
     await settle();
+    await _decodeImages();
     final boundary =
         _captureKey.currentContext!.findRenderObject()!
             as RenderRepaintBoundary;
@@ -294,6 +339,24 @@ class UiHarness {
         '${dir.path}/$frame.png',
       ).writeAsBytesSync(byteData.buffer.asUint8List());
     });
+  }
+
+  /// Image providers load on real I/O, which the fake clock never waits for:
+  /// every image on screen is loaded for real, then drawn again, so a frame
+  /// never shows a card or a token before its picture has decoded.
+  Future<void> _decodeImages() async {
+    final images = [
+      for (final element in find.byType(Image).evaluate())
+        ((element.widget as Image).image, element),
+    ];
+    if (images.isEmpty) return;
+    await tester.runAsync(
+      () => Future.wait([
+        for (final (provider, context) in images)
+          precacheImage(provider, context),
+      ]),
+    );
+    await tester.pump();
   }
 
   /// Polls [condition] over a BOUNDED number of pump rounds, throwing if it is

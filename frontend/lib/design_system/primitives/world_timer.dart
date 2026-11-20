@@ -31,7 +31,9 @@ class WorldTimer extends StatelessWidget {
     this.semanticLabel,
   }) : _compact = true;
 
-  final int secondsLeft;
+  /// Null while the phone does not know the deadline yet (05 while `/me/`
+  /// loads): the candle alone, no number made up.
+  final int? secondsLeft;
 
   /// Read out instead of the number.
   final String? semanticLabel;
@@ -51,7 +53,8 @@ class WorldTimer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final number = format(secondsLeft);
+    final seconds = secondsLeft;
+    final number = seconds == null ? null : format(seconds);
     return Semantics(
       label: semanticLabel ?? number,
       excludeSemantics: true,
@@ -65,7 +68,7 @@ class WorldTimer extends StatelessWidget {
     );
   }
 
-  Widget _panel(BuildContext context, String number) {
+  Widget _panel(BuildContext context, String? number) {
     final skin = context.skin;
     final ground = context.ground;
     final radius = BorderRadius.circular(skin.shape.radius);
@@ -87,19 +90,20 @@ class WorldTimer extends StatelessWidget {
         spacing: Space.lg,
         children: [
           Flexible(flex: 2, child: _Candle(size: candleSize)),
-          Flexible(
-            flex: 3,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(number, style: skin.typography.timerSmall),
+          if (number != null)
+            Flexible(
+              flex: 3,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(number, style: skin.typography.timerSmall),
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _corner(BuildContext context, String number, bool bounded) {
+  Widget _corner(BuildContext context, String? number, bool bounded) {
     final skin = context.skin;
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -110,14 +114,15 @@ class WorldTimer extends StatelessWidget {
           1,
           _Candle(size: compactCandleSize, ring: context.ground.hairline),
         ),
-        _flex(
-          bounded,
-          2,
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(number, style: skin.typography.timerCompact),
+        if (number != null)
+          _flex(
+            bounded,
+            2,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(number, style: skin.typography.timerCompact),
+            ),
           ),
-        ),
       ],
     );
   }

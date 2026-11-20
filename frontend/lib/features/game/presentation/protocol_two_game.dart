@@ -314,6 +314,10 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
     return time.difference(ref.read(clockProvider)());
   }
 
+  /// How long until [time] on the server's clock, as the stage's countdown
+  /// reads it (the same clock the deadline fetch is timed by).
+  Duration untilServer(DateTime time) => _untilServer(time);
+
   /// One fetch after the stage's deadline; while a fetch past it still
   /// shows the same stage, one every [HealTiming.poll] until it changes. A
   /// stage with no deadline heals on reconnect and resume.
