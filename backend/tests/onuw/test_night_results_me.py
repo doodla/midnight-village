@@ -41,10 +41,16 @@ def me(night: Night, name: str) -> dict[str, Any]:
 
 
 def play_window_two(night: Night) -> None:
-    """Every phone but the Insomniac's chooses: the window stays open."""
+    """Every phone with a choice but the Robber's chooses (the Villager and the
+    Insomniac have nothing to choose and send nothing): the window stays open."""
     night.post("wolf", "see_team")
     night.post("villager", "none")
     night.post("seer", "peek_player", {"player_id": night.users["robber"].id})
+    night.post("insomniac", "none")
+
+
+def rob(night: Night) -> None:
+    """The Robber, the last phone with a choice, takes the Villager's card."""
     night.post("robber", "swap_with_player", {"player_id": night.users["villager"].id})
 
 
@@ -62,7 +68,7 @@ class TestNightResultsInMe:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
 
-        play_window_two(night)  # the insomniac has not acted: the window is open
+        play_window_two(night)  # the Robber has not chosen: the window is open
 
         assert night.refresh().current_wave == 2
         for name in ROLES:
@@ -76,7 +82,7 @@ class TestNightResultsInMe:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
         play_window_two(night)
-        night.post("insomniac", "none")
+        rob(night)
         assert night.refresh().phase == Phase.DISCUSSION
 
         for name in ("wolf", "seer", "robber", "insomniac"):
@@ -95,7 +101,7 @@ class TestNightResultsInMe:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
         play_window_two(night)
-        night.post("insomniac", "none")
+        rob(night)
 
         entry = me(night, "insomniac")["night_results"]
 
@@ -158,7 +164,7 @@ class TestNightResultsInMe:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
         play_window_two(night)
-        night.post("insomniac", "none")
+        rob(night)
 
         villager = me(night, "villager")["night_results"]
         seer = me(night, "seer")["night_results"]
@@ -179,7 +185,7 @@ class TestNightResultsInMe:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
         play_window_two(night)
-        night.post("insomniac", "none")
+        rob(night)
         expected = me(night, "seer")["night_results"]
         assert expected
 
@@ -196,7 +202,7 @@ class TestNightResultsInMe:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
         play_window_two(night)
-        night.post("insomniac", "none")
+        rob(night)
 
         revealed = me(night, "seer")["night_results"][0]["revealed_info"]
 
@@ -221,9 +227,10 @@ class TestDoppelgangerWindowOne:
             "peek_player"
         ]
 
+        assert len(me(night, "d")["night_results"]) == 1  # the follow-up waits
+        # Her follow-up is the last choice window 1 waits for: it closes at once
+        # (nobody else has anything to choose there).
         night.post("d", "peek_center", {"center_indices": [0, 1]})
-        assert len(me(night, "d")["night_results"]) == 1  # the window is still open
-        night.rest_choose()
         assert night.refresh().current_wave == 2
 
         results = me(night, "d")["night_results"]
@@ -240,22 +247,22 @@ class TestDoppelgangerWindowOne:
     def test_window_two_open_shows_window_one_but_nothing_of_window_two(
         self, make_night
     ) -> None:
+        # Window 2 has nothing to choose (two Werewolves, a Villager, the
+        # Insomniac): it stays open for the table's minimum length.
         night = make_night(
             {"d": "Doppelganger", "w": "Werewolf", "v": "Villager", "i": "Insomniac"},
             ["Seer", "Tanner", "Hunter"],
             night_wave_seconds=60,
+            night_min_window_seconds=5,
         )
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["w"].id})
-        night.rest_choose()
+        night.fire_timer(1)
         assert night.refresh().current_wave == 2  # a Werewolf copy acts in window 2
 
         assert [r["wave"] for r in me(night, "d")["night_results"]] == [1]
         assert me(night, "w")["night_results"] == []
-        night.post("w", "see_team")
-        night.post("d", "see_team")
-        night.post("i", "none")
-        night.post("v", "none")
+        night.fire_timer(2)
         assert night.refresh().phase == Phase.DISCUSSION
 
         later = me(night, "d")["night_results"]
@@ -300,7 +307,6 @@ class TestDoppelgangerWindowOne:
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["s"].id})
         night.post("d", "peek_center", {"center_indices": [0, 1]})
-        night.rest_choose()
         assert night.refresh().current_wave == 2
 
         for name in ("s", "w", "v"):
@@ -458,7 +464,11 @@ def test_me_shows_each_player_their_own_results_for_every_action(
     night = make_night(roles, center, night_wave_seconds=60)
     night.start()
     for who, action_type, spec in actions:
+        if night.refresh().phase != Phase.NIGHT:
+            break  # nobody left with a choice: the night is over
         response = night.post(who, action_type, resolve_targets(night, spec))
+        if response is None:
+            continue  # a phone with nothing to choose sends nothing
         assert response.status_code == status.HTTP_200_OK, (
             who,
             action_type,

@@ -1492,12 +1492,13 @@ def _grace_timer_key(game_id: Any, user_id: int) -> str:
 def _night_ready_to_close(game: Game, *, ignore_recent_drops: bool = False) -> bool:
     """True when the open night window has nothing left to wait for.
 
-    Every phone has chosen (``choose_night.ready_to_close``), except phones gone past
-    the grace period (treated as a timeout, through the normal close path, so the
-    minimum window length still applies). A player still inside their grace
-    period holds the window open whatever their role (see the note above), and
-    so does an empty table: if every phone is gone nobody is there to be told,
-    so only the window's own deadline (or the host) closes it.
+    Every phone with a choice has chosen (``choose_night.ready_to_close``); a phone
+    with nothing to choose is never waited for, and a phone gone past the grace
+    period is treated as a timeout (through the normal close path, so the minimum
+    window length still applies). A phone with a choice still inside its grace
+    period holds the window open; so does a table where every phone is away (gone,
+    or dropped and still inside its grace period): nobody is there to be told, so
+    only a phone coming back, the window's own deadline or the host closes it.
 
     ``ignore_recent_drops`` is for rebuilding timers after a restart, where
     every player has just been stamped disconnected only because no socket
@@ -1507,15 +1508,21 @@ def _night_ready_to_close(game: Game, *, ignore_recent_drops: bool = False) -> b
     prs = _player_roles(game)
     grace = _grace_seconds(game)
     now = timezone.now()
+    window = game.current_wave
+    state = build_game_state(game)
     if not ignore_recent_drops and any(
-        _is_recently_dropped(pr, grace, now) for pr in prs
+        _is_recently_dropped(pr, grace, now)
+        and choose_night.turn_open(state, pr, window)
+        for pr in prs
     ):
         return False
     if prs and all(_is_gone(pr, grace, now) for pr in prs):
         return False
-    # EVERY phone sends a choose per window, so every present phone is waited
-    # for, whatever its role.
-    return choose_night.ready_to_close(prs, game.current_wave, grace, now)
+    if not ignore_recent_drops and all(
+        _is_gone(pr, grace, now) or _is_recently_dropped(pr, grace, now) for pr in prs
+    ):
+        return False  # every phone is away: nobody is there to be told yet
+    return choose_night.ready_to_close(state, prs, window, grace, now)
 
 
 def _votes_ready(game: Game) -> bool:

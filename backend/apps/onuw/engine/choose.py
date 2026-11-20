@@ -169,8 +169,8 @@ def interpret_choice(
 
 
 def prompt_kind(role_acting_as: str | None, *, lone_werewolf: bool = False) -> str:
-    """Which instruction a phone shows before choosing (``none`` = "Nothing to
-    choose. Tap any card.")."""
+    """Which instruction a phone shows before choosing (``none`` = nothing to
+    choose: the phone sleeps and sends nothing)."""
     if role_acting_as == "Seer":
         return "seer"
     if role_acting_as == "Robber":
@@ -213,20 +213,24 @@ def is_lone_werewolf(state: GameState, player_id: int) -> bool:
     )
 
 
-def chooses_left(window: int, acting_role: str | None, chosen: int) -> int:
-    """How many ``choose`` this phone is still expected to send in the window: 0 or
-    1, the same width for everyone.
+def chooses_left(
+    window: int, acting_role: str | None, chosen: int, *, lone_werewolf: bool = False
+) -> int:
+    """How many ``choose`` this phone is still expected to send in the window: 0 or 1.
 
-    One per window for every phone, plus one in window 1 for the Doppelganger once
-    her look has given her a role that acts there (her follow-up): the only prompt
-    with a role to act as in window 1 after a choose. It says nothing her own
-    ``kind`` does not (her follow-up prompt already names the copied role's kind,
-    and a copied Minion is waited for twice, as ``choose_night.ready_to_close`` says), and
-    only to her: it is in her own ``GET /me/``. ``max_chooses`` stays what the
-    server ACCEPTS (two from anyone in window 1); this is what the phone should
-    send. (Her second request in window 1 is itself visible on the network: an
-    accepted tell, ``docs/specs/onuw/api-contract-v2.md``, section 10.)
+    A phone with nothing to choose (its prompt's ``kind`` is ``none``: a Villager, a
+    Werewolf who is not alone, a Mason, the Minion, the Insomniac, everyone but the
+    Doppelganger in window 1) sends nothing: 0 from the start, and the window never
+    waits for it (``choose_night.ready_to_close``). Who taps at night is an accepted
+    tell (``docs/specs/frontend/first-time-play.md``, section 8). A phone with a choice
+    sends one per window, plus one in window 1 for the Doppelganger once her look has
+    given her a role that chooses there (her follow-up, which her own ``kind`` already
+    names). ``max_chooses`` stays what the server ACCEPTS (a choose from a phone with
+    nothing to choose is still taken, and does nothing); this is what the phone
+    should send.
     """
+    if prompt_kind(acting_role, lone_werewolf=lone_werewolf) == "none":
+        return 0
     expected = 2 if window == 1 and chosen >= 1 and acting_role is not None else 1
     return max(0, expected - chosen)
 
@@ -247,7 +251,7 @@ def build_choose_prompt(
     is None for a player with no action in this window; ``chosen`` is how many
     ``choose`` the caller has already sent in it (so a restarted phone shows
     "Chosen"; the next choose echoes it); ``chooses_left`` how many it should still
-    send (``chooses_left``).
+    send (``chooses_left``: 0 from the start for a phone with nothing to choose).
     """
     lone = (
         acting_role == "Werewolf" and is_lone_werewolf(state, player_id) and window == 2
@@ -268,7 +272,7 @@ def build_choose_prompt(
         "max_picks": MAX_PICKS,
         "max_chooses": max_chooses(window),
         "chosen": chosen,
-        "chooses_left": chooses_left(window, acting_role, chosen),
+        "chooses_left": chooses_left(window, acting_role, chosen, lone_werewolf=lone),
         "valid_targets": {
             "player_ids": [pid for pid in state.player_roles if pid != player_id],
             "center_indices": list(range(len(state.center_cards))),

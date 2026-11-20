@@ -219,6 +219,7 @@ final screens = <String, Screen>{
         NightCopy.choose,
         NightCopy.keep,
         NightCopy.chosen,
+        NightCopy.nothingToDo,
       ])
         for (final MapEntry(:key, :value) in _you.entries)
           '$label, $key': [

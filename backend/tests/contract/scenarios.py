@@ -397,10 +397,9 @@ def classic_table(run: Recording) -> None:
     )
     _choose(t, "Ben", [_player(t, "Dev")])
     _choose(t, "Dev", [_player(t, "Ana"), _player(t, "Ben")])
-    for name in ["Cleo", "Esme", "Fin"]:
-        _choose(t, name, [])
-    # Every phone has chosen; the window would close at its minimum length. The
-    # harness's hook closes it now instead.
+    _rest_choose(t, ["Cleo", "Esme", "Fin"])
+    # Every phone with a choice has chosen; the window would close at its minimum
+    # length. The harness's hook closes it now instead.
     t.clock.advance(8)
     t.record(
         "debug/fire_timer",
@@ -688,19 +687,16 @@ def doppelganger_table(run: Recording) -> Table:
         status=403,
         about="A choose from someone who does not play in the game.",
     )
+    # Her follow-up is the last choice of window 1 (untimed here): it closes,
+    # and nobody else had anything to choose in it.
     _choose(t, "Ana", [_player(t, "Ben")])
     _choose(t, "Ana", [{"center_index": 0}, {"center_index": 2}])
-    for name in list(dealt)[1:]:
-        _choose(t, name, [])
 
     # -- window 2: everyone else ------------------------------------------
-    _choose(t, "Ben", [])
     _choose(t, "Cleo", [{"center_index": 1}])
-    for name in ["Dev", "Esme", "Fin"]:
-        _choose(t, name, [])
     _choose(t, "Gus", [{"center_index": 0}])
-    # Hana (Insomniac) has not tapped: the host closes the window; her look
-    # is automatic and still happens.
+    # Ben (the Seer) has not tapped: the host closes the window; he skips, and
+    # the automatic looks (the Minion, the Masons, the Insomniac) still happen.
     t.record(
         "game/advance_wave",
         "POST",
@@ -962,6 +958,21 @@ def _everyone(t: Table, names: list[str], path: str, body: dict) -> None:
 
 def _choose(t: Table, who: str, picks: list[dict]) -> None:
     t.call("POST", who, ACTION, {"action_type": "choose", "picks": picks})
+
+
+def _turn_open(t: Table, who: str) -> bool:
+    """``who``'s phone still has a choose to send (its prompt's ``chooses_left``).
+    A phone with nothing to choose sends nothing, as the app's does."""
+    prompt = t.request("GET", who, ME)[1].get("action_prompt")
+    return bool(prompt) and prompt["chooses_left"] > 0
+
+
+def _rest_choose(t: Table, names: list[str]) -> None:
+    """Each of ``names`` whose turn is still open chooses nothing; the others (a
+    phone with nothing to choose) send nothing."""
+    for name in names:
+        if _turn_open(t, name):
+            _choose(t, name, [])
 
 
 def _player(t: Table, name: str) -> dict:
@@ -1601,8 +1612,9 @@ def _doppelganger_choose_table(run: Recording) -> None:
         "follow-up prompt (as the copied Seer) is open.",
     )
     _choose(t, "Ana", [{"center_index": 0}, {"center_index": 1}])
-    for name in names[1:]:
-        _choose(t, name, [])
+    # The others have nothing to choose in window 1 and send nothing; a choose
+    # from one of them is still taken, a second too.
+    _choose(t, "Ben", [])
     t.record(
         "game/choose_submitted_window1_second",
         "POST",
@@ -1611,7 +1623,7 @@ def _doppelganger_choose_table(run: Recording) -> None:
         {"action_type": "choose", "picks": [{"self": True}]},
         status=200,
         about="The server accepts a second choose in window 1 from anyone (only "
-        "the Doppelganger's is read), so a second tap is never a tell.",
+        "the Doppelganger's is read): the same answer as hers.",
     )
     t.record(
         "game/choose_window1_third_refused",
@@ -1655,9 +1667,7 @@ def _doppelganger_choose_table(run: Recording) -> None:
             about=f"/me/ in window 2, the {kind.replace('_', ' ')}'s prompt.",
         )
     _choose(t, "Gus", [{"center_index": 1}])
-    for name in names:
-        if name != "Gus":
-            _choose(t, name, [])
+    _rest_choose(t, [name for name in names if name != "Gus"])
     t.fire("{game_id}:wave:2")
     t.record_sequence(
         "window_2_doppelganger",
@@ -1760,11 +1770,13 @@ def _deal_table(
 
 
 def _choose_night(t: Table, names: list[str], picks: dict[str, list[dict]]) -> None:
-    """Window 2 only: every phone chooses once (``picks`` by name, nothing for the
-    rest) and the window closes at its minimum."""
+    """Window 2 only: the phones in ``picks`` choose them, every other phone with a
+    choice chooses nothing (a phone with nothing to choose sends nothing), and the
+    window closes at its minimum."""
     t.clock.advance(5)
-    for name in names:
-        _choose(t, name, picks.get(name, []))
+    for name, chosen in picks.items():
+        _choose(t, name, chosen)
+    _rest_choose(t, [name for name in names if name not in picks])
     t.clock.advance(5)
     t.fire("{game_id}:wave:2")
 
@@ -1923,13 +1935,11 @@ def _six_results_table(run: Recording) -> None:
         "Ana",
         ME,
         status=200,
-        about="/me/ in window 1 after she looked at the Minion: her follow-up is "
-        "armed (`kind: none`, `chooses_left: 1`); she sends one more choose and "
-        "learns the Werewolves when the window closes.",
+        about="/me/ in window 1 after she looked at the Minion: as the copied "
+        "Minion she has nothing to choose (`kind: none`, `chooses_left: 0`), sends "
+        "nothing more and learns the Werewolves when the window closes.",
     )
-    _choose(t, "Ana", [])
-    for name in SIX[1:]:
-        _choose(t, name, [])
+    _rest_choose(t, SIX)
     t.clock.advance(7)
     t.fire("{game_id}:wave:1")
     _choose_night(t, SIX, {})

@@ -80,7 +80,7 @@
     "max_picks": 2,
     "max_chooses": 1,
     "chosen": 0,
-    "chooses_left": 1,
+    "chooses_left": 0,
     "valid_targets": {
       "player_ids": [
         32,

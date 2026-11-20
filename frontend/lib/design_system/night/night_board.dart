@@ -44,6 +44,9 @@ import 'night_pick.dart';
 /// - The button: "Choose a card" and "Choose 1 more" are locked (a tap
 ///   replays the wave over the cards), then "Choose {cards}", or "Keep my
 ///   card" for "You" alone; "Chosen" from the moment it is pressed.
+/// - A board with nothing to choose ([ChoosePrompt.sleeps]) asks nothing: no
+///   button, "Nothing to do" quiet in its place; a tap on a card bobs it
+///   (a fidget, cover for anyone who wants it) and picks or sends nothing.
 /// - One Choose per turn. The board re-arms only when [prompt]'s stage or
 ///   turn changes ([ChoosePrompt.turn]: the Doppelganger's look giving way
 ///   to her follow-up), never on the prompt's counts.
@@ -112,6 +115,10 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   final _replay = CueReplay();
   var _picks = <NightPick>[];
 
+  /// A sleeper's idle taps: each card's latest one, which bobs it once.
+  final _fidgets = <NightPick, int>{};
+  var _taps = 0;
+
   /// What Choose sent this turn; null until it is pressed (empty when the
   /// server already had the turn's choose before this board was shown).
   late List<NightPick>? _sent = _usedUp(widget.prompt);
@@ -160,9 +167,25 @@ class _NightBoardState extends ConsumerState<NightBoard> {
       prompt.used ? const [] : null;
 
   void _tap(NightPick pick) {
+    if (widget.prompt.sleeps) {
+      setState(() => _fidgets[pick] = ++_taps);
+      return;
+    }
     if (_sent != null) return;
     setState(() => _picks = widget.prompt.rule.tap(_picks, pick));
   }
+
+  /// [card] bobbing once for its latest idle tap.
+  Widget _fidget(NightPick pick, Widget card) => switch (_fidgets[pick]) {
+    final tap? => CueWave(
+      key: ValueKey(tap),
+      play: true,
+      index: 0,
+      distance: CueWave.boardLift,
+      child: card,
+    ),
+    null => card,
+  };
 
   void _choose() {
     setState(() => _sent = _picks);
@@ -207,6 +230,9 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   };
 
   Widget _button() {
+    if (widget.prompt.sleeps) {
+      return const PrimaryButton.done(label: NightCopy.nothingToDo);
+    }
     if (_sent != null) return const PrimaryButton.done(label: NightCopy.chosen);
     if (!widget.prompt.rule.fits(_picks)) {
       return PrimaryButton.locked(
@@ -235,8 +261,9 @@ class _NightBoardState extends ConsumerState<NightBoard> {
       replay: _replay,
       builder: (context, teaching) {
         var index = 0;
+        // A sleeper is not taught to pick: nothing waves at it.
         Widget wave(Widget card) => CueWave(
-          play: teaching,
+          play: teaching && !widget.prompt.sleeps,
           index: index++,
           distance: CueWave.boardLift,
           child: card,
@@ -419,29 +446,35 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   Widget _player(NightSeat seat, BoardLayout layout) {
     final pick = PlayerPick(seat.id);
-    return FaceDownCard(
-      size: FaceDownSize.board,
-      cardWidth: layout.cardWidth,
-      nameSize: layout.nameSize,
-      nameHeight: layout.nameHeight,
-      owner: seat.token,
-      ownerName: seat.name,
-      selected: _picks.contains(pick),
-      semanticLabel: seat.name,
-      onTap: () => _tap(pick),
+    return _fidget(
+      pick,
+      FaceDownCard(
+        size: FaceDownSize.board,
+        cardWidth: layout.cardWidth,
+        nameSize: layout.nameSize,
+        nameHeight: layout.nameHeight,
+        owner: seat.token,
+        ownerName: seat.name,
+        selected: _picks.contains(pick),
+        semanticLabel: seat.name,
+        onTap: () => _tap(pick),
+      ),
     );
   }
 
   Widget _center(int index, BoardLayout layout) {
     final pick = CenterPick(index);
-    return FaceDownCard(
-      size: FaceDownSize.board,
-      cardWidth: layout.bandCard,
-      caption: centerName(index),
-      tilt: Tilt.scatter(index),
-      selected: _picks.contains(pick),
-      semanticLabel: centerName(index),
-      onTap: () => _tap(pick),
+    return _fidget(
+      pick,
+      FaceDownCard(
+        size: FaceDownSize.board,
+        cardWidth: layout.bandCard,
+        caption: centerName(index),
+        tilt: Tilt.scatter(index),
+        selected: _picks.contains(pick),
+        semanticLabel: centerName(index),
+        onTap: () => _tap(pick),
+      ),
     );
   }
 
@@ -467,17 +500,20 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           child: SizedBox(
             width: layout.bandCell,
             child: wave(
-              FaceDownCard(
-                size: FaceDownSize.board,
-                cardWidth: layout.bandCard,
-                nameSize: layout.nameSize,
-                nameHeight: layout.nameHeight,
-                owner: seat.token,
-                ownerName: NightCopy.you,
-                selected: _picks.contains(const SelfPick()),
-                semanticLabel: NightCopy.you,
-                hold: teaching,
-                onTap: pick,
+              _fidget(
+                const SelfPick(),
+                FaceDownCard(
+                  size: FaceDownSize.board,
+                  cardWidth: layout.bandCard,
+                  nameSize: layout.nameSize,
+                  nameHeight: layout.nameHeight,
+                  owner: seat.token,
+                  ownerName: NightCopy.you,
+                  selected: _picks.contains(const SelfPick()),
+                  semanticLabel: NightCopy.you,
+                  hold: teaching,
+                  onTap: pick,
+                ),
               ),
             ),
           ),

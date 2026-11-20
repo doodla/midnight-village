@@ -15,7 +15,9 @@ import 'board_harness.dart';
 // The night board looks and moves the same for every role (first-time play
 // spec, section 8): the same cards in the same places, the same lift, the
 // button in the same place. Only the button's words and whether it is
-// enabled follow the player's own picks. And what the table can see changes
+// enabled follow the player's own picks; a phone with nothing to choose has
+// "Nothing to do" there, and its taps bob a card instead of picking it (who
+// taps is an accepted tell). And what the table can see changes
 // at once on Choose, whatever the server answers and whenever (section 7).
 
 /// The recorded prompts of each game, one per phone: each phone's board has
@@ -78,10 +80,31 @@ void main() {
       }
     });
 
-    testWidgets('in $game a pick lifts the same way on every phone, and '
-        'nothing else moves', (tester) async {
+    testWidgets("in $game a sleeper's tap bobs the card, and it settles "
+        'where it was', (tester) async {
+      for (final phone in phones) {
+        final board = _board(phone);
+        if (!board.prompt.sleeps) continue;
+        await board.pump(tester);
+        final before = _card(tester, NightCopy.you);
+        final layout = _layout(tester);
+        await tester.tap(you);
+        // The bob starts on the frame after the tap's, its first tick time 0.
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(_card(tester, NightCopy.you).top, lessThan(before.top));
+        await tester.pump(const Duration(seconds: 1));
+        expect(_layout(tester), layout, reason: phone);
+      }
+    });
+
+    testWidgets('in $game a pick lifts the same way on every phone with a '
+        'choice, and nothing else moves', (tester) async {
       (double, double)? firstLift;
       for (final phone in phones) {
+        // A sleeper's tap picks nothing (the test above).
+        if (_board(phone).prompt.sleeps) continue;
         await _board(phone).pump(tester);
         final before = _layout(tester);
         final at = [

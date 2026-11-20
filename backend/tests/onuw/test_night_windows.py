@@ -2,9 +2,11 @@
 Service- and API-level tests for the two-window night.
 
 Window 1 is the Doppelganger's. Window 2 asks every phone at once and resolves when
-it closes. Every phone sends one ``choose`` per window (``Night.post`` sends the
-choose whose picks mean a move, ``Night.rest_choose`` the empty choose of every
-phone that has not chosen yet). Covered here:
+it closes. A phone with a choice sends one ``choose`` per window; a phone with nothing
+to choose (its prompt's ``kind`` is ``none``) sends nothing and is not waited for
+(``Night.post`` sends the choose whose picks mean a move, nothing for a phone with no
+turn and no move; ``Night.rest_choose`` the empty choose of every phone whose turn is
+still open). Covered here:
 
 - window 2 opens with one group event and every phone has a prompt
 - nothing is shown to a player before the window closes
@@ -164,19 +166,33 @@ class Night:
         with self.committed():
             return self.client.post(url, staged(self, body), format="json")
 
+    def turn_open(self, name: str) -> bool:
+        """``name``'s phone still has a choose to send (its prompt's
+        ``chooses_left`` is above 0; never for a phone with nothing to choose)."""
+        game = Game.objects.get(id=self.game.id)
+        pr = PlayerRole.objects.get(game=game, user=self.users[name])
+        return choose_night.turn_open(
+            services.build_game_state(game), pr, game.current_wave
+        )
+
     def post(
         self, name: str, action_type: str, targets: dict[str, Any] | None = None
     ) -> Any:
         """``name`` makes a night move: the choose whose picks mean it
-        (``picks_for``)."""
-        return self.choose(name, picks_for(action_type, targets or {}))
+        (``picks_for``). A phone with nothing to choose sends nothing for a move of
+        no picks, as the app's phone does (returns None)."""
+        picks = picks_for(action_type, targets or {})
+        if not picks and not self.turn_open(name):
+            return None
+        return self.choose(name, picks)
 
     def rest_choose(self) -> None:
-        """Every phone that has not chosen in the open window chooses nothing."""
+        """Every phone whose turn is still open in the open window chooses nothing
+        (a phone with nothing to choose sends nothing)."""
         for name in self.users:
             if self.refresh().phase != Phase.NIGHT:
                 return
-            if self.chosen(name) < 1:
+            if self.turn_open(name):
                 self.choose(name)
 
     def host_close_window(self) -> Any:
@@ -352,19 +368,49 @@ class TestSharedWindowPrompts:
         assert {night.prompt(n)["window"] for n in self.ROLES} == {2}
         assert not PER_PLAYER_NIGHT_EVENTS & set(night.all_event_types())
 
-    def test_window_2_stays_open_until_every_phone_has_chosen(self, make_night) -> None:
+    def test_window_2_stays_open_until_every_phone_with_a_choice_has_chosen(
+        self, make_night
+    ) -> None:
         night = make_night(
             {"a": "Seer", "b": "Robber", "c": "Villager", "d": "Villager"}
         )
         night.start()
 
-        for name in ("a", "b", "c"):
+        # A sleeper's choose is still taken, and holds nothing open.
+        for name in ("a", "c"):
             assert night.choose(name).status_code == status.HTTP_200_OK
             assert night.refresh().phase == Phase.NIGHT
             assert night.game.current_wave == 2
 
-        assert night.choose("d").status_code == status.HTTP_200_OK
+        # The last phone with a choice closes it; "d" never sent anything.
+        assert night.choose("b").status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.DISCUSSION
+        assert night.chosen("d") == 0
+
+    def test_a_window_never_waits_for_a_phone_with_nothing_to_choose(
+        self, make_night
+    ) -> None:
+        night = make_night(
+            {"seer": "Seer", "w1": "Werewolf", "w2": "Werewolf", "v": "Villager"},
+            night_wave_seconds=60,
+        )
+        night.start()
+        assert {n: night.prompt(n)["chooses_left"] for n in night.users} == {
+            "seer": 1,
+            "w1": 0,
+            "w2": 0,
+            "v": 0,
+        }
+
+        night.post("seer", "peek_player", {"player_id": night.users["v"].id})
+
+        assert night.refresh().phase == Phase.DISCUSSION
+        for name in ("w1", "w2", "v"):
+            assert night.chosen(name) == 0, name
+        # Their automatic results still happen.
+        assert night.results("w1")[-1]["revealed_info"]["teammate_names"] == [
+            night.display_name("w2")
+        ]
 
 
 # ── Nothing is shown before the window closes ────────────────────────────────
@@ -639,15 +685,13 @@ class TestWindowsAlwaysRun:
         assert night.game.current_wave == 2
         assert night.windows_opened() == [2]
 
-    def test_empty_window_1_passes_to_window_2_once_every_phone_chose(
-        self, make_night
-    ) -> None:
+    def test_empty_window_1_passes_to_window_2_at_once(self, make_night) -> None:
+        # Nobody has anything to choose in window 1 (with no fixed length).
         night = make_night(
             {"a": "Villager", "b": "Seer", "c": "Werewolf"},
             center=["Doppelganger", "Robber", "Tanner"],
         )
         night.start()
-        night.rest_choose()
 
         assert night.windows_opened() == [1, 2]
         assert night.refresh().current_wave == 2
@@ -669,14 +713,11 @@ class TestWindowsAlwaysRun:
         night.fire_timer(2)
         assert night.game.phase == Phase.DISCUSSION
 
-    def test_an_all_villager_table_with_no_minimum_goes_to_the_day_once_all_chose(
+    def test_an_all_villager_table_with_no_minimum_goes_to_the_day_at_once(
         self, make_night
     ) -> None:
         night = make_night({"a": "Villager", "b": "Villager", "c": "Villager"})
         night.start()
-        assert night.game.phase == Phase.NIGHT
-
-        night.rest_choose()
 
         assert night.refresh().phase == Phase.DISCUSSION
         assert night.windows_opened() == [2]
@@ -761,7 +802,6 @@ class TestChoosingNothing:
         assert follow_up["chooses_left"] == 1
 
         response = night.choose("d")
-        night.rest_choose()
 
         assert response.status_code == status.HTTP_200_OK
         assert night.refresh().current_wave == 2  # window 1 closed, window 2 opened
@@ -822,19 +862,22 @@ class TestDoppelgangerWindow:
     def test_doppelganger_who_copied_a_late_role_acts_in_window_2(
         self, make_night
     ) -> None:
+        # Nobody has anything to choose after her look: each window lasts the
+        # table's minimum.
         night = make_night(
-            {"d": "Doppelganger", "w1": "Werewolf", "w2": "Werewolf", "v": "Villager"}
+            {"d": "Doppelganger", "w1": "Werewolf", "w2": "Werewolf", "v": "Villager"},
+            night_min_window_seconds=5,
         )
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["w1"].id})
-        night.rest_choose()
+        night.fire_timer(1)
 
         assert night.refresh().current_wave == 2
         prompt = night.prompt("d")
         assert prompt["role_acting_as"] == "Werewolf"
         assert prompt["window"] == 2
 
-        night.rest_choose()
+        night.fire_timer(2)
 
         assert night.refresh().phase == Phase.DISCUSSION
         result = night.results("d")[-1]
@@ -855,8 +898,7 @@ class TestDealtCardsDecideWhoWakes:
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["r"].id})
         night.post("d", "swap_with_player", {"player_id": night.users[victim].id})
-        night.rest_choose()
-        assert night.refresh().current_wave == 2
+        assert night.refresh().current_wave == 2  # her follow-up closed window 1
 
     def test_dealt_werewolf_whose_card_was_stolen_still_wakes_and_is_lone(
         self, make_night
@@ -1116,10 +1158,10 @@ class TestFixedDoppelgangerWindow:
         assert night.timer_delays(2) == [30]  # night_wave_seconds, not the fixed length
 
     def test_zero_turns_the_fixed_length_off(self, make_night) -> None:
-        # 0: window 1 closes like window 2, as soon as every phone has chosen
-        # (no sooner than the minimum, no later than night_wave_seconds).
+        # 0: window 1 closes like window 2, as soon as every phone with a choice
+        # has chosen (no sooner than the minimum, no later than night_wave_seconds).
         night = make_night(
-            {"d": "Doppelganger", "v1": "Villager", "v2": "Villager"},
+            {"d": "Doppelganger", "v1": "Villager", "v2": "Villager", "s": "Seer"},
             night_doppelganger_window_seconds=0,
             night_wave_seconds=30,
             night_min_window_seconds=0,
@@ -1127,8 +1169,9 @@ class TestFixedDoppelgangerWindow:
         night.start()
         assert night.timer_delays(1) == [30]
 
+        # Her look is the only choice of window 1 (a Villager copy has no
+        # follow-up): it closes at once.
         night.post("d", "peek_player", {"player_id": night.users["v1"].id})
-        night.rest_choose()
 
         assert night.refresh().current_wave == 2
         night.rest_choose()

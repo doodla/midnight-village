@@ -17,9 +17,11 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
 
 - **Counts, never names.** While a stage runs, the table learns how many have looked, are
   ready or have locked in (`progress`), never who, never what anyone picked.
-- **Every phone does the same thing at night.** Every phone sends one `choose` per window
-  (only the Doppelganger may send a second in window 1), every answer is the same bytes, and
-  a window's close depends only on everyone's taps, presence and the clock.
+- **A phone with a choice sends one `choose` per window** (only the Doppelganger may send
+  a second in window 1); a phone with nothing to choose (its prompt's `kind` is `none`)
+  sends nothing and is never waited for. Every answer is the same bytes, a choose from a
+  phone with nothing to choose included, and a window's close depends only on the taps of
+  the phones with a choice, presence and the clock.
 - **Every request names its stage.** A stage-scoped request carries the `stage` that
   `GET /me/` returned; one for a stage that is over is `409 wrong_stage` and does nothing.
 - **Sending a request twice leaves the game as sending it once did** (section 9).
@@ -137,7 +139,8 @@ there is no per-player event at night. Each phone reads its prompt from `/me/`:
 picks would do something, as data, e.g. `[{"players": 1}, {"center": 2}]`), `action_types:
 ["choose"]`, `max_picks` (2), `max_chooses` (what the server accepts: 2 in window 1, 1 in
 window 2), `chosen` (how many the server holds), `chooses_left` (0 or 1: what this phone
-should still send), and `valid_targets`, the same board for everybody. No teammates.
+should still send; 0 from the start when `kind` is `none`: that phone sends nothing), and
+`valid_targets`, the same board for everybody. No teammates.
 
 `POST .../action/`:
 
@@ -145,7 +148,8 @@ should still send), and `valid_targets`, the same board for everybody. No teamma
 {"action_type": "choose", "picks": [{"player_id": 14}], "chosen": 0, "stage": "w2.…"}
 ```
 
-- From EVERY player, 0 to 2 distinct ordered picks: `{"player_id": n}`,
+- From a phone with a choice (one sent by any other player is taken alike and does
+  nothing), 0 to 2 distinct ordered picks: `{"player_id": n}`,
   `{"center_index": n}`, `{"self": true}` (your own id is `self`).
 - The server reads them per role: Seer two centre cards or the first other player; Robber
   the first other player; Troublemaker two other players; Drunk the first centre card; a
@@ -163,11 +167,14 @@ should still send), and `valid_targets`, the same board for everybody. No teamma
   (the same 200, nothing stored), equal is a new choose, higher is `400`. After any 200 the
   phone re-reads `/me/` and trusts `chosen` and `chooses_left`.
 
-**Closing.** Window 2 closes when every present phone (not gone past grace; a phone inside
-its grace holds it) has chosen once, never before `night_min_window_seconds` (counted from
-the window's opening), else at its deadline. Window 1 keeps its fixed length
+**Closing.** Window 2 closes when every present phone WITH a choice (`chooses_left` above
+0; not gone past grace; one inside its grace holds it) has chosen, never before
+`night_min_window_seconds` (counted from the window's opening), else at its deadline. A
+phone with nothing to choose is never waited for, dropped or not; a table where every phone
+is away waits for one to come back. Window 1 keeps its fixed length
 (`night_doppelganger_window_seconds`); with that setting 0 (untimed tables only) it closes
-once every phone has chosen once and an armed Doppelganger has sent her follow-up. The host
+once the Doppelganger has looked and, when her copy chooses in window 1, sent her
+follow-up. The host
 may close any window with `POST .../advance-wave/ {"stage"}`. A closed window's results
 are in each phone's `/me/`; the last window's close moves the game to the talk
 (`phase_change`).
@@ -262,6 +269,9 @@ a time and retries only the latest, so a stale resend never overtakes a newer re
 
 ## 10. Accepted tells and limits
 
+- Who taps at night: only a phone with a choice sends a `choose` (product owner, 20
+  November 2026: a friendly game; a sleeper is never asked to act or waited for). Someone
+  watching the table or the network can tell who had something to choose, never what.
 - An armed Doppelganger's phone is the only one that sends a second `POST .../action/` in
   window 1. Someone watching the network can see that extra request (not its content); the
   answer is the same bytes as anyone's.

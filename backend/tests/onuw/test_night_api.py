@@ -390,12 +390,14 @@ class TestWaveAdvancement:
         assert game.phase == Phase.DISCUSSION
 
     def test_game_transitions_to_discussion_after_all_waves(self, api_client, db):
-        """Game transitions to discussion once window 2, the last, has closed."""
+        """Game transitions to discussion once window 2, the last, has closed: once
+        its one phone with a choice (the Seer) has chosen; the others have nothing
+        to choose and send nothing."""
         game, users = _create_game(
             {
-                "host_td": "Werewolf",
+                "host_td": "Seer",
                 "p1_td": "Werewolf",
-                "p2_td": "Villager",
+                "p2_td": "Werewolf",
                 "p3_td": "Villager",
                 "p4_td": "Villager",
             },
@@ -404,8 +406,7 @@ class TestWaveAdvancement:
         )
 
         with _patch_channels():
-            for user in users.values():
-                assert _choose(api_client, game, user).status_code == 200
+            assert _choose(api_client, game, users["host_td"]).status_code == 200
 
         # Should transition to discussion
         game.refresh_from_db()

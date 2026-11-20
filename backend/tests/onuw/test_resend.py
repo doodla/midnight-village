@@ -355,14 +355,13 @@ class TestChooseResend:
         same for every role, nothing stored, never landing in the next stage."""
         night = make_p2(LONE)
         night.start()
-        for name in ("wolf", "seer", "robber", "villager"):
-            choose(night, name, [])
-        last = choose_body(night, "hunter", [])
-        assert send(night, "hunter", "onuw:night-action", last).status_code == 200
+        _all_but_robber_chose(night)
+        last = choose_body(night, "robber", [])
+        assert send(night, "robber", "onuw:night-action", last).status_code == 200
         assert night.refresh().phase == Phase.DISCUSSION
         before = snapshot(night)
 
-        again = send(night, "hunter", "onuw:night-action", last)
+        again = send(night, "robber", "onuw:night-action", last)
 
         assert again.status_code == status.HTTP_409_CONFLICT
         assert again.data["code"] == "wrong_stage"
@@ -642,8 +641,10 @@ def _dop_looked(night: Night) -> None:
     choose(night, "dop", [player(night, "robber")])
 
 
-def _all_but_hunter_chose(night: Night) -> None:
-    for name in ("wolf", "seer", "robber", "villager"):
+def _all_but_robber_chose(night: Night) -> None:
+    """Every phone with a choice but the Robber's has chosen (the Villager and the
+    Hunter have nothing to choose and send nothing)."""
+    for name in ("wolf", "seer"):
         choose(night, name, [])
 
 
@@ -717,10 +718,10 @@ CASES = [
     Case(
         "window-2 last choose",
         LONE,
-        _all_but_hunter_chose,
-        "hunter",
+        _all_but_robber_chose,
+        "robber",
         "onuw:night-action",
-        lambda n: choose_body(n, "hunter", []),
+        lambda n: choose_body(n, "robber", []),
     ),
     Case(
         "look ready",
@@ -916,9 +917,12 @@ def _play_seeded_game(make_p2, seed: int, prefix: str, *, resend: bool) -> dict:
     night.fire_timer(1)
     assert night.refresh().current_wave == 2
 
+    # Window 2: every phone with a choice chooses (the others send nothing).
     rng.shuffle(order)
     for who in order:
-        request(who, "onuw:night-action", choose_body(night, who, random_picks(who)))
+        if night.refresh().phase == Phase.NIGHT and night.turn_open(who):
+            body = choose_body(night, who, random_picks(who))
+            request(who, "onuw:night-action", body)
     assert night.refresh().phase == Phase.DISCUSSION
 
     for who in names:

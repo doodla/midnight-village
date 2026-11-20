@@ -140,17 +140,18 @@ class TestSeenCount:
         night = make_night(
             {"d": "Doppelganger", "s": "Seer", "w": "Werewolf", "v": "Villager"},
             ["Robber", "Tanner", "Hunter"],
+            night_min_window_seconds=5,
         )
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["s"].id})
         night.post("d", "peek_center", {"center_indices": [0, 1]})
-        assert night.refresh().current_wave == 1  # the others have not chosen
+        assert night.refresh().current_wave == 1  # it waits out its minimum
         assert len(me(night, "d")["night_results"]) == 1  # the look only
 
         early = ack(night, "d", {"seen": 2})
 
         assert early.data == {"night_results_seen": 1}
-        night.rest_choose()
+        night.fire_timer(1)
         assert night.refresh().current_wave == 2
         assert len(me(night, "d")["night_results"]) == 2
         assert me(night, "d")["night_results_seen"] == 1  # the follow-up is unseen

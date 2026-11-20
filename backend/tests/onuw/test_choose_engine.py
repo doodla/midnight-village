@@ -293,14 +293,16 @@ class TestPrompt:
         [
             (2, "Seer", 0, 1),
             (2, "Seer", 1, 0),
-            (2, None, 0, 1),
-            (2, None, 1, 0),
-            (1, None, 0, 1),  # everyone else in window 1: one choose
+            (2, None, 0, 0),  # nothing to choose: nothing to send
+            (2, None, 1, 0),  # one the server took anyway
+            (2, "Insomniac", 0, 0),
+            (2, "Werewolf", 0, 0),  # not alone: nothing to choose
+            (1, None, 0, 0),  # everyone else in window 1: nothing to send
             (1, None, 1, 0),
-            (1, None, 2, 0),  # a second one the server took anyway
+            (1, None, 2, 0),
             (1, "Doppelganger", 0, 1),  # her look
             (1, "Robber", 1, 1),  # her follow-up, armed
-            (1, "Minion", 1, 1),  # a follow-up with nothing to pick
+            (1, "Minion", 1, 0),  # a follow-up with nothing to pick: none
             (1, "Robber", 2, 0),
         ],
     )

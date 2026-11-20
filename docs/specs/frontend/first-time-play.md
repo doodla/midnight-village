@@ -528,7 +528,8 @@ night.
 | Was | Now |
 |---|---|
 | Choose locked until "You" is held 0.8 s, every window, every phone | No gate at night. Holding "You" shows what you may do; the `hold` cue points at it in a first game only. |
-| Any taps accepted; a pick that means nothing to your role silently does nothing | The phone reads the SERVER's prompt (which cards and how many your role may pick) and the button follows it: "Choose a card" (disabled) / "Choose 1 more" (disabled) / "Choose Cleo" / "Choose Left, Right" / "Keep my card". A turn cannot be wasted by a slip. Players with nothing to choose may pick any one card. Deliberately doing nothing is picking "You". The phone holds no rules: it compares picks with the prompt's shapes. |
+| Any taps accepted; a pick that means nothing to your role silently does nothing | The phone reads the SERVER's prompt (which cards and how many your role may pick) and the button follows it: "Choose a card" (disabled) / "Choose 1 more" (disabled) / "Choose Cleo" / "Choose Left, Right" / "Keep my card". A turn cannot be wasted by a slip. Players with nothing to choose have no button (next row). Deliberately doing nothing is picking "You". The phone holds no rules: it compares picks with the prompt's shapes. |
+| Every phone chooses at night, a sleeper by tapping any card, and every window waits for every phone | A phone with nothing to choose (its prompt is `none`) is not asked to do anything (playtest on the real screens, 20 November 2026: "Choose a card" contradicted "Night: Sleep."). Its board says the village sleeps and shows the table calmly; a tap lifts a card and lets it settle (cover for anyone who wants to fidget), nothing is picked or sent; there is no button. The server never waits for it: a window closes once every phone WITH a choice has chosen (no sooner than the table's minimum) or at its deadline. A player with a choice still picks, then presses; "Keep my card" stays the pass. |
 | Every phone chooses twice in window 1 | Every phone chooses once per window. Only the Doppelganger, after her look, gets a second pick in window 1 (her board re-arms when her result arrives). |
 | A held face hides after 5 s | No cap anywhere. It hides on release. |
 | "Ready to vote" locked until "My night" was held | Never locked. In a first game the `hold` cue breathes on "My night". |
@@ -543,4 +544,5 @@ tap.
 
 **Accepted tells** (the card game has them too): an actor may take a little longer than a
 sleeper; a neighbour who reads your button can see how many cards you are picking; the
-Doppelganger taps twice. None of these is worth a wait or a wasted turn.
+Doppelganger taps twice; who taps at night (only a phone with a choice sends one, and only
+its board has a button), never what they chose. None of these is worth a wait or a wasted turn.

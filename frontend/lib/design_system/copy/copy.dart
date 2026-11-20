@@ -160,11 +160,16 @@ abstract final class NightCopy {
   static const keep = 'Keep my card';
   static const chosen = 'Chosen';
 
+  /// In the button's place on a board with nothing to choose (a sleeper's:
+  /// spec section 8); quiet, with the done tick, never a thing to press.
+  static const nothingToDo = 'Nothing to do';
+
   // The face of "You": what this prompt asks of the player.
-  /// Names a gesture against copy rule 6; kept by the product owner
-  /// (spec section 8): it tells a sleeper how to take a turn at all.
-  static const noChoice = 'Nothing to choose. Tap any card.';
-  static const seer = 'Look at 1 card, or 2 center cards.';
+  static const noChoice = 'Nothing to do tonight.';
+
+  /// Spec: "Look at 1 card, or 2 center cards." (cold read on the real
+  /// screens: whose card?) The role text's own words.
+  static const seer = RoleCopy.seerNight;
   static const robber = 'Swap with 1 player. See your new card.';
   static const troublemaker = "Swap 2 other players' cards.";
   static const drunk = "Swap with 1 center card. Don't look.";

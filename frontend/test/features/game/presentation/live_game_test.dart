@@ -228,16 +228,17 @@ void main() {
       expect(setup.game.server.prompt!.used, isTrue);
     });
 
-    test('any other phone in window 1 fetches once and stays chosen', () async {
+    test('any other phone in window 1 has nothing to send: a choose is '
+        'declined on the phone, nothing goes out', () async {
       final sleeper = recordedMe('me_choose_prompt_window1_sleeper');
       final setup = await phone('', body: sleeper);
-      setup
-        ..answerPost('/action/', 'game/choose_submitted_villager')
-        ..answerMe(withPrompt(sleeper, {'chosen': 1, 'chooses_left': 0}));
-      await setup.notifier.choose(setup.game.me.stage!, const [SelfPick()]);
+      expect(setup.game.me.prompt!.sleeps, isTrue);
+      final outcome = await setup.notifier.choose(setup.game.me.stage!, const [
+        SelfPick(),
+      ]);
       await setup.settle();
-      expect(setup.meFetches, 2, reason: 'the same on the wire for all');
-      expect(setup.game.me.prompt!.used, isTrue);
+      expect(outcome, isA<Declined>());
+      expect(setup.posts('/action/'), 0);
     });
   });
 

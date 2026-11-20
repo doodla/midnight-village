@@ -336,40 +336,29 @@ class TestNightWithADroppedPlayer:
         assert night.refresh().phase == Phase.DISCUSSION
         assert night.results("seer")[0]["revealed_info"]["role"] == "Villager"
 
-    def test_coming_back_lifts_the_hold_so_the_window_can_close(
-        self, make_night
-    ) -> None:
+    def test_a_dropped_phone_that_has_chosen_holds_nothing(self, make_night) -> None:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
-        drop(night, "seer", seconds_ago=3)
         night.post("seer", "skip")
+        drop(night, "seer", seconds_ago=3)  # its choose is in: nothing to wait for
         night.post("wolf", "see_team")
         night.post("robber", "skip")
-        night.post("villager", "none")
-        assert night.refresh().phase == Phase.NIGHT  # held: the Seer's phone is out
-
-        connect(night, "seer")
 
         assert night.refresh().phase == Phase.DISCUSSION
 
-    def test_a_dropped_player_with_nothing_to_do_holds_the_window_just_the_same(
+    def test_a_dropped_player_with_nothing_to_choose_holds_nothing(
         self, make_night
     ) -> None:
-        """Whether the window waits must not tell the table the dropped player's role."""
+        """A phone with nothing to choose is never waited for, dropped or not (who
+        taps at night is an accepted tell: first time play spec, section 8)."""
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
         drop(night, "villager", seconds_ago=5)  # has no action
         night.post("seer", "skip")
         night.post("wolf", "see_team")
         night.post("robber", "skip")
-        assert night.refresh().phase == Phase.NIGHT  # held, exactly as for an actor
 
-        PlayerRole.objects.filter(game=night.game, user=night.users["villager"]).update(
-            disconnected_at=timezone.now() - timedelta(seconds=26)
-        )
-        fire_grace(night, "villager")
-
-        assert night.game.phase == Phase.DISCUSSION
+        assert night.refresh().phase == Phase.DISCUSSION
 
     def test_the_minimum_window_length_still_applies_when_the_close_is_early(
         self, make_night

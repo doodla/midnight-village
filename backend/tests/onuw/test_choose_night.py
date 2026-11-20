@@ -315,7 +315,7 @@ class TestPrompts:
             ("Robber", 1),
             ("Troublemaker", 1),
             ("Drunk", 1),
-            ("Minion", 1),  # nothing to pick, still waited for once more
+            ("Minion", 0),  # nothing to pick: she sends nothing more
             ("Werewolf", 0),  # acts in window 2
             ("Mason", 0),
             ("Insomniac", 0),
@@ -337,11 +337,13 @@ class TestPrompts:
         if left_after_look:
             choose(night, "dop", [])
             assert me(night, "dop")["action_prompt"]["chooses_left"] == 0
-        # Everyone else: one choose expected in window 1, whatever they hold.
+        # Everyone else has nothing to choose in window 1: nothing to send, though
+        # a choose from them is still taken (the same answer as anyone's).
         for name in ("target", "a", "b"):
-            assert me(night, name)["action_prompt"]["chooses_left"] == 1
+            assert me(night, name)["action_prompt"]["chooses_left"] == 0
             choose(night, name, [])
             assert me(night, name)["action_prompt"]["chooses_left"] == 0
+            assert me(night, name)["action_prompt"]["chosen"] == 1
             assert me(night, name)["action_prompt"]["max_chooses"] == 2
 
     def test_get_me_names_the_viewer(self, make_p2) -> None:
@@ -408,7 +410,10 @@ class TestIdenticalAnswers:
     def test_every_choose_gets_the_same_bytes_for_every_role(
         self, make_p2, picks
     ) -> None:
-        night = make_p2(TEN)
+        # A phone with nothing to choose sends nothing, but a choose from it is
+        # still taken, answered alike. The table's minimum keeps the window open
+        # for every seat's choose.
+        night = make_p2(TEN, night_min_window_seconds=8)
         night.start()
 
         replies = {
@@ -449,8 +454,10 @@ class TestIdenticalAnswers:
     )
     def test_every_role_and_copy_is_answered_alike(self, make_p2, table) -> None:
         """All twelve roles, and a Doppelganger beside each kind of role she may copy:
-        whatever the phone holds, its choose gets the same bytes."""
-        night = make_p2(table)
+        whatever the phone holds, its choose gets the same bytes (a phone with
+        nothing to choose sends none, but one sent is taken alike; the table's
+        minimum keeps the window open for all of them)."""
+        night = make_p2(table, night_min_window_seconds=8)
         night.start()
         chooses = 2 if night.game.current_wave == 1 else 1
 
@@ -985,18 +992,20 @@ class TestWindowOne:
         assert results(night, "seer") == []
         assert night.role_of("seer").current_role == "Seer"
 
-    def test_with_the_fixed_length_off_window_one_ends_when_everyone_chose_once(
+    def test_with_the_fixed_length_off_window_one_ends_when_she_has_chosen(
         self, make_night
     ) -> None:
-        # night_doppelganger_window_seconds = 0 (the make_night default)
+        # night_doppelganger_window_seconds = 0 (the make_night default). Only her
+        # phone has a choice in window 1; the others' chooses (still taken) hold
+        # nothing open.
         night = make_night(DOPPEL, CENTER, night_wave_seconds=60)
         night.start()
-        names = list(DOPPEL)
-        for name in names[:-1]:
+        assert night.prompt("seer")["chooses_left"] == 0
+        for name in ("seer", "wolf", "villager", "drunk"):
             choose(night, name)
             assert night.refresh().current_wave == 1
 
-        choose(night, names[-1])  # she copied nobody: nothing more to wait for
+        choose(night, "dop")  # she copied nobody: nothing more to wait for
 
         assert night.refresh().current_wave == 2
 
@@ -1019,16 +1028,15 @@ class TestWindowOne:
 
 
 class TestWindowTwoClose:
-    def test_the_window_waits_for_every_phone_including_the_sleepers(
-        self, make_p2
-    ) -> None:
+    def test_the_window_waits_only_for_the_phones_with_a_choice(self, make_p2) -> None:
         night = make_p2(LONE)
         night.start()
+        left = {name: me(night, name)["action_prompt"]["chooses_left"] for name in LONE}
+        assert left == {"wolf": 1, "seer": 1, "villager": 0, "hunter": 0, "tanner": 0}
 
-        for name in ("wolf", "seer", "hunter", "tanner"):
-            choose(night, name)
-            assert night.refresh().current_wave == 2
-        choose(night, "villager")  # a sleeper holds the window like anyone
+        choose(night, "wolf")
+        assert night.refresh().current_wave == 2
+        choose(night, "seer")  # the sleepers sent nothing and are not waited for
 
         assert night.refresh().phase == Phase.DISCUSSION
 
@@ -1058,13 +1066,9 @@ class TestWindowTwoClose:
     ) -> None:
         night = make_p2(LONE)
         night.start()
-        drop(night, "tanner", seconds_ago=60)
+        drop(night, "seer", seconds_ago=60)
 
-        for name in ("wolf", "seer", "hunter"):
-            choose(night, name)
-        assert night.refresh().phase == Phase.NIGHT
-
-        choose(night, "villager")
+        choose(night, "wolf")
 
         assert night.refresh().phase == Phase.DISCUSSION
 
@@ -1073,12 +1077,21 @@ class TestWindowTwoClose:
     ) -> None:
         night = make_p2(LONE)
         night.start()
-        drop(night, "tanner", seconds_ago=5)
+        drop(night, "seer", seconds_ago=5)
 
-        for name in ("wolf", "seer", "hunter", "villager"):
-            choose(night, name)
+        choose(night, "wolf")
 
         assert night.refresh().phase == Phase.NIGHT
+
+    def test_a_sleeper_inside_the_grace_period_holds_nothing(self, make_p2) -> None:
+        night = make_p2(LONE)
+        night.start()
+        drop(night, "tanner", seconds_ago=5)
+
+        choose(night, "wolf")
+        choose(night, "seer")
+
+        assert night.refresh().phase == Phase.DISCUSSION
 
     def test_the_host_can_close_it_and_a_stale_tap_cannot(self, make_p2) -> None:
         night = make_p2(LONE)
@@ -1097,10 +1110,12 @@ class TestWindowTwoClose:
         assert ok.status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.DISCUSSION
 
-    def test_close_time_does_not_depend_on_roles(self, make_p2) -> None:
-        """Same taps at the same times, different roles: the same close. Nothing a
-        player can watch (a window that closes sooner, a deferred close that is
-        scheduled or not) says who had something to choose."""
+    def test_close_time_says_who_tapped_never_what_they_hold(self, make_p2) -> None:
+        """Who taps at night is an accepted tell (the phones with a choice; first
+        time play spec, section 8). Beyond it nothing a player can watch (a window
+        that closes sooner, a deferred close that is scheduled or not) depends on
+        the roles: the same seats tapping at the same times, different roles with a
+        choice, give the same close."""
         a = make_p2(
             {
                 "a1": "Werewolf",
@@ -1113,10 +1128,10 @@ class TestWindowTwoClose:
         )
         b = make_p2(
             {
-                "b1": "Villager",
-                "b2": "Tanner",
+                "b1": "Drunk",
+                "b2": "Troublemaker",
                 "b3": "Hunter",
-                "b4": "Werewolf",
+                "b4": "Seer",
                 "b5": "Insomniac",
             },
             night_min_window_seconds=8,
@@ -1124,19 +1139,20 @@ class TestWindowTwoClose:
         for night in (a, b):
             night.start()
             night.pretend_window_opened(3)
-        names = {a: list(a.users), b: list(b.users)}
+        tapping = {a: ["a1", "a2", "a4"], b: ["b1", "b2", "b4"]}
 
-        # Four of five have chosen: neither closes, neither has anything scheduled
-        # beyond the deadline.
+        # Two of the three phones with a choice have chosen: neither closes,
+        # neither has anything scheduled beyond the deadline.
         for night in (a, b):
-            for name in names[night][:4]:
+            for name in tapping[night][:2]:
                 choose(night, name, [SELF])
             assert night.refresh().phase == Phase.NIGHT
         assert len(a.timer_delays(2)) == len(b.timer_delays(2)) == 1
 
-        # The last tap defers the close to the same moment.
+        # The last of them defers the close to the same moment; the sleepers
+        # sent nothing.
         for night in (a, b):
-            choose(night, names[night][4], [SELF])
+            choose(night, tapping[night][2], [SELF])
         assert len(a.timer_delays(2)) == len(b.timer_delays(2)) == 2
         assert a.timer_delays(2)[-1] == pytest.approx(b.timer_delays(2)[-1], abs=0.5)
         assert a.refresh().phase == b.refresh().phase == Phase.NIGHT
@@ -1150,10 +1166,12 @@ class TestNightUniformity:
     def test_every_seat_sees_the_same_events_and_answers_in_every_window(
         self, make_p2, roles
     ) -> None:
-        """A seeded table played through every window, every seat choosing: the
-        events (their types, and who they go to) and the answer to every POST are
-        the same whatever a seat was dealt. No seat has an event of its own."""
-        night = make_p2(roles)
+        """A seeded table played through every window, every seat choosing (a
+        phone with nothing to choose sends none, but one sent is taken alike; the
+        table's minimum keeps each window open for all of them): the events (their
+        types, and who they go to) and the answer to every POST are the same
+        whatever a seat was dealt. No seat has an event of its own."""
+        night = make_p2(roles, night_min_window_seconds=8)
         night.start()
         answers: list[bytes] = []
         while night.refresh().phase == Phase.NIGHT:

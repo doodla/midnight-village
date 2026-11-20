@@ -122,17 +122,46 @@ void main() {
     expect(button(tester), ('Choose Cleo', ButtonPhase.ready));
   });
 
-  testWidgets('nothing waits on a hold: a sleeper picks any card and '
-      'chooses', (tester) async {
+  testWidgets('a sleeper is asked nothing: no button, "Nothing to do" in its '
+      'place, and a tap bobs a card and picks or sends nothing', (
+    tester,
+  ) async {
     final board = BoardHarness.of(Viewer.villager);
+    expect(board.prompt.sleeps, isTrue);
     await board.pump(tester);
+    expect(button(tester), (NightCopy.nothingToDo, ButtonPhase.done));
+
     await tapCard(tester, ben.name);
+    // The card lifts and settles: a fidget, never a pick.
+    final bob = find.ancestor(
+      of: find.text(ben.name),
+      matching: find.byType(CueWave),
+    );
+    expect(bob, findsWidgets);
     await tapCard(tester, NightCopy.middle);
-    expect(lifted(tester), [NightCopy.middle]);
-    await _choose(tester);
-    expect(board.sent, [
-      [const CenterPick(1)],
-    ]);
+    await tapCard(tester, NightCopy.you);
+    await tester.pump(const Duration(seconds: 1));
+    expect(lifted(tester), isEmpty);
+    await tester.tap(find.byType(PrimaryButton));
+    await tester.pump();
+    expect(board.sent, isEmpty);
+    expect(button(tester), (NightCopy.nothingToDo, ButtonPhase.done));
+
+    // Holding "You" still shows the card and that there is nothing to do.
+    final press = await tester.startGesture(tester.getCenter(you));
+    await tester.pump(HoldToReveal.holdDelay);
+    expect(find.text(NightCopy.noChoice), findsOneWidget);
+    await press.up();
+  });
+
+  testWidgets('a sleeper in a first game is not waved at to pick', (
+    tester,
+  ) async {
+    await BoardHarness.of(Viewer.villager, learned: {Cue.hold}).pump(tester);
+    expect(
+      tester.widgetList<CueWave>(find.byType(CueWave)).map((w) => w.play),
+      everyElement(isFalse),
+    );
   });
 
   testWidgets('a press on "You" past 120 ms is a hold that shows its face, '
@@ -234,25 +263,17 @@ void main() {
     ]);
   });
 
-  testWidgets('any other phone chooses once in window 1, whatever the '
+  testWidgets('any other phone sends nothing in window 1, whatever the '
       "prompt's counts say", (tester) async {
     final board = BoardHarness.of(Viewer.windowOneSleeper);
     expect(board.me['action_prompt']['max_chooses'], 2);
+    expect(board.prompt.choosesLeft, 0);
     await board.pump(tester);
     await tapCard(tester, NightCopy.left);
-    await _choose(tester);
-    // The server counts the choose; its next /me/ says so.
-    final after = Viewer.windowOneSleeper.nightMe;
-    (after['action_prompt'] as Map)
-      ..['chosen'] = 1
-      ..['chooses_left'] = 0;
-    board.show(after);
-    await tester.pumpWidget(board.build());
-    expect(button(tester), (NightCopy.chosen, ButtonPhase.done));
-    await tapCard(tester, NightCopy.right);
     await tester.tap(find.byType(PrimaryButton));
     await tester.pump();
-    expect(board.sent, hasLength(1));
+    expect(board.sent, isEmpty);
+    expect(button(tester), (NightCopy.nothingToDo, ButtonPhase.done));
   });
 
   group('a phone whose turn the server already has starts at "Chosen"', () {
@@ -283,9 +304,8 @@ void main() {
   testWidgets('a new stage starts a fresh board', (tester) async {
     final board = BoardHarness.of(Viewer.windowOneSleeper);
     await board.pump(tester);
-    await tapCard(tester, NightCopy.left);
-    await _choose(tester);
-    board.show(recordedMe('me_choose_prompt_werewolf_pack'));
+    expect(button(tester), (NightCopy.nothingToDo, ButtonPhase.done));
+    board.show(recordedMe('me_choose_prompt_drunk'));
     await tester.pumpWidget(board.build());
     expect(lifted(tester), isEmpty);
     expect(button(tester), (NightCopy.chooseNone, ButtonPhase.locked));

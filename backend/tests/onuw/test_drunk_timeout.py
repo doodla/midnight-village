@@ -318,9 +318,8 @@ class TestDoppelgangerAsDrunk:
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["dr"].id})
         night.post("d", "swap_with_center", {"center_index": 2})
-        night.rest_choose()
 
-        assert night.refresh().current_wave == 2
+        assert night.refresh().current_wave == 2  # her follow-up closed window 1
         assert night.role_of("d").current_role == CENTER[2]
         assert "made_by_server" not in log_for(night, "d")[-1]
 

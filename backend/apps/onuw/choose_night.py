@@ -31,8 +31,12 @@ The rules this module keeps:
 * ``GET /me/``'s prompt carries ``shapes`` (``engine.choose.pick_shapes``): which picks
   would do something for the caller, as data, so a phone can keep a player from
   wasting a turn without holding any rule. The server's reading stays the authority.
-* Window 2 takes one choose from every phone and closes when every present phone has
-  chosen, never before the minimum length, else at the deadline.
+* A phone with nothing to choose (its prompt's ``kind`` is ``none``) sends nothing:
+  its prompt says ``chooses_left`` 0 from the start. Window 2 closes when every
+  present phone WITH a choice has chosen, never before the minimum length, else at
+  the deadline; a sleeper is never waited for. Who taps is an accepted tell (first
+  time play spec, section 8). A choose from a sleeper is still taken (the same
+  answer as anyone's) and does nothing.
 * Every request names the stage it was aimed at (``protocol``): a request for a stage
   that is over is refused with ``WrongStageError`` under the Game lock and stores
   nothing.
@@ -50,11 +54,13 @@ from django.db import transaction
 from . import services as svc
 from .engine.choose import (
     build_choose_prompt,
+    chooses_left,
     interpret_choice,
     is_lone_werewolf,
     max_chooses,
     parse_picks,
 )
+from .engine.state import GameState
 from .models import Game, Phase, PlayerRole
 from .protocol import NIGHT_CHOOSE_STAGES, WrongStageError, require_stage
 
@@ -165,19 +171,36 @@ def submit_choose(
 # ── what a phone reads ──────────────────────────────────────────────────────
 
 
+def _prompt_role(pr: PlayerRole, window: int) -> str | None:
+    """The role the caller's prompt acts as: their acting role in the window, except
+    a Doppelganger whose one look is over (a second choose does nothing)."""
+    acting = svc.get_player_acting_role_for_wave(pr, window)
+    if acting == "Doppelganger" and chose_count(pr, window) >= 1:
+        return None
+    return acting
+
+
 def prompt_for(game: Game, pr: PlayerRole) -> dict[str, Any] | None:
     """The prompt the caller reads from ``GET /me/`` in an open window: every player
     has one, shaped alike (``engine.choose.build_choose_prompt``)."""
     window = game.current_wave
     if game.phase != Phase.NIGHT or window not in (1, 2):
         return None
-    acting = svc.get_player_acting_role_for_wave(pr, window)
-    chosen = chose_count(pr, window)
-    if acting == "Doppelganger" and chosen >= 1:
-        acting = None  # her one look is over: a second choose does nothing
     return build_choose_prompt(
-        svc.build_game_state(game), pr.user_id, window, acting, chosen
+        svc.build_game_state(game),
+        pr.user_id,
+        window,
+        _prompt_role(pr, window),
+        chose_count(pr, window),
     )
+
+
+def turn_open(state: GameState, pr: PlayerRole, window: int) -> bool:
+    """The phone still has a choose to send in the window: its prompt's
+    ``chooses_left`` is above 0 (never for a phone with nothing to choose)."""
+    acting = _prompt_role(pr, window)
+    lone = acting == "Werewolf" and window == 2 and is_lone_werewolf(state, pr.user_id)
+    return chooses_left(window, acting, chose_count(pr, window), lone_werewolf=lone) > 0
 
 
 # ── opening and closing a window ────────────────────────────────────────────
@@ -203,24 +226,17 @@ def announce_window(game: Game, window: int) -> None:
     )
 
 
-def ready_to_close(prs: list[PlayerRole], window: int, grace: int, now: Any) -> bool:
-    """Every present phone has chosen once in the window (a phone gone past the grace
-    period is not waited for), so the stage ends the moment everyone has done their
-    part. (Window 1 is fixed-length; this is only asked of it when its length was
-    switched off, in development, and then a Doppelganger who copied a role with a
-    follow-up is also waited for until she has sent it.)"""
-
-    def needed(pr: PlayerRole) -> int:
-        if window == 1 and svc.get_player_acting_role_for_wave(pr, 1) not in (
-            None,
-            "Doppelganger",
-        ):
-            return 2  # her follow-up
-        return 1
-
+def ready_to_close(
+    state: GameState, prs: list[PlayerRole], window: int, grace: int, now: Any
+) -> bool:
+    """Every present phone with a choice has sent its choose (``turn_open`` is false
+    for it), so the stage ends the moment everyone has done their part. A phone with
+    nothing to choose is never waited for, nor is one gone past the grace period.
+    (Window 1 is fixed-length; this is only asked of it when its length was switched
+    off, in development, and then a Doppelganger who copied a role that chooses in
+    window 1 is also waited for until she has sent her follow-up.)"""
     return all(
-        chose_count(pr, window) >= needed(pr) or svc._is_gone(pr, grace, now)
-        for pr in prs
+        not turn_open(state, pr, window) or svc._is_gone(pr, grace, now) for pr in prs
     )
 
 
@@ -232,4 +248,5 @@ __all__ = [
     "prompt_for",
     "ready_to_close",
     "submit_choose",
+    "turn_open",
 ]

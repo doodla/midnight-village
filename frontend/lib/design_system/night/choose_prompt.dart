@@ -83,6 +83,11 @@ class ChoosePrompt {
   /// another screen): the board starts at "Chosen".
   bool get used => choosesLeft == 0;
 
+  /// Nothing to choose (the prompt's `kind` is `none`: a Villager, a Werewolf
+  /// who is not alone, everyone but the Doppelganger in window 1): the phone
+  /// sends nothing, and the server never waits for it (spec section 8).
+  bool get sleeps => kind == NightPrompt.noChoice;
+
   /// This prompt as it is once this phone has sent this turn's choose: what
   /// the app shows from the tap on, until a `/me/` fetched after the answer
   /// says what the server holds.

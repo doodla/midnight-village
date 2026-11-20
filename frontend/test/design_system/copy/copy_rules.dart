@@ -1,4 +1,3 @@
-import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 
 // The copy rules of docs/specs/frontend/first-time-play.md, section 1, as
@@ -119,9 +118,9 @@ final _gesture = RegExp(
   caseSensitive: false,
 );
 
-/// Lines that name a gesture and stay, each by a decision in the spec: the
-/// sleeper's face says how to take a turn at all (section 8, product owner).
-const gestureKept = {NightCopy.noChoice};
+/// Lines that name a gesture and stay, each by a decision in the spec. None
+/// since a sleeper is no longer told to tap a card (section 8).
+const gestureKept = <String>{};
 
 /// Budgets that are not a screen's.
 const headlineMax = 5;

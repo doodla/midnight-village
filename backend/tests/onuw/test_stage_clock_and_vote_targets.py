@@ -151,10 +151,11 @@ class TestStageStartedAt:
             iso(w2 + timedelta(seconds=WAVE)),
         )
 
-        # Every phone chooses 4 s in: the talk opens.
+        # Every phone with a choice chooses 4 s in: the talk opens.
         clock.advance(4)
         for name in night.users:
-            assert choose(night, name, []).status_code == status.HTTP_200_OK
+            if night.turn_open(name):
+                assert choose(night, name, []).status_code == status.HTTP_200_OK
         talk = w2 + timedelta(seconds=4)
         assert night.refresh().phase == Phase.DISCUSSION
         assert clock_of_every_seat(night) == (

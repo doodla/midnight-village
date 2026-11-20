@@ -215,7 +215,7 @@
       "method": "POST",
       "path": "/onuw/games/{game_id}/action/",
       "status": 200,
-      "description": "The server accepts a second choose in window 1 from anyone (only the Doppelganger's is read), so a second tap is never a tell."
+      "description": "The server accepts a second choose in window 1 from anyone (only the Doppelganger's is read): the same answer as hers."
     },
     {
       "name": "http/game/choose_window1_third_refused",
@@ -319,7 +319,7 @@
       "method": "GET",
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
-      "description": "/me/ in window 1 after she looked at the Minion: her follow-up is armed (`kind: none`, `chooses_left: 1`); she sends one more choose and learns the Werewolves when the window closes."
+      "description": "/me/ in window 1 after she looked at the Minion: as the copied Minion she has nothing to choose (`kind: none`, `chooses_left: 0`), sends nothing more and learns the Werewolves when the window closes."
     },
     {
       "name": "http/game/me_choose_prompt_doppelganger_look",

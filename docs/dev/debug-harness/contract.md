@@ -50,9 +50,10 @@ freeze:
   storing nothing. `DebugTableController.stagedAs(player, tail, body)` reads the player's
   `/me/` and adds the `stage` (and a choose's `chosen`).
 - **Windows and events.** Window 1 is ONE fixed-length stage (the table's
-  `night_doppelganger_window_seconds`; `0` = it closes once every phone has chosen); window
-  2 closes when EVERY present phone has chosen once (and `night_min_window_seconds` passed),
-  else at `night_wave_seconds`. The only night event is the group
+  `night_doppelganger_window_seconds`; `0` = it closes once the Doppelganger has chosen);
+  window 2 closes when every present phone WITH a choice has chosen (`chooses_left` above 0;
+  a phone whose prompt is `none` sends nothing and is never waited for) and
+  `night_min_window_seconds` passed, else at `night_wave_seconds`. The only night event is the group
   `night_window {window, deadline}`; a phone reads its `action_prompt` (`kind`, `shapes`,
   `chosen`, `chooses_left`, `max_chooses`, the board) and `night_results` from `GET /me/`,
   where the Doppelganger's look is listed as soon as it resolves. Votes announce counts only
@@ -448,8 +449,9 @@ Encoding rules:
   with `chooses_left` sends the picks its prompt's `kind` takes from the game's choices
   (`seer`: one other player, or two centre cards; `robber`: one other player;
   `troublemaker`: two other players; `drunk` and `lone_werewolf`: one centre card;
-  `doppelganger_look`: one other player, then her follow-up as the copied role); a player
-  whose role has nothing to choose, or who declines, sends no picks.
+  `doppelganger_look`: one other player, then her follow-up as the copied role); a phone
+  whose role has nothing to choose has no `chooses_left` and sends nothing; one that
+  declines sends no picks.
 - **Roles/teams:** role names TitleCase; team tokens `{werewolf,village,neutral}`
   (Tanner=neutral); `winning_teams` lowercase, asserted as a **set**; elimination
   reasons ∈ `{"vote","hunter_chain"}`; eliminations as a set of user ids.
