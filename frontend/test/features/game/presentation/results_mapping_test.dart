@@ -95,8 +95,9 @@ void main() {
 
   group('vote_target_id display name lookup', () {
     test('vote_target_id maps to display name from players list', () async {
+      // The results list every player: the target's name is read there.
       final results = await _resultsFor(
-        serverResults(players: [_seat(0, votedFor: 2)]),
+        serverResults(players: [_seat(0, votedFor: 2), _seat(1), _seat(2)]),
       );
       final player = results.players.first;
       expect(player.voteTargetId, '2');

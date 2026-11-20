@@ -5,7 +5,12 @@ import '../../../core/api/api_exception.dart';
 import '../../../core/api/authenticated_client.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
+import '../domain/game_me.dart';
+import '../domain/game_outcome.dart';
 import '../domain/game_session_state.dart';
+import 'stage_requests.dart';
+
+export 'stage_requests.dart';
 
 part 'game_service.g.dart';
 
@@ -152,6 +157,93 @@ class GameService {
       throw mapDioException(e);
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Night protocol 2. Every stage-scoped request echoes `/me/`'s `stage` and
+  // answers a [StageAnswer]: a 409 is "fetch /me/ again", never an error.
+  // ---------------------------------------------------------------------------
+
+  /// `GET /onuw/games/{id}/me/` of a protocol-2 game.
+  Future<GameMe> fetchMe(String gameId) async {
+    try {
+      final response = await _client.get<Map<String, dynamic>>(
+        '/onuw/games/$gameId/me/',
+      );
+      return GameMe.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// `GET /onuw/games/{id}/results/`, parsed.
+  Future<GameOutcome> fetchOutcome(String gameId) async =>
+      GameOutcome.fromJson(await fetchResults(gameId));
+
+  Future<StageAnswer> _stage(String path, Map<String, Object> body) async {
+    try {
+      await _client.post<Map<String, dynamic>>(path, data: body);
+      return StageAnswer.taken;
+    } on DioException catch (e) {
+      final answer = stageAnswerOf(e);
+      logger.d(
+        'GameService: $path answered ${e.response?.statusCode} '
+        '(${answer.name})',
+      );
+      return answer;
+    }
+  }
+
+  /// `POST .../action/` `{"action_type": "choose", "picks", "stage"}`.
+  Future<StageAnswer> choose(String gameId, ChooseRequest request) =>
+      _stage('/onuw/games/$gameId/action/', request.toJson());
+
+  /// `POST .../ready/` `{"ready", "stage"}`: "I've looked at my card" at the
+  /// look (true only), "ready to vote" in the talk (true or false).
+  Future<StageAnswer> setReady(
+    String gameId, {
+    required String stage,
+    required bool ready,
+  }) => _stage('/onuw/games/$gameId/ready/', {'ready': ready, 'stage': stage});
+
+  /// `POST .../vote/` `{"target_player_id", "lock", "stage"}`: a pick
+  /// (`lock: false`, may change) or locking in (final; it carries the target,
+  /// so a lost pick can never lock the wrong name).
+  Future<StageAnswer> vote(
+    String gameId, {
+    required String stage,
+    required int targetId,
+    required bool lock,
+  }) => _stage('/onuw/games/$gameId/vote/', {
+    'target_player_id': targetId,
+    'lock': lock,
+    'stage': stage,
+  });
+
+  /// `POST .../night-results/seen/` `{"seen": n}`: this phone has shown the
+  /// first [seen] night results. Answers the stored (monotonic) count.
+  Future<int> acknowledgeNightResults(String gameId, int seen) async {
+    try {
+      final response = await _client.post<Map<String, dynamic>>(
+        '/onuw/games/$gameId/night-results/seen/',
+        data: {'seen': seen},
+      );
+      return response.data!['night_results_seen'] as int;
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// Host: open the night now (look) or close the window now, for [stage].
+  Future<StageAnswer> advanceStage(String gameId, {required String stage}) =>
+      _stage('/onuw/games/$gameId/advance-wave/', {'stage': stage});
+
+  /// Host: end the talk now, for [stage].
+  Future<StageAnswer> endTalk(String gameId, {required String stage}) =>
+      _stage('/onuw/games/$gameId/end-discussion/', {'stage': stage});
+
+  /// Host: reveal the votes now, for [stage].
+  Future<StageAnswer> revealVotesAt(String gameId, {required String stage}) =>
+      _stage('/onuw/games/$gameId/reveal-votes/', {'stage': stage});
 }
 
 /// Provides the game service with an authenticated client.

@@ -10,13 +10,12 @@ import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
-import '../../../design_system/models/game_result.dart';
-import '../../../design_system/models/role.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../lobby/domain/lobby_state.dart';
 import '../../lobby/presentation/lobby_notifier.dart';
 import '../data/game_service.dart';
+import '../domain/game_outcome.dart';
 import '../domain/game_session_state.dart';
 import '../domain/night_state.dart';
 import '../domain/voting_state.dart';
@@ -108,7 +107,7 @@ class GameNotifier extends _$GameNotifier {
     if (hydrated.phase == 'results') {
       try {
         final data = await service.fetchResults(gameId);
-        final gameResult = _parseGameResult(data, hydrated.players);
+        final gameResult = gameResultFromServer(data);
         hydrated = hydrated.copyWith(results: gameResult);
       } catch (e) {
         logger.e(
@@ -842,7 +841,7 @@ class GameNotifier extends _$GameNotifier {
         try {
           final data = await service.fetchResults(gameId);
           if (!ref.mounted) return;
-          final gameResult = _parseGameResult(data, hydrated.players);
+          final gameResult = gameResultFromServer(data);
           hydrated = hydrated.copyWith(results: gameResult);
         } catch (e) {
           logger.e(
@@ -896,9 +895,7 @@ class GameNotifier extends _$GameNotifier {
       final data = await service.fetchResults(gameId);
       if (!ref.mounted) return;
 
-      // Map the raw results JSON to a GameResult model.
-      final currentPlayers = state.value?.players ?? [];
-      final gameResult = _parseGameResult(data, currentPlayers);
+      final gameResult = gameResultFromServer(data);
 
       _updateState((s) {
         return s.copyWith(phase: 'results', results: gameResult);
@@ -906,59 +903,6 @@ class GameNotifier extends _$GameNotifier {
     } catch (e) {
       logger.e('GameNotifier: Failed to fetch results fallback', error: e);
     }
-  }
-
-  /// Maps raw results JSON from the server to a [GameResult] model.
-  GameResult _parseGameResult(
-    Map<String, dynamic> data,
-    List<GamePlayer> players,
-  ) {
-    // Build a player-ID-to-display-name lookup for vote target names.
-    final playerNames = {
-      for (final p in players) p.playerId.toString(): p.displayName,
-    };
-
-    final winningTeams = [
-      for (final t in data['winning_teams'] as List) _parseTeamId(t as String),
-    ];
-
-    final centerCards = [
-      for (final r in data['center_cards'] as List) _parseRoleId(r as String),
-    ];
-
-    final playerResults = (data['players'] as List).map((raw) {
-      final p = raw as Map<String, dynamic>;
-      final voteTargetIdStr = (p['vote_target_id'] as int?)?.toString();
-      return PlayerResult(
-        id: (p['player_id'] as int).toString(),
-        displayName: p['display_name'] as String,
-        originalRole: _parseRoleId(p['original_role'] as String),
-        finalRole: _parseRoleId(p['final_role'] as String),
-        team: _parseTeamId(p['team'] as String),
-        isEliminated: p['is_eliminated'] as bool,
-        isWinner: switch (p['outcome']) {
-          'win' => true,
-          'lose' => false,
-          final other => throw FormatException('Unknown outcome: $other'),
-        },
-        voteTargetId: voteTargetIdStr,
-        voteTargetName: voteTargetIdStr != null
-            ? playerNames[voteTargetIdStr]
-            : null,
-        eliminationReason: _parseEliminationReason(
-          p['elimination_reason'] as String?,
-        ),
-      );
-    }).toList();
-
-    final reason = data['reason'] as String;
-
-    return GameResult(
-      winningTeams: winningTeams,
-      players: playerResults,
-      reason: reason,
-      centerCards: centerCards,
-    );
   }
 
   /// Safely updates the current state if it's in the data state.
@@ -977,43 +921,6 @@ class GameNotifier extends _$GameNotifier {
     }
   }
 }
-
-// ---------------------------------------------------------------------------
-// Result parsing helpers (module-level for testability)
-// ---------------------------------------------------------------------------
-
-/// A role as the results name it (`Werewolf`, `Seer`, ...).
-RoleId _parseRoleId(String roleStr) => switch (roleStr) {
-  'Werewolf' => RoleId.werewolf,
-  'Minion' => RoleId.minion,
-  'Villager' => RoleId.villager,
-  'Seer' => RoleId.seer,
-  'Robber' => RoleId.robber,
-  'Troublemaker' => RoleId.troublemaker,
-  'Drunk' => RoleId.drunk,
-  'Insomniac' => RoleId.insomniac,
-  'Mason' => RoleId.mason,
-  'Hunter' => RoleId.hunter,
-  'Tanner' => RoleId.tanner,
-  'Doppelganger' => RoleId.doppelganger,
-  _ => throw FormatException('Unknown role in the results: $roleStr'),
-};
-
-/// A player's `team` (`neutral` for the Tanner) or a winning team (`tanner`).
-TeamId _parseTeamId(String teamStr) => switch (teamStr) {
-  'werewolf' => TeamId.werewolf,
-  'village' => TeamId.village,
-  'neutral' || 'tanner' => TeamId.independent,
-  _ => throw FormatException('Unknown team in the results: $teamStr'),
-};
-
-/// Null for a player who was not eliminated.
-EliminationReason? _parseEliminationReason(String? reason) => switch (reason) {
-  null => null,
-  'vote' => EliminationReason.vote,
-  'hunter_chain' => EliminationReason.hunterChain,
-  _ => throw FormatException('Unknown elimination reason: $reason'),
-};
 
 /// Provides the [ReconnectingWebSocket] instance for a given game ID.
 ///

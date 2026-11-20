@@ -3,16 +3,24 @@ import 'package:flutter/foundation.dart';
 import '../skin/art_set.dart';
 
 /// One seat at the table: what the night board draws a card for. The same
-/// list on every phone, read from the server's `players`.
+/// list on every phone, read from the server's `players`. It is the app's
+/// player model for protocol 2 (`GameMe.seats`): public table identity only.
 @immutable
 class NightSeat {
-  const NightSeat._({required this.id, required this.name, this.token});
+  const NightSeat._({
+    required this.id,
+    required this.name,
+    required this.seat,
+    this.token,
+  });
 
-  /// One entry of `/me/`'s `players`.
+  /// One entry of `/me/`'s `players` (every protocol-2 players list carries
+  /// `token` and `seat`; a token this app does not know is drawn plain).
   factory NightSeat.fromPlayer(Map<String, dynamic> player) => NightSeat._(
     id: player['player_id'] as int,
     name: player['display_name'] as String,
-    token: TokenId.fromServer(player['token'] as String?),
+    seat: player['seat'] as int,
+    token: TokenId.fromServer(player['token'] as String),
   );
 
   /// Everyone at the table in `/me/` [me], in seat order.
@@ -24,6 +32,9 @@ class NightSeat {
 
   final int id;
   final String name;
+
+  /// The seat number (join order, from 0).
+  final int seat;
   final TokenId? token;
 }
 

@@ -6,6 +6,10 @@ import 'pick_rule.dart';
 /// This phone's turn on the night board, read from `/me/` during a night
 /// window (protocol 2): the stage to name, what the prompt asks, what it lets
 /// the phone pick, and which choose of the stage this is.
+///
+/// This is THE parsed night prompt: the app's `/me/` model (`GameMe`) holds
+/// one of these, the board draws from it, and the choose request is built
+/// from it (`ChooseRequest.of`). There is no second parser of `action_prompt`.
 @immutable
 class ChoosePrompt {
   const ChoosePrompt._({
@@ -14,17 +18,27 @@ class ChoosePrompt {
     required this.kind,
     required this.rule,
     required this.chosen,
+    required this.maxChooses,
+    required this.maxPicks,
   });
 
-  /// `/me/` with an `action_prompt`.
+  /// `/me/` with an `action_prompt`. Strict: every key the server always
+  /// sends is read, and a prompt that is not a `choose` prompt (protocol 1)
+  /// is a broken payload here.
   factory ChoosePrompt.fromMe(Map<String, dynamic> me) {
     final prompt = me['action_prompt'] as Map<String, dynamic>;
+    final types = (prompt['action_types'] as List).cast<String>();
+    if (types.length != 1 || types.single != 'choose') {
+      throw FormatException('Not a choose prompt', types);
+    }
     return ChoosePrompt._(
       stage: me['stage'] as String,
       window: prompt['window'] as int,
       kind: NightPrompt.fromKind(prompt['kind'] as String),
       rule: PickRule.fromPrompt(prompt),
       chosen: prompt['chosen'] as int,
+      maxChooses: prompt['max_chooses'] as int,
+      maxPicks: prompt['max_picks'] as int,
     );
   }
 
@@ -41,6 +55,14 @@ class ChoosePrompt {
   /// How many chooses the server has from this phone in this stage.
   final int chosen;
 
+  /// How many chooses the server takes from this phone in this stage (2 in
+  /// window 1 for everyone, so the Doppelganger's second is no tell). The
+  /// phone does not offer a second because of it: see [turn].
+  final int maxChooses;
+
+  /// The most picks one choose carries.
+  final int maxPicks;
+
   /// Which choose of the stage this is: 1 only for the Doppelganger's
   /// follow-up, which the server marks by giving window 1 a prompt that is
   /// neither her look nor "nothing to do"; 0 otherwise. The board re-arms
@@ -56,4 +78,19 @@ class ChoosePrompt {
   /// The server already has this turn's choose (a phone that restarted, or
   /// chose on another screen): the board starts at "Chosen".
   bool get used => chosen > turn;
+
+  /// This prompt as it is once this phone has sent this turn's choose: what
+  /// the app shows from the tap on, whatever an older `/me/` still says (a
+  /// fetch that left before the choose landed must not re-arm the board).
+  ChoosePrompt get afterChoose => used
+      ? this
+      : ChoosePrompt._(
+          stage: stage,
+          window: window,
+          kind: kind,
+          rule: rule,
+          chosen: turn + 1,
+          maxChooses: maxChooses,
+          maxPicks: maxPicks,
+        );
 }

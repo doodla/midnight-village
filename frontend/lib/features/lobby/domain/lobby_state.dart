@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../core/host/host_change.dart';
+import '../../../design_system/skin/art_set.dart' show TokenId;
 
 part 'lobby_state.freezed.dart';
 
@@ -8,7 +9,8 @@ part 'lobby_state.freezed.dart';
 ///
 /// Serialized from the backend's nested player format:
 /// ```json
-/// { "user": {"id": 1, "display_name": "Alice"}, "is_ready": true, "joined_at": "..." }
+/// { "user": {"id": 1, "display_name": "Alice"}, "is_ready": true,
+///   "token": "moth", "joined_at": "..." }
 /// ```
 @freezed
 abstract class LobbyPlayer with _$LobbyPlayer {
@@ -17,6 +19,10 @@ abstract class LobbyPlayer with _$LobbyPlayer {
     required String displayName,
     required bool isReady,
     required DateTime joinedAt,
+
+    /// The seat token (public table identity); null for a token this app
+    /// does not know, or the blank one a member past the tenth may have.
+    TokenId? token,
   }) = _LobbyPlayer;
 
   /// Parses the backend's nested player format.
@@ -28,6 +34,7 @@ abstract class LobbyPlayer with _$LobbyPlayer {
       displayName: user['display_name'] as String,
       isReady: json['is_ready'] as bool,
       joinedAt: DateTime.parse(json['joined_at'] as String),
+      token: TokenId.fromServer(json['token'] as String),
     );
   }
 }
@@ -44,6 +51,10 @@ abstract class LobbyState with _$LobbyState {
     required String status,
     required int maxPlayers,
     @Default({}) Map<String, int> roleConfig,
+
+    /// The table's deck choice and night (protocol 2 settings; see
+    /// [TableSettings]).
+    @Default(TableSettings.none) TableSettings table,
 
     /// The game this table has just started (from `game_started`, or found in
     /// the player's current game). The screen opens it. A table can run
@@ -90,10 +101,87 @@ abstract class LobbyState with _$LobbyState {
       status: json['status'] as String,
       maxPlayers: json['max_players'] as int,
       roleConfig: roles?.map((k, v) => MapEntry(k, v as int)) ?? {},
+      table: TableSettings.fromSettings(settings),
       // `host` is the effective host.
       hostName: host['display_name'] as String,
       originalHostId: json['original_host_id'] as int,
       isActingHost: json['is_acting_host'] as bool,
     );
   }
+}
+
+/// The deck chips the server builds a deck from (`deck_chip`).
+enum DeckChip {
+  simple,
+  classic,
+  chaos;
+
+  /// The server's name for it.
+  String get server => name;
+
+  static DeckChip fromServer(Object? name) =>
+      values.where((c) => c.server == name).firstOrNull ??
+      (throw FormatException('Unknown deck chip', name));
+}
+
+/// What a lobby's `settings` say about the deck and the night, beyond the
+/// card list ([LobbyState.roleConfig]). Every key is optional on the server
+/// (a table made without `defaults: "v2"` has none of them); a key that is
+/// there must have its type.
+@immutable
+class TableSettings {
+  const TableSettings._({
+    required this.nightProtocol,
+    required this.autoDeck,
+    required this.deckChip,
+    required this.cardLookSeconds,
+  });
+
+  /// A table that says nothing: protocol 1, a custom deck.
+  static const none = TableSettings._(
+    nightProtocol: 1,
+    autoDeck: false,
+    deckChip: null,
+    cardLookSeconds: null,
+  );
+
+  factory TableSettings.fromSettings(Map<String, dynamic> settings) {
+    final deck = settings['deck'] as String?;
+    if (deck != null && deck != 'auto' && deck != 'custom') {
+      throw FormatException('Unknown deck mode', deck);
+    }
+    final chip = settings['deck_chip'];
+    return TableSettings._(
+      // Absent means 1 (the server's rule).
+      nightProtocol: settings['night_protocol'] as int? ?? 1,
+      autoDeck: deck == 'auto',
+      deckChip: chip == null ? null : DeckChip.fromServer(chip),
+      cardLookSeconds: settings['card_look_seconds'] as int?,
+    );
+  }
+
+  /// 2: the rebuilt night (stages, one `choose` per window, counts only).
+  final int nightProtocol;
+
+  /// The server builds the deck at the deal from [deckChip] (`deck: "auto"`);
+  /// otherwise the card list is the deck.
+  final bool autoDeck;
+  final DeckChip? deckChip;
+
+  /// The look stage's length; null or 0 when off.
+  final int? cardLookSeconds;
+
+  bool get isProtocolTwo => nightProtocol == 2;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TableSettings &&
+      other.nightProtocol == nightProtocol &&
+      other.autoDeck == autoDeck &&
+      other.deckChip == deckChip &&
+      other.cardLookSeconds == cardLookSeconds;
+
+  @override
+  int get hashCode =>
+      Object.hash(nightProtocol, autoDeck, deckChip, cardLookSeconds);
 }

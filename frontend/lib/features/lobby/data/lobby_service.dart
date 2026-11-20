@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../core/api/authenticated_client.dart';
 import '../domain/lobby_state.dart';
+import '../domain/where_am_i.dart';
 
 /// HTTP service for lobby CRUD operations.
 ///
@@ -25,6 +26,75 @@ class LobbyService {
         data: {'game_type': 'onuw'},
       );
       return _parseLobbyResponse(response);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// Opens a table for the rebuilt screens: POST /lobbies/ with
+  /// `{"game_type": "onuw", "defaults": "v2"}`. The server writes the table's
+  /// defaults (the look stage, night protocol 2, the automatic Simple deck)
+  /// and no timer length; the old screens keep [createLobby] (protocol 1).
+  Future<LobbyState> createTable() async {
+    try {
+      final response = await _client.post<Map<String, dynamic>>(
+        '/lobbies/',
+        data: {'game_type': 'onuw', 'defaults': 'v2'},
+      );
+      return _parseLobbyResponse(response);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// The host picks a deck chip: the deck goes back to automatic and the
+  /// server builds it at the deal for the players then at the table.
+  ///
+  /// PATCH /lobbies/<code>/ with
+  /// `{"settings": {"deck": "auto", "deck_chip": <chip>}}` (merged into the
+  /// stored settings; refused 409 while a game runs).
+  Future<LobbyState> setDeckChip(String code, DeckChip chip) =>
+      _patchSettings(code, {'deck': 'auto', 'deck_chip': chip.server});
+
+  /// The host edits the cards: the deck is custom from now on.
+  ///
+  /// PATCH /lobbies/<code>/ with `{"settings": {"deck": "custom", "roles"}}`.
+  Future<LobbyState> setCustomDeck(String code, Map<String, int> roles) =>
+      _patchSettings(code, {'deck': 'custom', 'roles': roles});
+
+  Future<LobbyState> _patchSettings(
+    String code,
+    Map<String, Object> settings,
+  ) async {
+    try {
+      final response = await _client.patch<Map<String, dynamic>>(
+        '/lobbies/$code/',
+        data: {'settings': settings},
+      );
+      return _parseLobbyResponse(response);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// Where am I: GET /me/table/. Null when at no table.
+  Future<MyTable?> fetchMyTable() async {
+    try {
+      final response = await _client.get<Map<String, dynamic>>('/me/table/');
+      return MyTable.parse(response.data!);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// This player's finished games, newest first:
+  /// GET /onuw/me/recent-games/ (the server's default of five).
+  Future<List<RecentGame>> fetchRecentGames() async {
+    try {
+      final response = await _client.get<Map<String, dynamic>>(
+        '/onuw/me/recent-games/',
+      );
+      return RecentGame.listFrom(response.data!);
     } on DioException catch (e) {
       throw mapDioException(e);
     }

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/domain/night_state.dart';
 import 'package:midnight_village/features/game/domain/voting_state.dart';
@@ -59,60 +60,49 @@ void main() {
   });
 
   group('GameSessionState', () {
-    test('parses every night protocol 1 /me/ the server has sent', () {
+    test('parses every /me/ the server has sent, each by its protocol', () {
+      // Protocol 1 (the old screens) is GameSessionState; protocol 2 (a
+      // `stage` key: the rebuilt screens) is GameMe, whose night is the
+      // design system's own parsers. No /me/ is left unparsed.
       final samples = ContractSamples.index.where(
         (s) =>
             s.isHttp && s.status == 200 && s.matchesPath('/onuw/games/g/me/'),
       );
-      expect(samples, isNotEmpty);
-      final protocolOne = [
-        for (final s in samples)
-          if (ContractSamples.protocolOf(s) == NightProtocol.one) s,
-      ];
-      expect(protocolOne, isNotEmpty);
-      for (final sample in protocolOne) {
+      final byProtocol = <NightProtocol?, List<String>>{};
+      for (final sample in samples) {
+        final protocol = ContractSamples.protocolOf(sample);
+        (byProtocol[protocol] ??= []).add(sample.name);
         final json = ContractSamples.map(sample.name);
-        final state = GameSessionState.fromJson(json);
-        expect(state.phase, json['phase'], reason: sample.name);
-        expect(state.players, hasLength((json['players'] as List).length));
-        expect(state.actionPrompt == null, json['action_prompt'] == null);
+        switch (protocol) {
+          case NightProtocol.one:
+            final state = GameSessionState.fromJson(json);
+            expect(state.phase, json['phase'], reason: sample.name);
+            expect(state.players, hasLength((json['players'] as List).length));
+            expect(state.actionPrompt == null, json['action_prompt'] == null);
+            expect(
+              () => GameMe.fromJson(json),
+              throwsFormatException,
+              reason: '${sample.name} is protocol 1',
+            );
+          case NightProtocol.two:
+            final me = GameMe.fromJson(json);
+            expect(me.phase.server, json['phase'], reason: sample.name);
+            expect(me.stage, json['stage'], reason: sample.name);
+            expect(me.seats, hasLength((json['players'] as List).length));
+            expect(me.prompt == null, json['action_prompt'] == null);
+          case null:
+            fail('${sample.name}: a /me/ is protocol 1 or 2');
+        }
       }
-    });
-
-    test('night protocol 2 /me/ samples are not parsed by the app yet', () {
-      // The app speaks only protocol 1 (the parser is strict on purpose: a
-      // protocol-2 body has no per-player has_voted and a different prompt).
-      // Protocol 2 arrives with the rebuilt screens; the day it does, move
-      // these samples into the test above (and delete this one) so they are
-      // parsed too, instead of staying skipped.
-      const reason =
-          'night_protocol 2 /me/ (a `stage` key) is not in the app yet';
-      final all = ContractSamples.index.where(
-        (s) =>
-            s.isHttp && s.status == 200 && s.matchesPath('/onuw/games/g/me/'),
-      );
-      final protocolTwo = [
-        for (final s in all)
-          if (ContractSamples.protocolOf(s) == NightProtocol.two) s.name,
-      ];
-      expect(protocolTwo, isNotEmpty, reason: 'there are none left? $reason');
+      expect(byProtocol[NightProtocol.one], isNotEmpty);
       expect(
-        protocolTwo,
+        byProtocol[NightProtocol.two],
         containsAll([
           'http/game/me_look_stage',
           'http/game/me_choose_prompt_seer',
           'http/game/me_discussion_choose_seer',
           'http/game/me_voting_picked',
         ]),
-        reason: reason,
-      );
-      expect(
-        [
-          for (final s in all)
-            if (ContractSamples.protocolOf(s) == null) s.name,
-        ],
-        isEmpty,
-        reason: 'every /me/ is protocol 1 (parsed) or protocol 2 ($reason)',
       );
     });
 
