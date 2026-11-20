@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../layout/space.dart';
 import '../skin/skin.dart';
 import 'cut_paper.dart';
+import 'fit_line.dart';
 import 'primary_button.dart';
 
 /// A second, quieter action beside or below the primary one: an outline on
@@ -107,11 +108,10 @@ class _SecondaryButtonState extends State<SecondaryButton> {
               child: Center(
                 heightFactor: 1,
                 widthFactor: 1,
-                child: Text(
+                child: FitWords(
                   widget.label,
                   textAlign: TextAlign.center,
                   maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                   style: style,
                 ),
               ),

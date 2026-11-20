@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
+import 'fit_line.dart';
 
 /// A small capitalised label above a part of a screen ("At the table"), with
 /// an optional note at the other end ("5 players"), or [centred] over a
@@ -26,7 +27,7 @@ class SectionLabel extends StatelessWidget {
     if (centred) {
       return Semantics(
         header: true,
-        child: Text(
+        child: FitWords(
           text.toUpperCase(),
           textAlign: TextAlign.center,
           style: style,
@@ -40,10 +41,10 @@ class SectionLabel extends StatelessWidget {
         textBaseline: TextBaseline.alphabetic,
         spacing: Space.sm,
         children: [
-          Expanded(child: Text(text.toUpperCase(), style: style)),
+          Expanded(child: FitWords(text.toUpperCase(), style: style)),
           if (trailing case final trailing?)
             Flexible(
-              child: Text(
+              child: FitWords(
                 trailing.toUpperCase(),
                 textAlign: TextAlign.end,
                 style: style,

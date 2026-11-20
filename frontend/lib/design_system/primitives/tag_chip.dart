@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
+import 'fit_line.dart';
 
 /// What a [TagChip] is printed in.
 enum TagTone {
@@ -54,7 +55,7 @@ class TagChip extends StatelessWidget {
         color: fill,
         borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
       ),
-      child: Text(
+      child: FitWords(
         text,
         style: (small ? skin.typography.badge : skin.typography.tag).copyWith(
           color: ink,

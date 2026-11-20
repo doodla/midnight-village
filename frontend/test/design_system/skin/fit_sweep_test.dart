@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/component_sheet.dart';
@@ -6,7 +7,9 @@ import '../../helpers/pump_skinned.dart';
 
 // Nothing may rely on a fixed size to fit (design brief section 3, rule 6):
 // every page of the component sheet, in every skin, at the narrow phones'
-// widths and with the text made larger, lays out with no overflow.
+// widths and with the text made larger, lays out with no overflow, and no
+// word is broken across two lines (a name or a heading is set smaller, or
+// wraps between words, never inside one).
 
 const _widths = [320.0, 360.0, 390.0];
 const _textScales = [1.0, 1.3, 2.0];
@@ -22,6 +25,45 @@ String _culprit(FlutterErrorDetails details) {
   return match == null ? '' : ' (${match.group(1)})';
 }
 
+/// Every word on screen that is laid out across two lines.
+List<String> brokenWords(WidgetTester tester) {
+  final broken = <String>[];
+  for (final element in find.byType(RichText).evaluate()) {
+    final paragraph = element.renderObject;
+    if (paragraph is! RenderParagraph || !paragraph.hasSize) continue;
+    if (!paragraph.softWrap || paragraph.maxLines == 1) continue;
+    final width = paragraph.constraints.maxWidth;
+    if (!width.isFinite) continue;
+    final text = paragraph.text.toPlainText();
+    final painter = TextPainter(
+      text: paragraph.text,
+      textDirection: paragraph.textDirection,
+      textScaler: paragraph.textScaler,
+      textAlign: paragraph.textAlign,
+      maxLines: paragraph.maxLines,
+    )..layout(maxWidth: width);
+    // A word is broken where two letters of it sit on different lines.
+    double top(int i) {
+      final boxes = painter.getBoxesForSelection(
+        TextSelection(baseOffset: i, extentOffset: i + 1),
+      );
+      return boxes.isEmpty ? double.nan : boxes.first.top;
+    }
+
+    bool inWord(String c) => c.trim().isNotEmpty;
+    for (var i = 1; i < text.length; i++) {
+      final (before, after) = (text[i - 1], text[i]);
+      if (!inWord(before) || !inWord(after)) continue;
+      if (before == '-' || before == '\u00AD') continue;
+      if (top(i) > top(i - 1) + 0.5) {
+        broken.add('"$text" breaks after "${text.substring(0, i)}"');
+      }
+    }
+    painter.dispose();
+  }
+  return broken;
+}
+
 void main() {
   for (final MapEntry(key: name, value: skin) in skinsUnderTest.entries) {
     for (final width in _widths) {
@@ -33,10 +75,10 @@ void main() {
           addTearDown(tester.view.reset);
           addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-          final overflows = <String>{};
+          final findings = <String>{};
           var where = '';
           final report = FlutterError.onError;
-          FlutterError.onError = (details) => overflows.add(
+          FlutterError.onError = (details) => findings.add(
             '$where: ${details.exceptionAsString().split('\n').first}'
             '${_culprit(details)}',
           );
@@ -45,10 +87,13 @@ void main() {
             for (final ground in page.grounds) {
               where = '${page.name} on ${ground.name}';
               await pumpComponentPage(tester, page, ground, skin: skin);
+              for (final word in brokenWords(tester)) {
+                findings.add('$where: $word');
+              }
             }
           }
           FlutterError.onError = report;
-          expect(overflows, isEmpty);
+          expect(findings, isEmpty);
         });
       }
     }

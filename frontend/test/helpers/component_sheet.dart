@@ -883,7 +883,7 @@ class _Action extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SectionLabel('Your turn'),
-                          Text('Seer', style: type.title),
+                          FitLine('Seer', style: type.title),
                         ],
                       ),
                     ),
@@ -1219,7 +1219,7 @@ class _Results extends StatelessWidget {
                 spacing: Space.md,
                 children: [
                   const TagChip('Cleo held the Robber', tone: TagTone.ground),
-                  Text('The Werewolf wins', style: type.heroWinner),
+                  FitWords('The Werewolf wins', style: type.heroWinner),
                 ],
               ),
             ),

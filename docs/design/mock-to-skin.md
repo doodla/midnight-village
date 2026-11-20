@@ -131,7 +131,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 |---|---|
 | Role thumbnail 44 x 58, radius 4, ring 2 bone | `RoleCard(size: RoleCardSize.thumb)` |
 | "Your turn" 12/700 +0.14em quiet | `SectionLabel` |
-| "Seer" Gloock 26 lh 1.1 | `type.title` |
+| "Seer" Gloock 26 lh 1.1 | `FitLine` in `type.title` (a role name is never broken) |
 | Header gap 10 | `Space.smPlus` |
 | Corner timer: candle 44 x 58 with hairline ring, gap 10, "14" 34 lh 1, "s" 13/700 quiet at 3 | `WorldTimer.candleCompact` (`compactCandleSize`, `type.timerCompact`, `type.tag`, `ground.quietText`) |
 | Prompt 26 lh 1.15, margin-top 4 | `type.title`, `Space.xxs` |
@@ -215,7 +215,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Blood band, full bleed, curved foot with a darker edge | `ScreenFrame(topSlot: Band(tone: BandTone.danger, child: ...))` (`night.danger`, the primary shadow's colour for the edge; the curve's depth follows `shape.archRoundness`, square in Night print) |
 | Winner's portrait in an arched paper frame, tilted about -3 deg | `RolePortrait.arched(width: RolePortrait.winner)` (`ground.paper`, `elevation.slab`, `Tilt.hero`) |
 | "Cleo held the Robber": indigo chip, bone 13/700 | `TagChip(..., tone: TagTone.ground)` |
-| "The Werewolf wins" about 40, lh about 0.95 | `type.heroWinner` (hero line) |
+| "The Werewolf wins" about 40, lh about 0.95 | `FitWords` in `type.heroWinner` (hero line; wraps between words, set smaller before a word would break) |
 | Night timeline: player columns (name Gloock 18, dealt role 12/700 quiet, the Werewolf's in red), numbered steps ("1" Gloock 18, "Werewolf." 14/700, the rest 14/600 quiet), column lines 2 px, the Werewolf card's path 3 px red, swap curves in bone, look marks (ringed dots) | a screen widget for the results (data-driven painter) built from roles only: names `type.nameSmall`, roles `type.badge` in `ground.quietText` / `ground.dangerText`, steps `type.smallStrong` + `type.small`, lines `ground.hairline` at `shape.ring`, the Werewolf path `ground.dangerLine` at `shape.selectedRing`, swaps `ground.text`, marks `ground.text` ring. Not a primitive: one screen draws it |
 | Final roles under the columns, "Werewolf" chip, "WON" amber, "DIED" quiet | `type.badge`; `TagChip.danger(small: true)`; `SectionLabel`-style `type.label` in `ground.selection` / `ground.quietText` |
 | Footnote 13/600 quiet | `type.caption`, `ground.quietText` |

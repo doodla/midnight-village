@@ -5,6 +5,7 @@ import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
+import 'fit_line.dart';
 
 /// The night's countdown, told by a candle, with the number beside it. It
 /// shows what it is given and stops at 0; the server says when the phase
@@ -105,7 +106,7 @@ class WorldTimer extends StatelessWidget {
           _flex(
             bounded,
             3,
-            Text(
+            FitWords(
               caption.toUpperCase(),
               style: skin.typography.label.copyWith(color: ground.quietText),
             ),

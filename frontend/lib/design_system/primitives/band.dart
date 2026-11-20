@@ -189,7 +189,7 @@ class TimerBand extends StatelessWidget {
             child: FitLine(number, style: style),
           ),
           Expanded(
-            child: Text(
+            child: FitWords(
               caption.toUpperCase(),
               style: skin.typography.label.copyWith(
                 color: _sun ? ground.quietText : ground.text,

@@ -5,6 +5,7 @@ import '../skin/elevation.dart';
 import '../skin/skin.dart';
 import '../skin/skin_type.dart';
 import 'cut_paper.dart';
+import 'fit_line.dart';
 
 /// The mocks' button sizes.
 enum ButtonSize {
@@ -130,11 +131,10 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                   spacing: Space.md,
                   children: [
                     Flexible(
-                      child: Text(
+                      child: FitWords(
                         widget.label,
                         textAlign: TextAlign.center,
                         maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                         style: style.copyWith(color: ink),
                       ),
                     ),

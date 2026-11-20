@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
+import 'fit_line.dart';
 
 /// A small piece of paper beside a title or at the top of a screen: what
 /// phase this is ("Night one · your card", S04, [lifted]) or how the screen
@@ -103,7 +104,7 @@ class PresetChip extends StatelessWidget {
             child: Center(
               widthFactor: 1,
               heightFactor: 1,
-              child: Text(
+              child: FitWords(
                 label,
                 textAlign: TextAlign.center,
                 style: skin.typography.smallStrong.copyWith(
