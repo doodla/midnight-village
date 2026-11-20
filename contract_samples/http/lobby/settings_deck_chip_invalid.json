@@ -1,0 +1,5 @@
+{
+  "detail": [
+    "'deck_chip' must be one of: simple, classic, chaos."
+  ]
+}

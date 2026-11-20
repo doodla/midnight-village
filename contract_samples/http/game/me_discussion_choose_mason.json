@@ -1,0 +1,130 @@
+{
+  "game_id": "00000000-0000-4000-a000-000000000008",
+  "lobby_code": "T8NB6C",
+  "phase": "discussion",
+  "current_wave": 0,
+  "deadline": "2024-03-07T21:32:38+00:00",
+  "your_role": {
+    "original_role": "Mason",
+    "has_acted": false
+  },
+  "is_host": false,
+  "host_id": 32,
+  "has_voted": false,
+  "players": [
+    {
+      "player_id": 32,
+      "display_name": "Ana",
+      "token": "bell",
+      "seat": 0
+    },
+    {
+      "player_id": 33,
+      "display_name": "Ben",
+      "token": "crow",
+      "seat": 1
+    },
+    {
+      "player_id": 34,
+      "display_name": "Cleo",
+      "token": "lantern",
+      "seat": 2
+    },
+    {
+      "player_id": 35,
+      "display_name": "Dev",
+      "token": "scythe",
+      "seat": 3
+    },
+    {
+      "player_id": 36,
+      "display_name": "Esme",
+      "token": "key",
+      "seat": 4
+    },
+    {
+      "player_id": 37,
+      "display_name": "Fin",
+      "token": "antler",
+      "seat": 5
+    },
+    {
+      "player_id": 38,
+      "display_name": "Gus",
+      "token": "thorn",
+      "seat": 6
+    },
+    {
+      "player_id": 39,
+      "display_name": "Hana",
+      "token": "hare",
+      "seat": 7
+    },
+    {
+      "player_id": 40,
+      "display_name": "Ida",
+      "token": "moth",
+      "seat": 8
+    }
+  ],
+  "action_prompt": null,
+  "roles_in_game": [
+    {
+      "role": "Seer",
+      "count": 1
+    },
+    {
+      "role": "Drunk",
+      "count": 1
+    },
+    {
+      "role": "Mason",
+      "count": 2
+    },
+    {
+      "role": "Minion",
+      "count": 1
+    },
+    {
+      "role": "Tanner",
+      "count": 1
+    },
+    {
+      "role": "Villager",
+      "count": 2
+    },
+    {
+      "role": "Werewolf",
+      "count": 2
+    },
+    {
+      "role": "Insomniac",
+      "count": 1
+    },
+    {
+      "role": "Doppelganger",
+      "count": 1
+    }
+  ],
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "see_team",
+      "revealed_info": {
+        "teammate_names": [
+          "Fin"
+        ],
+        "role_acting_as": "Mason"
+      }
+    }
+  ],
+  "night_results_seen": 0,
+  "my_vote": null,
+  "ready": false,
+  "progress": {
+    "stage": "talk",
+    "done": 0,
+    "needed": 9
+  },
+  "stage": "talk.000000000008"
+}

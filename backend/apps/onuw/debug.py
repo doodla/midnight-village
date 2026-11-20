@@ -155,6 +155,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
 
     players: list[dict[str, Any]] = []
     votes: dict[str, int | None] = {}
+    vote_locked: dict[str, bool] = {}
     for pr in player_roles_qs:
         players.append(
             {
@@ -169,16 +170,19 @@ def build_debug_state(game: Game) -> dict[str, Any]:
                 "team": _team_token(pr.user_id, current_roles, doppelganger_copied),
                 # Real presence: any game socket open for this player right now.
                 "connected": pr.user_id in connected_ids,
+                # "Ready to vote" (talk) / "looked at my card" (look stage).
+                "ready": bool(pr.phase_ready),
             }
         )
         # EVERY player is a key; null = has not voted / abstained.
         votes[str(pr.user_id)] = pr.vote_target_id
+        vote_locked[str(pr.user_id)] = bool(pr.has_acted)
 
     night_actions_log = _build_night_actions_log(game)
 
     results = _build_results(game) if game.phase == Phase.RESULTS else None
 
-    return {
+    state: dict[str, Any] = {
         "game_id": str(game.id),
         "phase": game.phase,
         # INT: the night window (1 = Doppelganger, 2 = everyone else), 0
@@ -190,9 +194,18 @@ def build_debug_state(game: Game) -> dict[str, Any]:
         "players": players,
         "night_actions_log": night_actions_log,
         "votes": votes,
+        "vote_locked": vote_locked,
         "results": results,
         "pending_timers": _pending_timers(game),
     }
+    from .protocol import is_choose_night
+
+    if not is_choose_night(game):
+        # A game that plays the original night is described as it always was.
+        del state["vote_locked"]
+        for player in players:
+            del player["ready"]
+    return state
 
 
 def _pending_timers(game: Game) -> list[str]:

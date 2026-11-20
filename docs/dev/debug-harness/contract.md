@@ -31,11 +31,46 @@ sections below say otherwise, this list wins:
   `debug-fire-timer` a real timer to fire.
 - **`debug-fire-timer` `wave:{n}` closes night window `n` now** (ignoring the fixed and
   minimum lengths). `fired:false` = no timer pending (e.g. that window's timer setting is
-  0, or it already closed): use the host's `advance-wave`.
+  0, or it already closed): use the host's `advance-wave`. `advance-wave` takes an optional
+  `{"from_window": n}` and answers 409 `wrong_window` when the game is in another window;
+  at window 0 (the look stage, `card_look_seconds` > 0) it opens the first window.
+  `debug-fire-timer` `look` fires the look stage's backstop.
 - **"Do nothing"** is `{"action_type":"skip","targets":{}}` for Seer, Robber,
   Troublemaker (and a Doppelganger follow-up as one of them), when the prompt's
   `action_types` includes `skip`. The Drunk and the Doppelganger's first look cannot skip.
   "Same action with empty targets" (§D4) is still how a lone Werewolf declines the peek.
+- **Night protocol 2** (`night_protocol: 2` in the table's settings; the harness settings
+  set `ONUW_ALLOW_UNTIMED_NIGHT = True`, so zero timers are allowed; protocol 1 stays the
+  default and every scenario below uses it): every player posts
+  `{"action_type":"choose","picks":[...],"stage":"<from /me/>"}` (0 to 2 of
+  `{"player_id"}`, `{"center_index"}`, `{"self":true}`) and always gets
+  `{"status":"submitted"}`; the only refusals are `wrong_stage` (409), `wrong_phase`,
+  `already_chosen` (409) and `bad_request`. **Every stage-scoped request names its stage**
+  (`choose`, `ready`, `vote`, and the host's `advance-wave`, `end-discussion`,
+  `reveal-votes`): `/me/` carries an opaque `stage` string that changes whenever a tap's
+  meaning changes (look, window 1, window 2, talk, vote) and carries a piece of the game's
+  id, and a request for a stage that has passed is `409 {"code":"wrong_stage"}`, the same
+  for every role, compared under the Game lock, storing nothing (`from_window` is protocol
+  1's check only). The server reads the picks per role
+  (`backend/apps/onuw/engine/choose.py`); a pick with no valid meaning is a timeout, and
+  the prompt's `shapes` (`[{"players":1},{"center":2}]`: alternatives; `any` = one card of
+  the board) tell the phone which picks would do something. A phone chooses once per
+  window; only the Doppelganger sends a second in window 1 (the server takes a harmless
+  second from anyone, a third is `already_chosen`). Window 1 is ONE fixed-length stage
+  (the table's `night_doppelganger_window_seconds`; `wave:1` fire-timer); window 2 closes
+  when EVERY present phone has chosen once (and the minimum passed). The only night events
+  are group `night_window {window, deadline}` and `wave_complete`; a phone reads its
+  `action_prompt` (`kind`, `shapes`, `chosen`, `max_chooses`, the board) and
+  `night_results` from `GET /me/`, where the Doppelganger's look is listed as soon as it
+  resolves. No `vote_submitted {player_id}` is sent; votes announce counts only. With
+  `card_look_seconds` > 0 (protocol 2 only) the deal opens window 0: every phone posts
+  `ready {"ready": true, "stage": ...}` (`progress {stage: "look"}` events), `advance-wave`
+  with the stage or `debug-fire-timer look` opens the night.
+  `frontend/test_e2e/api_protocol2_test.dart` drives these over real HTTP and sockets
+  (look stage, a plain choose night, a Doppelganger table with one window 1 and a late tap
+  refused with `wrong_stage`, ready to vote, a lock-in vote with a changed pick, the
+  automatic deck at 5 and 9 players with `defaults: "v2"`); it asserts no per-player night
+  event is heard.
 - **Scenarios** = `docs/specs/onuw/reference-games.md`, data in
   `backend/tests/onuw/data/reference_games.json` (23 full games + 6 night-only
   Doppelganger games). The old nine-scenario matrix (§3) and its `nightScript` DSL (§D4)
@@ -238,14 +273,16 @@ drifted in 5 fields):**
     "current_role": "Robber",                // post-swap truth (oracle-only; /me/ hides this pre-results)
     "doppelganger_copied_role": null,        // role the Doppelganger copied, else null (scenarios 4/7/10)
     "team": "village",                        // get_effective_team → "werewolf"|"village"|"neutral" (Tanner = "neutral", NOT "tanner")
-    "connected": true
+    "connected": true,
+    "ready": false                            // PlayerRole.phase_ready: "ready to vote" in the talk, "looked at my card" in the look stage
   }],
   "night_actions_log": [                      // NOTE plural; mirror models.py field exactly
     { "wave": 3, "player_id": 14, "role_acting_as": "Robber",   // wave = order group 1-4 (wake order), NOT the window; role_acting_as enriched from PlayerRole.night_action_data
       "action_type": "swap_with_player", "targets": {...}, "result": {...}, "timestamp_order": 2,
       "made_by_server": false }   // true only for a move the server made for a player who timed out / was gone past the grace period (the Drunk's seeded swap)
   ],
-  "votes": { "12": 14, "13": null },          // EVERY player is a key; null = has not voted/abstained
+  "votes": { "12": 14, "13": null },          // EVERY player is a key; the stored PICK, locked or not (every pick counts at any reveal); null = no pick / abstained
+  "vote_locked": { "12": true, "13": false }, // EVERY player is a key; true = locked in (final), false = picked (or nothing)
   "results": { ... } | null,                  // present once phase=results; winning_teams = list of lowercase tokens ⊂ {"village","werewolf","tanner"}, asserted as a SET
   "pending_timers": ["grace:14", "wave:2"]    // sorted names of the ScheduledTimer rows pending now: this game's keys without the "<game id>:" prefix (wave:N, discussion, voting, grace:<user id>) plus "host_handover" while the lobby's handover timer is armed
 }
@@ -277,11 +314,11 @@ already-fired key is a safe no-op (cannot double-transition).
 
 **Request body:**
 ```jsonc
-{ "key": "wave:1" | "wave:2" | "discussion" | "voting" | "current" }
+{ "key": "wave:1" | "wave:2" | "discussion" | "voting" | "look" | "current" }
 ```
 - `wave:{n}` — `n` must be a non-negative integer; only `1` and `2` name a night window.
   Firing it closes that window now.
-- `discussion`, `voting` — the phase timers.
+- `discussion`, `voting` — the phase timers. `look` — the look stage's backstop (`card_look_seconds`): opens the first night window now.
 - `current` — resolves to the **single** registry key under prefix `f"{game_id}:"`;
   rejected (400) if there are 0 or >1 pending timers for the game.
 - Caller must be a player in the game (same membership bar as all game endpoints).

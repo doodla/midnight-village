@@ -7,6 +7,7 @@ from typing import Any
 from rest_framework import serializers
 
 from .models import Game, Phase, PlayerRole
+from .protocol import in_look_stage, is_choose_night, stage_token
 
 
 def player_identity(pr: PlayerRole) -> dict[str, Any]:
@@ -58,6 +59,19 @@ class GameMeSerializer(serializers.Serializer):
     roles_in_game = serializers.SerializerMethodField()
     night_results = serializers.SerializerMethodField()
     night_results_seen = serializers.SerializerMethodField()
+
+    def to_representation(self, instance: Game) -> dict[str, Any]:
+        """The body. A game that plays night protocol 2 also gets ``my_vote``,
+        ``ready``, ``progress`` and ``stage`` (and its players list says nothing about
+        who locked in); a game that plays the original night is answered exactly as
+        it always was, and none of that is even computed for it."""
+        data = super().to_representation(instance)
+        if is_choose_night(instance):
+            data["my_vote"] = self._my_vote(instance)
+            data["ready"] = self._ready(instance)
+            data["progress"] = self._progress(instance)
+            data["stage"] = stage_token(instance)
+        return data
 
     def get_deadline(self, game: Game) -> str | None:
         """
@@ -141,7 +155,8 @@ class GameMeSerializer(serializers.Serializer):
         result: list[dict[str, Any]] = []
         for pr in all_player_roles:
             entry = player_identity(pr)
-            if game.phase == Phase.VOTING:
+            if game.phase == Phase.VOTING and not is_choose_night(game):
+                # Who locked in: only the original night says (protocol 2: counts).
                 entry["has_voted"] = bool(pr.has_acted)
             result.append(entry)
         return result
@@ -160,6 +175,13 @@ class GameMeSerializer(serializers.Serializer):
         player_role = self.context.get("player_role")
         if player_role is None:
             return None
+
+        if is_choose_night(game):
+            # Night protocol 2: every player has a prompt, shaped alike, for as long
+            # as a stage is open (it says whether the caller has chosen in it).
+            from . import night2
+
+            return night2.prompt_for(game, player_role)
 
         # If the player has already acted this wave, no prompt needed
         if player_role.has_acted:
@@ -213,6 +235,38 @@ class GameMeSerializer(serializers.Serializer):
         """
         player_role = self.context.get("player_role")
         return 0 if player_role is None else player_role.night_results_seen
+
+    def _my_vote(self, game: Game) -> dict[str, Any] | None:
+        """The caller's own pick while voting: ``{"target_player_id", "locked"}``,
+        or None (not voting, or nothing picked yet). Never anyone else's."""
+        player_role = self.context.get("player_role")
+        if (
+            game.phase != Phase.VOTING
+            or player_role is None
+            or player_role.vote_target_id is None
+        ):
+            return None
+        return {
+            "target_player_id": player_role.vote_target_id,
+            "locked": bool(player_role.has_acted),
+        }
+
+    def _ready(self, game: Game) -> bool | None:
+        """The caller's own "ready" flag at the stages that have one (the talk and,
+        later, the card look); None elsewhere."""
+        player_role = self.context.get("player_role")
+        if player_role is None:
+            return None
+        if game.phase != Phase.DISCUSSION and not in_look_stage(game):
+            return None
+        return bool(player_role.phase_ready)
+
+    def _progress(self, game: Game) -> dict[str, Any] | None:
+        """``{"stage", "done", "needed"}`` at the look, talk and vote stages: a
+        count of the table's taps, never who tapped. None elsewhere."""
+        from .services import stage_progress
+
+        return stage_progress(game)
 
     def get_roles_in_game(self, game: Game) -> list[dict[str, Any]]:
         """

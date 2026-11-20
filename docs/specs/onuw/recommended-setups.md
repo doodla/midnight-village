@@ -68,6 +68,40 @@ Masons are recommended at 8+ players to give the village a reliable anchor.
 | Official scenario | Werewolf, Mystic Wolf, Mason, Mason, Seer, P.I., Robber, Witch, Troublemaker, Revealer, Curator, Hunter, Tanner |
 | Balanced advanced | Werewolf, Alpha Wolf, Minion, Seer, Apprentice Seer, Robber, Witch, Troublemaker, Village Idiot, Insomniac, Mason, Mason, Tanner |
 
+## Automatic Decks (the deck chips)
+
+A lobby whose settings say `deck: "auto"` (with `deck_chip` set to `simple`, `classic` or
+`chaos`; `simple` if absent) has no card list of its own. At the deal the server builds
+the deck for the number of players then at the table, from this table, under the lobby
+lock, so a player who joined or left since the host chose the chip changes nothing the
+host has to fix. Every row is a legal deck of exactly players + 3 cards. The table lives
+in code in one place (`backend/apps/onuw/engine/decks.py`, `DECK_TABLE`) and a test
+compares it with the rows below, so the two cannot drift apart.
+
+`Role ×n` is `n` cards of that role.
+
+| Players | Simple | Classic | Chaos |
+|---------|--------|---------|-------|
+| 3 | Werewolf ×2, Seer, Robber, Troublemaker, Villager | Werewolf ×2, Seer, Robber, Troublemaker, Villager | Werewolf ×2, Seer, Robber, Troublemaker, Drunk |
+| 4 | Werewolf ×2, Seer, Robber, Troublemaker, Villager ×2 | Werewolf ×2, Seer, Robber, Troublemaker, Villager ×2 | Werewolf ×2, Seer, Robber, Troublemaker, Drunk, Tanner |
+| 5 | Werewolf ×2, Seer, Robber, Troublemaker, Villager ×3 | Werewolf ×2, Seer, Robber, Troublemaker, Drunk, Insomniac, Villager | Werewolf ×2, Minion, Seer, Robber, Troublemaker, Tanner, Villager |
+| 6 | Werewolf ×2, Seer, Robber, Troublemaker, Insomniac, Villager ×3 | Werewolf ×2, Minion, Seer, Robber, Troublemaker, Villager ×3 | Werewolf ×2, Seer, Robber, Troublemaker, Drunk, Insomniac, Tanner, Villager |
+| 7 | Werewolf ×2, Seer, Robber, Troublemaker, Drunk, Insomniac, Villager ×3 | Werewolf ×2, Minion, Seer, Robber, Troublemaker, Mason ×2, Drunk, Insomniac | Werewolf ×2, Minion, Tanner, Seer, Robber, Troublemaker, Mason ×2, Insomniac |
+| 8 | Werewolf ×2, Seer, Robber, Troublemaker, Drunk, Insomniac, Villager ×3, Hunter | Werewolf ×2, Minion, Seer, Robber, Troublemaker, Mason ×2, Drunk, Insomniac, Villager | Werewolf ×2, Minion, Tanner, Seer, Robber, Troublemaker, Mason ×2, Insomniac, Villager |
+| 9 | Werewolf ×2, Seer, Robber, Troublemaker, Drunk, Insomniac, Mason ×2, Villager ×3 | Werewolf ×2, Minion, Tanner, Hunter, Seer, Robber, Troublemaker, Mason ×2, Drunk, Insomniac | Doppelganger, Werewolf ×2, Minion, Seer, Robber, Troublemaker, Mason ×2, Drunk, Insomniac, Tanner |
+| 10 | Werewolf ×2, Seer, Robber, Troublemaker, Drunk, Insomniac, Mason ×2, Villager ×3, Hunter | Werewolf ×2, Minion, Tanner, Hunter, Seer, Robber, Troublemaker, Mason ×2, Drunk, Insomniac, Villager | Doppelganger, Werewolf ×2, Minion, Seer, Robber, Troublemaker, Mason ×2, Drunk, Insomniac, Tanner, Villager |
+
+- **Simple** is the gentlest deck for the table size: no Minion, Tanner or Doppelganger.
+  It cannot also avoid Masons at 9 and 10 players: without Minion, Masons, Tanner and the
+  Doppelganger the largest legal deck holds 11 cards (2 Werewolves, Seer, Robber,
+  Troublemaker, Drunk, Insomniac, Hunter and 3 Villagers), which seats 8 players. The
+  Mason pair is the gentlest addition (it is advised from 8 players).
+- **Classic** and **Chaos** are the recommended setups above (Classic at 3 and 4 players
+  is Simple).
+- Choosing a chip sets `deck: "auto"`; editing a card makes the deck custom (`deck:
+  "custom"` with the `roles` the host chose) and the server then uses those cards as
+  before.
+
 ## Balance Principles
 
 ### General Guidelines

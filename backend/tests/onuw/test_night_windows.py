@@ -33,6 +33,7 @@ from apps.core.models import Lobby, User
 from apps.onuw import services
 from apps.onuw.engine.roles import ROLE_REGISTRY
 from apps.onuw.models import Game, Phase, PlayerRole
+from tests.onuw.stages import staged
 
 pytestmark = pytest.mark.integration
 
@@ -134,7 +135,9 @@ class Night:
         self.client.force_authenticate(user=self.host)
         url = reverse("onuw:wave-advance", kwargs={"game_id": str(self.game.id)})
         with self.committed():
-            return self.client.post(url, format="json")
+            # Protocol 2 games name the stage (the original night sends no body).
+            body = staged(self, {})
+            return self.client.post(url, body or None, format="json")
 
     def fire_timer(self, window: int) -> None:
         """Run the most recently scheduled callback for a window (timer expiry)."""

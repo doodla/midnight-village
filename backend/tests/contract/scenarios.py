@@ -1330,6 +1330,674 @@ def full_table(run: Recording, finished: Table) -> None:
     )
 
 
+GAME_READY = "/onuw/games/{game_id}/ready/"
+CREATE = "/lobbies/"
+
+
+def _v2_lobby(t: Table, names: list[str], *, sample: str | None = None) -> None:
+    """A table the way the new screens make it: ``defaults: "v2"`` (the card look,
+    night protocol 2, the automatic Simple deck)."""
+    _sign_in(t, names)
+    body = {"game_type": "onuw", "defaults": "v2"}
+    if sample:
+        t.clock.advance(60)
+        t.record(
+            sample,
+            "POST",
+            names[0],
+            CREATE,
+            body,
+            status=201,
+            about="The host opens a table with the defaults of the new screens.",
+        )
+    else:
+        t.call("POST", names[0], CREATE, body)
+    _join_and_ready(t, names[1:])
+    t.call("POST", names[0], "/lobbies/{code}/ready/")
+
+
+def _everyone(t: Table, names: list[str], path: str, body: dict) -> None:
+    for name in names:
+        t.call("POST", name, path, body)
+
+
+def _choose(t: Table, who: str, picks: list[dict]) -> None:
+    t.call("POST", who, ACTION, {"action_type": "choose", "picks": picks})
+
+
+def _player(t: Table, name: str) -> dict:
+    return {"player_id": t.pid(name)}
+
+
+def protocol_two_tables(run: Recording) -> None:
+    """Night protocol 2: the look stage, the choose night (a plain table, then a
+    Doppelganger table with window 1), lock-in voting, ready to vote, the
+    automatic deck and the create defaults."""
+    _plain_choose_table(run)
+    _doppelganger_choose_table(run)
+    _auto_deck_table(run, ["Ana", "Ben", "Cleo", "Dev", "Esme"], "classic", 5)
+    _auto_deck_table(
+        run,
+        ["Ana", "Ben", "Cleo", "Dev", "Esme", "Fin", "Gus", "Hana", "Ida"],
+        "chaos",
+        9,
+    )
+
+
+def _plain_choose_table(run: Recording) -> None:
+    """Five players, a lone Werewolf: look stage, window 2 (every phone chooses
+    once), the talk (ready to vote) and the lock-in vote."""
+    t = run.table()
+    names = ["Ana", "Ben", "Cleo", "Dev", "Esme"]
+    dealt = {
+        "Ana": "Seer",
+        "Ben": "Robber",
+        "Cleo": "Werewolf",
+        "Dev": "Troublemaker",
+        "Esme": "Villager",
+    }
+    _sign_in(t, names)
+    t.record(
+        "lobby/create_unknown_defaults",
+        "POST",
+        "Ana",
+        CREATE,
+        {"game_type": "onuw", "defaults": "v9"},
+        status=400,
+        about="A create that asks for a set of defaults the game does not have.",
+    )
+    t.clock.advance(60)
+    t.record(
+        "lobby/created_with_defaults",
+        "POST",
+        "Ana",
+        CREATE,
+        {"game_type": "onuw", "defaults": "v2"},
+        status=201,
+        about=(
+            "The host opens a table with `defaults: v2`: a 30 s look at the cards, "
+            "night protocol 2 and the automatic Simple deck, and nothing else (no "
+            "timer length is written)."
+        ),
+    )
+    _join_and_ready(t, names[1:])
+    t.call("POST", "Ana", "/lobbies/{code}/ready/")
+    t.record(
+        "lobby/settings_deck_chip_invalid",
+        "PATCH",
+        "Ana",
+        LOBBY,
+        {"settings": {"deck_chip": "wild"}},
+        status=400,
+        about="A deck chip the server does not have.",
+    )
+    t.record(
+        "lobby/settings_deck_chip",
+        "PATCH",
+        "Ana",
+        LOBBY,
+        {"settings": {"deck": "auto", "deck_chip": "simple"}},
+        status=200,
+        about="The host picks a deck chip; the server builds the deck at the deal.",
+    )
+
+    # -- the deal and the look stage -------------------------------------
+    t.clock.advance(60)
+    t.start(dealt, ["Werewolf", "Villager", "Villager"], sample="game/started_v2")
+    for name in names:
+        t.connect(name)
+    since_deal = t.mark()
+    t.record_event(
+        "game/progress_look_open",
+        "Ana",
+        "game",
+        "progress",
+        about="The look stage opens: how many have looked, out of how many.",
+    )
+    t.record(
+        "game/me_look_stage",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in the look stage: night, window 0, the look deadline.",
+    )
+    t.record(
+        "game/ready_look_false_refused",
+        "POST",
+        "Ana",
+        GAME_READY,
+        {"ready": False},
+        status=400,
+        about="Looking at your card cannot be undone.",
+    )
+    t.record(
+        "game/ready_bad_body",
+        "POST",
+        "Ana",
+        GAME_READY,
+        {"ready": "yes"},
+        status=400,
+        about="A ready flag that is not true or false.",
+    )
+    t.record(
+        "game/ready_look",
+        "POST",
+        "Ana",
+        GAME_READY,
+        {"ready": True},
+        status=200,
+        about="A player has looked at their card.",
+    )
+    t.record_event(
+        "game/progress_look",
+        "Ben",
+        "game",
+        "progress",
+        about="Counts only: how many have looked, never who.",
+    )
+    t.record(
+        "game/me_look_ready",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in the look stage after tapping ready.",
+    )
+    _everyone(t, names[1:4], GAME_READY, {"ready": True})
+    since_night = t.mark()
+    t.call("POST", "Esme", GAME_READY, {"ready": True})
+    t.record_sequence(
+        "look_stage",
+        since_deal,
+        about="What every seat's socket heard from the deal until the last look.",
+    )
+
+    # -- window 2: every phone chooses once ------------------------------
+    t.record_event(
+        "game/night_window_2",
+        "Ana",
+        "game",
+        "night_window",
+        about="A night window opened: the same event for every phone.",
+    )
+    t.record(
+        "game/ready_wrong_stage",
+        "POST",
+        "Ana",
+        GAME_READY,
+        {"ready": True},
+        status=409,
+        about="Ready while a night window is open: the request names the window's "
+        "stage, which does not take ready.",
+    )
+    for name, kind in [
+        ("Ana", "seer"),
+        ("Ben", "robber"),
+        ("Dev", "troublemaker"),
+        ("Esme", "villager"),
+        ("Cleo", "werewolf_lone"),
+    ]:
+        t.record(
+            f"game/me_choose_prompt_{kind}",
+            "GET",
+            name,
+            ME,
+            status=200,
+            about=f"/me/ in window 2, the {kind.replace('_', ' ')}'s prompt.",
+        )
+    t.record(
+        "game/choose_submitted_seer",
+        "POST",
+        "Ana",
+        ACTION,
+        {"action_type": "choose", "picks": [_player(t, "Cleo")]},
+        status=200,
+        about="A phone's choose: the same answer whatever the role.",
+    )
+    t.record(
+        "game/choose_submitted_villager",
+        "POST",
+        "Esme",
+        ACTION,
+        {"action_type": "choose", "picks": [{"self": True}]},
+        status=200,
+        about="The same answer for a player with nothing to choose.",
+    )
+    t.record(
+        "game/choose_already_chosen",
+        "POST",
+        "Ana",
+        ACTION,
+        {"action_type": "choose", "picks": []},
+        status=409,
+        about="A second choose in window 2.",
+    )
+    t.record(
+        "game/choose_bad_request",
+        "POST",
+        "Ben",
+        ACTION,
+        {"action_type": "choose", "picks": "x"},
+        status=400,
+        about="Picks that are not a list of at most two cards.",
+    )
+    t.record(
+        "game/choose_not_a_choose",
+        "POST",
+        "Ben",
+        ACTION,
+        {"action_type": "skip", "targets": {}},
+        status=400,
+        about="Any other action_type under night protocol 2.",
+    )
+    t.record(
+        "game/me_choose_chosen",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ after choosing: the prompt says how many chooses were sent.",
+    )
+    _choose(t, "Ben", [_player(t, "Ana")])
+    _choose(t, "Dev", [_player(t, "Ana"), _player(t, "Ben")])
+    _choose(t, "Cleo", [{"center_index": 0}])
+    window_stage = t.stage_now()
+    t.fire("{game_id}:wave:2")  # every phone has chosen: the close at the minimum
+    t.record_sequence(
+        "window_2",
+        since_night,
+        about="What every seat's socket heard while window 2 was open.",
+    )
+    t.record_event(
+        "game/wave_complete_v2",
+        "Ana",
+        "game",
+        "wave_complete",
+        about="The window closed: every phone reads its results from /me/.",
+    )
+    t.record(
+        "game/choose_wrong_stage",
+        "POST",
+        "Ana",
+        ACTION,
+        {"action_type": "choose", "picks": [], "stage": window_stage},
+        status=409,
+        about="A late choose for a window that is over: the same answer for every "
+        "role, nothing stored, and it can never land in the next stage.",
+    )
+    t.record(
+        "game/choose_stage_missing",
+        "POST",
+        "Ana",
+        ACTION,
+        {"action_type": "choose", "picks": [], "stage": None},
+        status=400,
+        about="A choose that does not name its stage.",
+    )
+    for name, kind in [
+        ("Ana", "seer"),
+        ("Ben", "robber"),
+        ("Cleo", "werewolf_lone"),
+        ("Esme", "villager"),
+    ]:
+        t.record(
+            f"game/me_discussion_choose_{kind}",
+            "GET",
+            name,
+            ME,
+            status=200,
+            about=f"/me/ in the talk: the {kind.replace('_', ' ')}'s night results.",
+        )
+
+    # -- the talk: ready to vote -----------------------------------------
+    t.record_event(
+        "game/progress_talk_open",
+        "Ana",
+        "game",
+        "progress",
+        about="The talk opens: nobody is ready to vote yet.",
+    )
+    t.record(
+        "game/ready_talk",
+        "POST",
+        "Ana",
+        GAME_READY,
+        {"ready": True},
+        status=200,
+        about="A player is ready to vote.",
+    )
+    t.record(
+        "game/ready_talk_off",
+        "POST",
+        "Ben",
+        GAME_READY,
+        {"ready": False},
+        status=200,
+        about="In the talk a player may take their ready back.",
+    )
+    t.record_event(
+        "game/progress_talk",
+        "Ben",
+        "game",
+        "progress",
+        about="Counts only, in the talk.",
+    )
+    t.record(
+        "game/me_talk_ready",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in the talk after tapping ready.",
+    )
+    since_vote = t.mark()
+    _everyone(t, names[1:], GAME_READY, {"ready": True})
+    t.record_event(
+        "game/progress_vote_open",
+        "Ana",
+        "game",
+        "progress",
+        about="Everyone present was ready: the vote opens, nobody has locked in.",
+    )
+
+    # -- the vote: pick, re-pick, lock -----------------------------------
+    t.record(
+        "game/vote_picked",
+        "POST",
+        "Ana",
+        VOTE,
+        {"target_player_id": t.pid("Cleo"), "lock": False},
+        status=200,
+        about="A pick: nothing is sent to anyone else; the answer echoes the pick.",
+    )
+    t.record(
+        "game/vote_repicked",
+        "POST",
+        "Ana",
+        VOTE,
+        {"target_player_id": t.pid("Dev"), "lock": False},
+        status=200,
+        about="A pick can change until it is locked.",
+    )
+    t.record(
+        "game/me_voting_picked",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ with a pick that is not locked yet (`my_vote`, own only).",
+    )
+    t.record(
+        "game/vote_bad_target_type",
+        "POST",
+        "Ben",
+        VOTE,
+        {"target_player_id": "Cleo"},
+        status=400,
+        about="A target that is not a JSON integer.",
+    )
+    t.record(
+        "game/vote_self_v2",
+        "POST",
+        "Ben",
+        VOTE,
+        {"target_player_id": t.pid("Ben"), "lock": False},
+        status=400,
+        about="A vote for yourself, with its code.",
+    )
+    t.record(
+        "game/vote_lock_bad_flag",
+        "POST",
+        "Ben",
+        VOTE,
+        {"target_player_id": t.pid("Cleo"), "lock": "yes"},
+        status=400,
+        about="A lock flag that is not true or false.",
+    )
+    t.record(
+        "game/vote_locked_v2",
+        "POST",
+        "Ana",
+        VOTE,
+        {"target_player_id": t.pid("Dev"), "lock": True},
+        status=200,
+        about="Locking in: final.",
+    )
+    t.record_event(
+        "game/progress_vote",
+        "Ben",
+        "game",
+        "progress",
+        about="Counts only, in the vote.",
+    )
+    t.record(
+        "game/vote_already_locked",
+        "POST",
+        "Ana",
+        VOTE,
+        {"target_player_id": t.pid("Cleo"), "lock": False},
+        status=409,
+        about="A pick or lock after locking in.",
+    )
+    t.record(
+        "game/me_voting_locked",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ after locking in.",
+    )
+    t.record(
+        "debug/state_v2",
+        "GET",
+        "Ana",
+        DEBUG_STATE,
+        status=200,
+        about="The oracle under night protocol 2: per-player ready, vote_locked.",
+        debug=True,
+    )
+    vote_stage = t.stage_now()
+    for name in names[1:]:
+        target = "Dev" if name == "Cleo" else "Cleo"
+        t.call("POST", name, VOTE, {"target_player_id": t.pid(target)})
+    t.record_sequence(
+        "talk_and_vote",
+        since_vote,
+        about="What every seat's socket heard from the vote opening to the results.",
+    )
+    t.record(
+        "game/vote_after_reveal",
+        "POST",
+        "Ana",
+        VOTE,
+        {"target_player_id": t.pid("Cleo"), "stage": vote_stage},
+        status=409,
+        about="A vote that was on its way when the vote was revealed: the stage is "
+        "over, nothing is stored.",
+    )
+
+
+def _doppelganger_choose_table(run: Recording) -> None:
+    """Nine players with a Doppelganger and a Werewolf pack: window 1 takes a choose
+    from every phone, and a second from the Doppelganger (her follow-up as the
+    copied Seer); window 2 one."""
+    t = run.table()
+    names = ["Ana", "Ben", "Cleo", "Dev", "Esme", "Fin", "Gus", "Hana", "Ida"]
+    dealt = {
+        "Ana": "Doppelganger",
+        "Ben": "Seer",
+        "Cleo": "Werewolf",
+        "Dev": "Minion",
+        "Esme": "Mason",
+        "Fin": "Mason",
+        "Gus": "Drunk",
+        "Hana": "Insomniac",
+        "Ida": "Werewolf",
+    }
+    _v2_lobby(t, names)
+    deck: dict[str, int] = {}
+    for role in [*dealt.values(), "Villager", "Villager", "Tanner"]:
+        deck[role] = deck.get(role, 0) + 1
+    t.call(
+        "PATCH",
+        "Ana",
+        LOBBY,
+        {"settings": {"deck": "custom", "roles": deck}},
+    )
+    t.clock.advance(60)
+    t.start(dealt, ["Villager", "Villager", "Tanner"])
+    for name in names:
+        t.connect(name)
+    _everyone(t, names[:-1], GAME_READY, {"ready": True})
+
+    # -- window 1 ---------------------------------------------------------
+    since_w1 = t.mark()  # the last look opens the night
+    t.call("POST", names[-1], GAME_READY, {"ready": True})
+    t.record_event(
+        "game/night_window_1",
+        "Ana",
+        "game",
+        "night_window",
+        about="Window 1 (the Doppelganger's) opens: the same event for everyone.",
+    )
+    t.record(
+        "game/me_choose_prompt_doppelganger_look",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in window 1: the Doppelganger's look prompt.",
+    )
+    t.record(
+        "game/me_choose_prompt_window1_sleeper",
+        "GET",
+        "Cleo",
+        ME,
+        status=200,
+        about="/me/ in window 1 for everyone else: nothing to choose, same shape.",
+    )
+    t.record(
+        "game/choose_submitted_doppelganger_look",
+        "POST",
+        "Ana",
+        ACTION,
+        {"action_type": "choose", "picks": [_player(t, "Ben")]},
+        status=200,
+        about="Her first choose is the look; the answer is the same as anyone's.",
+    )
+    t.record(
+        "game/me_choose_doppelganger_followup",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about="/me/ in window 1 after her look: it is listed at once, and her "
+        "follow-up prompt (as the copied Seer) is open.",
+    )
+    _choose(t, "Ana", [{"center_index": 0}, {"center_index": 1}])
+    for name in names[1:]:
+        _choose(t, name, [])
+    t.record(
+        "game/choose_submitted_window1_second",
+        "POST",
+        "Ben",
+        ACTION,
+        {"action_type": "choose", "picks": [{"self": True}]},
+        status=200,
+        about="The server accepts a second choose in window 1 from anyone (only "
+        "the Doppelganger's is read), so a second tap is never a tell.",
+    )
+    t.record(
+        "game/choose_window1_third_refused",
+        "POST",
+        "Ben",
+        ACTION,
+        {"action_type": "choose", "picks": []},
+        status=409,
+        about="A third choose in window 1.",
+    )
+    t.fire("{game_id}:wave:1")  # window 1 has a fixed length: it ends on its timer
+    t.record_sequence(
+        "window_1",
+        since_w1,
+        about="What every seat's socket heard from the last look until window 1 "
+        "ended and window 2 opened.",
+    )
+
+    # -- window 2 ---------------------------------------------------------
+    since_w2 = t.mark()
+    t.record_event(
+        "game/night_window_2_doppelganger",
+        "Ana",
+        "game",
+        "night_window",
+        about="Window 2 opens after window 1.",
+    )
+    for name, kind in [
+        ("Cleo", "werewolf_pack"),
+        ("Dev", "minion"),
+        ("Esme", "mason"),
+        ("Gus", "drunk"),
+        ("Hana", "insomniac"),
+    ]:
+        t.record(
+            f"game/me_choose_prompt_{kind}",
+            "GET",
+            name,
+            ME,
+            status=200,
+            about=f"/me/ in window 2, the {kind.replace('_', ' ')}'s prompt.",
+        )
+    _choose(t, "Gus", [{"center_index": 1}])
+    for name in names:
+        if name != "Gus":
+            _choose(t, name, [])
+    t.fire("{game_id}:wave:2")
+    t.record_sequence(
+        "window_2_doppelganger",
+        since_w2,
+        about="What every seat's socket heard while window 2 was open.",
+    )
+    for name, kind in [
+        ("Ana", "doppelganger"),
+        ("Cleo", "werewolf_pack"),
+        ("Dev", "minion"),
+        ("Esme", "mason"),
+        ("Hana", "insomniac"),
+        ("Gus", "drunk"),
+    ]:
+        t.record(
+            f"game/me_discussion_choose_{kind}",
+            "GET",
+            name,
+            ME,
+            status=200,
+            about=f"/me/ in the talk: the {kind}'s night results, canonical names.",
+        )
+    t.call("POST", "Ana", END_DISCUSSION)
+    t.call("POST", "Ana", REVEAL)
+
+
+def _auto_deck_table(run: Recording, names: list[str], chip: str, players: int) -> None:
+    """The server builds the deck at the deal for the players at the table."""
+    t = run.table()
+    _v2_lobby(t, names)
+    t.call("PATCH", "Ana", LOBBY, {"settings": {"deck": "auto", "deck_chip": chip}})
+    t.clock.advance(60)
+    t.start_random(7, sample=f"game/started_auto_deck_{players}")
+    t.record(
+        f"game/me_auto_deck_{players}",
+        "GET",
+        "Ana",
+        ME,
+        status=200,
+        about=f"/me/ at a {players}-player table with the {chip} chip: the deck the "
+        "server built is `roles_in_game`.",
+    )
+
+
 def record_all(run: Recording) -> None:
     classic_table(run)
     full_table(run, finished=doppelganger_table(run))
+    protocol_two_tables(run)

@@ -720,3 +720,5 @@ screens' lobby defaults write `night_protocol: 2`. When the last old screen is g
 the legacy vote fields (`vote_submitted.player_id`, `has_voted`), the per-role prompt events
 and this paragraph are deleted in one cleanup slice (tracked in `frontend/CLAUDE.md`,
 "Removing the old look").
+
+**Stages (20 November 2026, `docs/specs/frontend/first-time-play.md` sections 7 and 8).** Under `night_protocol: 2` every stage-scoped request (`choose`, `ready`, `vote`, and the host's `advance-wave`, `end-discussion`, `reveal-votes`) carries the `stage` string that `GET /me/` returns, and a request for a stage that has passed is `409 {"code":"wrong_stage"}` and does nothing; this replaces `from_window` for protocol 2. A phone chooses once per window (only the Doppelganger sends a second in window 1; the server takes a harmless second from anyone), the prompt carries `shapes` (which picks would do something, as data), and `vote_submitted {player_id}` is not sent: votes announce counts only. `defaults: "v2"` writes only `card_look_seconds`, `night_protocol` and the automatic deck (no timer length). See `backend/CLAUDE.md`, "Night protocol 2".

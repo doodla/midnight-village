@@ -567,6 +567,42 @@ class TestDebugStateOracle:
         assert votes[str(users["carol"].id)] is None
 
     @override_settings(DEBUG=True)
+    def test_vote_locked_tells_a_pick_from_a_lock(self, api_client, db):
+        """votes holds every stored pick; vote_locked says which are final."""
+        game, users, host = _make_game_with_roles(
+            {"alice": "Villager", "bob": "Werewolf", "carol": "Seer"},
+            ["Robber", "Drunk", "Tanner"],
+            phase=Phase.VOTING,
+            wave=0,
+        )
+        Game.objects.filter(id=game.id).update(settings={"night_protocol": 2})
+        PlayerRole.objects.filter(game=game, user=users["alice"]).update(
+            vote_target=users["bob"], has_acted=True
+        )
+        PlayerRole.objects.filter(game=game, user=users["bob"]).update(
+            vote_target=users["carol"]
+        )
+        api_client.force_authenticate(user=host)
+
+        body = api_client.get(_debug_state_url(game.id)).data
+
+        PlayerRole.objects.filter(game=game, user=users["carol"]).update(
+            phase_ready=True
+        )
+        body = api_client.get(_debug_state_url(game.id)).data
+        assert {p["display_name"]: p["ready"] for p in body["players"]} == {
+            users["alice"].display_name or users["alice"].username: False,
+            users["bob"].display_name or users["bob"].username: False,
+            users["carol"].display_name or users["carol"].username: True,
+        }
+        assert body["votes"][str(users["bob"].id)] == users["carol"].id
+        assert body["vote_locked"] == {
+            str(users["alice"].id): True,
+            str(users["bob"].id): False,
+            str(users["carol"].id): False,
+        }
+
+    @override_settings(DEBUG=True)
     def test_current_wave_is_zero_outside_night(self, api_client, db):
         """current_wave is an int 0 outside the night phase (never null)."""
         game, _users, host = _make_game_with_roles(

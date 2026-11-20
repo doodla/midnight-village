@@ -80,6 +80,7 @@ cd "$FRONTEND_DIR"
 flutter test --tags e2e \
   test_e2e/api_runner_test.dart \
   test_e2e/api_lifecycle_test.dart \
+  test_e2e/api_protocol2_test.dart \
   test_e2e/ui_runner_test.dart
 test_exit=$?
 
