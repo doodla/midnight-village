@@ -26,18 +26,16 @@ class DebugOracleState {
   });
 
   factory DebugOracleState.fromJson(Map<String, dynamic> json) {
-    final playersRaw = (json['players'] as List<dynamic>? ?? []);
-    final logRaw = (json['night_actions_log'] as List<dynamic>? ?? []);
-    final votesRaw = (json['votes'] as Map<String, dynamic>? ?? {});
-    final resultsRaw = json['results'];
+    final playersRaw = json['players'] as List<dynamic>;
+    final logRaw = json['night_actions_log'] as List<dynamic>;
+    final votesRaw = json['votes'] as Map<String, dynamic>;
+    final resultsRaw = json['results'] as Map<String, dynamic>?;
 
     return DebugOracleState(
       gameId: json['game_id'] as String,
       phase: json['phase'] as String,
-      currentWave: (json['current_wave'] as num?)?.toInt() ?? 0,
-      centerCards: (json['center_cards'] as List<dynamic>? ?? [])
-          .map((e) => e as String)
-          .toList(),
+      currentWave: json['current_wave'] as int,
+      centerCards: (json['center_cards'] as List<dynamic>).cast<String>(),
       players: playersRaw
           .map((p) => DebugOraclePlayer.fromJson(p as Map<String, dynamic>))
           .toList(),
@@ -45,11 +43,12 @@ class DebugOracleState {
           .map((e) => DebugNightAction.fromJson(e as Map<String, dynamic>))
           .toList(),
       votes: votesRaw.map(
-        (key, value) => MapEntry(int.parse(key), (value as num?)?.toInt()),
+        (key, value) => MapEntry(int.parse(key), value as int?),
       ),
-      results: resultsRaw is Map<String, dynamic>
-          ? DebugOracleResults.fromJson(resultsRaw)
-          : null,
+      // Null until the results.
+      results: resultsRaw == null
+          ? null
+          : DebugOracleResults.fromJson(resultsRaw),
     );
   }
 
@@ -99,14 +98,14 @@ class DebugOraclePlayer {
 
   factory DebugOraclePlayer.fromJson(Map<String, dynamic> json) =>
       DebugOraclePlayer(
-        userId: (json['user_id'] as num).toInt(),
+        userId: json['user_id'] as int,
         displayName: json['display_name'] as String,
-        isHost: json['is_host'] as bool? ?? false,
+        isHost: json['is_host'] as bool,
         originalRole: json['original_role'] as String,
         currentRole: json['current_role'] as String,
         doppelgangerCopiedRole: json['doppelganger_copied_role'] as String?,
         team: json['team'] as String,
-        connected: json['connected'] as bool? ?? true,
+        connected: json['connected'] as bool,
       );
 
   final int userId;
@@ -136,13 +135,13 @@ class DebugNightAction {
 
   factory DebugNightAction.fromJson(Map<String, dynamic> json) =>
       DebugNightAction(
-        wave: (json['wave'] as num).toInt(),
-        playerId: (json['player_id'] as num).toInt(),
+        wave: json['wave'] as int,
+        playerId: json['player_id'] as int,
         roleActingAs: json['role_acting_as'] as String,
         actionType: json['action_type'] as String,
-        targets: Map<String, dynamic>.from(json['targets'] as Map? ?? {}),
-        result: Map<String, dynamic>.from(json['result'] as Map? ?? {}),
-        timestampOrder: (json['timestamp_order'] as num?)?.toInt() ?? 0,
+        targets: (json['targets'] as Map).cast<String, dynamic>(),
+        result: (json['result'] as Map).cast<String, dynamic>(),
+        timestampOrder: json['timestamp_order'] as int,
       );
 
   final int wave;
@@ -159,8 +158,8 @@ class DebugOracleResults {
 
   factory DebugOracleResults.fromJson(Map<String, dynamic> json) =>
       DebugOracleResults(
-        winningTeams: (json['winning_teams'] as List<dynamic>? ?? [])
-            .map((e) => (e as String).toLowerCase())
+        winningTeams: (json['winning_teams'] as List<dynamic>)
+            .cast<String>()
             .toSet(),
         raw: json,
       );

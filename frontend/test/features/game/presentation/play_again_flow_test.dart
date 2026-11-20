@@ -16,6 +16,7 @@ import 'package:midnight_village/features/game/data/game_service.dart';
 import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/fake_wakelock_service.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/game_state_factory.dart';
@@ -24,60 +25,26 @@ import '../../../helpers/game_test_setup.dart';
 const _gameId = 'test-game-id';
 const _code = 'ABC123';
 
-Map<String, dynamic> _resultsJson() => {
-  'winning_teams': ['village'],
-  'reason': 'The werewolf was found.',
-  'center_cards': <String>[],
-  'players': [
-    for (final (i, name) in ['Alice', 'Bob', 'Charlie'].indexed)
-      {
-        'player_id': i + 1,
-        'display_name': name,
-        'original_role': 'villager',
-        'final_role': 'villager',
-        'team': 'village',
-        'is_eliminated': false,
-        'outcome': 'win',
-      },
-  ],
-  'votes': <dynamic>[],
-};
+Map<String, dynamic> _resultsJson() => serverResults();
 
-Map<String, dynamic> _lobbyJson({String status = 'waiting'}) => {
-  'code': _code,
-  'host': {'id': 1, 'display_name': 'Alice'},
-  'players': [
-    for (final (i, name) in ['Alice', 'Bob', 'Charlie'].indexed)
-      {
-        'user': {'id': i + 1, 'display_name': name},
-        'is_ready': true,
-        'joined_at': '2026-03-31T00:00:00Z',
-      },
-  ],
-  'status': status,
-  'max_players': 10,
-  'settings': {
-    'roles': {'Werewolf': 2, 'Seer': 1, 'Villager': 3},
-  },
-};
+/// The table this game was played at, as the server shows it.
+Map<String, dynamic> _lobbyJson({String status = 'waiting'}) =>
+    serverLobby(code: _code, status: status);
 
-/// Rejects every later POST with [statusCode], like the server saying no.
-void _rejectPostsWith(GameTestSetup setup, int statusCode) {
-  // First in line, ahead of the mock that answers every request.
+/// Makes [method] [suffix] fail as if the server could not be reached (no
+/// response at all), ahead of the mock that answers every request.
+void _unreachable(GameTestSetup setup, String method, String suffix) {
   setup.http.dio.interceptors.insert(
     0,
     InterceptorsWrapper(
       onRequest: (options, handler) {
-        if (options.method != 'POST') return handler.next(options);
+        if (options.method != method || !options.path.endsWith(suffix)) {
+          return handler.next(options);
+        }
         handler.reject(
           DioException(
             requestOptions: options,
-            response: Response(
-              requestOptions: options,
-              statusCode: statusCode,
-              data: {'detail': 'no'},
-            ),
-            type: DioExceptionType.badResponse,
+            type: DioExceptionType.connectionError,
           ),
         );
       },
@@ -102,23 +69,25 @@ class _Pumped {
 Future<_Pumped> _pumpResults(
   WidgetTester tester, {
   bool isHost = true,
-  String? lobbyCode = _code,
   Map<String, dynamic>? lobbyAfterwards,
+  bool tableUnreachable = false,
 }) async {
   final me = GameMeJsonBuilder().inPhase('results');
   if (isHost) me.asHost();
   final setup = GameTestSetup.create(gameMeJson: me.build());
-  setup.registerResults(resultsJson: _resultsJson());
-  if (lobbyAfterwards != null) {
-    setup.registerGet('/lobbies/$_code/', lobbyAfterwards);
-  }
+  setup
+    ..registerResults(resultsJson: _resultsJson())
+    ..registerGet(
+      '/lobbies/$_code/',
+      lobbyAfterwards ?? _lobbyJson(status: 'finished'),
+    );
+  if (tableUnreachable) _unreachable(setup, 'GET', '/lobbies/$_code/');
   final wakelock = FakeWakelockService();
   final client = AuthenticatedClient.forTesting(dio: setup.http.dio);
   const theme = MidnightVillageTheme();
 
   final router = GoRouter(
-    initialLocation:
-        '/game/$_gameId${lobbyCode != null ? '?lobby=$lobbyCode' : ''}',
+    initialLocation: '/game/$_gameId',
     routes: [
       GoRoute(
         path: '/',
@@ -132,10 +101,8 @@ Future<_Pumped> _pumpResults(
       ),
       GoRoute(
         path: '/game/:gameId',
-        builder: (_, state) => GameContainerScreen(
-          gameId: state.pathParameters['gameId']!,
-          lobbyCode: state.uri.queryParameters['lobby'],
-        ),
+        builder: (_, state) =>
+            GameContainerScreen(gameId: state.pathParameters['gameId']!),
       ),
     ],
   );
@@ -225,7 +192,7 @@ void main() {
       'says plainly that the player is no longer the host, on a 403',
       (tester) async {
         final p = await _pumpResults(tester);
-        _rejectPostsWith(p.setup, 403);
+        p.setup.registerPost('/lobbies/$_code/play-again/', statusCode: 403);
 
         await _tap(tester, 'Play Again');
         await _settle(tester);
@@ -238,7 +205,7 @@ void main() {
 
     testWidgets('says the game is not over yet, on a 409', (tester) async {
       final p = await _pumpResults(tester);
-      _rejectPostsWith(p.setup, 409);
+      p.setup.registerPost('/lobbies/$_code/play-again/', statusCode: 409);
 
       await _tap(tester, 'Play Again');
       await _settle(tester);
@@ -253,7 +220,11 @@ void main() {
         'another try', (tester) async {
       final p = await _pumpResults(tester);
 
-      // No play-again route is mocked: the call fails.
+      p.setup.registerPost(
+        '/lobbies/$_code/play-again/',
+        data: '<h1>Server Error (500)</h1>',
+        statusCode: 500,
+      );
       await _tap(tester, 'Play Again');
       await _settle(tester);
       expect(
@@ -269,22 +240,7 @@ void main() {
       expect(p.location, '/lobby/$_code');
     });
 
-    testWidgets('without a known table it says so instead of doing nothing', (
-      tester,
-    ) async {
-      final p = await _pumpResults(tester, lobbyCode: null);
-
-      await _tap(tester, 'Play Again');
-      await _settle(tester);
-
-      expect(
-        find.text('Could not start another game. Try again.'),
-        findsOneWidget,
-      );
-      expect(p.setup.http.requests.where((r) => r.method == 'POST'), isEmpty);
-    });
-
-    test('uses the lobby code the server gives when it gives one', () async {
+    test('uses the lobby code the server gives', () async {
       final me = GameMeJsonBuilder()
           .inPhase('results')
           .asHost()
@@ -292,11 +248,13 @@ void main() {
           .build();
       final setup = GameTestSetup.create(gameMeJson: me);
       addTearDown(setup.dispose);
-      setup.registerResults(resultsJson: _resultsJson());
-      setup.registerPost(
-        '/lobbies/SRV999/play-again/',
-        data: {..._lobbyJson(), 'code': 'SRV999'},
-      );
+      setup
+        ..registerResults(resultsJson: _resultsJson())
+        ..registerTable(code: 'SRV999')
+        ..registerPost(
+          '/lobbies/SRV999/play-again/',
+          data: serverLobby(code: 'SRV999'),
+        );
 
       // The code comes from the state, not from the route.
       final container = setup.container;
@@ -340,7 +298,7 @@ void main() {
     testWidgets('an event without a table code is ignored', (tester) async {
       final p = await _pumpResults(tester, isHost: false);
 
-      p.setup.ws.addServerEvent({'type': 'play_again'});
+      p.setup.ws.addOffContractEvent({'type': 'play_again'});
       await _settle(tester);
 
       expect(p.location, startsWith('/game/'));
@@ -364,23 +322,12 @@ void main() {
       tester,
     ) async {
       final p = await _pumpResults(tester, isHost: false);
+      _unreachable(p.setup, 'POST', '/leave/');
 
       await _tap(tester, 'Leave');
       await _settle(tester);
 
       expect(p.location, '/');
-    });
-
-    testWidgets('goes home without a call when the table is not known', (
-      tester,
-    ) async {
-      final p = await _pumpResults(tester, isHost: false, lobbyCode: null);
-
-      await _tap(tester, 'Leave');
-      await _settle(tester);
-
-      expect(p.location, '/');
-      expect(p.setup.http.requests.where((r) => r.method == 'POST'), isEmpty);
     });
   });
 
@@ -415,7 +362,12 @@ void main() {
     testWidgets('stays on the results when the table cannot be checked', (
       tester,
     ) async {
-      final p = await _pumpResults(tester, isHost: false);
+      final p = await _pumpResults(
+        tester,
+        isHost: false,
+        lobbyAfterwards: _lobbyJson(),
+        tableUnreachable: true,
+      );
       await _settle(tester);
 
       expect(p.location, startsWith('/game/'));

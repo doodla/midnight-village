@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -155,24 +154,4 @@ void main() {
     expect(find.byType(Image), findsNothing);
     expect(tester.takeException(), isNull);
   });
-
-  test(
-    'a phone in the default skin loads no other skin\'s faces at start',
-    () async {
-      final manifest =
-          jsonDecode(await rootBundle.loadString('FontManifest.json'))
-              as List<dynamic>;
-      final families = {
-        for (final entry in manifest.cast<Map<String, dynamic>>())
-          entry['family'] as String,
-      };
-      for (final id in SkinId.values.skip(1)) {
-        expect(
-          families.intersection(id.skin.fonts.onDemand.keys.toSet()),
-          isEmpty,
-          reason: id.label,
-        );
-      }
-    },
-  );
 }

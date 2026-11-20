@@ -1,0 +1,13 @@
+{
+  "type": "action_prompt",
+  "wave": 2,
+  "role_acting_as": "Werewolf",
+  "action_types": [
+    "see_team"
+  ],
+  "valid_targets": {
+    "see_team": [
+      9
+    ]
+  }
+}

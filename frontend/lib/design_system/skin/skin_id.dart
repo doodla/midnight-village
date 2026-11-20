@@ -1,17 +1,16 @@
 import 'skin.dart';
-import 'skins/night_print.dart' as night_print;
 import 'skins/shadow_paper.dart' as shadow_paper;
 
-/// The registry of skins a player can choose, the default first. Adding a skin
-/// is one file in `skins/` and one entry here: the switch, the tests, the
-/// goldens and `just screens` all read this list.
+/// The registry of skins, the default first. There is one look today. A
+/// future look is a separate design with its own layouts, components and
+/// original art, not a recolouring; it would be one file in `skins/` and one
+/// entry here, and the switch, the tests and `just screens` read this list.
 ///
 /// This is the only place, with the skin switch, that names a skin: layout
 /// code reads the active [Skin] and never asks which it is
 /// (test/design_system/skin/skin_identity_test.dart checks).
 enum SkinId {
-  shadowPaper('Shadow paper', _shadowPaper),
-  nightPrint('Night print', _nightPrint);
+  shadowPaper('Shadow paper', _shadowPaper);
 
   const SkinId(this.label, this._build);
 
@@ -29,4 +28,3 @@ enum SkinId {
 }
 
 Skin _shadowPaper() => shadow_paper.shadowPaper;
-Skin _nightPrint() => night_print.nightPrint;

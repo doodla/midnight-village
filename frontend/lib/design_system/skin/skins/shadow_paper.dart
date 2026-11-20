@@ -253,7 +253,6 @@ final shadowPaper = Skin(
   day: _day,
   paper: _paper,
   typography: _type,
-  fonts: const SkinFonts.bundled(),
   shape: const SkinShape(
     radius: 6,
     radiusSmall: 4,

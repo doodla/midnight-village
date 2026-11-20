@@ -1,182 +1,183 @@
 import 'dart:convert';
 
-/// Static factory for WebSocket event JSON strings.
+import 'contract/contract_samples.dart';
+import 'contract/contract_shape.dart';
+import 'contract/server_json.dart';
+
+/// Socket events as the server sends them, for [MockWebSocketChannel.addServerEvent].
 ///
-/// Each method produces a JSON-encoded string matching the exact format
-/// the server sends. Use with [MockWebSocketChannel.addServerEvent].
-///
-/// Event formats are derived from the real server contract as used in
-/// [GameNotifier._handleWsMessage] and [LobbyNotifier._handleWsMessage].
+/// Each starts from the recorded event (`contract_samples/ws/`) and lets a test
+/// choose its values; the result is checked against the samples. There is no
+/// factory for what the server never sends (a `phase_change` to the night, a
+/// results `votes` list, ids in `player_joined`).
 abstract final class GameEvents {
-  // ---------------------------------------------------------------------------
-  // Night phase events
-  // ---------------------------------------------------------------------------
-
-  /// Wave starts, clearing previous action state.
-  static String waveStart({required int wave, String? deadline}) {
-    return jsonEncode({
-      'type': 'wave_start',
-      'wave': wave,
-      'deadline': deadline,
-    });
-  }
-
-  /// Server prompts player for a night action.
-  static String actionPrompt({
-    required String role,
-    required List<String> actionTypes,
-    Map<String, dynamic> validTargets = const {},
-    int wave = 1,
-  }) {
-    return jsonEncode({
-      'type': 'action_prompt',
-      'role_acting_as': role,
-      'action_types': actionTypes,
-      'valid_targets': validTargets,
-      'wave': wave,
-    });
-  }
-
-  /// Result of a submitted night action.
-  static String actionResult({
-    required int wave,
-    required Map<String, dynamic> revealedInfo,
-    String? actionType,
-  }) {
-    final map = <String, dynamic>{
-      'type': 'action_result',
-      'wave': wave,
-      'revealed_info': revealedInfo,
-    };
-    if (actionType != null) {
-      map['action_type'] = actionType;
-    }
-    return jsonEncode(map);
-  }
-
-  /// Wave completed, transition to waiting.
-  static String waveComplete({int wave = 1}) {
-    return jsonEncode({'type': 'wave_complete', 'wave': wave});
-  }
-
-  /// Player has no action this wave.
-  static String waveWaiting({int wave = 1}) {
-    return jsonEncode({'type': 'wave_waiting', 'wave': wave});
+  static String _event(String sample, Map<String, dynamic> values) {
+    final event = withValues(ContractSamples.map(sample), values);
+    checkSocketEvent(event);
+    return jsonEncode(event);
   }
 
   // ---------------------------------------------------------------------------
-  // Phase transitions
+  // Night
   // ---------------------------------------------------------------------------
 
-  /// Game phase changes (night -> discussion -> voting -> results).
+  /// A night window opens (1 = the Doppelganger's, 2 = everyone else's).
+  static String waveStart({required int wave, String? deadline}) =>
+      _event('ws/game/wave_start', {'wave': wave, 'deadline': deadline});
+
+  /// The server's prompt of [kind] (see [promptKinds]) in window [wave],
+  /// aimed at [playerIds] (the other players) where it takes players.
+  static String actionPrompt(
+    String kind, {
+    int wave = 2,
+    List<int> playerIds = const [2, 3],
+    List<int>? seeTeam,
+  }) => jsonEncode({
+    'type': 'action_prompt',
+    ...serverPrompt(kind, wave: wave, playerIds: playerIds, seeTeam: seeTeam),
+  });
+
+  /// A night result of [kind] (see [nightResultKinds]) for window [wave],
+  /// with [info] written over the values of its `revealed_info`.
+  static String actionResult(
+    String kind, {
+    int wave = 2,
+    Map<String, dynamic> info = const {},
+  }) => jsonEncode({
+    'type': 'action_result',
+    ...serverNightResult(kind, wave: wave, info: info),
+  });
+
+  /// The `action_result` event carrying [result], a [serverNightResult] (the
+  /// same entry `/me/`'s `night_results` has).
+  static String actionResultOf(Map<String, dynamic> result) {
+    final event = {'type': 'action_result', ...result};
+    checkSocketEvent(event);
+    return jsonEncode(event);
+  }
+
+  /// A window closed.
+  static String waveComplete({int wave = 2}) =>
+      _event('ws/game/wave_complete', {'wave': wave});
+
+  /// The player has nothing to do in this window.
+  static String waveWaiting({int wave = 2}) =>
+      _event('ws/game/wave_waiting', {'wave': wave});
+
+  // ---------------------------------------------------------------------------
+  // Phases
+  // ---------------------------------------------------------------------------
+
+  /// The talk or the vote starts. The server sends `phase_change` for these
+  /// two only: the night opens with `wave_start`, the end comes as
+  /// `game_results`.
   static String phaseChange({required String phase, String? deadline}) {
-    return jsonEncode({
-      'type': 'phase_change',
+    if (phase != 'discussion' && phase != 'voting') {
+      throw ArgumentError.value(
+        phase,
+        'phase',
+        'the server sends phase_change for discussion and voting only',
+      );
+    }
+    return _event('ws/game/phase_change_$phase', {
       'phase': phase,
       'deadline': deadline,
     });
   }
 
   // ---------------------------------------------------------------------------
-  // Voting events
+  // Vote and results
   // ---------------------------------------------------------------------------
 
-  /// A player submitted their vote (progress tracking, no target revealed).
-  static String voteSubmitted({required int playerId}) {
-    return jsonEncode({'type': 'vote_submitted', 'player_id': playerId});
+  /// A player voted (not for whom).
+  static String voteSubmitted({required int playerId}) =>
+      _event('ws/game/vote_submitted', {'player_id': playerId});
+
+  /// Every vote, voter id (as a string) -> target id, null = did not vote.
+  static String voteReveal({required Map<String, int?> votes}) =>
+      _event('ws/game/vote_reveal', {'votes': votes});
+
+  /// The game is over; the app then fetches `GET .../results/`.
+  static String gameResults({
+    List<String> winningTeams = const ['village'],
+    String reason = 'A Werewolf was eliminated.',
+    List<int> eliminatedPlayers = const [],
+  }) {
+    final data = ContractSamples.map('ws/game/game_results')['data'] as Map;
+    return _event('ws/game/game_results', {
+      'data': withValues(data.cast<String, dynamic>(), {
+        'winning_teams': winningTeams,
+        'reason': reason,
+        'eliminated_players': eliminatedPlayers,
+      }),
+    });
   }
 
-  /// All votes revealed. Tally is computed client-side by GameNotifier.
-  static String voteReveal({required Map<String, int?> votes}) {
-    return jsonEncode({'type': 'vote_reveal', 'votes': votes});
-  }
-
-  /// Game results ready, triggers REST fetch. The server also sends [data]
-  /// (`winning_teams`, `reason`, `eliminated_players`); the client ignores it.
-  static String gameResults({Map<String, dynamic>? data}) {
-    return jsonEncode({'type': 'game_results', 'data': ?data});
-  }
+  // ---------------------------------------------------------------------------
+  // Table
+  // ---------------------------------------------------------------------------
 
   /// A player's phone connected or dropped (public to the whole table).
   static String playerPresence({
     required int playerId,
     required bool connected,
-  }) {
-    return jsonEncode({
-      'type': 'player_presence',
-      'player_id': playerId,
-      'connected': connected,
-    });
-  }
+  }) => _event('ws/game/player_presence_connected', {
+    'player_id': playerId,
+    'connected': connected,
+  });
 
-  /// The host role moved (works on the lobby and the game channel alike).
+  /// The host role moved (lobby and game sockets alike). [reason] is
+  /// `handover`, `returned` or `transferred`.
   static String hostChanged({
     required int hostId,
     required String hostName,
     required int originalHostId,
     String reason = 'handover',
-  }) {
-    return jsonEncode({
-      'type': 'host_changed',
-      'host_id': hostId,
-      'host_name': hostName,
-      'original_host_id': originalHostId,
-      'reason': reason,
-    });
-  }
+  }) => _event('ws/game/host_changed_handover', {
+    'host_id': hostId,
+    'host_name': hostName,
+    'original_host_id': originalHostId,
+    'reason': reason,
+  });
 
   /// The host took the table back to the lobby for another game.
-  static String playAgain({required String lobbyCode}) {
-    return jsonEncode({'type': 'play_again', 'lobby_code': lobbyCode});
-  }
+  static String playAgain({required String lobbyCode}) =>
+      _event('ws/game/play_again', {'lobby_code': lobbyCode});
 
   // ---------------------------------------------------------------------------
-  // Lobby events
+  // Lobby socket
   // ---------------------------------------------------------------------------
 
-  /// Player joined the lobby.
-  static String playerJoined({
-    required int playerId,
-    required String displayName,
-  }) {
-    return jsonEncode({
-      'type': 'player_joined',
-      'user_id': playerId,
-      'username': displayName,
-    });
-  }
+  /// Someone joined. The server sends only their username (a guest's is a
+  /// UUID), so the app reads the lobby again.
+  static String playerJoined({String username = _someone}) =>
+      _event('ws/lobby/player_joined', {'username': username});
 
-  /// Player left the lobby.
-  static String playerLeft({required int playerId}) {
-    return jsonEncode({'type': 'player_left', 'user_id': playerId});
-  }
+  /// Someone left (username only, like [playerJoined]).
+  static String playerLeft({String username = _someone}) =>
+      _event('ws/lobby/player_left', {'username': username});
 
-  /// Player toggled ready state.
-  static String playerReady({
-    required int playerId,
-    required String displayName,
-    required bool isReady,
-  }) {
-    return jsonEncode({
-      'type': 'player_ready',
-      'user_id': playerId,
-      'username': displayName,
-      'is_ready': isReady,
-    });
-  }
+  static const _someone = '00000000-0000-4000-8000-000000000009';
 
-  /// Lobby config updated.
-  static String lobbyUpdate({required Map<String, int> roleConfig}) {
-    return jsonEncode({
-      'type': 'lobby_update',
-      'data': {
-        'settings': {'roles': roleConfig},
-      },
-    });
-  }
+  /// A player toggled ready.
+  static String playerReady({required int playerId, required bool isReady}) =>
+      _event('ws/lobby/player_ready', {
+        'username':
+            '00000000-0000-4000-8000-${playerId.toString().padLeft(12, '0')}',
+        'user_id': playerId,
+        'is_ready': isReady,
+      });
 
-  /// Game started from lobby.
-  static String gameStarted({required String gameId}) {
-    return jsonEncode({'type': 'game_started', 'game_id': gameId});
-  }
+  /// The lobby changed (the host set the deck, or play again): the whole lobby
+  /// body, [serverLobby] with the deck [roleConfig].
+  static String lobbyUpdate({
+    required Map<String, int> roleConfig,
+    String code = 'ABC123',
+  }) => _event('ws/lobby/lobby_update', {
+    'data': serverLobby(code: code, roles: roleConfig),
+  });
+
+  /// The host dealt: open the game.
+  static String gameStarted({required String gameId}) =>
+      _event('ws/lobby/game_started', {'game_id': gameId});
 }

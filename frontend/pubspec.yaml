@@ -71,29 +71,14 @@ flutter:
 
   assets:
     - assets/textures/
-    # The skins' art (lib/design_system/skin/art_set.dart). Phone-sized WebP
+    # The skin's art (lib/design_system/skin/art_set.dart). Phone-sized WebP
     # copies; the originals are in docs/design/art/.
     - assets/skins/shadow_paper/roles/
     - assets/skins/shadow_paper/tokens/
     - assets/skins/shadow_paper/scenes/
-    # Night print's art, made by tool/linocut_art.py (`just skin-art`). On the
-    # web an asset is fetched only when drawn, so a phone in Shadow paper
-    # never downloads these.
-    - assets/skins/night_print/roles/
-    - assets/skins/night_print/tokens/
-    - assets/skins/night_print/scenes/
-    # Night print's faces: plain assets, loaded with a FontLoader only when
-    # that skin is chosen (lib/design_system/skin_loader.dart), so they cost a
-    # phone in the default skin nothing at start. Only the weights its type
-    # roles use.
-    - assets/fonts/rozhaone/RozhaOne-Regular.ttf
-    - assets/fonts/alegreyasans/AlegreyaSans-Medium.ttf
-    - assets/fonts/alegreyasans/AlegreyaSans-ExtraBold.ttf
     # Shown on the licences page (registerFontLicences in lib/main.dart).
     - assets/fonts/gloock/OFL.txt
     - assets/fonts/figtree/OFL.txt
-    - assets/fonts/rozhaone/OFL.txt
-    - assets/fonts/alegreyasans/OFL.txt
 
   # The default skin's type (lib/design_system/skin/skins/shadow_paper.dart):
   # Gloock and Figtree (Latin subsets of the Google Fonts files), loaded by the

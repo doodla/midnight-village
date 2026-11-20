@@ -6,6 +6,10 @@ import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/host/host_change.dart';
 import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
+import '../../../helpers/mock_http_client.dart';
+import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
 import '../../../design_system/test_helpers/midnight_village_theme.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import 'package:midnight_village/design_system/skin/skins/shadow_paper.dart';
@@ -23,31 +27,20 @@ import '../../../helpers/mock_websocket.dart';
 
 class _MockLobbyService extends Mock implements LobbyService {}
 
-class _MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
-
 const _code = 'ABC123';
 const _names = ['Ana', 'Ben', 'Cleo'];
 
-LobbyState _lobby({int hostId = 1, int? originalHostId, bool acting = false}) =>
-    LobbyState(
-      code: _code,
-      hostId: hostId,
-      hostName: _names[hostId - 1],
-      originalHostId: originalHostId ?? (acting ? 1 : null),
-      isActingHost: acting,
-      players: [
-        for (final (i, n) in _names.indexed)
-          LobbyPlayer(
-            id: i + 1,
-            displayName: n,
-            isReady: true,
-            joinedAt: DateTime.utc(2026, 3, 31, 0, i),
-          ),
-      ],
-      status: 'waiting',
-      maxPlayers: 10,
-      roleConfig: const {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2},
-    );
+/// The server's lobby body: Ana (1), Ben (2) and Cleo (3), all ready, with
+/// [hostId] hosting (standing in for Ana when [acting]).
+LobbyState _lobby({int hostId = 1, bool acting = false}) => FromSample.lobby(
+  serverLobby(
+    code: _code,
+    seats: [for (final (i, n) in _names.indexed) (id: i + 1, name: n)],
+    hostId: hostId,
+    originalHostId: acting ? 1 : hostId,
+    roles: const {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2},
+  ),
+);
 
 String _handover() =>
     GameEvents.hostChanged(hostId: 2, hostName: 'Ben', originalHostId: 1);
@@ -88,7 +81,7 @@ Future<_Table> _pump(
           ),
         ),
         authenticatedClientProvider.overrideWithValue(
-          _MockAuthenticatedClient(),
+          AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
         ),
         lobbyServiceProvider.overrideWithValue(service),
         lobbyWebSocketFactoryProvider.overrideWithValue((code) => ws),
@@ -123,33 +116,21 @@ Future<void> _settle(WidgetTester tester) async {
 void main() {
   group('Lobby detail', () {
     test('reads the effective host, original_host_id and is_acting_host', () {
-      final lobby = LobbyState.fromJson({
-        'code': _code,
-        'host': {'id': 2, 'display_name': 'Ben'},
-        'original_host_id': 1,
-        'is_acting_host': true,
-        'players': <dynamic>[],
-        'status': 'waiting',
-        'max_players': 10,
-        'settings': {'roles': <String, dynamic>{}},
-      });
+      final body = ContractSamples.map('http/lobby/detail_acting_host');
+      final lobby = LobbyState.fromJson(body);
 
-      expect(lobby.hostId, 2);
-      expect(lobby.hostName, 'Ben');
-      expect(lobby.originalHostId, 1);
+      expect(lobby.hostId, body['host']['id']);
+      expect(lobby.hostName, body['host']['display_name']);
+      expect(lobby.originalHostId, body['original_host_id']);
+      expect(lobby.hostId, isNot(lobby.originalHostId));
       expect(lobby.isActingHost, isTrue);
     });
 
-    test('treats both new fields as optional', () {
-      final lobby = LobbyState.fromJson({
-        'code': _code,
-        'host': {'id': 1, 'display_name': 'Ana'},
-        'players': <dynamic>[],
-        'status': 'waiting',
-        'max_players': 10,
-      });
+    test('a table hosted by its owner names the owner twice', () {
+      final body = ContractSamples.map('http/lobby/detail_waiting');
+      final lobby = LobbyState.fromJson(body);
 
-      expect(lobby.originalHostId, isNull);
+      expect(lobby.originalHostId, lobby.hostId);
       expect(lobby.isActingHost, isFalse);
     });
   });
@@ -295,9 +276,7 @@ void main() {
       final t = await _pump(tester, userId: 2);
       t.server = _lobby(hostId: 2, acting: true);
 
-      t.ws.addServerEvent(
-        GameEvents.playerJoined(playerId: 3, displayName: 'Cleo'),
-      );
+      t.ws.addServerEvent(GameEvents.playerJoined());
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await _settle(tester);
 

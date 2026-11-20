@@ -39,7 +39,6 @@ test/design_system/tokens/firelit_gothic_theme_test.dart
 test/features/game/presentation/discussion_view_test.dart
 test/features/game/presentation/discussion_voting_flow_test.dart
 test/features/game/presentation/game_container_screen_test.dart
-test/features/game/presentation/game_resume_test.dart
 test/features/game/presentation/lone_werewolf_peek_view_test.dart
 test/features/game/presentation/night_action_flow_test.dart
 test/features/game/presentation/night_multi_wave_flow_test.dart

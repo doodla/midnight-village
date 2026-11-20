@@ -463,3 +463,80 @@ Every face has exactly one portrait slot and at most 2 lines.
 3. **The first-valid-action rule can surprise a newcomer** (a Seer who taps a player, then the center). 07 tells them the truth afterwards.
 4. **A 15 s window 1** (hold, choose, hold, choose) is tight for the Doppelganger. Simple decks leave her out.
 5. **Faces can still be read from the side up close.** The fixed frame removes the shape tell, but not the words.
+
+## 7. Amendment: stages are named; nothing waits (20 November 2026)
+
+Found by the review of the server build. These override the text above.
+
+**Every stage-scoped request names its stage.** `/me/` carries an opaque `stage` string that
+changes whenever the thing a tap would mean changes (the look stage, window 1, window 2, the
+talk, the vote, each tied to the game so an old one can never match). `choose`, `ready`, `vote`
+and the host's advance send it back; a request for a stage that has passed is answered
+`409 wrong_stage`, the same for every role, and does nothing. A late tap can therefore never
+land in the next stage (a Robber's late window-1 tap used to rob someone in window 2).
+
+**No delays, and no assumed lengths.** Nothing in this spec adds a wait or a minimum response
+time, and no timer value is assumed: every length is the table's own setting, the defaults are
+the server's existing ones, and the pace presets leave the Doppelganger's time alone (the
+"Copy" tile changes it). Where this spec says "15 s", "20 s" or "Normal Copy", read "the
+table's setting".
+
+**Window 1 is as in section 3** (one fixed-length window, every phone may Choose twice, the
+Doppelganger's look resolves the moment she chooses). Two rules close what the review found:
+
+- **The phone never waits for the answer to change what others can see.** On Choose the picks
+  clear and the button locks at once, on every phone, before the response arrives. What the
+  answer brings (her copied role, a result) only ever appears on a held face. So a slower
+  answer for one role is invisible at the table. The server keeps the difference small (it
+  does the same reads for every role and writes only what changed); the remainder is visible
+  only to someone timing the network, which is outside what this app defends against.
+- **One look.** The Doppelganger's first Choose in window 1 is her look whatever it holds. If
+  it holds no other player she has not copied, and her second Choose does nothing, like
+  everyone else's.
+
+**Votes:** under the new night the server never announces who locked, only the count.
+
+**"What you saw" is not a separate screen, and has no timed gate.** The 4-second wait before
+"Done" (section 3, 07) was an added delay and is withdrawn, and without it a separate 07
+screen would show who had little to read. So when the last night window closes every phone
+goes straight to 08 Talk at the same moment (the talk's clock is already running on the
+server). "My night" on 08 is the hold box that shows it: page 1 "Dealt: {role}", then the
+window pages and the result faces from the "07 faces" table, the same number of pages on
+every phone. In a player's first game the `hold` cue breathes on "My night"; "Ready to vote"
+stays locked until it has been held once this game, as already specified. The results ack is
+sent the first time "My night" has been held for 0.8 s. Screen 07 and its copy ("What you
+saw", "Done") are removed; 05 is shown only while `/me/` loads.
+
+## 8. Fun first (20 November 2026): where secrecy stops
+
+Product owner: do not over-index on secrecy; the game must hang together and be fun, and
+nobody waits. This section overrides anything above that costs a player time, taps or a
+wasted turn in order to hide something. The test for any rule: would a table of friends
+notice the protection, or only the friction?
+
+**Kept (free for players):** secrets (your card, what you may do tonight, what you saw, your
+team) show only while held; every player has a card to tap at night; progress is counts, never
+names; a request names its stage; one look for the Doppelganger; no sound or vibration at
+night.
+
+**Relaxed:**
+
+| Was | Now |
+|---|---|
+| Choose locked until "You" is held 0.8 s, every window, every phone | No gate at night. Holding "You" shows what you may do; the `hold` cue points at it in a first game only. |
+| Any taps accepted; a pick that means nothing to your role silently does nothing | The phone reads the SERVER's prompt (which cards and how many your role may pick) and the button follows it: "Choose a card" (disabled) / "Choose 1 more" (disabled) / "Choose Cleo" / "Choose Left, Right" / "Keep my card". A turn cannot be wasted by a slip. Players with nothing to choose may pick any one card. Deliberately doing nothing is picking "You". The phone holds no rules: it compares picks with the prompt's shapes. |
+| Every phone chooses twice in window 1 | Every phone chooses once per window. Only the Doppelganger, after her look, gets a second pick in window 1 (her board re-arms when her result arrives). |
+| A held face hides after 5 s | No cap anywhere. It hides on release. |
+| "Ready to vote" locked until "My night" was held | Never locked. In a first game the `hold` cue breathes on "My night". |
+| A tap on a locked gate replays the cue | Unchanged, but the only gates left are 04 "Ready" (you must have seen your card) and buttons waiting for a valid pick. |
+| One fixed frame, one portrait, no red, 2 lines for every face | A face is drawn above the thumb and may use the full role card (portrait and colour included). Keep faces a similar size; do not police their content. |
+| Cross-role identical widget trees for the night board | The board's LAYOUT and motion are the same for every role (same cards, same lift, same button position). Button text and enabled state follow the player's own picks. |
+
+**Pace.** Every length is the table's setting; nothing here adds to it. Each stage ends the
+moment everyone present has done their part (looked, chosen, readied, locked); the timers are
+backstops. No animation blocks input: the count's flips and the results timeline finish on a
+tap.
+
+**Accepted tells** (the card game has them too): an actor may take a little longer than a
+sleeper; a neighbour who reads your button can see how many cards you are picking; the
+Doppelganger taps twice. None of these is worth a wait or a wasted turn.

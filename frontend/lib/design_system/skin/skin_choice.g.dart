@@ -178,7 +178,7 @@ final class SkinChoiceProvider extends $NotifierProvider<SkinChoice, SkinId> {
   }
 }
 
-String _$skinChoiceHash() => r'34b2e9ea193683c0d2a5dc02939f1deef08a142e';
+String _$skinChoiceHash() => r'e8830d0852149d77cac8e0307d66e13d4282410a';
 
 /// The skin chosen on this device.
 

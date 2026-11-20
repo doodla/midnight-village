@@ -213,24 +213,16 @@ void main() {
         expect(outside, isEmpty);
       });
 
-      test(
-        'every face it names is bundled or loaded on demand from assets',
-        () {
-          final onDemand = skin.fonts.onDemand;
-          for (final MapEntry(key: role, value: style)
-              in skin.typography.roles.entries) {
-            final family = style.fontFamily!;
-            expect(
-              bundledFamilies.contains(family) || onDemand.containsKey(family),
-              isTrue,
-              reason: '$role is in $family',
-            );
-          }
-          for (final file in onDemand.values.expand((files) => files)) {
-            expect(assets, contains(file));
-          }
-        },
-      );
+      test('every face it names is bundled', () {
+        for (final MapEntry(key: role, value: style)
+            in skin.typography.roles.entries) {
+          expect(
+            bundledFamilies,
+            contains(style.fontFamily),
+            reason: '$role is in ${style.fontFamily}',
+          );
+        }
+      });
 
       test('every shadow is a hard offset copy: no blur, no spread', () {
         for (final kind in GroundKind.values) {
@@ -305,32 +297,6 @@ void main() {
       );
     });
   }
-
-  test('each skin differs from every other in more than name', () {
-    final skins = skinsUnderTest.entries.toList();
-    for (var i = 0; i < skins.length; i++) {
-      for (var j = i + 1; j < skins.length; j++) {
-        final (a, b) = (skins[i].value, skins[j].value);
-        final pair = '${skins[i].key} and ${skins[j].key}';
-        expect(a.night.ground, isNot(b.night.ground), reason: pair);
-        expect(
-          a.typography.display.fontFamily,
-          isNot(b.typography.display.fontFamily),
-          reason: pair,
-        );
-        expect(a.art.folder, isNot(b.art.folder), reason: pair);
-      }
-    }
-  });
-
-  test('only the default skin\'s faces are loaded at start', () {
-    expect(SkinId.fallback.skin.fonts.onDemand, isEmpty);
-    for (final id in SkinId.values.skip(1)) {
-      for (final family in id.skin.fonts.onDemand.keys) {
-        expect(bundledFamilies, isNot(contains(family)), reason: id.label);
-      }
-    }
-  });
 
   group('tokens', () {
     test('every seat has a drawn token', () {

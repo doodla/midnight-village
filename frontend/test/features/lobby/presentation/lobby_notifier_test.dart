@@ -10,44 +10,33 @@ import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../../helpers/mock_http_client.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
 class MockLobbyService extends Mock implements LobbyService {}
 
-class MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
-
-/// Canonical test lobby state.
+/// The server's lobby body: Alice (1, ready) and Bob (2) unless [seats] are
+/// given (then all ready but [notReady]), parsed as the app parses it.
 LobbyState _testLobbyState({
   String code = 'ABC123',
   int hostId = 1,
-  List<LobbyPlayer>? players,
+  List<Seat> seats = const [(id: 1, name: 'Alice'), (id: 2, name: 'Bob')],
+  Set<int> notReady = const {2},
   String status = 'waiting',
   Map<String, int>? roleConfig,
-}) {
-  return LobbyState(
+}) => FromSample.lobby(
+  serverLobby(
     code: code,
+    seats: seats,
     hostId: hostId,
-    players:
-        players ??
-        [
-          LobbyPlayer(
-            id: 1,
-            displayName: 'Alice',
-            isReady: true,
-            joinedAt: DateTime.utc(2026, 3, 31),
-          ),
-          LobbyPlayer(
-            id: 2,
-            displayName: 'Bob',
-            isReady: false,
-            joinedAt: DateTime.utc(2026, 3, 31, 0, 1),
-          ),
-        ],
+    notReady: notReady,
     status: status,
-    maxPlayers: 10,
-    roleConfig: roleConfig ?? {'werewolf': 2, 'seer': 1},
-  );
-}
+    roles: roleConfig ?? {'Werewolf': 2, 'Seer': 1},
+  ),
+);
 
 void main() {
   late MockLobbyService mockService;
@@ -74,7 +63,7 @@ void main() {
         // Override authenticatedClientProvider since lobbyServiceProvider
         // is already overridden and won't use it.
         authenticatedClientProvider.overrideWithValue(
-          MockAuthenticatedClient(),
+          AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
         ),
       ],
     );
@@ -125,26 +114,12 @@ void main() {
         // Set up re-fetch with updated players
         final refetchCompleter = Completer<LobbyState>();
         final updatedState = _testLobbyState(
-          players: [
-            LobbyPlayer(
-              id: 1,
-              displayName: 'Alice',
-              isReady: true,
-              joinedAt: DateTime.utc(2026, 3, 31),
-            ),
-            LobbyPlayer(
-              id: 2,
-              displayName: 'Bob',
-              isReady: false,
-              joinedAt: DateTime.utc(2026, 3, 31, 0, 1),
-            ),
-            LobbyPlayer(
-              id: 3,
-              displayName: 'Charlie',
-              isReady: false,
-              joinedAt: DateTime.utc(2026, 3, 31, 0, 2),
-            ),
+          seats: [
+            (id: 1, name: 'Alice'),
+            (id: 2, name: 'Bob'),
+            (id: 3, name: 'Charlie'),
           ],
+          notReady: {2, 3},
         );
         when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
           final result = updatedState;
@@ -155,9 +130,7 @@ void main() {
         });
 
         // Simulate player_joined event
-        mockWebSocket.addServerEvent(
-          json.encode({'type': 'player_joined', 'username': 'charlie'}),
-        );
+        mockWebSocket.addServerEvent(GameEvents.playerJoined());
 
         // Wait for the re-fetch to complete
         await refetchCompleter.future;
@@ -176,16 +149,7 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         final refetchCompleter = Completer<LobbyState>();
-        final updatedState = _testLobbyState(
-          players: [
-            LobbyPlayer(
-              id: 1,
-              displayName: 'Alice',
-              isReady: true,
-              joinedAt: DateTime.utc(2026, 3, 31),
-            ),
-          ],
-        );
+        final updatedState = _testLobbyState(seats: [(id: 1, name: 'Alice')]);
         when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
           final result = updatedState;
           if (!refetchCompleter.isCompleted) {
@@ -194,9 +158,7 @@ void main() {
           return result;
         });
 
-        mockWebSocket.addServerEvent(
-          json.encode({'type': 'player_left', 'username': 'bob'}),
-        );
+        mockWebSocket.addServerEvent(GameEvents.playerLeft());
 
         await refetchCompleter.future;
         await Future<void>.delayed(Duration.zero);
@@ -215,12 +177,7 @@ void main() {
           clearInteractions(mockService);
 
           mockWebSocket.addServerEvent(
-            json.encode({
-              'type': 'player_ready',
-              'username': 'Bob',
-              'user_id': 2,
-              'is_ready': true,
-            }),
+            GameEvents.playerReady(playerId: 2, isReady: true),
           );
 
           final state = container.read(lobbyProvider('ABC123'));
@@ -239,29 +196,24 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         mockWebSocket.addServerEvent(
-          json.encode({
-            'type': 'lobby_update',
-            'data': {
-              'settings': {
-                'roles': {
-                  'werewolf': 2,
-                  'seer': 1,
-                  'robber': 1,
-                  'troublemaker': 1,
-                  'villager': 3,
-                },
-              },
+          GameEvents.lobbyUpdate(
+            roleConfig: {
+              'Werewolf': 2,
+              'Seer': 1,
+              'Robber': 1,
+              'Troublemaker': 1,
+              'Villager': 3,
             },
-          }),
+          ),
         );
 
         final state = container.read(lobbyProvider('ABC123'));
         expect(state.value?.roleConfig, {
-          'werewolf': 2,
-          'seer': 1,
-          'robber': 1,
-          'troublemaker': 1,
-          'villager': 3,
+          'Werewolf': 2,
+          'Seer': 1,
+          'Robber': 1,
+          'Troublemaker': 1,
+          'Villager': 3,
         });
       });
 
@@ -270,10 +222,9 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         mockWebSocket.addServerEvent(
-          json.encode({
-            'type': 'game_started',
-            'game_id': '550e8400-e29b-41d4-a716-446655440000',
-          }),
+          GameEvents.gameStarted(
+            gameId: '550e8400-e29b-41d4-a716-446655440000',
+          ),
         );
 
         final notifier = container.read(lobbyProvider('ABC123').notifier);
@@ -289,12 +240,9 @@ void main() {
         clearInteractions(mockService);
 
         // Send as Map directly (some WS implementations do this)
-        mockWebSocket.addServerEvent({
-          'type': 'player_ready',
-          'username': 'Bob',
-          'user_id': 2,
-          'is_ready': true,
-        });
+        mockWebSocket.addServerEvent(
+          jsonDecode(GameEvents.playerReady(playerId: 2, isReady: true)),
+        );
 
         final state = container.read(lobbyProvider('ABC123'));
         final bob = state.value?.players.firstWhere(
@@ -308,7 +256,7 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         // Should not throw
-        mockWebSocket.addServerEvent(
+        mockWebSocket.addOffContractEvent(
           json.encode({'type': 'unknown_event', 'data': 'something'}),
         );
 
@@ -360,7 +308,7 @@ void main() {
         container = createContainer();
         await container.read(lobbyProvider('ABC123').future);
 
-        final newRoles = {'werewolf': 2, 'seer': 1, 'robber': 1};
+        final newRoles = {'Werewolf': 2, 'Seer': 1, 'Robber': 1};
         final updatedState = _testLobbyState(roleConfig: newRoles);
         when(
           () => mockService.updateRoleConfig('ABC123', newRoles),

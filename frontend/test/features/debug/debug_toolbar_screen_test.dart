@@ -4,22 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/core/debug/debug_providers.dart';
 import 'package:midnight_village/core/debug/debug_table_controller.dart';
-import 'package:midnight_village/design_system/skin/skin_choice.dart';
-import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/features/debug/presentation/debug_toolbar_screen.dart';
-import 'package:midnight_village/design_system/skin/skin.dart';
-import 'package:midnight_village/design_system/skin_loader.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _MockController extends Mock implements DebugTableController {}
-
-/// Decoding the new skin's art needs real I/O, which the test clock never
-/// waits for; the switch's waiting for it is tested in skin_choice_test.dart.
-class _ReadyLoader extends SkinLoader {
-  @override
-  Future<void> prepare(Skin skin) async {}
-}
 
 const _table = DebugTable(
   gameId: 'g1',
@@ -60,10 +49,7 @@ void main() {
   });
 
   Widget buildApp() => ProviderScope(
-    overrides: [
-      debugTableControllerProvider.overrideWithValue(controller),
-      skinLoaderProvider.overrideWithValue(_ReadyLoader()),
-    ],
+    overrides: [debugTableControllerProvider.overrideWithValue(controller)],
     child: const MaterialApp(home: DebugToolbarScreen()),
   );
 
@@ -159,25 +145,5 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(() => controller.oracle()).called(1);
-  });
-
-  testWidgets('the skin toggle switches the look and remembers it', (
-    tester,
-  ) async {
-    await tester.pumpWidget(buildApp());
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(DebugToolbarScreen)),
-    );
-    expect(container.read(skinChoiceProvider), SkinId.shadowPaper);
-
-    await tester.ensureVisible(find.text('Night print'));
-    await tester.tap(find.text('Night print'));
-    await tester.pumpAndSettle();
-
-    expect(container.read(skinChoiceProvider), SkinId.nightPrint);
-    expect(
-      (await SharedPreferences.getInstance()).getString('skin'),
-      SkinId.nightPrint.name,
-    );
   });
 }

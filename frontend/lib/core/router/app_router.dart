@@ -69,10 +69,7 @@ GoRouter appRouter(Ref ref) {
           if (data is Map<String, dynamic>) {
             final gameId = data['game_id']?.toString();
             if (gameId != null) {
-              return GameRoute(
-                gameId: gameId,
-                lobby: data['lobby_code']?.toString(),
-              ).location;
+              return GameRoute(gameId: gameId).location;
             }
           }
         } catch (_) {

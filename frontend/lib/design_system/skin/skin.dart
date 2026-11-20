@@ -10,10 +10,10 @@ import 'skin_type.dart';
 /// Everything a look may change, and nothing else: art, colours (per ground),
 /// type, and shape (corners, border widths, hard shadows, tilt). Spacing and
 /// motion are the same in every skin and live outside it
-/// (`lib/design_system/layout/space.dart`). Screens are laid out once and read
-/// the look through `context.skin` and `context.ground`, so a further look is a
-/// further [Skin], not a further set of screens. A skin carries no name for
-/// layout code to test: which skin is active is not a layout question.
+/// (`lib/design_system/layout/space.dart`). Screens read every value through
+/// `context.skin` and `context.ground`, so nothing is hard-coded. A skin
+/// carries no name for layout code to test: which skin is active is not a
+/// layout question. Its faces are bundled under `fonts:` in pubspec.yaml.
 @immutable
 class Skin extends ThemeExtension<Skin> {
   const Skin({
@@ -21,7 +21,6 @@ class Skin extends ThemeExtension<Skin> {
     required this.day,
     required this.paper,
     required this.typography,
-    required this.fonts,
     required this.shape,
     required this.tilt,
     required this.art,
@@ -34,8 +33,6 @@ class Skin extends ThemeExtension<Skin> {
   final Ground paper;
   final SkinType typography;
 
-  /// Where the faces [typography] names come from.
-  final SkinFonts fonts;
   final SkinShape shape;
   final SkinTilt tilt;
   final ArtSet art;
@@ -59,7 +56,6 @@ class Skin extends ThemeExtension<Skin> {
     Ground? day,
     Ground? paper,
     SkinType? typography,
-    SkinFonts? fonts,
     SkinShape? shape,
     SkinTilt? tilt,
     ArtSet? art,
@@ -70,7 +66,6 @@ class Skin extends ThemeExtension<Skin> {
     day: day ?? this.day,
     paper: paper ?? this.paper,
     typography: typography ?? this.typography,
-    fonts: fonts ?? this.fonts,
     shape: shape ?? this.shape,
     tilt: tilt ?? this.tilt,
     art: art ?? this.art,
@@ -84,20 +79,6 @@ class Skin extends ThemeExtension<Skin> {
   @override
   Skin lerp(covariant Skin? other, double t) =>
       other == null || t < 1 ? this : other;
-}
-
-/// Where a skin's faces come from.
-@immutable
-class SkinFonts {
-  /// Declared under `fonts:` in pubspec.yaml: the engine loads them at start.
-  /// Only the default skin's faces should be here; every phone pays for them.
-  const SkinFonts.bundled() : onDemand = const {};
-
-  /// Plain assets, loaded with a `FontLoader` only when the skin is chosen
-  /// (`lib/design_system/skin/skin_loader.dart`): family to font files.
-  const SkinFonts.onDemand(this.onDemand);
-
-  final Map<String, List<String>> onDemand;
 }
 
 extension SkinContext on BuildContext {

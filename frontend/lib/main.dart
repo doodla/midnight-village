@@ -13,10 +13,10 @@ import 'design_system/teach/learned_store.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   registerFontLicences();
-  // The saved skin and its fonts, and the cues this device has learned,
-  // before the first frame, so it is right.
+  // The saved skin and the cues this device has learned, before the first
+  // frame, so it is right.
   final loader = SkinLoader();
-  final (skin, _) = await (restoreSkin(loader: loader), restoreLearned()).wait;
+  final (skin, _) = await (restoreSkin(), restoreLearned()).wait;
   runApp(
     ProviderScope(
       overrides: [skinLoaderProvider.overrideWithValue(loader)],
@@ -24,16 +24,13 @@ Future<void> main() async {
     ),
   );
   // The art secrets show, decoded long before the first card is dealt.
-  unawaited(loader.precacheSecrets(skin.skin));
+  unawaited(loader.prepare(skin.skin));
 }
 
 /// The bundled fonts and their OFL licence texts (assets/fonts/).
 const _fontLicences = [
   ('Gloock', 'assets/fonts/gloock/OFL.txt'),
   ('Figtree', 'assets/fonts/figtree/OFL.txt'),
-  // Night print's faces, loaded only when that skin is chosen.
-  ('Rozha One', 'assets/fonts/rozhaone/OFL.txt'),
-  ('Alegreya Sans', 'assets/fonts/alegreyasans/OFL.txt'),
 ];
 
 /// Lists the bundled fonts' licences on the app's licences page, as the SIL

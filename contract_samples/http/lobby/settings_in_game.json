@@ -1,0 +1,4 @@
+{
+  "detail": "Settings cannot change while a game is in progress.",
+  "code": "lobby_in_game"
+}

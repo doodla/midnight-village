@@ -1,0 +1,8 @@
+{
+  "type": "action_result",
+  "wave": 2,
+  "action_type": "swap_with_center",
+  "revealed_info": {
+    "card_index": 0
+  }
+}

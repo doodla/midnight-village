@@ -1,44 +1,31 @@
-import 'dart:convert';
-
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/core/api/authenticated_client.dart';
-import 'package:midnight_village/core/websocket/websocket_channel.dart';
 import 'package:midnight_village/design_system/components/game/vote_submission.dart';
-import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
-import 'package:midnight_village/features/game/data/game_service.dart';
 import 'package:midnight_village/features/game/domain/game_session_state.dart';
 import 'package:midnight_village/features/game/domain/voting_state.dart';
 import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 
 import '../../../design_system/test_helpers/pump_with_tokens.dart';
-import '../../../helpers/mock_http_client.dart';
-import '../../../helpers/mock_websocket.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/game_events.dart';
+import '../../../helpers/game_state_factory.dart';
+import '../../../helpers/game_test_setup.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Default state for voting phase tests.
+/// The server's `/me/` in the vote for Alice (1) with Bob and Charlie, and
+/// the vote progress and reveal the notifier keeps on top.
 GameSessionState _votingState({
   bool hasVoted = false,
   VoteProgress voteProgress = const VoteProgress(),
   VoteRevealData? voteRevealData,
-}) => GameSessionState(
-  gameId: 'test-game-id',
-  phase: 'voting',
-  yourRole: const YourRole(originalRole: 'seer', hasActed: false),
-  hasVoted: hasVoted,
-  players: const [
-    GamePlayer(playerId: 1, displayName: 'Alice'),
-    GamePlayer(playerId: 2, displayName: 'Bob'),
-    GamePlayer(playerId: 3, displayName: 'Charlie'),
-  ],
-  voteProgress: voteProgress,
-  voteRevealData: voteRevealData,
-);
+}) => FromSample.game(
+  GameMeJsonBuilder().inPhase('voting').hasVoted(hasVoted).build(),
+).copyWith(voteProgress: voteProgress, voteRevealData: voteRevealData);
 
 /// A mock GameNotifier that allows tracking of method calls.
 class _MockVotingNotifier extends GameNotifier {
@@ -52,13 +39,7 @@ class _MockVotingNotifier extends GameNotifier {
   @override
   Future<GameSessionState> build(String gameId) async {
     state = _state;
-    return _state.value ??
-        GameSessionState(
-          gameId: gameId,
-          phase: 'voting',
-          yourRole: const YourRole(originalRole: 'seer', hasActed: false),
-          players: const [],
-        );
+    return _state.requireValue;
   }
 
   @override
@@ -190,9 +171,8 @@ void main() {
     testWidgets('shows intermediate tally when voteRevealData is present', (
       tester,
     ) async {
-      final voteReveal = VoteRevealData(
-        votes: {'1': 2, '2': 3, '3': null},
-        tally: {'2': 1, '3': 2},
+      final voteReveal = FromSample.voteReveal(
+        GameEvents.voteReveal(votes: {'1': 2, '2': 3, '3': null}),
       );
 
       final mockNotifier = _MockVotingNotifier(
@@ -213,9 +193,8 @@ void main() {
     testWidgets('displays voter-to-target pairs in intermediate tally', (
       tester,
     ) async {
-      final voteReveal = VoteRevealData(
-        votes: {'1': 2, '2': 3},
-        tally: {'2': 1, '3': 1},
+      final voteReveal = FromSample.voteReveal(
+        GameEvents.voteReveal(votes: {'1': 2, '2': 3, '3': 2}),
       );
 
       final mockNotifier = _MockVotingNotifier(
@@ -236,7 +215,9 @@ void main() {
     });
 
     testWidgets('abstaining players show "Abstained" in tally', (tester) async {
-      final voteReveal = VoteRevealData(votes: {'3': null}, tally: {});
+      final voteReveal = FromSample.voteReveal(
+        GameEvents.voteReveal(votes: {'1': 2, '2': 1, '3': null}),
+      );
 
       final mockNotifier = _MockVotingNotifier(
         AsyncData(_votingState(voteRevealData: voteReveal)),
@@ -257,7 +238,9 @@ void main() {
       'does not show VoteReveal widget while in voting phase (no elimination data)',
       (tester) async {
         // VoteRevealData is present but phase is still 'voting' — no elimination data.
-        final voteReveal = VoteRevealData(votes: {'1': 2}, tally: {'2': 1});
+        final voteReveal = FromSample.voteReveal(
+          GameEvents.voteReveal(votes: {'1': 2, '2': 1, '3': 1}),
+        );
 
         final mockNotifier = _MockVotingNotifier(
           AsyncData(_votingState(voteRevealData: voteReveal)),
@@ -278,158 +261,52 @@ void main() {
   });
 
   group('Vote reveal — 5-second REST fallback timeout', () {
-    /// Default voting-phase JSON for the timeout test.
-    Map<String, dynamic> votingPhaseJsonForTimeout() => {
-      'game_id': 'test-game-id',
-      'phase': 'voting',
-      'current_wave': 0,
-      'deadline': null,
-      'your_role': {'original_role': 'seer', 'has_acted': false},
-      'has_voted': false,
-      'players': [
-        {'player_id': 1, 'display_name': 'Alice'},
-        {'player_id': 2, 'display_name': 'Bob'},
-      ],
-      'roles_in_game': [],
-    };
-
     // Flutter widget tests run inside a fakeAsync zone, so tester.pump()
     // advances fake time. This lets us fire the 5-second Timer in
     // _handleVoteReveal without a real wall-clock delay.
     testWidgets(
       '5-second fallback transitions to results phase when game_results is missed',
       (tester) async {
-        final http = MockHttpClient();
-        final ws = MockWebSocketChannel();
-
-        http
-            .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-            .thenReturn(
-              Response(
-                requestOptions: RequestOptions(
-                  path: '/onuw/games/test-game-id/me/',
-                ),
-                statusCode: 200,
-                data: votingPhaseJsonForTimeout(),
-              ),
-            );
-
-        // Register the results endpoint that the fallback will call.
-        http
-            .when(method: 'GET', path: '/onuw/games/test-game-id/results/')
-            .thenReturn(
-              Response(
-                requestOptions: RequestOptions(
-                  path: '/onuw/games/test-game-id/results/',
-                ),
-                statusCode: 200,
-                data: {
-                  'winning_teams': ['village'],
-                  'players': [],
-                },
-              ),
-            );
-
-        final client = AuthenticatedClient.forTesting(dio: http.dio);
-
-        await tester.pumpWithTokens(
-          const GameContainerScreen(gameId: 'test-game-id'),
-          overrides: [
-            authenticatedClientProvider.overrideWithValue(client),
-            gameServiceProvider.overrideWithValue(GameService(client: client)),
-            gameWebSocketProvider.overrideWith((ref, gameId) => null),
-            gameWebSocketStreamProvider.overrideWith(
-              (ref, gameId) => ws.stream,
-            ),
-            gameConnectionStateProvider.overrideWith(
-              (ref, gameId) => Stream.value(WebSocketConnectionState.connected),
-            ),
-          ],
+        final setup = await tester.pumpGameFlow(
+          gameMeJson: GameMeJsonBuilder()
+              .inPhase('voting')
+              .withSeats(defaultSeats.take(2).toList())
+              .build(),
         );
+        // The results endpoint the fallback will call.
+        setup.registerResults();
 
-        // Wait for the initial voting phase to load.
         await tester.pumpAndSettle();
         expect(find.text('0 of 2 voted'), findsOneWidget);
 
-        // Inject vote_reveal — this starts the 5-second timeout inside
+        // vote_reveal starts the 5-second timeout inside
         // GameNotifier._handleVoteReveal.
-        ws.addServerEvent(
-          jsonEncode({
-            'type': 'vote_reveal',
-            'votes': {'1': 2},
-          }),
+        setup.ws.addServerEvent(
+          GameEvents.voteReveal(votes: {'1': 2, '2': null}),
         );
         await tester.pump();
 
         // Intermediate tally is now visible.
         expect(find.text('Votes'), findsOneWidget);
 
-        // Advance time by 5 seconds. tester.pump() advances Flutter's fake
-        // clock, firing any pending Timers — including the 5-second fallback.
+        // Advance time by 5 seconds, firing the fallback timer.
         await tester.pump(const Duration(seconds: 5));
-
-        // Allow the async _fetchResultsFallback chain to complete.
         await tester.pumpAndSettle();
 
-        // The GameContainerScreen shows the results placeholder when phase
-        // transitions to 'results'. 'Results' appears in the PhaseIndicator.
+        // 'Results' appears in the PhaseIndicator.
         expect(find.text('Results'), findsWidgets);
       },
     );
   });
 
   group('Vote progress — per-player voted indicators', () {
-    Map<String, dynamic> votingPhaseJson3Players() => {
-      'game_id': 'test-game-id',
-      'phase': 'voting',
-      'current_wave': 0,
-      'deadline': null,
-      'your_role': {'original_role': 'seer', 'has_acted': false},
-      'has_voted': false,
-      'players': [
-        {'player_id': 1, 'display_name': 'Alice'},
-        {'player_id': 2, 'display_name': 'Bob'},
-        {'player_id': 3, 'display_name': 'Charlie'},
-      ],
-      'roles_in_game': [],
-    };
-
     testWidgets(
       'after vote_submitted for player 1, Alice shows voted indicator but not Bob or Charlie',
       (tester) async {
         final handle = tester.ensureSemantics();
-        final http = MockHttpClient();
-        final ws = MockWebSocketChannel();
-
-        http
-            .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-            .thenReturn(
-              Response(
-                requestOptions: RequestOptions(
-                  path: '/onuw/games/test-game-id/me/',
-                ),
-                statusCode: 200,
-                data: votingPhaseJson3Players(),
-              ),
-            );
-
-        final client = AuthenticatedClient.forTesting(dio: http.dio);
-
-        await tester.pumpWithTokens(
-          const GameContainerScreen(gameId: 'test-game-id'),
-          overrides: [
-            authenticatedClientProvider.overrideWithValue(client),
-            gameServiceProvider.overrideWithValue(GameService(client: client)),
-            gameWebSocketProvider.overrideWith((ref, gameId) => null),
-            gameWebSocketStreamProvider.overrideWith(
-              (ref, gameId) => ws.stream,
-            ),
-            gameConnectionStateProvider.overrideWith(
-              (ref, gameId) => Stream.value(WebSocketConnectionState.connected),
-            ),
-          ],
+        final setup = await tester.pumpGameFlow(
+          gameMeJson: GameMeJsonBuilder().inPhase('voting').build(),
         );
-
         await tester.pumpAndSettle();
 
         // No one has voted yet — no "voted" indicators.
@@ -437,10 +314,7 @@ void main() {
         expect(find.bySemanticsLabel('Bob voted'), findsNothing);
         expect(find.bySemanticsLabel('Charlie voted'), findsNothing);
 
-        // Inject vote_submitted event for player 1 (Alice).
-        ws.addServerEvent(
-          jsonEncode({'type': 'vote_submitted', 'player_id': 1}),
-        );
+        setup.ws.addServerEvent(GameEvents.voteSubmitted(playerId: 1));
         await tester.pump();
 
         // Alice's indicator updates; Bob and Charlie remain unchanged.
@@ -454,77 +328,21 @@ void main() {
   });
 
   group('Voting phase — vote_submitted WS event integration', () {
-    /// Default voting-phase JSON returned by the mock /me/ endpoint.
-    Map<String, dynamic> votingPhaseJson() => {
-      'game_id': 'test-game-id',
-      'phase': 'voting',
-      'current_wave': 0,
-      'deadline': null,
-      'your_role': {'original_role': 'seer', 'has_acted': false},
-      'has_voted': false,
-      'players': [
-        {'player_id': 1, 'display_name': 'Alice'},
-        {'player_id': 2, 'display_name': 'Bob'},
-        {'player_id': 3, 'display_name': 'Charlie'},
-      ],
-      'roles_in_game': [],
-    };
-
     testWidgets(
       'vote progress counter increments when vote_submitted WS event is received',
       (tester) async {
-        final http = MockHttpClient();
-        final ws = MockWebSocketChannel();
-
-        http
-            .when(method: 'GET', path: '/onuw/games/test-game-id/me/')
-            .thenReturn(
-              Response(
-                requestOptions: RequestOptions(
-                  path: '/onuw/games/test-game-id/me/',
-                ),
-                statusCode: 200,
-                data: votingPhaseJson(),
-              ),
-            );
-
-        final client = AuthenticatedClient.forTesting(dio: http.dio);
-
-        await tester.pumpWithTokens(
-          const GameContainerScreen(gameId: 'test-game-id'),
-          overrides: [
-            authenticatedClientProvider.overrideWithValue(client),
-            gameServiceProvider.overrideWithValue(GameService(client: client)),
-            gameWebSocketProvider.overrideWith((ref, gameId) => null),
-            gameWebSocketStreamProvider.overrideWith(
-              (ref, gameId) => ws.stream,
-            ),
-            gameConnectionStateProvider.overrideWith(
-              (ref, gameId) => Stream.value(WebSocketConnectionState.connected),
-            ),
-          ],
+        final setup = await tester.pumpGameFlow(
+          gameMeJson: GameMeJsonBuilder().inPhase('voting').build(),
         );
-
-        // Wait for initial state to load — shows "0 of 3 voted".
         await tester.pumpAndSettle();
         expect(find.text('0 of 3 voted'), findsOneWidget);
 
-        // Inject vote_submitted event for player 1.
-        ws.addServerEvent(
-          jsonEncode({'type': 'vote_submitted', 'player_id': 1}),
-        );
+        setup.ws.addServerEvent(GameEvents.voteSubmitted(playerId: 1));
         await tester.pump();
-
-        // Counter must increment to 1 of 3.
         expect(find.text('1 of 3 voted'), findsOneWidget);
 
-        // Inject a second vote_submitted event for player 2.
-        ws.addServerEvent(
-          jsonEncode({'type': 'vote_submitted', 'player_id': 2}),
-        );
+        setup.ws.addServerEvent(GameEvents.voteSubmitted(playerId: 2));
         await tester.pump();
-
-        // Counter must increment to 2 of 3.
         expect(find.text('2 of 3 voted'), findsOneWidget);
       },
     );

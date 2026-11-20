@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/components/game/game_results.dart';
 
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/game_state_factory.dart';
 import '../../../helpers/game_test_setup.dart';
@@ -36,64 +37,21 @@ void main() {
     testWidgets('game_results triggers REST fetch and shows GameResults', (
       tester,
     ) async {
-      final resultsJson = {
-        'winning_teams': ['village'],
-        'reason': 'Werewolf eliminated',
-        'players': [
-          {
-            'player_id': 1,
-            'display_name': 'Alice',
-            'original_role': 'Seer',
-            'final_role': 'Seer',
-            'team': 'village',
-            'is_eliminated': false,
-            'outcome': 'win',
-            'vote_target_id': 2,
-          },
-          {
-            'player_id': 2,
-            'display_name': 'Bob',
-            'original_role': 'Werewolf',
-            'final_role': 'Werewolf',
-            'team': 'werewolf',
-            'is_eliminated': true,
-            'outcome': 'lose',
-            'elimination_reason': 'vote',
-            'vote_target_id': 1,
-          },
-          {
-            'player_id': 3,
-            'display_name': 'Charlie',
-            'original_role': 'Villager',
-            'final_role': 'Villager',
-            'team': 'village',
-            'is_eliminated': false,
-            'outcome': 'win',
-            'vote_target_id': 2,
-          },
+      final resultsJson = serverResults(
+        players: [
+          ResultSeat(defaultSeats[0], originalRole: 'Seer', votedFor: 2),
+          ResultSeat(
+            defaultSeats[1],
+            originalRole: 'Werewolf',
+            team: 'werewolf',
+            won: false,
+            eliminatedBy: 'vote',
+            votedFor: 1,
+          ),
+          ResultSeat(defaultSeats[2], originalRole: 'Villager', votedFor: 2),
         ],
-        'votes': [
-          {
-            'voter_id': 1,
-            'voter_name': 'Alice',
-            'target_id': 2,
-            'target_name': 'Bob',
-          },
-          {
-            'voter_id': 2,
-            'voter_name': 'Bob',
-            'target_id': 1,
-            'target_name': 'Alice',
-          },
-          {
-            'voter_id': 3,
-            'voter_name': 'Charlie',
-            'target_id': 2,
-            'target_name': 'Bob',
-          },
-        ],
-        'center_cards': ['Drunk', 'Villager', 'Mason'],
-      };
+        centerCards: ['Drunk', 'Villager', 'Mason'],
+      );
 
       final setup = await tester.pumpGameFlow(
         gameMeJson: GameMeJsonBuilder().inPhase('voting').build(),
@@ -130,8 +88,12 @@ void main() {
       );
       addTearDown(setup.dispose);
 
-      // Inject game_results WITHOUT registering the results endpoint.
-      // The REST fetch will fail (no mock registered), so results stays null.
+      // The results fetch fails, so results stays null.
+      setup.registerGet(
+        '/onuw/games/test-game-id/results/',
+        '<h1>Server Error (500)</h1>',
+        statusCode: 500,
+      );
       setup.ws.addServerEvent(GameEvents.gameResults());
       await tester.pump(); // Process the WS event — phase changes to results.
       await tester.pump(

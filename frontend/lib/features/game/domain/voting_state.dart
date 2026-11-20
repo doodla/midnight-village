@@ -37,4 +37,18 @@ abstract class VoteRevealData with _$VoteRevealData {
 
   factory VoteRevealData.fromJson(Map<String, dynamic> json) =>
       _$VoteRevealDataFromJson(json);
+
+  /// The `vote_reveal` event: every player's vote (null = none), and the
+  /// tally counted from it.
+  factory VoteRevealData.fromEvent(Map<String, dynamic> event) {
+    final votes = (event['votes'] as Map<String, dynamic>).map<String, int?>(
+      (key, value) => MapEntry(key, value as int?),
+    );
+    final tally = <String, int>{};
+    for (final targetId in votes.values.whereType<int>()) {
+      final key = targetId.toString();
+      tally[key] = (tally[key] ?? 0) + 1;
+    }
+    return VoteRevealData(votes: votes, tally: tally);
+  }
 }

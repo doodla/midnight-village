@@ -51,14 +51,14 @@ abstract class LobbyState with _$LobbyState {
     String? startedGameId,
 
     /// Display name of the effective host (the lobby's `host`).
-    String? hostName,
+    required String hostName,
 
     /// The host who set the table up. [hostId] is the effective host, who may
     /// be someone else while the original host's phone is away.
-    int? originalHostId,
+    required int originalHostId,
 
     /// True while someone other than the original host is hosting.
-    @Default(false) bool isActingHost,
+    required bool isActingHost,
 
     /// The "Ana is hosting again" / "Ben is the host now" line, shown for a few
     /// seconds after the role returns or is transferred. Frontend only.
@@ -77,8 +77,9 @@ abstract class LobbyState with _$LobbyState {
   factory LobbyState.fromJson(Map<String, dynamic> json) {
     final host = json['host'] as Map<String, dynamic>;
     final playersJson = json['players'] as List<dynamic>;
-    final settings = json['settings'] as Map<String, dynamic>?;
-    final roles = settings?['roles'] as Map<String, dynamic>?;
+    final settings = json['settings'] as Map<String, dynamic>;
+    // A table whose host has not chosen a deck yet has no `roles`.
+    final roles = settings['roles'] as Map<String, dynamic>?;
 
     return LobbyState(
       code: json['code'] as String,
@@ -89,10 +90,10 @@ abstract class LobbyState with _$LobbyState {
       status: json['status'] as String,
       maxPlayers: json['max_players'] as int,
       roleConfig: roles?.map((k, v) => MapEntry(k, v as int)) ?? {},
-      // `host` is the effective host. Both extra fields are optional.
-      hostName: host['display_name'] as String?,
-      originalHostId: json['original_host_id'] as int?,
-      isActingHost: json['is_acting_host'] == true,
+      // `host` is the effective host.
+      hostName: host['display_name'] as String,
+      originalHostId: json['original_host_id'] as int,
+      isActingHost: json['is_acting_host'] as bool,
     );
   }
 }

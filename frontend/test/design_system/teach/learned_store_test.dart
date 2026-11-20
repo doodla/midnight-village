@@ -43,7 +43,7 @@ void main() {
       'mv.learned.v1.hold': '1',
       'mv.learned.v1.retired_cue': '1',
       'mv.learned.v1.vote_lock': '0',
-      'skin': 'nightPrint',
+      'skin': 'shadowPaper',
     });
     expect(await _launch(), {Cue.hold});
   });
@@ -52,7 +52,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'mv.learned.v1.hold': '1',
       'mv.learned.v1.vote_lock': '1',
-      'skin': 'nightPrint',
+      'skin': 'shadowPaper',
     });
     await _launch();
     final app = _app();
@@ -63,7 +63,7 @@ void main() {
     forgetRestoredLearned();
     expect(await _launch(), isEmpty);
     final stored = await SharedPreferences.getInstance();
-    expect(stored.getString('skin'), 'nightPrint');
+    expect(stored.getString('skin'), 'shadowPaper');
   });
 
   test('a device whose storage cannot be read starts as a new one', () async {

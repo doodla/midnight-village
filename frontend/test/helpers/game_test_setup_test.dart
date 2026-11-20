@@ -47,10 +47,10 @@ void main() {
 
       await setup.readGameState();
 
-      setup.ws.addServerEvent(GameEvents.waveStart(wave: 3));
+      setup.ws.addServerEvent(GameEvents.phaseChange(phase: 'discussion'));
       await Future<void>.delayed(Duration.zero);
 
-      expect(setup.currentState.currentWave, 3);
+      expect(setup.currentState.phase, 'discussion');
     });
 
     test('currentState returns the latest state synchronously', () async {
@@ -68,18 +68,26 @@ void main() {
       );
       addTearDown(setup.dispose);
 
-      setup.registerResults(
-        resultsJson: {
-          'winning_teams': ['village'],
-          'players': [],
-          'center_cards': [],
-        },
-      );
+      setup.registerResults();
 
       final state = await setup.readGameState();
       expect(state.phase, 'results');
       expect(state.results, isNotNull);
     });
+
+    test(
+      'the player list has the /me/ players, connected but the away',
+      () async {
+        final setup = GameTestSetup.create(away: {3});
+        addTearDown(setup.dispose);
+
+        final state = await setup.readGameState();
+        expect(
+          [for (final p in state.players) p.connected],
+          [true, true, false],
+        );
+      },
+    );
 
     test('registerActionSubmit adds the action endpoint', () async {
       final setup = GameTestSetup.create();
@@ -134,9 +142,7 @@ void main() {
 
     testWidgets('accepts custom gameMeJson', (tester) async {
       final setup = await tester.pumpGameFlow(
-        gameMeJson: GameMeJsonBuilder()
-            .withSeerPrompt(wave: 1, playerTargets: [2, 3])
-            .build(),
+        gameMeJson: GameMeJsonBuilder().withPrompt('seer').build(),
       );
       addTearDown(setup.dispose);
 
