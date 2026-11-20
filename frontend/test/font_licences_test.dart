@@ -14,6 +14,8 @@ void main() {
       'Figtree': 'The Figtree Project Authors',
       'Rozha One': 'Indian Type Foundry',
       'Alegreya Sans': 'The Alegreya Sans Project Authors',
+      'Big Shoulders Display': 'The Big Shoulders Project Authors',
+      'Barlow': 'The Barlow Project Authors',
     };
     for (final MapEntry(key: family, value: holder) in holders.entries) {
       final entry = licences.singleWhere((l) => l.packages.contains(family));

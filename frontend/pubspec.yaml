@@ -80,6 +80,10 @@ flutter:
     - assets/skins/night_print/roles/
     - assets/skins/night_print/tokens/
     - assets/skins/night_print/scenes/
+    # Warm blood's art, made by tool/thermal_art.py (`just skin-art`).
+    - assets/skins/warm_blood/roles/
+    - assets/skins/warm_blood/tokens/
+    - assets/skins/warm_blood/scenes/
     # Night print's faces: plain assets, loaded with a FontLoader only when
     # that skin is chosen (lib/design_system/skin_loader.dart), so they cost a
     # phone in the default skin nothing at start. Only the weights its type
@@ -87,11 +91,17 @@ flutter:
     - assets/fonts/rozhaone/RozhaOne-Regular.ttf
     - assets/fonts/alegreyasans/AlegreyaSans-Medium.ttf
     - assets/fonts/alegreyasans/AlegreyaSans-ExtraBold.ttf
+    # Warm blood's faces, loaded the same way.
+    - assets/fonts/bigshouldersdisplay/BigShouldersDisplay-ExtraBold.ttf
+    - assets/fonts/barlow/Barlow-Medium.ttf
+    - assets/fonts/barlow/Barlow-Bold.ttf
     # Shown on the licences page (registerFontLicences in lib/main.dart).
     - assets/fonts/gloock/OFL.txt
     - assets/fonts/figtree/OFL.txt
     - assets/fonts/rozhaone/OFL.txt
     - assets/fonts/alegreyasans/OFL.txt
+    - assets/fonts/bigshouldersdisplay/OFL.txt
+    - assets/fonts/barlow/OFL.txt
 
   # The default skin's type (lib/design_system/skin/skins/shadow_paper.dart):
   # Gloock and Figtree (Latin subsets of the Google Fonts files), loaded by the

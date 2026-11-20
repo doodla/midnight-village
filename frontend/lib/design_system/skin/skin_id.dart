@@ -1,6 +1,7 @@
 import 'skin.dart';
 import 'skins/night_print.dart' as night_print;
 import 'skins/shadow_paper.dart' as shadow_paper;
+import 'skins/warm_blood.dart' as warm_blood;
 
 /// The registry of skins a player can choose, the default first. Adding a skin
 /// is one file in `skins/` and one entry here: the switch, the tests, the
@@ -11,7 +12,8 @@ import 'skins/shadow_paper.dart' as shadow_paper;
 /// (test/design_system/skin/skin_identity_test.dart checks).
 enum SkinId {
   shadowPaper('Shadow paper', _shadowPaper),
-  nightPrint('Night print', _nightPrint);
+  nightPrint('Night print', _nightPrint),
+  warmBlood('Warm blood', _warmBlood);
 
   const SkinId(this.label, this._build);
 
@@ -30,3 +32,4 @@ enum SkinId {
 
 Skin _shadowPaper() => shadow_paper.shadowPaper;
 Skin _nightPrint() => night_print.nightPrint;
+Skin _warmBlood() => warm_blood.warmBlood;
