@@ -24,7 +24,11 @@
       "doppelganger_copied_role": null,
       "team": "village",
       "connected": true,
-      "ready": false
+      "ready": false,
+      "chosen": {
+        "1": 0,
+        "2": 1
+      }
     },
     {
       "user_id": 2,
@@ -37,7 +41,11 @@
       "doppelganger_copied_role": null,
       "team": "village",
       "connected": true,
-      "ready": false
+      "ready": false,
+      "chosen": {
+        "1": 0,
+        "2": 0
+      }
     },
     {
       "user_id": 3,
@@ -50,7 +58,11 @@
       "doppelganger_copied_role": null,
       "team": "werewolf",
       "connected": true,
-      "ready": false
+      "ready": false,
+      "chosen": {
+        "1": 0,
+        "2": 0
+      }
     },
     {
       "user_id": 4,
@@ -63,7 +75,11 @@
       "doppelganger_copied_role": null,
       "team": "village",
       "connected": true,
-      "ready": false
+      "ready": false,
+      "chosen": {
+        "1": 0,
+        "2": 0
+      }
     },
     {
       "user_id": 5,
@@ -76,7 +92,11 @@
       "doppelganger_copied_role": null,
       "team": "werewolf",
       "connected": true,
-      "ready": false
+      "ready": false,
+      "chosen": {
+        "1": 0,
+        "2": 0
+      }
     },
     {
       "user_id": 6,
@@ -89,7 +109,11 @@
       "doppelganger_copied_role": null,
       "team": "village",
       "connected": true,
-      "ready": false
+      "ready": false,
+      "chosen": {
+        "1": 0,
+        "2": 0
+      }
     }
   ],
   "night_actions_log": [],

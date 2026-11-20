@@ -303,6 +303,12 @@ class _End {
   ) async {
     final me = await table.me(p);
     final prompt = me['action_prompt'] as Map<String, dynamic>?;
+    // A choose as the phone sends it: only while its prompt has a turn (a
+    // phone with nothing to choose sends nothing).
+    if (data['action_type'] == 'choose' &&
+        (prompt == null || (prompt['chooses_left'] as int) < 1)) {
+      return;
+    }
     await table.client.post(
       '/onuw/games/${table.gameId}/$tail/',
       token: p.accessToken,

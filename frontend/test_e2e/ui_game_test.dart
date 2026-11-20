@@ -182,24 +182,24 @@ void main() {
       await r.tapButton(until: () => r.button.phase == ButtonPhase.done);
       await r.shoot('follow-up-chosen');
 
-      // Everyone else's one choose of window 1; then the window's end.
+      // Nobody else has anything to choose in window 1 (they send nothing);
+      // the window ends with her follow-up, or on its timer where it has a
+      // fixed length.
       await r.api(() async {
         await r.everyoneElse((p) => r.choose(p, []));
-        expect(await t.controller.fireTimer(TimerKey.wave(1)), isTrue);
+        if ((await t.controller.oracle()).currentWave == 1) {
+          expect(await t.controller.fireTimer(TimerKey.wave(1)), isTrue);
+        }
       });
+      // Window 2: as the copied Seer she has already acted; her board sleeps,
+      // asks nothing and sends nothing.
       await r.ui.pumpUntil(
-        () =>
-            r.shows<NightBoard>() &&
-            r.board.prompt.window == 2 &&
-            r.button.phase != ButtonPhase.done,
-        reason: 'window 2, a fresh board',
+        () => r.shows<NightBoard>() && r.board.prompt.window == 2,
+        reason: 'window 2, a sleeping board',
       );
-      await r.shoot('window-2');
-
-      await r.tapCard(NightCopy.you);
-      expect(r.button.label, NightCopy.keep);
-      await r.tapButton(until: () => r.button.phase == ButtonPhase.done);
-      await r.shoot('kept');
+      expect(r.board.prompt.sleeps, isTrue);
+      expect(r.button.label, NightCopy.nothingToDo);
+      await r.shoot('window-2-sleeping');
 
       await r.api(() => r.everyoneElse((p) => r.choose(p, [])));
       await r.ui.pumpUntil(r.shows<TalkScreen>, reason: 'the talk');

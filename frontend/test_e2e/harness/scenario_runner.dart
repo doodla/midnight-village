@@ -55,6 +55,27 @@ class ReferenceGameRunner {
   /// Window numbers the runner closed with the timer hook (for assertions).
   final List<int> windowsClosedByTimer = [];
 
+  /// Per night window, the user ids whose prompt had nothing to choose (kind
+  /// `none`, nothing sent yet) when the runner read it.
+  final Map<int, Set<int>> sleepers = {};
+
+  /// The oracle's count of chooses from every [sleepers] phone is 0: the
+  /// server took nothing from a phone with nothing to choose.
+  Future<void> assertSleepersSentNothing() async {
+    final state = await oracle();
+    for (final MapEntry(key: window, value: ids) in sleepers.entries) {
+      for (final player in state.players.where((p) => ids.contains(p.userId))) {
+        expect(
+          player.chosen[window] ?? 0,
+          0,
+          reason:
+              '${game.name}: ${player.displayName} sent a choose in '
+              'window $window with nothing to choose',
+        );
+      }
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Setup
   // ---------------------------------------------------------------------------
@@ -110,6 +131,9 @@ class ReferenceGameRunner {
         }
         final prompt = view['action_prompt'];
         if (prompt is! Map<String, dynamic>) continue;
+        if (prompt['kind'] == 'none' && prompt['chosen'] == 0) {
+          (sleepers[prompt['window'] as int] ??= {}).add(playerAt(i).userId);
+        }
         if ((prompt['chooses_left'] as int) < 1) continue;
         await _controller.stagedAs(playerAt(i), 'action', {
           'action_type': 'choose',

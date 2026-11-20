@@ -172,6 +172,13 @@ def build_debug_state(game: Game) -> dict[str, Any]:
                 "connected": pr.user_id in connected_ids,
                 # "Ready to vote" (talk) / "looked at my card" (look stage).
                 "ready": bool(pr.phase_ready),
+                # How many `choose` the server took from this phone in each
+                # night window ("1", "2"): a phone with nothing to choose
+                # sends none (the harness checks no sleeper was waited for).
+                "chosen": {
+                    str(window): _chose(pr.night_action_data, window)
+                    for window in (1, 2)
+                },
             }
         )
         # EVERY player is a key; null = has not voted / abstained.
@@ -321,3 +328,9 @@ def fire_timer(game: Game, key_suffix: str) -> tuple[bool, str]:
     # never-scheduled timer: a safe no-op.
     result = timers.fire(full_key, None, force=True)
     return result.status == "ran", full_key
+
+
+def _chose(data: dict[str, Any], window: int) -> int:
+    """How many ``choose`` a phone sent in a night window (its stored count)."""
+    count = data.get(f"chose_{window}", 0)
+    return count if type(count) is int else 0

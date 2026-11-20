@@ -42,6 +42,10 @@ void main() {
         try {
           await runner.setUp();
           await runner.runToEnd();
+          // A phone with nothing to choose sent nothing, and every window
+          // closed by itself once the phones with a choice had chosen.
+          await runner.assertSleepersSentNothing();
+          expect(runner.windowsClosedByTimer, isEmpty, reason: game.name);
           if (game.hasVotes) await runner.assertResults();
         } on TestFailure {
           rethrow; // already recorded with its diff
@@ -109,8 +113,9 @@ void main() {
     };
 
     test('window 1: her look is read at once and arms her follow-up; window 2 '
-        'holds every result until the last phone has chosen; nothing is sent '
-        'to one player', () async {
+        'holds every result until the last phone WITH a choice has chosen; a '
+        'phone with nothing to choose sends nothing and is never waited for; '
+        'nothing is sent to one player', () async {
       final t = await table(fastTimers);
       final wires = {
         for (final p in t.players)
@@ -143,12 +148,13 @@ void main() {
       expect(aliceMe['action_prompt']['chooses_left'], 1);
       expect(await results(bob), isEmpty);
 
-      // Everyone chooses once and she sends her follow-up (nothing): window 1
-      // closes, one `night_window` for window 2 reaches every phone.
-      final marks = {for (final w in wires.values) w.player.userId: w.mark};
+      // Nobody else has anything to choose in window 1: they send nothing.
+      // Her follow-up (nothing) is all it waits for: it closes, and one
+      // `night_window` for window 2 reaches every phone.
       for (final p in [bob, carol, dave]) {
-        await choose(p);
+        expect((await me(p))['action_prompt']['chooses_left'], 0);
       }
+      final marks = {for (final w in wires.values) w.player.userId: w.mark};
       await choose(alice);
       for (final w in wires.values) {
         final opened = await w.waitForEvent(
@@ -170,14 +176,14 @@ void main() {
       expect((await me(dave))['action_prompt']['kind'], 'none');
       expect((await me(alice))['action_prompt']['kind'], 'none');
 
-      // Bob, Carol and Alice choose; Dave has not. Nobody has a result yet.
+      // Bob chooses; Carol has not. Dave and Alice have nothing to choose
+      // and send nothing. Nobody has a result yet.
+      for (final p in [dave, alice]) {
+        expect((await me(p))['action_prompt']['chooses_left'], 0);
+      }
       await choose(bob, [
         {'player_id': carol.userId},
       ]);
-      await choose(carol, [
-        {'center_index': 0},
-      ]);
-      await choose(alice);
       // Positive synchronisation instead of a sleep: Alice's phone drops and
       // comes back; the others hear both presence events, so anything sent
       // before them is already recorded.
@@ -209,8 +215,11 @@ void main() {
       }
       expect((await controller.oracle()).currentWave, 2);
 
-      // Dave chooses: the window closes and the talk opens.
-      await choose(dave);
+      // Carol chooses, the last phone with a choice: the window closes and
+      // the talk opens, without a word from Dave or Alice.
+      await choose(carol, [
+        {'center_index': 0},
+      ]);
       for (final name in ['Bob', 'Carol', 'Dave']) {
         await wires[name]!.waitForEvent(
           'phase_change',
@@ -236,6 +245,18 @@ void main() {
           reason: '${w.player.displayName} heard a per-player night event',
         );
       }
+      // The oracle: the sleepers sent nothing in either window, and nothing
+      // was closed by a timer.
+      final chosen = {
+        for (final p in (await controller.oracle()).players)
+          p.displayName: p.chosen,
+      };
+      expect(chosen, {
+        'Alice': {1: 2, 2: 0},
+        'Bob': {1: 0, 2: 1},
+        'Carol': {1: 0, 2: 1},
+        'Dave': {1: 0, 2: 0},
+      });
     });
 
     test('window 1 lasts exactly its fixed length and window 2 never closes '

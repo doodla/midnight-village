@@ -94,6 +94,7 @@ class DebugOraclePlayer {
     required this.doppelgangerCopiedRole,
     required this.team,
     required this.connected,
+    this.chosen = const {},
   });
 
   factory DebugOraclePlayer.fromJson(Map<String, dynamic> json) =>
@@ -106,6 +107,11 @@ class DebugOraclePlayer {
         doppelgangerCopiedRole: json['doppelganger_copied_role'] as String?,
         team: json['team'] as String,
         connected: json['connected'] as bool,
+        chosen: {
+          for (final MapEntry(:key, :value)
+              in ((json['chosen'] as Map?) ?? const {}).entries)
+            int.parse(key as String): value as int,
+        },
       );
 
   final int userId;
@@ -120,6 +126,9 @@ class DebugOraclePlayer {
   /// "werewolf" | "village" | "neutral" (Tanner = "neutral").
   final String team;
   final bool connected;
+
+  /// How many `choose` the server took from this phone, by night window.
+  final Map<int, int> chosen;
 }
 
 class DebugNightAction {

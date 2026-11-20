@@ -137,8 +137,13 @@ class Phone {
     );
   }
 
-  Future<void> choose(DebugPlayer p, List<Map<String, Object>> picks) =>
-      staged(p, 'action', {'action_type': 'choose', 'picks': picks});
+  /// [p]'s choose, as its phone sends it: only while its prompt still has
+  /// a turn (`chooses_left`). A phone with nothing to choose sends nothing.
+  Future<void> choose(DebugPlayer p, List<Map<String, Object>> picks) async {
+    final prompt = (await table.me(p))['action_prompt'] as Map?;
+    if (prompt == null || (prompt['chooses_left'] as int) < 1) return;
+    await staged(p, 'action', {'action_type': 'choose', 'picks': picks});
+  }
 
   /// What is true on the server (the debug-state oracle). Called inside
   /// [api] (the real zone) only.

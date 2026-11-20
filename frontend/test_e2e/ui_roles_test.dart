@@ -108,8 +108,9 @@ Future<void> _play(Phone r, ReferenceGame g, int seat) async {
         await r.tapButton(until: () => r.button.phase == ButtonPhase.done);
       }
     } else {
-      await r.tapCard(NightCopy.you);
-      await r.tapButton(until: () => r.button.phase == ButtonPhase.done);
+      // Nothing to choose in window 1: the board asks nothing.
+      expect(r.board.prompt.sleeps, isTrue);
+      expect(r.button.label, NightCopy.nothingToDo);
     }
     await r.api(() async {
       await r.everyoneElse((p) async {
@@ -125,27 +126,32 @@ Future<void> _play(Phone r, ReferenceGame g, int seat) async {
     });
   }
 
-  // Window 2: the phone's own choice on the board, the rest through the API.
+  // Window 2: the phone's own choice on the board (a phone with nothing to
+  // choose is asked nothing and sends nothing), the rest through the API.
   await r.ui.pumpUntil(
     () =>
         r.shows<NightBoard>() &&
         r.board.prompt.window == 2 &&
-        r.button.phase != ButtonPhase.done,
+        (r.board.prompt.sleeps || r.button.phase != ButtonPhase.done),
     reason: 'window 2',
   );
   await r.shoot('window-2');
-  final mine = _windowTwo(g, seat);
-  if (mine.isEmpty) {
-    await r.tapCard(NightCopy.you);
-    expect(r.button.label, NightCopy.keep);
+  if (r.board.prompt.sleeps) {
+    expect(r.button.label, NightCopy.nothingToDo);
   } else {
-    for (final pick in mine) {
-      await r.tapCard(pick.$1 ?? _place(pick.$2!));
+    final mine = _windowTwo(g, seat);
+    if (mine.isEmpty) {
+      await r.tapCard(NightCopy.you);
+      expect(r.button.label, NightCopy.keep);
+    } else {
+      for (final pick in mine) {
+        await r.tapCard(pick.$1 ?? _place(pick.$2!));
+      }
     }
+    await r.shoot('picked');
+    await r.tapButton(until: () => r.button.phase == ButtonPhase.done);
+    await r.shoot('chosen');
   }
-  await r.shoot('picked');
-  await r.tapButton(until: () => r.button.phase == ButtonPhase.done);
-  await r.shoot('chosen');
   await r.api(
     () => r.everyoneElse((p) {
       final i = g.players.indexOf(p.displayName);

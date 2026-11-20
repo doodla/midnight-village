@@ -272,7 +272,8 @@ drifted in 5 fields):**
     "doppelganger_copied_role": null,        // role the Doppelganger copied, else null (scenarios 4/7/10)
     "team": "village",                        // get_effective_team → "werewolf"|"village"|"neutral" (Tanner = "neutral", NOT "tanner")
     "connected": true,
-    "ready": false                            // PlayerRole.phase_ready: "ready to vote" in the talk, "looked at my card" in the look stage
+    "ready": false,                           // PlayerRole.phase_ready: "ready to vote" in the talk, "looked at my card" in the look stage
+    "chosen": {"1": 0, "2": 1}                // how many `choose` the server took from this phone per night window (a phone with nothing to choose sends none)
   }],
   "night_actions_log": [                      // NOTE plural; mirror models.py field exactly
     { "wave": 3, "player_id": 14, "role_acting_as": "Robber",   // wave = order group 1-4 (wake order), NOT the window; role_acting_as enriched from PlayerRole.night_action_data

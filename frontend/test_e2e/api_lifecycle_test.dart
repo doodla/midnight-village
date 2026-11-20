@@ -350,26 +350,31 @@ void main() {
       expect(result['revealed_info'], {'card_index': 2});
     });
 
-    test('a dropped Seer (an actor) and a dropped Villager (no action) close '
-        'the window after the same grace period: neither before it, within '
-        '${_closeSpread.inSeconds} s of each other, and Alice\'s phone gets '
-        'the same events up to the discussion', () async {
-      final both = await Future.wait([
-        _dropThenEveryoneElseActs('Bob'),
-        _dropThenEveryoneElseActs('Dave'),
-      ]);
-      final seer = both[0], villager = both[1];
-
-      // (Each run already asserted its own window was not closed early.)
-      expect(
-        (seer.closedAfter - villager.closedAfter).abs(),
-        lessThan(_closeSpread),
-        reason:
-            'closed ${seer.closedAfter} after the Seer dropped, '
-            '${villager.closedAfter} after the Villager did',
-      );
-      expect(seer.trace, villager.trace);
+    test('a dropped Seer (an actor) holds the window for the grace period; '
+        'a dropped Villager (nothing to choose) holds nothing: the window closes '
+        'once the phones with a choice have chosen, and the oracle has no '
+        'choose from him', () async {
+      final seer = await _dropThenEveryoneElseActs('Bob');
       expect(seer.trace, contains('phase_change:discussion'));
+      expect(seer.closedAfter, greaterThanOrEqualTo(_grace - _closeSpread));
+
+      final t = await _openTable({'disconnect_grace_seconds': _graceSeconds});
+      addTearDown(t.closeAll);
+      await _connectEveryone(t);
+      final alice = t.player('Alice'), wire = t.gameWire(alice);
+      final dave = t.player('Dave');
+      final mark = wire.mark;
+      await t.dropGame(dave);
+      await _presence(wire, dave, false, after: mark);
+      final quick = TimeBox('well inside the grace period', _grace);
+      await _choose(t, alice, [_center0]);
+      await _choose(t, t.player('Bob'));
+      await _choose(t, t.player('Carol'), [
+        {'center_index': 1},
+      ]);
+      await _phaseChange(wire, 'discussion', after: mark, timeout: _grace);
+      expect(quick.elapsed, lessThan(_grace), reason: 'not waited for');
+      expect((_player(await t.oracleJson(), dave)['chosen'] as Map)['2'], 0);
     });
 
     test(
@@ -901,15 +906,20 @@ Future<void> _connectEveryone(LiveTable t, {bool lobby = false}) async {
 }
 
 /// [player]'s one `choose` for the open window (naming the stage and the
-/// prompt's `chosen` their `/me/` shows).
+/// prompt's `chosen` their `/me/` shows), as their phone sends it: only while
+/// its prompt has a turn. A phone with nothing to choose sends nothing.
 Future<void> _choose(
   LiveTable t,
   DebugPlayer player, [
   List<Map<String, Object>> picks = const [],
-]) => t.controller.stagedAs(player, 'action', {
-  'action_type': 'choose',
-  'picks': picks,
-});
+]) async {
+  final prompt = (await t.controller.playerView(player))['action_prompt'];
+  if (prompt is! Map || (prompt['chooses_left'] as int) < 1) return;
+  await t.controller.stagedAs(player, 'action', {
+    'action_type': 'choose',
+    'picks': picks,
+  });
+}
 
 /// The lone Werewolf's look at the first centre card.
 const _center0 = {'center_index': 0};
@@ -946,7 +956,8 @@ Future<Map<String, dynamic>> _phaseChange(
 
 /// Window 2 with everyone present: the lone Werewolf looks at the center, the
 /// Seer picks nothing, the Drunk swaps with the middle card, the Villager has
-/// nothing to choose. The window closes when the last phone has chosen.
+/// nothing to choose and sends nothing. The window closes when the last phone
+/// with a choice has chosen.
 Future<void> _playNight(LiveTable t) async {
   final alice = t.player('Alice');
   final mark = t.gameWire(alice).mark;
