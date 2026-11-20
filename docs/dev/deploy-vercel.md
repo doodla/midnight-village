@@ -169,3 +169,13 @@ before real players can use it.
   the plan.
 * Cold-start cost after a long idle period, and many tables at once.
 * The Flutter app is not deployed anywhere yet, and `CORS_ALLOWED_ORIGINS` is empty.
+
+## Deploy-safe changes
+
+The previous code serves while `migrate` runs on every deploy (every push to the working branch builds and migrates the shared database). Checked by tests and `just check`, not by habit:
+- **Migrations are frozen once pushed.** Every push migrates the live database; to change the schema again, add a NEW migration, never edit a pushed one. `just check` runs `makemigrations --check --dry-run` (a model change without its migration fails the gate and CI).
+- **No application code in a migration** (no `from apps...`): copy what it needs, frozen. `tests/test_migration_rules.py` scans every migration file.
+- **`SET LOCAL lock_timeout = '5s'` is the first operation** of every migration from 0010 on (same test), so an ALTER that cannot get its lock fails the build instead of blocking the live site behind it.
+- **Every new NOT NULL column has a `db_default`** (and a Python `default`), because the old code's INSERTs omit it. A backfill touches only what it must (finished tables stay blank) and new code treats a blank value as "not backfilled yet" (a blank token is filled at the deal).
+- **The migration test gains a case per migration.** `tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`tests/old_code.py`, never add columns to them), then back and forward again. `just test` runs it as a second pass (`just test-migrations`, about 5 s); CI runs `just test`.
+- **A new socket event type reaches instances that have no handler:** consumers extend `core.consumers.TolerantJsonWebsocketConsumer`, which logs an unknown type at WARNING and drops it (and raises when `ONUW_STRICT_SOCKET_EVENTS` is true: test, development and harness settings, so a misspelled type in new code still fails the suite).

@@ -718,8 +718,7 @@ drives them. Until screens 04 to 09 are rebuilt the server keeps today's behavio
 whose settings do not say `night_protocol: 2`, and `lock` on a vote defaults to true. The new
 screens' lobby defaults write `night_protocol: 2`. When the last old screen is gone, protocol 1,
 the legacy vote fields (`vote_submitted.player_id`, `has_voted`), the per-role prompt events
-and this paragraph are deleted in one cleanup slice (tracked in `frontend/CLAUDE.md`,
-"Removing the old look").
+and this paragraph are deleted in one cleanup slice (tracked in `docs/dev/status.md`).
 
 **Stages (20 November 2026, `docs/specs/frontend/first-time-play.md` sections 7 and 8).** Under `night_protocol: 2` every stage-scoped request (`choose`, `ready`, `vote`, and the host's `advance-wave`, `end-discussion`, `reveal-votes`) carries the `stage` string that `GET /me/` returns, and a request for a stage that has passed is `409 {"code":"wrong_stage"}` and does nothing; this replaces `from_window` for protocol 2. A phone chooses once per window (only the Doppelganger sends a second in window 1; the server takes a second from anyone, and every choose names the prompt it answers so a resend is never taken for a second: see "Third amendment" below), the prompt carries `shapes` (which picks would do something, as data), and `vote_submitted {player_id}` is not sent: votes announce counts only. `defaults: "v2"` writes only `card_look_seconds`, `night_protocol` and the automatic deck (no timer length). See `backend/CLAUDE.md`, "Night protocol 2".
 
@@ -812,5 +811,5 @@ else's; protocol 1 is unchanged.
   `POST .../action/` in window 1. Someone watching the table's network traffic can see
   that extra request (not its content). The answer is the same bytes as anyone's, and the
   server would take a second choose from any phone; the extra request itself is visible
-  and accepted, as is her look's extra work in her first request (`backend/CLAUDE.md`). The legacy
+  and accepted, as is her look's extra work in her first request (`backend/apps/onuw/README.md`). The legacy
   `has_voted` and `your_role.has_acted` are still sent; they go with the cleanup slice.

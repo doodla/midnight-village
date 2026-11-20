@@ -143,7 +143,7 @@ Decided on 18 November 2026:
 
 ## 10. What this needs from the server
 
-Built (see `backend/CLAUDE.md` and `docs/dev/debug-harness/contract.md`):
+Built (see `backend/apps/onuw/README.md`, `backend/apps/core/README.md` and `docs/dev/debug-harness/contract.md`):
 
 - The shared-window night (section 5), replacing the four separate steps.
 - The Werewolf / Mason team fix: teams come from the cards dealt, not the cards held.

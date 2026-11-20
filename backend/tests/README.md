@@ -1,0 +1,26 @@
+# Backend tests
+
+`just test` runs pytest (built from the models, `--nomigrations`) and then the migration
+tests in a second pass (`just test-migrations`). `just test tests/path/test_x.py` runs one
+file (first pass only). Conventions: descriptive names, every random choice seeded,
+multi-player scenarios. Coverage minimum 80% (`pyproject.toml`).
+
+## Side effects after commit, and timers in tests
+
+Every WebSocket send and `timers.schedule/cancel` in the night flow goes through `transaction.on_commit` (`_send_after_commit`, `_schedule_after_commit`, `_cancel_after_commit`), so a rollback leaves nothing sent or rescheduled. Tests that call these services inside pytest's transaction must use `django_capture_on_commit_callbacks(execute=True)` (or `django_db(transaction=True)`). The autouse fixture makes `timers.schedule` a no-op; `make_night` (`tests/onuw/conftest.py`) records `(key, delay, callback)` instead, where calling the callback runs the job; tests that need real rows/threads use `@pytest.mark.uses_timers` and, for the queue backend, `timers.set_queue_sender(fake)` + `queue_worker.handle_message(payload)`.
+
+## Traps
+
+- **WebSocket connections require JWT auth.** The ASGI middleware validates tokens. Tests need `WebsocketCommunicator` with an authenticated user scope — unauthenticated connections are rejected silently.
+
+- **Throttle rates must be configured in test settings.** Guest auth endpoints use DRF throttling. If `DEFAULT_THROTTLE_RATES` is missing from test settings, guest creation tests fail with 429s that look like server errors.
+
+## Migration tests
+
+`tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`tests/old_code.py`, never add columns to them), then back and forward again. Add a case per migration. `tests/test_migration_rules.py` scans every migration file for app imports and the `lock_timeout` first operation. The rules themselves: `docs/dev/deploy-vercel.md`, "Deploy-safe changes".
+
+## Contract samples (`tests/contract/`)
+
+`tests/contract/` records what the server sends, for the app's tests: `scenarios.py` plays three tables (a classic six-player game with the default timers, "where am I" in every state, the night results ack, recent games and online stats; an untimed eight-player game with a Doppelganger, every remaining prompt kind and the night timeline, then more games there by play again (she copies a Werewolf, a Mason, an Insomniac, the Minion; a dealt Tanner dies); a full ten-player table for the join refusals) through the real API (`recorder.Table`: DRF test client against the URL conf; a `RecordingLayer` channel layer whose group messages are turned into client frames by the consumers' own handlers; on-commit effects run per request; real timer rows with no thread, `is_scheduled` = the row exists, fired by claiming the row; clock frozen at a past date, user ids from 1, fixed lobby codes and forced-deal seed; game ids, guest usernames and tokens replaced by stable stand-ins). Each socket sample's index entry has `group` (`player` or `broadcast`) and `recipients`; `test_contract_privacy.py` fails if a night prompt, result or `wave_waiting` is broadcast, or a game broadcast before the results names a role. `test_contract_samples.py` writes them to `contract_samples/` at the repo root with `UPDATE_CONTRACT_SAMPLES=1` (`just samples`) and otherwise fails, with a diff, if the committed files differ. A new endpoint, event or situation is a `table.record(...)` / `table.record_event(...)` line in `scenarios.py`, then `just samples`. A payload change shows up as a diff of the samples (review it), and may fail the app's tests where a fixture relied on the old shape.
+
+**Night protocol 2 samples.** `scenarios.protocol_two_tables` (after the three tables above, so their samples never move) plays four more tables: a plain five-player table made with `defaults: "v2"` (the look stage with `ready` / `progress`, window 2 where every phone chooses once, the lone Werewolf's prompt, every `choose` answer and refusal, ready to vote, the lock-in vote with pick / re-pick / lock / 409, the oracle), a nine-player Doppelganger table with a real Werewolf pack (window 1 with her two chooses and a stale-stage refusal, her look listed at once, then window 2 and every prompt kind; the recorder sends each request's current `stage` unless a scenario names a stale one), and the automatic deck at 5 (classic) and 9 (chaos) players. **A game without `night_protocol: 2` is answered exactly as before** (no `my_vote` / `ready` / `progress` in `/me/`, no `code` and the old wording in vote errors, no `ready` / `vote_locked` in the oracle): the original samples must not change, and a diff in one is a behaviour change to fix, not to regenerate. `Table.record_sequence` stores per seat the TYPES of the game events heard in a window (`ws_sequence/*`); the privacy test requires them equal for every seat and free of player-only night events, and every `night_window` / `progress` / `wave_complete` sample to be a broadcast.
