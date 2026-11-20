@@ -4,159 +4,6 @@ import 'package:midnight_village/features/lobby/domain/role_config.dart';
 
 void main() {
   group('RoleConfig', () {
-    group('isValid', () {
-      test('returns true when total cards equals playerCount + 3', () {
-        // 3 players need 6 cards
-        final roles = {
-          RoleId.werewolf: 2,
-          RoleId.seer: 1,
-          RoleId.robber: 1,
-          RoleId.troublemaker: 1,
-          RoleId.villager: 1,
-        };
-        expect(RoleConfig.isValid(roles, 3), isTrue);
-      });
-
-      test('returns false when total cards does not equal playerCount + 3', () {
-        // 3 players need 6 cards, but only 5 provided
-        final roles = {
-          RoleId.werewolf: 2,
-          RoleId.seer: 1,
-          RoleId.robber: 1,
-          RoleId.troublemaker: 1,
-        };
-        expect(RoleConfig.isValid(roles, 3), isFalse);
-      });
-
-      test('returns false when player count is below 3', () {
-        final roles = {
-          RoleId.werewolf: 2,
-          RoleId.seer: 1,
-          RoleId.robber: 1,
-          RoleId.troublemaker: 1,
-        };
-        expect(RoleConfig.isValid(roles, 2), isFalse);
-      });
-
-      test('returns false when player count is above 10', () {
-        final roles = {
-          RoleId.werewolf: 2,
-          RoleId.seer: 1,
-          RoleId.robber: 1,
-          RoleId.troublemaker: 1,
-          RoleId.villager: 3,
-          RoleId.mason: 2,
-          RoleId.drunk: 1,
-          RoleId.insomniac: 1,
-          RoleId.tanner: 1,
-          RoleId.hunter: 1,
-        };
-        expect(RoleConfig.isValid(roles, 11), isFalse);
-      });
-
-      test('returns false when Mason count is 1', () {
-        final roles = {
-          RoleId.werewolf: 2,
-          RoleId.seer: 1,
-          RoleId.mason: 1, // invalid -- masons come in pairs
-          RoleId.troublemaker: 1,
-          RoleId.villager: 1,
-        };
-        expect(RoleConfig.isValid(roles, 3), isFalse);
-      });
-
-      test('returns true when Mason count is 0', () {
-        final roles = {
-          RoleId.werewolf: 2,
-          RoleId.seer: 1,
-          RoleId.robber: 1,
-          RoleId.troublemaker: 1,
-          RoleId.villager: 1,
-        };
-        // mason count is implicitly 0 (not in map)
-        expect(RoleConfig.isValid(roles, 3), isTrue);
-      });
-
-      test('returns true when Mason count is 2', () {
-        // 5 players need 8 cards
-        final roles = {
-          RoleId.werewolf: 2,
-          RoleId.seer: 1,
-          RoleId.robber: 1,
-          RoleId.troublemaker: 1,
-          RoleId.mason: 2,
-          RoleId.villager: 1,
-        };
-        expect(RoleConfig.isValid(roles, 5), isTrue);
-      });
-
-      test(
-        'returns true for empty roles with valid player count when total matches',
-        () {
-          // Edge case: technically impossible since 0 != playerCount + 3 for any valid count
-          expect(RoleConfig.isValid({}, 3), isFalse);
-        },
-      );
-    });
-
-    group('validationError', () {
-      test('returns null for valid configuration', () {
-        final roles = {
-          RoleId.werewolf: 2,
-          RoleId.seer: 1,
-          RoleId.robber: 1,
-          RoleId.troublemaker: 1,
-          RoleId.villager: 1,
-        };
-        expect(RoleConfig.validationError(roles, 3), isNull);
-      });
-
-      test('returns descriptive error for wrong total', () {
-        final roles = {RoleId.werewolf: 2, RoleId.seer: 1};
-        final error = RoleConfig.validationError(roles, 3);
-        expect(error, isNotNull);
-        expect(error, contains('6'));
-        expect(error, contains('3'));
-      });
-
-      test('returns descriptive error for invalid player count', () {
-        expect(RoleConfig.validationError({}, 2), contains('between 3 and 10'));
-        expect(
-          RoleConfig.validationError({}, 11),
-          contains('between 3 and 10'),
-        );
-      });
-
-      test('returns descriptive error for Mason count of 1', () {
-        final roles = {
-          RoleId.werewolf: 2,
-          RoleId.seer: 1,
-          RoleId.mason: 1,
-          RoleId.troublemaker: 1,
-          RoleId.villager: 1,
-        };
-        final error = RoleConfig.validationError(roles, 3);
-        expect(error, isNotNull);
-        expect(error, contains('Mason'));
-        expect(error, contains('pairs'));
-      });
-
-      test('returns descriptive error for negative count', () {
-        final roles = {RoleId.werewolf: -1};
-        final error = RoleConfig.validationError(roles, 3);
-        expect(error, isNotNull);
-        expect(error, contains('negative'));
-      });
-
-      test('returns descriptive error when count exceeds max', () {
-        final roles = {RoleId.seer: 2}; // max is 1
-        final error = RoleConfig.validationError(roles, 3);
-        expect(error, isNotNull);
-        expect(error, contains('Seer'));
-        expect(error, contains('exceed'));
-      });
-    });
-
     group('stepSize', () {
       test('returns 2 for Mason', () {
         expect(RoleConfig.stepSize(RoleId.mason), 2);
@@ -200,31 +47,11 @@ void main() {
       });
     });
 
-    group('totalCards', () {
-      test('returns sum of all role counts', () {
-        final roles = {
-          RoleId.werewolf: 2,
-          RoleId.seer: 1,
-          RoleId.robber: 1,
-          RoleId.troublemaker: 1,
-          RoleId.villager: 1,
-        };
-        expect(RoleConfig.totalCards(roles), 6);
-      });
-
-      test('returns 0 for empty map', () {
-        expect(RoleConfig.totalCards({}), 0);
-      });
-    });
-
     group('presetsForPlayerCount', () {
       test('returns presets for 3 players', () {
         final presets = RoleConfig.presetsForPlayerCount(3);
         expect(presets, isNotEmpty);
         expect(presets.containsKey('Starter'), isTrue);
-        // Verify preset is valid: 3 players + 3 center = 6 cards
-        expect(RoleConfig.totalCards(presets['Starter']!), 6);
-        expect(RoleConfig.isValid(presets['Starter']!, 3), isTrue);
       });
 
       test('returns presets for 5 players with three difficulty levels', () {
@@ -235,14 +62,15 @@ void main() {
         expect(presets.containsKey('Advanced'), isTrue);
       });
 
-      test('all presets are valid for their player count', () {
+      test('every preset holds a card for each player and three more', () {
+        // The recommended setups' own size (the server checks any deck).
         for (var count = 3; count <= 10; count++) {
           final presets = RoleConfig.presetsForPlayerCount(count);
           for (final entry in presets.entries) {
             expect(
-              RoleConfig.isValid(entry.value, count),
-              isTrue,
-              reason: '${entry.key} preset for $count players should be valid',
+              entry.value.values.fold(0, (a, b) => a + b),
+              count + 3,
+              reason: '${entry.key} preset for $count players',
             );
           }
         }

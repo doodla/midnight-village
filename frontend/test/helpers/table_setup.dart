@@ -39,50 +39,37 @@ import 'protocol_two_setup.dart' show testHealTiming;
 // and the recent games. The lobby socket is a fake the test pushes events
 // into.
 
-/// The recorded protocol-2 lobby bodies: [players] at the table (members
-/// dropped from the end, or added like the last with the tokens nobody
-/// has), every name in [rename] renamed, [notReady] not ready yet (the
-/// others as recorded).
+/// The recorded protocol-2 lobby bodies, every name in [rename] renamed.
+/// The member count, the deck, its preview and the `deal` verdict are the
+/// server's, as recorded: a test picks the sample of its situation.
+///
+/// The older recordings (`detail_v2_auto_deck_*`, `detail_v2_custom_deck`,
+/// `created_with_defaults`) were made with no socket open, so they say every
+/// phone has dropped: unless [asRecorded], every member is `connected` but
+/// those in [dropped].
 ///
 /// - `detail_v2_auto_deck_5`: Ana's table of five, the Classic chip.
 /// - `detail_v2_auto_deck_9`: nine, the Chaos chip.
 /// - `detail_v2_custom_deck`: nine, Ana's own deck of twelve cards.
-/// - `created_with_defaults`: Ana alone, the Simple chip, not ready.
+/// - `created_with_defaults`: Ana alone, the Simple chip.
+/// - `detail_v2_deck_<chip>_4` and `_7`: Kai's table of four or seven, that
+///   chip, its cards.
+/// - `detail_v2_custom_deck_ok`, `_short`: Kai's own deck of ten for seven,
+///   then an eighth player: one card short.
+/// - `detail_v2_member_dropped`: Kai's four, Noa's phone dropped.
 Map<String, dynamic> v2Lobby(
   String sample, {
-  int? players,
   Map<String, String> rename = const {},
-  Set<String> notReady = const {},
+  Set<String> dropped = const {},
+  bool asRecorded = false,
 }) {
   final body = ContractSamples.map('http/lobby/$sample');
   final members = (body['players'] as List).cast<Map<String, dynamic>>();
-  final count = players ?? members.length;
-  if (members.length > count) members.removeRange(count, members.length);
-  const tokens = [
-    'crow', 'key', 'moth', 'lantern', 'bell', //
-    'thorn', 'antler', 'scythe', 'hare', 'raven',
-  ];
-  final unused = tokens.where((t) => !members.any((m) => m['token'] == t));
-  for (final (i, token) in unused.take(count - members.length).indexed) {
-    final last = members.last;
-    final user = last['user'] as Map<String, dynamic>;
-    final id = (user['id'] as int) + 1;
-    members.add(
-      withValues(last, {
-        'user': withValues(user, {
-          'id': id,
-          'username': '00000000-0000-4000-8000-${'$id'.padLeft(12, '0')}',
-          'display_name': const ['Fin', 'Gus', 'Hana', 'Ida', 'Jo'][i],
-        }),
-        'token': token,
-      }),
-    );
-  }
   for (final member in members) {
     final user = member['user'] as Map<String, dynamic>;
     final name = user['display_name'] as String;
+    if (!asRecorded) member['connected'] = !dropped.contains(name);
     user['display_name'] = rename[name] ?? name;
-    if (notReady.contains(name)) member['is_ready'] = false;
   }
   final host = body['host'] as Map<String, dynamic>;
   host['display_name'] =
@@ -234,14 +221,7 @@ class TableSetup {
   }
 
   void _answerLobby() {
-    http
-      ..answer('GET', '/lobbies/$code/', lobby)
-      // The phone ignores the body; the recorded answer is another table's.
-      ..answer(
-        'POST',
-        '/lobbies/$code/ready/',
-        ContractSamples.map('http/lobby/ready'),
-      );
+    http.answer('GET', '/lobbies/$code/', lobby);
   }
 
   /// The server has seated this phone, as [viewer], at [body] (a table

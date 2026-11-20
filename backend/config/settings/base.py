@@ -42,6 +42,11 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+# A web app may read only the response headers CORS exposes: the app reads the
+# server's clock from `Date` (to draw a stage's time against `deadline` and
+# `stage_started_at`). The allowed origins stay per environment.
+CORS_EXPOSE_HEADERS = ["Date"]
+
 ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [

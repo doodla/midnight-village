@@ -1,54 +1,11 @@
 import 'package:midnight_village/design_system/models/role.dart';
 
-/// Utility class for role configuration validation and recommended presets.
+/// How the deck grid steps a role (03) and the debug toolbar's presets.
 ///
-/// This is pure UI convenience logic -- the server re-validates all role
-/// configurations on game start. These checks let us disable the start
-/// button and show helpful error messages without a round-trip.
+/// The phone holds no deck rule: whether a deck can be dealt is the server's
+/// `deal` (`DealState`).
 class RoleConfig {
   RoleConfig._();
-
-  /// Validates that a role configuration is legal for the given player count.
-  ///
-  /// Rules:
-  /// - Player count must be 3-10.
-  /// - Total cards must equal playerCount + 3 (players + 3 center cards).
-  /// - Each role count must be >= 0.
-  /// - Mason count must be 0 or 2 (they come in pairs).
-  static bool isValid(Map<RoleId, int> roles, int playerCount) {
-    return validationError(roles, playerCount) == null;
-  }
-
-  /// Returns a human-readable error message, or null if the configuration
-  /// is valid.
-  static String? validationError(Map<RoleId, int> roles, int playerCount) {
-    if (playerCount < 3 || playerCount > 10) {
-      return 'Player count must be between 3 and 10';
-    }
-
-    for (final entry in roles.entries) {
-      if (entry.value < 0) {
-        return '${entry.key.displayName} count cannot be negative';
-      }
-      if (entry.value > maxCount(entry.key)) {
-        return '${entry.key.displayName} count cannot exceed ${maxCount(entry.key)}';
-      }
-    }
-
-    final masonCount = roles[RoleId.mason] ?? 0;
-    if (masonCount != 0 && masonCount != 2) {
-      return 'Masons must be included in pairs (0 or 2)';
-    }
-
-    final total = totalCards(roles);
-    final expected = playerCount + 3;
-    if (total != expected) {
-      return 'Need exactly $expected cards ($playerCount players + 3 center), '
-          'currently have $total';
-    }
-
-    return null;
-  }
 
   /// Returns the step size for incrementing/decrementing a role.
   ///
@@ -67,11 +24,6 @@ class RoleConfig {
     RoleId.mason => 2,
     _ => 1,
   };
-
-  /// Sum of all role counts.
-  static int totalCards(Map<RoleId, int> roles) {
-    return roles.values.fold(0, (sum, count) => sum + count);
-  }
 
   /// Returns named preset configurations for the given player count.
   ///

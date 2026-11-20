@@ -127,5 +127,7 @@
     "done": 0,
     "needed": 9
   },
-  "stage": "talk.000000000008"
+  "stage": "talk.000000000008",
+  "stage_started_at": "2024-03-07T21:27:38+00:00",
+  "vote_targets": null
 }

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
+import 'package:midnight_village/design_system/primitives/panels.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 
@@ -157,4 +158,172 @@ Future<void> pumpNightTenLong(WidgetTester tester) => _shell(
     add: 1,
     rename: sheet.longNames,
   ),
+);
+
+// ---------------------------------------------------------------------------
+// 08 Talk
+// ---------------------------------------------------------------------------
+
+/// What a phone has learned by its first talk: the holds of 04 and "You",
+/// and the board's wave; not yet My night.
+const _firstTalk = {Cue.hold, Cue.holdYou, Cue.nightChoose};
+
+/// 08 as the night ends, in a first game: the sun, My night with its hold
+/// ring, nobody ready. Game 7, Ana the Seer.
+Future<ShellSetup> pumpTalkOpen(
+  WidgetTester tester, {
+  double textScale = 1,
+  Set<Cue> learned = _firstTalk,
+}) => _shell(
+  tester,
+  sheet.recordedMe('me_discussion_choose_seer'),
+  learned: learned,
+  textScale: textScale,
+);
+
+/// 08 with My night held: the result first (Cleo's card).
+Future<void> pumpTalkHeld(WidgetTester tester) async {
+  final setup = await pumpTalkOpen(tester);
+  _answerSeen(setup);
+  await holdDown(tester, find.byType(PeekBox));
+}
+
+/// The first reveal of My night acknowledges the night's results.
+void _answerSeen(ShellSetup setup) =>
+    setup.answerPost('/night-results/seen/', 'game/night_results_seen');
+
+/// 08 on the Doppelganger's phone (game 8), held a second time: window 1's
+/// page, after the result.
+Future<void> pumpTalkDoppelgangerHeld(WidgetTester tester) async {
+  final setup = await _shell(
+    tester,
+    sheet.recordedMe('me_discussion_choose_doppelganger'),
+    learned: _firstTalk,
+  );
+  _answerSeen(setup);
+  final first = await holdDown(tester, find.byType(PeekBox));
+  await first.up();
+  await tester.pump();
+  await holdDown(tester, find.byType(PeekBox));
+}
+
+/// 08 after "Ready to vote", as `/me/` has it (a restart lands here too):
+/// "Ready ✓", one of five ready.
+Future<void> pumpTalkReady(WidgetTester tester) =>
+    _shell(tester, sheet.recordedMe('me_talk_ready'));
+
+/// 08 when a ready got no answer: "Not sent." with "Try again".
+Future<void> pumpTalkNotSent(WidgetTester tester) async {
+  final setup = await pumpTalkOpen(tester, learned: Cue.values.toSet());
+  setup.failPost('/ready/');
+  await tester.tap(find.byType(PrimaryButton).last);
+  await setup.settle(tester);
+}
+
+/// 08 at game 8's nine-seat table, on the Drunk's phone.
+Future<void> pumpTalkNine(WidgetTester tester) => _shell(
+  tester,
+  sheet.recordedMe('me_discussion_choose_drunk'),
+  learned: Cue.values.toSet(),
+);
+
+/// 08 at three: game 7 without Dev and Esme.
+Future<void> pumpTalkThree(WidgetTester tester) => _shell(
+  tester,
+  sheet.tableOf(
+    sheet.recordedMe('me_discussion_choose_seer'),
+    leave: {sheet.dev.name, sheet.esme.name},
+  ),
+  learned: Cue.values.toSet(),
+);
+
+/// 08 at ten, with long names (game 8 and one more seat).
+Future<void> pumpTalkTenLong(WidgetTester tester) => _shell(
+  tester,
+  sheet.tableOf(
+    sheet.recordedMe('me_discussion_choose_drunk'),
+    add: 1,
+    rename: sheet.longNames,
+  ),
+  learned: Cue.values.toSet(),
+);
+
+// ---------------------------------------------------------------------------
+// 09 Vote
+// ---------------------------------------------------------------------------
+
+/// Game 7 at ten: its five and five more seats, with long names.
+const _tenLongNames = {
+  'Ana': 'Christopher',
+  'Ben': 'Maximiliano',
+  'Cleo': 'Jo',
+  'Dev': 'Esmeralda',
+  'Esme': 'Bartholomew',
+  'Seat 32': 'Ida',
+  'Seat 33': 'Rosalind Fairweather',
+  'Seat 34': 'Wolfgang',
+  'Seat 35': 'Penelope',
+  'Seat 36': 'Gus',
+};
+
+/// 09 as the vote opens, in a first vote: nobody picked, the rows nudge
+/// once. Game 7, Ana.
+Future<ShellSetup> pumpVoteOpen(WidgetTester tester, {double textScale = 1}) =>
+    _shell(
+      tester,
+      sheet.recordedMe('me_voting_unpicked'),
+      learned: Cue.values.toSet().difference({Cue.voteLock}),
+      textScale: textScale,
+    );
+
+/// 09 with Cleo picked: "Lock in Cleo", the one amber action.
+Future<ShellSetup> pumpVotePicked(WidgetTester tester) async {
+  final setup = await pumpVoteOpen(tester);
+  setup.answerPost('/vote/', 'game/vote_picked');
+  await tester.tap(find.text(sheet.cleo.name));
+  await setup.settle(tester);
+  return setup;
+}
+
+/// 09 after Lock in: "Locked", every row dimmed alike.
+Future<void> pumpVoteLocked(WidgetTester tester) async {
+  final setup = await pumpVotePicked(tester);
+  setup.answerPost('/vote/', 'game/vote_locked_v2');
+  await tester.tap(find.byType(PrimaryButton).last);
+  await setup.settle(tester);
+}
+
+/// 09 on a restart after a pick: `/me/`'s own `my_vote` (Dev), not locked.
+Future<void> pumpVoteRestartPicked(WidgetTester tester) => _shell(
+  tester,
+  sheet.recordedMe('me_voting_picked'),
+  learned: Cue.values.toSet(),
+);
+
+/// 09 on a restart after Lock in: `/me/` says locked.
+Future<void> pumpVoteRestartLocked(WidgetTester tester) => _shell(
+  tester,
+  sheet.recordedMe('me_voting_locked'),
+  learned: Cue.values.toSet(),
+);
+
+/// 09 at ten with long names.
+Future<void> pumpVoteTenLong(WidgetTester tester) => _shell(
+  tester,
+  sheet.tableOf(
+    sheet.recordedMe('me_voting_unpicked'),
+    add: 5,
+    rename: _tenLongNames,
+  ),
+  learned: Cue.values.toSet(),
+);
+
+/// 09 at three: game 7 without Dev and Esme.
+Future<void> pumpVoteThree(WidgetTester tester) => _shell(
+  tester,
+  sheet.tableOf(
+    sheet.recordedMe('me_voting_unpicked'),
+    leave: {sheet.dev.name, sheet.esme.name},
+  ),
+  learned: Cue.values.toSet(),
 );

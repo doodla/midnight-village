@@ -67,5 +67,13 @@ abstract final class Motion {
   /// A card turning over.
   static const reveal = Duration(milliseconds: 400);
 
+  /// Between one row and the next arriving in a list that lands (the
+  /// count's votes, the night's lines on 11).
+  static const stagger = Duration(milliseconds: 150);
+
+  /// A beat held before the moment a screen is about (the count's cards
+  /// turning). A tap skips it; nothing waits on it.
+  static const beat = Duration(milliseconds: 1200);
+
   static const curve = Curves.easeOutCubic;
 }

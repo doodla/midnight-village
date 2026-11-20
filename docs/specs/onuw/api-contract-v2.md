@@ -813,3 +813,50 @@ else's; protocol 1 is unchanged.
   server would take a second choose from any phone; the extra request itself is visible
   and accepted, as is her look's extra work in her first request (`backend/apps/onuw/README.md`). The legacy
   `has_voted` and `your_role.has_acted` are still sent; they go with the cleanup slice.
+
+## Fourth amendment: the stage clock, the vote list, the server's `Date` (20 November 2026)
+
+Three additions for the rebuilt phone screens; all additive, no migration, protocol 1 unchanged.
+
+- **`GET /me/` `stage_started_at`** (protocol 2): when the timed stage that is open now (the
+  look, window 1, window 2, the talk, the vote) opened, in `deadline`'s format (ISO 8601 with
+  offset). It is null whenever `deadline` is null (an untimed stage, the results) and for a
+  stage opened by code from before it existed. The same on every phone; it depends only on
+  when the stage opened, never on a role. A restart's reconnect allowance moves `deadline`,
+  never `stage_started_at`, so a phone draws the stage as it really ran. Stored in the
+  existing `Game.night_window_opened_at`, which every stage now sets when it opens (the
+  night's minimum-length rule still reads it only in a night window).
+- **`GET /me/` `vote_targets`** (protocol 2): while voting, the valid targets (`my_vote.locked`
+  says whether the caller may still change), in seat order: every player in the game but the caller (no self-votes,
+  `voting-and-resolution.md`), the same list `POST .../vote/` accepts, whoever has picked,
+  locked or dropped. Null outside the vote. The phone lists exactly these and holds no rule.
+- **CORS exposes `Date`** (`CORS_EXPOSE_HEADERS = ["Date"]` in the base settings, so every
+  environment): a web app on an allowed origin can read the server's clock from the
+  response `Date` header to draw `deadline` and `stage_started_at` against it instead of
+  the phone's clock. Origins are unchanged (`CORS_ALLOWED_ORIGINS` per environment).
+
+**The table before the deal (same amendment, protocol-2 tables only unless said).** A table
+whose settings say `night_protocol: 2` gets more in its lobby body (`GET /lobbies/<code>/`,
+every lobby answer, every `lobby_update`); any other table is answered as before.
+
+- **No ready check at the deal.** Everyone at the table is dealt in; a guest who joins and
+  closes the app cannot block it. (The original night keeps "everyone ready".)
+- **`players[].connected`** (bool): the member's phone is at the table (a lobby socket or
+  a socket on the newest game). A phone that drops stays `true` for the table's
+  `disconnect_grace_seconds`; then the table gets a `lobby_update` with `false`. Coming
+  back after being shown as gone sends a `lobby_update` at once (a phone back inside its
+  grace sends nothing). A member never seen with a socket is `false`.
+  `lobby_update` is also sent when a member joins or leaves. Not secret at a table.
+- **`deck_preview`**: the automatic deck the deal would build for the players at the
+  table now and `deck_chip`, `{role: count}` (the shape of `settings.roles`), from the
+  deal's own function; null for a custom deck or a player count with no automatic deck.
+- **`deal`**: `{"ok": bool, "need": int, "have": int}`: `ok` is exactly whether the deal
+  would be accepted now (waiting, 3 to 10 players, a legal deck of the right size, valid
+  settings; only the host check is left out); `need` = players + 3; `have` = cards in the
+  deck the deal would use (0 if none). The phone holds no deck-size rule.
+- **One table at a time (joins of protocol-2 tables only; a protocol-1 join answers as
+  before):** `POST /lobbies/<code>/join/` by a member of another table that is WAITING
+  (active within the resume window) is `409 {"detail": "You are already at another
+  table.", "code": "already_at_table", "lobby_code": "<that table>"}`. Only waiting tables
+  count: anyone can leave one (200), so it never traps; a table in a game (whose owner
+  cannot leave) or finished does not block a join.

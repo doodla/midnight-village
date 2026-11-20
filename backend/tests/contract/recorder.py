@@ -49,9 +49,9 @@ from channels.layers import BaseChannelLayer, get_channel_layer
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.core import timers
+from apps.core import host, presence, timers
 from apps.core.consumers import LobbyConsumer
-from apps.core.models import LobbyMember, ScheduledTimer, User
+from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
 from apps.onuw import night2, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.models import Game, PlayerRole
@@ -67,12 +67,19 @@ LOBBY_CODES = (
     "T8NB6C",
     "V9YC2J",
     "W3XF7K",
+    # The results, three-player and ten-player tables (scenarios.results_tables).
+    "X2PG5N",
+    "Y6HM8R",
+    "Z4KQ3T",
+    # The lobby table (scenarios.lobby_table).
+    "B7DH4Q",
+    "C9FJ2K",
 )
 # Stand-ins for the game ids, in the order the games are dealt.
 GAME_IDS = (
     "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
     "9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e",
-    *(f"00000000-0000-4000-a000-{n:012d}" for n in range(3, 20)),
+    *(f"00000000-0000-4000-a000-{n:012d}" for n in range(3, 40)),
 )
 FORCED_SEED = 424242
 
@@ -435,6 +442,25 @@ class Table:
         with self._capture_on_commit(execute=True):
             if services.unregister_connection(self.game_id, self.pid(name), channel):
                 services.report_game_presence(self.game_id, self.pid(name), False)
+
+    def connect_lobby(self, name: str) -> None:
+        """A lobby socket opens: what ``LobbyConsumer`` does on connect."""
+        with self._capture_on_commit(execute=True):
+            host.register_lobby_connection(
+                self.code, self.pid(name), f"lobby-socket.{self.pid(name)}"
+            )
+
+    def disconnect_lobby(self, name: str) -> None:
+        """The lobby socket closes: what ``LobbyConsumer`` does on disconnect."""
+        with self._capture_on_commit(execute=True):
+            host.unregister_lobby_connection(
+                self.code, self.pid(name), f"lobby-socket.{self.pid(name)}"
+            )
+
+    def lobby_presence_key(self, name: str) -> str:
+        """The durable presence check of ``name`` at this table."""
+        lobby_id = Lobby.objects.get(code=self.code).pk
+        return presence.check_key("lobby", lobby_id, self.pid(name))
 
     # -- the game ---------------------------------------------------------
 

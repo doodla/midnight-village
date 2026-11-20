@@ -212,14 +212,29 @@ class RolePortrait extends StatelessWidget {
   static const sheet = 132.0;
   static const winner = 160.0;
 
+  /// The count's cards (S10): the dead player's when alone, the card they
+  /// were dealt beside it, and both when several die.
+  static const deadNow = 112.0;
+  static const deadDealt = 72.0;
+  static const deadNowSmall = 64.0;
+  static const deadDealtSmall = 40.0;
+
+  /// A line of the night on 11 (its role), and the folded night's strip.
+  static const line = 36.0;
+  static const strip = 30.0;
+
+  /// The most of its band the winner's portrait takes (S11: about a third).
+  static const winnerShare = 0.36;
+
+  /// Width to height of every portrait.
+  static const aspect = 3 / 4;
+
   final RoleId role;
   final double width;
   final bool framed;
   final bool arched;
   final Tilt tilt;
   final String? semanticLabel;
-
-  static const _aspect = 3 / 4;
 
   @override
   Widget build(BuildContext context) {
@@ -248,7 +263,7 @@ class RolePortrait extends StatelessWidget {
             top: Radius.circular(math.max(0, arch.x - Space.smPlus)),
             bottom: Radius.circular(skin.shape.radiusTiny),
           ),
-          child: AspectRatio(aspectRatio: _aspect, child: picture),
+          child: AspectRatio(aspectRatio: aspect, child: picture),
         ),
       );
     } else {
@@ -271,7 +286,7 @@ class RolePortrait extends StatelessWidget {
             : null,
         child: ClipRRect(
           borderRadius: corners,
-          child: AspectRatio(aspectRatio: _aspect, child: picture),
+          child: AspectRatio(aspectRatio: aspect, child: picture),
         ),
       );
     }

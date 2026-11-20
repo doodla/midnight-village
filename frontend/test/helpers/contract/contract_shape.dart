@@ -27,8 +27,9 @@ import 'contract_samples.dart';
 /// exists that is a violation, not a fallback. Still not checked: values (casing of role names, window numbers; the
 /// builders take care of those) and the order of events.
 ///
-/// Dictionary objects (data as keys: role names in `settings.roles`, player
-/// ids in `votes`) have their keys collapsed to `*`.
+/// Dictionary objects (data as keys: role names in `settings.roles` and a
+/// lobby's `deck_preview`, player ids in `votes`) have their keys collapsed
+/// to `*`.
 class ContractShape {
   ContractShape._(this._types, this._required, this._opaque);
 
@@ -104,7 +105,7 @@ class ContractShape {
       path.isEmpty ? key : '$path.$key';
 
   static final _digits = RegExp(r'^\d+$');
-  static const _dictionaries = ['settings.roles'];
+  static const _dictionaries = ['settings.roles', 'deck_preview'];
 
   static String _key(String parent, String key) =>
       _digits.hasMatch(key) || _dictionaries.any((d) => parent.endsWith(d))

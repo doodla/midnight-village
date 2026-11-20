@@ -20,8 +20,15 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .games import hooks_for_type
-from .lobbies import LobbyFullError, add_member, current_table, touch
+from .games import hooks_for, hooks_for_type
+from .lobbies import (
+    LobbyFullError,
+    add_member,
+    announce_lobby,
+    current_table,
+    other_active_table,
+    touch,
+)
 from .models import Lobby, LobbyMember, User
 from .name_generator import generate_display_name
 from .online import online_counts
@@ -236,9 +243,12 @@ class LobbyJoinView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, code):
-        # The Lobby row is locked from the checks to the insert, so two joins
-        # cannot both take the last seat or the same token.
+        # The joining user's row is locked first, so two joins by one user to
+        # two tables cannot both pass the one-table check; then the Lobby row,
+        # from the checks to the insert, so two joins cannot both take the last
+        # seat or the same token. (Lock order: User, then Lobby.)
         with transaction.atomic():
+            User.objects.select_for_update().filter(pk=request.user.pk).first()
             try:
                 lobby = Lobby.objects.select_for_update().get(code=code)
             except Lobby.DoesNotExist:
@@ -265,6 +275,23 @@ class LobbyJoinView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # One table at a time (tables that opt in): a member of another table
+            # still waiting is pointed at it instead of getting a second seat.
+            other = (
+                other_active_table(request.user.id, lobby.pk)  # type: ignore[misc]
+                if hooks_for(lobby).shows_table_extras(lobby)
+                else None
+            )
+            if other is not None:
+                return Response(
+                    {
+                        "detail": "You are already at another table.",
+                        "code": "already_at_table",
+                        "lobby_code": other.code,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
             try:
                 add_member(lobby, request.user.id)  # type: ignore[misc]
             except LobbyFullError:
@@ -274,6 +301,7 @@ class LobbyJoinView(APIView):
                 )
 
             data = LobbySerializer(lobby).data
+            announce_lobby(lobby)
 
         # Broadcast player joined event (the join has committed)
         channel_layer = get_channel_layer()
@@ -336,6 +364,7 @@ class LobbyLeaveView(APIView):
                     return Response(
                         {"detail": "Lobby deleted."}, status=status.HTTP_200_OK
                     )
+                announce_lobby(locked)
             channel_layer = get_channel_layer()
             if channel_layer is not None:
                 async_to_sync(channel_layer.group_send)(
@@ -356,6 +385,7 @@ class LobbyLeaveView(APIView):
                 from apps.core.host import member_leaving
 
                 member_leaving(locked, request.user.id)  # type: ignore[misc]
+            announce_lobby(locked)
 
         # Broadcast player left event (only for non-host)
         channel_layer = get_channel_layer()

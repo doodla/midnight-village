@@ -59,9 +59,9 @@ const deckOrder = [
 /// - "Edit" opens the role grid: a tap on a card adds one (up to the role's
 ///   most, then back to none; Masons in pairs), a hold opens the role sheet
 ///   (03b). Edited, the deck is the host's own and no chip is selected; it
-///   is sent with "Use this deck", which is amber only while it holds a card
-///   for every player and three more (the server refuses any other), else
-///   names what is missing. A chip tapped meanwhile drops the edit.
+///   is sent with "Use this deck", which is amber only while it holds the
+///   cards the server's deal needs (`deal.need`), else names what is
+///   missing. A chip tapped meanwhile drops the edit.
 /// - The pace chips ("Quick", "Normal", "Long") set the talk, the vote and a
 ///   night window to the contract's presets; none is selected while the
 ///   table's lengths are the server's own.
@@ -188,8 +188,8 @@ class _DeckViewState extends State<DeckView> {
             onTap: (i) => _chip(DeckChip.values[i]),
           ),
           if (draft == null) ...[
-            // The chip's cards face up, when the server sends them; a tap
-            // or "Edit" starts editing from them.
+            // The chip's cards face up (the server's `deck_preview`); a
+            // tap or "Edit" starts editing from them.
             if (lobby.chipCards case final cards? when cards.isNotEmpty) ...[
               _Grid(
                 deck: cards,
@@ -205,9 +205,9 @@ class _DeckViewState extends State<DeckView> {
                 ),
               ),
             ] else
-              // FALLBACK until `deck_preview` lands: the deck face down;
-              // "Edit" starts from the last custom deck, or none.
-              _EditPanel(onEdit: () => setState(() => _draft = _stored)),
+              // No cards to show (a count with no automatic deck, or a chip
+              // not answered yet): the deck face down; "Edit" starts empty.
+              _EditPanel(onEdit: () => setState(() => _draft = {})),
           ] else
             _Grid(
               deck: draft,
@@ -247,12 +247,9 @@ class _DeckViewState extends State<DeckView> {
       );
     }
     final cards = draft.values.fold(0, (a, b) => a + b);
-    // The cards the server's deal needs (`deal.need`); FALLBACK until the
-    // server's `deal` lands: players + 3, read from the lobby body. Delete
-    // the fallback (and `DealState.centerCards`) then.
-    final wanted =
-        widget.lobby.serverDeal?.need ??
-        widget.lobby.players.length + DealState.centerCards;
+    // The cards the server's deal needs (`deal.need`); a table that sends
+    // no verdict leaves it to the server's answer.
+    final wanted = widget.lobby.deal?.need ?? cards;
     if (cards != wanted) {
       return PrimaryButton(
         label: cardsLabel((wanted - cards).abs(), add: cards < wanted),
@@ -269,7 +266,7 @@ class _DeckViewState extends State<DeckView> {
   }
 }
 
-/// The grid closed (the deck is a chip's): the deck face down, and "Edit".
+/// The grid closed with no cards to show: the deck face down, and "Edit".
 class _EditPanel extends StatelessWidget {
   const _EditPanel({required this.onEdit});
 

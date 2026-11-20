@@ -109,4 +109,101 @@ void main() {
       expect(a, equals(b));
     });
   });
+
+  group('a protocol-2 table', () {
+    LobbyState lobby(String name) =>
+        LobbyState.fromJson(ContractSamples.map('http/lobby/$name'));
+
+    test('carries who is connected, the deck preview and whether it can be '
+        'dealt', () {
+      final dropped = lobby('detail_v2_member_dropped');
+      expect(
+        [for (final p in dropped.players) p.connected],
+        [true, true, true, false],
+      );
+      final chaos = lobby('detail_v2_deck_chaos_4');
+      expect(
+        chaos.deckPreview,
+        (ContractSamples.map(
+                  'http/lobby/detail_v2_deck_chaos_4',
+                )['deck_preview']
+                as Map)
+            .cast<String, int>(),
+      );
+      expect(chaos.deal, const DealReadiness(ok: true, need: 7, have: 7));
+      final short = lobby('detail_v2_custom_deck_short');
+      expect(short.deckPreview, isNull);
+      expect(short.deal, const DealReadiness(ok: false, need: 11, have: 10));
+    });
+
+    test(
+      'a protocol-2 body missing any of them is broken, never a default',
+      () {
+        Map<String, dynamic> body() =>
+            ContractSamples.map('http/lobby/detail_v2_member_dropped');
+        for (final key in ['deck_preview', 'deal']) {
+          expect(
+            () => LobbyState.fromJson(body()..remove(key)),
+            throwsA(anything),
+            reason: key,
+          );
+        }
+        final noConnected = body();
+        ((noConnected['players'] as List).first as Map).remove('connected');
+        expect(() => LobbyState.fromJson(noConnected), throwsA(anything));
+        // `deck_preview` is null by design for a custom deck.
+        expect(lobby('detail_v2_custom_deck_ok').deckPreview, isNull);
+      },
+    );
+
+    test('an original table sends none of it', () {
+      final original = LobbyState.fromJson(
+        ContractSamples.map('http/lobby/detail_waiting'),
+      );
+      expect(original.deal, isNull);
+      expect(original.deckPreview, isNull);
+      expect(original.players.every((p) => p.connected == null), isTrue);
+    });
+  });
+
+  group('the deal, as the server says', () {
+    LobbyState at(String sample) =>
+        LobbyState.fromJson(ContractSamples.map('http/lobby/$sample'));
+
+    test('ok: deal to everyone at the table', () {
+      expect(
+        DealState.of(at('detail_v2_custom_deck_ok')),
+        isA<CanDeal>().having((d) => d.players, 'players', 7),
+      );
+    });
+
+    test('a custom deck short of what the deal needs: add the difference', () {
+      expect(
+        DealState.of(at('detail_v2_custom_deck_short')),
+        isA<AddCards>().having((d) => d.count, 'count', 1),
+      );
+    });
+
+    test('alone at a new table: three players needed', () {
+      expect(DealState.of(at('created_with_defaults')), isA<NeedPlayers>());
+    });
+
+    test('a chip\'s cards are the server\'s preview, for that chip only', () {
+      final lobby = at('detail_v2_deck_chaos_4');
+      expect(lobby.chipCards, isNotNull);
+      expect(
+        lobby.chipCards!.values.fold(0, (a, b) => a + b),
+        lobby.deal!.have,
+      );
+      // A chip changed here and not answered yet: no cards of another chip.
+      final pending = lobby.copyWith(
+        table: lobby.table.merged({'deck_chip': 'simple'}),
+      );
+      expect(pending.chipCards, isNull);
+    });
+
+    test('a custom deck has no chip cards', () {
+      expect(at('detail_v2_custom_deck_ok').chipCards, isNull);
+    });
+  });
 }

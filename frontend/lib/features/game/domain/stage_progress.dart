@@ -45,6 +45,11 @@ class StageProgress {
   final int done;
   final int needed;
 
+  /// With [by] more done (this phone's own tap, before the server counts
+  /// it), never below 0 or above [needed].
+  StageProgress moved(int by) =>
+      StageProgress._(stage, (done + by).clamp(0, needed), needed);
+
   @override
   bool operator ==(Object other) =>
       other is StageProgress &&

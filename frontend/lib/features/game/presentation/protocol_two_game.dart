@@ -37,6 +37,7 @@ class ProtocolTwoGame {
     this.hostNotice,
     this.tableClosed = false,
     this.fetchFailing = false,
+    this.outcomeFailing = false,
   });
 
   /// The last `/me/` the server sent.
@@ -63,6 +64,10 @@ class ProtocolTwoGame {
   /// while fetches work is not shown.
   final bool fetchFailing;
 
+  /// The last results fetch failed (it is being made again, with backoff):
+  /// 10 and 11 say "One moment" until [outcome] arrives.
+  final bool outcomeFailing;
+
   /// What the screens show: `/me/` with this phone's taps on it. Everything
   /// the table can see on this phone changes on the tap, never on the
   /// answer.
@@ -83,6 +88,7 @@ class ProtocolTwoGame {
     bool clearHostNotice = false,
     bool? tableClosed,
     bool? fetchFailing,
+    bool? outcomeFailing,
   }) => ProtocolTwoGame._(
     server: server ?? this.server,
     outbox: outbox ?? this.outbox,
@@ -91,6 +97,7 @@ class ProtocolTwoGame {
     hostNotice: clearHostNotice ? null : hostNotice ?? this.hostNotice,
     tableClosed: tableClosed ?? this.tableClosed,
     fetchFailing: fetchFailing ?? this.fetchFailing,
+    outcomeFailing: outcomeFailing ?? this.outcomeFailing,
   );
 }
 
@@ -297,12 +304,13 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
     try {
       final outcome = await _service.fetchOutcome(gameId);
       _failedOutcomes = 0;
-      _update((s) => s.copyWith(outcome: outcome));
+      _update((s) => s.copyWith(outcome: outcome, outcomeFailing: false));
     } catch (e) {
       logger.w('ProtocolTwoGame: results not fetched', error: e);
       if (!ref.mounted) return;
       final atResults = state.value?.server.phase == GamePhase.results;
       if (atResults && state.value?.outcome == null) {
+        _update((s) => s.copyWith(outcomeFailing: true));
         _outcomeTimer = Timer(
           _timing.retryAfter(_failedOutcomes++),
           _loadOutcome,
@@ -421,7 +429,17 @@ class ProtocolTwoGameNotifier extends _$ProtocolTwoGameNotifier {
     switch (event) {
       case ProgressEvent(:final progress):
         final current = state.requireValue.server;
-        if (_loop != null || current.progress?.stage != progress.stage) {
+        // While this phone's own ready or vote is not confirmed by a `/me/`,
+        // the screens count it themselves (`GameMe.withReady`, `withVote`)
+        // against the `/me/` they have; a count from elsewhere may already
+        // hold it, so the count and the flag are fetched together instead.
+        final own = _game.outbox;
+        final unconfirmed =
+            own.shown(OutboxLane.ready) != null ||
+            own.shown(OutboxLane.vote) != null;
+        if (_loop != null ||
+            unconfirmed ||
+            current.progress?.stage != progress.stage) {
           unawaited(refresh());
         } else {
           _update((s) => s.copyWith(server: current.withProgress(progress)));

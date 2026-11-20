@@ -25,15 +25,20 @@ abstract class LobbyPlayer with _$LobbyPlayer {
     /// does not know, or the blank one a member past the tenth may have.
     TokenId? token,
 
-    /// Whether the member's phone is connected (`connected`): false is a
-    /// dropped phone, shown dimmed with no words. Null while the server does
-    /// not say (FALLBACK until the server branch's per-member `connected`
-    /// lands on the base; then make it required and delete this note).
+    /// Whether the member's phone is at the table (`connected`, sent at a
+    /// protocol-2 table only; still true during the table's grace period
+    /// after a drop). False is a dropped phone: its row is dimmed, with no
+    /// words. Null at a table that does not send it.
     bool? connected,
   }) = _LobbyPlayer;
 
-  /// Parses the backend's nested player format.
-  factory LobbyPlayer.fromJson(Map<String, dynamic> json) {
+  /// Parses the backend's nested player format. At a protocol-2 table
+  /// ([protocolTwo]) `connected` is always sent: a missing one is a broken
+  /// payload, never "unknown".
+  factory LobbyPlayer.fromJson(
+    Map<String, dynamic> json, {
+    bool protocolTwo = false,
+  }) {
     // Backend returns { "user": {"id": ..., "display_name": ...}, "is_ready": ..., "joined_at": ... }
     final user = json['user'] as Map<String, dynamic>;
     return LobbyPlayer(
@@ -42,9 +47,43 @@ abstract class LobbyPlayer with _$LobbyPlayer {
       isReady: json['is_ready'] as bool,
       joinedAt: DateTime.parse(json['joined_at'] as String),
       token: TokenId.fromServer(json['token'] as String),
-      connected: json['connected'] as bool?,
+      connected: protocolTwo
+          ? json['connected'] as bool
+          : json['connected'] as bool?,
     );
   }
+}
+
+/// Whether the table can be dealt now (`deal`, protocol-2 tables only): [ok]
+/// is exactly what the server's deal would answer; [need] the cards the deal
+/// needs, [have] the cards in the deck. The app holds no deck-size rule.
+@immutable
+class DealReadiness {
+  const DealReadiness({
+    required this.ok,
+    required this.need,
+    required this.have,
+  });
+
+  factory DealReadiness.fromJson(Map<String, dynamic> json) => DealReadiness(
+    ok: json['ok'] as bool,
+    need: json['need'] as int,
+    have: json['have'] as int,
+  );
+
+  final bool ok;
+  final int need;
+  final int have;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DealReadiness &&
+      other.ok == ok &&
+      other.need == need &&
+      other.have == have;
+
+  @override
+  int get hashCode => Object.hash(ok, need, have);
 }
 
 /// The state of a lobby, including players, settings, and status.
@@ -96,24 +135,23 @@ abstract class LobbyState with _$LobbyState {
     /// Frontend only.
     String? dealRefused,
 
-    /// The deck the server would deal now, for a chip's deck
-    /// (`deck_preview`), in the server's role names; null while the server
-    /// does not send it (FALLBACK until the server branch's `deck_preview`
-    /// lands; the phone never computes a chip's cards).
-    Map<String, int>? deckPreview,
-
-    /// The chip [deckPreview] is the deck of (the body's own `deck_chip`), so
-    /// a chip tapped and not answered yet never shows another chip's cards.
+    /// The chip the body's [deckPreview] is the deck of (its own
+    /// `deck_chip`), so a chip tapped and not answered yet never shows
+    /// another chip's cards. Frontend only.
     DeckChip? deckPreviewChip,
-
-    /// The server's verdict on dealing now (`deal`); null while the server
-    /// does not send it (FALLBACK: [DealState.of] reads the deck itself until
-    /// the server branch's `deal` lands; then delete that fallback).
-    ServerDeal? serverDeal,
 
     /// Set when the server says the table no longer exists (its last member
     /// left). The screen says so and goes home. Frontend only.
     @Default(false) bool tableClosed,
+
+    /// The automatic deck the deal would build now (`deck_preview`, role name
+    /// to count); null for a custom deck, a player count with no automatic
+    /// deck, or a table that does not send it.
+    Map<String, int>? deckPreview,
+
+    /// Whether the table can be dealt now (`deal`); null at a table that does
+    /// not send it.
+    DealReadiness? deal,
   }) = _LobbyState;
 
   /// Parses the backend's LobbyResponse format.
@@ -123,36 +161,49 @@ abstract class LobbyState with _$LobbyState {
     final settings = json['settings'] as Map<String, dynamic>;
     // A table whose host has not chosen a deck yet has no `roles`.
     final roles = settings['roles'] as Map<String, dynamic>?;
+    final table = TableSettings.fromSettings(settings);
+    final protocolTwo = table.isProtocolTwo;
+    // A protocol-2 table always sends `deck_preview` (null for a custom deck)
+    // and `deal`: missing is a broken payload, as in `GameMe`.
+    if (protocolTwo && !json.containsKey('deck_preview')) {
+      throw FormatException('No deck_preview in a protocol-2 lobby', json);
+    }
+    final preview = json['deck_preview'] as Map<String, dynamic>?;
+    final deal = protocolTwo
+        ? json['deal'] as Map<String, dynamic>
+        : json['deal'] as Map<String, dynamic>?;
 
     return LobbyState(
       code: json['code'] as String,
       hostId: host['id'] as int,
       players: playersJson
-          .map((p) => LobbyPlayer.fromJson(p as Map<String, dynamic>))
+          .map(
+            (p) => LobbyPlayer.fromJson(
+              p as Map<String, dynamic>,
+              protocolTwo: protocolTwo,
+            ),
+          )
           .toList(),
       status: json['status'] as String,
       maxPlayers: json['max_players'] as int,
       roleConfig: roles?.map((k, v) => MapEntry(k, v as int)) ?? {},
-      table: TableSettings.fromSettings(settings),
+      table: table,
       // `host` is the effective host.
       hostName: host['display_name'] as String,
       originalHostId: json['original_host_id'] as int,
       isActingHost: json['is_acting_host'] as bool,
-      deckPreview: _preview(json['deck_preview']),
-      deckPreviewChip:
-          settings['deck'] == 'auto' && settings['deck_chip'] != null
+      deckPreview: preview?.map((k, v) => MapEntry(k, v as int)),
+      deckPreviewChip: preview != null && settings['deck_chip'] != null
           ? DeckChip.fromServer(settings['deck_chip'])
           : null,
-      serverDeal: ServerDeal.fromJson(json['deal']),
+      deal: deal == null ? null : DealReadiness.fromJson(deal),
     );
   }
 }
 
 /// The cards a chip's deck holds now, face up (02's strip, 03's chips
 /// view, where "Edit" starts): the server's `deck_preview` for the chip the
-/// table shows. Null for a custom deck, or while the server sends no
-/// preview (FALLBACK until `deck_preview` lands: nothing extra is shown and
-/// "Edit" starts from the last custom deck).
+/// table shows. Null for a custom deck, or a count with no automatic deck.
 extension ChipCards on LobbyState {
   Map<RoleId, int>? get chipCards {
     final preview = deckPreview;
@@ -163,51 +214,6 @@ extension ChipCards on LobbyState {
         if (RoleId.fromServer(key) case final role? when value > 0) role: value,
     };
   }
-}
-
-/// `deck_preview` in either form a server may send it: `{role: count}` or
-/// `[{"role", "count"}]`. Null when absent.
-Map<String, int>? _preview(Object? json) => switch (json) {
-  null => null,
-  final Map<String, dynamic> m => {
-    for (final MapEntry(:key, :value) in m.entries) key: value as int,
-  },
-  final List<dynamic> l => {
-    for (final e in l.cast<Map<String, dynamic>>())
-      e['role'] as String: e['count'] as int,
-  },
-  _ => throw FormatException('Not a deck preview', json),
-};
-
-/// The server's `deal`: whether the host may deal now and, when the deck is
-/// what stands in the way, the cards it needs and has.
-@immutable
-class ServerDeal {
-  const ServerDeal._({required this.ok, this.need, this.have});
-
-  static ServerDeal? fromJson(Object? json) {
-    if (json == null) return null;
-    final m = json as Map<String, dynamic>;
-    return ServerDeal._(
-      ok: m['ok'] as bool,
-      need: m['need'] as int?,
-      have: m['have'] as int?,
-    );
-  }
-
-  final bool ok;
-  final int? need;
-  final int? have;
-
-  @override
-  bool operator ==(Object other) =>
-      other is ServerDeal &&
-      other.ok == ok &&
-      other.need == need &&
-      other.have == have;
-
-  @override
-  int get hashCode => Object.hash(ok, need, have);
 }
 
 /// The deck chips the server builds a deck from (`deck_chip`).
@@ -364,46 +370,36 @@ class TableSettings {
   );
 }
 
-/// Whether the host may deal now, by the server's own rules for the deal
-/// (`GameStartView._deal`, `validate_onuw_settings`), read from the lobby
-/// body: at least 3 at the table (the server seats at most `max_players`);
-/// an automatic deck is built by the server for whoever is there, a custom
-/// one must hold a card for every player and three for the middle. (The
-/// server also wants every member ready: each phone sets its own flag as it
-/// sits down.)
+/// Whether the host may deal now: the server's own verdict (`deal`), which is
+/// exactly what its deal would answer. The phone holds no deck-size rule:
+/// when a custom deck is what stands in the way, the cards to add or remove
+/// are the server's `need` against its `have`.
 @immutable
 sealed class DealState {
   const DealState();
 
   factory DealState.of(LobbyState lobby) {
     final players = lobby.players.length;
-    if (lobby.serverDeal case final deal?) {
-      if (deal.ok) return CanDeal(players);
-      final (need, have) = (deal.need, deal.have);
-      if (players < minPlayers || need == null || have == null) {
-        return const NeedPlayers();
-      }
-      if (have < need) return AddCards(need - have);
-      if (have > need) return RemoveCards(have - need);
-      return const NeedPlayers();
-    }
-    // FALLBACK until the server's `deal` lands on the base: the deal's rules
-    // read from the lobby body here. Delete from this line to the end of the
-    // factory (and [centerCards]) then.
+    final deal = lobby.deal;
+    // A table that sends no verdict (protocol 1, never made by this app):
+    // the button is offered and the server's answer to the deal judges.
+    if (deal == null || deal.ok) return CanDeal(players);
     if (players < minPlayers) return const NeedPlayers();
-    if (lobby.table.autoDeck) return CanDeal(players);
-    final cards = lobby.roleConfig.values.fold(0, (a, b) => a + b);
-    final wanted = players + centerCards;
-    if (cards < wanted) return AddCards(wanted - cards);
-    if (cards > wanted) return RemoveCards(cards - wanted);
-    return CanDeal(players);
+    if (lobby.table.autoDeck) return const CannotDeal();
+    if (deal.have < deal.need) return AddCards(deal.need - deal.have);
+    if (deal.have > deal.need) return RemoveCards(deal.have - deal.need);
+    return const CannotDeal(deck: true);
   }
 
-  /// The fewest players the server deals to.
+  /// The players "Need 3 players" names ([TableCopy.needPlayers]).
   static const minPlayers = 3;
+}
 
-  /// The cards in the middle, beside one for every player.
-  static const centerCards = 3;
+/// Refused for another reason: a custom deck of the right size the deal
+/// would not take ([deck]: its roles, e.g. one Mason), or anything else.
+final class CannotDeal extends DealState {
+  const CannotDeal({this.deck = false});
+  final bool deck;
 }
 
 /// Deal to [players].

@@ -271,41 +271,6 @@ void main() {
     });
 
     group('public methods', () {
-      test('sitDown sets this player ready, once, and shows it', () async {
-        container = createContainer();
-        await container.read(lobbyProvider('ABC123').future);
-        final sent = Completer<void>();
-        when(
-          () => mockService.setReady('ABC123', ready: true),
-        ).thenAnswer((_) => sent.future);
-
-        final notifier = container.read(lobbyProvider('ABC123').notifier);
-        final first = notifier.sitDown(2);
-        // A second call while the first is out sends nothing more.
-        await notifier.sitDown(2);
-        sent.complete();
-        await first;
-
-        verify(() => mockService.setReady('ABC123', ready: true)).called(1);
-        final bob = container
-            .read(lobbyProvider('ABC123'))
-            .value!
-            .players
-            .firstWhere((p) => p.id == 2);
-        expect(bob.isReady, isTrue);
-      });
-
-      test('sitDown sends nothing for a player already ready', () async {
-        container = createContainer();
-        await container.read(lobbyProvider('ABC123').future);
-
-        await container.read(lobbyProvider('ABC123').notifier).sitDown(1);
-
-        verifyNever(
-          () => mockService.setReady(any(), ready: any(named: 'ready')),
-        );
-      });
-
       test('startGame calls service.startGame and returns game ID', () async {
         container = createContainer();
         await container.read(lobbyProvider('ABC123').future);

@@ -10,7 +10,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from apps.core import games, tokens
+from apps.core import games, presence, tokens
 from apps.core.effects import send_after_commit
 from apps.core.models import Lobby, LobbyMember
 
@@ -63,10 +63,9 @@ def current_table(user_id: int) -> dict[str, Any] | None:
     when the user plays in it, as the game app's hook reports it; the client
     routes on ``game.phase`` and ``status``.
     """
-    cutoff = timezone.now() - timedelta(hours=settings.CORE_TABLE_RESUME_HOURS)
     member = (
         LobbyMember.objects.filter(user_id=user_id)
-        .filter(lobby__updated_at__gte=cutoff)
+        .filter(lobby__updated_at__gte=_resume_cutoff())
         .select_related("lobby")
         .order_by("-joined_at", "-id")
         .first()
@@ -82,6 +81,75 @@ def current_table(user_id: int) -> dict[str, Any] | None:
         "token": member.token,
         "game": games.hooks_for(lobby).member_game(lobby, user_id),
     }
+
+
+def _resume_cutoff() -> Any:
+    return timezone.now() - timedelta(hours=settings.CORE_TABLE_RESUME_HOURS)
+
+
+def other_active_table(user_id: int, exclude_lobby_id: int) -> Lobby | None:
+    """The WAITING table, other than ``exclude_lobby_id``, the user is seated at,
+    with activity within ``CORE_TABLE_RESUME_HOURS`` (the "where am I" window).
+
+    Only waiting tables count, because a member can always leave a waiting table
+    (``POST /lobbies/<code>/leave/``, the owner included): a refusal that points
+    there can never trap anyone. A table in a game cannot be left by its owner,
+    so it must not block a join (``/me/table/`` already routes people back to a
+    game); a finished table is over."""
+    member = (
+        LobbyMember.objects.filter(
+            user_id=user_id,
+            lobby__status=Lobby.Status.WAITING,
+            lobby__updated_at__gte=_resume_cutoff(),
+        )
+        .exclude(lobby_id=exclude_lobby_id)
+        .select_related("lobby")
+        .order_by("-joined_at", "-id")
+        .first()
+    )
+    return None if member is None else member.lobby
+
+
+def connected_members(lobby: Lobby) -> set[int]:
+    """Members shown as connected at the table: a fresh lobby socket or a socket
+    on the lobby's newest game, or a phone that went away less than the game's
+    ``presence_grace_seconds`` ago (so a blip is not shown). A member never seen
+    with a socket is not connected.
+
+    The grace is measured on the instance clock (``timezone.now()``), as
+    ``LobbyMember.disconnected_at`` is written with it (like the game's own
+    grace); socket freshness itself is on the database clock."""
+    hooks = games.hooks_for(lobby)
+    connected = presence.connected_user_ids(
+        lobby_id=lobby.pk
+    ) | hooks.connected_user_ids(lobby)
+    grace = hooks.presence_grace_seconds(lobby)
+    if grace > 0:
+        recent = timezone.now() - timedelta(seconds=grace)
+        connected |= set(
+            LobbyMember.objects.filter(
+                lobby=lobby, disconnected_at__gt=recent
+            ).values_list("user_id", flat=True)
+        )
+    return connected
+
+
+def announce_lobby(lobby: Lobby) -> None:
+    """After commit, send the lobby body to the table (``lobby_update``), for a
+    table whose game opts in (``GameHooks.shows_table_extras``); nothing otherwise. The
+    body is built now, inside the caller's transaction."""
+    from apps.core.serializers import LobbySerializer
+
+    if not games.hooks_for(lobby).shows_table_extras(lobby):
+        return
+    send_after_commit(
+        [
+            (
+                f"lobby_{lobby.code}",
+                {"type": "lobby.update", "data": LobbySerializer(lobby).data},
+            )
+        ]
+    )
 
 
 def ensure_tokens(lobby: Lobby, members: list[LobbyMember]) -> None:

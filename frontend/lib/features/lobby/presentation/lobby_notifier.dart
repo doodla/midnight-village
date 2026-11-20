@@ -449,49 +449,11 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   // --- Public methods for user actions ---
 
-  bool _readying = false;
-
-  /// FALLBACK until the server seats members ready (server branch): then
-  /// delete this, `LobbyService.setReady` and the calls in 02.
-  ///
-  /// This phone sits down ready: the server deals only when every member is
-  /// ready, and there is no ready button. Sent once while [playerId] is not
-  /// ready at a waiting table; the lobby the answer brings (an event or the
-  /// next read) shows the flag, and a failed send is tried again on the next
-  /// call (the screen calls this on every lobby it shows).
-  Future<void> sitDown(int playerId) async {
-    final lobby = state.value;
-    if (_readying || lobby == null || lobby.status != 'waiting') return;
-    final me = lobby.players.where((p) => p.id == playerId).firstOrNull;
-    if (me == null || me.isReady) return;
-    _readying = true;
-    try {
-      await ref.read(lobbyServiceProvider).setReady(code, ready: true);
-      if (!ref.mounted) return;
-      final now = state.value;
-      if (now != null) {
-        _show(
-          now.copyWith(
-            players: [
-              for (final p in now.players)
-                p.id == playerId ? p.copyWith(isReady: true) : p,
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      logger.d('Could not set ready ($e)');
-    } finally {
-      _readying = false;
-    }
-  }
-
   /// The host picks a deck chip: the server builds that deck at the deal.
   Future<void> chooseChip(DeckChip chip) =>
       _changeSettings(LobbyService.deckChip(chip));
 
-  /// The host's own card list (it must hold players + 3 cards: the server
-  /// refuses any other).
+  /// The host's own card list (the server's `deal` says whether it fits).
   Future<void> useCustomDeck(Map<String, int> roles) =>
       _changeSettings(LobbyService.customDeck(roles));
 
@@ -570,38 +532,46 @@ class LobbyNotifier extends _$LobbyNotifier {
           now.copyWith(notSent: refusal == null, dealRefused: refusal),
         );
       }
+      if (refusal != null) unawaited(refreshLobby());
       return null;
     }
   }
 
-  /// What a refused deal means to the host, from the server's answer; null
-  /// when there was no answer (the phone could not reach the server).
+  /// What a refused deal means to the host, from the server's answer
+  /// (`apps/onuw/deal.py`'s `deal_refusal`: the table is not waiting, or the
+  /// settings' errors for this many players); null when there was no answer
+  /// (the phone could not reach the server). The button showed `deal.ok`, so
+  /// a refusal means the table changed under the tap: the lobby is read
+  /// again, and its new `deal` sets the button.
   static String? dealRefusal(Object error) {
-    final (int? status, String? code, String words) = switch (error) {
-      ValidationException(:final code, :final errors) => (
+    final (int? status, List<String> details) = switch (error) {
+      ValidationException(:final errors) => (
         400,
-        code,
-        errors.values.expand((e) => e).join(' ').toLowerCase(),
+        [...errors.values.expand((e) => e)],
       ),
-      UnhandledHttpException(:final statusCode, :final code, :final message) =>
-        (statusCode, code, message.toLowerCase()),
-      NotFoundException() => (404, null, ''),
-      _ => (null, null, ''),
+      UnhandledHttpException(:final statusCode, :final message) => (
+        statusCode,
+        [message],
+      ),
+      NotFoundException() => (404, const <String>[]),
+      _ => (null, const <String>[]),
     };
     if (status == null || status >= 500) return null;
-    if (code == 'lobby_not_found' || status == 404) {
-      return BannerCopy.tableClosed;
+    if (status == 404) return BannerCopy.tableClosed;
+    if (details.contains(_notWaiting)) return BannerCopy.lobbyClosed;
+    if (details.any((d) => d.startsWith(_tooFew))) {
+      return TableCopy.needPlayers;
     }
-    if (words.contains('ready')) return BannerCopy.stillJoining;
-    if (words.contains('at least 3')) return TableCopy.needPlayers;
-    if (words.contains('waiting') || status == 409) {
-      return BannerCopy.lobbyClosed;
-    }
-    if (words.contains('role') || words.contains('mason')) {
-      return BannerCopy.deckDoesNotFit;
-    }
+    if (details.any(_deckError.hasMatch)) return BannerCopy.deckDoesNotFit;
     return BannerCopy.cannotDeal;
   }
+
+  /// The server's refusal words (`deal.py`, `validate_onuw_settings`).
+  static const _notWaiting = 'Lobby is not in waiting state.';
+  static const _tooFew = 'At least 3 players required';
+  static final _deckError = RegExp(
+    r'^(Total role count|Masons must|Unknown role|Count for|.* requires at least|.* allows at most)',
+  );
 
   /// Starts the game (host only).
   ///

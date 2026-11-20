@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/chips.dart';
+import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/qr_picture.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
@@ -198,6 +199,43 @@ void main() {
       await setup.close(tester);
     });
 
+    testWidgets('a join refused because this player sits at another table '
+        '(409): "You\'re at another table." and "Go there" opens it', (
+      tester,
+    ) async {
+      final setup = await TableSetup.pump(
+        tester,
+        signedInAs: 'Lia',
+        userId: 75,
+      );
+      setup.http.answer(
+        'POST',
+        '/lobbies/V9YC2J/join/',
+        ContractSamples.map('http/lobby/join_already_at_table'),
+        status: 409,
+      );
+      // The table the server says this player is at.
+      setup.sitAt(v2Lobby('detail_v2_deck_classic_4'), 'Lia');
+
+      await _tap(tester, setup, find.text(JoinCopy.joinTable));
+      await tester.enterText(find.byType(TextField).last, 'V9YC2J');
+      await tester.pump();
+      await _tap(tester, setup, find.text(JoinCopy.join));
+      await setup.settle(tester);
+
+      expect(find.text(BannerCopy.alreadyInLobby), findsOneWidget);
+      expect(find.text(BannerCopy.notSent), findsNothing);
+
+      await _tap(tester, setup, find.text(BannerCopy.goThere));
+      await setup.settle(tester);
+
+      expect(
+        find.text(TableCopy.hostDeals.fill({'host': 'Kai'})),
+        findsOneWidget,
+      );
+      await setup.close(tester);
+    });
+
     testWidgets('opened from a table\'s link: the name and Join, nothing '
         'else', (tester) async {
       final setup = await TableSetup.pump(tester, route: '/join/V9YC2J');
@@ -295,26 +333,8 @@ void main() {
       }
       expect(_chip(tester, 'Classic').selected, isTrue);
       expect(_onPressed(tester, TableCopy.deal.fill({'n': 5})), isNotNull);
-      // Everyone in the sample is ready already: nothing to send.
+      // Nobody is asked to be ready: the deal deals in everyone there.
       expect(setup.count('POST', '/lobbies/V9YC2J/ready/'), 0);
-      await setup.close(tester);
-    });
-
-    testWidgets('a player not ready yet sits down ready, with no button', (
-      tester,
-    ) async {
-      final setup = await TableSetup.pump(
-        tester,
-        lobby: v2Lobby('created_with_defaults'),
-        viewer: 'Ana',
-      );
-
-      final ready = setup.http.requests.where(
-        (r) => r.path == '/lobbies/R5ZD3H/ready/',
-      );
-      expect(ready.map((r) => r.data), [
-        {'is_ready': true},
-      ]);
       await setup.close(tester);
     });
 
@@ -329,16 +349,107 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('the host\'s own deck shows its cards; one too many for the '
-        'table says "Remove 1 cards"', (tester) async {
+    testWidgets('the host\'s own deck shows its cards; one short for the '
+        'table (the server\'s need and have) says "Add 1 card", locked', (
+      tester,
+    ) async {
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby('detail_v2_custom_deck', players: 8),
-        viewer: 'Ana',
+        lobby: v2Lobby('detail_v2_custom_deck_short'),
+        viewer: 'Kai',
       );
 
       expect(find.byType(RoleCard), findsWidgets);
-      expect(_onPressed(tester, CommonCopy.removeCard), isNull);
+      expect(_onPressed(tester, CommonCopy.addCard), isNull);
+      expect(find.textContaining('Deal'), findsNothing);
+      await setup.close(tester);
+    });
+
+    testWidgets('a player joining tips the deal: "Deal to 7" becomes "Add 1 '
+        'card" as the socket brings the eighth', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_v2_custom_deck_ok', asRecorded: true),
+        viewer: 'Kai',
+      );
+      expect(_onPressed(tester, TableCopy.deal.fill({'n': 7})), isNotNull);
+
+      setup.event(ContractSamples.map('ws/lobby/lobby_update_v2_joined'));
+      await setup.settle(tester);
+
+      expect(find.text('Sam'), findsOneWidget);
+      expect(_onPressed(tester, CommonCopy.addCard), isNull);
+      await setup.close(tester);
+    });
+
+    for (final (chip, label) in [
+      ('simple', 'Simple'),
+      ('classic', 'Classic'),
+      ('chaos', 'Chaos'),
+    ]) {
+      testWidgets('the $label chip shows the server\'s deck for the table, '
+          'face up', (tester) async {
+        final body = v2Lobby('detail_v2_deck_${chip}_7');
+        final setup = await TableSetup.pump(tester, lobby: body, viewer: 'Kai');
+
+        final preview = {
+          for (final MapEntry(:key, :value)
+              in (body['deck_preview'] as Map<String, dynamic>).entries)
+            RoleId.fromServer(key)!: value as int,
+        };
+        final shown = {
+          for (final card in tester.widgetList<RoleCard>(find.byType(RoleCard)))
+            card.role: card.count,
+        };
+        expect(shown, preview);
+        expect(_chip(tester, label).selected, isTrue);
+        expect(_onPressed(tester, TableCopy.deal.fill({'n': 7})), isNotNull);
+        await setup.close(tester);
+      });
+    }
+
+    testWidgets('a dropped phone is a dimmed row with no words, and comes '
+        'back bright', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_v2_member_in_grace', asRecorded: true),
+        viewer: 'Kai',
+      );
+      bool away(String name) => tester
+          .widget<PlayerRow>(
+            find.ancestor(
+              of: find.text(name),
+              matching: find.byType(PlayerRow),
+            ),
+          )
+          .away;
+      // In the grace period the server still counts the phone at the table.
+      expect(away('Noa'), isFalse);
+
+      setup.event(
+        ContractSamples.map('ws/lobby/lobby_update_v2_member_dropped'),
+      );
+      await setup.settle(tester);
+      expect(away('Noa'), isTrue);
+      expect(away('Kai'), isFalse);
+
+      setup.event(ContractSamples.map('ws/lobby/lobby_update_v2_member_back'));
+      await setup.settle(tester);
+      expect(away('Noa'), isFalse);
+      await setup.close(tester);
+    });
+
+    testWidgets('this phone\'s own row is never dimmed', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_v2_member_dropped', asRecorded: true),
+        viewer: 'Noa',
+      );
+
+      final own = tester.widget<PlayerRow>(
+        find.ancestor(of: find.text('Noa'), matching: find.byType(PlayerRow)),
+      );
+      expect(own.away, isFalse);
       await setup.close(tester);
     });
 
@@ -364,22 +475,18 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('names are never cut: ten long names at the table', (
+    testWidgets('names are never cut: nine long names at the table', (
       tester,
     ) async {
       const long = 'Rosalind Fairweather';
       final setup = await TableSetup.pump(
         tester,
-        lobby: v2Lobby(
-          'detail_v2_auto_deck_9',
-          players: 10,
-          rename: {'Cleo': long},
-        ),
+        lobby: v2Lobby('detail_v2_auto_deck_9', rename: {'Cleo': long}),
         viewer: 'Ana',
       );
 
       expect(find.text(long), findsOneWidget);
-      expect(_onPressed(tester, TableCopy.deal.fill({'n': 10})), isNotNull);
+      expect(_onPressed(tester, TableCopy.deal.fill({'n': 9})), isNotNull);
       await setup.close(tester);
     });
 
@@ -602,7 +709,7 @@ void main() {
 
       await _tap(tester, setup, find.text(TableCopy.deal.fill({'n': 5})));
 
-      expect(find.text(BannerCopy.stillJoining), findsOneWidget);
+      expect(find.text(BannerCopy.cannotDeal), findsOneWidget);
       expect(find.text(BannerCopy.notSent), findsNothing);
       expect(find.text(BannerCopy.tryAgain), findsNothing);
       await setup.close(tester);
@@ -653,37 +760,91 @@ void main() {
     Future<TableSetup> openDeck(
       WidgetTester tester, {
       String sample = 'detail_v2_auto_deck_5',
+      String viewer = 'Ana',
     }) async {
       final setup = await TableSetup.pump(
         tester,
         lobby: v2Lobby(sample),
-        viewer: 'Ana',
+        viewer: viewer,
       );
       await _tap(tester, setup, find.text(TableCopy.editDeck));
       expect(find.text(DeckCopy.headline), findsOneWidget);
       return setup;
     }
 
-    testWidgets('a chip is chosen at once, and sent as the automatic deck', (
-      tester,
-    ) async {
-      final setup = await openDeck(tester);
+    /// The cards face up, by role (the grid's roles with none left out).
+    Map<RoleId, int> shown(WidgetTester tester) => {
+      for (final card in tester.widgetList<RoleCard>(find.byType(RoleCard)))
+        if (card.count > 0) card.role: card.count,
+    };
+
+    Map<RoleId, int> previewOf(Map<String, dynamic> body) => {
+      for (final MapEntry(:key, :value)
+          in (body['deck_preview'] as Map<String, dynamic>).entries)
+        RoleId.fromServer(key)!: value as int,
+    };
+
+    testWidgets('a chip is chosen at once and sent as the automatic deck; '
+        'its cards show face up when the server answers', (tester) async {
+      final setup = await openDeck(
+        tester,
+        sample: 'detail_v2_deck_classic_7',
+        viewer: 'Kai',
+      );
       expect(_chip(tester, 'Classic').selected, isTrue);
-      final held = setup.http.hold(method: 'PATCH', path: '/lobbies/V9YC2J/');
-      final answer = v2Lobby('detail_v2_auto_deck_5');
-      (answer['settings'] as Map)['deck_chip'] = 'chaos';
+      expect(shown(tester), previewOf(v2Lobby('detail_v2_deck_classic_7')));
+      final held = setup.http.hold(method: 'PATCH', path: '/lobbies/B7DH4Q/');
+      final answer = v2Lobby('detail_v2_deck_chaos_7');
       setup.answerPatch(answer);
 
       await _tap(tester, setup, find.text('Chaos'));
 
       expect(_chip(tester, 'Chaos').selected, isTrue);
       expect(_chip(tester, 'Classic').selected, isFalse);
+      // The Classic cards are not shown under Chaos while it is sent.
+      expect(find.byType(RoleCard), findsNothing);
       expect(setup.patches, [
         {'deck': 'auto', 'deck_chip': 'chaos'},
       ]);
       held.releaseAll();
       await setup.settle(tester);
       expect(_chip(tester, 'Chaos').selected, isTrue);
+      expect(shown(tester), previewOf(answer));
+      await setup.close(tester);
+    });
+
+    testWidgets('"Edit" on a chip\'s cards starts the grid from them', (
+      tester,
+    ) async {
+      final setup = await openDeck(
+        tester,
+        sample: 'detail_v2_deck_simple_7',
+        viewer: 'Kai',
+      );
+      final preview = previewOf(v2Lobby('detail_v2_deck_simple_7'));
+
+      await _tap(
+        tester,
+        setup,
+        find.widgetWithText(SecondaryButton, TableCopy.editDeck),
+      );
+
+      expect(find.byType(RoleCard), findsNWidgets(deckOrder.length));
+      expect(shown(tester), preview);
+      expect(_chip(tester, 'Simple').selected, isFalse);
+      expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
+      await setup.close(tester);
+    });
+
+    testWidgets('a deck of the wrong size: "Use this deck" names the cards '
+        'the server\'s deal needs', (tester) async {
+      final setup = await openDeck(
+        tester,
+        sample: 'detail_v2_custom_deck_short',
+        viewer: 'Kai',
+      );
+      // Ten cards for eight: the server needs eleven.
+      expect(_onPressed(tester, CommonCopy.addCard), isNull);
       await setup.close(tester);
     });
 
@@ -699,8 +860,9 @@ void main() {
       await _tap(tester, setup, _role(RoleId.hunter));
       expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
 
-      final answer = v2Lobby('detail_v2_custom_deck');
-      setup.answerPatch(answer);
+      // Held: what shows is this phone's change, not the answer.
+      setup.http.hold(method: 'PATCH', path: '/lobbies/T8NB6C/');
+      setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
       await _tap(tester, setup, find.text(DeckCopy.useDeck));
 
       final sent = setup.patches.single! as Map;
@@ -729,7 +891,7 @@ void main() {
       final setup = await openDeck(tester);
       // Held: its answer is not needed for what shows.
       setup.http.hold(method: 'PATCH', path: '/lobbies/V9YC2J/');
-      setup.answerPatch(v2Lobby('detail_v2_auto_deck_5'));
+      setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
 
       await _tap(tester, setup, find.text('Quick'));
 

@@ -25,7 +25,6 @@ import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
 import '../domain/lobby_state.dart';
-import '../domain/where_am_i.dart';
 import 'deck_screen.dart' show deckChipLabel;
 import 'home_numbers.dart';
 import 'lobby_notifier.dart';
@@ -38,8 +37,8 @@ import 'where_am_i_provider.dart';
 ///   centred, the code under it, Share beside the words (copied, "Copied",
 ///   only where there is no share sheet); then everyone at the table as a
 ///   row each, their own outlined, a dropped phone dimmed with no words.
-/// - Host: the deck as its chip (and, when the server sends it, the chip's
-///   cards face up) or the custom deck's cards, with "Edit" (03); "Deal to
+/// - Host: the deck as its chip with its cards face up (the server's
+///   `deck_preview`) or the custom deck's cards, with "Edit" (03); "Deal to
 ///   {n}", amber, by the server's verdict on dealing ([DealState]); a refused
 ///   deal says why; a quiet "Leave" that asks first ("Stay" / "Leave"), so
 ///   one stray tap never hands the table away.
@@ -75,10 +74,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     final table = ref.watch(myTableProvider).value;
     if (table == null) return const _Waiting();
     final code = table.lobbyCode;
-    ref.listen(
-      lobbyProvider(code),
-      (before, now) => _follow(table, before, now),
-    );
+    ref.listen(lobbyProvider(code), _follow);
     final read = ref.watch(lobbyProvider(code));
     final lobby = read.value;
     final viewer = _viewer;
@@ -86,13 +82,6 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
       return _Waiting(offline: read.error != null);
     }
     final notifier = ref.read(lobbyProvider(code).notifier);
-    // FALLBACK until the server seats members ready (server branch): this
-    // phone sets its own flag. Delete with [LobbyNotifier.sitDown].
-    if (!lobby.players.any((p) => p.id == viewer && p.isReady)) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => unawaited(notifier.sitDown(viewer)),
-      );
-    }
     final origin = ref.watch(appOriginProvider);
     return AtTableView(
       lobby: lobby,
@@ -117,20 +106,11 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     );
   }
 
-  /// What the lobby's changes mean beyond what it shows: sit down ready; a
-  /// deal or a handover moves `/me/table/` on, so it is read again.
-  void _follow(
-    MyTable table,
-    AsyncValue<LobbyState>? before,
-    AsyncValue<LobbyState> now,
-  ) {
+  /// What the lobby's changes mean beyond what it shows: a deal or a
+  /// handover moves `/me/table/` on, so it is read again.
+  void _follow(AsyncValue<LobbyState>? before, AsyncValue<LobbyState> now) {
     final lobby = now.value;
-    final viewer = _viewer;
-    if (lobby == null || viewer == null) return;
-    // FALLBACK until members are seated ready (server branch).
-    unawaited(
-      ref.read(lobbyProvider(table.lobbyCode).notifier).sitDown(viewer),
-    );
+    if (lobby == null) return;
     final was = before?.value;
     final moved =
         lobby.startedGameId != null &&
@@ -259,7 +239,10 @@ class AtTableView extends StatelessWidget {
                 token: player.token,
                 name: player.displayName,
                 own: player.id == viewerId,
-                away: player.connected == false || away.contains(player.id),
+                // This phone is here: its own row is never dimmed.
+                away:
+                    player.id != viewerId &&
+                    (player.connected == false || away.contains(player.id)),
               ),
             if (host) _DeckPanel(lobby: lobby, onEdit: onEditDeck),
             Align(
@@ -289,7 +272,8 @@ class AtTableView extends StatelessWidget {
             action: BannerCopy.tryAgain,
             onAction: onRetry,
           )
-        else if (host && refused != null)
+        // The button already says it when the table's new verdict agrees.
+        else if (host && refused != null && refused != _dealWords())
           Notice(message: refused)
         else if (copied)
           const Notice(message: BannerCopy.copied),
@@ -324,25 +308,22 @@ class AtTableView extends StatelessWidget {
     if (leave ?? false) onLeave?.call();
   }
 
-  Widget _dealButton() => switch (DealState.of(lobby)) {
-    CanDeal(:final players) => PrimaryButton(
-      label: TableCopy.deal.fill({'n': players}),
-      onPressed: onDeal,
-      busy: dealing,
-    ),
-    NeedPlayers() => const PrimaryButton(
-      label: TableCopy.needPlayers,
-      onPressed: null,
-    ),
-    AddCards(:final count) => PrimaryButton(
-      label: cardsLabel(count, add: true),
-      onPressed: null,
-    ),
-    RemoveCards(:final count) => PrimaryButton(
-      label: cardsLabel(count, add: false),
-      onPressed: null,
-    ),
+  /// The deal button's words, from the server's verdict ([DealState]).
+  String _dealWords() => switch (DealState.of(lobby)) {
+    CanDeal(:final players) => TableCopy.deal.fill({'n': players}),
+    NeedPlayers() => TableCopy.needPlayers,
+    AddCards(:final count) => cardsLabel(count, add: true),
+    RemoveCards(:final count) => cardsLabel(count, add: false),
+    CannotDeal(:final deck) =>
+      deck ? BannerCopy.deckDoesNotFit : BannerCopy.cannotDeal,
   };
+
+  /// "Deal to {n}", amber, only when the server says the deal would go.
+  Widget _dealButton() => PrimaryButton(
+    label: _dealWords(),
+    onPressed: DealState.of(lobby) is CanDeal ? onDeal : null,
+    busy: dealing,
+  );
 }
 
 /// "Add {n} cards" / "Remove {n} cards", one card singular.
@@ -440,8 +421,9 @@ class _JoinCard extends StatelessWidget {
   }
 }
 
-/// The host's deck: its chip with "Edit", and the chip's cards face up when
-/// the server sends them; or the custom deck's cards with "Edit".
+/// The host's deck: its chip with "Edit" and the chip's cards face up (none
+/// for a count with no automatic deck); or the custom deck's cards with
+/// "Edit".
 class _DeckPanel extends StatelessWidget {
   const _DeckPanel({required this.lobby, this.onEdit});
 

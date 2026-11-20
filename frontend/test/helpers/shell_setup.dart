@@ -22,13 +22,18 @@ import 'package:midnight_village/features/game/data/game_service.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 import 'package:midnight_village/features/game/presentation/shell/game_entry.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
+import 'package:midnight_village/features/game/presentation/table_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:midnight_village/features/lobby/data/home_service.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
+import 'package:midnight_village/features/game/domain/screen_table.dart'
+    show AppScreen;
+import 'package:midnight_village/features/lobby/presentation/home_numbers.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 
 import 'component_sheet.dart' show SheetLearned;
 import 'contract/contract_samples.dart';
+import 'contract/server_json.dart' show serverOnlineStats;
 import 'fake_wakelock_service.dart';
 import 'mock_http_client.dart';
 import 'mock_websocket.dart';
@@ -46,6 +51,9 @@ export 'protocol_two_setup.dart' show recordedMe, sampleClockStart;
 /// shell (end of a test, or [close]) disposes it and every timer it armed.
 class ShellSetup {
   ShellSetup._(this.me, this.http, this.ws, this.wakelock);
+
+  /// The lobby's socket (02 and 03 listen to it).
+  final lobbyWs = MockWebSocketChannel();
 
   /// The `/me/` the server starts at (a recorded protocol-2 `/me/`).
   final Map<String, dynamic> me;
@@ -86,6 +94,9 @@ class ShellSetup {
     // empty, unless the test restarts the app on the same device.
     // ignore: invalid_use_of_visible_for_testing_member
     if (!sameDevice) SharedPreferences.setMockInitialValues({});
+    // What this device kept of its local steps, read as `main` reads it.
+    forgetRestoredLocalSteps();
+    if (sameDevice) await restoreLocalSteps();
     final setup = ShellSetup._(
       me,
       MockHttpClient(),
@@ -144,6 +155,10 @@ class ShellSetup {
         lobbyServiceProvider.overrideWithValue(LobbyService(client: client)),
         homeServiceProvider.overrideWithValue(
           HomeService(client: ApiClient(dio: http.dio)),
+        ),
+        lobbyWebSocketFactoryProvider.overrideWithValue((_) => lobbyWs),
+        appOriginProvider.overrideWithValue(
+          Uri.parse('https://midnight.example'),
         ),
         gameWebSocketProvider.overrideWith((ref, id) => null),
         gameWebSocketStreamProvider.overrideWith((ref, id) => ws.stream),
@@ -222,6 +237,32 @@ class ShellSetup {
   void answerTable(Map<String, dynamic> body) =>
       http.answer('GET', '/me/table/', body);
 
+  /// What `GET /lobbies/<code>/` answers (02 and 03 read the lobby): the
+  /// recorded protocol-2 table [sample] (`http/lobby/<sample>`), under
+  /// [code].
+  void answerLobby(String code, {String sample = 'settings_deck_chip'}) {
+    final body = ContractSamples.map('http/lobby/$sample');
+    body['code'] = code;
+    http.answer('GET', '/lobbies/$code/', body);
+  }
+
+  /// What 01's home numbers read: the players online, no finished game.
+  void answerHome() => http
+    ..answer('GET', '/stats/online/', serverOnlineStats())
+    ..answer(
+      'GET',
+      '/onuw/me/recent-games/',
+      ContractSamples.map('http/game/recent_games_none'),
+    );
+
+  /// The screen [tableScreenProvider] says this phone shows.
+  AppScreen? screenOn(WidgetTester tester) {
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(TableShell)),
+    );
+    return container.read(tableScreenProvider).value?.screen;
+  }
+
   /// `POST <base><endpoint>` answers the recorded sample [sample].
   void answerPost(String endpoint, String sample, {int status = 200}) =>
       http.answer(
@@ -247,12 +288,17 @@ class ShellSetup {
   void failPost(String endpoint) =>
       http.answer('POST', '$_base$endpoint', 'Server Error', status: 503);
 
-  /// `GET .../results/` answers the recorded results.
-  void answerResults() => http.answer(
+  /// `GET .../results/` answers [body] (the recorded `results` unless
+  /// given).
+  void answerResults([Map<String, dynamic>? body]) => http.answer(
     'GET',
     '$_base/results/',
-    ContractSamples.load('http/game/results'),
+    body ?? ContractSamples.load('http/game/results'),
   );
+
+  /// `GET .../results/` gives no readable answer (a 5xx).
+  void failResults() =>
+      http.answer('GET', '$_base/results/', 'Server Error', status: 503);
 
   /// The app comes back to the foreground.
   void resume() => _resumes.add(++_resumeCount);

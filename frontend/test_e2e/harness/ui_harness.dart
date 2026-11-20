@@ -5,18 +5,21 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_riverpod/misc.dart' show Override, ProviderBase;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/app.dart';
 import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/core/api/auth_interceptor.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/core/healing/healing.dart';
 import 'package:midnight_village/core/router/app_router.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 import 'package:midnight_village/features/game/presentation/protocol_two_game.dart';
 import 'package:midnight_village/features/game/presentation/shell/game_entry.dart';
+import 'package:midnight_village/features/lobby/domain/where_am_i.dart';
+import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
 import 'package:midnight_village/features/game/presentation/timer_provider.dart';
 import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
@@ -118,6 +121,26 @@ class UiHarness {
       ref.onDispose(ws.dispose);
       return ws;
     }),
+    // The lobby's socket (02 and 03), LIVE against the harness backend with
+    // the Origin header, as the game's. Built when the lobby is first read:
+    // [readLobby] reads it in the REAL zone.
+    lobbyWebSocketFactoryProvider.overrideWith((ref) {
+      final tokens = ref.watch(tokenStorageProvider);
+      return (code) {
+        final ws = ReconnectingWebSocket(
+          url: '${HarnessConfig.wsBaseUrl}/ws/lobby/$code/',
+          tokenStorage: tokens,
+          channelFactory: (uri) => _OriginChannel(
+            IOWebSocketChannel.connect(
+              uri,
+              headers: {'Origin': HarnessConfig.origin},
+            ),
+          ),
+        );
+        unawaited(ws.connect());
+        return ws;
+      };
+    }),
     // Replace the live countdown with a SINGLE emitted value that then
     // completes. The production `gameTimer` loops on `Future.delayed(1s)`
     // forever while the deadline is in the future; that pending timer trips the
@@ -167,6 +190,58 @@ class UiHarness {
     await tester.pump();
   }
 
+  /// Reads `/me/table/` afresh in the REAL zone until it holds [until] (a
+  /// read started under a pump, in the fake zone, never completes): after
+  /// the server moved this phone (a table opened, joined or dealt; the move
+  /// may still be on its way when this starts).
+  Future<MyTable?> followTable({bool Function(MyTable? table)? until}) async {
+    final table = await tester.runAsync(
+      () => _readAgain<MyTable?>(myTableProvider, until: until),
+    );
+    await tester.pump();
+    await settle();
+    return table;
+  }
+
+  /// Reads the lobby [code] (02 and 03 show it) in the REAL zone and keeps it
+  /// alive: its fetch completes and its socket is live, so the screen follows
+  /// the table (players joining, a chip's answer).
+  Future<void> readLobby(String code) async {
+    await tester.runAsync(() async {
+      await _readAgain(lobbyProvider(code));
+      // Let the server put the socket in the lobby's group.
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+    });
+    await tester.pump();
+    await settle();
+  }
+
+  /// [provider] built afresh in the real zone and kept alive, read again
+  /// until its value holds [until]: each round invalidates it (a build a
+  /// pump started meanwhile, in the fake zone, is dropped) and polls for a
+  /// value, bounded.
+  Future<T?> _readAgain<T>(
+    ProviderBase<AsyncValue<T>> provider, {
+    bool Function(T? value)? until,
+  }) async {
+    container.listen(provider, (_, _) {});
+    final waited = Stopwatch()..start();
+    while (waited.elapsed < const Duration(seconds: 20)) {
+      container.invalidate(provider);
+      final round = Stopwatch()..start();
+      while (round.elapsed < const Duration(seconds: 3)) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final now = container.read(provider);
+        if (now.hasValue && !now.isLoading) {
+          if (until == null || until(now.value)) return now.value;
+          break;
+        }
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    throw TimeoutException('$provider did not load as expected');
+  }
+
   /// Reads which night [gameId] runs in the REAL zone (the game route asks
   /// before it shows anything: [GameEntry]), so the route renders at once.
   Future<void> _knowProtocol(String gameId) => tester.runAsync(() async {
@@ -189,8 +264,12 @@ class UiHarness {
       // started under a pump, in the FAKE zone, where it never completes
       // (nor does that build's `.future`). Start it again here, in the real
       // zone, and wait for its value.
+      // The game's own reads too, when a pump already started them (a phone
+      // that dealt from 02 shows the game before this is called).
       container
         ..invalidate(myTableProvider)
+        ..invalidate(gameWebSocketProvider(gameId))
+        ..invalidate(protocolTwoGameProvider(gameId))
         ..listen(gameWebSocketProvider(gameId), (_, _) {})
         ..listen(myTableProvider, (_, _) {})
         ..listen(protocolTwoGameProvider(gameId), (_, _) {});
@@ -316,17 +395,24 @@ class UiHarness {
   ///    so those futures complete against a live container rather than throwing
   ///    `UnmountedRefException` when they touch a disposed `ref`.
   /// 3. Dispose the container (tears down providers + their resources).
-  /// 4. Advance the fake clock past the only residual timers — bounded ~3s HTTP
-  ///    keep-alive idle timers (`_HttpClientConnection.startTimer`) — so they
-  ///    fire-and-clear and leave nothing pending.
+  /// 4. Unmount again and advance the fake clock past every residual timer:
+  ///    HTTP keep-alive idle timers (`_HttpClientConnection.startTimer`, 15 s
+  ///    by default) and any heal or poll timer a late answer armed
+  ///    ([HealTiming], the longest `tablePoll`), so they fire into a disposed
+  ///    container and leave nothing pending, whatever the phone was doing.
   Future<void> tearDownHarness() async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
     container.dispose();
-    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(_drain);
   }
+
+  /// Longer than any timer the app or an idle connection arms.
+  static final _drain =
+      const HealTiming().tablePoll + const Duration(seconds: 5);
 
   /// Captures the current frame as a PNG inside [WidgetTester.runAsync] (raw
   /// `toImage` hangs the test clock otherwise — flutter#50783) and writes it to

@@ -139,7 +139,7 @@ Shared rules for every phone at night:
 |---|---|---|---|
 | Socket lost | A "One moment" banner | No change, no name. The server waits up to 25 s grace for this phone, whatever its role. | — |
 | Back inside the same window | The same screen. Picks are kept while the app stays open. After a cold start: re-hold "You" (any role). | — | `GET /me` |
-| Back after a close | 07 for any results past `night_results_seen`, then the current phase. In results phase it skips straight to 10. | — | `GET /me` |
+| Back after a close | 07 for any results past `night_results_seen`, then the current phase. In results phase it lands on 10, or on 11 if this phone had already gone on to it (kept on the device). | — | `GET /me` |
 | Missed the close event | 2 s after the local deadline it fetches, then follows the phase | — | `GET /me` |
 
 **How the server reads a `choose`.** It takes the first valid action in tap order. "You" is never a valid target.
@@ -319,23 +319,24 @@ Every face has exactly one portrait slot and at most 2 lines.
 - **States:**
   - Your own row is never listed.
   - The picked row lifts and gets an ink outline. Tapping another row moves the pick.
-  - After locking, every row looks the same and dims equally.
+  - After locking, the player's own pick stays lifted and outlined and the other rows dim; the button reads "Locked". (Owner, 20 November 2026: a neighbour could already read "Lock in Cleo" before the lock; hiding the pick afterwards only costs the player the sight of their own choice.)
   - Normal pace gives 90 s (17).
 - **Pass:** "Tap a name, then Lock in."
 
 **10 The count**
 - **One thing / loudest:** watch; the dead player's card.
-- **Locked until:** "See who won" unlocks when the flips end.
+- **Locked until:** nothing. "See who won" works at once; any other tap finishes the motion (section 8).
 - **Copy:**
-  - Headline: "{name} dies." / "{names} die." / "Nobody dies.", and then "{name} dies too." for the Hunter.
+  - Headline: "{name} dies." / "{names} die." / "Nobody dies.", and then "{name}, {hunter}'s pick, dies too." for each player the server says the Hunter took (`hunter_chain`).
   - When nobody dies: "Nobody got 2 or more votes."
   - Rows: accused name, count, and the voter names at 16 px. Then "No vote: {names}".
-  - Cards: "Now" (`final_role`), plus "Dealt" with an arrow when the dealt card differs; team tag.
+  - Cards: the player's name and "Now" (`final_role`), plus "Dealt" with an arrow when the dealt card differs; team tag ("Werewolf team" beside the role's name, "Village", "Alone"). With several dead, "Dealt" and "Now" are said on the first card only.
   - Button: "See who won".
   - **16 of 16 words.**
 - **Removed:** "Dev was the" (1). "The count", "Accused", "Voted by", the voter tokens (9, 12).
 - **States:**
-  - The rows land with a 150 ms stagger, then a 1.2 s pause, then the flip (400 ms), on every phone at once.
+  - The dead card comes first, then the rows. The rows land with a 150 ms stagger, then a 1.2 s beat, then the flip (400 ms), on every phone at once; nothing waits on it.
+  - Only the rows of players killed by the vote are outlined; the Hunter's pick is not.
   - When `final_role` is Doppelganger and the timeline has a `copy` step, the Now card shows the copied role, captioned "Doppelganger".
   - The Now card uses the same source as the results, so the two screens cannot disagree (1).
   - The Dealt→Now arrow is how a newcomer learns that cards moved.
@@ -347,10 +348,10 @@ Every face has exactly one portrait slot and at most 2 lines.
   - Headline: "The village wins" / "The Werewolves win" / "The Tanner wins" / "The village and the Tanner win" / "The Werewolves and the Tanner win" / "Nobody wins".
   - Timeline rows: listed separately below.
   - Final row: "Won" / "Died". Then "Center: {roles}".
-  - Host: amber "Play again", quiet "Edit deck". Guest: "{host} deals next.", quiet "Leave".
+  - Host: amber "Play again", quiet "Edit deck", side by side, or stacked when a label would not fit on one line. Guest: "{host} deals next." (only when the host is at the table), quiet "Leave".
   - **13 of 13 words.**
 - **Removed:** "Cleo held the Robber" (1). The footnote (12). "Change the deck".
-- **States:** the timeline always animates (600 ms per row, or instant with reduce motion), and a tap finishes it. A wolf glyph heads the red line.
+- **States:** after the band, every player's card (dealt → final) with "Won" / "Died", one compact line each, and the center; then the night, open (starting on the first screen at five players and 390 wide): first the red line, each Werewolf card from where it was dealt to where it ended ("Cara → Bob"), headed by the Werewolf's portrait; then the steps, arriving 150 ms apart (instant with reduce motion; a tap finishes them), on a spine that is red where a werewolf card was looked at or moved; a tap on the red line folds the steps. Red is the server's `werewolf` flag on a card, everywhere. (Review of the rebuild, 20 November 2026.)
 - **Pass:** host says "Play again"; guest says "Wait or Leave".
 
 **Timeline rows on 11** (prefix "{role}:"; a Doppelganger follow-up uses the prefix "Doppelganger · {copied}:")

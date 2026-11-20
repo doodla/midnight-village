@@ -88,5 +88,12 @@
     "done": 1,
     "needed": 5
   },
-  "stage": "vote.000000000007"
+  "stage": "vote.000000000007",
+  "stage_started_at": "2024-03-07T21:18:38+00:00",
+  "vote_targets": [
+    28,
+    29,
+    30,
+    31
+  ]
 }

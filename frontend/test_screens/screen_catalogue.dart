@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 
 import '../test/helpers/component_sheet.dart';
+import 'end_fixtures.dart';
 import 'screen_fixtures.dart';
 import 'shell_fixtures.dart';
 import 'table_fixtures.dart';
@@ -56,25 +57,23 @@ final screenCatalogue = <ScreenEntry>[
   }),
   ..._rebuilt('02-table', '02-table.png', {
     '': pumpTableHost,
-    '-3': pumpTableHostThree,
+    '-4': pumpTableHostFour,
+    '-7-chaos': pumpTableHostChaos,
     '-alone': pumpTableHostAlone,
-    '-10-long': pumpTableHostTen,
+    '-9-long': pumpTableHostNine,
     '-custom': pumpTableHostCustom,
     '-custom-short': pumpTableHostMismatch,
+    '-dropped': pumpTableDropped,
+    '-refused': pumpTableRefused,
     '-guest': pumpTableGuest,
     '-handover': pumpTableHandover,
     '-x1.3': (tester) => pumpTableHost(tester, textScale: 1.3),
     '-guest-x2': (tester) => pumpTableGuest(tester, textScale: 2),
   }),
-  // The lobby body says nothing of whose phone has dropped yet: no sample
-  // (the server branch adds `connected`; the screen reads it already).
-  const ScreenEntry.notBuilt(
-    '02-table-dropped',
-    mock: '02-table.png',
-    why: 'no lobby sample with `connected` yet (c-table-night draws it)',
-  ),
   ..._rebuilt('03-deck', '03-deck.png', {
     '': pumpDeckChips,
+    '-chaos': pumpDeckChaos,
+    '-edit': pumpDeckEdit,
     '-grid': pumpDeckGrid,
     '-grid-short': pumpDeckGridShort,
   }),
@@ -131,10 +130,52 @@ final screenCatalogue = <ScreenEntry>[
     mock: '07-night-what-you-saw.png',
     build: pumpSeerResult,
   ),
-  ScreenEntry('08-talk', mock: '08-talk.png', build: pumpTalk),
-  ScreenEntry('09-vote', mock: '09-vote.png', build: pumpVote),
+  ..._rebuilt('08-talk', '08-talk.png', {
+    '': pumpTalkOpen,
+    '-held': pumpTalkHeld,
+    '-held-doppelganger': pumpTalkDoppelgangerHeld,
+    '-ready': pumpTalkReady,
+    '-not-sent': pumpTalkNotSent,
+    '-3': pumpTalkThree,
+    '-9': pumpTalkNine,
+    '-10-long': pumpTalkTenLong,
+    '-x1.3': (tester) => pumpTalkOpen(tester, textScale: 1.3),
+  }),
+  ..._rebuilt('09-vote', '09-vote.png', {
+    '': pumpVoteOpen,
+    '-picked': pumpVotePicked,
+    '-locked': pumpVoteLocked,
+    '-restart-picked': pumpVoteRestartPicked,
+    '-restart-locked': pumpVoteRestartLocked,
+    '-3': pumpVoteThree,
+    '-10-long': pumpVoteTenLong,
+    '-x1.3': (tester) => pumpVoteOpen(tester, textScale: 1.3),
+  }),
   ScreenEntry('10-the-count', mock: '10-the-count.png', build: pumpCount),
   ScreenEntry('11-results', mock: '11-results.png', build: pumpResults),
+  // 10 and 11 rebuilt (night protocol 2), through the real shell.
+  ..._rebuilt('10-count', '10-the-count.png', {
+    '-one': pumpCountOne,
+    '-opening': pumpCountOpening,
+    '-hunter': pumpCountHunter,
+    '-moved': pumpCountMoved,
+    '-nobody': pumpCountNobody,
+    '-tanner': pumpCountTanner,
+    '-ten-long': pumpCountTen,
+    '-waiting': pumpCountWaiting,
+    '-x1.3': (tester) => pumpCountOne(tester, textScale: 1.3),
+  }),
+  ..._rebuilt('11-results', '11-results.png', {
+    '-village': pumpResultsVillage,
+    '-werewolves': pumpResultsWerewolves,
+    '-nobody': pumpResultsNobody,
+    '-tanner': pumpResultsTanner,
+    '-night': pumpResultsNight,
+    '-folded': pumpResultsFolded,
+    '-end': pumpResultsEnd,
+    '-ten-long': pumpResultsTen,
+    '-x1.3': (tester) => pumpResultsVillage(tester, textScale: 1.3),
+  }),
   ...componentSheet,
 ];
 

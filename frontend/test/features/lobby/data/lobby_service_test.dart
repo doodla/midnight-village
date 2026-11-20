@@ -93,15 +93,6 @@ void main() {
       expect(sent().$2, '/lobbies/ABC123/leave/');
     });
 
-    test('setReady sets this player ready, saying so', () async {
-      http.answer('POST', '/lobbies/ABC123/ready/', _lobby(deck: false));
-
-      await service.setReady('ABC123', ready: true);
-
-      expect(sent().$2, '/lobbies/ABC123/ready/');
-      expect(sent().$3, {'is_ready': true});
-    });
-
     test('setCustomDeck sends the cards as the custom deck', () async {
       final roles = {'Werewolf': 2, 'Seer': 1};
       http.answer('PATCH', '/lobbies/ABC123/', _lobby());

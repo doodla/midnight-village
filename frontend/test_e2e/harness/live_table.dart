@@ -55,6 +55,14 @@ class LiveTable {
     return LiveTable._(clients.client, clients.controller);
   }
 
+  /// A table opened some other way (a phone's own 01 and 02) and dealt:
+  /// [table]'s players and game adopted, so every helper here acts on it.
+  static LiveTable adopt(DebugTable table) {
+    final clients = harnessClients();
+    clients.controller.attachTable(table);
+    return LiveTable._(clients.client, clients.controller);
+  }
+
   final DebugApiClient client;
   final DebugTableController controller;
 

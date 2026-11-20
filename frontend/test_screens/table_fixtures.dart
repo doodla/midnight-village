@@ -5,6 +5,7 @@ import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 
 import '../test/helpers/contract/contract_samples.dart';
+import '../test/helpers/mock_http_client.dart';
 import '../test/helpers/table_setup.dart';
 
 // 01 Join, 02 Table, 03 Deck and 03b through the app's real routes and
@@ -97,12 +98,24 @@ Future<void> pumpTableHost(WidgetTester tester, {double textScale = 1}) =>
       textScale: textScale,
     );
 
-/// 02, the host's, at three: as few as the server deals to.
-Future<void> pumpTableHostThree(WidgetTester tester) => TableSetup.pump(
+/// 02, the host's: Kai's table of four, the Simple chip's cards.
+Future<void> pumpTableHostFour(WidgetTester tester) => TableSetup.pump(
   tester,
-  lobby: v2Lobby('detail_v2_auto_deck_5', players: 3),
-  viewer: 'Ana',
+  lobby: v2Lobby('detail_v2_deck_simple_4'),
+  viewer: 'Kai',
 );
+
+/// 02, the host's: seven at the table, scrolled to the deck: the Chaos
+/// chip and its ten cards face up.
+Future<void> pumpTableHostChaos(WidgetTester tester) async {
+  await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_v2_deck_chaos_7'),
+    viewer: 'Kai',
+  );
+  await tester.ensureVisible(find.text(TableCopy.editDeck));
+  await tester.pumpAndSettle();
+}
 
 /// 02, the host's, alone at a new table: "Need 3 players".
 Future<void> pumpTableHostAlone(WidgetTester tester) => TableSetup.pump(
@@ -111,10 +124,10 @@ Future<void> pumpTableHostAlone(WidgetTester tester) => TableSetup.pump(
   viewer: 'Ana',
 );
 
-/// 02, the host's, at ten (as many as the server seats) with long names.
-Future<void> pumpTableHostTen(WidgetTester tester) => TableSetup.pump(
+/// 02, the host's, at nine with long names, the Chaos chip's twelve cards.
+Future<void> pumpTableHostNine(WidgetTester tester) => TableSetup.pump(
   tester,
-  lobby: v2Lobby('detail_v2_auto_deck_9', players: 10, rename: longNames),
+  lobby: v2Lobby('detail_v2_auto_deck_9', rename: longNames),
   viewer: 'Christopher',
 );
 
@@ -125,12 +138,39 @@ Future<void> pumpTableHostCustom(WidgetTester tester) => TableSetup.pump(
   viewer: 'Ana',
 );
 
-/// 02, the host's own deck, one player short of it: "Remove 1 cards".
+/// 02, the host's own deck of ten, an eighth player in: "Add 1 card".
 Future<void> pumpTableHostMismatch(WidgetTester tester) => TableSetup.pump(
   tester,
-  lobby: v2Lobby('detail_v2_custom_deck', players: 8),
-  viewer: 'Ana',
+  lobby: v2Lobby('detail_v2_custom_deck_short', asRecorded: true),
+  viewer: 'Kai',
 );
+
+/// 02, the host's: Noa's phone has dropped (her row dimmed, no words).
+Future<void> pumpTableDropped(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_v2_member_dropped', asRecorded: true),
+  viewer: 'Kai',
+);
+
+/// 02, the host's: a deal the server refused all the same says why.
+Future<void> pumpTableRefused(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_v2_deck_classic_4'),
+    viewer: 'Kai',
+  );
+  setup.http.answer(
+    'POST',
+    '/onuw/lobbies/${setup.code}/start/',
+    ContractSamples.map('http/game/start_not_all_ready'),
+    status: 400,
+  );
+  final deal = find.text(TableCopy.deal.fill({'n': 4}));
+  await tester.ensureVisible(deal);
+  await tester.pumpAndSettle();
+  await tester.tap(deal);
+  await setup.settle(tester);
+}
 
 /// 02, a guest's: Ben at Ana's table.
 Future<void> pumpTableGuest(WidgetTester tester, {double textScale = 1}) =>
@@ -170,13 +210,29 @@ Future<void> pumpDeckChips(WidgetTester tester) async {
   await _openDeck(tester);
 }
 
+/// 03 on Kai's table of seven, the Chaos chip's cards face up.
+Future<void> pumpDeckChaos(WidgetTester tester) async {
+  await pumpTableHostChaos(tester);
+  await _openDeck(tester);
+}
+
+/// 03: "Edit" on the Chaos chip's cards, the grid open on them.
+Future<void> pumpDeckEdit(WidgetTester tester) async {
+  await pumpDeckChaos(tester);
+  final edit = find.text(TableCopy.editDeck);
+  await tester.ensureVisible(edit);
+  await tester.pumpAndSettle();
+  await tester.tap(edit);
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
 /// 03 with the grid open on the host's own deck.
 Future<void> pumpDeckGrid(WidgetTester tester) async {
   await pumpTableHostCustom(tester);
   await _openDeck(tester);
 }
 
-/// 03 with the grid open and a card taken out: "Add 1 cards".
+/// 03 with the grid open and a card taken out: "Add 1 card".
 Future<void> pumpDeckGridShort(WidgetTester tester) async {
   await pumpDeckGrid(tester);
   await tester.tap(

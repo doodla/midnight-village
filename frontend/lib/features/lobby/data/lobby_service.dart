@@ -68,20 +68,6 @@ class LobbyService {
   Future<LobbyState> patchSettings(String code, Map<String, Object> settings) =>
       _patchSettings(code, settings);
 
-  /// Sets this player's ready flag: POST /lobbies/<code>/ready/ with
-  /// `{"is_ready": ready}` (the server's deal wants every member ready; a
-  /// phone sets its own as it sits down).
-  Future<void> setReady(String code, {required bool ready}) async {
-    try {
-      await _client.post<Map<String, dynamic>>(
-        '/lobbies/$code/ready/',
-        data: {'is_ready': ready},
-      );
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
   Future<LobbyState> _patchSettings(
     String code,
     Map<String, Object> settings,

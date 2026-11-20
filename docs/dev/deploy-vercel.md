@@ -34,7 +34,7 @@ Local development, the tests and the debug harness keep the `memory` backend
 | `DATABASE_URL` | required, `postgres://user:pass@host:port/db` (pooled) |
 | `REDIS_URL` | required (`rediss://...`) |
 | `ALLOWED_HOSTS` | comma-separated; `VERCEL_URL` and `VERCEL_PROJECT_PRODUCTION_URL` are added automatically |
-| `CORS_ALLOWED_ORIGINS` | comma-separated origins of the app |
+| `CORS_ALLOWED_ORIGINS` | comma-separated origins of the app (answers to them expose the `Date` header: `CORS_EXPOSE_HEADERS` in the base settings, not an env var) |
 | `CSRF_TRUSTED_ORIGINS` | comma-separated (admin only) |
 | `DB_CONN_MAX_AGE` | optional, default `0` (do not hold connections between requests) |
 | `DB_SSLMODE` | optional, default `require` |
