@@ -118,7 +118,7 @@ final class ProtocolTwoGameNotifierProvider
 }
 
 String _$protocolTwoGameNotifierHash() =>
-    r'1241bde8f25ad4c74fe095353ca11bdb25969455';
+    r'e7a4e90d256373079cf546ad381d7b5f588f2f9a';
 
 /// A night protocol 2 game for the rebuilt screens, keyed by game id (the
 /// old screens keep [GameNotifier] on protocol 1). The game id comes from

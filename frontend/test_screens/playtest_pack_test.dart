@@ -1,7 +1,10 @@
 // The cold-read pack (first-time play spec, section 5, hook 10): four
 // first-game journeys through one recorded game (game 7 of
 // contract_samples/, test/helpers/sheet/sheet_data.dart), each the screens
-// one phone shows in order, to build/playtest/<journey>/screen-NN.png. Each
+// one phone shows in order, to build/playtest/<journey>/screen-NN.png. 01 to
+// 03b are the app's real screens through its routes and providers, on the
+// recorded lobby bodies (test_screens/table_fixtures.dart); the night and
+// after are the component sheet's pages until their screens land. Each
 // phone's taps and faces are the ones the server recorded, and what it has
 // learned carries from screen to screen. Hand a folder to someone who has
 // never played and ask, screen by screen, what they would do next. Run it
@@ -14,62 +17,81 @@ import 'package:midnight_village/design_system/teach/learned_store.dart';
 import '../test/helpers/component_sheet.dart';
 import '../test/helpers/sheet/sheet_data.dart';
 import 'screen_gallery.dart';
+import 'table_fixtures.dart';
+
+/// One screen of a journey: a component sheet page on a phone of the
+/// recorded game, or a real screen reached through the app ([build]).
+typedef _Step = ({
+  String name,
+  ComponentPage? page,
+  Viewer? viewer,
+  Future<void> Function(WidgetTester tester)? build,
+});
+
+_Step _page(ComponentPage page, Viewer viewer) =>
+    (name: page.name, page: page, viewer: viewer, build: null);
+
+_Step _real(String name, Future<void> Function(WidgetTester tester) build) =>
+    (name: name, page: null, viewer: null, build: build);
 
 /// `--dart-define=SCREENS_WIDTH=360` renders at another phone width.
 const _width = int.fromEnvironment('SCREENS_WIDTH', defaultValue: 390);
 
 /// The night and the talk, as [viewer]'s phone has them: its card, a look,
 /// the board, what it tapped, Choose, the talk and My night.
-List<(ComponentPage, Viewer)> _night(Viewer viewer, {bool holdYou = true}) => [
-  (ComponentPage.card, viewer),
-  (ComponentPage.cardHeld, viewer),
-  (ComponentPage.action, viewer),
-  if (holdYou) (ComponentPage.actionHeld, viewer),
-  (ComponentPage.actionPicked, viewer),
-  (ComponentPage.actionChosen, viewer),
-  (ComponentPage.talk, viewer),
-  (ComponentPage.talkHeld, viewer),
+List<_Step> _night(Viewer viewer, {bool holdYou = true}) => [
+  _page(ComponentPage.card, viewer),
+  _page(ComponentPage.cardHeld, viewer),
+  _page(ComponentPage.action, viewer),
+  if (holdYou) _page(ComponentPage.actionHeld, viewer),
+  _page(ComponentPage.actionPicked, viewer),
+  _page(ComponentPage.actionChosen, viewer),
+  _page(ComponentPage.talk, viewer),
+  _page(ComponentPage.talkHeld, viewer),
 ];
 
 /// Each journey's screens, in the order its phone shows them.
-final journeys = <String, List<(ComponentPage, Viewer)>>{
+final journeys = <String, List<_Step>>{
   // Ana starts the table and deals; she is the Seer and looks at Cleo's card.
   'host': [
-    (ComponentPage.join, Viewer.seer),
-    (ComponentPage.table, Viewer.seer),
-    (ComponentPage.deck, Viewer.seer),
-    (ComponentPage.sheet, Viewer.seer),
+    _real('join', pumpJoinFresh),
+    _real('joinNamed', pumpJoinNamed),
+    _real('tableAlone', pumpTableHostAlone),
+    _real('table', pumpTableHost),
+    _real('deck', pumpDeckChips),
+    _real('deckGrid', pumpDeckGrid),
+    _real('deckRole', pumpDeckRole),
     ..._night(Viewer.seer, holdYou: false),
-    (ComponentPage.vote, Viewer.seer),
-    (ComponentPage.votePicked, Viewer.seer),
-    (ComponentPage.voteLocked, Viewer.seer),
-    (ComponentPage.count, Viewer.seer),
-    (ComponentPage.results, Viewer.seer),
+    _page(ComponentPage.vote, Viewer.seer),
+    _page(ComponentPage.votePicked, Viewer.seer),
+    _page(ComponentPage.voteLocked, Viewer.seer),
+    _page(ComponentPage.count, Viewer.seer),
+    _page(ComponentPage.results, Viewer.seer),
   ],
   // Ben joins with the code; he is the Robber and takes Ana's card.
   'guest': [
-    (ComponentPage.join, Viewer.robber),
-    (ComponentPage.joinCode, Viewer.robber),
-    (ComponentPage.tableGuest, Viewer.robber),
+    _real('join', pumpJoinFresh),
+    _real('joinCode', pumpJoinCodeFresh),
+    _real('tableGuest', pumpTableGuest),
     ..._night(Viewer.robber),
-    (ComponentPage.vote, Viewer.robber),
-    (ComponentPage.count, Viewer.robber),
-    (ComponentPage.resultsGuest, Viewer.robber),
+    _page(ComponentPage.vote, Viewer.robber),
+    _page(ComponentPage.count, Viewer.robber),
+    _page(ComponentPage.resultsGuest, Viewer.robber),
   ],
   // Esme is a Villager: nothing to do at night, and still a turn to take.
   'sleeper': [
     ..._night(Viewer.villager),
-    (ComponentPage.vote, Viewer.villager),
-    (ComponentPage.count, Viewer.villager),
-    (ComponentPage.resultsGuest, Viewer.villager),
+    _page(ComponentPage.vote, Viewer.villager),
+    _page(ComponentPage.count, Viewer.villager),
+    _page(ComponentPage.resultsGuest, Viewer.villager),
   ],
   // Ana's night, read closely: what "You" says, her pick, what she saw.
   'seer': [
     ..._night(Viewer.seer),
-    (ComponentPage.vote, Viewer.seer),
-    (ComponentPage.votePicked, Viewer.seer),
-    (ComponentPage.count, Viewer.seer),
-    (ComponentPage.resultsGuest, Viewer.seer),
+    _page(ComponentPage.vote, Viewer.seer),
+    _page(ComponentPage.votePicked, Viewer.seer),
+    _page(ComponentPage.count, Viewer.seer),
+    _page(ComponentPage.resultsGuest, Viewer.seer),
   ],
 };
 
@@ -85,20 +107,22 @@ void main() {
       // A first game: nothing learned at the start, then what each screen
       // taught, carried on.
       final learned = <Cue>{};
-      for (final (i, (page, viewer)) in steps.indexed) {
+      for (final (i, step) in steps.indexed) {
         final name = 'screen-${(i + 1).toString().padLeft(2, '0')}';
-        testWidgets('$name ${page.name}', (tester) async {
+        testWidgets('$name ${step.name}', (tester) async {
           final before = {...learned};
-          learned.addAll(page.teaches);
+          final page = step.page;
+          if (page != null) learned.addAll(page.teaches);
           final capture = await captureScreen(
             tester,
-            (tester) => pumpComponentPage(
-              tester,
-              page,
-              page.grounds.single,
-              viewer: viewer,
-              learned: before,
-            ),
+            step.build ??
+                (tester) => pumpComponentPage(
+                  tester,
+                  page!,
+                  page.grounds.single,
+                  viewer: step.viewer!,
+                  learned: before,
+                ),
             width: _width,
             playerScreen: true,
           );

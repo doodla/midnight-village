@@ -123,6 +123,17 @@ class IntegrationTestSetup {
           ),
         );
 
+    // 01's online count (asked without logging in).
+    mockHttp
+        .when(method: 'GET', path: '/stats/online/')
+        .thenReturn(
+          Response<Map<String, dynamic>>(
+            requestOptions: RequestOptions(path: '/stats/online/'),
+            statusCode: 200,
+            data: ServerBodies.onlineStats,
+          ),
+        );
+
     // Default guest registration response.
     mockHttp
         .when(method: 'POST', path: '/auth/guest/')

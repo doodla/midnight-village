@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/router/app_router.dart';
 import 'package:midnight_village/core/router/routes.dart';
@@ -13,6 +14,7 @@ import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/presentation/game_notifier.dart';
+import 'package:midnight_village/features/lobby/data/home_service.dart';
 
 import '../../helpers/contract/contract_samples.dart';
 import '../../helpers/contract/server_json.dart';
@@ -60,7 +62,26 @@ void main() {
   group('Auth redirect guard', () {
     late MockHttpClient http;
 
-    setUp(() => http = MockHttpClient());
+    setUp(() {
+      http = MockHttpClient()
+        // Home (01 at no table) reads where the player sits, the online
+        // count and the last game.
+        ..answer(
+          'GET',
+          '/me/table/',
+          ContractSamples.load('http/lobby/my_table_none'),
+        )
+        ..answer(
+          'GET',
+          '/stats/online/',
+          ContractSamples.load('http/core/online_stats'),
+        )
+        ..answer(
+          'GET',
+          '/onuw/me/recent-games/',
+          ContractSamples.load('http/game/recent_games_none'),
+        );
+    });
 
     /// The server's answer to "what game am I in" (recorded [sample]).
     void currentGame(String sample, {int status = 200}) => http.answer(
@@ -84,6 +105,9 @@ void main() {
           authProvider.overrideWithValue(authState),
           authenticatedClientProvider.overrideWithValue(
             AuthenticatedClient.forTesting(dio: http.dio),
+          ),
+          homeServiceProvider.overrideWithValue(
+            HomeService(client: ApiClient(dio: http.dio)),
           ),
           activeThemeProvider.overrideWithValue(const FirelitGothicTheme()),
           // The game screen the router may open: no real socket or wakelock.
@@ -158,6 +182,10 @@ void main() {
       );
 
       expect(location(router), '/');
+
+      // Close home (01) and let its timers run out.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
     });
 
     testWidgets(
@@ -172,6 +200,10 @@ void main() {
         );
 
         expect(location(router), '/');
+
+        // Close home (01) and let its timers run out.
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 1));
       },
     );
 

@@ -336,6 +336,7 @@ void main() {
       401,
       ServerBodies.refreshRefused,
     );
+    checkHttpBody('GET', '/stats/online/', 200, ServerBodies.onlineStats);
   });
 
   group('every builder output is on contract', () {

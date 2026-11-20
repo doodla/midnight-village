@@ -13,6 +13,9 @@ import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/ground_scope.dart';
 import '../../../../design_system/skin/skin.dart';
+import '../../../lobby/presentation/at_table_screen.dart';
+import '../../../lobby/presentation/deck_screen.dart';
+import '../../../lobby/presentation/join_screen.dart';
 import '../../domain/screen_table.dart';
 import '../game_notifier.dart' show gameConnectionStateProvider;
 import '../protocol_two_game.dart';
@@ -27,8 +30,9 @@ import 'your_card_screen.dart';
 /// which. No socket event, timer or tap navigates: they change what the
 /// server is fetched to say, and the screen follows.
 ///
-/// - 04 Your card and the night board (06, 05 while `/me/` loads) are
-///   built; every other screen is a [NotBuiltScreen] for now.
+/// - 01 Join, 02 Table, 03 Deck (`features/lobby`), 04 Your card and the
+///   night board (06, 05 while `/me/` loads) are built; every other screen
+///   is a [NotBuiltScreen] for now.
 /// - A change of screen fades quickly ([Motion.settle]); with reduce motion
 ///   it is instant. Nothing waits for it.
 /// - While nothing is known yet (the first `/me/table/`), the night ground
@@ -115,6 +119,10 @@ class _TableShellState extends ConsumerState<TableShell>
     // nothing of one player's screen (a reveal, picks) carries to the next.
     final key = '${shown.screen.name}|$gameId|${game?.me.playerId}';
     return switch (shown.screen) {
+      // 01 to 03 (features/lobby) read the table and the lobby themselves.
+      AppScreen.join => (key, const JoinScreen()),
+      AppScreen.table => (key, const AtTableScreen()),
+      AppScreen.deck => (key, const DeckScreen()),
       AppScreen.yourCard when game != null => (
         key,
         YourCardScreen(game: game, gameId: gameId!),

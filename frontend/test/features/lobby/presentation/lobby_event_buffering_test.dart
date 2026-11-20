@@ -95,10 +95,12 @@ void main() {
       addTearDown(sub.close);
 
       await _tick();
+      // lobby_update is the whole lobby (everyone ready in it); the flags
+      // after it are applied on top, in order.
       ws
+        ..addServerEvent(GameEvents.lobbyUpdate(roleConfig: {'Seer': 1}))
         ..addServerEvent(GameEvents.playerReady(playerId: 2, isReady: true))
-        ..addServerEvent(GameEvents.playerReady(playerId: 2, isReady: false))
-        ..addServerEvent(GameEvents.lobbyUpdate(roleConfig: {'Seer': 1}));
+        ..addServerEvent(GameEvents.playerReady(playerId: 2, isReady: false));
       fetch.complete(_lobby());
       await container.read(lobbyProvider(_code).future);
 

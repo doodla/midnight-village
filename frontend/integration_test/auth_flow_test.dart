@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/design_system/components/core/primary_button.dart';
+import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 
 import 'helpers/integration_test_helper.dart';
 import 'helpers/navigation_helpers.dart';
@@ -10,46 +11,27 @@ void main() {
   IntegrationTestSetup.setupFailureScreenshots();
 
   testWidgets(
-    'Auth flow: launch → unauthenticated welcome → enter name → authenticated',
+    '01 Join: a new phone opens on an empty name, and a name unlocks the ways '
+    'in',
     (tester) async {
       await IntegrationTestSetup.launchApp(tester);
 
-      // After launch the app settles to the unauthenticated welcome view
-      // (no stored tokens → AuthUnauthenticated).
-      expect(find.byType(TextField), findsOneWidget);
-      expect(find.widgetWithText(PrimaryButton, 'Continue'), findsOneWidget);
-
-      // Verify we start on the home route.
+      // No stored account: 01, the name empty (never someone else's).
       tester.expectRoute('/');
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text(JoinCopy.nameHint), findsOneWidget);
+      SecondaryButton way(String label) => tester.widget<SecondaryButton>(
+        find.widgetWithText(SecondaryButton, label),
+      );
+      expect(way(JoinCopy.joinTable).onPressed, isNull);
+      expect(way(JoinCopy.startTable).onPressed, isNull);
 
-      // Enter a display name.
       await tester.enterText(find.byType(TextField), 'TestPlayer');
       await tester.pumpAndSettle();
 
-      // Tap the Continue button to trigger guest account creation.
-      await tester.tap(find.widgetWithText(PrimaryButton, 'Continue'));
-      await tester.pumpAndSettle();
-
-      // The mock returns display_name = 'TestPlayer' — verify authenticated view.
-      expect(find.textContaining('Hello, TestPlayer!'), findsOneWidget);
-      expect(find.widgetWithText(PrimaryButton, 'Logout'), findsOneWidget);
-
-      // Verify we remain on the home route after authentication.
+      expect(way(JoinCopy.joinTable).onPressed, isNotNull);
+      expect(way(JoinCopy.startTable).onPressed, isNotNull);
       tester.expectRoute('/');
-    },
-  );
-
-  testWidgets(
-    'Auth flow: launch with no name → authenticated with server-generated name',
-    (tester) async {
-      await IntegrationTestSetup.launchApp(tester);
-
-      // Skip entering a name — tap Continue with empty field.
-      await tester.tap(find.widgetWithText(PrimaryButton, 'Continue'));
-      await tester.pumpAndSettle();
-
-      // Mock always returns 'TestPlayer' — just verify we reached authenticated state.
-      expect(find.textContaining('Hello,'), findsOneWidget);
     },
   );
 }

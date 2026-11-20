@@ -5,6 +5,7 @@ import 'package:midnight_village/design_system/skin/ground.dart';
 import '../test/helpers/component_sheet.dart';
 import 'screen_fixtures.dart';
 import 'shell_fixtures.dart';
+import 'table_fixtures.dart';
 
 /// One screen, or one state of a screen, in the gallery.
 class ScreenEntry {
@@ -43,37 +44,40 @@ class ScreenEntry {
 /// Every screen and state, in the order of the design brief's table, then the
 /// component sheet. Adding a screen or a state is one entry here.
 final screenCatalogue = <ScreenEntry>[
-  ScreenEntry(
-    '01-join',
-    mock: '01-join.png',
-    build: (tester) => pumpHome(tester, signedIn: false),
-  ),
-  ScreenEntry(
-    '01-join-signed-in',
-    mock: '01-join.png',
-    build: (tester) => pumpHome(tester, signedIn: true),
-  ),
-  ScreenEntry('02-table', mock: '02-table.png', build: pumpLobby),
-  ScreenEntry(
-    '02-table-guest',
-    mock: '02-table.png',
-    build: (tester) => pumpLobby(tester, viewer: ben),
-  ),
-  // The deck is built in the host's lobby today, further down the page.
-  ScreenEntry(
-    '03-deck',
-    mock: '03-deck.png',
-    build: (tester) async {
-      await pumpLobby(tester);
-      await tester.ensureVisible(find.text('Role Configuration'));
-      await tester.pumpAndSettle();
-    },
-  ),
+  // 01 to 03b through the app's routes (table_fixtures.dart).
+  ..._rebuilt('01-join', '01-join.png', {
+    '': pumpJoinFresh,
+    '-returning': pumpJoinReturning,
+    '-code': pumpJoinCode,
+    '-link': pumpJoinLink,
+    '-x2': (tester) => pumpJoinFresh(tester, textScale: 2),
+  }),
+  ..._rebuilt('02-table', '02-table.png', {
+    '': pumpTableHost,
+    '-3': pumpTableHostThree,
+    '-alone': pumpTableHostAlone,
+    '-10-long': pumpTableHostTen,
+    '-custom': pumpTableHostCustom,
+    '-custom-short': pumpTableHostMismatch,
+    '-guest': pumpTableGuest,
+    '-handover': pumpTableHandover,
+    '-x1.3': (tester) => pumpTableHost(tester, textScale: 1.3),
+    '-guest-x2': (tester) => pumpTableGuest(tester, textScale: 2),
+  }),
+  // The lobby body says nothing of whose phone has dropped: no sample.
   const ScreenEntry.notBuilt(
-    '03b-deck-role',
-    mock: '03b-deck-role-explained.png',
-    why: 'no role sheet (press and hold a role card)',
+    '02-table-dropped',
+    mock: '02-table.png',
+    why: 'the lobby body has no presence (c-table-night draws it)',
   ),
+  ..._rebuilt('03-deck', '03-deck.png', {
+    '': pumpDeckChips,
+    '-grid': pumpDeckGrid,
+    '-grid-short': pumpDeckGridShort,
+  }),
+  ..._rebuilt('03b-deck-role', '03b-deck-role-explained.png', {
+    '': pumpDeckRole,
+  }),
   // The rebuilt screens, through the real shell (shell_fixtures.dart).
   ..._rebuilt('04-your-card', '04-your-card.png', {
     '': pumpYourCard,

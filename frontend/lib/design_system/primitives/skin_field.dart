@@ -21,8 +21,9 @@ class SkinField extends StatelessWidget {
     this.onSubmitted,
     this.textInputAction,
     this.maxLength,
-  }) : _paper = true,
-       inputFormatters = const [];
+    this.inputFormatters = const [],
+    this.autofocus = false,
+  }) : _paper = true;
 
   const SkinField.code({
     super.key,
@@ -34,6 +35,7 @@ class SkinField extends StatelessWidget {
     this.textInputAction,
     this.maxLength,
     this.inputFormatters = const [],
+    this.autofocus = false,
   }) : _paper = false;
 
   final TextEditingController? controller;
@@ -44,6 +46,9 @@ class SkinField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final int? maxLength;
   final List<TextInputFormatter> inputFormatters;
+
+  /// Takes the focus when it first shows (01's empty name).
+  final bool autofocus;
   final bool _paper;
 
   static const paperHeight = 56.0;
@@ -66,6 +71,7 @@ class SkinField extends StatelessWidget {
       textInputAction: textInputAction,
       maxLength: maxLength,
       inputFormatters: inputFormatters,
+      autofocus: autofocus,
       textCapitalization: _paper
           ? TextCapitalization.words
           : TextCapitalization.characters,
@@ -75,7 +81,11 @@ class SkinField extends StatelessWidget {
         // Set smaller on a narrow field with large text, never cut short.
         hint: hint == null
             ? null
-            : FitLine(hint!, style: style.copyWith(color: hintColor)),
+            : FitLine(
+                hint!,
+                style: style.copyWith(color: hintColor),
+                alignment: AlignmentDirectional.centerStart,
+              ),
         counterText: '',
         isDense: true,
         filled: false,

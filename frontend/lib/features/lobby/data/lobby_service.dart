@@ -16,25 +16,10 @@ class LobbyService {
 
   final AuthenticatedClient _client;
 
-  /// Creates a new lobby for ONUW.
-  ///
-  /// POST /lobbies/ with {"game_type": "onuw"}
-  Future<LobbyState> createLobby() async {
-    try {
-      final response = await _client.post<Map<String, dynamic>>(
-        '/lobbies/',
-        data: {'game_type': 'onuw'},
-      );
-      return _parseLobbyResponse(response);
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
-  /// Opens a table for the rebuilt screens: POST /lobbies/ with
-  /// `{"game_type": "onuw", "defaults": "v2"}`. The server writes the table's
-  /// defaults (the look stage, night protocol 2, the automatic Simple deck)
-  /// and no timer length; the old screens keep [createLobby] (protocol 1).
+  /// Opens a table: POST /lobbies/ with
+  /// `{"game_type": "onuw", "defaults": "v2"}`, always (every table plays
+  /// night protocol 2). The server writes the table's defaults (the look
+  /// stage, night protocol 2, the automatic Simple deck) and no timer length.
   Future<LobbyState> createTable() async {
     try {
       final response = await _client.post<Map<String, dynamic>>(
@@ -54,13 +39,48 @@ class LobbyService {
   /// `{"settings": {"deck": "auto", "deck_chip": <chip>}}` (merged into the
   /// stored settings; refused 409 while a game runs).
   Future<LobbyState> setDeckChip(String code, DeckChip chip) =>
-      _patchSettings(code, {'deck': 'auto', 'deck_chip': chip.server});
+      _patchSettings(code, deckChip(chip));
 
   /// The host edits the cards: the deck is custom from now on.
   ///
   /// PATCH /lobbies/<code>/ with `{"settings": {"deck": "custom", "roles"}}`.
   Future<LobbyState> setCustomDeck(String code, Map<String, int> roles) =>
-      _patchSettings(code, {'deck': 'custom', 'roles': roles});
+      _patchSettings(code, customDeck(roles));
+
+  /// The host picks a pace: the timer lengths of [pace] (PATCH, merged).
+  Future<LobbyState> setPace(String code, Pace pace) =>
+      _patchSettings(code, pace.settings);
+
+  /// The settings a deck chip writes ([setDeckChip]).
+  static Map<String, Object> deckChip(DeckChip chip) => {
+    'deck': 'auto',
+    'deck_chip': chip.server,
+  };
+
+  /// The settings a custom deck writes ([setCustomDeck]).
+  static Map<String, Object> customDeck(Map<String, int> roles) => {
+    'deck': 'custom',
+    'roles': roles,
+  };
+
+  /// PATCH /lobbies/<code>/ with `{"settings": settings}`: the server merges
+  /// them over the stored ones (shallow) and answers the whole lobby.
+  Future<LobbyState> patchSettings(String code, Map<String, Object> settings) =>
+      _patchSettings(code, settings);
+
+  /// Sets this player's ready flag: POST /lobbies/<code>/ready/ with
+  /// `{"is_ready": ready}` (the server's deal wants every member ready; a
+  /// phone sets its own as it sits down).
+  Future<void> setReady(String code, {required bool ready}) async {
+    try {
+      await _client.post<Map<String, dynamic>>(
+        '/lobbies/$code/ready/',
+        data: {'is_ready': ready},
+      );
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
 
   Future<LobbyState> _patchSettings(
     String code,
@@ -120,37 +140,6 @@ class LobbyService {
   Future<void> leaveLobby(String code) async {
     try {
       await _client.post<Map<String, dynamic>>('/lobbies/$code/leave/');
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
-  /// Toggles the current player's ready state.
-  ///
-  /// POST /lobbies/<code>/ready/
-  Future<void> toggleReady(String code) async {
-    try {
-      await _client.post<Map<String, dynamic>>('/lobbies/$code/ready/');
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
-  /// Updates the role configuration (host only).
-  ///
-  /// PATCH /lobbies/<code>/ with {"settings": {"roles": {...}}}
-  Future<LobbyState> updateRoleConfig(
-    String code,
-    Map<String, int> roles,
-  ) async {
-    try {
-      final response = await _client.patch<Map<String, dynamic>>(
-        '/lobbies/$code/',
-        data: {
-          'settings': {'roles': roles},
-        },
-      );
-      return _parseLobbyResponse(response);
     } on DioException catch (e) {
       throw mapDioException(e);
     }

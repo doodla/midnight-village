@@ -10,6 +10,9 @@ import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:midnight_village/core/api/api_exception.dart';
+
+import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/contract/from_sample.dart';
 import '../../../helpers/contract/server_json.dart';
@@ -42,6 +45,8 @@ void main() {
   late MockLobbyService mockService;
   late MockWebSocketChannel mockWebSocket;
   late ProviderContainer container;
+
+  setUpAll(() => registerFallbackValue(<String, Object>{}));
 
   setUp(() {
     mockService = MockLobbyService();
@@ -266,16 +271,39 @@ void main() {
     });
 
     group('public methods', () {
-      test('toggleReady calls service.toggleReady', () async {
+      test('sitDown sets this player ready, once, and shows it', () async {
+        container = createContainer();
+        await container.read(lobbyProvider('ABC123').future);
+        final sent = Completer<void>();
+        when(
+          () => mockService.setReady('ABC123', ready: true),
+        ).thenAnswer((_) => sent.future);
+
+        final notifier = container.read(lobbyProvider('ABC123').notifier);
+        final first = notifier.sitDown(2);
+        // A second call while the first is out sends nothing more.
+        await notifier.sitDown(2);
+        sent.complete();
+        await first;
+
+        verify(() => mockService.setReady('ABC123', ready: true)).called(1);
+        final bob = container
+            .read(lobbyProvider('ABC123'))
+            .value!
+            .players
+            .firstWhere((p) => p.id == 2);
+        expect(bob.isReady, isTrue);
+      });
+
+      test('sitDown sends nothing for a player already ready', () async {
         container = createContainer();
         await container.read(lobbyProvider('ABC123').future);
 
-        when(() => mockService.toggleReady('ABC123')).thenAnswer((_) async {});
+        await container.read(lobbyProvider('ABC123').notifier).sitDown(1);
 
-        final notifier = container.read(lobbyProvider('ABC123').notifier);
-        await notifier.toggleReady();
-
-        verify(() => mockService.toggleReady('ABC123')).called(1);
+        verifyNever(
+          () => mockService.setReady(any(), ready: any(named: 'ready')),
+        );
       });
 
       test('startGame calls service.startGame and returns game ID', () async {
@@ -304,22 +332,78 @@ void main() {
         verify(() => mockService.leaveLobby('ABC123')).called(1);
       });
 
-      test('updateRoleConfig calls service and updates state', () async {
+      test('a deck chip shows at once, before the answer, and the answer is '
+          'the server\'s lobby', () async {
         container = createContainer();
+        container.listen(lobbyProvider('ABC123'), (_, _) {});
         await container.read(lobbyProvider('ABC123').future);
-
-        final newRoles = {'Werewolf': 2, 'Seer': 1, 'Robber': 1};
-        final updatedState = _testLobbyState(roleConfig: newRoles);
+        final answer = Completer<LobbyState>();
         when(
-          () => mockService.updateRoleConfig('ABC123', newRoles),
-        ).thenAnswer((_) async => updatedState);
+          () => mockService.patchSettings('ABC123', {
+            'deck': 'auto',
+            'deck_chip': 'chaos',
+          }),
+        ).thenAnswer((_) => answer.future);
 
         final notifier = container.read(lobbyProvider('ABC123').notifier);
-        await notifier.updateRoleConfig(newRoles);
+        final sent = notifier.chooseChip(DeckChip.chaos);
+        await Future<void>.delayed(Duration.zero);
 
-        final state = container.read(lobbyProvider('ABC123'));
-        expect(state.value?.roleConfig, newRoles);
+        final shown = container.read(lobbyProvider('ABC123')).value!.table;
+        expect(shown.autoDeck, isTrue);
+        expect(shown.deckChip, DeckChip.chaos);
+
+        answer.complete(
+          FromSample.lobby(
+            ContractSamples.map('http/lobby/settings_deck_chip'),
+          ),
+        );
+        await sent;
+        final after = container.read(lobbyProvider('ABC123')).value!;
+        expect(after.table.deckChip, DeckChip.simple);
+        expect(after.notSent, isFalse);
       });
+
+      test('a refused change is taken back and says "Not sent."; Try again '
+          'sends it again', () async {
+        container = createContainer();
+        container.listen(lobbyProvider('ABC123'), (_, _) {});
+        await container.read(lobbyProvider('ABC123').future);
+        when(
+          () => mockService.patchSettings('ABC123', any()),
+        ).thenThrow(const NetworkException('offline'));
+
+        final notifier = container.read(lobbyProvider('ABC123').notifier);
+        await notifier.choosePace(Pace.quick);
+
+        final lobby = container.read(lobbyProvider('ABC123')).value!;
+        expect(lobby.notSent, isTrue);
+        expect(lobby.table.pace, isNull);
+
+        await notifier.retry();
+        verify(
+          () => mockService.patchSettings('ABC123', Pace.quick.settings),
+        ).called(2);
+      });
+
+      test(
+        'lobby_update is the whole lobby: settings, players and host',
+        () async {
+          container = createContainer();
+          container.listen(lobbyProvider('ABC123'), (_, _) {});
+          await container.read(lobbyProvider('ABC123').future);
+
+          final update = ContractSamples.map(
+            'ws/lobby/lobby_update_v2_auto_deck_9',
+          );
+          mockWebSocket.addServerEvent(update);
+          await Future<void>.delayed(Duration.zero);
+
+          final lobby = container.read(lobbyProvider('ABC123')).value!;
+          expect(lobby.table.deckChip, DeckChip.chaos);
+          expect(lobby.players, hasLength(9));
+        },
+      );
     });
 
     group('dispose', () {

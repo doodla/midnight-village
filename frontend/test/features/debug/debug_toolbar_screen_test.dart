@@ -74,6 +74,7 @@ void main() {
           roleCounts: any(named: 'roleCounts'),
           playerRolesByName: any(named: 'playerRolesByName'),
           centerCards: any(named: 'centerCards'),
+          protocolTwo: any(named: 'protocolTwo'),
         ),
       ).thenAnswer((_) async => _table);
 
@@ -93,7 +94,7 @@ void main() {
     },
   );
 
-  testWidgets('the rebuilt-screens switch makes a protocol-2 (v2) table', (
+  testWidgets('a table is protocol 2 (v2) unless the switch is turned off', (
     tester,
   ) async {
     when(
@@ -109,20 +110,25 @@ void main() {
     await tester.pumpWidget(buildApp());
     await tester.tap(find.text('Starter'));
     await tester.pump();
+    await tester.tap(find.byKey(const Key('debug-create-table')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('debug-protocol-two')));
     await tester.tap(find.byKey(const Key('debug-protocol-two')));
     await tester.pump();
+    await tester.ensureVisible(find.byKey(const Key('debug-create-table')));
     await tester.tap(find.byKey(const Key('debug-create-table')));
     await tester.pumpAndSettle();
 
-    verify(
+    final made = verify(
       () => controller.createTable(
         playerNames: any(named: 'playerNames'),
         roleCounts: any(named: 'roleCounts'),
         playerRolesByName: any(named: 'playerRolesByName'),
         centerCards: any(named: 'centerCards'),
-        protocolTwo: true,
+        protocolTwo: captureAny(named: 'protocolTwo'),
       ),
-    ).called(1);
+    ).captured;
+    expect(made, [true, false]);
   });
 
   testWidgets('tapping Become switches perspective via the controller', (
@@ -134,6 +140,7 @@ void main() {
         roleCounts: any(named: 'roleCounts'),
         playerRolesByName: any(named: 'playerRolesByName'),
         centerCards: any(named: 'centerCards'),
+        protocolTwo: any(named: 'protocolTwo'),
       ),
     ).thenAnswer((_) async => _table);
     when(() => controller.switchTo(any())).thenAnswer((_) async {});
@@ -161,6 +168,7 @@ void main() {
         roleCounts: any(named: 'roleCounts'),
         playerRolesByName: any(named: 'playerRolesByName'),
         centerCards: any(named: 'centerCards'),
+        protocolTwo: any(named: 'protocolTwo'),
       ),
     ).thenAnswer((_) async => _table);
     when(() => controller.oracle()).thenThrow(Exception('no backend'));

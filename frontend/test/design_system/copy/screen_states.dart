@@ -114,39 +114,51 @@ final screens = <String, Screen>{
   '02 Table': (
     budget: 7,
     states: {
-      for (final deal in <Object>[
-        TableCopy.deal,
-        TableCopy.needPlayers,
-        CommonCopy.addCards,
-        CommonCopy.removeCards,
-      ])
-        'host: $deal': [
-          headline(TableCopy.scan),
-          button(TableCopy.share),
-          button(TableCopy.editDeck),
-          button(deal),
-        ],
+      // The deck as its chip (the custom deck's cards carry no words);
+      // Share is a glyph, spoken only.
+      for (final chip in DeckCopy.chips)
+        for (final deal in <Object>[
+          TableCopy.deal,
+          TableCopy.needPlayers,
+          CommonCopy.addCards,
+          CommonCopy.removeCards,
+        ])
+          'host, $chip: $deal': [
+            headline(TableCopy.scan),
+            button(chip),
+            button(TableCopy.editDeck),
+            button(deal),
+          ],
       'guest': [headline(TableCopy.hostDeals), button(CommonCopy.leave)],
     },
   ),
   '03 Deck': (
     budget: 15,
     states: {
+      // A chip's deck: "Edit" opens the grid; the lengths show once set,
+      // "Copy" not (the chip's cards are the server's).
+      'chips': [
+        headline(DeckCopy.headline),
+        for (final chip in DeckCopy.chips) button(chip),
+        button(TableCopy.editDeck),
+        for (final pace in DeckCopy.paces) button(pace),
+        for (final tile in _tiles.take(3)) text(tile),
+        button(DeckCopy.useDeck),
+      ],
+      // The grid open: the role names are exempt; "Copy" with the
+      // Doppelganger in the deck.
       for (final use in <Object>[
         DeckCopy.useDeck,
         CommonCopy.addCards,
         CommonCopy.removeCards,
       ])
-        '$use': [
+        'grid: $use': [
           headline(DeckCopy.headline),
           for (final chip in DeckCopy.chips) button(chip),
           for (final pace in DeckCopy.paces) button(pace),
-          for (final tile in _tiles) button(tile),
+          for (final tile in _tiles) text(tile),
           button(use),
         ],
-      // A tile's stepper is a sheet: the deck is under its scrim.
-      for (final tile in _tiles)
-        'stepper: $tile': [headline(tile), button(CommonCopy.done)],
     },
   ),
   '03b Role sheet': (
@@ -339,4 +351,9 @@ final banners = <(String, String?)>[
 ];
 
 /// Everything a screen reader says that no screen shows.
-final spoken = [SpokenCopy.hidden, SpokenCopy.working];
+final spoken = [
+  SpokenCopy.hidden,
+  SpokenCopy.working,
+  // 02's Share glyph.
+  TableCopy.share,
+];

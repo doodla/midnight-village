@@ -185,13 +185,22 @@ class UiHarness {
   Future<void> openShell(String gameId) async {
     await _knowProtocol(gameId);
     await tester.runAsync(() async {
+      // Home (`/`) is the table's shell too, so `/me/table/` may have been
+      // started under a pump, in the FAKE zone, where it never completes
+      // (nor does that build's `.future`). Start it again here, in the real
+      // zone, and wait for its value.
       container
+        ..invalidate(myTableProvider)
         ..listen(gameWebSocketProvider(gameId), (_, _) {})
         ..listen(myTableProvider, (_, _) {})
         ..listen(protocolTwoGameProvider(gameId), (_, _) {});
-      await container
-          .read(myTableProvider.future)
-          .timeout(const Duration(seconds: 15));
+      final waited = Stopwatch()..start();
+      while (!container.read(myTableProvider).hasValue) {
+        if (waited.elapsed > const Duration(seconds: 15)) {
+          throw TimeoutException('/me/table/ did not load');
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
       await container
           .read(protocolTwoGameProvider(gameId).future)
           .timeout(const Duration(seconds: 15));

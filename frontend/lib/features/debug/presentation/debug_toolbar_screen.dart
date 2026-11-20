@@ -38,9 +38,10 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
   bool _busy = false;
   String? _status;
 
-  /// The table is made for the rebuilt screens (`defaults: "v2"`, night
-  /// protocol 2): the only way to open one for now.
-  bool _protocolTwo = false;
+  /// The table plays night protocol 2 (`defaults: "v2"`), as every table
+  /// the app opens does. Off: a protocol-1 table for the old game screen,
+  /// until protocol 1 is deleted.
+  bool _protocolTwo = true;
 
   // Forced-assignment editor: player index → role name, and the 3 center cards.
   final Map<int, String> _playerRoleEditor = {};

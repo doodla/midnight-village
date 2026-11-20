@@ -6,7 +6,12 @@ part of 'routes.dart';
 // GoRouterGenerator
 // **************************************************************************
 
-List<RouteBase> get $appRoutes => [$homeRoute, $lobbyRoute, $gameRoute];
+List<RouteBase> get $appRoutes => [
+  $homeRoute,
+  $joinRoute,
+  $lobbyRoute,
+  $gameRoute,
+];
 
 RouteBase get $homeRoute =>
     GoRouteData.$route(path: '/', factory: $HomeRoute._fromState);
@@ -16,6 +21,33 @@ mixin $HomeRoute on GoRouteData {
 
   @override
   String get location => GoRouteData.$location('/');
+
+  @override
+  void go(BuildContext context) => context.go(location);
+
+  @override
+  Future<T?> push<T>(BuildContext context) => context.push<T>(location);
+
+  @override
+  void pushReplacement(BuildContext context) =>
+      context.pushReplacement(location);
+
+  @override
+  void replace(BuildContext context) => context.replace(location);
+}
+
+RouteBase get $joinRoute =>
+    GoRouteData.$route(path: '/join/:code', factory: $JoinRoute._fromState);
+
+mixin $JoinRoute on GoRouteData {
+  static JoinRoute _fromState(GoRouterState state) =>
+      JoinRoute(code: state.pathParameters['code']!);
+
+  JoinRoute get _self => this as JoinRoute;
+
+  @override
+  String get location =>
+      GoRouteData.$location('/join/${Uri.encodeComponent(_self.code)}');
 
   @override
   void go(BuildContext context) => context.go(location);

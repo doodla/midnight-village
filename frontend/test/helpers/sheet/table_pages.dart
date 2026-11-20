@@ -2,122 +2,56 @@ import 'package:flutter/material.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
-import 'package:midnight_village/design_system/primitives/chips.dart';
-import 'package:midnight_village/design_system/primitives/fit_line.dart';
-import 'package:midnight_village/design_system/primitives/panels.dart';
-import 'package:midnight_village/design_system/primitives/paper_card.dart';
-import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
-import 'package:midnight_village/design_system/primitives/screen_frame.dart';
-import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
-import 'package:midnight_village/design_system/primitives/skin_field.dart';
-import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
+import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
+import 'package:midnight_village/features/lobby/presentation/at_table_screen.dart';
+import 'package:midnight_village/features/lobby/presentation/deck_screen.dart';
+import 'package:midnight_village/features/lobby/presentation/home_numbers.dart';
+import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
+import '../contract/from_sample.dart';
 import '../painted_text.dart';
+import '../table_setup.dart';
 import 'sheet_data.dart';
 
-// 01 Join, 02 Table, 03 Deck and 03b the role sheet, to the first-time play
-// spec.
+// 01 Join, 02 Table, 03 Deck and 03b, to the first-time play spec: the
+// app's own views (features/lobby) drawn from recorded lobby bodies, with
+// states no lobby body carries yet (a dropped phone, dimmed with no words).
 
-/// The table's code, as the server gives it.
-const _code = 'K7QX4M';
+/// Ana's table of five, as the server recorded it (the Classic chip).
+LobbyState _table() => FromSample.lobby(v2Lobby('detail_v2_auto_deck_5'));
+
+/// The table's join link, as the app makes it.
+Uri _link(LobbyState lobby) =>
+    joinLink(Uri.parse('https://midnight.example'), lobby.code);
 
 /// 01: a name first. Both ways in are outlined and of equal weight, locked
 /// until a name is typed; "Join a table" gives way to the code and an amber
 /// "Join". With [code], a name typed and "Join a table" opened.
-class JoinPage extends StatefulWidget {
+class JoinPage extends StatelessWidget {
   const JoinPage({super.key, this.code = false});
 
   final bool code;
 
   @override
-  State<JoinPage> createState() => _JoinPageState();
+  Widget build(BuildContext context) => JoinView(
+    name: code ? ana.name : '',
+    openCode: code,
+    online: 23,
+    lastWon: false,
+    onStart: (_) {},
+    onJoin: (_, _) {},
+  );
 }
 
-class _JoinPageState extends State<JoinPage> {
-  late final _name = TextEditingController(text: widget.code ? ana.name : '');
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final skin = context.skin;
-    final type = skin.typography;
-    final named = widget.code;
-    return ScreenFrame(
-      ground: GroundKind.night,
-      topArt: skin.art.streetDoor,
-      body: Builder(
-        builder: (context) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: Space.lgPlus,
-          children: [
-            FitLine(JoinCopy.title, style: type.heroTitle),
-            SkinField.paper(
-              controller: _name,
-              semanticLabel: JoinCopy.nameHint,
-              hint: JoinCopy.nameHint,
-            ),
-            SecondaryButton(
-              label: JoinCopy.startTable,
-              onPressed: named ? () {} : null,
-              size: ButtonSize.large,
-            ),
-            if (widget.code)
-              Row(
-                spacing: Space.smPlus,
-                children: [
-                  const Expanded(
-                    child: SkinField.code(
-                      semanticLabel: JoinCopy.codeHint,
-                      hint: JoinCopy.codeHint,
-                    ),
-                  ),
-                  PrimaryButton(
-                    label: JoinCopy.join,
-                    onPressed: () {},
-                    size: ButtonSize.compact,
-                  ),
-                ],
-              )
-            else
-              SecondaryButton(
-                label: JoinCopy.joinTable,
-                onPressed: null,
-                size: ButtonSize.large,
-              ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: Space.xs,
-              children: [
-                for (final line in [
-                  JoinCopy.online.fill({'n': 23}),
-                  JoinCopy.lastLost,
-                ])
-                  Text(
-                    line,
-                    style: type.lede.copyWith(color: context.ground.text),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 02: the host's table (guests scan the code) or a guest's ([guest]).
+/// 02: the host's table (guests scan the code) or a guest's ([guest]); Dev's
+/// phone has dropped.
 class TablePage extends StatelessWidget {
   const TablePage({super.key, this.guest = false});
 
@@ -125,100 +59,19 @@ class TablePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final skin = context.skin;
-    final type = skin.typography;
-    return ScreenFrame(
-      ground: GroundKind.night,
-      body: Builder(
-        builder: (context) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: Space.md,
-          children: [
-            if (guest) ...[
-              Text(
-                TableCopy.hostDeals.fill({'host': ana.name}),
-                style: type.screenTitle,
-              ),
-              Text(
-                _code,
-                style: type.code.copyWith(color: context.ground.text),
-              ),
-            ] else ...[
-              Text(TableCopy.scan, style: type.screenTitle),
-              const _JoinCode(),
-              Align(
-                alignment: Alignment.center,
-                child: SecondaryButton(
-                  label: TableCopy.share,
-                  onPressed: () {},
-                ),
-              ),
-            ],
-            for (final seat in fiveSeats)
-              PlayerRow(
-                token: seat.token,
-                name: seat.name,
-                own: seat == (guest ? ben : ana),
-                away: seat == dev,
-              ),
-            if (!guest)
-              OutlinePanel(
-                onTap: () {},
-                semanticLabel: TableCopy.editDeck,
-                child: Row(
-                  spacing: Space.smPlus,
-                  children: [
-                    Expanded(child: deckStrip(RoleCardSize.thumbSmall)),
-                    Text(
-                      TableCopy.editDeck,
-                      style: type.action.copyWith(color: context.ground.text),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-      actions: [
-        if (guest)
-          SecondaryButton(label: CommonCopy.leave, onPressed: () {})
-        else
-          PrimaryButton(
-            label: TableCopy.deal.fill({'n': fiveSeats.length}),
-            onPressed: () {},
-          ),
-      ],
+    final lobby = _table();
+    final viewer = lobby.players[guest ? 1 : 0].id;
+    return AtTableView(
+      lobby: lobby,
+      viewerId: viewer,
+      link: _link(lobby),
+      away: {lobby.players[3].id},
+      onShare: (_) {},
+      onEditDeck: () {},
+      onDeal: () {},
+      onLeave: () {},
     );
   }
-}
-
-/// Where the QR code for /join/{code} goes (it is built with the join
-/// route, later), with the code printed under it.
-class _JoinCode extends StatelessWidget {
-  const _JoinCode();
-
-  static const _side = 128.0;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: PaperCard(
-      lift: PaperLift.slab,
-      child: Builder(
-        builder: (context) => Column(
-          spacing: Space.xs,
-          children: [
-            Icon(Icons.qr_code_2, size: _side, color: context.ground.text),
-            Text(
-              _code,
-              style: context.skin.typography.code.copyWith(
-                color: context.ground.text,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }
 
 /// Tonight's deck (game 7's, or [deck]) as a strip of thumbnails, which
@@ -234,91 +87,21 @@ Widget deckStrip(RoleCardSize size, [Map<RoleId, int>? deck]) => Row(
   ],
 );
 
-/// 03's body: the chips, the grid of roles, the paces.
-class _DeckBody extends StatelessWidget {
-  const _DeckBody({this.withPace = true});
+/// 03 with the grid open on game 7's deck (eight cards for five).
+Widget _deck() => DeckView(
+  lobby: _table(),
+  editing: deckCounts,
+  onChip: (_) {},
+  onPace: (_) {},
+  onUse: (_) {},
+);
 
-  final bool withPace;
-
-  @override
-  Widget build(BuildContext context) {
-    final type = context.skin.typography;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: Space.mdPlus,
-      children: [
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: FitLine(DeckCopy.headline, style: type.headline),
-        ),
-        _chips(DeckCopy.chips, selected: 1),
-        GridView.count(
-          crossAxisCount: 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: Space.mdPlus,
-          crossAxisSpacing: Space.md,
-          childAspectRatio: 0.66,
-          children: [
-            for (final role in deckOrder)
-              RoleCard(
-                role: role,
-                count: deckCounts[role] ?? 0,
-                lit: deckCounts.containsKey(role),
-                onTap: () {},
-                onLongPress: () {},
-              ),
-          ],
-        ),
-        if (withPace) ...[
-          _chips(DeckCopy.paces, selected: 1),
-          // Four tiles that share the row and grow with their text; "Copy"
-          // only when the Doppelganger is in the deck (it is not, here).
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: Space.sm,
-              children: [
-                for (final (label, seconds) in [
-                  (DeckCopy.talk, 300),
-                  (DeckCopy.vote, 90),
-                  (DeckCopy.night, 30),
-                ])
-                  Expanded(
-                    child: PaceTile(
-                      label: label,
-                      value: WorldTimer.format(seconds),
-                      onTap: () {},
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _chips(List<String> labels, {required int selected}) => Wrap(
-    spacing: Space.sm,
-    runSpacing: Space.sm,
-    children: [
-      for (final (i, label) in labels.indexed)
-        PresetChip(label: label, selected: i == selected, onTap: () {}),
-    ],
-  );
-}
-
-/// 03: the deck stays automatic (a chip) until a card is edited.
+/// 03: the chips, the grid of roles, the paces.
 class DeckPage extends StatelessWidget {
   const DeckPage({super.key});
 
   @override
-  Widget build(BuildContext context) => ScreenFrame(
-    ground: GroundKind.night,
-    body: const _DeckBody(),
-    actions: [PrimaryButton(label: DeckCopy.useDeck, onPressed: () {})],
-  );
+  Widget build(BuildContext context) => _deck();
 }
 
 /// 03b over 03: the role text and "Close".
@@ -328,12 +111,7 @@ class RoleSheetPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Stack(
     children: [
-      const BehindScrim(
-        child: ScreenFrame(
-          ground: GroundKind.night,
-          body: _DeckBody(withPace: false),
-        ),
-      ),
+      BehindScrim(child: _deck()),
       Positioned.fill(child: ColoredBox(color: context.skin.scrim)),
       Align(
         alignment: Alignment.bottomCenter,
@@ -342,7 +120,7 @@ class RoleSheetPage extends StatelessWidget {
           child: SheetScaffold(
             actions: [
               const Spacer(),
-              PrimaryButton(
+              PrimaryButton.quiet(
                 label: RoleSheetCopy.close,
                 onPressed: () {},
                 size: ButtonSize.compact,

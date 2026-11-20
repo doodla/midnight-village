@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../../core/api/api_exception.dart';
-import '../../../../core/config/env.dart';
 import '../../../../core/healing/healing.dart';
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/primitives/notice.dart';
@@ -48,11 +47,9 @@ Future<NightProtocol> gameProtocol(Ref ref, String gameId) =>
 ///   screen, whose own error path says so and goes home. Never an endless
 ///   "One moment".
 ///
-/// The rebuilt shell still shows placeholders for the screens not rebuilt,
-/// so it is reached only in a dev build ([Env.isDev], a const: a release
-/// build has no protocol check and no shell), and only a protocol-2 table
-/// reaches it, which only the `/debug` toolbar creates. Remove the
-/// [Env.isDev] gate when the last placeholder is gone.
+/// Every table the app opens is a protocol-2 table (`defaults: "v2"`), so
+/// every build reaches the shell, whose screens not rebuilt yet are
+/// placeholders until their branches land.
 class GameEntry extends ConsumerWidget {
   const GameEntry({super.key, required this.gameId});
 
@@ -60,7 +57,6 @@ class GameEntry extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!Env.isDev) return GameContainerScreen(gameId: gameId);
     final protocol = ref.watch(gameProtocolProvider(gameId));
     final error = protocol.error;
     if (protocol.value == null && error != null && refusedByServer(error)) {

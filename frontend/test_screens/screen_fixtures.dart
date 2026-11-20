@@ -1,19 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/design_system/tokens/firelit_gothic_theme.dart';
-import 'package:midnight_village/features/auth/domain/auth_state.dart';
-import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/game/presentation/timer_provider.dart';
-import 'package:midnight_village/features/lobby/data/lobby_service.dart';
-import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 
 import '../test/helpers/contract/server_json.dart';
 import '../test/helpers/game_events.dart';
 import '../test/helpers/game_state_factory.dart';
 import '../test/helpers/game_test_setup.dart';
-import '../test/helpers/mock_http_client.dart';
-import '../test/helpers/mock_websocket.dart';
-import '../test/helpers/pump_app.dart';
 
 // One game at one table, from the deal to the results, as the server tells it:
 // every payload is built from the server's recorded samples
@@ -66,44 +58,6 @@ const _voteDeadline = '2026-11-19T21:00:48+00:00';
 final _seats = [
   for (var id = ana; id <= esme; id++) (id: id, name: _players[id - 1]),
 ];
-
-AuthState _signedInAs(int id) =>
-    AuthState.authenticated(User(id: id, displayName: _players[id - 1]));
-
-// ---------------------------------------------------------------------------
-// Home and lobby
-// ---------------------------------------------------------------------------
-
-/// The home screen, signed out (name entry) or signed in as Ana.
-Future<void> pumpHome(WidgetTester tester, {required bool signedIn}) =>
-    tester.pumpApp(
-      auth: signedIn ? _signedInAs(ana) : const AuthState.unauthenticated(),
-    );
-
-/// The lobby on [viewer]'s phone, everyone ready, through the real lobby
-/// service (mock HTTP) and a mock socket.
-Future<void> pumpLobby(WidgetTester tester, {int viewer = ana}) {
-  final http = MockHttpClient()
-    ..answer('GET', '/lobbies/$_tableCode/', _lobbyJson());
-  return tester.pumpApp(
-    initialRoute: '/lobby/$_tableCode',
-    auth: _signedInAs(viewer),
-    overrides: [
-      lobbyServiceProvider.overrideWithValue(
-        // Test code; the analyzer only counts test/ and *_test.dart as tests.
-        // ignore: invalid_use_of_visible_for_testing_member
-        LobbyService(client: AuthenticatedClient.forTesting(dio: http.dio)),
-      ),
-      lobbyWebSocketFactoryProvider.overrideWithValue(
-        (_) => MockWebSocketChannel(),
-      ),
-    ],
-  );
-}
-
-/// `GET /lobbies/<code>/`, everyone ready.
-Map<String, dynamic> _lobbyJson() =>
-    serverLobby(code: _tableCode, seats: _seats, hostId: ana, roles: _deck);
 
 // ---------------------------------------------------------------------------
 // The night (window 2)

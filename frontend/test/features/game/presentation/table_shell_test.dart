@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
@@ -16,6 +17,8 @@ import 'package:midnight_village/features/game/presentation/shell/your_card_scre
 import '../../../helpers/component_sheet.dart' show holdDown;
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/contract/sample_sets.dart';
+import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/shell_setup.dart';
 import '../../../helpers/truncated_text.dart';
 
@@ -69,15 +72,19 @@ void main() {
       });
     }
 
-    testWidgets('at no table: the 01 placeholder', (tester) async {
+    testWidgets('at no table: 01 Join', (tester) async {
       final s = await ShellSetup.pump(tester, recordedMe('me_look_stage'));
       s.answerTable(ContractSamples.map('http/lobby/my_table_none'));
+      s.http
+        ..answer('GET', '/stats/online/', serverOnlineStats())
+        ..answer(
+          'GET',
+          '/onuw/me/recent-games/',
+          ContractSamples.map('http/game/recent_games_none'),
+        );
       s.resume();
       await s.settle(tester);
-      expect(
-        tester.widget<NotBuiltScreen>(find.byType(NotBuiltScreen)).screen,
-        AppScreen.join,
-      );
+      expect(find.byType(JoinScreen), findsOneWidget);
       await s.close(tester);
     });
 

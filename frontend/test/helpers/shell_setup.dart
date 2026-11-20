@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/healing/healing.dart';
 import 'package:midnight_village/core/storage/device_preferences.dart';
@@ -22,6 +23,7 @@ import 'package:midnight_village/features/game/presentation/game_notifier.dart';
 import 'package:midnight_village/features/game/presentation/shell/game_entry.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
 import 'package:go_router/go_router.dart';
+import 'package:midnight_village/features/lobby/data/home_service.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 
@@ -140,6 +142,9 @@ class ShellSetup {
         authenticatedClientProvider.overrideWithValue(client),
         gameServiceProvider.overrideWithValue(GameService(client: client)),
         lobbyServiceProvider.overrideWithValue(LobbyService(client: client)),
+        homeServiceProvider.overrideWithValue(
+          HomeService(client: ApiClient(dio: http.dio)),
+        ),
         gameWebSocketProvider.overrideWith((ref, id) => null),
         gameWebSocketStreamProvider.overrideWith((ref, id) => ws.stream),
         gameConnectionStateProvider.overrideWith(

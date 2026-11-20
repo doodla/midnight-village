@@ -3,14 +3,23 @@ import 'package:flutter/widgets.dart';
 /// Text kept to one line that is set smaller rather than broken or clipped:
 /// for names that must never break mid-word ("Doppelganger", "Troublemaker").
 class FitLine extends StatelessWidget {
-  const FitLine(this.text, {super.key, this.style});
+  const FitLine(
+    this.text, {
+    super.key,
+    this.style,
+    this.alignment = Alignment.center,
+  });
 
   final String text;
   final TextStyle? style;
 
+  /// Where the line sits in a box wider than it (a field's hint: the start).
+  final AlignmentGeometry alignment;
+
   @override
   Widget build(BuildContext context) => FittedBox(
     fit: BoxFit.scaleDown,
+    alignment: alignment,
     child: Text(text, maxLines: 1, softWrap: false, style: style),
   );
 }

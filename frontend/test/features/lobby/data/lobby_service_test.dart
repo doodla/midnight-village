@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
+import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/contract/server_json.dart';
@@ -30,16 +31,24 @@ void main() {
   }
 
   group('LobbyService', () {
-    test('createLobby opens an ONUW table and reads it back', () async {
-      http.answer('POST', '/lobbies/', _lobby(deck: false), status: 201);
+    test(
+      'createTable opens a night protocol 2 table and reads it back',
+      () async {
+        http.answer(
+          'POST',
+          '/lobbies/',
+          ContractSamples.load('http/lobby/created_with_defaults'),
+          status: 201,
+        );
 
-      final lobby = await service.createLobby();
+        final lobby = await service.createTable();
 
-      expect(sent().$2, '/lobbies/');
-      expect(sent().$3, {'game_type': 'onuw'});
-      expect(lobby.code, 'ABC123');
-      expect(lobby.hostId, 1);
-    });
+        expect(sent().$2, '/lobbies/');
+        expect(sent().$3, {'game_type': 'onuw', 'defaults': 'v2'});
+        expect(lobby.table.isProtocolTwo, isTrue);
+        expect(lobby.table.deckChip, DeckChip.simple);
+      },
+    );
 
     test('joinLobby joins the table and reads it back', () async {
       http.answer(
@@ -84,26 +93,44 @@ void main() {
       expect(sent().$2, '/lobbies/ABC123/leave/');
     });
 
-    test('toggleReady posts to the table\'s ready', () async {
+    test('setReady sets this player ready, saying so', () async {
       http.answer('POST', '/lobbies/ABC123/ready/', _lobby(deck: false));
 
-      await service.toggleReady('ABC123');
+      await service.setReady('ABC123', ready: true);
 
       expect(sent().$2, '/lobbies/ABC123/ready/');
+      expect(sent().$3, {'is_ready': true});
     });
 
-    test('updateRoleConfig sends the deck as settings', () async {
+    test('setCustomDeck sends the cards as the custom deck', () async {
       final roles = {'Werewolf': 2, 'Seer': 1};
       http.answer('PATCH', '/lobbies/ABC123/', _lobby());
 
-      final lobby = await service.updateRoleConfig('ABC123', roles);
+      final lobby = await service.setCustomDeck('ABC123', roles);
 
       expect(sent().$1, 'PATCH');
       expect(sent().$3, {
-        'settings': {'roles': roles},
+        'settings': {'deck': 'custom', 'roles': roles},
       });
       expect(lobby.code, 'ABC123');
     });
+
+    test(
+      'setPace sends the preset\'s lengths, not the Doppelganger\'s',
+      () async {
+        http.answer('PATCH', '/lobbies/ABC123/', _lobby());
+
+        await service.setPace('ABC123', Pace.quick);
+
+        expect(sent().$3, {
+          'settings': {
+            'discussion_seconds': 180,
+            'voting_seconds': 45,
+            'night_wave_seconds': 20,
+          },
+        });
+      },
+    );
 
     test('a deck change during a game is a conflict with its code', () async {
       http.answer(
@@ -114,7 +141,7 @@ void main() {
       );
 
       await expectLater(
-        service.updateRoleConfig('ABC123', {'Werewolf': 2}),
+        service.setCustomDeck('ABC123', {'Werewolf': 2}),
         throwsA(
           isA<UnhandledHttpException>()
               .having((e) => e.statusCode, 'status', 409)

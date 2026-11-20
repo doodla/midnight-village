@@ -57,6 +57,10 @@ class RoleCard extends StatelessWidget {
   /// Width over height of a portrait in the grid (the mocks' 76.5 x 100).
   static const _gridAspect = 0.765;
 
+  /// Width over height of a grid cell: the portrait and its name under it
+  /// (S03, three across).
+  static const gridCellAspect = 0.66;
+
   @override
   Widget build(BuildContext context) => Semantics(
     label: role.displayName,

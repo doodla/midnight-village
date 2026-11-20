@@ -16,4 +16,7 @@ abstract final class ServerBodies {
   static const refreshRefused = {
     'error': {'status_code': 401, 'detail': 'Token is invalid'},
   };
+
+  /// `GET /stats/online/` -> 200: 01's "{n} at tables".
+  static const onlineStats = {'players': 6, 'tables': 1};
 }

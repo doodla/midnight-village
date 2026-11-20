@@ -2,9 +2,7 @@
 # tool/analyze_gate.sh (`just analyze`) lets their uses through and fails on
 # any other file's. Delete a line when its file stops using the old look;
 # never add one. The removal checklist is in docs/dev/old-look-removal.md.
-integration_test/auth_flow_test.dart
 lib/design_system/models/role.dart
-lib/features/auth/presentation/home_screen.dart
 lib/features/game/presentation/away_notice.dart
 lib/features/game/presentation/discussion_view.dart
 lib/features/game/presentation/game_container_screen.dart
@@ -14,12 +12,10 @@ lib/features/game/presentation/night_waiting_view.dart
 lib/features/game/presentation/reconnection_overlay.dart
 lib/features/game/presentation/role_reveal_view.dart
 lib/features/game/presentation/seer_choice_view.dart
-lib/features/lobby/presentation/lobby_screen.dart
 test/core/router/routes_test.dart
 test/design_system/components/core/primary_button_test.dart
 test/design_system/components/foundation/atmospheric_background_test.dart
 test/design_system/components/foundation/player_avatar_test.dart
-test/design_system/components/foundation/village_app_bar_test.dart
 test/design_system/components/game/game_results_test.dart
 test/design_system/components/game/game_timer_test.dart
 test/design_system/components/game/night_action_prompt_test.dart
@@ -50,9 +46,6 @@ test/features/game/presentation/seer_choice_view_test.dart
 test/features/game/presentation/table_closed_flow_test.dart
 test/features/game/presentation/voting_flow_test.dart
 test/features/game/presentation/voting_results_flow_test.dart
-test/features/lobby/presentation/lobby_between_games_test.dart
-test/features/lobby/presentation/lobby_host_handover_test.dart
-test/features/lobby/presentation/lobby_screen_test.dart
 test/helpers/game_test_setup.dart
 test/helpers/golden_test_helper.dart
 test_screens/screen_fixtures.dart

@@ -20,9 +20,6 @@ abstract final class CommonCopy {
   /// A gate button after the player is ready (04, 08).
   static const readyDone = 'Ready ✓';
 
-  /// A stepper is finished (03).
-  static const done = 'Done';
-
   /// Back to the start (02 guest, 11 guest).
   static const leave = 'Leave';
 
@@ -60,6 +57,9 @@ abstract final class JoinCopy {
 abstract final class TableCopy {
   // Host.
   static const scan = 'Scan to join';
+
+  /// Spoken only: Share is a glyph beside "Scan to join", since the deck's
+  /// chip name ("Simple") takes its word in the host's 7.
   static const share = 'Share';
 
   /// On the deck strip. Spec: "Edit deck", which puts the host's 02 at 8
@@ -75,7 +75,11 @@ abstract final class TableCopy {
 /// 03 Deck (the host's, optional).
 abstract final class DeckCopy {
   static const headline = "Tonight's deck";
+
+  /// In the order of the server's chips (`simple`, `classic`, `chaos`).
   static const chips = ['Simple', 'Classic', 'Chaos'];
+
+  /// In the order of the contract's presets (`quick`, `normal`, `long`).
   static const paces = ['Quick', 'Normal', 'Long'];
 
   /// The pace tiles; "Copy" only when the Doppelganger is in the deck.

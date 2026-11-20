@@ -1,0 +1,64 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../../../core/healing/healing.dart';
+import '../../../core/logging/app_logger.dart';
+import '../../auth/domain/auth_state.dart';
+import '../../auth/presentation/auth_notifier.dart';
+import '../data/home_service.dart';
+import '../domain/where_am_i.dart';
+import 'lobby_notifier.dart';
+
+part 'home_numbers.g.dart';
+
+/// 01's "{n} at tables" (`GET /stats/online/`, no login), retried until it
+/// answers.
+@Riverpod(retry: retryForever)
+Future<OnlineStats> onlineStats(Ref ref) =>
+    ref.watch(homeServiceProvider).fetchOnline();
+
+/// This player's last finished game, for 01's "You won last game" / "You
+/// lost last game": null when signed out or with no finished game.
+@Riverpod(retry: retryForever)
+Future<RecentGame?> lastGame(Ref ref) async {
+  if (ref.watch(authProvider) is! AuthAuthenticated) return null;
+  final games = await ref.watch(lobbyServiceProvider).fetchRecentGames();
+  return games.firstOrNull;
+}
+
+/// Where this app is served from, for the link a QR code and Share carry:
+/// the page's own address on the web; `--dart-define=PUBLIC_ORIGIN=...`
+/// elsewhere; null when neither (then the table shows its code alone).
+@Riverpod(keepAlive: true)
+Uri? appOrigin(Ref ref) {
+  const configured = String.fromEnvironment('PUBLIC_ORIGIN');
+  if (configured.isNotEmpty) return Uri.parse(configured);
+  if (kIsWeb) return Uri.base.removeFragment();
+  return null;
+}
+
+/// Hands a link to the system's share sheet (02's Share); where there is
+/// none (some browsers) the link is copied instead.
+typedef ShareLink = Future<void> Function(Uri link);
+
+@Riverpod(keepAlive: true)
+ShareLink shareLink(Ref ref) => (link) async {
+  final text = link.toString();
+  try {
+    final result = await SharePlus.instance.share(ShareParams(text: text));
+    if (result.status != ShareResultStatus.unavailable) return;
+  } catch (e) {
+    logger.d('No share sheet ($e)');
+  }
+  await Clipboard.setData(ClipboardData(text: text));
+};
+
+/// The link that opens 01 ready to join table [code]: the app's `/join/`
+/// route, in the hash form the app's router reads on any static host
+/// (`<origin>/#/join/<code>`).
+Uri joinLink(Uri origin, String code) => origin.replace(
+  path: origin.path.isEmpty ? '/' : origin.path,
+  fragment: '/join/$code',
+);
