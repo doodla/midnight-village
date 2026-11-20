@@ -8,9 +8,12 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
+import 'package:midnight_village/design_system/primitives/panels.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/not_built_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,21 +27,26 @@ import 'harness/ui_harness.dart';
 /// UI runner, night protocol 2: one phone plays a game through the REAL
 /// widget tree of the rebuilt shell (`GameEntry` -> `TableShell`), live
 /// socket and all, against the harness backend, from the look stage (04)
-/// through the night windows to the talk (08, a placeholder for now); the
-/// rest of the table plays through the API. The phone's own steps are made
+/// through the night windows, the talk (08) and the vote (09) to the count
+/// (10, a placeholder for now); the rest of the table plays through the
+/// API. The phone's own steps are made
 /// the way a player makes them: a hold, taps, Choose, Ready.
 ///
 /// Per-phone PNG filmstrips at 390 x 844 are written to
 /// `integration_test/screenshots/<game>/NN-<state>.png`.
 ///
 /// Asserted: the screen the server's state calls for is shown, and what the
-/// phone sent is what the server recorded (`/me/` and the oracle).
+/// phone sent is what the server recorded (`/me/` and the oracle: its ready,
+/// its pick, its lock).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
     await HarnessConfig.setUp();
     HarnessConfig.stubSecureStorage();
+    // The old theme's fonts, fetched once up front with the path_provider
+    // stub (as the protocol-1 UI runner does), so none is fetched mid-game.
+    await HarnessConfig.loadFonts();
     // What this device has learned (the teach-once cues): a new device.
     // Test code; the analyzer only counts test/ and *_test.dart as tests.
     // ignore: invalid_use_of_visible_for_testing_member
@@ -106,15 +114,19 @@ void main() {
 
       // The rest of the table chooses; the window closes; the talk.
       await r.api(() => r.everyoneElse((p) => r.choose(p, [])));
-      await r.ui.pumpUntil(
-        () => r.placeholder == AppScreen.talk,
-        reason: 'the talk after the night',
-      );
+      await r.ui.pumpUntil(r.shows<TalkScreen>, reason: 'the talk');
       await r.shoot('talk');
 
       final looked = (await r.api(() => t.me(alice)))['night_results'] as List;
       expect(looked.single['action_type'], 'peek_player');
       expect(looked.single['revealed_info']['target_name'], 'Cara');
+
+      // My night: what she saw, held.
+      await r.holdThen(find.byType(PeekBox), () async {
+        expect(r.text("Cara's card: Werewolf."), isTrue);
+        await r.shoot('talk-my-night');
+      });
+      await r.talkAndVote(t, accuse: 'Cara');
     });
   });
 
@@ -200,10 +212,7 @@ void main() {
       await r.shoot('kept');
 
       await r.api(() => r.everyoneElse((p) => r.choose(p, [])));
-      await r.ui.pumpUntil(
-        () => r.placeholder == AppScreen.talk,
-        reason: 'the talk after window 2',
-      );
+      await r.ui.pumpUntil(r.shows<TalkScreen>, reason: 'the talk');
       await r.shoot('talk');
 
       final results = (await r.api(() => t.me(alice)))['night_results'] as List;
@@ -213,6 +222,7 @@ void main() {
         {'Werewolf', 'Tanner'},
         reason: 'her copied Seer looked at Left and Right',
       );
+      await r.talkAndVote(t, accuse: 'Bob');
     });
   });
 }
@@ -338,6 +348,97 @@ class _Phone {
 
   Future<void> choose(DebugPlayer p, List<Map<String, Object>> picks) =>
       staged(p, 'action', {'action_type': 'choose', 'picks': picks});
+
+  /// What is true on the server (the debug-state oracle). Called inside
+  /// [api] (the real zone) only.
+  Future<Map<String, dynamic>> _oracle() => table.oracleJson();
+
+  Future<bool> _aliceReady() async {
+    final players = ((await _oracle())['players'] as List)
+        .cast<Map<String, dynamic>>();
+    return players.firstWhere(
+          (p) => p['user_id'] == table.player('Alice').userId,
+        )['ready']
+        as bool;
+  }
+
+  /// From the talk to the count, Alice on the phone: "Ready to vote" on,
+  /// off and on again (each reaching the server, read from the oracle);
+  /// the rest ready through the API; the vote opens; she picks [accuse],
+  /// then locks in; the rest lock in a vote for her; the count follows.
+  Future<void> talkAndVote(LiveTable t, {required String accuse}) async {
+    final alice = t.player('Alice');
+    expect(button.label, TalkCopy.readyToVote);
+    expect(button.phase, ButtonPhase.quiet);
+    for (final ready in [true, false, true]) {
+      await tapButton(
+        until: () =>
+            button.label ==
+            (ready ? CommonCopy.readyDone : TalkCopy.readyToVote),
+      );
+      await api(
+        () => pollUntil(
+          () async => await _aliceReady() == ready,
+          reason: 'Ready to vote $ready on the server',
+          timeout: eventTimeout,
+        ),
+      );
+    }
+    await shoot('talk-ready');
+
+    await api(() => everyoneElse((p) => staged(p, 'ready', {'ready': true})));
+    await ui.pumpUntil(shows<VoteScreen>, reason: 'the vote');
+    await ui.settle();
+    expect(button.label, VoteCopy.pickName);
+    expect(find.text(alice.displayName), findsNothing, reason: 'not herself');
+    await shoot('vote');
+
+    final target = t.player(accuse);
+    await ui.tapAndSubmit(
+      find.text(accuse),
+      until: () => button.label == 'Lock in $accuse',
+    );
+    await api(
+      () => pollUntil(
+        () async =>
+            (await _oracle())['votes']['${alice.userId}'] == target.userId,
+        reason: "Alice's pick on the server",
+        timeout: eventTimeout,
+      ),
+    );
+    expect((await api(_oracle))['vote_locked']['${alice.userId}'], isFalse);
+    await shoot('vote-picked');
+
+    await tapButton(until: () => button.label == VoteCopy.locked);
+    await api(
+      () => pollUntil(
+        () async => (await _oracle())['vote_locked']['${alice.userId}'] == true,
+        reason: "Alice's lock on the server",
+        timeout: eventTimeout,
+      ),
+    );
+    expect((await api(() => t.me(alice)))['my_vote'], {
+      'target_player_id': target.userId,
+      'locked': true,
+    });
+    await shoot('vote-locked');
+
+    await api(
+      () => everyoneElse(
+        (p) => staged(p, 'vote', {
+          'target_player_id': p.userId == alice.userId
+              ? target.userId
+              : alice.userId,
+          'lock': true,
+        }),
+      ),
+    );
+    await ui.pumpUntil(
+      () => placeholder == AppScreen.count,
+      reason: 'the count after the last lock',
+    );
+    await shoot('count');
+  }
 
   // ---------------------------------------------------------------------------
   // The screen

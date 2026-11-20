@@ -22,8 +22,8 @@ changes. Last updated 20 November 2026.
 - App: the Shadow paper skin and primitives (the only look); the first-time-play pieces (copy,
   cues, hold to reveal, the night board); the protocol-2 data layer (`GameMe`, screen table,
   one outbox, healing fetches), model-checked (`docs/dev/models/phone/`). With the screens
-  branch: 04 Your card and the night board are rebuilt for protocol 2, behind the dev-only
-  "Rebuilt screens" switch; 05 shows only while `/me/` loads; under protocol 2, 04 is reachable
+  branch: 04 Your card, the night board, 08 Talk (with My night) and 09 Vote are rebuilt for
+  protocol 2, behind the dev-only "Rebuilt screens" switch; 05 shows only while `/me/` loads; under protocol 2, 04 is reachable
   (it was not under protocol 1). The other screens are still the old ones.
 - Tooling: screen gallery, cold-read pack, e2e harness, subagent model guardrail, commit gate
   routed by path.
@@ -31,8 +31,8 @@ changes. Last updated 20 November 2026.
 ## Next, in order
 
 1. Rebuild the remaining screens for protocol 2, one at a time, from the primitives, checked
-   by eye with `just screens` against the mocks, before/after pictures to the owner: 08 Talk
-   with "My night", 09 Vote, 10 The count, 11 Results, then 01 Join, 02 Table, 03 Deck (+ 03b
+   by eye with `just screens` against the mocks, before/after pictures to the owner: 10 The
+   count, 11 Results, then 01 Join, 02 Table, 03 Deck (+ 03b
    role sheet). Then remove the dev-only gate with the last placeholder. Delete each old-look file with the last screen using it
    (`docs/dev/old-look-removal.md`).
 2. Rerun the cold-read playtest on the real screens (method in
@@ -49,6 +49,11 @@ changes. Last updated 20 November 2026.
   tap of the same lane; closing it needs a per-phone sequence number on the server.
 - Ten long names on a 320-wide phone: the night board falls under the 14 px reading floor.
 - Recorder gap: no contract sample of a Doppelganger who copied the Minion with a follow-up.
+- 08/09 server gaps: `/me/` does not say whom this phone may vote for (09 leaves its own row
+  out, as the rules and the server's `invalid_target` refusal say), nor the talk's and vote's
+  lengths (the sun and the bar measure from when the phone first saw the stage). No recorded
+  protocol-2 `/me/` of an untimed talk or vote, of a vote at more than five, or of a talk after
+  the results ack (`night_results_seen` above 0).
 - Protocol 1 only (goes with the cleanup slice): across several server instances a phone can
   get `action_prompt` before `wave_start` and lose its prompt. (The unreachable "your card"
   screen is fixed under protocol 2.)

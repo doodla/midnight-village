@@ -5,34 +5,32 @@ import 'package:midnight_village/design_system/copy/role_text.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
-import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/fit_line.dart';
-import 'package:midnight_village/design_system/primitives/panels.dart';
 import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/player_token.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
-import 'package:midnight_village/design_system/primitives/progress_pips.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/tag_chip.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
-import 'package:midnight_village/design_system/teach/cue_wave.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
-import 'package:midnight_village/design_system/teach/teach_once.dart';
-import 'package:midnight_village/design_system/teach/teaching_hold.dart';
+import 'package:midnight_village/features/game/domain/game_me.dart';
+import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 
 import 'sheet_data.dart';
-import 'table_pages.dart';
 
 // 08 Talk, 09 Vote, 10 The count and 11 Results, to the first-time play
 // spec.
 
-/// 08: the talk. The sun is loudest, then My night (the hold cue on it in
-/// a first game); "Ready to vote" is outlined and never locked.
+/// 08: the talk, as the app draws it ([TalkView]) on the viewer's phone of
+/// game 7 or 8, its `/me/` in the talk. The sun is loudest, then My night
+/// (the hold cue on it in a first game); "Ready to vote" is outlined and
+/// never locked.
 class TalkPage extends StatefulWidget {
   const TalkPage({super.key, required this.viewer});
 
@@ -43,48 +41,21 @@ class TalkPage extends StatefulWidget {
 }
 
 class _TalkPageState extends State<TalkPage> {
+  late final _me = GameMe.fromJson(widget.viewer.talkMe);
   var _ready = false;
 
   @override
-  Widget build(BuildContext context) {
-    final me = widget.viewer.talkMe;
-    final progress = me['progress'] as Map<String, dynamic>;
-    final (done, needed) = (progress['done'] as int, progress['needed'] as int);
-    return ScreenFrame(
-      ground: GroundKind.day,
-      topSlot: const TimerBand.sun(secondsLeft: 252, elapsed: 0.3),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Space.lg,
-        children: [
-          Text(TalkCopy.headline, style: context.skin.typography.screenTitle),
-          TeachingHold(
-            target: TalkCopy.myNight,
-            face: widget.viewer.myNight,
-            cue: Cue.holdMyNight,
-            cover: (teaching) =>
-                PeekBox(title: TalkCopy.myNight, teaching: teaching),
-          ),
-          deckStrip(RoleCardSize.mini, deckOf(me)),
-        ],
-      ),
-      actions: [
-        ProgressPips(
-          done: done,
-          total: needed,
-          label: TalkCopy.progress.fill({'d': done, 'n': needed}),
-        ),
-        PrimaryButton.quiet(
-          label: _ready ? CommonCopy.readyDone : TalkCopy.readyToVote,
-          onPressed: () => setState(() => _ready = !_ready),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => TalkView(
+    me: _me.withReady(_ready),
+    secondsLeft: 252,
+    elapsed: 0.3,
+    onReady: () => setState(() => _ready = !_ready),
+  );
 }
 
-/// 09: pick a name, then lock it in. Your own row is never listed; once
-/// locked every row looks the same.
+/// 09: pick a name, then lock it in, as the app draws it ([VoteView]) on
+/// Ana's phone of game 7, its `/me/` as the vote opens. Your own row is never
+/// listed; once locked every row looks the same.
 class VotePage extends ConsumerStatefulWidget {
   const VotePage({super.key});
 
@@ -93,60 +64,21 @@ class VotePage extends ConsumerStatefulWidget {
 }
 
 class _VotePageState extends ConsumerState<VotePage> {
-  NightSeat? _pick;
-  var _locked = false;
+  final _me = GameMe.fromJson(recordedMe('me_voting_unpicked'));
+  MyVote? _vote;
 
   @override
   Widget build(BuildContext context) {
-    final others = fiveSeats.where((s) => s != ana).toList();
-    final pick = _pick;
-    return ScreenFrame(
-      ground: GroundKind.day,
-      topSlot: const TimerBand.bar(secondsLeft: 72, remaining: 0.8),
-      body: TeachOnce(
-        cue: Cue.voteLock,
-        builder: (context, teaching) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: Space.md,
-          children: [
-            Text(VoteCopy.headline, style: context.skin.typography.screenTitle),
-            for (final (i, seat) in others.indexed)
-              CueWave(
-                play: teaching,
-                index: i,
-                distance: CueWave.rowNudge,
-                child: PlayerRow(
-                  token: seat.token,
-                  name: seat.name,
-                  size: PlayerRowSize.large,
-                  picked: !_locked && seat == pick,
-                  dimmed: _locked,
-                  onTap: _locked ? null : () => setState(() => _pick = seat),
-                ),
-              ),
-          ],
-        ),
-      ),
-      actions: [
-        ProgressPips(
-          done: 3,
-          total: fiveSeats.length,
-          label: VoteCopy.progress.fill({'d': 3, 'n': fiveSeats.length}),
-        ),
-        if (_locked)
-          const PrimaryButton.done(label: VoteCopy.locked)
-        else if (pick == null)
-          const PrimaryButton(label: VoteCopy.pickName, onPressed: null)
-        else
-          PrimaryButton(
-            label: VoteCopy.lockIn.fill({'name': pick.name}),
-            icon: Icons.lock_outline,
-            onPressed: () {
-              setState(() => _locked = true);
-              ref.read(learnedCuesProvider.notifier).learn(Cue.voteLock);
-            },
-          ),
-      ],
+    final vote = _vote;
+    return VoteView(
+      me: vote == null ? _me : _me.withVote(vote),
+      secondsLeft: 72,
+      remaining: 0.8,
+      onPick: (id) => setState(() => _vote = MyVote.local(id, locked: false)),
+      onLock: (id) {
+        setState(() => _vote = MyVote.local(id, locked: true));
+        ref.read(learnedCuesProvider.notifier).learn(Cue.voteLock);
+      },
     );
   }
 }

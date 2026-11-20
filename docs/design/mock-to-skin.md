@@ -187,6 +187,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | "My night" Gloock 24, "Hold to peek" 14/600 quiet | `type.heading`; "Hold to peek" is cut; until My night has been held on this device the cue's "Hold" (`type.cue`) sits under the title |
 | "In the deck tonight" 12/700 day quiet, gap 10 | **Cut** by the first-time play spec ("In the deck tonight") |
 | Deck thumbnails 50 x 68, ring 2 indigo, "×2" badges, gap 10 | `RoleCard(size: RoleCardSize.mini)` in `Flexible` (they shrink: the mock's six overrun 342) |
+| (not in the mock) everyone at the table | **Added** under the deck: `TableNames`, each seat in seat order as `PlayerToken(size: TokenSize.card)` and its whole name (`type.nameSmall`, `FitWords`) in a `Wrap` (`Space.lg` across, `Space.sm` down); nothing about readiness |
 | Token pips 30, waiting ring #8f8a99 at 0.35; "2 of 5 ready to vote" 14/700 day quiet | `ProgressPips` plain, "{d} of {n} ready" (`type.body`) |
 | "I'm ready to vote": indigo, 5,5 blood | `PrimaryButton.quiet`, never locked (section 8): outlined, never amber (08 must not shout "end the talk") |
 
@@ -198,7 +199,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | "18" 76 lh 0.9 -0.02em; "seconds to choose" 12/700 +0.14em in bone; gap 10 baseline | `type.timerVote`; "seconds to choose" is **Cut** by the first-time play spec |
 | Bar 8 px full bleed, track hairline, 30% danger line | `TimerBand.bar(remaining:)` (`TimerBand.barHeight`, `night.hairline`, `night.dangerLine`) |
 | "Who dies today?" 34 lh 1.05, margin-top 6 | `type.screenTitle`, `Space.xs` |
-| Rows 68 tall, radius 34/6, padding 0 16 0 8, gap 14, token 52, Gloock 26; gap 12 | `PlayerRow(size: PlayerRowSize.large, onTap:)`; `Space.md` |
+| Rows 68 tall, radius 34/6, padding 0 16 0 8, gap 14, token 52, Gloock 26; gap 12 | `PlayerRow(size: PlayerRowSize.large, onTap:)`; `Space.md`. Above six other players, `PlayerRowSize.compact` with `Space.sm` (ten fit a 360 x 780 phone unscrolled) |
 | Picked: blood fill, 4,4 indigo, bone ring | `picked: true`: lifts and takes `ground.selection` (ink) at `shape.selectedRing`; the blood fill is cut. Once locked every row is `dimmed: true`, the same |
 | X icon 26, stroke 3.5, "Your pick" | "Lock in {name}": `PrimaryButton(icon: Icons.lock_outline)`; the X is cut (it read as "remove") |
 | Token pips, "3 of 5 locked in" | `ProgressPips` plain, "{d} of {n} locked" |

@@ -125,7 +125,9 @@ class _ArchedFootPainter extends CustomPainter {
 ///
 /// The digits stand alone: the mocks' captions ("left to talk", "seconds to
 /// choose") are cut (first-time play spec, copy rule 9). The number is set
-/// smaller rather than pushed off a narrow phone.
+/// smaller rather than pushed off a narrow phone. A stage with no deadline
+/// (null [secondsLeft]) shows no number: the sky alone, or the night strip
+/// with its bar unlit.
 class TimerBand extends StatelessWidget {
   const TimerBand.sun({
     super.key,
@@ -143,7 +145,8 @@ class TimerBand extends StatelessWidget {
   }) : _sun = false,
        elapsed = 0;
 
-  final int secondsLeft;
+  /// Null: the stage has no deadline, and nothing is counted.
+  final int? secondsLeft;
 
   /// The sun: how far through the phase it is, 0 to 1.
   final double elapsed;
@@ -163,12 +166,12 @@ class TimerBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final number = WorldTimer.format(secondsLeft);
-    return Semantics(
-      label: semanticLabel ?? number,
-      excludeSemantics: true,
-      child: _sun ? _sky(context, number) : _bar(context, number),
-    );
+    final seconds = secondsLeft;
+    final number = seconds == null ? null : WorldTimer.format(seconds);
+    final band = _sun ? _sky(context, number) : _bar(context, number);
+    final label = semanticLabel ?? number;
+    if (label == null) return ExcludeSemantics(child: band);
+    return Semantics(label: label, excludeSemantics: true, child: band);
   }
 
   /// The number at the start of its row, set smaller rather than overrun.
@@ -177,7 +180,7 @@ class TimerBand extends StatelessWidget {
     child: FitLine(number, style: style),
   );
 
-  Widget _sky(BuildContext context, String number) {
+  Widget _sky(BuildContext context, String? number) {
     final skin = context.skin;
     final ground = context.ground;
     final top = MediaQuery.paddingOf(context).top;
@@ -221,18 +224,19 @@ class TimerBand extends StatelessWidget {
             ],
           ),
         ),
-        Transform.translate(
-          offset: const Offset(0, -Space.sm),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
-            child: _number(number, skin.typography.timer),
+        if (number != null)
+          Transform.translate(
+            offset: const Offset(0, -Space.sm),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
+              child: _number(number, skin.typography.timer),
+            ),
           ),
-        ),
       ],
     );
   }
 
-  Widget _bar(BuildContext context, String number) {
+  Widget _bar(BuildContext context, String? number) {
     final skin = context.skin;
     final night = skin.night;
     final top = MediaQuery.paddingOf(context).top;
@@ -252,7 +256,9 @@ class TimerBand extends StatelessWidget {
                 Space.gutter,
                 0,
               ),
-              child: _number(number, skin.typography.timerVote),
+              child: number == null
+                  ? null
+                  : _number(number, skin.typography.timerVote),
             ),
             SizedBox(
               height: barHeight,
@@ -260,7 +266,7 @@ class TimerBand extends StatelessWidget {
                 color: night.hairline,
                 child: FractionallySizedBox(
                   alignment: AlignmentDirectional.centerStart,
-                  widthFactor: remaining.clamp(0, 1),
+                  widthFactor: number == null ? 0 : remaining.clamp(0, 1),
                   child: ColoredBox(color: night.dangerLine),
                 ),
               ),
@@ -284,6 +290,11 @@ class _SunPainter extends CustomPainter {
   });
 
   final double elapsed;
+
+  /// How far along the path the sun is at the start (and short of its end
+  /// at the finish).
+  static const rise = 0.12;
+
   final Color sun;
   final Color line;
   final double lineWidth;
@@ -302,7 +313,10 @@ class _SunPainter extends CustomPainter {
     final metric = arc.computeMetrics().first;
     _dots(canvas, metric);
 
-    final position = metric.getTangentForOffset(metric.length * elapsed)!;
+    // The sun rises clear of the rooftops and sets before it reaches them
+    // again: the ends of the path are the horizon, not the talk.
+    final along = rise + (1 - 2 * rise) * elapsed;
+    final position = metric.getTangentForOffset(metric.length * along)!;
     final radius = size.height * 0.076;
     canvas
       ..drawCircle(position.position, radius, Paint()..color = sun)
