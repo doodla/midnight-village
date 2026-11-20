@@ -18,7 +18,7 @@
           {
             "type": "command",
             "command": ".claude/hooks/pre-commit-gate.sh",
-            "timeout": 120000
+            "timeout": 1800
           }
         ]
       }
@@ -30,7 +30,7 @@
           {
             "type": "command",
             "command": ".claude/hooks/post-edit-format.sh",
-            "timeout": 10000,
+            "timeout": 30,
             "async": true
           }
         ]
@@ -42,7 +42,7 @@
           {
             "type": "command",
             "command": ".claude/hooks/verify-done.sh",
-            "timeout": 120000
+            "timeout": 1800
           }
         ]
       }

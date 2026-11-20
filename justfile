@@ -48,11 +48,12 @@ test *args:
     {{backend_just}} test {{args}}
     just test-guardrails
 
-# Run the .claude/guardrails hook tests (stdlib only, needs python3 >= 3.11)
+# Run the .claude/ hook tests: guardrails (python3 >= 3.11) and the commit gate's routing
 test-guardrails:
     python3 -m unittest discover -s .claude/guardrails/tests
+    .claude/hooks/test_gate_routing.sh
 
-# Re-record contract_samples/ from the real server (see backend/CLAUDE.md)
+# Re-record contract_samples/ from the real server (see backend/tests/README.md)
 samples:
     {{backend_just}} samples
 
@@ -99,9 +100,10 @@ format-check:
 typecheck:
     {{backend_just}} typecheck
 
-# Run all backend quality checks
+# Run all backend quality checks, and check the instruction files' paths and recipes
 check:
     {{backend_just}} check
+    tool/check_instruction_links.sh
 
 # Fix all auto-fixable issues
 fix:
@@ -146,11 +148,11 @@ flutter-test:
 flutter-analyze:
     {{frontend_just}} analyze
 
-# Render every app screen to PNG next to its mock (see frontend/CLAUDE.md)
+# Render every app screen to PNG next to its mock (see frontend/test/README.md)
 screens *args:
     {{frontend_just}} screens {{args}}
 
-# The cold-read pack of first-game journeys (see frontend/CLAUDE.md)
+# The cold-read pack of first-game journeys (see frontend/lib/design_system/README.md)
 playtest-pack *args:
     {{frontend_just}} playtest-pack {{args}}
 

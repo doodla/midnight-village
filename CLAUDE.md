@@ -1,60 +1,32 @@
 # Midnight Village
 
-## What This Is
+A party game: friends at one table use their phones for secret roles, night actions and
+votes; the server runs the game. First game: One Night Ultimate Werewolf (ONUW). Where the
+work stands: `docs/dev/status.md`.
 
-A multiplayer social deduction game platform. Players sit together in person and use their phones for secret role actions and voting. The app handles role assignment, night phases, timers, and simultaneous reveals.
+## Core principles (all code)
 
-**First game:** One Night Ultimate Werewolf (ONUW) — a single-night variant where roles may swap during the night, then players discuss and vote to find the werewolf.
+1. **Server-authoritative**: all game logic on the server; clients send actions and show results.
+2. **Hidden information**: responses, socket events and errors are player-scoped; never leak another player's secret.
+3. **State machine**: phases (lobby, night, discussion, voting, results) with explicit transitions; reject invalid ones.
+4. **Atomicity**: state changes are all-or-nothing (`@atomic`).
+5. **Determinism**: all randomness seeded and logged.
+6. **Separate game apps**: `apps.core` is shared infrastructure; each game is its own app (`apps.onuw`); no premature abstraction.
+7. **HTTP for actions, WebSockets for events**: never submit a player action over a socket.
 
-## Core Principles
+## How we work
 
-IMPORTANT: These principles are non-negotiable and apply to ALL code in this project.
-
-1. **Server-authoritative** — ALL game logic runs on the server. Clients send actions, server validates and broadcasts results. NEVER compute game logic client-side.
-2. **Hidden information** — Server knows everything, but API responses are player-scoped. A player ONLY sees what their role allows. NEVER leak another player's secret info through API responses, WebSocket events, or error messages.
-3. **State machine** — Games have phases (lobby → night → discussion → voting → results) with explicitly defined valid transitions. Invalid transitions MUST be rejected.
-4. **Atomicity** — Game state changes are all-or-nothing. Use `@atomic` for state transitions. No partial updates.
-5. **Determinism** — Same inputs produce same outputs. ALL randomness is seeded and logged for replay/debugging.
-6. **Separate game apps** — `apps.core` has shared infrastructure (auth, lobbies, WebSockets). Each game type is its own Django app (`apps.onuw`). No premature abstraction across games.
-7. **HTTP for state changes, WebSockets for events** — Clients submit actions and queries via REST. The server broadcasts state changes via WebSocket. Never use WebSocket messages as the primary way to submit player actions.
-
-## Commands
-
-```bash
-just check             # Lint + format-check + typecheck (MUST pass before commit)
-just test              # All backend tests (MUST pass before commit)
-just fix               # Auto-fix lint + format
-just test-cov          # Tests with coverage report
-```
-
-All root commands delegate to `backend/justfile` or `frontend/justfile`. Run `just --list` for the full set. See `backend/CLAUDE.md` and `frontend/CLAUDE.md` for component-specific commands.
-
-## Dev & Test Harness
-
-Beyond `just check`/`test` (which mock the HTTP/WS seam), there is a deterministic harness for driving the **whole ONUW multiplayer flow against a real backend**, plus a single-agent game driver. Full docs: `docs/dev/debug-harness/` (`contract.md`, `game-driver.md`).
-
-- `cd backend && just harness-serve` — boot a throwaway DEBUG backend on `127.0.0.1:8001` (forced role assignment, a full-state oracle, fire-timer hook — all `DEBUG`-only, 403 in prod).
-- `just test-harness` (root, or `cd frontend`) — boots that backend itself, replays the 29 reference games (`backend/tests/onuw/data/reference_games.json`) through the real API and a subset through the real widget tree against the two-window night, and writes per-player PNG filmstrips (`frontend/test_e2e/`; not part of `just test`). `frontend/test_e2e/api_lifecycle_test.dart` also drives play again, dropped phones (grace period) and host handover over real HTTP + sockets.
-- `backend/tools/game_driver.py` — one agent drives an entire game via the real player API + oracle and verifies outcomes against the rules.
-- `/debug` route (dev-only, gated by `Env.isDev`) — debug toolbar: spin up a table, switch player perspectives, god panel, auto-drive.
-- `just screens [width] [report|strict] [<skin>|all]` (root, or `cd frontend`) — renders every app screen, and each mock rebuilt from the design primitives, from the real widgets to `frontend/build/screens/`, side by side with `docs/design/mocks/`, and lists overflows/exceptions per screen (no backend; e.g. `just screens 360`, `just screens 390 strict`; old-theme text is drawn in Figtree stand-ins until the old look is removed). See `frontend/CLAUDE.md`.
-
-### Contract samples (server payloads the app's tests are built from)
-
-`contract_samples/` (repo root) holds real response bodies and socket events, recorded by playing seeded games through the real views, services and consumer handlers (`backend/tests/contract/`; `index.json` lists each with its endpoint/status or event type). A backend test re-records them in memory and fails while the committed files differ: after any change to a payload run `just samples` and review the diff (also the one command after merging a branch that changes payloads). The app's tests may only use payloads built from these (`frontend/test/helpers/contract/`, `GameMeJsonBuilder`, `GameEvents`, `GameTestSetup`): every mocked HTTP body and socket event is checked against the samples of its own situation (phase, prompt role, result kind; errors by endpoint and status), a request with no mock fails the test, domain objects are parsed from payloads (`FromSample`), and `fixture_sources_test.dart` fails on any test that goes around this.
-
-## Code Style
-
-- **Tests:** Descriptive names (`test_seer_can_view_one_center_card`), seed ALL randomness, test multi-player scenarios not just single player.
-- **Commits:** `type(scope): description` — types: feat, fix, test, refactor, docs, chore
-- **Coverage:** 80% minimum, enforced.
-
-## Quality Gates
-
-Design constraints (verified by tests):
-- Game logic is unit-testable independent of HTTP/Django
-- API responses are player-scoped — never return another player's hidden info
-- No hidden information leaks in error messages, WebSocket events, or validation responses
+- The owner is not an engineer: report in plain words, short. Decide and carry on; do not stop to ask.
+- Fun first: a friendly game at a table. Do not over-index on secrecy or peeking. No added waits, minimum response times or assumed timer lengths: every length is the table's setting. Test: would friends notice the protection, or only the friction?
+- Few words on screen; elements do the job; teach a gesture once by doing it, then never again. A player's name is never truncated.
+- A look ("skin") is a complete design with its own layouts and original art, never a recolour or filter. One look today: Shadow paper.
+- Every screen change gets a "does it look good" review by eye, and before/after pictures go to the owner before it merges.
+- Every change is reviewed by a fresh agent that was not given the author's conclusions. When a review finds something, fix the cause as a mechanism, not the instance.
+- Subagents: one worktree and one `DB_NAME` each. Port 8001 is shared: check it before `just test-harness`. Timing tests fail falsely under load: re-run alone.
+- Test fixtures come only from `contract_samples/`; after a payload change run `just samples` and review the diff.
+- The server is LIVE: every push migrates the shared database (rules: `backend/CLAUDE.md`, "Deploy-safe changes"). Do not touch the owner's Vercel, Neon or Redis accounts; ask before generating large batches of art. Fetch and merge before pushing; after pushing server changes, tell the deployment session (id in `docs/dev/status.md`).
+- Never open or read https://github.com/mankidev/antialgorithm in a main session; only subagents may, and they must not reproduce it.
+- Ordering and concurrency logic (server stage handling, the phone's outbox) is model-checked in focused slices: `docs/dev/models/README.md`.
 
 ## Subagents: model and effort
 
@@ -66,17 +38,28 @@ A hook blocks any Agent or workflow `agent()` call that is not on an allowed mod
 - Forks are not allowed (they inherit the main model). Spawn a fresh agent with the context in its prompt.
 - Change the allowed list in `.claude/guardrails/config.toml`.
 
-## Game Specs
+## Commands (repo root)
 
-The authoritative ONUW game rules live in `docs/specs/onuw/`. Read these before implementing or reviewing any game mechanic:
+```bash
+just check            # backend lint, format, types, migrations + instruction links
+just test             # backend tests + guardrail and gate-routing tests
+just flutter-test     # frontend tests (frontend: just analyze, just format-check)
+just samples          # re-record contract_samples/
+just test-harness     # end-to-end harness against a real backend on :8001
+just screens          # every screen as a PNG beside its mock
+```
 
-- `overview.md` — Setup, game flow, phases, teams, information architecture
-- `roles.md` — All 12 v1 roles (team, wave, action, special rules)
-- `night-phase.md` — Wake order, wave system, action types, timer model, optionality
-- `voting-and-resolution.md` — Discussion, voting, death threshold, Hunter chain, win conditions
-- `doppelganger.md` — Complete Doppelganger interaction matrix for all 12 copied roles
-- `recommended-setups.md` — Curated role combinations by player count
+More: `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `just --list`. Setup: `docs/dev/environment.md`.
 
-## Autonomous Development
+## Commits
 
-If you modify anything in `.claude/` (agents, skills, hooks, settings), you MUST update `docs/claude-architecture.md` in the same commit.
+- `type(scope): description`; types feat, fix, test, refactor, docs, chore. Tests: descriptive names, seeded, several players; coverage 80% minimum.
+- The commit gate runs the checks for the paths you stage; never bypass it.
+- A change under `.claude/` updates `docs/claude-architecture.md` in the same commit.
+
+## Pointers
+
+- Game rules (read before touching a mechanic): `docs/specs/onuw/index.md`. Server API v2: `docs/specs/onuw/api-contract-v2.md`.
+- Screens and copy: `docs/specs/frontend/first-time-play.md` (sections 7 and 8 win); the look: `docs/design/`.
+- Harness and oracle: `docs/dev/debug-harness/`. Running on Vercel: `docs/dev/deploy-vercel.md`.
+- Hooks, guardrails, agents, skills: `docs/claude-architecture.md`.
