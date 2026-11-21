@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 
@@ -106,6 +107,41 @@ void main() {
         expect(names, contains(journey.vote));
         expect(journey.vote, isNot(journey.viewer));
       });
+
+      test(
+        "the journey is its game's: the viewer's taps are their night "
+        "as the results log it, and the vote is the viewer's in the results",
+        () {
+          final results = dealt
+              .firstWhere((s) => s.screen == PackScreen.count)
+              .body!;
+          final table = playersOf(results);
+          final me = viewerIn(results, journey.viewer);
+          String nameOf(int id) => table.firstWhere((p) => p.id == id).name;
+          final seat = (results['players'] as List).cast<Map>().firstWhere(
+            (p) => p['player_id'] == me,
+          );
+          expect(nameOf(seat['vote_target_id'] as int), journey.vote);
+          // What the viewer's night acted on, in order: players by name, the
+          // center by its caption (playtest: a journey that tapped one card
+          // and showed another's result).
+          final log = (results['night_actions_log'] as List).cast<Map>().where(
+            (entry) => entry['player_id'] == me,
+          );
+          final tapped = [
+            for (final entry in log)
+              for (final MapEntry(:key, :value)
+                  in (entry['targets'] as Map).entries)
+                if (key == 'player_id')
+                  nameOf(value as int)
+                else if (key == 'player_ids')
+                  for (final id in (value as List).cast<int>()) nameOf(id)
+                else if (key == 'center_index')
+                  NightCopy.center[value as int],
+          ];
+          expect(tapped, journey.taps);
+        },
+      );
 
       test('the clock moves on and never runs backwards within a stage', () {
         final last = <String, int>{};

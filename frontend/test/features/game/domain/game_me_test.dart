@@ -121,12 +121,12 @@ void main() {
     test("the vote: this phone's own pick, then locked", () {
       final picked = me('me_voting_picked');
       expect(picked.phase, GamePhase.voting);
-      expect(picked.myVote, const MyVote.local(30, locked: false));
+      expect(picked.myVote, const MyVote.local(29, locked: false));
       expect(picked.ready, isNull);
       expect(picked.progress!.stage, ProgressStage.vote);
       expect(
         me('me_voting_locked').myVote,
-        const MyVote.local(30, locked: true),
+        const MyVote.local(29, locked: true),
       );
     });
 

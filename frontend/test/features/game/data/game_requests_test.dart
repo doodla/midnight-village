@@ -150,7 +150,7 @@ void main() {
 
     test('a pick and a lock both carry the target and the stage', () async {
       final vote = FromSample.gameMe(recordedMe('me_voting_picked'));
-      answer('/vote/', 'game/vote_picked');
+      answer('/vote/', 'game/vote_repicked');
       final picked = await service.send(
         'g7',
         VoteRequest(vote.stage!, targetId: 29, lock: false),

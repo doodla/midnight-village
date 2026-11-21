@@ -21,9 +21,14 @@ class TalkPage extends StatefulWidget {
     this.me,
     this.secondsLeft = 252,
     this.elapsed,
+    this.open = false,
   });
 
   final Viewer viewer;
+
+  /// As the talk opens: My night open where the night told this phone
+  /// something it has not acknowledged (a tap puts it away).
+  final bool open;
 
   /// The phone's `/me/` in the talk: [viewer]'s recorded one when not given.
   final Map<String, dynamic>? me;
@@ -39,6 +44,8 @@ class TalkPage extends StatefulWidget {
 class _TalkPageState extends State<TalkPage> {
   late final _me = GameMe.fromJson(widget.me ?? widget.viewer.talkMe);
   var _ready = false;
+  late var _open =
+      widget.open && _me.hasUnseenResults && _me.report.tellsSomething;
 
   @override
   Widget build(BuildContext context) => TalkView(
@@ -46,6 +53,8 @@ class _TalkPageState extends State<TalkPage> {
     secondsLeft: widget.secondsLeft,
     elapsed: widget.elapsed,
     onReady: () => setState(() => _ready = !_ready),
+    resultOpen: _open,
+    onPutAway: () => setState(() => _open = false),
   );
 }
 

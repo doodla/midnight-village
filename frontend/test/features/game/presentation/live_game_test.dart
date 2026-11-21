@@ -415,7 +415,7 @@ void main() {
 
     test('a pick then a lock: the lock goes after the pick', () async {
       final setup = await phone('me_voting_picked');
-      setup.answerPost('/vote/', 'game/vote_picked'); // echoes 29
+      setup.answerPost('/vote/', 'game/vote_repicked'); // echoes 29
       final posts = setup.http.hold(
         method: 'POST',
         path: '/onuw/games/${setup.gameId}/vote/',
@@ -446,7 +446,7 @@ void main() {
 
     test('a pick echoed for another target fetches /me/', () async {
       final setup = await phone('me_voting_picked');
-      setup.answerPost('/vote/', 'game/vote_picked'); // echoes 29
+      setup.answerPost('/vote/', 'game/vote_picked'); // echoes 30
       await setup.notifier.pickVote(31);
       await setup.settle();
       expect(setup.meFetches, 2);
@@ -456,7 +456,7 @@ void main() {
       final setup = await phone('me_voting_picked');
       setup.answerPost('/vote/', 'game/vote_self', status: 400);
       await setup.notifier.pickVote(27);
-      expect(setup.game.me.myVote, const MyVote.local(30, locked: false));
+      expect(setup.game.me.myVote, const MyVote.local(29, locked: false));
     });
 
     test('locked: nothing more is sent', () async {

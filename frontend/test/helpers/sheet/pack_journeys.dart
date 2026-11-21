@@ -38,7 +38,9 @@ enum PackScreen {
   boardPicked,
   boardChosen,
 
-  /// 08, then My night held (every page of it at once).
+  /// 08 as it opens (My night open, where the night told something), then
+  /// put away, then My night held (every page of it at once).
+  talkOpen,
   talk,
   talkHeld,
 
@@ -47,9 +49,10 @@ enum PackScreen {
   votePicked,
   voteLocked,
 
-  /// 10 and 11 from the game's results.
+  /// 10 and 11 from the game's results; 11 scrolled to its end.
   count,
   results,
+  resultsEnd,
 }
 
 /// One screen of a journey: what it shows, the recorded payload it is drawn
@@ -119,12 +122,13 @@ const _lobby = 'http/lobby/settings_deck_chip';
 
 /// Each journey's screens, in the order its phone shows them.
 const packJourneys = <String, PackJourney>{
-  // Ana starts the table and deals; she is the Seer and looks at Cleo's card.
+  // Ana starts the table and deals; she is the Seer, looks at Cleo's card
+  // (a Werewolf) and votes for her.
   'host': PackJourney(
     viewer: 'Ana',
     host: true,
     taps: ['Cleo'],
-    vote: 'Dev',
+    vote: 'Cleo',
     steps: [
       PackStep(PackScreen.join),
       PackStep(PackScreen.joinNamed),
@@ -139,6 +143,7 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.board, 'http/game/me_choose_prompt_seer', 3),
       PackStep(PackScreen.boardPicked, 'http/game/me_choose_prompt_seer', 8),
       PackStep(PackScreen.boardChosen, 'http/game/me_choose_prompt_seer', 10),
+      PackStep(PackScreen.talkOpen, 'http/game/me_discussion_choose_seer', 2),
       PackStep(PackScreen.talk, 'http/game/me_discussion_choose_seer', 6),
       PackStep(PackScreen.talkHeld, 'http/game/me_discussion_choose_seer', 15),
       PackStep(PackScreen.vote, 'http/game/me_voting_unpicked', 4),
@@ -146,6 +151,7 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.voteLocked, 'http/game/me_voting_locked', 24),
       PackStep(PackScreen.count, _results),
       PackStep(PackScreen.results, _results),
+      PackStep(PackScreen.resultsEnd, _results),
     ],
   ),
   // Ben scans Ana's QR code; he is the Robber and takes Ana's card.
@@ -164,6 +170,7 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.boardHeld, 'http/game/me_choose_prompt_robber', 4),
       PackStep(PackScreen.boardPicked, 'http/game/me_choose_prompt_robber', 9),
       PackStep(PackScreen.boardChosen, 'http/game/me_choose_prompt_robber', 11),
+      PackStep(PackScreen.talkOpen, 'http/game/me_discussion_choose_robber', 2),
       PackStep(PackScreen.talk, 'http/game/me_discussion_choose_robber', 5),
       PackStep(
         PackScreen.talkHeld,
@@ -175,6 +182,7 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.voteLocked, 'http/game/pack_vote_robber', 28),
       PackStep(PackScreen.count, _results),
       PackStep(PackScreen.results, _results),
+      PackStep(PackScreen.resultsEnd, _results),
     ],
   ),
   // Esme is a Villager: nothing to do at night.
@@ -200,6 +208,7 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.voteLocked, 'http/game/pack_vote_villager', 33),
       PackStep(PackScreen.count, _results),
       PackStep(PackScreen.results, _results),
+      PackStep(PackScreen.resultsEnd, _results),
     ],
   ),
   // Ana's night, read closely: what "You" says, her pick, what she saw.
@@ -207,7 +216,7 @@ const packJourneys = <String, PackJourney>{
     viewer: 'Ana',
     host: true,
     taps: ['Cleo'],
-    vote: 'Dev',
+    vote: 'Cleo',
     steps: [
       PackStep(PackScreen.card, 'http/game/me_look_stage'),
       PackStep(PackScreen.cardHeld, 'http/game/me_look_stage'),
@@ -215,6 +224,7 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.boardHeld, 'http/game/me_choose_prompt_seer', 5),
       PackStep(PackScreen.boardPicked, 'http/game/me_choose_prompt_seer', 9),
       PackStep(PackScreen.boardChosen, 'http/game/me_choose_prompt_seer', 10),
+      PackStep(PackScreen.talkOpen, 'http/game/me_discussion_choose_seer', 2),
       PackStep(PackScreen.talk, 'http/game/me_discussion_choose_seer', 4),
       PackStep(PackScreen.talkHeld, 'http/game/me_discussion_choose_seer', 9),
       PackStep(PackScreen.vote, 'http/game/me_voting_unpicked', 3),

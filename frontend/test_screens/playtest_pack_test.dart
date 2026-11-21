@@ -48,9 +48,9 @@ const _viewers = {
 /// What a player learns by doing what a screen asks of them.
 Set<Cue> _teaches(PackScreen screen) => switch (screen) {
   PackScreen.cardHeld => const {Cue.hold},
-  PackScreen.boardHeld => const {Cue.hold, Cue.holdYou},
+  PackScreen.boardHeld => const {Cue.hold},
   PackScreen.boardChosen => const {Cue.nightChoose},
-  PackScreen.talkHeld => const {Cue.hold, Cue.holdMyNight},
+  PackScreen.talkHeld => const {Cue.hold},
   PackScreen.voteLocked => const {Cue.voteLock},
   _ => const {},
 };
@@ -150,7 +150,7 @@ Future<void> _pump(
           await tester.pump();
         default:
       }
-    case PackScreen.talk || PackScreen.talkHeld:
+    case PackScreen.talkOpen || PackScreen.talk || PackScreen.talkHeld:
       await _pumpView(
         tester,
         TalkPage(
@@ -158,6 +158,7 @@ Future<void> _pump(
           me: body,
           secondsLeft: step.secondsLeft!,
           elapsed: step.share,
+          open: step.screen == PackScreen.talkOpen,
         ),
         learned,
       );
@@ -192,7 +193,7 @@ Future<void> _pump(
         ),
         learned,
       );
-    case PackScreen.results:
+    case PackScreen.results || PackScreen.resultsEnd:
       await _pumpView(
         tester,
         ResultsPage(
@@ -203,6 +204,13 @@ Future<void> _pump(
         ),
         learned,
       );
+      if (step.screen == PackScreen.resultsEnd) {
+        await tester.drag(
+          find.byType(Scrollable).first,
+          const Offset(0, -3000),
+        );
+        await tester.pumpAndSettle();
+      }
   }
   await tester.pump();
 }

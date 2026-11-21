@@ -995,7 +995,8 @@ def choose_tables(run: Recording) -> None:
 
 
 def _plain_choose_table(run: Recording) -> None:
-    """Five players, a lone Werewolf: look stage, window 2 (every phone chooses
+    """Five players, a lone Werewolf: look stage, window 2 (all five phones choose (the
+    Villager's choose is recorded too, taken alike)
     once), the talk (ready to vote) and the lock-in vote."""
     t = run.table()
     names = ["Ana", "Ben", "Cleo", "Dev", "Esme"]
@@ -1142,7 +1143,7 @@ def _plain_choose_table(run: Recording) -> None:
         about="What every seat's socket heard from the deal until the last look.",
     )
 
-    # -- window 2: every phone chooses once ------------------------------
+    # -- window 2: every phone with a choice chooses once ----------------
     t.record_event(
         "game/night_window_2",
         "Ana",
@@ -1253,7 +1254,7 @@ def _plain_choose_table(run: Recording) -> None:
     _choose(t, "Dev", [_player(t, "Ana"), _player(t, "Ben")])
     _choose(t, "Cleo", [{"center_index": 0}])
     window_stage = t.stage_now()
-    t.fire("{game_id}:wave:2")  # every phone has chosen: the close at the minimum
+    t.fire("{game_id}:wave:2")  # every phone with a choice has: the minimum's close
     t.record_sequence(
         "window_2",
         since_night,
@@ -1389,16 +1390,18 @@ def _plain_choose_table(run: Recording) -> None:
         "POST",
         "Ana",
         VOTE,
-        {"target_player_id": t.pid("Cleo"), "lock": False},
+        {"target_player_id": t.pid("Dev"), "lock": False},
         status=200,
         about="A pick: nothing is sent to anyone else; the answer echoes the pick.",
     )
+    # Ana is the Seer who saw Cleo's card: she settles on Cleo (the playtest
+    # pack's host journey, so its vote follows its night).
     t.record(
         "game/vote_repicked",
         "POST",
         "Ana",
         VOTE,
-        {"target_player_id": t.pid("Dev"), "lock": False},
+        {"target_player_id": t.pid("Cleo"), "lock": False},
         status=200,
         about="A pick can change until it is locked.",
     )
@@ -1442,7 +1445,7 @@ def _plain_choose_table(run: Recording) -> None:
         "POST",
         "Ana",
         VOTE,
-        {"target_player_id": t.pid("Dev"), "lock": True},
+        {"target_player_id": t.pid("Cleo"), "lock": True},
         status=200,
         about="Locking in: final.",
     )
@@ -1458,7 +1461,7 @@ def _plain_choose_table(run: Recording) -> None:
         "POST",
         "Ana",
         VOTE,
-        {"target_player_id": t.pid("Dev"), "lock": True},
+        {"target_player_id": t.pid("Cleo"), "lock": True},
         status=200,
         about="The same lock sent again (its answer was lost): the original's answer, "
         "nothing stored or sent.",
@@ -1468,7 +1471,7 @@ def _plain_choose_table(run: Recording) -> None:
         "POST",
         "Ana",
         VOTE,
-        {"target_player_id": t.pid("Cleo"), "lock": False},
+        {"target_player_id": t.pid("Dev"), "lock": False},
         status=409,
         about="A pick or lock after locking in.",
     )
