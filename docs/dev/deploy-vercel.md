@@ -168,7 +168,14 @@ before real players can use it.
 * The timer sweep cron: no `crons` entry exists yet, and the minimum interval depends on
   the plan.
 * Cold-start cost after a long idle period, and many tables at once.
-* The Flutter app is not deployed anywhere yet, and `CORS_ALLOWED_ORIGINS` is empty.
+* The app on a real phone and in a real browser against the live server (the server side is played end to end; the app screens are not yet).
+
+## The app (web and Android)
+
+* **Web**: its own Vercel project `midnight-village-app` (root `frontend`, build `bash tool/vercel_build.sh`, output `build/web`, `frontend/vercel.json` sends every path to `index.html`). Vercel's builders have no Flutter, so the script fetches the pinned version and builds with `--dart-define=ENV=prod --dart-define=API_ORIGIN=<server origin>`. `API_ORIGIN` is a project environment variable (currently `https://midnight-village-anthelion.vercel.app`). Production address: `https://midnight-village-app-anthelion.vercel.app`; production branch `main`.
+* **The server must know the app's address**: add its host to `ALLOWED_HOSTS` (the socket origin check uses it) and its origin to `CORS_ALLOWED_ORIGINS` on the server project; both are set for the address above. A new app address needs both, then a server redeploy.
+* **Android**: `flutter build apk --release --dart-define=ENV=prod --dart-define=API_ORIGIN=<server origin>` with the Android SDK (platform 36, build-tools 36.0.0) installed and `ANDROID_HOME` set. Signed with the debug key: fine to sideload, not for the Play Store. The main manifest declares INTERNET (Flutter adds it only to the debug manifest).
+* **Deployment Protection is off on both projects** so phones need no Vercel login.
 
 ## Deploy-safe changes
 
