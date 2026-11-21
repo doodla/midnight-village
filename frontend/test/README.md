@@ -20,6 +20,11 @@ harness, `just test-harness`) and `test_screens/` (the screen gallery and the co
 chromedriver of Chrome's own version on port 4444; CI installs both. Running it in the cloud
 container: `docs/dev/environment.md`.
 
+In a real browser some of the app's work answers in later tasks with no frame scheduled
+(this device's token store is WebCrypto and browser storage), so `pumpAndSettle` can return
+halfway through a tap's requests: after a tap, wait for what the step ends on with
+`tester.pumpUntilFound(finder)` (`integration_test/helpers/navigation_helpers.dart`).
+
 ## Fonts in tests
 
 `test/flutter_test_config.dart` loads every family in the build's FontManifest (Gloock, Figtree and MaterialIcons) via `test/helpers/test_fonts.dart`, so widget tests, goldens and the screen gallery draw real glyphs for those. `Roboto` (Material's default, the debug toolbar's) is drawn in a Figtree stand-in. The e2e UI runners load the same fonts (`HarnessConfig.loadFonts`); nothing is fetched.

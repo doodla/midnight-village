@@ -55,7 +55,9 @@ void main() {
       await tester.enterText(find.byType(TextField), 'TestPlayer');
       await tester.pumpAndSettle();
       await tester.tap(find.text(JoinCopy.startTable));
-      await tester.pumpAndSettle();
+      // The guest account's tokens are stored (in the browser, not at once)
+      // before the table is asked for: wait for the banner the step ends on.
+      await tester.pumpUntilFound(find.text(BannerCopy.notSent));
 
       final guest = IntegrationTestSetup.mockHttp.requests.where(
         (r) => r.method == 'POST' && r.path == '/auth/guest/',

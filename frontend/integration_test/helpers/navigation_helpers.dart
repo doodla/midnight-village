@@ -48,6 +48,32 @@ extension NavigationAssertions on WidgetTester {
     fail('Navigation to "$path" did not complete within $timeout');
   }
 
+  /// Pumps every 100ms until [finder] finds something.
+  ///
+  /// In a real browser the app's work is not only microtasks: this device's
+  /// token store (WebCrypto, browser storage) answers in later tasks, and no
+  /// frame is scheduled while it does, so `pumpAndSettle` can return halfway
+  /// through a tap's requests. Wait for what the step ends on instead.
+  /// Fails with a clear message, listing the texts on screen, if [finder]
+  /// finds nothing within [timeout] (default 10 seconds).
+  Future<void> pumpUntilFound(
+    Finder finder, {
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    while (stopwatch.elapsed < timeout) {
+      await pump(const Duration(milliseconds: 100));
+      if (finder.evaluate().isNotEmpty) {
+        await pumpAndSettle();
+        return;
+      }
+    }
+    final shown = widgetList<Text>(
+      find.byType(Text),
+    ).map((t) => t.data ?? t.textSpan?.toPlainText()).nonNulls.join(' | ');
+    fail('$finder found nothing within $timeout. On screen: $shown');
+  }
+
   /// Asserts a screen is visible by finding a widget of type [T].
   ///
   /// Use as a fallback when the GoRouter location is not inspectable (e.g.

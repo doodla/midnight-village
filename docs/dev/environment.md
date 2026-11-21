@@ -47,4 +47,4 @@ also `/usr/bin/google-chrome`) but the only chromedriver is 147.0.7727.24
 `https://storage.googleapis.com/chrome-for-testing-public/153.0.8010.12/linux64/chromedriver-linux64.zip`
 (it downloads); with it: start `chromedriver --port=4444`, then
 `CHROME_EXECUTABLE=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome just test-integration-ci`.
-An agent session may not run a downloaded binary, so it is not run there.
+On 21 November 2026 an agent session downloaded that driver to its scratchpad, ran it there and the test passed; if a session is refused running a downloaded binary, it does not work around that.
