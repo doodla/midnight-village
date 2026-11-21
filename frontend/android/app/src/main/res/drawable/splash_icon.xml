@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12's splash icon: 288 dp, its picture inside the middle 192 dp
+     circle (the platform masks the rest). The mark (192 dp) fills that
+     circle, as the launch screen before Android 12 shows it. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/launch_mark"
+    android:inset="48dp" />

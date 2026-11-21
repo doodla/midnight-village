@@ -2,9 +2,10 @@
     <!-- Flutter adds this only to the debug manifest; a release build needs it to reach the server. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="midnight_village"
+        android:label="Midnight Village"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"

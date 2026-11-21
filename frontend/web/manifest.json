@@ -1,11 +1,11 @@
 {
-    "name": "midnight_village",
-    "short_name": "midnight_village",
+    "name": "Midnight Village",
+    "short_name": "Midnight Village",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#14172F",
+    "theme_color": "#14172F",
+    "description": "One table, one night: a party game of hidden roles played on your phones.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

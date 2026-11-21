@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12 and later draw their own splash screen: the night ground and
+         the mark (a 192 dp round window in a 288 dp icon, as the platform
+         asks), kept until Flutter's first frame. NightWindow and NormalTheme:
+         values/styles.xml. -->
+    <style name="LaunchTheme" parent="NightWindow">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/night</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+    </style>
+</resources>

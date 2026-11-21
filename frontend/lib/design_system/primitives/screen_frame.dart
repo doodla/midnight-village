@@ -2,12 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
+import '../skin/system_bars.dart';
 import 'art_picture.dart';
 
 /// How a picture sits across the top of a screen, from the mocks. All three
@@ -110,7 +112,11 @@ class ScreenFrame extends StatelessWidget {
     final slot = topSlot;
 
     const padded = EdgeInsets.symmetric(horizontal: Space.gutter);
-    final bottom = actions.isEmpty ? Space.screenBottom : Space.md;
+    // With no actions (which keep clear of the navigation bar themselves),
+    // the body's end stays above it: the screen runs under the bars.
+    final bottom = actions.isEmpty
+        ? Space.screenBottom + MediaQuery.paddingOf(context).bottom
+        : Space.md;
     final Widget top;
     if (art != null && topArtLayout == TopArtLayout.fill) {
       // Read here: the Scaffold takes the keyboard out of its body's insets.
@@ -211,6 +217,13 @@ class ScreenFrame extends StatelessWidget {
 
   /// The screen around [main] (what goes above the pinned actions).
   Widget _frame(BuildContext context, Ground colors, Widget main) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: systemBarsOver(colors),
+      child: _scaffold(colors, main),
+    );
+  }
+
+  Widget _scaffold(Ground colors, Widget main) {
     return Scaffold(
       backgroundColor: colors.ground,
       body: GroundScope(

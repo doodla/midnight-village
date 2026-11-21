@@ -1,38 +1,50 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
+    The base path the app is served from; `flutter build web --base-href`
+    replaces the placeholder. It must start and end with a slash.
   -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="One table, one night: a party game of hidden roles played on your phones.">
+  <!-- The night ground (Shadow paper), under the browser's bars too. -->
+  <meta name="theme-color" content="#14172F">
+  <meta name="color-scheme" content="dark">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="midnight_village">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Midnight Village">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>midnight_village</title>
+  <title>Midnight Village</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    Until Flutter paints its first frame: the night ground and the mark, as
+    the Android launch screen shows them (made by tool/app_icon.py). Flutter's
+    view is laid over it; flutter_bootstrap.js takes it away on the first frame.
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; background: #14172F; }
+    #launch {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    #launch img { width: 160px; height: 160px; border-radius: 50%; }
+  </style>
 </head>
 <body>
+  <div id="launch" aria-hidden="true"><img src="icons/launch-mark.webp" alt=""></div>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
