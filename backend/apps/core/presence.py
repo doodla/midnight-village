@@ -108,15 +108,26 @@ def connected_user_ids(*, lobby_id: Any = None) -> set[int]:
 
 async def heartbeat_loop(beat) -> None:
     """Run ``await beat()`` every heartbeat interval until cancelled (one task
-    per consumer). A failing beat is logged and the loop carries on."""
+    per consumer). A failing beat is logged and the loop carries on.
+
+    Cancelling (the consumer's ``disconnect``) stops it at once while it
+    sleeps, but a beat already running is finished first: its database work
+    runs in a pool thread that cancelling cannot stop, so returning early would
+    let that thread refresh, or re-create, the socket's row AFTER ``disconnect``
+    deleted it (a closed socket counted as connected until it went stale)."""
     import asyncio
 
     interval = heartbeat_seconds()
     while True:
         await asyncio.sleep(interval)
+        running = asyncio.ensure_future(beat())
         try:
-            await beat()
+            await asyncio.shield(running)
         except asyncio.CancelledError:
+            try:
+                await running
+            except Exception:
+                logger.exception("Presence heartbeat failed")
             raise
         except Exception:
             logger.exception("Presence heartbeat failed")

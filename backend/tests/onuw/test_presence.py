@@ -1154,6 +1154,34 @@ class TestSocketRowsAndHeartbeats:
         Game.objects.count()
 
 
+class TestHeartbeatLoop:
+    async def test_cancelling_lets_a_beat_in_flight_finish_before_it_stops(
+        self, settings
+    ) -> None:
+        """``disconnect`` cancels the loop, then deletes the socket's row: a beat
+        still running (its database work is in a thread cancelling cannot stop)
+        would otherwise write the row back after it was deleted."""
+        settings.ONUW_PRESENCE_HEARTBEAT_SECONDS = 0
+        started, release = asyncio.Event(), asyncio.Event()
+        finished: list[str] = []
+
+        async def beat() -> None:
+            started.set()
+            await release.wait()
+            finished.append("beat")
+
+        loop = asyncio.ensure_future(presence.heartbeat_loop(beat))
+        await started.wait()
+        loop.cancel()
+        await asyncio.sleep(0)
+
+        assert not loop.done()  # still waiting for the beat
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await loop
+        assert finished == ["beat"]
+
+
 class TestConsumerHeartbeat(TransactionTestCase):
     @pytest.mark.asyncio
     async def test_the_consumer_beats_while_connected_and_stops_when_it_closes(self):
@@ -1167,8 +1195,13 @@ class TestConsumerHeartbeat(TransactionTestCase):
                 return SocketPresence.objects.get(game_id=game.id, user_id=other.id)
 
             first = await row()
-            await asyncio.sleep(0.45)
+            # Wait for a beat to land (a condition, not a fixed time: a slow
+            # machine may take longer than a few intervals).
             later = await row()
+            async with asyncio.timeout(30):
+                while later.last_seen == first.last_seen:
+                    await asyncio.sleep(0.05)
+                    later = await row()
             assert later.connected_at == first.connected_at  # the same socket row
             assert later.last_seen > first.last_seen  # kept fresh by the beat
 
@@ -1176,7 +1209,9 @@ class TestConsumerHeartbeat(TransactionTestCase):
             assert not await database_sync_to_async(
                 SocketPresence.objects.filter(game_id=game.id, user_id=other.id).exists
             )()
-            await asyncio.sleep(0.3)  # no beat is left running to bring it back
+            # disconnect waited for the loop (and any beat in flight) to end, so
+            # nothing can bring the row back; a few intervals confirm it.
+            await asyncio.sleep(0.3)
             assert not await database_sync_to_async(
                 SocketPresence.objects.filter(game_id=game.id, user_id=other.id).exists
             )()
