@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
+import 'design_system/copy/copy.dart';
 import 'design_system/skin/ground.dart';
 import 'design_system/skin/ground_scope.dart';
 import 'design_system/skin/skin_choice.dart';
@@ -14,10 +15,14 @@ class App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(appThemeProvider);
     return MaterialApp.router(
-      title: 'Midnight Village',
+      // The task switcher's name (the Join screen's own title) and colour
+      // (the night ground, as behind the icon and the launch screen).
+      title: JoinCopy.title,
+      color: theme.colorScheme.surface,
       debugShowCheckedModeBanner: false,
-      theme: ref.watch(appThemeProvider),
+      theme: theme,
       themeAnimationDuration: Duration.zero,
       routerConfig: ref.watch(appRouterProvider),
       builder: (context, child) =>

@@ -31,7 +31,7 @@ AGENT_TYPE = re.compile(r"""(["']?)\bagentType\1\s*:\s*(["'`])([^"'`]+)\2""")
 MODEL_KEY = re.compile(r"(?<![\w$.])model\s*:")
 # A model value that is a plain string literal followed by the end of the option.
 MODEL_LITERAL = re.compile(r"""\s*(?:'([^'\\\n]*)'|"([^"\\\n]*)"|`([^`$\\]*)`)\s*(?=[,}\n)]|$)""")
-HINT = "See 'Subagents: model and effort' in CLAUDE.md for how to choose."
+HINT = "See 'Who does what' in docs/dev/running-the-work.md for how to choose."
 
 
 def allowed_models(opts):

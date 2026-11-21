@@ -75,5 +75,5 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 Every screen (01 to 11) is built from the primitives, against its mock in
 `docs/design/mocks/` (`docs/design/mock-to-skin.md` maps every element), to the copy in
 `docs/specs/frontend/first-time-play.md`. A change to one is checked by eye with
-`just screens` at 320, 360 and 390 wide, `strict` before merging, and before/after pictures go
-to the owner.
+`just screens` at 320, 360 and 390 wide (`strict` must pass), and you hand over before and
+after pictures.

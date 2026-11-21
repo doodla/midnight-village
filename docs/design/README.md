@@ -6,7 +6,7 @@ pictures.
 
 ## What is here
 
-`mock-to-skin.md` maps every element of every mock to the primitive and the skin roles that draw it.
+`mock-to-skin.md` maps every element of every mock to the primitive and the skin roles that draw it. `app-icon.md`: the app icon, launch screen and web icons, cut from this art.
 
 | Folder | What |
 |---|---|

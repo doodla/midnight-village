@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../layout/space.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
+import '../skin/system_bars.dart';
 import 'screen_frame.dart';
 
 /// Opens [builder]'s [SheetScaffold] from the bottom over the scrim, on the
@@ -74,6 +76,14 @@ class SheetScaffold extends StatelessWidget {
       top: Radius.circular(skin.shape.sheetRadius),
     );
     final media = MediaQuery.of(context);
+    // The navigation bar's icons are over the paper here.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: systemBarsOver(skin.ground(GroundKind.paper)),
+      child: _sheet(context, top, media),
+    );
+  }
+
+  Widget _sheet(BuildContext context, BorderRadius top, MediaQueryData media) {
     return Container(
       padding: const EdgeInsets.only(top: Space.xs),
       decoration: BoxDecoration(
