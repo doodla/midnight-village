@@ -119,6 +119,12 @@ playtest-pack width="390":
 skin-art:
     uv run --with pillow python tool/skin_art.py
 
+# Regenerate the app icon, the launch marks and the web icons from
+# docs/design/art/ (docs/design/app-icon.md). Deterministic. Needs uv.
+# Usage: just app-icon [preview-dir]   (a folder: also each candidate's layers)
+app-icon preview="":
+    uv run --with pillow python tool/app_icon.py {{ if preview == "" { "" } else { "--preview " + preview } }}
+
 # Generate visual diff report from golden test failures
 flutter-golden-report *ARGS:
     dart run tool/golden_diff_report.dart {{ARGS}}

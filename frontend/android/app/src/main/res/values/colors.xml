@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shadow paper's night ground (lib/design_system/skin/skins/shadow_paper.dart):
+         behind the icon, the launch screen and the app. -->
+    <color name="night">#FF14172F</color>
+    <color name="ic_launcher_background">#FF14172F</color>
+</resources>
