@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:flutter/foundation.dart' show mapEquals;
 
 import '../../../core/host/host_change.dart';
 import '../../../design_system/models/role.dart' show RoleId, RoleIdX;
@@ -163,6 +164,10 @@ abstract class LobbyState with _$LobbyState {
     /// settings key to seconds): the table's own, else the game's default.
     @Default({}) Map<String, int> lengths,
 
+    /// The range a PATCH of each length takes now (`length_ranges`, the
+    /// settings key to `[least, most]` seconds).
+    @Default({}) Map<String, List<int>> lengthRanges,
+
     /// This phone's settings changes not answered yet: the screen shows them
     /// at once, and the server's numbers (`deal`) judge only once answered.
     /// Frontend only.
@@ -207,6 +212,11 @@ abstract class LobbyState with _$LobbyState {
       // A server from before these keys sends neither (a deploy in flight).
       deckCards: _counts(json['deck_cards']),
       lengths: _counts(json['lengths']),
+      lengthRanges: json['length_ranges'] is Map<String, dynamic>
+          ? (json['length_ranges'] as Map<String, dynamic>).map(
+              (k, v) => MapEntry(k, (v as List).cast<int>()),
+            )
+          : const {},
     );
   }
 }
@@ -260,50 +270,80 @@ enum DeckChip {
       (throw FormatException('Unknown deck chip', name));
 }
 
-/// The pace presets (api-contract-v2, section 7): the talk, the vote and a
-/// night window, in seconds. The phone writes the numbers; which preset a
-/// table is at is read back from the numbers its settings carry. The
-/// Doppelganger's window is not a pace knob (first-time play spec, section
-/// 7), and neither is the night's minimum window (a hidden-information guard).
-enum Pace {
-  quick(talk: 180, vote: 45, night: 20),
-  normal(talk: 300, vote: 90, night: 30),
-  long(talk: 480, vote: 120, night: 45);
+/// The lengths a host sets on the set-up page (03), in its order: the
+/// server's timer settings, every one it reads. Each shows the value the game
+/// would run with (the table's own, else the server's default: `lengths`)
+/// and moves within the range the server takes now (`length_ranges`).
+enum Length {
+  look('card_look_seconds'),
+  night('night_wave_seconds'),
+  nightMinimum('night_min_window_seconds'),
+  doppelganger('night_doppelganger_window_seconds'),
+  talk('discussion_seconds'),
+  vote('voting_seconds'),
+  droppedPhone('disconnect_grace_seconds'),
+  hostAway('host_handover_seconds');
 
-  const Pace({required this.talk, required this.vote, required this.night});
+  const Length(this.key);
 
-  final int talk;
-  final int vote;
-  final int night;
+  /// The settings key.
+  final String key;
 
-  /// The settings keys a preset writes.
-  Map<String, int> get settings => {
-    'discussion_seconds': talk,
-    'voting_seconds': vote,
-    'night_wave_seconds': night,
-  };
+  /// The stepper's step at [seconds]: fine where a few seconds matter,
+  /// coarser in minutes.
+  static int stepAt(int seconds) => seconds < 60
+      ? 5
+      : seconds < 300
+      ? 15
+      : seconds < 900
+      ? 30
+      : 60;
 
-  /// The preset the stored numbers are at, if any.
-  static Pace? of(Map<String, dynamic> settings) => values
-      .where((p) => p.settings.entries.every((e) => settings[e.key] == e.value))
-      .firstOrNull;
+  /// One step up from [seconds] (to the next whole step), at most [most].
+  static int up(int seconds, int most) {
+    final step = stepAt(seconds);
+    return (((seconds ~/ step) + 1) * step).clamp(seconds, most);
+  }
+
+  /// One step down from [seconds] (to the step below), at least [least].
+  static int down(int seconds, int least) {
+    if (seconds <= least) return least;
+    final step = stepAt(seconds - 1);
+    final next = ((seconds - 1) ~/ step) * step;
+    return next < least ? least : next;
+  }
 }
 
-/// What a lobby's `settings` say about the deck, the look and the lengths,
-/// beyond the card list ([LobbyState.roleConfig]). Every key is optional on
-/// the server (a table made without `defaults: "v2"` has none of them); a key
-/// that is there must have its type.
+/// The set-up page's lengths, as this phone shows them.
+extension TableLengths on LobbyState {
+  /// The seconds [length] runs for: this phone's change not answered yet,
+  /// else the server's `lengths` (the table's own or the default). Null
+  /// from a server that sends no `lengths`.
+  int? secondsOf(Length length) {
+    if (settling) {
+      if (table.raw[length.key] case final int mine) return mine;
+    }
+    return lengths[length.key];
+  }
+
+  /// The range a PATCH of [length] takes now (`length_ranges`); a server
+  /// that sends none: 0 to an hour.
+  (int, int) rangeOf(Length length) => switch (lengthRanges[length.key]) {
+    [final least, final most] => (least, most),
+    _ => (0, 3600),
+  };
+}
+
+/// What a lobby's `settings` say about the deck, the look and the number of
+/// players, beyond the card list ([LobbyState.roleConfig]). Every key is
+/// optional on the server (a table made without `defaults: "v2"` has none of
+/// them); a key that is there must have its type.
 @immutable
 class TableSettings {
   const TableSettings._({
     required this.autoDeck,
     required this.deckChip,
     required this.cardLookSeconds,
-    required this.pace,
-    this.talkSeconds,
-    this.voteSeconds,
-    this.nightSeconds,
-    this.copySeconds,
     this.seats,
     Map<String, dynamic> raw = const {},
   }) : _raw = raw;
@@ -313,7 +353,6 @@ class TableSettings {
     autoDeck: false,
     deckChip: null,
     cardLookSeconds: null,
-    pace: null,
   );
 
   factory TableSettings.fromSettings(Map<String, dynamic> settings) {
@@ -326,11 +365,6 @@ class TableSettings {
       autoDeck: deck == 'auto',
       deckChip: chip == null ? null : DeckChip.fromServer(chip),
       cardLookSeconds: settings['card_look_seconds'] as int?,
-      pace: Pace.of(settings),
-      talkSeconds: settings['discussion_seconds'] as int?,
-      voteSeconds: settings['voting_seconds'] as int?,
-      nightSeconds: settings['night_wave_seconds'] as int?,
-      copySeconds: settings['night_doppelganger_window_seconds'] as int?,
       seats: settings['seats'] as int?,
       raw: Map.unmodifiable(settings),
     );
@@ -344,6 +378,9 @@ class TableSettings {
 
   final Map<String, dynamic> _raw;
 
+  /// The settings as stored (with this phone's changes merged over them).
+  Map<String, dynamic> get raw => _raw;
+
   /// The server builds the deck at the deal from [deckChip] (`deck: "auto"`);
   /// otherwise the card list is the deck.
   final bool autoDeck;
@@ -351,20 +388,6 @@ class TableSettings {
 
   /// The look stage's length; null or 0 when off.
   final int? cardLookSeconds;
-
-  /// The pace preset the stored timer lengths are at; null when they are at
-  /// none (the server's own defaults, or lengths set some other way).
-  final Pace? pace;
-
-  /// The table's own lengths, in seconds, when its settings carry them (a
-  /// new table carries none: the server's defaults apply, and the phone
-  /// does not assume them).
-  final int? talkSeconds;
-  final int? voteSeconds;
-  final int? nightSeconds;
-
-  /// The Doppelganger's window ("Copy").
-  final int? copySeconds;
 
   /// The number of players the game is for (`seats`, 3 to 10); null: open.
   final int? seats;
@@ -375,25 +398,11 @@ class TableSettings {
       other.autoDeck == autoDeck &&
       other.deckChip == deckChip &&
       other.cardLookSeconds == cardLookSeconds &&
-      other.pace == pace &&
-      other.talkSeconds == talkSeconds &&
-      other.voteSeconds == voteSeconds &&
-      other.nightSeconds == nightSeconds &&
-      other.copySeconds == copySeconds &&
-      other.seats == seats;
+      other.seats == seats &&
+      mapEquals(other._raw, _raw);
 
   @override
-  int get hashCode => Object.hash(
-    autoDeck,
-    deckChip,
-    cardLookSeconds,
-    pace,
-    talkSeconds,
-    voteSeconds,
-    nightSeconds,
-    copySeconds,
-    seats,
-  );
+  int get hashCode => Object.hash(autoDeck, deckChip, cardLookSeconds, seats);
 }
 
 /// Whether the host may deal now: the server's own verdict (`deal`), which is

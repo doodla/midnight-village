@@ -76,7 +76,16 @@ final _myNight = <String, List<Object>>{
 
 List<Line> _face(List<Object> lines) => [for (final l in lines) face(l)];
 
-const _tiles = [DeckCopy.talk, DeckCopy.vote, DeckCopy.night, DeckCopy.copy];
+/// The set-up page's lengths (the Doppelganger's is the role's name).
+const _lengths = [
+  DeckCopy.look,
+  DeckCopy.night,
+  DeckCopy.nightMinimum,
+  DeckCopy.talk,
+  DeckCopy.vote,
+  DeckCopy.droppedPhone,
+  DeckCopy.hostAway,
+];
 
 const _winners = [
   ResultsCopy.villageWins,
@@ -146,30 +155,21 @@ final screens = <String, Screen>{
     },
   ),
   '03 Deck': (
-    budget: 15,
+    // The set-up page: the number of players, the deck face up (role names
+    // are exempt; the count is digits), every length with its value.
+    budget: 22,
     states: {
-      // A chip's deck: its cards face up when the server sends them (role
-      // names are exempt), "Edit" opens the grid; the lengths show once set,
-      // "Copy" not (the chip's cards are the server's).
-      'chips': [
-        headline(DeckCopy.headline),
-        for (final chip in DeckCopy.chips) button(chip),
-        button(TableCopy.editDeck),
-        for (final pace in DeckCopy.paces) button(pace),
-        // Each chip's talk length: digits, no words.
-        text(DeckCopy.paceChip),
-        for (final tile in _tiles.take(3)) text(tile),
-        button(DeckCopy.useDeck),
-      ],
-      // The grid open: the role names are exempt; "Copy" with the
-      // Doppelganger in the deck.
-      for (final use in <Object>[DeckCopy.useDeck])
-        'grid: $use': [
+      for (final open in [true, false])
+        open ? 'an open table' : 'set for a number': [
           headline(DeckCopy.headline),
+          text(DeckCopy.players),
+          if (open) text(DeckCopy.any) else text(TableCopy.seated),
           for (final chip in DeckCopy.chips) button(chip),
-          for (final pace in DeckCopy.paces) button(pace),
-          for (final tile in _tiles) text(tile),
-          button(use),
+          for (final length in _lengths) text(length),
+          text(CommonCopy.seconds),
+          text(DeckCopy.minutes),
+          text(DeckCopy.off),
+          button(DeckCopy.useDeck),
         ],
     },
   ),
@@ -388,4 +388,8 @@ final spoken = [
   ResultsCopy.nightSpoken,
   // 02's Share glyph.
   TableCopy.share,
+  // 03's steppers and the grid card's minus.
+  DeckCopy.lower,
+  DeckCopy.higher,
+  DeckCopy.takeOut,
 ];

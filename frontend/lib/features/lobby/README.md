@@ -61,26 +61,36 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   same card, the rows, and "Leave" a quiet underlined word at the foot (`TextAction` in the
   actions, no outlined button): waiting said by the shape, not a sentence. A deal, a handover or a host change reads `/me/table/` again; the layout follows
   the lobby's host with no words; a table that is gone says so with "Go home".
-- **03** (`deck_screen.dart`): the chips choose (the server builds the deck at the deal), with
-  the chip's cards face up from `deck_preview` (only for the chip the body is of: a chip tapped
-  and not answered yet shows the deck face down, as does a count with no automatic deck, where
-  "Edit" starts empty); "Edit" opens the role grid from them (a tap
-  adds a card up to the role's most, then none; a hold opens 03b, `showRoleSheet`: the role
-  text and a quiet "Close", nothing that changes the deck); an edited deck is sent with "Use
-  this deck", amber only at the cards the deal needs (`deal.need`), the same words locked
-  otherwise. The pace chips ("Quick 3:00", "Normal 5:00", "Long 8:00": each says the
-  talk it gives, `paceChipLabel`) write the contract's presets (talk, vote, a night window;
-  never the Doppelganger's window); the one the table's lengths equal is selected
-  (`Pace.of`), and the lengths show once the settings carry them. A table made with no
-  lengths runs on the server's defaults (talk 300, vote 120, night 30), which are no preset
-  ("Normal" is 300/90/30), so no chip is selected until the host picks one.
+- **03 Tonight's game** (`deck_screen.dart`): the set-up page, the host's, editable before
+  anyone comes and until the deal; every change is saved as it is made (shown at once, a
+  merged PATCH, one at a time), so a restart finds it at the server. Top to bottom:
+  - **Players**: a `ValueStepper` from 3 to 10 (`settings.seats`); below 3, "Any" (an open
+    table: dealt to whoever is there, the automatic deck for who is here); never below the
+    players here (the server refuses it). At a number, `SeatsLine` "3 of 8" (shared with 02).
+  - **The deck, face up**: the chips make it automatic; every role in a grid, lit with its
+    count (`LobbyState.tableCards`: the server's `deck_cards`, or the host's own deck with this
+    phone's taps); a tap puts one in (up to the role's most, Masons in pairs; at its most a
+    tap does nothing), a lit card's minus (`RoleCard.onRemove`) takes one out, a hold opens
+    03b (`showRoleSheet`). The first card changed on an automatic deck makes it the host's own
+    from those cards (`startCustomDeck`), for the number (an open table takes the players
+    here, at least 3). At a number, `DeckCount`: the cards picked over `deal.need` ("7 / 11")
+    and a slot each, the players' slots then the centre's three, in the danger ink while it
+    is not the need. No words say which way the deck is off.
+  - **Every length the server has** (`Length`: Look, Night, Night minimum, Doppelganger,
+    Talk, Vote, Dropped phone, Host away), each a `LabelledStepper`: its value with its unit
+    ("30 s", "5 min", "2:30 min", "Off" for 0) from the server's `lengths` (a new table shows
+    the server's defaults), moved by a step (`Length.up`/`down`: 5 s under a minute, 15 s
+    under five, 30 s under fifteen, then minutes) within `length_ranges`. The Doppelganger's
+    is drawn quiet while the deck holds no Doppelganger. There are no pace presets.
+  - "Use this deck" back to 02: one label, live while the deck holds the cards the deal needs
+    (always for an automatic deck), locked otherwise.
 - **State.** Everything shown is `lobbyProvider(code)`, read until it answers (`retryForever`;
   "One moment" meanwhile): the lobby body, its socket (`lobby_update` is the whole lobby), and
   this phone's settings changes merged over it as the server merges a PATCH (shallow), shown
   at once, sent one at a time; a refusal or no answer takes the change back and says "Not
   sent." (`notSent`, `retry`); a host role that moved says nothing. `TableSettings` reads the
-  deck, the chip, the pace and the lengths.
-- **Not known to the phone**: the timer lengths before a pace is chosen.
+  deck, the chip, the look and the number of players; the lengths are the server's
+  `lengths` (`LobbyState.secondsOf`, this phone's change while it is on its way).
 - **Tests.** `test/features/lobby/` (`table_screens_test.dart` drives the screens through the
   routes on recorded lobby bodies, `test/helpers/table_setup.dart`: each chip's cards, a deck
   one card short, a player joining, a phone dropping and coming back, the 409; the deal's

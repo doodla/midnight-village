@@ -245,17 +245,17 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - After a host handover, that phone switches to the host layout, with no words.
 - **Pass:** guest says "Wait or scan"; host says "Show the code, then deal".
 
-**03 Deck** (host, optional)
+**03 Tonight's game** (host; the set-up page, editable before anyone joins and until the deal; amended 21 November 2026 after the owner got stuck in the deck editor)
 - **One thing / loudest:** nothing is required; amber "Use this deck".
-- **Locked until:** amber only while the deck holds exactly players + 3 cards.
-- **Copy:** "Tonight's deck"; chips "Simple", "Classic", "Chaos"; chips "Quick 3:00", "Normal 5:00", "Long 8:00" (each with the talk it gives; playtest: "Long of what?"), the one the table's lengths equal selected; tiles "Talk", "Vote", "Night", "Copy" ("Copy" only when the Doppelganger is in the deck). A tile opens a stepper with the tile name and "Done". Button "Use this deck", or disabled "Add {n} cards" / "Remove {n} cards". **15 of 15 words.**
-- **Removed:** "8 of 8 cards", the help line, "Double", and the role-sheet cue (10, 12).
+- **Locked until:** "Use this deck" is amber while the deck holds the cards the deal needs (always for an automatic deck); locked otherwise, with the same words.
+- **Copy:** "Tonight's game"; "Players" with a stepper (3 to 10, or "Any": an open table) and, at a number, "{d} of {n}" by the seats; chips "Simple", "Classic", "Chaos"; at a number the cards picked over the cards needed ("7 / 11", digits) with a slot each, the players' then the centre's three; every role face up in a grid (names exempt), a tap puts one in, a lit card's minus takes one out (spoken "Take one {role} out"); every length the server has, each its name and a stepper over its value: "Look", "Night", "Night minimum", the Doppelganger's (the role's name; quiet while the deck holds none), "Talk", "Vote", "Dropped phone", "Host away"; values "{n} s", "{n} min", "Off". Button "Use this deck". **22 of 22 words.**
+- **Removed:** the pace chips "Quick", "Normal", "Long" and their tiles (the owner: "I just need the things to be editable"), "Add {n} cards" / "Remove {n} cards" (the deck's state is the count and the slots, never words of direction), the face-down deck and "Edit" (the deck is always face up).
 - **States:**
-  - The deck stays automatic (a chip) until a card is edited; then it is custom and no chip is selected.
-  - Tapping a chip returns the deck to automatic.
+  - The deck stays automatic (a chip) until a card is changed; then it is the host's own, from the cards shown, for the number (an open table takes who is here, at least 3), and no chip is selected. Tapping a chip returns it to automatic.
+  - Every change is saved as it is made; a new table shows the server's own lengths.
   - Holding a portrait opens 03b.
-  - A table made with no lengths runs on the server's defaults (talk 300, vote 120, night 30): no preset, so no pace chip is selected until the host picks one ("Normal" is 300/90/30). Dealing without opening 03 stays three taps.
-- **Pass:** "Use this deck."
+  - Dealing without opening 03 stays three taps.
+- **Pass:** "Set it for eight, then wait."
 
 **03b Role sheet**
 - **One thing / loudest:** read it; portrait and name.
@@ -325,7 +325,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - Your own row is never listed.
   - The picked row lifts and gets an ink outline. Tapping another row moves the pick.
   - After locking, the player's own pick stays lifted and outlined and the other rows dim; the button reads "Locked". (Owner, 20 November 2026: a neighbour could already read "Lock in Cleo" before the lock; hiding the pick afterwards only costs the player the sight of their own choice.)
-  - Normal pace gives 90 s (17).
+  - The vote's length is the table's "Vote" (03; 2 min unless the host changes it).
 - **Pass:** "Tap a name, then Lock in."
 
 **10 The count**
@@ -447,8 +447,8 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 4. **Doing nothing.** A lone Werewolf with no center pick, and a Doppelganger look with no other-player pick, both resolve as skip or timeout. A Drunk with no center pick gets the seeded swap (`made_by_server: true`). Reason: "Keep my card" must be valid for every role.
 5. **Window opening.** Every phone gets the same group event `night_window {window, deadline}` in one after-commit batch. Each phone then reads its own prompt from `/me`; there are no per-role prompt events. Reason: identical traffic and timing.
 6. **Automatic deck and defaults.**
-   - Lobby settings carry `deck: "auto"` and `deck_chip: "simple"|"classic"|"chaos"` until the host edits cards. The deal builds the deck from the chips table for the current player count, under the Lobby lock.
-   - At lobby create the server writes the defaults: Normal pace, `card_look_seconds` 30, and Normal `night_doppelganger_window_seconds` 15.
+   - Lobby settings carry `deck: "auto"` and `deck_chip: "simple"|"classic"|"chaos"` until the host edits cards. The deal builds the deck from the chips table for the table's size (`seats`, the number the host set; else the players at the table), under the Lobby lock.
+   - At lobby create the server writes `card_look_seconds` 30 and the Simple chip; every other length is the server's default, sent in the lobby body (`lengths`) and shown on 03. No pace presets (removed 21 November 2026).
    - Reason: this removes the client writer and its races.
 7. **Join link.** The web deployment serves the app for `/join/*` (a Vercel rewrite) and the app knows its public origin for the QR code. Reason: finding 15.
 

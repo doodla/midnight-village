@@ -20,7 +20,6 @@ import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
 import '../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../design_system/primitives/text_action.dart';
-import '../../../design_system/primitives/world_timer.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
 import '../../auth/domain/auth_state.dart';
@@ -633,7 +632,6 @@ class _DeckPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = context.skin.typography;
     final chip = lobby.table.autoDeck ? lobby.table.deckChip : null;
-    final pace = lobby.table.pace;
     final cards =
         lobby.chipCards ??
         (chip != null
@@ -654,26 +652,17 @@ class _DeckPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: Space.smPlus,
         children: [
-          if (chip != null || pace != null)
+          if (chip != null)
             Row(
               spacing: Space.sm,
               children: [
-                if (chip != null)
-                  PresetChip(
-                    label: deckChipLabel(chip),
-                    selected: true,
-                    onTap: null,
-                  ),
-                // The pace chosen on 03, by the talk it gives (02 keeps to
-                // its 8 words: the length is digits).
-                if (pace != null)
-                  PresetChip(
-                    label: WorldTimer.format(pace.talk),
-                    selected: true,
-                    onTap: null,
-                  ),
+                PresetChip(
+                  label: deckChipLabel(chip),
+                  selected: true,
+                  onTap: null,
+                ),
                 const Spacer(),
-                if (chip != null) edit,
+                edit,
               ],
             ),
           if (cards.isNotEmpty)

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
 import '../../../design_system/models/role.dart';
-import '../../../design_system/primitives/art_picture.dart';
 import '../../../design_system/primitives/chips.dart';
 import '../../../design_system/primitives/fit_line.dart';
 import '../../../design_system/primitives/notice.dart';
@@ -15,29 +15,42 @@ import '../../../design_system/primitives/primary_button.dart';
 import '../../../design_system/primitives/role_card.dart';
 import '../../../design_system/primitives/role_sheet_body.dart';
 import '../../../design_system/primitives/screen_frame.dart';
-import '../../../design_system/primitives/secondary_button.dart';
 import '../../../design_system/primitives/sheet_scaffold.dart';
+import '../../../design_system/primitives/value_stepper.dart';
 import '../../../design_system/primitives/world_timer.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
-import '../../../design_system/skin/skin_tilt.dart';
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
 import '../domain/lobby_state.dart';
 import '../domain/role_config.dart';
 import 'lobby_notifier.dart';
+import 'seats_line.dart';
 import 'where_am_i_provider.dart';
 
 /// A deck chip's name on screen.
 String deckChipLabel(DeckChip chip) => DeckCopy.chips[chip.index];
 
-/// The pace chips, in [Pace] order.
-String paceLabel(Pace pace) => DeckCopy.paces[pace.index];
+/// A length as the set-up page shows it: "30 s", "5 min", "2:30 min", or
+/// "Off" for 0.
+String lengthText(int seconds) => switch (seconds) {
+  0 => DeckCopy.off,
+  < 60 => CommonCopy.seconds.fill({'n': seconds}),
+  _ when seconds % 60 == 0 => DeckCopy.minutes.fill({'n': seconds ~/ 60}),
+  _ => DeckCopy.minutes.fill({'n': WorldTimer.format(seconds)}),
+};
 
-/// A pace chip's words: the pace and the talk it gives ("Normal 5:00").
-String paceChipLabel(Pace pace) => DeckCopy.paceChip.fill({
-  'pace': paceLabel(pace),
-  'talk': WorldTimer.format(pace.talk),
-});
+/// A length's name on the set-up page (the Doppelganger's window is named by
+/// the role).
+String lengthLabel(Length length) => switch (length) {
+  Length.look => DeckCopy.look,
+  Length.night => DeckCopy.night,
+  Length.nightMinimum => DeckCopy.nightMinimum,
+  Length.doppelganger => RoleId.doppelganger.displayName,
+  Length.talk => DeckCopy.talk,
+  Length.vote => DeckCopy.vote,
+  Length.droppedPhone => DeckCopy.droppedPhone,
+  Length.hostAway => DeckCopy.hostAway,
+};
 
 /// The roles in the order the deck builder shows them (S03).
 const deckOrder = [
@@ -55,26 +68,31 @@ const deckOrder = [
   RoleId.villager,
 ];
 
-/// 03 Deck, the host's, optional (first-time play spec, section 3): the
-/// starter chips do the choosing.
+/// The fewest and most players a game is for (the server's `seats`).
+const minSeats = 3;
+const maxSeats = 10;
+
+/// 03 Tonight's game: the set-up page, the host's, editable before anyone
+/// comes and until the deal (first-time play spec, section 3). Every change
+/// is saved as it is made (shown at once, sent merged, one at a time).
 ///
-/// - The chips ("Simple", "Classic", "Chaos") make the deck automatic: the
-///   server builds it at the deal for whoever is at the table, so a host who
-///   does nothing has a deck that fits. A tap is sent at once.
-/// - "Edit" opens the role grid: a tap on a card adds one (up to the role's
-///   most, then back to none; Masons in pairs), a hold opens the role sheet
-///   (03b). Edited, the deck is the host's own and no chip is selected; it
-///   is sent with "Use this deck", which is amber only while it holds the
-///   cards the server's deal needs (`deal.need`), else names what is
-///   missing. A chip tapped meanwhile drops the edit.
-/// - The pace chips ("Quick 3:00", "Normal 5:00", "Long 8:00": each with the
-///   talk it gives) set the talk, the vote and a night window to the
-///   contract's presets; the one the table's lengths equal is selected, none
-///   while they are the server's own (a table made with no lengths: the
-///   server's defaults, 300/120/30, are not a preset).
+/// - Players: how many the game is for (3 to 10), or "Any" (an open table,
+///   dealt to whoever is there). At a number, who is here of it ("3 of 8").
+/// - The deck, face up, every role: the chips make it automatic (built by
+///   the server for the number); a tap on a card puts one in (up to the
+///   role's most; Masons in pairs), its minus takes one out, a hold reads
+///   it (03b). The first card changed makes the deck the host's own, for the
+///   number (an open table takes the players here, at least 3). At a number,
+///   the cards picked over the cards needed, the slots drawn as the players
+///   and the centre.
+/// - Every length the server has, each its own value with its unit, moved by
+///   a stepper within the range the server takes now. The Doppelganger's is
+///   quiet while the deck holds no Doppelganger.
+/// - "Use this deck" returns to 02: one label, live while the deck holds
+///   the cards the deal needs.
 ///
-/// "Use this deck", or the system back, returns to 02. A restart lands on
-/// 02: opening 03 is a step of this phone's only ([localStepsProvider]).
+/// A restart lands on 02: opening 03 is a step of this phone's only
+/// ([localStepsProvider]); what was set is the server's.
 class DeckScreen extends ConsumerWidget {
   const DeckScreen({super.key});
 
@@ -104,83 +122,81 @@ class DeckScreen extends ConsumerWidget {
       },
       child: DeckView(
         lobby: lobby,
+        onSeats: (seats) => unawaited(notifier.setSeats(seats)),
         onChip: (chip) => unawaited(notifier.chooseChip(chip)),
-        onPace: (pace) => unawaited(notifier.choosePace(pace)),
+        onDeck: (roles, {seats}) => unawaited(
+          lobby.table.autoDeck
+              ? notifier.startCustomDeck(roles, seats: seats)
+              : notifier.setRoles(roles),
+        ),
+        onLength: (length, seconds) =>
+            unawaited(notifier.setLength(length.key, seconds)),
         onRetry: () => unawaited(notifier.retry()),
-        onUse: (roles) {
-          if (roles != null) unawaited(notifier.useCustomDeck(roles));
-          close();
-        },
+        onUse: close,
       ),
     );
   }
 }
 
+/// The deck as the server's names to counts; [seats] the number a deck
+/// started at an open table is for.
+typedef DeckChanged = void Function(Map<String, int> roles, {int? seats});
+
 /// 03 drawn from the lobby (the component sheet and the gallery draw it
-/// too). [onUse] gets the edited deck in the server's names, or null when
-/// nothing was edited.
-class DeckView extends StatefulWidget {
+/// too).
+class DeckView extends StatelessWidget {
   const DeckView({
     super.key,
     required this.lobby,
+    required this.onSeats,
     required this.onChip,
-    required this.onPace,
+    required this.onDeck,
+    required this.onLength,
     required this.onUse,
     this.onRetry,
-    this.editing,
   });
 
   final LobbyState lobby;
+  final ValueChanged<int?> onSeats;
   final ValueChanged<DeckChip> onChip;
-  final ValueChanged<Pace> onPace;
-  final ValueChanged<Map<String, int>?> onUse;
+  final DeckChanged onDeck;
+  final void Function(Length length, int seconds) onLength;
+  final VoidCallback onUse;
   final VoidCallback? onRetry;
 
-  /// Starts with the grid open on this deck (the gallery's state).
-  final Map<RoleId, int>? editing;
+  int get _present => lobby.players.length;
 
-  @override
-  State<DeckView> createState() => _DeckViewState();
-}
-
-class _DeckViewState extends State<DeckView> {
-  /// The deck being edited; null while the grid is closed.
-  late Map<RoleId, int>? _draft = widget.editing ?? (_custom ? _stored : null);
-
-  bool get _custom =>
-      !widget.lobby.table.autoDeck && widget.lobby.roleConfig.isNotEmpty;
-
-  Map<RoleId, int> get _stored => {
-    for (final MapEntry(:key, :value) in widget.lobby.roleConfig.entries)
-      if (RoleId.fromServer(key) case final role? when value > 0) role: value,
-  };
-
-  void _chip(DeckChip chip) {
-    setState(() => _draft = null);
-    widget.onChip(chip);
-  }
-
-  void _tap(RoleId role) {
-    final draft = {...?_draft};
-    final now = draft[role] ?? 0;
-    final next = now + RoleConfig.stepSize(role);
-    draft[role] = next > RoleConfig.maxCount(role) ? 0 : next;
-    setState(() => _draft = draft);
+  /// A card in or out: the deck as it now stands, sent whole.
+  void _change(RoleId role, int by) {
+    final deck = {...lobby.tableCards};
+    final next = (deck[role] ?? 0) + by;
+    if (next < 0 || next > RoleConfig.maxCount(role)) return;
+    deck[role] = next;
+    onDeck(
+      {
+        for (final MapEntry(key: role, value: count) in deck.entries)
+          if (count > 0) role.displayName: count,
+      },
+      // A deck of one's own is for a number: an open table takes who is here.
+      seats: lobby.table.seats == null
+          ? math.min(maxSeats, math.max(minSeats, _present))
+          : null,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final type = context.skin.typography;
-    final lobby = widget.lobby;
-    final draft = _draft;
-    final chip = draft == null && lobby.table.autoDeck
-        ? lobby.table.deckChip
-        : null;
+    final table = lobby.table;
+    final seats = table.seats;
+    final picked = lobby.pickedCards;
+    final need = lobby.deal?.need;
+    final fits = table.autoDeck || need == null || picked == need;
     return ScreenFrame(
       ground: GroundKind.night,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Space.mdPlus,
+        spacing: Space.lg,
         children: [
           Align(
             alignment: AlignmentDirectional.centerStart,
@@ -189,49 +205,21 @@ class _DeckViewState extends State<DeckView> {
               child: FitLine(DeckCopy.headline, style: type.headline),
             ),
           ),
+          _Players(seats: seats, present: _present, onSeats: onSeats),
           _Chips(
             labels: DeckCopy.chips,
-            selected: chip?.index,
-            onTap: (i) => _chip(DeckChip.values[i]),
+            selected: table.autoDeck ? table.deckChip?.index : null,
+            onTap: (i) => onChip(DeckChip.values[i]),
           ),
-          if (draft == null) ...[
-            // The chip's cards face up (the server's `deck_preview`); a
-            // tap or "Edit" starts editing from them.
-            if (lobby.chipCards case final cards? when cards.isNotEmpty) ...[
-              _Grid(
-                deck: cards,
-                onTap: (_) => setState(() => _draft = {...cards}),
-                onHold: (role) => unawaited(showRoleSheet(context, role)),
-              ),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: SecondaryButton(
-                  label: TableCopy.editDeck,
-                  size: ButtonSize.compact,
-                  onPressed: () => setState(() => _draft = {...cards}),
-                ),
-              ),
-            ] else
-              // No cards to show (a count with no automatic deck, or a chip
-              // not answered yet): the deck face down; "Edit" starts empty.
-              _EditPanel(onEdit: () => setState(() => _draft = {})),
-          ] else
-            _Grid(
-              deck: draft,
-              onTap: _tap,
-              onHold: (role) => unawaited(showRoleSheet(context, role)),
-            ),
-          _Chips(
-            labels: [for (final pace in Pace.values) paceChipLabel(pace)],
-            selected: lobby.table.pace?.index,
-            onTap: (i) => widget.onPace(Pace.values[i]),
+          if (seats != null && need != null)
+            DeckCount(picked: picked, need: need, seats: seats),
+          _Grid(
+            deck: lobby.tableCards,
+            onAdd: (role) => _change(role, RoleConfig.stepSize(role)),
+            onRemove: (role) => _change(role, -RoleConfig.stepSize(role)),
+            onHold: (role) => unawaited(showRoleSheet(context, role)),
           ),
-          _PaceTiles(
-            settings: lobby.table,
-            copy: (draft ?? (_custom ? _stored : const {})).containsKey(
-              RoleId.doppelganger,
-            ),
-          ),
+          _Lengths(lobby: lobby, onLength: onLength),
         ],
       ),
       actions: [
@@ -239,128 +227,189 @@ class _DeckViewState extends State<DeckView> {
           Notice(
             message: BannerCopy.notSent,
             action: BannerCopy.tryAgain,
-            onAction: widget.onRetry,
+            onAction: onRetry,
           ),
-        _useButton(draft),
+        // One label: live while the deck holds the cards the deal needs.
+        PrimaryButton(label: DeckCopy.useDeck, onPressed: fits ? onUse : null),
       ],
-    );
-  }
-
-  Widget _useButton(Map<RoleId, int>? draft) {
-    if (draft == null) {
-      return PrimaryButton(
-        label: DeckCopy.useDeck,
-        onPressed: () => widget.onUse(null),
-      );
-    }
-    final cards = draft.values.fold(0, (a, b) => a + b);
-    // The cards the server's deal needs (`deal.need`); a table that sends
-    // no verdict leaves it to the server's answer.
-    final wanted = widget.lobby.deal?.need ?? cards;
-    // One label, locked until the deck holds the cards the deal needs.
-    if (cards != wanted) {
-      return const PrimaryButton(label: DeckCopy.useDeck, onPressed: null);
-    }
-    return PrimaryButton(
-      label: DeckCopy.useDeck,
-      onPressed: () => widget.onUse({
-        for (final MapEntry(key: role, value: count) in draft.entries)
-          if (count > 0) role.displayName: count,
-      }),
     );
   }
 }
 
-/// The grid closed with no cards to show: the deck face down, and "Edit".
-class _EditPanel extends StatelessWidget {
-  const _EditPanel({required this.onEdit});
+/// How many players the game is for: a stepper from 3 to 10, below 3 "Any"
+/// (an open table), never below the players already here; at a number, who
+/// is here of it.
+class _Players extends StatelessWidget {
+  const _Players({
+    required this.seats,
+    required this.present,
+    required this.onSeats,
+  });
 
-  final VoidCallback onEdit;
-
-  /// The face-down cards drawn, fanned.
-  static const _fan = 4;
+  final int? seats;
+  final int present;
+  final ValueChanged<int?> onSeats;
 
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
-    final size = RoleCardSize.mini.thumbnail!;
+    final ground = context.ground;
+    final seats = this.seats;
+    final least = math.max(minSeats, present);
     return OutlinePanel(
-      onTap: onEdit,
-      semanticLabel: TableCopy.editDeck,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.sm,
         children: [
-          SizedBox(
-            width: size.width * (1 + (_fan - 1) / 2) + Space.sm,
-            height: size.height + Space.sm,
-            child: Stack(
-              children: [
-                for (var i = 0; i < _fan; i++)
-                  Positioned(
-                    left: i * size.width / 2,
-                    top: Space.xs,
-                    child: Transform.rotate(
-                      angle: skin.tilt.angle(Tilt.scatter(i)),
-                      child: Container(
-                        width: size.width,
-                        height: size.height,
-                        foregroundDecoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(
-                            skin.shape.radiusSmall,
-                          ),
-                          border: Border.all(
-                            color: context.ground.text,
-                            width: skin.shape.ring,
-                          ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(
-                            skin.shape.radiusSmall,
-                          ),
-                          child: ArtPicture(skin.art.cardBack),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+          LabelledStepper(
+            label: DeckCopy.players,
+            style: skin.typography.title.copyWith(color: ground.text),
+            stepper: ValueStepper(
+              value: seats == null ? DeckCopy.any : '$seats',
+              widest: DeckCopy.any,
+              lowerLabel: DeckCopy.lower,
+              higherLabel: DeckCopy.higher,
+              onLower: switch (seats) {
+                null => null,
+                // Back to an open table only while it holds no more than
+                // the smallest game.
+                _ when seats <= least =>
+                  present <= minSeats ? () => onSeats(null) : null,
+                _ => () => onSeats(seats - 1),
+              },
+              onHigher: switch (seats) {
+                null => () => onSeats(math.min(maxSeats, least)),
+                _ when seats >= maxSeats => null,
+                _ => () => onSeats(seats + 1),
+              },
             ),
           ),
-          const Spacer(),
-          Text(
-            TableCopy.editDeck,
-            style: skin.typography.action.copyWith(color: context.ground.text),
-          ),
+          if (seats != null) SeatsLine(present: present, seats: seats),
         ],
       ),
     );
   }
 }
 
-/// The table's lengths under the pace chips, once its settings carry them
-/// (a pace chosen): "Talk", "Vote", "Night", and "Copy" while the deck
-/// holds the Doppelganger and its window is set.
-class _PaceTiles extends StatelessWidget {
-  const _PaceTiles({required this.settings, required this.copy});
+/// The cards picked over the cards the deal needs ("7 / 11"), and a slot
+/// for each: as many as the players, a gap, the three in the centre, so the
+/// count is tied to the number by sight. Cards past the need are drawn in
+/// the danger ink, as is the count while it is not the need.
+class DeckCount extends StatelessWidget {
+  const DeckCount({
+    super.key,
+    required this.picked,
+    required this.need,
+    required this.seats,
+  });
 
-  final TableSettings settings;
-  final bool copy;
+  final int picked;
+  final int need;
+  final int seats;
+
+  static const _slot = Size(12, 16);
 
   @override
   Widget build(BuildContext context) {
-    final tiles = [
-      (DeckCopy.talk, settings.talkSeconds),
-      (DeckCopy.vote, settings.voteSeconds),
-      (DeckCopy.night, settings.nightSeconds),
-      if (copy) (DeckCopy.copy, settings.copySeconds),
-    ].where((t) => t.$2 != null).toList();
-    if (tiles.isEmpty) return const SizedBox.shrink();
-    return IntrinsicHeight(
-      child: Row(
+    final skin = context.skin;
+    final ground = context.ground;
+    final slots = math.max(picked, need);
+    Widget slot(int i) {
+      final filled = i < picked;
+      final ink = i >= need ? ground.dangerText : ground.text;
+      return Container(
+        width: _slot.width,
+        height: _slot.height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(skin.shape.radiusSmall / 2),
+          color: filled ? ink : null,
+          border: Border.all(
+            color: filled ? ink : ground.outline,
+            width: skin.shape.stroke,
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      spacing: Space.md,
+      children: [
+        Text(
+          '$picked / $need',
+          style: skin.typography.heading.copyWith(
+            color: picked == need ? ground.text : ground.dangerText,
+          ),
+        ),
+        Expanded(
+          child: ExcludeSemantics(
+            child: Wrap(
+              spacing: Space.xxs,
+              runSpacing: Space.xxs,
+              children: [
+                for (var i = 0; i < slots; i++) ...[
+                  // The centre's three after a gap.
+                  if (i == seats) const SizedBox(width: Space.sm),
+                  slot(i),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Every length the server has, each a row: its name and a stepper over its
+/// value, within the range the server takes now. The Doppelganger's is
+/// quiet while the deck holds none. A server that sends no lengths: none.
+class _Lengths extends StatelessWidget {
+  const _Lengths({required this.lobby, required this.onLength});
+
+  final LobbyState lobby;
+  final void Function(Length length, int seconds) onLength;
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = context.skin;
+    final ground = context.ground;
+    final rows = [
+      for (final length in Length.values)
+        if (lobby.secondsOf(length) case final seconds?) (length, seconds),
+    ];
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final doppelganger = lobby.tableCards.containsKey(RoleId.doppelganger);
+    return OutlinePanel(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: Space.sm,
         children: [
-          for (final (label, seconds) in tiles)
-            Expanded(
-              child: PaceTile(label: label, value: WorldTimer.format(seconds!)),
+          for (final (length, seconds) in rows)
+            Builder(
+              builder: (context) {
+                final (least, most) = lobby.rangeOf(length);
+                final quiet = length == Length.doppelganger && !doppelganger;
+                return LabelledStepper(
+                  label: lengthLabel(length),
+                  style: skin.typography.action.copyWith(
+                    color: quiet ? ground.quietText : ground.text,
+                  ),
+                  stepper: ValueStepper(
+                    value: lengthText(seconds),
+                    widest: DeckCopy.minutes.fill({'n': '14:30'}),
+                    lowerLabel: DeckCopy.lower,
+                    higherLabel: DeckCopy.higher,
+                    quiet: quiet,
+                    small: true,
+                    onLower: seconds > least
+                        ? () => onLength(length, Length.down(seconds, least))
+                        : null,
+                    onHigher: seconds < most
+                        ? () => onLength(length, Length.up(seconds, most))
+                        : null,
+                  ),
+                );
+              },
             ),
         ],
       ),
@@ -391,14 +440,21 @@ class _Chips extends StatelessWidget {
   );
 }
 
-/// Every role, lit with its count when in [deck]: three across, or two
-/// where three would set a name ("Doppelganger") under the 14 px caption
-/// floor (a 320-wide phone, large text).
+/// Every role, face up, lit with its count when in [deck]: a tap puts one
+/// in, a lit card's minus takes one out, a hold reads it. Three across, or
+/// two where three would set a name ("Doppelganger") under the 14 px
+/// caption floor (a 320-wide phone, large text).
 class _Grid extends StatelessWidget {
-  const _Grid({required this.deck, required this.onTap, required this.onHold});
+  const _Grid({
+    required this.deck,
+    required this.onAdd,
+    required this.onRemove,
+    required this.onHold,
+  });
 
   final Map<RoleId, int> deck;
-  final ValueChanged<RoleId> onTap;
+  final ValueChanged<RoleId> onAdd;
+  final ValueChanged<RoleId> onRemove;
   final ValueChanged<RoleId> onHold;
 
   static const _gap = Space.md;
@@ -439,8 +495,10 @@ class _Grid extends StatelessWidget {
               role: role,
               count: deck[role] ?? 0,
               lit: (deck[role] ?? 0) > 0,
-              onTap: () => onTap(role),
+              onTap: () => onAdd(role),
               onLongPress: () => onHold(role),
+              onRemove: () => onRemove(role),
+              removeLabel: DeckCopy.takeOut.fill({'role': role.displayName}),
             ),
         ],
       );

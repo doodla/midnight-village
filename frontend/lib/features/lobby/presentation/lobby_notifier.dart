@@ -441,9 +441,6 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<void> useCustomDeck(Map<String, int> roles) =>
       _changeSettings(LobbyService.customDeck(roles));
 
-  /// The host picks a pace preset: it fills the lengths it sets.
-  Future<void> choosePace(Pace pace) => _changeSettings(pace.settings);
-
   /// The host sets how many players the game is for (3 to 10), or opens the
   /// table to whoever comes (null). An open table's deck is automatic: a
   /// custom deck is built for a number.

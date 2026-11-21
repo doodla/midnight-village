@@ -70,6 +70,11 @@ abstract final class TableCopy {
   static const deal = Template('Deal to {n}');
   static const needPlayers = 'Need 3 players';
 
+  /// At a table set for a number: who is here of how many (02 and 03, host
+  /// and guests), by the seats, the empty ones drawn. The one way the wait
+  /// is said, never as card arithmetic.
+  static const seated = Template('{d} of {n}');
+
   /// The host's way out, quiet and labelled, behind a confirm ([stay]
   /// keeps the table): one stray tap must not hand the table away.
   static const stay = 'Stay';
@@ -78,27 +83,40 @@ abstract final class TableCopy {
   static const hostDeals = Template('{host} deals');
 }
 
-/// 03 Deck (the host's, optional).
+/// 03 Tonight's game: the set-up page the host edits before anyone comes.
 abstract final class DeckCopy {
-  static const headline = "Tonight's deck";
+  static const headline = "Tonight's game";
+
+  /// The number of players the game is for; "Any": an open table, dealt to
+  /// whoever is there.
+  static const players = 'Players';
+  static const any = 'Any';
 
   /// In the order of the server's chips (`simple`, `classic`, `chaos`).
   static const chips = ['Simple', 'Classic', 'Chaos'];
 
-  /// In the order of the contract's presets (`quick`, `normal`, `long`).
-  static const paces = ['Quick', 'Normal', 'Long'];
-
-  /// A pace chip: its name and the talk it gives ("Normal 5:00"; playtest:
-  /// "Long of what?").
-  static const paceChip = Template('{pace} {talk}');
-
-  /// The pace tiles; "Copy" only when the Doppelganger is in the deck.
+  /// The lengths, in `Length` order; the Doppelganger's window is named by
+  /// the role ([RoleId] names are not words).
+  static const look = 'Look';
+  static const night = 'Night';
+  static const nightMinimum = 'Night minimum';
   static const talk = 'Talk';
   static const vote = 'Vote';
-  static const night = 'Night';
-  static const copy = 'Copy';
+  static const droppedPhone = 'Dropped phone';
+  static const hostAway = 'Host away';
+
+  /// A length's value: seconds ([CommonCopy.seconds]), whole minutes,
+  /// minutes and seconds ("2:30 min"); 0 is off (no look stage, no clock,
+  /// no waiting).
+  static const minutes = Template('{n} min');
+  static const off = 'Off';
 
   static const useDeck = 'Use this deck';
+
+  /// Spoken only: the steppers' glyphs and the grid card's minus.
+  static const lower = 'Lower';
+  static const higher = 'Higher';
+  static const takeOut = Template('Take one {role} out');
 }
 
 /// 03b Role sheet: the role text ([RoleCopy]) and this.

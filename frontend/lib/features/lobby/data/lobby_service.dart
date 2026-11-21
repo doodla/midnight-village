@@ -47,10 +47,6 @@ class LobbyService {
   Future<LobbyState> setCustomDeck(String code, Map<String, int> roles) =>
       _patchSettings(code, customDeck(roles));
 
-  /// The host picks a pace: the timer lengths of [pace] (PATCH, merged).
-  Future<LobbyState> setPace(String code, Pace pace) =>
-      _patchSettings(code, pace.settings);
-
   /// The settings a deck chip writes ([setDeckChip]).
   static Map<String, Object> deckChip(DeckChip chip) => {
     'deck': 'auto',

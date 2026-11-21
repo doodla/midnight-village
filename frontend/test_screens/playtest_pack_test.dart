@@ -116,7 +116,7 @@ Future<void> _pump(
     case PackScreen.deck:
       await pumpDeckOf(tester, lobby!, journey.viewer);
     case PackScreen.deckEdit:
-      await pumpDeckOf(tester, lobby!, journey.viewer, edit: true);
+      await pumpDeckOf(tester, lobby!, journey.viewer);
     case PackScreen.deckRole:
       await pumpDeckOf(tester, lobby!, journey.viewer, role: true);
     case PackScreen.card || PackScreen.cardHeld:

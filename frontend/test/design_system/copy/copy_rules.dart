@@ -43,7 +43,7 @@ const _appName = 'Midnight Village';
 
 /// Unit symbols, read with their number as one thing ("14 s"): not words
 /// right after a number or a gap, as digits are not.
-const _units = {'s'};
+const _units = {'s', 'min'};
 final _number = RegExp(r'^(\d+|\{\w+\})$');
 
 final _letter = RegExp(r'\p{L}', unicode: true);

@@ -11,7 +11,6 @@ import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/text_action.dart';
-import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/deck_screen.dart';
@@ -828,9 +827,9 @@ void main() {
         if (card.count > 0) card.role: card.count,
     };
 
-    Map<RoleId, int> previewOf(Map<String, dynamic> body) => {
+    Map<RoleId, int> cardsOf(Map<String, dynamic> body) => {
       for (final MapEntry(:key, :value)
-          in (body['deck_preview'] as Map<String, dynamic>).entries)
+          in (body['deck_cards'] as Map<String, dynamic>).entries)
         RoleId.fromServer(key)!: value as int,
     };
 
@@ -842,7 +841,7 @@ void main() {
         viewer: 'Kai',
       );
       expect(_chip(tester, 'Classic').selected, isTrue);
-      expect(shown(tester), previewOf(v2Lobby('detail_deck_classic_7')));
+      expect(shown(tester), cardsOf(v2Lobby('detail_deck_classic_7')));
       final held = setup.http.hold(method: 'PATCH', path: '/lobbies/B7DH4Q/');
       final answer = v2Lobby('detail_deck_chaos_7');
       setup.answerPatch(answer);
@@ -851,43 +850,46 @@ void main() {
 
       expect(_chip(tester, 'Chaos').selected, isTrue);
       expect(_chip(tester, 'Classic').selected, isFalse);
-      // The Classic cards are not shown under Chaos while it is sent.
-      expect(find.byType(RoleCard), findsNothing);
       expect(setup.patches, [
         {'deck': 'auto', 'deck_chip': 'chaos'},
       ]);
       held.releaseAll();
       await setup.settle(tester);
       expect(_chip(tester, 'Chaos').selected, isTrue);
-      expect(shown(tester), previewOf(answer));
+      expect(shown(tester), cardsOf(answer));
       await setup.close(tester);
     });
 
-    testWidgets('"Edit" on a chip\'s cards starts the grid from them', (
-      tester,
-    ) async {
+    testWidgets('a tap on a card of the automatic deck makes it the host\'s '
+        'own, from those cards, for the players here', (tester) async {
       final setup = await openDeck(
         tester,
         sample: 'detail_deck_simple_7',
         viewer: 'Kai',
       );
-      final preview = previewOf(v2Lobby('detail_deck_simple_7'));
-
-      await _tap(
-        tester,
-        setup,
-        find.widgetWithText(SecondaryButton, TableCopy.editDeck),
-      );
-
+      final cards = cardsOf(v2Lobby('detail_deck_simple_7'));
       expect(find.byType(RoleCard), findsNWidgets(deckOrder.length));
-      expect(shown(tester), preview);
+      expect(shown(tester), cards);
+      setup.http.hold(method: 'PATCH', path: '/lobbies/B7DH4Q/');
+      setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
+
+      await _tap(tester, setup, _role(RoleId.tanner));
+
+      final sent = setup.patches.single! as Map;
+      expect(sent['deck'], 'custom');
+      expect(sent['seats'], 7);
+      expect(sent['roles'], {
+        for (final MapEntry(:key, :value) in cards.entries)
+          key.displayName: value,
+        'Tanner': 1,
+      });
       expect(_chip(tester, 'Simple').selected, isFalse);
-      expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
+      expect(shown(tester), {...cards, RoleId.tanner: 1});
       await setup.close(tester);
     });
 
-    testWidgets('a deck of the wrong size: "Use this deck" names the cards '
-        'the server\'s deal needs', (tester) async {
+    testWidgets('a deck of the wrong size: "Use this deck" keeps its words, '
+        'locked', (tester) async {
       final setup = await openDeck(
         tester,
         sample: 'detail_custom_deck_short',
@@ -895,38 +897,11 @@ void main() {
       );
       // Ten cards for eight: the server needs eleven.
       expect(_onPressed(tester, DeckCopy.useDeck), isNull);
+      expect(find.textContaining('card'), findsNothing);
       await setup.close(tester);
     });
 
-    testWidgets('Edit opens the grid; the deck is sent with "Use this deck", '
-        'amber only at a card for everyone and three more', (tester) async {
-      final setup = await openDeck(tester, sample: 'detail_custom_deck');
-      // The grid is open on the host's own deck of twelve, for nine.
-      expect(find.byType(RoleCard), findsNWidgets(deckOrder.length));
-      expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
-
-      await _tap(tester, setup, _role(RoleId.tanner));
-      expect(_onPressed(tester, DeckCopy.useDeck), isNull);
-      await _tap(tester, setup, _role(RoleId.hunter));
-      expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
-
-      // Held: what shows is this phone's change, not the answer.
-      setup.http.hold(method: 'PATCH', path: '/lobbies/T8NB6C/');
-      setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
-      await _tap(tester, setup, find.text(DeckCopy.useDeck));
-
-      final sent = setup.patches.single! as Map;
-      expect(sent['deck'], 'custom');
-      expect((sent['roles'] as Map)['Hunter'], 1);
-      expect((sent['roles'] as Map).containsKey('Tanner'), isFalse);
-      // Back at the table.
-      expect(find.text(TableCopy.scan), findsOneWidget);
-      await setup.close(tester);
-    });
-
-    testWidgets('"Use this deck" with a chip sends nothing and goes back', (
-      tester,
-    ) async {
+    testWidgets('"Use this deck" sends nothing and goes back', (tester) async {
       final setup = await openDeck(tester);
 
       await _tap(tester, setup, find.text(DeckCopy.useDeck));
@@ -936,42 +911,44 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('a pace chip sends the preset\'s lengths and is chosen at '
-        'once', (tester) async {
-      final setup = await openDeck(tester);
-      // Held: its answer is not needed for what shows.
-      setup.http.hold(method: 'PATCH', path: '/lobbies/V9YC2J/');
+    testWidgets('every length the server has shows its value and unit, the '
+        'server\'s defaults on a new table, and a step sends it at once', (
+      tester,
+    ) async {
+      final setup = await openDeck(
+        tester,
+        sample: 'created_with_defaults',
+        viewer: 'Ana',
+      );
+      final lengths =
+          v2Lobby('created_with_defaults')['lengths'] as Map<String, dynamic>;
+      for (final length in Length.values) {
+        // The Doppelganger's is also a card's name in the grid.
+        expect(
+          find.text(lengthLabel(length)),
+          length == Length.doppelganger ? findsWidgets : findsOneWidget,
+          reason: length.key,
+        );
+      }
+      expect(lengths['discussion_seconds'], 300);
+      expect(find.text('5 min'), findsOneWidget);
+      setup.http.hold(method: 'PATCH', path: '/lobbies/R5ZD3H/');
       setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
 
-      await _tap(tester, setup, find.text(paceChipLabel(Pace.quick)));
+      final talk = find.ancestor(
+        of: find.text(DeckCopy.talk),
+        matching: find.byType(Row),
+      );
+      await _tap(
+        tester,
+        setup,
+        find.descendant(of: talk.first, matching: find.byIcon(Icons.add)),
+      );
 
-      expect(_chip(tester, paceChipLabel(Pace.quick)).selected, isTrue);
       expect(setup.patches, [
-        {
-          'discussion_seconds': 180,
-          'voting_seconds': 45,
-          'night_wave_seconds': 20,
-        },
+        {'discussion_seconds': 330},
       ]);
-      // The lengths show under it.
-      expect(find.text(DeckCopy.talk), findsOneWidget);
-      await setup.close(tester);
-    });
-
-    testWidgets('each pace chip says the talk it gives; back on 02 the '
-        'chosen pace shows beside the deck', (tester) async {
-      final setup = await openDeck(tester);
-      expect([
-        for (final pace in Pace.values) find.text(paceChipLabel(pace)),
-      ], everyElement(findsOneWidget));
-      expect(find.text('Normal 5:00'), findsOneWidget);
-      setup.http.hold(method: 'PATCH', path: '/lobbies/V9YC2J/');
-      setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
-      await _tap(tester, setup, find.text(paceChipLabel(Pace.long)));
-      await _tap(tester, setup, find.text(DeckCopy.useDeck));
-
-      expect(find.text(TableCopy.scan), findsOneWidget, reason: 'on 02');
-      expect(_chip(tester, WorldTimer.format(Pace.long.talk)).selected, isTrue);
+      expect(find.text('5:30 min'), findsOneWidget);
       await setup.close(tester);
     });
 
