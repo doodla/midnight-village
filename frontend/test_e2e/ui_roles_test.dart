@@ -177,6 +177,15 @@ Future<void> _play(Phone r, ReferenceGame g, int seat) async {
   // shows its next page (what window 2 told, window 1's page, the dealt
   // card): three holds read them all.
   final read = <String>[];
+  // Open as the talk opens where the night told this player something: read
+  // there too, then put away.
+  await r.putAwayMyNight(() async {
+    read.addAll([
+      for (final text in r.tester.widgetList<RichText>(find.byType(RichText)))
+        text.text.toPlainText(),
+    ]);
+    await r.shoot('talk-open');
+  });
   for (var page = 0; page < 3; page++) {
     await r.holdThen(find.byType(PeekBox), () async {
       read.addAll([
@@ -293,7 +302,15 @@ List<String> _learned(ReferenceGame g, int seat) {
             'name': g.players[g.choices['doppel_target'] as int],
           }),
         ],
-        ('took' || 'own_card', final String role) => [
+        // The Robber's line names whom he robbed too: its tail is enough.
+        ('took', final String role) => [
+          SawCopy.robbed
+              .fill({'name': '', 'role': role})
+              .substring(
+                SawCopy.robbed.fill({'name': '', 'role': role}).indexOf("'s"),
+              ),
+        ],
+        ('own_card', final String role) => [
           SawCopy.newCard.fill({'role': role}),
         ],
         ('saw_center', final List<dynamic> seen) => [

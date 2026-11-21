@@ -64,6 +64,7 @@ class ScreenFrame extends StatelessWidget {
     this.topSlot,
     this.actionGap = Space.mdPlus,
     this.fitsHeight = false,
+    this.minBodyHeight,
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
@@ -94,6 +95,12 @@ class ScreenFrame extends StatelessWidget {
   /// body that sizes itself to that height (the night board, whose every
   /// card must be on screen).
   final bool fitsHeight;
+
+  /// With [fitsHeight] under a [topSlot]: the least height the body is
+  /// given. Where the slot leaves less (a short phone, large text), the
+  /// slot and the body scroll together, the body at this height, rather
+  /// than overflow.
+  final double? minBodyHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -145,6 +152,29 @@ class ScreenFrame extends StatelessWidget {
             child: body,
           ),
         ],
+      );
+    } else if (slot != null && fitsHeight && minBodyHeight != null) {
+      final under = Padding(
+        padding: padded.copyWith(top: Space.lg),
+        child: body,
+      );
+      return _frame(
+        context,
+        colors,
+        Padding(
+          padding: EdgeInsets.only(bottom: bottom),
+          child: LayoutBuilder(
+            builder: (context, box) => _ScrollBody(
+              fadeTo: colors.ground,
+              bottom: 0,
+              child: _SlotThenRest(
+                viewport: box.maxHeight,
+                minRest: minBodyHeight! + Space.lg,
+                children: [slot, under],
+              ),
+            ),
+          ),
+        ),
       );
     } else if (slot != null) {
       final under = Padding(
@@ -250,7 +280,10 @@ class _ScrollBody extends StatefulWidget {
 
   /// How tall the fade is: tall enough that what runs on under the pinned
   /// actions visibly dissolves well before them (11's night, cold read on
-  /// the real screens), never a line cut at the edge.
+  /// the real screens), never a line cut at the edge. Never taller than
+  /// what is still below: a body a few pixels too tall (a held box's lift)
+  /// does not grey out its last row (playtest: the Troublemaker chip on 08
+  /// read as not in play).
   static const fade = Space.xxl * 2;
 
   @override
@@ -259,7 +292,9 @@ class _ScrollBody extends StatefulWidget {
 
 class _ScrollBodyState extends State<_ScrollBody> {
   final _scroll = ScrollController();
-  var _more = false;
+
+  /// How much of the body is below the edge, up to the fade's height.
+  var _below = 0.0;
 
   @override
   void dispose() {
@@ -268,8 +303,9 @@ class _ScrollBodyState extends State<_ScrollBody> {
   }
 
   bool _measure(ScrollMetricsNotification note) {
-    final more = note.metrics.extentAfter > 0;
-    if (more != _more) setState(() => _more = more);
+    // Only the last of it changes the fade: no rebuild per scrolled pixel.
+    final below = math.min(note.metrics.extentAfter, _ScrollBody.fade);
+    if (below != _below) setState(() => _below = below);
     return false;
   }
 
@@ -289,12 +325,12 @@ class _ScrollBodyState extends State<_ScrollBody> {
           ),
         ),
       ),
-      if (_more)
+      if (_below > 0)
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
-          height: _ScrollBody.fade,
+          height: _below,
           child: IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -309,6 +345,91 @@ class _ScrollBodyState extends State<_ScrollBody> {
         ),
     ],
   );
+}
+
+/// A top slot at its own height, then the rest of [viewport] for the
+/// body, never less than [minRest]: one screen when they fit; taller, to
+/// scroll, when the slot leaves too little (never an overflow).
+class _SlotThenRest extends MultiChildRenderObjectWidget {
+  const _SlotThenRest({
+    required this.viewport,
+    required this.minRest,
+    required super.children,
+  });
+
+  final double viewport;
+  final double minRest;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSlotThenRest(viewport: viewport, minRest: minRest);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSlotThenRest renderObject,
+  ) => renderObject
+    ..viewport = viewport
+    ..minRest = minRest;
+}
+
+class _SlotThenRestData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderSlotThenRest extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _SlotThenRestData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _SlotThenRestData> {
+  _RenderSlotThenRest({required double viewport, required double minRest})
+    : _viewport = viewport,
+      _minRest = minRest;
+
+  double _viewport;
+  set viewport(double value) {
+    if (value == _viewport) return;
+    _viewport = value;
+    markNeedsLayout();
+  }
+
+  double _minRest;
+  set minRest(double value) {
+    if (value == _minRest) return;
+    _minRest = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _SlotThenRestData) {
+      child.parentData = _SlotThenRestData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final width = constraints.maxWidth;
+    final slot = firstChild!;
+    final rest = childAfter(slot)!;
+    slot.layout(
+      BoxConstraints(minWidth: width, maxWidth: width),
+      parentUsesSize: true,
+    );
+    final restHeight = math.max(_viewport - slot.size.height, _minRest);
+    rest.layout(BoxConstraints.tightFor(width: width, height: restHeight));
+    (slot.parentData! as _SlotThenRestData).offset = Offset.zero;
+    (rest.parentData! as _SlotThenRestData).offset = Offset(
+      0,
+      slot.size.height,
+    );
+    size = constraints.constrain(Size(width, slot.size.height + restHeight));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 /// [TopArtLayout.fill]: the picture takes the height the [body] leaves of

@@ -25,7 +25,8 @@ Iterable<(RoleId, List<Line>)> _roleTexts() => [
 final _saw = <String, List<Object>>{
   'Seer, player': [SawCopy.seerPlayer],
   'Seer, center': [SawCopy.seerCenter],
-  'Robber or Insomniac': [SawCopy.newCard],
+  'Robber': [SawCopy.robbed],
+  'Insomniac': [SawCopy.newCard],
   'Troublemaker': [SawCopy.swapped],
   'Drunk': [SawCopy.drunk],
   'Werewolves': [SawCopy.werewolves],
@@ -49,14 +50,20 @@ final _windowOne = <String, List<Object>>{
     if (value.length == 1) 'copied, then $key': [NightCopy.copied, ...value],
 };
 
-/// "You" on the board: each prompt's instruction, the Doppelganger's page
-/// once her copy is back, and window 2's second page.
-final _you = <String, List<Object>>{
-  for (final prompt in NightPrompt.values) prompt.name: [prompt.instruction],
+/// "You" on the board, with the board's title (the prompt's): each prompt's
+/// instruction, the Doppelganger's page once her copy is back, and window
+/// 2's second page under any prompt's title.
+final _you = <String, (String, List<Object>)>{
+  for (final prompt in NightPrompt.values)
+    prompt.name: (prompt.title, [prompt.instruction]),
   for (final followUp in NightPrompt.values)
-    'copied, then ${followUp.name}': [NightCopy.copied, followUp.instruction],
-  for (final MapEntry(:key, :value) in _windowOne.entries)
-    'window 2 page 2, $key': value,
+    'copied, then ${followUp.name}': (
+      followUp.title,
+      [NightCopy.copied, followUp.instruction],
+    ),
+  for (final prompt in NightPrompt.values)
+    for (final MapEntry(:key, :value) in _windowOne.entries)
+      'window 2 page 2, $key, ${prompt.name}': (prompt.title, value),
 };
 
 /// My night's pages (08).
@@ -153,6 +160,8 @@ final screens = <String, Screen>{
         for (final chip in DeckCopy.chips) button(chip),
         button(TableCopy.editDeck),
         for (final pace in DeckCopy.paces) button(pace),
+        // Each chip's talk length: digits, no words.
+        text(DeckCopy.paceChip),
         for (final tile in _tiles.take(3)) text(tile),
         button(DeckCopy.useDeck),
       ],
@@ -221,16 +230,16 @@ final screens = <String, Screen>{
         NightCopy.chosen,
         NightCopy.nothingToDo,
       ])
-        for (final MapEntry(:key, :value) in _you.entries)
+        for (final MapEntry(key: key, value: (title, face)) in _you.entries)
           '$label, $key': [
-            headline(CommonCopy.nightTitle),
+            headline(title),
             // The candle's number in its last minute.
             text(CommonCopy.seconds),
             text(NightCopy.you),
             for (final side in NightCopy.center) text(side),
             cue(CommonCopy.hold),
             button(label),
-            ..._face(value),
+            ..._face(face),
           ],
     },
   ),
@@ -243,7 +252,7 @@ final screens = <String, Screen>{
         text(TalkCopy.myNight),
         cue(CommonCopy.hold),
         text(TalkCopy.deckCount),
-        text(TalkCopy.progress),
+        text(CommonCopy.progress),
         button(TalkCopy.readyToVote),
       ],
       for (final ready in [TalkCopy.readyToVote, CommonCopy.readyDone])
@@ -252,7 +261,7 @@ final screens = <String, Screen>{
             headline(TalkCopy.headline),
             text(TalkCopy.myNight),
             text(TalkCopy.deckCount),
-            text(TalkCopy.progress),
+            text(CommonCopy.progress),
             button(ready),
             ..._face(value),
           ],

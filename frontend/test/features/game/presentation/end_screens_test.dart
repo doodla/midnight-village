@@ -7,6 +7,7 @@ import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/text_action.dart';
 import 'package:midnight_village/design_system/primitives/you_tag.dart';
+import 'package:midnight_village/features/game/domain/outcome_view.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
@@ -19,6 +20,7 @@ import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/outcome_samples.dart';
 import '../../../helpers/shell_setup.dart';
+import '../../../helpers/sheet/end_pages.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/truncated_text.dart';
 
@@ -330,6 +332,55 @@ void main() {
       expect(bottom, lessThanOrEqualTo(message.top));
       await s.close(tester);
     });
+
+    // The playtest: the night "cut off at the bottom". Scrolled to its
+    // end, the whole story is there, the last step fully above the pinned
+    // line, at the phone sizes the pack and the gallery use, five and ten
+    // at the table, the host's buttons and a guest's line.
+    for (final (width, height) in [(390.0, 844.0), (360.0, 640.0)]) {
+      for (final game in [EndGame.five, EndGame.tenLong]) {
+        final seats = outcomeOf(game.body).seats;
+        final guest = seats.firstWhere((s) => s.name != game.host).name;
+        for (final viewer in [game.host, guest]) {
+          testWidgets('the whole night is reachable: scrolled to the end, its '
+              'last step is fully above the pinned line (${width.toInt()} x '
+              '${height.toInt()}, ${seats.length} players, '
+              '${viewer == game.host ? 'host' : 'guest'})', (tester) async {
+            tester.view.physicalSize = Size(width, height);
+            tester.view.devicePixelRatio = 1;
+            addTearDown(tester.view.reset);
+            final s = await _end(
+              tester,
+              game.body,
+              viewer: viewer,
+              host: game.host,
+            );
+            await _seeWhoWon(tester, s);
+            await tester.pumpAndSettle();
+            final steps = find.byWidgetPredicate(
+              (w) => w.runtimeType.toString() == '_Line',
+            );
+            expect(
+              steps,
+              findsNWidgets(nightLinesOf(outcomeOf(game.body)).length),
+              reason: 'every step of the night is drawn',
+            );
+            final scroll = find.byType(SingleChildScrollView).first;
+            await tester.drag(scroll, const Offset(0, -6000));
+            await tester.pumpAndSettle();
+            final last = tester.getRect(steps.last);
+            final body = tester.getRect(scroll);
+            final pinned = viewer == game.host
+                ? tester.getRect(find.byType(PrimaryButton).first).top
+                : tester.getRect(find.textContaining('deals next.')).top;
+            expect(last.top, greaterThanOrEqualTo(body.top));
+            expect(last.bottom, lessThanOrEqualTo(body.bottom));
+            expect(last.bottom, lessThanOrEqualTo(pinned));
+            await s.close(tester);
+          });
+        }
+      }
+    }
 
     testWidgets('"You" marks the viewer on 10 and 11', (tester) async {
       // Fin, voted out, is the viewer: his row on 10 and on 11 say "You".

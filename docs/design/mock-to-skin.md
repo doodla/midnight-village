@@ -143,7 +143,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | "Seer" Gloock 26 lh 1.1 | **Cut**: the board's headline is "The village sleeps" on every phone (`type.screenTitle`, `FitWords`); the role is on the held face of "You" |
 | Header gap 10 | `Space.smPlus` |
 | Corner timer: candle 44 x 58 with hairline ring, gap 10, "14" 34 lh 1, "s" 13/700 quiet at 3 | `WorldTimer.candleCompact` (`compactCandleSize`, `type.timerCompact`), set as one unit `NightBoard.timerLines` (1.3) title lines high; the "s" is cut. Beside it the title on one line (`FitWords(maxLines: 1)`, set smaller only where it must); the board's words grow with the text size to `NightBoard.labelScale` (1.3) |
-| Prompt 26 lh 1.15, margin-top 4 | **Cut**: what this phone may do is on the held face of "You" (the `hold_you` cue points at it until this device has held it) |
+| Prompt 26 lh 1.15, margin-top 4 | **Cut**: what this phone may do is on the held face of "You" (the `hold` ring is on it only on a device that has never held a face) |
 | Player cards 78 x 106, radius 6, ring 2 hairline, 0 4 deep; margin-top 14 | `FaceDownCard(owner:, ownerName:)` (`elevation.lying`), placed by `BoardLayout`: balanced rows, never one card alone on a row, the largest cards that keep every name at its floor and every row on screen, up to `FaceDownSize.board`; columns as wide as a card and `Space.lg`, or the widest name; `Space.sm` between columns, `Space.lg` between rows |
 | Picked card: ring 3 amber, 0 8 deep, up 8 | `selected: true`: lifts `Space.sm` and takes `ground.selection` (bone) at `shape.selectedRing`; never amber or a fill |
 | Mark disc 40 amber at top 38, eye icon 26, 0 2 deep | **Cut** by the first-time play spec: the mark said what a pick would do, which tells the role |
@@ -183,7 +183,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | 70 px fade into the day | `TimerBand.sun` (the last 28% of the sky) |
 | "4:12" 84 lh 0.9 -0.02em, margin-top -8; "left to talk" 12/700 quiet, gap 12, baseline | `type.timer`; "left to talk" is **Cut** by the first-time play spec; in its place beside the number, the headline "The village wakes" (`TimerBand.sun(title:)`, `type.screenTitle`, two lines at most; under the number where the two do not fit side by side) |
 | Sun's place on the arc | the share of the talk left from the server's `stage_started_at` and `deadline` (`StageShare`); without `stage_started_at`, the sun rests at `TimerBand.restingSun` |
-| "My night" box: night ground on day, padding 10/16/10/10, gap 14, radius 6, 4,4 day shadow | `PeekBox(title:, teaching:, large: true)` (`night.ground`, day `elevation.raised`; large: a 76 x 103 card, `type.display`, `Space.lg` inset: the one thing on the talk's body), the cover of a `TeachingHold(cue: Cue.holdMyNight)` |
+| "My night" box: night ground on day, padding 10/16/10/10, gap 14, radius 6, 4,4 day shadow | `PeekBox(title:, teaching:, large: true)` (`night.ground`, day `elevation.raised`; large: a 76 x 103 card, `type.display`, `Space.lg` inset: the one thing on the talk's body), the cover of a `TeachingHold` |
 | Card back 50 x 68, ring 2 amber, rotated -4 | inside `PeekBox` (`ground.mark`: bone, `Tilt.thumb`), with the `HoldCue` on it |
 | "My night" Gloock 24, "Hold to peek" 14/600 quiet | `type.heading`; "Hold to peek" is cut; until My night has been held on this device the cue's "Hold" (`type.cue`) sits under the title |
 | "In the deck tonight" 12/700 day quiet, gap 10 | **Cut** by the first-time play spec ("In the deck tonight") |

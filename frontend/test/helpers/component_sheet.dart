@@ -113,16 +113,10 @@ enum ComponentPage {
       : _grounds ?? GroundKind.values;
 
   /// What a phone in its first game has learned by this page, alone on the
-  /// sheet: the hold on 04, "You" and the board's wave on 06, My night on
-  /// 08. A journey (the cold-read pack) passes what it has really learned.
+  /// sheet: the hold on 04 (taught once, for every face), the board's wave
+  /// on 06. A journey (the cold-read pack) passes what it has really learned.
   Set<Cue> get learned => switch (this) {
     card || cardHeld || cardHeldVillager || gates => const {},
-    talk ||
-    talkHeld ||
-    talkRobber ||
-    talkLoneWerewolf ||
-    talkDrunk ||
-    talkDoppelganger => {...Cue.values}..remove(Cue.holdMyNight),
     action ||
     actionHeld ||
     actionHeldVillager ||
@@ -142,15 +136,8 @@ enum ComponentPage {
   /// What a player learns by doing what [drive] does here.
   Set<Cue> get teaches => switch (this) {
     cardHeld || cardHeldVillager => const {Cue.hold},
-    actionHeld ||
-    actionHeldVillager ||
-    actionFollowUpHeld => const {Cue.hold, Cue.holdYou},
+    actionHeld || actionHeldVillager || actionFollowUpHeld => const {Cue.hold},
     actionChosen => const {Cue.nightChoose},
-    talkHeld ||
-    talkRobber ||
-    talkLoneWerewolf ||
-    talkDrunk ||
-    talkDoppelganger => const {Cue.hold, Cue.holdMyNight},
     voteLocked => const {Cue.voteLock},
     _ => const {},
   };

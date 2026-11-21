@@ -4,11 +4,12 @@ import '../layout/space.dart';
 import '../skin/skin.dart';
 import 'fit_line.dart';
 
-/// A quiet action said in words: its label in the action type and the
-/// ground's text colour, with no fill and no outline, so it is never the
-/// loudest thing on a screen (11's "Leave" for a guest, beside "{host} deals
-/// next."). At least [minTap] square to touch; dims while pressed; faint and
-/// inert with no [onPressed].
+/// A quiet action said in words: its label in the small button type and
+/// the ground's text colour, underlined, with no fill and no outline, so it
+/// is never the loudest thing on a screen yet reads at a glance (a guest's
+/// "Leave" on 02, at the foot, and on 11, beside "{host} deals next.";
+/// playtest: a 16 px "Leave" read as tiny). At least [minTap] square to
+/// touch; dims while pressed; faint and inert with no [onPressed].
 class TextAction extends StatefulWidget {
   const TextAction({super.key, required this.label, required this.onPressed});
 
@@ -61,7 +62,7 @@ class _TextActionState extends State<TextAction> {
                 child: FitWords(
                   widget.label,
                   maxLines: 1,
-                  style: context.skin.typography.action.copyWith(
+                  style: context.skin.typography.buttonLabelSmall.copyWith(
                     color: enabled ? ground.text : ground.faintText,
                     decoration: TextDecoration.underline,
                     decorationColor: enabled ? ground.quietText : null,

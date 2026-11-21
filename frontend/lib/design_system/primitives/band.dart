@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show PathMetric, PointMode;
 
 import 'package:flutter/material.dart';
@@ -168,8 +169,15 @@ class TimerBand extends StatelessWidget {
   final String? semanticLabel;
   final bool _sun;
 
-  /// The sky's height below the status bar (S08).
+  /// The sky's height below the status bar (S08), on a phone of the mock's
+  /// height; a shorter phone gets [skyShare] of its height at most, so the
+  /// talk's body keeps room for My night and the deck.
   static const skyHeight = 250.0;
+  static const skyShare = 0.3;
+
+  /// The sky drawn on a screen [screenHeight] tall.
+  static double skyFor(double screenHeight) =>
+      math.min(skyHeight, screenHeight * skyShare);
 
   /// The vote bar's thickness (S09).
   static const barHeight = 8.0;
@@ -201,11 +209,11 @@ class TimerBand extends StatelessWidget {
       child: width == null
           ? Align(
               alignment: AlignmentDirectional.centerStart,
-              child: FitLine(number, style: numberStyle),
+              child: _Figure(number, style: numberStyle),
             )
           : SizedBox(
               width: width,
-              child: FitLine(number, style: numberStyle),
+              child: _Figure(number, style: numberStyle),
             ),
     );
     if (title == null) {
@@ -222,8 +230,22 @@ class TimerBand extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, room) {
         final scaler = MediaQuery.textScalerOf(context);
-        final numberWidth = _width(number, numberStyle, scaler).ceilToDouble();
-        final beside = room.maxWidth - numberWidth - Space.lg;
+        // Side by side or stacked is decided on the number's shape
+        // ("0:00"): the band's height holds still while the clock ticks (a
+        // narrower "4:54" no longer stacks or unstacks the title, and with
+        // it moves the body under the band). The number itself takes its own
+        // width.
+        final shapeWidth = _Figure.width(
+          _Figure.shape(number),
+          numberStyle,
+          scaler,
+        ).ceilToDouble();
+        final numberWidth = _Figure.width(
+          number,
+          numberStyle,
+          scaler,
+        ).ceilToDouble();
+        final beside = room.maxWidth - shapeWidth - Space.lg;
         if (_fitsTwoLines(title, titleStyle, scaler, beside)) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -289,7 +311,7 @@ class TimerBand extends StatelessWidget {
       children: [
         ExcludeSemantics(
           child: SizedBox(
-            height: skyHeight + top,
+            height: skyFor(MediaQuery.sizeOf(context).height) + top,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -464,4 +486,66 @@ class _SunPainter extends CustomPainter {
       old.line != line ||
       old.lineWidth != lineWidth ||
       old.outlineWidth != outlineWidth;
+}
+
+/// A clock's figure on one line, set smaller rather than broken: the number
+/// at [style], and its unit ("14 s": the space and what follows) at a fraction
+/// of it, so a hero-size number does not carry a hero-size "s".
+class _Figure extends StatelessWidget {
+  const _Figure(this.text, {required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  /// The unit's size against the number's.
+  static const unitShare = 0.4;
+
+  /// The figure as spans: the number, then the unit set smaller.
+  static TextSpan span(String text, TextStyle style) {
+    final space = text.lastIndexOf(' ');
+    final size = style.fontSize;
+    if (space < 0 || size == null) return TextSpan(text: text);
+    // The space goes with the unit, at its size: a hero-size gap would
+    // part them.
+    return TextSpan(
+      text: text.substring(0, space),
+      children: [
+        TextSpan(
+          text: text.substring(space),
+          style: TextStyle(fontSize: size * unitShare),
+        ),
+      ],
+    );
+  }
+
+  /// [text] with every digit a zero: the clock's shape, whatever it reads
+  /// (a digit wider than the zero is set a touch smaller in that room).
+  static String shape(String text) => text.replaceAll(RegExp(r'\d'), '0');
+
+  /// The figure's natural width, measured as it is drawn.
+  static double width(String text, TextStyle style, TextScaler scaler) {
+    final painter = TextPainter(
+      text: TextSpan(style: style, children: [span(text, style)]),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
+      child: Text.rich(
+        span(text, style),
+        maxLines: 1,
+        softWrap: false,
+        style: style,
+      ),
+    );
+  }
 }

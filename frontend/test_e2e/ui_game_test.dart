@@ -4,6 +4,7 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/panels.dart';
@@ -111,9 +112,15 @@ void main() {
       expect(looked.single['action_type'], 'peek_player');
       expect(looked.single['revealed_info']['target_name'], 'Cara');
 
-      // My night: what she saw, held.
+      // My night: open as the talk opens (her night told her something),
+      // put away with a tap; then held, the same words.
+      expect(find.byType(HeldFace), findsOneWidget);
+      await r.putAwayMyNight(() async {
+        expect(r.text("Cara's card was: Werewolf."), isTrue);
+        await r.shoot('talk-open');
+      });
       await r.holdThen(find.byType(PeekBox), () async {
-        expect(r.text("Cara's card: Werewolf."), isTrue);
+        expect(r.text("Cara's card was: Werewolf."), isTrue);
         await r.shoot('talk-my-night');
       });
       await r.talkAndVote(t, accuse: 'Cara');

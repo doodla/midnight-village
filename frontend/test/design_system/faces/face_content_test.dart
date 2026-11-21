@@ -77,7 +77,7 @@ void main() {
         {3},
       );
       final seer = _myNight('me_discussion_choose_seer');
-      expect(_lines(seer.pages.first), ["Cleo's card: Werewolf."]);
+      expect(_lines(seer.pages.first), ["Cleo's card was: Werewolf."]);
       expect(_lines(seer.pages.last), ['Dealt: Seer']);
     });
   });
@@ -127,10 +127,10 @@ void main() {
 
   test('the results fill their lines with names, cards and roles', () {
     String result(String name) => _lines(_myNight(name).pages.first).join(' ');
-    expect(result('me_discussion_choose_robber'), 'Your card now: Seer.');
+    expect(result('me_discussion_choose_robber'), "You took Ana's card: Seer.");
     expect(
       result('me_discussion_choose_werewolf_lone'),
-      'Only you. Left: Werewolf.',
+      'Only you. Left was: Werewolf.',
     );
     expect(result('me_discussion_choose_villager'), NightCopy.slept);
     // Chose, and nothing picked meant anything: the server says so.
@@ -138,19 +138,62 @@ void main() {
       result('me_discussion_choose_seer_nothing_chosen'),
       SawCopy.didNothing,
     );
-    expect(result('me_discussion_choose_drunk'), 'Middle is yours. Unseen.');
-    expect(result('me_discussion_choose_minion'), 'Werewolves: Cleo, Ida.');
-    expect(result('me_discussion_choose_mason'), 'Masons: Fin.');
+    expect(result('me_discussion_choose_drunk'), 'You took Middle, unseen.');
+    expect(
+      result('me_discussion_choose_minion'),
+      'Werewolves were: Cleo, Ida.',
+    );
+    expect(result('me_discussion_choose_mason'), 'Masons were: Fin.');
     expect(
       result('me_discussion_choose_insomniac'),
       'Your card now: Insomniac.',
     );
-    expect(result('me_discussion_choose_werewolf_pack'), 'Werewolves: Ida.');
+    expect(
+      result('me_discussion_choose_werewolf_pack'),
+      'Werewolves were: Ida.',
+    );
     final doppelganger = _myNight('me_discussion_choose_doppelganger');
     expect(_lines(doppelganger.pages[1]), [
       'You copied Ben.',
-      'Left: Villager, Middle: Villager.',
+      'Left was: Villager. Middle was: Villager.',
     ]);
+  });
+
+  test('the talk opens My night only where the night told something: a '
+      'result, or the copy; never "You slept." or "You did nothing."', () {
+    bool tells(String name) =>
+        NightReport.fromMe(recordedMe(name)).tellsSomething;
+    for (final name in [
+      'me_discussion_choose_seer',
+      'me_discussion_choose_robber',
+      'me_discussion_choose_drunk',
+      'me_discussion_choose_minion',
+      'me_discussion_choose_mason',
+      'me_discussion_choose_insomniac',
+      'me_discussion_choose_werewolf_lone',
+      'me_discussion_choose_doppelganger',
+    ]) {
+      expect(tells(name), isTrue, reason: name);
+    }
+    for (final name in [
+      'me_discussion_choose_villager',
+      'me_discussion_choose_seer_nothing_chosen',
+    ]) {
+      expect(tells(name), isFalse, reason: name);
+    }
+  });
+
+  test('every line is a fact of the night: nothing says "now" but the '
+      "Insomniac's, who looks last", () {
+    for (final name in _game7Talks.followedBy(_game8Talks)) {
+      for (final page in _myNight(name).pages) {
+        for (final line in page.lines) {
+          if (line.contains('now')) {
+            expect(name, 'me_discussion_choose_insomniac', reason: line);
+          }
+        }
+      }
+    }
   });
 
   test('the portrait is the card seen, or the moon when nothing was', () {

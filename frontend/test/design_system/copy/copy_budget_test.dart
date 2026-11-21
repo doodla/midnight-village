@@ -35,6 +35,10 @@ void main() {
       expect(wordCount('Nobody got 2 or more votes.'), 5);
       expect(wordCount('No Werewolf player: nobody dies.'), 4);
       expect(wordCount('Werewolves: {names}.'), 0);
+      // A unit symbol after a number or a gap is not a word; elsewhere it is.
+      expect(wordCount('{n} s'), 0);
+      expect(wordCount('14 s left'), 1);
+      expect(wordCount('s marks the spot'), 4);
       expect(wordCount("Don't look."), 2);
       expect(wordCount('Ready ✓'), 1);
       expect(wordCount('Doppelganger · {copied}:'), 0);

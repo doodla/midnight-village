@@ -27,6 +27,7 @@ void main() {
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_discussion_choose_seer'),
+        before: (s) => s.answerNightResultsSeen(),
       );
       await s.settle(tester);
       expect(find.byType(TalkScreen), findsOneWidget);
@@ -45,6 +46,7 @@ void main() {
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_discussion_choose_seer'),
+        before: (s) => s.answerNightResultsSeen(),
       );
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -59,6 +61,7 @@ void main() {
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_discussion_choose_seer'),
+        before: (s) => s.answerNightResultsSeen(),
         wakelock: FakeWakelockService(failing: true),
       );
       await s.settle(tester);

@@ -318,6 +318,34 @@ void main() {
     expect(tester.getSize(find.byType(PresetChip)).height, 44);
   });
 
+  testWidgets('the sun band holds still while the clock ticks: every second '
+      'of a minute the same height (the body under it does not jump)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final heights = <double>{};
+    for (var seconds = 290; seconds < 300; seconds++) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: skinTheme(_skin),
+          home: ScreenFrame(
+            ground: GroundKind.day,
+            topSlot: TimerBand.sun(
+              secondsLeft: seconds,
+              elapsed: 0.1,
+              title: 'The village wakes',
+            ),
+            body: const SizedBox.shrink(),
+          ),
+        ),
+      );
+      heights.add(tester.getSize(find.byType(TimerBand)).height);
+    }
+    expect(heights, hasLength(1));
+  });
+
   testWidgets('the vote band runs under the status bar with an 8 px bar and '
       'a 76 number', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -343,6 +371,11 @@ void main() {
       reason: 'the number clears the status bar',
     );
     expect(tester.widget<Text>(find.text('18 s')).style!.fontSize, 76);
+    // The unit is set smaller than the hero-size number it follows.
+    final figure = tester.widget<Text>(find.text('18 s')).textSpan!;
+    final unit = (figure as TextSpan).children!.single as TextSpan;
+    expect(unit.text, ' s');
+    expect(unit.style!.fontSize, lessThan(76 / 2));
     final bar = tester.getRect(
       find.descendant(
         of: find.byType(TimerBand),

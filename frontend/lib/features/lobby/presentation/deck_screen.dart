@@ -34,6 +34,12 @@ String deckChipLabel(DeckChip chip) => DeckCopy.chips[chip.index];
 /// The pace chips, in [Pace] order.
 String paceLabel(Pace pace) => DeckCopy.paces[pace.index];
 
+/// A pace chip's words: the pace and the talk it gives ("Normal 5:00").
+String paceChipLabel(Pace pace) => DeckCopy.paceChip.fill({
+  'pace': paceLabel(pace),
+  'talk': WorldTimer.format(pace.talk),
+});
+
 /// The roles in the order the deck builder shows them (S03).
 const deckOrder = [
   RoleId.werewolf,
@@ -62,9 +68,11 @@ const deckOrder = [
 ///   is sent with "Use this deck", which is amber only while it holds the
 ///   cards the server's deal needs (`deal.need`), else names what is
 ///   missing. A chip tapped meanwhile drops the edit.
-/// - The pace chips ("Quick", "Normal", "Long") set the talk, the vote and a
-///   night window to the contract's presets; none is selected while the
-///   table's lengths are the server's own.
+/// - The pace chips ("Quick 3:00", "Normal 5:00", "Long 8:00": each with the
+///   talk it gives) set the talk, the vote and a night window to the
+///   contract's presets; the one the table's lengths equal is selected, none
+///   while they are the server's own (a table made with no lengths: the
+///   server's defaults, 300/120/30, are not a preset).
 ///
 /// "Use this deck", or the system back, returns to 02. A restart lands on
 /// 02: opening 03 is a step of this phone's only ([localStepsProvider]).
@@ -215,7 +223,7 @@ class _DeckViewState extends State<DeckView> {
               onHold: (role) => unawaited(showRoleSheet(context, role)),
             ),
           _Chips(
-            labels: DeckCopy.paces,
+            labels: [for (final pace in Pace.values) paceChipLabel(pace)],
             selected: lobby.table.pace?.index,
             onTap: (i) => widget.onPace(Pace.values[i]),
           ),

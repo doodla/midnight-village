@@ -33,8 +33,9 @@ import 'night_pick.dart';
 ///   ([BoardLayout]); in front of them the viewer's own card, "You", on its
 ///   paper place, beside Left, Middle and Right on their strip: the same
 ///   cards, places, lift and button on every phone, whatever the role.
-/// - Holding "You" shows [face] (what this phone may do); until this device
-///   has held "You" once, the hold ring is on it (`hold_you`).
+/// - Holding "You" shows [face] (what this phone may do); the hold ring is
+///   on it only on a device that has never held a face (`hold`: taught once,
+///   on 04).
 ///   Nothing waits on the hold; a tap on "You" picks it at once.
 /// - A tap selects a card the prompt's rule can take (lift plus the
 ///   selection's outline) and unselects a chosen one; a card it cannot take
@@ -331,9 +332,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  /// The title on one line, set smaller only where it must, and beside it
-  /// the candle and the seconds as one compact unit, a line and a third
-  /// high.
+  /// The title on one line, set smaller only where it must (the prompt's:
+  /// the role's night line in a few words, "The village sleeps" for a
+  /// sleeper; one line on every phone, so the board below sits alike), and
+  /// beside it the candle and the seconds as one compact unit, a line and a
+  /// third high.
   Widget _header(BuildContext context) {
     final title = context.skin.typography.screenTitle;
     // At the title's own size, whatever the text scale: the unit sets its
@@ -345,7 +348,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         Expanded(
           child: Semantics(
             header: true,
-            child: FitWords(CommonCopy.nightTitle, maxLines: 1, style: title),
+            child: FitWords(
+              widget.prompt.kind.title,
+              maxLines: 1,
+              style: title,
+            ),
           ),
         ),
         SizedBox(
@@ -489,7 +496,6 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     void pick() => _tap(const SelfPick());
     return TeachingHold(
       target: NightCopy.you,
-      cue: Cue.holdYou,
       face: widget.face,
       cover: (teaching) => GestureDetector(
         onTap: pick,

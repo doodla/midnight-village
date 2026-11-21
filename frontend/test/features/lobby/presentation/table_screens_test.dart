@@ -10,6 +10,11 @@ import 'package:midnight_village/design_system/primitives/qr_picture.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
+import 'package:midnight_village/design_system/primitives/text_action.dart';
+import 'package:midnight_village/design_system/primitives/world_timer.dart';
+import 'package:midnight_village/design_system/skin/skin.dart';
+import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
+import 'package:midnight_village/features/lobby/presentation/deck_screen.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/mock_http_client.dart';
@@ -470,7 +475,17 @@ void main() {
       expect(find.byType(QrPicture), findsOneWidget);
       expect(find.text(TableCopy.editDeck), findsNothing);
       expect(find.textContaining('Deal'), findsNothing);
-      expect(_onPressed(tester, CommonCopy.leave), isNotNull);
+      // Waiting, said by the screen's shape: who deals is the loudest line,
+      // Leave a quiet word at the foot, no outlined button.
+      final leave = tester.widget<TextAction>(find.byType(TextAction));
+      expect(leave.label, CommonCopy.leave);
+      expect(leave.onPressed, isNotNull);
+      expect(_button(CommonCopy.leave), findsNothing);
+      final heading = tester.widget<Text>(
+        find.text(TableCopy.hostDeals.fill({'host': 'Ana'})),
+      );
+      final skin = tester.element(find.byType(TextAction)).skin;
+      expect(heading.style!.fontSize, skin.typography.heroTitle.fontSize);
       await setup.close(tester);
     });
 
@@ -895,9 +910,9 @@ void main() {
       setup.http.hold(method: 'PATCH', path: '/lobbies/V9YC2J/');
       setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
 
-      await _tap(tester, setup, find.text('Quick'));
+      await _tap(tester, setup, find.text(paceChipLabel(Pace.quick)));
 
-      expect(_chip(tester, 'Quick').selected, isTrue);
+      expect(_chip(tester, paceChipLabel(Pace.quick)).selected, isTrue);
       expect(setup.patches, [
         {
           'discussion_seconds': 180,
@@ -907,6 +922,23 @@ void main() {
       ]);
       // The lengths show under it.
       expect(find.text(DeckCopy.talk), findsOneWidget);
+      await setup.close(tester);
+    });
+
+    testWidgets('each pace chip says the talk it gives; back on 02 the '
+        'chosen pace shows beside the deck', (tester) async {
+      final setup = await openDeck(tester);
+      expect([
+        for (final pace in Pace.values) find.text(paceChipLabel(pace)),
+      ], everyElement(findsOneWidget));
+      expect(find.text('Normal 5:00'), findsOneWidget);
+      setup.http.hold(method: 'PATCH', path: '/lobbies/V9YC2J/');
+      setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
+      await _tap(tester, setup, find.text(paceChipLabel(Pace.long)));
+      await _tap(tester, setup, find.text(DeckCopy.useDeck));
+
+      expect(find.text(TableCopy.scan), findsOneWidget, reason: 'on 02');
+      expect(_chip(tester, WorldTimer.format(Pace.long.talk)).selected, isTrue);
       await setup.close(tester);
     });
 

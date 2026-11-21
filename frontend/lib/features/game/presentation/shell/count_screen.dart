@@ -361,7 +361,9 @@ class _DeadCard extends StatelessWidget {
         final type = context.skin.typography;
         final ground = context.ground;
         final shown = ((flip - 0.5) * 2).clamp(0.0, 1.0);
-        final quiet = type.caption.copyWith(color: ground.quietText);
+        // "Now" and "Dealt" say which card is which: read to follow the
+        // count, so at the acting size in full ink (playtest: "Now" tiny).
+        final quiet = type.action.copyWith(color: ground.text);
         final centred = death.moved && !compact;
         final nowCaption = death.copied != null
             ? RoleId.doppelganger.displayName

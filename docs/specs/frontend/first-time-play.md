@@ -28,7 +28,7 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 7. **Reading floor.**
    - 16 px minimum, at text scale 1.0, for anything a player must read in order to act.
    - 14 px minimum for captions under cards and tokens.
-   - Contrast of at least 4.5:1.
+   - Contrast of at least 4.5:1; words that say something true or are read to follow the game ("✓ Nothing to do", "✓ Locked", every count, "Now" and "Dealt" on 10, the night on 11, a quiet "Leave") in full ink, not the quiet one (playtest, 21 November 2026: "small and pale"). Counts are set larger than body text (17, bold).
    - No uppercase, letter-spaced micro-labels on player screens.
    - `just screens 390 strict` fails on any breach.
 8. **No naming in progress.** No copy names a player in connection with presence, progress, readiness, or a vote before the count. Progress is shown as "{d} of {n}" with plain pips: no tokens, no names.
@@ -69,9 +69,7 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 
 | Cue (`id`) | First appears | What the player sees | Words | Unlocks | Learned when | Later games |
 |---|---|---|---|---|---|---|
-| `hold` | 04, the moment of the deal | A plain ring on the face-down card, "Hold" in it at 20 px, breathes (bone colour, scale 1.00 to 1.06, 1.4 s loop); while the card is held the ring fills, in the 0.8 s a reveal takes to count (no thumbprint: product owner, 20 November 2026) | "Hold" | "Ready" turns amber after a 0.8 s reveal | The first 0.8 s reveal on any face | Nothing: the card is a card |
-| `hold_you` | 06, the first board | The same ring on "You", the player's own card in front of the seats (section 8: it points at what this phone may do) | "Hold" | — | The first reveal of "You" | Nothing |
-| `hold_my_night` | 08, the first talk | The same ring, without its word, on My night's card, "Hold" under the title | "Hold" | — | The first reveal of My night | Nothing |
+| `hold` | 04, the moment of the deal | A plain ring on the face-down card, "Hold" in it at 20 px, breathes (bone colour, scale 1.00 to 1.06, 1.4 s loop); while the card is held the ring fills, in the 0.8 s a reveal takes to count (no thumbprint: product owner, 20 November 2026). Taught once: the same ring is on "You" (06) and My night (08) only on a device that has never held a face (playtest, 21 November 2026: one lesson, not three) | "Hold" | "Ready" turns amber after a 0.8 s reveal | The first 0.8 s reveal on any face | Nothing: the card is a card |
 | `night_choose` | 06, the first window of the first game | When the board opens, each card lifts 8 px in a single left-to-right wave (120 ms each, 90 ms stagger) | none | — | The first successful `choose` | No wave |
 | `vote_lock` | 09, the first vote | The rows nudge 6 px in a single wave | none | — | The first successful lock | No wave |
 
@@ -83,7 +81,7 @@ Hidden-information analysis for the cues:
 **Accessibility.**
 - When `MediaQuery.accessibleNavigation` is on, each face is a button labelled "{target}, hidden. Activate to show." Activating it shows the face for 5 s (on 04, until it is activated again), reads it aloud, and counts as learned.
 - Face text is left out of semantics except on that explicit activation.
-- Night cards and vote rows are selectable buttons labelled with a name, "You", "Left", "Middle" or "Right". The board's spoken headline is the same on every phone.
+- Night cards and vote rows are selectable buttons labelled with a name, "You", "Left", "Middle" or "Right". The board's spoken headline is its title: the prompt's (section 8, accepted tells).
 - Reduce motion: the ring, the wave, the count flip and the timeline animation become static or instant.
 - With large text the board's words grow to 1.3 times and its button's to 1.6; names are never cut (they wrap between words, or the board takes fewer cards to a row). Faces cap their own text scale at 1.6.
 
@@ -116,7 +114,7 @@ Shared rules for every phone at night:
 | Second Choose | The picks stay lifted; the button reads "Chosen" | unchanged | `POST choose {picks}` → the same 200 for everyone. The server ignores it unless it is the Doppelganger's follow-up |
 | Fixed deadline | Every phone goes to the window-2 board at the same moment. No 07 appears in window 1. | — | `GET /me` |
 
-**Window 2** (always runs; closes when every present phone has chosen once, but no sooner than 8 s; otherwise at the deadline)
+**Window 2** (always runs; closes when every present phone with a choice has chosen once (section 8), but no sooner than the table's minimum; otherwise at the deadline)
 
 | Moment | What every phone shows | Held face of "You" | What the phone sends |
 |---|---|---|---|
@@ -169,6 +167,8 @@ Shared rules for every phone at night:
 | Lone Werewolf | "You may see 1 center card." (5) |
 | Doppelganger's look | "Copy 1 player's card." (3) |
 
+**The board's title** (06's headline, one line on every phone) is the prompt's: the role's night line in a few words on a phone with a choice, "The village sleeps" on a sleeper's (playtest, 21 November 2026: "The village sleeps" read as wrong while acting). Seer "See 1 or 2 cards" (3); Robber "Swap with 1 player" (3); Troublemaker "Swap 2 other players' cards" (4); Drunk "Swap with 1 center card" (4); Lone Werewolf "See 1 center card" (3); Doppelganger's look "Copy a player's card" (4). The face of "You" says the rest.
+
 ### Role text (single source for the 04 face, 03b and the role name on faces)
 
 Every role entry is laid out as: tag; "Night:" line; "Wins:" line; then the shared line **"You are your last card."** (5 words; "Anyone may lie." was cut on review, 21 November 2026, so the card reads at full size on small phones).
@@ -203,19 +203,20 @@ Village line: **"A Werewolf dies. No Werewolf player: nobody dies."** (6 words)
 
 ### 07 faces (and the window pages in 08)
 
-Every face has exactly one portrait slot and at most 2 lines.
+Every face has exactly one portrait slot and at most 2 lines. Each line is a fact of the night, in the past: what this phone saw or did then, never what a card is now, since cards move after a look (playtest, 21 November 2026: "Cleo's card: Werewolf." read at the talk as Cleo's card today). The Insomniac's is the one line still true at the talk: she looks last.
 
 | Result | Portrait | Text (words) |
 |---|---|---|
-| Seer, player | That card | "{name}'s card: {role}." (1) |
-| Seer, center | The first card | "{pos}: {role}, {pos}: {role}." (0): the server names each card's place (`center_indices`, contract third amendment) |
-| Robber or Insomniac | The new card | "Your card now: {role}." (3) |
+| Seer, player | That card | "{name}'s card was: {role}." (2) |
+| Seer, center | The first card | "{pos} was: {role}. {pos} was: {role}." (2): the server names each card's place (`center_indices`, contract third amendment) |
+| Robber | The new card | "You took {name}'s card: {role}." (3) |
+| Insomniac | Her card | "Your card now: {role}." (3) |
 | Troublemaker | Moon | "You swapped {name} and {name}." (3) |
-| Drunk (chosen or seeded) | Moon | "{pos} is yours now. Unseen." (4) |
-| Werewolves | Werewolf | "Werewolves: {names}." (0) |
-| Lone Werewolf | Werewolf | "Only you." plus "{pos}: {role}." if it looked (2) |
-| Minion | Minion | "Werewolves: {names}." or "No Werewolves." (1) |
-| Masons | Mason | "Masons: {names}." or "Only you." (2) |
+| Drunk (chosen or seeded) | Moon | "You took {pos}, unseen." (3) |
+| Werewolves | Werewolf | "Werewolves were: {names}." (1) |
+| Lone Werewolf | Werewolf | "Only you." plus "{pos} was: {role}." if it looked (3) |
+| Minion | Minion | "Werewolves were: {names}." or "There were no Werewolves." (3) |
+| Masons | Mason | "Masons were: {names}." or "Only you." (2) |
 | No choice, or timeout | Moon | "You slept." (2) |
 | Chose, nothing happened (the viewer's own `skip`, marked `nothing_chosen`, also the Doppelganger's look with no other player; a Drunk's server-made swap and a lone Werewolf who looked at nothing keep their own rows) | Moon | "You did nothing." (3) |
 
@@ -235,7 +236,8 @@ Every face has exactly one portrait slot and at most 2 lines.
 - **One thing / loudest (host):** guests scan. Loudest is the QR code for `/join/{code}`, with the code printed under it.
 - **Locked until:** "Deal to {n}" unlocks at 3 or more players.
 - **Copy (host):** "Scan to join"; quiet "Share" (opens the system share sheet); deck strip with count badges "2"; quiet "Edit deck"; amber "Deal to {n}", or disabled "Need 3 players". With a custom deck that does not match the player count: disabled "Add {n} cards" / "Remove {n} cards". **7 of 7 words.**
-- **Copy (guest):** "{host} deals"; the code in small type; quiet "Leave". **2 words.**
+- **Copy (guest):** "{host} deals"; the code in small type; quiet "Leave". **2 words.** Waiting is said by the shape, not a sentence (playtest, 21 November 2026: Leave read as the one thing to do): "{host} deals" at the hero title size, "Leave" a quiet underlined word at the foot, no outlined button.
+- **Pace (host):** once a pace is chosen on 03, its talk length ("5:00") sits beside the deck chip, selected: returning from 03 shows the choice (digits, no words).
 - **Removed:** "Table code", "At the table", "5 players", "Host · You", "8 cards", "x2", "Change" (10, 12, 15).
 - **States:**
   - Your own row has a thicker outline.
@@ -246,12 +248,13 @@ Every face has exactly one portrait slot and at most 2 lines.
 **03 Deck** (host, optional)
 - **One thing / loudest:** nothing is required; amber "Use this deck".
 - **Locked until:** amber only while the deck holds exactly players + 3 cards.
-- **Copy:** "Tonight's deck"; chips "Simple", "Classic", "Chaos"; chips "Quick", "Normal", "Long"; tiles "Talk", "Vote", "Night", "Copy" ("Copy" only when the Doppelganger is in the deck). A tile opens a stepper with the tile name and "Done". Button "Use this deck", or disabled "Add {n} cards" / "Remove {n} cards". **15 of 15 words.**
+- **Copy:** "Tonight's deck"; chips "Simple", "Classic", "Chaos"; chips "Quick 3:00", "Normal 5:00", "Long 8:00" (each with the talk it gives; playtest: "Long of what?"), the one the table's lengths equal selected; tiles "Talk", "Vote", "Night", "Copy" ("Copy" only when the Doppelganger is in the deck). A tile opens a stepper with the tile name and "Done". Button "Use this deck", or disabled "Add {n} cards" / "Remove {n} cards". **15 of 15 words.**
 - **Removed:** "8 of 8 cards", the help line, "Double", and the role-sheet cue (10, 12).
 - **States:**
   - The deck stays automatic (a chip) until a card is edited; then it is custom and no chip is selected.
   - Tapping a chip returns the deck to automatic.
   - Holding a portrait opens 03b.
+  - A table made with no lengths runs on the server's defaults (talk 300, vote 120, night 30): no preset, so no pace chip is selected until the host picks one ("Normal" is 300/90/30). Dealing without opening 03 stays three taps.
 - **Pass:** "Use this deck."
 
 **03b Role sheet**
@@ -264,7 +267,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 **04 Your card**
 - **One thing / loudest:** hold the card; a face-down card at 60% of the screen height.
 - **Locked until:** "Ready" unlocks after a 0.8 s reveal.
-- **Copy:** "Your card"; "Hold" (as the cue); "Ready" then "Ready ✓"; pips "{d} of {n}". Held face: the role text. **34 of 34 words.**
+- **Copy:** "Your card"; "Hold" (as the cue); "Ready" then "Ready ✓"; pips "{d} of {n} ready" (playtest: a bare "1 of 5" read as cards). Held face: the role text. **34 of 34 words.**
 - **Removed:**
   - The card arriving face up, and "Holding…" (3).
   - "I know my card" being loud (4).
@@ -283,7 +286,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 **06 Night board**
 - **One thing / loudest:** hold "You", tap a card, then Choose; the board.
 - **Locked until:** Choose needs 1 or more picks and a 0.8 s hold of "You" in this window.
-- **Copy:** "The village sleeps"; captions "You", "Left", "Middle", "Right"; candle and number. Button: "Choose a card" (disabled), then "Choose {cards}" or "Keep my card" (doing nothing: "You" alone picked), then "Chosen". "Hold" appears on "You" only as a cue. Held face: role name, instruction, window-1 page. **20 of 20 words.**
+- **Copy:** the board's title ("The village sleeps" for a sleeper, else the prompt's, see "The board's title" above); captions "You", "Left", "Middle", "Right"; candle and number. Button: "Choose a card" (disabled), then "Choose {cards}" or "Keep my card" (doing nothing: "You" alone picked), then "Chosen". "Hold" appears on "You" only as a cue. Held face: role name, instruction, window-1 page. **20 of 20 words.**
 - **Layout (product owner, 20 November 2026):** the other players' cards in balanced rows; the player's own card ("You") is not among them but in front of them, on a paper place beside the table's three cards, in the same place and size on every phone.
 - **Removed:**
   - The pre-selected Cleo (2).
@@ -303,8 +306,10 @@ Every face has exactly one portrait slot and at most 2 lines.
 
 **08 Talk**
 - **One thing / loudest:** talk. On the phone, the sun timer is loudest, then "My night".
-- **Locked until:** "Ready to vote" stays outlined (never amber) and unlocks once My night has been held this game.
-- **Copy:** "The village wakes"; timer digits; "My night"; deck strip; pips "{d} of {n} ready"; "Ready to vote", then "Ready ✓" (tap again to undo). My night pages, the same count on every phone: the result face; the window-1 page if window 1 ran; "Dealt: {role}". **15 of 15 words.**
+- **Locked until:** "Ready to vote" stays outlined (never amber) and is never locked.
+- **Copy:** "The village wakes"; timer digits (the unit "s" set smaller than the number); "My night"; deck strip; pips "{d} of {n} ready"; "Ready to vote", then "Ready ✓" (tap again to undo). My night pages, the same count on every phone: the result face; the window-1 page if window 1 ran; "Dealt: {role}". **15 of 15 words.**
+- **Opening (playtest, 21 November 2026: "never saw my result"):** a phone whose night told it something (a result other than "You slept." or "You did nothing.", or the Doppelganger's copy) that the server has not had acknowledged opens the talk with My night OPEN, once: the same paper card a hold shows, no hold, every word on screen. The ack (`night-results/seen`) goes as it shows; a tap puts it away into the My night box; "Ready to vote" works under it at once. A phone that slept opens nothing; a restart after the ack opens nothing. No server change, no wait.
+- **Deck:** in columns, sized to the room under My night (two at the acting size, then the caption size, then three; then the names alone): every chip whole and on screen at 320 wide, text x1 and x1.3, never under a fade. The large My night box only where the deck still fits under it.
 - **Removed:** "Left to talk", "Hold to peek", "In the deck tonight" (12). A loud ready button (4, 19). Tokens on the pips (9).
 - **States:**
   - Never paused. No host button. No dropped-player copy.
@@ -351,7 +356,7 @@ Every face has exactly one portrait slot and at most 2 lines.
   - Host: amber "Play again", quiet "Edit deck", side by side, or stacked when a label would not fit on one line. Guest: "{host} deals next." (only when the host is at the table) as the message, "Leave" a quiet word beside it, never a button (cold read: a non-reader tapped the only button and left).
   - **13 of 13 words.**
 - **Removed:** "Cleo held the Robber" (1). The footnote (12). "Change the deck".
-- **States:** after the band, every player's card (dealt → final) with "Won" / "Died", one compact line each, and the center; then the night, open (starting on the first screen at five players and 390 wide): first the red line, each Werewolf card from where it was dealt to where it ended ("Cara → Bob"), headed by the Werewolf's portrait; then the steps, arriving 150 ms apart (instant with reduce motion; a tap finishes them), on a spine that is red where a werewolf card was looked at or moved; a tap on the red line folds the steps. Red is the server's `werewolf` flag on a card, everywhere. (Review of the rebuild, 20 November 2026.)
+- **States:** after the band, every player's card (dealt → final) with "Won" / "Died", one compact line each, and the center; then the night, open (starting on the first screen at five players and 390 wide): first the red line, each Werewolf card from where it was dealt to where it ended ("Cara → Bob"), headed by the Werewolf's portrait; then the steps, arriving 150 ms apart (instant with reduce motion; a tap finishes them), on a spine that is red where a werewolf card was looked at or moved; a tap on the red line folds the steps. Red is the server's `werewolf` flag on a card, everywhere. (Review of the rebuild, 20 November 2026.) The whole night is reachable: scrolled to its end, its last step is fully above the pinned line, at five and ten players, 390 x 844 and 360 x 640; the steps, their numbers and "Center: {roles}" are in full ink (playtest, 21 November 2026: the story read as small, pale and cut off).
 - **Pass:** host says "Play again"; guest says "Wait or Leave".
 
 **Timeline rows on 11** (prefix "{role}:"; a Doppelganger follow-up uses the prefix "Doppelganger · {copied}:")
@@ -405,7 +410,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 | `design-brief.md` | Amended to |
 |---|---|
 | §2: amber on the "primary button only" | One amber fill per screen, with a 2 px ink outline on day grounds. Selection uses lift plus an outline. |
-| §3.3: non-actors "get something to tap" | Every phone sends the same `choose`. |
+| §3.3: non-actors "get something to tap" | Every phone with a choice sends a `choose`; a phone with nothing to choose sends nothing and is not waited for (section 8). |
 | §4.5: night waiting screen | 05 only between a close and 07. |
 | §4.6: a "do nothing" choice | "Keep my card", or any card that means nothing to your role. |
 | §4.7: "Hides by itself" | Hold, a 5 s cap, and Done after a 0.8 s reveal and 4 s. |
@@ -438,7 +443,7 @@ Every face has exactly one portrait slot and at most 2 lines.
 
 1. **`choose` action.** `POST .../action/ {"action_type":"choose","picks":[{"player_id":14}|{"center_index":0}|{"self":true}]}`, with 0 to 2 distinct picks in order. The server interprets it per the "How the server reads a `choose`" table. Reason: the phone never decides what a pick means.
 2. **Identical answers.** Every `choose` is answered `{"status":"submitted"}`, a resend of one already taken included (the request carries the prompt's `chosen`; `docs/specs/onuw/api-contract-v2.md`, section 9). The only errors are `wrong_phase`, `already_chosen` (409) and malformed `bad_request`, and none of them depends on role. A pick that is invalid for the role is not an error. Test every role for byte-identical responses. Reason: responses must leak nothing.
-3. **Choosing twice in window 1.** Window 1 accepts up to 2 `choose` from any phone and stays fixed-length. Window 2 accepts exactly 1, and its all-tap close counts `choose` submissions. Reason: every phone may Choose twice, so the Doppelganger's follow-up is not a tell.
+3. **Choosing twice in window 1.** Window 1 accepts up to 2 `choose` from any phone and stays fixed-length. Window 2 accepts exactly 1, and closes once every phone with a choice has chosen (section 8: a phone with nothing to choose sends nothing). Reason: the server answers any phone's choose alike; who taps at all is an accepted tell (section 8).
 4. **Doing nothing.** A lone Werewolf with no center pick, and a Doppelganger look with no other-player pick, both resolve as skip or timeout. A Drunk with no center pick gets the seeded swap (`made_by_server: true`). Reason: "Keep my card" must be valid for every role.
 5. **Window opening.** Every phone gets the same group event `night_window {window, deadline}` in one after-commit batch. Each phone then reads its own prompt from `/me`; there are no per-role prompt events. Reason: identical traffic and timing.
 6. **Automatic deck and defaults.**
@@ -485,7 +490,7 @@ the server's existing ones, and the pace presets leave the Doppelganger's time a
 "Copy" tile changes it). Where this spec says "15 s", "20 s" or "Normal Copy", read "the
 table's setting".
 
-**Window 1 is as in section 3** (one fixed-length window, every phone may Choose twice, the
+**Window 1 is as in section 3** (one fixed-length window, the server takes two chooses from any phone, the
 Doppelganger's look resolves the moment she chooses). Two rules close what the review found:
 
 - **The phone never waits for the answer to change what others can see.** On Choose the picks
@@ -530,7 +535,7 @@ night.
 | Choose locked until "You" is held 0.8 s, every window, every phone | No gate at night. Holding "You" shows what you may do; the `hold` cue points at it in a first game only. |
 | Any taps accepted; a pick that means nothing to your role silently does nothing | The phone reads the SERVER's prompt (which cards and how many your role may pick) and the button follows it: "Choose a card" (disabled) / "Choose 1 more" (disabled) / "Choose Cleo" / "Choose Left, Right" / "Keep my card". A turn cannot be wasted by a slip. Players with nothing to choose have no button (next row). Deliberately doing nothing is picking "You". The phone holds no rules: it compares picks with the prompt's shapes. |
 | Every phone chooses at night, a sleeper by tapping any card, and every window waits for every phone | A phone with nothing to choose (its prompt is `none`) is not asked to do anything (playtest on the real screens, 20 November 2026: "Choose a card" contradicted "Night: Sleep."). Its board says the village sleeps and shows the table calmly; a tap lifts a card and lets it settle (cover for anyone who wants to fidget), nothing is picked or sent; there is no button. The server never waits for it: a window closes once every phone WITH a choice has chosen (no sooner than the table's minimum) or at its deadline. A player with a choice still picks, then presses; "Keep my card" stays the pass. |
-| Every phone chooses twice in window 1 | Every phone chooses once per window. Only the Doppelganger, after her look, gets a second pick in window 1 (her board re-arms when her result arrives). |
+| Every phone chooses twice in window 1 | A phone with a choice chooses once per window. Only the Doppelganger, after her look, gets a second pick in window 1 (her board re-arms when her result arrives). |
 | A held face hides after 5 s | No cap anywhere. It hides on release. |
 | "Ready to vote" locked until "My night" was held | Never locked. In a first game the `hold` cue breathes on "My night". |
 | A tap on a locked gate replays the cue | Unchanged, but the only gates left are 04 "Ready" (you must have seen your card) and buttons waiting for a valid pick. |
@@ -545,4 +550,5 @@ tap.
 **Accepted tells** (the card game has them too): an actor may take a little longer than a
 sleeper; a neighbour who reads your button can see how many cards you are picking; the
 Doppelganger taps twice; who taps at night (only a phone with a choice sends one, and only
-its board has a button), never what they chose. None of these is worth a wait or a wasted turn.
+its board has a button), never what they chose; a glance at a board's title (an actor's
+says what the role does tonight, a sleeper's "The village sleeps"). None of these is worth a wait or a wasted turn.

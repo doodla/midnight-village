@@ -263,6 +263,12 @@ class ShellSetup {
     return container.read(tableScreenProvider).value?.screen;
   }
 
+  /// The talk's ack of the night's results (`night-results/seen`): the
+  /// talk sends it as it shows a night that told this phone something,
+  /// open; answered as recorded.
+  void answerNightResultsSeen() =>
+      answerPost('/night-results/seen/', 'game/night_results_seen');
+
   /// `POST <base><endpoint>` answers the recorded sample [sample].
   void answerPost(String endpoint, String sample, {int status = 200}) =>
       http.answer(

@@ -250,7 +250,7 @@ class _ResultsViewState extends State<ResultsView>
                 ResultsCopy.center.fill({
                   'roles': nameList(center.map((r) => r.displayName)),
                 }),
-                style: type.body.copyWith(color: context.ground.quietText),
+                style: type.body.copyWith(color: context.ground.text),
               ),
               if (_lines.isNotEmpty) ...[
                 const SizedBox(height: Space.lg),
@@ -706,7 +706,7 @@ class _Line extends StatelessWidget {
             child: Text(
               '${line.number}',
               style: type.nameSmall.copyWith(
-                color: line.werewolf ? ground.dangerText : ground.quietText,
+                color: line.werewolf ? ground.dangerText : ground.text,
               ),
             ),
           ),
@@ -718,13 +718,18 @@ class _Line extends StatelessWidget {
               children: [
                 // The role steps back, above; what happened leads. Each is
                 // set on its own, so neither breaks inside a word.
+                // Both in full ink: the night is read to settle arguments
+                // (playtest: the story small and pale).
                 FitWords(
                   line.prefix,
-                  style: type.action.copyWith(color: ground.quietText),
+                  style: type.action.copyWith(color: ground.text),
                 ),
                 FitWords(
                   line.text,
-                  style: type.body.copyWith(color: ground.text),
+                  style: type.bodyLarge.copyWith(
+                    fontWeight: type.body.fontWeight,
+                    color: ground.text,
+                  ),
                 ),
                 if (line.cards.isNotEmpty)
                   Wrap(

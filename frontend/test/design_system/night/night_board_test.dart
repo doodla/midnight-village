@@ -49,6 +49,30 @@ void main() {
     expect(find.text('0'), findsNothing);
   });
 
+  testWidgets('the title is the prompt\'s: what the role does tonight on a '
+      'phone with a choice, "The village sleeps" on a sleeper\'s', (
+    tester,
+  ) async {
+    for (final (viewer, title) in [
+      (Viewer.seer, NightCopy.seerTitle),
+      (Viewer.robber, NightCopy.robberTitle),
+      (Viewer.troublemaker, NightCopy.troublemakerTitle),
+      (Viewer.drunk, NightCopy.drunkTitle),
+      (Viewer.loneWerewolf, NightCopy.loneWerewolfTitle),
+      (Viewer.doppelganger, NightCopy.doppelgangerTitle),
+      (Viewer.villager, CommonCopy.nightTitle),
+      (Viewer.windowOneSleeper, CommonCopy.nightTitle),
+    ]) {
+      await BoardHarness.of(viewer).pump(tester);
+      expect(find.text(title), findsOneWidget, reason: viewer.name);
+      expect(
+        tester.getSemantics(find.text(title)),
+        matchesSemantics(label: title, isHeader: true),
+        reason: viewer.name,
+      );
+    }
+  });
+
   testWidgets('it is drawn from the other seats in seat order, then "You" '
       'in front, then Left, Middle, Right', (tester) async {
     await BoardHarness.of(Viewer.seer).pump(tester);
@@ -177,15 +201,20 @@ void main() {
     expect(lifted(tester), isEmpty);
   });
 
-  testWidgets('the hold ring points at "You" until it has been held once on '
-      'this device, after 04 taught the hold', (tester) async {
-    final board = BoardHarness.of(Viewer.seer, learned: {Cue.hold});
-    await board.pump(tester);
+  testWidgets('the hold is taught once: no ring on "You" after 04 taught it; '
+      'on a device that never held a face, the ring until the first reveal', (
+    tester,
+  ) async {
     bool pointing() => tester.widget<FaceDownCard>(you).hold ?? false;
+    await BoardHarness.of(Viewer.seer, learned: {Cue.hold}).pump(tester);
+    expect(pointing(), isFalse);
+
+    final fresh = BoardHarness.of(Viewer.seer, learned: const {});
+    await fresh.pump(tester);
     expect(pointing(), isTrue);
     await holdAndLetGo(tester, you);
     expect(pointing(), isFalse);
-    expect(board.container.read(learnedCuesProvider), contains(Cue.holdYou));
+    expect(fresh.container.read(learnedCuesProvider), {Cue.hold});
   });
 
   testWidgets('the face is never under the thumb', (tester) async {
@@ -493,7 +522,7 @@ void main() {
           .textScaler
           .scale(1);
       expect(scaleOf(NightCopy.you), NightBoard.labelScale);
-      expect(scaleOf(CommonCopy.nightTitle), NightBoard.labelScale);
+      expect(scaleOf(NightCopy.drunkTitle), NightBoard.labelScale);
       expect(scaleOf(NightCopy.chooseNone), NightBoard.buttonScale);
       expect(tester.takeException(), isNull);
     });

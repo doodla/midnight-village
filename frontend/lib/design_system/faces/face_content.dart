@@ -69,21 +69,37 @@ RoleId serverRole(Object? name) =>
     (throw FormatException('Not a role', name));
 
 /// What a night prompt asks of this phone, by the prompt's `kind`, one to
-/// one: what its "You" face says.
+/// one: what its "You" face says, and the board's title.
 enum NightPrompt {
-  noChoice('none', NightCopy.noChoice),
-  seer('seer', NightCopy.seer),
-  robber('robber', NightCopy.robber),
-  troublemaker('troublemaker', NightCopy.troublemaker),
-  drunk('drunk', NightCopy.drunk),
-  loneWerewolf('lone_werewolf', NightCopy.loneWerewolf),
-  doppelgangerLook('doppelganger_look', NightCopy.doppelgangerLook);
+  noChoice('none', NightCopy.noChoice, CommonCopy.nightTitle),
+  seer('seer', NightCopy.seer, NightCopy.seerTitle),
+  robber('robber', NightCopy.robber, NightCopy.robberTitle),
+  troublemaker(
+    'troublemaker',
+    NightCopy.troublemaker,
+    NightCopy.troublemakerTitle,
+  ),
+  drunk('drunk', NightCopy.drunk, NightCopy.drunkTitle),
+  loneWerewolf(
+    'lone_werewolf',
+    NightCopy.loneWerewolf,
+    NightCopy.loneWerewolfTitle,
+  ),
+  doppelgangerLook(
+    'doppelganger_look',
+    NightCopy.doppelgangerLook,
+    NightCopy.doppelgangerTitle,
+  );
 
-  const NightPrompt(this.kind, this.instruction);
+  const NightPrompt(this.kind, this.instruction, this.title);
 
   /// The server's name for it.
   final String kind;
   final String instruction;
+
+  /// The board's headline: the role's night line in a few words for a
+  /// phone with a choice; "The village sleeps" for a sleeper.
+  final String title;
 
   static NightPrompt fromKind(String kind) =>
       values.where((prompt) => prompt.kind == kind).firstOrNull ??
@@ -111,7 +127,10 @@ sealed class NightResult {
       // Chose, and nothing picked meant anything for the role (the server
       // lists the viewer's own skip, marked `nothing_chosen`).
       'skip' => const DidNothingResult._(),
-      'swap_with_player' => NewCardResult._(serverRole(info['new_role'])),
+      'swap_with_player' => RobbedResult._(
+        name: info['target_name'] as String,
+        role: serverRole(info['new_role']),
+      ),
       'insomniac' => NewCardResult._(serverRole(info['current_role'])),
       'swap_others' => SwappedResult._(
         info['player1_name'] as String,
@@ -190,7 +209,23 @@ final class DidNothingResult extends NightResult {
   List<String> get lines => const [SawCopy.didNothing];
 }
 
-/// The Robber's or the Insomniac's card now.
+/// The Robber took a player's card and looked at it.
+final class RobbedResult extends NightResult {
+  const RobbedResult._({required this.name, required this.role});
+
+  final String name;
+  final RoleId role;
+
+  @override
+  FacePortrait get portrait => RoleFacePortrait(role);
+
+  @override
+  List<String> get lines => [
+    SawCopy.robbed.fill({'name': name, 'role': role.displayName}),
+  ];
+}
+
+/// The Insomniac's card at the end of the night (no card moves after her).
 final class NewCardResult extends NightResult {
   const NewCardResult._(this.role);
 

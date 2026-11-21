@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
@@ -282,6 +283,17 @@ class Phone {
     await tester.pump(HoldToReveal.revealedAfter);
     await whileHeld();
     await gesture.up();
+    await tester.pump();
+  }
+
+  /// The talk opens with My night open where the night told this phone
+  /// something: [whileOpen] reads it, then a tap puts it away (a local tap:
+  /// the ack went as it showed). Nothing open: nothing to do.
+  Future<void> putAwayMyNight([Future<void> Function()? whileOpen]) async {
+    final open = find.byType(HeldFace);
+    if (open.evaluate().isEmpty) return;
+    await whileOpen?.call();
+    await tester.tapAt(tester.getRect(open).topCenter + const Offset(0, 24));
     await tester.pump();
   }
 

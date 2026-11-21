@@ -50,6 +50,20 @@ DateTime _before(Map<String, dynamic> me, int seconds) => DateTime.parse(
 
 const _everything = {...Cue.values};
 
+/// The talk opens My night once and acknowledges the results as it does:
+/// that POST is answered from the start.
+void _answerAck(ShellSetup s) =>
+    s.answerPost('/night-results/seen/', 'game/night_results_seen');
+
+/// Puts the open My night away (a tap on it).
+Future<void> _putAway(WidgetTester tester) async {
+  // Near its top: a tall card runs past a small test screen's edge.
+  await tester.tapAt(
+    tester.getRect(find.byType(HeldFace)).topCenter + const Offset(0, 24),
+  );
+  await tester.pumpAndSettle();
+}
+
 /// Locked on [name]: that row lifted and outlined, not dimmed; every other
 /// row dimmed and not picked.
 void _expectLockedOn(WidgetTester tester, String name) {
@@ -65,15 +79,20 @@ void main() {
     testWidgets('fed from /me/: the seconds left by the deadline, the title '
         'in the band, no names (the vote lists them), the deck, counts only; '
         '"Ready to vote" outlined and never locked', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       final me = recordedMe('me_discussion_choose_seer');
       final s = await ShellSetup.pump(
         tester,
         me,
         clock: _before(me, 14),
         learned: _everything,
+        before: _answerAck,
       );
       await s.settle(tester);
       expect(find.byType(TalkScreen), findsOneWidget);
+      await _putAway(tester);
       expect(find.text(TalkCopy.headline), findsOneWidget);
       final band = tester.widget<TimerBand>(find.byType(TimerBand));
       expect(band.secondsLeft, 14);
@@ -113,7 +132,12 @@ void main() {
     testWidgets('Ready, then not: each shows on the tap; the second waits for '
         'the first and they reach the server in tap order', (tester) async {
       final me = recordedMe('me_discussion_choose_seer');
-      final s = await ShellSetup.pump(tester, me, learned: _everything);
+      final s = await ShellSetup.pump(
+        tester,
+        me,
+        learned: _everything,
+        before: _answerAck,
+      );
       await s.settle(tester);
       final replies = s.http.hold(
         method: 'POST',
@@ -153,6 +177,7 @@ void main() {
         tester,
         recordedMe('me_discussion_choose_seer'),
         learned: _everything,
+        before: _answerAck,
       );
       await s.settle(tester);
       s.answerPost('/ready/', 'game/ready_talk');
@@ -172,7 +197,11 @@ void main() {
 
     testWidgets('a restart mid-talk after Ready opens at "Ready ✓" and sends '
         'nothing', (tester) async {
-      final s = await ShellSetup.pump(tester, recordedMe('me_talk_ready'));
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_talk_ready'),
+        before: _answerAck,
+      );
       await s.settle(tester);
       expect(_button(tester), CommonCopy.readyDone);
       expect(find.text('1 of 5 ready'), findsOneWidget);
@@ -195,6 +224,7 @@ void main() {
         tester,
         recordedMe('me_discussion_choose_seer'),
         learned: _everything,
+        before: _answerAck,
       );
       await s.settle(tester);
       s.answerPost('/ready/', 'game/ready_wrong_stage', status: 409);
@@ -213,6 +243,7 @@ void main() {
         tester,
         recordedMe('me_discussion_choose_seer'),
         learned: _everything,
+        before: _answerAck,
       );
       await s.settle(tester);
       s.failPost('/ready/');
@@ -233,30 +264,78 @@ void main() {
       await s.close(tester);
     });
 
-    testWidgets('My night: the hold cue in a first game; held, the result '
-        'first; the first reveal acknowledges the results, once', (
-      tester,
-    ) async {
+    testWidgets('a night that told something opens the talk with My night '
+        'open, no hold; the ack goes as it shows; a tap puts it away; '
+        '"Ready to vote" works at once, open or not', (tester) async {
       final me = recordedMe('me_discussion_choose_seer');
       final s = await ShellSetup.pump(
         tester,
         me,
-        learned: const {Cue.hold, Cue.holdYou, Cue.nightChoose},
+        learned: const {Cue.hold, Cue.nightChoose},
+        before: _answerAck,
       );
       await s.settle(tester);
-      expect(find.text(CommonCopy.hold), findsOneWidget, reason: 'first talk');
-      s.answerPost('/night-results/seen/', 'game/night_results_seen');
-
-      final gesture = await holdDown(tester, find.byType(PeekBox));
-      expect(find.byType(HeldFace), findsOneWidget);
-      expect(find.text("Cleo's card: Werewolf."), findsOneWidget);
-      await gesture.up();
-      await s.settle(tester);
+      expect(find.byType(HeldFace), findsOneWidget, reason: 'open, no hold');
+      expect(find.text("Cleo's card was: Werewolf."), findsOneWidget);
+      expect(find.byType(PeekBox), findsNothing);
       expect(_bodies(s, '/night-results/seen/'), [
         {'seen': (me['night_results'] as List).length},
-      ]);
-      expect(find.text(CommonCopy.hold), findsNothing, reason: 'learned');
+      ], reason: 'shown is seen');
+      expect(find.text(CommonCopy.hold), findsNothing, reason: 'taught on 04');
 
+      // Ready under the open card, at once.
+      s.answerPost('/ready/', 'game/ready_talk');
+      await tester.tap(find.byType(PrimaryButton).last);
+      await tester.pump();
+      expect(_button(tester), CommonCopy.readyDone);
+      expect(find.byType(HeldFace), findsOneWidget, reason: 'still open');
+
+      await _putAway(tester);
+      expect(find.byType(HeldFace), findsNothing);
+      expect(find.byType(PeekBox), findsOneWidget, reason: 'into My night');
+
+      // Held later: the same face, the result first; no second ack.
+      final gesture = await holdDown(tester, find.byType(PeekBox));
+      expect(find.byType(HeldFace), findsOneWidget);
+      expect(find.text("Cleo's card was: Werewolf."), findsOneWidget);
+      await gesture.up();
+      await s.settle(tester);
+      expect(s.posts('/night-results/seen/'), 1);
+      await s.close(tester);
+    });
+
+    testWidgets('it opens once: a restart after the ack opens nothing', (
+      tester,
+    ) async {
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_talk_results_seen'),
+        learned: _everything,
+      );
+      await s.settle(tester);
+      expect(find.byType(HeldFace), findsNothing);
+      expect(find.byType(PeekBox), findsOneWidget);
+      expect(s.posts('/night-results/seen/'), 0);
+      await s.close(tester);
+    });
+
+    testWidgets('a night that told nothing ("You slept.") opens nothing; the '
+        'first hold of My night acknowledges, once', (tester) async {
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_discussion_choose_villager'),
+        learned: _everything,
+        before: _answerAck,
+      );
+      await s.settle(tester);
+      expect(find.byType(HeldFace), findsNothing);
+      expect(find.byType(PeekBox), findsOneWidget);
+      expect(s.posts('/night-results/seen/'), 0);
+      final gesture = await holdDown(tester, find.byType(PeekBox));
+      expect(find.text(NightCopy.slept), findsOneWidget);
+      await gesture.up();
+      await s.settle(tester);
+      expect(s.posts('/night-results/seen/'), 1);
       await holdAndLetGo(tester, find.byType(PeekBox));
       await s.settle(tester);
       expect(s.posts('/night-results/seen/'), 1);
@@ -264,12 +343,17 @@ void main() {
     });
 
     testWidgets('a held deck portrait opens its role', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_discussion_choose_seer'),
         learned: _everything,
+        before: _answerAck,
       );
       await s.settle(tester);
+      await _putAway(tester);
       await tester.ensureVisible(find.byType(RoleCard).first);
       await tester.longPress(find.byType(RoleCard).first);
       await tester.pumpAndSettle();
@@ -323,7 +407,8 @@ void main() {
         method: 'POST',
         path: '/onuw/games/${s.gameId}/vote/',
       );
-      s.answerPost('/vote/', 'game/vote_picked');
+      // Ana settles on Cleo: the recorded pick that names her.
+      s.answerPost('/vote/', 'game/vote_repicked');
       await tester.tap(find.text(sheet.cleo.name));
       await tester.pump();
       expect(_row(tester, sheet.cleo.name).picked, isTrue);
@@ -372,18 +457,22 @@ void main() {
         learned: _everything,
       );
       await s.settle(tester);
+      // The recorded pick, then the recorded re-pick: whom each names.
+      seat(String sample) => sheet.fiveSeats.firstWhere(
+        (p) =>
+            p.id ==
+            ContractSamples.map('http/game/$sample')['target_player_id'],
+      );
+      final first = seat('vote_picked');
+      final other = seat('vote_repicked');
       s.answerPost('/vote/', 'game/vote_picked');
-      await tester.tap(find.text(sheet.cleo.name));
+      await tester.tap(find.text(first.name));
       await s.settle(tester);
       s.answerPost('/vote/', 'game/vote_repicked');
-      final repick = ContractSamples.map('http/game/vote_repicked');
-      final other = sheet.fiveSeats.firstWhere(
-        (p) => p.id == repick['target_player_id'],
-      );
       await tester.tap(find.text(other.name));
       await s.settle(tester);
       expect(_row(tester, other.name).picked, isTrue);
-      expect(_row(tester, sheet.cleo.name).picked, isFalse);
+      expect(_row(tester, first.name).picked, isFalse);
       expect(_button(tester), 'Lock in ${other.name}');
       await s.close(tester);
     });
@@ -393,14 +482,14 @@ void main() {
     ) async {
       var s = await ShellSetup.pump(tester, recordedMe('me_voting_picked'));
       await s.settle(tester);
-      expect(_row(tester, sheet.dev.name).picked, isTrue);
-      expect(_button(tester), 'Lock in Dev');
+      expect(_row(tester, sheet.cleo.name).picked, isTrue);
+      expect(_button(tester), 'Lock in Cleo');
       await s.close(tester);
 
       s = await ShellSetup.pump(tester, recordedMe('me_voting_locked'));
       await s.settle(tester);
       expect(_button(tester), VoteCopy.locked);
-      _expectLockedOn(tester, sheet.dev.name);
+      _expectLockedOn(tester, sheet.cleo.name);
       expect(find.text('1 of 5 locked'), findsOneWidget, reason: 'the server');
       expect(s.posts('/vote/'), 0);
       await s.close(tester);
@@ -465,6 +554,103 @@ void main() {
     });
   });
 
+  group('the talk on a small phone', () {
+    // The playtest: the deck's last chips ran under the fade (the
+    // Troublemaker read as not in play), and the open card's words fell
+    // below the fold. Every chip and every word above the count, nothing
+    // faded over them: game 7's deck at the gallery's phones, text x1 and
+    // x1.3; a nine-role deck (ten at the table) at text x1. (Nine roles at
+    // 320 x1.3, or a phone as short as 640, still scroll the deck.)
+    Map<String, dynamic> five() => recordedMe('me_discussion_choose_seer');
+    Map<String, dynamic> ten() => sheet.tableOf(
+      recordedMe('me_discussion_choose_drunk'),
+      add: 1,
+      rename: sheet.longNames,
+    );
+    for (final (width, scale, label, me) in [
+      for (final width in [320.0, 360.0, 390.0]) ...[
+        (width, 1.0, 'five', five),
+        (width, 1.3, 'five', five),
+        (width, 1.0, 'ten, nine roles', ten),
+      ],
+    ]) {
+      const height = 844.0;
+      {
+        final size = '${width.toInt()} x ${height.toInt()}, text x$scale';
+        Future<ShellSetup> pump(WidgetTester tester) async {
+          tester.view.physicalSize = Size(width, height);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final s = await ShellSetup.pump(
+            tester,
+            me(),
+            textScale: scale,
+            learned: _everything,
+            before: _answerAck,
+          );
+          await s.settle(tester);
+          return s;
+        }
+
+        // A fade over the body's foot (the sun's own fade into the ground,
+        // in the band, is the picture's).
+        bool faded() {
+          final fades = find.byWidgetPredicate(
+            (w) =>
+                w is DecoratedBox &&
+                w.decoration is BoxDecoration &&
+                (w.decoration as BoxDecoration).gradient is LinearGradient &&
+                (w.decoration as BoxDecoration).gradient!.colors.first.a == 0,
+          );
+          final inBand = find
+              .descendant(of: find.byType(TimerBand), matching: fades)
+              .evaluate()
+              .toSet();
+          return fades.evaluate().any((e) => !inBand.contains(e));
+        }
+
+        testWidgets('$label, $size: the open card\'s words are all above the '
+            'count', (tester) async {
+          final s = await pump(tester);
+          final count = tester.getRect(find.byType(ProgressPips)).top;
+          final words = find.descendant(
+            of: find.byType(HeldFace),
+            matching: find.byType(RichText),
+          );
+          expect(words, findsWidgets);
+          for (final element in words.evaluate()) {
+            final rect = tester.getRect(
+              find.byElementPredicate((e) => e == element),
+            );
+            expect(rect.bottom, lessThanOrEqualTo(count));
+          }
+          expect(faded(), isFalse);
+          await s.close(tester);
+        });
+
+        testWidgets('$label, $size: put away, every deck chip is whole above '
+            'the count, none faded', (tester) async {
+          final s = await pump(tester);
+          await _putAway(tester);
+          final count = tester.getRect(find.byType(ProgressPips)).top;
+          final chips = find.byWidgetPredicate(
+            (w) => w.runtimeType.toString() == '_DeckChip',
+          );
+          expect(chips, findsNWidgets((me()['roles_in_game'] as List).length));
+          for (final element in chips.evaluate()) {
+            final rect = tester.getRect(
+              find.byElementPredicate((e) => e == element),
+            );
+            expect(rect.bottom, lessThanOrEqualTo(count));
+          }
+          expect(faded(), isFalse);
+          expect(truncatedText(tester), isEmpty);
+          await s.close(tester);
+        });
+      }
+    }
+  });
+
   group('names are never cut', () {
     for (final (width, height) in [
       (320.0, 568.0),
@@ -512,6 +698,7 @@ void main() {
               me(),
               textScale: scale,
               learned: _everything,
+              before: _answerAck,
             );
             await s.settle(tester);
             expect(tester.takeException(), isNull);

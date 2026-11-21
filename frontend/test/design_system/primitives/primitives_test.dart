@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
@@ -301,6 +302,35 @@ void main() {
         ),
       );
     }
+
+    testWidgets('the fade over the body\'s lower edge is never taller than '
+        'what is still below it, and gone at the end', (tester) async {
+      await pumpFrame(tester, const Size(390, 844));
+      // The fade follows the body's measure, one frame on.
+      await tester.pump();
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      double? fade() {
+        final boxes = find.byWidgetPredicate(
+          (w) =>
+              w is DecoratedBox &&
+              w.decoration is BoxDecoration &&
+              (w.decoration as BoxDecoration).gradient is LinearGradient,
+        );
+        return boxes.evaluate().isEmpty
+            ? null
+            : tester.getSize(boxes.last).height;
+      }
+
+      expect(fade(), Space.xxl * 2, reason: 'much more below');
+      position.jumpTo(position.maxScrollExtent - 4);
+      await tester.pump();
+      expect(fade(), 4, reason: 'a few pixels: a few pixels of fade');
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pump();
+      expect(fade(), isNull, reason: 'the end: nothing faded');
+    });
 
     testWidgets('on a wide screen the phone layout is centred', (tester) async {
       await pumpFrame(tester, const Size(1200, 900));

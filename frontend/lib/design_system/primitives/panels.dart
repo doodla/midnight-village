@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
@@ -140,6 +142,36 @@ class PeekBox extends StatelessWidget {
   /// The mock's card, and the large box's.
   static const cardSize = Size(50, 68);
   static const largeCardSize = Size(76, 103);
+
+  /// How tall the box is drawn, before it is laid out (08 chooses the large
+  /// box only where the deck still fits under it).
+  static double heightFor(
+    BuildContext context, {
+    required bool large,
+    required bool teaching,
+    required String title,
+  }) {
+    final skin = context.skin;
+    final scaler = MediaQuery.textScalerOf(context);
+    double line(String text, TextStyle style) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    final inset = large ? Space.lg : Space.smPlus;
+    final card = (large ? largeCardSize : cardSize).height;
+    final words =
+        line(title, large ? skin.typography.display : skin.typography.heading) +
+        (teaching ? line(CommonCopy.hold, skin.typography.cue) : 0);
+    return 2 * inset + 2 * skin.shape.edgeWidth + math.max(card, words);
+  }
 
   @override
   Widget build(BuildContext context) {

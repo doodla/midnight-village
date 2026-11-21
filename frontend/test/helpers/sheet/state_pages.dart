@@ -173,7 +173,7 @@ class PlayersPage extends StatelessWidget {
       ProgressPips(
         done: 2,
         total: 5,
-        label: TalkCopy.progress.fill({'d': 2, 'n': 5}),
+        label: CommonCopy.progress.fill({'d': 2, 'n': 5}),
       ),
     ],
   );

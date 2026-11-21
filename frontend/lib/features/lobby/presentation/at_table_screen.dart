@@ -19,6 +19,8 @@ import '../../../design_system/primitives/role_card.dart';
 import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
 import '../../../design_system/primitives/sheet_scaffold.dart';
+import '../../../design_system/primitives/text_action.dart';
+import '../../../design_system/primitives/world_timer.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
 import '../../auth/domain/auth_state.dart';
@@ -223,12 +225,15 @@ class AtTableView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: roomy ? Space.md : Space.sm,
           children: [
+            // A guest waits for the host: said by the screen's shape, no
+            // sentence (playtest: Leave read as the one thing to do). Who
+            // deals is the loudest line; Leave is a quiet word at the foot.
             if (!host)
               Semantics(
                 header: true,
                 child: FitWords(
                   TableCopy.hostDeals.fill({'host': lobby.hostName}),
-                  style: skin.typography.screenTitle,
+                  style: skin.typography.heroTitle,
                 ),
               ),
             _JoinCard(
@@ -253,18 +258,18 @@ class AtTableView extends StatelessWidget {
               ],
               spacing: roomy ? Space.md : Space.xs,
             ),
-            if (host) _DeckPanel(lobby: lobby, onEdit: onEditDeck),
-            Align(
-              child: SecondaryButton(
-                label: CommonCopy.leave,
-                size: ButtonSize.compact,
-                onPressed: leaving || onLeave == null
-                    ? null
-                    : host
-                    ? () => unawaited(_confirmLeave(context))
-                    : onLeave,
+            if (host) ...[
+              _DeckPanel(lobby: lobby, onEdit: onEditDeck),
+              Align(
+                child: SecondaryButton(
+                  label: CommonCopy.leave,
+                  size: ButtonSize.compact,
+                  onPressed: leaving || onLeave == null
+                      ? null
+                      : () => unawaited(_confirmLeave(context)),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -286,7 +291,15 @@ class AtTableView extends StatelessWidget {
           Notice(message: refused)
         else if (copied)
           const Notice(message: BannerCopy.copied),
-        if (host) _dealButton(),
+        if (host)
+          _dealButton()
+        else
+          Center(
+            child: TextAction(
+              label: CommonCopy.leave,
+              onPressed: leaving ? null : onLeave,
+            ),
+          ),
       ],
     );
   }
@@ -585,6 +598,7 @@ class _DeckPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = context.skin.typography;
     final chip = lobby.table.autoDeck ? lobby.table.deckChip : null;
+    final pace = lobby.table.pace;
     final cards =
         lobby.chipCards ??
         (chip != null
@@ -605,16 +619,26 @@ class _DeckPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: Space.smPlus,
         children: [
-          if (chip != null)
+          if (chip != null || pace != null)
             Row(
+              spacing: Space.sm,
               children: [
-                PresetChip(
-                  label: deckChipLabel(chip),
-                  selected: true,
-                  onTap: null,
-                ),
+                if (chip != null)
+                  PresetChip(
+                    label: deckChipLabel(chip),
+                    selected: true,
+                    onTap: null,
+                  ),
+                // The pace chosen on 03, by the talk it gives (02 keeps to
+                // its 8 words: the length is digits).
+                if (pace != null)
+                  PresetChip(
+                    label: WorldTimer.format(pace.talk),
+                    selected: true,
+                    onTap: null,
+                  ),
                 const Spacer(),
-                edit,
+                if (chip != null) edit,
               ],
             ),
           if (cards.isNotEmpty)

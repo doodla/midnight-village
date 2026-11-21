@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
+import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
+import 'package:midnight_village/features/lobby/presentation/deck_screen.dart';
 import 'package:midnight_village/features/lobby/presentation/join_flow.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
@@ -235,6 +237,36 @@ Future<void> pumpDeckGridShort(WidgetTester tester) async {
     find.byWidgetPredicate((w) => w is RoleCard && w.role == RoleId.tanner),
   );
   await tester.pump(const Duration(milliseconds: 300));
+}
+
+/// 03 with a pace chosen: "Normal 5:00" selected, the lengths under it.
+Future<void> pumpDeckPaced(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_auto_deck_5'),
+    viewer: 'Ana',
+  );
+  await _openDeck(tester);
+  // The answer is not needed for what shows (the chip is chosen at once).
+  setup.http.hold(method: 'PATCH', path: '/lobbies/V9YC2J/');
+  setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
+  final normal = find.text(paceChipLabel(Pace.normal));
+  await tester.ensureVisible(normal);
+  await tester.pumpAndSettle();
+  await tester.tap(normal);
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
+/// 02 back from 03 with a pace chosen: its talk length beside the chip.
+Future<void> pumpTableHostPaced(WidgetTester tester) async {
+  await pumpDeckPaced(tester);
+  final use = find.text(DeckCopy.useDeck);
+  await tester.ensureVisible(use);
+  await tester.pumpAndSettle();
+  await tester.tap(use);
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }
 
 /// 03b: a card held on the grid.

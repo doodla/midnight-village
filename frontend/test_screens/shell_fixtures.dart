@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/panels.dart';
@@ -39,6 +40,8 @@ Future<ShellSetup> _shell(
     clock: _fourteenBefore(me),
     textScale: textScale,
     holdMe: holdMe,
+    // The talk acknowledges a night it shows open: answered as recorded.
+    before: me['phase'] == 'discussion' ? _answerSeen : null,
   );
   await setup.settle(tester);
   return setup;
@@ -169,12 +172,13 @@ Future<void> pumpNightTenLong(WidgetTester tester) => _shell(
 // 08 Talk
 // ---------------------------------------------------------------------------
 
-/// What a phone has learned by its first talk: the holds of 04 and "You",
-/// and the board's wave; not yet My night.
-const _firstTalk = {Cue.hold, Cue.holdYou, Cue.nightChoose};
+/// What a phone has learned by its first talk: the hold (04) and the
+/// board's wave.
+const _firstTalk = {Cue.hold, Cue.nightChoose};
 
-/// 08 as the night ends, in a first game: the sun, My night with its hold
-/// ring, nobody ready. Game 7, Ana the Seer.
+/// 08 as the night ends: the sun, and My night open once, no hold (the
+/// night told this phone something it has not seen at the talk), nobody
+/// ready. Game 7, Ana the Seer: "Cleo's card was: Werewolf."
 Future<ShellSetup> pumpTalkOpen(
   WidgetTester tester, {
   double textScale = 1,
@@ -186,14 +190,47 @@ Future<ShellSetup> pumpTalkOpen(
   textScale: textScale,
 );
 
+/// A tap puts the open My night away: the box, the deck under it.
+Future<void> _putAway(WidgetTester tester, ShellSetup setup) async {
+  final face = find.byType(HeldFace);
+  if (face.evaluate().isEmpty) return;
+  await tester.tapAt(tester.getRect(face).topCenter + const Offset(0, 24));
+  await setup.settle(tester);
+}
+
+/// 08 once the open My night is put away: the box and the deck.
+Future<ShellSetup> pumpTalkPutAway(
+  WidgetTester tester, {
+  double textScale = 1,
+}) async {
+  final setup = await pumpTalkOpen(tester, textScale: textScale);
+  await _putAway(tester, setup);
+  return setup;
+}
+
+/// 08 on the Drunk's phone at game 8's nine-seat table, as the talk opens:
+/// "You took Middle, unseen.", open.
+Future<void> pumpTalkOpenDrunk(WidgetTester tester) => _shell(
+  tester,
+  sheet.recordedMe('me_discussion_choose_drunk'),
+  learned: Cue.values.toSet(),
+);
+
+/// 08 on a phone whose night told it nothing (Esme, a Villager): nothing
+/// opens; My night says "You slept." when held.
+Future<void> pumpTalkSlept(WidgetTester tester) => _shell(
+  tester,
+  sheet.recordedMe('me_discussion_choose_villager'),
+  learned: Cue.values.toSet(),
+);
+
 /// 08 with My night held: the result first (Cleo's card).
 Future<void> pumpTalkHeld(WidgetTester tester) async {
-  final setup = await pumpTalkOpen(tester);
-  _answerSeen(setup);
+  await pumpTalkPutAway(tester);
   await holdDown(tester, find.byType(PeekBox));
 }
 
-/// The first reveal of My night acknowledges the night's results.
+/// The talk's ack of the night's results.
 void _answerSeen(ShellSetup setup) =>
     setup.answerPost('/night-results/seen/', 'game/night_results_seen');
 
@@ -205,53 +242,65 @@ Future<void> pumpTalkDoppelgangerHeld(WidgetTester tester) async {
     sheet.recordedMe('me_discussion_choose_doppelganger'),
     learned: _firstTalk,
   );
-  _answerSeen(setup);
+  await _putAway(tester, setup);
   final first = await holdDown(tester, find.byType(PeekBox));
   await first.up();
   await tester.pump();
   await holdDown(tester, find.byType(PeekBox));
 }
 
-/// 08 after "Ready to vote", as `/me/` has it (a restart lands here too):
-/// "Ready ✓", one of five ready.
-Future<void> pumpTalkReady(WidgetTester tester) =>
-    _shell(tester, sheet.recordedMe('me_talk_ready'));
+/// 08 after "Ready to vote", as `/me/` has it: "Ready ✓", one of five
+/// ready (My night put away).
+Future<void> pumpTalkReady(WidgetTester tester) async {
+  final setup = await _shell(tester, sheet.recordedMe('me_talk_ready'));
+  await _putAway(tester, setup);
+}
 
 /// 08 when a ready got no answer: "Not sent." with "Try again".
 Future<void> pumpTalkNotSent(WidgetTester tester) async {
   final setup = await pumpTalkOpen(tester, learned: Cue.values.toSet());
+  await _putAway(tester, setup);
   setup.failPost('/ready/');
   await tester.tap(find.byType(PrimaryButton).last);
   await setup.settle(tester);
 }
 
-/// 08 at game 8's nine-seat table, on the Drunk's phone.
-Future<void> pumpTalkNine(WidgetTester tester) => _shell(
-  tester,
-  sheet.recordedMe('me_discussion_choose_drunk'),
-  learned: Cue.values.toSet(),
-);
-
-/// 08 at three: game 7 without Dev and Esme.
-Future<void> pumpTalkThree(WidgetTester tester) => _shell(
-  tester,
-  sheet.tableOf(
-    sheet.recordedMe('me_discussion_choose_seer'),
-    leave: {sheet.dev.name, sheet.esme.name},
-  ),
-  learned: Cue.values.toSet(),
-);
-
-/// 08 at ten, with long names (game 8 and one more seat).
-Future<void> pumpTalkTenLong(WidgetTester tester) => _shell(
-  tester,
-  sheet.tableOf(
+/// 08 at game 8's nine-seat table, on the Drunk's phone (put away).
+Future<void> pumpTalkNine(WidgetTester tester) async {
+  final setup = await _shell(
+    tester,
     sheet.recordedMe('me_discussion_choose_drunk'),
-    add: 1,
-    rename: sheet.longNames,
-  ),
-  learned: Cue.values.toSet(),
-);
+    learned: Cue.values.toSet(),
+  );
+  await _putAway(tester, setup);
+}
+
+/// 08 at three: game 7 without Dev and Esme (put away).
+Future<void> pumpTalkThree(WidgetTester tester) async {
+  final setup = await _shell(
+    tester,
+    sheet.tableOf(
+      sheet.recordedMe('me_discussion_choose_seer'),
+      leave: {sheet.dev.name, sheet.esme.name},
+    ),
+    learned: Cue.values.toSet(),
+  );
+  await _putAway(tester, setup);
+}
+
+/// 08 at ten, with long names (game 8 and one more seat; put away).
+Future<void> pumpTalkTenLong(WidgetTester tester) async {
+  final setup = await _shell(
+    tester,
+    sheet.tableOf(
+      sheet.recordedMe('me_discussion_choose_drunk'),
+      add: 1,
+      rename: sheet.longNames,
+    ),
+    learned: Cue.values.toSet(),
+  );
+  await _putAway(tester, setup);
+}
 
 // ---------------------------------------------------------------------------
 // 09 Vote
@@ -284,7 +333,7 @@ Future<ShellSetup> pumpVoteOpen(WidgetTester tester, {double textScale = 1}) =>
 /// 09 with Cleo picked: "Lock in Cleo", the one amber action.
 Future<ShellSetup> pumpVotePicked(WidgetTester tester) async {
   final setup = await pumpVoteOpen(tester);
-  setup.answerPost('/vote/', 'game/vote_picked');
+  setup.answerPost('/vote/', 'game/vote_repicked');
   await tester.tap(find.text(sheet.cleo.name));
   await setup.settle(tester);
   return setup;
@@ -298,7 +347,7 @@ Future<void> pumpVoteLocked(WidgetTester tester) async {
   await setup.settle(tester);
 }
 
-/// 09 on a restart after a pick: `/me/`'s own `my_vote` (Dev), not locked.
+/// 09 on a restart after a pick: `/me/`'s own `my_vote` (Cleo), not locked.
 Future<void> pumpVoteRestartPicked(WidgetTester tester) => _shell(
   tester,
   sheet.recordedMe('me_voting_picked'),

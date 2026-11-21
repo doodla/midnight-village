@@ -41,9 +41,10 @@ final _exemptNames = {
 };
 const _appName = 'Midnight Village';
 
-/// Unit symbols, read with their number as one thing ("14 s"): not words,
-/// as digits are not.
+/// Unit symbols, read with their number as one thing ("14 s"): not words
+/// right after a number or a gap, as digits are not.
 const _units = {'s'};
+final _number = RegExp(r'^(\d+|\{\w+\})$');
 
 final _letter = RegExp(r'\p{L}', unicode: true);
 final _gap = RegExp(r'\{\w+\}');
@@ -53,14 +54,19 @@ final _edgePunctuation = RegExp(r"^[^\p{L}\d{]+|[^\p{L}\d}]+$", unicode: true);
 /// a piece with a letter in it, and gaps (`{name}`), the role names and
 /// their plurals, "Midnight Village", digits, unit symbols and glyphs are
 /// not words.
-List<String> words(String line) => [
-  for (final piece in line.replaceAll(_appName, ' ').split(RegExp(r'\s+')))
-    if (_letter.hasMatch(piece) &&
-        !_gap.hasMatch(piece) &&
-        !_units.contains(piece) &&
-        !_exemptNames.contains(piece.replaceAll(_edgePunctuation, '')))
-      piece,
-];
+List<String> words(String line) {
+  final pieces = line.replaceAll(_appName, ' ').split(RegExp(r'\s+'));
+  bool unit(int i) =>
+      _units.contains(pieces[i]) && i > 0 && _number.hasMatch(pieces[i - 1]);
+  return [
+    for (final (i, piece) in pieces.indexed)
+      if (_letter.hasMatch(piece) &&
+          !_gap.hasMatch(piece) &&
+          !unit(i) &&
+          !_exemptNames.contains(piece.replaceAll(_edgePunctuation, '')))
+        piece,
+  ];
+}
 
 int wordCount(String line) => words(line).length;
 

@@ -60,6 +60,16 @@ class NightReport {
     ),
   };
 
+  /// The night told this phone something: a result of window 2 other than
+  /// "You slept." or "You did nothing.", or the Doppelganger's copy. Only
+  /// then does 08 open with My night open once (spec section 7).
+  bool get tellsSomething =>
+      windowOne is CopiedResult ||
+      switch (saw) {
+        null || SleptResult() || DidNothingResult() => false,
+        _ => true,
+      };
+
   /// 08's My night.
   FaceContent get myNight => FaceContent.myNight(
     dealt: dealt,

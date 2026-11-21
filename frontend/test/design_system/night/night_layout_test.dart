@@ -57,11 +57,16 @@ Rect _card(WidgetTester tester, String label) => tester.getRect(
 );
 
 /// Where everything on the board is: the cards in seat order (each phone
-/// has its own seat as "You"), then the title, the timer and the button.
+/// has its own seat as "You"), then the header (the title's line, whose
+/// words are the prompt's, beside the timer), the timer and the button.
 List<Rect> _layout(WidgetTester tester) => [
   for (final element in find.byType(FaceDownCard).evaluate())
     _card(tester, (element.widget as FaceDownCard).semanticLabel!),
-  tester.getRect(find.text(CommonCopy.nightTitle)),
+  tester.getRect(
+    find
+        .ancestor(of: find.byType(WorldTimer), matching: find.byType(Row))
+        .first,
+  ),
   tester.getRect(find.byType(WorldTimer)),
   tester.getRect(find.byType(PrimaryButton)),
 ];

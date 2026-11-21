@@ -23,8 +23,9 @@ abstract final class CommonCopy {
   /// Back to the start (02 guest, 11 guest).
   static const leave = 'Leave';
 
-  /// "{d} of {n}" under a stage everyone passes (04).
-  static const progress = Template('{d} of {n}');
+  /// How many are ready, under 04's card and on 08 (playtest: a bare
+  /// "1 of 5" on 04 read as cards, not players).
+  static const progress = Template('{d} of {n} ready');
 
   /// A custom deck that does not match the table (02, 03); one card is
   /// singular.
@@ -93,6 +94,10 @@ abstract final class DeckCopy {
 
   /// In the order of the contract's presets (`quick`, `normal`, `long`).
   static const paces = ['Quick', 'Normal', 'Long'];
+
+  /// A pace chip: its name and the talk it gives ("Normal 5:00"; playtest:
+  /// "Long of what?").
+  static const paceChip = Template('{pace} {talk}');
 
   /// The pace tiles; "Copy" only when the Doppelganger is in the deck.
   static const talk = 'Talk';
@@ -181,6 +186,18 @@ abstract final class NightCopy {
   static const loneWerewolf = 'You may see 1 center card.';
   static const doppelgangerLook = "Copy 1 player's card.";
 
+  // The board's title on a phone with a choice: the role's night line
+  // (RoleText) in a few words (a headline; the board's budget of 20 leaves
+  // it 3 or 4 beside a copied Seer's face). A sleeper's
+  // board keeps "The village sleeps". A tell to a glance, accepted: the
+  // playtest read "The village sleeps" as wrong while acting.
+  static const seerTitle = 'See 1 or 2 cards';
+  static const robberTitle = 'Swap with 1 player';
+  static const troublemakerTitle = "Swap 2 other players' cards";
+  static const drunkTitle = 'Swap with 1 center card';
+  static const loneWerewolfTitle = 'See 1 center card';
+  static const doppelgangerTitle = "Copy a player's card";
+
   // The window-1 page.
   static const copied = Template('You copied {name}.');
   static const slept = 'You slept.';
@@ -188,22 +205,34 @@ abstract final class NightCopy {
 
 /// What a phone saw at night: the result faces, My night's pages on 08 (the
 /// spec's "07 faces"; 07 itself is gone, section 7).
+///
+/// Each line is a fact of the night, said in the past: what this phone saw
+/// or did then, never what a card is now (cards move after a look; the
+/// playtest read "Cleo's card: Werewolf." at the talk as Cleo's card today).
+/// The Insomniac's is the one that is still true: she looks last.
 abstract final class SawCopy {
-  static const seerPlayer = Template("{name}'s card: {role}.");
+  static const seerPlayer = Template("{name}'s card was: {role}.");
 
   /// The two center cards, each by its place.
-  static const seerCenter = Template('{pos1}: {role1}, {pos2}: {role2}.');
+  static const seerCenter = Template(
+    '{pos1} was: {role1}. {pos2} was: {role2}.',
+  );
+
+  /// The Robber's: whose card it took, and what it was.
+  static const robbed = Template("You took {name}'s card: {role}.");
+
+  /// The Insomniac's, at the end of the night: no card moves after it.
   static const newCard = Template('Your card now: {role}.');
   static const swapped = Template('You swapped {a} and {b}.');
 
-  /// Spec: "{pos} is yours now. Unseen." A copied Drunk's window-1 page on
-  /// 08 then made 16 words for a budget of 15.
-  static const drunk = Template('{pos} is yours. Unseen.');
-  static const werewolves = Template('Werewolves: {names}.');
+  /// Three words at most: a copied Drunk's window-1 page on 08 carries
+  /// "You copied {name}." too, and the talk's budget is 15.
+  static const drunk = Template('You took {pos}, unseen.');
+  static const werewolves = Template('Werewolves were: {names}.');
   static const onlyYou = 'Only you.';
-  static const centerLook = Template('{pos}: {role}.');
-  static const noWerewolves = 'No Werewolves.';
-  static const masons = Template('Masons: {names}.');
+  static const centerLook = Template('{pos} was: {role}.');
+  static const noWerewolves = 'There were no Werewolves.';
+  static const masons = Template('Masons were: {names}.');
 
   /// The player chose, and nothing they picked meant anything for their
   /// role (spec section 3, "Trade-off": "You did nothing.").
@@ -214,7 +243,6 @@ abstract final class SawCopy {
 abstract final class TalkCopy {
   static const headline = 'The village wakes';
   static const myNight = 'My night';
-  static const progress = Template('{d} of {n} ready');
   static const readyToVote = 'Ready to vote';
 
   /// My night's first page.

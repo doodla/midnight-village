@@ -180,6 +180,20 @@ Future<void> pumpResultsEnd(WidgetTester tester) async {
   await setup.settle(tester);
 }
 
+/// 11 of the pack's game (game 7), on Ben's phone (a guest), scrolled to
+/// its end: the whole night, the Robber's take and the Troublemaker's swap
+/// back above "Ana deals next."
+Future<void> pumpResultsFiveEnd(WidgetTester tester) async {
+  final setup = await _end(
+    tester,
+    recordedResults('results_five'),
+    viewer: 'Ben',
+  );
+  await _seeWhoWon(tester, setup);
+  await tester.drag(find.byType(Scrollable).first, const Offset(0, -2000));
+  await setup.settle(tester);
+}
+
 /// 11 at ten with long names, on a guest's phone.
 Future<void> pumpResultsTen(WidgetTester tester) async {
   final setup = await _end(

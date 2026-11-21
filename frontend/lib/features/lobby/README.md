@@ -49,8 +49,10 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   (`LobbyNotifier.dealRefusal`: the table playing, too few, the deck), else nothing extra,
   never a bare "Not sent." nor a notice that repeats the button; the button stays busy until
   the lobby is read again and its new verdict sets it. A quiet labelled "Leave" asks first
-  ("Stay" / "Leave"). A guest: "{host} deals" over the same card, the rows, a quiet "Leave"
-  at the end. A deal, a handover or a host change reads `/me/table/` again; the layout follows
+  ("Stay" / "Leave"). With a pace chosen, its talk length ("5:00") sits beside the chip,
+  selected, so 02 shows what 03 chose. A guest: "{host} deals" at the hero title size over the
+  same card, the rows, and "Leave" a quiet underlined word at the foot (`TextAction` in the
+  actions, no outlined button): waiting said by the shape, not a sentence. A deal, a handover or a host change reads `/me/table/` again; the layout follows
   the lobby's host with no words; a table that is gone says so with "Go home".
 - **03** (`deck_screen.dart`): the chips choose (the server builds the deck at the deal), with
   the chip's cards face up from `deck_preview` (only for the chip the body is of: a chip tapped
@@ -59,8 +61,12 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   adds a card up to the role's most, then none; a hold opens 03b, `showRoleSheet`: the role
   text and a quiet "Close", nothing that changes the deck); an edited deck is sent with "Use
   this deck", amber only at the cards the deal needs (`deal.need`), "Add 1 card" / "Remove 2
-  cards" otherwise. The pace chips write the contract's presets (talk, vote, a night window;
-  never the Doppelganger's window) and the lengths show once the settings carry them.
+  cards" otherwise. The pace chips ("Quick 3:00", "Normal 5:00", "Long 8:00": each says the
+  talk it gives, `paceChipLabel`) write the contract's presets (talk, vote, a night window;
+  never the Doppelganger's window); the one the table's lengths equal is selected
+  (`Pace.of`), and the lengths show once the settings carry them. A table made with no
+  lengths runs on the server's defaults (talk 300, vote 120, night 30), which are no preset
+  ("Normal" is 300/90/30), so no chip is selected until the host picks one.
 - **State.** Everything shown is `lobbyProvider(code)`, read until it answers (`retryForever`;
   "One moment" meanwhile): the lobby body, its socket (`lobby_update` is the whole lobby), and
   this phone's settings changes merged over it as the server merges a PATCH (shallow), shown

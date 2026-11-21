@@ -32,6 +32,10 @@ String _button(WidgetTester tester) =>
 ButtonPhase _phase(WidgetTester tester) =>
     tester.widget<PrimaryButton>(find.byType(PrimaryButton).last).phase;
 
+/// The talk opens a night that told this phone something and acknowledges
+/// it: that POST is answered.
+void _ack(ShellSetup s) => s.answerNightResultsSeen();
+
 /// [player]'s card on the night board.
 Finder _seat(String name) => find.text(name).last;
 
@@ -51,7 +55,11 @@ void main() {
     };
     for (final MapEntry(key: sample, value: type) in cases.entries) {
       testWidgets('$sample: ${meScreens[sample]!.number}', (tester) async {
-        final s = await ShellSetup.pump(tester, recordedMe(sample));
+        final s = await ShellSetup.pump(
+          tester,
+          recordedMe(sample),
+          before: _ack,
+        );
         await s.settle(tester);
         expect(find.byType(type), findsOneWidget);
         await s.close(tester);
@@ -70,7 +78,11 @@ void main() {
     };
     for (final MapEntry(key: sample, value: screen) in meScreens.entries) {
       testWidgets('$sample: the real ${screen.number}', (tester) async {
-        final s = await ShellSetup.pump(tester, recordedMe(sample));
+        final s = await ShellSetup.pump(
+          tester,
+          recordedMe(sample),
+          before: _ack,
+        );
         await s.settle(tester);
         expect(find.byType(built[screen]!), findsOneWidget);
         await s.close(tester);
@@ -84,12 +96,15 @@ void main() {
       final s = await ShellSetup.pump(
         tester,
         me,
-        before: (s) => s.http.answer(
-          'GET',
-          path,
-          Map.of(me)..remove('stage'),
-          offContract: true,
-        ),
+        before: (s) {
+          _ack(s);
+          s.http.answer(
+            'GET',
+            path,
+            Map.of(me)..remove('stage'),
+            offContract: true,
+          );
+        },
       );
       await s.settle(tester);
       expect(find.byType(TalkScreen), findsNothing);
@@ -114,6 +129,7 @@ void main() {
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_discussion_choose_seer'),
+        before: _ack,
       );
       await s.settle(tester);
       expect(find.byType(TalkScreen), findsOneWidget);
@@ -131,7 +147,11 @@ void main() {
         'held): the vote waits on its ground, never with the talk\'s values', (
       tester,
     ) async {
-      final s = await ShellSetup.pump(tester, recordedMe('me_talk_ready'));
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_talk_ready'),
+        before: _ack,
+      );
       await s.settle(tester);
       expect(find.byType(TalkScreen), findsOneWidget);
       final vote = recordedMe('me_voting_unpicked');
@@ -241,7 +261,7 @@ void main() {
       expect(find.text(CardCopy.headline), findsOneWidget);
       expect(_button(tester), CardCopy.ready);
       expect(_phase(tester), ButtonPhase.locked);
-      expect(find.text('0 of 5'), findsOneWidget);
+      expect(find.text('0 of 5 ready'), findsOneWidget);
       // First game: the plain hold ring.
       expect(find.text(CommonCopy.hold), findsOneWidget);
 
@@ -292,11 +312,11 @@ void main() {
       // This phone's own Ready is counted at once; then the server's count,
       // read with this phone's flag from one /me/ (the event, arriving
       // before that is confirmed, fetches it): still one, never two.
-      expect(find.text('1 of 5'), findsOneWidget);
+      expect(find.text('1 of 5 ready'), findsOneWidget);
       s.answerMe(recordedMe('me_look_ready'));
       s.ws.addServerEvent(ContractSamples.map('ws/game/progress_look'));
       await s.settle(tester);
-      expect(find.text('1 of 5'), findsOneWidget);
+      expect(find.text('1 of 5 ready'), findsOneWidget);
       expect(_button(tester), CommonCopy.readyDone);
       await s.close(tester);
     });

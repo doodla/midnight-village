@@ -202,8 +202,13 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     final down = _pressed && _acts;
     final ink = switch (widget.phase) {
       ButtonPhase.ready => ground.onAccent,
-      ButtonPhase.waiting || ButtonPhase.done => ground.quietText,
-      ButtonPhase.locked || ButtonPhase.quiet => ground.text,
+      ButtonPhase.waiting => ground.quietText,
+      // Done says something true ("Nothing to do", "Locked"): full ink;
+      // with no outline it still reads as nothing to press (playtest: the
+      // quiet ink read as too pale).
+      ButtonPhase.done ||
+      ButtonPhase.locked ||
+      ButtonPhase.quiet => ground.text,
     };
     final style = widget.size.label(skin.typography);
     final edge = ground.accentEdge;

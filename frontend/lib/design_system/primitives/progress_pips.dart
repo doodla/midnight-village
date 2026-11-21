@@ -20,7 +20,7 @@ class ProgressPips extends StatelessWidget {
   final int done;
   final int total;
 
-  /// The words after the pips ("3 of 5 ready", `TalkCopy.progress`), also
+  /// The words after the pips ("3 of 5 ready", `CommonCopy.progress`), also
   /// what is read out.
   final String label;
 
@@ -34,7 +34,12 @@ class ProgressPips extends StatelessWidget {
       padding: const EdgeInsetsDirectional.only(start: Space.xs),
       child: Text(
         label,
-        style: skin.typography.body.copyWith(color: context.ground.text),
+        // A count is read from across the table: larger than body text,
+        // bold, in full ink (playtest: "0 of 5 ready" small and grey).
+        style: skin.typography.bodyLarge.copyWith(
+          fontWeight: FontWeight.w700,
+          color: context.ground.text,
+        ),
       ),
     );
     final Widget row;

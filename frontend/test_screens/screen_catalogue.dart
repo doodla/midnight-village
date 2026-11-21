@@ -67,6 +67,7 @@ final screenCatalogue = <ScreenEntry>[
     '-custom-short': pumpTableHostMismatch,
     '-dropped': pumpTableDropped,
     '-guest': pumpTableGuest,
+    '-paced': pumpTableHostPaced,
     '-handover': pumpTableHandover,
     '-x1.3': (tester) => pumpTableHost(tester, textScale: 1.3),
     '-guest-x2': (tester) => pumpTableGuest(tester, textScale: 2),
@@ -77,6 +78,7 @@ final screenCatalogue = <ScreenEntry>[
     '-edit': pumpDeckEdit,
     '-grid': pumpDeckGrid,
     '-grid-short': pumpDeckGridShort,
+    '-paced': pumpDeckPaced,
   }),
   ..._rebuilt('03b-deck-role', '03b-deck-role-explained.png', {
     '': pumpDeckRole,
@@ -105,6 +107,10 @@ final screenCatalogue = <ScreenEntry>[
   }),
   ..._rebuilt('08-talk', '08-talk.png', {
     '': pumpTalkOpen,
+    '-open-drunk': pumpTalkOpenDrunk,
+    '-open-x1.3': (tester) => pumpTalkOpen(tester, textScale: 1.3),
+    '-put-away': pumpTalkPutAway,
+    '-slept': pumpTalkSlept,
     '-held': pumpTalkHeld,
     '-held-doppelganger': pumpTalkDoppelgangerHeld,
     '-ready': pumpTalkReady,
@@ -112,7 +118,7 @@ final screenCatalogue = <ScreenEntry>[
     '-3': pumpTalkThree,
     '-9': pumpTalkNine,
     '-10-long': pumpTalkTenLong,
-    '-x1.3': (tester) => pumpTalkOpen(tester, textScale: 1.3),
+    '-x1.3': (tester) => pumpTalkPutAway(tester, textScale: 1.3),
   }),
   ..._rebuilt('09-vote', '09-vote.png', {
     '': pumpVoteOpen,
@@ -143,6 +149,7 @@ final screenCatalogue = <ScreenEntry>[
     '-night': pumpResultsNight,
     '-folded': pumpResultsFolded,
     '-end': pumpResultsEnd,
+    '-five-end': pumpResultsFiveEnd,
     '-ten-long': pumpResultsTen,
     '-x1.3': (tester) => pumpResultsVillage(tester, textScale: 1.3),
   }),
