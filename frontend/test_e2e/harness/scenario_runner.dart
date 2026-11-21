@@ -1,21 +1,22 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/core/debug/debug_api_client.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/core/debug/debug_oracle.dart';
 import 'package:midnight_village/core/debug/debug_table_controller.dart';
 
 import 'debug_oracle_diff.dart';
 import 'failure_report.dart';
-import 'harness_config.dart';
+import 'live_table.dart';
 import 'scenario_dsl.dart';
 
-/// Game timers for the harness: every night window closes as soon as its last
-/// actor has submitted (`night_min_window_seconds` and
+/// Game timers for the harness: every night window closes as soon as every
+/// phone has chosen (`night_min_window_seconds` and
 /// `night_doppelganger_window_seconds` are 0), discussion and voting wait for the
 /// host, and `night_wave_seconds` is a long maximum so a window that someone
-/// never answers has a real timer for `debug-fire-timer` to fire.
+/// never answers has a real timer for `debug-fire-timer` to fire. The table keeps
+/// the look stage the app's tables have (`card_look_seconds` from `defaults:
+/// "v2"`): every phone taps ready, then the night opens.
 const Map<String, int> fastTimers = {
   'night_wave_seconds': 600,
   'night_min_window_seconds': 0,
@@ -27,38 +28,26 @@ const Map<String, int> fastTimers = {
 /// Drives a [ReferenceGame] through the real backend and checks the result
 /// against the recorded outcome (API runner core).
 ///
-/// The night is two windows (1 = Doppelganger, 2 = everyone else). The runner
-/// never hard-codes who acts when: it asks each player's own `GET .../me/` for
-/// their pending `action_prompt` and answers it from the game's `ch` choices.
-/// It submits everything a window is waiting for; a player with no choice who
-/// is not offered `skip` (the Drunk, the Doppelganger's look) simply does not
-/// answer, and the runner closes the window with the `debug-fire-timer` hook,
-/// like a timeout.
+/// The game is played the way phones play it: the look stage (everyone taps
+/// ready), then each night window where every phone WITH a choice sends one
+/// `choose` (a phone with nothing to choose sends nothing) with 0
+/// to 2 picks (the Doppelganger a second, for her follow-up, when her prompt's
+/// `chooses_left` asks for it), then the talk ended by the host, lock-in votes
+/// and the host's reveal; every request names the `stage` the player's `/me/`
+/// carries. The runner never decides a rule: it reads each player's own
+/// prompt `kind` from `GET .../me/` and turns the game's `ch` choices into
+/// picks for it ([picks]). A recorded "does nothing" (the original night's
+/// explicit `skip`) is an empty choose: the server applies the role's default.
 ///
 /// Independent of Riverpod: its [DebugTableController] has no-op session hooks
 /// (the API runner never changes the visible perspective).
 class ReferenceGameRunner {
-  ReferenceGameRunner(
-    this.game, {
-    DebugApiClient? client,
-    this.timerSettings = fastTimers,
-  }) : _client =
-           client ??
-           DebugApiClient(
-             baseUrl: HarnessConfig.apiBaseUrl,
-             origin: HarnessConfig.origin,
-           ) {
-    _controller = DebugTableController(
-      client: _client,
-      adoptSession: (_, {required accessToken, required refreshToken}) async {},
-      invalidateGameProviders: (_) {},
-    );
-  }
+  ReferenceGameRunner(this.game, {this.timerSettings = fastTimers})
+    : _controller = harnessClients().controller;
 
   final ReferenceGame game;
   final Map<String, int> timerSettings;
-  final DebugApiClient _client;
-  late final DebugTableController _controller;
+  final DebugTableController _controller;
 
   DebugTable? _table;
   DebugTable get table => _table!;
@@ -66,6 +55,27 @@ class ReferenceGameRunner {
 
   /// Window numbers the runner closed with the timer hook (for assertions).
   final List<int> windowsClosedByTimer = [];
+
+  /// Per night window, the user ids whose prompt had nothing to choose (kind
+  /// `none`, nothing sent yet) when the runner read it.
+  final Map<int, Set<int>> sleepers = {};
+
+  /// The oracle's count of chooses from every [sleepers] phone is 0: the
+  /// server took nothing from a phone with nothing to choose.
+  Future<void> assertSleepersSentNothing() async {
+    final state = await oracle();
+    for (final MapEntry(key: window, value: ids) in sleepers.entries) {
+      for (final player in state.players.where((p) => ids.contains(p.userId))) {
+        expect(
+          player.chosen[window] ?? 0,
+          0,
+          reason:
+              '${game.name}: ${player.displayName} sent a choose in '
+              'window $window with nothing to choose',
+        );
+      }
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Setup
@@ -100,37 +110,42 @@ class ReferenceGameRunner {
   // The night
   // ---------------------------------------------------------------------------
 
-  /// Plays the night to the end: answers every prompt until the game leaves the
-  /// night phase. Bounded: throws instead of waiting forever.
+  /// Plays the night to the end: the look stage, then every phone answers its
+  /// prompt until the game leaves the night phase. Bounded: throws instead of
+  /// waiting forever.
   Future<void> runNight() async {
-    // (window, player, role acting as) already answered or deliberately left.
-    final handled = <String>{};
     for (var pass = 0; pass < 40; pass++) {
       final state = await oracle();
       if (state.phase != 'night') return;
 
-      var submitted = false;
+      var sent = false;
       for (var i = 0; i < game.players.length; i++) {
         final view = await _controller.playerView(playerAt(i));
+        if (view['phase'] != 'night') break;
+        final progress = view['progress'];
+        if (progress is Map && progress['stage'] == 'look') {
+          if (view['ready'] != true) {
+            await _controller.stagedAs(playerAt(i), 'ready', {'ready': true});
+            sent = true;
+          }
+          continue;
+        }
         final prompt = view['action_prompt'];
         if (prompt is! Map<String, dynamic>) continue;
-        final key = '${prompt['wave']}:$i:${prompt['role_acting_as']}';
-        if (!handled.add(key)) continue;
-        final action = choose(i, prompt);
-        if (action == null) continue; // does nothing: the window waits
-        await _controller.driveAs(
-          playerAt(i),
-          DebugAction.nightAction(
-            actionType: action.actionType,
-            targets: action.targets,
-          ),
-        );
-        submitted = true;
+        if (prompt['kind'] == 'none' && prompt['chosen'] == 0) {
+          (sleepers[prompt['window'] as int] ??= {}).add(playerAt(i).userId);
+        }
+        if ((prompt['chooses_left'] as int) < 1) continue;
+        await _controller.stagedAs(playerAt(i), 'action', {
+          'action_type': 'choose',
+          'picks': picks(i, prompt),
+        });
+        sent = true;
       }
 
-      if (!submitted) {
-        // Everyone who can answer has; the window is still open, waiting for
-        // someone who does nothing. Close it as its timer would.
+      if (!sent && (await oracle()).phase == 'night') {
+        // Every phone has done its part and the window is still open: close it
+        // as its timer would.
         final window = state.currentWave;
         final fired = await _controller.fireTimer(TimerKey.wave(window));
         if (!fired) {
@@ -145,67 +160,45 @@ class ReferenceGameRunner {
     throw StateError('${game.name}: still in the night after 40 passes');
   }
 
-  /// What player [index] sends for [prompt], from the game's `ch` choices, or
-  /// null if they do nothing and are not offered `skip`.
+  /// The picks player [index] sends for [prompt], from the game's `ch`
+  /// choices; `[]` when they do nothing (or have nothing to choose).
   ///
-  /// Everything is read from the SERVER's prompt (who acts, which action types,
-  /// whether a Werewolf is alone): the runner decides nothing about the rules.
-  NightMove? choose(int index, Map<String, dynamic> prompt) {
-    final role = prompt['role_acting_as'] as String;
-    final types = (prompt['action_types'] as List).cast<String>();
-    final valid = (prompt['valid_targets'] as Map).cast<String, dynamic>();
+  /// The prompt's `kind` is the SERVER's word for what this phone may do now
+  /// (the Doppelganger's look, then her follow-up as the copied role; a lone
+  /// Werewolf): the runner decides nothing about the rules.
+  List<Map<String, Object>> picks(int index, Map<String, dynamic> prompt) {
+    final kind = prompt['kind'] as String;
     final ch = game.choices;
     final isDoppelganger = game.dealt[index] == 'Doppelganger';
+    Object? own(String key) => isDoppelganger ? ch['doppel_follow'] : ch[key];
+    Map<String, Object> player(int i) => {'player_id': idAt(i)};
+    Map<String, Object> center(int i) => {'center_index': i};
 
-    NightMove? skipOrNothing() =>
-        types.contains('skip') ? const NightMove('skip', {}) : null;
-
-    switch (role) {
-      case 'Doppelganger':
+    switch (kind) {
+      case 'doppelganger_look':
         final target = ch['doppel_target'] as int?;
-        if (target == null) return null;
-        return NightMove('peek_player', {'player_id': idAt(target)});
-      case 'Seer':
-        final c = (isDoppelganger ? ch['doppel_follow'] : ch['seer']) as List?;
-        if (c == null) return skipOrNothing();
-        if (c.first == 'player') {
-          return NightMove('peek_player', {'player_id': idAt(c[1] as int)});
-        }
-        return NightMove('peek_center', {
-          'center_indices': (c[1] as List).cast<int>(),
-        });
-      case 'Robber':
-        final c = (isDoppelganger ? ch['doppel_follow'] : ch['robber']) as int?;
-        if (c == null) return skipOrNothing();
-        return NightMove('swap_with_player', {'player_id': idAt(c)});
-      case 'Troublemaker':
-        final c =
-            (isDoppelganger ? ch['doppel_follow'] : ch['troublemaker'])
-                as List?;
-        if (c == null) return skipOrNothing();
-        return NightMove('swap_others', {
-          'player_ids': [idAt(c[0] as int), idAt(c[1] as int)],
-        });
-      case 'Drunk':
-        final c = (isDoppelganger ? ch['doppel_follow'] : ch['drunk']) as int?;
-        if (c == null) return null; // the Drunk cannot skip
-        return NightMove('swap_with_center', {'center_index': c});
-      case 'Werewolf':
-        // The server says whether this Werewolf is alone: nobody to see.
-        final team = valid['see_team'];
-        final lone = team is List && team.isEmpty;
-        final peek = ch['wolf_center'] as int?;
-        if (lone && peek != null) {
-          return NightMove('see_team', {'center_index': peek});
-        }
-        return const NightMove('see_team', {});
-      case 'Minion':
-      case 'Mason':
-        return const NightMove('see_team', {});
-      case 'Insomniac':
-        return const NightMove('none', {});
+        return target == null ? [] : [player(target)];
+      case 'seer':
+        final c = own('seer') as List?;
+        if (c == null) return [];
+        if (c.first == 'player') return [player(c[1] as int)];
+        return [for (final i in (c[1] as List).cast<int>()) center(i)];
+      case 'robber':
+        final c = own('robber') as int?;
+        return c == null ? [] : [player(c)];
+      case 'troublemaker':
+        final c = own('troublemaker') as List?;
+        return c == null ? [] : [player(c[0] as int), player(c[1] as int)];
+      case 'drunk':
+        final c = own('drunk') as int?;
+        return c == null ? [] : [center(c)];
+      case 'lone_werewolf':
+        final c = ch['wolf_center'] as int?;
+        return c == null ? [] : [center(c)];
+      case 'none':
+        return [];
     }
-    throw StateError('${game.name}: no move for a prompt as $role');
+    throw StateError('${game.name}: no picks for a prompt of kind $kind');
   }
 
   // ---------------------------------------------------------------------------
@@ -213,25 +206,26 @@ class ReferenceGameRunner {
   // ---------------------------------------------------------------------------
 
   /// Discussion -> voting -> results for a full game: the host ends the
-  /// discussion, everyone votes as recorded (the last vote reveals).
+  /// discussion, everyone votes (pick and lock) as recorded, the host reveals
+  /// if anyone abstained (the last lock reveals otherwise).
   Future<void> runDay() async {
     final votes = game.votes;
     if (votes == null) {
       throw StateError('${game.name} is a night-only game');
     }
     await _waitForPhase('discussion');
-    await _controller.driveAs(table.host, const DebugAction.endDiscussion());
+    await _controller.stagedAs(table.host, 'end-discussion', {});
     await _waitForPhase('voting');
     for (final entry in votes.entries) {
       final target = entry.value;
       if (target == null) continue; // abstain: not submitted
-      await _controller.driveAs(
-        playerAt(entry.key),
-        DebugAction.vote(voteTargetUserId: idAt(target)),
-      );
+      await _controller.stagedAs(playerAt(entry.key), 'vote', {
+        'target_player_id': idAt(target),
+        'lock': true,
+      });
     }
     if ((await oracle()).phase == 'voting') {
-      await _controller.driveAs(table.host, const DebugAction.revealVotes());
+      await _controller.stagedAs(table.host, 'reveal-votes', {});
     }
     await _waitForPhase('results');
   }
@@ -407,11 +401,4 @@ class ReferenceGameRunner {
     );
     fail(message);
   }
-}
-
-/// A night action to send: wire `action_type` and `targets`.
-class NightMove {
-  const NightMove(this.actionType, this.targets);
-  final String actionType;
-  final Map<String, dynamic> targets;
 }

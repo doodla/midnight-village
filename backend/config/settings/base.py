@@ -42,6 +42,11 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+# A web app may read only the response headers CORS exposes: the app reads the
+# server's clock from `Date` (to draw a stage's time against `deadline` and
+# `stage_started_at`). The allowed origins stay per environment.
+CORS_EXPOSE_HEADERS = ["Date"]
+
 ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
@@ -108,6 +113,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "10/minute",
+        # GET /api/stats/online/ (the home screen polls it; a CDN absorbs most).
+        "online_stats": "60/minute",
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
 }
@@ -163,9 +170,9 @@ LOGGING = {
 # timer registry is lost with the process). Off in the test settings.
 ONUW_RECOVER_TIMERS_ON_START = True
 
-# How durable timers fire (apps/onuw/timers.py): "memory" = threading.Timer in
+# How durable timers fire (apps/core/timers.py): "memory" = threading.Timer in
 # this process (dev, tests, harness); "vercel_queue" = delayed queue messages
-# handled by apps/onuw/queue_worker.py (no per-process state; see
+# handled by apps/core/queue_worker.py (no per-process state; see
 # docs/dev/deploy-vercel.md).
 ONUW_TIMER_BACKEND = "memory"
 ONUW_TIMER_QUEUE_TOPIC = "onuw-timers"
@@ -179,6 +186,23 @@ ONUW_CRON_SECRET = os.environ.get("CRON_SECRET", "")
 # timeout; consumers beat every heartbeat interval (apps/onuw/presence.py).
 ONUW_PRESENCE_HEARTBEAT_SECONDS = 15
 ONUW_PRESENCE_STALE_SECONDS = 40
+
+# "Where am I" (GET /api/me/table/): a lobby is the caller's table to resume only
+# if something happened at it (Lobby.updated_at) within this many hours.
+CORE_TABLE_RESUME_HOURS = 12
+
+# A socket consumer that gets a group event it has no handler for: False (here, so
+# production) logs a warning and drops it, so an instance older than a deploy keeps
+# its players' sockets open; True raises like Channels does, so a misspelled event
+# type in new code fails the tests (test, development and harness settings).
+ONUW_STRICT_SOCKET_EVENTS = False
+
+# The night (every phone with a choice sends one ``choose``) refuses night timers of 0 seconds
+# and a minimum window under 5 seconds: with no deadline one idle phone could
+# stall the table, and a window with no length singles out the Doppelganger.
+# True only in the test, development and harness settings, which drive the night
+# by hand; False here, so production (and Vercel) refuse them.
+ONUW_ALLOW_UNTIMED_NIGHT = False
 
 # Channels configuration
 ASGI_APPLICATION = "config.asgi.application"

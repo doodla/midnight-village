@@ -11,7 +11,7 @@ part of 'app_router.dart';
 /// Application router with auth redirect guard.
 ///
 /// Redirect rules:
-/// - Unauthenticated users on `/lobby/*` or `/game/*` are redirected to `/`.
+/// - Unauthenticated users on `/game/*` are redirected to `/`.
 /// - Authenticated users at `/` with an active game are redirected to
 ///   `/game/:id`. The check is made on every visit to `/`: a cached answer
 ///   would send a player who just left a finished game back into it.
@@ -22,7 +22,7 @@ const appRouterProvider = AppRouterProvider._();
 /// Application router with auth redirect guard.
 ///
 /// Redirect rules:
-/// - Unauthenticated users on `/lobby/*` or `/game/*` are redirected to `/`.
+/// - Unauthenticated users on `/game/*` are redirected to `/`.
 /// - Authenticated users at `/` with an active game are redirected to
 ///   `/game/:id`. The check is made on every visit to `/`: a cached answer
 ///   would send a player who just left a finished game back into it.
@@ -33,7 +33,7 @@ final class AppRouterProvider
   /// Application router with auth redirect guard.
   ///
   /// Redirect rules:
-  /// - Unauthenticated users on `/lobby/*` or `/game/*` are redirected to `/`.
+  /// - Unauthenticated users on `/game/*` are redirected to `/`.
   /// - Authenticated users at `/` with an active game are redirected to
   ///   `/game/:id`. The check is made on every visit to `/`: a cached answer
   ///   would send a player who just left a finished game back into it.
@@ -70,4 +70,4 @@ final class AppRouterProvider
   }
 }
 
-String _$appRouterHash() => r'394c051a382c019d0c1d571c4d9813d46c75977c';
+String _$appRouterHash() => r'0e9eff882be1ebc3f0a14880049fa5c0065c241c';

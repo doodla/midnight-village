@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
+from django.db.models.functions import Now
 from django.urls import reverse
 from django.utils import timezone
 
@@ -26,6 +27,8 @@ from apps.core import host, queue_worker, timers
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer
 from apps.onuw import presence, services
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
+from tests import timer_threads
+from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night, _Recorder
 
 pytestmark = [pytest.mark.uses_timers, pytest.mark.django_db(transaction=True)]
@@ -168,7 +171,8 @@ class TestANightWindowOnTheQueue:
         key = key_of(n, "wave:2")
         n.post("wolf", "see_team")
         n.post("seer", "skip")
-        n.post("robber", "skip")  # everyone is done: closes now, cancels the timer
+        n.post("robber", "skip")
+        n.post("villager", "none")  # everyone is done: closes now, cancels the timer
         assert n.refresh().phase == Phase.DISCUSSION
         queue.make_due(key)
 
@@ -184,6 +188,7 @@ class TestANightWindowOnTheQueue:
         n.post("wolf", "see_team")
         n.post("seer", "skip")
         n.post("robber", "skip")
+        n.post("villager", "none")
         first, second = (m[0] for m in queue.for_key(key))
         assert n.refresh().phase == Phase.NIGHT  # held for the minimum
         assert first["token"] != second["token"]
@@ -235,7 +240,9 @@ class TestAVoteOnTheQueue:
         n.host_close_window()
         n.client.force_authenticate(user=n.host)
         n.client.post(
-            reverse("onuw:end-discussion", kwargs={"game_id": str(n.game.id)})
+            reverse("onuw:end-discussion", kwargs={"game_id": str(n.game.id)}),
+            staged(n, {}),
+            format="json",
         )
         assert n.refresh().phase == Phase.VOTING
         return n
@@ -244,7 +251,7 @@ class TestAVoteOnTheQueue:
         n.client.force_authenticate(user=n.users[voter])
         return n.client.post(
             reverse("onuw:vote", kwargs={"game_id": str(n.game.id)}),
-            {"target_player_id": n.users[target].id},
+            staged(n, {"target_player_id": n.users[target].id, "lock": True}),
             format="json",
         )
 
@@ -464,7 +471,9 @@ class TestAFailingJobKeepsItsTimer:
         n.host_close_window()
         n.client.force_authenticate(user=n.host)
         n.client.post(
-            reverse("onuw:end-discussion", kwargs={"game_id": str(n.game.id)})
+            reverse("onuw:end-discussion", kwargs={"game_id": str(n.game.id)}),
+            staged(n, {}),
+            format="json",
         )
         key = key_of(n, "voting")
         queue.make_due(key)
@@ -513,6 +522,7 @@ class TestAFailingJobKeepsItsTimer:
         key = key_of(n, f"grace:{user_id}")
         n.post("wolf", "see_team")
         n.post("robber", "skip")
+        n.post("villager", "none")
         assert n.refresh().phase == Phase.NIGHT  # still inside the Seer's grace
         PlayerRole.objects.filter(game=n.game, user_id=user_id).update(
             disconnected_at=timezone.now() - timedelta(seconds=40)
@@ -558,33 +568,28 @@ class TestRetries:
     def test_the_memory_backend_retries_a_failed_job_after_a_short_delay(
         self, night, settings, monkeypatch
     ):
-        import time
-
         settings.ONUW_TIMER_BACKEND = "memory"
         monkeypatch.setattr(timers, "RETRY_DELAY_SECONDS", 0.05)
         n = night()
         n.start()
         key = key_of(n, "wave:2")
         ScheduledTimer.objects.filter(key=key).update(
-            due_at=timezone.now() - timedelta(seconds=1)
+            due_at=Now() - timedelta(seconds=1)
         )
         token = ScheduledTimer.objects.get(key=key).token
         flaky = _fail_once(services.advance_wave)
 
         with patch("apps.onuw.services.advance_wave", side_effect=flaky):
             timers._thread_fire(key, token)  # the timer thread's entry point
-            deadline = time.time() + 5
-            while time.time() < deadline and n.refresh().phase == Phase.NIGHT:
-                time.sleep(0.05)
+            timer_threads.settle(key)  # the retry thread has run and ended
 
         assert n.refresh().phase == Phase.DISCUSSION
         assert len(flaky.calls) == 2
+        assert not ScheduledTimer.objects.filter(key=key).exists()
 
     def test_a_job_that_always_fails_is_retried_a_capped_number_of_times(
         self, night, settings, monkeypatch
     ):
-        import time
-
         settings.ONUW_TIMER_BACKEND = "memory"
         monkeypatch.setattr(timers, "RETRY_DELAY_SECONDS", 0.02)
         monkeypatch.setattr(timers, "MAX_ATTEMPTS", 3)
@@ -592,7 +597,7 @@ class TestRetries:
         n.start()
         key = key_of(n, "wave:2")
         ScheduledTimer.objects.filter(key=key).update(
-            due_at=timezone.now() - timedelta(seconds=1)
+            due_at=Now() - timedelta(seconds=1)
         )
         token = ScheduledTimer.objects.get(key=key).token
         calls: list[int] = []
@@ -603,7 +608,7 @@ class TestRetries:
 
         with patch("apps.onuw.services.advance_wave", side_effect=always_fails):
             timers._thread_fire(key, token)
-            time.sleep(0.8)
+            timer_threads.settle(key)  # the last attempt armed no other
 
         assert len(calls) == 3  # not a spin
         assert ScheduledTimer.objects.filter(key=key).exists()  # left for the sweep

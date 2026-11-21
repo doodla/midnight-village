@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 
 /// Thrown when a request is made to an endpoint with no registered mock response.
@@ -15,12 +17,20 @@ class UnmockedEndpointException implements Exception {
       'UnmockedEndpointException: $method $path has no registered mock response';
 }
 
+/// Checks a canned response body when it is registered (see
+/// [MockHttpClient.responseCheck]).
+typedef ResponseCheck =
+    void Function(String method, String path, int status, dynamic data);
+
 /// A deterministic HTTP mock layer for tests.
 ///
 /// Wraps a [Dio] instance with an interceptor that returns canned responses for
-/// registered endpoints and throws [UnmockedEndpointException] (wrapped in a
-/// [DioException]) for any unregistered request — failing loud rather than
-/// silently returning empty data.
+/// registered endpoints. A request with no registered response FAILS THE TEST:
+/// the [UnmockedEndpointException] is reported to the test's zone as an
+/// uncaught error (so the app catching the request's [DioException], as it
+/// does for "best effort" calls, cannot hide it), and the request is rejected.
+/// A test that expects an unmocked call must catch the report with
+/// `runZonedGuarded`.
 ///
 /// Usage:
 /// ```dart
@@ -45,7 +55,7 @@ class UnmockedEndpointException implements Exception {
 /// ```
 class MockHttpClient {
   MockHttpClient() : dio = Dio() {
-    dio.interceptors.add(_MockInterceptor(_registry, requests));
+    dio.interceptors.add(_MockInterceptor(_registry, requests, _holds));
   }
 
   final Dio dio;
@@ -54,7 +64,24 @@ class MockHttpClient {
   /// test can assert what the app sent (method, path, body).
   final List<RequestOptions> requests = [];
   final Map<String, _MockResponse> _registry = {};
+  final Map<String, HeldReplies> _holds = {};
   String? _pendingKey;
+
+  /// From now on, requests for [method] [path] are answered only when the
+  /// test releases them (in any order): a slow network, replies that cross.
+  /// Each held reply is the answer registered when its request was made.
+  HeldReplies hold({required String method, required String path}) =>
+      _holds['${method.toUpperCase()}:$path'] = HeldReplies._();
+
+  /// Answers [method] [path] at once again (held requests stay held).
+  void stopHolding({required String method, required String path}) =>
+      _holds.remove('${method.toUpperCase()}:$path');
+
+  /// Run on every body passed to [thenReturn] (unless `offContract`). The
+  /// unit and widget tests set it (test/flutter_test_config.dart) to the
+  /// check against the server's recorded samples; it stays unset in the web
+  /// integration build, which cannot read them.
+  static ResponseCheck? responseCheck;
 
   /// Begins registering a mock for [method] + [path].
   ///
@@ -68,11 +95,27 @@ class MockHttpClient {
   ///
   /// The [response]'s [Response.statusCode] and [Response.data] are stored;
   /// [RequestOptions] are replaced at request time with the actual options.
-  void thenReturn(Response<dynamic> response) {
-    assert(_pendingKey != null, 'Call when() before thenReturn()');
-    _registry[_pendingKey!] = _MockResponse(
-      statusCode: response.statusCode ?? 200,
-      data: response.data,
+  /// The body is checked with [responseCheck]; [offContract] skips that, for a
+  /// test about a body the server would never send (malformed input).
+  void thenReturn(Response<dynamic> response, {bool offContract = false}) {
+    final key = _pendingKey;
+    assert(key != null, 'Call when() before thenReturn()');
+    final status = response.statusCode ?? 200;
+    if (!offContract) {
+      final split = key!.indexOf(':');
+      responseCheck?.call(
+        key.substring(0, split),
+        key.substring(split + 1),
+        status,
+        response.data,
+      );
+    }
+    // A copy: the test may go on changing its map, and the app the one it
+    // gets, without either reaching the registered answer.
+    _registry[key!] = _MockResponse(
+      statusCode: status,
+      data: _copy(response.data),
+      headers: response.headers.map,
     );
     _pendingKey = null;
   }
@@ -82,18 +125,53 @@ class MockHttpClient {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/// A deep copy of a JSON-like body (maps and lists copied, the rest shared).
+dynamic _copy(dynamic data) => switch (data) {
+  Map() => <String, dynamic>{
+    for (final e in data.entries) e.key as String: _copy(e.value),
+  },
+  List() => <dynamic>[for (final v in data) _copy(v)],
+  _ => data,
+};
+
+/// Requests waiting for the test to answer them ([MockHttpClient.hold]).
+class HeldReplies {
+  HeldReplies._();
+
+  final List<void Function()> _waiting = [];
+
+  /// How many requests are waiting.
+  int get length => _waiting.length;
+
+  /// Answers the waiting request at [index] (0: the oldest).
+  void release([int index = 0]) => _waiting.removeAt(index)();
+
+  /// Answers every waiting request, oldest first.
+  void releaseAll() {
+    while (_waiting.isNotEmpty) {
+      release();
+    }
+  }
+}
+
 class _MockResponse {
-  const _MockResponse({required this.statusCode, this.data});
+  const _MockResponse({
+    required this.statusCode,
+    this.data,
+    this.headers = const {},
+  });
 
   final int statusCode;
   final dynamic data;
+  final Map<String, List<String>> headers;
 }
 
 class _MockInterceptor extends Interceptor {
-  _MockInterceptor(this._registry, this._requests);
+  _MockInterceptor(this._registry, this._requests, this._holds);
 
   final Map<String, _MockResponse> _registry;
   final List<RequestOptions> _requests;
+  final Map<String, HeldReplies> _holds;
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
@@ -102,16 +180,37 @@ class _MockInterceptor extends Interceptor {
     final mock = _registry[key];
 
     if (mock != null) {
-      handler.resolve(
-        Response(
-          requestOptions: options,
-          statusCode: mock.statusCode,
-          data: mock.data,
-        ),
-        true,
+      final response = Response<dynamic>(
+        requestOptions: options,
+        statusCode: mock.statusCode,
+        data: _copy(mock.data),
+        headers: Headers.fromMap(mock.headers),
       );
+      void answer() {
+        // An error status fails the request, as it does over the network.
+        if (options.validateStatus(mock.statusCode)) {
+          handler.resolve(response, true);
+        } else {
+          handler.reject(
+            DioException.badResponse(
+              statusCode: mock.statusCode,
+              requestOptions: options,
+              response: response,
+            ),
+            true,
+          );
+        }
+      }
+
+      final held = _holds[key];
+      if (held != null) {
+        held._waiting.add(answer);
+      } else {
+        answer();
+      }
     } else {
       final error = UnmockedEndpointException(options.method, options.path);
+      Zone.current.handleUncaughtError(error, StackTrace.current);
       handler.reject(
         DioException(
           requestOptions: options,

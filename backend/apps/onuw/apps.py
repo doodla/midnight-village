@@ -12,11 +12,13 @@ class OnuwConfig(AppConfig):
 
     def ready(self) -> None:
         # Plug into the shared lobby (apps.core must not import this app).
-        from apps.core import games, timers
+        from apps.core import games, online, timers
 
+        from . import presence
         from .hooks import OnuwHooks
 
         games.register("onuw", OnuwHooks())
+        online.register_online_source(presence.online_sockets)
         # Modules that define this game's timer jobs / presence scope.
         timers.register_job_module("apps.onuw.services")
         timers.register_job_module("apps.onuw.presence")

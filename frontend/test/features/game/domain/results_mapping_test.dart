@@ -1,0 +1,175 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/models/game_result.dart';
+import 'package:midnight_village/design_system/models/role.dart';
+import 'package:midnight_village/features/game/domain/game_outcome.dart';
+
+import '../../../helpers/contract/contract_shape.dart';
+import '../../../helpers/contract/server_json.dart';
+
+/// The app's [GameResult] for the server's results body [resultsJson], read
+/// as 10 and 11 read it (`GET .../results/` through [GameOutcome]).
+Future<GameResult> _resultsFor(Map<String, dynamic> resultsJson) async {
+  checkHttpBody('GET', '/onuw/games/g/results/', 200, resultsJson);
+  return GameOutcome.fromJson(resultsJson).result;
+}
+
+ResultSeat _seat(
+  int index, {
+  String role = 'Villager',
+  String? finalRole,
+  String team = 'village',
+  bool won = true,
+  String? eliminatedBy,
+  int? votedFor,
+}) => ResultSeat(
+  defaultSeats[index],
+  originalRole: role,
+  finalRole: finalRole,
+  team: team,
+  won: won,
+  eliminatedBy: eliminatedBy,
+  votedFor: votedFor,
+);
+
+void main() {
+  group('elimination_reason mapping', () {
+    test('"vote" maps to EliminationReason.vote', () async {
+      final results = await _resultsFor(
+        serverResults(
+          players: [
+            _seat(
+              0,
+              role: 'Werewolf',
+              team: 'werewolf',
+              won: false,
+              eliminatedBy: 'vote',
+            ),
+          ],
+        ),
+      );
+      expect(results.players.first.eliminationReason, EliminationReason.vote);
+    });
+
+    test('"hunter_chain" maps to EliminationReason.hunterChain', () async {
+      final results = await _resultsFor(
+        serverResults(
+          players: [_seat(1, won: false, eliminatedBy: 'hunter_chain')],
+        ),
+      );
+      expect(
+        results.players.first.eliminationReason,
+        EliminationReason.hunterChain,
+      );
+    });
+
+    test('null elimination_reason maps to null', () async {
+      final results = await _resultsFor(serverResults(players: [_seat(2)]));
+      expect(results.players.first.eliminationReason, isNull);
+    });
+  });
+
+  group('center_cards mapping', () {
+    test('the server role names map to RoleId values', () async {
+      final results = await _resultsFor(
+        serverResults(centerCards: ['Werewolf', 'Seer', 'Villager']),
+      );
+      expect(results.centerCards, [
+        RoleId.werewolf,
+        RoleId.seer,
+        RoleId.villager,
+      ]);
+    });
+  });
+
+  group('vote_target_id display name lookup', () {
+    test('vote_target_id maps to display name from players list', () async {
+      // The results list every player: the target's name is read there.
+      final results = await _resultsFor(
+        serverResults(players: [_seat(0, votedFor: 2), _seat(1), _seat(2)]),
+      );
+      final player = results.players.first;
+      expect(player.voteTargetId, '2');
+      expect(player.voteTargetName, 'Bob');
+    });
+
+    test('null vote_target_id means abstainer (no name lookup)', () async {
+      final results = await _resultsFor(serverResults(players: [_seat(0)]));
+      final player = results.players.first;
+      expect(player.voteTargetId, isNull);
+      expect(player.voteTargetName, isNull);
+    });
+  });
+
+  group('outcome → isWinner mapping', () {
+    test('"win" outcome sets isWinner=true', () async {
+      final results = await _resultsFor(serverResults(players: [_seat(0)]));
+      expect(results.players.first.isWinner, true);
+    });
+
+    test('"lose" outcome sets isWinner=false', () async {
+      final results = await _resultsFor(
+        serverResults(
+          players: [_seat(0, role: 'Werewolf', team: 'werewolf', won: false)],
+        ),
+      );
+      expect(results.players.first.isWinner, false);
+    });
+  });
+
+  group('winning_teams mapping', () {
+    test('maps team tokens to TeamId values', () async {
+      final results = await _resultsFor(
+        serverResults(winningTeams: ['werewolf']),
+      );
+      expect(results.winningTeams, [TeamId.werewolf]);
+    });
+
+    test('"tanner" in winning_teams maps to TeamId.independent', () async {
+      final results = await _resultsFor(
+        serverResults(winningTeams: ['tanner', 'village']),
+      );
+      expect(results.winningTeams, [TeamId.independent, TeamId.village]);
+    });
+
+    test('empty winning_teams maps to empty list (nobody wins)', () async {
+      final results = await _resultsFor(serverResults(winningTeams: []));
+      expect(results.winningTeams, isEmpty);
+    });
+  });
+
+  group('player roles and teams', () {
+    test('the server role names parse in player results', () async {
+      final results = await _resultsFor(
+        serverResults(
+          players: [
+            // The Robber took the Werewolf's card.
+            _seat(0, role: 'Werewolf', finalRole: 'Robber', team: 'village'),
+            _seat(1, role: 'Robber', finalRole: 'Werewolf', team: 'werewolf'),
+          ],
+        ),
+      );
+      expect(results.players[0].originalRole, RoleId.werewolf);
+      expect(results.players[0].finalRole, RoleId.robber);
+      expect(results.players[1].originalRole, RoleId.robber);
+      expect(results.players[1].finalRole, RoleId.werewolf);
+    });
+
+    test('"neutral" team maps to TeamId.independent', () async {
+      final results = await _resultsFor(
+        serverResults(
+          players: [_seat(0, role: 'Tanner', team: 'neutral', won: false)],
+        ),
+      );
+      expect(results.players.first.team, TeamId.independent);
+    });
+  });
+
+  group('reason field mapping', () {
+    test('reason string from backend is stored in GameResult', () async {
+      final results = await _resultsFor(
+        serverResults(reason: 'A Werewolf was eliminated.'),
+      );
+      expect(results.reason, 'A Werewolf was eliminated.');
+    });
+  });
+}

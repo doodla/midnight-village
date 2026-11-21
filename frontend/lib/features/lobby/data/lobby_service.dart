@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../core/api/authenticated_client.dart';
 import '../domain/lobby_state.dart';
+import '../domain/where_am_i.dart';
 
 /// HTTP service for lobby CRUD operations.
 ///
@@ -15,16 +16,91 @@ class LobbyService {
 
   final AuthenticatedClient _client;
 
-  /// Creates a new lobby for ONUW.
-  ///
-  /// POST /lobbies/ with {"game_type": "onuw"}
-  Future<LobbyState> createLobby() async {
+  /// Opens a table: POST /lobbies/ with
+  /// `{"game_type": "onuw", "defaults": "v2"}`, always (the app's starting
+  /// set). The server writes the table's defaults (the look stage, the
+  /// automatic Simple deck) and no timer length.
+  Future<LobbyState> createTable() async {
     try {
       final response = await _client.post<Map<String, dynamic>>(
         '/lobbies/',
-        data: {'game_type': 'onuw'},
+        data: {'game_type': 'onuw', 'defaults': 'v2'},
       );
       return _parseLobbyResponse(response);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// The host picks a deck chip: the deck goes back to automatic and the
+  /// server builds it at the deal for the players then at the table.
+  ///
+  /// PATCH /lobbies/<code>/ with
+  /// `{"settings": {"deck": "auto", "deck_chip": <chip>}}` (merged into the
+  /// stored settings; refused 409 while a game runs).
+  Future<LobbyState> setDeckChip(String code, DeckChip chip) =>
+      _patchSettings(code, deckChip(chip));
+
+  /// The host edits the cards: the deck is custom from now on.
+  ///
+  /// PATCH /lobbies/<code>/ with `{"settings": {"deck": "custom", "roles"}}`.
+  Future<LobbyState> setCustomDeck(String code, Map<String, int> roles) =>
+      _patchSettings(code, customDeck(roles));
+
+  /// The host picks a pace: the timer lengths of [pace] (PATCH, merged).
+  Future<LobbyState> setPace(String code, Pace pace) =>
+      _patchSettings(code, pace.settings);
+
+  /// The settings a deck chip writes ([setDeckChip]).
+  static Map<String, Object> deckChip(DeckChip chip) => {
+    'deck': 'auto',
+    'deck_chip': chip.server,
+  };
+
+  /// The settings a custom deck writes ([setCustomDeck]).
+  static Map<String, Object> customDeck(Map<String, int> roles) => {
+    'deck': 'custom',
+    'roles': roles,
+  };
+
+  /// PATCH /lobbies/<code>/ with `{"settings": settings}`: the server merges
+  /// them over the stored ones (shallow) and answers the whole lobby.
+  Future<LobbyState> patchSettings(String code, Map<String, Object> settings) =>
+      _patchSettings(code, settings);
+
+  Future<LobbyState> _patchSettings(
+    String code,
+    Map<String, Object> settings,
+  ) async {
+    try {
+      final response = await _client.patch<Map<String, dynamic>>(
+        '/lobbies/$code/',
+        data: {'settings': settings},
+      );
+      return _parseLobbyResponse(response);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// Where am I: GET /me/table/. Null when at no table.
+  Future<MyTable?> fetchMyTable() async {
+    try {
+      final response = await _client.get<Map<String, dynamic>>('/me/table/');
+      return MyTable.parse(response.data!);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
+  /// This player's finished games, newest first:
+  /// GET /onuw/me/recent-games/ (the server's default of five).
+  Future<List<RecentGame>> fetchRecentGames() async {
+    try {
+      final response = await _client.get<Map<String, dynamic>>(
+        '/onuw/me/recent-games/',
+      );
+      return RecentGame.listFrom(response.data!);
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -55,37 +131,6 @@ class LobbyService {
     }
   }
 
-  /// Toggles the current player's ready state.
-  ///
-  /// POST /lobbies/<code>/ready/
-  Future<void> toggleReady(String code) async {
-    try {
-      await _client.post<Map<String, dynamic>>('/lobbies/$code/ready/');
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
-  /// Updates the role configuration (host only).
-  ///
-  /// PATCH /lobbies/<code>/ with {"settings": {"roles": {...}}}
-  Future<LobbyState> updateRoleConfig(
-    String code,
-    Map<String, int> roles,
-  ) async {
-    try {
-      final response = await _client.patch<Map<String, dynamic>>(
-        '/lobbies/$code/',
-        data: {
-          'settings': {'roles': roles},
-        },
-      );
-      return _parseLobbyResponse(response);
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
   /// Starts the game from the lobby (host only).
   ///
   /// POST /onuw/lobbies/<code>/start/
@@ -95,17 +140,7 @@ class LobbyService {
       final response = await _client.post<Map<String, dynamic>>(
         '/onuw/lobbies/$code/start/',
       );
-      final data = response.data;
-      if (data == null) {
-        throw const MalformedResponseException('Response body is null');
-      }
-      final gameId = data['game_id'];
-      if (gameId is! String) {
-        throw const MalformedResponseException(
-          'Missing or invalid game_id in start response',
-        );
-      }
-      return gameId;
+      return response.data!['game_id'] as String;
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -136,13 +171,10 @@ class LobbyService {
       final response = await _client.get<Map<String, dynamic>>(
         '/onuw/me/current-game/',
       );
-      final data = response.data;
-      if (data == null) return null;
-      final game = data['game'] is Map<String, dynamic>
-          ? data['game'] as Map<String, dynamic>
-          : data;
-      if (game['lobby_code']?.toString() != code) return null;
-      return game['game_id']?.toString();
+      // The server answers {"game_id", "phase", "lobby_code"}, or
+      // {"game": null} when there is no running game.
+      final data = response.data!;
+      return data['lobby_code'] == code ? data['game_id'] as String : null;
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -162,11 +194,6 @@ class LobbyService {
     }
   }
 
-  LobbyState _parseLobbyResponse(Response<Map<String, dynamic>> response) {
-    final data = response.data;
-    if (data == null) {
-      throw const MalformedResponseException('Response body is null');
-    }
-    return LobbyState.fromJson(data);
-  }
+  LobbyState _parseLobbyResponse(Response<Map<String, dynamic>> response) =>
+      LobbyState.fromJson(response.data!);
 }

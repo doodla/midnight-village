@@ -119,13 +119,14 @@ String _$lobbyWebSocketFactoryHash() =>
 ///
 /// WebSocket event handling per the API contract:
 /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-/// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
 /// [LobbyState.startedGameId], and a lobby opened while a game is already
 /// running (the start event came before the socket was up) looks the game up.
+/// Its first read heals like every fetch a screen depends on: retried until
+/// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
 @ProviderFor(LobbyNotifier)
 const lobbyProvider = LobbyNotifierFamily._();
@@ -142,13 +143,14 @@ const lobbyProvider = LobbyNotifierFamily._();
 ///
 /// WebSocket event handling per the API contract:
 /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-/// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
 /// [LobbyState.startedGameId], and a lobby opened while a game is already
 /// running (the start event came before the socket was up) looks the game up.
+/// Its first read heals like every fetch a screen depends on: retried until
+/// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 final class LobbyNotifierProvider
     extends $AsyncNotifierProvider<LobbyNotifier, LobbyState> {
   /// Manages lobby state for a given lobby code.
@@ -163,18 +165,19 @@ final class LobbyNotifierProvider
   ///
   /// WebSocket event handling per the API contract:
   /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-  /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
   /// - `lobby_update` -> update settings (role configuration changed by host)
   /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
   ///
   /// A table runs several games one after another: every start sets a new
   /// [LobbyState.startedGameId], and a lobby opened while a game is already
   /// running (the start event came before the socket was up) looks the game up.
+  /// Its first read heals like every fetch a screen depends on: retried until
+  /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
   const LobbyNotifierProvider._({
     required LobbyNotifierFamily super.from,
     required String super.argument,
   }) : super(
-         retry: null,
+         retry: retryForever,
          name: r'lobbyProvider',
          isAutoDispose: true,
          dependencies: null,
@@ -206,7 +209,7 @@ final class LobbyNotifierProvider
   }
 }
 
-String _$lobbyNotifierHash() => r'55e54433b9dcbb82db010df006e5f519d79e2128';
+String _$lobbyNotifierHash() => r'8cfc560907d0014db7b65bbb938f890fae4eafa8';
 
 /// Manages lobby state for a given lobby code.
 ///
@@ -220,13 +223,14 @@ String _$lobbyNotifierHash() => r'55e54433b9dcbb82db010df006e5f519d79e2128';
 ///
 /// WebSocket event handling per the API contract:
 /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-/// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
 /// [LobbyState.startedGameId], and a lobby opened while a game is already
 /// running (the start event came before the socket was up) looks the game up.
+/// Its first read heals like every fetch a screen depends on: retried until
+/// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
 final class LobbyNotifierFamily extends $Family
     with
@@ -239,7 +243,7 @@ final class LobbyNotifierFamily extends $Family
         > {
   const LobbyNotifierFamily._()
     : super(
-        retry: null,
+        retry: retryForever,
         name: r'lobbyProvider',
         dependencies: null,
         $allTransitiveDependencies: null,
@@ -258,13 +262,14 @@ final class LobbyNotifierFamily extends $Family
   ///
   /// WebSocket event handling per the API contract:
   /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-  /// - `player_ready` -> update player's isReady flag in-place (event has complete data)
   /// - `lobby_update` -> update settings (role configuration changed by host)
   /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
   ///
   /// A table runs several games one after another: every start sets a new
   /// [LobbyState.startedGameId], and a lobby opened while a game is already
   /// running (the start event came before the socket was up) looks the game up.
+  /// Its first read heals like every fetch a screen depends on: retried until
+  /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
   LobbyNotifierProvider call(String code) =>
       LobbyNotifierProvider._(argument: code, from: this);
@@ -285,13 +290,14 @@ final class LobbyNotifierFamily extends $Family
 ///
 /// WebSocket event handling per the API contract:
 /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-/// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
 /// [LobbyState.startedGameId], and a lobby opened while a game is already
 /// running (the start event came before the socket was up) looks the game up.
+/// Its first read heals like every fetch a screen depends on: retried until
+/// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
 abstract class _$LobbyNotifier extends $AsyncNotifier<LobbyState> {
   late final _$args = ref.$arg as String;

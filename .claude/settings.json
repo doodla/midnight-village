@@ -2,12 +2,24 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Agent|Task|Workflow",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/guardrails/runner.py",
+            "timeout": 10,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-commit-gate.sh",
-            "timeout": 120000
+            "command": "f=\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/git_guard.py; [ -f \"$f\" ] || exit 0; exec python3 \"$f\"",
+            "timeout": 30,
+            "onFailure": "block"
           }
         ]
       }
@@ -18,9 +30,21 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/post-edit-format.sh",
-            "timeout": 10000,
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-edit-format.sh",
+            "timeout": 30,
             "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh",
+            "timeout": 10
           }
         ]
       }
@@ -30,8 +54,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/verify-done.sh",
-            "timeout": 120000
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-done.sh",
+            "timeout": 1800
           }
         ]
       }

@@ -10,32 +10,24 @@ import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../../helpers/mock_http_client.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
 class _MockLobbyService extends Mock implements LobbyService {}
 
-class _MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
-
 const _code = 'ABC123';
 const _names = ['Ana', 'Ben', 'Cleo'];
 
-LobbyState _lobby({int hostId = 1}) => LobbyState(
-  code: _code,
-  hostId: hostId,
-  hostName: _names[hostId - 1],
-  players: [
-    for (final (i, n) in _names.indexed)
-      LobbyPlayer(
-        id: i + 1,
-        displayName: n,
-        isReady: false,
-        joinedAt: DateTime.utc(2026, 3, 31, 0, i),
-      ),
-  ],
-  status: 'waiting',
-  maxPlayers: 10,
-  roleConfig: const {'Werewolf': 2},
+LobbyState _lobby({int hostId = 1}) => FromSample.lobby(
+  serverLobby(
+    code: _code,
+    seats: [for (final (i, n) in _names.indexed) (id: i + 1, name: n)],
+    hostId: hostId,
+    roles: const {'Werewolf': 2},
+  ),
 );
 
 Future<void> _tick() => Future<void>.delayed(const Duration(milliseconds: 10));
@@ -53,7 +45,7 @@ void main() {
         lobbyServiceProvider.overrideWithValue(service),
         lobbyWebSocketFactoryProvider.overrideWithValue((code) => ws),
         authenticatedClientProvider.overrideWithValue(
-          _MockAuthenticatedClient(),
+          AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
         ),
       ],
     );
@@ -95,33 +87,20 @@ void main() {
       expect(current().status, 'in_game');
     });
 
-    test('player_ready and lobby_update are applied in order', () async {
+    test('lobby_updates are applied in order', () async {
       final fetch = Completer<LobbyState>();
       when(() => service.fetchLobby(_code)).thenAnswer((_) => fetch.future);
       final sub = container.listen(lobbyProvider(_code), (_, _) {});
       addTearDown(sub.close);
 
       await _tick();
+      // Each lobby_update is the whole lobby: the last one heard wins.
       ws
-        ..addServerEvent(
-          GameEvents.playerReady(
-            playerId: 2,
-            displayName: 'Ben',
-            isReady: true,
-          ),
-        )
-        ..addServerEvent(
-          GameEvents.playerReady(
-            playerId: 2,
-            displayName: 'Ben',
-            isReady: false,
-          ),
-        )
+        ..addServerEvent(GameEvents.lobbyUpdate(roleConfig: {'Robber': 1}))
         ..addServerEvent(GameEvents.lobbyUpdate(roleConfig: {'Seer': 1}));
       fetch.complete(_lobby());
       await container.read(lobbyProvider(_code).future);
 
-      expect(current().players[1].isReady, isFalse);
       expect(current().roleConfig, {'Seer': 1});
     });
 
@@ -178,28 +157,6 @@ void main() {
       await refreshing;
 
       expect(current().hostId, 2);
-    });
-
-    test('a player_ready during a player_joined refetch survives it', () async {
-      when(() => service.fetchLobby(_code)).thenAnswer((_) async => _lobby());
-      final sub = container.listen(lobbyProvider(_code), (_, _) {});
-      addTearDown(sub.close);
-      await container.read(lobbyProvider(_code).future);
-
-      final fetch = Completer<LobbyState>();
-      when(() => service.fetchLobby(_code)).thenAnswer((_) => fetch.future);
-      ws.addServerEvent(
-        GameEvents.playerJoined(playerId: 3, displayName: 'Cleo'),
-      );
-      await _tick();
-      ws.addServerEvent(
-        GameEvents.playerReady(playerId: 3, displayName: 'Cleo', isReady: true),
-      );
-      fetch.complete(_lobby());
-      await _tick();
-      await _tick();
-
-      expect(current().players[2].isReady, isTrue);
     });
 
     test('a game_started during a refetch is not lost', () async {

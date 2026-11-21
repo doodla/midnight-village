@@ -8,21 +8,26 @@ import 'package:midnight_village/core/debug/debug_table_controller.dart';
 
 import 'harness/failure_report.dart';
 import 'harness/harness_config.dart';
+import 'harness/live_table.dart';
 import 'harness/night_wire.dart';
 import 'harness/scenario_runner.dart';
 import 'harness/scenarios.dart';
+import 'harness/time_budget.dart';
 
 /// API runner: replays EVERY reference game (23 full games + 6 night-only
 /// Doppelganger games) from `backend/tests/onuw/data/reference_games.json`.
 ///
-/// For each game: spin a fresh table with the recorded deal, play the two-window
-/// night by answering each player's own prompt, then (full games) discussion,
-/// the recorded votes and the reveal. Assert, via the debug-state oracle, every
+/// For each game: spin a fresh table with the recorded deal, play the look stage
+/// and the two-window night the way phones do (every phone with a choice sends
+/// one `choose` per window, a phone with nothing to choose sends nothing, see
+/// `harness/scenario_runner.dart`), then (full games) the talk,
+/// the recorded lock-in votes and the reveal. Assert, via the debug-state oracle, every
 /// player's final card, the center, teams, the copied role, what each player
 /// learned during the night, and (full games) votes, who was voted out, who died,
 /// the winners, who won, and the stated reason.
 ///
-/// This targets the BOOTED HARNESS BACKEND on 127.0.0.1:8001 and mocks nothing.
+/// This targets the BOOTED HARNESS BACKEND (127.0.0.1, the run's port:
+/// [HarnessConfig.port]) and mocks nothing.
 /// It runs headless on the host VM under `flutter test`; real Dio/WS work because
 /// [HarnessConfig.setUp] clears `HttpOverrides.global`.
 void main() {
@@ -38,6 +43,10 @@ void main() {
         try {
           await runner.setUp();
           await runner.runToEnd();
+          // A phone with nothing to choose sent nothing, and every window
+          // closed by itself once the phones with a choice had chosen.
+          await runner.assertSleepersSentNothing();
+          expect(runner.windowsClosedByTimer, isEmpty, reason: game.name);
           if (game.hasVotes) await runner.assertResults();
         } on TestFailure {
           rethrow; // already recorded with its diff
@@ -53,24 +62,18 @@ void main() {
     }
   });
 
-  group('API: two-window night protocol', () {
+  group('API: the two-window night', () {
     late DebugApiClient client;
     late DebugTableController controller;
 
     setUp(() {
-      client = DebugApiClient(
-        baseUrl: HarnessConfig.apiBaseUrl,
-        origin: HarnessConfig.origin,
-      );
-      controller = DebugTableController(
-        client: client,
-        adoptSession:
-            (_, {required accessToken, required refreshToken}) async {},
-        invalidateGameProviders: (_) {},
-      );
+      final clients = harnessClients();
+      client = clients.client;
+      controller = clients.controller;
     });
 
-    /// Alice Doppelganger, Bob Seer, Carol Werewolf, Dave Insomniac.
+    /// Alice Doppelganger, Bob Seer, Carol Werewolf, Dave Insomniac. No look
+    /// stage: the deal opens window 1 at once, so the clocks below start then.
     Future<DebugTable> table(Map<String, int> timers) => controller.createTable(
       playerNames: ['Alice', 'Bob', 'Carol', 'Dave'],
       roleCounts: {
@@ -88,15 +91,32 @@ void main() {
         'Dave': 'Insomniac',
       },
       centerCards: ['Werewolf', 'Robber', 'Drunk'],
-      timerSettings: timers,
+      timerSettings: {...timers, 'card_look_seconds': 0},
     );
 
-    DebugAction act(String type, [Map<String, dynamic> targets = const {}]) =>
-        DebugAction.nightAction(actionType: type, targets: targets);
+    Future<void> choose(
+      DebugPlayer p, [
+      List<Map<String, Object>> picks = const [],
+    ]) => controller.stagedAs(p, 'action', {
+      'action_type': 'choose',
+      'picks': picks,
+    });
+    Future<Map<String, dynamic>> me(DebugPlayer p) => controller.playerView(p);
+    Future<List<dynamic>> results(DebugPlayer p) async =>
+        (await me(p))['night_results'] as List;
 
-    test('window 1 look arrives at once with a follow-up; window 2 delivers '
-        'nothing until it closes, then all results, wave_complete, '
-        'discussion', () async {
+    /// Per-player night events: the night sends none.
+    const perPlayerEvents = {
+      'action_prompt',
+      'action_result',
+      'wave_waiting',
+      'wave_start',
+    };
+
+    test('window 1: her look is read at once and arms her follow-up; window 2 '
+        'holds every result until the last phone WITH a choice has chosen; a '
+        'phone with nothing to choose sends nothing and is never waited for; '
+        'nothing is sent to one player', () async {
       final t = await table(fastTimers);
       final wires = {
         for (final p in t.players)
@@ -110,166 +130,192 @@ void main() {
       final alice = t.players[0], bob = t.players[1];
       final carol = t.players[2], dave = t.players[3];
 
-      // Window 1 is open (its events went out before the sockets connected, so
-      // read the prompts from each player's own view): only Alice has one.
-      final alicePrompt = (await controller.playerView(alice))['action_prompt'];
-      expect(alicePrompt['role_acting_as'], 'Doppelganger');
-      expect(alicePrompt['wave'], 1);
+      // Window 1 is open: every phone has a prompt, only Alice's does something.
+      expect((await me(alice))['action_prompt']['kind'], 'doppelganger_look');
       for (final p in [bob, carol, dave]) {
-        expect((await controller.playerView(p))['action_prompt'], isNull);
+        expect((await me(p))['action_prompt']['kind'], 'none');
       }
 
-      // Her look: the result comes back at once, then her follow-up prompt, in
-      // the same window. Nobody else hears anything.
-      await controller.driveAs(
-        alice,
-        act('peek_player', {'player_id': bob.userId}),
-      );
-      await wires['Alice']!.waitFor(
-        () => wires['Alice']!.ofType('action_prompt').isNotEmpty,
-        reason: 'the follow-up prompt',
-      );
-      final aliceTrace = wires['Alice']!.trace;
-      expect(aliceTrace.sublist(aliceTrace.length - 2), [
-        'action_result:1',
-        'action_prompt:1',
+      // Her look: in her own /me/ at once, and her follow-up is armed in the
+      // SAME window. Nobody else learns anything.
+      await choose(alice, [
+        {'player_id': bob.userId},
       ]);
-      final look = wires['Alice']!.ofType('action_result').single;
+      final aliceMe = await me(alice);
+      final look = (aliceMe['night_results'] as List).single;
       expect(look['action_type'], 'peek_player');
-      expect((look['revealed_info'] as Map)['copied_role'], 'Seer');
-      final followUp = wires['Alice']!.ofType('action_prompt').last;
-      expect(followUp['role_acting_as'], 'Seer');
-      expect(followUp['wave'], 1);
-      expect(followUp['action_types'], contains('skip'));
-      expect(wires['Bob']!.ofType('action_result'), isEmpty);
+      expect(look['revealed_info']['copied_role'], 'Seer');
+      expect(aliceMe['action_prompt']['kind'], 'seer');
+      expect(aliceMe['action_prompt']['chooses_left'], 1);
+      expect(await results(bob), isEmpty);
 
-      // Her follow-up result arrives when window 1 closes, then window 2 opens.
-      await controller.driveAs(alice, act('skip'));
-      await wires['Alice']!.waitFor(
-        () => wires['Alice']!.ofType('wave_start').any((e) => e['wave'] == 2),
-        reason: 'window 2 to open',
-      );
-      expect(
-        wires['Alice']!.trace.skipWhile((e) => e != 'action_result:1').skip(1),
-        containsAllInOrder(['wave_complete:1', 'wave_start:2']),
-      );
-      expect(
-        wires['Alice']!.ofType('action_result').last['action_type'],
-        'skip',
-      );
+      // Nobody else has anything to choose in window 1: they send nothing.
+      // Her follow-up (nothing) is all it waits for: it closes, and one
+      // `night_window` for window 2 reaches every phone.
+      for (final p in [bob, carol, dave]) {
+        expect((await me(p))['action_prompt']['chooses_left'], 0);
+      }
+      final marks = {for (final w in wires.values) w.player.userId: w.mark};
+      await choose(alice);
+      for (final w in wires.values) {
+        final opened = await w.waitForEvent(
+          'night_window',
+          where: (e) => e['window'] == 2,
+          after: marks[w.player.userId]!,
+          timeout: eventTimeout,
+        );
+        expect(opened.keys.toSet(), {'type', 'window', 'deadline'});
+      }
+      final followUp = (await results(alice)).last;
+      expect(followUp['action_type'], 'skip');
+      expect(followUp['revealed_info'], {'nothing_chosen': true});
 
-      // Window 2: Bob, Carol and Dave are all prompted at once (the Werewolf
-      // is alone - her center is a Werewolf - and the Insomniac is prompted).
+      // Window 2: Bob is the Seer, Carol a lone Werewolf (her centre is a
+      // Werewolf), Dave the Insomniac and Alice (a Seer now) have no choice.
+      expect((await me(bob))['action_prompt']['kind'], 'seer');
+      expect((await me(carol))['action_prompt']['kind'], 'lone_werewolf');
+      expect((await me(dave))['action_prompt']['kind'], 'none');
+      expect((await me(alice))['action_prompt']['kind'], 'none');
+
+      // Bob chooses; Carol has not. Dave and Alice have nothing to choose
+      // and send nothing. Nobody has a result yet.
+      for (final p in [dave, alice]) {
+        expect((await me(p))['action_prompt']['chooses_left'], 0);
+      }
+      await choose(bob, [
+        {'player_id': carol.userId},
+      ]);
+      // Positive synchronisation instead of a sleep: Alice's phone drops and
+      // comes back; the others hear both presence events, so anything sent
+      // before them is already recorded.
+      final seenBefore = {
+        for (final name in ['Bob', 'Carol', 'Dave']) name: wires[name]!.mark,
+      };
+      await wires['Alice']!.close();
       for (final name in ['Bob', 'Carol', 'Dave']) {
-        await wires[name]!.waitFor(
-          () => wires[name]!.ofType('action_prompt').any((e) => e['wave'] == 2),
-          reason: 'the window 2 prompt',
+        await wires[name]!.waitForEvent(
+          'player_presence',
+          where: (e) =>
+              e['player_id'] == alice.userId && e['connected'] == false,
+          after: seenBefore[name]!,
+          timeout: eventTimeout,
         );
       }
-      expect(
-        (wires['Bob']!.ofType('action_prompt').last['action_types'] as List),
-        containsAll(['peek_player', 'peek_center', 'skip']),
-      );
-      // Alice copied the Seer and has nothing to do in window 2.
-      expect(wires['Alice']!.trace.last, 'wave_waiting:2');
-
-      // Bob and Carol answer; Dave has not. NO result is sent to anyone yet.
-      await controller.driveAs(
-        bob,
-        act('peek_player', {'player_id': carol.userId}),
-      );
-      await controller.driveAs(carol, act('see_team', {'center_index': 0}));
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-      for (final w in wires.values) {
-        expect(
-          w.ofType('action_result').where((e) => e['wave'] == 2),
-          isEmpty,
-          reason: '${w.player.displayName} got a window 2 result early',
+      wires['Alice'] = await PlayerWire.connect(client, t, alice);
+      for (final name in ['Bob', 'Carol', 'Dave']) {
+        await wires[name]!.waitForEvent(
+          'player_presence',
+          where: (e) =>
+              e['player_id'] == alice.userId && e['connected'] == true,
+          after: seenBefore[name]!,
+          timeout: eventTimeout,
         );
+      }
+      for (final p in [bob, carol, dave]) {
+        expect(await results(p), isEmpty, reason: '${p.displayName} early');
       }
       expect((await controller.oracle()).currentWave, 2);
 
-      // Dave answers: the window closes. Everyone's result, then wave_complete,
-      // then the discussion.
-      await controller.driveAs(dave, act('none'));
+      // Carol chooses, the last phone with a choice: the window closes and
+      // the talk opens, without a word from Dave or Alice.
+      await choose(carol, [
+        {'center_index': 0},
+      ]);
       for (final name in ['Bob', 'Carol', 'Dave']) {
-        await wires[name]!.waitFor(
-          () => wires[name]!.ofType('phase_change').isNotEmpty,
-          reason: 'the discussion',
-        );
-        final w2 = wires[name]!.trace
-            .skipWhile((e) => e != 'wave_start:2')
-            .toList();
-        expect(
-          w2
-              .where((e) => !e.startsWith('wave_') || e == 'wave_complete:2')
-              .toList(),
-          containsAllInOrder([
-            'action_result:2',
-            'wave_complete:2',
-            'phase_change:discussion',
-          ]),
-          reason: '$name window 2 delivery order',
+        await wires[name]!.waitForEvent(
+          'phase_change',
+          where: (e) => e['phase'] == 'discussion',
+          timeout: eventTimeout,
         );
       }
-      final bobResult = wires['Bob']!.ofType('action_result').single;
+      final bobResult = (await results(bob)).single;
       expect(bobResult['action_type'], 'peek_player');
-      expect((bobResult['revealed_info'] as Map)['role'], 'werewolf');
-      final carolResult = wires['Carol']!.ofType('action_result').single;
-      expect((carolResult['revealed_info'] as Map)['center_card'], {
+      expect(bobResult['revealed_info']['role'], 'Werewolf');
+      expect((await results(carol)).single['revealed_info']['center_card'], {
         'index': 0,
-        'role': 'werewolf',
+        'role': 'Werewolf',
       });
-      final daveResult = wires['Dave']!.ofType('action_result').single;
+      final daveResult = (await results(dave)).single;
       expect(daveResult['wave'], 2);
       expect(daveResult['action_type'], 'insomniac');
-      expect((daveResult['revealed_info'] as Map)['current_role'], 'insomniac');
+      expect(daveResult['revealed_info']['current_role'], 'Insomniac');
+      for (final w in wires.values) {
+        expect(
+          w.events.map((e) => e['type']).toSet().intersection(perPlayerEvents),
+          isEmpty,
+          reason: '${w.player.displayName} heard a per-player night event',
+        );
+      }
+      // The oracle: the sleepers sent nothing in either window, and nothing
+      // was closed by a timer.
+      final chosen = {
+        for (final p in (await controller.oracle()).players)
+          p.displayName: p.chosen,
+      };
+      expect(chosen, {
+        'Alice': {1: 2, 2: 0},
+        'Bob': {1: 0, 2: 1},
+        'Carol': {1: 0, 2: 1},
+        'Dave': {1: 0, 2: 0},
+      });
     });
 
     test('window 1 lasts exactly its fixed length and window 2 never closes '
         'sooner than its minimum', () async {
+      // Both boxes start before the table is dealt, so the server's windows
+      // (which open after) can never be shorter than the client measures.
+      final window1 = TimeBox(
+        'the Doppelganger window',
+        const Duration(seconds: 3),
+      );
+      final both = TimeBox(
+        'the Doppelganger window plus the minimum of window 2',
+        const Duration(seconds: 6),
+      );
       final t = await table({
         ...fastTimers,
-        'night_doppelganger_window_seconds': 2,
-        'night_min_window_seconds': 2,
+        'night_doppelganger_window_seconds': 3,
+        'night_min_window_seconds': 3,
       });
       final alice = t.players[0], bob = t.players[1];
       final carol = t.players[2], dave = t.players[3];
-      final opened = DateTime.now();
 
-      // The Doppelganger answers at once (no follow-up: she copies the Werewolf
-      // card, whose action is in window 2). Window 1 must STILL run its length.
-      await controller.driveAs(
-        alice,
-        act('peek_player', {'player_id': carol.userId}),
+      // All four phones send a choose at once (a sleeper's is still taken; she
+      // copies the Werewolf card, whose action
+      // is in window 2: no follow-up). Window 1 must STILL run its length.
+      await choose(alice, [
+        {'player_id': carol.userId},
+      ]);
+      for (final p in [bob, carol, dave]) {
+        await choose(p);
+      }
+      final wave = await window1.readInside(
+        () async => (await controller.oracle()).currentWave,
       );
-      await Future<void>.delayed(const Duration(milliseconds: 700));
-      expect((await controller.oracle()).currentWave, 1);
+      expect(wave, 1);
 
       // ... then closes on its own.
-      await _until(
+      await pollUntil(
         () async => (await controller.oracle()).currentWave == 2,
-        'window 1 to close by itself',
+        reason: 'window 1 to close by itself',
+        timeout: window1.timeout,
       );
-      final window1 = DateTime.now().difference(opened);
-      expect(window1, greaterThanOrEqualTo(const Duration(milliseconds: 1800)));
+      window1.expectOver('window 1 closed early');
 
-      // Everyone answers straight away; window 2 still waits out its minimum.
-      final window2Opened = DateTime.now();
-      await controller.driveAs(bob, act('skip'));
-      await controller.driveAs(carol, act('see_team'));
-      await controller.driveAs(dave, act('none'));
-      await controller.driveAs(alice, act('see_team'));
-      await Future<void>.delayed(const Duration(milliseconds: 700));
-      expect((await controller.oracle()).phase, 'night');
-      await _until(
+      // Everyone chooses straight away; window 2 still waits out its minimum.
+      for (final p in [bob, carol, dave, alice]) {
+        await choose(p);
+      }
+      final phase = await both.readInside(
+        () async => (await controller.oracle()).phase,
+      );
+      expect(phase, 'night');
+      await pollUntil(
         () async => (await controller.oracle()).phase == 'discussion',
-        'window 2 to close after its minimum',
+        reason: 'window 2 to close after its minimum',
+        timeout: both.timeout,
       );
-      expect(
-        DateTime.now().difference(window2Opened),
-        greaterThanOrEqualTo(const Duration(milliseconds: 1800)),
-      );
+      both.expectOver('window 2 closed before its minimum');
     });
 
     test('debug-fire-timer closes the open window now, whatever its minimum, '
@@ -279,21 +325,20 @@ void main() {
         'night_doppelganger_window_seconds': 600,
         'night_min_window_seconds': 600,
       });
-      final bob = t.players[1];
-      final carol = t.players[2], dave = t.players[3];
+      final players = t.players;
 
-      // Window 1 is fixed at 600s and the Doppelganger never answers. Fire it:
+      // Window 1 is fixed at 600s and the Doppelganger never chooses. Fire it:
       // she copied nothing, so window 2 opens without her.
       expect((await controller.oracle()).currentWave, 1);
       expect(await controller.fireTimer(TimerKey.wave(1)), isTrue);
       expect((await controller.oracle()).currentWave, 2);
       expect(await controller.fireTimer(TimerKey.wave(1)), isFalse);
 
-      // Window 2: everyone answers but the 600s minimum holds it open ...
-      await controller.driveAs(bob, act('skip'));
-      await controller.driveAs(carol, act('see_team'));
-      await controller.driveAs(dave, act('none'));
-      await Future<void>.delayed(const Duration(milliseconds: 300));
+      // Window 2: all four phones send a choose (a sleeper's is still taken) but
+      // the 600s minimum holds it open ...
+      for (final p in players) {
+        await choose(p);
+      }
       expect((await controller.oracle()).phase, 'night');
 
       // ... until the hook closes it.
@@ -303,18 +348,4 @@ void main() {
       expect((await controller.oracle()).phase, 'discussion');
     });
   });
-}
-
-/// Polls an async condition (bounded; throws on expiry).
-Future<void> _until(
-  Future<bool> Function() condition,
-  String reason, {
-  Duration timeout = const Duration(seconds: 8),
-}) async {
-  final deadline = DateTime.now().add(timeout);
-  while (DateTime.now().isBefore(deadline)) {
-    if (await condition()) return;
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-  }
-  throw StateError('Timed out waiting for $reason');
 }

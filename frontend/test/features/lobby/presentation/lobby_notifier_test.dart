@@ -10,49 +10,42 @@ import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:midnight_village/core/api/api_exception.dart';
+import 'package:midnight_village/design_system/copy/copy.dart';
+
+import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/mock_http_client.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
 class MockLobbyService extends Mock implements LobbyService {}
 
-class MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
-
-/// Canonical test lobby state.
+/// The server's lobby body: Alice (1) and Bob (2) unless [seats] are given,
+/// parsed as the app parses it.
 LobbyState _testLobbyState({
   String code = 'ABC123',
   int hostId = 1,
-  List<LobbyPlayer>? players,
+  List<Seat> seats = const [(id: 1, name: 'Alice'), (id: 2, name: 'Bob')],
   String status = 'waiting',
   Map<String, int>? roleConfig,
-}) {
-  return LobbyState(
+}) => FromSample.lobby(
+  serverLobby(
     code: code,
+    seats: seats,
     hostId: hostId,
-    players:
-        players ??
-        [
-          LobbyPlayer(
-            id: 1,
-            displayName: 'Alice',
-            isReady: true,
-            joinedAt: DateTime.utc(2026, 3, 31),
-          ),
-          LobbyPlayer(
-            id: 2,
-            displayName: 'Bob',
-            isReady: false,
-            joinedAt: DateTime.utc(2026, 3, 31, 0, 1),
-          ),
-        ],
     status: status,
-    maxPlayers: 10,
-    roleConfig: roleConfig ?? {'werewolf': 2, 'seer': 1},
-  );
-}
+    roles: roleConfig ?? {'Werewolf': 2, 'Seer': 1},
+  ),
+);
 
 void main() {
   late MockLobbyService mockService;
   late MockWebSocketChannel mockWebSocket;
   late ProviderContainer container;
+
+  setUpAll(() => registerFallbackValue(<String, Object>{}));
 
   setUp(() {
     mockService = MockLobbyService();
@@ -74,7 +67,7 @@ void main() {
         // Override authenticatedClientProvider since lobbyServiceProvider
         // is already overridden and won't use it.
         authenticatedClientProvider.overrideWithValue(
-          MockAuthenticatedClient(),
+          AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
         ),
       ],
     );
@@ -125,25 +118,10 @@ void main() {
         // Set up re-fetch with updated players
         final refetchCompleter = Completer<LobbyState>();
         final updatedState = _testLobbyState(
-          players: [
-            LobbyPlayer(
-              id: 1,
-              displayName: 'Alice',
-              isReady: true,
-              joinedAt: DateTime.utc(2026, 3, 31),
-            ),
-            LobbyPlayer(
-              id: 2,
-              displayName: 'Bob',
-              isReady: false,
-              joinedAt: DateTime.utc(2026, 3, 31, 0, 1),
-            ),
-            LobbyPlayer(
-              id: 3,
-              displayName: 'Charlie',
-              isReady: false,
-              joinedAt: DateTime.utc(2026, 3, 31, 0, 2),
-            ),
+          seats: [
+            (id: 1, name: 'Alice'),
+            (id: 2, name: 'Bob'),
+            (id: 3, name: 'Charlie'),
           ],
         );
         when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
@@ -155,9 +133,7 @@ void main() {
         });
 
         // Simulate player_joined event
-        mockWebSocket.addServerEvent(
-          json.encode({'type': 'player_joined', 'username': 'charlie'}),
-        );
+        mockWebSocket.addServerEvent(GameEvents.playerJoined());
 
         // Wait for the re-fetch to complete
         await refetchCompleter.future;
@@ -176,16 +152,7 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         final refetchCompleter = Completer<LobbyState>();
-        final updatedState = _testLobbyState(
-          players: [
-            LobbyPlayer(
-              id: 1,
-              displayName: 'Alice',
-              isReady: true,
-              joinedAt: DateTime.utc(2026, 3, 31),
-            ),
-          ],
-        );
+        final updatedState = _testLobbyState(seats: [(id: 1, name: 'Alice')]);
         when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
           final result = updatedState;
           if (!refetchCompleter.isCompleted) {
@@ -194,9 +161,7 @@ void main() {
           return result;
         });
 
-        mockWebSocket.addServerEvent(
-          json.encode({'type': 'player_left', 'username': 'bob'}),
-        );
+        mockWebSocket.addServerEvent(GameEvents.playerLeft());
 
         await refetchCompleter.future;
         await Future<void>.delayed(Duration.zero);
@@ -205,63 +170,29 @@ void main() {
         expect(state.value?.players, hasLength(1));
       });
 
-      test(
-        'player_ready updates player isReady in-place without re-fetch',
-        () async {
-          container = createContainer();
-          await container.read(lobbyProvider('ABC123').future);
-
-          // Reset verification count from initial fetch
-          clearInteractions(mockService);
-
-          mockWebSocket.addServerEvent(
-            json.encode({
-              'type': 'player_ready',
-              'username': 'Bob',
-              'user_id': 2,
-              'is_ready': true,
-            }),
-          );
-
-          final state = container.read(lobbyProvider('ABC123'));
-          final bob = state.value?.players.firstWhere(
-            (p) => p.displayName == 'Bob',
-          );
-          expect(bob?.isReady, isTrue);
-
-          // No re-fetch should have occurred
-          verifyNever(() => mockService.fetchLobby(any()));
-        },
-      );
-
       test('lobby_update updates role configuration', () async {
         container = createContainer();
         await container.read(lobbyProvider('ABC123').future);
 
         mockWebSocket.addServerEvent(
-          json.encode({
-            'type': 'lobby_update',
-            'data': {
-              'settings': {
-                'roles': {
-                  'werewolf': 2,
-                  'seer': 1,
-                  'robber': 1,
-                  'troublemaker': 1,
-                  'villager': 3,
-                },
-              },
+          GameEvents.lobbyUpdate(
+            roleConfig: {
+              'Werewolf': 2,
+              'Seer': 1,
+              'Robber': 1,
+              'Troublemaker': 1,
+              'Villager': 3,
             },
-          }),
+          ),
         );
 
         final state = container.read(lobbyProvider('ABC123'));
         expect(state.value?.roleConfig, {
-          'werewolf': 2,
-          'seer': 1,
-          'robber': 1,
-          'troublemaker': 1,
-          'villager': 3,
+          'Werewolf': 2,
+          'Seer': 1,
+          'Robber': 1,
+          'Troublemaker': 1,
+          'Villager': 3,
         });
       });
 
@@ -270,10 +201,9 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         mockWebSocket.addServerEvent(
-          json.encode({
-            'type': 'game_started',
-            'game_id': '550e8400-e29b-41d4-a716-446655440000',
-          }),
+          GameEvents.gameStarted(
+            gameId: '550e8400-e29b-41d4-a716-446655440000',
+          ),
         );
 
         final notifier = container.read(lobbyProvider('ABC123').notifier);
@@ -289,18 +219,12 @@ void main() {
         clearInteractions(mockService);
 
         // Send as Map directly (some WS implementations do this)
-        mockWebSocket.addServerEvent({
-          'type': 'player_ready',
-          'username': 'Bob',
-          'user_id': 2,
-          'is_ready': true,
-        });
+        mockWebSocket.addServerEvent(
+          jsonDecode(GameEvents.lobbyUpdate(roleConfig: {'Seer': 1})),
+        );
 
         final state = container.read(lobbyProvider('ABC123'));
-        final bob = state.value?.players.firstWhere(
-          (p) => p.displayName == 'Bob',
-        );
-        expect(bob?.isReady, isTrue);
+        expect(state.value?.roleConfig, {'Seer': 1});
       });
 
       test('ignores unknown event types without error', () async {
@@ -308,7 +232,7 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         // Should not throw
-        mockWebSocket.addServerEvent(
+        mockWebSocket.addOffContractEvent(
           json.encode({'type': 'unknown_event', 'data': 'something'}),
         );
 
@@ -318,18 +242,6 @@ void main() {
     });
 
     group('public methods', () {
-      test('toggleReady calls service.toggleReady', () async {
-        container = createContainer();
-        await container.read(lobbyProvider('ABC123').future);
-
-        when(() => mockService.toggleReady('ABC123')).thenAnswer((_) async {});
-
-        final notifier = container.read(lobbyProvider('ABC123').notifier);
-        await notifier.toggleReady();
-
-        verify(() => mockService.toggleReady('ABC123')).called(1);
-      });
-
       test('startGame calls service.startGame and returns game ID', () async {
         container = createContainer();
         await container.read(lobbyProvider('ABC123').future);
@@ -356,22 +268,78 @@ void main() {
         verify(() => mockService.leaveLobby('ABC123')).called(1);
       });
 
-      test('updateRoleConfig calls service and updates state', () async {
+      test('a deck chip shows at once, before the answer, and the answer is '
+          'the server\'s lobby', () async {
         container = createContainer();
+        container.listen(lobbyProvider('ABC123'), (_, _) {});
         await container.read(lobbyProvider('ABC123').future);
-
-        final newRoles = {'werewolf': 2, 'seer': 1, 'robber': 1};
-        final updatedState = _testLobbyState(roleConfig: newRoles);
+        final answer = Completer<LobbyState>();
         when(
-          () => mockService.updateRoleConfig('ABC123', newRoles),
-        ).thenAnswer((_) async => updatedState);
+          () => mockService.patchSettings('ABC123', {
+            'deck': 'auto',
+            'deck_chip': 'chaos',
+          }),
+        ).thenAnswer((_) => answer.future);
 
         final notifier = container.read(lobbyProvider('ABC123').notifier);
-        await notifier.updateRoleConfig(newRoles);
+        final sent = notifier.chooseChip(DeckChip.chaos);
+        await Future<void>.delayed(Duration.zero);
 
-        final state = container.read(lobbyProvider('ABC123'));
-        expect(state.value?.roleConfig, newRoles);
+        final shown = container.read(lobbyProvider('ABC123')).value!.table;
+        expect(shown.autoDeck, isTrue);
+        expect(shown.deckChip, DeckChip.chaos);
+
+        answer.complete(
+          FromSample.lobby(
+            ContractSamples.map('http/lobby/settings_deck_chip'),
+          ),
+        );
+        await sent;
+        final after = container.read(lobbyProvider('ABC123')).value!;
+        expect(after.table.deckChip, DeckChip.simple);
+        expect(after.notSent, isFalse);
       });
+
+      test('a refused change is taken back and says "Not sent."; Try again '
+          'sends it again', () async {
+        container = createContainer();
+        container.listen(lobbyProvider('ABC123'), (_, _) {});
+        await container.read(lobbyProvider('ABC123').future);
+        when(
+          () => mockService.patchSettings('ABC123', any()),
+        ).thenThrow(const NetworkException('offline'));
+
+        final notifier = container.read(lobbyProvider('ABC123').notifier);
+        await notifier.choosePace(Pace.quick);
+
+        final lobby = container.read(lobbyProvider('ABC123')).value!;
+        expect(lobby.notSent, isTrue);
+        expect(lobby.table.pace, isNull);
+
+        await notifier.retry();
+        verify(
+          () => mockService.patchSettings('ABC123', Pace.quick.settings),
+        ).called(2);
+      });
+
+      test(
+        'lobby_update is the whole lobby: settings, players and host',
+        () async {
+          container = createContainer();
+          container.listen(lobbyProvider('ABC123'), (_, _) {});
+          await container.read(lobbyProvider('ABC123').future);
+
+          final update = ContractSamples.map(
+            'ws/lobby/lobby_update_auto_deck_9',
+          );
+          mockWebSocket.addServerEvent(update);
+          await Future<void>.delayed(Duration.zero);
+
+          final lobby = container.read(lobbyProvider('ABC123')).value!;
+          expect(lobby.table.deckChip, DeckChip.chaos);
+          expect(lobby.players, hasLength(9));
+        },
+      );
     });
 
     group('dispose', () {
@@ -389,6 +357,61 @@ void main() {
 
         expect(mockWebSocket.isClosed, isTrue);
       });
+    });
+  });
+
+  group('a refused deal, in the player\'s words', () {
+    // The server's refusal words (apps/onuw/deal.py, validate_onuw_settings).
+    ({bool answered, String? why}) refused(String detail) =>
+        LobbyNotifier.dealRefusal(
+          ValidationException({
+            'detail': [detail],
+          }),
+        );
+
+    test('a table no longer waiting', () {
+      expect(refused('Lobby is not in waiting state.'), (
+        answered: true,
+        why: BannerCopy.lobbyClosed,
+      ));
+    });
+
+    test('too few at the table', () {
+      expect(refused('At least 3 players required, got 2.'), (
+        answered: true,
+        why: TableCopy.needPlayers,
+      ));
+    });
+
+    test('a deck that does not fit', () {
+      expect(
+        refused(
+          'Total role count must be 10 (players + 3 center cards), got 9.',
+        ),
+        (answered: true, why: BannerCopy.deckDoesNotFit),
+      );
+      expect(
+        refused(
+          'Masons must be used in pairs \u2014 include 0 or 2 Mason cards, '
+          'not 1.',
+        ),
+        (answered: true, why: BannerCopy.deckDoesNotFit),
+      );
+    });
+
+    test('no reason worth saying: nothing is said', () {
+      final body = ContractSamples.map('http/game/start_bad_seed');
+      expect(
+        LobbyNotifier.dealRefusal(ValidationException(parseServerErrors(body))),
+        (answered: true, why: null),
+      );
+    });
+
+    test('no answer: "Not sent."', () {
+      expect(LobbyNotifier.dealRefusal(Exception('offline')), (
+        answered: false,
+        why: null,
+      ));
     });
   });
 }

@@ -10,7 +10,15 @@ dependency-free (stdlib urllib) so it runs anywhere with `python3`.
 
 The driver (a Claude agent or a human) calls primitives and reasons between
 them; it never needs a WebSocket — it polls `me` and advances phases with the
-host endpoints. Non-2xx responses are PRINTED, not raised: observing how the
+host endpoints. Every stage-scoped request (choose, ready, vote and the host's
+advance-wave / end-discussion / reveal-votes) names the `stage` the player's
+`GET /me/` carries now, and a choose answers the prompt's `chosen`: the driver
+reads `/me/` first, so an agent only says WHAT to pick. Picks are
+`{"player_id": n}`, `{"center_index": n}` or `{"self": true}`, 0 to 2 of them;
+every phone with a choice chooses once per window (an empty list is "nothing";
+a phone whose prompt is ``none`` need send nothing: the window never waits for
+it), and what the
+picks mean for the role is the server's business. Non-2xx responses are PRINTED, not raised: observing how the
 server rejects a bad move (400 vs 500 vs leak) is the whole point.
 
 Session: `setup` writes a session file mapping player name -> {user_id, token}
@@ -20,9 +28,11 @@ in the spec is the host (lobby creator) and holds the host-only endpoints.
 Usage:
   python tools/game_driver.py setup --spec spec.json
   python tools/game_driver.py me --game <id> --player Alice
-  python tools/game_driver.py act --game <id> --player Alice --action peek_player --targets '{"player_id": 12}'
+  python tools/game_driver.py ready --game <id> --player Alice           # look stage / talk
+  python tools/game_driver.py choose --game <id> --player Alice --picks '[{"player_id": 12}]'
   python tools/game_driver.py advance-wave --game <id>          # close the open night window
-  python tools/game_driver.py vote --game <id> --player Alice --target 13
+  python tools/game_driver.py vote --game <id> --player Alice --target 13      # pick and lock
+  python tools/game_driver.py vote --game <id> --player Alice --target 13 --pick  # pick only
   python tools/game_driver.py end-discussion --game <id>
   python tools/game_driver.py reveal-votes --game <id>
   python tools/game_driver.py results --game <id>
@@ -152,7 +162,11 @@ def cmd_setup(args: argparse.Namespace) -> None:
     #                                      window 1 closes like window 2)
     # A spec may override any of these (e.g. a short night_wave_seconds to test
     # the timeout path, or the real 8s / 10s values to see the shared window).
+    # The look stage (card_look_seconds) is off by default for the same reason:
+    # the deal opens the first window at once. A spec may turn it on ("timers":
+    # {"card_look_seconds": 30}); then every player taps `ready` first.
     timers_cfg = {
+        "card_look_seconds": 0,
         "night_wave_seconds": 0,
         "night_min_window_seconds": 0,
         "night_doppelganger_window_seconds": 0,
@@ -173,27 +187,30 @@ def cmd_setup(args: argparse.Namespace) -> None:
     host_tok = created[host]["token"]
 
     # 2. Host creates the lobby.
-    st, body = _req("POST", "/lobbies/", token=host_tok, body={"game_type": "onuw"})
+    st, body = _req(
+        "POST",
+        "/lobbies/",
+        token=host_tok,
+        body={"game_type": "onuw", "defaults": "v2"},
+    )
     if st != 201:
         _die(f"lobby create failed ({st}): {body}")
     code = body["code"]
 
-    # 3. Everyone else joins; everyone readies.
+    # 3. Everyone else joins (the deal has no ready check).
     for name in players[1:]:
         st, body = _req("POST", f"/lobbies/{code}/join/", token=created[name]["token"])
         if st not in (200, 201):
             _die(f"{name} join failed ({st}): {body}")
-    for name in players:
-        st, _ = _req("POST", f"/lobbies/{code}/ready/", token=created[name]["token"])
-        if st not in (200, 201):
-            _die(f"{name} ready failed ({st})")
 
     # 4. Host sets the role config + (driver-controlled) timers.
     st, body = _req(
         "PATCH",
         f"/lobbies/{code}/",
         token=host_tok,
-        body={"settings": {"roles": role_counts, **timers_cfg}},
+        # A custom deck: the forced deal must match it (an automatic deck is
+        # built at the deal).
+        body={"settings": {"deck": "custom", "roles": role_counts, **timers_cfg}},
     )
     if st != 200:
         _die(f"role config PATCH failed ({st}): {body}")
@@ -242,51 +259,68 @@ def cmd_me(args: argparse.Namespace) -> None:
     _out({"status": st, "me": body})
 
 
-def cmd_act(args: argparse.Namespace) -> None:
-    s = _load_session(args.game)
-    targets = json.loads(args.targets) if args.targets else {}
-    st, body = _req(
+def _me(s: dict, game: str, player: str) -> dict:
+    st, body = _req("GET", f"/onuw/games/{game}/me/", token=_token_for(s, player))
+    if st != 200:
+        _die(f"me for {player} failed ({st}): {body}")
+    return body
+
+
+def _staged(s: dict, game: str, player: str, tail: str, body: dict) -> None:
+    """POST a stage-scoped request as ``player``, naming the stage their /me/
+    shows now (a stage that is over answers 409 wrong_stage)."""
+    me = _me(s, game, player)
+    st, resp = _req(
         "POST",
-        f"/onuw/games/{args.game}/action/",
-        token=_token_for(s, args.player),
-        body={"action_type": args.action, "targets": targets},
+        f"/onuw/games/{game}/{tail}/",
+        token=_token_for(s, player),
+        body={**body, "stage": me.get("stage")},
     )
-    _out({"status": st, "response": body})
+    _out({"status": st, "response": resp})
+
+
+def cmd_choose(args: argparse.Namespace) -> None:
+    s = _load_session(args.game)
+    picks = json.loads(args.picks) if args.picks else []
+    prompt = _me(s, args.game, args.player).get("action_prompt") or {}
+    _staged(
+        s,
+        args.game,
+        args.player,
+        "action",
+        {"action_type": "choose", "picks": picks, "chosen": prompt.get("chosen", 0)},
+    )
+
+
+def cmd_ready(args: argparse.Namespace) -> None:
+    s = _load_session(args.game)
+    _staged(s, args.game, args.player, "ready", {"ready": not args.not_ready})
 
 
 def cmd_advance_wave(args: argparse.Namespace) -> None:
     s = _load_session(args.game)
-    st, body = _req(
-        "POST", f"/onuw/games/{args.game}/advance-wave/", token=_host_token(s)
-    )
-    _out({"status": st, "response": body})
+    _staged(s, args.game, s["host"], "advance-wave", {})
 
 
 def cmd_vote(args: argparse.Namespace) -> None:
     s = _load_session(args.game)
-    st, body = _req(
-        "POST",
-        f"/onuw/games/{args.game}/vote/",
-        token=_token_for(s, args.player),
-        body={"target_player_id": args.target},
+    _staged(
+        s,
+        args.game,
+        args.player,
+        "vote",
+        {"target_player_id": args.target, "lock": not args.pick},
     )
-    _out({"status": st, "response": body})
 
 
 def cmd_end_discussion(args: argparse.Namespace) -> None:
     s = _load_session(args.game)
-    st, body = _req(
-        "POST", f"/onuw/games/{args.game}/end-discussion/", token=_host_token(s)
-    )
-    _out({"status": st, "response": body})
+    _staged(s, args.game, s["host"], "end-discussion", {})
 
 
 def cmd_reveal_votes(args: argparse.Namespace) -> None:
     s = _load_session(args.game)
-    st, body = _req(
-        "POST", f"/onuw/games/{args.game}/reveal-votes/", token=_host_token(s)
-    )
-    _out({"status": st, "response": body})
+    _staged(s, args.game, s["host"], "reveal-votes", {})
 
 
 def cmd_results(args: argparse.Namespace) -> None:
@@ -325,12 +359,16 @@ def main() -> None:
     sp.add_argument("--game", required=True)
     sp.add_argument("--player", required=True)
     sp.set_defaults(fn=cmd_me)
-    sp = sub.add_parser("act")
+    sp = sub.add_parser("choose")
     sp.add_argument("--game", required=True)
     sp.add_argument("--player", required=True)
-    sp.add_argument("--action", required=True)
-    sp.add_argument("--targets", default="")
-    sp.set_defaults(fn=cmd_act)
+    sp.add_argument("--picks", default="")
+    sp.set_defaults(fn=cmd_choose)
+    sp = sub.add_parser("ready")
+    sp.add_argument("--game", required=True)
+    sp.add_argument("--player", required=True)
+    sp.add_argument("--not", dest="not_ready", action="store_true")
+    sp.set_defaults(fn=cmd_ready)
     sp = sub.add_parser("advance-wave")
     sp.add_argument("--game", required=True)
     sp.set_defaults(fn=cmd_advance_wave)
@@ -338,6 +376,7 @@ def main() -> None:
     sp.add_argument("--game", required=True)
     sp.add_argument("--player", required=True)
     sp.add_argument("--target", type=int, required=True)
+    sp.add_argument("--pick", action="store_true", help="pick without locking")
     sp.set_defaults(fn=cmd_vote)
     sp = sub.add_parser("end-discussion")
     sp.add_argument("--game", required=True)

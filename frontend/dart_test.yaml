@@ -1,7 +1,7 @@
 # Test runner config (honored by `flutter test`).
 #
-# `e2e` tags the live-backend integration harness in test_e2e/ (api_runner /
-# ui_runner). Those suites require the booted harness backend on 127.0.0.1:8001.
+# `e2e` tags the live-backend integration harness in test_e2e/ (the api_* and ui_*
+# suites). They need the harness backend `just test-harness` boots (its own free port).
 #
 # PRIMARY exclusion is STRUCTURAL: the suites live in test_e2e/, not test/, so
 # the default `flutter test` / `just test` (which only scans test/) never
@@ -10,6 +10,14 @@
 # `just test` also passes `--exclude-tags e2e` as belt-and-suspenders. (A
 # config-level `exclude_tags: e2e` is NOT used: it would AND with an explicit
 # `--tags e2e` and make the suites unrunnable.)
+#
+# `golden` tags the pixel-comparison tests. There is ONE baseline set
+# (test/design_system/goldens/), made on Linux: font rasterisation differs per
+# OS, so on any other OS these tests are skipped, not failed. CI (Linux) is the
+# source of truth; regenerate baselines there or on Linux.
 tags:
-  golden: {}
+  golden:
+    on_platform:
+      "!linux":
+        skip: "Golden baselines are Linux-only: CI (Linux) is the source of truth. Run golden tests on Linux."
   e2e: {}

@@ -17,11 +17,12 @@ from collections import Counter
 from typing import Any
 
 from django.conf import settings
+from django.db.models import Q
 
 from rest_framework import status
 from rest_framework.response import Response
 
-from apps.core import timers
+from apps.core import host, timers
 from apps.core.models import ScheduledTimer
 from apps.onuw import presence
 
@@ -154,28 +155,41 @@ def build_debug_state(game: Game) -> dict[str, Any]:
 
     players: list[dict[str, Any]] = []
     votes: dict[str, int | None] = {}
+    vote_locked: dict[str, bool] = {}
     for pr in player_roles_qs:
         players.append(
             {
                 "user_id": pr.user_id,
                 "display_name": pr.user.display_name or pr.user.username,
                 "is_host": pr.user_id == host_id,
+                "token": pr.token,
+                "seat": pr.seat,
                 "original_role": pr.original_role,
                 "current_role": pr.current_role,
                 "doppelganger_copied_role": doppelganger_copied.get(pr.user_id),
                 "team": _team_token(pr.user_id, current_roles, doppelganger_copied),
                 # Real presence: any game socket open for this player right now.
                 "connected": pr.user_id in connected_ids,
+                # "Ready to vote" (talk) / "looked at my card" (look stage).
+                "ready": bool(pr.phase_ready),
+                # How many `choose` the server took from this phone in each
+                # night window ("1", "2"): a phone with nothing to choose
+                # sends none (the harness checks no sleeper was waited for).
+                "chosen": {
+                    str(window): _chose(pr.night_action_data, window)
+                    for window in (1, 2)
+                },
             }
         )
         # EVERY player is a key; null = has not voted / abstained.
         votes[str(pr.user_id)] = pr.vote_target_id
+        vote_locked[str(pr.user_id)] = bool(pr.has_acted)
 
     night_actions_log = _build_night_actions_log(game)
 
     results = _build_results(game) if game.phase == Phase.RESULTS else None
 
-    return {
+    state: dict[str, Any] = {
         "game_id": str(game.id),
         "phase": game.phase,
         # INT: the night window (1 = Doppelganger, 2 = everyone else), 0
@@ -183,11 +197,37 @@ def build_debug_state(game: Game) -> dict[str, Any]:
         # 0 on the discussion transition, so this is never null.
         "current_wave": game.current_wave,
         "center_cards": list(game.center_cards),
+        "dealt_center_cards": list(game.dealt_center_cards),
         "players": players,
         "night_actions_log": night_actions_log,
         "votes": votes,
+        "vote_locked": vote_locked,
         "results": results,
+        "pending_timers": _pending_timers(game),
     }
+    return state
+
+
+def _pending_timers(game: Game) -> list[str]:
+    """Names of the timers pending for ``game``, sorted: the game's own keys
+    without the ``<game id>:`` prefix (``wave:2``, ``discussion``, ``voting``,
+    ``grace:<user id>``) plus ``host_handover`` while its lobby's handover timer
+    is armed. Lets the harness assert that a timer was started or cancelled,
+    which no player-facing response says.
+
+    "Pending" means the ``ScheduledTimer`` row exists: a row that is overdue but
+    not yet fired still shows, and under the queue backend a row is not proof
+    that a message will arrive. The handover timer belongs to the LOBBY, so it
+    also shows on a finished game of the same lobby.
+    """
+    prefix = f"{game.id}:"
+    keys = ScheduledTimer.objects.filter(
+        Q(key__startswith=prefix) | Q(key=host.timer_key(game.lobby))
+    ).values_list("key", flat=True)
+    return sorted(
+        "host_handover" if key.startswith("lobby:") else key.removeprefix(prefix)
+        for key in keys
+    )
 
 
 def _build_night_actions_log(game: Game) -> list[dict[str, Any]]:
@@ -215,6 +255,9 @@ def _build_night_actions_log(game: Game) -> list[dict[str, Any]]:
                 "targets": entry.get("targets", {}),
                 "result": entry.get("result", {}),
                 "timestamp_order": entry.get("timestamp_order"),
+                # True only for a move the server made for a player who timed
+                # out or was gone past the grace period (the Drunk's swap).
+                "made_by_server": bool(entry.get("made_by_server", False)),
             }
         )
     return projected
@@ -285,3 +328,9 @@ def fire_timer(game: Game, key_suffix: str) -> tuple[bool, str]:
     # never-scheduled timer: a safe no-op.
     result = timers.fire(full_key, None, force=True)
     return result.status == "ran", full_key
+
+
+def _chose(data: dict[str, Any], window: int) -> int:
+    """How many ``choose`` a phone sent in a night window (its stored count)."""
+    count = data.get(f"chose_{window}", 0)
+    return count if type(count) is int else 0

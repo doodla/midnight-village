@@ -27,6 +27,7 @@ import pytest
 from apps.core import timers
 from apps.onuw import presence, services
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
+from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night, _Recorder
 
 pytestmark = pytest.mark.integration
@@ -106,10 +107,11 @@ def _set_deadline(night: Night, seconds_from_now: float) -> None:
 
 
 def _act_everyone(night: Night) -> None:
-    """Everyone with a window-2 action does the harmless thing."""
+    """Every phone with a choice chooses the harmless thing in window 2."""
     night.post("wolf", "see_team")
     night.post("seer", "skip")
     night.post("robber", "skip")
+    night.post("villager", "none")
 
 
 # ── Night windows ────────────────────────────────────────────────────────────
@@ -145,10 +147,10 @@ class TestNightWindowRecovery:
             callback()
 
         assert night.refresh().phase == Phase.DISCUSSION
-        # The two who never acted were treated as a timeout (the wolf still
+        # The two who never chose were treated as a timeout (the wolf still
         # sees the team, the Robber is skipped).
-        assert night.events_to("wolf", "action.result")
-        assert night.events_to("robber", "action.result")[0]["action_type"] == "skip"
+        assert night.results("wolf")
+        assert night.results("robber")[0]["action_type"] == "skip"
 
     def test_overdue_deadline_is_not_lost_and_gets_a_reconnect_allowance(
         self, make_night
@@ -353,7 +355,7 @@ class TestNightWindowRecovery:
 
         assert night.refresh().phase == Phase.NIGHT
         assert night.game.current_wave == 2
-        assert not night.broadcasts("wave.complete")[1:]  # only window 1 completed
+        assert night.windows_opened() == [1, 2]  # nothing closed or opened again
 
     def test_night_that_never_opened_its_first_window_is_opened_at_startup(
         self, make_night
@@ -364,7 +366,7 @@ class TestNightWindowRecovery:
         _recover(night)
 
         assert night.game.current_wave == 2
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+        assert night.windows_opened() == [2]
         _timer(night, "wave:2")
 
     def test_recovery_in_two_workers_opens_the_first_window_once(
@@ -375,7 +377,7 @@ class TestNightWindowRecovery:
         _recover(night)
         _recover(night)  # a second worker starting up
 
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+        assert night.windows_opened() == [2]
 
 
 # ── Discussion and voting ────────────────────────────────────────────────────
@@ -431,7 +433,7 @@ class TestDiscussionAndVotingRecovery:
         night.client.force_authenticate(user=night.users["seer"])
         night.client.post(
             reverse("onuw:vote", kwargs={"game_id": str(night.game.id)}),
-            {"target_player_id": night.users["wolf"].id},
+            staged(night, {"target_player_id": night.users["wolf"].id, "lock": True}),
             format="json",
         )
         _restart(night)

@@ -1,0 +1,219 @@
+{
+  "winning_teams": [
+    "village"
+  ],
+  "reason": "A Werewolf was eliminated.",
+  "eliminated_players": [
+    {
+      "player_id": 61,
+      "display_name": "Ana",
+      "role": "Werewolf",
+      "elimination_reason": "vote"
+    }
+  ],
+  "players": [
+    {
+      "player_id": 61,
+      "display_name": "Ana",
+      "token": "antler",
+      "seat": 0,
+      "original_role": "Werewolf",
+      "final_role": "Werewolf",
+      "team": "werewolf",
+      "is_eliminated": true,
+      "elimination_reason": "vote",
+      "outcome": "lose",
+      "vote_target_id": 63
+    },
+    {
+      "player_id": 62,
+      "display_name": "Ben",
+      "token": "bell",
+      "seat": 1,
+      "original_role": "Seer",
+      "final_role": "Seer",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 61
+    },
+    {
+      "player_id": 63,
+      "display_name": "Cleo",
+      "token": "lantern",
+      "seat": 2,
+      "original_role": "Villager",
+      "final_role": "Villager",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 61
+    }
+  ],
+  "center_cards": [
+    "Robber",
+    "Troublemaker",
+    "Villager"
+  ],
+  "night_actions_log": [
+    {
+      "wave": 2,
+      "result": {
+        "werewolves": []
+      },
+      "targets": {},
+      "player_id": 61,
+      "action_type": "see_team",
+      "role_acting_as": "Werewolf",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 3,
+      "result": {
+        "peeked_role": "Werewolf"
+      },
+      "targets": {
+        "player_id": 61
+      },
+      "player_id": 62,
+      "action_type": "peek_player",
+      "role_acting_as": "Seer",
+      "timestamp_order": 0
+    }
+  ],
+  "night_timeline": {
+    "seats": [
+      61,
+      62,
+      63
+    ],
+    "cards": [
+      {
+        "card_id": "k0",
+        "role": "Werewolf",
+        "werewolf": true
+      },
+      {
+        "card_id": "k1",
+        "role": "Seer",
+        "werewolf": false
+      },
+      {
+        "card_id": "k2",
+        "role": "Villager",
+        "werewolf": false
+      },
+      {
+        "card_id": "k3",
+        "role": "Robber",
+        "werewolf": false
+      },
+      {
+        "card_id": "k4",
+        "role": "Troublemaker",
+        "werewolf": false
+      },
+      {
+        "card_id": "k5",
+        "role": "Villager",
+        "werewolf": false
+      }
+    ],
+    "dealt": {
+      "players": {
+        "61": "k0",
+        "62": "k1",
+        "63": "k2"
+      },
+      "center": [
+        "k3",
+        "k4",
+        "k5"
+      ]
+    },
+    "steps": [
+      {
+        "step": 1,
+        "window": 2,
+        "order_group": 2,
+        "role": "Werewolf",
+        "actors": [
+          61
+        ],
+        "doppelganger_actors": [],
+        "action": "see_team",
+        "made_by_server": false,
+        "looked_at": [],
+        "team": [
+          61
+        ],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "61": "k0",
+            "62": "k1",
+            "63": "k2"
+          },
+          "center": [
+            "k3",
+            "k4",
+            "k5"
+          ]
+        }
+      },
+      {
+        "step": 2,
+        "window": 2,
+        "order_group": 3,
+        "role": "Seer",
+        "actors": [
+          62
+        ],
+        "doppelganger_actors": [],
+        "action": "peek_player",
+        "made_by_server": false,
+        "looked_at": [
+          {
+            "player_id": 61,
+            "card_id": "k0"
+          }
+        ],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "61": "k0",
+            "62": "k1",
+            "63": "k2"
+          },
+          "center": [
+            "k3",
+            "k4",
+            "k5"
+          ]
+        }
+      }
+    ],
+    "final": {
+      "players": {
+        "61": "k0",
+        "62": "k1",
+        "63": "k2"
+      },
+      "center": [
+        "k3",
+        "k4",
+        "k5"
+      ]
+    },
+    "center_moved": [
+      false,
+      false,
+      false
+    ]
+  }
+}

@@ -4,6 +4,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Value
 
 
 class Phase(models.TextChoices):
@@ -49,6 +50,11 @@ class Game(models.Model):
             "(1 = Doppelganger, 2 = everyone else at once)"
         ),
     )
+    # Despite its name (kept: renaming it, or changing its help_text, would be a
+    # migration), this is "when the stage open now opened": the look stage, each
+    # night window, the talk and the vote set it when they open. GET /me/'s
+    # ``stage_started_at`` reads it; the night's minimum-length rule reads it only
+    # inside a night window.
     night_window_opened_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -65,6 +71,13 @@ class Game(models.Model):
         default=list,
         blank=True,
         help_text="3 center cards (role names)",
+    )
+    # pyrefly: ignore [no-matching-overload]  (the stubs lack JSONField db_default)
+    dealt_center_cards = models.JSONField(
+        default=list,
+        db_default=Value([], output_field=models.JSONField()),
+        blank=True,
+        help_text="The 3 center cards as dealt; never changed (empty: dealt before this)",
     )
     results = models.JSONField(
         default=dict,
@@ -115,6 +128,24 @@ class PlayerRole(models.Model):
         related_name="voted_by",
     )
     has_acted = models.BooleanField(default=False)
+    # Table identity, copied from the LobbyMember at the deal and never changed,
+    # so a game stays stable even if the member later leaves the lobby.
+    token = models.CharField(max_length=16, blank=True, default="", db_default="")
+    seat = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Join order at the deal (0-based); None for games dealt before seats",
+    )
+    phase_ready = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text='"Looked at my card" (night, window 0) / "ready to vote" (talk)',
+    )
+    night_results_seen = models.PositiveSmallIntegerField(
+        default=0,
+        db_default=0,
+        help_text="How many of the player's night results they have acknowledged",
+    )
     disconnected_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -128,6 +159,8 @@ class PlayerRole(models.Model):
 
     class Meta:
         unique_together = (("game", "user"),)
+        # Players come back in seat order everywhere (legacy rows: by user id).
+        ordering = ("seat", "user_id")
 
     def __str__(self) -> str:
         return f"{self.user} as {self.original_role} in {self.game_id}"

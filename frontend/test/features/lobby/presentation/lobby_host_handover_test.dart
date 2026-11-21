@@ -1,52 +1,41 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/host/host_change.dart';
-import 'package:midnight_village/design_system/tokens/app_tokens_provider.dart';
-import 'package:midnight_village/design_system/tokens/midnight_village_theme.dart';
-import 'package:midnight_village/design_system/tokens/theme_bridge.dart';
-import 'package:midnight_village/features/auth/domain/auth_state.dart';
-import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
-import 'package:midnight_village/features/lobby/presentation/lobby_screen.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/game_events.dart';
+import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/mock_websocket.dart';
 
-class _MockLobbyService extends Mock implements LobbyService {}
+// The host role in the lobby: who the server says hosts is who hosts, from
+// the body, `host_changed` and every refetch. 02 shows the host's layout to
+// whoever that is, with no words (table_screens_test.dart).
 
-class _MockAuthenticatedClient extends Mock implements AuthenticatedClient {}
+class _MockLobbyService extends Mock implements LobbyService {}
 
 const _code = 'ABC123';
 const _names = ['Ana', 'Ben', 'Cleo'];
 
-LobbyState _lobby({int hostId = 1, int? originalHostId, bool acting = false}) =>
-    LobbyState(
-      code: _code,
-      hostId: hostId,
-      hostName: _names[hostId - 1],
-      originalHostId: originalHostId ?? (acting ? 1 : null),
-      isActingHost: acting,
-      players: [
-        for (final (i, n) in _names.indexed)
-          LobbyPlayer(
-            id: i + 1,
-            displayName: n,
-            isReady: true,
-            joinedAt: DateTime.utc(2026, 3, 31, 0, i),
-          ),
-      ],
-      status: 'waiting',
-      maxPlayers: 10,
-      roleConfig: const {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2},
-    );
+/// The server's lobby body: Ana (1), Ben (2) and Cleo (3), all ready, with
+/// [hostId] hosting (standing in for Ana when [acting]).
+LobbyState _lobby({int hostId = 1, bool acting = false}) => FromSample.lobby(
+  serverLobby(
+    code: _code,
+    seats: [for (final (i, n) in _names.indexed) (id: i + 1, name: n)],
+    hostId: hostId,
+    originalHostId: acting ? 1 : hostId,
+    roles: const {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2},
+  ),
+);
 
 String _handover() =>
     GameEvents.hostChanged(hostId: 2, hostName: 'Ben', originalHostId: 1);
@@ -59,342 +48,174 @@ String _returned() => GameEvents.hostChanged(
 );
 
 class _Table {
-  _Table(this.service, this.ws, this.server);
+  _Table(this.container, this.service, this.ws);
+  final ProviderContainer container;
   final _MockLobbyService service;
   final MockWebSocketChannel ws;
 
   /// What the mock server answers to the next lobby fetch.
-  LobbyState server;
+  late LobbyState server;
+
+  LobbyState get lobby => container.read(lobbyProvider(_code)).value!;
+  LobbyNotifier get notifier => container.read(lobbyProvider(_code).notifier);
 }
 
-Future<_Table> _pump(
-  WidgetTester tester, {
-  required int userId,
-  LobbyState? lobby,
-}) async {
+Future<_Table> _open({LobbyState? lobby}) async {
   final service = _MockLobbyService();
   final ws = MockWebSocketChannel();
-  final table = _Table(service, ws, lobby ?? _lobby());
-  when(() => service.fetchLobby(_code)).thenAnswer((_) async => table.server);
-
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        activeThemeProvider.overrideWithValue(const MidnightVillageTheme()),
-        authProvider.overrideWithValue(
-          AuthState.authenticated(
-            User(id: userId, displayName: _names[userId - 1]),
-          ),
-        ),
-        authenticatedClientProvider.overrideWithValue(
-          _MockAuthenticatedClient(),
-        ),
-        lobbyServiceProvider.overrideWithValue(service),
-        lobbyWebSocketFactoryProvider.overrideWithValue((code) => ws),
-      ],
-      child: MaterialApp.router(
-        theme: generateThemeData(const MidnightVillageTheme()),
-        routerConfig: GoRouter(
-          initialLocation: '/lobby',
-          routes: [
-            GoRoute(
-              path: '/',
-              builder: (_, _) => const Scaffold(body: Text('HOME SCREEN')),
-            ),
-            GoRoute(
-              path: '/lobby',
-              builder: (_, _) => const LobbyScreen(code: _code),
-            ),
-          ],
-        ),
+  final container = ProviderContainer(
+    overrides: [
+      lobbyServiceProvider.overrideWithValue(service),
+      lobbyWebSocketFactoryProvider.overrideWithValue((code) => ws),
+      authenticatedClientProvider.overrideWithValue(
+        AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
       ),
-    ),
+    ],
   );
-  await tester.pumpAndSettle();
+  addTearDown(container.dispose);
+  final table = _Table(container, service, ws)..server = lobby ?? _lobby();
+  when(() => service.fetchLobby(_code)).thenAnswer((_) async => table.server);
+  final sub = container.listen(lobbyProvider(_code), (_, _) {});
+  addTearDown(sub.close);
+  await container.read(lobbyProvider(_code).future);
   return table;
 }
 
-Future<void> _settle(WidgetTester tester) async {
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 100));
+Future<void> _settle() async {
+  for (var i = 0; i < 3; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
 }
 
 void main() {
   group('Lobby detail', () {
     test('reads the effective host, original_host_id and is_acting_host', () {
-      final lobby = LobbyState.fromJson({
-        'code': _code,
-        'host': {'id': 2, 'display_name': 'Ben'},
-        'original_host_id': 1,
-        'is_acting_host': true,
-        'players': <dynamic>[],
-        'status': 'waiting',
-        'max_players': 10,
-        'settings': {'roles': <String, dynamic>{}},
-      });
+      final body = ContractSamples.map('http/lobby/detail_acting_host');
+      final lobby = LobbyState.fromJson(body);
 
-      expect(lobby.hostId, 2);
-      expect(lobby.hostName, 'Ben');
-      expect(lobby.originalHostId, 1);
+      expect(lobby.hostId, body['host']['id']);
+      expect(lobby.hostName, body['host']['display_name']);
+      expect(lobby.originalHostId, body['original_host_id']);
+      expect(lobby.hostId, isNot(lobby.originalHostId));
       expect(lobby.isActingHost, isTrue);
     });
 
-    test('treats both new fields as optional', () {
-      final lobby = LobbyState.fromJson({
-        'code': _code,
-        'host': {'id': 1, 'display_name': 'Ana'},
-        'players': <dynamic>[],
-        'status': 'waiting',
-        'max_players': 10,
-      });
+    test('a table hosted by its owner names the owner twice', () {
+      final body = ContractSamples.map('http/lobby/detail_waiting');
+      final lobby = LobbyState.fromJson(body);
 
-      expect(lobby.originalHostId, isNull);
+      expect(lobby.originalHostId, lobby.hostId);
       expect(lobby.isActingHost, isFalse);
     });
   });
 
-  group('Host controls follow host_changed', () {
-    testWidgets('the old host loses Start Game and the deck on a handover', (
-      tester,
-    ) async {
-      final t = await _pump(tester, userId: 1);
-      expect(find.text('Start Game'), findsOneWidget);
-      expect(find.text('Role Configuration'), findsOneWidget);
+  group('The host follows host_changed', () {
+    test('a handover makes the stand-in the host', () async {
+      final t = await _open();
 
       t.ws.addServerEvent(_handover());
-      await _settle(tester);
+      await _settle();
 
-      expect(find.text('Start Game'), findsNothing);
-      expect(find.text('Role Configuration'), findsNothing);
-      expect(find.text('Waiting for host to start...'), findsOneWidget);
-      expect(find.text('Ben is hosting while you are away'), findsOneWidget);
+      expect(t.lobby.hostId, 2);
+      expect(t.lobby.hostName, 'Ben');
+      expect(t.lobby.isActingHost, isTrue);
     });
 
-    testWidgets('the new host gets them, and "You are hosting while Ana is '
-        'away"', (tester) async {
-      final t = await _pump(tester, userId: 2);
-      expect(find.text('Start Game'), findsNothing);
-
-      t.ws.addServerEvent(_handover());
-      await _settle(tester);
-
-      expect(find.text('Start Game'), findsOneWidget);
-      expect(find.text('Role Configuration'), findsOneWidget);
-      expect(find.text('You are hosting while Ana is away'), findsOneWidget);
-    });
-
-    testWidgets('a bystander reads "Ben is hosting while Ana is away"', (
-      tester,
-    ) async {
-      final t = await _pump(tester, userId: 3);
-
-      t.ws.addServerEvent(_handover());
-      await _settle(tester);
-
-      expect(find.text('Ben is hosting while Ana is away'), findsOneWidget);
-      expect(find.text('Start Game'), findsNothing);
-    });
-
-    testWidgets('the handover line stays while the role is acting', (
-      tester,
-    ) async {
-      final t = await _pump(tester, userId: 3);
-      t.ws.addServerEvent(_handover());
-      await _settle(tester);
-
-      await tester.pump(const Duration(minutes: 5));
-
-      expect(find.text('Ben is hosting while Ana is away'), findsOneWidget);
-    });
-
-    testWidgets(
-      'a lobby opened while someone is acting shows the line from the '
-      'lobby detail',
-      (tester) async {
-        await _pump(tester, userId: 3, lobby: _lobby(hostId: 2, acting: true));
-
-        expect(find.text('Ben is hosting while Ana is away'), findsOneWidget);
-      },
-    );
-
-    testWidgets('on the return the controls go back to the original host', (
-      tester,
-    ) async {
-      final t = await _pump(tester, userId: 1);
-      t.ws.addServerEvent(_handover());
-      await _settle(tester);
-      expect(find.text('Start Game'), findsNothing);
+    test('on the return the role goes back to the owner', () async {
+      final t = await _open(lobby: _lobby(hostId: 2, acting: true));
 
       t.ws.addServerEvent(_returned());
-      await _settle(tester);
+      await _settle();
 
-      expect(find.text('Start Game'), findsOneWidget);
-      expect(find.text('You are hosting again'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 7));
+      expect(t.lobby.hostId, 1);
+      expect(t.lobby.isActingHost, isFalse);
     });
 
-    testWidgets('the acting host loses the controls on the return', (
-      tester,
-    ) async {
-      final t = await _pump(
-        tester,
-        userId: 2,
-        lobby: _lobby(hostId: 2, acting: true),
+    test('a transfer makes the next member the owner for good', () async {
+      final t = await _open();
+
+      t.ws.addServerEvent(
+        GameEvents.hostChanged(
+          hostId: 2,
+          hostName: 'Ben',
+          originalHostId: 2,
+          reason: 'transferred',
+        ),
       );
-      expect(find.text('Start Game'), findsOneWidget);
+      await _settle();
 
-      t.ws.addServerEvent(_returned());
-      await _settle(tester);
-
-      expect(find.text('Start Game'), findsNothing);
-      expect(find.text('Ana is hosting again'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 7));
-    });
-
-    testWidgets('"Ana is hosting again" goes after a few seconds', (
-      tester,
-    ) async {
-      final t = await _pump(
-        tester,
-        userId: 3,
-        lobby: _lobby(hostId: 2, acting: true),
-      );
-
-      t.ws.addServerEvent(_returned());
-      await _settle(tester);
-      expect(find.text('Ana is hosting again'), findsOneWidget);
-      expect(find.text('Ben is hosting while Ana is away'), findsNothing);
-
-      await tester.pump(const Duration(seconds: 7));
-      expect(find.textContaining('hosting'), findsNothing);
+      expect(t.lobby.hostId, 2);
+      expect(t.lobby.originalHostId, 2);
+      expect(t.lobby.isActingHost, isFalse);
     });
   });
 
   group('Refreshing the lobby', () {
-    testWidgets('picks up the effective host from the server, healing a missed '
-        'event', (tester) async {
-      final t = await _pump(tester, userId: 1);
-      expect(find.text('Start Game'), findsOneWidget);
+    test('picks up the effective host from the server, healing a missed '
+        'event', () async {
+      final t = await _open();
 
       t.server = _lobby(hostId: 2, acting: true);
-      await tester.runAsync(
-        () => ProviderScope.containerOf(
-          tester.element(find.byType(LobbyScreen)),
-        ).read(lobbyProvider(_code).notifier).refreshLobby(),
-      );
-      await _settle(tester);
+      await t.notifier.refreshLobby();
 
-      expect(find.text('Start Game'), findsNothing);
-      expect(find.text('Ben is hosting while you are away'), findsOneWidget);
+      expect(t.lobby.hostId, 2);
     });
 
-    testWidgets('a player_joined refetch also takes the host from the server', (
-      tester,
-    ) async {
-      final t = await _pump(tester, userId: 2);
-      t.server = _lobby(hostId: 2, acting: true);
-
-      t.ws.addServerEvent(
-        GameEvents.playerJoined(playerId: 3, displayName: 'Cleo'),
-      );
-      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-      await _settle(tester);
-
-      expect(find.text('Start Game'), findsOneWidget);
-    });
-  });
-
-  group('A host action refused because the role moved (403)', () {
-    testWidgets(
-      'says "You are no longer the host." and takes the controls away',
-      (tester) async {
-        final t = await _pump(tester, userId: 1);
-        when(
-          () => t.service.startGame(_code),
-        ).thenThrow(const ForbiddenException());
+    test(
+      'a player_joined refetch also takes the host from the server',
+      () async {
+        final t = await _open();
         t.server = _lobby(hostId: 2, acting: true);
 
-        await tester.ensureVisible(find.text('Start Game'));
-        await tester.pump();
-        await tester.tap(find.text('Start Game'));
-        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-        await _settle(tester);
-        await _settle(tester);
+        t.ws.addServerEvent(GameEvents.playerJoined());
+        await _settle();
 
-        expect(find.text(kNoLongerHostMessage), findsOneWidget);
-        expect(find.text('Start Game'), findsNothing);
-        await tester.pump(const Duration(seconds: 7));
-        expect(find.text(kNoLongerHostMessage), findsNothing);
+        expect(t.lobby.hostId, 2);
       },
     );
   });
 
-  group('The owner left and ownership was transferred', () {
-    String transferred() => GameEvents.hostChanged(
-      hostId: 2,
-      hostName: 'Ben',
-      originalHostId: 2,
-      reason: 'transferred',
-    );
+  group('A host action refused because the role moved (403)', () {
+    test('the deal reads the lobby again and says nothing: the phone is a '
+        'guest now', () async {
+      final t = await _open();
+      when(
+        () => t.service.startGame(_code),
+      ).thenThrow(const ForbiddenException());
+      t.server = _lobby(hostId: 2, acting: true);
 
-    testWidgets('the new owner gets the controls and "You are the host now"', (
-      tester,
-    ) async {
-      final t = await _pump(tester, userId: 2);
-      expect(find.text('Start Game'), findsNothing);
+      expect(await t.notifier.deal(), isNull);
 
-      t.ws.addServerEvent(transferred());
-      await _settle(tester);
-
-      expect(find.text('Start Game'), findsOneWidget);
-      expect(find.text('Role Configuration'), findsOneWidget);
-      expect(find.text('You are the host now'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 7));
-      expect(find.text('You are the host now'), findsNothing);
-      expect(find.text('Start Game'), findsOneWidget);
+      expect(t.lobby.hostId, 2);
+      expect(t.lobby.notSent, isFalse);
+      expect(t.lobby.hostActionNotice, kNoLongerHostMessage);
     });
 
-    testWidgets('a bystander reads "Ben is the host now" for a few seconds', (
-      tester,
-    ) async {
-      final t = await _pump(tester, userId: 3);
+    test('a deck change is taken back, with no "Not sent."', () async {
+      final t = await _open();
+      when(
+        () => t.service.patchSettings(_code, any()),
+      ).thenThrow(const ForbiddenException());
+      t.server = _lobby(hostId: 2, acting: true);
 
-      t.ws.addServerEvent(transferred());
-      await _settle(tester);
-      expect(find.text('Ben is the host now'), findsOneWidget);
-      expect(find.text('Start Game'), findsNothing);
+      await t.notifier.chooseChip(DeckChip.chaos);
 
-      await tester.pump(const Duration(seconds: 7));
-      expect(find.textContaining('host now'), findsNothing);
-    });
-
-    testWidgets('is not an acting host: no "while ... is away" line', (
-      tester,
-    ) async {
-      final t = await _pump(tester, userId: 3);
-
-      t.ws.addServerEvent(transferred());
-      await _settle(tester);
-
-      expect(find.textContaining('away'), findsNothing);
-      await tester.pump(const Duration(seconds: 7));
+      expect(t.lobby.hostId, 2);
+      expect(t.lobby.table.deckChip, isNull);
+      expect(t.lobby.notSent, isFalse);
     });
   });
 
   group('When the table is gone (404)', () {
-    testWidgets('the lobby says so and goes home', (tester) async {
-      final t = await _pump(tester, userId: 3);
+    test('the lobby says it has closed', () async {
+      final t = await _open();
       when(() => t.service.fetchLobby(_code)).thenThrow(NotFoundException('x'));
 
-      await tester.runAsync(
-        () => ProviderScope.containerOf(
-          tester.element(find.byType(LobbyScreen)),
-        ).read(lobbyProvider(_code).notifier).refreshLobby(),
-      );
-      await tester.pumpAndSettle();
+      await t.notifier.refreshLobby();
 
-      expect(find.text(kTableClosedMessage), findsOneWidget);
-      expect(find.text('HOME SCREEN'), findsOneWidget);
+      expect(t.lobby.tableClosed, isTrue);
     });
   });
+
+  setUpAll(() => registerFallbackValue(<String, Object>{}));
 }

@@ -1,10 +1,10 @@
 """
-A phone that was offline when a night window closed catches up from GET /me/.
+Every phone reads what the night showed it from GET /me/.
 
-``night_results`` lists the caller's own results for windows that have closed,
-each ``{"wave", "action_type", "revealed_info"}`` exactly as the ``action_result``
-socket event carries it (same transform), and nothing about a window that is
-still open or about anyone else.
+``night_results`` lists the caller's own results for windows that have closed (and
+the Doppelganger's look as soon as it resolves), each ``{"wave", "action_type",
+"revealed_info"}``, and nothing about a window that is still open or about anyone
+else. Nothing in the night is sent to one player by socket.
 """
 
 from typing import Any
@@ -14,8 +14,10 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
+from apps.onuw.engine.state import NightAction
 from apps.onuw.models import Game, Phase
-from tests.onuw.test_night_windows import Night
+from apps.onuw.services import _client_action_type
+from tests.onuw.test_night_windows import PER_PLAYER_NIGHT_EVENTS, Night
 
 pytestmark = pytest.mark.integration
 
@@ -38,27 +40,17 @@ def me(night: Night, name: str) -> dict[str, Any]:
     return response.data
 
 
-def as_socket_payload(event: dict[str, Any]) -> dict[str, Any]:
-    """What the client receives for an action.result (see GameConsumer.action_result)."""
-    return {
-        "wave": event["wave"],
-        "action_type": event.get("action_type"),
-        "revealed_info": event["revealed_info"],
-    }
-
-
-def heard(night: Night, name: str) -> list[dict[str, Any]]:
-    """Every non-empty action.result this player was sent, in order."""
-    return [
-        as_socket_payload(e)
-        for e in night.events_to(name, "action.result")
-        if e["revealed_info"]
-    ]
-
-
 def play_window_two(night: Night) -> None:
+    """Every phone with a choice but the Robber's chooses (the Villager and the
+    Insomniac have nothing to choose and send nothing): the window stays open."""
     night.post("wolf", "see_team")
+    night.post("villager", "none")
     night.post("seer", "peek_player", {"player_id": night.users["robber"].id})
+    night.post("insomniac", "none")
+
+
+def rob(night: Night) -> None:
+    """The Robber, the last phone with a choice, takes the Villager's card."""
     night.post("robber", "swap_with_player", {"player_id": night.users["villager"].id})
 
 
@@ -76,42 +68,40 @@ class TestNightResultsInMe:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
 
-        play_window_two(night)  # the insomniac has not acted: the window is open
+        play_window_two(night)  # the Robber has not chosen: the window is open
 
         assert night.refresh().current_wave == 2
         for name in ROLES:
             assert me(night, name)["night_results"] == []
-        assert not night.events_to(
-            "seer", "action.result"
-        )  # and no socket event either
+        # and nothing by socket either
+        assert not PER_PLAYER_NIGHT_EVENTS & set(night.all_event_types())
 
-    def test_a_player_who_missed_the_socket_event_gets_the_same_payload(
+    def test_every_actor_reads_its_one_result_once_the_window_closed(
         self, make_night
     ) -> None:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
         play_window_two(night)
-        night.post("insomniac", "none")
+        rob(night)
         assert night.refresh().phase == Phase.DISCUSSION
 
         for name in ("wolf", "seer", "robber", "insomniac"):
             payload = me(night, name)["night_results"]
-            assert payload == heard(night, name)
             assert len(payload) == 1
             assert payload[0]["wave"] == 2
         # Spot-check the content rather than only the equality.
         seer = me(night, "seer")["night_results"][0]
         assert seer["action_type"] == "peek_player"
-        assert seer["revealed_info"]["role"] == "robber"
+        assert seer["revealed_info"]["role"] == "Robber"
         robber = me(night, "robber")["night_results"][0]
         assert robber["action_type"] == "swap_with_player"
-        assert robber["revealed_info"]["new_role"] == "villager"
+        assert robber["revealed_info"]["new_role"] == "Villager"
 
     def test_the_insomniac_dawn_result_is_included(self, make_night) -> None:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
         play_window_two(night)
-        night.post("insomniac", "none")
+        rob(night)
 
         entry = me(night, "insomniac")["night_results"]
 
@@ -121,10 +111,9 @@ class TestNightResultsInMe:
             {
                 "wave": 2,
                 "action_type": "insomniac",
-                "revealed_info": {"current_role": "insomniac"},
+                "revealed_info": {"current_role": "Insomniac"},
             }
         ]
-        assert entry == heard(night, "insomniac")
 
     def test_the_dawn_result_sees_a_swap_made_the_same_night(self, make_night) -> None:
         night = make_night(
@@ -134,6 +123,7 @@ class TestNightResultsInMe:
         night.start()
         night.post("rob", "swap_with_player", {"player_id": night.users["ins"].id})
         night.post("wolf", "see_team")
+        night.post("v", "none")
         night.post("ins", "none")
         assert night.refresh().phase == Phase.DISCUSSION
 
@@ -141,13 +131,13 @@ class TestNightResultsInMe:
             {
                 "wave": 2,
                 "action_type": "insomniac",
-                "revealed_info": {"current_role": "robber"},
+                "revealed_info": {"current_role": "Robber"},
             }
         ]
         assert me(night, "rob")["night_results"][0]["revealed_info"] == {
             "target_name": night.users["ins"].display_name
             or night.users["ins"].username,
-            "new_role": "insomniac",
+            "new_role": "Insomniac",
         }
 
     def test_a_timed_out_player_still_learns_what_the_night_gives_them(
@@ -159,16 +149,22 @@ class TestNightResultsInMe:
         night.host_close_window()  # the wolf and the insomniac never submitted
 
         assert night.refresh().phase == Phase.DISCUSSION
-        assert me(night, "wolf")["night_results"] == heard(night, "wolf")
         assert me(night, "wolf")["night_results"][0]["action_type"] == "see_team"
         assert me(night, "insomniac")["night_results"][0]["action_type"] == "insomniac"
-        assert me(night, "seer")["night_results"] == []  # a skip shows nothing
+        # A choice that did nothing is told to its own phone, as nothing.
+        assert me(night, "seer")["night_results"] == [
+            {
+                "wave": 2,
+                "action_type": "skip",
+                "revealed_info": {"nothing_chosen": True},
+            }
+        ]
 
     def test_other_players_results_are_never_in_the_list(self, make_night) -> None:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
         play_window_two(night)
-        night.post("insomniac", "none")
+        rob(night)
 
         villager = me(night, "villager")["night_results"]
         seer = me(night, "seer")["night_results"]
@@ -189,8 +185,8 @@ class TestNightResultsInMe:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
         play_window_two(night)
-        night.post("insomniac", "none")
-        expected = heard(night, "seer")
+        rob(night)
+        expected = me(night, "seer")["night_results"]
         assert expected
 
         for phase in (Phase.DISCUSSION, Phase.VOTING, Phase.RESULTS):
@@ -206,59 +202,67 @@ class TestNightResultsInMe:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
         play_window_two(night)
-        night.post("insomniac", "none")
+        rob(night)
 
         revealed = me(night, "seer")["night_results"][0]["revealed_info"]
 
-        assert set(revealed) == {"target_name", "role"}
+        assert set(revealed) == {"target_name", "role"}  # names, never raw ids
         assert "peeked_role" not in revealed
 
 
 class TestDoppelgangerWindowOne:
     DOPPEL = {"d": "Doppelganger", "s": "Seer", "w": "Werewolf", "v": "Villager"}
 
-    def test_her_look_and_follow_up_appear_only_once_window_one_has_closed(
+    def test_her_look_appears_at_once_and_her_follow_up_once_window_one_closed(
         self, make_night
     ) -> None:
         night = make_night(self.DOPPEL, ["Robber", "Tanner", "Hunter"])
         night.start()
         assert night.game.current_wave == 1
 
-        # The look is resolved and sent at once (she needs it to choose).
+        # The look is resolved at once and listed (she needs it to choose).
         night.post("d", "peek_player", {"player_id": night.users["s"].id})
-        assert [e["wave"] for e in night.events_to("d", "action.result")] == [1]
         assert night.refresh().current_wave == 1  # window 1 open: follow-up pending
-        assert me(night, "d")["night_results"] == []  # held back: it is still open
+        assert [r["action_type"] for r in me(night, "d")["night_results"]] == [
+            "peek_player"
+        ]
 
+        assert len(me(night, "d")["night_results"]) == 1  # the follow-up waits
+        # Her follow-up is the last choice window 1 waits for: it closes at once
+        # (nobody else has anything to choose there).
         night.post("d", "peek_center", {"center_indices": [0, 1]})
         assert night.refresh().current_wave == 2
 
         results = me(night, "d")["night_results"]
-        assert results == heard(night, "d")
         assert [(r["wave"], r["action_type"]) for r in results] == [
             (1, "peek_player"),
             (1, "peek_center"),
         ]
         assert results[0]["revealed_info"]["copied_role"] == "Seer"
-        assert results[1]["revealed_info"] == {"roles": ["robber", "tanner"]}
+        assert results[1]["revealed_info"] == {
+            "roles": ["Robber", "Tanner"],
+            "center_indices": [0, 1],
+        }
 
     def test_window_two_open_shows_window_one_but_nothing_of_window_two(
         self, make_night
     ) -> None:
+        # Window 2 has nothing to choose (two Werewolves, a Villager, the
+        # Insomniac): it stays open for the table's minimum length.
         night = make_night(
             {"d": "Doppelganger", "w": "Werewolf", "v": "Villager", "i": "Insomniac"},
             ["Seer", "Tanner", "Hunter"],
             night_wave_seconds=60,
+            night_min_window_seconds=5,
         )
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["w"].id})
+        night.fire_timer(1)
         assert night.refresh().current_wave == 2  # a Werewolf copy acts in window 2
 
         assert [r["wave"] for r in me(night, "d")["night_results"]] == [1]
         assert me(night, "w")["night_results"] == []
-        night.post("w", "see_team")
-        night.post("d", "see_team")
-        night.post("i", "none")
+        night.fire_timer(2)
         assert night.refresh().phase == Phase.DISCUSSION
 
         later = me(night, "d")["night_results"]
@@ -266,7 +270,6 @@ class TestDoppelgangerWindowOne:
             (1, "peek_player"),
             (2, "see_team"),
         ]
-        assert later == heard(night, "d")
         # The Doppelganger who copied the Werewolf sees the real Werewolf in her team view.
         assert later[1]["revealed_info"]["teammate_names"] == [
             night.users["w"].display_name or night.users["w"].username
@@ -281,9 +284,11 @@ class TestDoppelgangerWindowOne:
         )
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["i"].id})
+        night.rest_choose()
         night.post("w", "see_team")
         night.post("i", "none")
         night.post("d", "none")
+        night.post("v", "none")
         assert night.refresh().phase == Phase.DISCUSSION
 
         results = me(night, "d")["night_results"]
@@ -292,7 +297,6 @@ class TestDoppelgangerWindowOne:
             (1, "peek_player"),
             (2, "insomniac"),
         ]
-        assert results == heard(night, "d")
 
     def test_players_with_no_window_one_part_get_nothing_for_it(
         self, make_night
@@ -309,7 +313,7 @@ class TestDoppelgangerWindowOne:
             assert me(night, name)["night_results"] == []
 
 
-# ── /me/ returns exactly what the socket sent, for every action type ─────────
+# ── /me/ shows each player exactly their own results, for every action type ──
 
 
 def resolve_targets(night: Night, spec: dict[str, Any]) -> dict[str, Any]:
@@ -453,14 +457,18 @@ SCENARIOS: dict[str, tuple[dict[str, str], list[str], list[tuple[str, str, dict]
 
 
 @pytest.mark.parametrize("scenario", list(SCENARIOS))
-def test_me_returns_exactly_what_the_socket_sent_for_every_action(
+def test_me_shows_each_player_their_own_results_for_every_action(
     make_night, scenario: str
 ) -> None:
     roles, center, actions = SCENARIOS[scenario]
     night = make_night(roles, center, night_wave_seconds=60)
     night.start()
     for who, action_type, spec in actions:
+        if night.refresh().phase != Phase.NIGHT:
+            break  # nobody left with a choice: the night is over
         response = night.post(who, action_type, resolve_targets(night, spec))
+        if response is None:
+            continue  # a phone with nothing to choose sends nothing
         assert response.status_code == status.HTTP_200_OK, (
             who,
             action_type,
@@ -468,21 +476,33 @@ def test_me_returns_exactly_what_the_socket_sent_for_every_action(
         )
     for _ in range(
         3
-    ):  # whoever has not acted (or is waiting out the minimum) runs out of time
+    ):  # whoever has not chosen (or is waiting out the minimum) runs out of time
         if night.refresh().phase != Phase.NIGHT:
             break
         night.host_close_window()
     assert night.refresh().phase == Phase.DISCUSSION
 
-    for name in roles:
-        socket = [
-            as_socket_payload(e)
-            for e in night.events_to(name, "action.result")
-            if e["action_type"] != "skip"
+    log = night.refresh().night_actions_log
+    for name, user in night.users.items():
+        own = [
+            _client_action_type(
+                NightAction(
+                    player_id=user.id,
+                    role_acting_as=e["role_acting_as"],
+                    action_type=e["action_type"],
+                    targets=e["targets"],
+                )
+            )
+            for e in log
+            if e["player_id"] == user.id
         ]
-        assert me(night, name)["night_results"] == socket, f"{scenario}: {name}"
+        shown = me(night, name)["night_results"]
+        # Exactly the player's own log entries, in order, as the client shape.
+        assert [r["action_type"] for r in shown] == own, f"{scenario}: {name}"
+        for result in shown:
+            assert "peeked_role" not in result["revealed_info"]
     # The scenario really did give somebody something (not a vacuous pass).
-    assert any(night.events_to(name, "action.result") for name in roles), scenario
+    assert any(me(night, name)["night_results"] for name in roles), scenario
 
 
 def test_every_swap_is_in_me_even_though_its_engine_result_is_empty(make_night) -> None:
@@ -517,7 +537,7 @@ def test_every_swap_is_in_me_even_though_its_engine_result_is_empty(make_night) 
     ]
 
 
-def test_a_skip_is_the_only_thing_left_out_of_me(make_night) -> None:
+def test_a_choice_that_did_nothing_is_listed_as_nothing_chosen(make_night) -> None:
     night = make_night(
         {"s": "Seer", "w": "Werewolf", "v": "Villager", "x": "Villager"},
         CENTER3,
@@ -527,5 +547,6 @@ def test_a_skip_is_the_only_thing_left_out_of_me(make_night) -> None:
     night.post("s", "skip")
     night.host_close_window()
 
-    assert [e["action_type"] for e in night.events_to("s", "action.result")] == ["skip"]
-    assert me(night, "s")["night_results"] == []
+    assert me(night, "s")["night_results"] == [
+        {"wave": 2, "action_type": "skip", "revealed_info": {"nothing_chosen": True}}
+    ]

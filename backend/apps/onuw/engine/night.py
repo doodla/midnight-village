@@ -27,11 +27,8 @@ from typing import Any
 from .behaviors import (
     execute_action,
     get_doppelganger_followup_wave,
-    is_effective_mason,
-    is_effective_werewolf,
 )
 from .roles import (
-    ActionType,
     get_role,
     get_roles_for_wave,
     order_groups_for_window,
@@ -49,42 +46,14 @@ _WAVE_3_CANONICAL_ORDER: list[str] = [
 ]
 
 
-def _compute_see_team_targets(
-    state: GameState, player_id: int, role_acting_as: str
-) -> list[int]:
-    """Compute teammate IDs visible to a see_team actor.
-
-    - Werewolf sees other effective Werewolves (excludes self)
-    - Mason sees other effective Masons (excludes self)
-    - Minion sees all effective Werewolves (does not exclude self — Minion is never a Werewolf)
-    """
-    if role_acting_as == "Werewolf":
-        return [
-            pid
-            for pid in state.player_roles
-            if pid != player_id and is_effective_werewolf(pid, state)
-        ]
-    if role_acting_as == "Mason":
-        return [
-            pid
-            for pid in state.player_roles
-            if pid != player_id and is_effective_mason(pid, state)
-        ]
-    if role_acting_as == "Minion":
-        return [pid for pid in state.player_roles if is_effective_werewolf(pid, state)]
-    return []
-
-
 def get_required_actions(
     state: GameState,
     wave: int,
     doppelganger_info: dict[int, str] | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Return list of action prompts for players who need to act in this order group.
-
-    Each dict: {"player_id": int, "role_acting_as": str,
-                "action_types": [...], "valid_targets": {...}}
+    Who acts in this order group: ``{"player_id": int, "role_acting_as": str}``
+    each, in wake order. (What a phone may pick is ``engine.choose``'s prompt.)
 
     doppelganger_info maps doppelganger player_id -> copied_role for
     scheduling follow-up actions.
@@ -101,14 +70,14 @@ def get_required_actions(
 
     for player_id, role_name in state.original_roles.items():
         if role_name in wave_role_names:
-            prompts.append(build_role_prompt(state, player_id, role_name))
+            prompts.append({"player_id": player_id, "role_acting_as": role_name})
 
     # Check for Doppelganger follow-up actions
     if doppelganger_info:
         for doppel_id, copied_role in doppelganger_info.items():
             followup_wave = get_doppelganger_followup_wave(copied_role)
             if followup_wave == wave:
-                prompts.append(build_role_prompt(state, doppel_id, copied_role))
+                prompts.append({"player_id": doppel_id, "role_acting_as": copied_role})
 
     return prompts
 
@@ -130,54 +99,6 @@ def get_required_actions_for_window(
     for group in order_groups_for_window(window):
         prompts.extend(get_required_actions(state, group, doppelganger_info))
     return prompts
-
-
-def build_prompt(
-    state: GameState,
-    player_id: int,
-    role_acting_as: str,
-    action_types: tuple[ActionType, ...],
-) -> dict[str, Any]:
-    """Build an action prompt for a player."""
-    valid_targets: dict[str, Any] = {}
-    other_players = [pid for pid in state.player_roles if pid != player_id]
-
-    for at in action_types:
-        if at == ActionType.PEEK_PLAYER:
-            valid_targets["player_ids"] = other_players
-        elif at == ActionType.PEEK_CENTER:
-            valid_targets["center_indices"] = list(range(len(state.center_cards)))
-        elif at == ActionType.SWAP_WITH_PLAYER:
-            valid_targets["player_ids"] = other_players
-        elif at == ActionType.SWAP_WITH_CENTER:
-            valid_targets["center_indices"] = list(range(len(state.center_cards)))
-        elif at == ActionType.SWAP_OTHERS:
-            valid_targets["player_ids"] = other_players
-        elif at == ActionType.SEE_TEAM:
-            valid_targets["see_team"] = _compute_see_team_targets(
-                state, player_id, role_acting_as
-            )
-        elif at in (ActionType.NONE, ActionType.SKIP):
-            pass  # no targets needed
-
-    return {
-        "player_id": player_id,
-        "role_acting_as": role_acting_as,
-        "action_types": [at.value for at in action_types],
-        "valid_targets": valid_targets,
-    }
-
-
-def build_role_prompt(
-    state: GameState, player_id: int, role_acting_as: str
-) -> dict[str, Any]:
-    """Build the prompt for a player acting as ``role_acting_as``.
-
-    Uses the role's prompt action types, which include the explicit ``skip``
-    choice for roles whose action is optional (Seer, Robber, Troublemaker).
-    """
-    role_def = get_role(role_acting_as)
-    return build_prompt(state, player_id, role_acting_as, role_def.prompt_action_types)
 
 
 def _sort_wave_3_actions_with_state(

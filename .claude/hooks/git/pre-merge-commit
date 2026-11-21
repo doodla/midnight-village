@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# git pre-merge-commit hook: a merge that git commits by itself is checked like
+# any commit, on everything it changes relative to the current branch. (A merge
+# with conflicts is finished with `git commit`, which runs pre-commit; a
+# fast-forward makes no commit and runs nothing.)
+exec "$(dirname "${BASH_SOURCE[0]}")/pre-commit" "$@"

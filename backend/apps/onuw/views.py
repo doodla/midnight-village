@@ -3,10 +3,12 @@
 import hmac
 import logging
 import secrets
+from typing import Any
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -17,30 +19,98 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core import timers
-from apps.core.models import Lobby
+from apps.core.lobbies import ensure_tokens
+from apps.core.models import Lobby, LobbyMember
 
 from . import presence
+from .choose_night import CHOOSE_ERROR_CODES, submit_choose
+from .deal import deal_refusal, dealt_settings
 from .debug import ForcedAssignmentError, parse_forced_assignment
 from .engine.assignment import assign_roles
-from .engine.validation import validate_onuw_settings
+from .engine.decks import auto_deck
 from .models import Game, Phase, PlayerRole
-from .serializers import GameMeSerializer, GameStartResponseSerializer
+from .protocol import (
+    LOOK,
+    NIGHT_CHOOSE_STAGES,
+    TALK,
+    VOTE,
+    WRONG_STAGE_CODE,
+    WRONG_STAGE_DETAIL,
+    WrongStageError,
+    require_stage,
+)
+from .serializers import (
+    GameMeSerializer,
+    GameStartResponseSerializer,
+    player_identity,
+)
 from .services import (
+    READY_ERROR_CODES,
+    VOTE_ERROR_CODES,
     AlreadyActedError,
+    acknowledge_night_results,
     advance_wave,
-    check_and_maybe_advance,
+    begin_night,
     end_discussion,
     ensure_timers,
-    get_player_acting_role_for_wave,
-    resolve_doppelganger_look,
+    night_timeline_for,
     reveal_votes,
-    start_night_phase,
+    set_ready,
     submit_vote,
     timer_prefixes,
-    validate_night_action,
 )
 
 logger = logging.getLogger(__name__)
+
+MAX_NIGHT_RESULTS_SEEN = 10
+
+
+def _wrong_stage() -> Response:
+    """409 ``wrong_stage``: the request named a stage that is over. The same body
+    for every role and every endpoint; nothing was stored."""
+    return Response(
+        {"detail": WRONG_STAGE_DETAIL, "code": WRONG_STAGE_CODE},
+        status=status.HTTP_409_CONFLICT,
+    )
+
+
+def _stage_of(request: Request) -> tuple[str, Response | None]:
+    """The ``stage`` a request echoes (``GET /me/``'s ``stage``): required."""
+    body = request.data if isinstance(request.data, dict) else {}
+    stage = body.get("stage")
+    if not isinstance(stage, str) or not stage:
+        return "", _bad_request("stage is required.")
+    return stage, None
+
+
+def _bad_request(detail: str) -> Response:
+    """A malformed request: 400 with the machine-readable ``bad_request`` code."""
+    return Response(
+        {"detail": detail, "code": "bad_request"},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+def _snapshot_player_roles(
+    game: Game, members: list[LobbyMember], roles: dict[int, str]
+) -> None:
+    """Create the game's PlayerRoles from the dealt ``roles`` (user id -> role).
+
+    Each takes its member's token and seat (join order, 0-based) as they are now:
+    the game keeps them even if the member later leaves the lobby.
+    """
+    seats = {m.user_id: (seat, m.token) for seat, m in enumerate(members)}
+    PlayerRole.objects.bulk_create(
+        PlayerRole(
+            game=game,
+            user_id=user_id,
+            original_role=role,
+            current_role=role,
+            seat=seats[user_id][0],
+            token=seats[user_id][1],
+        )
+        for user_id, role in roles.items()
+    )
 
 
 class GameStartView(APIView):
@@ -63,6 +133,9 @@ class GameStartView(APIView):
                 )
             outcome = self._deal(request, lobby)
             if isinstance(outcome, Response):
+                # A refusal writes nothing: returning from inside atomic() would
+                # COMMIT whatever was written before it.
+                transaction.set_rollback(True)
                 return outcome
             game = outcome
 
@@ -93,34 +166,29 @@ class GameStartView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Lobby must be in waiting state
-        if lobby.status != Lobby.Status.WAITING:
-            return Response(
-                {"detail": "Lobby is not in waiting state."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # All players, in join order (their seat order).
+        members = list(lobby.players.all())  # type: ignore[misc]
+        player_count = len(members)
 
-        # Get all players
-        members = lobby.players.select_related("user").all()  # type: ignore[misc]
-        player_count = members.count()
-
-        # All players must be ready
-        if members.filter(is_ready=False).exists():
+        # Waiting, valid settings for this many players: the one rule the lobby
+        # body's `deal.ok` reports too.
+        refusal = deal_refusal(lobby, members)
+        if refusal is not None:
             return Response(
-                {"detail": "Not all players are ready."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Validate ONUW settings
-        errors = validate_onuw_settings(lobby.settings, player_count)
-        if errors:
-            return Response(
-                {"detail": errors},
+                {"detail": refusal},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         player_ids = [m.user_id for m in members]
-        role_counts = lobby.settings["roles"]
+        game_settings = dealt_settings(lobby.settings)
+        if game_settings.get("deck") == "auto":
+            # The deck is built here, under the Lobby lock, for the players at the
+            # table now; the lobby keeps saying "auto" for the next game. (The
+            # validation above refused a table size with no deck.)
+            game_settings["roles"] = auto_deck(
+                player_count, game_settings.get("deck_chip")
+            )
+        role_counts = game_settings["roles"]
 
         # DEBUG-only assignment override. Honored ONLY when settings.DEBUG is
         # True; in production the `debug` key is ignored entirely, so it cannot
@@ -157,7 +225,8 @@ class GameStartView(APIView):
                 role_counts, player_ids, seed
             )
 
-        # Create game state and update lobby (same transaction as the checks)
+        # Everything is validated: from here on the deal writes (same transaction).
+        ensure_tokens(lobby, members)  # a member made before tokens existed
         lobby.status = Lobby.Status.IN_GAME
         lobby.save(update_fields=["status", "updated_at"])
 
@@ -165,25 +234,18 @@ class GameStartView(APIView):
             lobby=lobby,
             phase=Phase.NIGHT,
             random_seed=seed,
-            settings=lobby.settings,
+            settings=game_settings,
             center_cards=center_cards,
+            # The night overwrites center_cards as cards are swapped.
+            dealt_center_cards=list(center_cards),
         )
 
-        player_roles = [
-            PlayerRole(
-                game=game,
-                user_id=player_id,
-                original_role=role_name,
-                current_role=role_name,
-            )
-            for player_id, role_name in player_id_to_role.items()
-        ]
-        PlayerRole.objects.bulk_create(player_roles)
+        _snapshot_player_roles(game, members, player_id_to_role)
 
         # Open the first window in the SAME transaction that creates the game,
         # so there is no committed night that never opened (an instance dying
         # between the two). Its sends and timers still run after the commit.
-        start_night_phase(game)
+        begin_night(game)
 
         return game
 
@@ -193,8 +255,8 @@ class GameMeView(APIView):
     Player-scoped game state endpoint.
 
     Returns only the information the requesting player is allowed to see.
-    Includes a list of all players (public info only) and, during night
-    phase, an action_prompt if the player needs to act in the current wave.
+    Includes a list of all players (public info only) and, in an open night
+    window, the caller's own ``action_prompt``.
 
     CRITICAL: Never include other players' roles, night_action_data, or center cards.
     """
@@ -245,12 +307,76 @@ class GameMeView(APIView):
 
 
 class NightActionView(APIView):
-    """Submit a night action during the night phase."""
+    """A phone's ``choose`` for the open night window."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request: Request, game_id: str) -> Response:
-        # 1. Look up game
+        """``{"action_type": "choose", "picks": [...], "chosen": <the prompt's
+        chosen>, "stage": <the stage from /me/>}`` from EVERY phone. The answer is
+        ``{"status": "submitted"}`` for everyone, a resend of a choose already taken
+        included (``chosen`` lower than the stored count); the only refusals are
+        ``wrong_stage`` (409), ``already_chosen`` (409) and ``bad_request`` (400),
+        none of them depending on the caller's role. What the picks MEAN is the
+        server's business, decided when the stage ends (``choose_night``)."""
+        try:
+            game = Game.objects.get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        body = request.data if isinstance(request.data, dict) else {}
+        if body.get("action_type") != "choose" or "picks" not in body:
+            return _bad_request("Invalid action.")
+        answered = body.get("chosen")
+        # A plain JSON integer only (a bool is not a count): required, so a resend
+        # can always be told from a new choose.
+        if type(answered) is not int or answered < 0:
+            return _bad_request("chosen is required (the prompt's chosen).")
+        stage, refusal = _stage_of(request)
+        if refusal is not None:
+            return refusal
+        if not PlayerRole.objects.filter(game=game, user=request.user).exists():
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            errors = submit_choose(
+                game,
+                request.user.id,  # type: ignore[misc]
+                body["picks"],
+                stage,
+                answered,
+            )
+        except WrongStageError:
+            return _wrong_stage()
+        except AlreadyActedError:
+            return Response(
+                {"detail": "You have already chosen.", "code": "already_chosen"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if errors:
+            return Response(
+                {
+                    "detail": errors[0],
+                    "code": CHOOSE_ERROR_CODES.get(errors[0], "bad_request"),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({"status": "submitted"})
+
+
+class NightResultsSeenView(APIView):
+    """Acknowledge night results the caller has shown, so a restart does not show
+    them again. ``{"seen": n}`` (a whole number, 0 to 10) answers
+    ``{"night_results_seen": <stored count>}``. The count only goes up and is
+    capped at the results the caller can see; it is the caller's own."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, game_id: str) -> Response:
         try:
             game = Game.objects.get(id=game_id)
         except (Game.DoesNotExist, ValueError, ValidationError):
@@ -259,113 +385,29 @@ class NightActionView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # 2. Validate game is in NIGHT phase
-        if game.phase != Phase.NIGHT:
+        seen = request.data.get("seen") if isinstance(request.data, dict) else None
+        # A plain JSON integer only: a bool, float or string is never coerced.
+        if type(seen) is not int or not 0 <= seen <= MAX_NIGHT_RESULTS_SEEN:
             return Response(
-                {"detail": "Game is not in the night phase."},
+                {
+                    "detail": f"seen must be a whole number from 0 to {MAX_NIGHT_RESULTS_SEEN}.",
+                    "code": "bad_request",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 3-7. Lock the Game row, then the PlayerRole row, and validate and
-        # store the action atomically. The Game lock (same order as the timer
-        # callbacks and check_and_maybe_advance: Game, then PlayerRole) makes
-        # current_wave consistent and keeps a submission from landing in the
-        # middle of a window closing. The PlayerRole lock prevents the TOCTOU
-        # race on has_acted.
-        with transaction.atomic():
-            game = Game.objects.select_for_update().get(id=game.id)
-            if game.phase != Phase.NIGHT:
-                return Response(
-                    {"detail": "Game is not in the night phase."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Lock the player role row
-            try:
-                pr = PlayerRole.objects.select_for_update().get(
-                    game=game, user=request.user
-                )
-            except PlayerRole.DoesNotExist:
-                return Response(
-                    {"detail": "You are not a player in this game."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
-            # 4. Check player hasn't already acted this window.
-            # Return 409 Conflict (not 400) so the frontend can treat
-            # duplicate submissions as idempotent success.
-            if pr.has_acted:
-                return Response(
-                    {"detail": "You have already acted this wave."},
-                    status=status.HTTP_409_CONFLICT,
-                )
-
-            # 5. Determine what role they're acting as this window
-            wave = game.current_wave
-            acting_role = get_player_acting_role_for_wave(pr, wave)
-            if acting_role is None:
-                return Response(
-                    {"detail": "You do not act in the current wave."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # 6. Extract and validate action
-            action_type = request.data.get("action_type")
-            targets = request.data.get("targets")
-            if targets is None:
-                targets = {}
-
-            if not action_type:
-                return Response(
-                    {"detail": "action_type is required."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            if not isinstance(action_type, str) or not isinstance(targets, dict):
-                return Response(
-                    {"detail": ["Invalid action."]},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            errors = validate_night_action(game, pr, action_type, targets)
-            if errors:
-                return Response(
-                    {"detail": errors},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # 7. Store action in night_action_data, set has_acted=True
-            # Preserve previously stored data (copied_role, wave_N_result keys)
-            preserved = {
-                k: v
-                for k, v in pr.night_action_data.items()
-                if k == "copied_role" or k.startswith("wave_")
-            }
-            pr.night_action_data = {
-                **preserved,
-                "wave": wave,
-                "role_acting_as": acting_role,
-                "action_type": action_type,
-                "targets": targets,
-            }
-            pr.has_acted = True
-            pr.save(update_fields=["night_action_data", "has_acted"])
-
-            # The Doppelganger's look resolves in the SAME transaction that stores
-            # it: no committed look is ever waiting for a later step.
-            if wave == 1 and acting_role == "Doppelganger":
-                resolve_doppelganger_look(game)
-
-        # 8. Check if all actors submitted -- auto-advance if so
-        # Refresh game to get latest state
-        game.refresh_from_db()
-        check_and_maybe_advance(game)
-
-        return Response({"status": "submitted"})
+        stored = acknowledge_night_results(game, request.user.id, seen)  # type: ignore[misc]
+        if stored is None:
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response({"night_results_seen": stored})
 
 
 class WaveAdvanceView(APIView):
-    """Close the current night window now (host only). Marks non-submitters as skipped."""
+    """Close the current night window now (host only): a phone that has not chosen
+    gets its role's default. In the look stage it opens the night."""
 
     permission_classes = [IsAuthenticated]
 
@@ -386,18 +428,23 @@ class WaveAdvanceView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # The stage the host saw when they tapped: a stale tap (the window already
+        # moved on) must not close the next one.
+        stage, refusal = _stage_of(request)
+        if refusal is not None:
+            return refusal
+
         # Acquire row lock and re-check phase to prevent race with timer
         # callbacks. Without this, concurrent timer + host requests can
         # double-process a wave, duplicating log entries and resetting
         # has_acted for the next wave (losing already-submitted actions).
         with transaction.atomic():
             game = Game.objects.select_for_update().get(id=game_id)
-            if game.phase != Phase.NIGHT:
-                return Response(
-                    {"detail": "Game is not in the night phase."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            advance_wave(game)
+            try:
+                require_stage(game, stage, expected=(LOOK, *NIGHT_CHOOSE_STAGES))
+            except WrongStageError:
+                return _wrong_stage()
+            advance_wave(game)  # at window 0 it opens the first window
 
         # Refresh to get updated state
         game.refresh_from_db()
@@ -437,13 +484,15 @@ class EndDiscussionView(APIView):
         # discussion timer callback. Without this, both paths can call
         # transition_to_voting, and the second resets has_acted/vote_target
         # for all players — deleting any votes submitted in the window.
+        stage, refusal = _stage_of(request)
+        if refusal is not None:
+            return refusal
         with transaction.atomic():
             game = Game.objects.select_for_update().get(id=game_id)
-            if game.phase != Phase.DISCUSSION:
-                return Response(
-                    {"detail": "Game is not in the discussion phase."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            try:
+                require_stage(game, stage, expected=(TALK,))
+            except WrongStageError:
+                return _wrong_stage()
             end_discussion(game)
 
         return Response({"status": "voting_started"})
@@ -464,21 +513,28 @@ class VoteView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Extract target_player_id from request body
-        target_player_id = request.data.get("target_player_id")
-        if target_player_id is None:
-            return Response(
-                {"detail": "target_player_id is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        def refuse(detail: Any, code: str, http_status: int) -> Response:
+            return Response({"detail": detail, "code": code}, status=http_status)
 
-        try:
-            target_player_id = int(target_player_id)
-        except (TypeError, ValueError):
-            return Response(
-                {"detail": "target_player_id must be an integer."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        body = request.data if isinstance(request.data, dict) else None
+        if body is None:
+            return refuse("Body must be an object.", "bad_request", 400)
+
+        # A plain JSON integer only: a bool, float or string is never coerced.
+        target_player_id = body.get("target_player_id")
+        if target_player_id is None:
+            return refuse("target_player_id is required.", "bad_request", 400)
+        if type(target_player_id) is not int:
+            return refuse("target_player_id must be an integer.", "bad_request", 400)
+
+        # ``lock`` is required: a pick (false) or a lock (true), never guessed.
+        lock = body.get("lock")
+        if type(lock) is not bool:
+            return refuse("lock must be true or false", "bad_request", 400)
+
+        stage, stage_refusal = _stage_of(request)
+        if stage_refusal is not None:
+            return stage_refusal
 
         # Check player membership (403) before delegating to service
         if not PlayerRole.objects.filter(game=game, user=request.user).exists():
@@ -488,19 +544,81 @@ class VoteView(APIView):
             )
 
         try:
-            errors = submit_vote(game, request.user.id, target_player_id)  # type: ignore[misc]
+            errors = submit_vote(
+                game,
+                request.user.id,
+                target_player_id,
+                lock=lock,
+                stage=stage,  # type: ignore[misc]
+            )
+        except WrongStageError:
+            return _wrong_stage()
         except AlreadyActedError:
-            return Response(
-                {"detail": "You have already voted."},
-                status=status.HTTP_409_CONFLICT,
+            return refuse(
+                "You have already locked in your vote.",
+                "vote_locked",
+                status.HTTP_409_CONFLICT,
             )
         if errors:
-            return Response(
-                {"detail": errors},
-                status=status.HTTP_400_BAD_REQUEST,
+            # ``detail`` stays a list of messages, as it always was.
+            return refuse(
+                errors,
+                VOTE_ERROR_CODES.get(errors[0], "bad_request"),
+                status.HTTP_400_BAD_REQUEST,
             )
 
-        return Response({"status": "submitted"})
+        if lock:
+            return Response({"status": "submitted"})
+        # The stored pick, echoed: a lost or reordered request shows what stuck.
+        return Response({"status": "picked", "target_player_id": target_player_id})
+
+
+class ReadyView(APIView):
+    """Tap "ready" at the stage that asks for it: ``{"ready": true | false}``.
+
+    In the talk it toggles "ready to vote"; when every present player is ready the
+    server ends the talk (what the host's button does). Answers
+    ``{"status": "ok", "ready": <stored>}``. 409 ``wrong_stage`` anywhere else.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, game_id: str) -> Response:
+        try:
+            game = Game.objects.get(id=game_id)
+        except (Game.DoesNotExist, ValueError, ValidationError):
+            return Response(
+                {"detail": "Game not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        body = request.data if isinstance(request.data, dict) else {}
+        ready = body.get("ready")
+        if type(ready) is not bool:
+            return _bad_request("ready must be true or false")
+
+        if not PlayerRole.objects.filter(game=game, user=request.user).exists():
+            return Response(
+                {"detail": "You are not a player in this game."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        stage, refusal = _stage_of(request)
+        if refusal is not None:
+            return refusal
+        try:
+            errors = set_ready(game, request.user.id, ready, stage)  # type: ignore[misc]
+        except WrongStageError:
+            return _wrong_stage()
+        if errors:
+            return Response(
+                {
+                    "detail": errors[0],
+                    "code": READY_ERROR_CODES.get(errors[0], "bad_request"),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({"status": "ok", "ready": ready})
 
 
 class ForceRevealView(APIView):
@@ -529,13 +647,15 @@ class ForceRevealView(APIView):
         # voting timer callback. Without this, both paths can call
         # reveal_votes, producing duplicate vote_reveal and game_results
         # WebSocket events.
+        stage, refusal = _stage_of(request)
+        if refusal is not None:
+            return refusal
         with transaction.atomic():
             game = Game.objects.select_for_update().get(id=game_id)
-            if game.phase != Phase.VOTING:
-                return Response(
-                    {"detail": "Game is not in the voting phase."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            try:
+                require_stage(game, stage, expected=(VOTE,))
+            except WrongStageError:
+                return _wrong_stage()
             reveal_votes(game)
 
         return Response({"status": "revealed"})
@@ -545,8 +665,8 @@ class PlayerListView(APIView):
     """
     List all players in a game with public info only.
 
-    Returns player IDs, display names and whether each player is connected.
-    During voting phase, also includes has_voted status for each player.
+    Returns player IDs, display names, tokens, seats and whether each player is
+    connected. Never who has voted (the vote announces counts only).
 
     CRITICAL: Never reveals roles, night_action_data, or vote targets.
     """
@@ -574,17 +694,14 @@ class PlayerListView(APIView):
         all_prs = game.player_roles.select_related("user").all()
         connected_ids = presence.connected_user_ids(game_id=game.id)
 
-        players = []
-        for pr in all_prs:
-            entry = {
-                "player_id": pr.user_id,
-                "display_name": pr.user.display_name or pr.user.username,
+        players = [
+            {
+                **player_identity(pr),
                 # Presence is public: is any of their sockets open right now?
                 "connected": pr.user_id in connected_ids,
             }
-            if game.phase == Phase.VOTING:
-                entry["has_voted"] = bool(pr.has_acted)
-            players.append(entry)
+            for pr in all_prs
+        ]
 
         return Response({"players": players})
 
@@ -655,6 +772,54 @@ class CurrentGameView(APIView):
         )
 
 
+RECENT_GAMES_DEFAULT = 5
+RECENT_GAMES_MAX = 10
+
+
+def _recent_games_limit(raw: str | None) -> int:
+    """``?limit=`` clamped to 1..10; a missing or unreadable value is the default."""
+    try:
+        return max(1, min(int(raw), RECENT_GAMES_MAX))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return RECENT_GAMES_DEFAULT
+
+
+class RecentGamesView(APIView):
+    """The caller's finished games, newest first, with just enough for a list.
+
+    Only games in ``results`` in which the caller played: an unfinished game holds
+    live hidden information and "where am I" covers it. Nothing about anyone
+    else's role, and no lobby code (it would let anyone read the lobby). The full
+    detail stays behind ``results/``, which checks membership.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        limit = _recent_games_limit(request.query_params.get("limit"))
+        mine = (
+            PlayerRole.objects.filter(user=request.user, game__phase=Phase.RESULTS)
+            .select_related("game")
+            .annotate(player_count=Count("game__player_roles"))
+            .order_by("-game__updated_at", "-game_id")[:limit]
+        )
+        games = []
+        for pr in mine:
+            outcomes = pr.game.results.get("player_outcomes", {})
+            games.append(
+                {
+                    "game_id": str(pr.game_id),  # type: ignore[attr-defined]
+                    "ended_at": pr.game.updated_at.isoformat(),
+                    "player_count": pr.player_count,  # type: ignore[attr-defined]
+                    "winning_teams": list(pr.game.results.get("winning_teams", [])),
+                    "you_won": outcomes.get(str(request.user.id)) == "win",
+                    "token": pr.token,
+                    "seat": pr.seat,
+                }
+            )
+        return Response({"games": games})
+
+
 class ResultsView(APIView):
     """
     Get full game results after the game has ended.
@@ -663,8 +828,9 @@ class ResultsView(APIView):
     - Winning team and reason
     - Eliminated players with their roles
     - All player original and final roles, outcomes, and vote targets
-    - Center cards (original and final)
+    - Center cards (the final ones; the dealt ones are in the timeline)
     - Night actions log
+    - The night timeline (null if the log cannot be replayed)
     """
 
     permission_classes = [IsAuthenticated]
@@ -696,7 +862,9 @@ class ResultsView(APIView):
             )
 
         # Build full results response
-        player_roles_qs = game.player_roles.select_related("user", "vote_target").all()
+        player_roles_qs = list(
+            game.player_roles.select_related("user", "vote_target").all()
+        )
 
         # Build eliminated player details
         eliminated_ids = set(game.results.get("eliminated_players", []))
@@ -722,8 +890,7 @@ class ResultsView(APIView):
         for pr in player_roles_qs:
             is_eliminated = pr.user_id in eliminated_ids
             player_info = {
-                "player_id": pr.user_id,
-                "display_name": pr.user.display_name or pr.user.username,
+                **player_identity(pr),
                 "original_role": pr.original_role,
                 "final_role": pr.current_role,
                 "team": get_effective_team(
@@ -755,6 +922,7 @@ class ResultsView(APIView):
             "players": players_data,
             "center_cards": list(game.center_cards),
             "night_actions_log": list(game.night_actions_log),
+            "night_timeline": night_timeline_for(game, player_roles_qs),
         }
 
         return Response(response_data)

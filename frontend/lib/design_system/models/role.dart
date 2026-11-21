@@ -1,6 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:midnight_village/design_system/tokens/app_tokens.dart';
-
 enum TeamId { werewolf, village, independent }
 
 enum RoleId {
@@ -15,7 +12,12 @@ enum RoleId {
   mason,
   hunter,
   tanner,
-  doppelganger,
+  doppelganger;
+
+  /// The role the server names [name] ("Werewolf", "Doppelganger"), or null
+  /// for a name it does not use.
+  static RoleId? fromServer(String name) =>
+      values.where((role) => role.displayName == name).firstOrNull;
 }
 
 extension RoleIdX on RoleId {
@@ -41,24 +43,7 @@ extension RoleIdX on RoleId {
     RoleId.doppelganger => 'Doppelganger',
   };
 
-  Color teamColor(AppColorTokens colors) => switch (team) {
-    TeamId.werewolf => colors.werewolfTeam,
-    TeamId.village => colors.villageTeam,
-    TeamId.independent => colors.independentTeam,
-  };
-
-  IconData get placeholderIcon => switch (this) {
-    RoleId.werewolf => Icons.pets,
-    RoleId.minion => Icons.sentiment_very_dissatisfied,
-    RoleId.villager => Icons.person,
-    RoleId.seer => Icons.visibility,
-    RoleId.robber => Icons.swap_horiz,
-    RoleId.troublemaker => Icons.shuffle,
-    RoleId.drunk => Icons.local_bar,
-    RoleId.insomniac => Icons.nightlight_round,
-    RoleId.mason => Icons.handshake,
-    RoleId.hunter => Icons.gps_fixed,
-    RoleId.tanner => Icons.work,
-    RoleId.doppelganger => Icons.content_copy,
-  };
+  /// More than one of it in a deck ("3 Villagers", "2 Werewolves").
+  String get pluralName =>
+      this == RoleId.werewolf ? 'Werewolves' : '${displayName}s';
 }

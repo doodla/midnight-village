@@ -1,0 +1,130 @@
+{
+  "game_id": "00000000-0000-4000-a000-000000000014",
+  "lobby_code": "X2PG5N",
+  "phase": "night",
+  "current_wave": 1,
+  "deadline": "2024-03-07T22:00:48+00:00",
+  "your_role": {
+    "original_role": "Doppelganger"
+  },
+  "is_host": true,
+  "host_id": 55,
+  "players": [
+    {
+      "player_id": 55,
+      "display_name": "Ana",
+      "token": "hare",
+      "seat": 0
+    },
+    {
+      "player_id": 56,
+      "display_name": "Ben",
+      "token": "moth",
+      "seat": 1
+    },
+    {
+      "player_id": 57,
+      "display_name": "Cleo",
+      "token": "thorn",
+      "seat": 2
+    },
+    {
+      "player_id": 58,
+      "display_name": "Dev",
+      "token": "spindle",
+      "seat": 3
+    },
+    {
+      "player_id": 59,
+      "display_name": "Esme",
+      "token": "key",
+      "seat": 4
+    },
+    {
+      "player_id": 60,
+      "display_name": "Fin",
+      "token": "bell",
+      "seat": 5
+    }
+  ],
+  "action_prompt": {
+    "window": 1,
+    "kind": "none",
+    "shapes": [
+      {
+        "any": 1
+      }
+    ],
+    "role_acting_as": "Minion",
+    "action_types": [
+      "choose"
+    ],
+    "max_picks": 2,
+    "max_chooses": 2,
+    "chosen": 1,
+    "chooses_left": 0,
+    "valid_targets": {
+      "player_ids": [
+        56,
+        57,
+        58,
+        59,
+        60
+      ],
+      "center_indices": [
+        0,
+        1,
+        2
+      ]
+    }
+  },
+  "roles_in_game": [
+    {
+      "role": "Seer",
+      "count": 1
+    },
+    {
+      "role": "Minion",
+      "count": 1
+    },
+    {
+      "role": "Robber",
+      "count": 1
+    },
+    {
+      "role": "Villager",
+      "count": 2
+    },
+    {
+      "role": "Werewolf",
+      "count": 2
+    },
+    {
+      "role": "Insomniac",
+      "count": 1
+    },
+    {
+      "role": "Doppelganger",
+      "count": 1
+    }
+  ],
+  "night_results": [
+    {
+      "wave": 1,
+      "action_type": "peek_player",
+      "revealed_info": {
+        "target_name": "Dev",
+        "role": "Minion",
+        "copied_role": "Minion"
+      }
+    }
+  ],
+  "night_results_seen": 0,
+  "player_id": 55,
+  "my_vote": null,
+  "ready": null,
+  "progress": null,
+  "stage": "w1.000000000014",
+  "stage_started_at": "2024-03-07T22:00:38+00:00",
+  "vote_targets": null
+}

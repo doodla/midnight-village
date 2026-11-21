@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 168" width="120" height="168">
-  <rect width="120" height="168" rx="8" fill="#0F1923"/>
-  <rect x="4" y="4" width="112" height="160" rx="6" fill="none" stroke="#E8A849" stroke-width="1" opacity="0.3"/>
-  <circle cx="60" cy="70" r="20" fill="none" stroke="#E8A849" stroke-width="1.5" opacity="0.5"/>
-  <text x="60" y="110" text-anchor="middle" font-family="serif" font-size="10" fill="#E8A849" opacity="0.4">MV</text>
-</svg>

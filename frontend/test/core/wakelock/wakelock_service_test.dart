@@ -1,75 +1,73 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
-import 'package:midnight_village/features/game/presentation/game_container_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 
 import '../../helpers/fake_wakelock_service.dart';
-import '../../helpers/game_state_factory.dart';
-import '../../helpers/game_test_setup.dart';
+import '../../helpers/shell_setup.dart';
 
 void main() {
-  group('Keeping the screen awake', () {
-    testWidgets('is turned on while a game is on screen', (tester) async {
-      final wakelock = FakeWakelockService();
-      await tester.pumpGameFlow(wakelock: wakelock);
-
-      expect(wakelock.isEnabled, isTrue);
-      expect(wakelock.enableCount, 1);
-      expect(wakelock.disableCount, 0);
+  group('Keeping the screen awake (the table shell)', () {
+    testWidgets('is on while the shell is shown, off when it is left', (
+      tester,
+    ) async {
+      final s = await ShellSetup.pump(tester, recordedMe('me_look_stage'));
+      expect(s.wakelock.isEnabled, isTrue);
+      expect(s.wakelock.enableCount, 1);
+      expect(s.wakelock.disableCount, 0);
+      await s.close(tester);
+      expect(s.wakelock.isEnabled, isFalse);
+      expect(s.wakelock.disableCount, 1);
     });
 
-    testWidgets('stays on through every phase of the game', (tester) async {
-      final wakelock = FakeWakelockService();
-      final setup = await tester.pumpGameFlow(wakelock: wakelock);
-
-      setup.ws.addServerEvent('{"type":"phase_change","phase":"discussion"}');
-      await tester.pump();
-      setup.ws.addServerEvent('{"type":"phase_change","phase":"voting"}');
-      await tester.pump();
-
-      expect(wakelock.isEnabled, isTrue);
-      expect(wakelock.disableCount, 0);
-    });
-
-    testWidgets('is turned off when the game screen is left', (tester) async {
-      final wakelock = FakeWakelockService();
-      await tester.pumpGameFlow(wakelock: wakelock);
-
-      await tester.pumpWidget(const SizedBox());
-
-      expect(wakelock.isEnabled, isFalse);
-      expect(wakelock.disableCount, 1);
+    testWidgets('stays on as the game moves from screen to screen', (
+      tester,
+    ) async {
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_discussion_choose_seer'),
+        before: (s) => s.answerNightResultsSeen(),
+      );
+      await s.settle(tester);
+      expect(find.byType(TalkScreen), findsOneWidget);
+      s.answerMe(recordedMe('me_voting_unpicked'));
+      s.resume();
+      await s.settle(tester);
+      expect(find.byType(VoteScreen), findsOneWidget);
+      expect(s.wakelock.isEnabled, isTrue);
+      expect(s.wakelock.disableCount, 0);
+      await s.close(tester);
     });
 
     testWidgets('is asked for again when the app comes back to the front', (
       tester,
     ) async {
-      final wakelock = FakeWakelockService();
-      await tester.pumpGameFlow(
-        gameMeJson: GameMeJsonBuilder().inPhase('discussion').build(),
-        wakelock: wakelock,
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_discussion_choose_seer'),
+        before: (s) => s.answerNightResultsSeen(),
       );
-
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-
-      expect(wakelock.enableCount, 2);
+      expect(s.wakelock.enableCount, 2);
+      await s.close(tester);
     });
 
     testWidgets('a refusing platform changes nothing on screen', (
       tester,
     ) async {
-      final wakelock = FakeWakelockService(failing: true);
-      await tester.pumpGameFlow(
-        gameMeJson: GameMeJsonBuilder().inPhase('discussion').build(),
-        wakelock: wakelock,
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_discussion_choose_seer'),
+        before: (s) => s.answerNightResultsSeen(),
+        wakelock: FakeWakelockService(failing: true),
       );
-
-      expect(find.byType(GameContainerScreen), findsOneWidget);
-      expect(find.text('End Discussion'), findsNothing); // not host
+      await s.settle(tester);
+      expect(find.byType(TalkScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await s.close(tester);
     });
   });
 

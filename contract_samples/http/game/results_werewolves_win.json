@@ -1,0 +1,345 @@
+{
+  "winning_teams": [
+    "werewolf"
+  ],
+  "reason": "No Werewolf was eliminated. Werewolves win!",
+  "eliminated_players": [
+    {
+      "player_id": 60,
+      "display_name": "Fin",
+      "role": "Villager",
+      "elimination_reason": "vote"
+    }
+  ],
+  "players": [
+    {
+      "player_id": 55,
+      "display_name": "Ana",
+      "token": "hare",
+      "seat": 0,
+      "original_role": "Seer",
+      "final_role": "Seer",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": 60
+    },
+    {
+      "player_id": 56,
+      "display_name": "Ben",
+      "token": "moth",
+      "seat": 1,
+      "original_role": "Robber",
+      "final_role": "Robber",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": 60
+    },
+    {
+      "player_id": 57,
+      "display_name": "Cleo",
+      "token": "thorn",
+      "seat": 2,
+      "original_role": "Werewolf",
+      "final_role": "Werewolf",
+      "team": "werewolf",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 60
+    },
+    {
+      "player_id": 58,
+      "display_name": "Dev",
+      "token": "spindle",
+      "seat": 3,
+      "original_role": "Villager",
+      "final_role": "Villager",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": 60
+    },
+    {
+      "player_id": 59,
+      "display_name": "Esme",
+      "token": "key",
+      "seat": 4,
+      "original_role": "Werewolf",
+      "final_role": "Werewolf",
+      "team": "werewolf",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 60
+    },
+    {
+      "player_id": 60,
+      "display_name": "Fin",
+      "token": "bell",
+      "seat": 5,
+      "original_role": "Villager",
+      "final_role": "Villager",
+      "team": "village",
+      "is_eliminated": true,
+      "elimination_reason": "vote",
+      "outcome": "lose",
+      "vote_target_id": 55
+    }
+  ],
+  "center_cards": [
+    "Villager",
+    "Troublemaker",
+    "Insomniac"
+  ],
+  "night_actions_log": [
+    {
+      "wave": 2,
+      "result": {
+        "werewolves": [
+          59
+        ]
+      },
+      "targets": {},
+      "player_id": 57,
+      "action_type": "see_team",
+      "role_acting_as": "Werewolf",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 2,
+      "result": {
+        "werewolves": [
+          57
+        ]
+      },
+      "targets": {},
+      "player_id": 59,
+      "action_type": "see_team",
+      "role_acting_as": "Werewolf",
+      "timestamp_order": 1
+    },
+    {
+      "wave": 3,
+      "result": {
+        "peeked_role": "Werewolf"
+      },
+      "targets": {
+        "player_id": 57
+      },
+      "player_id": 55,
+      "action_type": "peek_player",
+      "role_acting_as": "Seer",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 3,
+      "result": {},
+      "targets": {},
+      "player_id": 56,
+      "action_type": "skip",
+      "role_acting_as": "Robber",
+      "timestamp_order": 1
+    }
+  ],
+  "night_timeline": {
+    "seats": [
+      55,
+      56,
+      57,
+      58,
+      59,
+      60
+    ],
+    "cards": [
+      {
+        "card_id": "k0",
+        "role": "Seer",
+        "werewolf": false
+      },
+      {
+        "card_id": "k1",
+        "role": "Robber",
+        "werewolf": false
+      },
+      {
+        "card_id": "k2",
+        "role": "Werewolf",
+        "werewolf": true
+      },
+      {
+        "card_id": "k3",
+        "role": "Villager",
+        "werewolf": false
+      },
+      {
+        "card_id": "k4",
+        "role": "Werewolf",
+        "werewolf": true
+      },
+      {
+        "card_id": "k5",
+        "role": "Villager",
+        "werewolf": false
+      },
+      {
+        "card_id": "k6",
+        "role": "Villager",
+        "werewolf": false
+      },
+      {
+        "card_id": "k7",
+        "role": "Troublemaker",
+        "werewolf": false
+      },
+      {
+        "card_id": "k8",
+        "role": "Insomniac",
+        "werewolf": false
+      }
+    ],
+    "dealt": {
+      "players": {
+        "55": "k0",
+        "56": "k1",
+        "57": "k2",
+        "58": "k3",
+        "59": "k4",
+        "60": "k5"
+      },
+      "center": [
+        "k6",
+        "k7",
+        "k8"
+      ]
+    },
+    "steps": [
+      {
+        "step": 1,
+        "window": 2,
+        "order_group": 2,
+        "role": "Werewolf",
+        "actors": [
+          57,
+          59
+        ],
+        "doppelganger_actors": [],
+        "action": "see_team",
+        "made_by_server": false,
+        "looked_at": [],
+        "team": [
+          57,
+          59
+        ],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "55": "k0",
+            "56": "k1",
+            "57": "k2",
+            "58": "k3",
+            "59": "k4",
+            "60": "k5"
+          },
+          "center": [
+            "k6",
+            "k7",
+            "k8"
+          ]
+        }
+      },
+      {
+        "step": 2,
+        "window": 2,
+        "order_group": 3,
+        "role": "Seer",
+        "actors": [
+          55
+        ],
+        "doppelganger_actors": [],
+        "action": "peek_player",
+        "made_by_server": false,
+        "looked_at": [
+          {
+            "player_id": 57,
+            "card_id": "k2"
+          }
+        ],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "55": "k0",
+            "56": "k1",
+            "57": "k2",
+            "58": "k3",
+            "59": "k4",
+            "60": "k5"
+          },
+          "center": [
+            "k6",
+            "k7",
+            "k8"
+          ]
+        }
+      },
+      {
+        "step": 3,
+        "window": 2,
+        "order_group": 3,
+        "role": "Robber",
+        "actors": [
+          56
+        ],
+        "doppelganger_actors": [],
+        "action": "skip",
+        "made_by_server": false,
+        "looked_at": [],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "55": "k0",
+            "56": "k1",
+            "57": "k2",
+            "58": "k3",
+            "59": "k4",
+            "60": "k5"
+          },
+          "center": [
+            "k6",
+            "k7",
+            "k8"
+          ]
+        }
+      }
+    ],
+    "final": {
+      "players": {
+        "55": "k0",
+        "56": "k1",
+        "57": "k2",
+        "58": "k3",
+        "59": "k4",
+        "60": "k5"
+      },
+      "center": [
+        "k6",
+        "k7",
+        "k8"
+      ]
+    },
+    "center_moved": [
+      false,
+      false,
+      false
+    ]
+  }
+}

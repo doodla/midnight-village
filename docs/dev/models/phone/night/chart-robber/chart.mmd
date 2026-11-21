@@ -1,0 +1,29 @@
+---
+title: "The Doppelganger's phone through the night (one phone, abstract server)"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: start
+    lg1: night
+    lg2: Path to the FollowUpArmed bug
+    lg3: Repeats forever, so FollowUpArmed breaks
+  }
+  class lg0 tan
+  class lg1 purple
+  class lg2 bugPath
+  class lg3 repeats
+  s0: Loading
+  s1: Window 1: look armed
+  s2: Window 1: look shows Chosen
+  [*] --> s0
+  s0 --> s0: the stage ends (timer) or the server reads /me/
+  s0 --> s1: a /me/ answer lands
+  s1 --> s2: she taps Choose
+  s2 --> s2: the server takes a request or a socket event is dropped or the answer arrives or a /me/ fetch fails
+  class s0 tan
+  class s0 bugPath
+  class s1 purple
+  class s1 bugPath
+  class s2 purple
+  class s2 bugPath
+  class s2 repeats

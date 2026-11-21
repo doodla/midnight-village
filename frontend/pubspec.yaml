@@ -27,19 +27,15 @@ dependencies:
   freezed_annotation: ^3.1.0
   json_annotation: ^4.9.0
 
-  # SVG support
-  flutter_svg: ^2.0.0
-
-  # Design system fonts
-  google_fonts: ^6.2.1
-  material_symbols_icons: ^4.2800.0
-
   # Logging
   logger: ^2.6.2
   web_socket_channel: ^3.0.3
 
   # Keep the screen awake during a game
   wakelock_plus: ^1.6.1
+  shared_preferences: ^2.5.5
+  qr: ^3.0.3
+  share_plus: ^13.3.1
 
 dev_dependencies:
   flutter_test:
@@ -58,6 +54,8 @@ dev_dependencies:
   # Testing
   mocktail: ^1.0.4
   fake_async: ^1.3.1
+  # Reads lib/design_system/copy/copy.dart's lines for the copy budget test
+  analyzer: ^8.4.0
 
   # Linting
   flutter_lints: ^6.0.0
@@ -69,7 +67,30 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/themes/midnight-village/
-    - assets/themes/_placeholder/
-    - assets/textures/
+    # The skin's art (lib/design_system/skin/art_set.dart). Phone-sized WebP
+    # copies; the originals are in docs/design/art/.
+    - assets/skins/shadow_paper/roles/
+    - assets/skins/shadow_paper/tokens/
+    - assets/skins/shadow_paper/scenes/
+    # Shown on the licences page (registerFontLicences in lib/main.dart).
+    - assets/fonts/gloock/OFL.txt
+    - assets/fonts/figtree/OFL.txt
 
+  # The default skin's type (lib/design_system/skin/skins/shadow_paper.dart):
+  # Gloock and Figtree (Latin subsets of the Google Fonts files), loaded by the
+  # engine at start.
+  # OFL licences sit beside each family in assets/fonts/.
+  fonts:
+    - family: Gloock
+      fonts:
+        - asset: assets/fonts/gloock/Gloock-Regular.ttf
+    - family: Figtree
+      fonts:
+        - asset: assets/fonts/figtree/Figtree-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/figtree/Figtree-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/figtree/Figtree-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/figtree/Figtree-Bold.ttf
+          weight: 700

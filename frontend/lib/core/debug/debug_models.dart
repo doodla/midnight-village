@@ -77,58 +77,6 @@ class DebugTable {
       players.firstWhere((p) => p.userId == userId);
 }
 
-/// The kind of game action a player drives via [DebugTableController.driveAs].
-enum DebugActionKind {
-  nightAction,
-  vote,
-  endDiscussion,
-  advanceWave,
-  revealVotes,
-}
-
-/// A single action issued AS a specific player without switching perspective.
-class DebugAction {
-  const DebugAction.nightAction({
-    required this.actionType,
-    required this.targets,
-  }) : kind = DebugActionKind.nightAction,
-       voteTargetUserId = null;
-
-  const DebugAction.vote({required this.voteTargetUserId})
-    : kind = DebugActionKind.vote,
-      actionType = null,
-      targets = null;
-
-  const DebugAction.endDiscussion()
-    : kind = DebugActionKind.endDiscussion,
-      actionType = null,
-      targets = null,
-      voteTargetUserId = null;
-
-  const DebugAction.advanceWave()
-    : kind = DebugActionKind.advanceWave,
-      actionType = null,
-      targets = null,
-      voteTargetUserId = null;
-
-  const DebugAction.revealVotes()
-    : kind = DebugActionKind.revealVotes,
-      actionType = null,
-      targets = null,
-      voteTargetUserId = null;
-
-  final DebugActionKind kind;
-
-  /// For night actions: the wire `action_type` (e.g. `peek_player`).
-  final String? actionType;
-
-  /// For night actions: the encoded `targets` map (see contract §D4).
-  final Map<String, dynamic>? targets;
-
-  /// For votes: the target player's server `user_id`. Null = abstain.
-  final int? voteTargetUserId;
-}
-
 /// Identifies a pending server timer to fire on demand (contract §B3).
 ///
 /// `wave:{n}` / `discussion` / `voting`, or `current` (the single pending key).

@@ -1,0 +1,132 @@
+{
+  "type": "lobby_update",
+  "data": {
+    "code": "T8NB6C",
+    "host": {
+      "id": 32,
+      "username": "00000000-0000-4000-8000-000000000032",
+      "display_name": "Ana"
+    },
+    "original_host_id": 32,
+    "is_acting_host": false,
+    "game_type": "onuw",
+    "status": "waiting",
+    "max_players": 10,
+    "settings": {
+      "deck": "custom",
+      "deck_chip": "simple",
+      "night_protocol": 2,
+      "card_look_seconds": 30,
+      "roles": {
+        "Doppelganger": 1,
+        "Seer": 1,
+        "Werewolf": 2,
+        "Minion": 1,
+        "Mason": 2,
+        "Drunk": 1,
+        "Insomniac": 1,
+        "Villager": 2,
+        "Tanner": 1
+      }
+    },
+    "players": [
+      {
+        "user": {
+          "id": 32,
+          "username": "00000000-0000-4000-8000-000000000032",
+          "display_name": "Ana"
+        },
+        "token": "bell",
+        "joined_at": "2024-03-07T21:15:38Z",
+        "connected": false
+      },
+      {
+        "user": {
+          "id": 33,
+          "username": "00000000-0000-4000-8000-000000000033",
+          "display_name": "Ben"
+        },
+        "token": "crow",
+        "joined_at": "2024-03-07T21:16:38Z",
+        "connected": false
+      },
+      {
+        "user": {
+          "id": 34,
+          "username": "00000000-0000-4000-8000-000000000034",
+          "display_name": "Cleo"
+        },
+        "token": "lantern",
+        "joined_at": "2024-03-07T21:17:38Z",
+        "connected": false
+      },
+      {
+        "user": {
+          "id": 35,
+          "username": "00000000-0000-4000-8000-000000000035",
+          "display_name": "Dev"
+        },
+        "token": "scythe",
+        "joined_at": "2024-03-07T21:18:38Z",
+        "connected": false
+      },
+      {
+        "user": {
+          "id": 36,
+          "username": "00000000-0000-4000-8000-000000000036",
+          "display_name": "Esme"
+        },
+        "token": "key",
+        "joined_at": "2024-03-07T21:19:38Z",
+        "connected": false
+      },
+      {
+        "user": {
+          "id": 37,
+          "username": "00000000-0000-4000-8000-000000000037",
+          "display_name": "Fin"
+        },
+        "token": "antler",
+        "joined_at": "2024-03-07T21:20:38Z",
+        "connected": false
+      },
+      {
+        "user": {
+          "id": 38,
+          "username": "00000000-0000-4000-8000-000000000038",
+          "display_name": "Gus"
+        },
+        "token": "thorn",
+        "joined_at": "2024-03-07T21:21:38Z",
+        "connected": false
+      },
+      {
+        "user": {
+          "id": 39,
+          "username": "00000000-0000-4000-8000-000000000039",
+          "display_name": "Hana"
+        },
+        "token": "hare",
+        "joined_at": "2024-03-07T21:22:38Z",
+        "connected": false
+      },
+      {
+        "user": {
+          "id": 40,
+          "username": "00000000-0000-4000-8000-000000000040",
+          "display_name": "Ida"
+        },
+        "token": "moth",
+        "joined_at": "2024-03-07T21:23:38Z",
+        "connected": false
+      }
+    ],
+    "created_at": "2024-03-07T21:15:38Z",
+    "deck_preview": null,
+    "deal": {
+      "ok": true,
+      "need": 12,
+      "have": 12
+    }
+  }
+}

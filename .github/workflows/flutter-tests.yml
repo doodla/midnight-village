@@ -10,18 +10,15 @@
 #   Required checks: "Widget Tests", "Golden Tests", "Integration Tests"
 # Each job is a separate required check so any single failure blocks the merge.
 #
-# PLATFORM BASELINES (T035):
-# - macOS: developers generate baselines locally with `just flutter-golden-update`
-# - Linux: CI baselines live in frontend/test/design_system/goldens/linux/
-# Both sets must be committed to the repo.
-#
-# Initial Linux baselines were generated on macOS. Flutter's test renderer uses
-# embedded custom fonts (Inter, PlayfairDisplay), making rendering consistent
-# across platforms. If pixel mismatches appear on CI, regenerate proper baselines:
+# GOLDEN BASELINES:
+# One set, made on Linux, in frontend/test/design_system/goldens/. Font
+# rasterisation differs per OS, so golden-tagged tests are skipped off Linux
+# (frontend/dart_test.yaml); this CI job is the source of truth. To regenerate
+# them here:
 #   1. Run this workflow manually via GitHub Actions → "Run workflow"
 #   2. Set "Regenerate golden baselines" to true
 #   3. Download the "linux-golden-baselines" artifact from the completed run
-#   4. Extract to frontend/test/design_system/goldens/linux/ and commit
+#   4. Extract to frontend/test/design_system/goldens/ and commit
 
 name: Flutter Tests
 
@@ -71,6 +68,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # The committed *.g.dart / *.freezed.dart are what `just gen` makes now
+      # (the same check as `just gen-check`; about 50 s, so CI only).
+      - name: Generated code is current
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          git diff --exit-code -- '*.g.dart' '*.freezed.dart'
+
       # Excludes golden-tagged tests to avoid running them in this job
       - name: Widget tests
         run: flutter test --exclude-tags golden
@@ -112,10 +116,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-golden-baselines
-          path: frontend/test/design_system/goldens/linux/
+          path: frontend/test/design_system/goldens/
           retention-days: 30
 
-      # Uses linux/ baselines on CI; macos/ baselines used locally
+      # The one baseline set: frontend/test/design_system/goldens/
       - name: Golden tests
         id: golden-tests
         run: just flutter-test-golden

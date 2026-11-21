@@ -5,7 +5,8 @@ import contextlib
 import logging
 
 from channels.db import database_sync_to_async
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
+
+from apps.core.consumers import TolerantJsonWebsocketConsumer
 
 from . import presence
 
@@ -22,13 +23,18 @@ def _host_presence(game_id, user_id, connected: bool) -> None:
         logger.exception("Host handover check failed for game %s", game_id)
 
 
-class GameConsumer(AsyncJsonWebsocketConsumer):
+class GameConsumer(TolerantJsonWebsocketConsumer):
     """
     WebSocket consumer for an ONUW game session.
 
     Each connected player joins two channel groups:
-    - game_{game_id}: broadcast channel for all players
-    - game_{game_id}_player_{user_id}: private channel for player-scoped events
+    - game_{game_id}: broadcast channel for all players (every event the game
+      sends today goes here: nothing in a game is sent to one player)
+    - game_{game_id}_player_{user_id}: a private channel, kept so an event meant
+      for one player has somewhere to go
+
+    An event type with no handler here (one an older deployment still sends while
+    a new one goes live) is dropped by ``TolerantJsonWebsocketConsumer``.
     """
 
     async def connect(self):
@@ -91,45 +97,14 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
 
     # ── Event handlers ──────────────────────────────────────────────────────
 
-    async def wave_start(self, event):
-        """Broadcast: a new wave has started."""
+    async def night_window(self, event):
+        """Broadcast: a night window opened. The same event for every phone; each
+        reads its own prompt from ``GET /me/``."""
         await self.send_json(
             {
-                "type": "wave_start",
-                "wave": event["wave"],
+                "type": "night_window",
+                "window": event["window"],
                 "deadline": event.get("deadline"),
-            }
-        )
-
-    async def action_prompt(self, event):
-        """Player-scoped: you need to submit an action."""
-        await self.send_json(
-            {
-                "type": "action_prompt",
-                "wave": event["wave"],
-                "role_acting_as": event["role_acting_as"],
-                "action_types": event["action_types"],
-                "valid_targets": event["valid_targets"],
-            }
-        )
-
-    async def action_result(self, event):
-        """Player-scoped: result of your submitted action."""
-        await self.send_json(
-            {
-                "type": "action_result",
-                "wave": event["wave"],
-                "action_type": event.get("action_type"),
-                "revealed_info": event["revealed_info"],
-            }
-        )
-
-    async def wave_complete(self, event):
-        """Broadcast: a wave has finished resolving."""
-        await self.send_json(
-            {
-                "type": "wave_complete",
-                "wave": event["wave"],
             }
         )
 
@@ -143,21 +118,14 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
-    async def wave_waiting(self, event):
-        """Player-scoped: you are waiting for this wave to complete."""
+    async def progress(self, event):
+        """Broadcast: how many players have locked in / are ready (counts only)."""
         await self.send_json(
             {
-                "type": "wave_waiting",
-                "wave": event["wave"],
-            }
-        )
-
-    async def vote_submitted(self, event):
-        """Broadcast: a player has submitted their vote (target hidden)."""
-        await self.send_json(
-            {
-                "type": "vote_submitted",
-                "player_id": event["player_id"],
+                "type": "progress",
+                "stage": event["stage"],
+                "done": event["done"],
+                "needed": event["needed"],
             }
         )
 

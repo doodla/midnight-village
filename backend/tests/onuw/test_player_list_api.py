@@ -138,10 +138,16 @@ class TestPlayerList:
 
         # Verify individual player entries only contain expected keys
         for p in response.data["players"]:
-            assert set(p.keys()) == {"player_id", "display_name", "connected"}
+            assert set(p.keys()) == {
+                "player_id",
+                "display_name",
+                "token",
+                "seat",
+                "connected",
+            }
 
-    def test_player_list_shows_vote_status_during_voting(self, api_client, db):
-        """During voting phase, each player entry includes has_voted status."""
+    def test_player_list_never_shows_who_voted(self, api_client, db):
+        """During voting, the list says nothing of who voted or for whom."""
         game, users, host = _create_game(
             {
                 "plv_host": "Werewolf",
@@ -162,22 +168,13 @@ class TestPlayerList:
 
         assert response.status_code == status.HTTP_200_OK
 
-        # Build a map for easy assertions
-        vote_map = {p["player_id"]: p["has_voted"] for p in response.data["players"]}
-
-        assert vote_map[users["plv_p1"].id] is True
-        assert vote_map[users["plv_host"].id] is False
-        assert vote_map[users["plv_p2"].id] is False
-
-        # Verify has_voted is present but vote_target is not
         for p in response.data["players"]:
-            assert "has_voted" in p
-            assert "vote_target" not in p
             assert set(p.keys()) == {
                 "player_id",
                 "display_name",
+                "token",
+                "seat",
                 "connected",
-                "has_voted",
             }
 
     def test_non_player_gets_403(self, api_client, db):
@@ -211,7 +208,7 @@ class TestPlayerList:
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_player_list_no_vote_status_outside_voting_phase(self, api_client, db):
-        """Outside voting phase, has_voted is not included in player entries."""
+        """Outside the vote, too, entries carry public identity and presence only."""
         game, _users, host = _create_game(
             {
                 "plnv_host": "Werewolf",

@@ -16,6 +16,13 @@ SECRET_KEY = "django-insecure-test-key-not-for-production"
 
 DEBUG = False
 
+# A socket event type with no handler is a bug in new code: fail, do not drop it
+# (production, base.py, drops it so an older instance keeps its sockets open).
+ONUW_STRICT_SOCKET_EVENTS = True
+
+# Tests drive the night by hand: zero night timers are allowed (see base.py).
+ONUW_ALLOW_UNTIMED_NIGHT = True
+
 # Tests never recover timers at import time (they build their own state).
 ONUW_RECOVER_TIMERS_ON_START = False
 
@@ -41,7 +48,7 @@ PASSWORD_HASHERS = [
 # Disable logging during tests
 LOGGING = {
     "version": 1,
-    "disable_existing_loggers": True,
+    "disable_existing_loggers": False,
     "handlers": {
         "null": {
             "class": "logging.NullHandler",
@@ -66,5 +73,6 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "1000/minute",
         "user": "1000/minute",
+        "online_stats": "1000/minute",
     },
 }

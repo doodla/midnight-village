@@ -24,6 +24,7 @@ from django.utils import timezone
 import pytest
 from rest_framework import status
 
+from apps.core import host as host_module
 from apps.core import timers
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
 from apps.onuw import services
@@ -566,6 +567,41 @@ class TestDebugStateOracle:
         assert votes[str(users["carol"].id)] is None
 
     @override_settings(DEBUG=True)
+    def test_vote_locked_tells_a_pick_from_a_lock(self, api_client, db):
+        """votes holds every stored pick; vote_locked says which are final."""
+        game, users, host = _make_game_with_roles(
+            {"alice": "Villager", "bob": "Werewolf", "carol": "Seer"},
+            ["Robber", "Drunk", "Tanner"],
+            phase=Phase.VOTING,
+            wave=0,
+        )
+        PlayerRole.objects.filter(game=game, user=users["alice"]).update(
+            vote_target=users["bob"], has_acted=True
+        )
+        PlayerRole.objects.filter(game=game, user=users["bob"]).update(
+            vote_target=users["carol"]
+        )
+        api_client.force_authenticate(user=host)
+
+        body = api_client.get(_debug_state_url(game.id)).data
+
+        PlayerRole.objects.filter(game=game, user=users["carol"]).update(
+            phase_ready=True
+        )
+        body = api_client.get(_debug_state_url(game.id)).data
+        assert {p["display_name"]: p["ready"] for p in body["players"]} == {
+            users["alice"].display_name or users["alice"].username: False,
+            users["bob"].display_name or users["bob"].username: False,
+            users["carol"].display_name or users["carol"].username: True,
+        }
+        assert body["votes"][str(users["bob"].id)] == users["carol"].id
+        assert body["vote_locked"] == {
+            str(users["alice"].id): True,
+            str(users["bob"].id): False,
+            str(users["carol"].id): False,
+        }
+
+    @override_settings(DEBUG=True)
     def test_current_wave_is_zero_outside_night(self, api_client, db):
         """current_wave is an int 0 outside the night phase (never null)."""
         game, _users, host = _make_game_with_roles(
@@ -640,6 +676,43 @@ class TestDebugStateOracle:
         assert entry["action_type"] == "swap_with_player"
         assert entry["role_acting_as"] == "Robber"
         assert entry["timestamp_order"] == 1
+        assert entry["made_by_server"] is False
+
+    @override_settings(DEBUG=True)
+    def test_night_actions_log_marks_a_move_the_server_made(self, api_client, db):
+        """made_by_server is true only for an entry the server wrote for a
+        player who timed out (the Drunk's seeded swap)."""
+        game, users, host = _make_game_with_roles(
+            {"alice": "Drunk", "bob": "Werewolf", "carol": "Villager"},
+            ["Seer", "Robber", "Tanner"],
+            phase=Phase.DISCUSSION,
+            wave=0,
+        )
+        game.night_actions_log = [
+            {
+                "wave": 3,
+                "player_id": users["alice"].id,
+                "action_type": "swap_with_center",
+                "targets": {"center_index": 1},
+                "result": {},
+                "timestamp_order": 1,
+                "role_acting_as": "Drunk",
+                "made_by_server": True,
+            },
+            {
+                "wave": 2,
+                "player_id": users["bob"].id,
+                "action_type": "see_team",
+                "targets": {},
+                "result": {},
+                "timestamp_order": 2,
+                "role_acting_as": "Werewolf",
+            },
+        ]
+        game.save(update_fields=["night_actions_log"])
+        api_client.force_authenticate(user=host)
+        log = api_client.get(_debug_state_url(game.id)).data["night_actions_log"]
+        assert [e["made_by_server"] for e in log] == [True, False]
 
     @override_settings(DEBUG=True)
     def test_results_present_once_phase_results(self, api_client, db):
@@ -662,6 +735,45 @@ class TestDebugStateOracle:
         resp = api_client.get(_debug_state_url(game.id))
         assert resp.data["results"] is not None
         assert resp.data["results"]["winning_teams"] == ["village"]
+
+    @override_settings(DEBUG=True)
+    def test_pending_timers_lists_this_games_timers_and_the_host_handover(
+        self, api_client, db
+    ):
+        """pending_timers names the game's own timers (prefix stripped, sorted)
+        and the lobby's handover timer; another game's timers are not listed."""
+        game, users, host = _make_game_with_roles(
+            {"alice": "Villager", "bob": "Werewolf", "carol": "Seer"},
+            ["Robber", "Drunk", "Tanner"],
+            phase=Phase.NIGHT,
+            wave=2,
+        )
+        later = timezone.now() + timedelta(hours=1)
+        for key in (
+            f"{game.id}:wave:2",
+            f"{game.id}:grace:{users['bob'].id}",
+            host_module.timer_key(game.lobby),
+            "00000000-0000-0000-0000-000000000001:wave:2",
+            host_module.timer_key(game.lobby.pk + 1),
+        ):
+            ScheduledTimer.objects.create(
+                key=key, token="t", job="x", params={}, due_at=later
+            )
+        api_client.force_authenticate(user=host)
+        resp = api_client.get(_debug_state_url(game.id))
+        assert resp.data["pending_timers"] == sorted(
+            ["wave:2", f"grace:{users['bob'].id}", "host_handover"]
+        )
+
+    @override_settings(DEBUG=True)
+    def test_pending_timers_is_empty_without_timers(self, api_client, db):
+        game, _users, host = _make_game_with_roles(
+            {"alice": "Villager", "bob": "Werewolf", "carol": "Seer"},
+            ["Robber", "Drunk", "Tanner"],
+        )
+        api_client.force_authenticate(user=host)
+        resp = api_client.get(_debug_state_url(game.id))
+        assert resp.data["pending_timers"] == []
 
     @override_settings(DEBUG=True)
     def test_non_player_cannot_read_oracle(self, api_client, db):

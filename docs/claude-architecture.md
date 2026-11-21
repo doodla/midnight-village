@@ -1,69 +1,63 @@
-# Claude Development Architecture
+# Claude Code setup
 
-Hooks and automation that enforce quality mechanically — agents don't need to remember these rules.
+What `.claude/` enforces, so agents do not have to remember it. Update this file in the same
+commit as any change under `.claude/`.
 
-**Last updated:** 2026-03-30
-**Update rule:** If you modify anything in `.claude/`, update this doc in the same commit.
+## The commit gate: git's own hooks (`.claude/hooks/git/`)
 
-## Hooks
+Enabled by `git config core.hooksPath .claude/hooks/git` (shared by every worktree of the
+clone), which `hooks/session-start.sh` sets at the start of every session (and
+`tool/setup_env.sh` calls). The Bash guard blocks a commit while it is not set and says to run
+that script. The hooks check what git is really about to commit, however the commit was typed
+(`-a`, pathspecs, `-C`, global options):
 
-### PreToolUse on Bash: Commit Gate (`pre-commit-gate.sh`)
+- `pre-commit`: the instruction link check on the staged text (`--staged`), then the suites the commit's paths need
+  (`git diff --cached --no-renames`, so a file moved out of code still runs its suite), in
+  parallel. `pre-merge-commit` runs the same for a merge git commits by itself, on everything
+  the merge changes; a merge with conflicts is finished with `git commit`, which runs
+  `pre-commit`; a fast-forward makes no commit.
+- `commit-msg`: the subject reads `type(scope): description` (git's merge and revert subjects pass).
 
-Intercepts every `git commit` command. Inspects staged files to determine which checks to run:
-- **Backend files** (anything not under `frontend/`): runs `just check` + `just test` from `backend/`
-- **Frontend files** (under `frontend/`): runs `just analyze` + `just format-check` + `just test` from `frontend/`
-- **Both**: runs both sets of checks, reports all failures
+Routing (`hooks/lib/gate.sh`): `backend/**` and `docs/specs/onuw/recommended-setups.md` run
+backend `just check` and `just test`; `frontend/**` runs `just analyze`, `just format-check`
+and `just test`; `contract_samples/**` runs both; `.claude/**` (not skills), `tool/**` and the
+root `justfile` run `just test-guardrails`; Markdown and `docs/**` run no suite; anything else
+runs both. A suite that already passed on the same inputs (its files, `backend/.env`, the root
+`justfile`, tool versions; recorded in the git dir for 14 days) is not run again. A suite is
+stopped after 1500 s, which blocks. A broken or missing `gate.sh` blocks every commit.
+Tests: `hooks/test_gate_routing.sh` (in `just test-guardrails`).
 
-Also blocks `--no-verify` — agents can't bypass the gate.
+## Claude Code hooks (`.claude/settings.json`; timeouts in seconds)
 
-**Why:** Agents skip quality gates 5-15% of the time when relying on instructions alone. This makes skipping physically impossible. Selective checking avoids running frontend tests on backend-only commits and vice versa.
+Every hook command starts from `$CLAUDE_PROJECT_DIR`, never a relative path: a session whose shell sits in `backend/` or `frontend/` must still find the script. The Bash guard does nothing when its script is missing (the git hooks are the gate).
 
-### PreToolUse on Bash: CWD Reset (`settings.json`)
+| Event | Script | Does |
+|---|---|---|
+| PreToolUse Agent, Task, Workflow | `guardrails/runner.py` | Blocks a subagent not pinned to `opus` or `sonnet` with an effort, and forks. |
+| PreToolUse Bash | `hooks/git_guard.py` | Blocks a commit unless `core.hooksPath` is the git hooks; blocks `--no-verify`, `commit -n`, hooksPath changes, `GIT_*=` and HUSKY/SKIP switches, cherry-pick/revert without `--no-commit`, rebase and am (git runs no commit hooks for those); asks a committing call for timeout 600000 or the background. |
+| SessionStart startup, resume, compact | `hooks/session-start.sh` | Sets `core.hooksPath` to the git hooks if it is anything else and makes the hooks executable; silent, one line if it cannot, never fails the session. |
+| PostToolUse Edit, Write | `hooks/post-edit-format.sh` | Formats the edited `.py` (ruff) or `.dart` file. |
+| Stop | `hooks/verify-done.sh` | With uncommitted `.py`/`.dart` work, runs the tests it touches, unless they already passed on the same inputs. |
 
-Appends `cd /Users/doodla/Code/midnight-village` to every Bash command.
+## Guardrails (`.claude/guardrails/`)
 
-**Why:** Agents `cd` into subdirectories and lose track. This resets after every command.
+`runner.py` runs the rules in `config.toml` (deny or warn only). The one rule,
+`subagent_model_effort`, keeps subagents off the main session's model for cost. Adding a
+rule: `.claude/guardrails/README.md`. Tests: `just test-guardrails`.
 
-### PostToolUse on Edit|Write: Auto-format (`post-edit-format.sh`)
+## Agents (`.claude/agents/`, each pins model and effort)
 
-After any `.py` or `.dart` file is edited or written, auto-formats silently:
-- **Python**: `ruff format` + `ruff check --fix`
-- **Dart**: `dart format`
+| Agent | Model, effort | Tools |
+|---|---|---|
+| `backend-developer`, `frontend-developer` | opus, high | all |
+| `backend-code-reviewer`, `frontend-code-reviewer` | opus, high | Read, Grep, Glob, Bash: no edit tools |
+| `player-experience` | opus, high | Read, Grep, Glob |
 
-**Why:** Formatting should never depend on the agent remembering. This runs automatically.
+The developer agents' briefs carry no old-look or protocol-1 rule any more: both are deleted.
 
-### Stop: Verify Done (`verify-done.sh`)
+## Skills (`.claude/skills/`)
 
-When Claude tries to end a session with uncommitted code changes, runs the appropriate tests:
-- **Uncommitted `.py` files**: runs backend `just test`
-- **Uncommitted `.dart` files**: runs frontend `just test`
-- **Both**: runs both, reports all failures
-- **Docs-only changes**: no block
-
-Has a loop guard: if the stop hook already fired once (`stop_hook_active`), it passes through to prevent infinite loops.
-
-**Why:** Prevents "I'm done" claims when tests are actually broken.
-
-## What's Enforced vs Not
-
-| Enforced (by hooks) | Not enforced (agent judgment) |
-|---|---|
-| Backend/frontend checks pass before commit (scoped to what changed) | Which agents to spawn for a task |
-| No `--no-verify` bypass | Plan quality and completeness |
-| Python and Dart auto-formatted after edits | Code correctness beyond what tests cover |
-| Backend/frontend tests pass before session ends (scoped to what changed) | UX quality (requires playtesting) |
-| CWD reset to project root after every command | Which review agents to run |
-
-## Agents
-
-13 specialized agents in `.claude/agents/`. Key design decisions:
-
-- **Reviewers are read-only** — reviewers that can edit code fix issues silently instead of flagging them, hiding problems
-- **Haiku for fast checks** — `devex-reviewer` and `yagni-reviewer` run on Haiku for speed (seconds, not minutes)
-- **Implementation agents have full tool access** — `backend-developer`, `frontend-developer`, `test-writer`
-
-Run `ls .claude/agents/` for the full list. Each agent file contains its description and configuration.
-
-## Skills
-
-Spec-kitty workflow skills in `.claude/skills/` manage the feature development lifecycle: specify → plan → tasks → implement → review → merge. Installed from the external [spec-kitty](https://github.com/Priivacy-ai/spec-kitty) tool.
+Twelve third-party `flutter-*` skills (Flutter's generic guides on animation, architecture,
+layout, concurrency, HTTP and JSON, navigation, accessibility, state, macOS setup, testing,
+theming, databases), mirrored in `.agents/skills/`. Nothing here depends on them; keeping them
+is the owner's call.

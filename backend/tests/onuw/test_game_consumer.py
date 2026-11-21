@@ -125,19 +125,11 @@ class TestGameConsumerConnect(TransactionTestCase):
         # Send a message to the player's private group
         await channel_layer.group_send(
             f"game_{game.id}_player_{player.id}",
-            {
-                "type": "action.prompt",
-                "wave": 2,
-                "role_acting_as": "Werewolf",
-                "action_types": ["see_team"],
-                "valid_targets": {},
-            },
+            {"type": "progress", "stage": "vote", "done": 1, "needed": 3},
         )
 
-        response = await communicator.receive_json_from(timeout=2)
-        assert response["type"] == "action_prompt"
-        assert response["wave"] == 2
-        assert response["role_acting_as"] == "Werewolf"
+        response = await _next_of(communicator, "progress")
+        assert response == {"type": "progress", "stage": "vote", "done": 1, "needed": 3}
 
         await communicator.disconnect()
 
@@ -164,13 +156,7 @@ class TestGameConsumerConnect(TransactionTestCase):
         # Send a message to player B's private group
         await channel_layer.group_send(
             f"game_{game.id}_player_{player_b.id}",
-            {
-                "type": "action.prompt",
-                "wave": 3,
-                "role_acting_as": "Seer",
-                "action_types": ["peek_player", "peek_center"],
-                "valid_targets": {"player_ids": [player_a.id]},
-            },
+            {"type": "progress", "stage": "vote", "done": 1, "needed": 3},
         )
 
         # Player A should NOT receive this message
@@ -196,15 +182,22 @@ class TestGameConsumerConnect(TransactionTestCase):
         # Send a broadcast message to all players
         await channel_layer.group_send(
             f"game_{game.id}",
-            {"type": "wave.start", "wave": 2, "deadline": None},
+            {"type": "night.window", "window": 2, "deadline": None},
         )
 
-        response = await communicator.receive_json_from(timeout=2)
-        assert response["type"] == "wave_start"
-        assert response["wave"] == 2
-        assert "deadline" in response
+        response = await _next_of(communicator, "night_window")
+        assert response == {"type": "night_window", "window": 2, "deadline": None}
 
         await communicator.disconnect()
+
+
+async def _next_of(communicator, kind: str) -> dict:
+    """The next event of ``kind`` (connecting also announces the player's own
+    presence, which these tests are not about)."""
+    while True:
+        event = await communicator.receive_json_from(timeout=2)
+        if event["type"] == kind:
+            return event
 
 
 async def communicator_is_empty(communicator):

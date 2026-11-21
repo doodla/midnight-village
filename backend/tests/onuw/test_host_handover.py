@@ -28,6 +28,7 @@ from apps.onuw import presence, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
 from apps.onuw.models import Game, Phase, PlayerRole
+from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night
 
 pytestmark = pytest.mark.integration
@@ -133,7 +134,10 @@ def at_the_table(night: Night) -> None:
 
 
 def post_as(night: Night, name: str, url: str, **kw: Any) -> Any:
+    """POST as ``name``; a game's host endpoint names the current stage."""
     night.client.force_authenticate(user=night.users[name])
+    if "data" not in kw and "/games/" in url:
+        kw["data"] = staged(night, {})
     with night.committed():
         return night.client.post(url, format="json", **kw)
 
@@ -456,12 +460,16 @@ class TestLobbySocketCounting:
                 is False
             )
 
-    def test_lobby_presence_is_never_broadcast(self, make_night) -> None:
+    def test_lobby_presence_is_never_broadcast_as_a_presence_event(
+        self, make_night
+    ) -> None:
+        """A lobby socket's comings and goings reach the table only as the table's
+        own body (``lobby_update`` with ``connected``), never as presence events."""
         night = make_night(ROLES, night_wave_seconds=0)
         lobby_socket(night, "wolf")
         lobby_socket(night, "seer")
         lobby_socket_closes(night, "wolf")
-        assert night.recorder.events == []
+        assert {e["type"] for _, e in night.recorder.events} <= {"lobby.update"}
 
 
 # ── what the host may do ─────────────────────────────────────────────────────
@@ -979,6 +987,15 @@ def _game_ws(game, user):
     return ws
 
 
+async def _next_of(ws: Any, kind: str) -> dict[str, Any]:
+    """The next event of ``kind`` on ``ws`` (a lobby socket also hears the table's
+    ``lobby_update`` bodies), within 2 s."""
+    while True:
+        event = await asyncio.wait_for(ws.receive_json_from(), 2)
+        if event["type"] == kind:
+            return event
+
+
 class TestConsumersDriveHandover(TransactionTestCase):
     @pytest.mark.asyncio
     async def test_lobby_sockets_are_counted_and_a_rejected_one_is_not(self):
@@ -1023,7 +1040,7 @@ class TestConsumersDriveHandover(TransactionTestCase):
             "original_host_id": host_user.id,
             "reason": "returned",
         }
-        assert await asyncio.wait_for(lobby_ws.receive_json_from(), 2) == expected
-        assert await asyncio.wait_for(game_ws.receive_json_from(), 2) == expected
+        assert await _next_of(lobby_ws, "host_changed") == expected
+        assert await _next_of(game_ws, "host_changed") == expected
         for ws in (owner, lobby_ws, game_ws):
             await ws.disconnect()

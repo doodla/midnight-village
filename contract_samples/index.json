@@ -1,0 +1,2053 @@
+{
+  "about": "Payloads recorded from the real server by backend/tests/contract/test_contract_samples.py. Do not edit: run `just samples` and review the diff.",
+  "samples": [
+    {
+      "name": "http/auth/guest_created",
+      "kind": "http",
+      "method": "POST",
+      "path": "/auth/guest/",
+      "status": 201,
+      "description": "A guest account is created."
+    },
+    {
+      "name": "http/auth/guest_invalid_name",
+      "kind": "http",
+      "method": "POST",
+      "path": "/auth/guest/",
+      "status": 400,
+      "description": "A display name with characters the server refuses."
+    },
+    {
+      "name": "http/auth/guest_throttled",
+      "kind": "http",
+      "method": "POST",
+      "path": "/auth/guest/",
+      "status": 429,
+      "description": "Too many sign-ins from this address (rate limited)."
+    },
+    {
+      "name": "http/auth/token_expired",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/me/current-game/",
+      "status": 401,
+      "description": "An authenticated call with an access token that has expired."
+    },
+    {
+      "name": "http/auth/token_refresh_refused",
+      "kind": "http",
+      "method": "POST",
+      "path": "/auth/token/refresh/",
+      "status": 401,
+      "description": "A refresh token the server does not accept."
+    },
+    {
+      "name": "http/auth/token_refreshed",
+      "kind": "http",
+      "method": "POST",
+      "path": "/auth/token/refresh/",
+      "status": 200,
+      "description": "A refresh token is exchanged (and rotated)."
+    },
+    {
+      "name": "http/core/online_stats",
+      "kind": "http",
+      "method": "GET",
+      "path": "/stats/online/",
+      "status": 200,
+      "description": "Players at tables right now (no login)."
+    },
+    {
+      "name": "http/debug/fire_timer",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/debug-fire-timer/",
+      "status": 200,
+      "description": "The DEBUG-only timer hook fires a pending timer (window 2 closes)."
+    },
+    {
+      "name": "http/debug/fire_timer_none",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/debug-fire-timer/",
+      "status": 200,
+      "description": "The DEBUG-only timer hook when no such timer is pending."
+    },
+    {
+      "name": "http/debug/state",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/debug-state/",
+      "status": 200,
+      "description": "The DEBUG-only oracle (dev toolbar and harness)."
+    },
+    {
+      "name": "http/debug/state_night",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/debug-state/",
+      "status": 200,
+      "description": "The DEBUG-only oracle at night, a window open and its timer armed."
+    },
+    {
+      "name": "http/debug/state_talk_vote",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/debug-state/",
+      "status": 200,
+      "description": "The oracle with per-player ready and vote_locked."
+    },
+    {
+      "name": "http/game/advance_wave",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/advance-wave/",
+      "status": 200,
+      "description": "The host closes the night window now."
+    },
+    {
+      "name": "http/game/advance_wave_not_host",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/advance-wave/",
+      "status": 403,
+      "description": "Someone other than the host closes the window."
+    },
+    {
+      "name": "http/game/advance_wave_wrong_stage",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/advance-wave/",
+      "status": 409,
+      "description": "The host's advance for a window that is over: nothing happens to the stage the game is in now."
+    },
+    {
+      "name": "http/game/choose_already_chosen",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 409,
+      "description": "A choose answering a prompt that is used up (`chosen` 1 of `max_chooses` 1 in window 2)."
+    },
+    {
+      "name": "http/game/choose_bad_request",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 400,
+      "description": "Picks that are not a list of at most two cards."
+    },
+    {
+      "name": "http/game/choose_chosen_missing",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 400,
+      "description": "A choose that does not say which prompt it answers (`chosen`)."
+    },
+    {
+      "name": "http/game/choose_not_a_choose",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 400,
+      "description": "Any other action_type (only `choose` is a night action)."
+    },
+    {
+      "name": "http/game/choose_not_a_player",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 403,
+      "description": "A choose from someone who does not play in the game."
+    },
+    {
+      "name": "http/game/choose_resent",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "The same choose sent again (its answer was lost): it names the prompt it answered (`chosen` 0), the server has already taken that one, so the answer is the original's and nothing is stored."
+    },
+    {
+      "name": "http/game/choose_resent_doppelganger_look",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "Her look sent again (its answer was lost): taken already, so it is not read as her follow-up; the same answer as anyone's."
+    },
+    {
+      "name": "http/game/choose_stage_missing",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 400,
+      "description": "A choose that does not name its stage."
+    },
+    {
+      "name": "http/game/choose_submitted_doppelganger_look",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "Her first choose is the look; the answer is the same as anyone's."
+    },
+    {
+      "name": "http/game/choose_submitted_seer",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "A phone's choose: the same answer whatever the role."
+    },
+    {
+      "name": "http/game/choose_submitted_villager",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "The same answer for a player with nothing to choose."
+    },
+    {
+      "name": "http/game/choose_submitted_window1_second",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "The server accepts a second choose in window 1 from anyone (only the Doppelganger's is read): the same answer as hers."
+    },
+    {
+      "name": "http/game/choose_window1_third_refused",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 409,
+      "description": "A third choose in window 1."
+    },
+    {
+      "name": "http/game/choose_wrong_stage",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 409,
+      "description": "A late choose for a window that is over: the same answer for every role, nothing stored, and it can never land in the next stage."
+    },
+    {
+      "name": "http/game/current_game_active",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/me/current-game/",
+      "status": 200,
+      "description": "The player's running game."
+    },
+    {
+      "name": "http/game/current_game_none",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/me/current-game/",
+      "status": 200,
+      "description": "No running game (a finished one does not count)."
+    },
+    {
+      "name": "http/game/end_discussion",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/end-discussion/",
+      "status": 200,
+      "description": "The host ends the talk."
+    },
+    {
+      "name": "http/game/end_discussion_not_a_player",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/end-discussion/",
+      "status": 403,
+      "description": "Someone who does not play in the game ends the talk."
+    },
+    {
+      "name": "http/game/end_discussion_not_host",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/end-discussion/",
+      "status": 403,
+      "description": "Someone other than the host ends the talk."
+    },
+    {
+      "name": "http/game/end_discussion_wrong_stage",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/end-discussion/",
+      "status": 409,
+      "description": "The host's end-discussion after the talk already ended (everyone was ready): nothing happens to the vote."
+    },
+    {
+      "name": "http/game/me_auto_deck_5",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ at a 5-player table with the classic chip: the deck the server built is `roles_in_game`."
+    },
+    {
+      "name": "http/game/me_auto_deck_9",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ at a 9-player table with the chaos chip: the deck the server built is `roles_in_game`."
+    },
+    {
+      "name": "http/game/me_choose_chosen",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ after choosing: the prompt says how many chooses were sent."
+    },
+    {
+      "name": "http/game/me_choose_doppelganger_followup",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 1 after her look: it is listed at once, and her follow-up prompt (as the copied Seer) is open."
+    },
+    {
+      "name": "http/game/me_choose_doppelganger_minion_followup",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 1 after she looked at the Minion: as the copied Minion she has nothing to choose (`kind: none`, `chooses_left: 0`), sends nothing more and learns the Werewolves when the window closes."
+    },
+    {
+      "name": "http/game/me_choose_prompt_doppelganger_look",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 1: the Doppelganger's look prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_drunk",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2, the drunk's prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_insomniac",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2, the insomniac's prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_mason",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2, the mason's prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_minion",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2, the minion's prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_robber",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2, the robber's prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_seer",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2, the seer's prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_troublemaker",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2, the troublemaker's prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_villager",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2, the villager's prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_werewolf_lone",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2, the werewolf lone's prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_werewolf_pack",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 2, the werewolf pack's prompt."
+    },
+    {
+      "name": "http/game/me_choose_prompt_window1_sleeper",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in window 1 for everyone else: nothing to choose, same shape."
+    },
+    {
+      "name": "http/game/me_discussion_acting_host",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ for the player standing in as host."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the doppelganger's night results, canonical names."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger_minion",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the Doppelganger-Minion's night results (her look, then the Werewolves she saw)."
+    },
+    {
+      "name": "http/game/me_discussion_choose_drunk",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the drunk's night results, canonical names."
+    },
+    {
+      "name": "http/game/me_discussion_choose_insomniac",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the insomniac's night results, canonical names."
+    },
+    {
+      "name": "http/game/me_discussion_choose_mason",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the mason's night results, canonical names."
+    },
+    {
+      "name": "http/game/me_discussion_choose_minion",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the minion's night results, canonical names."
+    },
+    {
+      "name": "http/game/me_discussion_choose_robber",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the robber's night results."
+    },
+    {
+      "name": "http/game/me_discussion_choose_seer",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the seer's night results."
+    },
+    {
+      "name": "http/game/me_discussion_choose_seer_nothing_chosen",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: a Seer whose choose held nothing valid is told so (a `skip` result with `nothing_chosen`), only on their own phone."
+    },
+    {
+      "name": "http/game/me_discussion_choose_villager",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the villager's night results."
+    },
+    {
+      "name": "http/game/me_discussion_choose_werewolf_lone",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the werewolf lone's night results."
+    },
+    {
+      "name": "http/game/me_discussion_choose_werewolf_pack",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the werewolf_pack's night results, canonical names."
+    },
+    {
+      "name": "http/game/me_look_ready",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the look stage after tapping ready."
+    },
+    {
+      "name": "http/game/me_look_stage",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the look stage: night, window 0, the look deadline."
+    },
+    {
+      "name": "http/game/me_not_found",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 404,
+      "description": "A game that does not exist."
+    },
+    {
+      "name": "http/game/me_results",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the results phase."
+    },
+    {
+      "name": "http/game/me_talk_ready",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk after tapping ready."
+    },
+    {
+      "name": "http/game/me_talk_results_seen",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk after the night results were acknowledged (`night_results_seen` equals the results listed)."
+    },
+    {
+      "name": "http/game/me_talk_ten",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk at a full table (ten seats)."
+    },
+    {
+      "name": "http/game/me_talk_untimed",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in an untimed talk (`discussion_seconds` 0): no deadline and no stage start."
+    },
+    {
+      "name": "http/game/me_voting_locked",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ after locking in."
+    },
+    {
+      "name": "http/game/me_voting_picked",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ with a pick that is not locked yet (`my_vote`, own only)."
+    },
+    {
+      "name": "http/game/me_voting_ten",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the vote at a full table: `vote_targets` lists the nine other seats."
+    },
+    {
+      "name": "http/game/me_voting_unpicked",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the vote before the caller has picked anyone (`my_vote` is null)."
+    },
+    {
+      "name": "http/game/me_voting_untimed",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in an untimed vote (`voting_seconds` 0): no deadline and no stage start; the vote ends when everyone has locked in (or the host)."
+    },
+    {
+      "name": "http/game/night_results_seen",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 200,
+      "description": "The phone showed the night's results (acknowledged)."
+    },
+    {
+      "name": "http/game/night_results_seen_in_talk",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 200,
+      "description": "The Seer has seen her night result (after the dawn screen)."
+    },
+    {
+      "name": "http/game/night_results_seen_invalid",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 400,
+      "description": "An acknowledgement that is not a count from 0 to 10."
+    },
+    {
+      "name": "http/game/night_results_seen_not_a_player",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 403,
+      "description": "Acknowledging results of a game you do not play in."
+    },
+    {
+      "name": "http/game/night_results_seen_not_found",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/night-results/seen/",
+      "status": 404,
+      "description": "Acknowledging results of a game that does not exist."
+    },
+    {
+      "name": "http/game/pack_look_robber",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The playtest pack's guest (game 7): Ben's /me/ in the look stage, before he has looked (Ana has)."
+    },
+    {
+      "name": "http/game/pack_look_villager",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The playtest pack's sleeper (game 7): Esme's /me/ in the look stage, the last to look."
+    },
+    {
+      "name": "http/game/pack_vote_robber",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The playtest pack (game 7): Ben's /me/ as the vote opens."
+    },
+    {
+      "name": "http/game/pack_vote_villager",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The playtest pack (game 7): Esme's /me/ as the vote opens."
+    },
+    {
+      "name": "http/game/players_discussion",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/players/",
+      "status": 200,
+      "description": "The player list in the talk."
+    },
+    {
+      "name": "http/game/players_night",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/players/",
+      "status": 200,
+      "description": "Who is at the table and connected (one phone away)."
+    },
+    {
+      "name": "http/game/players_results",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/players/",
+      "status": 200,
+      "description": "The player list once the game is over."
+    },
+    {
+      "name": "http/game/players_voting",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/players/",
+      "status": 200,
+      "description": "The player list during the vote."
+    },
+    {
+      "name": "http/game/ready_bad_body",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/ready/",
+      "status": 400,
+      "description": "A ready flag that is not true or false."
+    },
+    {
+      "name": "http/game/ready_look",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/ready/",
+      "status": 200,
+      "description": "A player has looked at their card."
+    },
+    {
+      "name": "http/game/ready_look_false_refused",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/ready/",
+      "status": 400,
+      "description": "Looking at your card cannot be undone."
+    },
+    {
+      "name": "http/game/ready_talk",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/ready/",
+      "status": 200,
+      "description": "A player is ready to vote."
+    },
+    {
+      "name": "http/game/ready_talk_off",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/ready/",
+      "status": 200,
+      "description": "In the talk a player may take their ready back."
+    },
+    {
+      "name": "http/game/ready_wrong_stage",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/ready/",
+      "status": 409,
+      "description": "Ready while a night window is open: the request names the window's stage, which does not take ready."
+    },
+    {
+      "name": "http/game/recent_games",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/me/recent-games/",
+      "status": 200,
+      "description": "The player's finished games, newest first."
+    },
+    {
+      "name": "http/game/recent_games_none",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/me/recent-games/",
+      "status": 200,
+      "description": "No finished games yet."
+    },
+    {
+      "name": "http/game/results",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The full results: a Hunter dies and takes a Werewolf."
+    },
+    {
+      "name": "http/game/results_doppelganger",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "Results of a game with a Doppelganger, a Drunk and a Tanner."
+    },
+    {
+      "name": "http/game/results_five",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The results of the five-player game the playtest pack plays (game 7), so one journey runs from the deal to the results on recorded payloads."
+    },
+    {
+      "name": "http/game/results_hunter_chain",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The Hunter is voted out and takes the player he voted for (a Werewolf) with him."
+    },
+    {
+      "name": "http/game/results_moved_dead_card",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The Robber took a Werewolf's card and is voted out holding it: the dead player's dealt card (Robber) is not their final card (Werewolf); the village wins."
+    },
+    {
+      "name": "http/game/results_nobody_dies",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "Every player gets one vote: nobody dies (a Werewolf is at the table, so the Werewolves win)."
+    },
+    {
+      "name": "http/game/results_not_a_player",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 403,
+      "description": "Results asked for by someone who did not play."
+    },
+    {
+      "name": "http/game/results_not_ready",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 403,
+      "description": "Results asked for before the game ends."
+    },
+    {
+      "name": "http/game/results_tanner",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "Results where the dealt Tanner died (team neutral)."
+    },
+    {
+      "name": "http/game/results_tanner_alone",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The Tanner is voted out: the Tanner wins."
+    },
+    {
+      "name": "http/game/results_three_players",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The results of a three-player game: the Seer found the Werewolf."
+    },
+    {
+      "name": "http/game/results_tie",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "Two players tie on the most votes (two each): both die; one held a Werewolf, so the village wins."
+    },
+    {
+      "name": "http/game/results_werewolves_win",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The table votes out a Villager: no Werewolf dies, the Werewolves win."
+    },
+    {
+      "name": "http/game/reveal_votes",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/reveal-votes/",
+      "status": 200,
+      "description": "The host reveals the votes; who has not voted abstains."
+    },
+    {
+      "name": "http/game/reveal_votes_not_host",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/reveal-votes/",
+      "status": 403,
+      "description": "Someone other than the host reveals the votes."
+    },
+    {
+      "name": "http/game/reveal_votes_wrong_stage",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/reveal-votes/",
+      "status": 409,
+      "description": "The host's reveal after the last lock already revealed the vote."
+    },
+    {
+      "name": "http/game/start_bad_seed",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 400,
+      "description": "A deal refused for a reason no screen names (here the DEBUG-only seeded deal with a seed that is not a number)."
+    },
+    {
+      "name": "http/game/start_not_host",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 403,
+      "description": "Someone other than the host deals."
+    },
+    {
+      "name": "http/game/start_not_waiting",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 400,
+      "description": "A second deal while the game runs (the table is not waiting)."
+    },
+    {
+      "name": "http/game/started",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 201,
+      "description": "The host deals; everyone opens the game."
+    },
+    {
+      "name": "http/game/started_auto_deck_5",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 201,
+      "description": "The host deals; the server built the deck."
+    },
+    {
+      "name": "http/game/started_auto_deck_9",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 201,
+      "description": "The host deals; the server built the deck."
+    },
+    {
+      "name": "http/game/started_nobody_ready",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 201,
+      "description": "The host deals; the server built the deck."
+    },
+    {
+      "name": "http/game/started_with_look",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/lobbies/{code}/start/",
+      "status": 201,
+      "description": "The host deals; everyone opens the game."
+    },
+    {
+      "name": "http/game/vote_after_reveal",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 409,
+      "description": "A vote that was on its way when the vote was revealed: the stage is over, nothing is stored."
+    },
+    {
+      "name": "http/game/vote_already_locked",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 409,
+      "description": "A pick or lock after locking in."
+    },
+    {
+      "name": "http/game/vote_bad_target_type",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 400,
+      "description": "A target that is not a JSON integer."
+    },
+    {
+      "name": "http/game/vote_invalid_target",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 400,
+      "description": "A vote the server refuses (here: for yourself)."
+    },
+    {
+      "name": "http/game/vote_lock_bad_flag",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 400,
+      "description": "A lock flag that is not true or false."
+    },
+    {
+      "name": "http/game/vote_lock_resent",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 200,
+      "description": "The same lock sent again (its answer was lost): the original's answer, nothing stored or sent."
+    },
+    {
+      "name": "http/game/vote_locked",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 200,
+      "description": "Locking in: final."
+    },
+    {
+      "name": "http/game/vote_not_a_player",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 403,
+      "description": "A vote from someone who does not play in the game."
+    },
+    {
+      "name": "http/game/vote_picked",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 200,
+      "description": "A pick: nothing is sent to anyone else; the answer echoes the pick."
+    },
+    {
+      "name": "http/game/vote_repicked",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 200,
+      "description": "A pick can change until it is locked."
+    },
+    {
+      "name": "http/game/vote_self",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 400,
+      "description": "A vote for yourself, with its code."
+    },
+    {
+      "name": "http/lobby/create_unknown_defaults",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/",
+      "status": 400,
+      "description": "A create that asks for a set of defaults the game does not have."
+    },
+    {
+      "name": "http/lobby/created",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/",
+      "status": 201,
+      "description": "The host opens a table."
+    },
+    {
+      "name": "http/lobby/created_with_defaults",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/",
+      "status": 201,
+      "description": "The host opens a table with `defaults: v2`: a 30 s look at the cards and the automatic Simple deck, and nothing else (no timer length is written)."
+    },
+    {
+      "name": "http/lobby/detail_acting_host",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The table while someone stands in for the owner."
+    },
+    {
+      "name": "http/lobby/detail_auto_deck_5",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A table with the automatic deck (classic chip), before the deal: the server builds the cards at the deal."
+    },
+    {
+      "name": "http/lobby/detail_auto_deck_9",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A table with the automatic deck (chaos chip), before the deal: the server builds the cards at the deal."
+    },
+    {
+      "name": "http/lobby/detail_custom_deck",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A table with a custom deck, before the deal."
+    },
+    {
+      "name": "http/lobby/detail_custom_deck_ok",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A custom deck of ten cards at seven players: no preview (its roles are in `settings`), `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_custom_deck_short",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The same custom deck after an eighth player joined: one card short (`deal`: ok false, need 11, have 10)."
+    },
+    {
+      "name": "http/lobby/detail_deck_chaos_4",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The chaos automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_deck_chaos_7",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The chaos automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_deck_classic_4",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The classic automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_deck_classic_7",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The classic automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_deck_simple_4",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The simple automatic deck the deal would build for 4 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_deck_simple_7",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The simple automatic deck the deal would build for 7 players (`deck_preview`), and `deal` ok."
+    },
+    {
+      "name": "http/lobby/detail_in_game",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The table while its game runs."
+    },
+    {
+      "name": "http/lobby/detail_member_dropped",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A table with one member dropped."
+    },
+    {
+      "name": "http/lobby/detail_member_in_grace",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "Noa's phone closed a moment ago: still `connected` during the table's grace period (`disconnect_grace_seconds`), so a blip shows nothing."
+    },
+    {
+      "name": "http/lobby/detail_waiting",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The table before the deal."
+    },
+    {
+      "name": "http/lobby/join_already_at_table",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 409,
+      "description": "Joining a table while seated at another table that is waiting: refused, with that table's code (`lobby_code`) so the phone can offer to go there (leaving a waiting table always works)."
+    },
+    {
+      "name": "http/lobby/join_already_member",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 400,
+      "description": "Joining a table you are already at."
+    },
+    {
+      "name": "http/lobby/join_closed",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 400,
+      "description": "Joining a table that is not taking players (its game is over)."
+    },
+    {
+      "name": "http/lobby/join_full",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 400,
+      "description": "Joining a table with every seat taken."
+    },
+    {
+      "name": "http/lobby/join_not_found",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 404,
+      "description": "Joining a table code that does not exist."
+    },
+    {
+      "name": "http/lobby/joined",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 200,
+      "description": "A player joins the table."
+    },
+    {
+      "name": "http/lobby/leave_not_found",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/leave/",
+      "status": 404,
+      "description": "Leave at a table that is gone."
+    },
+    {
+      "name": "http/lobby/leave_owner_in_game",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/leave/",
+      "status": 409,
+      "description": "The owner leaves while the game runs."
+    },
+    {
+      "name": "http/lobby/left",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/leave/",
+      "status": 200,
+      "description": "A player leaves the table."
+    },
+    {
+      "name": "http/lobby/left_last_member",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/leave/",
+      "status": 200,
+      "description": "The last member leaves: the table is closed."
+    },
+    {
+      "name": "http/lobby/my_table_after_play_again",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: back at the table; the last game is still the results."
+    },
+    {
+      "name": "http/lobby/my_table_discussion",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: in a game, in the talk."
+    },
+    {
+      "name": "http/lobby/my_table_night",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: in a game, at night."
+    },
+    {
+      "name": "http/lobby/my_table_none",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: at no table."
+    },
+    {
+      "name": "http/lobby/my_table_results",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: the game is over."
+    },
+    {
+      "name": "http/lobby/my_table_voting",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: in a game, in the vote."
+    },
+    {
+      "name": "http/lobby/my_table_waiting",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 200,
+      "description": "Where am I: at a table before the deal."
+    },
+    {
+      "name": "http/lobby/not_found",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 404,
+      "description": "A table code that does not exist (or was closed)."
+    },
+    {
+      "name": "http/lobby/play_again",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/play-again/",
+      "status": 200,
+      "description": "The host takes the table back to the lobby."
+    },
+    {
+      "name": "http/lobby/play_again_not_finished",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/play-again/",
+      "status": 409,
+      "description": "Play again while the game is still running."
+    },
+    {
+      "name": "http/lobby/play_again_not_found",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/play-again/",
+      "status": 404,
+      "description": "Play again at a table that is gone."
+    },
+    {
+      "name": "http/lobby/play_again_not_host",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/play-again/",
+      "status": 403,
+      "description": "Someone other than the host starts another game."
+    },
+    {
+      "name": "http/lobby/settings_deck_chip",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The host picks a deck chip; the server builds the deck at the deal."
+    },
+    {
+      "name": "http/lobby/settings_deck_chip_invalid",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 400,
+      "description": "A deck chip the server does not have."
+    },
+    {
+      "name": "http/lobby/settings_in_game",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 409,
+      "description": "The host changes the deck while a game runs."
+    },
+    {
+      "name": "http/lobby/settings_invalid",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 400,
+      "description": "A deck that does not fit the table."
+    },
+    {
+      "name": "http/lobby/settings_not_host",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 403,
+      "description": "Someone other than the host changes the deck."
+    },
+    {
+      "name": "http/lobby/settings_updated",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The host sets the deck."
+    },
+    {
+      "name": "ws/game/game_results",
+      "kind": "ws",
+      "socket": "game",
+      "type": "game_results",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "The game is over (Hunter chain)."
+    },
+    {
+      "name": "ws/game/game_results_tanner",
+      "kind": "ws",
+      "socket": "game",
+      "type": "game_results",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
+      "description": "The dealt Tanner is voted out and wins."
+    },
+    {
+      "name": "ws/game/host_changed_handover",
+      "kind": "ws",
+      "socket": "game",
+      "type": "host_changed",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
+      "description": "The owner's phone is away; someone else hosts."
+    },
+    {
+      "name": "ws/game/host_changed_returned",
+      "kind": "ws",
+      "socket": "game",
+      "type": "host_changed",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
+      "description": "The owner is back and hosts again."
+    },
+    {
+      "name": "ws/game/night_window_1",
+      "kind": "ws",
+      "socket": "game",
+      "type": "night_window",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana",
+        "Ida"
+      ],
+      "description": "Window 1 (the Doppelganger's) opens: the same event for everyone."
+    },
+    {
+      "name": "ws/game/night_window_2",
+      "kind": "ws",
+      "socket": "game",
+      "type": "night_window",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "A night window opened: the same event for every phone."
+    },
+    {
+      "name": "ws/game/night_window_2_doppelganger",
+      "kind": "ws",
+      "socket": "game",
+      "type": "night_window",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana",
+        "Ida"
+      ],
+      "description": "Window 2 opens after window 1."
+    },
+    {
+      "name": "ws/game/phase_change_discussion",
+      "kind": "ws",
+      "socket": "game",
+      "type": "phase_change",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "The night ends; the talk starts (timed)."
+    },
+    {
+      "name": "ws/game/phase_change_discussion_untimed",
+      "kind": "ws",
+      "socket": "game",
+      "type": "phase_change",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
+      "description": "The talk starts, with no deadline."
+    },
+    {
+      "name": "ws/game/phase_change_voting",
+      "kind": "ws",
+      "socket": "game",
+      "type": "phase_change",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "The vote starts (timed)."
+    },
+    {
+      "name": "ws/game/phase_change_voting_untimed",
+      "kind": "ws",
+      "socket": "game",
+      "type": "phase_change",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
+      "description": "The vote starts, with no deadline."
+    },
+    {
+      "name": "ws/game/play_again",
+      "kind": "ws",
+      "socket": "game",
+      "type": "play_again",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "Back to the lobby."
+    },
+    {
+      "name": "ws/game/player_presence_connected",
+      "kind": "ws",
+      "socket": "game",
+      "type": "player_presence",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "A phone joined the game."
+    },
+    {
+      "name": "ws/game/player_presence_disconnected",
+      "kind": "ws",
+      "socket": "game",
+      "type": "player_presence",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "A phone dropped."
+    },
+    {
+      "name": "ws/game/progress_look",
+      "kind": "ws",
+      "socket": "game",
+      "type": "progress",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "Counts only: how many have looked, never who."
+    },
+    {
+      "name": "ws/game/progress_look_open",
+      "kind": "ws",
+      "socket": "game",
+      "type": "progress",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "The look stage opens: how many have looked, out of how many."
+    },
+    {
+      "name": "ws/game/progress_talk",
+      "kind": "ws",
+      "socket": "game",
+      "type": "progress",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "Counts only, in the talk."
+    },
+    {
+      "name": "ws/game/progress_talk_open",
+      "kind": "ws",
+      "socket": "game",
+      "type": "progress",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "The talk opens: nobody is ready to vote yet."
+    },
+    {
+      "name": "ws/game/progress_vote",
+      "kind": "ws",
+      "socket": "game",
+      "type": "progress",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "Counts only, in the vote."
+    },
+    {
+      "name": "ws/game/progress_vote_open",
+      "kind": "ws",
+      "socket": "game",
+      "type": "progress",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "Everyone present was ready: the vote opens, nobody has locked in."
+    },
+    {
+      "name": "ws/game/vote_reveal",
+      "kind": "ws",
+      "socket": "game",
+      "type": "vote_reveal",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "Everyone voted."
+    },
+    {
+      "name": "ws/game/vote_reveal_with_abstentions",
+      "kind": "ws",
+      "socket": "game",
+      "type": "vote_reveal",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
+      "description": "Votes revealed; null = did not vote."
+    },
+    {
+      "name": "ws/lobby/game_started",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "game_started",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "The deal."
+    },
+    {
+      "name": "ws/lobby/host_changed_handover",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "host_changed",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana"
+      ],
+      "description": "The same, on the lobby socket."
+    },
+    {
+      "name": "ws/lobby/host_changed_transferred",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "host_changed",
+      "group": "broadcast",
+      "recipients": [
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "The owner left between games; the table is someone else's now."
+    },
+    {
+      "name": "ws/lobby/lobby_update",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "Deck changed."
+    },
+    {
+      "name": "ws/lobby/lobby_update_auto_deck_5",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "A table with the automatic deck (classic chip)."
+    },
+    {
+      "name": "ws/lobby/lobby_update_auto_deck_9",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana",
+        "Ida"
+      ],
+      "description": "A table with the automatic deck (chaos chip)."
+    },
+    {
+      "name": "ws/lobby/lobby_update_custom_deck",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin",
+        "Gus",
+        "Hana",
+        "Ida"
+      ],
+      "description": "A table whose host picked the cards (`deck: custom`)."
+    },
+    {
+      "name": "ws/lobby/lobby_update_deck_preview",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Kai",
+        "Lia",
+        "Max",
+        "Noa",
+        "Oli",
+        "Pia",
+        "Rex"
+      ],
+      "description": "Every lobby_update carries `deck_preview` and `deal` (here after a chip change at seven players)."
+    },
+    {
+      "name": "ws/lobby/lobby_update_joined",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Kai",
+        "Lia",
+        "Max",
+        "Noa",
+        "Oli",
+        "Pia",
+        "Rex",
+        "Sam"
+      ],
+      "description": "A player joined: the table is sent the whole body (`deal` changes with the player count)."
+    },
+    {
+      "name": "ws/lobby/lobby_update_member_back",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Kai",
+        "Lia",
+        "Max",
+        "Noa"
+      ],
+      "description": "Noa's phone is back: `connected` true again."
+    },
+    {
+      "name": "ws/lobby/lobby_update_member_dropped",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Kai",
+        "Lia",
+        "Max",
+        "Noa"
+      ],
+      "description": "Noa's phone has been away past the grace period: the table is told (`connected` false), calmly, by a lobby_update."
+    },
+    {
+      "name": "ws/lobby/player_joined",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "player_joined",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben"
+      ],
+      "description": "Someone joined."
+    },
+    {
+      "name": "ws/lobby/player_left",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "player_left",
+      "group": "broadcast",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme"
+      ],
+      "description": "Someone left."
+    },
+    {
+      "name": "ws_sequence/look_stage",
+      "kind": "ws_sequence",
+      "socket": "game",
+      "description": "What every seat's socket heard from the deal until the last look."
+    },
+    {
+      "name": "ws_sequence/talk_and_vote",
+      "kind": "ws_sequence",
+      "socket": "game",
+      "description": "What every seat's socket heard from the vote opening to the results."
+    },
+    {
+      "name": "ws_sequence/window_1",
+      "kind": "ws_sequence",
+      "socket": "game",
+      "description": "What every seat's socket heard from the last look until window 1 ended and window 2 opened."
+    },
+    {
+      "name": "ws_sequence/window_2",
+      "kind": "ws_sequence",
+      "socket": "game",
+      "description": "What every seat's socket heard while window 2 was open."
+    },
+    {
+      "name": "ws_sequence/window_2_doppelganger",
+      "kind": "ws_sequence",
+      "socket": "game",
+      "description": "What every seat's socket heard while window 2 was open."
+    }
+  ]
+}

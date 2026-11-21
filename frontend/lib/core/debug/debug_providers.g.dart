@@ -54,24 +54,26 @@ final class DebugApiClientProvider
 
 String _$debugApiClientHash() => r'b4528bb875e1acdf3a1db4a08b9d57e8223a0a5e';
 
-/// The §D1 table controller, wired to the real auth notifier + the four game
-/// providers in `game_notifier.dart`.
+/// The §D1 table controller, wired to the real auth notifier, the game's
+/// socket providers (`game_socket.dart`) and the game's state.
 ///
-/// `switchTo` adopts a session (no refresh) and invalidates `gameProvider`,
-/// `gameWebSocketProvider`, `gameWebSocketStreamProvider`, and
+/// `switchTo` adopts a session (no refresh) and invalidates
+/// `gameWebSocketProvider`, `gameWebSocketStreamProvider` and
 /// `gameConnectionStateProvider` so the prior player's socket is disposed and
-/// the new player's attaches — exactly one live WS.
+/// the new player's attaches (exactly one live socket), and drops the
+/// previous player's `/me/`, `/me/table/` and local steps.
 
 @ProviderFor(debugTableController)
 const debugTableControllerProvider = DebugTableControllerProvider._();
 
-/// The §D1 table controller, wired to the real auth notifier + the four game
-/// providers in `game_notifier.dart`.
+/// The §D1 table controller, wired to the real auth notifier, the game's
+/// socket providers (`game_socket.dart`) and the game's state.
 ///
-/// `switchTo` adopts a session (no refresh) and invalidates `gameProvider`,
-/// `gameWebSocketProvider`, `gameWebSocketStreamProvider`, and
+/// `switchTo` adopts a session (no refresh) and invalidates
+/// `gameWebSocketProvider`, `gameWebSocketStreamProvider` and
 /// `gameConnectionStateProvider` so the prior player's socket is disposed and
-/// the new player's attaches — exactly one live WS.
+/// the new player's attaches (exactly one live socket), and drops the
+/// previous player's `/me/`, `/me/table/` and local steps.
 
 final class DebugTableControllerProvider
     extends
@@ -81,13 +83,14 @@ final class DebugTableControllerProvider
           DebugTableController
         >
     with $Provider<DebugTableController> {
-  /// The §D1 table controller, wired to the real auth notifier + the four game
-  /// providers in `game_notifier.dart`.
+  /// The §D1 table controller, wired to the real auth notifier, the game's
+  /// socket providers (`game_socket.dart`) and the game's state.
   ///
-  /// `switchTo` adopts a session (no refresh) and invalidates `gameProvider`,
-  /// `gameWebSocketProvider`, `gameWebSocketStreamProvider`, and
+  /// `switchTo` adopts a session (no refresh) and invalidates
+  /// `gameWebSocketProvider`, `gameWebSocketStreamProvider` and
   /// `gameConnectionStateProvider` so the prior player's socket is disposed and
-  /// the new player's attaches — exactly one live WS.
+  /// the new player's attaches (exactly one live socket), and drops the
+  /// previous player's `/me/`, `/me/table/` and local steps.
   const DebugTableControllerProvider._()
     : super(
         from: null,
@@ -123,4 +126,4 @@ final class DebugTableControllerProvider
 }
 
 String _$debugTableControllerHash() =>
-    r'8f9f68532ce1e450348429bcccaea2de8d8d30ff';
+    r'062fa52de5567895c43084e8e5f737dc1d5f05d9';

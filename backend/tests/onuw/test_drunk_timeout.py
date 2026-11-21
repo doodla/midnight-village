@@ -6,8 +6,10 @@ their choice (clock ran out, host closed the window, or their phone was gone
 past the grace period) the server swaps them with a center card taken from a
 dedicated RNG seeded from ``Game.random_seed``. It is logged as an ordinary
 swap marked ``made_by_server``, resolves when the window closes exactly like a
-chosen swap, and the Drunk is sent the same result as for a chosen swap. The
-same holds for a Doppelganger who copied the Drunk and let window 1 end.
+chosen swap, and the Drunk's own phone is shown which centre slot was swapped
+(never the card), with ``nothing_chosen``: nobody else learns anything. The same
+holds for a Drunk who chose nothing that counts, and for a Doppelganger who
+copied the Drunk and let window 1 end.
 """
 
 from datetime import timedelta
@@ -51,6 +53,7 @@ def log_for(night: Night, name: str) -> list[dict[str, Any]]:
 def everyone_else_acts(night: Night) -> None:
     night.post("wolf", "see_team")
     night.post("seer", "skip")
+    night.post("villager", "none")
 
 
 class TestTheSeededChoice:
@@ -135,7 +138,7 @@ class TestARealDrunkRunsOutOfTime:
         assert "made_by_server" not in entry
         assert night.role_of("drunk").current_role == CENTER[1]
 
-    def test_the_drunk_is_told_the_same_as_for_a_chosen_swap_and_never_the_card(
+    def test_the_drunk_is_told_the_slot_and_that_the_server_chose_never_the_card(
         self, make_night
     ) -> None:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
@@ -143,13 +146,16 @@ class TestARealDrunkRunsOutOfTime:
         idx = expected_index(night, "drunk")
         night.host_close_window()
 
-        results = night.events_to("drunk", "action.result")
+        results = night.results("drunk")
 
         assert len(results) == 1
         assert results[0]["wave"] == 2
         assert results[0]["action_type"] == "swap_with_center"
-        assert results[0]["revealed_info"] == {"card_index": idx}  # as if chosen
-        assert CENTER[idx].lower() not in str(results[0])
+        assert results[0]["revealed_info"] == {
+            "card_index": idx,
+            "nothing_chosen": True,
+        }
+        assert CENTER[idx] not in str(results[0])
 
     def test_nothing_is_delivered_or_swapped_before_the_window_closes(
         self, make_night
@@ -160,7 +166,7 @@ class TestARealDrunkRunsOutOfTime:
 
         assert night.refresh().phase == Phase.NIGHT
         assert night.role_of("drunk").current_role == "Drunk"
-        assert not night.events_to("drunk", "action.result")
+        assert night.results("drunk") == []
 
     def test_nothing_in_what_other_players_receive_points_to_the_server_move(
         self, make_night
@@ -173,11 +179,10 @@ class TestARealDrunkRunsOutOfTime:
             assert "made_by_server" not in str(event)
             assert "server" not in str(event).lower()
         # The others' own results are exactly what they would be anyway.
-        assert [e["action_type"] for e in night.events_to("seer", "action.result")] == [
-            "skip"
-        ]
+        assert [e["action_type"] for e in night.results("seer")] == ["skip"]
+        assert "made_by_server" not in str(night.results("seer"))
 
-    def test_night_results_in_me_look_the_same_whoever_chose_the_swap(
+    def test_night_results_in_me_name_the_slot_whoever_chose_the_swap(
         self, make_night
     ) -> None:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
@@ -190,30 +195,31 @@ class TestARealDrunkRunsOutOfTime:
             reverse("onuw:game-me", kwargs={"game_id": str(night.game.id)})
         ).data
 
-        # The phone that missed the socket event learns the same thing: which
-        # centre slot was swapped (never the card), however the swap came about.
+        # The Drunk's own phone learns which centre slot was swapped (never the
+        # card), however the swap came about; that nothing it chose counted is
+        # told to it alone.
         assert data["night_results"] == [
             {
                 "wave": 2,
                 "action_type": "swap_with_center",
-                "revealed_info": {"card_index": idx},
+                "revealed_info": {"card_index": idx, "nothing_chosen": True},
             }
         ]
-        sent = night.events_to("drunk", "action.result")[0]
-        assert data["night_results"][0]["revealed_info"] == sent["revealed_info"]
 
-    def test_the_prompt_never_offers_a_skip_and_the_server_refuses_one(
+    def test_a_drunk_who_chooses_nothing_is_still_swapped_by_the_server(
         self, make_night
     ) -> None:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         night.start()
+        idx = expected_index(night, "drunk")
 
-        prompt = night.events_to("drunk", "action.prompt")[-1]
-        refused = night.post("drunk", "skip")
+        assert night.prompt("drunk")["kind"] == "drunk"
+        assert night.choose("drunk", [{"self": True}]).status_code == status.HTTP_200_OK
+        night.host_close_window()
 
-        assert prompt["action_types"] == ["swap_with_center"]
-        assert refused.status_code == status.HTTP_400_BAD_REQUEST
-        assert not night.role_of("drunk").has_acted
+        (entry,) = log_for(night, "drunk")
+        assert entry["made_by_server"] is True
+        assert night.role_of("drunk").current_role == CENTER[idx]
 
     def test_the_same_game_seed_gives_the_same_center_card_every_time(
         self, make_night
@@ -313,7 +319,7 @@ class TestDoppelgangerAsDrunk:
         night.post("d", "peek_player", {"player_id": night.users["dr"].id})
         night.post("d", "swap_with_center", {"center_index": 2})
 
-        assert night.refresh().current_wave == 2
+        assert night.refresh().current_wave == 2  # her follow-up closed window 1
         assert night.role_of("d").current_role == CENTER[2]
         assert "made_by_server" not in log_for(night, "d")[-1]
 

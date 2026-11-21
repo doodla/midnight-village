@@ -1,46 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/presentation/home_screen.dart';
-import '../../features/game/presentation/game_container_screen.dart';
-import '../../features/lobby/presentation/lobby_screen.dart';
+import '../../features/game/presentation/shell/table_shell.dart';
+import '../../features/lobby/presentation/home_gate.dart';
 
 part 'routes.g.dart';
 
-/// Home route - the MVP single screen.
+/// Home: the table's shell when signed in (01 at no table, 02 at a waiting
+/// table, the game in a game), else 01 Join.
 @TypedGoRoute<HomeRoute>(path: '/')
 class HomeRoute extends GoRouteData with $HomeRoute {
   const HomeRoute();
 
   @override
-  Widget build(BuildContext context, GoRouterState state) => const HomeScreen();
+  Widget build(BuildContext context, GoRouterState state) => const HomeGate();
 }
 
-/// Lobby route — join or wait in a game lobby identified by [code].
-@TypedGoRoute<LobbyRoute>(path: '/lobby/:code')
-class LobbyRoute extends GoRouteData with $LobbyRoute {
-  const LobbyRoute({required this.code});
+/// A table's link (its QR code, Share): 01 with the name and "Join", or the
+/// table itself for a player who already sits at it.
+@TypedGoRoute<JoinRoute>(path: '/join/:code')
+class JoinRoute extends GoRouteData with $JoinRoute {
+  const JoinRoute({required this.code});
 
   final String code;
 
   @override
   Widget build(BuildContext context, GoRouterState state) =>
-      LobbyScreen(code: code);
+      HomeGate(code: code.toUpperCase());
 }
 
-/// Game route — active game screen identified by [gameId].
-///
-/// [lobby] is the code of the table the game belongs to (`?lobby=CODE`). The
-/// game's own state may not say, and the results screen needs it to start
-/// another game or leave the table.
+/// A game's link (the router sends a player with a game running here). The
+/// screen is the table's shell, which shows what `/me/table/` and the
+/// table's game's `/me/` say ([gameId] is the link's, not an input).
 @TypedGoRoute<GameRoute>(path: '/game/:gameId')
 class GameRoute extends GoRouteData with $GameRoute {
-  const GameRoute({required this.gameId, this.lobby});
+  const GameRoute({required this.gameId});
 
   final String gameId;
-  final String? lobby;
 
   @override
-  Widget build(BuildContext context, GoRouterState state) =>
-      GameContainerScreen(gameId: gameId, lobbyCode: lobby);
+  Widget build(BuildContext context, GoRouterState state) => const TableShell();
 }

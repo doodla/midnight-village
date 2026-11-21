@@ -13,7 +13,7 @@ part 'app_router.g.dart';
 /// Application router with auth redirect guard.
 ///
 /// Redirect rules:
-/// - Unauthenticated users on `/lobby/*` or `/game/*` are redirected to `/`.
+/// - Unauthenticated users on `/game/*` are redirected to `/`.
 /// - Authenticated users at `/` with an active game are redirected to
 ///   `/game/:id`. The check is made on every visit to `/`: a cached answer
 ///   would send a player who just left a finished game back into it.
@@ -52,7 +52,7 @@ GoRouter appRouter(Ref ref) {
 
       // Redirect unauthenticated users away from protected routes.
       if (!isAuthenticated) {
-        if (path.startsWith('/lobby/') || path.startsWith('/game/')) {
+        if (path.startsWith('/game/')) {
           return '/';
         }
         return null;
@@ -69,10 +69,7 @@ GoRouter appRouter(Ref ref) {
           if (data is Map<String, dynamic>) {
             final gameId = data['game_id']?.toString();
             if (gameId != null) {
-              return GameRoute(
-                gameId: gameId,
-                lobby: data['lobby_code']?.toString(),
-              ).location;
+              return GameRoute(gameId: gameId).location;
             }
           }
         } catch (_) {

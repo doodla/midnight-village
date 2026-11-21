@@ -26,13 +26,25 @@ dev:
 serve port="8000":
     uv run python manage.py runserver {{port}}
 
-# Boot the deterministic integration-test harness backend on 127.0.0.1:8001
-# (DEBUG=True, throwaway DB). The frontend test-harness recipe waits for
+# Boot the deterministic integration-test harness backend (DEBUG=True,
+# throwaway DB) on 127.0.0.1:$HARNESS_PORT, or on a free port it picks and
+# prints when HARNESS_PORT is not set: parallel runs never share a port. The
+# frontend test-harness recipe passes its own port and waits for
 # GET /api/health/ -> 200 before running tests against it.
 harness-serve:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    port="${HARNESS_PORT:-}"
+    if [ -z "$port" ]; then
+      port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+    fi
+    echo "[harness-serve] 127.0.0.1:$port"
+    # Runs on other ports share the throwaway database: one migrates at a time.
+    if command -v flock >/dev/null; then exec 9>"${TMPDIR:-/tmp}/midnight_village_harness.lock"; flock 9; fi
     PGPASSWORD="${DB_PASSWORD:-}" createdb -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" ${DB_USER:+-U "$DB_USER"} midnight_village_harness 2>&1 | grep -v "already exists" || true
     DJANGO_SETTINGS_MODULE=config.settings.harness uv run python manage.py migrate
-    DJANGO_SETTINGS_MODULE=config.settings.harness uv run python manage.py runserver --noreload 127.0.0.1:8001
+    if command -v flock >/dev/null; then flock -u 9; exec 9>&-; fi
+    exec env DJANGO_SETTINGS_MODULE=config.settings.harness uv run python manage.py runserver --noreload "127.0.0.1:$port"
 
 # Run Django management command
 manage *args:
@@ -50,9 +62,24 @@ makemigrations *args:
 
 # --- Testing ---
 
-# Run all tests
+# The suite builds its database from the models (--nomigrations); the migration
+# tests (marker `migration`) skip there and run in a second pass that applies the
+# real migrations. With arguments only the first pass runs.
+
+# Run all tests (and the migration tests when no arguments are given)
 test *args:
     uv run pytest {{args}}
+    {{ if args == "" { "just test-migrations" } else { "true" } }}
+
+# The migration tests, against a database built by the real migrations (no coverage)
+test-migrations:
+    uv run pytest --migrations --create-db --no-cov -m migration
+
+# Re-record contract_samples/ (repo root) from the real server, after a change
+# to any payload: review the diff, commit it, and update the app's fixtures if
+# a test now fails. `just test` fails while the committed samples are stale.
+samples:
+    UPDATE_CONTRACT_SAMPLES=1 uv run pytest tests/contract/test_contract_samples.py --no-cov -q
 
 # Run tests with coverage report (uses pyproject.toml config)
 test-cov:
@@ -92,12 +119,21 @@ format:
 format-check:
     uv run ruff format . --check
 
-# Type check with Pyrefly
+# Type check with Pyrefly. Pyrefly's default excludes skip every file under a
+# hidden directory, so a checkout inside one (the repo's own `.claude/worktrees/`)
+# would be skipped entirely and fail; the default heuristics are replaced by the
+# explicit excludes below.
 typecheck:
-    uv run pyrefly check .
+    uv run pyrefly check --disable-project-excludes-heuristics --project-excludes '**/node_modules' --project-excludes '**/__pycache__' --project-excludes '**/.venv/**' .
 
-# Run all quality checks (lint, format check, typecheck)
-check: lint format-check typecheck
+# The settings module only avoids needing a .env: nothing is applied.
+
+# Fail if a model change has no migration
+migrations-check:
+    DJANGO_SETTINGS_MODULE=config.settings.test uv run python manage.py makemigrations --check --dry-run
+
+# Run all quality checks (lint, format check, typecheck, migrations match models)
+check: lint format-check typecheck migrations-check
 
 # Run all quality checks and fix what can be fixed
 fix: lint-fix format

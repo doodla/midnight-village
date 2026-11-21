@@ -223,9 +223,7 @@ class TestAStartedNightAlwaysOpens:
     def test_if_opening_fails_nothing_was_created_and_the_table_can_start_again(
         self, table
     ) -> None:
-        with patch(
-            "apps.onuw.views.start_night_phase", side_effect=RuntimeError("boom")
-        ):
+        with patch("apps.onuw.views.begin_night", side_effect=RuntimeError("boom")):
             with pytest.raises(RuntimeError):
                 table.start(seed=1)
 
@@ -252,7 +250,7 @@ class TestAStartedNightAlwaysOpens:
 
         assert response.status_code == status.HTTP_200_OK
         assert night.refresh().current_wave == 2
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+        assert night.windows_opened() == [2]
 
     def test_a_night_that_has_only_just_started_is_left_to_its_starter(
         self, make_night
@@ -279,4 +277,4 @@ class TestAStartedNightAlwaysOpens:
         with night.committed():
             night.client.get(url)
 
-        assert [e["wave"] for e in night.broadcasts("wave.start")] == [2]
+        assert night.windows_opened() == [2]

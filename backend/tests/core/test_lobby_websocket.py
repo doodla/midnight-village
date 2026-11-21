@@ -31,6 +31,15 @@ def _make_communicator(path, user):
     return communicator
 
 
+async def _next_event(communicator):
+    """The next event that is not the table's own ``lobby_update`` (an ONUW table
+    sends its body to the lobby socket when phones come and go)."""
+    while True:
+        event = await communicator.receive_json_from()
+        if event["type"] != "lobby_update":
+            return event
+
+
 class TestLobbyWebSocket:
     """Test Lobby WebSocket consumer."""
 
@@ -131,7 +140,7 @@ class TestLobbyWebSocket:
         )
 
         # Receive the message
-        response = await communicator.receive_json_from()
+        response = await _next_event(communicator)
 
         assert response["type"] == "player_joined"
         assert response["username"] == player_username

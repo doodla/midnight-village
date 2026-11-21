@@ -5,6 +5,7 @@ Core app views.
 import uuid
 
 from django.db import transaction
+from django.utils.cache import patch_cache_control
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -19,8 +20,18 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .games import hooks_for, hooks_for_type
+from .lobbies import (
+    LobbyFullError,
+    add_member,
+    announce_lobby,
+    current_table,
+    other_active_table,
+    touch,
+)
 from .models import Lobby, LobbyMember, User
 from .name_generator import generate_display_name
+from .online import online_counts
 from .serializers import GuestCreateSerializer, LobbyCreateSerializer, LobbySerializer
 
 
@@ -83,13 +94,59 @@ class LobbyCreateView(CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        lobby = serializer.save(host=self.request.user)
-        # Add host as first player
-        LobbyMember.objects.create(lobby=lobby, user=self.request.user)
+        # The host takes the first seat (and token) in the same transaction.
+        with transaction.atomic():
+            lobby = serializer.save(host=self.request.user)
+            add_member(lobby, self.request.user.id)  # type: ignore[misc]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        # ``defaults`` (optional) names a set of settings the game offers for a new
+        # table; the settings given in the body win over it. Nothing is written
+        # unless the body asks.
+        if "defaults" in request.data:
+            name = request.data["defaults"]
+            offered = (
+                hooks_for_type(serializer.validated_data["game_type"]).default_settings(
+                    name
+                )
+                if isinstance(name, str)
+                else None
+            )
+            if offered is None:
+                return Response(
+                    {"detail": "Unknown defaults.", "code": "bad_request"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            given = serializer.validated_data.get("settings") or {}
+            if not isinstance(given, dict):
+                return Response(
+                    {"detail": "Settings must be an object.", "code": "bad_request"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            serializer.validated_data["settings"] = {**offered, **given}
+
+        # What the table starts with is checked now, not at the deal: a combination
+        # the game refuses is refused here. Who will sit at the table is not known
+        # yet, so the card list is not checked against a player count.
+        merged = serializer.validated_data.get("settings") or {}
+        if merged:
+            errors = hooks_for_type(
+                serializer.validated_data["game_type"]
+            ).validate_settings(
+                merged,
+                0,
+                changed=set(merged) - {"roles", "deck"}
+                if isinstance(merged, dict)
+                else None,
+            )
+            if errors:
+                return Response(
+                    {"detail": errors, "code": "bad_request"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         self.perform_create(serializer)
 
         # Return full lobby data
@@ -107,52 +164,77 @@ class LobbyDetailView(RetrieveAPIView):
     queryset = Lobby.objects.all()
 
     def patch(self, request: Request, code: str) -> Response:
-        """Update lobby settings (host only). Validates and broadcasts lobby_update."""
-        try:
-            lobby = Lobby.objects.get(code=code)
-        except Lobby.DoesNotExist:
-            return Response(
-                {"detail": "Lobby not found."},
-                status=status.HTTP_404_NOT_FOUND,
+        """Merge settings into the lobby's (host only), validate, broadcast lobby_update.
+
+        The keys given are merged over the stored settings, so a screen that sends
+        only its own keys cannot drop another screen's. The Lobby row is locked from
+        the checks to the save (two host taps cannot interleave), the merged result
+        is what the game's validator checks, and nothing is stored if it refuses.
+        """
+        with transaction.atomic():
+            try:
+                lobby = Lobby.objects.select_for_update().get(code=code)
+            except Lobby.DoesNotExist:
+                return Response(
+                    {"detail": "Lobby not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if not lobby.is_host(request.user.id):  # type: ignore[misc]
+                return Response(
+                    {"detail": "Only the host can update lobby settings."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if lobby.status == Lobby.Status.IN_GAME:
+                return Response(
+                    {
+                        "detail": "Settings cannot change while a game is in progress.",
+                        "code": "lobby_in_game",
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            given = (
+                request.data.get("settings") if isinstance(request.data, dict) else None
             )
+            if given is None:
+                return Response(
+                    {"detail": "settings field is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not isinstance(given, dict):
+                return Response(
+                    {"detail": ["Settings must be an object."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        if not lobby.is_host(request.user.id):  # type: ignore[misc]
-            return Response(
-                {"detail": "Only the host can update lobby settings."},
-                status=status.HTTP_403_FORBIDDEN,
+            merged = {**lobby.settings, **given}
+            from apps.core import games
+
+            errors = games.hooks_for(lobby).validate_settings(
+                merged,
+                lobby.players.count(),  # type: ignore[attr-defined]
+                changed=set(given),
             )
+            if errors:
+                return Response(
+                    {"detail": errors},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        new_settings = request.data.get("settings")
-        if new_settings is None:
-            return Response(
-                {"detail": "settings field is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Validate role settings if provided.
-        from apps.core import games
-
-        player_count = lobby.players.count()
-        errors = games.hooks_for(lobby).validate_settings(new_settings, player_count)
-        if errors:
-            return Response(
-                {"detail": errors},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        lobby.settings = new_settings
-        lobby.save(update_fields=["settings", "updated_at"])
+            lobby.settings = merged
+            lobby.save(update_fields=["settings", "updated_at"])
+            data = LobbySerializer(lobby).data
 
         channel_layer = get_channel_layer()
         if channel_layer is not None:
-            serializer = LobbySerializer(lobby)
             async_to_sync(channel_layer.group_send)(
                 f"lobby_{lobby.code}",
-                {"type": "lobby.update", "data": serializer.data},
+                {"type": "lobby.update", "data": data},
             )
 
-        serializer = LobbySerializer(lobby)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class LobbyJoinView(APIView):
@@ -161,38 +243,67 @@ class LobbyJoinView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, code):
-        try:
-            lobby = Lobby.objects.get(code=code)
-        except Lobby.DoesNotExist:
-            return Response(
-                {"detail": "Lobby not found."},
-                status=status.HTTP_404_NOT_FOUND,
+        # The joining user's row is locked first, so two joins by one user to
+        # two tables cannot both pass the one-table check; then the Lobby row,
+        # from the checks to the insert, so two joins cannot both take the last
+        # seat or the same token. (Lock order: User, then Lobby.)
+        with transaction.atomic():
+            User.objects.select_for_update().filter(pk=request.user.pk).first()
+            try:
+                lobby = Lobby.objects.select_for_update().get(code=code)
+            except Lobby.DoesNotExist:
+                return Response(
+                    {"detail": "Lobby not found.", "code": "lobby_not_found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if LobbyMember.objects.filter(lobby=lobby, user=request.user).exists():
+                return Response(
+                    {
+                        "detail": "You are already in this lobby.",
+                        "code": "already_in_lobby",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if lobby.status != Lobby.Status.WAITING:
+                return Response(
+                    {
+                        "detail": "Lobby is not accepting players.",
+                        "code": "lobby_closed",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # One table at a time (tables that opt in): a member of another table
+            # still waiting is pointed at it instead of getting a second seat.
+            other = (
+                other_active_table(request.user.id, lobby.pk)  # type: ignore[misc]
+                if hooks_for(lobby).shows_table_extras(lobby)
+                else None
             )
+            if other is not None:
+                return Response(
+                    {
+                        "detail": "You are already at another table.",
+                        "code": "already_at_table",
+                        "lobby_code": other.code,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
 
-        # Check if already in lobby
-        if LobbyMember.objects.filter(lobby=lobby, user=request.user).exists():
-            return Response(
-                {"detail": "You are already in this lobby."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            try:
+                add_member(lobby, request.user.id)  # type: ignore[misc]
+            except LobbyFullError:
+                return Response(
+                    {"detail": "Lobby is full.", "code": "lobby_full"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        # Check if lobby is full
-        if lobby.players.count() >= lobby.max_players:  # type: ignore[misc]
-            return Response(
-                {"detail": "Lobby is full."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            data = LobbySerializer(lobby).data
+            announce_lobby(lobby)
 
-        # Check if lobby is still accepting players
-        if lobby.status != Lobby.Status.WAITING:
-            return Response(
-                {"detail": "Lobby is not accepting players."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        LobbyMember.objects.create(lobby=lobby, user=request.user)
-
-        # Broadcast player joined event
+        # Broadcast player joined event (the join has committed)
         channel_layer = get_channel_layer()
         if channel_layer is not None:
             async_to_sync(channel_layer.group_send)(
@@ -200,8 +311,7 @@ class LobbyJoinView(APIView):
                 {"type": "player.joined", "username": request.user.username},
             )
 
-        serializer = LobbySerializer(lobby)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class LobbyLeaveView(APIView):
@@ -254,6 +364,7 @@ class LobbyLeaveView(APIView):
                     return Response(
                         {"detail": "Lobby deleted."}, status=status.HTTP_200_OK
                     )
+                announce_lobby(locked)
             channel_layer = get_channel_layer()
             if channel_layer is not None:
                 async_to_sync(channel_layer.group_send)(
@@ -269,10 +380,12 @@ class LobbyLeaveView(APIView):
         with transaction.atomic():
             locked = Lobby.objects.select_for_update().get(pk=lobby.pk)
             membership.delete()
+            touch(locked.pk)
             if locked.acting_host_id == request.user.id:  # type: ignore[misc]
                 from apps.core.host import member_leaving
 
                 member_leaving(locked, request.user.id)  # type: ignore[misc]
+            announce_lobby(locked)
 
         # Broadcast player left event (only for non-host)
         channel_layer = get_channel_layer()
@@ -282,49 +395,6 @@ class LobbyLeaveView(APIView):
             )
 
         return Response({"detail": "Left lobby."}, status=status.HTTP_200_OK)
-
-
-class LobbyReadyView(APIView):
-    """Toggle ready state for a player in a lobby."""
-
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, code):
-        try:
-            lobby = Lobby.objects.get(code=code)
-        except Lobby.DoesNotExist:
-            return Response(
-                {"detail": "Lobby not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        try:
-            membership = LobbyMember.objects.get(lobby=lobby, user=request.user)
-        except LobbyMember.DoesNotExist:
-            return Response(
-                {"detail": "You are not in this lobby."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        is_ready = request.data.get("is_ready", not membership.is_ready)
-        membership.is_ready = is_ready
-        membership.save()
-
-        # Broadcast player ready state change
-        channel_layer = get_channel_layer()
-        if channel_layer is not None:
-            async_to_sync(channel_layer.group_send)(
-                f"lobby_{lobby.code}",
-                {
-                    "type": "player.ready",
-                    "username": request.user.username,
-                    "user_id": request.user.id,
-                    "is_ready": membership.is_ready,
-                },
-            )
-
-        serializer = LobbySerializer(lobby)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class LobbyPlayAgainView(APIView):
@@ -347,6 +417,45 @@ class LobbyPlayAgainView(APIView):
         except PlayAgainError as exc:
             return Response({"detail": exc.detail}, status=exc.status_code)
         return Response(LobbySerializer(lobby).data, status=status.HTTP_200_OK)
+
+
+class MyTableView(APIView):
+    """Where am I: the table the caller is seated at, so the app can resume it.
+
+    ``{"table": {"lobby_code", "game_type", "status", "is_host", "token",
+    "game": {"game_id", "phase"} | null}}`` or ``{"table": null}``.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        return Response({"table": current_table(request.user.id)})  # type: ignore[misc]
+
+
+class OnlineStatsThrottle(AnonRateThrottle):
+    """Its own budget: the home screen polls this, guest sign-up must not pay for it."""
+
+    scope = "online_stats"
+
+
+class OnlineStatsView(APIView):
+    """How many players are at how many tables right now (public, cacheable).
+
+    ``{"players": 23, "tables": 5}`` from fresh socket rows; no user data, no login
+    (``authentication_classes = []`` so a stale token on the home screen cannot
+    turn it into a 401). The response says ``Cache-Control: public, max-age=15,
+    s-maxage=15``: it MAY be reused for 15 s by browsers and shared caches. Whether
+    a given CDN does is the platform's business; nothing here depends on it.
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+    throttle_classes = [OnlineStatsThrottle]
+
+    def get(self, request: Request) -> Response:
+        response = Response(online_counts())
+        patch_cache_control(response, public=True, max_age=15, s_maxage=15)
+        return response
 
 
 class LogoutView(APIView):

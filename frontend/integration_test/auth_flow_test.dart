@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/design_system/components/core/primary_button.dart';
+import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 
 import 'helpers/integration_test_helper.dart';
 import 'helpers/navigation_helpers.dart';
@@ -10,46 +12,60 @@ void main() {
   IntegrationTestSetup.setupFailureScreenshots();
 
   testWidgets(
-    'Auth flow: launch → unauthenticated welcome → enter name → authenticated',
+    '01 Join: a new phone opens on an empty name, and a name unlocks the ways '
+    'in',
     (tester) async {
       await IntegrationTestSetup.launchApp(tester);
 
-      // After launch the app settles to the unauthenticated welcome view
-      // (no stored tokens → AuthUnauthenticated).
-      expect(find.byType(TextField), findsOneWidget);
-      expect(find.widgetWithText(PrimaryButton, 'Continue'), findsOneWidget);
-
-      // Verify we start on the home route.
+      // No stored account: 01, the name empty (never someone else's).
       tester.expectRoute('/');
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text(JoinCopy.nameHint), findsOneWidget);
+      SecondaryButton way(String label) => tester.widget<SecondaryButton>(
+        find.widgetWithText(SecondaryButton, label),
+      );
+      expect(way(JoinCopy.joinTable).onPressed, isNull);
+      expect(way(JoinCopy.startTable).onPressed, isNull);
 
-      // Enter a display name.
       await tester.enterText(find.byType(TextField), 'TestPlayer');
       await tester.pumpAndSettle();
 
-      // Tap the Continue button to trigger guest account creation.
-      await tester.tap(find.widgetWithText(PrimaryButton, 'Continue'));
-      await tester.pumpAndSettle();
-
-      // The mock returns display_name = 'TestPlayer' — verify authenticated view.
-      expect(find.textContaining('Hello, TestPlayer!'), findsOneWidget);
-      expect(find.widgetWithText(PrimaryButton, 'Logout'), findsOneWidget);
-
-      // Verify we remain on the home route after authentication.
+      expect(way(JoinCopy.joinTable).onPressed, isNotNull);
+      expect(way(JoinCopy.startTable).onPressed, isNotNull);
       tester.expectRoute('/');
     },
   );
 
   testWidgets(
-    'Auth flow: launch with no name → authenticated with server-generated name',
+    '01 Join: a name and "Start a table" make this device\'s guest account; '
+    'a table that cannot be opened says "Not sent."',
     (tester) async {
-      await IntegrationTestSetup.launchApp(tester);
+      await IntegrationTestSetup.launchApp(
+        tester,
+        httpMocks: {
+          // No answer (a 5xx): the table is not opened.
+          'POST:/lobbies/': Response<dynamic>(
+            requestOptions: RequestOptions(path: '/lobbies/'),
+            statusCode: 503,
+            data: 'Server Error',
+          ),
+        },
+      );
 
-      // Skip entering a name — tap Continue with empty field.
-      await tester.tap(find.widgetWithText(PrimaryButton, 'Continue'));
+      await tester.enterText(find.byType(TextField), 'TestPlayer');
       await tester.pumpAndSettle();
+      await tester.tap(find.text(JoinCopy.startTable));
+      // The guest account's tokens are stored (in the browser, not at once)
+      // before the table is asked for: wait for the banner the step ends on.
+      await tester.pumpUntilFound(find.text(BannerCopy.notSent));
 
-      // Mock always returns 'TestPlayer' — just verify we reached authenticated state.
-      expect(find.textContaining('Hello,'), findsOneWidget);
+      final guest = IntegrationTestSetup.mockHttp.requests.where(
+        (r) => r.method == 'POST' && r.path == '/auth/guest/',
+      );
+      expect(guest.single.data, {'display_name': 'TestPlayer'});
+      expect(find.text(BannerCopy.notSent), findsOneWidget);
+      expect(find.text(BannerCopy.tryAgain), findsOneWidget);
+      tester.expectRoute('/');
     },
   );
 }

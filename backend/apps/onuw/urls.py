@@ -33,6 +33,11 @@ urlpatterns = [
         name="current-game",
     ),
     path(
+        "me/recent-games/",
+        views.RecentGamesView.as_view(),
+        name="recent-games",
+    ),
+    path(
         "games/<str:game_id>/me/",
         views.GameMeView.as_view(),
         name="game-me",
@@ -48,6 +53,11 @@ urlpatterns = [
         name="night-action",
     ),
     path(
+        "games/<str:game_id>/night-results/seen/",
+        views.NightResultsSeenView.as_view(),
+        name="night-results-seen",
+    ),
+    path(
         "games/<str:game_id>/advance-wave/",
         views.WaveAdvanceView.as_view(),
         name="wave-advance",
@@ -56,6 +66,11 @@ urlpatterns = [
         "games/<str:game_id>/end-discussion/",
         views.EndDiscussionView.as_view(),
         name="end-discussion",
+    ),
+    path(
+        "games/<str:game_id>/ready/",
+        views.ReadyView.as_view(),
+        name="ready",
     ),
     path(
         "games/<str:game_id>/vote/",

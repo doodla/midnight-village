@@ -4,8 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/core/debug/debug_providers.dart';
 import 'package:midnight_village/core/debug/debug_table_controller.dart';
+import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/debug/presentation/debug_toolbar_screen.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _MockController extends Mock implements DebugTableController {}
 
@@ -42,6 +44,7 @@ void main() {
   });
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     controller = _MockController();
     when(() => controller.isManuallyDisconnected(any())).thenReturn(false);
   });
@@ -87,6 +90,58 @@ void main() {
       expect(find.textContaining('Alice'), findsWidgets);
       expect(find.textContaining('Werewolf'), findsWidgets);
       expect(find.byKey(const Key('debug-switch-2')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a table is made as the app makes one; auto-drive acts for everyone '
+    'but the phone shown, through stage-scoped requests',
+    (tester) async {
+      when(
+        () => controller.createTable(
+          playerNames: any(named: 'playerNames'),
+          roleCounts: any(named: 'roleCounts'),
+          playerRolesByName: any(named: 'playerRolesByName'),
+          centerCards: any(named: 'centerCards'),
+        ),
+      ).thenAnswer((_) async => _table);
+      when(() => controller.switchTo(any())).thenAnswer((_) async {});
+      when(
+        () => controller.stagedAs(
+          any(),
+          any(),
+          any(),
+          lenient: any(named: 'lenient'),
+        ),
+      ).thenAnswer((_) async {});
+
+      await tester.pumpWidget(buildApp());
+      await tester.tap(find.text('Starter'));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('debug-create-table')));
+      await tester.pumpAndSettle();
+      verify(
+        () => controller.createTable(
+          playerNames: any(named: 'playerNames'),
+          roleCounts: any(named: 'roleCounts'),
+          playerRolesByName: any(named: 'playerRolesByName'),
+          centerCards: any(named: 'centerCards'),
+        ),
+      ).called(1);
+
+      // This phone is Bob's: the others are driven, he is not.
+      await tester.ensureVisible(find.byKey(const Key('debug-switch-2')));
+      await tester.tap(find.byKey(const Key('debug-switch-2')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('debug-everyone-ready')));
+      await tester.tap(find.byKey(const Key('debug-everyone-ready')));
+      await tester.pumpAndSettle();
+      final driven = verify(
+        () => controller.stagedAs(captureAny(), 'ready', {
+          'ready': true,
+        }, lenient: true),
+      ).captured;
+      expect(driven.map((p) => (p as DebugPlayer).userId), [1]);
     },
   );
 
@@ -143,5 +198,22 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(() => controller.oracle()).called(1);
+  });
+
+  testWidgets('"Reset learned cues" makes this device a newcomer again', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildApp());
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(DebugToolbarScreen)),
+    );
+    await container.read(learnedCuesProvider.notifier).learn(Cue.hold);
+    expect(container.read(learnedCuesProvider), {Cue.hold});
+
+    final reset = find.byKey(const Key('debug-forget-cues'));
+    await tester.ensureVisible(reset);
+    await tester.tap(reset);
+    await tester.pumpAndSettle();
+    expect(container.read(learnedCuesProvider), isEmpty);
   });
 }

@@ -21,6 +21,11 @@ run-device device:
 gen:
     dart run build_runner build --delete-conflicting-outputs
 
+# Fail when the committed generated code is not what `just gen` makes now
+# (about 50 s: CI runs it, the commit gate does not)
+gen-check: gen
+    git diff --exit-code -- '*.g.dart' '*.freezed.dart'
+
 # Run code generation (watch mode)
 watch:
     dart run build_runner watch --delete-conflicting-outputs
@@ -35,11 +40,11 @@ test:
 test-cov:
     flutter test --coverage --exclude-tags e2e
 
-# Run golden tests only (tagged 'golden')
+# Run golden tests only (tagged 'golden'; Linux only, skipped on other OSes)
 flutter-test-golden:
     flutter test --tags golden
 
-# Update all golden baselines
+# Update the golden baselines in test/design_system/goldens/ (Linux only)
 flutter-golden-update:
     flutter test --update-goldens --tags golden
 
@@ -68,6 +73,52 @@ test-integration-ci:
 test-harness:
     tool/run_harness.sh
 
+# Renders the catalogue in test_screens/ at 390x844 (2x) to build/screens/,
+# each next to its mock in build/screens/compare/, and prints a summary of the
+# layout overflows, exceptions and (on player screens) reading-floor breaches
+# found. No backend; not part of `just test`.
+# Usage: just screens [width] [report|strict]
+#   just screens             390 wide, findings reported
+#   just screens 360         360 wide, into build/screens/w360/
+#   just screens 390 strict  exit non-zero when a screen has findings
+# A screen whose builder throws always fails the run.
+#
+# Render every screen to PNG next to its mock
+screens width="390" mode="report":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    usage="usage: just screens [width] [report|strict], e.g. just screens 360 strict"
+    if [[ ! "{{width}}" =~ ^[1-9][0-9]*$ ]]; then
+      echo "just screens: width must be a whole number of logical pixels, got '{{width}}'" >&2
+      echo "$usage" >&2
+      exit 2
+    fi
+    case "{{mode}}" in
+      report) strict=false ;;
+      strict) strict=true ;;
+      *) echo "just screens: mode must be 'report' or 'strict', got '{{mode}}'" >&2
+         echo "$usage" >&2
+         exit 2 ;;
+    esac
+    flutter test test_screens/screens_test.dart test_screens/screen_gallery_test.dart \
+      --reporter expanded \
+      --dart-define=SCREENS_WIDTH={{width}} \
+      --dart-define=SCREENS_STRICT=$strict
+
+# The cold-read pack (docs/specs/frontend/first-time-play.md): the screens of
+# four first-game journeys (host, guest, sleeper, Seer), in order, as one
+# phone sees them, to build/playtest/<journey>/screen-NN.png. Hand a folder to
+# someone who has never played and ask what they would do next. No backend.
+# Usage: just playtest-pack [width]
+playtest-pack width="390":
+    flutter test test_screens/playtest_pack_test.dart --reporter expanded \
+      --dart-define=SCREENS_WIDTH={{width}}
+
+# Regenerate Shadow paper's art in assets/skins/ from docs/design/art/
+# (resized). Deterministic. Needs uv.
+skin-art:
+    uv run --with pillow python tool/skin_art.py
+
 # Generate visual diff report from golden test failures
 flutter-golden-report *ARGS:
     dart run tool/golden_diff_report.dart {{ARGS}}
@@ -78,17 +129,17 @@ flutter-golden-check:
 
 # --- Code Quality ---
 
-# Analyze code
+# Analyze code; fails on any issue (errors, warnings and infos alike)
 analyze:
     flutter analyze
 
 # Format code
 format:
-    dart format lib test
+    dart format lib test test_screens
 
 # Check formatting (--output=none: report only, never rewrite files)
 format-check:
-    dart format --output=none --set-exit-if-changed lib test
+    dart format --output=none --set-exit-if-changed lib test test_screens
 
 # --- Build ---
 

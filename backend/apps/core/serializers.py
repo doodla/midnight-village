@@ -5,6 +5,7 @@ import re
 from rest_framework import serializers
 
 from .models import Lobby, LobbyMember, User
+from .tokens import MAX_TABLE_SIZE
 
 DISPLAY_NAME_PATTERN = re.compile(r"^[\w]+( [\w]+)*$", re.UNICODE)
 
@@ -24,7 +25,9 @@ class LobbyMemberSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LobbyMember
-        fields = ["user", "is_ready", "joined_at"]
+        # ``is_ready`` stays in the table (no migration) but gates nothing and is no
+        # longer sent: the deal has no ready check (``docs/dev/status.md``).
+        fields = ["user", "token", "joined_at"]
 
 
 class LobbySerializer(serializers.ModelSerializer):
@@ -53,6 +56,24 @@ class LobbySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["code", "status", "created_at"]
 
+    def to_representation(self, instance: Lobby) -> dict:
+        """The body. A table whose game opts in (``GameHooks.shows_table_extras``:
+        every ONUW table) also gets the game's keys and, per member, ``connected``
+        (``lobbies.connected_members``)."""
+        from .games import hooks_for
+        from .lobbies import connected_members
+
+        data = super().to_representation(instance)
+        hooks = hooks_for(instance)
+        if not hooks.shows_table_extras(instance):
+            return data
+        extras = hooks.lobby_extras(instance)
+        connected = connected_members(instance)
+        for entry in data["players"]:
+            entry["connected"] = entry["user"]["id"] in connected
+        data.update(extras)
+        return data
+
     def get_host(self, lobby: Lobby) -> dict:
         return UserBriefSerializer(lobby.effective_host).data
 
@@ -67,7 +88,13 @@ class LobbyCreateSerializer(serializers.ModelSerializer):
         model = Lobby
         fields = ["game_type", "max_players", "settings"]
         extra_kwargs = {
-            "max_players": {"required": False},
+            # A table seats at most one player per token (apps.core.tokens); the
+            # game checks its own minimum (and maximum) when it deals.
+            "max_players": {
+                "required": False,
+                "min_value": 1,
+                "max_value": MAX_TABLE_SIZE,
+            },
             "settings": {"required": False},
         }
 

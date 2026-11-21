@@ -81,12 +81,6 @@ class TestLobbyToGameFlow:
         lobby.settings = {"roles": role_config}
         lobby.save()
 
-        # ── Step 5: All 5 players ready up ────────────────────────────
-        ready_url = reverse("core:lobby-ready", kwargs={"code": lobby_code})
-        for client in clients:
-            response = client.post(ready_url, {"is_ready": True}, format="json")
-            assert response.status_code == status.HTTP_200_OK
-
         # ── Step 6: Host starts game ──────────────────────────────────
         start_url = reverse("onuw:game-start", kwargs={"code": lobby_code})
         response = host_client.post(start_url)

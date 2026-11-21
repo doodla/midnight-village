@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:midnight_village/app.dart';
 import 'package:midnight_village/core/api/api_client.dart';
+import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 
 import 'mock_http_client.dart';
+import 'server_bodies.dart';
 
 export 'mock_http_client.dart' show MockHttpClient;
 
@@ -98,6 +100,11 @@ class IntegrationTestSetup {
       ProviderScope(
         overrides: [
           apiClientProvider.overrideWithValue(ApiClient(dio: mockHttp.dio)),
+          // The signed-in calls go to the same mock (a request with no mock
+          // fails the test).
+          authenticatedClientProvider.overrideWithValue(
+            AuthenticatedClient.forTesting(dio: mockHttp.dio),
+          ),
         ],
         child: const App(),
       ),
@@ -118,9 +125,44 @@ class IntegrationTestSetup {
           Response<Map<String, dynamic>>(
             requestOptions: RequestOptions(path: '/auth/token/refresh/'),
             statusCode: 401,
-            data: {'detail': 'Token is invalid or expired'},
+            data: ServerBodies.refreshRefused,
           ),
         );
+
+    // 01's online count (asked without logging in).
+    mockHttp
+        .when(method: 'GET', path: '/stats/online/')
+        .thenReturn(
+          Response<Map<String, dynamic>>(
+            requestOptions: RequestOptions(path: '/stats/online/'),
+            statusCode: 200,
+            data: ServerBodies.onlineStats,
+          ),
+        );
+
+    // Home once signed in: at no table, no finished game.
+    mockHttp
+      ..when(method: 'GET', path: '/me/table/').thenReturn(
+        Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/me/table/'),
+          statusCode: 200,
+          data: ServerBodies.myTableNone,
+        ),
+      )
+      ..when(method: 'GET', path: '/onuw/me/current-game/').thenReturn(
+        Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
+          statusCode: 200,
+          data: ServerBodies.currentGameNone,
+        ),
+      )
+      ..when(method: 'GET', path: '/onuw/me/recent-games/').thenReturn(
+        Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/onuw/me/recent-games/'),
+          statusCode: 200,
+          data: ServerBodies.recentGamesNone,
+        ),
+      );
 
     // Default guest registration response.
     mockHttp
@@ -129,14 +171,7 @@ class IntegrationTestSetup {
           Response<Map<String, dynamic>>(
             requestOptions: RequestOptions(path: '/auth/guest/'),
             statusCode: 201,
-            data: {
-              'access': 'test-access-token',
-              'refresh': 'test-refresh-token',
-              'user': {
-                'id': 1,
-                'display_name': 'TestPlayer',
-              },
-            },
+            data: ServerBodies.guestCreated,
           ),
         );
   }

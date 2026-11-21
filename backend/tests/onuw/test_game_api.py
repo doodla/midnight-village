@@ -90,33 +90,6 @@ class TestGameStart:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_not_all_ready_returns_400(self, api_client, db):
-        """Starting fails if not all players are ready."""
-        host = User.objects.create_user(username="host", password="pass")
-        player = User.objects.create_user(username="player", password="pass")
-
-        lobby = Lobby.objects.create(
-            host=host,
-            game_type="onuw",
-            settings={
-                "roles": {
-                    "Werewolf": 1,
-                    "Seer": 1,
-                    "Robber": 1,
-                    "Villager": 2,
-                }
-            },
-        )
-        LobbyMember.objects.create(lobby=lobby, user=host, is_ready=True)
-        LobbyMember.objects.create(lobby=lobby, user=player, is_ready=False)
-
-        api_client.force_authenticate(user=host)
-        url = reverse("onuw:game-start", kwargs={"code": lobby.code})
-        response = api_client.post(url)
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "not all players" in response.data["detail"].lower()
-
     def test_invalid_role_config_returns_400(self, api_client, db):
         """Starting fails with invalid role configuration."""
         host = User.objects.create_user(username="host", password="pass")
@@ -251,7 +224,7 @@ class TestGameMe:
         assert response.data["phase"] == "night"
         assert response.data["your_role"]["original_role"] == "Seer"
         assert "current_role" not in response.data["your_role"]  # Hidden before results
-        assert response.data["your_role"]["has_acted"] is False
+        assert set(response.data["your_role"]) == {"original_role"}
 
     def test_player_cannot_see_other_player_role(self, api_client, db):
         """Player A's /me/ response does not reveal per-player role assignments."""

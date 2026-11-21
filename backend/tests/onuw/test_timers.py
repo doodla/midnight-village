@@ -13,14 +13,32 @@ from datetime import timedelta
 from typing import Any
 
 from django.db import connections
-from django.utils import timezone
+from django.db.models.functions import Now
 
 import pytest
 
 from apps.core import timers
 from apps.core.models import ScheduledTimer
+from tests import timer_threads
 
 pytestmark = pytest.mark.uses_timers
+
+# A delay no test waits for: a timer that must be cancelled or replaced first.
+FAR = 3600.0
+# A timer this late is a bug, however loaded the machine.
+LATE = 10.0
+# Two readings of the clock (a thread's wait, the database's) may differ by this.
+CLOCK_GRAIN = 0.002
+
+
+def _db_clock():
+    """The database's wall clock now (``clock_timestamp()``: not frozen at the
+    start of the transaction, as ``now()`` is)."""
+    with connections["default"].cursor() as cursor:
+        cursor.execute("SELECT clock_timestamp()")
+        (value,) = cursor.fetchone() or (None,)
+        assert value is not None
+        return value
 
 
 @pytest.fixture(autouse=True)
@@ -44,6 +62,7 @@ def ran():
     timers.JOBS["test_record"] = lambda **params: calls.append(params)
     yield calls
     timers.JOBS.pop("test_record", None)
+    timers.JOBS.pop("test_clock", None)
 
 
 @pytest.fixture
@@ -63,47 +82,71 @@ def queue(settings):
 
 @pytest.mark.django_db(transaction=True)
 class TestMemoryBackend:
-    def test_a_scheduled_job_runs_after_the_delay_with_its_params(self, ran):
-        timers.schedule("game:1:test", 0.05, "test_record", {"n": 1})
+    """Real threads. A timer meant to fire is due at once or nearly; one meant
+    to be cancelled or replaced is far off, so a slow machine cannot fire it
+    before the test gets there. The tests wait for the threads themselves
+    (``tests/timer_threads.py``), never a fixed time or the job's side effect:
+    the job runs inside the claim's transaction, so its effect is visible
+    before the row's deletion commits."""
 
-        deadline = time.time() + 2
-        while not ran and time.time() < deadline:
-            time.sleep(0.02)
+    def test_a_scheduled_job_runs_after_the_delay_with_its_params(self, ran):
+        fired_at: list[Any] = []
+
+        def record_with_the_time(**params: Any) -> None:
+            ran.append(params)
+            fired_at.append(_db_clock())
+
+        timers.JOBS["test_clock"] = record_with_the_time
+        before = _db_clock()
+
+        timers.schedule("game:1:test", 0.05, "test_clock", {"n": 1})
+        timer_threads.settle("game:1:test")
 
         assert ran == [{"n": 1}]
         assert not ScheduledTimer.objects.filter(key="game:1:test").exists()
+        # By the database clock: not before the delay, and not very late.
+        waited = (fired_at[0] - before).total_seconds()
+        assert 0.05 - CLOCK_GRAIN <= waited < LATE
 
     def test_cancel_prevents_the_job_and_removes_the_row(self, ran):
-        timers.schedule("game:1:cancel", 0.3, "test_record", {})
+        timers.schedule("game:1:cancel", FAR, "test_record", {})
         assert timers.is_scheduled("game:1:cancel")
+        thread = timer_threads.armed("game:1:cancel")
 
         timers.cancel("game:1:cancel")
 
         assert not timers.is_scheduled("game:1:cancel")
         assert not ScheduledTimer.objects.filter(key="game:1:cancel").exists()
-        time.sleep(0.5)
+        timer_threads.join(thread)  # it ended without running the job
         assert ran == []
 
     def test_cancel_all_for_game_leaves_other_games_alone(self, ran):
-        timers.schedule("42:discussion", 0.3, "test_record", {"who": "d"})
-        timers.schedule("42:voting", 0.3, "test_record", {"who": "v"})
-        timers.schedule("99:other", 0.3, "test_record", {"who": "o"})
+        timers.schedule("42:discussion", FAR, "test_record", {"who": "d"})
+        timers.schedule("42:voting", FAR, "test_record", {"who": "v"})
+        timers.schedule("99:other", 0.05, "test_record", {"who": "o"})
+        threads = [timer_threads.armed(k) for k in ("42:discussion", "42:voting")]
 
         timers.cancel_all_for_game(42)
-        time.sleep(0.6)
 
+        for thread in threads:
+            timer_threads.join(thread)
+        timer_threads.settle("99:other")
         assert ran == [{"who": "o"}]
+        assert list(ScheduledTimer.objects.values_list("key", flat=True)) == []
 
     def test_cancelling_a_key_that_does_not_exist_is_safe(self):
         timers.cancel("nonexistent:key")
 
     def test_rescheduling_replaces_the_timer_and_the_old_one_never_runs(self, ran):
-        timers.schedule("game:1:phase", 0.4, "test_record", {"which": "first"})
+        timers.schedule("game:1:phase", FAR, "test_record", {"which": "first"})
+        first = timer_threads.armed("game:1:phase")
         timers.schedule("game:1:phase", 0.05, "test_record", {"which": "second"})
 
-        time.sleep(0.8)
+        timer_threads.join(first)
+        timer_threads.settle("game:1:phase")
 
         assert ran == [{"which": "second"}]
+        assert not ScheduledTimer.objects.filter(key="game:1:phase").exists()
 
     def test_threads_are_daemons(self, ran):
         timers.schedule("game:1:daemon", 5.0, "test_record", {})
@@ -111,21 +154,25 @@ class TestMemoryBackend:
             assert timers._registry["game:1:daemon"].daemon is True
 
     def test_a_row_left_by_a_dead_process_is_not_scheduled_until_rearmed(self, ran):
-        ScheduledTimer.objects.create(
-            key="game:1:orphan",
-            token="abc",
-            job="test_record",
-            params={"x": 1},
-            due_at=timezone.now() - timedelta(seconds=5),
-        )
+        for key, due_in in (("game:1:orphan", FAR), ("game:1:overdue", -5)):
+            ScheduledTimer.objects.create(
+                key=key,
+                token="abc",
+                job="test_record",
+                params={"key": key},
+                due_at=Now() + timedelta(seconds=due_in),
+            )
         assert not timers.is_scheduled("game:1:orphan")  # no thread here
+        assert not timers.is_scheduled("game:1:overdue")
 
-        assert timers.rearm_from_table() == 1
+        assert timers.rearm_from_table() == 2
         assert timers.is_scheduled("game:1:orphan")
-        deadline = time.time() + 2
-        while not ran and time.time() < deadline:
-            time.sleep(0.02)
-        assert ran == [{"x": 1}]  # overdue: fired at once, row consumed
+        timer_threads.settle("game:1:overdue")
+        # Overdue: fired at once, row consumed; the other waits for its time.
+        assert ran == [{"key": "game:1:overdue"}]
+        assert list(ScheduledTimer.objects.values_list("key", flat=True)) == [
+            "game:1:orphan"
+        ]
 
     def test_an_unknown_job_is_refused_up_front(self):
         with pytest.raises(ValueError):
@@ -144,7 +191,7 @@ class TestFiring:
             token=token,
             job="test_record",
             params=params,
-            due_at=timezone.now() + timedelta(seconds=due_in),
+            due_at=Now() + timedelta(seconds=due_in),
         )
 
     def test_a_matching_due_token_runs_once_and_deletes_the_row(self, ran):
@@ -174,12 +221,16 @@ class TestFiring:
     def test_an_early_delivery_is_reported_with_the_remaining_time_and_keeps_the_row(
         self, ran
     ):
+        started = time.monotonic()
         self._row(due_in=30)
 
         result = timers.fire("game:1:x", "tok")
 
+        # Both ends by the database clock: at most 30, less only by the time
+        # that passed between the insert and the claim.
+        elapsed = time.monotonic() - started
         assert result.status == "early"
-        assert 28 < result.remaining <= 30
+        assert 30 - elapsed - 0.01 <= result.remaining <= 30
         assert ran == []
         assert ScheduledTimer.objects.filter(key="game:1:x").exists()
 
@@ -314,7 +365,7 @@ class TestQueueBackendSafetyNets:
         assert timers.is_scheduled("game:1:q")
 
         ScheduledTimer.objects.update(
-            due_at=timezone.now() - timedelta(seconds=timers.OVERDUE_AFTER_SECONDS + 5)
+            due_at=Now() - timedelta(seconds=timers.OVERDUE_AFTER_SECONDS + 5)
         )
 
         assert not timers.is_scheduled("game:1:q")

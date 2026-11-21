@@ -1,0 +1,84 @@
+{
+  "code": "R5ZD3H",
+  "host": {
+    "id": 27,
+    "username": "00000000-0000-4000-8000-000000000027",
+    "display_name": "Ana"
+  },
+  "original_host_id": 27,
+  "is_acting_host": false,
+  "game_type": "onuw",
+  "status": "waiting",
+  "max_players": 10,
+  "settings": {
+    "deck": "auto",
+    "deck_chip": "simple",
+    "night_protocol": 2,
+    "card_look_seconds": 30
+  },
+  "players": [
+    {
+      "user": {
+        "id": 27,
+        "username": "00000000-0000-4000-8000-000000000027",
+        "display_name": "Ana"
+      },
+      "token": "moth",
+      "joined_at": "2024-03-07T21:10:38Z",
+      "connected": false
+    },
+    {
+      "user": {
+        "id": 28,
+        "username": "00000000-0000-4000-8000-000000000028",
+        "display_name": "Ben"
+      },
+      "token": "hare",
+      "joined_at": "2024-03-07T21:11:38Z",
+      "connected": false
+    },
+    {
+      "user": {
+        "id": 29,
+        "username": "00000000-0000-4000-8000-000000000029",
+        "display_name": "Cleo"
+      },
+      "token": "spindle",
+      "joined_at": "2024-03-07T21:12:38Z",
+      "connected": false
+    },
+    {
+      "user": {
+        "id": 30,
+        "username": "00000000-0000-4000-8000-000000000030",
+        "display_name": "Dev"
+      },
+      "token": "scythe",
+      "joined_at": "2024-03-07T21:13:38Z",
+      "connected": false
+    },
+    {
+      "user": {
+        "id": 31,
+        "username": "00000000-0000-4000-8000-000000000031",
+        "display_name": "Esme"
+      },
+      "token": "bell",
+      "joined_at": "2024-03-07T21:14:38Z",
+      "connected": false
+    }
+  ],
+  "created_at": "2024-03-07T21:10:38Z",
+  "deck_preview": {
+    "Werewolf": 2,
+    "Seer": 1,
+    "Robber": 1,
+    "Troublemaker": 1,
+    "Villager": 3
+  },
+  "deal": {
+    "ok": true,
+    "need": 8,
+    "have": 8
+  }
+}

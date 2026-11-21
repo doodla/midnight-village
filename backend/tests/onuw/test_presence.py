@@ -11,6 +11,7 @@ moved back in time.
 """
 
 import asyncio
+import contextlib
 from datetime import timedelta
 from typing import Any
 from unittest.mock import patch
@@ -30,6 +31,7 @@ from apps.onuw import presence, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
+from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night
 
 pytestmark = pytest.mark.integration
@@ -106,7 +108,7 @@ def vote(night: Night, voter: str, target: str) -> Any:
     with night.committed():
         return night.client.post(
             reverse("onuw:vote", kwargs={"game_id": str(night.game.id)}),
-            {"target_player_id": night.users[target].id},
+            staged(night, {"target_player_id": night.users[target].id, "lock": True}),
             format="json",
         )
 
@@ -212,7 +214,13 @@ class TestConnectionCounting:
             night.users["villager"].id: False,
         }
         for p in response.data["players"]:
-            assert set(p) == {"player_id", "display_name", "connected"}
+            assert set(p) == {
+                "player_id",
+                "display_name",
+                "token",
+                "seat",
+                "connected",
+            }
 
     def test_a_drop_in_the_talk_starts_no_grace_timer(self, make_night) -> None:
         night = make_night(ROLES)
@@ -238,6 +246,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer", seconds_ago=5)
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
 
         assert night.refresh().phase == Phase.NIGHT
         assert night.game.current_wave == 2
@@ -258,6 +267,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer")
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         assert night.refresh().phase == Phase.NIGHT
 
         PlayerRole.objects.filter(game=night.game, user=night.users["seer"]).update(
@@ -273,7 +283,7 @@ class TestNightWithADroppedPlayer:
             if e["player_id"] == night.users["seer"].id
         ]
         assert [e["action_type"] for e in log] == ["skip"]
-        assert night.events_to("seer", "action.result")[0]["action_type"] == "skip"
+        assert night.results("seer")[0]["action_type"] == "skip"
 
     def test_a_player_who_returns_inside_the_grace_period_is_still_waited_for(
         self, make_night
@@ -283,6 +293,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer", seconds_ago=10)
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         stale = grace_callbacks(night, "seer")[-1]
 
         with patch("apps.core.timers.cancel") as cancel:
@@ -303,10 +314,7 @@ class TestNightWithADroppedPlayer:
         )
         assert response.status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.DISCUSSION
-        assert (
-            night.events_to("seer", "action.result")[0]["revealed_info"]["role"]
-            == "werewolf"
-        )
+        assert night.results("seer")[0]["revealed_info"]["role"] == "Werewolf"
 
     def test_a_player_who_returns_after_the_grace_period_can_still_act(
         self, make_night
@@ -314,7 +322,8 @@ class TestNightWithADroppedPlayer:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
         drop(night, "seer", seconds_ago=40)
-        night.post("wolf", "see_team")  # the robber has not acted yet
+        night.post("wolf", "see_team")  # the robber has not chosen yet
+        night.post("villager", "none")
         fire_grace(night, "seer")
         assert night.game.phase == Phase.NIGHT  # still waiting for the robber
 
@@ -326,44 +335,31 @@ class TestNightWithADroppedPlayer:
 
         assert response.status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.DISCUSSION
-        assert (
-            night.events_to("seer", "action.result")[0]["revealed_info"]["role"]
-            == "villager"
-        )
+        assert night.results("seer")[0]["revealed_info"]["role"] == "Villager"
 
-    def test_coming_back_lifts_the_hold_so_the_window_can_close(
-        self, make_night
-    ) -> None:
+    def test_a_dropped_phone_that_has_chosen_holds_nothing(self, make_night) -> None:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
-        drop(night, "seer", seconds_ago=3)
         night.post("seer", "skip")
+        drop(night, "seer", seconds_ago=3)  # its choose is in: nothing to wait for
         night.post("wolf", "see_team")
         night.post("robber", "skip")
-        assert night.refresh().phase == Phase.NIGHT  # held: the Seer's phone is out
-
-        connect(night, "seer")
 
         assert night.refresh().phase == Phase.DISCUSSION
 
-    def test_a_dropped_player_with_nothing_to_do_holds_the_window_just_the_same(
+    def test_a_dropped_player_with_nothing_to_choose_holds_nothing(
         self, make_night
     ) -> None:
-        """Whether the window waits must not tell the table the dropped player's role."""
+        """A phone with nothing to choose is never waited for, dropped or not (who
+        taps at night is an accepted tell: first time play spec, section 8)."""
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
         drop(night, "villager", seconds_ago=5)  # has no action
         night.post("seer", "skip")
         night.post("wolf", "see_team")
         night.post("robber", "skip")
-        assert night.refresh().phase == Phase.NIGHT  # held, exactly as for an actor
 
-        PlayerRole.objects.filter(game=night.game, user=night.users["villager"]).update(
-            disconnected_at=timezone.now() - timedelta(seconds=26)
-        )
-        fire_grace(night, "villager")
-
-        assert night.game.phase == Phase.DISCUSSION
+        assert night.refresh().phase == Phase.DISCUSSION
 
     def test_the_minimum_window_length_still_applies_when_the_close_is_early(
         self, make_night
@@ -373,6 +369,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer")
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         night.pretend_window_opened(30)
         PlayerRole.objects.filter(game=night.game, user=night.users["seer"]).update(
             disconnected_at=timezone.now() - timedelta(seconds=26)
@@ -395,6 +392,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer", seconds_ago=30)  # already gone
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         night.pretend_window_opened(30)
         fire_grace(night, "seer")  # ready: the close is deferred to the minimum
         assert night.game.phase == Phase.NIGHT
@@ -423,6 +421,7 @@ class TestNightWithADroppedPlayer:
         night.post("wolf", "see_team")
         night.post("seer", "skip")
         night.post("robber", "skip")
+        night.post("villager", "none")
         assert night.refresh().phase == Phase.NIGHT
         assert 0 < night.timer_delays(2)[-1] <= 40
 
@@ -436,6 +435,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer", seconds_ago=30)
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         fire_grace(night, "seer")
         deferred = [cb for k, _, cb in night.scheduled if k.endswith(":wave:2")][-1]
         connect(night, "seer")
@@ -499,6 +499,7 @@ class TestNightWithADroppedPlayer:
         drop(night, "seer", seconds_ago=500)
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
 
         assert night.refresh().phase == Phase.NIGHT  # waits for the Seer as ever
         assert grace_callbacks(night, "seer") == []
@@ -644,6 +645,7 @@ class TestTalkAndHost:
         night.post("wolf", "see_team")
         night.post("seer", "skip")
         night.post("robber", "skip")
+        night.post("villager", "none")
         assert night.refresh().phase == Phase.DISCUSSION
         deadline = night.game.phase_deadline
 
@@ -697,7 +699,9 @@ class TestTalkAndHost:
 
         with night.committed():
             ended = night.client.post(
-                reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)})
+                reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)}),
+                staged(night, {}),
+                format="json",
             )
         assert ended.status_code == status.HTTP_200_OK
         assert night.refresh().phase == Phase.VOTING
@@ -706,7 +710,9 @@ class TestTalkAndHost:
         night.client.force_authenticate(user=night.host)
         with night.committed():
             revealed = night.client.post(
-                reverse("onuw:reveal-votes", kwargs={"game_id": str(night.game.id)})
+                reverse("onuw:reveal-votes", kwargs={"game_id": str(night.game.id)}),
+                staged(night, {}),
+                format="json",
             )
 
         assert revealed.status_code == status.HTTP_200_OK
@@ -726,12 +732,15 @@ class TestTalkAndHost:
         assert night.host == night.users["wolf"]
         night.post("seer", "skip")
         night.post("robber", "skip")
+        night.post("villager", "none")
         fire_grace(night, "wolf")
 
         assert night.game.phase == Phase.DISCUSSION  # went on without the host
         night.client.force_authenticate(user=night.users["seer"])
         refused = night.client.post(
-            reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)})
+            reverse("onuw:end-discussion", kwargs={"game_id": str(night.game.id)}),
+            staged(night, {}),
+            format="json",
         )
         assert refused.status_code == status.HTTP_403_FORBIDDEN  # nobody else may
 
@@ -1074,6 +1083,7 @@ class TestSocketRowsAndHeartbeats:
         (_, check) = presence_checks(night, "seer")[0]
         night.post("wolf", "see_team")
         night.post("robber", "skip")
+        night.post("villager", "none")
         assert night.refresh().phase == Phase.NIGHT  # waiting for the Seer
         age_rows(night, "seer", 100)
         with night.committed():
@@ -1145,6 +1155,94 @@ class TestSocketRowsAndHeartbeats:
         Game.objects.count()
 
 
+class TestHeartbeatLoop:
+    async def test_cancelling_lets_a_beat_in_flight_finish_before_it_stops(
+        self, settings
+    ) -> None:
+        """``disconnect`` cancels the loop, then deletes the socket's row: a beat
+        still running (its database work is in a thread cancelling cannot stop)
+        would otherwise write the row back after it was deleted."""
+        settings.ONUW_PRESENCE_HEARTBEAT_SECONDS = 0
+        started, release = asyncio.Event(), asyncio.Event()
+        finished: list[str] = []
+
+        async def beat() -> None:
+            started.set()
+            await release.wait()
+            finished.append("beat")
+
+        loop = asyncio.ensure_future(presence.heartbeat_loop(beat))
+        await started.wait()
+        loop.cancel()
+        await asyncio.sleep(0)
+
+        assert not loop.done()  # still waiting for the beat
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await loop
+        assert finished == ["beat"]
+
+    async def test_a_second_cancellation_still_lets_the_beat_finish(
+        self, settings
+    ) -> None:
+        """The task running ``disconnect`` can itself be cancelled (shutdown, a
+        timeout) while it waits: that cancels the loop again, and the beat must
+        still be left to finish."""
+        settings.ONUW_PRESENCE_HEARTBEAT_SECONDS = 0
+        started, release = asyncio.Event(), asyncio.Event()
+        finished: list[str] = []
+
+        async def beat() -> None:
+            started.set()
+            await release.wait()
+            finished.append("beat")
+
+        loop = asyncio.ensure_future(presence.heartbeat_loop(beat))
+
+        async def disconnect() -> None:  # what the consumers do
+            loop.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await loop
+
+        await started.wait()
+        closing = asyncio.ensure_future(disconnect())
+        for _ in range(3):
+            await asyncio.sleep(0)
+        closing.cancel()  # cancels the loop it is waiting for, a second time
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+        assert not loop.done()  # still waiting for the beat
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await loop
+        assert finished == ["beat"]
+        await closing  # it went on only once the beat had ended
+
+    async def test_a_failing_beat_is_logged_and_the_loop_carries_on(
+        self, settings, caplog
+    ) -> None:
+        settings.ONUW_PRESENCE_HEARTBEAT_SECONDS = 0
+        beats: list[int] = []
+        second = asyncio.Event()
+
+        async def beat() -> None:
+            beats.append(1)
+            if len(beats) == 1:
+                raise RuntimeError("database down")
+            second.set()
+
+        loop = asyncio.ensure_future(presence.heartbeat_loop(beat))
+        async with asyncio.timeout(30):
+            await second.wait()
+        loop.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await loop
+
+        assert len(beats) >= 2
+        assert "Presence heartbeat failed" in caplog.text
+
+
 class TestConsumerHeartbeat(TransactionTestCase):
     @pytest.mark.asyncio
     async def test_the_consumer_beats_while_connected_and_stops_when_it_closes(self):
@@ -1158,8 +1256,13 @@ class TestConsumerHeartbeat(TransactionTestCase):
                 return SocketPresence.objects.get(game_id=game.id, user_id=other.id)
 
             first = await row()
-            await asyncio.sleep(0.45)
+            # Wait for a beat to land (a condition, not a fixed time: a slow
+            # machine may take longer than a few intervals).
             later = await row()
+            async with asyncio.timeout(30):
+                while later.last_seen == first.last_seen:
+                    await asyncio.sleep(0.05)
+                    later = await row()
             assert later.connected_at == first.connected_at  # the same socket row
             assert later.last_seen > first.last_seen  # kept fresh by the beat
 
@@ -1167,7 +1270,13 @@ class TestConsumerHeartbeat(TransactionTestCase):
             assert not await database_sync_to_async(
                 SocketPresence.objects.filter(game_id=game.id, user_id=other.id).exists
             )()
-            await asyncio.sleep(0.3)  # no beat is left running to bring it back
+            # disconnect waited for the loop (and any beat in flight) to end:
+            # no heartbeat is left that could bring the row back.
+            assert not [
+                t
+                for t in asyncio.all_tasks()
+                if getattr(t.get_coro(), "__qualname__", "") == "heartbeat_loop"
+            ]
             assert not await database_sync_to_async(
                 SocketPresence.objects.filter(game_id=game.id, user_id=other.id).exists
             )()

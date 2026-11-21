@@ -1,0 +1,6 @@
+{
+  "error": {
+    "status_code": 429,
+    "detail": "Request was throttled. Expected available in 60 seconds."
+  }
+}

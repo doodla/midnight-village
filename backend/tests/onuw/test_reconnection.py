@@ -323,17 +323,16 @@ class TestMeEndpointReconnection:
 
         prompt = response.data["action_prompt"]
         assert prompt["role_acting_as"] == "Seer"
-        assert "peek_player" in prompt["action_types"]
-        assert "peek_center" in prompt["action_types"]
+        assert prompt["kind"] == "seer"
+        assert prompt["action_types"] == ["choose"]
         assert "valid_targets" in prompt
-        assert prompt["wave"] == 2
-        # Optional actions advertise the explicit "do nothing" choice
-        assert "skip" in prompt["action_types"]
+        assert prompt["window"] == 2
+        assert (prompt["chosen"], prompt["chooses_left"]) == (0, 1)
 
-    def test_me_endpoint_no_action_prompt_when_not_acting(self, api_client, db):
+    def test_me_endpoint_prompt_of_a_player_with_nothing_to_do(self, api_client, db):
         """
-        During night phase, if the player does not act in the current window,
-        action_prompt is None.
+        During night phase every phone has a prompt; a player who does not act in
+        the current window has one of kind ``none`` (the same shape).
         """
         game, users, _host = _create_game(
             {
@@ -354,7 +353,7 @@ class TestMeEndpointReconnection:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["deadline"] is None
-        assert response.data["action_prompt"] is None
+        assert response.data["action_prompt"]["kind"] == "none"
 
     def test_me_endpoint_no_action_prompt_outside_night(self, api_client, db):
         """Outside night phase, action_prompt is always None."""
@@ -374,8 +373,10 @@ class TestMeEndpointReconnection:
         assert response.data["deadline"] is None
         assert response.data["action_prompt"] is None
 
-    def test_me_endpoint_no_action_prompt_after_acting(self, api_client, db):
-        """After a player has acted, action_prompt is None."""
+    def test_me_endpoint_prompt_after_choosing_says_nothing_is_left(
+        self, api_client, db
+    ):
+        """After a player has chosen, the prompt says so (``chooses_left`` 0)."""
         game, users, _host = _create_game(
             {
                 "meaa_host": "Werewolf",
@@ -389,20 +390,23 @@ class TestMeEndpointReconnection:
             current_wave=2,
         )
 
-        # Mark Seer as having already acted
+        # Mark Seer as having already chosen
         pr = PlayerRole.objects.get(game=game, user=users["meaa_p1"])
         pr.has_acted = True
-        pr.save(update_fields=["has_acted"])
+        pr.night_action_data = {"chose_2": 1}
+        pr.save(update_fields=["has_acted", "night_action_data"])
 
         api_client.force_authenticate(user=users["meaa_p1"])
         response = api_client.get(_me_url(game.id))
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["deadline"] is None
-        assert response.data["action_prompt"] is None
+        prompt = response.data["action_prompt"]
+        assert (prompt["chosen"], prompt["chooses_left"]) == (1, 0)
 
-    def test_me_endpoint_players_show_vote_status_during_voting(self, api_client, db):
-        """During voting, the players list includes has_voted for each player."""
+    def test_me_endpoint_players_never_show_who_voted(self, api_client, db):
+        """During voting, the players list says nothing of who voted: the table
+        sees only the count (``progress``)."""
         game, users, host = _create_game(
             {
                 "mev_host": "Werewolf",
@@ -424,7 +428,6 @@ class TestMeEndpointReconnection:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["deadline"] is None
 
-        vote_map = {p["player_id"]: p["has_voted"] for p in response.data["players"]}
-        assert vote_map[users["mev_p1"].id] is True
-        assert vote_map[users["mev_host"].id] is False
-        assert vote_map[users["mev_p2"].id] is False
+        for player in response.data["players"]:
+            assert "has_voted" not in player
+        assert response.data["progress"] == {"stage": "vote", "done": 1, "needed": 3}

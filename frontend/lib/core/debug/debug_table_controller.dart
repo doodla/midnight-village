@@ -72,6 +72,10 @@ class DebugTableController {
   /// defaults (the real window lengths); the harness passes zeros so a night
   /// window closes as soon as every actor has submitted.
   ///
+  /// The table is opened as the app opens one (`defaults: "v2"`: the look
+  /// stage), with the deck made custom from [roleCounts] (an automatic deck
+  /// is built at the deal and would not match a forced assignment).
+  ///
   /// [roleCounts] is TitleCase role name → count, exactly as PATCHed.
   /// [playerRolesByName] maps each player's display name → TitleCase role.
   /// [centerCards] is exactly 3 TitleCase role names. Pass all three null to
@@ -102,7 +106,7 @@ class DebugTableController {
     final lobbyResp = await _client.post(
       '/lobbies/',
       token: host.accessToken,
-      data: {'game_type': 'onuw'},
+      data: {'game_type': 'onuw', 'defaults': 'v2'},
     );
     final lobbyCode = _requireString(lobbyResp, 'code', '/lobbies/');
 
@@ -111,20 +115,12 @@ class DebugTableController {
       await _client.post('/lobbies/$lobbyCode/join/', token: guest.accessToken);
     }
 
-    // 4. Everyone readies up.
-    for (final guest in guests) {
-      await _client.post(
-        '/lobbies/$lobbyCode/ready/',
-        token: guest.accessToken,
-      );
-    }
-
-    // 5. Host PATCHes the role config (TitleCase keys).
+    // 4. Host PATCHes the role config (TitleCase keys).
     await _client.patch(
       '/lobbies/$lobbyCode/',
       token: host.accessToken,
       data: {
-        'settings': {'roles': roleCounts, ...?timerSettings},
+        'settings': {'deck': 'custom', 'roles': roleCounts, ...?timerSettings},
       },
     );
 
@@ -183,6 +179,11 @@ class DebugTableController {
     return table;
   }
 
+  /// Points the controller at [table] (a later game of the same lobby, after a
+  /// play again), so [stagedAs], [playerView], [oracle] and [fireTimer] act on
+  /// that game.
+  void attachTable(DebugTable table) => _table = table;
+
   // ---------------------------------------------------------------------------
   // Perspective + driving
   // ---------------------------------------------------------------------------
@@ -202,41 +203,36 @@ class DebugTableController {
     }
   }
 
-  /// Issues [action] AS [player] WITHOUT changing the visible perspective,
-  /// via the explicit-per-player-token client.
-  Future<void> driveAs(DebugPlayer player, DebugAction action) async {
+  /// A stage-scoped request (`ready`, `action` with a `choose`, `vote`, and
+  /// the host's `advance-wave`, `end-discussion`, `reveal-votes`) AS
+  /// [player], WITHOUT changing the visible perspective, naming the stage
+  /// their `/me/` carries now; a choose answers the prompt as `/me/` shows it
+  /// (its `chosen`).
+  ///
+  /// STRICT by default: anything the server refuses throws, so a runner can
+  /// never mistake a refused move for a made one. The debug toolbar's
+  /// one-tap helpers re-send moves on purpose and pass [lenient] = true to
+  /// treat a 409 (the stage moved on, or it was already taken) as done.
+  Future<void> stagedAs(
+    DebugPlayer player,
+    String tail,
+    Map<String, dynamic> data, {
+    bool lenient = false,
+  }) async {
     final gameId = _requireTable().gameId;
-    switch (action.kind) {
-      case DebugActionKind.nightAction:
-        await _client.post(
-          '/onuw/games/$gameId/action/',
-          token: player.accessToken,
-          data: {'action_type': action.actionType, 'targets': action.targets},
-          idempotent409: true,
-        );
-      case DebugActionKind.vote:
-        await _client.post(
-          '/onuw/games/$gameId/vote/',
-          token: player.accessToken,
-          data: {'target_player_id': action.voteTargetUserId},
-          idempotent409: true,
-        );
-      case DebugActionKind.endDiscussion:
-        await _client.post(
-          '/onuw/games/$gameId/end-discussion/',
-          token: player.accessToken,
-        );
-      case DebugActionKind.advanceWave:
-        await _client.post(
-          '/onuw/games/$gameId/advance-wave/',
-          token: player.accessToken,
-        );
-      case DebugActionKind.revealVotes:
-        await _client.post(
-          '/onuw/games/$gameId/reveal-votes/',
-          token: player.accessToken,
-        );
-    }
+    final me = await playerView(player);
+    final prompt = me['action_prompt'] as Map<String, dynamic>?;
+    await _client.post(
+      '/onuw/games/$gameId/$tail/',
+      token: player.accessToken,
+      data: {
+        ...data,
+        'stage': me['stage'],
+        if (data['action_type'] == 'choose')
+          'chosen': prompt == null ? 0 : prompt['chosen'] as int,
+      },
+      idempotent409: lenient,
+    );
   }
 
   /// Reads what the server tells [player] about the game (`GET .../me/`): the

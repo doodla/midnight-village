@@ -1,0 +1,14 @@
+# Guardrail rules, keyed by module name in rules/.
+#   mode     = "enforce" | "warn" | "off"   (start new rules in "warn", check logs, then enforce)
+#   on_error = "closed" | "open"            (what happens if the rule itself crashes)
+# A rule's tools must also be in the PreToolUse matcher in .claude/settings.json.
+
+[rules.subagent_model_effort]
+mode = "enforce"
+on_error = "closed"
+# Subagents may only run on these model families. A model (alias or full id,
+# e.g. "opus", "claude-sonnet-4-5") is allowed when it contains one of these
+# words, case-insensitively. "haiku" is not allowed unless you list it here.
+allowed_models = ["opus", "sonnet"]
+# A fork inherits the parent session's model, so forks are blocked unless true.
+allow_forks = false

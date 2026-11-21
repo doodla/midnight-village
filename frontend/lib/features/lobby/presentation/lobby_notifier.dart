@@ -5,10 +5,12 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/config/env.dart';
+import '../../../core/healing/healing.dart';
 import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
+import '../../../design_system/copy/copy.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../data/lobby_service.dart';
 import '../domain/lobby_state.dart';
@@ -56,14 +58,15 @@ LobbyWebSocketFactory lobbyWebSocketFactory(Ref ref) {
 ///
 /// WebSocket event handling per the API contract:
 /// - `player_joined` / `player_left` -> re-fetch full lobby state (events lack complete data)
-/// - `player_ready` -> update player's isReady flag in-place (event has complete data)
 /// - `lobby_update` -> update settings (role configuration changed by host)
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
 /// [LobbyState.startedGameId], and a lobby opened while a game is already
 /// running (the start event came before the socket was up) looks the game up.
-@riverpod
+/// Its first read heals like every fetch a screen depends on: retried until
+/// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
+@Riverpod(retry: retryForever)
 class LobbyNotifier extends _$LobbyNotifier {
   StreamSubscription<dynamic>? _wsSubscription;
   StreamSubscription<WebSocketConnectionState>? _connectionSubscription;
@@ -91,9 +94,32 @@ class LobbyNotifier extends _$LobbyNotifier {
     if (_working != null) {
       _working = next;
     } else {
-      state = AsyncData(next);
+      _show(next);
     }
   }
+
+  /// Settings changes sent and not answered yet, oldest first. What the
+  /// screen shows is the server's lobby with these merged over it as the
+  /// server merges them, so a tap shows at once and an event or a refetch
+  /// meanwhile never takes it back.
+  final List<Map<String, Object>> _pending = [];
+  Future<void> _settingsQueue = Future.value();
+
+  /// The last change that did not reach the server ("Try again").
+  Future<void> Function()? _retry;
+
+  void _show(LobbyState server) => state = AsyncData(_withPending(server));
+
+  LobbyState _withPending(LobbyState lobby) =>
+      _pending.fold(lobby, _mergeSettings);
+
+  static LobbyState _mergeSettings(LobbyState lobby, Map<String, Object> p) =>
+      lobby.copyWith(
+        table: lobby.table.merged(p),
+        roleConfig: p['roles'] is Map<String, int>
+            ? p['roles']! as Map<String, int>
+            : lobby.roleConfig,
+      );
 
   /// The game ID from a `game_started` event. Consumers watch this to navigate.
   String? gameId;
@@ -195,8 +221,6 @@ class LobbyNotifier extends _$LobbyNotifier {
         case 'player_joined':
         case 'player_left':
           _onPlayerListChanged();
-        case 'player_ready':
-          _onPlayerReady(message);
         case 'lobby_update':
           _onLobbyUpdate(message);
         case 'game_started':
@@ -246,7 +270,7 @@ class LobbyNotifier extends _$LobbyNotifier {
     try {
       final newState = await ref.read(lobbyServiceProvider).fetchLobby(code);
       if (!ref.mounted) return;
-      state = AsyncData(_replayBuffered(_adopt(newState)));
+      _show(_replayBuffered(_adopt(newState)));
     } on NotFoundException {
       // The table is gone (its last member left).
       if (ref.mounted) _applyHeld(closed: true);
@@ -271,7 +295,7 @@ class LobbyNotifier extends _$LobbyNotifier {
       return;
     }
     final next = _replayBuffered(current);
-    state = AsyncData(closed ? next.copyWith(tableClosed: true) : next);
+    _show(closed ? next.copyWith(tableClosed: true) : next);
   }
 
   /// A freshly fetched lobby, keeping what only this phone knows: the game it
@@ -282,6 +306,8 @@ class LobbyNotifier extends _$LobbyNotifier {
     final brief = current.briefHostNotice;
     return fresh.copyWith(
       startedGameId: current.startedGameId,
+      notSent: current.notSent,
+      dealRefused: current.dealRefused,
       // The "hosting again" / "is the host now" line outlives a refetch only
       // while the server agrees that person is the host.
       briefHostNotice: brief != null && fresh.hostId == brief.hostId
@@ -296,7 +322,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   void _onHostChanged(Map<String, dynamic> message) {
     final change = HostChange.fromEvent(message);
     final current = _current;
-    if (change == null || current == null) return;
+    if (current == null) return;
     final brief = change.reason != HostChangeReason.handover;
     _set(
       current.copyWith(
@@ -342,43 +368,23 @@ class LobbyNotifier extends _$LobbyNotifier {
     }
   }
 
-  /// Update a player's ready state in-place.
-  ///
-  /// The `player_ready` event has complete data (`user_id`, `is_ready`),
-  /// so we can update locally without re-fetching.
-  void _onPlayerReady(Map<String, dynamic> message) {
-    final userId = message['user_id'];
-    final isReady = message['is_ready'] as bool?;
-    if (userId == null || isReady == null) return;
-
-    final current = _current;
-    if (current == null) return;
-
-    final targetId = userId is int ? userId : int.tryParse(userId.toString());
-
-    final updatedPlayers = current.players.map((player) {
-      if (player.id == targetId) {
-        return player.copyWith(isReady: isReady);
-      }
-      return player;
-    }).toList();
-
-    _set(current.copyWith(players: updatedPlayers));
-  }
-
-  /// Update lobby settings when the host changes role configuration.
+  /// `lobby_update` carries the whole lobby body (a settings change, play
+  /// again): it is the server's lobby now, kept with what only this phone
+  /// knows and with its own changes still on their way merged over it.
   void _onLobbyUpdate(Map<String, dynamic> message) {
     final current = _current;
     if (current == null) return;
-
     final data = message['data'] as Map<String, dynamic>?;
-    final settings = data?['settings'] as Map<String, dynamic>?;
-    final roles = settings?['roles'] as Map<String, dynamic>?;
-
-    if (roles != null) {
-      final roleConfig = roles.map((k, v) => MapEntry(k, v as int));
-      _set(current.copyWith(roleConfig: roleConfig));
-    }
+    if (data == null) return;
+    final fresh = LobbyState.fromJson(data);
+    _set(
+      fresh.copyWith(
+        startedGameId: current.startedGameId,
+        notSent: current.notSent,
+        briefHostNotice: current.briefHostNotice,
+        hostActionNotice: current.hostActionNotice,
+      ),
+    );
   }
 
   /// Handle game_started event by extracting the game ID.
@@ -416,16 +422,135 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   // --- Public methods for user actions ---
 
-  /// Toggles the current player's ready state.
-  Future<void> toggleReady() async {
+  /// The host picks a deck chip: the server builds that deck at the deal.
+  Future<void> chooseChip(DeckChip chip) =>
+      _changeSettings(LobbyService.deckChip(chip));
+
+  /// The host's own card list (the server's `deal` says whether it fits).
+  Future<void> useCustomDeck(Map<String, int> roles) =>
+      _changeSettings(LobbyService.customDeck(roles));
+
+  /// The host picks a pace preset.
+  Future<void> choosePace(Pace pace) => _changeSettings(pace.settings);
+
+  /// Sends [patch] (one at a time, in order) and shows it at once, merged
+  /// as the server merges it. The answer is the server's lobby; a refusal
+  /// or no answer takes the change back (the lobby is read again) and the
+  /// screen says "Not sent." with "Try again".
+  Future<void> _changeSettings(Map<String, Object> patch) {
+    final lobby = state.value;
+    if (lobby == null) return Future.value();
+    _pending.add(patch);
+    _show(lobby.copyWith(notSent: false));
+    return _settingsQueue = _settingsQueue.then((_) => _send(patch));
+  }
+
+  Future<void> _send(Map<String, Object> patch) async {
     try {
-      final service = ref.read(lobbyServiceProvider);
-      await service.toggleReady(code);
-    } catch (e, stack) {
-      logger.e('Error toggling ready', error: e, stackTrace: stack);
-      rethrow;
+      final answer = await _hostAction(
+        () => ref.read(lobbyServiceProvider).patchSettings(code, patch),
+      );
+      if (!ref.mounted) return;
+      _pending.remove(patch);
+      _show(_adopt(answer));
+    } on NoLongerHostException {
+      // The role moved: the lobby was read again and this phone is a guest
+      // now, which its screen shows with no words.
+      _pending.remove(patch);
+      if (ref.mounted) await refreshLobby();
+    } catch (e) {
+      logger.d('Settings change not sent ($e)');
+      if (!ref.mounted) return;
+      _pending.remove(patch);
+      _retry = () => _changeSettings(patch);
+      final now = state.value;
+      if (now != null) state = AsyncData(now.copyWith(notSent: true));
+      await refreshLobby();
     }
   }
+
+  /// "Try again" after "Not sent.": the change (or the deal) that failed.
+  Future<void> retry() async {
+    final again = _retry;
+    _retry = null;
+    final now = state.value;
+    if (now != null) {
+      state = AsyncData(now.copyWith(notSent: false, dealRefused: null));
+    }
+    if (again != null) await again();
+  }
+
+  /// Deals (host only): the game id, or null when the deal did not happen.
+  /// No answer: "Not sent." with "Try again". A refusal: why, in the
+  /// player's words ([dealRefusal]), never a bare "Not sent.". A host role
+  /// that moved meanwhile says nothing: the screen is a guest's now.
+  Future<String?> deal() async {
+    final before = state.value;
+    if (before != null && before.dealRefused != null) {
+      state = AsyncData(before.copyWith(dealRefused: null));
+    }
+    try {
+      final id = await startGame();
+      _retry = null;
+      return id;
+    } on NoLongerHostException {
+      return null;
+    } catch (e) {
+      if (!ref.mounted) return null;
+      final now = state.value;
+      final refusal = dealRefusal(e);
+      _retry = refusal.answered ? null : deal;
+      if (now != null) {
+        state = AsyncData(
+          now.copyWith(notSent: !refusal.answered, dealRefused: refusal.why),
+        );
+      }
+      // The table's new verdict sets the button (the screen keeps it busy
+      // until it is read).
+      if (refusal.answered) await refreshLobby();
+      return null;
+    }
+  }
+
+  /// What a refused deal means to the host, from the server's answer
+  /// (`apps/onuw/deal.py`'s `deal_refusal`: the table is not waiting, or the
+  /// settings' errors for this many players). Not [answered]: the phone could
+  /// not reach the server ("Not sent."). Answered with no [why]: the server
+  /// gave no reason worth saying, so nothing is said; the button showed
+  /// `deal.ok`, so a refusal means the table changed under the tap, and the
+  /// lobby read again sets the button.
+  static ({bool answered, String? why}) dealRefusal(Object error) {
+    final (int? status, List<String> details) = switch (error) {
+      ValidationException(:final errors) => (
+        400,
+        [...errors.values.expand((e) => e)],
+      ),
+      UnhandledHttpException(:final statusCode, :final message) => (
+        statusCode,
+        [message],
+      ),
+      NotFoundException() => (404, const <String>[]),
+      _ => (null, const <String>[]),
+    };
+    if (status == null || status >= 500) return (answered: false, why: null);
+    final why = status == 404
+        ? BannerCopy.tableClosed
+        : details.contains(_notWaiting)
+        ? BannerCopy.lobbyClosed
+        : details.any((d) => d.startsWith(_tooFew))
+        ? TableCopy.needPlayers
+        : details.any(_deckError.hasMatch)
+        ? BannerCopy.deckDoesNotFit
+        : null;
+    return (answered: true, why: why);
+  }
+
+  /// The server's refusal words (`deal.py`, `validate_onuw_settings`).
+  static const _notWaiting = 'Lobby is not in waiting state.';
+  static const _tooFew = 'At least 3 players required';
+  static final _deckError = RegExp(
+    r'^(Total role count|Masons must|Unknown role|Count for|.* requires at least|.* allows at most)',
+  );
 
   /// Starts the game (host only).
   ///
@@ -450,20 +575,6 @@ class LobbyNotifier extends _$LobbyNotifier {
       await service.leaveLobby(code);
     } catch (e, stack) {
       logger.e('Error leaving lobby', error: e, stackTrace: stack);
-      rethrow;
-    }
-  }
-
-  /// Updates the role configuration (host only).
-  Future<void> updateRoleConfig(Map<String, int> roles) async {
-    try {
-      final service = ref.read(lobbyServiceProvider);
-      final newState = await _hostAction(
-        () => service.updateRoleConfig(code, roles),
-      );
-      state = AsyncData(_adopt(newState));
-    } catch (e, stack) {
-      logger.e('Error updating role config', error: e, stackTrace: stack);
       rethrow;
     }
   }

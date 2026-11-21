@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# git pre-commit hook (enabled by `git config core.hooksPath .claude/hooks/git`,
+# shared by every worktree of the clone). Runs the commit gate on what git is
+# about to commit: the subject is checked by commit-msg, everything else here.
+# Also run for merges (pre-merge-commit calls this file).
+HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=../lib/gate.sh
+if ! source "$HOOKS/lib/gate.sh" 2>/dev/null || ! gate_require; then
+  echo "BLOCKED: the commit gate (.claude/hooks/lib/gate.sh) is broken or missing; fix it before committing." >&2
+  exit 2
+fi
+gate_check_commit || exit 2
+exit 0
