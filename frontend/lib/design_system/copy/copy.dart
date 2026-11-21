@@ -346,6 +346,9 @@ abstract final class BannerCopy {
   /// deck does not fit the table; any other reason.
   static const deckDoesNotFit = 'The deck does not fit.';
   static const cannotDeal = "Can't deal yet.";
+
+  /// A leave the server refused for a reason with no words of its own.
+  static const cannotLeave = "Can't leave now.";
 }
 
 /// What a screen reader says (8 words at most; not in the budgets).

@@ -1322,6 +1322,14 @@
       "description": "Leave at a table that is gone."
     },
     {
+      "name": "http/lobby/leave_not_member",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/leave/",
+      "status": 400,
+      "description": "A leave that reaches a table this player already left (a second tap, or a retry after a slow answer): the app counts it as left."
+    },
+    {
       "name": "http/lobby/leave_owner_in_game",
       "kind": "http",
       "method": "POST",
@@ -1344,6 +1352,14 @@
       "path": "/lobbies/{code}/leave/",
       "status": 200,
       "description": "The last member leaves: the table is closed."
+    },
+    {
+      "name": "http/lobby/left_owner",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/leave/",
+      "status": 200,
+      "description": "The owner leaves with others still there: the table passes on."
     },
     {
       "name": "http/lobby/my_table_after_play_again",

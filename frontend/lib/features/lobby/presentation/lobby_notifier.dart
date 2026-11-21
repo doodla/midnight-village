@@ -17,6 +17,16 @@ import '../domain/lobby_state.dart';
 
 part 'lobby_notifier.g.dart';
 
+/// A leave the server refused, with the words to show ([why]): never "Not
+/// sent.", which is only for a leave that did not reach the server.
+class LeaveRefused implements Exception {
+  const LeaveRefused(this.why);
+  final String why;
+
+  @override
+  String toString() => 'LeaveRefused: $why';
+}
+
 /// Provides the [LobbyService] for HTTP lobby operations.
 @riverpod
 LobbyService lobbyService(Ref ref) {
@@ -598,16 +608,41 @@ class LobbyNotifier extends _$LobbyNotifier {
     }
   }
 
-  /// Leaves the lobby.
+  /// Leaves the table. Done when the server says so, and also when it says
+  /// this phone is not at the table (an earlier tap reached it: a slow answer
+  /// and "Try again", a second tap) or that the table is gone (the last one
+  /// out closed it). With no answer at all, where the server says this phone
+  /// sits decides: off this table is done. Throws [LeaveRefused] with the
+  /// words to show for a refusal (the table started playing), and the error
+  /// only when this phone is still at the table and the server could not be
+  /// asked ("Not sent.").
   Future<void> leave() async {
+    final service = ref.read(lobbyServiceProvider);
     try {
-      final service = ref.read(lobbyServiceProvider);
       await service.leaveLobby(code);
-    } catch (e, stack) {
-      logger.e('Error leaving lobby', error: e, stackTrace: stack);
+    } on NotFoundException {
+      return;
+    } on ValidationException catch (e) {
+      if (e.firstErrorFor('detail') == _notAMember) return;
+      logger.w('Leave refused: $e');
+      throw const LeaveRefused(BannerCopy.cannotLeave);
+    } on UnhandledHttpException catch (e) {
+      // 409: the deal came first; the table is playing now.
+      logger.w('Leave refused: $e');
+      throw LeaveRefused(
+        e.statusCode == 409 ? BannerCopy.lobbyClosed : BannerCopy.cannotLeave,
+      );
+    } on ApiException catch (e, stack) {
+      // No answer (or a server error): did it reach the server anyway?
+      logger.w('Leave not answered: $e', error: e, stackTrace: stack);
+      final where = await service.fetchMyTable();
+      if (where?.lobbyCode != code) return;
       rethrow;
     }
   }
+
+  /// The server's words for a leave from a table this player is not at.
+  static const _notAMember = 'You are not in this lobby.';
 
   void _dispose() {
     _noticeTimer?.cancel();

@@ -64,6 +64,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
   var _dealing = false;
   var _leaving = false;
   var _leaveFailed = false;
+  String? _leaveRefused;
   var _copied = false;
 
   int? get _viewer => switch (ref.read(authProvider)) {
@@ -92,6 +93,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
       dealing: _dealing,
       leaving: _leaving,
       notSent: lobby.notSent || _leaveFailed,
+      leaveRefused: _leaveRefused,
       copied: _copied,
       onRetry: () {
         if (_leaveFailed) {
@@ -140,11 +142,15 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     setState(() {
       _leaving = true;
       _leaveFailed = false;
+      _leaveRefused = null;
       _copied = false;
     });
     try {
       await ref.read(lobbyProvider(code).notifier).leave();
+      // Off the table: `/me/table/` says where to go (01 Join).
       ref.invalidate(myTableProvider);
+    } on LeaveRefused catch (refusal) {
+      if (mounted) setState(() => _leaveRefused = refusal.why);
     } catch (_) {
       if (mounted) setState(() => _leaveFailed = true);
     } finally {
@@ -182,6 +188,7 @@ class AtTableView extends StatelessWidget {
     this.dealing = false,
     this.leaving = false,
     this.notSent = false,
+    this.leaveRefused,
     this.copied = false,
     this.onRetry,
     this.onShare,
@@ -198,6 +205,9 @@ class AtTableView extends StatelessWidget {
   final bool dealing;
   final bool leaving;
   final bool notSent;
+
+  /// Why the server refused this phone's leave (its words, from copy).
+  final String? leaveRefused;
   final bool copied;
   final VoidCallback? onRetry;
   final ValueChanged<Uri>? onShare;
@@ -280,6 +290,8 @@ class AtTableView extends StatelessWidget {
             action: BannerCopy.goHome,
             onAction: onGoHome,
           )
+        else if (leaveRefused case final why?)
+          Notice(message: why)
         else if (notSent)
           Notice(
             message: BannerCopy.notSent,

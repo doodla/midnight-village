@@ -370,6 +370,7 @@ final banners = <(String, String?)>[
   (BannerCopy.alreadyInLobby, BannerCopy.goThere),
   (BannerCopy.tableClosed, BannerCopy.goHome),
   (BannerCopy.notSent, BannerCopy.tryAgain),
+  (BannerCopy.cannotLeave, null),
   (BannerCopy.offline, null),
   (BannerCopy.leftGame, BannerCopy.goHome),
   (BannerCopy.copied, null),

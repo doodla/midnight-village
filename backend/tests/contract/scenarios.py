@@ -625,7 +625,23 @@ def classic_table(run: Recording) -> None:
     t.record_event(
         "lobby/player_left", "Ben", "lobby", "player_left", about="Someone left."
     )
-    t.call("POST", "Ana", "/lobbies/{code}/leave/")
+    t.record(
+        "lobby/leave_not_member",
+        "POST",
+        "Fin",
+        "/lobbies/{code}/leave/",
+        status=400,
+        about="A leave that reaches a table this player already left (a second "
+        "tap, or a retry after a slow answer): the app counts it as left.",
+    )
+    t.record(
+        "lobby/left_owner",
+        "POST",
+        "Ana",
+        "/lobbies/{code}/leave/",
+        status=200,
+        about="The owner leaves with others still there: the table passes on.",
+    )
     t.record_event(
         "lobby/host_changed_transferred",
         "Ben",

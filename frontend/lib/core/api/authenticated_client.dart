@@ -44,8 +44,19 @@ class AuthenticatedClient {
 
   Future<Response<T>> get<T>(String path) => _dio.get<T>(path);
 
-  Future<Response<T>> post<T>(String path, {Object? data}) =>
-      _dio.post<T>(path, data: data);
+  /// [receiveTimeout] waits longer than the client's 10 s for an answer (a
+  /// call that must not be judged lost while a waking server works on it).
+  Future<Response<T>> post<T>(
+    String path, {
+    Object? data,
+    Duration? receiveTimeout,
+  }) => _dio.post<T>(
+    path,
+    data: data,
+    options: receiveTimeout == null
+        ? null
+        : Options(receiveTimeout: receiveTimeout),
+  );
 
   Future<Response<T>> patch<T>(String path, {Object? data}) =>
       _dio.patch<T>(path, data: data);

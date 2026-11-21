@@ -50,7 +50,12 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   (`LobbyNotifier.dealRefusal`: the table playing, too few, the deck), else nothing extra,
   never a bare "Not sent." nor a notice that repeats the button; the button stays busy until
   the lobby is read again and its new verdict sets it. A quiet labelled "Leave" asks first
-  ("Stay" / "Leave"). With a pace chosen, its talk length ("5:00") sits beside the chip,
+  ("Stay" / "Leave"). Leaving (`LobbyNotifier.leave`) waits as long as a waking server takes
+  (`LobbyService.leaveWait`, not the client's 10 s); "not at this table" (400) and a table
+  gone (404) count as left (an earlier tap got there); with no answer at all `/me/table/`
+  decides, and only a phone the server still seats sees "Not sent." with "Try again"; a
+  refusal says why ("That table is playing now.", else "Can't leave now."). Off the table,
+  `/me/table/` puts the phone at 01 (the last one out closes the table). With a pace chosen, its talk length ("5:00") sits beside the chip,
   selected, so 02 shows what 03 chose. A guest: "{host} deals" at the hero title size over the
   same card, the rows, and "Leave" a quiet underlined word at the foot (`TextAction` in the
   actions, no outlined button): waiting said by the shape, not a sentence. A deal, a handover or a host change reads `/me/table/` again; the layout follows
