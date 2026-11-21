@@ -29,13 +29,9 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
   private browser windows. Proposed next: practice players (computer-filled seats).
 - Unclear, asked back: "Start making polish puzzles" (read as: start polish passes).
 
-## How they want the work run (also in CLAUDE.md, "How we work")
+## How they want the work run
 
-- Everything in this one session; subagents on Opus or Sonnet only; work in sequence and mind
-  the shared machine.
-- Finished chunks go out as their own pull requests and are merged; nothing unfinished merges.
-- One review round, not four.
-- Pictures before anything visual merges.
+`docs/dev/running-the-work.md`.
 
 ## In flight (21 November 2026)
 

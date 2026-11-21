@@ -42,7 +42,8 @@ Every hook command starts from `$CLAUDE_PROJECT_DIR`, never a relative path: a s
 ## Guardrails (`.claude/guardrails/`)
 
 `runner.py` runs the rules in `config.toml` (deny or warn only). The one rule,
-`subagent_model_effort`, keeps subagents off the main session's model for cost. Adding a
+`subagent_model_effort`, keeps subagents off the main session's model for cost. Its message points at
+`docs/dev/running-the-work.md`, which holds how to choose a model and effort. Adding a
 rule: `.claude/guardrails/README.md`. Tests: `just test-guardrails`.
 
 ## Agents (`.claude/agents/`, each pins model and effort)
