@@ -33,7 +33,7 @@ Local development, the tests and the debug harness keep the `memory` backend
 | `SECRET_KEY` | required |
 | `DATABASE_URL` | required, `postgres://user:pass@host:port/db` (pooled) |
 | `REDIS_URL` | required (`rediss://...`) |
-| `ALLOWED_HOSTS` | comma-separated; `VERCEL_URL` and `VERCEL_PROJECT_PRODUCTION_URL` are added automatically |
+| `ALLOWED_HOSTS` | comma-separated. The settings add `VERCEL_URL` (the per-build address) and `VERCEL_PROJECT_PRODUCTION_URL` (one production domain) themselves; every OTHER address people use must be listed here, or Django answers "Bad Request (400)". Currently set on the project: `midnight-village-anthelion.vercel.app`, `midnight-village-api.vercel.app`, `midnight-village-git-main-anthelion.vercel.app` and `midnight-village-git-ccr-2435dc07-33z3jn-anthelion.vercel.app` (the working branch's alias). A new branch alias or a custom domain needs adding, and the change only applies to the next build. |
 | `CORS_ALLOWED_ORIGINS` | comma-separated origins of the app (answers to them expose the `Date` header: `CORS_EXPOSE_HEADERS` in the base settings, not an env var) |
 | `CSRF_TRUSTED_ORIGINS` | comma-separated (admin only) |
 | `DB_CONN_MAX_AGE` | optional, default `0` (do not hold connections between requests) |
