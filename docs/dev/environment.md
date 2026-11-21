@@ -32,9 +32,8 @@ worktree of the clone; the same script runs at the start of every Claude session
   `HARNESS_PORT`, or a free port they pick (harness-serve prints it), and the test-harness run
   stops only the backend it started (its own process group, a hard kill after 5 s). They share
   the database `midnight_village_harness`; one migrates it at a time.
-- **Timing tests fail falsely under load** (for example
-  `test_a_scheduled_job_runs_after_the_delay_with_its_params` in the timers tests): re-run on a
-  quiet machine before believing the failure.
+- **Timer tests are not timing-dependent**: they wait for the timer itself to finish
+  (`backend/tests/timer_threads.py`). A failure under load is a real failure.
 
 ## The web integration test in the cloud container
 
