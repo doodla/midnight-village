@@ -25,6 +25,20 @@ pytestmark = pytest.mark.uses_timers
 
 # A delay no test waits for: a timer that must be cancelled or replaced first.
 FAR = 3600.0
+# A timer this late is a bug, however loaded the machine.
+LATE = 10.0
+# Two readings of the clock (a thread's wait, the database's) may differ by this.
+CLOCK_GRAIN = 0.002
+
+
+def _db_clock():
+    """The database's wall clock now (``clock_timestamp()``: not frozen at the
+    start of the transaction, as ``now()`` is)."""
+    with connections["default"].cursor() as cursor:
+        cursor.execute("SELECT clock_timestamp()")
+        (value,) = cursor.fetchone() or (None,)
+        assert value is not None
+        return value
 
 
 @pytest.fixture(autouse=True)
@@ -48,6 +62,7 @@ def ran():
     timers.JOBS["test_record"] = lambda **params: calls.append(params)
     yield calls
     timers.JOBS.pop("test_record", None)
+    timers.JOBS.pop("test_clock", None)
 
 
 @pytest.fixture
@@ -75,12 +90,23 @@ class TestMemoryBackend:
     before the row's deletion commits."""
 
     def test_a_scheduled_job_runs_after_the_delay_with_its_params(self, ran):
-        timers.schedule("game:1:test", 0.05, "test_record", {"n": 1})
+        fired_at: list[Any] = []
 
+        def record_with_the_time(**params: Any) -> None:
+            ran.append(params)
+            fired_at.append(_db_clock())
+
+        timers.JOBS["test_clock"] = record_with_the_time
+        before = _db_clock()
+
+        timers.schedule("game:1:test", 0.05, "test_clock", {"n": 1})
         timer_threads.settle("game:1:test")
 
         assert ran == [{"n": 1}]
         assert not ScheduledTimer.objects.filter(key="game:1:test").exists()
+        # By the database clock: not before the delay, and not very late.
+        waited = (fired_at[0] - before).total_seconds()
+        assert 0.05 - CLOCK_GRAIN <= waited < LATE
 
     def test_cancel_prevents_the_job_and_removes_the_row(self, ran):
         timers.schedule("game:1:cancel", FAR, "test_record", {})

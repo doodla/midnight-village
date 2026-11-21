@@ -114,23 +114,28 @@ async def heartbeat_loop(beat) -> None:
     sleeps, but a beat already running is finished first: its database work
     runs in a pool thread that cancelling cannot stop, so returning early would
     let that thread refresh, or re-create, the socket's row AFTER ``disconnect``
-    deleted it (a closed socket counted as connected until it went stale)."""
+    deleted it (a closed socket counted as connected until it went stale).
+    However often it is cancelled meanwhile (``disconnect``'s own task can be
+    cancelled too: shutdown, a timeout), the beat stays shielded until it ends."""
     import asyncio
 
     interval = heartbeat_seconds()
     while True:
         await asyncio.sleep(interval)
         running = asyncio.ensure_future(beat())
-        try:
-            await asyncio.shield(running)
-        except asyncio.CancelledError:
+        cancelled = False
+        while not running.done():
             try:
-                await running
+                await asyncio.shield(running)
+            except asyncio.CancelledError:
+                cancelled = True
             except Exception:
-                logger.exception("Presence heartbeat failed")
-            raise
-        except Exception:
-            logger.exception("Presence heartbeat failed")
+                break  # the beat failed, so it has ended: logged below
+        failure = None if running.cancelled() else running.exception()
+        if failure is not None:
+            logger.error("Presence heartbeat failed", exc_info=failure)
+        if cancelled or running.cancelled():
+            raise asyncio.CancelledError
 
 
 # ── The durable check ───────────────────────────────────────────────────────

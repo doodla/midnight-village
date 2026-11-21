@@ -11,6 +11,7 @@ moved back in time.
 """
 
 import asyncio
+import contextlib
 from datetime import timedelta
 from typing import Any
 from unittest.mock import patch
@@ -1181,6 +1182,66 @@ class TestHeartbeatLoop:
             await loop
         assert finished == ["beat"]
 
+    async def test_a_second_cancellation_still_lets_the_beat_finish(
+        self, settings
+    ) -> None:
+        """The task running ``disconnect`` can itself be cancelled (shutdown, a
+        timeout) while it waits: that cancels the loop again, and the beat must
+        still be left to finish."""
+        settings.ONUW_PRESENCE_HEARTBEAT_SECONDS = 0
+        started, release = asyncio.Event(), asyncio.Event()
+        finished: list[str] = []
+
+        async def beat() -> None:
+            started.set()
+            await release.wait()
+            finished.append("beat")
+
+        loop = asyncio.ensure_future(presence.heartbeat_loop(beat))
+
+        async def disconnect() -> None:  # what the consumers do
+            loop.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await loop
+
+        await started.wait()
+        closing = asyncio.ensure_future(disconnect())
+        for _ in range(3):
+            await asyncio.sleep(0)
+        closing.cancel()  # cancels the loop it is waiting for, a second time
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+        assert not loop.done()  # still waiting for the beat
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await loop
+        assert finished == ["beat"]
+        await closing  # it went on only once the beat had ended
+
+    async def test_a_failing_beat_is_logged_and_the_loop_carries_on(
+        self, settings, caplog
+    ) -> None:
+        settings.ONUW_PRESENCE_HEARTBEAT_SECONDS = 0
+        beats: list[int] = []
+        second = asyncio.Event()
+
+        async def beat() -> None:
+            beats.append(1)
+            if len(beats) == 1:
+                raise RuntimeError("database down")
+            second.set()
+
+        loop = asyncio.ensure_future(presence.heartbeat_loop(beat))
+        async with asyncio.timeout(30):
+            await second.wait()
+        loop.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await loop
+
+        assert len(beats) >= 2
+        assert "Presence heartbeat failed" in caplog.text
+
 
 class TestConsumerHeartbeat(TransactionTestCase):
     @pytest.mark.asyncio
@@ -1209,9 +1270,13 @@ class TestConsumerHeartbeat(TransactionTestCase):
             assert not await database_sync_to_async(
                 SocketPresence.objects.filter(game_id=game.id, user_id=other.id).exists
             )()
-            # disconnect waited for the loop (and any beat in flight) to end, so
-            # nothing can bring the row back; a few intervals confirm it.
-            await asyncio.sleep(0.3)
+            # disconnect waited for the loop (and any beat in flight) to end:
+            # no heartbeat is left that could bring the row back.
+            assert not [
+                t
+                for t in asyncio.all_tasks()
+                if getattr(t.get_coro(), "__qualname__", "") == "heartbeat_loop"
+            ]
             assert not await database_sync_to_async(
                 SocketPresence.objects.filter(game_id=game.id, user_id=other.id).exists
             )()
