@@ -50,8 +50,9 @@ serves. Full rules: `docs/dev/deploy-vercel.md`, "Deploy-safe changes". In one l
   `just samples`; a change the task did not ask for is a bug to fix, not to regenerate.
 - **No waits beyond the table's settings.** The night's minimum window and the Doppelganger's
   fixed window are the table's own settings; add no other delay, minimum or assumed default
-  length. A stage ends once everyone present has done their part (window 1 keeps the
-  table's fixed length).
+  length. A stage ends once everyone present has done their part; at night that is
+  every phone with a choice (a sleeper is never waited for; a dropped actor holds the window
+  through its grace period); window 1 keeps the table's fixed length.
 - **Database clock.** Due times, heartbeats and freshness use `Now()`, never an instance clock.
 - **WebSocket tests need an authenticated scope**; unauthenticated sockets are rejected
   silently.

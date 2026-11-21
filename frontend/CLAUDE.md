@@ -51,7 +51,8 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   to screen table; the only local inputs are `LocalSteps`.
 - **Taps change what others can see at once, never on the response.** All taps go
   through the one `Outbox`; a choose is never sent twice for a turn; after any taken choose
-  the phone re-reads `/me/` and trusts `chosen` and `chooses_left`.
+  the phone re-reads `/me/` and trusts `chosen` and `chooses_left`. A phone with nothing to
+  choose sends no choose at all; its board has no button.
 - **Every fetch a screen depends on heals**: retried with backoff or polled until its reason
   ends (`core/healing/`). Never leave a screen on a failed fetch.
 - **No waits.** Nothing adds a wait, a minimum time or an assumed timer length: lengths come
@@ -61,8 +62,8 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   spec's budgets by `copy_budget_test.dart`; none in widgets.
 - **Names are never cut**: they wrap between words or are set smaller (`FitWords`, `FitLine`),
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
-- **Reading floor**: 16 px to act, 14 px captions; no uppercase micro-labels; one amber fill
-  per screen; a selection is lift plus outline, never amber.
+- **Reading floor**: 16 px to act, 14 px captions, 7:1 contrast on player screens, full ink
+  for anything that says something true; no uppercase micro-labels; one amber fill per screen; a selection is lift plus outline, never amber.
 - **Values from the skin**: build screens from `lib/design_system/primitives/`, read
   `context.skin`, `context.ground`, `Space`, `Motion`; no literals, no `SkinId` checks in
   layout code. One look, Shadow paper; a new look is a whole design, not a recolour.
