@@ -510,19 +510,16 @@ class _JoinCard extends StatelessWidget {
                   color: ink,
                   icon: const Icon(Icons.ios_share),
                 );
+          // "Scan to join" belongs to the QR code alone: with no link (no
+          // web address known) there is nothing to scan, and the six letters
+          // are a code to type, labelled as 01 asks for it ("Code").
           final words = Row(
             children: [
-              Expanded(child: scan),
+              Expanded(child: link == null ? const SizedBox.shrink() : scan),
               ?shareButton,
             ],
           );
-          final theCode = FitLine(
-            code,
-            style: type.heroCode.copyWith(color: ink),
-            alignment: compact
-                ? AlignmentDirectional.centerStart
-                : AlignmentDirectional.center,
-          );
+          final theCode = _CodeLine(code: code, centred: !compact);
           QrPicture qr(double side) => QrPicture(
             data: link.toString(),
             side: side,
@@ -587,6 +584,39 @@ class _JoinCard extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// The table's code to type, after its label ("Code", the word 01's field
+/// asks for), in the hero face: centred under a large QR code, else from the
+/// start.
+class _CodeLine extends StatelessWidget {
+  const _CodeLine({required this.code, required this.centred});
+
+  final String code;
+  final bool centred;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = context.skin.typography;
+    final ink = context.ground.text;
+    final line = Row(
+      mainAxisSize: centred ? MainAxisSize.min : MainAxisSize.max,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      spacing: Space.sm,
+      children: [
+        Text(JoinCopy.codeHint, style: type.caption.copyWith(color: ink)),
+        Flexible(
+          child: FitLine(
+            code,
+            style: type.heroCode.copyWith(color: ink),
+            alignment: AlignmentDirectional.centerStart,
+          ),
+        ),
+      ],
+    );
+    return centred ? Center(child: line) : line;
   }
 }
 

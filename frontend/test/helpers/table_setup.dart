@@ -107,6 +107,9 @@ class TableSetup {
 
   String get code => lobby!['code'] as String;
 
+  /// Where the app is served from in these tests (the QR code's link).
+  static final _webOrigin = Uri.parse('https://midnight.example');
+
   static Future<TableSetup> pump(
     WidgetTester tester, {
     Map<String, dynamic>? lobby,
@@ -120,6 +123,7 @@ class TableSetup {
     double keyboard = 0,
     bool realAuth = false,
     bool lobbyDown = false,
+    bool webAddress = true,
   }) async {
     // ignore: invalid_use_of_visible_for_testing_member
     SharedPreferences.setMockInitialValues({});
@@ -192,9 +196,8 @@ class TableSetup {
             HomeService(client: ApiClient(dio: http.dio)),
           ),
           lobbyWebSocketFactoryProvider.overrideWithValue((_) => setup.ws),
-          appOriginProvider.overrideWithValue(
-            Uri.parse('https://midnight.example'),
-          ),
+          // Without: an app build that knows no web address (no QR code).
+          appOriginProvider.overrideWithValue(webAddress ? _webOrigin : null),
           shareLinkProvider.overrideWithValue((link) async {
             setup.shared.add(link);
             return setup.shareCopies;

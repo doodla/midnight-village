@@ -121,6 +121,38 @@ void main() {
       await setup.close(tester);
     });
 
+    testWidgets('with no web address known (an app build) there is nothing '
+        'to scan: no "Scan to join", the code labelled as 01 asks for it', (
+      tester,
+    ) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('created_with_defaults'),
+        viewer: 'Ana',
+        webAddress: false,
+      );
+
+      expect(find.byType(QrPicture), findsNothing);
+      expect(find.text(TableCopy.scan), findsNothing);
+      expect(find.text(JoinCopy.codeHint), findsOneWidget);
+      expect(find.text('R5ZD3H'), findsOneWidget);
+      await setup.close(tester);
+    });
+
+    testWidgets('with the QR code, "Scan to join" is its label and the code '
+        'has its own', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('created_with_defaults'),
+        viewer: 'Ana',
+      );
+
+      expect(find.byType(QrPicture), findsOneWidget);
+      expect(find.text(TableCopy.scan), findsOneWidget);
+      expect(find.text(JoinCopy.codeHint), findsOneWidget);
+      await setup.close(tester);
+    });
+
     testWidgets('"Join a table" opens the code; Join sits the player at that '
         'table, and the table shows', (tester) async {
       final setup = await TableSetup.pump(

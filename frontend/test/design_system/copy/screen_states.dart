@@ -122,12 +122,14 @@ final screens = <String, Screen>{
     // The spec's 7, and the host's quiet labelled "Leave" (review, 21
     // November 2026: a glyph in the corner handed the table away on one
     // stray tap); Share is a glyph, spoken only.
-    budget: 8,
+    budget: 9,
     states: {
       for (final chip in DeckCopy.chips)
         for (final deal in <Object>[TableCopy.deal, TableCopy.needPlayers])
           'host, $chip: $deal': [
             headline(TableCopy.scan),
+            // The code's own label (01's word for it).
+            text(JoinCopy.codeHint),
             button(chip),
             button(TableCopy.editDeck),
             button(deal),
@@ -138,6 +140,7 @@ final screens = <String, Screen>{
       'guest': [
         headline(TableCopy.hostDeals),
         text(TableCopy.scan),
+        text(JoinCopy.codeHint),
         button(CommonCopy.leave),
       ],
     },

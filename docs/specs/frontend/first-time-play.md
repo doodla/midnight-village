@@ -233,7 +233,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 - **Pass:** "Type my name."
 
 **02 Table**
-- **One thing / loudest (host):** guests scan. Loudest is the QR code for `/join/{code}`, with the code printed under it.
+- **One thing / loudest (host):** guests scan. Loudest is the QR code for `/join/{code}`, with the code printed under it. "Scan to join" labels the QR code only; the code has its own label, "Code" (01's word for it). An app build that knows no web address has no QR code: no "Scan to join", the code and its label alone.
 - **Locked until:** "Deal to {n}" unlocks at 3 or more players.
 - **Copy (host):** "Scan to join"; quiet "Share" (opens the system share sheet); deck strip with count badges "2"; quiet "Edit deck"; amber "Deal to {n}", or disabled "Need 3 players". With a custom deck that does not match the player count: disabled "Add {n} cards" / "Remove {n} cards". **7 of 7 words.**
 - **Copy (guest):** "{host} deals"; the code in small type; quiet "Leave". **2 words.** Waiting is said by the shape, not a sentence (playtest, 21 November 2026: Leave read as the one thing to do): "{host} deals" at the hero title size, "Leave" a quiet underlined word at the foot, no outlined button.

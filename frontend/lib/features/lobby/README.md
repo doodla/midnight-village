@@ -24,10 +24,11 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   link to another table while seated at one, and the server's 409 `already_at_table`, say
   "You're at another table." with "Go there" (it reads `/me/table/` again): never a silent
   second seat.
-- **02** (`at_table_screen.dart`): for everyone, "Scan to join" with Share beside it, the QR
+- **02** (`at_table_screen.dart`): for everyone, "Scan to join" (the QR code's label only:
+  with no link there is no QR code and no "Scan to join") with Share beside it, the QR
   code of the join link (`joinLink`: `<origin>/#/join/<code>`; `appOrigin` is the page's
   address on the web, else `--dart-define=PUBLIC_ORIGIN`, else the code alone), never under
-  `Sizes.qrScannable`, and the code. Nearly empty (`Sizes.nearlyEmptyTable`: alone or two)
+  `Sizes.qrScannable`, and the code after its label "Code" (`_CodeLine`, 01's word). Nearly empty (`Sizes.nearlyEmptyTable`: alone or two)
   the table's picture shows and the QR code is large and centred, the code under it. Past
   that the next thing is who is here, the deck and Deal, so the card is short: no picture, the
   QR code at its least on the left with the words, Share and the code beside it (stacked,
