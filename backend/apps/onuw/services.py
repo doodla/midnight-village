@@ -63,6 +63,10 @@ DEFAULT_NIGHT_DOPPELGANGER_WINDOW_SECONDS = 10
 # How long a player's phone may be disconnected before the game stops waiting
 # for them at night and in the vote (0 turns the feature off).
 DEFAULT_DISCONNECT_GRACE_SECONDS = 25
+# The talk and the vote when the table sets no length; no look stage unless set.
+DEFAULT_DISCUSSION_SECONDS = 300
+DEFAULT_VOTING_SECONDS = 120
+DEFAULT_CARD_LOOK_SECONDS = 0
 
 # Phases that run on a clock (and so need a timer to move on).
 TIMED_PHASES = (Phase.NIGHT, Phase.DISCUSSION, Phase.VOTING)
@@ -80,9 +84,12 @@ def get_timer_seconds(game: Game, key: str, default: int) -> int:
     number of seconds (settings are validated on the way in, but a bad row must
     never be able to crash a window close).
     """
-    stored = (
-        game.settings.get(key, default) if isinstance(game.settings, dict) else default
-    )
+    return get_timer_value(game.settings, key, default)
+
+
+def get_timer_value(settings: Any, key: str, default: int) -> int:
+    """A timer duration from a settings dict (``get_timer_seconds``'s rule)."""
+    stored = settings.get(key, default) if isinstance(settings, dict) else default
     return stored if is_valid_timer_value(stored, max_seconds_for(key)) else default
 
 
@@ -455,7 +462,7 @@ def _look_timer_key(game: Game) -> str:
 def begin_night(game: Game) -> None:
     """The deal's last step: open the night, through the look stage if the game
     asks for one (``card_look_seconds`` > 0), else straight into the first window."""
-    seconds = get_timer_seconds(game, "card_look_seconds", 0)
+    seconds = get_timer_seconds(game, "card_look_seconds", DEFAULT_CARD_LOOK_SECONDS)
     if seconds > 0:
         _start_look_stage(game, seconds)
     else:
@@ -945,7 +952,9 @@ def persist_wave_results(
 
 def transition_to_discussion(game: Game) -> None:
     """Transition the game from night to discussion phase."""
-    discussion_seconds = get_timer_seconds(game, "discussion_seconds", 300)
+    discussion_seconds = get_timer_seconds(
+        game, "discussion_seconds", DEFAULT_DISCUSSION_SECONDS
+    )
 
     with transaction.atomic():
         game.phase = Phase.DISCUSSION
@@ -1058,7 +1067,7 @@ def transition_to_voting(game: Game) -> None:
         msg = f"Cannot transition from {game.phase} to voting."
         raise ValueError(msg)
 
-    voting_seconds = get_timer_seconds(game, "voting_seconds", 120)
+    voting_seconds = get_timer_seconds(game, "voting_seconds", DEFAULT_VOTING_SECONDS)
 
     with transaction.atomic():
         game.phase = Phase.VOTING

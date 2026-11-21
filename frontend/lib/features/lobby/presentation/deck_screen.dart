@@ -24,7 +24,6 @@ import '../../../design_system/skin/skin_tilt.dart';
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
 import '../domain/lobby_state.dart';
 import '../domain/role_config.dart';
-import 'at_table_screen.dart' show cardsLabel;
 import 'lobby_notifier.dart';
 import 'where_am_i_provider.dart';
 
@@ -258,11 +257,9 @@ class _DeckViewState extends State<DeckView> {
     // The cards the server's deal needs (`deal.need`); a table that sends
     // no verdict leaves it to the server's answer.
     final wanted = widget.lobby.deal?.need ?? cards;
+    // One label, locked until the deck holds the cards the deal needs.
     if (cards != wanted) {
-      return PrimaryButton(
-        label: cardsLabel((wanted - cards).abs(), add: cards < wanted),
-        onPressed: null,
-      );
+      return const PrimaryButton(label: DeckCopy.useDeck, onPressed: null);
     }
     return PrimaryButton(
       label: DeckCopy.useDeck,

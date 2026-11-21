@@ -123,10 +123,66 @@
     ],
     "created_at": "2024-03-07T21:15:38Z",
     "deck_preview": null,
+    "deck_cards": {
+      "Doppelganger": 1,
+      "Seer": 1,
+      "Werewolf": 2,
+      "Minion": 1,
+      "Mason": 2,
+      "Drunk": 1,
+      "Insomniac": 1,
+      "Villager": 2,
+      "Tanner": 1
+    },
     "deal": {
       "ok": true,
       "need": 12,
-      "have": 12
+      "have": 12,
+      "seats": null
+    },
+    "lengths": {
+      "discussion_seconds": 300,
+      "voting_seconds": 120,
+      "night_wave_seconds": 30,
+      "night_min_window_seconds": 8,
+      "night_doppelganger_window_seconds": 10,
+      "card_look_seconds": 30,
+      "disconnect_grace_seconds": 25,
+      "host_handover_seconds": 60
+    },
+    "length_ranges": {
+      "discussion_seconds": [
+        0,
+        3600
+      ],
+      "voting_seconds": [
+        0,
+        3600
+      ],
+      "night_wave_seconds": [
+        8,
+        3600
+      ],
+      "night_min_window_seconds": [
+        0,
+        30
+      ],
+      "night_doppelganger_window_seconds": [
+        0,
+        3600
+      ],
+      "card_look_seconds": [
+        0,
+        120
+      ],
+      "disconnect_grace_seconds": [
+        0,
+        60
+      ],
+      "host_handover_seconds": [
+        0,
+        600
+      ]
     }
   }
 }

@@ -366,8 +366,9 @@ void main() {
       );
 
       expect(find.byType(RoleCard), findsWidgets);
-      expect(_onPressed(tester, CommonCopy.addCard), isNull);
-      expect(find.textContaining('Deal'), findsNothing);
+      // One label, locked: never card arithmetic.
+      expect(_onPressed(tester, TableCopy.deal.fill({'n': 8})), isNull);
+      expect(find.textContaining('card'), findsNothing);
       await setup.close(tester);
     });
 
@@ -384,7 +385,7 @@ void main() {
       await setup.settle(tester);
 
       expect(find.text('Sam'), findsOneWidget);
-      expect(_onPressed(tester, CommonCopy.addCard), isNull);
+      expect(_onPressed(tester, TableCopy.deal.fill({'n': 8})), isNull);
       await setup.close(tester);
     });
 
@@ -861,7 +862,7 @@ void main() {
         viewer: 'Kai',
       );
       // Ten cards for eight: the server needs eleven.
-      expect(_onPressed(tester, CommonCopy.addCard), isNull);
+      expect(_onPressed(tester, DeckCopy.useDeck), isNull);
       await setup.close(tester);
     });
 
@@ -873,7 +874,7 @@ void main() {
       expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
 
       await _tap(tester, setup, _role(RoleId.tanner));
-      expect(_onPressed(tester, CommonCopy.addCard), isNull);
+      expect(_onPressed(tester, DeckCopy.useDeck), isNull);
       await _tap(tester, setup, _role(RoleId.hunter));
       expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
 

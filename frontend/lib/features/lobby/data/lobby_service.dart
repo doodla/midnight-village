@@ -65,12 +65,14 @@ class LobbyService {
 
   /// PATCH /lobbies/<code>/ with `{"settings": settings}`: the server merges
   /// them over the stored ones (shallow) and answers the whole lobby.
-  Future<LobbyState> patchSettings(String code, Map<String, Object> settings) =>
-      _patchSettings(code, settings);
+  Future<LobbyState> patchSettings(
+    String code,
+    Map<String, Object?> settings,
+  ) => _patchSettings(code, settings);
 
   Future<LobbyState> _patchSettings(
     String code,
-    Map<String, Object> settings,
+    Map<String, Object?> settings,
   ) async {
     try {
       final response = await _client.patch<Map<String, dynamic>>(

@@ -1,5 +1,5 @@
 {
   "detail": [
-    "Total role count must be 9 (players + 3 center cards), got 3."
+    "'Seer' allows at most 1, got 2."
   ]
 }

@@ -1,0 +1,105 @@
+{
+  "code": "D3GL6S",
+  "host": {
+    "id": 83,
+    "username": "00000000-0000-4000-8000-000000000083",
+    "display_name": "Tia"
+  },
+  "original_host_id": 83,
+  "is_acting_host": false,
+  "game_type": "onuw",
+  "status": "waiting",
+  "max_players": 10,
+  "settings": {
+    "deck": "auto",
+    "deck_chip": "classic",
+    "night_protocol": 2,
+    "card_look_seconds": 30,
+    "seats": 8
+  },
+  "players": [
+    {
+      "user": {
+        "id": 83,
+        "username": "00000000-0000-4000-8000-000000000083",
+        "display_name": "Tia"
+      },
+      "token": "antler",
+      "joined_at": "2024-03-07T22:27:18Z",
+      "connected": true
+    }
+  ],
+  "created_at": "2024-03-07T22:27:18Z",
+  "deck_preview": {
+    "Werewolf": 2,
+    "Minion": 1,
+    "Seer": 1,
+    "Robber": 1,
+    "Troublemaker": 1,
+    "Mason": 2,
+    "Drunk": 1,
+    "Insomniac": 1,
+    "Villager": 1
+  },
+  "deck_cards": {
+    "Werewolf": 2,
+    "Minion": 1,
+    "Seer": 1,
+    "Robber": 1,
+    "Troublemaker": 1,
+    "Mason": 2,
+    "Drunk": 1,
+    "Insomniac": 1,
+    "Villager": 1
+  },
+  "deal": {
+    "ok": false,
+    "need": 11,
+    "have": 11,
+    "seats": 8
+  },
+  "lengths": {
+    "discussion_seconds": 300,
+    "voting_seconds": 120,
+    "night_wave_seconds": 30,
+    "night_min_window_seconds": 8,
+    "night_doppelganger_window_seconds": 10,
+    "card_look_seconds": 30,
+    "disconnect_grace_seconds": 25,
+    "host_handover_seconds": 60
+  },
+  "length_ranges": {
+    "discussion_seconds": [
+      0,
+      3600
+    ],
+    "voting_seconds": [
+      0,
+      3600
+    ],
+    "night_wave_seconds": [
+      8,
+      3600
+    ],
+    "night_min_window_seconds": [
+      0,
+      30
+    ],
+    "night_doppelganger_window_seconds": [
+      0,
+      3600
+    ],
+    "card_look_seconds": [
+      0,
+      120
+    ],
+    "disconnect_grace_seconds": [
+      0,
+      60
+    ],
+    "host_handover_seconds": [
+      0,
+      600
+    ]
+  }
+}

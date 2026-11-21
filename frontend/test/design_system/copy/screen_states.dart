@@ -125,14 +125,7 @@ final screens = <String, Screen>{
     budget: 8,
     states: {
       for (final chip in DeckCopy.chips)
-        for (final deal in <Object>[
-          TableCopy.deal,
-          TableCopy.needPlayers,
-          CommonCopy.addCards,
-          CommonCopy.removeCards,
-          CommonCopy.addCard,
-          CommonCopy.removeCard,
-        ])
+        for (final deal in <Object>[TableCopy.deal, TableCopy.needPlayers])
           'host, $chip: $deal': [
             headline(TableCopy.scan),
             button(chip),
@@ -167,13 +160,7 @@ final screens = <String, Screen>{
       ],
       // The grid open: the role names are exempt; "Copy" with the
       // Doppelganger in the deck.
-      for (final use in <Object>[
-        DeckCopy.useDeck,
-        CommonCopy.addCards,
-        CommonCopy.removeCards,
-        CommonCopy.addCard,
-        CommonCopy.removeCard,
-      ])
+      for (final use in <Object>[DeckCopy.useDeck])
         'grid: $use': [
           headline(DeckCopy.headline),
           for (final chip in DeckCopy.chips) button(chip),

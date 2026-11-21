@@ -45,7 +45,9 @@ def add_member(lobby: Lobby, user_id: int) -> LobbyMember:
     Raises LobbyFullError.
     """
     token = tokens.assign_token(lobby)
-    if token is None or lobby.players.count() >= lobby.max_players:  # type: ignore[attr-defined]
+    limit = games.hooks_for(lobby).seat_limit(lobby)
+    capacity = lobby.max_players if limit is None else min(lobby.max_players, limit)
+    if token is None or lobby.players.count() >= capacity:  # type: ignore[attr-defined]
         raise LobbyFullError
     member = LobbyMember.objects.create(lobby=lobby, user_id=user_id, token=token)
     touch(lobby.pk)

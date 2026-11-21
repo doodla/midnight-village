@@ -65,6 +65,11 @@ class GameHooks:
         ``shows_table_extras``)."""
         return {}
 
+    def seat_limit(self, lobby) -> int | None:
+        """The most members the table takes now, below ``max_players`` (None: no
+        lower limit). A join past it is refused as ``lobby_full``."""
+        return None
+
     def presence_grace_seconds(self, lobby) -> int:
         """How long a member who lost their last socket still shows as connected."""
         return 0

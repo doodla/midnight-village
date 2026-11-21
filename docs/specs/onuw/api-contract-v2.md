@@ -44,13 +44,29 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
   table: `host`, `original_host_id`, `is_acting_host`, `status`, `max_players` (3 to 10),
   `settings`, `players[]` (`user`, `token`, `joined_at`, `connected`), and the
   game's extras:
-  - `deck_preview`: the automatic deck the deal would build now for the players at the
-    table and the table's `deck_chip` (`{role: count}`, the shape of `settings.roles`); null
-    for a custom deck or a player count with no automatic deck.
-  - `deal` `{"ok", "need", "have"}`: `ok` is exactly whether the deal would be accepted now
-    (waiting, 3 to 10 players, a legal deck of the right size, valid settings; only the host
-    check is left out); `need` = players + 3; `have` = the cards in the deck the deal would
-    use (0 if none). The phone holds no deck-size rule.
+  - `deck_preview`: the automatic deck the deal would build for the table's size (the
+    number it is set for, `settings.seats`; at an open table the players here now) and its
+    `deck_chip` (`{role: count}`, the shape of `settings.roles`); null for a custom deck or a
+    size with no automatic deck.
+  - `deck_cards`: the roles the table would deal (`{role: count}`, counts above 0), face up
+    for every viewer (which roles are in the game is public at the table): a custom deck's
+    cards as picked so far; an automatic deck's for the table's size, and for an open table
+    of fewer than 3 the deck of the smallest game (3 players), the one it deals first.
+  - `lengths`: every length the game would run with if dealt now, in seconds, one per timer
+    setting (`discussion_seconds`, `voting_seconds`, `night_wave_seconds`,
+    `night_min_window_seconds`, `night_doppelganger_window_seconds`, `card_look_seconds`,
+    `disconnect_grace_seconds`, `host_handover_seconds`): the table's own value, else the
+    game's default, so a phone shows them without knowing a default.
+  - `length_ranges`: `{key: [least, most]}` seconds a PATCH of each length would take now
+    (this server's floors for a night window; the shortest window never longer than the
+    window), so a phone offers each length's real range holding no rule.
+  - `deal` `{"ok", "need", "have", "seats"}`: `ok` is exactly whether the deal would be
+    accepted now (waiting, 3 to 10 players and, at a table set for a number, exactly that
+    many; a legal deck of the right size, valid settings; only the host check is left out);
+    `seats` = the number the table is set for, null for an open table; `need` = `seats` + 3,
+    or the players here + 3 at an open table, so at a table set for a number it never moves
+    when people join or leave; `have` = the cards in the deck the deal would use (0 if
+    none). The phone holds no deck-size rule.
   - `players[].connected`: the member's phone is at the table (a lobby socket or a socket on
     the newest game). A phone that drops stays `true` for `disconnect_grace_seconds`, then
     the table hears a `lobby_update` with `false`; a phone back after being shown as gone
@@ -59,10 +75,17 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
 - `PATCH /lobbies/<code>/` (host, waiting tables): `{"settings": {...}}` is MERGED into the
   stored settings (a key given again is replaced whole). `deck` is `auto` or `custom`;
   `deck_chip` is `simple`, `classic` or `chaos`; with `auto` the deal builds the deck
-  (`engine/decks.py`, the table in `recommended-setups.md`, "Automatic Decks"). Only the keys
-  the PATCH gives are validated (a value older code stored and nobody touches never blocks a
-  change; `400 {"detail": [...]}` for a bad one).
-- `POST /lobbies/<code>/join/`: `400` `already_in_lobby`, `lobby_closed`, `lobby_full`;
+  (`engine/decks.py`, the table in `recommended-setups.md`, "Automatic Decks"). `seats` is
+  the number of players the game is for: a whole number from 3 to 10, or null (an open table,
+  which deals to whoever is there: every table before this key, and a new table until the
+  host picks a number). It may change any time before the deal, never below the players
+  already here (`400`); an automatic deck follows it, a custom deck is never changed (`deal`
+  says whether it still fits). Only the keys the PATCH gives are validated (a value older
+  code stored and nobody touches never blocks a change; `400 {"detail": [...]}` for a bad
+  one); of `roles` only each role's own limits (a known role, 0 to its most, Masons in
+  pairs): a deck being built is stored card by card and `deal` reports its size.
+- `POST /lobbies/<code>/join/`: `400` `already_in_lobby`, `lobby_closed`, `lobby_full` (every
+  seat taken: `max_players`, or the number the table is set for);
   **one table at a time**: a member of another WAITING table (active within
   `CORE_TABLE_RESUME_HOURS`) gets `409 {"detail": "You are already at another table.",
   "code": "already_at_table", "lobby_code": "<that table>"}`. A table in a game or finished

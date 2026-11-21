@@ -333,11 +333,12 @@ class AtTableView extends StatelessWidget {
   /// The deal button's words, from the server's verdict ([DealState]).
   String _dealWords() => switch (DealState.of(lobby)) {
     CanDeal(:final players) => TableCopy.deal.fill({'n': players}),
+    // The same words, locked, until everyone it is set for is here.
+    WaitingFor(:final seats) => TableCopy.deal.fill({'n': seats}),
     NeedPlayers() => TableCopy.needPlayers,
-    AddCards(:final count) => cardsLabel(count, add: true),
-    RemoveCards(:final count) => cardsLabel(count, add: false),
-    CannotDeal(:final deck) =>
-      deck ? BannerCopy.deckDoesNotFit : BannerCopy.cannotDeal,
+    // The deck shows what is wrong; the button keeps its words.
+    DeckDoesNotFit() => TableCopy.deal.fill({'n': lobby.players.length}),
+    CannotDeal() => BannerCopy.cannotDeal,
   };
 
   /// "Deal to {n}", amber, only when the server says the deal would go.
@@ -442,14 +443,6 @@ class _Row extends StatelessWidget {
     return Opacity(opacity: 1 - (1 - context.skin.dimmed) / 6, child: row);
   }
 }
-
-/// "Add {n} cards" / "Remove {n} cards", one card singular.
-String cardsLabel(int count, {required bool add}) => switch ((add, count)) {
-  (true, 1) => CommonCopy.addCard,
-  (false, 1) => CommonCopy.removeCard,
-  (true, _) => CommonCopy.addCards.fill({'n': count}),
-  (false, _) => CommonCopy.removeCards.fill({'n': count}),
-};
 
 /// The table's paper: "Scan to join" with Share beside it, the QR code of
 /// the table's link (never under [Sizes.qrScannable]) and the code in the

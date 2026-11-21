@@ -6,7 +6,7 @@ NO Django imports allowed in this module. This is pure game logic.
 
 from __future__ import annotations
 
-from .decks import DECK_CHIPS
+from .decks import DECK_CHIPS, MAX_AUTO_PLAYERS, MIN_AUTO_PLAYERS
 from .roles import ROLE_REGISTRY
 
 # Every timer setting the server reads, in seconds. 0 disables that timer
@@ -119,6 +119,41 @@ def validate_deck_choice(settings: dict) -> list[str]:
     return errors
 
 
+# How many players the game is for (``seats``): the host picks it before anyone joins
+# and the table waits for that many. Absent or null: the table is "open" and deals to
+# whoever is there (every table before this setting, and a new table until the host
+# picks a number).
+MIN_SEATS = MIN_AUTO_PLAYERS
+MAX_SEATS = MAX_AUTO_PLAYERS
+
+
+def seats_of(settings: object) -> int | None:
+    """The number of players a table is set for, or None for an open table (no
+    ``seats``, null, or a value this server would refuse)."""
+    if not isinstance(settings, dict):
+        return None
+    seats = settings.get("seats")
+    if type(seats) is int and MIN_SEATS <= seats <= MAX_SEATS:
+        return seats
+    return None
+
+
+def validate_seats(settings: dict, player_count: int) -> list[str]:
+    """``seats`` (if given): null (open) or a whole number from 3 to 10, and never
+    fewer than the players already at the table (the host lowers the number to who
+    came, never below)."""
+    if "seats" not in settings or settings["seats"] is None:
+        return []
+    seats = settings["seats"]
+    if type(seats) is not int or not MIN_SEATS <= seats <= MAX_SEATS:
+        return [
+            f"'seats' must be a whole number from {MIN_SEATS} to {MAX_SEATS}, or null."
+        ]
+    if seats < player_count:
+        return [f"{player_count} players are at the table already."]
+    return []
+
+
 # The close of a window must not depend on roles, so a window with no deadline (one
 # idle phone could stall the table, and a window 1 with no length singles out the
 # Doppelganger) and a minimum window shorter than this are refused, unless the server
@@ -191,7 +226,11 @@ def validate_onuw_settings(
     changed: set[str] | frozenset[str] | None = None,
 ) -> list[str]:
     """
-    Validate ONUW role configuration.
+    Validate ONUW settings: for a lobby PATCH (``changed`` given) only the keys it
+    gives, and of a card list only each role's own limits (a deck being built is
+    stored card by card; whether it fits is the deal's question, reported by the
+    lobby body's ``deal``); for the deal (``changed`` None) everything, including
+    that the table holds the players it is set for and the deck fits them.
 
     Args:
         settings: Game settings dict. Must contain a "roles" key mapping
@@ -227,15 +266,26 @@ def validate_onuw_settings(
         *validate_pace(scope),
         *validate_night_timing(scope, allow_untimed=allow_untimed),
         *validate_deck_choice(scope),
+        *(
+            validate_seats(scope, player_count)
+            if changed is not None and "seats" in changed
+            else []
+        ),
     ]
     if not check_deck:
         return errors
 
-    if player_count < 3:
-        errors.append(f"At least 3 players required, got {player_count}.")
-
-    if player_count > 10:
-        errors.append(f"At most 10 players allowed, got {player_count}.")
+    at_deal = changed is None
+    seats = seats_of(settings)
+    if at_deal:
+        if seats is not None and player_count != seats:
+            errors.append(
+                f"The table is set for {seats} players, {player_count} are here."
+            )
+        if player_count < 3:
+            errors.append(f"At least 3 players required, got {player_count}.")
+        if player_count > 10:
+            errors.append(f"At most 10 players allowed, got {player_count}.")
 
     if settings.get("deck") == "auto":
         # The server builds the deck at the deal for the players then at the table
@@ -279,6 +329,9 @@ def validate_onuw_settings(
         errors.append(
             "Masons must be used in pairs — include 0 or 2 Mason cards, not 1."
         )
+
+    if not at_deal:
+        return errors
 
     expected = player_count + 3
     if total_roles != expected:

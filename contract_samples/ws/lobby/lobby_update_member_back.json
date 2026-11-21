@@ -68,10 +68,62 @@
       "Troublemaker": 1,
       "Villager": 2
     },
+    "deck_cards": {
+      "Werewolf": 2,
+      "Seer": 1,
+      "Robber": 1,
+      "Troublemaker": 1,
+      "Villager": 2
+    },
     "deal": {
       "ok": true,
       "need": 7,
-      "have": 7
+      "have": 7,
+      "seats": null
+    },
+    "lengths": {
+      "discussion_seconds": 300,
+      "voting_seconds": 120,
+      "night_wave_seconds": 30,
+      "night_min_window_seconds": 8,
+      "night_doppelganger_window_seconds": 10,
+      "card_look_seconds": 30,
+      "disconnect_grace_seconds": 25,
+      "host_handover_seconds": 60
+    },
+    "length_ranges": {
+      "discussion_seconds": [
+        0,
+        3600
+      ],
+      "voting_seconds": [
+        0,
+        3600
+      ],
+      "night_wave_seconds": [
+        8,
+        3600
+      ],
+      "night_min_window_seconds": [
+        0,
+        30
+      ],
+      "night_doppelganger_window_seconds": [
+        0,
+        3600
+      ],
+      "card_look_seconds": [
+        0,
+        120
+      ],
+      "disconnect_grace_seconds": [
+        0,
+        60
+      ],
+      "host_handover_seconds": [
+        0,
+        600
+      ]
     }
   }
 }

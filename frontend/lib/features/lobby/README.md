@@ -41,9 +41,10 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   (`share_plus`, no mail fallback); only where there is none, or it fails, the link is copied
   and the screen says "Copied" (the skin has no share art: the platform's glyph). The host:
   the deck as its chip with its cards face up (`deck_preview`) or the custom deck's cards,
-  with "Edit"; the deal button is the server's `deal` (`DealState`): "Deal to {n}" only when
-  `ok`; else "Need 3 players", "Add 1 card" / "Remove 2 cards" (a custom deck, `need` against
-  `have`), "The deck does not fit." or "Can't deal yet.", locked. Nobody is asked to be ready:
+  with "Edit"; the deal button is the server's `deal` (`DealState`): "Deal to {n}", live only when
+  `ok`, else the same words locked (at a table set for a number, `deal.seats`, {n} is that
+  number; never card arithmetic), "Need 3 players" at an open table of fewer than three, or
+  "Can't deal yet.". Nobody is asked to be ready:
   the server deals in everyone at the table. A deal refused all the same (the table changed
   under the tap) says why when the server's refusal gives a reason worth saying
   (`LobbyNotifier.dealRefusal`: the table playing, too few, the deck), else nothing extra,
@@ -60,8 +61,8 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   "Edit" starts empty); "Edit" opens the role grid from them (a tap
   adds a card up to the role's most, then none; a hold opens 03b, `showRoleSheet`: the role
   text and a quiet "Close", nothing that changes the deck); an edited deck is sent with "Use
-  this deck", amber only at the cards the deal needs (`deal.need`), "Add 1 card" / "Remove 2
-  cards" otherwise. The pace chips ("Quick 3:00", "Normal 5:00", "Long 8:00": each says the
+  this deck", amber only at the cards the deal needs (`deal.need`), the same words locked
+  otherwise. The pace chips ("Quick 3:00", "Normal 5:00", "Long 8:00": each says the
   talk it gives, `paceChipLabel`) write the contract's presets (talk, vote, a night window;
   never the Doppelganger's window); the one the table's lengths equal is selected
   (`Pace.of`), and the lengths show once the settings carry them. A table made with no

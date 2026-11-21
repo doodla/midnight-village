@@ -102,7 +102,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   /// screen shows is the server's lobby with these merged over it as the
   /// server merges them, so a tap shows at once and an event or a refetch
   /// meanwhile never takes it back.
-  final List<Map<String, Object>> _pending = [];
+  final List<Map<String, Object?>> _pending = [];
   Future<void> _settingsQueue = Future.value();
 
   /// The last change that did not reach the server ("Try again").
@@ -110,10 +110,11 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   void _show(LobbyState server) => state = AsyncData(_withPending(server));
 
-  LobbyState _withPending(LobbyState lobby) =>
-      _pending.fold(lobby, _mergeSettings);
+  LobbyState _withPending(LobbyState lobby) => _pending
+      .fold(lobby, _mergeSettings)
+      .copyWith(settling: _pending.isNotEmpty);
 
-  static LobbyState _mergeSettings(LobbyState lobby, Map<String, Object> p) =>
+  static LobbyState _mergeSettings(LobbyState lobby, Map<String, Object?> p) =>
       lobby.copyWith(
         table: lobby.table.merged(p),
         roleConfig: p['roles'] is Map<String, int>
@@ -430,14 +431,37 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<void> useCustomDeck(Map<String, int> roles) =>
       _changeSettings(LobbyService.customDeck(roles));
 
-  /// The host picks a pace preset.
+  /// The host picks a pace preset: it fills the lengths it sets.
   Future<void> choosePace(Pace pace) => _changeSettings(pace.settings);
+
+  /// The host sets how many players the game is for (3 to 10), or opens the
+  /// table to whoever comes (null). An open table's deck is automatic: a
+  /// custom deck is built for a number.
+  Future<void> setSeats(int? seats) => _changeSettings({
+    'seats': seats,
+    if (seats == null && !(state.value?.table.autoDeck ?? true)) 'deck': 'auto',
+  });
+
+  /// The host starts a custom deck from [roles] (the deck shown), for
+  /// [seats] players when the table is open (a custom deck is built for a
+  /// number).
+  Future<void> startCustomDeck(Map<String, int> roles, {int? seats}) =>
+      _changeSettings({...LobbyService.customDeck(roles), 'seats': ?seats});
+
+  /// One tap on the grid: the custom deck as it now stands, stored at once
+  /// (the server's `deal` says whether it fits).
+  Future<void> setRoles(Map<String, int> roles) =>
+      _changeSettings({'roles': roles});
+
+  /// One length on the set-up page (a settings key, in seconds).
+  Future<void> setLength(String key, int seconds) =>
+      _changeSettings({key: seconds});
 
   /// Sends [patch] (one at a time, in order) and shows it at once, merged
   /// as the server merges it. The answer is the server's lobby; a refusal
   /// or no answer takes the change back (the lobby is read again) and the
   /// screen says "Not sent." with "Try again".
-  Future<void> _changeSettings(Map<String, Object> patch) {
+  Future<void> _changeSettings(Map<String, Object?> patch) {
     final lobby = state.value;
     if (lobby == null) return Future.value();
     _pending.add(patch);
@@ -445,13 +469,15 @@ class LobbyNotifier extends _$LobbyNotifier {
     return _settingsQueue = _settingsQueue.then((_) => _send(patch));
   }
 
-  Future<void> _send(Map<String, Object> patch) async {
+  Future<void> _send(Map<String, Object?> patch) async {
     try {
       final answer = await _hostAction(
         () => ref.read(lobbyServiceProvider).patchSettings(code, patch),
       );
       if (!ref.mounted) return;
       _pending.remove(patch);
+      // The answer is the server's lobby with this change; what is still on
+      // its way goes over it.
       _show(_adopt(answer));
     } on NoLongerHostException {
       // The role moved: the lobby was read again and this phone is a guest
@@ -539,6 +565,9 @@ class LobbyNotifier extends _$LobbyNotifier {
         ? BannerCopy.lobbyClosed
         : details.any((d) => d.startsWith(_tooFew))
         ? TableCopy.needPlayers
+        // Not everyone the table is set for is here: the seats say so.
+        : details.any((d) => d.startsWith(_setFor))
+        ? null
         : details.any(_deckError.hasMatch)
         ? BannerCopy.deckDoesNotFit
         : null;
@@ -548,6 +577,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   /// The server's refusal words (`deal.py`, `validate_onuw_settings`).
   static const _notWaiting = 'Lobby is not in waiting state.';
   static const _tooFew = 'At least 3 players required';
+  static const _setFor = 'The table is set for';
   static final _deckError = RegExp(
     r'^(Total role count|Masons must|Unknown role|Count for|.* requires at least|.* allows at most)',
   );

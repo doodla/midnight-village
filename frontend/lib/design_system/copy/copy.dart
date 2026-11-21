@@ -27,13 +27,6 @@ abstract final class CommonCopy {
   /// "1 of 5" on 04 read as cards, not players).
   static const progress = Template('{d} of {n} ready');
 
-  /// A custom deck that does not match the table (02, 03); one card is
-  /// singular.
-  static const addCards = Template('Add {n} cards');
-  static const removeCards = Template('Remove {n} cards');
-  static const addCard = 'Add 1 card';
-  static const removeCard = 'Remove 1 card';
-
   /// Night and dawn share the title (05, 06).
   static const nightTitle = 'The village sleeps';
 
