@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Flutter adds this only to the debug manifest; a release build needs it to reach the server. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="midnight_village"
         android:name="${applicationName}"
