@@ -1,4 +1,4 @@
-"""The night: every phone sends a ``choose``.
+"""The night: every phone with a choice sends a ``choose``.
 
 The phone-facing half of the night lives here (choose storage, the close rule, the
 prompt, the one group event), behind a narrow set of entry points that ``services``

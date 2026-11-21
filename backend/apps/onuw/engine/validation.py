@@ -164,7 +164,7 @@ def validate_night_timing(settings: dict, *, allow_untimed: bool = True) -> list
     if allow_untimed:
         return []
     errors = [
-        f"{key!r} cannot be 0 when every phone chooses at night."
+        f"{key!r} cannot be 0 when phones choose at night."
         for key in TIMED_NIGHT_KEYS
         if type(settings.get(key)) is int and settings.get(key) == 0
     ]
@@ -172,7 +172,7 @@ def validate_night_timing(settings: dict, *, allow_untimed: bool = True) -> list
     if type(window_min) is int and window_min < MIN_WINDOW_FLOOR_SECONDS:
         errors.append(
             "'night_min_window_seconds' must be at least "
-            f"{MIN_WINDOW_FLOOR_SECONDS} when every phone chooses at night."
+            f"{MIN_WINDOW_FLOOR_SECONDS} when phones choose at night."
         )
     return errors
 

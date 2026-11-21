@@ -15,7 +15,9 @@ advance-wave / end-discussion / reveal-votes) names the `stage` the player's
 `GET /me/` carries now, and a choose answers the prompt's `chosen`: the driver
 reads `/me/` first, so an agent only says WHAT to pick. Picks are
 `{"player_id": n}`, `{"center_index": n}` or `{"self": true}`, 0 to 2 of them;
-every phone chooses once per window (an empty list is "nothing"), and what the
+every phone with a choice chooses once per window (an empty list is "nothing";
+a phone whose prompt is ``none`` need send nothing: the window never waits for
+it), and what the
 picks mean for the role is the server's business. Non-2xx responses are PRINTED, not raised: observing how the
 server rejects a bad move (400 vs 500 vs leak) is the whole point.
 

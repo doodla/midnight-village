@@ -281,7 +281,7 @@ class TestWaveAdvancement:
     """Tests for auto-advance and force-advance mechanics."""
 
     def test_window_closes_when_every_phone_has_chosen(self, api_client, db):
-        """Window 2 closes only once EVERY phone has chosen, and no result is
+        """Window 2 closes only once every phone with a choice has chosen, and no result is
         stored before that."""
         game, users = _create_game(
             {

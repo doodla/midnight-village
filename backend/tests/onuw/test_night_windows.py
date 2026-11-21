@@ -307,7 +307,7 @@ def make_night(db, django_capture_on_commit_callbacks):
             **settings: Any,
         ) -> Night:
             # Defaults: no minimum length and no fixed Doppelganger window, so
-            # windows close as soon as every phone has chosen. Tests of those
+            # windows close as soon as every phone with a choice has chosen. Tests of those
             # rules set them explicitly.
             merged = {
                 "roles": {},
@@ -667,8 +667,7 @@ class TestWindowsAlwaysRun:
         for name in ("a", "b", "c"):
             assert night.prompt(name)["kind"] == "none"
 
-        # Nobody can act, yet it lasts until every phone has chosen and then
-        # still its minimum length.
+        # Nobody can act: it still lasts its minimum length.
         night.rest_choose()
         assert night.refresh().phase == Phase.NIGHT
         assert 0 < night.timer_delays(1)[-1] <= 8

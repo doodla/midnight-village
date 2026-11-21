@@ -29,7 +29,8 @@ const Map<String, int> fastTimers = {
 /// against the recorded outcome (API runner core).
 ///
 /// The game is played the way phones play it: the look stage (everyone taps
-/// ready), then each night window where EVERY phone sends one `choose` with 0
+/// ready), then each night window where every phone WITH a choice sends one
+/// `choose` (a phone with nothing to choose sends nothing) with 0
 /// to 2 picks (the Doppelganger a second, for her follow-up, when her prompt's
 /// `chooses_left` asks for it), then the talk ended by the host, lock-in votes
 /// and the host's reveal; every request names the `stage` the player's `/me/`

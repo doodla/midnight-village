@@ -107,7 +107,7 @@ def _set_deadline(night: Night, seconds_from_now: float) -> None:
 
 
 def _act_everyone(night: Night) -> None:
-    """Every phone chooses the harmless thing in window 2."""
+    """Every phone with a choice chooses the harmless thing in window 2."""
     night.post("wolf", "see_team")
     night.post("seer", "skip")
     night.post("robber", "skip")

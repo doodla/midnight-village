@@ -1,5 +1,5 @@
 """
-The night: every phone sends one ``choose``.
+The night: every phone with a choice sends one ``choose``.
 
 ``POST .../action/`` takes ``{"action_type": "choose", "picks": [0 to 2 picks],
 "chosen": n, "stage": <from /me/>}`` from EVERY phone, whatever it was dealt; the
@@ -151,7 +151,8 @@ def log_entry(night: Night, name: str, role_acting_as: str | None = None) -> dic
 
 
 def everyone_chooses(night: Night, picks: dict[str, Any] | None = None) -> None:
-    """Every player chooses once (``picks`` by name; nothing for the rest)."""
+    """Each player sends one choose (``picks`` by name; nothing for the rest; a
+    sleeper's is taken alike, one sent after the close is refused)."""
     for name in night.users:
         choose(night, name, (picks or {}).get(name, []))
 

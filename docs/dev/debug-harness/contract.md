@@ -10,8 +10,8 @@
 
 ## 0. Updates since the freeze (the choose night, reference games)
 
-The server runs ONE night: two windows where every phone sends a `choose`
-(`backend/apps/onuw/README.md`, "The night: two windows" and "The choose night"; the API:
+The server runs ONE night: two windows where every phone with a choice sends a
+`choose` and a phone with nothing to choose sends nothing (`backend/apps/onuw/README.md`, "The night: two windows" and "The choose night"; the API:
 `docs/specs/onuw/api-contract-v2.md`), and the scenarios are the **reference games**. The
 sections below have been brought up to date with it; this list says what changed since the
 freeze:

@@ -197,7 +197,7 @@ CORE_TABLE_RESUME_HOURS = 12
 # type in new code fails the tests (test, development and harness settings).
 ONUW_STRICT_SOCKET_EVENTS = False
 
-# The night (every phone sends one ``choose``) refuses night timers of 0 seconds
+# The night (every phone with a choice sends one ``choose``) refuses night timers of 0 seconds
 # and a minimum window under 5 seconds: with no deadline one idle phone could
 # stall the table, and a window with no length singles out the Doppelganger.
 # True only in the test, development and harness settings, which drive the night

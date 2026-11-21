@@ -191,7 +191,7 @@ void main() {
       // The last choose closed it; the table reads the results from /me/.
       await pollUntil(
         () async => await t.phase() == 'discussion',
-        reason: 'the window to close when every phone has chosen',
+        reason: 'the window to close when every phone with a choice has chosen',
         timeout: eventTimeout,
       );
       final seen = (await t.me(alice))['night_results'] as List;
@@ -416,7 +416,7 @@ void main() {
       }
       await pollUntil(
         () async => await t.phase() == 'discussion',
-        reason: 'window 2 to close when every phone has chosen',
+        reason: 'window 2 to close when every phone with a choice has chosen',
         timeout: eventTimeout,
       );
       for (final p in players) {

@@ -290,7 +290,7 @@ Future<void> _playThrough(LiveTable t) async {
   for (final p in players) {
     await staged(p, 'ready', {'ready': true}, await me(p));
   }
-  // Every window: each phone chooses once, picking nothing.
+  // Every window: each phone with a choice chooses once, picking nothing.
   await pollUntil(
     () async {
       for (final p in players) {

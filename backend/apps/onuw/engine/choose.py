@@ -1,7 +1,7 @@
 """
 The night as one ``choose``: how the server reads what a phone picked.
 
-At night every phone sends the same thing, ``choose`` with 0 to 2
+At night every phone with a choice sends the same thing, ``choose`` with 0 to 2
 ordered picks, whatever its role, and the server alone decides what the picks mean
 for the role the player acts as. A pick that holds no valid action for the role is
 not an error: it reads as "nothing", and the window close then gives the role its

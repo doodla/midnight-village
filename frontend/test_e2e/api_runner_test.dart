@@ -18,8 +18,9 @@ import 'harness/time_budget.dart';
 /// Doppelganger games) from `backend/tests/onuw/data/reference_games.json`.
 ///
 /// For each game: spin a fresh table with the recorded deal, play the look stage
-/// and the two-window night the way phones do (every phone sends one `choose`
-/// per window, see `harness/scenario_runner.dart`), then (full games) the talk,
+/// and the two-window night the way phones do (every phone with a choice sends
+/// one `choose` per window, a phone with nothing to choose sends nothing, see
+/// `harness/scenario_runner.dart`), then (full games) the talk,
 /// the recorded lock-in votes and the reveal. Assert, via the debug-state oracle, every
 /// player's final card, the center, teams, the copied role, what each player
 /// learned during the night, and (full games) votes, who was voted out, who died,
@@ -279,7 +280,8 @@ void main() {
       final alice = t.players[0], bob = t.players[1];
       final carol = t.players[2], dave = t.players[3];
 
-      // Every phone chooses at once (she copies the Werewolf card, whose action
+      // All four phones send a choose at once (a sleeper's is still taken; she
+      // copies the Werewolf card, whose action
       // is in window 2: no follow-up). Window 1 must STILL run its length.
       await choose(alice, [
         {'player_id': carol.userId},
@@ -332,7 +334,8 @@ void main() {
       expect((await controller.oracle()).currentWave, 2);
       expect(await controller.fireTimer(TimerKey.wave(1)), isFalse);
 
-      // Window 2: every phone chooses but the 600s minimum holds it open ...
+      // Window 2: all four phones send a choose (a sleeper's is still taken) but
+      // the 600s minimum holds it open ...
       for (final p in players) {
         await choose(p);
       }

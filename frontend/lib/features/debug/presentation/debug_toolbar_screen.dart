@@ -445,10 +445,20 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
                   : () => _everyoneElse(
                       table,
                       'Everyone keeps their card',
-                      (p) => _controller.stagedAs(p, 'action', {
-                        'action_type': 'choose',
-                        'picks': const <Object>[],
-                      }, lenient: true),
+                      // As their phones do: only a phone whose prompt still
+                      // has a turn sends one (a sleeper sends nothing).
+                      (p) async {
+                        final view = await _controller.playerView(p);
+                        final prompt = view['action_prompt'];
+                        if (prompt is! Map ||
+                            (prompt['chooses_left'] as int? ?? 0) < 1) {
+                          return;
+                        }
+                        await _controller.stagedAs(p, 'action', {
+                          'action_type': 'choose',
+                          'picks': const <Object>[],
+                        }, lenient: true);
+                      },
                     ),
               child: const Text('Everyone keeps their card'),
             ),

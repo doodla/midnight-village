@@ -287,7 +287,7 @@ class TestWaveTimerLifecycle:
         with timers._lock:
             assert timer_key in timers._registry
 
-        # Every phone has chosen in the window (the Werewolf and the Seer acted,
+        # Every phone with a choice has chosen in the window (the Werewolf and the Seer acted,
         # the Villager chose nothing).
         PlayerRole.objects.filter(game=game, user=werewolf_user).update(
             has_acted=True,

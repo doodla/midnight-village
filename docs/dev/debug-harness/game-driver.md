@@ -73,7 +73,9 @@ Role names are canonical TitleCase. The lobby role-config is derived from
 
 ### Picks (the `--picks` JSON)
 
-Every player sends a `choose` in every window, whatever they hold: 0 to 2 picks, each
+Every player with a choice (`me`'s `action_prompt.chooses_left` above 0) sends a
+`choose` in the window; one with nothing to choose (`kind` `none`) need send nothing,
+and the window never waits for it. A choose is 0 to 2 picks, each
 `{"player_id": <id>}`, `{"center_index": i}` or `{"self": true}`. The server reads them for
 the role (`me`'s `action_prompt.kind` and `shapes` say which picks would do something):
 
@@ -104,14 +106,15 @@ server, the Seer, Robber, Troublemaker and the look skip.
   for the look stage, where every player taps `ready` first) and/or use the `fire-timer`
   verb (`wave:1`, `wave:2`, `look`, `current`: closes that stage now).
 - **The night is two windows** (1 = Doppelganger, 2 = everyone else; `me` shows
-  `current_wave` 1 or 2). Every player has a prompt in every window and chooses once;
+  `current_wave` 1 or 2). Every player has a prompt in every window; a player with a
+  choice chooses once, one with nothing to choose sends nothing;
   results are resolved when the window closes; read what happened from `oracle`
   (`night_actions_log`), which is the referee, or each player's `me` (`night_results`).
   A Doppelganger's look resolves in her first choose (listed in her `me` at once); her
   follow-up is a second choose in the same window if she copied Seer/Robber/
   Troublemaker/Drunk/Minion (`chooses_left` says so).
-- **Phases auto-advance when complete.** Window 2 closes the instant every player has
-  chosen (no sooner than `night_min_window_seconds`); the talk ends when everyone is ready;
+- **Phases auto-advance when complete.** Window 2 closes the instant every player with
+  a choice has chosen (no sooner than `night_min_window_seconds`); the talk ends when everyone is ready;
   voting reveals the instant everyone has locked. So `advance-wave` / `end-discussion` /
   `reveal-votes` are only needed for *partial* states — calling them after a stage ended
   returns a clean 409 `wrong_stage`, not an error. Check the stage (via `me`/`oracle`)
