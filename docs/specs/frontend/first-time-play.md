@@ -463,7 +463,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 7. `NightBoard`: built from the player list, taps, and the `choose` payload.
 8. **A night uniformity test**: drive every role through the look stage, window 1, window 2 and 07, and assert that the non-held widget trees, the transition times and the requests are identical.
 9. QR code, the `/join/:code` route, and the share sheet.
-10. Cold-read pack exported from `just screens` (host, guest, sleeper and Seer journeys).
+10. Cold-read pack exported from `just screens` (host, guest, sleeper and Seer journeys, and a host setting up a table for eight).
 
 ## 6. Open risks
 

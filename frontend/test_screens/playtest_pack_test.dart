@@ -92,7 +92,8 @@ Future<void> _pump(
   PackStep step,
   Set<Cue> learned,
 ) async {
-  final viewer = _viewers[journey.viewer]!;
+  // A set-up journey's viewer plays no game here: never asked for.
+  final viewer = _viewers[journey.viewer];
   final body = step.body;
   final lobby = step.sample?.replaceFirst('http/lobby/', '');
   Future<void> tapAll(Iterable<String> captions) async {
@@ -120,7 +121,7 @@ Future<void> _pump(
     case PackScreen.deckRole:
       await pumpDeckOf(tester, lobby!, journey.viewer, role: true);
     case PackScreen.card || PackScreen.cardHeld:
-      await _pumpView(tester, CardPage(viewer: viewer, look: body), learned);
+      await _pumpView(tester, CardPage(viewer: viewer!, look: body), learned);
       if (step.screen == PackScreen.cardHeld) {
         await holdDown(tester, find.byType(FaceDownCard));
       }
@@ -131,7 +132,7 @@ Future<void> _pump(
       await _pumpView(
         tester,
         BoardPage(
-          viewer: viewer,
+          viewer: viewer!,
           table: (_) => body!,
           secondsLeft: step.secondsLeft!,
         ),
@@ -154,7 +155,7 @@ Future<void> _pump(
       await _pumpView(
         tester,
         TalkPage(
-          viewer: viewer,
+          viewer: viewer!,
           me: body,
           secondsLeft: step.secondsLeft!,
           elapsed: step.share,
@@ -197,7 +198,7 @@ Future<void> _pump(
       await _pumpView(
         tester,
         ResultsPage(
-          viewer: viewer,
+          viewer: viewer!,
           game: EndGame.five,
           guest: !journey.host,
           viewerId: viewerIn(body!, journey.viewer),
