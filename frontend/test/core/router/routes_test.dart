@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -163,6 +164,32 @@ void main() {
       expect(location(router), '/game/some-game-id');
       expect(find.byType(HomeGate), findsOneWidget);
       expect(find.byType(TableShell), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('the /debug page (dev builds): Back returns to the app', (
+      tester,
+    ) async {
+      final router = await pumpRouterApp(
+        tester,
+        authState: AuthState.authenticated(User(id: 1, displayName: 'Alice')),
+      );
+      router.go('/debug');
+      await _settle(tester);
+      expect(location(router), '/debug');
+
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        SystemChannels.navigation.name,
+        SystemChannels.navigation.codec.encodeMethodCall(
+          const MethodCall('popRoute'),
+        ),
+        (_) {},
+      );
+      await _settle(tester);
+      expect(location(router), '/');
+      expect(find.byType(HomeGate), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));

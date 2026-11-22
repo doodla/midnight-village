@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/router/back_policy.dart';
+
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/faces/face_content.dart';
 import '../../../../design_system/faces/held_face.dart';
@@ -71,28 +73,33 @@ class _TalkScreenState extends ConsumerState<TalkScreen> {
   @override
   Widget build(BuildContext context) {
     final me = widget.game.me;
-    return StageSeconds(
-      gameId: widget.gameId,
-      deadline: me.deadline,
-      builder: (context, seconds) {
-        final left = StageShare.left(
-          startedAt: me.stageStartedAt,
-          deadline: me.deadline,
-          secondsLeft: seconds,
-        );
-        return TalkView(
-          me: me,
-          secondsLeft: seconds,
-          elapsed: left == null ? null : 1 - left,
-          // A toggle; taps in a row go out in order, the latest last.
-          onReady: () => unawaited(_notifier.setReady(!(me.ready ?? false))),
-          onMyNightSeen: () => unawaited(_notifier.acknowledgeNightResults()),
-          resultOpen: _open,
-          onPutAway: () => setState(() => _open = false),
-          notSent: widget.game.unsent.contains(OutboxLane.ready),
-          onTryAgain: () => unawaited(_notifier.retry(OutboxLane.ready)),
-        );
-      },
+    // Back puts My night away, as a tap does.
+    return BackHandler(
+      open: _open,
+      onBack: () => setState(() => _open = false),
+      child: StageSeconds(
+        gameId: widget.gameId,
+        deadline: me.deadline,
+        builder: (context, seconds) {
+          final left = StageShare.left(
+            startedAt: me.stageStartedAt,
+            deadline: me.deadline,
+            secondsLeft: seconds,
+          );
+          return TalkView(
+            me: me,
+            secondsLeft: seconds,
+            elapsed: left == null ? null : 1 - left,
+            // A toggle; taps in a row go out in order, the latest last.
+            onReady: () => unawaited(_notifier.setReady(!(me.ready ?? false))),
+            onMyNightSeen: () => unawaited(_notifier.acknowledgeNightResults()),
+            resultOpen: _open,
+            onPutAway: () => setState(() => _open = false),
+            notSent: widget.game.unsent.contains(OutboxLane.ready),
+            onTryAgain: () => unawaited(_notifier.retry(OutboxLane.ready)),
+          );
+        },
+      ),
     );
   }
 }

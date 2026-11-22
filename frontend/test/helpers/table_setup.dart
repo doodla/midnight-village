@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/healing/healing.dart';
+import 'package:midnight_village/core/router/back_policy.dart';
 import 'package:midnight_village/core/router/routes.dart';
 import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/core/storage/token_storage.dart';
@@ -135,6 +136,7 @@ class TableSetup {
     bool webAddress = true,
     bool timesOut = true,
     AuthState? authState,
+    void Function(TableSetup setup)? before,
   }) async {
     // ignore: invalid_use_of_visible_for_testing_member
     SharedPreferences.setMockInitialValues({});
@@ -190,6 +192,8 @@ class TableSetup {
     // The real sign-in: this device's storage (empty: never signed in), the
     // guest account made through the mock server.
     final storage = _MemoryStorage();
+    // The test's changes to the answers, before the first frame.
+    before?.call(setup);
     final router = GoRouter(routes: $appRoutes, initialLocation: route);
     await tester.pumpWidget(
       ProviderScope(
@@ -237,7 +241,8 @@ class TableSetup {
               ),
               child: GroundScope(ground: GroundKind.night, child: child!),
             ),
-            routerConfig: router,
+            // As the app keeps it: one browser history entry.
+            routerConfig: oneHistoryEntry(router),
           ),
         ),
       ),

@@ -230,6 +230,9 @@ class _ResultsViewState extends State<ResultsView>
     final center = widget.outcome.result.centerCards;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
+      // A finger's tap anywhere finishes the motion; it is no button of its
+      // own to a screen reader, whose taps reach the screen's buttons.
+      excludeFromSemantics: true,
       onTap: _finish,
       child: ScreenFrame(
         ground: GroundKind.night,

@@ -670,6 +670,32 @@ void main() {
       });
     }
 
+    testWidgets('a screen reader reaches "See who won" and Leave: the '
+        'screen-wide tap that finishes the motion is no button of its own', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final s = await _end(tester, recordedResults('results'));
+      await _countDone(tester);
+      tester.semantics.tap(find.semantics.byLabel(CountCopy.seeWhoWon));
+      await s.settle(tester);
+      expect(_screen(tester, s), AppScreen.results);
+
+      s.http.answer(
+        'POST',
+        '/lobbies/${code(s)}/leave/',
+        ContractSamples.load('http/lobby/left'),
+      );
+      s
+        ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
+        ..answerHome();
+      tester.semantics.tap(find.semantics.byLabel(CommonCopy.leave));
+      await s.settle(tester);
+      expect(_screen(tester, s), AppScreen.join);
+      await s.close(tester);
+      semantics.dispose();
+    });
+
     testWidgets('a guest leaves: back to 01', (tester) async {
       final s = await _end(tester, recordedResults('results'));
       await _seeWhoWon(tester, s);

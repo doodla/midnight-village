@@ -93,6 +93,9 @@ class _SecondaryButtonState extends State<SecondaryButton> {
       enabled: enabled,
       label: widget.label,
       value: busy ? SpokenCopy.working : null,
+      // The words are this node's own, and so is the tap (the ink's tap is
+      // left out with its words): a screen reader can press it.
+      onTap: busy ? null : widget.onPressed,
       excludeSemantics: true,
       child: AnimatedContainer(
         duration: Motion.press,

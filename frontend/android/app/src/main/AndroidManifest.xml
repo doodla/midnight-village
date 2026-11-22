@@ -5,7 +5,11 @@
         android:label="Midnight Village"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round">
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:enableOnBackInvokedCallback="true">
+        <!-- Predictive back (Android 13 and later): the system previews
+             leaving only where the app lets Back leave (01 Join); everywhere
+             else Back goes to the app's one back policy (lib/core/router/back_policy.dart). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
