@@ -3,8 +3,12 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
+import '../skin/art_set.dart';
 import '../skin/skin.dart';
+import 'band.dart';
+import 'layered_art.dart';
 import 'scene_arrival.dart';
+import 'screen_frame.dart';
 
 /// The two scene changes of the game, the moments every phone at a table
 /// shares. A scene is made of nothing but the two screens and a paper edge.
@@ -68,6 +72,26 @@ class SceneSwitcher<T> extends StatefulWidget {
 
   /// How dark the table gets under the night coming down (the dusk).
   static const dusk = 0.5;
+
+  /// Decodes the layers of a scene's arriving header ([id]: 04's village or
+  /// 08's dawn) at the size its screen draws them, before the scene that
+  /// brings it in, so a scene never lands on an empty header and the same
+  /// decoded pictures are found. Not awaited.
+  static void precacheHeader(BuildContext context, LayeredSceneId id) {
+    final size = MediaQuery.sizeOf(context);
+    final top = MediaQuery.paddingOf(context).top;
+    final width = size.width.clamp(0, ScreenFrame.maxWidth).toDouble();
+    LayeredArt.precache(context, id, switch (id) {
+      LayeredSceneId.nightVillage => Size(
+        width,
+        TopArtLayout.backdrop.height + top,
+      ),
+      LayeredSceneId.dawnGallows => Size(
+        width,
+        TimerBand.skyFor(size.height) + top,
+      ),
+    });
+  }
 
   @override
   State<SceneSwitcher<T>> createState() => _SceneSwitcherState<T>();

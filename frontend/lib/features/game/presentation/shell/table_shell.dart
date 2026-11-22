@@ -10,7 +10,6 @@ import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/primitives/band.dart';
 import '../../../../design_system/primitives/fit_line.dart';
-import '../../../../design_system/primitives/layered_art.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/scene_switcher.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
@@ -90,19 +89,7 @@ class _TableShellState extends ConsumerState<TableShell>
   void _warm(LayeredSceneId id) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final size = MediaQuery.sizeOf(context);
-      final top = MediaQuery.paddingOf(context).top;
-      final width = size.width.clamp(0, ScreenFrame.maxWidth).toDouble();
-      LayeredArt.precache(context, id, switch (id) {
-        LayeredSceneId.nightVillage => Size(
-          width,
-          TopArtLayout.backdrop.height + top,
-        ),
-        LayeredSceneId.dawnGallows => Size(
-          width,
-          TimerBand.skyFor(size.height) + top,
-        ),
-      });
+      SceneSwitcher.precacheHeader(context, id);
     });
   }
 

@@ -165,6 +165,11 @@ class LayeredArt extends StatelessWidget {
                         ? placed(entry)
                         : Positioned.fill(
                             child: _SrcAtopStack(
+                              // At rest the layer is the moon's own rect;
+                              // while the scene moves it, as far as it moves.
+                              room: arrival == null
+                                  ? 0
+                                  : entry.from.distance * geometry.scale,
                               children: [
                                 placed(entry),
                                 for (final shadow in shadows) placed(shadow),
@@ -226,29 +231,44 @@ class _Travel extends StatelessWidget {
 /// and what it can travel): a shadow on the moon stays on the moon whichever
 /// way the two move.
 class _SrcAtopStack extends Stack {
-  const _SrcAtopStack({required super.children})
+  const _SrcAtopStack({required this.room, required super.children})
     : super(fit: StackFit.expand, clipBehavior: Clip.none);
+
+  /// How far the first child may be moved from where it is laid out, in
+  /// logical pixels: the layer is as large as the child and this around it.
+  final double room;
 
   @override
   RenderStack createRenderObject(BuildContext context) => _RenderSrcAtop(
+    room: room,
     alignment: alignment,
     textDirection: textDirection ?? Directionality.maybeOf(context),
     fit: fit,
     clipBehavior: clipBehavior,
   );
+
+  @override
+  void updateRenderObject(BuildContext context, RenderStack renderObject) {
+    super.updateRenderObject(context, renderObject);
+    (renderObject as _RenderSrcAtop).room = room;
+  }
 }
 
 class _RenderSrcAtop extends RenderStack {
   _RenderSrcAtop({
+    required double room,
     super.alignment,
     super.textDirection,
     super.fit,
     super.clipBehavior,
-  });
+  }) : _room = room;
 
-  /// How far the first child may be moved from where it is laid out, in
-  /// logical pixels: the layer is as large as the child and this around it.
-  static const _room = 96.0;
+  double _room;
+  set room(double value) {
+    if (value == _room) return;
+    _room = value;
+    markNeedsPaint();
+  }
 
   @override
   void paintStack(PaintingContext context, Offset offset) {
@@ -256,7 +276,9 @@ class _RenderSrcAtop extends RenderStack {
     if (first == null) return;
     final canvas = context.canvas;
     final firstData = first.parentData! as StackParentData;
-    final bounds = ((firstData.offset + offset) & first.size).inflate(_room);
+    final bounds = ((firstData.offset + offset) & first.size).inflate(
+      _room + 1,
+    );
     canvas.saveLayer(bounds, Paint());
     context.paintChild(first, firstData.offset + offset);
     var child = firstData.nextSibling;

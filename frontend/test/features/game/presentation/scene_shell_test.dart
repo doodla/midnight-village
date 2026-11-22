@@ -5,7 +5,10 @@ import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
+import 'package:midnight_village/design_system/primitives/layered_art.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/skin/art_set.dart';
+import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
@@ -139,7 +142,54 @@ Future<ShellSetup> _atTable(WidgetTester tester, {bool still = false}) async {
   return s;
 }
 
+/// Whether the layer [file] of [id] has been asked for (decoding or decoded)
+/// at the size a 390 x 844 phone draws it: the key the shell's warm-up and the
+/// screen's own picture share.
+Future<bool> _asked(
+  WidgetTester tester,
+  LayeredSceneId id,
+  String file,
+  Size box,
+) async {
+  final art = SkinId.fallback.skin.art;
+  final scene = art.layeredScene(id);
+  final layer = scene.files.firstWhere((l) => l.file == file);
+  final size = SceneGeometry.cover(scene, box).rect(layer.anchor, layer.size);
+  final provider = art.layer(id, layer).decodedFor(size.size, 1);
+  final key = await tester.runAsync(
+    () => provider.obtainKey(ImageConfiguration.empty),
+  );
+  return PaintingBinding.instance.imageCache.statusForKey(key!).tracked;
+}
+
 void main() {
+  group('the headers\' layers are decoded before their scenes', () {
+    testWidgets('the shell asks for the village, and the dawn once this phone '
+        'is at the night', (tester) async {
+      _phone(tester);
+      PaintingBinding.instance.imageCache.clear();
+      const night = Size(390, 520);
+      final sky = Size(390, TimerBand.skyFor(844));
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_look_stage'),
+        learned: const {},
+      );
+      await s.settle(tester);
+      // At the table (02) or the card (04): the village is asked for.
+      expect(
+        await _asked(tester, LayeredSceneId.nightVillage, 'moon', night),
+        isTrue,
+      );
+      expect(
+        await _asked(tester, LayeredSceneId.dawnGallows, 'roofs_near', sky),
+        isTrue,
+        reason: 'at the night the dawn is asked for',
+      );
+      await s.close(tester);
+    });
+  });
+
   group('the dawn: night to talk', () {
     testWidgets('runs for Motion.scene, not the crossfade, and finishes', (
       tester,

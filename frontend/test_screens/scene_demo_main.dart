@@ -39,6 +39,17 @@ class _Demo extends StatefulWidget {
 class _DemoState extends State<_Demo> {
   var _stage = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    // As the table's shell does: the layers decoded before the scenes.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final id in LayeredSceneId.values) {
+        SceneSwitcher.precacheHeader(context, id);
+      }
+    });
+  }
+
   SceneKind? _between(int from, int to) => switch ((from, to)) {
     (0, 1) => SceneKind.dusk,
     (2, 3) => SceneKind.dawn,
