@@ -101,6 +101,74 @@ void main() {
     expect(_taps(drunk, [_left, PlayerPick(other)]), [_left]);
   });
 
+  group('a card that cannot join the pick is dimmed', () {
+    final seer = _rule('me_choose_prompt_seer');
+    final cleoPick = PlayerPick(cleo.id);
+
+    test("the Seer's: nothing at first; one player, everything else; one "
+        'center card, the players and no other center card', () {
+      for (final card in [cleoPick, PlayerPick(ben.id), _left, _middle]) {
+        expect(seer.dims(card, const []), isFalse);
+      }
+      expect(seer.dims(PlayerPick(ben.id), [cleoPick]), isTrue);
+      expect(seer.dims(_left, [cleoPick]), isTrue);
+      expect(seer.dims(PlayerPick(ben.id), [_left]), isTrue);
+      expect(seer.dims(_middle, [_left]), isFalse);
+      expect(seer.dims(_right, [_left]), isFalse);
+      expect(seer.dims(_middle, [_left, _right]), isTrue);
+    });
+
+    test('"You" is never dimmed, a card picked is not, and "You" alone '
+        'leaves the pick empty', () {
+      expect(seer.dims(_you, [cleoPick]), isFalse);
+      expect(seer.dims(cleoPick, [cleoPick]), isFalse);
+      expect(seer.dims(_left, [_you]), isFalse);
+      expect(seer.dims(PlayerPick(ben.id), [_you]), isFalse);
+      final robber = _rule('me_choose_prompt_robber');
+      expect(robber.dims(_left, [_you]), isTrue);
+    });
+
+    test("a sleeper's shape is any one card: nothing dims", () {
+      final sleeper = _rule('me_choose_prompt_villager');
+      for (final card in [cleoPick, _left, _right]) {
+        expect(sleeper.dims(card, const []), isFalse);
+      }
+    });
+
+    test('it is exactly the cards a tap would replace the pick with, not '
+        'add to, for every recorded prompt', () {
+      for (final sample in _prompts) {
+        final rule = _rule(sample);
+        final players = {
+          for (final id in rule.players) PlayerPick(id),
+          cleoPick,
+        };
+        final cards = [...players, _left, _middle, _right];
+        // Every pick a player can be in the middle of: none, one card, two.
+        final singles = [
+          for (final card in cards)
+            if (rule.canPick(card)) [card],
+        ];
+        final pairs = [
+          for (final one in singles)
+            for (final card in cards) rule.tap(one, card),
+        ].where((picks) => picks.length == 2);
+        for (final picks in [const <NightPick>[], ...singles, ...pairs]) {
+          for (final card in cards) {
+            if (picks.contains(card) || !rule.canPick(card)) continue;
+            final after = rule.tap(picks, card);
+            final adds = picks.every(after.contains) && after.contains(card);
+            expect(
+              rule.dims(card, picks),
+              !adds,
+              reason: '$sample: $card after $picks',
+            );
+          }
+        }
+      }
+    });
+  });
+
   test('a shape the app does not know is a broken payload', () {
     final prompt =
         recordedMe('me_choose_prompt_seer')['action_prompt']

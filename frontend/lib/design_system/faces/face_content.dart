@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../copy/copy.dart';
 import '../copy/role_text.dart';
+import '../copy/template.dart';
 import '../models/role.dart';
 
 // What a held face says (first-time play spec, sections 3, 7 and 8): pages
@@ -69,29 +70,60 @@ RoleId serverRole(Object? name) =>
     (throw FormatException('Not a role', name));
 
 /// What a night prompt asks of this phone, by the prompt's `kind`, one to
-/// one: what its "You" face says, and the board's title.
+/// one: what its "You" face says, the board's title, and the words of its
+/// button (what will happen with the picks; what passing is for this role).
 enum NightPrompt {
   noChoice('none', NightCopy.noChoice, CommonCopy.nightTitle),
-  seer('seer', NightCopy.seer, NightCopy.seerTitle),
-  robber('robber', NightCopy.robber, NightCopy.robberTitle),
+  seer(
+    'seer',
+    NightCopy.seer,
+    NightCopy.seerTitle,
+    go: NightCopy.see,
+    pass: NightCopy.skip,
+  ),
+  robber(
+    'robber',
+    NightCopy.robber,
+    NightCopy.robberTitle,
+    go: NightCopy.swapWith,
+    pass: NightCopy.keep,
+  ),
   troublemaker(
     'troublemaker',
     NightCopy.troublemaker,
     NightCopy.troublemakerTitle,
+    go: NightCopy.swap,
+    pass: NightCopy.skip,
   ),
-  drunk('drunk', NightCopy.drunk, NightCopy.drunkTitle),
+  drunk(
+    'drunk',
+    NightCopy.drunk,
+    NightCopy.drunkTitle,
+    go: NightCopy.swapWith,
+    pass: NightCopy.chooseForMe,
+  ),
   loneWerewolf(
     'lone_werewolf',
     NightCopy.loneWerewolf,
     NightCopy.loneWerewolfTitle,
+    go: NightCopy.see,
+    pass: NightCopy.skip,
   ),
   doppelgangerLook(
     'doppelganger_look',
     NightCopy.doppelgangerLook,
     NightCopy.doppelgangerTitle,
+    go: NightCopy.copyCard,
+    pass: NightCopy.skip,
   );
 
-  const NightPrompt(this.kind, this.instruction, this.title);
+  const NightPrompt(
+    this.kind,
+    this.instruction,
+    this.title, {
+    this.go,
+    this.pass,
+  });
 
   /// The server's name for it.
   final String kind;
@@ -100,6 +132,13 @@ enum NightPrompt {
   /// The board's headline: the role's night line in a few words for a
   /// phone with a choice; "The village sleeps" for a sleeper.
   final String title;
+
+  /// The button once the picks are whole: what will happen to them ("See
+  /// {cards}", "Swap with {cards}"); null for a sleeper, who has no button.
+  final Template? go;
+
+  /// The button with "You" alone picked: what passing is, for this role.
+  final String? pass;
 
   static NightPrompt fromKind(String kind) =>
       values.where((prompt) => prompt.kind == kind).firstOrNull ??

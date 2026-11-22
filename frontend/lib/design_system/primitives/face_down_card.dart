@@ -57,6 +57,7 @@ class FaceDownCard extends StatelessWidget {
     this.ownerName,
     this.caption,
     this.selected = false,
+    this.dimmed = false,
     this.hold,
     this.tilt = Tilt.none,
     this.cardWidth,
@@ -71,6 +72,11 @@ class FaceDownCard extends StatelessWidget {
   final String? ownerName;
   final String? caption;
   final bool selected;
+
+  /// The card cannot join the pick being made (the night board): its back and
+  /// token sit at the skin's dimmed opacity. Its name or caption stays in
+  /// full ink, and a tap still reaches it.
+  final bool dimmed;
   final bool? hold;
   final Tilt tilt;
   final double? cardWidth;
@@ -140,38 +146,46 @@ class FaceDownCard extends StatelessWidget {
     if (angle != 0) card = Transform.rotate(angle: angle, child: card);
 
     final token = ownerTokenFor(width);
+    Widget lit(Widget child) => AnimatedOpacity(
+      opacity: dimmed ? skin.dimmed : 1,
+      duration: Motion.quick,
+      curve: Motion.curve,
+      child: child,
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (owner case final owner?)
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(bottom: token / 2),
-                child: card,
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Center(
-                  child: SizedBox.square(
-                    dimension: token,
-                    child: FittedBox(
-                      child: PlayerToken(
-                        owner,
-                        size: TokenSize.card,
-                        ringColor: selected ? ground.selection : null,
+          lit(
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(bottom: token / 2),
+                  child: card,
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: SizedBox.square(
+                      dimension: token,
+                      child: FittedBox(
+                        child: PlayerToken(
+                          owner,
+                          size: TokenSize.card,
+                          ringColor: selected ? ground.selection : null,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           )
         else
-          card,
+          lit(card),
         if (ownerName case final name?) ...[
           const SizedBox(height: nameGap),
           if (nameHeight case final height?)

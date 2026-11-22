@@ -53,18 +53,30 @@ final _windowOne = <String, List<Object>>{
 /// "You" on the board, with the board's title (the prompt's): each prompt's
 /// instruction, the Doppelganger's page once her copy is back, and window
 /// 2's second page under any prompt's title.
-final _you = <String, (String, List<Object>)>{
+final _you = <String, (NightPrompt, List<Object>)>{
   for (final prompt in NightPrompt.values)
-    prompt.name: (prompt.title, [prompt.instruction]),
+    prompt.name: (prompt, [prompt.instruction]),
   for (final followUp in NightPrompt.values)
     'copied, then ${followUp.name}': (
-      followUp.title,
+      followUp,
       [NightCopy.copied, followUp.instruction],
     ),
   for (final prompt in NightPrompt.values)
     for (final MapEntry(:key, :value) in _windowOne.entries)
-      'window 2 page 2, $key, ${prompt.name}': (prompt.title, value),
+      'window 2 page 2, $key, ${prompt.name}': (prompt, value),
 };
+
+/// The buttons a board of [prompt] shows: waiting for a pick, the picks
+/// whole (what will happen), passing, and chosen; a sleeper's is quiet.
+List<Object> _buttons(NightPrompt prompt) => prompt.go == null
+    ? [NightCopy.nothingToDo]
+    : [
+        NightCopy.chooseNone,
+        NightCopy.chooseMore,
+        ?prompt.go,
+        ?prompt.pass,
+        NightCopy.chosen,
+      ];
 
 /// My night's pages (08).
 final _myNight = <String, List<Object>>{
@@ -220,22 +232,17 @@ final screens = <String, Screen>{
     },
   ),
   '06 Night board': (
-    budget: 20,
+    budget: 22,
     states: {
-      for (final label in <Object>[
-        NightCopy.chooseNone,
-        NightCopy.chooseMore,
-        NightCopy.choose,
-        NightCopy.keep,
-        NightCopy.chosen,
-        NightCopy.nothingToDo,
-      ])
-        for (final MapEntry(key: key, value: (title, face)) in _you.entries)
+      for (final MapEntry(key: key, value: (prompt, face)) in _you.entries)
+        for (final label in _buttons(prompt))
           '$label, $key': [
-            headline(title),
+            headline(prompt.title),
             // The candle's number in its last minute.
             text(CommonCopy.seconds),
             text(NightCopy.you),
+            // The strip's label, and each card's own.
+            text(NightCopy.centerLabel),
             for (final side in NightCopy.center) text(side),
             cue(CommonCopy.hold),
             button(label),

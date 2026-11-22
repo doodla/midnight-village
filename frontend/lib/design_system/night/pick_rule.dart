@@ -98,6 +98,19 @@ class PickRule {
   /// A tap on [pick] selects it: it is "You", or some shape can hold it.
   bool canPick(NightPick pick) => _begun([pick]);
 
+  /// [card] cannot join [picks]: tapping it would not add to the pick but
+  /// replace it (a Robber's centre card, a Seer's second player). The board
+  /// dims such a card. "You" is never one, a card already picked is not, and
+  /// "You" alone picked leaves the pick empty. It reads the `shapes` only,
+  /// so a board with `{"any": 1}` (a sleeper's) dims nothing.
+  bool dims(NightPick card, List<NightPick> picks) {
+    if (card is SelfPick || picks.contains(card)) return false;
+    final held = _alone(picks) ? const <NightPick>[] : picks;
+    return !(_allowed(card) &&
+        held.every(_allowed) &&
+        shapes.any((shape) => shape.begunBy([...held, card])));
+  }
+
   /// [picks] are "You" alone or a whole shape: Choose can send them.
   bool fits(List<NightPick> picks) =>
       _alone(picks) ||

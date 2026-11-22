@@ -44,6 +44,7 @@ class BoardLayout {
     required this.bandCard,
     required this.bandCell,
     required this.bandHeight,
+    required this.labelRoom,
     required this.nameSize,
     required this.nameHeight,
     required this.used,
@@ -67,6 +68,10 @@ class BoardLayout {
 
   /// The band's height: the place and the strip are drawn this high.
   final double bandHeight;
+
+  /// The room the strip's "Center" label takes above its cards (and the
+  /// place leaves empty above its own, so the four cards sit level).
+  final double labelRoom;
 
   /// The font size (before the text scale) every name is set at.
   final double nameSize;
@@ -177,6 +182,8 @@ class BoardLayout {
     ];
     final youNeed = _Need.of(you, nameStyle, scaler);
     final captionHeight = _lineHeight(captionStyle, scaler);
+    // The strip's "Center" label is a caption line and its gap.
+    final labelRoom = captionHeight + FaceDownCard.captionGap;
     // A tilted card's height: its turned box.
     final turn = math.cos(tilt) + math.sin(tilt.abs()) / heightOf(1);
     // The band's four cells share what its paddings leave of the width.
@@ -210,7 +217,7 @@ class BoardLayout {
             nameHeight;
         final strip =
             heightOf(b) * turn + FaceDownCard.captionGap + captionHeight;
-        return 2 * bandPadding + math.max(place, strip);
+        return 2 * bandPadding + labelRoom + math.max(place, strip);
       }
 
       double heightFor(double card) =>
@@ -252,6 +259,7 @@ class BoardLayout {
           bandCard: band(card),
           bandCell: math.min(bandMost, math.max(band(card), minTap)),
           bandHeight: bandHeightFor(card),
+          labelRoom: labelRoom,
           nameSize: size,
           nameHeight: nameHeight,
           used: heightFor(card),

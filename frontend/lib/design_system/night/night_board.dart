@@ -241,9 +241,10 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         onLockedTap: _replay.replay,
       );
     }
+    final kind = widget.prompt.kind;
     final label = _picks.length == 1 && _picks.single is SelfPick
-        ? NightCopy.keep
-        : NightCopy.choose.fill({'cards': _picks.map(_caption).join(', ')});
+        ? kind.pass!
+        : kind.go!.fill({'cards': _picks.map(_caption).join(', ')});
     return PrimaryButton(label: label, onPressed: _choose);
   }
 
@@ -432,16 +433,37 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                 color: context.ground.panel,
                 borderRadius: BorderRadius.circular(skin.shape.radius),
               ),
-              child: Row(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: BoardLayout.tableCardGap,
                 children: [
-                  for (var i = 0; i < 3; i++)
-                    SizedBox(
-                      width: layout.bandCell,
-                      child: wave(_center(i, layout)),
+                  SizedBox(
+                    width: 3 * layout.bandCell + 2 * BoardLayout.tableCardGap,
+                    height: layout.labelRoom,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: FitWords(
+                        NightCopy.centerLabel,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        // In full ink, like the captions under the cards.
+                        style: skin.typography.caption.copyWith(
+                          color: context.ground.text,
+                        ),
+                      ),
                     ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: BoardLayout.tableCardGap,
+                    children: [
+                      for (var i = 0; i < 3; i++)
+                        SizedBox(
+                          width: layout.bandCell,
+                          child: wave(_center(i, layout)),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -450,6 +472,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
       ),
     );
   }
+
+  /// A card that cannot join the pick being made sits dimmed (a sleeper's
+  /// board has no pick to make: nothing dims).
+  bool _dims(NightPick pick) =>
+      !widget.prompt.sleeps && widget.prompt.rule.dims(pick, _picks);
 
   Widget _player(NightSeat seat, BoardLayout layout) {
     final pick = PlayerPick(seat.id);
@@ -463,6 +490,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         owner: seat.token,
         ownerName: seat.name,
         selected: _picks.contains(pick),
+        dimmed: _dims(pick),
         semanticLabel: seat.name,
         onTap: () => _tap(pick),
       ),
@@ -479,6 +507,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         caption: centerName(index),
         tilt: Tilt.scatter(index),
         selected: _picks.contains(pick),
+        dimmed: _dims(pick),
         semanticLabel: centerName(index),
         onTap: () => _tap(pick),
       ),
@@ -502,7 +531,8 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         behavior: HitTestBehavior.opaque,
         excludeFromSemantics: true,
         child: PaperCard(
-          padding: padding,
+          // Level with the strip's cards, which sit under its label.
+          padding: padding.copyWith(top: padding.top + layout.labelRoom),
           child: SizedBox(
             width: layout.bandCell,
             child: wave(
