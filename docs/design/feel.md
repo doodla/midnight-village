@@ -51,8 +51,10 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 Their own constants (not `Motion`): `HoldToReveal.holdDelay` 120 ms (a touch shorter than this is
 a tap, longer is a hold: the face shows after it) and `revealedAfter` 800 ms (a reveal counts once
 seen this long; a count, not a wait); `CueWave` 120 ms each, 90 ms apart, lifts 8 px (night) and
-6 px (vote); `HoldCue` breath 1400 ms, scale 1.06; a replayed cue runs 3 s. Lists that stagger
-finish within about 2 s whatever their length (10 rows: 1.6 s), and a tap finishes them.
+6 px (vote); `HoldCue` breath 1400 ms, scale 1.06; a replayed cue runs 3 s. A list that staggers
+takes `stagger` × (rows − 1) + `settle` on the count, and `stagger` × steps + `settle` on the
+results' night. There is no cap, so a list is short only because a table seats at most 10: 10 rows
+take 1.6 s. A tap finishes them.
 
 **To add** (only what #28 needs; the builder fixes the value in a recording, within the bound):
 
@@ -134,7 +136,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
 | The deal commits (02 to 04, on every phone together) | The table's village sinks, night rises; 04 takes touches from frame one. No vibration. Today a crossfade | `scene` | Cut | pass 1 |
-| The card arrives | A face-down card at 60% of the height; in a first game the ring breathes with "Hold" | breath 1400 ms | Ring still | exists |
+| The card arrives | A face-down card as large as the room under the headline allows, 3 by 4: its width is the smaller of the room's width and three quarters of its height; in a first game the ring breathes with "Hold" | breath 1400 ms | Ring still | exists |
 
 ### Your card (04)
 
@@ -176,7 +178,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
 | Dawn (night to talk, all phones together) | Dawn rooftops rise as night sinks; the sun timer shows. No vibration. Today a crossfade | `scene` | Cut | pass 1 |
-| The timer | Digits tick each second; the bar steps with them (no tween) | 1 s | Same | exists |
+| The timer | Digits tick each second, and the sun on the talk's sky steps along its arc with them, a jump with no tween (the vote's bar on 09 steps the same way) | 1 s | Same | exists |
 | My night opens by itself (once, when the night told this phone something) | The same paper card a hold shows, every word on screen; a tap puts it away | none | Same | exists |
 | Hold "My night" | The face above the thumb; each hold shows the next page, dots inside | 120 ms | Same | exists |
 | "Ready to vote" tapped | "Ready ✓" at once, pips up; a light vibration on the tap | `press`, `light` | Cut | pass 4 |
@@ -239,7 +241,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Empty | The ground and the one thing to do, never a message: a nearly empty table keeps the code loudest | none | Same | exists |
 | Loading | Today the ground with nothing on it, "3 or 4 seconds with no idea what is happening" (owner). It needs a moving sign of life that is not a spinner over text. #10 owns it | none yet | Still sign | no pass |
 | A player arrives | Their row drops in on the paper and settles, the lantern in the art flickers once; no vibration, no sound. Today it appears | `settle`, `land`, 2 x `quick` | Appears | pass 6 |
-| A phone drops, or comes back | The token dims to 40% in the idle ring, or lifts back; no words. Today a cut | `quick` | Cut | exists |
+| A phone drops, or comes back | The token dims to 40% in the idle ring, or lifts back, at once; no words. Today a cut with no animation; animating it over `quick` is to build | `quick` | Cut | pass 6 |
 | A player leaves | Their row fades and the rows below close up. Today a cut | `settle` | Cut | no pass |
 | Host handover | That phone's layout changes in place (QR and Deal appear), no words. Today a cut | `settle` | Cut | no pass |
 | This phone loses its connection | "One moment" over the top; nothing else moves; it goes when the phone is back, with no welcome-back. Today it cuts in and out | `settle`, 8 px | Cut | no pass |
