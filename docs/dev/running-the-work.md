@@ -63,6 +63,25 @@ A hook refuses any worker that is not on an allowed model with an effort set
 - A change to words or screens runs `just test-harness` before its pull request: the commit
   gate skips it (too slow) and GitHub's "End-to-end Harness" job runs it after.
 
+## Lean helpers
+
+Measured on 22 Nov 2026 from the transcripts: an agent defined with all tools starts at about
+78k tokens of context, one with `tools: Read, Grep, Glob, Bash` at 7-10k (the difference is
+tool descriptions from connectors a builder never uses). Builders opened 625 screenshots one
+by one, 96% of all tool-result bytes, and a picture read once is re-read on every later call.
+Three builders made 300-600 calls each because one agent was resumed for every fix and every
+"merge main". So:
+
+- A fresh agent for each step (build, fix, merge main), with a short note of where things stand;
+  never one resumed builder.
+- Size a piece to finish within about 150 calls. A builder that nears that hands back with a note of what is left.
+- Builders do not open screenshots one by one: they hand the PNGs to `eyes` or view one
+  `just contact-sheet` (in `frontend/`).
+- Small jobs (a lookup, running checks, a fact-check, bookkeeping, an exact edit) go to `worker`.
+- A brief points at files and stays short; it does not paste them.
+- This session still judges the screens by eye, as before and after pictures.
+- Log each finished piece in `docs/dev/agent-ledger.md` so these numbers keep being measured.
+
 ## Outside this repository
 
 - Fetch and merge before pushing: the deployment session pushes to the same branch. After
