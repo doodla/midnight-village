@@ -55,6 +55,9 @@ Future<void> endAsTheOracleSays({
   bool text(String t) => find.text(t).evaluate().isNotEmpty;
 
   await ui.pumpUntil(shows<CountView>, reason: '10 The count');
+  // As it opens: the rows still landing, any dead card not turned (its beat
+  // alone outlasts the change of screen), so this frame and the next differ.
+  ui.captureMidMotion = true;
   await shoot('count-opening');
   await tester.tap(find.byType(CountView), warnIfMissed: false);
   await tester.pump();

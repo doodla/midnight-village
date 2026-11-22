@@ -67,7 +67,7 @@ Map<String, dynamic> tableOf(
   };
   players.removeWhere((p) => gone.contains(p['player_id']));
   targets?.removeWhere(gone.contains);
-  final unused = TokenId.values
+  final unused = TokenId.people
       .map((t) => t.name)
       .where((t) => !players.any((p) => p['token'] == t))
       .toList();

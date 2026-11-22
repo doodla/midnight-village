@@ -83,6 +83,11 @@ abstract final class TableCopy {
   /// keeps the table): one stray tap must not hand the table away.
   static const stay = 'Stay';
 
+  /// Beside a practice player's name (a seat the server plays, switched on
+  /// by the host's long press on 03's "Players"), at the table and in the
+  /// vote, for everyone.
+  static const practice = 'Practice';
+
   // Guest.
   static const hostDeals = Template('{host} deals');
 }
@@ -95,6 +100,11 @@ abstract final class DeckCopy {
   /// whoever is there.
   static const players = 'Players';
   static const any = 'Any';
+
+  /// How many practice players sit at the table: a stepper under Players,
+  /// shown only once the host has held "Players" (hidden from everyone
+  /// else); the same word as their tag ([TableCopy.practice]).
+  static const practice = TableCopy.practice;
 
   /// In the order of the server's chips (`simple`, `classic`, `chaos`).
   static const chips = ['Simple', 'Classic', 'Chaos'];

@@ -21,8 +21,9 @@ from rest_framework.views import APIView
 from apps.core import timers
 from apps.core.lobbies import ensure_tokens
 from apps.core.models import Lobby, LobbyMember
+from apps.core.practice import is_practice
 
-from . import presence
+from . import practice, presence
 from .choose_night import CHOOSE_ERROR_CODES, submit_choose
 from .deal import deal_refusal, dealt_settings
 from .debug import ForcedAssignmentError, parse_forced_assignment
@@ -284,6 +285,16 @@ class GameMeView(APIView):
 
         # Fetch all player roles for the players list (public info only)
         all_player_roles = list(game.player_roles.select_related("user").all())
+
+        # The backstop for practice players (``practice.behind``: no query at a
+        # table without them): if one has not done its part in the stage open now
+        # (the drive after the stage opened was lost), it acts now, and this read
+        # shows the game after it.
+        if practice.behind(game, all_player_roles):
+            practice.drive(game.id)
+            game.refresh_from_db()
+            player_role.refresh_from_db()
+            all_player_roles = list(game.player_roles.select_related("user").all())
 
         # Re-create any timer this game should have but this process lost (a
         # restart). Cheap when they are all registered; never blocks the read.
@@ -697,8 +708,9 @@ class PlayerListView(APIView):
         players = [
             {
                 **player_identity(pr),
-                # Presence is public: is any of their sockets open right now?
-                "connected": pr.user_id in connected_ids,
+                # Presence is public: is any of their sockets open right now? A
+                # practice player has no phone to drop: always here.
+                "connected": pr.user_id in connected_ids or is_practice(pr.user),
             }
             for pr in all_prs
         ]

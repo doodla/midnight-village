@@ -1,5 +1,8 @@
 import 'dart:io';
+import 'dart:ui' show PointerDeviceKind;
 
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -683,6 +686,215 @@ void main() {
     expect(find.byType(RoleSheetBody), findsNothing);
     await s.close(tester);
   });
+
+  group(
+    'a sheet closed leaves nothing behind: the next hold opens its role',
+    () {
+      // The owner's report: after Back from a role's sheet, a hold on another
+      // card opened nothing until the deck changed. Every way a role sheet
+      // closes, then a hold on each of three other cards, on every screen that
+      // opens one (02's strip, 03's grid, 08's deck).
+      Future<TableSetup> table(WidgetTester tester) => TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_auto_deck_5'),
+        viewer: 'Ana',
+      );
+
+      Future<TableSetup> deck(WidgetTester tester) async {
+        final setup = await table(tester);
+        await _tap(tester, find.text(TableCopy.editDeck));
+        expect(_screen(tester), AppScreen.deck);
+        return setup;
+      }
+
+      /// Holds card [i] as a finger does (down, the press time, up).
+      Future<void> hold(
+        WidgetTester tester,
+        int i, {
+        PointerDeviceKind? kind,
+      }) async {
+        final card = find.byType(RoleCard).at(i);
+        await tester.ensureVisible(card);
+        await tester.pump();
+        await tester.longPress(card, kind: kind ?? PointerDeviceKind.touch);
+        await _settled(tester);
+      }
+
+      Future<void> pressClose(WidgetTester tester) async {
+        await tester.tap(find.text(RoleSheetCopy.close));
+        await _settled(tester);
+      }
+
+      /// Opens a sheet by [open], closes it by [close], three times over.
+      Future<void> reopens(
+        WidgetTester tester, {
+        required Future<void> Function(int i) open,
+        required Future<void> Function() close,
+      }) async {
+        for (var i = 0; i < 3; i++) {
+          await open(i);
+          expect(
+            find.byType(RoleSheetBody),
+            findsOneWidget,
+            reason: 'card $i opens its sheet',
+          );
+          await close();
+          expect(find.byType(RoleSheetBody), findsNothing, reason: 'closed');
+        }
+      }
+
+      testWidgets('03, closed by Back', (tester) async {
+        final setup = await deck(tester);
+        await reopens(
+          tester,
+          open: (i) => hold(tester, i),
+          close: () => _back(tester),
+        );
+        expect(_screen(tester), AppScreen.deck);
+        await setup.close(tester);
+      });
+
+      testWidgets('03, closed by its Close', (tester) async {
+        final setup = await deck(tester);
+        await reopens(
+          tester,
+          open: (i) => hold(tester, i),
+          close: () => pressClose(tester),
+        );
+        await setup.close(tester);
+      });
+
+      testWidgets('03, a mouse held and Back before it is let go', (
+        tester,
+      ) async {
+        final setup = await deck(tester);
+        for (var i = 0; i < 3; i++) {
+          final card = find.byType(RoleCard).at(i);
+          await tester.ensureVisible(card);
+          await tester.pump();
+          final mouse = await tester.startGesture(
+            tester.getCenter(card),
+            kind: PointerDeviceKind.mouse,
+          );
+          await tester.pump(const Duration(milliseconds: 700));
+          expect(find.byType(RoleSheetBody), findsOneWidget);
+          await _press(tester);
+          await mouse.up();
+          await _settled(tester);
+          expect(find.byType(RoleSheetBody), findsNothing);
+        }
+        await setup.close(tester);
+      });
+
+      testWidgets('03, on the web (the browser\'s Back)', (tester) async {
+        BackPolicy.web = true;
+        BackPolicy.leaveWeb = () {};
+        final setup = await deck(tester);
+        await reopens(
+          tester,
+          open: (i) => hold(tester, i),
+          close: () => _back(tester),
+        );
+        BackPolicy.web = false;
+        await setup.close(tester);
+      });
+
+      testWidgets(
+        '03, closed by the back gesture of Android (predictive back)',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.android;
+          final setup = await deck(tester);
+          Future<void> gesture(String method, [double progress = 0]) =>
+              tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+                SystemChannels.backGesture.name,
+                SystemChannels.backGesture.codec.encodeMethodCall(
+                  MethodCall(method, {
+                    'touchOffset': <double>[5, 300],
+                    'progress': progress,
+                    'swipeEdge': 0,
+                  }),
+                ),
+                (_) {},
+              );
+          await reopens(
+            tester,
+            open: (i) => hold(tester, i),
+            close: () async {
+              await gesture('startBackGesture');
+              await tester.pump(const Duration(milliseconds: 16));
+              await gesture('updateBackGestureProgress', 0.4);
+              await tester.pump(const Duration(milliseconds: 16));
+              // Swiped, let go, swiped again, and let through.
+              await gesture('cancelBackGesture');
+              await _settled(tester);
+              expect(find.byType(RoleSheetBody), findsOneWidget);
+              await gesture('startBackGesture');
+              await gesture('commitBackGesture');
+              await _settled(tester);
+            },
+          );
+          expect(_screen(tester), AppScreen.deck);
+          debugDefaultTargetPlatformOverride = null;
+          await setup.close(tester);
+        },
+      );
+
+      testWidgets('03 again after Back to 02', (tester) async {
+        final setup = await deck(tester);
+        await hold(tester, 0);
+        await _back(tester);
+        await _back(tester);
+        expect(_screen(tester), AppScreen.table);
+        await _tap(tester, find.text(TableCopy.editDeck));
+        await reopens(
+          tester,
+          open: (i) => hold(tester, i),
+          close: () => _back(tester),
+        );
+        await setup.close(tester);
+      });
+
+      testWidgets('02 strip, held and closed by Back', (tester) async {
+        final setup = await table(tester);
+        await reopens(
+          tester,
+          open: (i) => hold(tester, i),
+          close: () => _back(tester),
+        );
+        expect(_screen(tester), AppScreen.table);
+        await setup.close(tester);
+      });
+
+      testWidgets('02 strip, tapped and closed by its Close', (tester) async {
+        final setup = await table(tester);
+        await reopens(
+          tester,
+          open: (i) => _tap(tester, find.byType(RoleCard).at(i)),
+          close: () => pressClose(tester),
+        );
+        await setup.close(tester);
+      });
+
+      for (final byBack in [true, false]) {
+        testWidgets('08 deck, closed by ${byBack ? 'Back' : 'its Close'}', (
+          tester,
+        ) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final s = await _game(tester, 'me_talk_results_seen');
+          await s.settle(tester);
+          await reopens(
+            tester,
+            open: (i) => hold(tester, i),
+            close: () => byBack ? _back(tester) : pressClose(tester),
+          );
+          expect(s.screenOn(tester), AppScreen.talk);
+          await s.close(tester);
+        });
+      }
+    },
+  );
 
   group('on the web', () {
     var left = 0;

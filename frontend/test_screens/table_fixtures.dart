@@ -8,6 +8,8 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/lobby/presentation/join_flow.dart';
+import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
+import 'package:midnight_village/features/game/presentation/table_screen.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
 import '../test/helpers/contract/contract_samples.dart';
@@ -499,9 +501,63 @@ Future<void> pumpTableLeaveNotSent(WidgetTester tester) async {
   await setup.settle(tester);
 }
 
+/// 02 at Pia's table: Quin and two practice players the server plays
+/// (Scarecrow and Teapot), each tagged "Practice"; [viewer]'s phone.
+Future<void> pumpTablePractice(WidgetTester tester, {String viewer = 'Pia'}) =>
+    TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_practice_guest'),
+      viewer: viewer,
+    );
+
+/// 02 at Pia's table set for six: two people and two practice players
+/// here, "4 of 6", "Play with 4" beside the practice players.
+Future<void> pumpTablePracticeShort(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_practice_short'),
+  viewer: 'Pia',
+);
+
 // ---------------------------------------------------------------------------
 // 03 Deck and 03b
 // ---------------------------------------------------------------------------
+
+/// 03 while the table's lobby is read (the host has it open): the wait.
+Future<void> pumpDeckWaiting(WidgetTester tester) async {
+  late HeldReplies lobby;
+  await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_auto_deck_5'),
+    viewer: 'Ana',
+    timesOut: false,
+    before: (s) =>
+        lobby = s.http.hold(method: 'GET', path: '/lobbies/${s.code}/'),
+  );
+  addTearDown(lobby.releaseAll);
+  _openDeckWithoutLobby(tester);
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+/// 03 while the lobby cannot be read: "One moment" with "Try again".
+Future<void> pumpDeckOffline(WidgetTester tester) async {
+  await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_auto_deck_5'),
+    viewer: 'Ana',
+    lobbyDown: true,
+  );
+  _openDeckWithoutLobby(tester);
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+void _openDeckWithoutLobby(WidgetTester tester) {
+  final container = ProviderScope.containerOf(
+    tester.element(find.byType(Scaffold).first),
+  );
+  container
+      .read(localStepsProvider.notifier)
+      .openDeck(container.read(myTableProvider).requireValue!);
+}
 
 /// 03 from the host's 02 ("Edit"): the chips, the Classic one chosen.
 Future<void> pumpDeckChips(WidgetTester tester) async {
@@ -559,6 +615,35 @@ Future<void> pumpDeckAlone(WidgetTester tester, {double textScale = 1}) async {
     textScale: textScale,
   );
   await _openDeck(tester);
+}
+
+/// 03 at Pia's table with two practice players: the Practice row under
+/// Players (switched on: it shows nowhere else).
+Future<void> pumpDeckPractice(WidgetTester tester) async {
+  await _pumpHost(tester, 'detail_practice_guest', 'Pia');
+  await _openDeck(tester);
+}
+
+/// 03 alone at a new table, "Players" just held: the Practice row at 0,
+/// shown at once (the server's answer held).
+Future<void> pumpDeckPracticeSwitched(WidgetTester tester) async {
+  // A picture that holds an answer never waits it out.
+  final setup = _setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('created_with_defaults'),
+    viewer: 'Ana',
+    timesOut: false,
+  );
+  await _openDeck(tester);
+  final path = '/lobbies/${setup.code}/practice/';
+  setup.http.hold(method: 'POST', path: path);
+  setup.http.answer(
+    'POST',
+    path,
+    ContractSamples.map('http/lobby/practice_on'),
+  );
+  await tester.longPress(find.text(DeckCopy.players));
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
 /// 03 scrolled to its lengths, at a new table.

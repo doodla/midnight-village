@@ -16,6 +16,34 @@ class YouTag extends StatelessWidget {
   final Color ink;
 
   @override
+  Widget build(BuildContext context) => _OutlineTag(NightCopy.you, ink: ink);
+}
+
+/// "Practice" after a practice player's name (a seat the server plays) at
+/// the table and in the vote, on the name's line: quieter than [YouTag],
+/// which stays the one outlined tag in a list. The word alone in the tag's
+/// face, no outline, in full ink (it says something true); the token, the
+/// thing the seat is named for, says the rest.
+class PracticeTag extends StatelessWidget {
+  const PracticeTag({super.key, required this.ink});
+
+  /// The colour of the words on what it sits on.
+  final Color ink;
+
+  @override
+  Widget build(BuildContext context) => FitLine(
+    TableCopy.practice,
+    style: context.skin.typography.tag.copyWith(color: ink),
+  );
+}
+
+class _OutlineTag extends StatelessWidget {
+  const _OutlineTag(this.text, {required this.ink});
+
+  final String text;
+  final Color ink;
+
+  @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     return Container(
@@ -28,7 +56,7 @@ class YouTag extends StatelessWidget {
         border: Border.all(color: ink, width: skin.shape.ring),
       ),
       child: FitWords(
-        NightCopy.you,
+        text,
         maxLines: 1,
         style: skin.typography.tag.copyWith(color: ink),
       ),

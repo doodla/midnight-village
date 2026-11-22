@@ -89,6 +89,28 @@ class LobbyService {
     }
   }
 
+  /// Practice players (host, waiting table): POST /lobbies/<code>/practice/
+  /// with `{"on": bool}` (switched on or off for the table: off takes every
+  /// one away) and/or `{"count": n}` (how many sit at it; a target, safe to
+  /// send twice). Answers the whole lobby.
+  Future<LobbyState> setPractice(
+    Door door,
+    String code, {
+    bool? on,
+    int? count,
+  }) async {
+    try {
+      final response = await _client.post<Map<String, dynamic>>(
+        door,
+        '/lobbies/$code/practice/',
+        data: {'on': ?on, 'count': ?count},
+      );
+      return _parseLobbyResponse(response);
+    } on DioException catch (e) {
+      throw mapDioException(e);
+    }
+  }
+
   /// Where am I: GET /me/table/. Null when at no table.
   Future<MyTable?> fetchMyTable() async {
     try {

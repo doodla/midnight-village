@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/primitives/waiting_sign.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
+import 'package:midnight_village/design_system/primitives/text_action.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
@@ -125,25 +128,63 @@ void main() {
     await setup.close(tester);
   });
 
-  testWidgets('Leave at 02: answered, then the seat cannot be read: Leave is '
-      'freed and "One moment" says so', (tester) async {
+  testWidgets('Leave at 02: busy until 01 is named (no live gap after the '
+      'answer); answered, then the seat cannot be read: Leave is freed and '
+      '"One moment" with "Try again" reads again, never leaving twice', (
+    tester,
+  ) async {
     final setup = await TableSetup.pump(
       tester,
       lobby: v2Lobby('detail_auto_deck_5'),
       viewer: 'Ben',
       timesOut: false,
     );
-    setup.http.answer(
-      'POST',
-      '/lobbies/${setup.code}/leave/',
-      ContractSamples.load('http/lobby/left'),
-    );
-    failTable(setup);
+    final path = '/lobbies/${setup.code}/leave/';
+    setup.http.answer('POST', path, ContractSamples.load('http/lobby/left'));
+    final reads = setup.http.hold(method: 'GET', path: '/me/table/');
+    setup.http.answer('GET', '/me/table/', 'Server Error', status: 503);
+    TextAction leave() =>
+        tester.widget<TextAction>(find.byType(TextAction).last);
+
+    await tester.tap(find.text(CommonCopy.leave).last);
+    await tester.pump();
+    expect(leave().busy, isTrue, reason: 'busy in the frame of the tap');
+    await setup.settle(tester);
+    expect(setup.count('POST', path), 1);
+    // Answered; where the phone sits is not named yet: still busy, and a
+    // tap sends nothing.
+    expect(leave().busy, isTrue);
     await tester.tap(find.text(CommonCopy.leave).last);
     await setup.settle(tester);
+    expect(setup.count('POST', path), 1);
+
+    // The read fails instead: Leave is freed and says so.
+    setup.http.stopHolding(method: 'GET', path: '/me/table/');
+    reads.releaseAll();
     await setup.settle(tester);
-    expect(find.text(BannerCopy.offline), findsOneWidget);
-    expect(setup.count('POST', '/lobbies/${setup.code}/leave/'), 1);
+    await setup.settle(tester);
+    expect(find.text(BannerCopy.offline), findsWidgets);
+    expect(find.text(BannerCopy.tryAgain), findsWidgets);
+    expect(setup.count('POST', path), 1);
+    await setup.close(tester);
+  });
+
+  testWidgets('02 and 03 wait with the lanterns, in their own place: never a '
+      'bare ground', (tester) async {
+    late HeldReplies lobby;
+    final setup = await TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_auto_deck_5'),
+      viewer: 'Ana',
+      timesOut: false,
+      before: (s) =>
+          lobby = s.http.hold(method: 'GET', path: '/lobbies/${s.code}/'),
+    );
+    await tester.pump(Motion.signAfter + Motion.settle);
+    expect(find.byType(Waiting), findsOneWidget, reason: '02 waits');
+    lobby.releaseAll();
+    await setup.settle(tester);
+    expect(find.byType(Waiting), findsNothing);
     await setup.close(tester);
   });
 

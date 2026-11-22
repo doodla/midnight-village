@@ -35,6 +35,11 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## In flight (22 November 2026)
 
+- The owner, live app: "After I back after viewing a card's details. Can't see another cards
+  details till I remove/add a card from the deck." Not reproduced yet (widget tests, a real web
+  build, the Android back gesture simulated); guard tests are in `back_test.dart`. Asked: which
+  device, and how the sheet was closed.
+
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
   the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
   (same files), as small pull requests: back, then loading, then speed. Back is built (branch
@@ -51,6 +56,10 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## Done
 
+- Practice players (issue 26): on the set-up page, press and hold the word "Players". A
+  "Practice" stepper then seats village things (Scarecrow, Teapot, ...) with their own tokens
+  and the word "Practice"; the server plays them. Set it to 0 and hold again to hide it. A
+  person has practice players at one table at a time; closing the table removes them.
 - Back (issue 9): one policy for the phone's Back and the browser's. 01 leaves the app; a
   waiting table asks Stay / Leave; the set-up page returns to the table; in a game Back does
   nothing, only Leave exits; whatever is open on top closes first, and any sheet closes when
@@ -72,7 +81,7 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 - Practice players: yes, "but hidden enable so it's not visible to everyone. I'm thinking long
   press on an element or something". Switched on by a hidden gesture on an existing element;
-  nothing visible to ordinary players. Not started; after the set-up page.
+  nothing visible to ordinary players. Built (see "In flight").
 - "Polish puzzles" was a typo for "polish passes".
 - Six sample looks (https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2): "Skip till our default
   is good". Parked: no other looks until Shadow paper is good.

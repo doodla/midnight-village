@@ -69,7 +69,9 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   at 360 x 640, and alone at a table set for eight the deck and Leave too, at 320, 360 and
   390, text x1 and x1.3 (`table_fit_test.dart`). A row per player: their own outlined and
   never dimmed, names never cut, another's dropped phone (`connected: false`) dimmed with no
-  words. Share is the system share sheet (`share_plus`); only where there is none the link is
+  words, a practice player's (`players[].practice`, a seat the server plays) with its own
+  token (the thing it is named for, `TokenId.practice`) and "Practice" (`PracticeTag`, the
+  word alone, quieter than "You") on the name's line, never dimmed, for host and guests. Share is the system share sheet (`share_plus`); only where there is none the link is
   copied and the screen says "Copied". At a table set for a number (`settings.seats`): "{d} of
   {n}" with an empty circle for each place not taken (`SeatsLine`, `SeatDots.empty`, the
   same words 03 shows, for host and guests alike), above the rows; the wait is said this one
@@ -89,7 +91,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   refused all the same says why when the refusal gives a reason worth saying
   (`LobbyNotifier.dealRefusal`), never a bare "Not sent.". A quiet labelled "Leave" asks
   first ("Stay" / "Leave"); a guest's is a quiet underlined word at the foot (`TextAction`).
-  Either shows it is on its way at once (`busy`: a `BusyMark` lantern in its own padding, the words unmoved). The deal stays busy until `/me/table/` names the next screen (`LobbyNotifier.deal` returns only then), so Deal is never live again between the answer and the dusk. Leaving
+  Either shows it is on its way at once (`busy`: a `BusyMark` lantern in its own padding, the words unmoved). The deal stays busy until `/me/table/` names the next screen (`LobbyNotifier.deal` returns only then), so Deal is never live again between the answer and the dusk. Leave is a `Pending` too (`AtTableScreen._leave`): busy until `/me/table/` names 01, "Not sent." or the server's reason on the control, and a seat read that keeps failing frees it and says "One moment" with "Try again". 02 and 03 wait with `Waiting` (lanterns, "One moment" with "Try again" for a lobby that cannot be read), never a bare ground. Leaving
   (`LobbyNotifier.leave`): `not_in_lobby` (400) and a table gone (404) count as left (an
   earlier leave got there); another refusal says why ("That table is playing now.", else
   "Can't leave now."); no answer (no connection, the client's 10 s wait run out, a 5xx):
@@ -123,18 +125,34 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
     a range reason). The Doppelganger's row is there only while the deck holds one. Each
     stepper is as wide as its own widest value; the rows stay even (every name beside its
     stepper, or every name over it). There are no pace presets.
+  - **Practice players, hidden** (the owner: "hidden enable so it's not visible to
+    everyone"): a hold on the word "Players" itself (`LabelledStepper.onLabelLongPress`,
+    the words only, never the room before the stepper) switches them on for this table; a
+    tap does nothing and nothing on screen offers it. While on (`LobbyState.practiceOn`), a
+    "Practice" stepper under Players sets how many sit, 0 to the server's `practice.most`.
+    A hold switches them off only at 0 (the row goes); with some seated it does nothing, so
+    a thumb resting on the word never removes everyone. `LobbyNotifier.togglePractice` /
+    `setPracticeCount` send `POST /lobbies/<code>/practice/` as changes on the settings'
+    lane (below). What to tell the owner: "On the set-up page, press and hold the word
+    Players."
   - "Done" back to 02, always live (a host who changed only a timer is never stuck).
 - **State.** Everything shown is `lobbyProvider(code)`, read until it answers (`retryForever`;
   "One moment" meanwhile): the lobby body, its socket (`lobby_update` is the whole lobby), and
-  this phone's settings changes merged over it as the server merges a PATCH (shallow), shown
-  at once, sent one at a time. What the host sees while a change is on its way is ONE value:
-  the server's state with only the pending keys (`LobbyState.pendingKeys`) taken from this
-  phone (`TableCards`: `secondsOf` a length, `tableCards`, `cardsNeeded`, `pickedCards`, and
-  `DealState`'s number), so nothing pairs a new value with an old one. A change the server
-  refuses (`serverAnswered`, `core/api/api_exception.dart`: the one classifier every host
-  action uses) is dropped and the lobby read again, never "Not sent." nor sent again; a
-  change that never got an answer says "Not sent." with "Try again". A host role that moved
-  says nothing. `TableSettings` reads the deck, the chip, the look and the number of players.
+  this phone's changes on the settings' lane over it: settings PATCHes (merged as the server
+  merges them, shallow) and practice changes (`PracticeAsk.then`, folded as the server
+  applies them; key `practice`), ALL in one pending list, shown at once, sent one at a time
+  in the order tapped. What the host sees while a change is on its way is ONE value: the
+  server's state with only the pending keys (`LobbyState.pendingKeys`) taken from this phone
+  (`TableCards`: `secondsOf` a length, `tableCards`, `cardsNeeded`, `pickedCards`;
+  `PracticeSeats`: `practiceOn`, `practiceCount`, `seatedCount` for the seats line,
+  `practiceLimit`; and `DealState`, which waits, "Deal to {n}" locked, while any change is
+  on its way), so nothing pairs a new value with an old one and nothing goes around one. A
+  change the server refuses (`serverAnswered`, `core/api/api_exception.dart`: the one
+  classifier every host action uses) is dropped and the lobby read again, never "Not
+  sent." nor sent again; a change that never got an answer says "Not sent." with "Try
+  again", which sends each such change again with only the keys no newer change has asked
+  for since (`_askedAt`), so it never undoes a newer value on the same key, answered or on
+  its way. A host role that moved says nothing. `TableSettings` reads the deck, the chip, the look and the number of players.
 - **Tests.** `test/features/lobby/` (`table_screens_test.dart` drives the screens through the
   routes on recorded lobby bodies, `test/helpers/table_setup.dart`: each chip's cards, a deck
   one card short, a player joining, a phone dropping and coming back, the 409; the deal's
@@ -143,4 +161,11 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   what shows while changes are on their way; `table_leave_test.dart` every way a leave ends); the gallery's 01 to 03b states are
   `test_screens/table_fixtures.dart`; the whole way from 01 to 11 and back to 02 against a
   real server is `test_e2e/ui_journey_test.dart`, and a table set for eight, filled one by
-  one, lowered to seven and dealt is `test_e2e/ui_setup_test.dart`.
+  one, lowered to seven and dealt is `test_e2e/ui_setup_test.dart`. Practice players:
+  `practice_players_test.dart` (the hidden hold on the word only, the stepper to the most,
+  off only at 0, the tags on the name's line, Deal waiting for a change on its way, + + −
+  with every answer held, the three recorded refusals, "Not sent." and "Try again", a stale
+  "Try again" never undoing a newer practice count or setting, a guest),
+  `practice_seats_test.dart` (what the app reads, the fold); one person alone holding
+  "Players", seating three and playing a whole game while the server plays them is
+  `test_e2e/ui_practice_test.dart` (run by `just test-harness`).

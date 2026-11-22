@@ -76,6 +76,7 @@ class GameMe {
     required this.isHost,
     required this.hostId,
     required this.seats,
+    required this.practiceIds,
     required this.prompt,
     required this.deck,
     required this.report,
@@ -122,6 +123,7 @@ class GameMe {
       isHost: me['is_host'] as bool,
       hostId: me['host_id'] as int,
       seats: NightSeat.seatsOf(me),
+      practiceIds: _practiceIds(me['players'] as List),
       prompt: me['action_prompt'] == null ? null : ChoosePrompt.fromMe(me),
       deck: {
         for (final entry in (me['roles_in_game'] as List).cast<Map>())
@@ -140,6 +142,11 @@ class GameMe {
           : List.unmodifiable(voteTargets.cast<int>()),
     );
   }
+
+  static Set<int> _practiceIds(List players) => {
+    for (final player in players.cast<Map<String, dynamic>>())
+      if (player['practice'] == true) player['player_id'] as int,
+  };
 
   static const _alwaysSent = [
     'deadline',
@@ -188,6 +195,10 @@ class GameMe {
 
   /// Everyone at the table, in seat order.
   final List<NightSeat> seats;
+
+  /// The practice players at the table (`players[].practice`): seats the
+  /// server plays, tagged "Practice". Empty from an older server.
+  final Set<int> practiceIds;
 
   /// This phone's night turn, while a window is open.
   final ChoosePrompt? prompt;
@@ -251,6 +262,7 @@ class GameMe {
     isHost: isHost ?? this.isHost,
     hostId: hostId ?? this.hostId,
     seats: seats,
+    practiceIds: practiceIds,
     prompt: prompt ?? this.prompt,
     deck: deck,
     report: report,
