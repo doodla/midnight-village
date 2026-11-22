@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/requests/player_request.dart';
 import '../../../core/api/api_exception.dart';
 import '../domain/user.dart';
 
@@ -21,7 +22,8 @@ class AuthService {
   /// [displayName] is optional - server generates one if not provided.
   /// Returns tokens and user info on success.
   /// Throws [ApiException] on failure.
-  Future<AuthResponse> createGuest({String? displayName}) async {
+  Future<AuthResponse> createGuest(Door door, {String? displayName}) async {
+    door.require('POST /auth/guest/');
     try {
       final body = <String, dynamic>{};
       if (displayName != null && displayName.trim().isNotEmpty) {

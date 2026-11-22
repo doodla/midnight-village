@@ -1,3 +1,4 @@
+import 'package:midnight_village/core/requests/player_request.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_client.dart';
@@ -44,6 +45,7 @@ void main() {
     test('sends the picks in tap order and echoes the stage', () async {
       answer('/action/', 'game/choose_submitted_seer');
       final reply = await service.send(
+        Door.forTest(),
         'g7',
         ChooseRequest.of(seer.prompt!, picks),
       );
@@ -96,6 +98,7 @@ void main() {
         answer('/action/', sample, status: status);
         expect(
           (await service.send(
+            Door.forTest(),
             'g7',
             ChooseRequest.of(seer.prompt!, picks),
           )).answer,
@@ -108,6 +111,7 @@ void main() {
       http.answer('POST', '$_game/action/', 'Bad Gateway', status: 502);
       expect(
         (await service.send(
+          Door.forTest(),
           'g7',
           ChooseRequest.of(seer.prompt!, picks),
         )).answer,
@@ -129,6 +133,7 @@ void main() {
       final look = FromSample.gameMe(recordedMe('me_look_stage'));
       answer('/ready/', 'game/ready_look');
       final reply = await service.send(
+        Door.forTest(),
         'g7',
         ReadyRequest(look.stage!, ready: true),
       );
@@ -141,6 +146,7 @@ void main() {
       answer('/ready/', 'game/ready_wrong_stage', status: 409);
       expect(
         (await service.send(
+          Door.forTest(),
           'g7',
           const ReadyRequest('look.x', ready: true),
         )).answer,
@@ -152,6 +158,7 @@ void main() {
       final vote = FromSample.gameMe(recordedMe('me_voting_picked'));
       answer('/vote/', 'game/vote_repicked');
       final picked = await service.send(
+        Door.forTest(),
         'g7',
         VoteRequest(vote.stage!, targetId: 29, lock: false),
       );
@@ -163,6 +170,7 @@ void main() {
       });
       answer('/vote/', 'game/vote_locked');
       await service.send(
+        Door.forTest(),
         'g7',
         VoteRequest(vote.stage!, targetId: 29, lock: true),
       );
@@ -182,6 +190,7 @@ void main() {
         answer('/vote/', sample, status: status);
         expect(
           (await service.send(
+            Door.forTest(),
             'g7',
             const VoteRequest('vote.x', targetId: 1, lock: true),
           )).answer,
@@ -192,7 +201,11 @@ void main() {
 
     test('night results acknowledged as a count', () async {
       answer('/night-results/seen/', 'game/night_results_seen');
-      final reply = await service.send('g7', const AckRequest(1));
+      final reply = await service.send(
+        Door.forTest(),
+        'g7',
+        const AckRequest(1),
+      );
       expect(reply.body!['night_results_seen'], 1);
       expect(sent(), {'seen': 1});
     });
@@ -203,17 +216,17 @@ void main() {
       (
         '/advance-wave/',
         'game/advance_wave',
-        (GameService s) => s.advanceStage('g7', stage: 'w2.x'),
+        (GameService s) => s.advanceStage(Door.forTest(), 'g7', stage: 'w2.x'),
       ),
       (
         '/end-discussion/',
         'game/end_discussion',
-        (GameService s) => s.endTalk('g7', stage: 'w2.x'),
+        (GameService s) => s.endTalk(Door.forTest(), 'g7', stage: 'w2.x'),
       ),
       (
         '/reveal-votes/',
         'game/reveal_votes',
-        (GameService s) => s.revealVotesAt('g7', stage: 'w2.x'),
+        (GameService s) => s.revealVotesAt(Door.forTest(), 'g7', stage: 'w2.x'),
       ),
     ]) {
       test(endpoint, () async {
@@ -230,6 +243,7 @@ void main() {
   test('the same lock resent is answered alike', () async {
     answer('/vote/', 'game/vote_lock_resent');
     final reply = await service.send(
+      Door.forTest(),
       'g7',
       const VoteRequest('vote.x', targetId: 30, lock: true),
     );
@@ -267,7 +281,7 @@ void main() {
         ContractSamples.load('http/lobby/created_with_defaults'),
         status: 201,
       );
-      final table = await lobby.createTable();
+      final table = await lobby.createTable(Door.forTest());
       expect(sent(), {'game_type': 'onuw', 'defaults': 'v2'});
       expect(table.table.cardLookSeconds, 30);
     });
@@ -278,7 +292,11 @@ void main() {
         '/lobbies/R5ZD3H/',
         ContractSamples.load('http/lobby/settings_deck_chip'),
       );
-      final table = await lobby.setDeckChip('R5ZD3H', DeckChip.simple);
+      final table = await lobby.setDeckChip(
+        Door.forTest(),
+        'R5ZD3H',
+        DeckChip.simple,
+      );
       expect(sent(), {
         'settings': {'deck': 'auto', 'deck_chip': 'simple'},
       });
@@ -291,7 +309,10 @@ void main() {
         '/lobbies/K7QX4M/',
         ContractSamples.load('http/lobby/settings_updated'),
       );
-      await lobby.setCustomDeck('K7QX4M', {'Werewolf': 2, 'Seer': 1});
+      await lobby.setCustomDeck(Door.forTest(), 'K7QX4M', {
+        'Werewolf': 2,
+        'Seer': 1,
+      });
       expect(sent(), {
         'settings': {
           'deck': 'custom',

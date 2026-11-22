@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../core/requests/player_request.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/storage/token_storage.dart';
@@ -147,14 +148,18 @@ class AuthRepository {
   /// nothing is sent, so a seat is never lost to a second account.
   /// Returns the created user.
   /// Throws [ApiException] on failure.
-  Future<User> createGuest({
+  Future<User> createGuest(
+    Door door, {
     String? displayName,
     bool replacing = false,
   }) async {
     if (!replacing && await _tokenStorage.hasTokens) {
       throw const SavedAccountExists();
     }
-    final response = await _authService.createGuest(displayName: displayName);
+    final response = await _authService.createGuest(
+      door,
+      displayName: displayName,
+    );
 
     // Save tokens first
     await _tokenStorage.saveTokens(

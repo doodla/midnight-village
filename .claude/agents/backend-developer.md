@@ -16,7 +16,9 @@ Work in your own worktree with your own `DB_NAME`. Write the test first where yo
 seeded, several players, named for the behaviour. A payload change means `just samples` and
 a reviewed diff; a sample the task does not mean to change must not change. A model change means a new
 migration that follows the deploy-safe rules and a case in `tests/test_migrations.py`. Keep
-the README you touched true. `just check` and `just test` pass before you commit.
+the README you touched true. Run the tests you touch while you work and `just test` before
+you hand over (`just gate-full` for everything); the commit gate only runs `just check`, and
+GitHub runs the rest on the pull request.
 
 Report in plain words: what changed and why, the tests added, decisions you made, anything
 left open.

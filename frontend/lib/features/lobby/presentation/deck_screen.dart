@@ -16,6 +16,7 @@ import '../../../design_system/primitives/primary_button.dart';
 import '../../../design_system/primitives/role_card.dart';
 import '../../../design_system/primitives/role_sheet_body.dart';
 import '../../../design_system/primitives/screen_frame.dart';
+import '../../../design_system/primitives/waiting_sign.dart';
 import '../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../design_system/primitives/value_stepper.dart';
 import '../../../design_system/primitives/world_timer.dart';
@@ -96,10 +97,16 @@ class DeckScreen extends ConsumerWidget {
         onBack: close,
         child: ScreenFrame(
           ground: GroundKind.night,
-          body: const SizedBox.shrink(),
-          actions: [
-            if (read?.error != null) const Notice(message: BannerCopy.offline),
-          ],
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: Waiting(
+              failing: read?.hasError ?? false,
+              onRetry: table == null
+                  ? () => ref.invalidate(myTableProvider)
+                  : () => ref.invalidate(lobbyProvider(table.lobbyCode)),
+              centred: true,
+            ),
+          ),
         ),
       );
     }

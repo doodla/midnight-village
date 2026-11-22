@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
@@ -41,6 +43,17 @@ class Elevation {
     for (final layer in layers) HardShadow(layer.offset * factor, layer.color),
   ]);
 
+  /// The same stack with the shape sunk by [by] under a finger: every layer
+  /// loses that much of its downward offset (never below none), so a shape
+  /// moved down by [by] leaves its shadow where it was.
+  Elevation lowered(double by) => Elevation([
+    for (final layer in layers)
+      HardShadow(
+        Offset(layer.offset.dx, math.max(0, layer.offset.dy - by)),
+        layer.color,
+      ),
+  ]);
+
   /// How far the shape moves when pressed down to [keep].
   Offset travel(double keep) => _deepest * (1 - keep);
 
@@ -63,6 +76,7 @@ class GroundElevation {
     required this.primary,
     required this.selected,
     required this.badge,
+    this.glow,
   });
 
   /// Rows and small cards.
@@ -90,4 +104,10 @@ class GroundElevation {
 
   /// Count badges and small chips.
   final Elevation badge;
+
+  /// The soft light a picked card gives off, where its ground has one (the
+  /// night's bone; none on the day, where a selection is ink): the one
+  /// blurred thing in the skin, kept faint, so a pick reads as lifted into
+  /// the light and the hard shadow keeps the paper's edge.
+  final Color? glow;
 }

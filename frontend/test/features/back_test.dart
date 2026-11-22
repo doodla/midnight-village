@@ -8,8 +8,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/router/back_policy.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
+import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
+import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
@@ -107,6 +110,37 @@ Future<void> _back(WidgetTester tester) async {
   await _press(tester);
   await _settled(tester);
 }
+
+/// The phone's back gesture with gesture navigation, as the page under it
+/// sees it (Android hands an edge swipe to the app until it claims it; Chrome
+/// passes that on as touches): the finger lands at the right edge at [y] and
+/// sweeps in and down, as fast as the owner's recording shows (Android's
+/// pointer trace: about 1600 dp/s in, 900 dp/s down, 80 ms); the system then
+/// claims the swipe (the touch is cancelled), and Back arrives.
+Future<void> _edgeSwipeBack(WidgetTester tester, {required double y}) async {
+  final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+  // Each touch stamped with its time, as a phone sends it (the drag's speed
+  // is read from them).
+  var at = tester.binding.clock.now().difference(DateTime(0));
+  const frame = Duration(milliseconds: 16);
+  final finger = await tester.createGesture();
+  await finger.down(Offset(width - 2, y), timeStamp: at);
+  for (var i = 0; i < 5; i++) {
+    await tester.pump(frame);
+    at += frame;
+    await finger.moveBy(const Offset(-26, 15), timeStamp: at);
+  }
+  await tester.pump(frame);
+  at += frame;
+  await finger.cancel(timeStamp: at);
+  await tester.pump(frame);
+  await _press(tester);
+  await _settled(tester);
+}
+
+/// The top edge of the sheet open now.
+double _sheetTop(WidgetTester tester) =>
+    tester.getRect(find.byType(SheetScaffold)).top;
 
 /// Pumps until the app is still: no frame due for three pumps in a row
 /// (an answer that lands asks for a frame again). A screen that never stops
@@ -236,8 +270,9 @@ void main() {
         authState: const AuthState.initial(),
       );
       expect(find.byType(OpeningWait), findsOneWidget);
-      await _back(tester);
-      expect(platform.left, isTrue);
+      // The wait's lanterns turn, so the app is never still here.
+      await _press(tester);
+      await _until(tester, () => platform.left);
       await setup.close(tester);
     });
 
@@ -251,8 +286,8 @@ void main() {
         before: (s) => table = s.http.hold(method: 'GET', path: '/me/table/'),
       );
       expect(find.text(JoinCopy.join), findsNothing);
-      await _back(tester);
-      expect(platform.left, isTrue);
+      await _press(tester);
+      await _until(tester, () => platform.left);
       table.releaseAll();
       await setup.close(tester);
     });
@@ -550,6 +585,98 @@ void main() {
       expect(find.byType(RoleSheetBody), findsNothing);
       expect(_screen(tester), AppScreen.deck);
       expect(platform.left, isFalse);
+      await setup.close(tester);
+    });
+  });
+
+  testWidgets('03: a hold as short as the owner\'s reads the card; a tap does '
+      'not (the owner\'s recording: holds of 0.40 and 0.43 s opened nothing, '
+      'taps lasted under 0.1 s)', (tester) async {
+    final setup = await TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_auto_deck_5'),
+      viewer: 'Ana',
+    );
+    await _tap(tester, find.text(TableCopy.editDeck));
+    // Seer: in the deck, at its most (a tap on it changes nothing).
+    final seer = find.byWidgetPredicate(
+      (w) => w is RoleCard && w.role == RoleId.seer,
+    );
+    await tester.ensureVisible(seer);
+    await tester.pump();
+    Future<void> press(Duration length) async {
+      final finger = await tester.startGesture(tester.getCenter(seer));
+      await tester.pump(length);
+      await finger.up();
+      await _settled(tester);
+    }
+
+    await press(const Duration(milliseconds: 90));
+    expect(find.byType(RoleSheetBody), findsNothing, reason: 'a tap');
+    for (var i = 0; i < 2; i++) {
+      await press(const Duration(milliseconds: 400));
+      expect(find.byType(RoleSheetBody), findsOneWidget, reason: 'held');
+      await _back(tester);
+      expect(find.byType(RoleSheetBody), findsNothing);
+    }
+    expect(_screen(tester), AppScreen.deck);
+    await setup.close(tester);
+  });
+
+  group('one back gesture does one thing: its own touch never closes a sheet '
+      '(gesture navigation, the owner\'s recording)', () {
+    // The back swipe starts as a touch on the page, at the screen's edge,
+    // over whatever is there: here the sheet. Were that touch to drag the
+    // sheet closed, the Back that follows would find the screen under it
+    // and do that screen's Back too.
+    void phone(WidgetTester tester) {
+      // The owner's phone: 412 wide, a sheet edge to edge.
+      tester.view.physicalSize = const Size(412, 915);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('03: a role\'s sheet closes; the page stays', (tester) async {
+      phone(tester);
+      final platform = _Platform.listen(tester);
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_auto_deck_5'),
+        viewer: 'Ana',
+      );
+      await _tap(tester, find.text(TableCopy.editDeck));
+      for (var i = 0; i < 3; i++) {
+        final card = find.byType(RoleCard).at(i);
+        await tester.ensureVisible(card);
+        await tester.pump();
+        await tester.longPress(card);
+        await _settled(tester);
+        expect(find.byType(RoleSheetBody), findsOneWidget);
+
+        await _edgeSwipeBack(tester, y: _sheetTop(tester) + Space.sm);
+        expect(find.byType(RoleSheetBody), findsNothing, reason: 'closed');
+        expect(_screen(tester), AppScreen.deck, reason: 'card $i: one Back');
+      }
+      expect(platform.left, isFalse);
+      await setup.close(tester);
+    });
+
+    testWidgets('02: the leave question closes; it is not asked again', (
+      tester,
+    ) async {
+      phone(tester);
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_auto_deck_5'),
+        viewer: 'Ana',
+      );
+      await _back(tester);
+      expect(find.text(TableCopy.stay), findsOneWidget);
+
+      await _edgeSwipeBack(tester, y: _sheetTop(tester) + Space.sm);
+      expect(find.text(TableCopy.stay), findsNothing);
+      expect(_screen(tester), AppScreen.table);
+      expect(_requests(setup, 'POST'), 0);
       await setup.close(tester);
     });
   });

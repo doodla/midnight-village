@@ -81,6 +81,15 @@ abstract final class Sizes {
 
   /// A card's slot in 03's count, the players' and the centre's.
   static const deckSlot = Size(12, 16);
+
+  /// The hero line's size on 01 and on the opening that comes before it,
+  /// so the title never changes size as 01 arrives.
+  static const joinTitle = 42.0;
+
+  /// The sign of life of a wait: three paper lanterns of this width, and the
+  /// gap between them.
+  static const waitLantern = 22.0;
+  static const waitGap = 18.0;
 }
 
 /// How long things take to move: the same in every skin.
@@ -109,6 +118,18 @@ abstract final class Motion {
   /// the one scene change the whole table shares (`SceneSwitcher`). Nowhere
   /// else; the screen it arrives on takes touches from its first frame.
   static const scene = Duration(milliseconds: 500);
+
+  /// A wait's sign of life (`WaitingSign`) comes in after this: an answer
+  /// that arrives sooner shows no sign at all, so a quick load never
+  /// flashes one. It delays the sign only, never what is loading.
+  static const signAfter = Duration(milliseconds: 300);
+
+  /// A wait that has lasted this long is named once, plainly
+  /// (`BannerCopy.slow`): the server is slow, nothing is wrong.
+  static const slowAfter = Duration(seconds: 5);
+
+  /// One round of the sign of life: three paper lanterns lifting in turn.
+  static const waitLoop = Duration(milliseconds: 1500);
 
   static const curve = Curves.easeOutCubic;
 

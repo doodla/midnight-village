@@ -1,3 +1,4 @@
+import 'package:midnight_village/core/requests/player_request.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
@@ -88,6 +89,7 @@ Future<void> _settle() async {
 }
 
 void main() {
+  setUpAll(() => registerFallbackValue(Door.forTest()));
   group('Lobby detail', () {
     test('reads the effective host, original_host_id and is_acting_host', () {
       final body = ContractSamples.map('http/lobby/detail_acting_host');
@@ -180,7 +182,7 @@ void main() {
         'guest now', () async {
       final t = await _open();
       when(
-        () => t.service.startGame(_code),
+        () => t.service.startGame(any(), _code),
       ).thenThrow(const ForbiddenException());
       t.server = _lobby(hostId: 2, acting: true);
 
@@ -194,7 +196,7 @@ void main() {
     test('a deck change is taken back, with no "Not sent."', () async {
       final t = await _open();
       when(
-        () => t.service.patchSettings(_code, any()),
+        () => t.service.patchSettings(any(), _code, any()),
       ).thenThrow(const ForbiddenException());
       t.server = _lobby(hostId: 2, acting: true);
 

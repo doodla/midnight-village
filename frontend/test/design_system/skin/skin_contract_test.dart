@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
+import 'package:midnight_village/design_system/skin/card_back.dart';
 import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
@@ -285,6 +286,7 @@ void main() {
           final pictures = [
             for (final role in RoleId.values) art.role(role),
             for (final scene in Scene.values) art.scene(scene),
+            for (final back in CardBack.values) art.cardBack(back),
             for (final token in TokenId.values) art.token(token),
           ];
           for (final picture in pictures) {
@@ -294,6 +296,48 @@ void main() {
               reason: picture.path,
             );
           }
+        },
+      );
+
+      test('every scene and card back is in the bundle, and no other file is '
+          'in scenes/', () {
+        final art = skin.art;
+        final declared = {
+          for (final scene in Scene.values) art.scene(scene).path,
+          for (final back in CardBack.values) art.cardBack(back).path,
+        };
+        final bundled = assets
+            .where((path) => path.startsWith('${art.folder}/scenes/'))
+            .toSet();
+        expect(bundled, declared, reason: 'a picture nothing draws is dead');
+        expect(CardBack.values, hasLength(5));
+      });
+
+      test(
+        'the candle\'s three cuts are in the bundle at the size the skin '
+        'says, inside its view, and no other file is in its folder',
+        () async {
+          final art = skin.art;
+          final cut = art.candleCut;
+          final declared = <String>{};
+          for (final c in [cut.wax, cut.flame, cut.holder]) {
+            final picture = art.candleSprite(c);
+            declared.add(picture.path);
+            expect(assets, contains(picture.path));
+            expect(await _pixels(picture.path), picture.pixels);
+            // Each cut lies on the canvas the view is part of.
+            expect(
+              cut.view.overlaps(c.at & c.size),
+              isTrue,
+              reason: picture.path,
+            );
+          }
+          final bundled = assets
+              .where((path) => path.startsWith('${art.folder}/candle/'))
+              .toSet();
+          expect(bundled, declared);
+          expect(cut.stickTop, lessThan(cut.stickBottom));
+          expect(cut.view.contains(cut.wick), isTrue);
         },
       );
 

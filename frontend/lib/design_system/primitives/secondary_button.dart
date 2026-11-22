@@ -5,6 +5,7 @@ import '../layout/space.dart';
 import '../skin/skin.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
+import 'paper_lantern.dart';
 import 'primary_button.dart';
 
 /// A second, quieter action beside or below the primary one: an outline on
@@ -112,31 +113,33 @@ class _SecondaryButtonState extends State<SecondaryButton> {
             onHighlightChanged: (value) => setState(() => _pressed = value),
             highlightColor: Colors.transparent,
             borderRadius: radius,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.lg,
-                vertical: Space.sm,
-              ),
-              child: Center(
-                heightFactor: 1,
-                widthFactor: 1,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  spacing: Space.sm,
-                  children: [
-                    Flexible(
-                      child: FitWords(
-                        widget.label,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        style: style,
-                      ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.lg,
+                    vertical: Space.sm,
+                  ),
+                  child: Center(
+                    heightFactor: 1,
+                    widthFactor: 1,
+                    child: FitWords(
+                      widget.label,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      style: style,
                     ),
-                    if (busy)
-                      BusyMark(size: style.fontSize, color: style.color),
-                  ],
+                  ),
                 ),
-              ),
+                // Busy: the lantern burns in the button's own end padding,
+                // so the words stay where they are.
+                if (busy)
+                  PositionedDirectional(
+                    end: Space.smPlus,
+                    child: BusyMark(size: Space.xl, color: style.color),
+                  ),
+              ],
             ),
           ),
         ),
@@ -145,7 +148,8 @@ class _SecondaryButtonState extends State<SecondaryButton> {
   }
 }
 
-/// The turning mark beside a button's words while its tap is on its way.
+/// The mark beside a button's words while its tap is on its way: a small
+/// lantern in the label's ink, its flame breathing (`LanternMark`).
 class BusyMark extends StatelessWidget {
   const BusyMark({super.key, required this.size, this.color});
 
@@ -153,11 +157,6 @@ class BusyMark extends StatelessWidget {
   final Color? color;
 
   @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: size,
-    child: CircularProgressIndicator(
-      strokeWidth: context.skin.shape.stroke,
-      color: color,
-    ),
-  );
+  Widget build(BuildContext context) =>
+      LanternMark(size: size ?? 16, color: color);
 }

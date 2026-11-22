@@ -236,6 +236,16 @@ void main() {
         'target_player_id': target.userId,
         'lock': lock,
       });
+      // The events of the move into the vote may still be on their way to
+      // Bob's socket: take the mark only once the last of them (the vote's
+      // own count) has arrived, so what follows it is the picks' alone.
+      await t
+          .gameWire(bob)
+          .waitForEvent(
+            'progress',
+            where: (e) => e['stage'] == 'vote',
+            timeout: eventTimeout,
+          );
       final bobMark = t.gameWire(bob).mark;
       expect(await vote(alice, cara, lock: false), {
         'status': 'picked',

@@ -403,6 +403,10 @@ abstract final class BannerCopy {
   static const notSent = 'Not sent.';
   static const tryAgain = 'Try again';
   static const offline = 'One moment';
+
+  /// A wait that has lasted (`Motion.slowAfter`) while nothing has failed:
+  /// the answer is slow, not lost.
+  static const slow = 'Still on its way.';
   static const leftGame = 'You left this game.';
 
   /// 02's Share copied the link (no share sheet on this device).
@@ -422,7 +426,8 @@ abstract final class SpokenCopy {
   /// A face before it is shown.
   static const hidden = Template('{target}, hidden. Activate to show.');
 
-  /// A button whose action is on its way.
+  /// A button whose action is on its way, or a screen waiting for its
+  /// answer.
   static const working = 'Working';
 
   /// 03's steppers' glyphs and the grid card's minus.

@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/load_once_bundle.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/art_precache.dart';
+import 'package:midnight_village/design_system/skin/card_back.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/skin_loader.dart';
 
@@ -76,16 +77,18 @@ void main() {
   final door = skin.art.streetDoor.path;
 
   test('the app opens on its village first: no secret\'s picture is asked '
-      'for until it is in, then every one is', () async {
+      'for until it is in, then every one is, with the card back in use '
+      '(and no other back)', () async {
     TestWidgetsFlutterBinding.ensureInitialized();
     final bundle = _Bundle();
     final doorIn = Completer<void>();
     bundle.held[door] = doorIn;
 
+    const back = CardBack.quilt;
     final prepared = SkinLoader(
       bundle: bundle,
       devicePixelRatio: () => 3,
-    ).prepare(skin);
+    ).prepare(skin, back: back);
     for (var i = 0; i < 20; i++) {
       await Future<void>.delayed(Duration.zero);
     }
@@ -100,7 +103,26 @@ void main() {
       hasLength(RoleId.values.length),
       reason: 'every secret is still decoded at start',
     );
-    expect(bundle.asked, contains(skin.art.cardBack.path));
+    // The back the last game used (here the quilt), after the village; the
+    // other four are read only when a game names them.
+    final backs = [for (final b in CardBack.values) skin.art.cardBack(b).path];
+    expect(bundle.art.where(backs.contains).toSet(), {
+      skin.art.cardBack(back).path,
+    });
+  });
+
+  test('the whole start reads each picture once (the portraits and the card '
+      'back are decoded at several sizes)', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final inner = _Bundle();
+    await SkinLoader(
+      bundle: LoadOnceBundle(inner),
+      devicePixelRatio: () => 3,
+    ).prepare(skin, back: CardBack.eye).timeout(const Duration(seconds: 20));
+
+    expect(inner.art, isNotEmpty);
+    expect(inner.art.toSet(), hasLength(inner.art.length));
+    expect(inner.art.first, door);
   });
 
   test('each picture is read once, whatever sizes it is decoded at', () async {

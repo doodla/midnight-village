@@ -8,20 +8,23 @@ import '../../../core/config/env.dart';
 import '../../../core/healing/healing.dart';
 import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/requests/player_request.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/copy/copy.dart';
+import '../../../design_system/primitives/pending.dart' show RequestRefused;
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../data/lobby_service.dart';
 import '../domain/lobby_state.dart';
+import '../../game/presentation/live_game.dart' show liveGameProvider;
+import 'where_am_i_provider.dart';
 
 part 'lobby_notifier.g.dart';
 
 /// A leave the server refused, with the words to show ([why]): never "Not
 /// sent.", which is only for a leave that did not reach the server.
-class LeaveRefused implements Exception {
-  const LeaveRefused(this.why);
-  final String why;
+class LeaveRefused extends RequestRefused {
+  const LeaveRefused(super.why);
 
   @override
   String toString() => 'LeaveRefused: $why';
@@ -575,14 +578,21 @@ class LobbyNotifier extends _$LobbyNotifier {
     final service = ref.read(lobbyServiceProvider);
     try {
       final answer = await _hostAction(
-        () => switch (change) {
-          _SettingsChange(:final patch) => service.patchSettings(code, patch),
-          _PracticeChange(:final ask) => service.setPractice(
-            code,
-            on: ask.on,
-            count: ask.count,
-          ),
-        },
+        () => playerRequest(
+          (door) => switch (change) {
+            _SettingsChange(:final patch) => service.patchSettings(
+              door,
+              code,
+              patch,
+            ),
+            _PracticeChange(:final ask) => service.setPractice(
+              door,
+              code,
+              on: ask.on,
+              count: ask.count,
+            ),
+          },
+        ),
       );
       if (!ref.mounted) return;
       _pending.remove(change);
@@ -658,6 +668,20 @@ class LobbyNotifier extends _$LobbyNotifier {
     try {
       final id = await startGame();
       _retry = null;
+      // The deal worked. 02's Deal stays busy (the caller's busy lasts as
+      // long as this call) until `/me/table/` names the next screen, so the
+      // button is never live again in the gap between the answer and the
+      // dusk. (`startGame` has made the table's game known: 02 reads that
+      // game's `/me/` at once, and its answer is where this phone sits, put
+      // as `/me/table/`'s next value: `AtTableScreen`. A phone that listens
+      // to no table, or a read that is not wanted, waits for nothing.)
+      // A read that is failing frees the button all the same (the screen
+      // says "One moment" over the table while it is).
+      final dealt = liveGameProvider(id);
+      if (ref.mounted && ref.exists(dealt)) await readAnswered(ref, dealt);
+      if (ref.mounted && ref.exists(myTableProvider)) {
+        await readAnswered(ref, myTableProvider);
+      }
       return id;
     } on NoLongerHostException {
       return null;
@@ -730,10 +754,12 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<String> startGame() async {
     try {
       final service = ref.read(lobbyServiceProvider);
-      final game = await _hostAction(() => service.startGame(code));
+      final id = await _hostAction(
+        () => playerRequest((door) => service.startGame(door, code)),
+      );
       // The host does not have to wait for the lobby event to open the game.
-      if (ref.mounted) _applyStartedGame(game.id);
-      return game.id;
+      if (ref.mounted) _applyStartedGame(id);
+      return id;
     } catch (e, stack) {
       logger.e('Error starting game', error: e, stackTrace: stack);
       rethrow;
@@ -751,7 +777,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<void> leave() async {
     final service = ref.read(lobbyServiceProvider);
     try {
-      await service.leaveLobby(code);
+      await playerRequest((door) => service.leaveLobby(door, code));
     } catch (e) {
       // Already off the table: an earlier leave got there, or the table is
       // gone (the last one out closed it).

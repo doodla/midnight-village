@@ -13,6 +13,7 @@ import '../../../design_system/primitives/notice.dart';
 import '../../../design_system/primitives/primary_button.dart';
 import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
+import '../../../design_system/primitives/waiting_sign.dart';
 import '../../../design_system/primitives/skin_field.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
@@ -94,6 +95,8 @@ class JoinScreen extends ConsumerWidget {
         online: online?.players,
         lastWon: last?.youWon,
         busy: flow.busy,
+        draft: ref.read(joinDraftProvider),
+        onDraft: ref.read(joinDraftProvider.notifier).keep,
         banner: banner,
         bannerAction: action,
         onBannerAction: onAction,
@@ -105,14 +108,17 @@ class JoinScreen extends ConsumerWidget {
   }
 }
 
-/// The app opening while this device's saved account is read back: 01's
-/// village and title, so it reads as the game opening, and "One moment"
-/// under them once a try got no answer (it is made again by itself). No
-/// field and no button: nothing here can make a second account.
+/// The app opening: this device's saved account read back, then where this
+/// player sits. 01's village and title, so it reads as the game opening,
+/// and under them the one waiting body ([Waiting]): the lanterns, "Still
+/// on its way." when it is slow, "One moment" once a try got no
+/// answer (it is made again by itself; [onRetry] makes it now). No field
+/// and no button: nothing here can make a second account.
 class OpeningWait extends StatelessWidget {
-  const OpeningWait({super.key, this.unanswered = false});
+  const OpeningWait({super.key, this.unanswered = false, this.onRetry});
 
   final bool unanswered;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -123,13 +129,18 @@ class OpeningWait extends StatelessWidget {
       topArtLayout: TopArtLayout.fill,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Space.lgPlus,
         children: [
           Semantics(
             header: true,
-            child: FitLine(JoinCopy.title, style: skin.typography.heroTitle),
+            child: FitLine(
+              JoinCopy.title,
+              style: skin.typography.heroTitle.copyWith(
+                fontSize: Sizes.joinTitle,
+              ),
+            ),
           ),
-          if (unanswered) const Notice(message: BannerCopy.offline),
+          // The lanterns hang from the title, as from a sign.
+          Waiting(failing: unanswered, onRetry: onRetry),
         ],
       ),
     );
@@ -152,6 +163,8 @@ class JoinView extends StatefulWidget {
     this.bannerAction,
     this.onBannerAction,
     this.openCode = false,
+    this.draft,
+    this.onDraft,
     required this.onStart,
     required this.onJoin,
     this.onEdited,
@@ -179,6 +192,11 @@ class JoinView extends StatefulWidget {
   /// Starts with "Join a table" opened (the gallery's state).
   final bool openCode;
 
+  /// What the form held when this 01 was built (the one before it, when a
+  /// way in made the app build it again), and where it keeps what is typed.
+  final JoinDraft? draft;
+  final ValueChanged<JoinDraft>? onDraft;
+
   final ValueChanged<String> onStart;
   final void Function(String name, String code) onJoin;
   final VoidCallback? onEdited;
@@ -194,9 +212,11 @@ class JoinView extends StatefulWidget {
 }
 
 class _JoinViewState extends State<JoinView> {
-  late final _name = TextEditingController(text: widget.name);
-  final _code = TextEditingController();
-  late var _codeOpen = widget.openCode;
+  late final _name = TextEditingController(
+    text: widget.draft?.name ?? widget.name,
+  );
+  late final _code = TextEditingController(text: widget.draft?.code);
+  late var _codeOpen = widget.openCode || (widget.draft?.codeOpen ?? false);
 
   @override
   void initState() {
@@ -207,8 +227,18 @@ class _JoinViewState extends State<JoinView> {
 
   void _changed() {
     widget.onEdited?.call();
+    _keep();
     setState(() {});
   }
+
+  void _open(bool open) {
+    setState(() => _codeOpen = open);
+    _keep();
+  }
+
+  void _keep() => widget.onDraft?.call(
+    JoinDraft(name: _name.text, code: _code.text, codeOpen: _codeOpen),
+  );
 
   @override
   void dispose() {
@@ -231,7 +261,7 @@ class _JoinViewState extends State<JoinView> {
     } else if (_codeOpen && _coded) {
       widget.onJoin(_typedName, _code.text);
     } else {
-      setState(() => _codeOpen = true);
+      _open(true);
       _codeFocus.requestFocus();
     }
   }
@@ -248,7 +278,10 @@ class _JoinViewState extends State<JoinView> {
     final idle = busy == null;
     final link = widget.code;
 
-    VoidCallback? join(String? code) => idle && _named && code != null
+    // Busy, Join keeps its amber and its reading (a tap does nothing: the
+    // button ignores it and the flow sends one request at a time).
+    VoidCallback? join(String? code) =>
+        (idle || busy == JoinWay.join) && _named && code != null
         ? () => widget.onJoin(_typedName, code)
         : null;
 
@@ -256,7 +289,7 @@ class _JoinViewState extends State<JoinView> {
     // Back closes the code field first ("Join a table" again).
     return BackHandler(
       open: _codeOpen && link == null,
-      onBack: () => setState(() => _codeOpen = false),
+      onBack: () => _open(false),
       child: ScreenFrame(
         ground: GroundKind.night,
         topArt: skin.art.streetDoor,
@@ -272,7 +305,7 @@ class _JoinViewState extends State<JoinView> {
                 header: true,
                 child: FitLine(
                   JoinCopy.title,
-                  style: type.heroTitle.copyWith(fontSize: 42),
+                  style: type.heroTitle.copyWith(fontSize: Sizes.joinTitle),
                 ),
               ),
               SkinField.paper(
@@ -332,13 +365,12 @@ class _JoinViewState extends State<JoinView> {
                 else
                   SecondaryButton(
                     label: JoinCopy.joinTable,
-                    onPressed: idle && _named
-                        ? () => setState(() => _codeOpen = true)
-                        : null,
+                    onPressed: idle && _named ? () => _open(true) : null,
                     size: ButtonSize.large,
                   ),
                 SecondaryButton(
                   label: JoinCopy.startTable,
+                  busy: busy == JoinWay.start,
                   onPressed: idle && _named
                       ? () => widget.onStart(_typedName)
                       : null,

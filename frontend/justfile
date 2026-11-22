@@ -22,7 +22,7 @@ gen:
     dart run build_runner build --delete-conflicting-outputs
 
 # Fail when the committed generated code is not what `just gen` makes now
-# (about 50 s: CI runs it, the commit gate does not)
+# (about 50 s: GitHub runs it, and `just gate-full`; the commit gate does not)
 gen-check: gen
     git diff --exit-code -- '*.g.dart' '*.freezed.dart'
 
@@ -35,6 +35,11 @@ watch:
 # Run all tests (excludes the live-backend e2e harness — see test-harness)
 test:
     flutter test --dart-define=ENV=dev --exclude-tags e2e
+
+# The widget tests without the golden ones (GitHub runs those as their own job,
+# `just flutter-test-golden`; on Linux `just test` runs both)
+test-widgets:
+    flutter test --dart-define=ENV=dev --exclude-tags golden
 
 # Run tests with coverage (excludes the live-backend e2e harness)
 test-cov:
@@ -108,6 +113,16 @@ screens width="390" mode="report":
       --dart-define=SCREENS_WIDTH={{width}} \
       --dart-define=SCREENS_STRICT=$strict
 
+# What a wait and a failed send look like in motion: a tap going busy then
+# done, a slow join, a failed send and its retry, a reconnect in a game; each a
+# looping WebP (390 wide, under 1.2 MB) in <folder>. No backend.
+# Usage: just loading-clips [folder]
+loading-clips folder="build/loading_clips_webp":
+    flutter test test_screens/loading_clips_test.dart \
+      --dart-define=ENV=dev \
+      --dart-define=CLIPS_DIR=build/loading_clips
+    python3 tool/loading_clips.py build/loading_clips {{folder}}
+
 # The dusk and the dawn in motion: eight frames of each and a strip, to
 # <folder>/dusk and <folder>/dawn (test/README.md). No backend.
 # Usage: just scene-frames [folder] [label]
@@ -116,6 +131,16 @@ scene-frames folder="build/scene_frames" label="after":
       --dart-define=ENV=dev \
       --dart-define=SCENE_FRAMES_DIR={{folder}} \
       --dart-define=SCENE_FRAMES_LABEL={{label}}
+
+# The night board's small moments in motion (frontend/test/README.md): a finger
+# on a card, the pick, the pick taken back, and the candle across a window, one
+# PNG per 17 ms step into <folder>/<label>/pick and /candle. No backend.
+# Usage: just night-frames [folder] [label]
+night-frames folder="build/night_frames" label="run":
+    flutter test test_screens/night_frames_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=NIGHT_FRAMES_DIR={{folder}} \
+      --dart-define=NIGHT_FRAMES_LABEL={{label}}
 
 # The cold-read pack (docs/specs/frontend/first-time-play.md): the screens of
 # four first-game journeys (host, guest, sleeper, Seer) and a host setting up a
@@ -132,6 +157,12 @@ playtest-pack width="390":
 # (resized). Deterministic. Needs uv.
 skin-art:
     uv run --with pillow python tool/skin_art.py
+
+# Make the five card back masters (docs/design/art/card-backs/*.jpg) from the
+# raw generated pictures in card-backs/raw/ (grade, mirror, grain, lip shadow;
+# PROVENANCE.md there). Deterministic. Run `just skin-art` after. Needs uv.
+card-back-art:
+    uv run --with pillow --with numpy --with scipy python tool/card_back_art.py
 
 # Regenerate the app icon, the launch marks and the web icons from
 # docs/design/art/ (docs/design/app-icon.md). Deterministic. Needs uv.
@@ -171,6 +202,11 @@ check-release:
 # and a deploy runs the new build on its first open (tool/web_smoke/). About 2 minutes.
 web-smoke *build:
     bash tool/web_smoke/run.sh {{build}}
+
+# Installs what `web-smoke` needs where it looks first (CI: the "Web page smoke" job)
+web-smoke-setup:
+    npm install --no-save --prefix tool/web_smoke playwright@1.63.0
+    npx --prefix tool/web_smoke playwright install --with-deps chromium
 
 # Build for web (production)
 build-web:

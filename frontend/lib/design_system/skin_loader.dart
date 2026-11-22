@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'load_once_bundle.dart';
 import 'primitives/art_precache.dart';
+import 'skin/card_back.dart';
 import 'skin/skin.dart';
 
 /// Gets a skin ready to draw before anything is drawn in it: first the
@@ -26,11 +27,12 @@ class SkinLoader {
     return views.isEmpty ? 1 : views.first.devicePixelRatio;
   }
 
-  /// Decodes the opening picture, then the art [skin]'s secrets show, at
-  /// this screen's pixel ratio. The secrets' art is asked for once the
-  /// opening picture is in (or failed): one picture, long before any card is
-  /// dealt.
-  Future<void> prepare(Skin skin) async {
+  /// Decodes the opening picture, then the art [skin]'s secrets show with
+  /// the card back [back] (the game this device was last in, if any;
+  /// otherwise the fallback, the one outside a game), at this screen's pixel
+  /// ratio. The secrets' art is asked for once the opening picture is in (or
+  /// failed): one picture, long before any card is dealt.
+  Future<void> prepare(Skin skin, {CardBack back = CardBack.fallback}) async {
     final ratio = _ratio();
     await precacheArt(
       openingArt(skin),
@@ -38,7 +40,7 @@ class SkinLoader {
       bundle: _bundle,
     );
     await precacheArt(
-      secretArt(skin),
+      secretArt(skin, back: back),
       devicePixelRatio: ratio,
       bundle: _bundle,
     );

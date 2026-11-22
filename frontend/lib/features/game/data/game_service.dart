@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/api/authenticated_client.dart';
+import '../../../core/requests/player_request.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../domain/game_me.dart';
@@ -66,17 +67,22 @@ class GameService {
       GameOutcome.fromJson(await fetchResults(gameId));
 
   /// Sends [request] (choose, ready, vote or the results ack) as it is.
-  Future<StageReply> send(String gameId, StageRequest request) =>
-      _stage(switch (request) {
+  Future<StageReply> send(Door door, String gameId, StageRequest request) =>
+      _stage(door, switch (request) {
         ChooseRequest() => '/onuw/games/$gameId/action/',
         ReadyRequest() => '/onuw/games/$gameId/ready/',
         VoteRequest() => '/onuw/games/$gameId/vote/',
         AckRequest() => '/onuw/games/$gameId/night-results/seen/',
       }, request.toJson());
 
-  Future<StageReply> _stage(String path, Map<String, Object> body) async {
+  Future<StageReply> _stage(
+    Door door,
+    String path,
+    Map<String, Object> body,
+  ) async {
     try {
       final response = await _client.post<Map<String, dynamic>>(
+        door,
         path,
         data: body,
       );
@@ -98,19 +104,28 @@ class GameService {
   // drops them.
 
   /// Host: open the night now (look) or close the window now, for [stage].
-  Future<StageAnswer> advanceStage(String gameId, {required String stage}) =>
-      _hostStage('/onuw/games/$gameId/advance-wave/', stage);
+  Future<StageAnswer> advanceStage(
+    Door door,
+    String gameId, {
+    required String stage,
+  }) => _hostStage(door, '/onuw/games/$gameId/advance-wave/', stage);
 
   /// Host: end the talk now, for [stage].
-  Future<StageAnswer> endTalk(String gameId, {required String stage}) =>
-      _hostStage('/onuw/games/$gameId/end-discussion/', stage);
+  Future<StageAnswer> endTalk(
+    Door door,
+    String gameId, {
+    required String stage,
+  }) => _hostStage(door, '/onuw/games/$gameId/end-discussion/', stage);
 
   /// Host: reveal the votes now, for [stage].
-  Future<StageAnswer> revealVotesAt(String gameId, {required String stage}) =>
-      _hostStage('/onuw/games/$gameId/reveal-votes/', stage);
+  Future<StageAnswer> revealVotesAt(
+    Door door,
+    String gameId, {
+    required String stage,
+  }) => _hostStage(door, '/onuw/games/$gameId/reveal-votes/', stage);
 
-  Future<StageAnswer> _hostStage(String path, String stage) async =>
-      (await _stage(path, {'stage': stage})).answer;
+  Future<StageAnswer> _hostStage(Door door, String path, String stage) async =>
+      (await _stage(door, path, {'stage': stage})).answer;
 }
 
 /// A `/me/` and the server's clock when it answered (null: not readable,

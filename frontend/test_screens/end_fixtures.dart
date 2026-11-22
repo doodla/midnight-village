@@ -1,8 +1,13 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
+import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
+import 'package:midnight_village/features/game/presentation/table_screen.dart';
 
+import '../test/helpers/contract/contract_samples.dart';
+import '../test/helpers/mock_http_client.dart';
 import '../test/helpers/outcome_samples.dart';
 import '../test/helpers/shell_setup.dart';
 
@@ -207,4 +212,108 @@ Future<void> pumpResultsTen(WidgetTester tester) async {
     host: 'Christopher',
   );
   await _seeWhoWon(tester, setup);
+}
+// ---------------------------------------------------------------------------
+// Waiting and failing (issue 10)
+// ---------------------------------------------------------------------------
+
+/// The shell at the results with the results body held: the wait where the
+/// count will be. [seeWhoWon] goes on to 11's wait.
+Future<ShellSetup> _endHeld(
+  WidgetTester tester, {
+  required String viewer,
+  String host = 'Ana',
+  bool seeWhoWon = false,
+}) async {
+  final results = recordedResults('results');
+  late HeldReplies held;
+  final setup = await ShellSetup.pump(
+    tester,
+    resultsMeFor(results, viewer: viewer, host: host),
+    learned: Cue.values.toSet(),
+    before: (s) {
+      s.answerResults(results);
+      held = s.http.hold(
+        method: 'GET',
+        path: '/onuw/games/${s.gameId}/results/',
+      );
+    },
+  );
+  addTearDown(held.releaseAll);
+  await setup.settle(tester);
+  if (seeWhoWon) {
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(TableShell)),
+    );
+    await container.read(localStepsProvider.notifier).seeWhoWon(setup.gameId);
+    await setup.settle(tester);
+  }
+  return setup;
+}
+
+/// 10 while the results load: the day's ground and the wait.
+Future<void> pumpCountLoading(WidgetTester tester) async {
+  await _endHeld(tester, viewer: 'Ben');
+}
+
+/// 11 while the results load: the night's ground and the wait.
+Future<void> pumpResultsLoading(WidgetTester tester) async {
+  await _endHeld(tester, viewer: 'Ben', seeWhoWon: true);
+}
+
+/// The path of the table's play-again and leave.
+String _tablePath(ShellSetup s, String endpoint) =>
+    '/lobbies/${s.me['lobby_code']}/$endpoint/';
+
+/// 11 with "Play again" tapped, the server not answered yet: that button
+/// busy, "Edit deck" and "Leave" dim.
+Future<void> pumpResultsPlayingAgain(WidgetTester tester) async {
+  final setup = await _end(tester, recordedResults('results'), viewer: 'Ana');
+  await _seeWhoWon(tester, setup);
+  final path = _tablePath(setup, 'play-again');
+  setup.http
+    ..hold(method: 'POST', path: path)
+    ..answer('POST', path, ContractSamples.load('http/lobby/play_again'));
+  await tester.tap(find.text(ResultsCopy.playAgain));
+  await setup.settle(tester);
+}
+
+/// 11 on a guest's phone with "Leave" tapped, the server not answered yet.
+Future<void> pumpResultsLeaving(WidgetTester tester) async {
+  final setup = await _end(tester, recordedResults('results'), viewer: 'Ben');
+  await _seeWhoWon(tester, setup);
+  final path = _tablePath(setup, 'leave');
+  setup.http
+    ..hold(method: 'POST', path: path)
+    ..answer('POST', path, ContractSamples.load('http/lobby/left'));
+  await tester.tap(find.text(CommonCopy.leave));
+  await setup.settle(tester);
+}
+
+/// 11 when "Play again" got no answer: "Not sent." with "Try again".
+Future<void> pumpResultsNotSent(WidgetTester tester) async {
+  final setup = await _end(tester, recordedResults('results'), viewer: 'Ana');
+  await _seeWhoWon(tester, setup);
+  setup.http.answer(
+    'POST',
+    _tablePath(setup, 'play-again'),
+    'Server Error',
+    status: 503,
+  );
+  await tester.tap(find.text(ResultsCopy.playAgain));
+  await setup.settle(tester);
+}
+
+/// 11 when the server refuses "Play again" with a reason: no "Try again".
+Future<void> pumpResultsRefused(WidgetTester tester) async {
+  final setup = await _end(tester, recordedResults('results'), viewer: 'Ana');
+  await _seeWhoWon(tester, setup);
+  setup.http.answer(
+    'POST',
+    _tablePath(setup, 'play-again'),
+    ContractSamples.load('http/lobby/play_again_not_finished'),
+    status: 409,
+  );
+  await tester.tap(find.text(ResultsCopy.playAgain));
+  await setup.settle(tester);
 }

@@ -30,7 +30,9 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 5. **Usability never pays.** Tap targets, contrast, reading floor (16 and 14 px), taps to act and
    whole names stay the same or get better. A name is never cut, also in the middle of a motion.
 6. **Paper, not glass.** Things lift, sink, drop in and turn like cut paper with a shadow. Short
-   moves, one idea at a time, no bounce beyond a small settle, no recolours or filters.
+   moves, one idea at a time, no bounce beyond a small settle, no recolours or filters. Shadows are
+   hard; the one soft thing is the faint bone glow of a card picked on the night board
+   (`GroundElevation.glow`, night only).
 7. **Teach a gesture once, by doing it** (the `hold`, `night_choose` and `vote_lock` cues). Then
    never again.
 
@@ -47,6 +49,9 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 | `stagger` | 150 ms | Between one row and the next landing (the count, the night on 11) |
 | `beat` | 1200 ms | The count's held beat before the flip. A tap skips it |
 | `scene` | 500 ms | The dusk (deal to night) and the dawn (night to talk), nothing else: one screen moves on a paper edge for the first 85% of it, the other stays; the destination's header travels further than its screen and its layers (the moon, the clouds; the roofs, the sun, the birds) each travel their own distance (pass 1, built) |
+| `signAfter` | 300 ms | A wait's sign of life comes in after this: an answer that arrives sooner shows no sign. It delays the sign only, never what is loading (issue 10) |
+| `slowAfter` | 5 s | A wait that has lasted this long is named once, plainly: "Still on its way." (issue 10) |
+| `waitLoop` | 1500 ms | One round of the sign of life: three paper lanterns lit one after another (issue 10) |
 | `curve` | easeOutCubic | Everything above, except the count's flip (easeInOut); inside a scene, each part runs its stretch of the 500 ms in this curve |
 | `Motion.within(context, d)` | `d`, or zero under reduce motion | The shell and the scene switcher use it; the other five places that check reduce motion move to it in their passes |
 
@@ -64,7 +69,7 @@ take 1.6 s. A tap finishes them.
 |---|---|---|---|
 | `Motion.land` | a curve with at most 10% overshoot (`easeOutBack`) | 4, 6 | The lock stamp; a joining player's row dropping in |
 | `Motion.ambient` | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
-| the reduce-motion helper, the rest | Today six places check it (shell, hold flip, count, results, ring, wave); buttons, rows, chips, cards and dims ignore it. `Motion.within` exists (pass 1); passes 2, 4 and 8 move them to it | 2, 4, 8 | One check, so none is forgotten |
+| the reduce-motion helper, the rest | Today six places check it (shell, hold flip, count, results, ring, wave) and, since pass 2, the night cards (dip, lift, glow, dim) and the Choose button's rise; buttons' press, rows, chips and dims ignore it. `Motion.within` exists (pass 1); passes 4 and 8 move the rest to it | 4, 8 | One check, so none is forgotten |
 
 ## 3. Vibration
 
@@ -117,7 +122,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Typing a name | Field focused on arrival. Both buttons stay outlined and go from faint to full ink with the first letter | `press` (colour) | Same | exists |
 | Press "Start a table" / "Join a table" | The outline fills with a hairline while down, clears on release | `press` | Same | exists |
 | "Join a table" opens | The code field and amber "Join" arrive in place, focus moves to the code. Today a cut | `settle` | Cut | pass 7 |
-| Join or Start sent | A spinner beside the label; further taps ignored; nothing else moves | none | Same | exists |
+| Join or Start sent | The tapped button (Join, or Start a table) shows its busy mark beside the label in the frame of the tap; the other way in and the field are dim and take nothing; the screen it leads to is up before anything is live again. A failure is "Not sent." or the server's reason above the buttons, with "Try again" where it helps | none | Same | exists |
 | Opened from a join link | Name field and amber "Join" on the first frame | none | Same | exists |
 
 ### The table (02, 03)
@@ -130,7 +135,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Tap a deck chip | The chip lifts 4 px with the selection outline; the strip's counts follow | `quick` | Cut | exists |
 | A card added or removed in the editor (03) | The count badge ticks and the card lifts or settles, so "Add 2 cards" reads as cards. The editor is #8; polish waits on it | `quick` | Cut | no pass |
 | Guest waits | "{host} deals" large, a quiet underlined "Leave" that dims while pressed | `press` | Same | exists |
-| Host taps "Deal to {n}" | Spinner on the button, taps ignored, then the dusk (next group) | none | Same | exists |
+| Host taps "Deal to {n}" | The busy mark on the button in the frame of the tap, taps ignored until the dusk lands (`LobbyNotifier.deal` returns only when `/me/table/` has named the next screen, so 02's own busy covers the gap; Leave is the same, a `Pending` until 01 is named) | none | Same | exists |
 
 ### The deal
 
@@ -156,16 +161,18 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
+| Board opens | The title in front of a quiet strip of the night village (under a half veil of the ground, the title above 7:1 on it), the candle and the seconds beside it, the cards using the height the phone gives them with no dead band (3 to 10 players, 320 wide and up), the Choose button waiting as a slot. Nothing moves; the same on every phone | none | Same | exists |
 | Board opens (first game only) | Each card lifts 8 px in one left-to-right wave; learned at the first taken Choose, never again | 120 ms each, 90 ms apart | No wave | exists |
-| Finger on a card, and a picked card | Touch-down dips the card 2 px; the picked card lifts with a glow. Same for every role | `press`, `quick` | Colour and outline only | pass 2 |
-| Tap picks a card | The card lifts 8 px with the selection outline (bone) | `quick` | Cut | exists |
-| Tap a picked card; a third tap | The card settles back; a third pick drops the oldest as the new one rises, in one frame | `quick` | Cut | exists |
-| Choose button follows the picks | "Choose a card" (outlined) to "See Cleo" or the role's pass such as "Skip" (amber); the label cuts | `press` | Cut | exists |
+| Finger on a card | The frame the finger lands the card dips 2 px and its shadow stays where it was; every card, whatever the role, whether or not a pick could take it (a dimmed card, a sleeper's card too). No vibration | `press` | Cut (dip and return) | exists |
+| Tap picks a card | The card lifts 8 px with the selection outline (bone), a soft bone glow and the deeper hard shadow, tweened together; the cards that cannot join dim | `quick` | Cut to the end state: the lift, the outline and the glow still show | exists |
+| Tap a picked card; a third tap | The card settles back, the glow out, the shadow and ring as before; a third pick drops the oldest as the new one rises, in one frame | `quick` | Cut | exists |
+| Choose button waits | "Choose a card" and "Choose 1 more" sit as a slot on purpose: the spec's outline with no fill (copy rule 10), clearly drawn, a dark lip inside its top edge and its words in full ink, 56 tall; not a faded button | none | Same | exists |
+| Choose button follows the picks | The slot becomes "See Cleo" or the role's pass such as "Skip" (amber): the amber paper rises out of the slot, drawn down in it for one frame and eased up, and takes the tap from the first frame; the label cuts. Taking the pick back returns it to the slot | `quick` | Cut | exists |
 | Tap the locked Choose | The wave plays again over the cards | 120 / 90 ms | No wave | exists |
 | Choose pressed | "Chosen" at once, before any answer; picks stay lifted; nothing flashes. No vibration | `press` | Cut | exists |
 | Hold "You" | The face is cut in above the thumb 120 ms after the press and cut out on release | 120 ms | Same | exists |
 | A sleeper taps a card | The card bobs 8 px once; nothing is picked or sent; there is no button | 120 ms | No bob (the press state answers) | exists |
-| Candle and seconds | The seconds tick; the candle's flame shrinks with the number. Today a still candle picture | 1 s ticks | Same | pass 2 |
+| Candle and seconds | The seconds tick and the paper candle (cut from the candle picture, on a ledge of the village, a warm light behind its flame) burns down with them: its wax sinks into the holder and its flame shrinks one step each second (from the server's own window), never out, no tween and no flicker, nothing between the steps; the number (the size it was on main, never smaller than the players' names, on the title's first line with the candle standing under it, in a fixed slot) is the one true carrier | 1 s steps | Same | exists |
 | Doppelganger's result arrives | Her picks drop and Choose locks again; only her held face changes | `quick` | Cut | exists |
 
 ### Waiting
@@ -174,6 +181,21 @@ motion: "cut" is the end state at once; "same" is unchanged.
 |---|---|---|---|---|
 | 05 "The village sleeps" (only while `/me/` loads) | The candle and the title; nothing moves, so no phone looks different | none | Same | exists |
 | A sleeper's board | "The village sleeps", cards calm, "Nothing to do" quiet where the button is | none | Same | exists |
+
+### What a wait shows, over time
+
+One body for every place the app waits (`Waiting`), laid in the frame of the screen it waits for: the opening (the saved account, then `/me/table/`: 01's village and its title), 04's village and "Your card", 08's sky and "The village wakes", 09's band and "Who dies today?", 10's and 11's ground. The screen's frame is up in the first frame; nothing is held back.
+
+| Wait so far | The player sees | Reduce motion |
+|---|---|---|
+| 0 to 300 ms | The frame only: ground, header, headline. No sign: an answer that comes now gives way with nothing having flashed | Same |
+| 300 ms to 5 s | Three paper lanterns hung from the header's edge, coming in over `settle`, lit one after another over `waitLoop` | Burning steadily, in view |
+| 5 s on | The same, with "Still on its way." under them (its place kept from the first frame), fading in; nothing on the screen moves | Cut in |
+| A fetch failing (offline, a 5xx) | "One moment" with "Try again" (the fetch now instead of at its next turn: the opening, 04, 08 and 09 offer it), alone on one line where the lanterns hung; it is made again by itself with backoff | Same |
+| The answer | The screen's content crossfades in (`settle`) over the frame; one wait is one key, so the wait is never faded into itself | Cut |
+| Over a screen already shown, the phone loses the server | "One moment" settles in over the top; the screen and the seat stay | Cut in |
+| A tap's request in flight | The tapped control's busy mark in the frame of the tap, busy until the next screen is up | Same |
+| A tap's request that failed | Words and "Try again" above the control, nothing else moves; or the server's reason with no button | Same |
 
 ### Talk (08)
 
@@ -225,7 +247,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| Host taps "Play again" | Spinner on the button; every phone then takes the same dusk as the first deal | the dusk (the deal's first row) | Cut | exists |
+| Host taps "Play again" | The busy mark on that button only ("Edit deck" and "Leave" dim and take nothing), until 02 is up; every phone then takes the same dusk as the first deal | the dusk (the deal's first row) | Cut | exists |
 | Guest waits | "{host} deals next." and a quiet "Leave" word that dims while pressed; no button | `press` | Same | exists |
 
 ### Everywhere
@@ -239,15 +261,15 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Tap target size | Chips and the quiet "Leave" word are 44 px; they become 48 px wherever the layout holds at 320 wide. One that cannot fit stays 44 and is named in the pass (decided 22 Nov 2026) | none | Same | pass 8 |
 | Release, or slide off | It comes back; sliding off cancels with no commit and no other sign; a scroll that starts on it cancels too | `press` | Same | exists |
 | A disabled tap ("Pick a name", "Need 3 players") | Today nothing. The button dips and returns, no colour change, no shake, no vibration; its words say what is missing | `press` | Colour only | pass 8 |
-| Request in flight | A spinner beside the label; taps ignored | none | Same | exists |
-| An error | A banner of at most 6 words above the button (with "Try again" where it helps), calm: no shake, no red, no vibration; the screen keeps its picks. Today it cuts in | `settle`, 8 px | Cut | no pass |
+| Request in flight | A tap that leads to another screen (Start, Join, Deal, Leave, Play again, Edit deck): the button sinks into its shadow and a small lantern burns in its own padding (the words never move), in the frame of the tap, a second tap sends nothing, and it stays busy until the screen it leads to is up (never live again in the gap after the answer). A tap whose result the phone shows at once (Choose, Ready, a vote, a deck or timer change) shows its done state at once (the outbox and the settings queue). Both send through `playerRequest` | none | Same | exists |
+| An error | One quiet line of at most 6 words above the control that asked (no box), calm: no shake, no red, no vibration; "Not sent." with "Try again" where nothing the player did was wrong (it sends the same request again), the server's own reason ("That table is playing now.") with no button where it was refused; the screen keeps its picks. The failure belongs to the control: it goes with the screen, never shows up later on another. Today it cuts in | `settle`, 8 px | Cut | no pass |
 | Empty | The ground and the one thing to do, never a message: a nearly empty table keeps the code loudest | none | Same | exists |
-| Loading | Today the ground with nothing on it, "3 or 4 seconds with no idea what is happening" (owner). It needs a moving sign of life that is not a spinner over text. #10 owns it | none yet | Still sign | no pass |
+| Loading | The screen's own frame (ground, header, headline) is up at once, and where its content will be the one waiting body (`Waiting`): nothing for the first 300 ms (`signAfter`: an answer that comes sooner shows no sign, so a quick load never flashes one), then three paper lanterns hung on cords from the header's lower edge (the title in the opening, the band's or the picture's edge elsewhere), lit one after another over 1.5 s (`waitLoop`), then after 5 s (`slowAfter`) "Still on its way." under them (true on any ground), and, while a fetch is failing, "One moment" with "Try again" alone on one line, no lanterns (it is made again by itself). The content replaces it the frame it arrives (`SceneSwitcher`'s crossfade); nothing is held back and no time is added to real content. The opening (the app, the saved account, the first `/me/table/`) is 01's village and title with the same body | `signAfter`, `settle` in, `waitLoop`, `slowAfter` | The lanterns burn steadily, in view | exists |
 | A player arrives | Their row drops in on the paper and settles, the lantern in the art flickers once; no vibration, no sound. Today it appears | `settle`, `land`, 2 x `quick` | Appears | pass 6 |
 | A phone drops, or comes back | The token dims to 40% in the idle ring, or lifts back, at once; no words. Today a cut with no animation; animating it over `quick` is to build | `quick` | Cut | pass 6 |
 | A player leaves | Their row fades and the rows below close up. Today a cut | `settle` | Cut | no pass |
 | Host handover | That phone's layout changes in place (QR and Deal appear), no words. Today a cut | `settle` | Cut | no pass |
-| This phone loses its connection | "One moment" over the top; nothing else moves; it goes when the phone is back, with no welcome-back. Today it cuts in and out | `settle`, 8 px | Cut | no pass |
+| This phone loses its connection | "One moment" over the top of the screen it is on, whenever the fetches that keep that screen true fail (the socket down or not); the seat and the screen stay as they are, nothing else moves; it goes when the phone is back, with no welcome-back. It comes in over `settle` and 8 px | `settle`, 8 px | Cut | exists |
 | The app comes back from the background | Any held face is gone; the screen heals from `/me/` | none | Same | exists |
 | A role sheet (03b) | Hold a portrait: the sheet rises over the scrim, closes with "Close" or a tap outside. It is Flutter's own sheet motion, not a token | framework | Framework | exists |
 | Any other change of screen | A crossfade, input live on the new screen from frame one | `settle` | Cut | exists |
@@ -255,7 +277,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Reduce motion: button press | The press sinks and returns over 90 ms although reduce motion is on. It should cut | the helper | Cut | pass 8 |
 | Reduce motion: quiet word and chip | The quiet word's dim and a chip's lift and outline still tween. They should cut | the helper | Cut | pass 8 |
 | Reduce motion: vote row | The row's lift, dim and padding still tween. They should cut | the helper | Cut | pass 4 |
-| Reduce motion: night card lift | A card's 8 px lift still tweens. It should cut | the helper | Cut | pass 2 |
+| Reduce motion: night card lift | A card's dip, lift, glow and dim cut to their end state | the helper | Cut | exists |
 | Reduce motion: deck role card dim | The portrait's dim still fades. It should cut | the helper | Cut | no pass |
 
 ## 5. How to judge it

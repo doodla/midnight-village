@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/router/back_policy.dart';
+import '../../../core/requests/player_request.dart';
+import '../../../design_system/primitives/waiting_sign.dart';
+import '../../../design_system/primitives/pending.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
 import '../../../design_system/models/role.dart';
@@ -67,10 +70,28 @@ class AtTableScreen extends ConsumerStatefulWidget {
 
 class _AtTableScreenState extends ConsumerState<AtTableScreen> {
   var _dealing = false;
-  var _leaving = false;
-  var _leaveFailed = false;
-  String? _leaveRefused;
+
+  /// 02's Leave: busy in the frame of the tap and until the phone is off the
+  /// table (01 is named), its failure its own (`Pending`).
+  final _leave = Pending();
   var _copied = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _leave.addListener(_leaveChanged);
+  }
+
+  void _leaveChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _dealt?.close();
+    _leave.dispose();
+    super.dispose();
+  }
 
   int? get _viewer => switch (ref.read(authProvider)) {
     AuthAuthenticated(:final user) => user.id,
@@ -80,14 +101,22 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
   @override
   Widget build(BuildContext context) {
     final table = ref.watch(myTableProvider).value;
-    if (table == null) return const _Waiting();
+    if (table == null) {
+      return _Waiting(
+        offline: ref.watch(myTableProvider.select((t) => t.hasError)),
+        onRetry: () => ref.invalidate(myTableProvider),
+      );
+    }
     final code = table.lobbyCode;
     ref.listen(lobbyProvider(code), _follow);
     final read = ref.watch(lobbyProvider(code));
     final lobby = read.value;
     final viewer = _viewer;
     if (lobby == null || viewer == null) {
-      return _Waiting(offline: read.error != null);
+      return _Waiting(
+        offline: read.error != null,
+        onRetry: () => ref.invalidate(lobbyProvider(code)),
+      );
     }
     final notifier = ref.read(lobbyProvider(code).notifier);
     final origin = ref.watch(appOriginProvider);
@@ -96,13 +125,13 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
       viewerId: viewer,
       link: origin == null ? null : joinLink(origin, code),
       dealing: _dealing,
-      leaving: _leaving,
-      notSent: lobby.notSent || _leaveFailed,
-      leaveRefused: _leaveRefused,
+      leaving: _leave.busy,
+      notSent: lobby.notSent,
+      leaveFailure: _leave.failure,
       copied: _copied,
       onRetry: () {
-        if (_leaveFailed) {
-          unawaited(_leave(code));
+        if (_leave.failed) {
+          unawaited(_leave.retry());
         } else {
           unawaited(notifier.retry());
         }
@@ -118,7 +147,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
         }
       },
       onDeal: () => unawaited(_deal(notifier)),
-      onLeave: () => unawaited(_leave(code)),
+      onLeave: () => _leaveTable(code),
       onGoHome: () => ref.invalidate(myTableProvider),
     );
   }
@@ -190,42 +219,42 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     if (mounted) setState(() => _dealing = false);
   }
 
-  Future<void> _leave(String code) async {
+  void _leaveTable(String code) {
     // A question answered after the table gave way (the sheet closes with
     // its screen, but never leave from a screen that is gone).
-    if (!mounted) return;
-    setState(() {
-      _leaving = true;
-      _leaveFailed = false;
-      _leaveRefused = null;
-      _copied = false;
-    });
-    try {
-      await ref.read(lobbyProvider(code).notifier).leave();
-      // Off the table: `/me/table/` says where to go (01 Join).
-      ref.invalidate(myTableProvider);
-    } on LeaveRefused catch (refusal) {
-      if (mounted) setState(() => _leaveRefused = refusal.why);
-    } catch (_) {
-      if (mounted) setState(() => _leaveFailed = true);
-    } finally {
-      if (mounted) setState(() => _leaving = false);
-    }
+    if (!mounted || _leave.busy) return;
+    setState(() => _copied = false);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final lobby = ref.read(lobbyProvider(code).notifier);
+    unawaited(
+      _leave.run(
+        lobby.leave,
+        // Off the table: `/me/table/` says where to go (01 Join). Busy until
+        // it does; a read that fails frees the button and says "One moment".
+        settle: (again) async {
+          container.invalidate(myTableProvider);
+          return readAnsweredIn(container, myTableProvider);
+        },
+      ),
+    );
   }
 }
 
 /// Before the table is known: its ground; "One moment" while it cannot be
 /// read (it is read again until it answers).
 class _Waiting extends StatelessWidget {
-  const _Waiting({this.offline = false});
+  const _Waiting({this.offline = false, this.onRetry});
 
   final bool offline;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) => ScreenFrame(
     ground: GroundKind.night,
-    body: const SizedBox.shrink(),
-    actions: [if (offline) const Notice(message: BannerCopy.offline)],
+    body: Align(
+      alignment: Alignment.topCenter,
+      child: Waiting(failing: offline, onRetry: onRetry, centred: true),
+    ),
   );
 }
 
@@ -243,7 +272,7 @@ class AtTableView extends StatelessWidget {
     this.dealing = false,
     this.leaving = false,
     this.notSent = false,
-    this.leaveRefused,
+    this.leaveFailure,
     this.copied = false,
     this.onRetry,
     this.onShare,
@@ -263,7 +292,7 @@ class AtTableView extends StatelessWidget {
   final bool notSent;
 
   /// Why the server refused this phone's leave (its words, from copy).
-  final String? leaveRefused;
+  final RequestFailure? leaveFailure;
   final bool copied;
   final VoidCallback? onRetry;
   final ValueChanged<Uri>? onShare;
@@ -394,8 +423,12 @@ class AtTableView extends StatelessWidget {
               action: BannerCopy.goHome,
               onAction: onGoHome,
             )
-          else if (leaveRefused case final why?)
-            Notice(message: why)
+          else if (leaveFailure case final failure?)
+            Notice(
+              message: failure.words,
+              action: failure.canRetry ? BannerCopy.tryAgain : null,
+              onAction: failure.canRetry ? onRetry : null,
+            )
           else if (notSent)
             Notice(
               message: BannerCopy.notSent,

@@ -8,10 +8,14 @@ import '../../../core/api/api_exception.dart';
 import '../../../core/healing/healing.dart';
 import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/requests/player_request.dart';
+import '../../../design_system/copy/copy.dart';
+import '../../../design_system/primitives/pending.dart' show RequestRefused;
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/night/night_pick.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
+import '../../lobby/domain/lobby_state.dart';
 import '../../lobby/domain/where_am_i.dart';
 import '../../lobby/presentation/join_flow.dart';
 import '../../lobby/presentation/lobby_notifier.dart';
@@ -535,7 +539,9 @@ class LiveGameNotifier extends _$LiveGameNotifier {
   }
 
   Future<StageAnswer> _send(OutboxItem item) async {
-    final reply = await _service.send(gameId, item.request);
+    final reply = await playerRequest(
+      (door) => _service.send(door, gameId, item.request),
+    );
     if (!ref.mounted) return reply.answer;
     final box = _game.outbox;
     if (box.current(item.lane)?.id != item.id) {
@@ -724,15 +730,22 @@ class LiveGameNotifier extends _$LiveGameNotifier {
   }
 
   /// Host, at the results: the table goes back to waiting. A table that is
-  /// gone (404) is closed, as a fetch answered 404 closes it; other errors
-  /// reach the caller. The answer is the table's lobby, waiting, with this
-  /// game still its newest: 02 shows it ([LobbySeed]) and `/me/table/` takes
-  /// it ([seatFromAnswer]), so nothing is asked after the tap.
-  Future<void> playAgain() => _atTable(() async {
-    final lobby = await ref
-        .read(lobbyServiceProvider)
-        .playAgain(_game.server.lobbyCode);
-    if (!ref.mounted) return;
+  /// gone (404) is closed, as a fetch answered 404 closes it; a refusal
+  /// ([serverAnswered]) says why ([RequestRefused]), never "Not sent."; no
+  /// answer reaches the caller as it is. The answer is the table's lobby,
+  /// waiting, with this game still its newest: 02 shows it ([LobbySeed]) and
+  /// `/me/table/` takes it ([seatFromAnswer]), so nothing is asked after the
+  /// tap.
+  Future<void> playAgain() => _atTable((door) async {
+    final LobbyState lobby;
+    try {
+      lobby = await ref
+          .read(lobbyServiceProvider)
+          .playAgain(door, _game.server.lobbyCode);
+    } catch (e) {
+      throw _refused(e, BannerCopy.cannotDeal) ?? e;
+    }
+    if (!ref.mounted) return true;
     // Others may leave before 02's socket listens: read once more then.
     ref.read(lobbySeedProvider).put(lobby, settled: false);
     if (ref.read(authProvider) case AuthAuthenticated(:final user)) {
@@ -741,19 +754,48 @@ class LiveGameNotifier extends _$LiveGameNotifier {
         viewerId: user.id,
         game: (id: gameId, phase: GamePhase.results),
       );
-      if (seat != null) seatFromAnswer(ref, user.id, seat);
+      if (seat != null) {
+        seatFromAnswer(ref, user.id, seat);
+        return true;
+      }
     }
+    return false;
   });
 
   /// Leaves the table this game was played at (a table already gone: the
-  /// same, with "This table has closed." on 01).
-  Future<void> leaveTable() => _atTable(
-    () => ref.read(lobbyServiceProvider).leaveLobby(_game.server.lobbyCode),
-  );
-
-  Future<void> _atTable(Future<void> Function() call) async {
+  /// same, with "This table has closed." on 01; a phone already off it
+  /// counts as left, as at 02).
+  Future<void> leaveTable() => _atTable((door) async {
     try {
-      await call();
+      await ref
+          .read(lobbyServiceProvider)
+          .leaveLobby(door, _game.server.lobbyCode);
+    } catch (e) {
+      if (e is ValidationException && e.code == 'not_in_lobby') return false;
+      throw _refused(e, BannerCopy.cannotLeave) ?? e;
+    }
+    return false;
+  });
+
+  /// [error] as the server's refusal with [words] to say (the table's 404
+  /// is not one: the table is gone), or null when the phone does not know it
+  /// got there.
+  static RequestRefused? _refused(Object error, String words) =>
+      error is! NotFoundException && serverAnswered(error)
+      ? RequestRefused(words)
+      : null;
+
+  /// Runs a tap at the game's table. [call] says whether its answer already
+  /// put the phone where it sits ([seatFromAnswer]); else `/me/table/` is
+  /// read after it. Read again after a seat was put, it would be asked for
+  /// all the same whenever the seat had been taken in between.
+  Future<void> _atTable(Future<bool> Function(Door door) call) async {
+    try {
+      final seated = await playerRequest(call);
+      // The tap worked. A screen that has already moved on (the server said
+      // so first: this notifier went with it) has nothing left to read, and
+      // is no failure.
+      if (!ref.mounted || seated) return;
       ref.invalidate(myTableProvider);
     } on NotFoundException {
       if (ref.mounted) _tableGone(tapped: true);

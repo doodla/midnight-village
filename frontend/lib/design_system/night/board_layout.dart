@@ -15,7 +15,9 @@ import '../primitives/face_down_card.dart';
 /// phone's, so every phone at a table lays out the same board.
 ///
 /// The rules, in order:
-/// - Every card is on the screen; nothing scrolls.
+/// - Every card is on the screen; nothing scrolls. The seats' cards use the
+///   height the phone gives them, up to [largest]: no dead band on a small
+///   table.
 /// - A name is never cut: every name is set at one size, the largest at
 ///   which each fits its column on one line, or on two lines broken between
 ///   words.
@@ -131,6 +133,17 @@ class BoardLayout {
   /// The most cards in a row of players.
   static const mostPerRow = 5;
 
+  /// The widest a seat's card gets, where a table is small and the phone is
+  /// tall: the cards grow to the height the phone gives them (the mocks'
+  /// 96 is where a full table of ten ends up), up to this and no further.
+  /// What a phone still has to spare goes between the parts evenly.
+  static const largest = 160.0;
+
+  /// A card grown past the mocks' board card (96) leaves this much air in
+  /// each gap (above the seats, between the rows, above the band), so the
+  /// parts of a board never touch.
+  static const breath = Space.lg;
+
   /// The smallest card the board would rather not draw: 60% of the mocks'
   /// player card, still a thumb's width.
   static final smallest = FaceDownSize.player.mock.width * 0.6;
@@ -138,6 +151,11 @@ class BoardLayout {
   /// Two splits whose cards are within this share of each other's width are
   /// as good: the one with fewer rows is calmer.
   static const sameSize = 0.08;
+
+  /// A split that leaves more than this much of the room's height unused in
+  /// each gap (above the seats, between the rows, above the band) has a dead
+  /// band; of two splits, the one without is better.
+  static const deadBand = 32.0;
 
   /// Names are set no smaller than the reading floor for captions, as drawn
   /// (after the text scale): with large text a name grows where there is
@@ -168,17 +186,24 @@ class BoardLayout {
 
   /// The splits of [seats] the board may use: balanced, at most
   /// [mostPerRow] to a row, never one card alone on a row of its own unless
-  /// it is the only row.
+  /// it is the only row, with one exception: three seats may stand as a pair
+  /// with the third centred under it (a triangle, not an orphan), because a
+  /// row of three is as wide as the phone and leaves a tall phone's height
+  /// unused. It is only taken where its cards come out larger.
   static List<List<int>> splits(int seats) {
     final all = <List<int>>[];
     for (var rowCount = 1; rowCount <= seats; rowCount++) {
       final rows = balanced(seats, rowCount);
       if (rows.first > mostPerRow) continue;
-      if (rowCount > 1 && rows.last < 2) break;
+      final pair = seats == triangle && rowCount == 2;
+      if (rowCount > 1 && rows.last < 2 && !pair) break;
       all.add(rows);
     }
     return all;
   }
+
+  /// The one table whose seats may stand as a pair and a centred third.
+  static const triangle = 3;
 
   /// The board for [others] other players in [room]. [names] are every
   /// seat's name, this phone's own included (so every phone measures the
@@ -257,18 +282,28 @@ class BoardLayout {
           ruleRoom +
           bandHeightFor(card);
 
-      // The widest card that fits its column, the board's size and the
-      // height.
-      var card = math.min(column, FaceDownSize.board.mock.width);
-      if (heightFor(card) > room.height) {
-        var low = 0.0;
-        var high = card;
-        for (var i = 0; i < 30; i++) {
-          final mid = (low + high) / 2;
-          (heightFor(mid) <= room.height) ? low = mid : high = mid;
+      // The widest card that fits its column, [largest] and the height with
+      // [extra] to spare.
+      double cardFor(double extra) {
+        var card = math.min(column, largest);
+        if (heightFor(card) + extra > room.height) {
+          var low = 0.0;
+          var high = card;
+          for (var i = 0; i < 30; i++) {
+            final mid = (low + high) / 2;
+            (heightFor(mid) + extra <= room.height) ? low = mid : high = mid;
+          }
+          card = low;
         }
-        card = low;
+        return card;
       }
+
+      // Up to the mocks' board card as tight as the room needs; beyond it
+      // only where each gap keeps its breath.
+      final card = math.max(
+        cardFor(breath * (rows.length + 1)),
+        math.min(cardFor(0), FaceDownSize.board.mock.width),
+      );
       // A column is no narrower than its names as they are laid out: on one
       // line when every name fits one, else on their narrowest two.
       final widestName = needs
@@ -301,6 +336,7 @@ class BoardLayout {
               math.min(seatColumn, math.max(band(card), minTap)) / minTap,
             ) *
             math.pow(math.min(1.0, scaler.scale(size) / nameFloor), 2),
+        spare: math.max(0.0, room.height - heightFor(card)),
       );
       if (best == null || candidate.beats(best)) best = candidate;
     }
@@ -359,9 +395,12 @@ class _Need {
 }
 
 class _Candidate {
-  const _Candidate(this.layout, {required this.short});
+  const _Candidate(this.layout, {required this.short, required this.spare});
 
   final BoardLayout layout;
+
+  /// The height of the room this split leaves unused.
+  final double spare;
 
   /// How near the cards are to [BoardLayout.smallest] and the names to
   /// their floor, multiplied: 1 when both are there.
@@ -372,6 +411,12 @@ class _Candidate {
     final (mine, theirs) = (layout, other.layout);
     final fewer = mine.rows.length < theirs.rows.length;
     if ((short - other.short).abs() > 0.01) return short > other.short;
+    // A split that leaves the phone's height unused in every gap (a dead
+    // band) is worse than one that does not, whatever its cards' size.
+    final dead = spare / (mine.rows.length + 1) > BoardLayout.deadBand;
+    final theirDead =
+        other.spare / (theirs.rows.length + 1) > BoardLayout.deadBand;
+    if (dead != theirDead) return !dead;
     final gain = mine.cardWidth / theirs.cardWidth - 1;
     return gain.abs() <= BoardLayout.sameSize ? fewer : gain > 0;
   }

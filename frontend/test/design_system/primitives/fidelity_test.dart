@@ -179,10 +179,14 @@ void main() {
             ),
           )
           .firstWhere((c) => c.decoration is BoxDecoration);
-      expect(
-        (card.decoration! as BoxDecoration).boxShadow!.single.offset,
-        const Offset(0, 4),
-      );
+      final shadows = (card.decoration! as BoxDecoration).boxShadow!;
+      expect(shadows.last.offset, const Offset(0, 4));
+      expect(shadows.last.blurRadius, 0, reason: 'the shadow stays hard');
+      // The picked card's light is in the list, unlit, so it fades with the
+      // pick (face_down_feel_test.dart).
+      expect(shadows.length, 2);
+      expect(shadows.first.color.a, 0);
+      expect(shadows.first.blurRadius, 0, reason: 'nothing soft to paint');
     });
 
     testWidgets('shrink with their parent: four to a 320 phone', (
@@ -297,14 +301,17 @@ void main() {
     );
   });
 
-  testWidgets('the corner timer: the number at 34, 10 from the candle, alone', (
+  testWidgets('the corner timer: the number at its scale of 34, alone', (
     tester,
   ) async {
     await _pump(
       tester,
       const Align(child: WorldTimer.candleCompact(secondsLeft: 14)),
     );
-    expect(tester.widget<Text>(find.text('14 s')).style!.fontSize, 34);
+    expect(
+      tester.widget<Text>(find.text('14 s')).style!.fontSize,
+      closeTo(34 * WorldTimer.cornerNumberScale, 1e-9),
+    );
     expect(
       find.descendant(of: find.byType(WorldTimer), matching: find.byType(Text)),
       findsOneWidget,

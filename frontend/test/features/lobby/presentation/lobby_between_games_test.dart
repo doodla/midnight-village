@@ -1,10 +1,9 @@
+import 'package:midnight_village/core/requests/player_request.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
-import 'package:midnight_village/features/game/domain/game_me.dart'
-    show GamePhase;
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
@@ -86,6 +85,7 @@ Future<_Table> _open({
 }
 
 void main() {
+  setUpAll(() => registerFallbackValue(Door.forTest()));
   group('The lobby between games', () {
     test('keeps the same players and the deck', () async {
       final t = await _open();
@@ -113,8 +113,8 @@ void main() {
         'event', () async {
       final t = await _open();
       when(
-        () => t.service.startGame(_code),
-      ).thenAnswer((_) async => (id: 'game-two', phase: GamePhase.night));
+        () => t.service.startGame(any(), _code),
+      ).thenAnswer((_) async => 'game-two');
 
       expect(await t.notifier.deal(), 'game-two');
       expect(t.lobby.startedGameId, 'game-two');
@@ -167,9 +167,9 @@ void main() {
         'again deals', () async {
       final t = await _open();
       var calls = 0;
-      when(() => t.service.startGame(_code)).thenAnswer((_) async {
+      when(() => t.service.startGame(any(), _code)).thenAnswer((_) async {
         if (calls++ == 0) throw Exception('offline');
-        return (id: 'game-two', phase: GamePhase.night);
+        return 'game-two';
       });
 
       expect(await t.notifier.deal(), isNull);
