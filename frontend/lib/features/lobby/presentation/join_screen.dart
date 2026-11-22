@@ -525,8 +525,9 @@ class _JoinViewState extends State<JoinView> {
                 ),
               ),
               actions: [
-                if (link == null &&
-                    (widget.online != null || widget.lastWon != null))
+                if ((link == null &&
+                        (widget.online != null || widget.lastWon != null)) ||
+                    widget.onGetApp != null)
                   Builder(
                     builder: (context) {
                       final style = type.lede.copyWith(
@@ -534,17 +535,45 @@ class _JoinViewState extends State<JoinView> {
                       );
                       final online = widget.online;
                       final won = widget.lastWon;
+                      final showStats =
+                          link == null && (online != null || won != null);
+                      // "Get the app" shares the "at tables" row, at its end;
+                      // with no such line it sits alone, at the end.
+                      final getApp = widget.onGetApp == null
+                          ? null
+                          : TextAction(
+                              label: JoinCopy.getApp,
+                              onPressed: widget.onGetApp,
+                              roomy: true,
+                              quiet: true,
+                            );
+                      final onlineLine = showStats && online != null
+                          ? FitWords(
+                              JoinCopy.online.fill({'n': online}),
+                              style: style,
+                            )
+                          : null;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         spacing: Space.xs,
                         children: [
-                          const Divider(height: Space.mdPlus),
-                          if (online != null)
-                            FitWords(
-                              JoinCopy.online.fill({'n': online}),
-                              style: style,
+                          if (showStats) const Divider(height: Space.mdPlus),
+                          if (onlineLine != null && getApp != null)
+                            Row(
+                              spacing: Space.sm,
+                              children: [
+                                Expanded(child: onlineLine),
+                                getApp,
+                              ],
+                            )
+                          else if (onlineLine != null)
+                            onlineLine
+                          else if (getApp != null)
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: getApp,
                             ),
-                          if (won != null)
+                          if (showStats && won != null)
                             FitWords(
                               won ? JoinCopy.lastWon : JoinCopy.lastLost,
                               style: style,
@@ -552,14 +581,6 @@ class _JoinViewState extends State<JoinView> {
                         ],
                       );
                     },
-                  ),
-                if (widget.onGetApp != null)
-                  Center(
-                    child: TextAction(
-                      label: JoinCopy.getApp,
-                      onPressed: widget.onGetApp,
-                      roomy: true,
-                    ),
                   ),
               ],
             ),

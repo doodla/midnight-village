@@ -19,6 +19,7 @@ class TextAction extends StatefulWidget {
     required this.onPressed,
     this.busy = false,
     this.roomy = false,
+    this.quiet = false,
   });
 
   final String label;
@@ -29,6 +30,10 @@ class TextAction extends StatefulWidget {
 
   /// A link alone on a line (01's "Get the app"): [roomyTap] high to touch.
   final bool roomy;
+
+  /// Quieter still, to sit beside a line of text (01's "Get the app" beside
+  /// "N at tables"): the lede's size and face, the ground's quiet ink.
+  final bool quiet;
 
   /// The smallest touch target, both ways.
   static const minTap = 44.0;
@@ -54,8 +59,11 @@ class _TextActionState extends State<TextAction> {
     final ground = context.ground;
     final busy = widget.busy;
     final enabled = widget.onPressed != null || busy;
-    final style = context.skin.typography.buttonLabelSmall.copyWith(
-      color: enabled ? ground.text : ground.faintText,
+    final type = context.skin.typography;
+    final style = (widget.quiet ? type.lede : type.buttonLabelSmall).copyWith(
+      color: enabled
+          ? (widget.quiet ? ground.quietText : ground.text)
+          : ground.faintText,
       decoration: TextDecoration.underline,
       decorationColor: enabled ? ground.quietText : null,
     );

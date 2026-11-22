@@ -43,6 +43,8 @@ jobs:
     name: Publish Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    # Only main publishes (a manual run from another branch would replace the file).
+    if: github.ref == 'refs/heads/main'
     # Only this job writes (the release).
     permissions:
       contents: write
@@ -99,4 +101,26 @@ jobs:
           else
             gh release edit "$TAG" --notes "$notes" --latest=false
           fi
-          gh release upload "$TAG" "$RUNNER_TEMP/midnight-village.apk" --clobber
+          # Never leave the release without its file: upload under a temporary name
+          # (retried), then drop the old asset and give the new one the real name.
+          repo="${GITHUB_REPOSITORY}"
+          tmp="midnight-village-new.apk"
+          cp "$RUNNER_TEMP/midnight-village.apk" "$RUNNER_TEMP/$tmp"
+          # A leftover from a run that stopped half way.
+          for id in $(gh api "repos/$repo/releases/tags/$TAG" --jq ".assets[] | select(.name == \"$tmp\") | .id"); do
+            gh api -X DELETE "repos/$repo/releases/assets/$id"
+          done
+          for attempt in 1 2 3; do
+            if gh release upload "$TAG" "$RUNNER_TEMP/$tmp"; then break; fi
+            if [ "$attempt" = 3 ]; then echo "upload failed 3 times" >&2; exit 1; fi
+            sleep 10
+            for id in $(gh api "repos/$repo/releases/tags/$TAG" --jq ".assets[] | select(.name == \"$tmp\") | .id"); do
+              gh api -X DELETE "repos/$repo/releases/assets/$id"
+            done
+          done
+          # The first run has no old asset: the loop is then empty.
+          for id in $(gh api "repos/$repo/releases/tags/$TAG" --jq ".assets[] | select(.name == \"midnight-village.apk\") | .id"); do
+            gh api -X DELETE "repos/$repo/releases/assets/$id"
+          done
+          new_id=$(gh api "repos/$repo/releases/tags/$TAG" --jq ".assets[] | select(.name == \"$tmp\") | .id")
+          gh api -X PATCH "repos/$repo/releases/assets/$new_id" -f name=midnight-village.apk

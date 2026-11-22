@@ -201,11 +201,22 @@ class WorkflowPublishing(unittest.TestCase):
         self.assertRegex(job, r"(?m)^    name:\s*\S")
         self.assertRegex(job, r"(?m)^    timeout-minutes:\s*\d+")
 
+    def test_the_job_publishes_only_from_main(self):
+        (job,) = jobs_of(self.text).values()
+        self.assertRegex(
+            job, r"(?m)^    if:\s*github\.ref == 'refs/heads/main'\s*$"
+        )
+
     def test_builds_with_the_script_and_publishes_the_one_asset(self):
         self.assertIn("tool/build_android.sh", self.code)
         self.assertIn("TAG: android-latest", self.code)
         self.assertIn("midnight-village.apk", self.code)
-        self.assertIn("--clobber", self.code)
+        # Never an empty release: upload under another name, then swap by the API.
+        self.assertNotIn("--clobber", self.code)
+        self.assertIn("midnight-village-new.apk", self.code)
+        self.assertIn("-X PATCH", self.code)
+        self.assertIn("-X DELETE", self.code)
+        self.assertRegex(self.code, r"for attempt in 1 2 3")
         self.assertIn("app-arm64-v8a-release.apk", self.code)
         self.assertIn(
             "PUBLIC_ORIGIN: https://midnight-village-app-anthelion.vercel.app",

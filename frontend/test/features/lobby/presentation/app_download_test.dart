@@ -50,35 +50,45 @@ void main() {
   });
 
   group('01', () {
-    testWidgets('in an Android browser: one "Get the app" at the foot, quiet '
-        'ink (never amber), 48 to touch, and a tap opens the download', (
-      tester,
-    ) async {
-      final setup = await TableSetup.pump(tester, androidWeb: true);
+    testWidgets(
+      'in an Android browser: one quiet "Get the app" on the at-tables row, quiet '
+      'ink (never amber), 48 to touch, and a tap opens the download',
+      (tester) async {
+        final setup = await TableSetup.pump(tester, androidWeb: true);
 
-      expect(_link, findsOneWidget);
-      expect(
-        tester.getSize(find.byType(TextAction)).height,
-        greaterThanOrEqualTo(48),
-      );
-      final ink = tester.widget<Text>(_link).style!.color;
-      final context = tester.element(_link);
-      expect(ink, context.ground.text);
-      expect(ink, isNot(context.ground.accent));
-      // The one amber fill of a screen stays the primary action's: 01 on a
-      // new phone has none, and this link is not one.
-      expect(find.byType(PrimaryButton), findsNothing);
+        expect(_link, findsOneWidget);
+        expect(
+          tester.getSize(find.byType(TextAction)).height,
+          greaterThanOrEqualTo(48),
+        );
+        final ink = tester.widget<Text>(_link).style!.color;
+        final context = tester.element(_link);
+        // Dimmed bone, the lede's size and face (as "N at tables"), not full ink.
+        expect(ink, context.ground.quietText);
+        expect(ink, isNot(context.ground.text));
+        expect(ink, isNot(context.ground.accent));
+        expect(
+          tester.widget<Text>(_link).style!.fontSize,
+          tester.widget<Text>(find.textContaining('at tables')).style!.fontSize,
+        );
+        expect(find.byType(PrimaryButton), findsNothing);
 
-      // Below everything else on the screen.
-      final foot = tester.getBottomLeft(_link).dy;
-      for (final label in [JoinCopy.joinTable, JoinCopy.startTable]) {
-        expect(tester.getBottomLeft(find.text(label)).dy, lessThan(foot));
-      }
+        // On the "at tables" row, at its right end.
+        final line = find.textContaining('at tables');
+        expect(
+          tester.getCenter(_link).dy,
+          closeTo(tester.getCenter(line).dy, 8),
+        );
+        expect(
+          tester.getTopRight(find.byType(TextAction)).dx,
+          greaterThan(tester.getTopRight(line).dx),
+        );
 
-      await tester.tap(_link);
-      expect(setup.appDownloads, 1);
-      await setup.close(tester);
-    });
+        await tester.tap(_link);
+        expect(setup.appDownloads, 1);
+        await setup.close(tester);
+      },
+    );
 
     testWidgets('on a table\'s link too (still 01)', (tester) async {
       final setup = await TableSetup.pump(
