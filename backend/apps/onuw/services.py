@@ -36,7 +36,11 @@ from .engine.night import (
 from .engine.roles import ActionType, get_role, window_for_order_group
 from .engine.state import ActionResult, GameState, NightAction
 from .engine.timeline import TimelineError, build_night_timeline, recover_dealt_center
-from .engine.validation import is_valid_timer_value, max_seconds_for
+from .engine.validation import (
+    LENGTH_DEFAULTS,
+    is_valid_timer_value,
+    max_seconds_for,
+)
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
 from .models import Game, Phase, PlayerRole, SocketPresence
@@ -53,20 +57,23 @@ class AlreadyActedError(Exception):
 NIGHT_WINDOWS = (1, 2)
 
 # Default maximum length of a night window (seconds). 0 disables the timer.
-DEFAULT_NIGHT_WAVE_SECONDS = 30
+DEFAULT_NIGHT_WAVE_SECONDS = LENGTH_DEFAULTS["night_wave_seconds"]
 # Default minimum length of a night window (seconds). A window never closes
 # sooner than this after it opened, so a fast window gives nothing away.
-DEFAULT_NIGHT_MIN_WINDOW_SECONDS = 8
+DEFAULT_NIGHT_MIN_WINDOW_SECONDS = LENGTH_DEFAULTS["night_min_window_seconds"]
 # Exact length of window 1 (the Doppelganger's), whatever happens in it. 0
 # turns the fixed length off: window 1 then behaves like any other window.
-DEFAULT_NIGHT_DOPPELGANGER_WINDOW_SECONDS = 10
+DEFAULT_NIGHT_DOPPELGANGER_WINDOW_SECONDS = LENGTH_DEFAULTS[
+    "night_doppelganger_window_seconds"
+]
 # How long a player's phone may be disconnected before the game stops waiting
 # for them at night and in the vote (0 turns the feature off).
-DEFAULT_DISCONNECT_GRACE_SECONDS = 25
+DEFAULT_DISCONNECT_GRACE_SECONDS = LENGTH_DEFAULTS["disconnect_grace_seconds"]
 # The talk and the vote when the table sets no length; no look stage unless set.
-DEFAULT_DISCUSSION_SECONDS = 300
-DEFAULT_VOTING_SECONDS = 120
-DEFAULT_CARD_LOOK_SECONDS = 0
+# Every default is the rule table's (``engine.validation.LENGTH_DEFAULTS``).
+DEFAULT_DISCUSSION_SECONDS = LENGTH_DEFAULTS["discussion_seconds"]
+DEFAULT_VOTING_SECONDS = LENGTH_DEFAULTS["voting_seconds"]
+DEFAULT_CARD_LOOK_SECONDS = LENGTH_DEFAULTS["card_look_seconds"]
 
 # Phases that run on a clock (and so need a timer to move on).
 TIMED_PHASES = (Phase.NIGHT, Phase.DISCUSSION, Phase.VOTING)

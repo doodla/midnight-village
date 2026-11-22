@@ -35,7 +35,8 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
 - `POST /lobbies/` `{"game_type": "onuw", "defaults": "v2"}` opens a table. `defaults: "v2"`
   (the app's starting set) writes `card_look_seconds: 30`, `deck: "auto"`,
   `deck_chip: "simple"` and `night_protocol: 2`, and nothing else (no timer length; settings
-  given in the body win). `night_protocol: 2` is for the server code before the protocol-1
+  given in the body win, `seats` among them: a table can be opened already set for a number).
+  `night_protocol: 2` is for the server code before the protocol-1
   cleanup, which still serves for a moment during a deploy; this code ignores it (and writes
   it on every game it deals too). It goes in a later push (`docs/dev/status.md`).
   Any other `defaults` value is `400 bad_request`; without it nothing is written. The merged
@@ -55,11 +56,19 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
   - `lengths`: every length the game would run with if dealt now, in seconds, one per timer
     setting (`discussion_seconds`, `voting_seconds`, `night_wave_seconds`,
     `night_min_window_seconds`, `night_doppelganger_window_seconds`, `card_look_seconds`,
-    `disconnect_grace_seconds`, `host_handover_seconds`): the table's own value, else the
-    game's default, so a phone shows them without knowing a default.
-  - `length_ranges`: `{key: [least, most]}` seconds a PATCH of each length would take now
-    (this server's floors for a night window; the shortest window never longer than the
-    window), so a phone offers each length's real range holding no rule.
+    `disconnect_grace_seconds`, `host_handover_seconds`): what a game dealt now runs with
+    (the table's own value as the deal clamps it, else the game's default; the shortest
+    window cut to the window as the night cuts it), each inside its own range.
+  - `length_ranges`: `{key: [least, most]}` seconds a PATCH of each length takes now, from
+    the same rule table the check uses (`engine/validation.py`): 0 to the key's most; this
+    server's floors for a night window (1 s) and the shortest window (5 s) unless it allows
+    untimed nights; the shortest window never longer than the window; and no stage waits
+    for good: with `disconnect_grace_seconds` 0 the window, the talk and the vote each need a
+    clock of at least 1 s, and with any of them at 0 the grace period is at least 1 s.
+  - `seats_range`: `[least, most]` the number of players may be set to now: never below the
+    players here (nor 3), never above `max_players` (nor 10).
+  - In a game (the table not waiting), `deck_cards` and `deal.have` are the deck the newest
+    game was dealt, not a deck for whoever is here now.
   - `deal` `{"ok", "need", "have", "seats"}`: `ok` is exactly whether the deal would be
     accepted now (waiting, 3 to 10 players and, at a table set for a number, exactly that
     many; a legal deck of the right size, valid settings; only the host check is left out);
@@ -78,8 +87,8 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
   (`engine/decks.py`, the table in `recommended-setups.md`, "Automatic Decks"). `seats` is
   the number of players the game is for: a whole number from 3 to 10, or null (an open table,
   which deals to whoever is there: every table before this key, and a new table until the
-  host picks a number). It may change any time before the deal, never below the players
-  already here (`400`); an automatic deck follows it, a custom deck is never changed (`deal`
+  host picks a number). It may change any time before the deal within `seats_range` (`400`
+  otherwise); an automatic deck follows it, a custom deck is never changed (`deal`
   says whether it still fits). Only the keys the PATCH gives are validated (a value older
   code stored and nobody touches never blocks a change; `400 {"detail": [...]}` for a bad
   one); of `roles` only each role's own limits (a known role, 0 to its most, Masons in
@@ -90,7 +99,10 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
   `CORE_TABLE_RESUME_HOURS`) gets `409 {"detail": "You are already at another table.",
   "code": "already_at_table", "lobby_code": "<that table>"}`. A table in a game or finished
   does not block a join; anyone can leave a waiting table, so this never traps.
-- `POST /lobbies/<code>/leave/`, `POST /lobbies/<code>/play-again/` (host, after the
+- `POST /lobbies/<code>/leave/`: `200` when left (the last one out closes the table); `400
+  {"code": "not_in_lobby"}` when this player is not at the table (an earlier leave got
+  there: the app counts it as left), `404` when the table is gone, `409` while a game runs.
+- `POST /lobbies/<code>/play-again/` (host, after the
   results; the table goes back to waiting and hears `play_again`). There is no lobby ready
   flag: the deal checks nobody's readiness.
 - Tokens: ten seat tokens (`crow`, `key`, `moth`, `bell`, `thorn`, `antler`, `hare`,

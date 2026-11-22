@@ -1,10 +1,13 @@
 """Whether a table can be dealt, and what it would be dealt: the ONE rule.
 
 ``GameStartView._deal`` refuses a deal with ``deal_refusal`` and the lobby body's
-``deal`` (``{"ok", "need", "have"}``) is computed from the same function, so the
-phone never holds a "players + 3" rule and the button can never disagree with the
-server. ``deck_preview`` is the automatic deck the deal would build for the
-players at the table now (``engine.decks.auto_deck``, the deal's own call).
+``deal`` (``{"ok", "need", "have", "seats"}``) is computed from the same function,
+so the phone never holds a "players + 3" rule and the button can never disagree
+with the server. The deck is for the table's size (``table_size``: the number it is
+set for, else the players here): ``deck_cards`` (every role it would deal, face up
+for everyone) and ``deck_preview`` (the automatic deck, ``engine.decks.auto_deck``,
+the deal's own call). ``lengths``, ``length_ranges`` and ``seats_range`` come from
+``engine.validation``'s rule table, the one the settings check uses.
 
 There is no ready check at the deal: everyone at the table is dealt in, so a
 guest who closes the app right after joining cannot block it.
@@ -22,11 +25,11 @@ from apps.core.models import Lobby, LobbyMember
 from . import services
 from .engine.decks import MIN_AUTO_PLAYERS, auto_deck
 from .engine.validation import (
-    MIN_WINDOW_FLOOR_SECONDS,
-    TIMED_NIGHT_KEYS,
     clamp_night_timing,
-    max_seconds_for,
+    length_ranges,
+    running_lengths,
     seats_of,
+    seats_range,
     validate_onuw_settings,
 )
 
@@ -100,55 +103,17 @@ def _deck_size(settings: Any, player_count: int) -> int:
     return sum(c for c in deck.values() if isinstance(c, int) and c > 0)
 
 
-# Every length a host sets on the set-up page (every timer setting the server
-# reads, ``TIMER_SETTING_KEYS``), and what each is when the table sets none (the
-# game's own defaults, ``services``; the host handover's, ``core.host``): the lobby
-# body's ``lengths``.
-LENGTH_DEFAULTS: dict[str, int] = {
-    "discussion_seconds": services.DEFAULT_DISCUSSION_SECONDS,
-    "voting_seconds": services.DEFAULT_VOTING_SECONDS,
-    "night_wave_seconds": services.DEFAULT_NIGHT_WAVE_SECONDS,
-    "night_min_window_seconds": services.DEFAULT_NIGHT_MIN_WINDOW_SECONDS,
-    "night_doppelganger_window_seconds": (
-        services.DEFAULT_NIGHT_DOPPELGANGER_WINDOW_SECONDS
-    ),
-    "card_look_seconds": services.DEFAULT_CARD_LOOK_SECONDS,
-    "disconnect_grace_seconds": services.DEFAULT_DISCONNECT_GRACE_SECONDS,
-    "host_handover_seconds": host.DEFAULT_HOST_HANDOVER_SECONDS,
-}
-
-
 def lengths(settings: Any) -> dict[str, int]:
-    """Each length the game will run with if dealt now (seconds): the table's own
-    value, as the deal would clamp it, else the game's default. So the set-up page
-    shows every length without the phone knowing a default."""
-    dealt = dealt_settings(settings)
-    return {
-        key: services.get_timer_value(dealt, key, default)
-        for key, default in LENGTH_DEFAULTS.items()
-    }
-
-
-def length_ranges(now: dict[str, int]) -> dict[str, list[int]]:
-    """``[least, most]`` seconds a PATCH of each length would take now, given the
-    lengths ``now`` (``lengths``): ``engine.validation``'s ranges, with this
-    server's night rules (no untimed night window, a minimum window of at least
-    5 s, unless the server allows untimed nights) and the minimum window never
-    longer than the window. So the phone holds no range rule."""
-    untimed = _allow_untimed()
-    ranges = {key: [0, max_seconds_for(key)] for key in LENGTH_DEFAULTS}
-    if not untimed:
-        for key in TIMED_NIGHT_KEYS:
-            ranges[key][0] = 1
-        ranges["night_min_window_seconds"][0] = MIN_WINDOW_FLOOR_SECONDS
-    wave = now["night_wave_seconds"]
-    if wave > 0:
-        window_min = ranges["night_min_window_seconds"]
-        window_min[1] = max(window_min[0], min(window_min[1], wave))
-        ranges["night_wave_seconds"][0] = max(
-            ranges["night_wave_seconds"][0], now["night_min_window_seconds"]
-        )
-    return ranges
+    """Each length the game will run with if dealt now (seconds): the table's own,
+    as the deal clamps it (``dealt_settings``), else the default, the minimum
+    window cut to the window as the night cuts it (``engine.validation``'s rule
+    table; the host handover's default is ``core.host``'s). So the set-up page
+    shows what will run without the phone knowing a default."""
+    now = running_lengths(dealt_settings(settings))
+    now["host_handover_seconds"] = services.get_timer_value(
+        settings, "host_handover_seconds", host.DEFAULT_HOST_HANDOVER_SECONDS
+    )
+    return now
 
 
 def deck_cards(settings: Any, size: int) -> dict[str, int]:
@@ -179,26 +144,52 @@ def table_size(settings: Any, present: int) -> int:
     return present if seats is None else seats
 
 
+def _dealt_deck(lobby: Lobby) -> dict[str, int] | None:
+    """The deck the table's newest game was dealt (its ``settings.roles``), while
+    the table is not waiting: the lobby body shows what was dealt, not a deck
+    resized for whoever is here now."""
+    if lobby.status == Lobby.Status.WAITING:
+        return None
+    game = lobby.games.order_by("-created_at", "-id").first()  # type: ignore[attr-defined]
+    roles = None if game is None else (game.settings or {}).get("roles")
+    if not isinstance(roles, dict):
+        return None
+    return {r: c for r, c in roles.items() if type(c) is int and c > 0}
+
+
 def lobby_extras(lobby: Lobby) -> dict[str, Any]:
-    """The lobby body's ONUW keys: ``deck_cards`` (the roles the table would deal,
-    face up for everyone, ``deck_cards``), ``lengths``, ``deck_preview`` (the automatic
-    deck only, kept for older apps) and ``deal`` (``ok`` exactly as
-    the deal would answer now; ``seats`` the players the table is set for, null for
-    an open table; ``need`` the cards the deal needs, ``seats`` + 3, or the players
-    here + 3 at an open table; ``have`` the cards in the deck). A table set for a
-    number never changes ``need`` or ``deck_preview`` when people join or leave."""
+    """The lobby body's ONUW keys:
+
+    - ``deck_cards``: the roles the table would deal, face up for everyone (in a
+      game, the deck it was dealt);
+    - ``deck_preview``: the automatic deck only, kept for older apps;
+    - ``deal``: ``ok`` exactly as the deal would answer now; ``seats`` the number
+      the table is set for (null: open); ``need`` the cards the deal needs,
+      ``seats`` + 3, or the players here + 3 at an open table; ``have`` the cards
+      in the deck. A table set for a number never changes ``need`` when people
+      join or leave;
+    - ``seats_range``: ``[least, most]`` the number may be set to now;
+    - ``lengths`` and ``length_ranges``: every length as it would run, and the
+      range a change of each takes now (the rule table's own ranges).
+    """
     members = list(lobby.players.all())  # type: ignore[attr-defined]
     size = table_size(lobby.settings, len(members))
-    now = lengths(lobby.settings)
+    dealt = _dealt_deck(lobby)
+    cards = deck_cards(lobby.settings, size) if dealt is None else dealt
+    have = _deck_size(lobby.settings, size) if dealt is None else sum(dealt.values())
     return {
         "deck_preview": deck_preview(lobby.settings, size),
-        "deck_cards": deck_cards(lobby.settings, size),
+        "deck_cards": cards,
         "deal": {
             "ok": deal_refusal(lobby, members) is None,
             "need": size + 3,
-            "have": _deck_size(lobby.settings, size),
+            "have": have,
             "seats": seats_of(lobby.settings),
         },
-        "lengths": now,
-        "length_ranges": length_ranges(now),
+        "seats_range": seats_range(len(members), lobby.max_players),
+        "lengths": lengths(lobby.settings),
+        # From what the deal would run with, so every length sits in its range.
+        "length_ranges": length_ranges(
+            dealt_settings(lobby.settings), allow_untimed=_allow_untimed()
+        ),
     }

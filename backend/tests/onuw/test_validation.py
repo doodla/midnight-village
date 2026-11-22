@@ -185,8 +185,11 @@ class TestTimerSettingsValidation:
         }
 
     @pytest.mark.parametrize("key", TIMER_KEYS)
-    @pytest.mark.parametrize("value", [0, 1, 45, 3600])
+    @pytest.mark.parametrize("value", [0, 1, 30, 3600])
     def test_valid_values_pass(self, key, value):
+        # The minimum window is at most the window (the default, 30 s).
+        if key == "night_min_window_seconds" and value > 30:
+            value = 30
         assert validate_onuw_settings(self._config(**{key: value}), 5) == []
 
     @pytest.mark.parametrize("key", TIMER_KEYS)
@@ -194,10 +197,13 @@ class TestTimerSettingsValidation:
         "value", [-1, 3601, 10**9, "30", "abc", None, True, 1.5, [30], {"a": 1}]
     )
     def test_bad_values_are_rejected_with_a_clear_error(self, key, value):
+        if key == "night_min_window_seconds" and value == 3601:
+            value = 31  # past the window (the default, 30 s)
         errors = validate_onuw_settings(self._config(**{key: value}), 5)
         assert len(errors) == 1
         assert key in errors[0]
-        assert "0 to 3600" in errors[0]
+        most = 30 if key == "night_min_window_seconds" else 3600
+        assert f"0 to {most}" in errors[0]
 
     def test_absent_timer_keys_are_fine(self):
         assert validate_onuw_settings(self._config(), 5) == []
@@ -207,7 +213,7 @@ class TestTimerSettingsValidation:
             self._config(night_wave_seconds=10, night_min_window_seconds=11), 5
         )
         assert errors == [
-            "'night_min_window_seconds' must not be longer than 'night_wave_seconds'."
+            "'night_min_window_seconds' must be a whole number of seconds from 0 to 10."
         ]
 
     def test_minimum_may_equal_the_maximum(self):

@@ -34,10 +34,13 @@ def _newest_game(lobby) -> Game | None:
 
 
 class OnuwHooks(GameHooks):
-    def validate_settings(self, settings, player_count: int, changed=None) -> list[str]:
+    def validate_settings(
+        self, settings, player_count: int, changed=None, max_players=None
+    ) -> list[str]:
         return validate_onuw_settings(
             settings,
             player_count,
+            max_players=max_players,
             check_deck=changed is None or "roles" in changed,
             allow_untimed=getattr(django_settings, "ONUW_ALLOW_UNTIMED_NIGHT", False),
             changed=None if changed is None else frozenset(changed),

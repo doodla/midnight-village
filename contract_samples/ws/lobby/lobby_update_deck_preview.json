@@ -117,27 +117,23 @@
       "have": 10,
       "seats": null
     },
+    "seats_range": [
+      7,
+      10
+    ],
     "lengths": {
-      "discussion_seconds": 300,
-      "voting_seconds": 120,
       "night_wave_seconds": 30,
       "night_min_window_seconds": 8,
       "night_doppelganger_window_seconds": 10,
-      "card_look_seconds": 30,
+      "discussion_seconds": 300,
+      "voting_seconds": 120,
       "disconnect_grace_seconds": 25,
+      "card_look_seconds": 30,
       "host_handover_seconds": 60
     },
     "length_ranges": {
-      "discussion_seconds": [
-        0,
-        3600
-      ],
-      "voting_seconds": [
-        0,
-        3600
-      ],
       "night_wave_seconds": [
-        8,
+        0,
         3600
       ],
       "night_min_window_seconds": [
@@ -148,9 +144,13 @@
         0,
         3600
       ],
-      "card_look_seconds": [
+      "discussion_seconds": [
         0,
-        120
+        3600
+      ],
+      "voting_seconds": [
+        0,
+        3600
       ],
       "disconnect_grace_seconds": [
         0,
@@ -159,6 +159,10 @@
       "host_handover_seconds": [
         0,
         600
+      ],
+      "card_look_seconds": [
+        0,
+        120
       ]
     }
   }

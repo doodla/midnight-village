@@ -20,13 +20,18 @@ class GameHooks:
     """Defaults for a lobby with no game app behind it (everything "nothing")."""
 
     def validate_settings(
-        self, settings: Any, player_count: int, changed: Collection[str] | None = None
+        self,
+        settings: Any,
+        player_count: int,
+        changed: Collection[str] | None = None,
+        max_players: int | None = None,
     ) -> list[str]:
         """Errors in the lobby settings for this many players (empty = fine).
 
         ``changed`` names the keys a PATCH just set (None: validate everything, as a
         deal does), so a game can leave alone checks that depend on who is at the
-        table when the change cannot affect them."""
+        table when the change cannot affect them. ``max_players`` is the table's
+        capacity (None: not known yet, at create)."""
         return []
 
     def default_settings(self, name: str) -> dict[str, Any] | None:

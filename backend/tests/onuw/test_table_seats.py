@@ -22,11 +22,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.urls import reverse
+
 import pytest
 from rest_framework import status
 
+from apps.core.models import Lobby
 from apps.onuw.engine.decks import auto_deck
-from apps.onuw.engine.validation import seats_of, validate_onuw_settings
+from apps.onuw.engine.validation import (
+    TIMER_SETTING_KEYS,
+    seats_of,
+    validate_onuw_settings,
+)
 from apps.onuw.models import Game
 
 from . import test_lobby_table_extras as extras
@@ -284,42 +291,112 @@ class TestDeckCardsFaceUp:
 
 class TestEveryLengthWithItsRange:
     """``lengths`` and ``length_ranges``: every timer setting the server reads, the
-    value the deal would use and what a PATCH would take now, so the set-up page
-    shows and edits each one without holding a rule."""
+    value the deal would use and what a PATCH would take now. The ranges are the
+    check's own (one rule table), so the phone is never offered what is refused."""
 
     def test_every_timer_setting_is_there(self, table) -> None:
-        from apps.onuw.engine.validation import TIMER_SETTING_KEYS
-
         body = table(players=1).body()
 
         assert set(body["lengths"]) == set(TIMER_SETTING_KEYS)
         assert set(body["length_ranges"]) == set(TIMER_SETTING_KEYS)
 
-    def test_a_patch_at_each_end_of_a_range_is_taken(self, table, settings) -> None:
-        settings.ONUW_ALLOW_UNTIMED_NIGHT = False
+    @pytest.mark.parametrize("untimed", [False, True])
+    def test_each_end_of_every_range_is_taken_and_one_past_is_refused(
+        self, table, settings, untimed
+    ) -> None:
+        settings.ONUW_ALLOW_UNTIMED_NIGHT = untimed
         t = table(players=3)
-        ranges = t.body()["length_ranges"]
-        assert ranges["night_wave_seconds"][0] >= 5
-        assert ranges["night_min_window_seconds"] == [5, 30]
-        assert ranges["host_handover_seconds"] == [0, 600]
-        for key, (least, most) in ranges.items():
+        for key in TIMER_SETTING_KEYS:
+            # Read again after every change: a range follows the other lengths.
+            start = t.body()["lengths"][key]
+            least, most = t.body()["length_ranges"][key]
             for value in (least, most):
                 reply = t.patch({key: value})
                 assert reply.status_code == status.HTTP_200_OK, (key, value)
-                assert reply.data["lengths"][key] == value
-                t.patch({key: t.body()["lengths"][key]})
-        # The server's own floors: no untimed night window, a shortest window of 5.
-        for key, below in (
-            ("night_wave_seconds", 0),
-            ("night_doppelganger_window_seconds", 0),
-            ("night_min_window_seconds", 4),
-        ):
-            reply = t.patch({key: below})
-            assert reply.status_code == status.HTTP_400_BAD_REQUEST, key
+                assert reply.data["lengths"][key] == value, (key, value)
+            for value in (least - 1, most + 1):
+                reply = t.patch({key: value})
+                assert reply.status_code == status.HTTP_400_BAD_REQUEST, (key, value)
+            back = t.patch({key: start})
+            assert back.status_code == status.HTTP_200_OK, (key, start)
+            assert t.body()["lengths"][key] == start
 
     def test_the_shortest_window_never_passes_the_window(self, table) -> None:
         t = table(players=1)
         t.patch({"night_wave_seconds": 12, "night_min_window_seconds": 9})
+        assert t.body()["length_ranges"]["night_min_window_seconds"][1] == 12
+        reply = t.patch({"night_min_window_seconds": 13})
+        assert reply.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_no_clock_and_nobody_ever_counted_gone_is_refused(self, table) -> None:
+        t = table(players=3)
+        assert t.patch({"discussion_seconds": 0}).status_code == 200
         ranges = t.body()["length_ranges"]
-        assert ranges["night_min_window_seconds"][1] == 12
-        assert ranges["night_wave_seconds"][0] == 9
+        assert ranges["disconnect_grace_seconds"][0] == 1
+        assert t.patch({"disconnect_grace_seconds": 0}).status_code == 400
+        assert t.patch({"discussion_seconds": 60}).status_code == 200
+        assert t.patch({"disconnect_grace_seconds": 0}).status_code == 200
+        ranges = t.body()["length_ranges"]
+        assert ranges["discussion_seconds"][0] == 1
+        assert ranges["voting_seconds"][0] == 1
+        assert t.patch({"voting_seconds": 0}).status_code == 400
+
+    @pytest.mark.parametrize(
+        "stored",
+        [
+            {"night_wave_seconds": 6},
+            {"night_wave_seconds": 3, "night_min_window_seconds": 2},
+            {"discussion_seconds": 0, "disconnect_grace_seconds": 0},
+            {"night_wave_seconds": 0, "voting_seconds": 0},
+            {"night_min_window_seconds": 50},
+            {"voting_seconds": "junk", "host_handover_seconds": 9000},
+        ],
+    )
+    def test_what_older_code_stored_is_reported_as_it_will_run_within_its_range(
+        self, table, settings, stored
+    ) -> None:
+        settings.ONUW_ALLOW_UNTIMED_NIGHT = False
+        t = table(players=3)
+        Lobby.objects.filter(code=t.code).update(settings={**V2, **stored})
+        body = t.body()
+        for key, value in body["lengths"].items():
+            least, most = body["length_ranges"][key]
+            assert least <= value <= most, (key, value, least, most)
+        # The minimum window never runs longer than the window.
+        lengths = body["lengths"]
+        assert lengths["night_min_window_seconds"] <= lengths["night_wave_seconds"]
+
+
+class TestSeatsRange:
+    def test_the_number_is_never_above_what_the_table_holds(self, table) -> None:
+        t = table(players=2)
+        Lobby.objects.filter(code=t.code).update(max_players=6)
+        assert t.body()["seats_range"] == [3, 6]
+        assert t.patch({"seats": 6}).status_code == 200
+        reply = t.patch({"seats": 7})
+        assert reply.status_code == status.HTTP_400_BAD_REQUEST
+        assert reply.data["detail"] == ["The table holds 6 players at most."]
+
+    def test_never_below_who_is_here(self, table) -> None:
+        t = table(players=5)
+        assert t.body()["seats_range"] == [5, 10]
+
+
+class TestTheDealtDeckDuringAGame:
+    def test_in_a_game_the_body_shows_the_deck_dealt(self, table) -> None:
+        t = table({**V2, "deck_chip": "chaos"}, players=5)
+        dealt = auto_deck(5, "chaos")
+        assert t.deal(seed=4).status_code == status.HTTP_201_CREATED
+        t.join("late")  # refused (playing), the deck must not follow anyone
+        body = t.body()
+        assert body["deck_cards"] == dealt
+        assert body["deal"]["have"] == sum(dealt.values())
+
+
+class TestLeaveRefusalCode:
+    def test_a_leave_from_a_table_one_is_not_at_says_so_by_code(self, table) -> None:
+        t = table(players=3)
+        t.user("stranger")
+        reply = t.post("stranger", reverse("core:lobby-leave", kwargs={"code": t.code}))
+        assert reply.status_code == status.HTTP_400_BAD_REQUEST
+        assert reply.data["code"] == "not_in_lobby"
