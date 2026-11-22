@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/host/app_download.dart';
 import '../../../core/router/back_policy.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
@@ -15,6 +16,7 @@ import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
 import '../../../design_system/primitives/waiting_sign.dart';
 import '../../../design_system/primitives/skin_field.dart';
+import '../../../design_system/primitives/text_action.dart';
 import '../../../design_system/primitives/viewfinder.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
@@ -62,6 +64,7 @@ class JoinScreen extends ConsumerWidget {
     final scanner = ref.watch(codeScannerFactoryProvider);
     final scan = ref.watch(scanSessionProvider);
     final session = ref.read(scanSessionProvider.notifier);
+    final download = ref.watch(appDownloadProvider);
 
     Future<void> sat(Future<bool> attempt) async {
       if (await attempt && link != null && context.mounted) context.go('/');
@@ -114,6 +117,7 @@ class JoinScreen extends ConsumerWidget {
         banner: banner,
         bannerAction: action,
         onBannerAction: onAction,
+        onGetApp: download?.open,
         onEdited: notifier.clearBanner,
         onStart: (name) => unawaited(sat(notifier.start(name))),
         onJoin: (name, code) => unawaited(sat(notifier.join(name, code))),
@@ -181,6 +185,7 @@ class JoinView extends StatefulWidget {
     this.onScanClose,
     this.onScanLeft,
     this.onScanned,
+    this.onGetApp,
     required this.onStart,
     required this.onJoin,
     this.onEdited,
@@ -226,6 +231,10 @@ class JoinView extends StatefulWidget {
   /// This 01 is gone while the scanner was open.
   final VoidCallback? onScanLeft;
   final ValueChanged<String>? onScanned;
+
+  /// "Get the app" at the foot: given only where the app can be downloaded
+  /// (a page in an Android browser); null: no link.
+  final VoidCallback? onGetApp;
 
   final ValueChanged<String> onStart;
   final void Function(String name, String code) onJoin;
@@ -506,8 +515,9 @@ class _JoinViewState extends State<JoinView> {
                 ),
               ),
               actions: [
-                if (link == null &&
-                    (widget.online != null || widget.lastWon != null))
+                if ((link == null &&
+                        (widget.online != null || widget.lastWon != null)) ||
+                    widget.onGetApp != null)
                   Builder(
                     builder: (context) {
                       final style = type.lede.copyWith(
@@ -515,17 +525,50 @@ class _JoinViewState extends State<JoinView> {
                       );
                       final online = widget.online;
                       final won = widget.lastWon;
+                      final showStats =
+                          link == null && (online != null || won != null);
+                      // "Get the app" shares the "at tables" row, at its end;
+                      // with no such line it sits alone, at the end.
+                      // The target's side padding overhangs the column, so the
+                      // words end on its edge; the 48 px target stays whole.
+                      final getApp = widget.onGetApp == null
+                          ? null
+                          : Transform.translate(
+                              offset: const Offset(Space.sm, 0),
+                              child: TextAction(
+                                label: JoinCopy.getApp,
+                                onPressed: widget.onGetApp,
+                                roomy: true,
+                                quiet: true,
+                              ),
+                            );
+                      final onlineLine = showStats && online != null
+                          ? FitWords(
+                              JoinCopy.online.fill({'n': online}),
+                              style: style,
+                            )
+                          : null;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         spacing: Space.xs,
                         children: [
-                          const Divider(height: Space.mdPlus),
-                          if (online != null)
-                            FitWords(
-                              JoinCopy.online.fill({'n': online}),
-                              style: style,
+                          if (showStats) const Divider(height: Space.mdPlus),
+                          if (onlineLine != null && getApp != null)
+                            Row(
+                              spacing: Space.sm,
+                              children: [
+                                Expanded(child: onlineLine),
+                                getApp,
+                              ],
+                            )
+                          else if (onlineLine != null)
+                            onlineLine
+                          else if (getApp != null)
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: getApp,
                             ),
-                          if (won != null)
+                          if (showStats && won != null)
                             FitWords(
                               won ? JoinCopy.lastWon : JoinCopy.lastLost,
                               style: style,

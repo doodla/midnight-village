@@ -1,6 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": { "deploymentEnabled": { "main": true, "**": false } },
+  "redirects": [
+    {
+      "source": "/app",
+      "destination": "https://github.com/doodla/midnight-village/releases/download/android-latest/midnight-village.apk",
+      "permanent": false
+    }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
