@@ -24,6 +24,11 @@ import '../../lobby/domain/role_config.dart';
 /// roles — this screen is the human-facing analogue of the DEBUG-gated oracle.
 /// It is gated by const [Env.isDev] AND only ever reads ground truth through
 /// the DEBUG-gated `debug-state` endpoint, so prod cannot reach it.
+/// Ships only when the toolbar ships: `tool/check_release_has_no_debug.sh` looks
+/// for this exact text in a release build and fails if it is there. Keep it
+/// used below and keep it unique; `env_default_test.dart` checks both.
+const String debugToolbarShipMarker = 'mv-debug-toolbar-ships-here';
+
 class DebugToolbarScreen extends ConsumerStatefulWidget {
   const DebugToolbarScreen({super.key});
 
@@ -76,6 +81,7 @@ class _DebugToolbarScreenState extends ConsumerState<DebugToolbarScreen> {
     }
     return Scaffold(
       appBar: AppBar(
+        key: const ValueKey<String>(debugToolbarShipMarker),
         title: const Text('Debug Toolbar'),
         leading: IconButton(
           icon: const Icon(Icons.close),

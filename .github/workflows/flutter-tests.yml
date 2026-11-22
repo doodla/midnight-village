@@ -74,6 +74,38 @@ jobs:
       - name: Format check
         run: just format-check
 
+  # ─── Release has no debug toolbar ──────────────────────────────────────────
+  # Builds the web app with no --dart-define (what a forgotten flag gives) and
+  # fails if the /debug toolbar is in it: the behaviour, not a test of the source.
+  release-check:
+    name: Release has no debug toolbar
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: "stable"
+          cache: true
+          cache-key: flutter-3.38.10-${{ runner.os }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Bare build has no debug toolbar
+        run: just check-release
+
   # ─── Widget Tests ──────────────────────────────────────────────────────────
   widget-tests:
     name: Widget Tests
@@ -111,7 +143,7 @@ jobs:
 
       # Excludes golden-tagged tests to avoid running them in this job
       - name: Widget tests
-        run: flutter test --exclude-tags golden
+        run: flutter test --dart-define=ENV=dev --exclude-tags golden
 
   # ─── Golden Tests ──────────────────────────────────────────────────────────
   golden-tests:
@@ -143,7 +175,7 @@ jobs:
       # Regenerate Linux baselines when workflow_dispatch with update_goldens=true
       - name: Regenerate Linux golden baselines
         if: inputs.update_goldens == true
-        run: flutter test --update-goldens --tags golden
+        run: flutter test --dart-define=ENV=dev --update-goldens --tags golden
 
       - name: Upload regenerated Linux baselines
         if: inputs.update_goldens == true
