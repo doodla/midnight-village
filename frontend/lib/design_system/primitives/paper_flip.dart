@@ -13,8 +13,6 @@ import '../skin/skin.dart';
 ///   its shadow falls further away ([drop]) as it goes through the edge, and
 ///   it comes down on the other side with a small settle ([settle]: it
 ///   swings a few degrees past flat and back, inside the same turn).
-/// - Edge on, it is not nothing: a card is a few paper thicknesses, so a thin
-///   line of its edge shows ([edge]) instead of a gap.
 /// - The face is turned the right way round (never mirrored) and is built
 ///   only once it is [turned] and until the card is back past the edge, so a
 ///   hidden secret is not in the tree.
@@ -63,9 +61,6 @@ class PaperFlip extends StatefulWidget {
 
   /// How far past flat the paper swings as it lands, a share of the turn.
   static const settle = 0.03;
-
-  /// The width of the paper's edge, seen edge on.
-  static const edge = 3.0;
 
   /// Perspective: the near side of the turning card is larger.
   static const perspective = 0.001;
@@ -138,14 +133,20 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
       return;
     }
     if (turned) {
-      if (at >= 1) return;
+      if (at >= 1) {
+        _turn.stop();
+        return;
+      }
       _turn.animateTo(
         1,
         duration: PaperFlip.turn * (1 - math.max(0.0, at)),
         curve: PaperFlip.landing,
       );
     } else {
-      if (at <= 0) return;
+      if (at <= 0) {
+        _turn.stop();
+        return;
+      }
       _turn.animateTo(
         0,
         duration: PaperFlip.turnBack * math.min(1.0, at),
@@ -187,13 +188,10 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
     final face = _face;
     final skin = context.skin;
     final elevation = context.ground.elevation.heroSlab;
-    final paper = elevation.layers.isEmpty
-        ? context.ground.paper
-        : elevation.layers.first.color;
     final shadow = elevation.layers.isEmpty ? null : elevation.layers.last;
     final radius = BorderRadius.circular(skin.shape.radius);
     return LayoutBuilder(
-      builder: (context, box) => AnimatedBuilder(
+      builder: (context, _) => AnimatedBuilder(
         animation: Listenable.merge([_turn, _press]),
         builder: (context, _) {
           final value = _turn.value;
@@ -210,11 +208,6 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
                 ..scaleByDouble(scale, scale, scale, 1)
                 ..rotateY(turn);
           final lifted = -PaperFlip.lift * edgeOn;
-          final wide = box.hasBoundedWidth ? box.maxWidth : 0.0;
-          // How wide the card shows now, and so how much of its edge.
-          final shown = wide * math.cos(angle).abs() * scale;
-          final seen = ((PaperFlip.edge * 4 - shown) / (PaperFlip.edge * 3))
-              .clamp(0.0, 1.0);
           return Stack(
             clipBehavior: Clip.none,
             children: [
@@ -259,29 +252,6 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
                           alignment: Alignment.center,
                           transform: matrix(lifted, scale, angle - math.pi),
                           child: face,
-                        ),
-                      ),
-              ),
-              // Edge on, the card is its thickness: a line of paper.
-              Positioned.fill(
-                child: seen == 0
-                    ? const SizedBox.shrink()
-                    : Transform(
-                        alignment: Alignment.center,
-                        transform: matrix(lifted, scale, 0),
-                        child: Center(
-                          child: SizedBox(
-                            width: PaperFlip.edge,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: paper.withValues(alpha: seen),
-                                borderRadius: BorderRadius.circular(
-                                  PaperFlip.edge / 2,
-                                ),
-                              ),
-                              child: const SizedBox.expand(),
-                            ),
-                          ),
                         ),
                       ),
               ),

@@ -390,4 +390,122 @@ void main() {
       expect(tester.getRect(find.byKey(_cover)), rest);
     });
   });
+
+  group('races and edges', () {
+    testWidgets('the face is not built, nor in semantics, before the edge', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_app(const _Flip()));
+      await _set(tester, turned: true);
+      await tester.pump(const Duration(milliseconds: 8));
+      expect(_across(tester), lessThan(1), reason: 'turning');
+      // Asked for, it may be built, but offstage: not painted, not hit, and
+      // out of the semantics tree.
+      expect(find.byKey(_faceKey), findsNothing);
+      final offstage = tester.widget<Offstage>(
+        find
+            .ancestor(
+              of: find.byKey(_faceKey, skipOffstage: false),
+              matching: find.byType(Offstage),
+            )
+            .first,
+      );
+      expect(offstage.offstage, isTrue);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(_faceKey), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('a parent rebuild mid-turn neither restarts nor skips it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(const _Flip()));
+      await _set(tester, turned: true);
+      await tester.pump(const Duration(milliseconds: 40));
+      final before = _across(tester);
+      _state(tester).change();
+      await tester.pump();
+      expect(_across(tester), closeTo(before, 1e-6));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(_across(tester), greaterThan(before), reason: "past the edge");
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byKey(_faceKey)).size, _size);
+    });
+
+    testWidgets('unmounting mid-turn throws nothing', (tester) async {
+      await tester.pumpWidget(_app(const _Flip()));
+      await _set(tester, turned: true);
+      await tester.pump(const Duration(milliseconds: 40));
+      await tester.pumpWidget(_app(const SizedBox()));
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('releasing in the first frame never shows the face', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(const _Flip()));
+      await _set(tester, turned: true);
+      await _set(tester, turned: false);
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(find.byKey(_faceKey, skipOffstage: false), findsNothing);
+      }
+      await tester.pumpAndSettle();
+      expect(find.byKey(_faceKey, skipOffstage: false), findsNothing);
+    });
+  });
+
+  group('your card in a hold, pressed twice', () {
+    testWidgets('press, release, press ends face up with one buzz a landing', (
+      tester,
+    ) async {
+      final buzzes = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'HapticFeedback.vibrate') buzzes.add(call);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        _app(
+          Center(
+            child: HoldToReveal(
+              inPlace: true,
+              target: 'Your card',
+              face: FaceContent.roleText(RoleId.seer),
+              cover: const SizedBox(
+                width: 200,
+                height: 266,
+                child: ColoredBox(color: Colors.indigo),
+              ),
+            ),
+          ),
+        ),
+      );
+      final card = find.byType(HoldToReveal);
+      final first = await tester.startGesture(tester.getCenter(card));
+      await tester.pump(HoldToReveal.holdDelay);
+      await tester.pump(const Duration(milliseconds: 60));
+      await first.up();
+      await tester.pump(const Duration(milliseconds: 30));
+      final second = await tester.startGesture(tester.getCenter(card));
+      await tester.pump(HoldToReveal.holdDelay);
+      await tester.pumpAndSettle();
+      expect(find.byType(HeldFace), findsOneWidget);
+      expect(buzzes, hasLength(1));
+      await second.up();
+      await tester.pumpAndSettle();
+      expect(find.byType(HeldFace, skipOffstage: false), findsNothing);
+      expect(buzzes, hasLength(1));
+    });
+  });
 }
