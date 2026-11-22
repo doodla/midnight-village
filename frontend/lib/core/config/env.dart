@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Environment configuration.
 ///
 /// A build is prod unless it asks for dev: `--dart-define=ENV=dev` (local runs,
@@ -5,6 +7,12 @@
 /// toolbar. A prod build also names the server it talks to: `--dart-define=API_ORIGIN=https://host`
 /// (the origin only: the REST base is `<origin>/api`, the sockets use the same
 /// host over wss).
+///
+/// The web build on Vercel also passes `--dart-define=API_SAME_ORIGIN=true`
+/// (only `tool/vercel_build.sh`): its HTTP calls then go to the page's own
+/// origin (`<page>/api`, which `vercel.json` rewrites to the server), so the
+/// browser sends no CORS preflights. The sockets still go to `API_ORIGIN`.
+/// Android, dev and tests never pass it and talk to `API_ORIGIN` as before.
 class Env {
   Env._();
 
@@ -13,6 +21,7 @@ class Env {
     defaultValue: 'prod',
   );
   static const String _apiOrigin = String.fromEnvironment('API_ORIGIN');
+  static const bool _apiSameOrigin = bool.fromEnvironment('API_SAME_ORIGIN');
 
   /// True in dev builds. Declared as a `const bool` (not a getter) so that
   /// `if (Env.isDev) { ... }` is provably dead-code-eliminated in prod builds
@@ -20,7 +29,22 @@ class Env {
   static const bool isDev = _env == 'dev';
   static const bool isProd = _env == 'prod';
 
-  static String get apiUrl => '${_origin('http://localhost:8000')}/api';
+  static String get apiUrl => apiUrlFor(
+    web: kIsWeb,
+    sameOrigin: _apiSameOrigin,
+    serverOrigin: _origin('http://localhost:8000'),
+    pageOrigin: kIsWeb ? Uri.base.origin : '',
+  );
+
+  /// The REST base: the server's (`<serverOrigin>/api`), or on the web with
+  /// [sameOrigin] the page's own (`<pageOrigin>/api`).
+  @visibleForTesting
+  static String apiUrlFor({
+    required bool web,
+    required bool sameOrigin,
+    required String serverOrigin,
+    required String pageOrigin,
+  }) => '${web && sameOrigin ? pageOrigin : serverOrigin}/api';
 
   static String get wsBaseUrl {
     final origin = _origin('http://localhost:8000');
