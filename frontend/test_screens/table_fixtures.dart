@@ -223,6 +223,14 @@ Future<void> pumpTableSeatsGuest(WidgetTester tester) => TableSetup.pump(
   viewer: 'Ugo',
 );
 
+/// Three of eight here (the recorded table of four, its last member not
+/// come yet): [viewer]'s phone, the host's or a guest's.
+Future<void> pumpTableSeatsThree(WidgetTester tester, {String viewer = 'Tia'}) {
+  final lobby = v2Lobby('detail_seats_8_four_here');
+  (lobby['players'] as List).removeLast();
+  return TableSetup.pump(tester, lobby: lobby, viewer: viewer);
+}
+
 /// Seven of eight came: "Play with 7".
 Future<void> pumpTableSeatsSeven(WidgetTester tester) => TableSetup.pump(
   tester,

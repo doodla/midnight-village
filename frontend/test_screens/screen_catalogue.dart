@@ -69,6 +69,8 @@ final screenCatalogue = <ScreenEntry>[
     '-guest': pumpTableGuest,
     '-handover': pumpTableHandover,
     '-seats-alone': pumpTableSeatsAlone,
+    '-seats-3': pumpTableSeatsThree,
+    '-seats-3-guest': (tester) => pumpTableSeatsThree(tester, viewer: 'Ugo'),
     '-seats-4': pumpTableSeatsFour,
     '-seats-4-guest': pumpTableSeatsGuest,
     '-seats-7': pumpTableSeatsSeven,
