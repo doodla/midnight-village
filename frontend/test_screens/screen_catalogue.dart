@@ -199,6 +199,7 @@ final screenCatalogue = <ScreenEntry>[
     '-chosen': pumpNightChosen,
     '-follow-up': pumpNightFollowUp,
     '-3': pumpNightThree,
+    '-4': pumpNightFour,
     '-9': pumpNightNine,
     '-10-long': pumpNightTenLong,
     '-x1.3': (tester) => pumpNightBoard(tester, textScale: 1.3),

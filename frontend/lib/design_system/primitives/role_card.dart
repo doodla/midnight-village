@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
@@ -39,6 +40,8 @@ enum RoleCardSize {
 /// In the grid, [onRemove] puts a minus on a lit card's corner that takes
 /// one out (a tap on the card puts one in): both said by doing, no words;
 /// [removeLabel] is what a screen reader says for it.
+///
+/// A hold is a press of [holdDelay]: shorter is a tap.
 class RoleCard extends StatelessWidget {
   const RoleCard({
     super.key,
@@ -61,6 +64,12 @@ class RoleCard extends StatelessWidget {
   final VoidCallback? onRemove;
   final String? removeLabel;
 
+  /// How long a press lasts before it is a hold ([onLongPress]): shorter is
+  /// a tap. Not the platform's half second: in the owner's recording (22
+  /// November 2026) presses of 0.40 and 0.43 s on 03 read nothing and looked
+  /// broken, while the owner's taps lasted under 0.1 s.
+  static const holdDelay = Duration(milliseconds: 300);
+
   /// The minus's touch area (the reading floor's 44) and its disc.
   static const removeTarget = Sizes.touch;
   static const _removeDisc = BadgeSize.large;
@@ -79,10 +88,27 @@ class RoleCard extends StatelessWidget {
       button: onTap != null,
       selected: size == RoleCardSize.small && onTap != null ? lit : null,
       excludeSemantics: true,
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
+      child: RawGestureDetector(
         behavior: HitTestBehavior.opaque,
+        gestures: {
+          if (onTap case final onTap?)
+            TapGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+                  () => TapGestureRecognizer(debugOwner: this),
+                  (recognizer) => recognizer.onTap = onTap,
+                ),
+          if (onLongPress case final onLongPress?)
+            LongPressGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<
+                  LongPressGestureRecognizer
+                >(
+                  () => LongPressGestureRecognizer(
+                    duration: holdDelay,
+                    debugOwner: this,
+                  ),
+                  (recognizer) => recognizer.onLongPress = onLongPress,
+                ),
+        },
         child: switch (size.thumbnail) {
           final thumbnail? => _thumbnail(context, thumbnail),
           null => _small(context),

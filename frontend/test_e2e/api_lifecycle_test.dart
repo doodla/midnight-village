@@ -181,10 +181,9 @@ void main() {
       for (final p in t.table.players) {
         expect((await t.currentGame(p))['game_id'], dealt.single);
       }
-      // What was dealt is the one game, whatever stage its clock has reached
-      // (a night is only as long as the table's setting, and a loaded
-      // machine can be past it: the phase is no part of this test).
-      expect((await t.controller.oracle()).gameId, dealt.single);
+      // The one dealt game is the table's current one (that is what a double
+      // tap must not change; which phase it is in is not this test's business).
+      expect((await t.oracleJson())['game_id'], dealt.single);
     });
   });
 
@@ -771,7 +770,9 @@ void main() {
       await expectLater(t.startGame(carol), throwsA(isA<ForbiddenException>()));
       final started = await t.startGame(bob);
       expect(started['game_id'], isNot(oldGame));
-      expect((await t.oracleJson())['phase'], 'night');
+      final dealt = await t.oracleJson();
+      expect(dealt['game_id'], started['game_id']);
+      expect(_hosts(dealt), [bob.userId], reason: 'the acting host dealt it');
       expect((await t.lobby(carol))['status'], 'in_game');
     });
   });

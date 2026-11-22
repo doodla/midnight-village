@@ -91,6 +91,10 @@ Future<ScreenCapture> captureScreen(
   addTearDown(() => FlutterError.onError = reportError);
 
   // The body must not throw: each error comes back as a value.
+  // The test binding turns every blurred shadow into a solid block as it
+  // paints; the pictures show the real thing (the picked card's glow is the
+  // one blur). Put back before the binding checks it.
+  debugDisableShadows = false;
   final (png, failure) = await () async {
     try {
       await build(tester);
@@ -111,6 +115,7 @@ Future<ScreenCapture> captureScreen(
       return (null, 'CAPTURE FAILED: ${_describeError(error, stack)}');
     }
   }();
+  debugDisableShadows = true;
   // Given back before the caller's expectations run: a test that fails with
   // the handler still replaced never ends.
   FlutterError.onError = reportError;

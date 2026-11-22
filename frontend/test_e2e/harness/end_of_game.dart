@@ -43,11 +43,21 @@ Future<void> endAsTheOracleSays({
     [final one] => CountCopy.dies.fill({'name': one}),
     final several => CountCopy.die.fill({'names': nameList(several)}),
   };
+  // Whoever the server says won, said as 11 says it: a deal nobody chose
+  // (the app's own) can end with nobody winning or two teams winning.
   final teams = (results['winning_teams'] as List).cast<String>().toSet();
-  final winners = {
-    'village': ResultsCopy.villageWins,
-    'werewolf': ResultsCopy.werewolvesWin,
-    'tanner': ResultsCopy.tannerWins,
+  final headline11 = switch ((
+    teams.contains('village'),
+    teams.contains('werewolf'),
+    teams.contains('tanner'),
+  )) {
+    (false, false, false) => ResultsCopy.nobodyWins,
+    (true, false, false) => ResultsCopy.villageWins,
+    (false, true, false) => ResultsCopy.werewolvesWin,
+    (false, false, true) => ResultsCopy.tannerWins,
+    (true, false, true) => ResultsCopy.villageAndTanner,
+    (false, true, true) => ResultsCopy.werewolvesAndTanner,
+    _ => fail('winning teams the screen has no words for: $teams'),
   };
   final outcome =
       (results['player_outcomes'] as Map)['${table.player(name).userId}'];
@@ -75,8 +85,7 @@ Future<void> endAsTheOracleSays({
   await tester.pump();
   await ui.settle();
   await ui.pumpUntil(shows<ResultsView>, reason: '11 Results');
-  expect(teams, hasLength(1), reason: 'one winning team in these games');
-  expect(text(winners[teams.single]!), isTrue, reason: 'winners: $teams');
+  expect(text(headline11), isTrue, reason: 'winners: $teams');
   expect(
     text(outcome == 'win' ? ResultsCopy.youWon : ResultsCopy.youLost),
     isTrue,
