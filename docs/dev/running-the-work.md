@@ -33,6 +33,9 @@ A hook refuses any worker that is not on an allowed model with an effort set
   lookups.
 - Effort: `low` for lookups, `medium` for routine edits, `high` for design and review.
 
+- A change to words or screens runs `just test-harness` before its pull request: the commit
+  gate skips it (too slow) and only GitHub's "End-to-end Harness" job runs it after.
+
 ## Outside this repository
 
 - Fetch and merge before pushing: the deployment session pushes to the same branch. After

@@ -79,4 +79,5 @@ Every screen (01 to 11) is built from the primitives, against its mock in
 `docs/design/mocks/` (`docs/design/mock-to-skin.md` maps every element), to the copy in
 `docs/specs/frontend/first-time-play.md`. A change to one is checked by eye with
 `just screens` at 320, 360 and 390 wide (`strict` must pass), and you hand over before and
-after pictures.
+after pictures. A change to words or screens also runs `just test-harness` before its pull
+request (the commit gate does not; GitHub does, as "End-to-end Harness").

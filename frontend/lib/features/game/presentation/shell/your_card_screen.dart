@@ -12,6 +12,7 @@ import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/primitives/progress_pips.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
+import '../../../../design_system/skin/art_set.dart';
 import '../../../../design_system/skin/skin_choice.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
@@ -106,7 +107,7 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
     final unsent = widget.game.unsent.contains(OutboxLane.ready);
     return ScreenFrame(
       ground: GroundKind.night,
-      topArt: skin.art.nightVillage,
+      topScene: LayeredSceneId.nightVillage,
       topArtLayout: TopArtLayout.backdrop,
       fitsHeight: true,
       body: Column(

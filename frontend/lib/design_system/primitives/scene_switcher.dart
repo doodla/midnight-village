@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
+import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import 'band.dart';
+import 'layered_art.dart';
 import 'scene_arrival.dart';
 import 'screen_frame.dart';
 
@@ -71,6 +73,26 @@ class SceneSwitcher<T> extends StatefulWidget {
   /// How dark the table gets under the night coming down (the dusk).
   static const dusk = 0.5;
 
+  /// Decodes the layers of a scene's arriving header ([id]: 04's village or
+  /// 08's dawn) at the size its screen draws them, before the scene that
+  /// brings it in, so a scene never lands on an empty header and the same
+  /// decoded pictures are found. Not awaited.
+  static void precacheHeader(BuildContext context, LayeredSceneId id) {
+    final size = MediaQuery.sizeOf(context);
+    final top = MediaQuery.paddingOf(context).top;
+    final width = size.width.clamp(0, ScreenFrame.maxWidth).toDouble();
+    LayeredArt.precache(context, id, switch (id) {
+      LayeredSceneId.nightVillage => Size(
+        width,
+        TopArtLayout.backdrop.height + top,
+      ),
+      LayeredSceneId.dawnGallows => Size(
+        width,
+        TimerBand.skyFor(size.height) + top,
+      ),
+    });
+  }
+
   @override
   State<SceneSwitcher<T>> createState() => _SceneSwitcherState<T>();
 }
@@ -129,14 +151,9 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
   Animation<double> _in = kAlwaysCompleteAnimation;
   Animation<Offset> _inSlide = const AlwaysStoppedAnimation(Offset.zero);
   Animation<double>? _arrival;
+  Animation<double>? _clock;
   Animation<Offset> _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
   Animation<double> _dim = kAlwaysDismissedAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _warmUp();
-  }
 
   @override
   void dispose() {
@@ -144,37 +161,6 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
       run.dispose();
     }
     super.dispose();
-  }
-
-  /// The arriving screens' own pictures, decoded before they are needed: a
-  /// scene never lands on an empty header. About 137 KB of the two files
-  /// (6 MB decoded), asked for when the table's shell first shows, not
-  /// awaited: the app does not start slower for it. Sized as the screens
-  /// draw them, so the same decoded picture is found.
-  void _warmUp() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final skin = context.skin;
-      final size = MediaQuery.sizeOf(context);
-      final top = MediaQuery.paddingOf(context).top;
-      final ratio = MediaQuery.devicePixelRatioOf(context);
-      final width = size.width.clamp(0, ScreenFrame.maxWidth).toDouble();
-      final pictures = [
-        // 04's village and moon.
-        (
-          skin.art.nightVillage,
-          Size(width, TopArtLayout.backdrop.height + top),
-        ),
-        // 08's dawn rooftops.
-        (
-          skin.art.dawnGallows,
-          Size(width, TimerBand.skyFor(size.height) + top),
-        ),
-      ];
-      for (final (art, box) in pictures) {
-        precacheImage(art.decodedFor(box, ratio), context, onError: (_, _) {});
-      }
-    });
   }
 
   void _resting() {
@@ -188,6 +174,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
     _in = kAlwaysCompleteAnimation;
     _inSlide = const AlwaysStoppedAnimation(Offset.zero);
     _arrival = null;
+    _clock = null;
     _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
     _dim = kAlwaysDismissedAnimation;
   }
@@ -205,6 +192,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
       _in = kAlwaysCompleteAnimation;
       _inSlide = const AlwaysStoppedAnimation(Offset.zero);
       _arrival = null;
+      _clock = null;
       _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
       _dim = kAlwaysDismissedAnimation;
     });
@@ -246,6 +234,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
         _in = run.span(0, 1);
         _inSlide = const AlwaysStoppedAnimation(Offset.zero);
         _arrival = null;
+        _clock = null;
         _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
         _dim = kAlwaysDismissedAnimation;
       case SceneKind.dusk:
@@ -255,6 +244,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
           Tween(begin: const Offset(0, -1), end: Offset.zero),
         );
         _arrival = landing;
+        _clock = run.controller;
         _oldSlide = landing.drive(
           Tween(begin: Offset.zero, end: const Offset(0, 0.03)),
         );
@@ -264,6 +254,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
         _in = kAlwaysCompleteAnimation;
         _inSlide = const AlwaysStoppedAnimation(Offset.zero);
         _arrival = landing;
+        _clock = run.controller;
         _oldSlide = landing.drive(
           Tween(begin: Offset.zero, end: const Offset(0, 1)),
         );
@@ -279,6 +270,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
       opacity: _in,
       slide: _inSlide,
       arrival: _arrival,
+      clock: _clock,
       leaving: false,
       child: widget.child,
     );
@@ -293,6 +285,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
             opacity: gone.opacity,
             slide: const AlwaysStoppedAnimation(Offset.zero),
             arrival: null,
+            clock: null,
             leaving: true,
             child: gone.child,
           ),
@@ -339,6 +332,7 @@ class _Layer extends StatelessWidget {
     required this.opacity,
     required this.slide,
     required this.arrival,
+    required this.clock,
     required this.leaving,
     required this.child,
   });
@@ -346,6 +340,7 @@ class _Layer extends StatelessWidget {
   final Animation<double> opacity;
   final Animation<Offset> slide;
   final Animation<double>? arrival;
+  final Animation<double>? clock;
   final bool leaving;
   final Widget child;
 
@@ -361,7 +356,7 @@ class _Layer extends StatelessWidget {
           opacity: opacity,
           alwaysIncludeSemantics: true,
           child: RepaintBoundary(
-            child: SceneArrival(progress: arrival, child: child),
+            child: SceneArrival(progress: arrival, scene: clock, child: child),
           ),
         ),
       ),

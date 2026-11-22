@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/chips.dart';
 import 'package:midnight_village/design_system/primitives/notice.dart';
@@ -520,7 +521,39 @@ void main() {
         find.text(TableCopy.hostDeals.fill({'host': 'Ana'})),
       );
       final skin = tester.element(find.byType(TextAction)).skin;
-      expect(heading.style!.fontSize, skin.typography.heroTitle.fontSize);
+      expect(heading.style!.fontSize, skin.typography.headline.fontSize);
+      await setup.close(tester);
+    });
+
+    testWidgets('two to a line, every name is one size, at the reading floor '
+        'or more', (tester) async {
+      tester.view
+        ..physicalSize = const Size(780, 1688)
+        ..devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      const names = {
+        'Cleo': 'Rosalind Fairweather',
+        'Esme': 'Bartholomew',
+        'Gus': 'Wolfgang Amadeus',
+        'Hana': 'Penelope',
+      };
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_auto_deck_9', rename: names),
+        viewer: 'Ana',
+      );
+
+      final sizes = {
+        for (final name in [...names.values, 'Ben', 'Dev'])
+          tester.widget<Text>(find.text(name)).style!.fontSize!,
+      };
+      expect(sizes, hasLength(1), reason: 'one size for every name');
+      expect(sizes.single, greaterThanOrEqualTo(ReadingFloor.act));
+      expect(
+        tester.getTopLeft(find.text('Ben')).dx,
+        greaterThan(tester.getTopLeft(find.text('Ana')).dx + 100),
+        reason: 'two to a line: Ben sits beside Ana',
+      );
       await setup.close(tester);
     });
 

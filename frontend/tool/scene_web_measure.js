@@ -51,12 +51,14 @@ function stats(deltas) {
     const deltasOf = (t) => t.slice(1).map((v, i) => v - t[i]);
     const run = async (key, label) => {
       const all = [];
+      const each = [];
       for (let i = 0; i < 6; i++) {
         const p = page.evaluate(() => window.__start(900));
         await page.waitForTimeout(60);
         await page.keyboard.press(key);
         const t = await p;
         all.push(...deltasOf(t));
+        each.push(deltasOf(t).filter((d) => d > 33.5).length);
         await page.waitForTimeout(400);
         // Back to the start for the next one.
         await page.keyboard.press('r');
@@ -68,7 +70,7 @@ function stats(deltas) {
           await page.waitForTimeout(500);
         }
       }
-      results[`${label} x${rate}`] = stats(all);
+      results[`${label} x${rate}`] = { ...stats(all), each };
     };
     // Idle: nothing moving, for the browser's own cadence.
     {
@@ -81,6 +83,16 @@ function stats(deltas) {
     await page.keyboard.press('r');
     await page.waitForTimeout(700);
     await run('d', 'dusk (table to card)');
+    // The card at rest, its layered village still behind it (and, in a first game, the hold ring
+    // breathing over it): the browser's own cadence while nothing is moving but the ring.
+    await page.keyboard.press('d');
+    await page.waitForTimeout(900);
+    {
+      const t = await page.evaluate(() => window.__start(1500));
+      results[`card at rest x${rate}`] = stats(deltasOf(t));
+    }
+    await page.keyboard.press('r');
+    await page.waitForTimeout(700);
     // The dawn starts on the board: get there first.
     await page.keyboard.press('d');
     await page.waitForTimeout(800);
@@ -103,7 +115,7 @@ function stats(deltas) {
   }
   // Six runs of each: frames over 33.5 ms (two vsyncs) per transition.
   for (const [name, r] of Object.entries(results)) {
-    const per = name.startsWith('idle') ? '' : `  slow/transition=${(r.dropped / 6).toFixed(1)}`;
+    const per = name.startsWith('idle') || name.startsWith('card at rest') ? '' : `  slow/transition=${(r.dropped / 6).toFixed(1)} (per run ${r.each.join(' ')})`;
     console.log(
       `${name.padEnd(38)} median=${r.median} p95=${r.p95} max=${r.max} >25ms=${r.over25} >33ms=${r.dropped}${per}`,
     );

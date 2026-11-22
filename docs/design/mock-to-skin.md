@@ -58,8 +58,8 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | "Table code" 12/700 +0.14em, paper quiet | **Cut** by the first-time play spec ("Table code"); the code is printed under the QR, in `type.code` |
 | "K7QX4M" 46, +0.08em | `FitLine` in `type.heroCode` (hero line) |
 | "At the table · 5 players" | **Cut** by the first-time play spec ("At the table", "5 players") |
-| Player row: 52 tall, radius 26/6, padding 0 12 0 8, gap 12, 3,3 shadow, Gloock 21 | `PlayerRow(size: PlayerRowSize.compact)` (`type.name`, `elevation.card`, `shape.rowLeadRoundness`) |
-| Token 38, ring 2 indigo | `PlayerToken` at `TokenSize.row`; ring `shape.ring` in the row's ink |
+| Player row: 52 tall, radius 26/6, padding 0 12 0 8, gap 12, 3,3 shadow, Gloock 21 | `PlayerRow(size: PlayerRowSize.lobby)`: 46 tall, a 32 token, gap and end padding 10, the name in `type.name` at 18; two to a line, every name at one size (`PlayerNameSize`: the size the longest word fits at, never under the reading floor 16, else one row each); rows `Space.sm` (8) apart (the owner, 22 November 2026: names too big; `compact` keeps the mock's size for the vote's fallback) (`elevation.card`, `shape.rowLeadRoundness`) |
+| Token 38, ring 2 indigo | `PlayerToken` at `TokenSize.lobby` (32; `TokenSize.row`, 38, stays for the vote's fallback); ring `shape.ring` in the row's ink |
 | "Host · you" 12/700 +0.14em paper quiet | **Cut** by the first-time play spec ("Host · You"); your own row is `PlayerRow(own: true)`, a thicker ink outline |
 | Deck link: outline 2 px hairline, padding 10/12, radius 6 | `OutlinePanel(onTap: ...)` |
 | Thumbnails 30 x 40, radius 4, ring 2 bone, gap 7 | `RoleCard(size: RoleCardSize.thumbSmall)` (`shape.radiusSmall`, ring `ground.text`); gap `Space.sm` (snap 7) |
@@ -105,7 +105,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 
 | Element | Primitive / role |
 |---|---|
-| Night-village picture 520 tall, focus 50% 0%, fading from 300; content from 52 | `ScreenFrame(topArt: skin.art.nightVillage, topArtLayout: TopArtLayout.backdrop)` |
+| Night-village picture 520 tall, focus 50% 0%, fading from 300; content from 52 | `ScreenFrame(topScene: LayeredSceneId.nightVillage, topArtLayout: TopArtLayout.backdrop)` (the layered village: at rest the same picture) |
 | Pill: 36 tall, padding 0 16, radius 4, 14/700, 0 3 shadow, moon icon | **Cut** by the first-time play spec ("Night one · your card"); the headline "Your card" in `type.screenTitle`, set left, clear of the moon in the picture |
 | Column gap 18, centred | `Space.lgPlus` |
 | Card: 310 wide, padding 12/12/20, gap 12, heroSlab (0 5 paperEdge, 0 11 amber, 0 17 deep) | Your card is face down: `FaceDownCard(size: FaceDownSize.hero, hold: teaching)` under a `TeachingHold`; the role text is its held face (`HeldFace`). The amber layer of `heroSlab` is cut (amber is the primary button's alone) |
