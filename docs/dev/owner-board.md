@@ -44,9 +44,45 @@ Load the tools once: `ToolSearch select:ArtifactData`. Every call below takes
 ```
 
 - 1 picture shows big and cropped to 4:5 (`pos` = CSS object-position, e.g. "50% 0%" for the top
-  of a phone screen). 2 pictures show side by side, whole. Tap opens full size.
+  of a phone screen). 2 pictures show side by side, whole. Tap opens full size. Many competing
+  options for one slot: set `pick`, see "Group the options for one slot".
 - No `choices` = a card to look at with no buttons.
 - Every decision card must say what happens by default (`default`).
+
+## Group the options for one slot (a picker card)
+
+Options that compete for the same slot go on one card, not one card each. Set `pick` on the item
+and give 2 or more `pictures`, each with an `id` and a `caption`:
+
+```json
+{
+  "section": "answer", "order": 20, "status": "open",
+  "title": "Which look for the night screen?",
+  "ask": "Mark every one you like.",
+  "pick": "many",                       // "many" = mark any number; "one" = marking one unmarks the others
+  "pictures": [
+    {"id": "lantern", "src": "/_blob/<id>", "alt": "...", "caption": "Lantern square"},
+    {"id": "well",    "src": "/_blob/<id>", "alt": "...", "caption": "Moonlit well"},
+    {"id": "bridge",  "src": "/_blob/<id>", "alt": "...", "caption": "The long bridge"}
+  ],
+  "default": "We keep the current screen."
+}
+```
+
+- The card shows a swipeable strip, one tall (9:16) picture at a time with the next peeking in, the
+  caption under it, "3 of 8", and a round tick toggle on each picture. Tapping the picture opens the
+  full-size viewer at that picture. On wide screens the strip is a grid.
+- Below: how many are marked, the note box, **Send my picks** (**Send my pick** with `"one"`), and a quiet
+  **None of these**. Send waits until something is marked or a note is typed.
+- No `choices` needed (they are ignored on a picker). Without `pick`, or with fewer than 2 pictures,
+  the card is the ordinary one. A picture with no `id` gets `p1`, `p2`, ... by position: give real ids,
+  an answer names them. Keep ids free of commas.
+- The answer doc is the usual shape plus `choices`, the picked ids in strip order:
+  `{"item": "night-look", "choice": "lantern,bridge", "choices": ["lantern", "bridge"],
+  "label": "Lantern square, The long bridge", "note": "", "at": "..."}`.
+  `choice` is the ids joined by `,` and `label` the captions joined by `, `. "None of these" (or only a
+  note, nothing marked) writes `"choice": "none"`, `"choices": []`, `"label": "None of these"`.
+- Decided shows the picked captions; "Change my answer" brings the card back with those still marked.
 
 ## Add a picture
 
