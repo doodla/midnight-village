@@ -250,17 +250,17 @@ Map<String, dynamic> serverLobby({
   });
   final host = hostId ?? seats.first.id;
   final owner = originalHostId ?? host;
+  final deckRoles =
+      roles ?? {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2};
   return withValues(sample, {
     'code': code,
     'host': userJson(seats.firstWhere((s) => s.id == host)),
     'original_host_id': owner,
     'is_acting_host': owner != host,
     'status': status,
-    'settings': {
-      if (deck)
-        'roles':
-            roles ?? {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2},
-    },
+    'settings': {if (deck) 'roles': deckRoles},
+    // The roles the table would deal, face up: the custom deck as it is.
+    'deck_cards': deck ? deckRoles : const <String, int>{},
     'players': [
       for (final (i, seat) in seats.indexed)
         withValues(member, {

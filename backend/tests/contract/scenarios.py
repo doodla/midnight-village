@@ -30,6 +30,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from rest_framework.throttling import SimpleRateThrottle
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.core.models import Lobby
 
@@ -49,6 +50,8 @@ RESULTS = "/onuw/games/{game_id}/results/"
 PLAY_AGAIN = "/lobbies/{code}/play-again/"
 JOIN = "/lobbies/{code}/join/"
 MY_TABLE = "/me/table/"
+# A game id no game has (the account that is gone reads it before any check).
+GONE_GAME_ID = "00000000-0000-4000-a000-000000000999"
 RECENT_GAMES = "/onuw/me/recent-games/"
 ONLINE = "/stats/online/"
 RESULTS_SEEN = "/onuw/games/{game_id}/night-results/seen/"
@@ -251,9 +254,10 @@ def classic_table(run: Recording) -> None:
         "PATCH",
         "Ana",
         LOBBY,
-        {"settings": {"roles": {"Werewolf": 2, "Seer": 1}}},
+        {"settings": {"deck": "custom", "roles": {"Werewolf": 2, "Seer": 2}}},
         status=400,
-        about="A deck that does not fit the table.",
+        about="A deck with a role past its own limit (a short or long deck is "
+        "stored and reported by `deal`; only each role's limits are refused).",
     )
     t.record(
         "lobby/settings_updated",
@@ -624,7 +628,23 @@ def classic_table(run: Recording) -> None:
     t.record_event(
         "lobby/player_left", "Ben", "lobby", "player_left", about="Someone left."
     )
-    t.call("POST", "Ana", "/lobbies/{code}/leave/")
+    t.record(
+        "lobby/leave_not_member",
+        "POST",
+        "Fin",
+        "/lobbies/{code}/leave/",
+        status=400,
+        about="A leave that reaches a table this player already left (a second "
+        "tap, or a retry after a slow answer): the app counts it as left.",
+    )
+    t.record(
+        "lobby/left_owner",
+        "POST",
+        "Ana",
+        "/lobbies/{code}/leave/",
+        status=200,
+        about="The owner leaves with others still there: the table passes on.",
+    )
     t.record_event(
         "lobby/host_changed_transferred",
         "Ben",
@@ -1847,6 +1867,7 @@ def results_tables(run: Recording) -> None:
     _three_player_table(run)
     _ten_player_table(run)
     _lobby_table(run)
+    _seats_table(run)
 
 
 def _six_results_table(run: Recording) -> None:
@@ -2200,8 +2221,190 @@ def _lobby_table(run: Recording) -> None:
     t.start_random(11, sample="game/started_nobody_ready")
 
 
+def _seats_table(run: Recording) -> None:
+    """A table set for eight before anyone joins (`seats`): the host alone builds
+    a custom deck card by card for eight, people arrive one by one (`deal.need`
+    never moves), only seven come, the host lowers the number (the custom deck no
+    longer fits; one tap back to the automatic deck), deals; a ninth is refused."""
+    t = run.table()
+    names = ["Tia", "Ugo", "Vic", "Wes", "Xan", "Yan", "Zoe", "Abe"]
+    _sign_in(t, names)
+    t.clock.advance(60)
+    t.call("POST", "Tia", CREATE, {"game_type": "onuw", "defaults": "v2"})
+    t.connect_lobby("Tia")
+    t.record(
+        "lobby/settings_seats",
+        "PATCH",
+        "Tia",
+        LOBBY,
+        {"settings": {"seats": 8, "deck_chip": "classic"}},
+        status=200,
+        about="The host alone sets the table for eight: `deal.need` and "
+        "`deck_preview` are for eight (`deal.seats`), `deal.ok` false until eight "
+        "are here.",
+    )
+    t.record(
+        "lobby/settings_custom_deck_building",
+        "PATCH",
+        "Tia",
+        LOBBY,
+        {
+            "settings": {
+                "deck": "custom",
+                "roles": {"Werewolf": 2, "Seer": 1, "Robber": 1, "Villager": 1},
+            }
+        },
+        status=200,
+        about="A custom deck being built, stored card by card: five of the eleven "
+        "cards eight players need (`deal.have` 5).",
+    )
+    deck = {
+        "Werewolf": 2,
+        "Minion": 1,
+        "Seer": 1,
+        "Robber": 1,
+        "Troublemaker": 1,
+        "Drunk": 1,
+        "Insomniac": 1,
+        "Villager": 3,
+    }
+    t.call("PATCH", "Tia", LOBBY, {"settings": {"roles": deck}})
+    _record_seats(
+        t,
+        "detail_seats_8_custom_alone",
+        "The host alone, with a custom "
+        "deck of eleven cards for eight: the deck fits, the table waits.",
+    )
+    for name in names[1:4]:
+        t.clock.advance(60)
+        t.call("POST", name, JOIN)
+    t.record_event(
+        "lobby/lobby_update_seats_joined",
+        "Tia",
+        "lobby",
+        "lobby_update",
+        about="A fourth player joined a table set for eight: `deal.need` stays 11.",
+    )
+    _record_seats(t, "detail_seats_8_four_here", "Four of eight here, custom deck.")
+    for name in names[4:7]:
+        t.clock.advance(60)
+        t.call("POST", name, JOIN)
+    _record_seats(t, "detail_seats_8_seven_here", "Seven of eight here.")
+    t.record(
+        "lobby/settings_seats_below_present",
+        "PATCH",
+        "Tia",
+        LOBBY,
+        {"settings": {"seats": 6}},
+        status=400,
+        about="The number lowered below the players already here: refused.",
+    )
+    t.record(
+        "lobby/settings_seats_lowered",
+        "PATCH",
+        "Tia",
+        LOBBY,
+        {"settings": {"seats": 7}},
+        status=200,
+        about="Only seven came: the host lowers the number. The custom deck for "
+        "eight no longer fits (`deal`: need 10, have 11) and is kept, not changed.",
+    )
+    t.record(
+        "lobby/settings_back_to_auto",
+        "PATCH",
+        "Tia",
+        LOBBY,
+        {"settings": {"deck": "auto"}},
+        status=200,
+        about="One tap back to the automatic deck (the chip the table had): it "
+        "fits seven, `deal.ok`.",
+    )
+    t.record(
+        "lobby/join_full_seats",
+        "POST",
+        "Abe",
+        JOIN,
+        status=400,
+        about="Joining a table with every seat it is set for taken.",
+    )
+    t.call("PATCH", "Tia", LOBBY, {"settings": {"seats": 8}})
+    t.clock.advance(60)
+    t.call("POST", "Abe", JOIN)
+    _record_seats(
+        t,
+        "detail_seats_8_full",
+        "Eight of eight here, the automatic deck: ready to deal.",
+    )
+    t.record(
+        "lobby/settings_lengths",
+        "PATCH",
+        "Tia",
+        LOBBY,
+        {
+            "settings": {
+                "discussion_seconds": 360,
+                "voting_seconds": 90,
+                "night_wave_seconds": 25,
+                "night_min_window_seconds": 6,
+                "night_doppelganger_window_seconds": 12,
+                "card_look_seconds": 20,
+                "disconnect_grace_seconds": 30,
+                "host_handover_seconds": 120,
+            }
+        },
+        status=200,
+        about="The host sets every length on the set-up page (each its own "
+        "value): stored in `settings`, reported in `lengths`.",
+    )
+    t.clock.advance(60)
+    t.start_random(13)
+
+
+def _record_seats(t: Table, name: str, about: str) -> None:
+    t.record(f"lobby/{name}", "GET", "Tia", LOBBY, status=200, about=about)
+
+
+def gone_account(run: Recording) -> None:
+    """An account that is gone (deleted): 401 on the refresh and on a read, the
+    one answer the app takes for "start afresh" (anything else: ask again).
+    Recorded last, so no other sample's ids move."""
+    t = run.table()
+    player = t.guest("Gone")
+    access = str(AccessToken.for_user(player.user))
+    player.user.delete()
+    t.record(
+        "auth/token_refresh_user_gone",
+        "POST",
+        "",
+        "/auth/token/refresh/",
+        {"refresh": player.refresh_token},
+        status=401,
+        about="The refresh of an account that is gone (deleted): 401.",
+    )
+    t.record(
+        "auth/user_gone",
+        "GET",
+        "",
+        MY_TABLE,
+        status=401,
+        about="An authenticated read by an account that is gone (deleted): 401.",
+        bearer=access,
+    )
+    t.record(
+        "auth/user_gone_game_me",
+        "GET",
+        "",
+        "/onuw/games/{game_id}/me/",
+        status=401,
+        about="A game's /me/ read by an account that is gone (deleted): 401.",
+        bearer=access,
+        game_id=GONE_GAME_ID,
+    )
+
+
 def record_all(run: Recording) -> None:
     classic_table(run)
     full_table(run, finished=doppelganger_table(run))
     choose_tables(run)
     results_tables(run)
+    gone_account(run)

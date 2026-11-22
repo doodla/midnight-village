@@ -163,10 +163,11 @@ void main() {
       );
     });
 
-    test('a custom deck short of what the deal needs: add the difference', () {
+    test('an open table\'s custom deck short of what the deal needs: the '
+        'deck does not fit, never card arithmetic', () {
       expect(
         DealState.of(at('detail_custom_deck_short')),
-        isA<AddCards>().having((d) => d.count, 'count', 1),
+        isA<DeckDoesNotFit>(),
       );
     });
 

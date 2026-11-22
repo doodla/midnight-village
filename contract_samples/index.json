@@ -42,12 +42,36 @@
       "description": "A refresh token the server does not accept."
     },
     {
+      "name": "http/auth/token_refresh_user_gone",
+      "kind": "http",
+      "method": "POST",
+      "path": "/auth/token/refresh/",
+      "status": 401,
+      "description": "The refresh of an account that is gone (deleted): 401."
+    },
+    {
       "name": "http/auth/token_refreshed",
       "kind": "http",
       "method": "POST",
       "path": "/auth/token/refresh/",
       "status": 200,
       "description": "A refresh token is exchanged (and rotated)."
+    },
+    {
+      "name": "http/auth/user_gone",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 401,
+      "description": "An authenticated read by an account that is gone (deleted): 401."
+    },
+    {
+      "name": "http/auth/user_gone_game_me",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 401,
+      "description": "A game's /me/ read by an account that is gone (deleted): 401."
     },
     {
       "name": "http/core/online_stats",
@@ -1218,6 +1242,38 @@
       "description": "Noa's phone closed a moment ago: still `connected` during the table's grace period (`disconnect_grace_seconds`), so a blip shows nothing."
     },
     {
+      "name": "http/lobby/detail_seats_8_custom_alone",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The host alone, with a custom deck of eleven cards for eight: the deck fits, the table waits."
+    },
+    {
+      "name": "http/lobby/detail_seats_8_four_here",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "Four of eight here, custom deck."
+    },
+    {
+      "name": "http/lobby/detail_seats_8_full",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "Eight of eight here, the automatic deck: ready to deal."
+    },
+    {
+      "name": "http/lobby/detail_seats_8_seven_here",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "Seven of eight here."
+    },
+    {
       "name": "http/lobby/detail_waiting",
       "kind": "http",
       "method": "GET",
@@ -1258,6 +1314,14 @@
       "description": "Joining a table with every seat taken."
     },
     {
+      "name": "http/lobby/join_full_seats",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 400,
+      "description": "Joining a table with every seat it is set for taken."
+    },
+    {
       "name": "http/lobby/join_not_found",
       "kind": "http",
       "method": "POST",
@@ -1282,6 +1346,14 @@
       "description": "Leave at a table that is gone."
     },
     {
+      "name": "http/lobby/leave_not_member",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/leave/",
+      "status": 400,
+      "description": "A leave that reaches a table this player already left (a second tap, or a retry after a slow answer): the app counts it as left."
+    },
+    {
       "name": "http/lobby/leave_owner_in_game",
       "kind": "http",
       "method": "POST",
@@ -1304,6 +1376,14 @@
       "path": "/lobbies/{code}/leave/",
       "status": 200,
       "description": "The last member leaves: the table is closed."
+    },
+    {
+      "name": "http/lobby/left_owner",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/leave/",
+      "status": 200,
+      "description": "The owner leaves with others still there: the table passes on."
     },
     {
       "name": "http/lobby/my_table_after_play_again",
@@ -1402,6 +1482,22 @@
       "description": "Someone other than the host starts another game."
     },
     {
+      "name": "http/lobby/settings_back_to_auto",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "One tap back to the automatic deck (the chip the table had): it fits seven, `deal.ok`."
+    },
+    {
+      "name": "http/lobby/settings_custom_deck_building",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A custom deck being built, stored card by card: five of the eleven cards eight players need (`deal.have` 5)."
+    },
+    {
       "name": "http/lobby/settings_deck_chip",
       "kind": "http",
       "method": "PATCH",
@@ -1431,7 +1527,15 @@
       "method": "PATCH",
       "path": "/lobbies/{code}/",
       "status": 400,
-      "description": "A deck that does not fit the table."
+      "description": "A deck with a role past its own limit (a short or long deck is stored and reported by `deal`; only each role's limits are refused)."
+    },
+    {
+      "name": "http/lobby/settings_lengths",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The host sets every length on the set-up page (each its own value): stored in `settings`, reported in `lengths`."
     },
     {
       "name": "http/lobby/settings_not_host",
@@ -1440,6 +1544,30 @@
       "path": "/lobbies/{code}/",
       "status": 403,
       "description": "Someone other than the host changes the deck."
+    },
+    {
+      "name": "http/lobby/settings_seats",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The host alone sets the table for eight: `deal.need` and `deck_preview` are for eight (`deal.seats`), `deal.ok` false until eight are here."
+    },
+    {
+      "name": "http/lobby/settings_seats_below_present",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 400,
+      "description": "The number lowered below the players already here: refused."
+    },
+    {
+      "name": "http/lobby/settings_seats_lowered",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "Only seven came: the host lowers the number. The custom deck for eight no longer fits (`deal`: need 10, have 11) and is kept, not changed."
     },
     {
       "name": "http/lobby/settings_updated",
@@ -1991,6 +2119,20 @@
         "Noa"
       ],
       "description": "Noa's phone has been away past the grace period: the table is told (`connected` false), calmly, by a lobby_update."
+    },
+    {
+      "name": "ws/lobby/lobby_update_seats_joined",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Tia",
+        "Ugo",
+        "Vic",
+        "Wes"
+      ],
+      "description": "A fourth player joined a table set for eight: `deal.need` stays 11."
     },
     {
       "name": "ws/lobby/player_joined",

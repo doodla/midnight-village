@@ -236,7 +236,7 @@ final class AuthRepositoryProvider
   }
 }
 
-String _$authRepositoryHash() => r'3fc53b3196d5cb69a7db30e12341aa211c42203d';
+String _$authRepositoryHash() => r'833c3aaef5bca9ba35799a3c74f84a55afaa6f2d';
 
 /// Provides the authenticated HTTP client with JWT injection and auto-refresh.
 ///
@@ -307,14 +307,38 @@ String _$authenticatedClientHash() =>
     r'2beb9e2c0819d46ac09a2438cc0a757dfbab0ec3';
 
 /// Manages authentication state.
+///
+/// The saved account is read back at start ([AuthRepository.tryRestoreSession]:
+/// from storage alone while its access token works). A try the server does
+/// not answer (no network, a timeout, a 5xx) is made again by itself, with
+/// the backoff every healing fetch uses ([HealTiming.retryAfter]), until it
+/// answers; meanwhile the state stays [AuthInitial] (`unanswered`), never
+/// "signed out", so no screen offers a new account. Only the server refusing
+/// the saved account (it is gone) signs out.
 
 @ProviderFor(AuthNotifier)
 const authProvider = AuthNotifierProvider._();
 
 /// Manages authentication state.
+///
+/// The saved account is read back at start ([AuthRepository.tryRestoreSession]:
+/// from storage alone while its access token works). A try the server does
+/// not answer (no network, a timeout, a 5xx) is made again by itself, with
+/// the backoff every healing fetch uses ([HealTiming.retryAfter]), until it
+/// answers; meanwhile the state stays [AuthInitial] (`unanswered`), never
+/// "signed out", so no screen offers a new account. Only the server refusing
+/// the saved account (it is gone) signs out.
 final class AuthNotifierProvider
     extends $NotifierProvider<AuthNotifier, AuthState> {
   /// Manages authentication state.
+  ///
+  /// The saved account is read back at start ([AuthRepository.tryRestoreSession]:
+  /// from storage alone while its access token works). A try the server does
+  /// not answer (no network, a timeout, a 5xx) is made again by itself, with
+  /// the backoff every healing fetch uses ([HealTiming.retryAfter]), until it
+  /// answers; meanwhile the state stays [AuthInitial] (`unanswered`), never
+  /// "signed out", so no screen offers a new account. Only the server refusing
+  /// the saved account (it is gone) signs out.
   const AuthNotifierProvider._()
     : super(
         from: null,
@@ -342,9 +366,17 @@ final class AuthNotifierProvider
   }
 }
 
-String _$authNotifierHash() => r'90c6d843f90b4fcf602c394b0bf5b5d4e4595e0f';
+String _$authNotifierHash() => r'7207a67c8bbc9fe0b3ade437dadf7d76342e2550';
 
 /// Manages authentication state.
+///
+/// The saved account is read back at start ([AuthRepository.tryRestoreSession]:
+/// from storage alone while its access token works). A try the server does
+/// not answer (no network, a timeout, a 5xx) is made again by itself, with
+/// the backoff every healing fetch uses ([HealTiming.retryAfter]), until it
+/// answers; meanwhile the state stays [AuthInitial] (`unanswered`), never
+/// "signed out", so no screen offers a new account. Only the server refusing
+/// the saved account (it is gone) signs out.
 
 abstract class _$AuthNotifier extends $Notifier<AuthState> {
   AuthState build();

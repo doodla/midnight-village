@@ -124,11 +124,11 @@ void main() {
       expect(lifted(tester), isEmpty);
       expect(button(tester), (NightCopy.chooseNone, ButtonPhase.locked));
       await tapCard(tester, NightCopy.you);
-      expect(button(tester), (NightCopy.keep, ButtonPhase.ready));
+      expect(button(tester), (NightCopy.chooseForMe, ButtonPhase.ready));
 
       await BoardHarness.of(Viewer.doppelganger).pump(tester);
       await tapCard(tester, NightCopy.you);
-      expect(button(tester), (NightCopy.keep, ButtonPhase.ready));
+      expect(button(tester), (NightCopy.skip, ButtonPhase.ready));
     });
   });
 
@@ -139,11 +139,260 @@ void main() {
     await tapCard(tester, NightCopy.left);
     expect(button(tester), (NightCopy.chooseMore, ButtonPhase.locked));
     await tapCard(tester, NightCopy.right);
-    expect(button(tester), ('Choose Left, Right', ButtonPhase.ready));
+    expect(button(tester), ('See Left, Right', ButtonPhase.ready));
     await tapCard(tester, NightCopy.you);
-    expect(button(tester), (NightCopy.keep, ButtonPhase.ready));
+    expect(button(tester), (NightCopy.skip, ButtonPhase.ready));
+    await tapCard(tester, cleo.name);
+    expect(button(tester), ('See Cleo', ButtonPhase.ready));
+  });
+
+  group('the button says what will happen, by the prompt', () {
+    // The viewer, the cards tapped, the button, then "You" alone and its
+    // button: the verb follows the prompt's kind, the cards are the picks.
+    for (final (viewer, taps, go, pass) in [
+      (Viewer.seer, [cleo.name], 'See Cleo', NightCopy.skip),
+      (Viewer.seer, ['Left', 'Right'], 'See Left, Right', NightCopy.skip),
+      (Viewer.robber, [cleo.name], 'Swap with Cleo', NightCopy.keep),
+      (Viewer.troublemaker, [ana.name, ben.name], 'Swap Ana, Ben', 'Skip'),
+      (Viewer.loneWerewolf, ['Middle'], 'See Middle', NightCopy.skip),
+      (Viewer.doppelganger, [ben.name], 'Copy Ben', NightCopy.skip),
+    ]) {
+      testWidgets('${viewer.name}: "$go", passing "$pass"', (tester) async {
+        final board = BoardHarness.of(viewer);
+        await board.pump(tester);
+        for (final tap in taps) {
+          await tapCard(tester, tap);
+        }
+        expect(button(tester), (go, ButtonPhase.ready));
+        await tapCard(tester, NightCopy.you);
+        expect(button(tester), (pass, ButtonPhase.ready));
+      });
+    }
+
+    testWidgets('the Drunk who passes is told the server chooses: he is '
+        'swapped all the same', (tester) async {
+      final board = BoardHarness.of(Viewer.drunk);
+      await board.pump(tester);
+      await tapCard(tester, NightCopy.middle);
+      expect(button(tester), ('Swap with Middle', ButtonPhase.ready));
+      await tapCard(tester, NightCopy.you);
+      expect(button(tester), (NightCopy.chooseForMe, ButtonPhase.ready));
+    });
+
+    testWidgets('only the Robber "keeps my card"', (tester) async {
+      for (final viewer in Viewer.values) {
+        final board = BoardHarness.of(viewer);
+        if (board.prompt.sleeps) continue;
+        await board.pump(tester);
+        await tapCard(tester, NightCopy.you);
+        expect(
+          button(tester).$1 == NightCopy.keep,
+          viewer == Viewer.robber,
+          reason: viewer.name,
+        );
+      }
+    });
+  });
+
+  group('a card that cannot join the pick is dimmed, from the shapes', () {
+    /// The cards drawn dimmed, by caption.
+    List<String> dimmed(WidgetTester tester) => [
+      for (final element in find.byType(FaceDownCard).evaluate())
+        if ((element.widget as FaceDownCard).dimmed)
+          (element.widget as FaceDownCard).semanticLabel!,
+    ];
+
+    Future<BoardHarness> open(WidgetTester tester, Viewer viewer) async {
+      final board = BoardHarness.of(viewer);
+      await board.pump(tester);
+      return board;
+    }
+
+    List<String> others(BoardHarness board) => [
+      for (final s in board.seats)
+        if (s.id != board.selfId) s.name,
+    ];
+
+    testWidgets('until the first tap the board is identical for every role: '
+        'nothing is dimmed (no role is readable across the table)', (
+      tester,
+    ) async {
+      for (final viewer in Viewer.values) {
+        await open(tester, viewer);
+        expect(dimmed(tester), isEmpty, reason: viewer.name);
+      }
+    });
+
+    testWidgets('after the first pick: a Drunk\'s or a lone Werewolf\'s center '
+        'card dims the players and the other two center cards', (tester) async {
+      for (final viewer in [Viewer.drunk, Viewer.loneWerewolf]) {
+        final board = await open(tester, viewer);
+        await tapCard(tester, NightCopy.middle);
+        expect(dimmed(tester), [
+          ...others(board),
+          NightCopy.left,
+          NightCopy.right,
+        ], reason: viewer.name);
+        await tapCard(tester, NightCopy.middle);
+        expect(dimmed(tester), isEmpty, reason: viewer.name);
+      }
+    });
+
+    testWidgets('the Seer: one player dims everything else; one centre card '
+        'dims the players and leaves the other two lit', (tester) async {
+      final board = await open(tester, Viewer.seer);
+      await tapCard(tester, cleo.name);
+      expect(dimmed(tester), [
+        ben.name,
+        dev.name,
+        esme.name,
+        ...NightCopy.center,
+      ]);
+      await tapCard(tester, cleo.name);
+      expect(dimmed(tester), isEmpty);
+
+      await tapCard(tester, NightCopy.left);
+      expect(dimmed(tester), others(board));
+      await tapCard(tester, NightCopy.right);
+      expect(lifted(tester), [NightCopy.left, NightCopy.right]);
+      expect(dimmed(tester), [...others(board), NightCopy.middle]);
+    });
+
+    testWidgets('a dimmed card still switches the pick', (tester) async {
+      await open(tester, Viewer.seer);
+      await tapCard(tester, NightCopy.left);
+      expect(dimmed(tester), contains(cleo.name));
+      await tapCard(tester, cleo.name);
+      expect(lifted(tester), [cleo.name]);
+      expect(dimmed(tester), contains(NightCopy.left));
+    });
+
+    testWidgets('the Robber and the Doppelganger, once a player is picked: '
+        'the other players and the center dim; "You" is never dimmed and '
+        'picking it leaves the pick empty', (tester) async {
+      for (final viewer in [Viewer.robber, Viewer.doppelganger]) {
+        final board = await open(tester, viewer);
+        final [first, ...rest] = others(board);
+        await tapCard(tester, first);
+        expect(dimmed(tester), [...rest, ...NightCopy.center]);
+        await tapCard(tester, NightCopy.you);
+        expect(dimmed(tester), isEmpty);
+      }
+    });
+
+    testWidgets('the Troublemaker: after one player only the center dims; '
+        'after two the other players dim too', (tester) async {
+      final board = await open(tester, Viewer.troublemaker);
+      final [first, second, ...rest] = others(board);
+      await tapCard(tester, first);
+      expect(dimmed(tester), NightCopy.center);
+      await tapCard(tester, second);
+      expect(dimmed(tester), [...rest, ...NightCopy.center]);
+    });
+
+    testWidgets('a dimmed card tells a screen reader that a tap still '
+        'switches the pick; a lit one says nothing', (tester) async {
+      final handle = tester.ensureSemantics();
+      final board = await open(tester, Viewer.robber);
+      await tapCard(tester, others(board).first);
+      for (final caption in NightCopy.center) {
+        final node = tester.getSemantics(card(caption));
+        expect(node.label, caption);
+        expect(node.hint, NightCopy.switchesPick);
+      }
+      expect(tester.getSemantics(card(others(board).first)).hint, isEmpty);
+      handle.dispose();
+    });
+
+    testWidgets('names and captions stay in full ink: only the card back '
+        'and its token dim', (tester) async {
+      final board = await open(tester, Viewer.robber);
+      await tapCard(tester, others(board).first);
+      final caption = tester.widget<Text>(find.text(NightCopy.left));
+      expect(caption.style!.color!.a, 1);
+      final back = find.descendant(
+        of: card(NightCopy.left),
+        matching: find.byType(AnimatedOpacity),
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.widget<AnimatedOpacity>(back).opacity, lessThan(1));
+    });
+
+    testWidgets('a sleeper dims nothing, whatever it taps', (tester) async {
+      await open(tester, Viewer.villager);
+      await tapCard(tester, ben.name);
+      await tapCard(tester, NightCopy.middle);
+      expect(dimmed(tester), isEmpty);
+    });
+  });
+
+  testWidgets('a prompt kind and shape this app does not know (the server '
+      'added a role) is a plain board: "Choose a card", any one card, "Skip"', (
+    tester,
+  ) async {
+    final me = Viewer.seer.nightMe;
+    final prompt = me['action_prompt'] as Map<String, dynamic>;
+    prompt['kind'] = 'witch';
+    prompt['shapes'] = [
+      {'tokens': 1},
+    ];
+    final board = BoardHarness(me);
+    await board.pump(tester);
+    expect(find.text(NightCopy.chooseNone), findsWidgets);
+    expect(button(tester), (NightCopy.chooseNone, ButtonPhase.locked));
     await tapCard(tester, cleo.name);
     expect(button(tester), ('Choose Cleo', ButtonPhase.ready));
+    await tapCard(tester, NightCopy.you);
+    expect(button(tester), (NightCopy.skip, ButtonPhase.ready));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the Seer\'s board says where each kind of pick is: "1 player" '
+      'over the seats, a rule with "or" between them and the table\'s '
+      'cards, "2 center cards" on the strip in place of "Center"', (
+    tester,
+  ) async {
+    final board = BoardHarness.of(Viewer.seer);
+    await board.pump(tester);
+    expect(find.text(NightCopy.centerLabel), findsNothing);
+    final seats = tester.getRect(find.text(NightCopy.seerSeats));
+    final or = tester.getRect(find.text(NightCopy.seerOr));
+    final strip = tester.getRect(find.text(NightCopy.seerCenter));
+    final firstRow = tester.getRect(card(ben.name));
+    final lastRow = tester.getRect(card(esme.name));
+    final left = tester.getRect(card(NightCopy.left));
+    expect(seats.bottom, lessThanOrEqualTo(firstRow.top + 1));
+    expect(or.top, greaterThanOrEqualTo(lastRow.bottom - 1));
+    expect(or.bottom, lessThanOrEqualTo(left.top));
+    expect(strip.bottom, lessThanOrEqualTo(left.top + 1));
+    // The same board as a Robber's of the same game, card for card: the
+    // labels live in room every board keeps.
+    final seer = [
+      for (final e in find.byType(FaceDownCard).evaluate())
+        tester.getRect(find.byWidget(e.widget)).size,
+    ];
+    final other = BoardHarness.of(Viewer.robber);
+    await other.pump(tester);
+    expect([
+      for (final e in find.byType(FaceDownCard).evaluate())
+        tester.getRect(find.byWidget(e.widget)).size,
+    ], seer);
+  });
+
+  testWidgets('the table\'s three cards carry the word "Center", on every '
+      'phone, and the four cards of the band sit level', (tester) async {
+    for (final viewer in [Viewer.robber, Viewer.villager, Viewer.drunk]) {
+      await BoardHarness.of(viewer).pump(tester);
+      expect(find.text(NightCopy.centerLabel), findsOneWidget);
+      expect(find.text(NightCopy.seerSeats), findsNothing);
+      expect(find.text(NightCopy.seerOr), findsNothing);
+      final label = tester.getRect(find.text(NightCopy.centerLabel));
+      final left = tester.getRect(card(NightCopy.left));
+      final right = tester.getRect(card(NightCopy.right));
+      expect(label.bottom, lessThanOrEqualTo(left.top + 1));
+      expect(label.center.dx, closeTo((left.left + right.right) / 2, 8));
+      expect(tester.getRect(you).top, closeTo(left.top, 6));
+    }
   });
 
   testWidgets('a sleeper is asked nothing: no button, "Nothing to do" in its '
@@ -397,7 +646,7 @@ void main() {
       await tapCard(tester, cleo.name);
       await _choose(tester);
       expect(find.text(BannerCopy.notSent), findsNothing);
-      expect(button(tester), ('Choose Cleo', ButtonPhase.ready));
+      expect(button(tester), ('See Cleo', ButtonPhase.ready));
       expect(lifted(tester), [cleo.name]);
     });
 
@@ -503,13 +752,12 @@ void main() {
       expect(lifted(tester), [NightCopy.you]);
     });
 
-    testWidgets('"You" alone picked is doing nothing: "Keep my card"', (
-      tester,
-    ) async {
+    testWidgets('"You" alone picked is doing nothing: the button says what '
+        'passing is for this role', (tester) async {
       await BoardHarness.of(Viewer.seer).pump(tester);
       await tapCard(tester, NightCopy.you);
       expect(lifted(tester), [NightCopy.you]);
-      expect(button(tester), (NightCopy.keep, ButtonPhase.ready));
+      expect(button(tester), (NightCopy.skip, ButtonPhase.ready));
     });
 
     testWidgets('with large text the words grow only so far, and the cards '

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/storage/token_storage.dart';
@@ -19,6 +21,17 @@ void main() {
   late MockUserStorage mockUserStorage;
   late AuthRepository repository;
 
+  /// The phone's clock in these tests.
+  final now = DateTime.utc(2026, 11, 22, 20);
+
+  /// An access token as the server makes them (a JWT), ending at [exp].
+  String accessToken(DateTime exp) {
+    String part(Object value) =>
+        base64Url.encode(utf8.encode(json.encode(value))).replaceAll('=', '');
+    return '${part({'alg': 'HS256'})}.'
+        '${part({'exp': exp.millisecondsSinceEpoch ~/ 1000})}.sig';
+  }
+
   setUp(() {
     mockAuthService = MockAuthService();
     mockTokenStorage = MockTokenStorage();
@@ -27,7 +40,15 @@ void main() {
       authService: mockAuthService,
       tokenStorage: mockTokenStorage,
       userStorage: mockUserStorage,
+      now: () => now,
     );
+    // Unless a test says otherwise: no saved account; and when there is one,
+    // its user is stored and it has no access token left (so it is renewed).
+    when(() => mockTokenStorage.hasTokens).thenAnswer((_) async => false);
+    when(() => mockTokenStorage.accessToken).thenAnswer((_) async => null);
+    when(
+      () => mockUserStorage.getUser(),
+    ).thenAnswer((_) async => User(id: 1, displayName: 'TestUser'));
   });
 
   group('AuthRepository', () {
@@ -166,22 +187,81 @@ void main() {
         verifyNever(() => mockUserStorage.clear());
       });
 
-      test('clears session on MalformedResponseException', () async {
+      test(
+        'an answer that is not the server\'s (MalformedResponseException) '
+        'keeps the account and is thrown: no answer, never "no account"',
+        () async {
+          when(() => mockTokenStorage.hasTokens).thenAnswer((_) async => true);
+          when(
+            () => mockTokenStorage.refreshToken,
+          ).thenAnswer((_) async => 'refresh');
+          when(
+            () => mockAuthService.refreshToken('refresh'),
+          ).thenThrow(const MalformedResponseException('Invalid JSON'));
+
+          await expectLater(
+            () => repository.tryRestoreSession(),
+            throwsA(isA<MalformedResponseException>()),
+          );
+
+          verifyNever(() => mockTokenStorage.deleteTokens());
+          verifyNever(() => mockUserStorage.clear());
+        },
+      );
+
+      test('an access token still good is used as it is: no request', () async {
+        when(() => mockTokenStorage.hasTokens).thenAnswer((_) async => true);
+        when(
+          () => mockTokenStorage.refreshToken,
+        ).thenAnswer((_) async => 'refresh');
+        when(() => mockTokenStorage.accessToken).thenAnswer(
+          (_) async => accessToken(now.add(const Duration(hours: 1))),
+        );
+
+        final user = await repository.tryRestoreSession();
+
+        expect(user, User(id: 1, displayName: 'TestUser'));
+        verifyNever(() => mockAuthService.refreshToken(any()));
+      });
+
+      test('an access token about to end is renewed first', () async {
+        when(() => mockTokenStorage.hasTokens).thenAnswer((_) async => true);
+        when(
+          () => mockTokenStorage.refreshToken,
+        ).thenAnswer((_) async => 'refresh');
+        when(() => mockTokenStorage.accessToken).thenAnswer(
+          (_) async => accessToken(now.add(const Duration(seconds: 20))),
+        );
+        when(
+          () => mockAuthService.refreshToken('refresh'),
+        ).thenAnswer((_) async => (access: 'new', refresh: 'new_refresh'));
+        when(
+          () => mockTokenStorage.saveTokens(
+            accessToken: 'new',
+            refreshToken: 'new_refresh',
+          ),
+        ).thenAnswer((_) async {});
+
+        final user = await repository.tryRestoreSession();
+
+        expect(user, isNotNull);
+        verify(() => mockAuthService.refreshToken('refresh')).called(1);
+      });
+
+      test('an access token that cannot be read is used as it is (a refusal '
+          'is renewed where it happens)', () async {
         when(() => mockTokenStorage.hasTokens).thenAnswer((_) async => true);
         when(
           () => mockTokenStorage.refreshToken,
         ).thenAnswer((_) async => 'refresh');
         when(
-          () => mockAuthService.refreshToken('refresh'),
-        ).thenThrow(const MalformedResponseException('Invalid JSON'));
-        when(() => mockTokenStorage.deleteTokens()).thenAnswer((_) async {});
-        when(() => mockUserStorage.clear()).thenAnswer((_) async {});
+          () => mockTokenStorage.accessToken,
+        ).thenAnswer((_) async => 'not-a-jwt');
 
         final user = await repository.tryRestoreSession();
 
-        expect(user, isNull);
-        verify(() => mockTokenStorage.deleteTokens()).called(1);
-        verify(() => mockUserStorage.clear()).called(1);
+        expect(user, isNotNull);
+        verifyNever(() => mockAuthService.refreshToken(any()));
       });
 
       test('clears session on unexpected exception', () async {
@@ -296,6 +376,47 @@ void main() {
           () => repository.createGuest(),
           throwsA(isA<NetworkException>()),
         );
+      });
+
+      test('refuses while a saved account is kept: nothing is sent', () async {
+        when(() => mockTokenStorage.hasTokens).thenAnswer((_) async => true);
+
+        await expectLater(
+          () => repository.createGuest(displayName: 'Bo'),
+          throwsA(isA<SavedAccountExists>()),
+        );
+        verifyNever(
+          () => mockAuthService.createGuest(
+            displayName: any(named: 'displayName'),
+          ),
+        );
+      });
+
+      test('replacing the signed-in account makes a new one', () async {
+        final createdUser = User(id: 43, displayName: 'Bo');
+        when(() => mockTokenStorage.hasTokens).thenAnswer((_) async => true);
+        when(() => mockAuthService.createGuest(displayName: 'Bo')).thenAnswer(
+          (_) async => (
+            tokens: (access: 'access', refresh: 'refresh'),
+            user: createdUser,
+          ),
+        );
+        when(
+          () => mockTokenStorage.saveTokens(
+            accessToken: 'access',
+            refreshToken: 'refresh',
+          ),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockUserStorage.saveUser(id: 43, displayName: 'Bo'),
+        ).thenAnswer((_) async {});
+
+        final user = await repository.createGuest(
+          displayName: 'Bo',
+          replacing: true,
+        );
+
+        expect(user, createdUser);
       });
     });
 

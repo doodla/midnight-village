@@ -58,9 +58,7 @@ class JoinScreen extends ConsumerWidget {
       if (await attempt && link != null && context.mounted) context.go('/');
     }
 
-    // This device's saved account could not be read back (no answer): it is
-    // tried again on "Try again", not given up for a new one.
-    final restoreFailed = auth is AuthError && flow.banner == null;
+    // (A saved account being read back never shows 01: `HomeGate` waits.)
     void goThere() {
       notifier.goThere();
       context.go('/');
@@ -68,21 +66,15 @@ class JoinScreen extends ConsumerWidget {
 
     final (String? banner, String? action, VoidCallback? onAction) = switch ((
       elsewhere,
-      restoreFailed,
       flow,
     )) {
-      (true, _, _) => (BannerCopy.alreadyInLobby, BannerCopy.goThere, goThere),
-      (_, true, _) => (
-        BannerCopy.notSent,
-        BannerCopy.tryAgain,
-        () => ref.invalidate(authProvider),
-      ),
-      (_, _, JoinFlowState(goThere: true)) => (
+      (true, _) => (BannerCopy.alreadyInLobby, BannerCopy.goThere, goThere),
+      (_, JoinFlowState(goThere: true)) => (
         flow.banner,
         BannerCopy.goThere,
         goThere,
       ),
-      (_, _, JoinFlowState(retry: true)) => (
+      (_, JoinFlowState(retry: true)) => (
         flow.banner,
         BannerCopy.tryAgain,
         () => unawaited(sat(notifier.retry())),
@@ -102,6 +94,37 @@ class JoinScreen extends ConsumerWidget {
       onEdited: notifier.clearBanner,
       onStart: (name) => unawaited(sat(notifier.start(name))),
       onJoin: (name, code) => unawaited(sat(notifier.join(name, code))),
+    );
+  }
+}
+
+/// The app opening while this device's saved account is read back: 01's
+/// village and title, so it reads as the game opening, and "One moment"
+/// under them once a try got no answer (it is made again by itself). No
+/// field and no button: nothing here can make a second account.
+class OpeningWait extends StatelessWidget {
+  const OpeningWait({super.key, this.unanswered = false});
+
+  final bool unanswered;
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = context.skin;
+    return ScreenFrame(
+      ground: GroundKind.night,
+      topArt: skin.art.streetDoor,
+      topArtLayout: TopArtLayout.fill,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.lgPlus,
+        children: [
+          Semantics(
+            header: true,
+            child: FitLine(JoinCopy.title, style: skin.typography.heroTitle),
+          ),
+          if (unanswered) const Notice(message: BannerCopy.offline),
+        ],
+      ),
     );
   }
 }
@@ -236,7 +259,10 @@ class _JoinViewState extends State<JoinView> {
           children: [
             Semantics(
               header: true,
-              child: FitLine(JoinCopy.title, style: type.heroTitle),
+              child: FitLine(
+                JoinCopy.title,
+                style: type.heroTitle.copyWith(fontSize: 42),
+              ),
             ),
             SkinField.paper(
               controller: _name,

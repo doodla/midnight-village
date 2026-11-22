@@ -25,7 +25,7 @@ import 'contract_samples.dart';
 /// and the order of events.
 ///
 /// Dictionary objects (data as keys: role names in `settings.roles` and a
-/// lobby's `deck_preview`, player ids in `votes`) have their keys collapsed
+/// lobby's `deck_preview` and `deck_cards`, player ids in `votes`) have their keys collapsed
 /// to `*`.
 class ContractShape {
   ContractShape._(this._types, this._required, this._opaque);
@@ -102,7 +102,7 @@ class ContractShape {
       path.isEmpty ? key : '$path.$key';
 
   static final _digits = RegExp(r'^\d+$');
-  static const _dictionaries = ['settings.roles', 'deck_preview'];
+  static const _dictionaries = ['settings.roles', 'deck_preview', 'deck_cards'];
 
   static String _key(String parent, String key) =>
       _digits.hasMatch(key) || _dictionaries.any((d) => parent.endsWith(d))

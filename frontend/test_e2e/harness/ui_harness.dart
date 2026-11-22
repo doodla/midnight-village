@@ -73,10 +73,10 @@ class UiHarness {
 
   List<Override> _overrides() => [
     // Re-target the UNAUTHENTICATED client at the harness backend too. The auth
-    // bootstrap (tryRestoreSession) and the router's `current-game` redirect use
-    // this client; left at the dev `:8000` URL it fires async `Connection
-    // refused` errors (dev backend isn't running) that surface as flaky test
-    // failures even though the perspective itself loads fine.
+    // bootstrap (tryRestoreSession, renewing an expired access token) and
+    // guest sign-up use this client; left at the dev `:8000` URL it fires
+    // async `Connection refused` errors (dev backend isn't running) that
+    // surface as flaky test failures even though the perspective loads fine.
     apiClientProvider.overrideWithValue(
       ApiClient(baseUrl: HarnessConfig.apiBaseUrl),
     ),

@@ -33,16 +33,47 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 `docs/dev/running-the-work.md`.
 
-## In flight (21 November 2026)
+## In flight (22 November 2026)
 
-- Set-up page: host-chosen player count (`seats`), every timer editable, deck always face up,
-  the "Scan to join" wording, the leave bug. Worktree `agent-a6a63f89cd81af037`.
-- Android and web first impression (icon, name, launch). Worktree `agent-a9061e688f64e8332`.
-- Read-only audit of back, loading and speed on the live app; notes in the session scratchpad
-  (file audit.md in a folder named back-loading). The fix follows as its own piece, by a separate agent.
+- Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
+  the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
+  (same files), as small pull requests: back, then loading, then speed. Keeping the server
+  warm and moving the database are proposals for the deployment session only.
 
-## Waiting on the owner
+## Done
 
-- Six sample looks: https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2 (no reaction yet; no
-  more look work until then).
-- Practice players: build it next?
+- A seated player is never stranded, and the app opens with fewer requests (audit items 4
+  and 6): the saved account is restored by itself until the server answers, no new account
+  is made over a saved one, a deleted account gets a clean fresh start, a lost renewal answer
+  no longer costs the seat (the old refresh token is no longer cancelled on renewal), and
+  opening in a game is 2 requests at once where it was 4 in a row.
+- Set-up page (issue 7): the host picks the number of players, every timer has its own
+  stepper (the Doppelganger's only while the card is in the deck), the deck is face up for
+  everyone, a "picked / needed" counter, "Scan to join" only on a QR code, and leaving no
+  longer says "Not sent." Practice-players proposal: `docs/specs/onuw/solo-play-proposal.md`.
+  Still weak: "Play with 3" shows as soon as three are here.
+- Android and web first impression (icon, name, launch screen): pull request 6, merged
+  (06d0468). The deployment session was asked for a fresh Android install file.
+
+## Relayed by the coordinating session, 22 November 2026 (not heard directly; confirm with the owner)
+
+- Practice players: yes, "but hidden enable so it's not visible to everyone. I'm thinking long
+  press on an element or something". Switched on by a hidden gesture on an existing element;
+  nothing visible to ordinary players. Not started; after the set-up page.
+- "Polish puzzles" was a typo for "polish passes".
+- Six sample looks (https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2): "Skip till our default
+  is good". Parked: no other looks until Shadow paper is good.
+- Polish passes: "include design improvements as well. Make the game look prettier and feel
+  better, without costing usability". Screen by screen, after that screen's fixes land; before
+  and after pictures to the owner; no added waits.
+- "Include vibration." (The coordinating session's reading: light, on day screens such as
+  locking a vote, the card flip and Ready; never at night.)
+- "The bar is a game that can win awards. Micro interactions matter." Every touch answers at
+  once; the small moments (press, lock, join, error, empty) are designed, not default.
+- "New assets are okay" for polish passes. Relayed only: this session still asks before making
+  art in bulk until the owner says so directly.
+- From the owner's board, 22 November (relayed): the Doppelganger timer shows only "when it's
+  in the game"; renaming yourself at a table: yes; back during a game does nothing, only Leave
+  exits; polish passes 1 to 8: "Do it"; "See 1 or 2 cards is ambiguous" (the night wording is
+  being reworked by the coordinating session); sounds: none for now; "The text sizes on the
+  main screen feel a bit too big" (first screen and table; options going to the board).

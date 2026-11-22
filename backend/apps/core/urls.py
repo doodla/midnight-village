@@ -4,16 +4,19 @@ Core app URL configuration.
 
 from django.urls import path
 
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from . import views
+from .auth import AccountTokenRefreshView
 
 app_name = "core"
 
 urlpatterns = [
     path("health/", views.health_check, name="health-check"),
     path("auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path(
+        "auth/token/refresh/", AccountTokenRefreshView.as_view(), name="token_refresh"
+    ),
     path("auth/guest/", views.GuestCreateView.as_view(), name="guest-create"),
     path("lobbies/", views.LobbyCreateView.as_view(), name="lobby-list"),
     path("lobbies/<str:code>/", views.LobbyDetailView.as_view(), name="lobby-detail"),

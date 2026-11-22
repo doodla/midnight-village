@@ -101,11 +101,100 @@ void main() {
     expect(_taps(drunk, [_left, PlayerPick(other)]), [_left]);
   });
 
-  test('a shape the app does not know is a broken payload', () {
+  group('a card that cannot join the pick is dimmed', () {
+    final seer = _rule('me_choose_prompt_seer');
+    final cleoPick = PlayerPick(cleo.id);
+
+    test("the Seer's: nothing at first; one player, everything else; one "
+        'center card, the players and no other center card', () {
+      for (final card in [cleoPick, PlayerPick(ben.id), _left, _middle]) {
+        expect(seer.dims(card, const []), isFalse);
+      }
+      expect(seer.dims(PlayerPick(ben.id), [cleoPick]), isTrue);
+      expect(seer.dims(_left, [cleoPick]), isTrue);
+      expect(seer.dims(PlayerPick(ben.id), [_left]), isTrue);
+      expect(seer.dims(_middle, [_left]), isFalse);
+      expect(seer.dims(_right, [_left]), isFalse);
+      expect(seer.dims(_middle, [_left, _right]), isTrue);
+    });
+
+    test('nothing dims before the first pick, for any recorded prompt: the '
+        'board shows no role until the first tap', () {
+      for (final sample in _prompts) {
+        final rule = _rule(sample);
+        for (final card in [cleoPick, _left, _middle, _right]) {
+          expect(rule.dims(card, const []), isFalse, reason: sample);
+          expect(rule.dims(card, [_you]), isFalse, reason: sample);
+        }
+      }
+    });
+
+    test('"You" is never dimmed, a card picked is not, and "You" alone '
+        'leaves the pick empty', () {
+      expect(seer.dims(_you, [cleoPick]), isFalse);
+      expect(seer.dims(cleoPick, [cleoPick]), isFalse);
+      expect(seer.dims(_left, [_you]), isFalse);
+      final robber = _rule('me_choose_prompt_robber');
+      expect(robber.dims(_left, [_you]), isFalse);
+      expect(robber.dims(_left, [cleoPick]), isTrue);
+    });
+
+    test("a sleeper's shape is any one card: nothing dims", () {
+      final sleeper = _rule('me_choose_prompt_villager');
+      for (final card in [cleoPick, _left, _right]) {
+        expect(sleeper.dims(card, const []), isFalse);
+      }
+    });
+
+    test('it is exactly the cards a tap would replace the pick with, not '
+        'add to, for every recorded prompt', () {
+      for (final sample in _prompts) {
+        final rule = _rule(sample);
+        final players = {
+          for (final id in rule.players) PlayerPick(id),
+          cleoPick,
+        };
+        final cards = [...players, _left, _middle, _right];
+        // Every pick a player can be in the middle of: none, one card, two.
+        final singles = [
+          for (final card in cards)
+            if (rule.canPick(card)) [card],
+        ];
+        final pairs = [
+          for (final one in singles)
+            for (final card in cards) rule.tap(one, card),
+        ].where((picks) => picks.length == 2);
+        for (final picks in [const <NightPick>[], ...singles, ...pairs]) {
+          for (final card in cards) {
+            if (picks.contains(card) || !rule.canPick(card)) continue;
+            final after = rule.tap(picks, card);
+            final adds = picks.every(after.contains) && after.contains(card);
+            expect(
+              rule.dims(card, picks),
+              !adds,
+              reason: '$sample: $card after $picks',
+            );
+          }
+        }
+      }
+    });
+  });
+
+  test('a shape the app does not know is left out, and a prompt left with '
+      'none takes any one card: no crash in a player\'s hand', () {
     final prompt =
         recordedMe('me_choose_prompt_seer')['action_prompt']
             as Map<String, dynamic>;
     (prompt['shapes'] as List).first = {'tokens': 1};
-    expect(() => PickRule.fromPrompt(prompt), throwsA(isA<FormatException>()));
+    final rule = PickRule.fromPrompt(prompt);
+    // Her {"center": 2} stays; the unknown one is gone.
+    expect(rule.fits([_left, _right]), isTrue);
+    expect(rule.fits([PlayerPick(cleo.id)]), isFalse);
+    (prompt['shapes'] as List)
+      ..clear()
+      ..add({'tokens': 1});
+    final plain = PickRule.fromPrompt(prompt);
+    expect(plain.fits([PlayerPick(cleo.id)]), isTrue);
+    expect(plain.fits([_left]), isTrue);
   });
 }

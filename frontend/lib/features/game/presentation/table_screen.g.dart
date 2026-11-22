@@ -68,6 +68,12 @@ abstract class _$LocalStepsNotifier extends $Notifier<StepRecord> {
 /// the local steps are applied ([screenFor]). While either is fetched again
 /// the values held are used, so the screen never drops to loading or an
 /// error while there is something to show. A game that is gone is 01.
+///
+/// Opening the app, the seat this device last had ([LastSeat]) is read
+/// beside `/me/table/`, not after it: its game's `/me/` (or its waiting
+/// table's lobby) goes out at the same time, so a player still there sees
+/// their screen one round trip after the app opens. `/me/table/` decides;
+/// a seat it does not name is dropped (one read spent).
 
 @ProviderFor(tableScreen)
 const tableScreenProvider = TableScreenProvider._();
@@ -77,6 +83,12 @@ const tableScreenProvider = TableScreenProvider._();
 /// the local steps are applied ([screenFor]). While either is fetched again
 /// the values held are used, so the screen never drops to loading or an
 /// error while there is something to show. A game that is gone is 01.
+///
+/// Opening the app, the seat this device last had ([LastSeat]) is read
+/// beside `/me/table/`, not after it: its game's `/me/` (or its waiting
+/// table's lobby) goes out at the same time, so a player still there sees
+/// their screen one round trip after the app opens. `/me/table/` decides;
+/// a seat it does not name is dropped (one read spent).
 
 final class TableScreenProvider
     extends
@@ -91,6 +103,12 @@ final class TableScreenProvider
   /// the local steps are applied ([screenFor]). While either is fetched again
   /// the values held are used, so the screen never drops to loading or an
   /// error while there is something to show. A game that is gone is 01.
+  ///
+  /// Opening the app, the seat this device last had ([LastSeat]) is read
+  /// beside `/me/table/`, not after it: its game's `/me/` (or its waiting
+  /// table's lobby) goes out at the same time, so a player still there sees
+  /// their screen one round trip after the app opens. `/me/table/` decides;
+  /// a seat it does not name is dropped (one read spent).
   const TableScreenProvider._()
     : super(
         from: null,
@@ -125,4 +143,4 @@ final class TableScreenProvider
   }
 }
 
-String _$tableScreenHash() => r'dacb1c3c288c292b18a2675ca634e1d9fee630f7';
+String _$tableScreenHash() => r'9aca88476078013db61a686488018f612ce57170';

@@ -20,8 +20,8 @@ class AuthenticatedClient {
            Dio(
              BaseOptions(
                baseUrl: baseUrl,
-               connectTimeout: const Duration(seconds: 10),
-               receiveTimeout: const Duration(seconds: 10),
+               connectTimeout: timeout,
+               receiveTimeout: timeout,
                headers: {
                  'Content-Type': 'application/json',
                  'Accept': 'application/json',
@@ -41,6 +41,9 @@ class AuthenticatedClient {
   AuthenticatedClient.forTesting({required Dio dio}) : _dio = dio;
 
   final Dio _dio;
+
+  /// How long a request waits to connect, and for its answer.
+  static const timeout = Duration(seconds: 10);
 
   Future<Response<T>> get<T>(String path) => _dio.get<T>(path);
 

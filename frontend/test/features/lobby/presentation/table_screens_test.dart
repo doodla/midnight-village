@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/chips.dart';
 import 'package:midnight_village/design_system/primitives/notice.dart';
@@ -11,13 +12,13 @@ import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/text_action.dart';
-import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/deck_screen.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/mock_http_client.dart';
+import '../../../helpers/live_game_setup.dart' show recordedMe;
 import '../../../helpers/table_setup.dart';
 
 // 01 Join, 02 Table, 03 Deck and 03b through the app's routes and providers,
@@ -90,6 +91,9 @@ void main() {
         'a table and shows it', (tester) async {
       final setup = await TableSetup.pump(tester, realAuth: true);
       final created = v2Lobby('created_with_defaults');
+      // The guest account the sample makes is id 1; the table's host is Ana.
+      (created['host'] as Map)['id'] = 1;
+      ((created['players'] as List).first as Map)['user']['id'] = 1;
       setup.http
         ..answer(
           'POST',
@@ -98,9 +102,6 @@ void main() {
           status: 201,
         )
         ..answer('POST', '/lobbies/', created, status: 201);
-      // The guest account the sample makes is id 1; the table's host is Ana.
-      (created['host'] as Map)['id'] = 1;
-      ((created['players'] as List).first as Map)['user']['id'] = 1;
       setup.sitAt(created, 'Ana');
 
       await tester.enterText(find.byType(TextField), 'Ana');
@@ -118,6 +119,40 @@ void main() {
       expect(table.data, {'game_type': 'onuw', 'defaults': 'v2'});
       expect(find.text(TableCopy.scan), findsOneWidget);
       expect(find.byType(QrPicture), findsOneWidget);
+      // The answer is the table: no second read of it, before or after.
+      expect(setup.count('GET', '/lobbies/${created['code']}/'), 0);
+      await setup.close(tester);
+    });
+
+    testWidgets('with no web address known (an app build) there is nothing '
+        'to scan: no "Scan to join", the code labelled as 01 asks for it', (
+      tester,
+    ) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('created_with_defaults'),
+        viewer: 'Ana',
+        webAddress: false,
+      );
+
+      expect(find.byType(QrPicture), findsNothing);
+      expect(find.text(TableCopy.scan), findsNothing);
+      expect(find.text(JoinCopy.codeHint), findsOneWidget);
+      expect(find.text('R5ZD3H'), findsOneWidget);
+      await setup.close(tester);
+    });
+
+    testWidgets('with the QR code, "Scan to join" is its label and the code '
+        'has its own', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('created_with_defaults'),
+        viewer: 'Ana',
+      );
+
+      expect(find.byType(QrPicture), findsOneWidget);
+      expect(find.text(TableCopy.scan), findsOneWidget);
+      expect(find.text(JoinCopy.codeHint), findsOneWidget);
       await setup.close(tester);
     });
 
@@ -366,8 +401,9 @@ void main() {
       );
 
       expect(find.byType(RoleCard), findsWidgets);
-      expect(_onPressed(tester, CommonCopy.addCard), isNull);
-      expect(find.textContaining('Deal'), findsNothing);
+      // One label, locked: never card arithmetic.
+      expect(_onPressed(tester, TableCopy.deal.fill({'n': 8})), isNull);
+      expect(find.textContaining('card'), findsNothing);
       await setup.close(tester);
     });
 
@@ -384,7 +420,7 @@ void main() {
       await setup.settle(tester);
 
       expect(find.text('Sam'), findsOneWidget);
-      expect(_onPressed(tester, CommonCopy.addCard), isNull);
+      expect(_onPressed(tester, TableCopy.deal.fill({'n': 8})), isNull);
       await setup.close(tester);
     });
 
@@ -485,7 +521,39 @@ void main() {
         find.text(TableCopy.hostDeals.fill({'host': 'Ana'})),
       );
       final skin = tester.element(find.byType(TextAction)).skin;
-      expect(heading.style!.fontSize, skin.typography.heroTitle.fontSize);
+      expect(heading.style!.fontSize, skin.typography.headline.fontSize);
+      await setup.close(tester);
+    });
+
+    testWidgets('two to a line, every name is one size, at the reading floor '
+        'or more', (tester) async {
+      tester.view
+        ..physicalSize = const Size(780, 1688)
+        ..devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      const names = {
+        'Cleo': 'Rosalind Fairweather',
+        'Esme': 'Bartholomew',
+        'Gus': 'Wolfgang Amadeus',
+        'Hana': 'Penelope',
+      };
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_auto_deck_9', rename: names),
+        viewer: 'Ana',
+      );
+
+      final sizes = {
+        for (final name in [...names.values, 'Ben', 'Dev'])
+          tester.widget<Text>(find.text(name)).style!.fontSize!,
+      };
+      expect(sizes, hasLength(1), reason: 'one size for every name');
+      expect(sizes.single, greaterThanOrEqualTo(ReadingFloor.act));
+      expect(
+        tester.getTopLeft(find.text('Ben')).dx,
+        greaterThan(tester.getTopLeft(find.text('Ana')).dx + 100),
+        reason: 'two to a line: Ben sits beside Ana',
+      );
       await setup.close(tester);
     });
 
@@ -504,7 +572,8 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('Deal deals, and the table is read again to open the game', (
+    testWidgets('Deal deals, and the table is read again to open the game; '
+        'the dealt game is read at the same time, not after the table', (
       tester,
     ) async {
       final setup = await TableSetup.pump(
@@ -513,17 +582,27 @@ void main() {
         viewer: 'Ana',
       );
       final reads = setup.count('GET', '/me/table/');
+      final started = ContractSamples.map('http/game/started_with_look');
       setup.http.answer(
         'POST',
         '/onuw/lobbies/V9YC2J/start/',
-        ContractSamples.map('http/game/started_with_look'),
+        started,
         status: 201,
       );
+      final dealt = recordedMe('me_look_stage');
+      expect(dealt['game_id'], started['game_id']);
+      setup.answerGame(dealt);
 
       await _tap(tester, setup, find.text(TableCopy.deal.fill({'n': 5})));
 
       expect(setup.count('POST', '/onuw/lobbies/V9YC2J/start/'), 1);
       expect(setup.count('GET', '/me/table/'), greaterThan(reads));
+      // The deal's answer names the game: its `/me/` is read from it, even
+      // while `/me/table/` (still waiting here) has not moved on.
+      expect(
+        setup.count('GET', '/onuw/games/${started['game_id']}/me/'),
+        isPositive,
+      );
       await setup.close(tester);
     });
 
@@ -550,6 +629,7 @@ void main() {
         ContractSamples.map('http/game/started_with_look'),
         status: 201,
       );
+      setup.answerGame(recordedMe('me_look_stage'));
       await _tap(tester, setup, find.text(BannerCopy.tryAgain));
 
       expect(setup.count('POST', '/onuw/lobbies/V9YC2J/start/'), 2);
@@ -566,14 +646,21 @@ void main() {
         viewer: 'Ben',
       );
       final reads = setup.count('GET', '/me/table/');
+      final dealt = recordedMe('me_look_stage');
+      setup.answerGame(dealt);
 
       setup.event({
         ...ContractSamples.map('ws/lobby/game_started'),
-        'game_id': 'game-two',
+        'game_id': dealt['game_id'],
       });
       await setup.settle(tester);
 
       expect(setup.count('GET', '/me/table/'), greaterThan(reads));
+      // The event names the game: a guest reads it at once too.
+      expect(
+        setup.count('GET', '/onuw/games/${dealt['game_id']}/me/'),
+        isPositive,
+      );
       await setup.close(tester);
     });
 
@@ -795,9 +882,9 @@ void main() {
         if (card.count > 0) card.role: card.count,
     };
 
-    Map<RoleId, int> previewOf(Map<String, dynamic> body) => {
+    Map<RoleId, int> cardsOf(Map<String, dynamic> body) => {
       for (final MapEntry(:key, :value)
-          in (body['deck_preview'] as Map<String, dynamic>).entries)
+          in (body['deck_cards'] as Map<String, dynamic>).entries)
         RoleId.fromServer(key)!: value as int,
     };
 
@@ -809,7 +896,7 @@ void main() {
         viewer: 'Kai',
       );
       expect(_chip(tester, 'Classic').selected, isTrue);
-      expect(shown(tester), previewOf(v2Lobby('detail_deck_classic_7')));
+      expect(shown(tester), cardsOf(v2Lobby('detail_deck_classic_7')));
       final held = setup.http.hold(method: 'PATCH', path: '/lobbies/B7DH4Q/');
       final answer = v2Lobby('detail_deck_chaos_7');
       setup.answerPatch(answer);
@@ -818,127 +905,123 @@ void main() {
 
       expect(_chip(tester, 'Chaos').selected, isTrue);
       expect(_chip(tester, 'Classic').selected, isFalse);
-      // The Classic cards are not shown under Chaos while it is sent.
-      expect(find.byType(RoleCard), findsNothing);
       expect(setup.patches, [
         {'deck': 'auto', 'deck_chip': 'chaos'},
       ]);
       held.releaseAll();
       await setup.settle(tester);
       expect(_chip(tester, 'Chaos').selected, isTrue);
-      expect(shown(tester), previewOf(answer));
+      expect(shown(tester), cardsOf(answer));
       await setup.close(tester);
     });
 
-    testWidgets('"Edit" on a chip\'s cards starts the grid from them', (
-      tester,
-    ) async {
+    testWidgets('a tap on a card of the automatic deck makes it the host\'s '
+        'own, from those cards, for the players here', (tester) async {
       final setup = await openDeck(
         tester,
         sample: 'detail_deck_simple_7',
         viewer: 'Kai',
       );
-      final preview = previewOf(v2Lobby('detail_deck_simple_7'));
-
-      await _tap(
-        tester,
-        setup,
-        find.widgetWithText(SecondaryButton, TableCopy.editDeck),
-      );
-
+      final cards = cardsOf(v2Lobby('detail_deck_simple_7'));
       expect(find.byType(RoleCard), findsNWidgets(deckOrder.length));
-      expect(shown(tester), preview);
-      expect(_chip(tester, 'Simple').selected, isFalse);
-      expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
-      await setup.close(tester);
-    });
-
-    testWidgets('a deck of the wrong size: "Use this deck" names the cards '
-        'the server\'s deal needs', (tester) async {
-      final setup = await openDeck(
-        tester,
-        sample: 'detail_custom_deck_short',
-        viewer: 'Kai',
-      );
-      // Ten cards for eight: the server needs eleven.
-      expect(_onPressed(tester, CommonCopy.addCard), isNull);
-      await setup.close(tester);
-    });
-
-    testWidgets('Edit opens the grid; the deck is sent with "Use this deck", '
-        'amber only at a card for everyone and three more', (tester) async {
-      final setup = await openDeck(tester, sample: 'detail_custom_deck');
-      // The grid is open on the host's own deck of twelve, for nine.
-      expect(find.byType(RoleCard), findsNWidgets(deckOrder.length));
-      expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
+      expect(shown(tester), cards);
+      setup.http.hold(method: 'PATCH', path: '/lobbies/B7DH4Q/');
+      setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
 
       await _tap(tester, setup, _role(RoleId.tanner));
-      expect(_onPressed(tester, CommonCopy.addCard), isNull);
-      await _tap(tester, setup, _role(RoleId.hunter));
-      expect(_onPressed(tester, DeckCopy.useDeck), isNotNull);
-
-      // Held: what shows is this phone's change, not the answer.
-      setup.http.hold(method: 'PATCH', path: '/lobbies/T8NB6C/');
-      setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
-      await _tap(tester, setup, find.text(DeckCopy.useDeck));
 
       final sent = setup.patches.single! as Map;
       expect(sent['deck'], 'custom');
-      expect((sent['roles'] as Map)['Hunter'], 1);
-      expect((sent['roles'] as Map).containsKey('Tanner'), isFalse);
-      // Back at the table.
-      expect(find.text(TableCopy.scan), findsOneWidget);
+      expect(sent['seats'], 7);
+      expect(sent['roles'], {
+        for (final MapEntry(:key, :value) in cards.entries)
+          key.displayName: value,
+        'Tanner': 1,
+      });
+      expect(_chip(tester, 'Simple').selected, isFalse);
+      expect(shown(tester), {...cards, RoleId.tanner: 1});
       await setup.close(tester);
     });
 
-    testWidgets('"Use this deck" with a chip sends nothing and goes back', (
+    testWidgets('a deck that does not fit: "Done" is still live; 02 shows '
+        'the count to the host only, Deal locked, and the count opens 03', (
       tester,
     ) async {
+      // Set for seven, the host's own deck of eleven (built for eight).
+      final setup = await openDeck(
+        tester,
+        sample: 'settings_seats_lowered',
+        viewer: 'Tia',
+      );
+      expect(find.text('11 / 10'), findsOneWidget);
+      expect(_onPressed(tester, DeckCopy.done), isNotNull);
+      expect(find.textContaining('card'), findsNothing);
+      await _tap(tester, setup, find.text(DeckCopy.done));
+
+      expect(find.text('11 / 10'), findsOneWidget, reason: "on the host's 02");
+      expect(_onPressed(tester, TableCopy.deal.fill({'n': 7})), isNull);
+      await _tap(tester, setup, find.text('11 / 10'));
+      expect(find.text(DeckCopy.headline), findsOneWidget, reason: 'to 03');
+      await setup.close(tester);
+
+      final guest = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('settings_seats_lowered'),
+        viewer: 'Ugo',
+      );
+      expect(find.text('11 / 10'), findsNothing, reason: "never a guest's");
+      await guest.close(tester);
+    });
+
+    testWidgets('"Done" sends nothing and goes back', (tester) async {
       final setup = await openDeck(tester);
 
-      await _tap(tester, setup, find.text(DeckCopy.useDeck));
+      await _tap(tester, setup, find.text(DeckCopy.done));
 
       expect(setup.patches, isEmpty);
       expect(find.text(TableCopy.scan), findsOneWidget);
       await setup.close(tester);
     });
 
-    testWidgets('a pace chip sends the preset\'s lengths and is chosen at '
-        'once', (tester) async {
-      final setup = await openDeck(tester);
-      // Held: its answer is not needed for what shows.
-      setup.http.hold(method: 'PATCH', path: '/lobbies/V9YC2J/');
+    testWidgets('every length the server has shows its value and unit, the '
+        'server\'s defaults on a new table, and a step sends it at once', (
+      tester,
+    ) async {
+      final setup = await openDeck(
+        tester,
+        sample: 'created_with_defaults',
+        viewer: 'Ana',
+      );
+      final lengths =
+          v2Lobby('created_with_defaults')['lengths'] as Map<String, dynamic>;
+      for (final length in Length.values) {
+        // The Doppelganger's is also a card's name in the grid.
+        expect(
+          find.text(lengthLabel(length)),
+          length == Length.doppelganger ? findsWidgets : findsOneWidget,
+          reason: length.key,
+        );
+      }
+      expect(lengths['discussion_seconds'], 300);
+      expect(find.text('5 min'), findsOneWidget);
+      setup.http.hold(method: 'PATCH', path: '/lobbies/R5ZD3H/');
       setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
 
-      await _tap(tester, setup, find.text(paceChipLabel(Pace.quick)));
+      final talk = find.ancestor(
+        of: find.text(DeckCopy.talk),
+        matching: find.byType(Row),
+      );
+      await _tap(
+        tester,
+        setup,
+        find.descendant(of: talk.first, matching: find.byIcon(Icons.add)),
+      );
 
-      expect(_chip(tester, paceChipLabel(Pace.quick)).selected, isTrue);
+      // Whole minutes from five on.
       expect(setup.patches, [
-        {
-          'discussion_seconds': 180,
-          'voting_seconds': 45,
-          'night_wave_seconds': 20,
-        },
+        {'discussion_seconds': 360},
       ]);
-      // The lengths show under it.
-      expect(find.text(DeckCopy.talk), findsOneWidget);
-      await setup.close(tester);
-    });
-
-    testWidgets('each pace chip says the talk it gives; back on 02 the '
-        'chosen pace shows beside the deck', (tester) async {
-      final setup = await openDeck(tester);
-      expect([
-        for (final pace in Pace.values) find.text(paceChipLabel(pace)),
-      ], everyElement(findsOneWidget));
-      expect(find.text('Normal 5:00'), findsOneWidget);
-      setup.http.hold(method: 'PATCH', path: '/lobbies/V9YC2J/');
-      setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
-      await _tap(tester, setup, find.text(paceChipLabel(Pace.long)));
-      await _tap(tester, setup, find.text(DeckCopy.useDeck));
-
-      expect(find.text(TableCopy.scan), findsOneWidget, reason: 'on 02');
-      expect(_chip(tester, WorldTimer.format(Pace.long.talk)).selected, isTrue);
+      expect(find.text('6 min'), findsOneWidget);
       await setup.close(tester);
     });
 

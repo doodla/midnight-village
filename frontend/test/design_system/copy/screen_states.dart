@@ -53,18 +53,33 @@ final _windowOne = <String, List<Object>>{
 /// "You" on the board, with the board's title (the prompt's): each prompt's
 /// instruction, the Doppelganger's page once her copy is back, and window
 /// 2's second page under any prompt's title.
-final _you = <String, (String, List<Object>)>{
+final _you = <String, (NightPrompt, List<Object>)>{
   for (final prompt in NightPrompt.values)
-    prompt.name: (prompt.title, [prompt.instruction]),
+    prompt.name: (prompt, [prompt.instruction]),
   for (final followUp in NightPrompt.values)
     'copied, then ${followUp.name}': (
-      followUp.title,
+      followUp,
       [NightCopy.copied, followUp.instruction],
     ),
   for (final prompt in NightPrompt.values)
     for (final MapEntry(:key, :value) in _windowOne.entries)
-      'window 2 page 2, $key, ${prompt.name}': (prompt.title, value),
+      'window 2 page 2, $key, ${prompt.name}': (prompt, value),
 };
+
+/// The buttons a board of [prompt] shows: waiting for a pick, the picks
+/// whole (what will happen), passing, and chosen; a sleeper's is quiet (and
+/// carries the plain fallback words no board shows).
+List<Object> _buttons(NightPrompt prompt) => [
+  if (prompt.instruction == NightCopy.noChoice) ...[
+    NightCopy.nothingToDo,
+  ] else ...[
+    NightCopy.chooseNone,
+    NightCopy.chooseMore,
+    NightCopy.chosen,
+  ],
+  prompt.go,
+  prompt.pass,
+];
 
 /// My night's pages (08).
 final _myNight = <String, List<Object>>{
@@ -76,7 +91,16 @@ final _myNight = <String, List<Object>>{
 
 List<Line> _face(List<Object> lines) => [for (final l in lines) face(l)];
 
-const _tiles = [DeckCopy.talk, DeckCopy.vote, DeckCopy.night, DeckCopy.copy];
+/// The set-up page's lengths (the Doppelganger's is the role's name).
+const _lengths = [
+  DeckCopy.look,
+  DeckCopy.night,
+  DeckCopy.nightMinimum,
+  DeckCopy.talk,
+  DeckCopy.vote,
+  DeckCopy.droppedPhone,
+  DeckCopy.hostAway,
+];
 
 const _winners = [
   ResultsCopy.villageWins,
@@ -119,23 +143,23 @@ final screens = <String, Screen>{
     },
   ),
   '02 Table': (
-    // The spec's 7, and the host's quiet labelled "Leave" (review, 21
-    // November 2026: a glyph in the corner handed the table away on one
-    // stray tap); Share is a glyph, spoken only.
-    budget: 8,
+    // The host's: the QR code's "Scan to join", the code's "Code", who is
+    // here of how many, "Play with {n}" when fewer came, the set-up (the
+    // chip, the talk's length, the roles face up: names exempt), "Edit",
+    // the deal button's one label and a quiet labelled "Leave"; Share is a
+    // glyph, spoken only.
+    budget: 13,
     states: {
       for (final chip in DeckCopy.chips)
-        for (final deal in <Object>[
-          TableCopy.deal,
-          TableCopy.needPlayers,
-          CommonCopy.addCards,
-          CommonCopy.removeCards,
-          CommonCopy.addCard,
-          CommonCopy.removeCard,
-        ])
+        for (final deal in <Object>[TableCopy.deal, TableCopy.needPlayers])
           'host, $chip: $deal': [
             headline(TableCopy.scan),
+            text(JoinCopy.codeHint),
+            text(TableCopy.seated),
+            button(TableCopy.playWith),
             button(chip),
+            text(DeckCopy.talk),
+            text(DeckCopy.minutes),
             button(TableCopy.editDeck),
             button(deal),
             button(CommonCopy.leave),
@@ -145,41 +169,32 @@ final screens = <String, Screen>{
       'guest': [
         headline(TableCopy.hostDeals),
         text(TableCopy.scan),
+        text(JoinCopy.codeHint),
+        text(TableCopy.seated),
+        text(DeckCopy.chips.first),
+        text(DeckCopy.talk),
+        text(DeckCopy.minutes),
         button(CommonCopy.leave),
       ],
     },
   ),
   '03 Deck': (
-    budget: 15,
+    // The set-up page: the number of players, the deck face up (role names
+    // are exempt; the count is digits), every length with its value.
+    budget: 22,
     states: {
-      // A chip's deck: its cards face up when the server sends them (role
-      // names are exempt), "Edit" opens the grid; the lengths show once set,
-      // "Copy" not (the chip's cards are the server's).
-      'chips': [
-        headline(DeckCopy.headline),
-        for (final chip in DeckCopy.chips) button(chip),
-        button(TableCopy.editDeck),
-        for (final pace in DeckCopy.paces) button(pace),
-        // Each chip's talk length: digits, no words.
-        text(DeckCopy.paceChip),
-        for (final tile in _tiles.take(3)) text(tile),
-        button(DeckCopy.useDeck),
-      ],
-      // The grid open: the role names are exempt; "Copy" with the
-      // Doppelganger in the deck.
-      for (final use in <Object>[
-        DeckCopy.useDeck,
-        CommonCopy.addCards,
-        CommonCopy.removeCards,
-        CommonCopy.addCard,
-        CommonCopy.removeCard,
-      ])
-        'grid: $use': [
+      for (final open in [true, false])
+        open ? 'an open table' : 'set for a number': [
           headline(DeckCopy.headline),
+          text(DeckCopy.players),
+          if (open) text(DeckCopy.any) else text(TableCopy.seated),
           for (final chip in DeckCopy.chips) button(chip),
-          for (final pace in DeckCopy.paces) button(pace),
-          for (final tile in _tiles) text(tile),
-          button(use),
+          for (final length in _lengths) text(length),
+          text(CommonCopy.seconds),
+          text(DeckCopy.minutes),
+          text(DeckCopy.noClock),
+          text(DeckCopy.off),
+          button(DeckCopy.done),
         ],
     },
   ),
@@ -220,22 +235,26 @@ final screens = <String, Screen>{
     },
   ),
   '06 Night board': (
-    budget: 20,
+    budget: 24,
     states: {
-      for (final label in <Object>[
-        NightCopy.chooseNone,
-        NightCopy.chooseMore,
-        NightCopy.choose,
-        NightCopy.keep,
-        NightCopy.chosen,
-        NightCopy.nothingToDo,
-      ])
-        for (final MapEntry(key: key, value: (title, face)) in _you.entries)
+      for (final MapEntry(key: key, value: (prompt, face)) in _you.entries)
+        for (final label in _buttons(prompt))
           '$label, $key': [
-            headline(title),
+            headline(prompt.title),
             // The candle's number in its last minute.
             text(CommonCopy.seconds),
             text(NightCopy.you),
+            // The strip's label (the Seer's board adds her two others), and
+            // each card's own.
+            for (final label in [
+              if (prompt.seats case final seats?) ...[
+                seats,
+                NightCopy.seerOr,
+                ?prompt.strip,
+              ] else
+                NightCopy.centerLabel,
+            ])
+              text(label),
             for (final side in NightCopy.center) text(side),
             cue(CommonCopy.hold),
             button(label),
@@ -383,6 +402,7 @@ final banners = <(String, String?)>[
   (BannerCopy.alreadyInLobby, BannerCopy.goThere),
   (BannerCopy.tableClosed, BannerCopy.goHome),
   (BannerCopy.notSent, BannerCopy.tryAgain),
+  (BannerCopy.cannotLeave, null),
   (BannerCopy.offline, null),
   (BannerCopy.leftGame, BannerCopy.goHome),
   (BannerCopy.copied, null),
@@ -395,6 +415,12 @@ final spoken = [
   SpokenCopy.hidden,
   SpokenCopy.working,
   ResultsCopy.nightSpoken,
+  // A dimmed night card: a tap still switches the pick.
+  NightCopy.switchesPick,
   // 02's Share glyph.
   TableCopy.share,
+  // 03's steppers and the grid card's minus.
+  SpokenCopy.lower,
+  SpokenCopy.higher,
+  SpokenCopy.takeOut,
 ];

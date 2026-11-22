@@ -45,6 +45,11 @@ class ScreenEntry {
 /// component sheet. Adding a screen or a state is one entry here.
 final screenCatalogue = <ScreenEntry>[
   // 01 to 03b through the app's routes (table_fixtures.dart).
+  // Home before 01: the saved account read back (then a try unanswered).
+  ..._rebuilt('01-home-reading-account', null, {
+    '': pumpHomeReading,
+    '-unanswered': pumpHomeUnanswered,
+  }),
   ..._rebuilt('01-join', '01-join.png', {
     '': pumpJoinFresh,
     '-returning': pumpJoinReturning,
@@ -67,8 +72,16 @@ final screenCatalogue = <ScreenEntry>[
     '-custom-short': pumpTableHostMismatch,
     '-dropped': pumpTableDropped,
     '-guest': pumpTableGuest,
-    '-paced': pumpTableHostPaced,
     '-handover': pumpTableHandover,
+    '-seats-alone': pumpTableSeatsAlone,
+    '-seats-3': pumpTableSeatsThree,
+    '-seats-3-guest': (tester) => pumpTableSeatsThree(tester, viewer: 'Ugo'),
+    '-seats-4': pumpTableSeatsFour,
+    '-seats-4-guest': pumpTableSeatsGuest,
+    '-seats-7': pumpTableSeatsSeven,
+    '-seats-lowered': pumpTableSeatsLowered,
+    '-seats-full': pumpTableSeatsFull,
+    '-seats-x1.3': (tester) => pumpTableSeatsAlone(tester, textScale: 1.3),
     '-x1.3': (tester) => pumpTableHost(tester, textScale: 1.3),
     '-guest-x2': (tester) => pumpTableGuest(tester, textScale: 2),
   }),
@@ -78,7 +91,11 @@ final screenCatalogue = <ScreenEntry>[
     '-edit': pumpDeckEdit,
     '-grid': pumpDeckGrid,
     '-grid-short': pumpDeckGridShort,
-    '-paced': pumpDeckPaced,
+    '-seats-8': pumpDeckSeats,
+    '-alone': pumpDeckAlone,
+    '-lengths': pumpDeckLengths,
+    '-lengths-doppelganger': pumpDeckLengthsDoppelganger,
+    '-x1.3': (tester) => pumpDeckAlone(tester, textScale: 1.3),
   }),
   ..._rebuilt('03b-deck-role', '03b-deck-role-explained.png', {
     '': pumpDeckRole,
@@ -98,6 +115,15 @@ final screenCatalogue = <ScreenEntry>[
     '': pumpNightBoard,
     '-sleeper': pumpNightSleeper,
     '-picked': pumpNightPicked,
+    '-seer-center': pumpNightSeerCenter,
+    '-robber': (tester) => pumpNightAs(tester, 'me_choose_prompt_robber'),
+    '-troublemaker': (tester) =>
+        pumpNightAs(tester, 'me_choose_prompt_troublemaker'),
+    '-troublemaker-long': pumpNightTroublemakerLong,
+    '-lone-werewolf': (tester) =>
+        pumpNightAs(tester, 'me_choose_prompt_werewolf_lone'),
+    '-doppelganger': (tester) =>
+        pumpNightAs(tester, 'me_choose_prompt_doppelganger_look'),
     '-chosen': pumpNightChosen,
     '-follow-up': pumpNightFollowUp,
     '-3': pumpNightThree,

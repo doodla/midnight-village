@@ -11,7 +11,17 @@ import 'you_tag.dart';
 
 /// [PlayerRow]'s sizes, from the mocks.
 enum PlayerRowSize {
-  /// At the table (S02): 52 tall, a 38 token, the name at 21.
+  /// At the table (S02): 46 tall, a 32 token, the name at 18 (or the
+  /// [PlayerNameSize] above it).
+  lobby(
+    height: 46,
+    token: TokenSize.lobby,
+    gap: Space.smPlus,
+    endPadding: Space.smPlus,
+    nameSize: 18,
+  ),
+
+  /// The vote's compact fallback (S09): 52 tall, a 38 token, the name at 21.
   compact(
     height: 52,
     token: TokenSize.row,
@@ -41,6 +51,7 @@ enum PlayerRowSize {
     required this.token,
     required this.gap,
     required this.endPadding,
+    this.nameSize,
   });
 
   final double height;
@@ -52,11 +63,30 @@ enum PlayerRowSize {
   /// After the trailing part.
   final double endPadding;
 
+  /// The name's size where it is not a role's own ([lobby]).
+  final double? nameSize;
+
   TextStyle nameStyle(SkinType type) => switch (this) {
+    lobby => type.name.copyWith(fontSize: nameSize),
     compact => type.name,
     large => type.title,
     count => type.heading,
   };
+}
+
+/// One name size for every [PlayerRowSize.lobby] row below it: the table's
+/// two-up rows all set their names at the size the longest word fits at, so a
+/// long name never makes one row's name smaller than its neighbour's.
+class PlayerNameSize extends InheritedWidget {
+  const PlayerNameSize({super.key, required this.size, required super.child});
+
+  final double size;
+
+  static double? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PlayerNameSize>()?.size;
+
+  @override
+  bool updateShouldNotify(PlayerNameSize old) => size != old.size;
 }
 
 /// One player as a strip of paper: token, name, an optional [detail] line
@@ -110,6 +140,13 @@ class PlayerRow extends StatelessWidget {
       left: Radius.circular(lead),
       right: Radius.circular(skin.shape.radius),
     );
+
+    final scoped = size == PlayerRowSize.lobby
+        ? PlayerNameSize.of(context)
+        : null;
+    final nameStyle = scoped == null
+        ? size.nameStyle(skin.typography)
+        : size.nameStyle(skin.typography).copyWith(fontSize: scoped);
 
     final row = AnimatedContainer(
       duration: Motion.quick,
@@ -165,9 +202,7 @@ class PlayerRow extends StatelessWidget {
                         FitWords(
                           name,
                           maxLines: 2,
-                          style: size
-                              .nameStyle(skin.typography)
-                              .copyWith(color: ink),
+                          style: nameStyle.copyWith(color: ink),
                         ),
                         YouTag(ink: ink),
                       ],
@@ -176,9 +211,7 @@ class PlayerRow extends StatelessWidget {
                     FitWords(
                       name,
                       maxLines: 2,
-                      style: size
-                          .nameStyle(skin.typography)
-                          .copyWith(color: ink),
+                      style: nameStyle.copyWith(color: ink),
                     ),
                   // Names wrap between words, never inside one.
                   if (detail case final detail?)

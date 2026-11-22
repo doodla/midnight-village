@@ -167,8 +167,11 @@ class TestLobbyPatch:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_patch_with_wrong_total_card_count_returns_400(self, api_client, db):
-        """PATCH with wrong total role count returns 400."""
+    def test_patch_with_wrong_total_card_count_is_stored_and_reported_by_deal(
+        self, api_client, db
+    ):
+        """A deck being built is stored card by card: a short one is kept, and the
+        lobby body's ``deal`` says it does not fit (the deal is the one judge)."""
         # 3 players need 6 cards; provide only 4
         lobby, host, _ = _create_lobby_with_players(3)
 
@@ -184,7 +187,13 @@ class TestLobbyPatch:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["deal"] == {
+            "ok": False,
+            "need": 6,
+            "have": 4,
+            "seats": None,
+        }
 
     def test_patch_with_odd_mason_count_returns_400(self, api_client, db):
         """PATCH with a single Mason (must be 0 or 2) returns 400."""

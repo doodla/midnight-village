@@ -18,6 +18,7 @@ import 'package:midnight_village/design_system/skin/skin_choice.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
+import 'package:midnight_village/features/game/presentation/game_socket.dart';
 import 'package:midnight_village/features/lobby/data/home_service.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/presentation/home_numbers.dart';
@@ -99,6 +100,14 @@ class TableSetup {
   final MockWebSocketChannel ws;
   int? viewerId;
 
+  /// A dealt game's socket.
+  final gameWs = MockWebSocketChannel();
+
+  /// The dealt game's `GET /me/` answers [me] (a recorded `/me/`; its
+  /// `game_id` is the game's).
+  void answerGame(Map<String, dynamic> me) =>
+      http.answer('GET', '/onuw/games/${me['game_id']}/me/', me);
+
   /// The links handed to the share sheet.
   final shared = <Uri>[];
 
@@ -106,6 +115,9 @@ class TableSetup {
   var shareCopies = false;
 
   String get code => lobby!['code'] as String;
+
+  /// Where the app is served from in these tests (the QR code's link).
+  static final _webOrigin = Uri.parse('https://midnight.example');
 
   static Future<TableSetup> pump(
     WidgetTester tester, {
@@ -120,6 +132,9 @@ class TableSetup {
     double keyboard = 0,
     bool realAuth = false,
     bool lobbyDown = false,
+    bool webAddress = true,
+    bool timesOut = true,
+    AuthState? authState,
   }) async {
     // ignore: invalid_use_of_visible_for_testing_member
     SharedPreferences.setMockInitialValues({});
@@ -128,7 +143,9 @@ class TableSetup {
         : memberId(lobby, viewer);
     final setup = TableSetup._(
       lobby,
-      MockHttpClient(),
+      // The app's client gives up after its wait: so does this one (not in
+      // a picture that holds an answer and never waits it out).
+      MockHttpClient(timesOut: timesOut),
       MockWebSocketChannel(),
       viewerId,
     );
@@ -162,11 +179,13 @@ class TableSetup {
       );
     }
     final name = signedInAs ?? viewer;
-    final auth = name == null
-        ? const AuthState.unauthenticated()
-        : AuthState.authenticated(
-            User(id: viewerId ?? userId ?? 900, displayName: name),
-          );
+    final auth =
+        authState ??
+        (name == null
+            ? const AuthState.unauthenticated()
+            : AuthState.authenticated(
+                User(id: viewerId ?? userId ?? 900, displayName: name),
+              ));
     final client = AuthenticatedClient.forTesting(dio: http.dio);
     // The real sign-in: this device's storage (empty: never signed in), the
     // guest account made through the mock server.
@@ -192,9 +211,13 @@ class TableSetup {
             HomeService(client: ApiClient(dio: http.dio)),
           ),
           lobbyWebSocketFactoryProvider.overrideWithValue((_) => setup.ws),
-          appOriginProvider.overrideWithValue(
-            Uri.parse('https://midnight.example'),
+          // A dealt game's socket (its `/me/` is read from the deal on).
+          gameWebSocketProvider.overrideWith((ref, id) => null),
+          gameWebSocketStreamProvider.overrideWith(
+            (ref, id) => setup.gameWs.stream,
           ),
+          // Without: an app build that knows no web address (no QR code).
+          appOriginProvider.overrideWithValue(webAddress ? _webOrigin : null),
           shareLinkProvider.overrideWithValue((link) async {
             setup.shared.add(link);
             return setup.shareCopies;
@@ -282,10 +305,11 @@ class TableSetup {
     }
   }
 
-  /// Unmounts the app (its timers go with it).
+  /// Unmounts the app (its timers go with it; an answer still held runs
+  /// out the client's wait).
   Future<void> close(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(AuthenticatedClient.timeout + const Duration(seconds: 1));
   }
 }
 

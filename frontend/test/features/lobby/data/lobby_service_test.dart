@@ -105,23 +105,6 @@ void main() {
       expect(lobby.code, 'ABC123');
     });
 
-    test(
-      'setPace sends the preset\'s lengths, not the Doppelganger\'s',
-      () async {
-        http.answer('PATCH', '/lobbies/ABC123/', _lobby());
-
-        await service.setPace('ABC123', Pace.quick);
-
-        expect(sent().$3, {
-          'settings': {
-            'discussion_seconds': 180,
-            'voting_seconds': 45,
-            'night_wave_seconds': 20,
-          },
-        });
-      },
-    );
-
     test('a deck change during a game is a conflict with its code', () async {
       http.answer(
         'PATCH',

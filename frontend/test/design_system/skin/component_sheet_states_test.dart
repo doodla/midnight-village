@@ -19,9 +19,9 @@ void _phone(WidgetTester tester) {
 
 void main() {
   final shows = <ComponentPage, List<String>>{
-    ComponentPage.actionPicked: ['Choose Cleo'],
+    ComponentPage.actionPicked: ['See Cleo'],
     ComponentPage.actionOneMore: [NightCopy.chooseMore],
-    ComponentPage.actionTwoPicks: ['Choose Left, Right'],
+    ComponentPage.actionTwoPicks: ['See Left, Right'],
     ComponentPage.actionChosen: [NightCopy.chosen],
     ComponentPage.actionNotSent: [BannerCopy.notSent, BannerCopy.tryAgain],
     ComponentPage.talkHeld: ["Cleo's card was: Werewolf."],

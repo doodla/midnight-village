@@ -36,11 +36,11 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Element | Primitive / role |
 |---|---|
 | Street-door picture, 330 tall, focus 50% 12%, fading from 160 | `ScreenFrame(topArt: skin.art.streetDoor, topArtLayout: TopArtLayout.scene)`; focus from `ArtSet.sceneFocus` |
-| "Midnight Village" 46, -0.02em | `FitLine` in `type.heroTitle` (hero line) |
+| "Midnight Village" 46, -0.02em (42 in the owner's 22 November 2026 pass: the title no longer fills the width) | `FitLine` in `type.heroTitle` set to 42 (hero line) |
 | Subtitle 16/500 quiet | `type.lede`, `ground.quietText`; gap `Space.xs` |
 | Column gaps 18 | `Space.lgPlus` |
 | "Your name" label 13/700 +0.12em | **Cut** by the first-time play spec (no labels; the field's hint "Your name" says it) |
-| Name field: paper, 56 tall, radius 6, 4,4 shadow, Gloock 26 | `SkinField.paper` (`ground.paper`, `elevation.raised`, `type.title`) |
+| Name field: paper, 52 tall, radius 6, 4,4 shadow, Gloock 20 (the mock's 56 and 26; the owner, 22 November 2026: text on the first screen and the table feels too big, "Names") | `SkinField.paper` (`ground.paper`, `elevation.raised`, `type.title` set to `SkinField.nameSize`) |
 | "Start a table" 60 tall, 21 px, 6,6 shadow | `PrimaryButton(size: ButtonSize.large)` |
 | Gap 14 between the button and the code row | `Space.mdPlus` |
 | Code field: 52 tall, 2 px outline in quiet, 17/700 +0.12em | `SkinField.code` (`ground.outline`, `shape.stroke`, `type.code`) |
@@ -58,8 +58,8 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | "Table code" 12/700 +0.14em, paper quiet | **Cut** by the first-time play spec ("Table code"); the code is printed under the QR, in `type.code` |
 | "K7QX4M" 46, +0.08em | `FitLine` in `type.heroCode` (hero line) |
 | "At the table · 5 players" | **Cut** by the first-time play spec ("At the table", "5 players") |
-| Player row: 52 tall, radius 26/6, padding 0 12 0 8, gap 12, 3,3 shadow, Gloock 21 | `PlayerRow(size: PlayerRowSize.compact)` (`type.name`, `elevation.card`, `shape.rowLeadRoundness`) |
-| Token 38, ring 2 indigo | `PlayerToken` at `TokenSize.row`; ring `shape.ring` in the row's ink |
+| Player row: 52 tall, radius 26/6, padding 0 12 0 8, gap 12, 3,3 shadow, Gloock 21 | `PlayerRow(size: PlayerRowSize.lobby)`: 46 tall, a 32 token, gap and end padding 10, the name in `type.name` at 18; two to a line, every name at one size (`PlayerNameSize`: the size the longest word fits at, never under the reading floor 16, else one row each); rows `Space.sm` (8) apart (the owner, 22 November 2026: names too big; `compact` keeps the mock's size for the vote's fallback) (`elevation.card`, `shape.rowLeadRoundness`) |
+| Token 38, ring 2 indigo | `PlayerToken` at `TokenSize.lobby` (32; `TokenSize.row`, 38, stays for the vote's fallback); ring `shape.ring` in the row's ink |
 | "Host · you" 12/700 +0.14em paper quiet | **Cut** by the first-time play spec ("Host · You"); your own row is `PlayerRow(own: true)`, a thicker ink outline |
 | Deck link: outline 2 px hairline, padding 10/12, radius 6 | `OutlinePanel(onTap: ...)` |
 | Thumbnails 30 x 40, radius 4, ring 2 bone, gap 7 | `RoleCard(size: RoleCardSize.thumbSmall)` (`shape.radiusSmall`, ring `ground.text`); gap `Space.sm` (snap 7) |
@@ -81,7 +81,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Name under the card 12/700, gap 5, dimmed names #8a90b4 | `type.badge`, `ground.text` / `ground.faintText`; gap fixed in `RoleCard` |
 | Hint 13/600 quiet | `type.caption`, `ground.quietText` |
 | "Pace" label | **Cut** by the first-time play spec ("Pace"); the pace chips "Quick", "Normal", "Long" are `PresetChip`s |
-| Pace tiles: 4 across, gap 8, padding 9/10, 2 px hairline, radius 6; label 11/700 +0.1em quiet; value Gloock 24 | `PaceTile` (its name in `type.caption` 14, sentence case; `type.heading`, `ground.hairline`) in a `Row` of `Expanded`, `Space.sm` |
+| Pace tiles: 4 across, gap 8, padding 9/10, 2 px hairline, radius 6; label 11/700 +0.1em quiet; value Gloock 24 | Replaced (21 November 2026): every length is its own row, `LabelledStepper` over a `ValueStepper` (`small`), in an `OutlinePanel`; no pace presets |
 | "Use this deck" | `PrimaryButton` |
 
 ## S03b Role sheet (over S03)
@@ -151,11 +151,11 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Name Gloock 18 at 4, amber when picked | `type.nameSmall`, `ground.text` (the name does not change when picked); every name on the board at one size, the largest that fits every column (on two lines between words where it must; never below 14 px drawn while a split allows it), never cut |
 | (not in the mock) the viewer's own card | **Added**: not among the seats but in front of them, at the left of the band above the button: `FaceDownCard(owner:, ownerName: "You")` on a `PaperCard` (paper ground: ink name, ink ring when picked), one size with the table's cards (`BoardLayout.bandCard`); its first-game cue is `HoldCue`, a plain ring with "Hold" in it that breathes and fills while held (no thumbprint) |
 | Rule 2 px hairline, margin-top 6, padding-top 14 | A strip of the table instead, beside "You" in the band: `ground.panel`, `shape.radius`, `Space.md` above and below, `Space.sm` beside; `Space.xl` under the seats, with what is to spare split half above the seats and half above the band; the board never scrolls (`ScreenFrame(fitsHeight: true)`) |
-| "Center" centred label | **Cut** by the first-time play spec ("Center"): Left, Middle and Right follow the players on the same board |
+| "Center" centred label | Back (issue 37: the titles say "center cards", so the word is on the board): a `caption` line in full ink at the top of the strip, `NightCopy.centerLabel` (the Seer's board: "2 center cards", with "1 player" over the seats and a rule with "or" above the band, owner's choice 22 Nov 2026), the place leaving the same room above its card so the four cards sit level; Left, Middle and Right follow the players on the same board |
 | Center cards 62 x 84, radius 5, 0 3 deep, 0.75 opacity, gap 22 | `FaceDownCard(caption:, tilt: Tilt.scatter(i))` at the band's size (`BoardLayout.bandCard`, at most a seat's), dropped at S05's slants, `Space.sm` apart on the strip; no opacity (the captions keep their contrast) |
 | "Left / Middle / Right" 12/700 quiet, gap 6 | `caption:` (`type.caption` 14, `ground.quietText`) |
-| "Look at Cleo's card" 56 | `PrimaryButton`: "Choose a card" and "Choose 1 more" `.locked` (a tap replays the wave), then "Choose {cards}" or "Keep my card", then `.done` "Chosen"; a send that gets no answer adds `Notice` "Not sent." with "Try again" (a `409` is done, not a failure; any other `4xx` arms the board again); a phone whose turn the server already has (`chosen`) opens at "Chosen" |
-| "Do nothing tonight" 48, 2 px quiet outline, 15/700 | **Cut** by the first-time play spec: doing nothing is picking "You" ("Keep my card") |
+| "Look at Cleo's card" 56 | `PrimaryButton`: "Choose a card" and "Choose 1 more" `.locked` (a tap replays the wave), then what will happen ("See {cards}", "Swap with {cards}", "Copy {cards}") or the role's pass ("Skip", "Keep my card", "Choose for me"), then `.done` "Chosen"; a send that gets no answer adds `Notice` "Not sent." with "Try again" (a `409` is done, not a failure; any other `4xx` arms the board again); a phone whose turn the server already has (`chosen`) opens at "Chosen" |
+| "Do nothing tonight" 48, 2 px quiet outline, 15/700 | **Cut** by the first-time play spec: doing nothing is picking "You" (the role's pass: "Skip", "Keep my card", "Choose for me") |
 | Gap 12 | `actionGap: Space.md` |
 
 ## S07 Night, what you saw (night)

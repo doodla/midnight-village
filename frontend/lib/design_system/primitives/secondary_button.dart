@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/skin.dart';
 import 'cut_paper.dart';
@@ -19,6 +20,7 @@ class SecondaryButton extends StatefulWidget {
     required this.label,
     required this.onPressed,
     this.size = ButtonSize.regular,
+    this.busy = false,
   }) : _paper = false;
 
   const SecondaryButton.paper({
@@ -26,7 +28,8 @@ class SecondaryButton extends StatefulWidget {
     required this.label,
     required this.onPressed,
     this.size = ButtonSize.compact,
-  }) : _paper = true;
+  }) : _paper = true,
+       busy = false;
 
   /// The regular minimum height.
   static const height = 48.0;
@@ -35,6 +38,10 @@ class SecondaryButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final ButtonSize size;
   final bool _paper;
+
+  /// Tapped and on its way (02's "Leave"): the label keeps its ink, a turning
+  /// mark beside it, and a second tap does nothing.
+  final bool busy;
 
   @override
   State<SecondaryButton> createState() => _SecondaryButtonState();
@@ -47,7 +54,8 @@ class _SecondaryButtonState extends State<SecondaryButton> {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    final enabled = widget.onPressed != null;
+    final busy = widget.busy;
+    final enabled = widget.onPressed != null || busy;
     final radius = BorderRadius.circular(skin.shape.radius);
     final paper = widget._paper;
 
@@ -84,6 +92,7 @@ class _SecondaryButtonState extends State<SecondaryButton> {
       button: true,
       enabled: enabled,
       label: widget.label,
+      value: busy ? SpokenCopy.working : null,
       excludeSemantics: true,
       child: AnimatedContainer(
         duration: Motion.press,
@@ -96,7 +105,7 @@ class _SecondaryButtonState extends State<SecondaryButton> {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            onTap: widget.onPressed,
+            onTap: busy ? null : widget.onPressed,
             onHighlightChanged: (value) => setState(() => _pressed = value),
             highlightColor: Colors.transparent,
             borderRadius: radius,
@@ -108,11 +117,21 @@ class _SecondaryButtonState extends State<SecondaryButton> {
               child: Center(
                 heightFactor: 1,
                 widthFactor: 1,
-                child: FitWords(
-                  widget.label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  style: style,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: Space.sm,
+                  children: [
+                    Flexible(
+                      child: FitWords(
+                        widget.label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: style,
+                      ),
+                    ),
+                    if (busy)
+                      BusyMark(size: style.fontSize, color: style.color),
+                  ],
                 ),
               ),
             ),
@@ -121,4 +140,21 @@ class _SecondaryButtonState extends State<SecondaryButton> {
       ),
     );
   }
+}
+
+/// The turning mark beside a button's words while its tap is on its way.
+class BusyMark extends StatelessWidget {
+  const BusyMark({super.key, required this.size, this.color});
+
+  final double? size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: size,
+    child: CircularProgressIndicator(
+      strokeWidth: context.skin.shape.stroke,
+      color: color,
+    ),
+  );
 }

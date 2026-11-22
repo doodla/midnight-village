@@ -71,9 +71,12 @@ class _Visible extends RecursiveAstVisitor<void> {
     }
   }
 
+  /// A line for the developer's log (`logger.w(...)`) never reaches a screen.
   @override
   void visitMethodInvocation(MethodInvocation node) {
-    if (node.methodName.name != 'RegExp') super.visitMethodInvocation(node);
+    if (node.methodName.name == 'RegExp') return;
+    if (node.target case SimpleIdentifier(name: 'logger')) return;
+    super.visitMethodInvocation(node);
   }
 
   @override

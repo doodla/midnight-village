@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../core/logging/app_logger.dart';
 import 'night_pick.dart';
 
 /// One entry of the prompt's `shapes`: `{"players": n}`, `{"center": n}` or
@@ -64,11 +65,20 @@ class PickRule {
   factory PickRule.fromPrompt(Map<String, dynamic> prompt) {
     final targets = prompt['valid_targets'] as Map<String, dynamic>;
     Set<int> ids(String key) => {...?(targets[key] as List?)?.cast<int>()};
+    // A shape this app does not know (the server added one) is left out,
+    // and a prompt left with none takes any one card: a plain board, logged,
+    // never a crash mid-game.
+    final shapes = <PickShape>[];
+    for (final shape in prompt['shapes'] as List) {
+      try {
+        shapes.add(PickShape.fromJson(shape as Map<String, dynamic>));
+      } on FormatException catch (e) {
+        logger.w('Night prompt shape left out: ${e.message} ${e.source}');
+      }
+    }
+    if (shapes.isEmpty) shapes.add(PickShape.fromJson({'any': 1}));
     return PickRule._(
-      shapes: [
-        for (final shape in prompt['shapes'] as List)
-          PickShape.fromJson(shape as Map<String, dynamic>),
-      ],
+      shapes: shapes,
       players: ids('player_ids'),
       centers: ids('center_indices'),
     );
@@ -97,6 +107,21 @@ class PickRule {
 
   /// A tap on [pick] selects it: it is "You", or some shape can hold it.
   bool canPick(NightPick pick) => _begun([pick]);
+
+  /// [card] cannot join [picks]: tapping it would not add to the pick but
+  /// replace it (a Seer's second player, a Drunk's second center card). The
+  /// board dims such a card, but only once a pick has begun: with none made
+  /// (or "You" alone, which is none) nothing dims, for every role, so the
+  /// board is identical for every role until the first tap. "You" is never
+  /// dimmed and a card already picked is not. It reads the `shapes` only.
+  bool dims(NightPick card, List<NightPick> picks) {
+    if (card is SelfPick || picks.contains(card)) return false;
+    final held = _alone(picks) ? const <NightPick>[] : picks;
+    if (held.isEmpty) return false;
+    return !(_allowed(card) &&
+        held.every(_allowed) &&
+        shapes.any((shape) => shape.begunBy([...held, card])));
+  }
 
   /// [picks] are "You" alone or a whole shape: Choose can send them.
   bool fits(List<NightPick> picks) =>
