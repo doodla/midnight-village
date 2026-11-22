@@ -20,8 +20,8 @@ class AuthenticatedClient {
            Dio(
              BaseOptions(
                baseUrl: baseUrl,
-               connectTimeout: const Duration(seconds: 10),
-               receiveTimeout: const Duration(seconds: 10),
+               connectTimeout: timeout,
+               receiveTimeout: timeout,
                headers: {
                  'Content-Type': 'application/json',
                  'Accept': 'application/json',
@@ -42,21 +42,13 @@ class AuthenticatedClient {
 
   final Dio _dio;
 
+  /// How long a request waits to connect, and for its answer.
+  static const timeout = Duration(seconds: 10);
+
   Future<Response<T>> get<T>(String path) => _dio.get<T>(path);
 
-  /// [receiveTimeout] waits longer than the client's 10 s for an answer (a
-  /// call that must not be judged lost while a waking server works on it).
-  Future<Response<T>> post<T>(
-    String path, {
-    Object? data,
-    Duration? receiveTimeout,
-  }) => _dio.post<T>(
-    path,
-    data: data,
-    options: receiveTimeout == null
-        ? null
-        : Options(receiveTimeout: receiveTimeout),
-  );
+  Future<Response<T>> post<T>(String path, {Object? data}) =>
+      _dio.post<T>(path, data: data);
 
   Future<Response<T>> patch<T>(String path, {Object? data}) =>
       _dio.patch<T>(path, data: data);

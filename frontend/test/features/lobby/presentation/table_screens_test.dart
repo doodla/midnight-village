@@ -888,23 +888,40 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('a deck of the wrong size: "Use this deck" keeps its words, '
-        'locked', (tester) async {
+    testWidgets('a deck that does not fit: "Done" is still live; 02 shows '
+        'the count to the host only, Deal locked, and the count opens 03', (
+      tester,
+    ) async {
+      // Set for seven, the host's own deck of eleven (built for eight).
       final setup = await openDeck(
         tester,
-        sample: 'detail_custom_deck_short',
-        viewer: 'Kai',
+        sample: 'settings_seats_lowered',
+        viewer: 'Tia',
       );
-      // Ten cards for eight: the server needs eleven.
-      expect(_onPressed(tester, DeckCopy.useDeck), isNull);
+      expect(find.text('11 / 10'), findsOneWidget);
+      expect(_onPressed(tester, DeckCopy.done), isNotNull);
       expect(find.textContaining('card'), findsNothing);
+      await _tap(tester, setup, find.text(DeckCopy.done));
+
+      expect(find.text('11 / 10'), findsOneWidget, reason: "on the host's 02");
+      expect(_onPressed(tester, TableCopy.deal.fill({'n': 7})), isNull);
+      await _tap(tester, setup, find.text('11 / 10'));
+      expect(find.text(DeckCopy.headline), findsOneWidget, reason: 'to 03');
       await setup.close(tester);
+
+      final guest = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('settings_seats_lowered'),
+        viewer: 'Ugo',
+      );
+      expect(find.text('11 / 10'), findsNothing, reason: "never a guest's");
+      await guest.close(tester);
     });
 
-    testWidgets('"Use this deck" sends nothing and goes back', (tester) async {
+    testWidgets('"Done" sends nothing and goes back', (tester) async {
       final setup = await openDeck(tester);
 
-      await _tap(tester, setup, find.text(DeckCopy.useDeck));
+      await _tap(tester, setup, find.text(DeckCopy.done));
 
       expect(setup.patches, isEmpty);
       expect(find.text(TableCopy.scan), findsOneWidget);
@@ -945,10 +962,11 @@ void main() {
         find.descendant(of: talk.first, matching: find.byIcon(Icons.add)),
       );
 
+      // Whole minutes from five on.
       expect(setup.patches, [
-        {'discussion_seconds': 330},
+        {'discussion_seconds': 360},
       ]);
-      expect(find.text('5:30 min'), findsOneWidget);
+      expect(find.text('6 min'), findsOneWidget);
       await setup.close(tester);
     });
 

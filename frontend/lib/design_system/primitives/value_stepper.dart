@@ -40,7 +40,7 @@ class ValueStepper extends StatelessWidget {
   final bool small;
 
   /// The glyph buttons' side: the reading floor's touch target.
-  static const glyph = 44.0;
+  static const glyph = Sizes.touch;
 
   TextStyle _style(BuildContext context) {
     final type = context.skin.typography;
@@ -95,21 +95,24 @@ class ValueStepper extends StatelessWidget {
 /// A setting's name and its [stepper] (S03): side by side, the name
 /// wrapping between words; where the name's longest word would not fit
 /// beside the stepper (a narrow phone, large text), the name over it and the
-/// stepper at the end.
+/// stepper at the end. [beside] decides it for a list that must stay even
+/// (every row one way, [fitsBeside] of each).
 class LabelledStepper extends StatelessWidget {
   const LabelledStepper({
     super.key,
     required this.label,
     required this.style,
     required this.stepper,
+    this.beside,
   });
 
   final String label;
   final TextStyle style;
   final ValueStepper stepper;
+  final bool? beside;
 
-  @override
-  Widget build(BuildContext context) {
+  /// Whether the name's longest word fits beside the stepper in [width].
+  bool fitsBeside(BuildContext context, double width) {
     final scaler = MediaQuery.textScalerOf(context);
     var longest = 0.0;
     for (final word in label.split(' ')) {
@@ -122,11 +125,15 @@ class LabelledStepper extends StatelessWidget {
       if (painter.width > longest) longest = painter.width;
       painter.dispose();
     }
+    return width - stepper.naturalWidth(context) - Space.sm >= longest;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final name = FitWords(label, style: style);
     return LayoutBuilder(
       builder: (context, room) {
-        final beside =
-            room.maxWidth - stepper.naturalWidth(context) - Space.sm >= longest;
+        final beside = this.beside ?? fitsBeside(context, room.maxWidth);
         if (beside) {
           return Row(
             spacing: Space.sm,
@@ -184,7 +191,11 @@ class _Glyph extends StatelessWidget {
                 width: skin.shape.stroke,
               ),
             ),
-            child: Icon(icon, color: ink, size: ValueStepper.glyph / 2),
+            child: Icon(
+              icon,
+              color: ink,
+              size: ValueStepper.glyph * Sizes.glyphInDisc,
+            ),
           ),
         ),
       ),

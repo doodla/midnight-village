@@ -168,10 +168,15 @@ abstract class LobbyState with _$LobbyState {
     /// settings key to `[least, most]` seconds).
     @Default({}) Map<String, List<int>> lengthRanges,
 
-    /// This phone's settings changes not answered yet: the screen shows them
-    /// at once, and the server's numbers (`deal`) judge only once answered.
-    /// Frontend only.
-    @Default(false) bool settling,
+    /// The number of players the table may be set to now (`seats_range`,
+    /// `[least, most]`): never below who is here, never above what it holds.
+    List<int>? seatsRange,
+
+    /// The settings keys of this phone's changes not answered yet: the
+    /// screen shows those keys as changed at once and everything else as the
+    /// server has it; the server's numbers (`deal`) judge only once
+    /// answered. Frontend only.
+    @Default({}) Set<String> pendingKeys,
   }) = _LobbyState;
 
   /// Parses the backend's LobbyResponse format.
@@ -217,6 +222,7 @@ abstract class LobbyState with _$LobbyState {
               (k, v) => MapEntry(k, (v as List).cast<int>()),
             )
           : const {},
+      seatsRange: (json['seats_range'] as List?)?.cast<int>(),
     );
   }
 }
@@ -225,20 +231,66 @@ Map<String, int> _counts(Object? json) => json is Map<String, dynamic>
     ? json.map((k, v) => MapEntry(k, v as int))
     : const {};
 
-/// The table's deck as everyone at it sees it, face up (02 for host and
-/// guests, 03): the host's custom deck as it stands on this phone (its own
-/// taps shown at once), else the server's `deck_cards`.
+/// The roles in the one order every deck is shown in (02's strip, 03's
+/// grid).
+const deckOrder = [
+  RoleId.werewolf,
+  RoleId.minion,
+  RoleId.mason,
+  RoleId.seer,
+  RoleId.robber,
+  RoleId.troublemaker,
+  RoleId.drunk,
+  RoleId.insomniac,
+  RoleId.hunter,
+  RoleId.tanner,
+  RoleId.doppelganger,
+  RoleId.villager,
+];
+
+/// The cards in the middle of the table in every game: the deal needs one
+/// per player and these. Used only while a change of the number is on its
+/// way; otherwise the server's `deal.need` is the need.
+const centreCards = 3;
+
+/// What the host sees while a change is on its way: the server's state with
+/// only the pending keys ([LobbyState.pendingKeys]) taken from this phone.
 extension TableCards on LobbyState {
+  /// A change of this phone's is on its way.
+  bool get settling => pendingKeys.isNotEmpty;
+
+  /// The table's deck face up (02 for host and guests, 03), in [deckOrder]:
+  /// the host's own deck as it stands on this phone (its taps shown at
+  /// once), else the server's `deck_cards`.
   Map<RoleId, int> get tableCards {
     final source = table.autoDeck ? deckCards : roleConfig;
     return {
-      for (final role in RoleId.values)
+      for (final role in deckOrder)
         if ((source[role.displayName] ?? 0) case final n when n > 0) role: n,
     };
   }
 
-  /// The cards in the deck as it stands on this phone.
-  int get pickedCards => tableCards.values.fold(0, (a, b) => a + b);
+  /// The automatic deck is being rebuilt by the server for a change on its
+  /// way (the number, the chip): its cards are the server's to say.
+  bool get _autoDeckPending =>
+      table.autoDeck &&
+      pendingKeys.intersection({'seats', 'deck', 'deck_chip'}).isNotEmpty;
+
+  /// The cards the deal needs for the table as this phone shows it: the
+  /// server's `deal.need`, or, while a new number is on its way, that number
+  /// and the centre. Null before the first body, or at an open table.
+  int? get cardsNeeded {
+    final seats = table.seats;
+    if (seats == null) return null;
+    if (pendingKeys.contains('seats')) return seats + centreCards;
+    return deal?.need;
+  }
+
+  /// The cards in the deck as this phone shows it (an automatic deck being
+  /// rebuilt holds what it needs, by construction).
+  int get pickedCards => _autoDeckPending && cardsNeeded != null
+      ? cardsNeeded!
+      : tableCards.values.fold(0, (a, b) => a + b);
 }
 
 /// The cards a chip's deck holds now, face up (02's strip, 03's chips
@@ -275,12 +327,12 @@ enum DeckChip {
 /// would run with (the table's own, else the server's default: `lengths`)
 /// and moves within the range the server takes now (`length_ranges`).
 enum Length {
-  look('card_look_seconds'),
-  night('night_wave_seconds'),
-  nightMinimum('night_min_window_seconds'),
-  doppelganger('night_doppelganger_window_seconds'),
   talk('discussion_seconds'),
   vote('voting_seconds'),
+  night('night_wave_seconds'),
+  doppelganger('night_doppelganger_window_seconds'),
+  look('card_look_seconds'),
+  nightMinimum('night_min_window_seconds'),
   droppedPhone('disconnect_grace_seconds'),
   hostAway('host_handover_seconds');
 
@@ -290,14 +342,16 @@ enum Length {
   final String key;
 
   /// The stepper's step at [seconds]: fine where a few seconds matter,
-  /// coarser in minutes.
+  /// whole minutes from five on.
   static int stepAt(int seconds) => seconds < 60
       ? 5
       : seconds < 300
       ? 15
-      : seconds < 900
-      ? 30
       : 60;
+
+  /// Whether 0 means no clock at all for this length (the talk and the vote
+  /// then end when everyone is ready), rather than the thing being off.
+  bool get zeroIsNoClock => this == talk || this == vote;
 
   /// One step up from [seconds] (to the next whole step), at most [most].
   static int up(int seconds, int most) {
@@ -320,7 +374,7 @@ extension TableLengths on LobbyState {
   /// else the server's `lengths` (the table's own or the default). Null
   /// from a server that sends no `lengths`.
   int? secondsOf(Length length) {
-    if (settling) {
+    if (pendingKeys.contains(length.key)) {
       if (table.raw[length.key] case final int mine) return mine;
     }
     return lengths[length.key];
@@ -420,7 +474,8 @@ sealed class DealState {
     // No verdict yet (a state built before its first body): the button is
     // offered and the server's answer to the deal judges.
     if (deal == null) return CanDeal(players);
-    final seats = deal.seats;
+    // The number as the host sees it (a change on its way included).
+    final seats = lobby.table.seats;
     // A change of this phone's not answered yet: the old verdict is stale.
     if (deal.ok && !lobby.settling) return CanDeal(seats ?? players);
     // A table set for a number waits for it: "Deal to 8", locked.

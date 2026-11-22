@@ -110,17 +110,16 @@ abstract final class DeckCopy {
   static const hostAway = 'Host away';
 
   /// A length's value: seconds ([CommonCopy.seconds]), whole minutes,
-  /// minutes and seconds ("2:30 min"); 0 is off (no look stage, no clock,
-  /// no waiting).
+  /// minutes and seconds ("2:30 min"). 0 for the talk or the vote: no clock
+  /// (it ends when everyone is ready); for the look, a dropped phone or the
+  /// host away: off.
   static const minutes = Template('{n} min');
+  static const noClock = 'No clock';
   static const off = 'Off';
 
-  static const useDeck = 'Use this deck';
-
-  /// Spoken only: the steppers' glyphs and the grid card's minus.
-  static const lower = 'Lower';
-  static const higher = 'Higher';
-  static const takeOut = Template('Take one {role} out');
+  /// Back to 02: always live (the page holds the players and the lengths
+  /// too; a deck that does not fit is shown on 02, Deal locked).
+  static const done = 'Done';
 }
 
 /// 03b Role sheet: the role text ([RoleCopy]) and this.
@@ -380,4 +379,9 @@ abstract final class SpokenCopy {
 
   /// A button whose action is on its way.
   static const working = 'Working';
+
+  /// 03's steppers' glyphs and the grid card's minus.
+  static const lower = 'Lower';
+  static const higher = 'Higher';
+  static const takeOut = Template('Take one {role} out');
 }

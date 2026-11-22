@@ -22,12 +22,18 @@ Future<TableSetup> _pumpAt(
   WidgetTester tester,
   Size size,
   Map<String, dynamic> lobby,
-  String viewer,
-) async {
+  String viewer, {
+  double textScale = 1,
+}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  return TableSetup.pump(tester, lobby: lobby, viewer: viewer);
+  return TableSetup.pump(
+    tester,
+    lobby: lobby,
+    viewer: viewer,
+    textScale: textScale,
+  );
 }
 
 /// Everything the host needs next ends above the Deal button's top, less
@@ -108,4 +114,36 @@ void main() {
     expect(qr.center.dx, closeTo(390 / 2, Space.lg));
     await setup.close(tester);
   });
+
+  // Alone at a table set for eight: the empty places are a line of small
+  // circles, so the deck face up and Leave stay in view above Deal.
+  for (final (width, scale) in [
+    (320.0, 1.0),
+    (360.0, 1.0),
+    (390.0, 1.0),
+    (320.0, 1.3),
+    (390.0, 1.3),
+  ]) {
+    testWidgets('alone and set for 8 at $width wide, text x$scale: the deck '
+        'face up and Leave in view', (tester) async {
+      final setup = await _pumpAt(
+        tester,
+        Size(width, 844),
+        v2Lobby('detail_seats_8_custom_alone'),
+        'Tia',
+        textScale: scale,
+      );
+      final deal = tester.getRect(find.byType(PrimaryButton).last);
+      final limit = deal.top - _fade;
+      final leave = find.text(CommonCopy.leave);
+      expect(tester.getRect(leave).bottom, lessThanOrEqualTo(limit));
+      for (final e in find.byType(RoleCard).evaluate()) {
+        expect(
+          tester.getRect(find.byWidget(e.widget)).bottom,
+          lessThanOrEqualTo(limit),
+        );
+      }
+      await setup.close(tester);
+    });
+  }
 }

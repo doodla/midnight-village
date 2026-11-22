@@ -132,7 +132,8 @@ class TableSetup {
         : memberId(lobby, viewer);
     final setup = TableSetup._(
       lobby,
-      MockHttpClient(),
+      // The app's client gives up after its wait: so does this one.
+      MockHttpClient(timesOut: true),
       MockWebSocketChannel(),
       viewerId,
     );
@@ -285,10 +286,11 @@ class TableSetup {
     }
   }
 
-  /// Unmounts the app (its timers go with it).
+  /// Unmounts the app (its timers go with it; an answer still held runs
+  /// out the client's wait).
   Future<void> close(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(AuthenticatedClient.timeout + const Duration(seconds: 1));
   }
 }
 

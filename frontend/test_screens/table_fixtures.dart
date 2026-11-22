@@ -297,7 +297,7 @@ Future<void> pumpDeckGridShort(WidgetTester tester) async {
   await pumpDeckGrid(tester);
   _holdPatch(_setup!.code);
   final minus = find.bySemanticsLabel(
-    DeckCopy.takeOut.fill({'role': RoleId.tanner.displayName}),
+    SpokenCopy.takeOut.fill({'role': RoleId.tanner.displayName}),
   );
   await tester.ensureVisible(minus);
   await tester.pumpAndSettle();

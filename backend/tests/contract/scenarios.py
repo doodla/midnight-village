@@ -2332,6 +2332,27 @@ def _seats_table(run: Recording) -> None:
         "detail_seats_8_full",
         "Eight of eight here, the automatic deck: ready to deal.",
     )
+    t.record(
+        "lobby/settings_lengths",
+        "PATCH",
+        "Tia",
+        LOBBY,
+        {
+            "settings": {
+                "discussion_seconds": 360,
+                "voting_seconds": 90,
+                "night_wave_seconds": 25,
+                "night_min_window_seconds": 6,
+                "night_doppelganger_window_seconds": 12,
+                "card_look_seconds": 20,
+                "disconnect_grace_seconds": 30,
+                "host_handover_seconds": 120,
+            }
+        },
+        status=200,
+        about="The host sets every length on the set-up page (each its own "
+        "value): stored in `settings`, reported in `lengths`.",
+    )
     t.clock.advance(60)
     t.start_random(13)
 

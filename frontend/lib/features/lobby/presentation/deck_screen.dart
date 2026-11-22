@@ -30,10 +30,10 @@ import 'where_am_i_provider.dart';
 /// A deck chip's name on screen.
 String deckChipLabel(DeckChip chip) => DeckCopy.chips[chip.index];
 
-/// A length as the set-up page shows it: "30 s", "5 min", "2:30 min", or
-/// "Off" for 0.
-String lengthText(int seconds) => switch (seconds) {
-  0 => DeckCopy.off,
+/// A length as the set-up page shows it: "30 s", "5 min", "2:30 min"; 0 is
+/// "No clock" for the talk and the vote, "Off" for the rest.
+String lengthText(int seconds, [Length? length]) => switch (seconds) {
+  0 => length?.zeroIsNoClock ?? false ? DeckCopy.noClock : DeckCopy.off,
   < 60 => CommonCopy.seconds.fill({'n': seconds}),
   _ when seconds % 60 == 0 => DeckCopy.minutes.fill({'n': seconds ~/ 60}),
   _ => DeckCopy.minutes.fill({'n': WorldTimer.format(seconds)}),
@@ -52,32 +52,16 @@ String lengthLabel(Length length) => switch (length) {
   Length.hostAway => DeckCopy.hostAway,
 };
 
-/// The roles in the order the deck builder shows them (S03).
-const deckOrder = [
-  RoleId.werewolf,
-  RoleId.minion,
-  RoleId.mason,
-  RoleId.seer,
-  RoleId.robber,
-  RoleId.troublemaker,
-  RoleId.drunk,
-  RoleId.insomniac,
-  RoleId.hunter,
-  RoleId.tanner,
-  RoleId.doppelganger,
-  RoleId.villager,
-];
-
-/// The fewest and most players a game is for (the server's `seats`).
+/// The fewest players a game is for (the server's `seats`).
 const minSeats = 3;
-const maxSeats = 10;
 
 /// 03 Tonight's game: the set-up page, the host's, editable before anyone
 /// comes and until the deal (first-time play spec, section 3). Every change
 /// is saved as it is made (shown at once, sent merged, one at a time).
 ///
-/// - Players: how many the game is for (3 to 10), or "Any" (an open table,
-///   dealt to whoever is there). At a number, who is here of it ("3 of 8").
+/// - Players: how many the game is for, within the server's `seats_range`,
+///   or "Any" (an open table, dealt to whoever is there; offered only with an
+///   automatic deck). At a number, who is here of it ("3 of 8").
 /// - The deck, face up, every role: the chips make it automatic (built by
 ///   the server for the number); a tap on a card puts one in (up to the
 ///   role's most; Masons in pairs), its minus takes one out, a hold reads
@@ -86,10 +70,10 @@ const maxSeats = 10;
 ///   the cards picked over the cards needed, the slots drawn as the players
 ///   and the centre.
 /// - Every length the server has, each its own value with its unit, moved by
-///   a stepper within the range the server takes now. The Doppelganger's is
-///   quiet while the deck holds no Doppelganger.
-/// - "Use this deck" returns to 02: one label, live while the deck holds
-///   the cards the deal needs.
+///   a stepper within the range the server takes now; the Doppelganger's only
+///   while the deck holds one.
+/// - "Done" returns to 02, always live (a deck that does not fit is shown
+///   on 02, Deal locked).
 ///
 /// A restart lands on 02: opening 03 is a step of this phone's only
 /// ([localStepsProvider]); what was set is the server's.
@@ -166,6 +150,13 @@ class DeckView extends StatelessWidget {
 
   int get _present => lobby.players.length;
 
+  /// The number of players the table may be set to now (the server's;
+  /// before a server that sends none: who is here, at least 3, to 10).
+  (int, int) get _seatsRange => switch (lobby.seatsRange) {
+    [final least, final most] => (least, most),
+    _ => (math.max(minSeats, _present), 10),
+  };
+
   /// A card in or out: the deck as it now stands, sent whole.
   void _change(RoleId role, int by) {
     final deck = {...lobby.tableCards};
@@ -174,13 +165,12 @@ class DeckView extends StatelessWidget {
     deck[role] = next;
     onDeck(
       {
-        for (final MapEntry(key: role, value: count) in deck.entries)
-          if (count > 0) role.displayName: count,
+        for (final role in deckOrder)
+          if ((deck[role] ?? 0) case final count when count > 0)
+            role.displayName: count,
       },
       // A deck of one's own is for a number: an open table takes who is here.
-      seats: lobby.table.seats == null
-          ? math.min(maxSeats, math.max(minSeats, _present))
-          : null,
+      seats: lobby.table.seats == null ? _seatsRange.$1 : null,
     );
   }
 
@@ -190,8 +180,7 @@ class DeckView extends StatelessWidget {
     final table = lobby.table;
     final seats = table.seats;
     final picked = lobby.pickedCards;
-    final need = lobby.deal?.need;
-    final fits = table.autoDeck || need == null || picked == need;
+    final need = lobby.cardsNeeded;
     return ScreenFrame(
       ground: GroundKind.night,
       body: Column(
@@ -205,7 +194,14 @@ class DeckView extends StatelessWidget {
               child: FitLine(DeckCopy.headline, style: type.headline),
             ),
           ),
-          _Players(seats: seats, present: _present, onSeats: onSeats),
+          _Players(
+            seats: seats,
+            present: _present,
+            range: _seatsRange,
+            // "Any" never quietly drops a deck of the host's own.
+            open: table.autoDeck,
+            onSeats: onSeats,
+          ),
           _Chips(
             labels: DeckCopy.chips,
             selected: table.autoDeck ? table.deckChip?.index : null,
@@ -229,25 +225,30 @@ class DeckView extends StatelessWidget {
             action: BannerCopy.tryAgain,
             onAction: onRetry,
           ),
-        // One label: live while the deck holds the cards the deal needs.
-        PrimaryButton(label: DeckCopy.useDeck, onPressed: fits ? onUse : null),
+        // Always live: a host who only changed a timer is never stuck.
+        PrimaryButton(label: DeckCopy.done, onPressed: onUse),
       ],
     );
   }
 }
 
-/// How many players the game is for: a stepper from 3 to 10, below 3 "Any"
-/// (an open table), never below the players already here; at a number, who
-/// is here of it.
+/// How many players the game is for: a stepper over the server's range
+/// ([range]: never below who is here, never above what the table holds);
+/// below 3, "Any" (an open table), while [open] (the deck is automatic) and
+/// no more than 3 are here; at a number, who is here of it.
 class _Players extends StatelessWidget {
   const _Players({
     required this.seats,
     required this.present,
+    required this.range,
+    required this.open,
     required this.onSeats,
   });
 
   final int? seats;
   final int present;
+  final (int, int) range;
+  final bool open;
   final ValueChanged<int?> onSeats;
 
   @override
@@ -255,7 +256,7 @@ class _Players extends StatelessWidget {
     final skin = context.skin;
     final ground = context.ground;
     final seats = this.seats;
-    final least = math.max(minSeats, present);
+    final (least, most) = range;
     return OutlinePanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -267,20 +268,18 @@ class _Players extends StatelessWidget {
             stepper: ValueStepper(
               value: seats == null ? DeckCopy.any : '$seats',
               widest: DeckCopy.any,
-              lowerLabel: DeckCopy.lower,
-              higherLabel: DeckCopy.higher,
+              lowerLabel: SpokenCopy.lower,
+              higherLabel: SpokenCopy.higher,
               onLower: switch (seats) {
                 null => null,
-                // Back to an open table only while it holds no more than
-                // the smallest game.
-                _ when seats <= least =>
-                  present <= minSeats ? () => onSeats(null) : null,
-                _ => () => onSeats(seats - 1),
+                _ when seats > least => () => onSeats(seats - 1),
+                _ when open && least <= minSeats => () => onSeats(null),
+                _ => null,
               },
               onHigher: switch (seats) {
-                null => () => onSeats(math.min(maxSeats, least)),
-                _ when seats >= maxSeats => null,
-                _ => () => onSeats(seats + 1),
+                null => () => onSeats(least),
+                _ when seats < most => () => onSeats(seats + 1),
+                _ => null,
               },
             ),
           ),
@@ -307,19 +306,18 @@ class DeckCount extends StatelessWidget {
   final int need;
   final int seats;
 
-  static const _slot = Size(12, 16);
-
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
     final slots = math.max(picked, need);
+    const size = Sizes.deckSlot;
     Widget slot(int i) {
       final filled = i < picked;
       final ink = i >= need ? ground.dangerText : ground.text;
       return Container(
-        width: _slot.width,
-        height: _slot.height,
+        width: size.width,
+        height: size.height,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(skin.shape.radiusSmall / 2),
           color: filled ? ink : null,
@@ -361,57 +359,112 @@ class DeckCount extends StatelessWidget {
 }
 
 /// Every length the server has, each a row: its name and a stepper over its
-/// value, within the range the server takes now. The Doppelganger's is
-/// quiet while the deck holds none. A server that sends no lengths: none.
+/// value, within the range the server takes now, in [Length] order; the
+/// Doppelganger's only while the deck holds one. The rows stay even: every
+/// stepper as wide as the widest value any row can show (each row's own
+/// range, not the most any length could be), so the glyphs line up, and
+/// every name beside its stepper, or every name over it. A server that
+/// sends no lengths: none.
 class _Lengths extends StatelessWidget {
   const _Lengths({required this.lobby, required this.onLength});
 
   final LobbyState lobby;
   final void Function(Length length, int seconds) onLength;
 
+  /// The widest text a length shows anywhere in its range (by characters:
+  /// the steps from [least] to [most]).
+  static String _widest(Length length, int least, int most) {
+    var widest = lengthText(least, length);
+    for (var v = least; v < most;) {
+      v = Length.up(v, most);
+      final text = lengthText(v, length);
+      if (text.length >= widest.length) widest = text;
+    }
+    return widest;
+  }
+
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    final rows = [
-      for (final length in Length.values)
-        if (lobby.secondsOf(length) case final seconds?) (length, seconds),
-    ];
-    if (rows.isEmpty) return const SizedBox.shrink();
     final doppelganger = lobby.tableCards.containsKey(RoleId.doppelganger);
+    final shown = [
+      for (final length in Length.values)
+        if (length != Length.doppelganger || doppelganger)
+          if (lobby.secondsOf(length) case final seconds?) (length, seconds),
+    ];
+    if (shown.isEmpty) return const SizedBox.shrink();
+    final style = skin.typography.action;
+    final scaler = MediaQuery.textScalerOf(context);
+    double width(String text) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textScaler: scaler,
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final w = painter.width;
+      painter.dispose();
+      return w;
+    }
+
+    var widest = '';
+    for (final (length, _) in shown) {
+      final (least, most) = lobby.rangeOf(length);
+      final own = _widest(length, least, most);
+      if (width(own) > width(widest)) widest = own;
+    }
+    final rows = [
+      for (final (length, seconds) in shown)
+        _row(length, seconds, widest, style, ground.text),
+    ];
     return OutlinePanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Space.sm,
-        children: [
-          for (final (length, seconds) in rows)
-            Builder(
-              builder: (context) {
-                final (least, most) = lobby.rangeOf(length);
-                final quiet = length == Length.doppelganger && !doppelganger;
-                return LabelledStepper(
-                  label: lengthLabel(length),
-                  style: skin.typography.action.copyWith(
-                    color: quiet ? ground.quietText : ground.text,
-                  ),
-                  stepper: ValueStepper(
-                    value: lengthText(seconds),
-                    widest: DeckCopy.minutes.fill({'n': '14:30'}),
-                    lowerLabel: DeckCopy.lower,
-                    higherLabel: DeckCopy.higher,
-                    quiet: quiet,
-                    small: true,
-                    onLower: seconds > least
-                        ? () => onLength(length, Length.down(seconds, least))
-                        : null,
-                    onHigher: seconds < most
-                        ? () => onLength(length, Length.up(seconds, most))
-                        : null,
-                  ),
-                );
-              },
-            ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, room) {
+          final beside = rows.every(
+            (row) => row.fitsBeside(context, room.maxWidth),
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: Space.sm,
+            children: [
+              for (final row in rows)
+                LabelledStepper(
+                  label: row.label,
+                  style: row.style,
+                  stepper: row.stepper,
+                  beside: beside,
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  LabelledStepper _row(
+    Length length,
+    int seconds,
+    String widest,
+    TextStyle type,
+    Color ink,
+  ) {
+    final (least, most) = lobby.rangeOf(length);
+    return LabelledStepper(
+      label: lengthLabel(length),
+      style: type.copyWith(color: ink),
+      stepper: ValueStepper(
+        value: lengthText(seconds, length),
+        widest: widest,
+        lowerLabel: SpokenCopy.lower,
+        higherLabel: SpokenCopy.higher,
+        small: true,
+        onLower: seconds > least
+            ? () => onLength(length, Length.down(seconds, least))
+            : null,
+        onHigher: seconds < most
+            ? () => onLength(length, Length.up(seconds, most))
+            : null,
       ),
     );
   }
@@ -498,7 +551,7 @@ class _Grid extends StatelessWidget {
               onTap: () => onAdd(role),
               onLongPress: () => onHold(role),
               onRemove: () => onRemove(role),
-              removeLabel: DeckCopy.takeOut.fill({'role': role.displayName}),
+              removeLabel: SpokenCopy.takeOut.fill({'role': role.displayName}),
             ),
         ],
       );

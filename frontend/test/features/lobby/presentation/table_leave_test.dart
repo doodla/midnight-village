@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/mock_http_client.dart';
@@ -7,7 +8,8 @@ import '../../../helpers/table_setup.dart';
 
 // Leaving 02, every answer a recorded server payload. The owner's report
 // ("If I leave the game it says 'Not sent, try again.'"): a leave that
-// reached the server is never "Not sent.": a slow answer waits, a second
+// reached the server is never "Not sent.": an answer slower than the phone
+// waits is checked with the server (`/me/table/`), a second
 // leave that finds the phone gone counts as left, and with no answer at all
 // `/me/table/` decides. A refusal says why in plain words. Off the table,
 // the phone is at 01 Join.
@@ -102,34 +104,40 @@ void main() {
     await setup.close(tester);
   });
 
-  testWidgets('a slow answer (a waking server) waits: nothing says "Not '
-      'sent." meanwhile, and the leave lands at Join', (tester) async {
+  testWidgets('Leave shows it is on its way at once; an answer slower than '
+      'the phone waits (a waking server) is checked with the server, never '
+      '"Not sent." when the leave got there', (tester) async {
     final setup = await TableSetup.pump(
       tester,
       lobby: v2Lobby('detail_auto_deck_5'),
       viewer: 'Ben',
     );
-    final held = setup.http.hold(
-      method: 'POST',
-      path: '/lobbies/V9YC2J/leave/',
-    );
+    setup.http.hold(method: 'POST', path: '/lobbies/V9YC2J/leave/');
     setup.http.answer(
       'POST',
       '/lobbies/V9YC2J/leave/',
       ContractSamples.map('http/lobby/left'),
     );
 
-    await _leave(tester, setup, host: false, then: () => offTheTable(setup));
-    // Ten seconds and more without an answer.
+    await tester.tap(find.text(CommonCopy.leave));
+    await tester.pump();
+    // At once: the turning mark beside "Leave", and a second tap is inert.
+    expect(find.byType(BusyMark), findsOneWidget);
+    await tester.tap(find.text(CommonCopy.leave));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
+
+    // The server got it (it now has the phone at no table) but its answer
+    // comes after the phone stops waiting.
+    offTheTable(setup);
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(seconds: 1));
+      expect(find.text(BannerCopy.notSent), findsNothing, reason: '${i}s');
     }
-    expect(find.text(BannerCopy.notSent), findsNothing);
-
-    held.releaseAll();
     await setup.settle(tester);
 
-    expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
+    expect(setup.count('GET', '/me/table/'), greaterThan(0));
+    expect(find.text(BannerCopy.notSent), findsNothing);
     expect(find.text(JoinCopy.startTable), findsOneWidget);
     await setup.close(tester);
   });

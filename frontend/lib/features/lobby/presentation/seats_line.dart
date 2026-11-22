@@ -7,22 +7,26 @@ import '../../../design_system/skin/skin.dart';
 /// Who is here of how many, at a table set for a number (02 and 03, host and
 /// guests alike): "3 of 8" and a seat for each, the taken ones filled. The
 /// one way the table's wait is said; never card arithmetic.
+/// Which seats [SeatsLine] draws.
+enum SeatDots {
+  /// Every seat, the taken ones filled (03).
+  all,
+
+  /// Only the places not taken (02, under which the players' rows are).
+  empty,
+}
+
 class SeatsLine extends StatelessWidget {
   const SeatsLine({
     super.key,
     required this.present,
     required this.seats,
-    this.dots = true,
+    this.dots = SeatDots.all,
   });
 
   final int present;
   final int seats;
-
-  /// The seats drawn as dots (03); 02 draws them as the empty places.
-  final bool dots;
-
-  /// A seat's side.
-  static const _seat = 14.0;
+  final SeatDots dots;
 
   @override
   Widget build(BuildContext context) {
@@ -35,30 +39,29 @@ class SeatsLine extends StatelessWidget {
           TableCopy.seated.fill({'d': present, 'n': seats}),
           style: skin.typography.title.copyWith(color: ground.text),
         ),
-        if (dots)
-          Expanded(
-            child: ExcludeSemantics(
-              child: Wrap(
-                spacing: Space.xs,
-                runSpacing: Space.xs,
-                children: [
-                  for (var i = 0; i < seats; i++)
-                    Container(
-                      width: _seat,
-                      height: _seat,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: i < present ? ground.text : null,
-                        border: Border.all(
-                          color: i < present ? ground.text : ground.outline,
-                          width: skin.shape.stroke,
-                        ),
+        Expanded(
+          child: ExcludeSemantics(
+            child: Wrap(
+              spacing: Space.xs,
+              runSpacing: Space.xs,
+              children: [
+                for (var i = dots == SeatDots.all ? 0 : present; i < seats; i++)
+                  Container(
+                    width: Sizes.seat,
+                    height: Sizes.seat,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: i < present ? ground.text : null,
+                      border: Border.all(
+                        color: i < present ? ground.text : ground.outline,
+                        width: skin.shape.stroke,
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
+        ),
       ],
     );
   }

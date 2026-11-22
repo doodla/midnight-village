@@ -118,23 +118,14 @@ class LobbyService {
     }
   }
 
-  /// Leaves a lobby: POST /lobbies/<code>/leave/. It waits for the answer
-  /// as long as a waking server may take ([leaveWait]): a slow answer is not
-  /// a lost one.
+  /// Leaves a lobby: POST /lobbies/<code>/leave/.
   Future<void> leaveLobby(String code) async {
     try {
-      await _client.post<Map<String, dynamic>>(
-        '/lobbies/$code/leave/',
-        receiveTimeout: leaveWait,
-      );
+      await _client.post<Map<String, dynamic>>('/lobbies/$code/leave/');
     } on DioException catch (e) {
       throw mapDioException(e);
     }
   }
-
-  /// How long a leave waits for its answer (a server waking from sleep takes
-  /// seconds; the client's usual wait is 10 s).
-  static const leaveWait = Duration(seconds: 45);
 
   /// Starts the game from the lobby (host only).
   ///

@@ -62,7 +62,7 @@ class RoleCard extends StatelessWidget {
   final String? removeLabel;
 
   /// The minus's touch area (the reading floor's 44) and its disc.
-  static const removeTarget = 44.0;
+  static const removeTarget = Sizes.touch;
   static const _removeDisc = BadgeSize.large;
 
   /// Width over height of a portrait in the grid (the mocks' 76.5 x 100).
@@ -241,7 +241,11 @@ class _Minus extends StatelessWidget {
                 shape: BoxShape.circle,
                 boxShadow: ground.elevation.badge.boxShadows,
               ),
-              child: Icon(Icons.remove, size: side * 0.7, color: ground.onMark),
+              child: Icon(
+                Icons.remove,
+                size: side * Sizes.glyphInDisc,
+                color: ground.onMark,
+              ),
             ),
           ),
         ),

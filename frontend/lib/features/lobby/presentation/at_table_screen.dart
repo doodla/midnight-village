@@ -105,7 +105,14 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
       },
       onShare: (link) => unawaited(_share(link)),
       onEditDeck: () => ref.read(localStepsProvider.notifier).openDeck(table),
-      onSeats: (seats) => unawaited(notifier.setSeats(seats)),
+      onPlayWith: (players) {
+        unawaited(notifier.setSeats(players));
+        // A deck of the host's own was built for more: 03, its count
+        // showing, so the host fixes it (never thrown away).
+        if (!lobby.table.autoDeck) {
+          ref.read(localStepsProvider.notifier).openDeck(table);
+        }
+      },
       onDeal: () => unawaited(_deal(notifier)),
       onLeave: () => unawaited(_leave(code)),
       onGoHome: () => ref.invalidate(myTableProvider),
@@ -195,7 +202,7 @@ class AtTableView extends StatelessWidget {
     this.onRetry,
     this.onShare,
     this.onEditDeck,
-    this.onSeats,
+    this.onPlayWith,
     this.onDeal,
     this.onLeave,
     this.onGoHome,
@@ -216,8 +223,8 @@ class AtTableView extends StatelessWidget {
   final ValueChanged<Uri>? onShare;
   final VoidCallback? onEditDeck;
 
-  /// The host sets the number of players (02's "Play with {n}").
-  final ValueChanged<int?>? onSeats;
+  /// Fewer came: the host plays with who is here ("Play with {n}").
+  final ValueChanged<int>? onPlayWith;
   final VoidCallback? onDeal;
   final VoidCallback? onLeave;
   final VoidCallback? onGoHome;
@@ -259,11 +266,21 @@ class AtTableView extends StatelessWidget {
               link: link,
               onShare: onShare,
               headline: host,
-              compact: !roomy,
+              // Set for a number there is more to show (the places, the
+              // deck): the QR code at its scannable least.
+              compact: !roomy || seats != null,
             ),
-            // At a number: who is here of it, the empty places drawn.
+            // At a number: who is here of it, an empty circle for each place
+            // not taken (compact, so the deck and Leave stay in view).
             if (seats != null)
-              SeatsLine(present: present, seats: seats, dots: false),
+              Padding(
+                padding: const EdgeInsets.only(top: Space.sm),
+                child: SeatsLine(
+                  present: present,
+                  seats: seats,
+                  dots: SeatDots.empty,
+                ),
+              ),
             _Rows(
               names: [for (final p in lobby.players) p.displayName],
               rows: [
@@ -276,8 +293,6 @@ class AtTableView extends StatelessWidget {
                         player.id != viewerId &&
                         (!player.connected || away.contains(player.id)),
                   ),
-                if (seats != null)
-                  for (var i = present; i < seats; i++) const _EmptySeat(),
               ],
               spacing: roomy ? Space.md : Space.xs,
             ),
@@ -287,17 +302,20 @@ class AtTableView extends StatelessWidget {
                 child: SecondaryButton(
                   label: TableCopy.playWith.fill({'n': present}),
                   size: ButtonSize.compact,
-                  onPressed: onSeats == null ? null : () => onSeats!(present),
+                  onPressed: onPlayWith == null
+                      ? null
+                      : () => onPlayWith!(present),
                 ),
               ),
             // The game as set up, face up for everyone; the host's opens 03.
-            _SetupPanel(lobby: lobby, onEdit: host ? onEditDeck : null),
+            _SetupPanel(lobby: lobby, host: host, onEdit: onEditDeck),
             if (host)
               Align(
                 child: SecondaryButton(
                   label: CommonCopy.leave,
                   size: ButtonSize.compact,
-                  onPressed: leaving || onLeave == null
+                  busy: leaving,
+                  onPressed: onLeave == null
                       ? null
                       : () => unawaited(_confirmLeave(context)),
                 ),
@@ -331,7 +349,8 @@ class AtTableView extends StatelessWidget {
           Center(
             child: TextAction(
               label: CommonCopy.leave,
-              onPressed: leaving ? null : onLeave,
+              busy: leaving,
+              onPressed: onLeave,
             ),
           ),
       ],
@@ -478,15 +497,14 @@ class _Row extends StatelessWidget {
   }
 }
 
-/// The table's paper: "Scan to join" with Share beside it, the QR code of
-/// the table's link (never under [Sizes.qrScannable]) and the code in the
-/// hero face. Nearly empty ([compact] false): the QR code large and centred,
-/// the code under it. Past that, the card is as short as it can be: the QR
-/// code at its scannable least on the left, the words, Share and the code
-/// beside it; where that leaves the code too little room (a narrow phone),
-/// stacked, the QR code still at its least. [headline]: the words are the
-/// screen's headline (the host's; a guest's headline is whose table it is).
-/// Without a link (no web address known) the code alone.
+/// The table's paper, two blocks: the QR code of the table's link with
+/// "Scan to join" on it (its label, nothing else's), and the code to type
+/// with its own label ("Code", 01's word) and Share. Nearly empty ([compact]
+/// false): the QR code large and centred over the code. Past that, as short as
+/// it can be: the QR code at its scannable least beside the code, or over it
+/// where the code would have too little room (a narrow phone). [headline]:
+/// "Scan to join" is the screen's headline (the host's). Without a link (no
+/// web address known): the code alone.
 class _JoinCard extends StatelessWidget {
   const _JoinCard({
     required this.code,
@@ -508,21 +526,14 @@ class _JoinCard extends StatelessWidget {
     final share = onShare;
     return PaperCard(
       lift: PaperLift.slab,
-      padding: compact
-          ? const EdgeInsets.fromLTRB(Space.md, Space.sm, Space.xs, Space.sm)
-          : const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.sm, Space.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.md,
+        vertical: Space.sm,
+      ),
       child: Builder(
         builder: (context) {
           final type = context.skin.typography;
           final ink = context.ground.text;
-          final scan = Semantics(
-            header: headline,
-            child: FitLine(
-              TableCopy.scan,
-              style: type.title.copyWith(color: ink),
-              alignment: AlignmentDirectional.centerStart,
-            ),
-          );
           final shareButton = link == null || share == null
               ? null
               // The skin has no art for sharing: the platform's glyph.
@@ -532,74 +543,101 @@ class _JoinCard extends StatelessWidget {
                   color: ink,
                   icon: const Icon(Icons.ios_share),
                 );
-          // "Scan to join" belongs to the QR code alone: with no link (no
-          // web address known) there is nothing to scan, and the six letters
-          // are a code to type, labelled as 01 asks for it ("Code").
-          final words = Row(
+          final codeBlock = Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Expanded(child: link == null ? const SizedBox.shrink() : scan),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      JoinCopy.codeHint,
+                      style: type.caption.copyWith(color: ink),
+                    ),
+                    FitLine(
+                      code,
+                      style: type.heroCode.copyWith(color: ink),
+                      alignment: AlignmentDirectional.centerStart,
+                    ),
+                  ],
+                ),
+              ),
               ?shareButton,
             ],
           );
-          final theCode = _CodeLine(code: code, centred: !compact);
-          QrPicture qr(double side) => QrPicture(
-            data: link.toString(),
-            side: side,
-            semanticLabel: TableCopy.scan,
+          if (link == null) return codeBlock;
+          final scan = Semantics(
+            header: headline,
+            child: FitLine(
+              TableCopy.scan,
+              style: type.action.copyWith(color: ink),
+              alignment: AlignmentDirectional.centerStart,
+            ),
+          );
+          Widget qrBlock(double side) => SizedBox(
+            width: side,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              spacing: Space.xs,
+              children: [
+                QrPicture(
+                  data: link.toString(),
+                  side: side,
+                  semanticLabel: TableCopy.scan,
+                ),
+                Semantics(
+                  header: headline,
+                  child: FitLine(
+                    TableCopy.scan,
+                    style: type.action.copyWith(color: ink),
+                  ),
+                ),
+              ],
+            ),
+          );
+          final divider = Container(
+            height: context.skin.shape.stroke,
+            color: context.ground.hairline,
           );
           return LayoutBuilder(
             builder: (context, room) {
-              // The words beside the QR code need their room at the
-              // player's text size.
               final beside =
                   room.maxWidth - Sizes.qrScannable - Space.md >=
                   MediaQuery.textScalerOf(context).scale(Sizes.joinCodeBeside);
-              if (link != null && compact && beside) {
+              if (compact && beside) {
+                // Short: "Scan to join" at the QR code's edge, beside it; a
+                // hairline, then the code block.
                 return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   spacing: Space.md,
                   children: [
-                    qr(Sizes.qrScannable),
+                    QrPicture(
+                      data: link.toString(),
+                      side: Sizes.qrScannable,
+                      semanticLabel: TableCopy.scan,
+                    ),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        spacing: Space.xs,
-                        children: [
-                          scan,
-                          theCode,
-                          if (shareButton != null)
-                            Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: shareButton,
-                            ),
-                        ],
+                      child: SizedBox(
+                        height: Sizes.qrScannable,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [scan, divider, codeBlock],
+                        ),
                       ),
                     ),
                   ],
                 );
               }
+              final side = compact
+                  ? Sizes.qrScannable
+                  : math.max(
+                      Sizes.qrScannable,
+                      math.min(room.maxWidth, Sizes.qrLargest),
+                    );
               return Column(
-                spacing: Space.xs,
-                children: [
-                  words,
-                  Padding(
-                    padding: const EdgeInsets.only(right: Space.sm),
-                    child: Column(
-                      spacing: Space.xs,
-                      children: [
-                        if (link != null)
-                          qr(
-                            compact
-                                ? Sizes.qrScannable
-                                : math.max(
-                                    Sizes.qrScannable,
-                                    math.min(room.maxWidth, Sizes.qrLargest),
-                                  ),
-                          ),
-                        theCode,
-                      ],
-                    ),
-                  ),
-                ],
+                spacing: Space.md,
+                children: [qrBlock(side), divider, codeBlock],
               );
             },
           );
@@ -609,88 +647,16 @@ class _JoinCard extends StatelessWidget {
   }
 }
 
-/// The table's code to type, with its label ("Code", the word 01's field
-/// asks for), in the hero face: centred under a large QR code with the label
-/// before it; beside a small one, the label over it.
-class _CodeLine extends StatelessWidget {
-  const _CodeLine({required this.code, required this.centred});
-
-  final String code;
-  final bool centred;
-
-  @override
-  Widget build(BuildContext context) {
-    final type = context.skin.typography;
-    final ink = context.ground.text;
-    final label = Text(
-      JoinCopy.codeHint,
-      style: type.caption.copyWith(color: ink),
-    );
-    final letters = FitLine(
-      code,
-      style: type.heroCode.copyWith(color: ink),
-      alignment: AlignmentDirectional.centerStart,
-    );
-    // Beside a QR code at its least: the label over the letters.
-    if (!centred) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [label, letters],
-      );
-    }
-    final line = Row(
-      mainAxisSize: MainAxisSize.min,
-      spacing: Space.sm,
-      children: [
-        label,
-        Flexible(child: letters),
-      ],
-    );
-    return centred ? Center(child: line) : line;
-  }
-}
-
-/// A place not taken yet at a table set for a number: a row's outline with
-/// an empty token, no words.
-class _EmptySeat extends StatelessWidget {
-  const _EmptySeat();
-
-  @override
-  Widget build(BuildContext context) {
-    final skin = context.skin;
-    final ground = context.ground;
-    const size = PlayerRowSize.compact;
-    return ExcludeSemantics(
-      child: Container(
-        height: size.height,
-        padding: const EdgeInsets.symmetric(horizontal: Space.sm),
-        alignment: AlignmentDirectional.centerStart,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(size.height / 2),
-          border: Border.all(color: ground.hairline, width: skin.shape.stroke),
-        ),
-        child: Container(
-          width: size.token.size,
-          height: size.token.size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: ground.outline, width: skin.shape.stroke),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// The game as set up, the same for everyone at the table: the chip (an
 /// automatic deck) and the talk's length, then every role in the deck face
-/// up with its count (a tap or a hold reads it, 03b); at a number, a deck
-/// that does not hold the cards the deal needs shows its count
-/// ([DeckCount]). The host's opens 03 ("Edit").
+/// up with its count, in [deckOrder] (a tap or a hold reads it, 03b). The
+/// host's opens 03 ("Edit"), and shows a deck that does not hold the cards
+/// the deal needs ([DeckCount]; a guest never sees it).
 class _SetupPanel extends StatelessWidget {
-  const _SetupPanel({required this.lobby, this.onEdit});
+  const _SetupPanel({required this.lobby, required this.host, this.onEdit});
 
   final LobbyState lobby;
+  final bool host;
   final VoidCallback? onEdit;
 
   @override
@@ -701,12 +667,13 @@ class _SetupPanel extends StatelessWidget {
     final talk = lobby.secondsOf(Length.talk);
     final cards = lobby.tableCards;
     final seats = lobby.table.seats;
-    final need = lobby.deal?.need;
+    final need = lobby.cardsNeeded;
     final picked = lobby.pickedCards;
+    final edit = host ? onEdit : null;
     void read(RoleId role) => unawaited(showRoleSheet(context, role));
     return OutlinePanel(
-      onTap: onEdit,
-      semanticLabel: onEdit == null ? null : TableCopy.editDeck,
+      onTap: edit,
+      semanticLabel: edit == null ? null : TableCopy.editDeck,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: Space.smPlus,
@@ -725,36 +692,70 @@ class _SetupPanel extends StatelessWidget {
                 child: talk == null
                     ? const SizedBox.shrink()
                     : FitWords(
-                        '${DeckCopy.talk} ${lengthText(talk)}',
+                        '${DeckCopy.talk} ${lengthText(talk, Length.talk)}',
                         style: type.action.copyWith(color: ink),
                       ),
               ),
-              if (onEdit != null)
+              if (edit != null)
                 Text(
                   TableCopy.editDeck,
                   style: type.action.copyWith(color: ink),
                 ),
             ],
           ),
-          if (seats != null && need != null && picked != need)
+          if (host && seats != null && need != null && picked != need)
             DeckCount(picked: picked, need: need, seats: seats),
-          if (cards.isNotEmpty)
-            Wrap(
-              spacing: Space.sm,
-              runSpacing: Space.sm,
-              children: [
-                for (final MapEntry(key: role, value: count) in cards.entries)
-                  RoleCard(
-                    role: role,
-                    size: RoleCardSize.thumbSmall,
-                    count: count,
-                    onTap: () => read(role),
-                    onLongPress: () => read(role),
-                  ),
-              ],
-            ),
+          if (cards.isNotEmpty) _DeckStrip(cards: cards, onRead: read),
         ],
       ),
     );
   }
+}
+
+/// The deck's cards face up as thumbnails, in balanced lines: one line
+/// while the cards fit it at [Sizes.thumbLeast] of their size (they shrink to
+/// share it), else as few lines as fit, the cards shared evenly, so no card
+/// sits alone on a line of its own.
+class _DeckStrip extends StatelessWidget {
+  const _DeckStrip({required this.cards, required this.onRead});
+
+  final Map<RoleId, int> cards;
+  final ValueChanged<RoleId> onRead;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, room) {
+      const gap = Space.sm;
+      final least = RoleCardSize.thumbSmall.thumbnail!.width * Sizes.thumbLeast;
+      final entries = cards.entries.toList();
+      final fit = math.max(1, ((room.maxWidth + gap) / (least + gap)).floor());
+      final lines = (entries.length / fit).ceil();
+      final perLine = (entries.length / lines).ceil();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: gap,
+        children: [
+          for (var i = 0; i < entries.length; i += perLine)
+            Row(
+              spacing: gap,
+              children: [
+                for (final MapEntry(key: role, value: count) in entries.sublist(
+                  i,
+                  math.min(i + perLine, entries.length),
+                ))
+                  Flexible(
+                    child: RoleCard(
+                      role: role,
+                      size: RoleCardSize.thumbSmall,
+                      count: count,
+                      onTap: () => onRead(role),
+                      onLongPress: () => onRead(role),
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      );
+    },
+  );
 }

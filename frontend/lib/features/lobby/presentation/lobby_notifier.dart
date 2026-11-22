@@ -122,7 +122,7 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   LobbyState _withPending(LobbyState lobby) => _pending
       .fold(lobby, _mergeSettings)
-      .copyWith(settling: _pending.isNotEmpty);
+      .copyWith(pendingKeys: {for (final p in _pending) ...p.keys});
 
   static LobbyState _mergeSettings(LobbyState lobby, Map<String, Object?> p) =>
       lobby.copyWith(
@@ -442,12 +442,9 @@ class LobbyNotifier extends _$LobbyNotifier {
       _changeSettings(LobbyService.customDeck(roles));
 
   /// The host sets how many players the game is for (3 to 10), or opens the
-  /// table to whoever comes (null). An open table's deck is automatic: a
-  /// custom deck is built for a number.
-  Future<void> setSeats(int? seats) => _changeSettings({
-    'seats': seats,
-    if (seats == null && !(state.value?.table.autoDeck ?? true)) 'deck': 'auto',
-  });
+  /// table to whoever comes (null; offered only with an automatic deck, so a
+  /// deck of the host's own is never quietly dropped).
+  Future<void> setSeats(int? seats) => _changeSettings({'seats': seats});
 
   /// The host starts a custom deck from [roles] (the deck shown), for
   /// [seats] players when the table is open (a custom deck is built for a
@@ -492,9 +489,17 @@ class LobbyNotifier extends _$LobbyNotifier {
       _pending.remove(patch);
       if (ref.mounted) await refreshLobby();
     } catch (e) {
-      logger.d('Settings change not sent ($e)');
       if (!ref.mounted) return;
       _pending.remove(patch);
+      if (serverAnswered(e)) {
+        // An answer, not a loss: the server refused this change (the table
+        // moved under it: someone joined, another length changed first). It
+        // is dropped and the lobby read again; nothing to send again.
+        logger.d('Settings change refused ($e)');
+        await refreshLobby();
+        return;
+      }
+      logger.d('Settings change not sent ($e)');
       _retry = () => _changeSettings(patch);
       final now = state.value;
       if (now != null) state = AsyncData(now.copyWith(notSent: true));
@@ -565,7 +570,9 @@ class LobbyNotifier extends _$LobbyNotifier {
       NotFoundException() => (404, const <String>[]),
       _ => (null, const <String>[]),
     };
-    if (status == null || status >= 500) return (answered: false, why: null);
+    if (status == null || !serverAnswered(error)) {
+      return (answered: false, why: null);
+    }
     final why = status == 404
         ? BannerCopy.tableClosed
         : details.contains(_notWaiting)
@@ -617,29 +624,31 @@ class LobbyNotifier extends _$LobbyNotifier {
     final service = ref.read(lobbyServiceProvider);
     try {
       await service.leaveLobby(code);
-    } on NotFoundException {
-      return;
-    } on ValidationException catch (e) {
-      if (e.firstErrorFor('detail') == _notAMember) return;
-      logger.w('Leave refused: $e');
-      throw const LeaveRefused(BannerCopy.cannotLeave);
-    } on UnhandledHttpException catch (e) {
-      // 409: the deal came first; the table is playing now.
-      logger.w('Leave refused: $e');
-      throw LeaveRefused(
-        e.statusCode == 409 ? BannerCopy.lobbyClosed : BannerCopy.cannotLeave,
-      );
-    } on ApiException catch (e, stack) {
-      // No answer (or a server error): did it reach the server anyway?
-      logger.w('Leave not answered: $e', error: e, stackTrace: stack);
+    } catch (e) {
+      // Already off the table: an earlier leave got there, or the table is
+      // gone (the last one out closed it).
+      if (e is NotFoundException ||
+          (e is ValidationException && e.code == _notAMember)) {
+        return;
+      }
+      if (serverAnswered(e)) {
+        logger.w('Leave refused: $e');
+        throw LeaveRefused(
+          e is UnhandledHttpException && e.statusCode == 409
+              ? BannerCopy.lobbyClosed
+              : BannerCopy.cannotLeave,
+        );
+      }
+      // No answer: did it get there anyway? The server says where we sit.
+      logger.w('Leave not answered: $e');
       final where = await service.fetchMyTable();
       if (where?.lobbyCode != code) return;
       rethrow;
     }
   }
 
-  /// The server's words for a leave from a table this player is not at.
-  static const _notAMember = 'You are not in this lobby.';
+  /// The server's code for a leave from a table this player is not at.
+  static const _notAMember = 'not_in_lobby';
 
   void _dispose() {
     _noticeTimer?.cancel();

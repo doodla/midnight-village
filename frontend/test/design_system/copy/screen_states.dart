@@ -177,8 +177,9 @@ final screens = <String, Screen>{
           for (final length in _lengths) text(length),
           text(CommonCopy.seconds),
           text(DeckCopy.minutes),
+          text(DeckCopy.noClock),
           text(DeckCopy.off),
-          button(DeckCopy.useDeck),
+          button(DeckCopy.done),
         ],
     },
   ),
@@ -398,7 +399,7 @@ final spoken = [
   // 02's Share glyph.
   TableCopy.share,
   // 03's steppers and the grid card's minus.
-  DeckCopy.lower,
-  DeckCopy.higher,
-  DeckCopy.takeOut,
+  SpokenCopy.lower,
+  SpokenCopy.higher,
+  SpokenCopy.takeOut,
 ];

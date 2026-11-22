@@ -83,6 +83,11 @@ class _Table {
 
   int? get seats => settings['seats'] as int?;
 
+  /// What the stand-in says each length runs with (`lengths`).
+  final lengths = Map<String, dynamic>.of(
+    _shape['lengths'] as Map<String, dynamic>,
+  );
+
   Map<String, dynamic> body() {
     final size = seats ?? present;
     final auto = settings['deck'] == 'auto';
@@ -101,6 +106,8 @@ class _Table {
       ],
       'deck_preview': auto && size >= 3 ? cards : null,
       'deck_cards': cards,
+      'seats_range': [math.max(3, present), 10],
+      'lengths': lengths,
       'deal': {
         'ok': full && have == need,
         'need': need,
@@ -112,9 +119,13 @@ class _Table {
 
   /// The server merges a PATCH's settings over the stored ones.
   void patch(RequestOptions request) {
-    settings.addAll(
-      ((request.data as Map)['settings'] as Map).cast<String, dynamic>(),
-    );
+    final given = ((request.data as Map)['settings'] as Map)
+        .cast<String, dynamic>();
+    settings.addAll(given);
+    // A length changed is what the game runs with.
+    for (final MapEntry(:key, :value) in given.entries) {
+      if (lengths.containsKey(key)) lengths[key] = value;
+    }
   }
 }
 
@@ -129,8 +140,13 @@ const _direction = [
 ];
 
 void main() {
-  Future<(TableSetup, _Table)> open(WidgetTester tester, int present) async {
+  Future<(TableSetup, _Table)> open(
+    WidgetTester tester,
+    int present, {
+    void Function(_Table table)? stored,
+  }) async {
     final table = _Table(present);
+    stored?.call(table);
     final setup = await TableSetup.pump(
       tester,
       lobby: table.body(),
@@ -167,13 +183,15 @@ void main() {
         reason: step,
       );
     }
-    // One label, greyed or live: live while the deck fits.
-    final use = find.widgetWithText(PrimaryButton, DeckCopy.useDeck);
-    expect(use, findsOneWidget, reason: step);
-    final auto = table.settings['deck'] == 'auto';
+    // One label, always live: the page holds the players and the lengths.
+    final done = find.widgetWithText(PrimaryButton, DeckCopy.done);
+    expect(done, findsOneWidget, reason: step);
+    expect(tester.widget<PrimaryButton>(done).onPressed, isNotNull);
+    // The Doppelganger's length only while the deck holds the card.
+    final cards = table.body()['deck_cards'] as Map<String, dynamic>;
     expect(
-      tester.widget<PrimaryButton>(use).onPressed != null,
-      auto || have == need,
+      find.widgetWithText(LabelledStepper, 'Doppelganger'),
+      cards.containsKey('Doppelganger') ? findsOneWidget : findsNothing,
       reason: step,
     );
     for (final word in _direction) {
@@ -260,30 +278,114 @@ void main() {
         );
         check(tester, table, 'one ${last.displayName} out again');
 
+        // The Doppelganger in: its length appears; out again: it goes.
+        await _tap(tester, setup, _role(RoleId.doppelganger));
+        check(tester, table, 'the Doppelganger in');
+        await _tap(
+          tester,
+          setup,
+          find.descendant(
+            of: _role(RoleId.doppelganger),
+            matching: find.byIcon(Icons.remove),
+          ),
+        );
+        check(tester, table, 'the Doppelganger out');
+
         // Every tap went to the server, one change each.
         expect(setup.patches.length, greaterThan(need));
 
         // Back on 02: "Deal to {n}", live exactly when the server says ok.
-        final use = find.widgetWithText(PrimaryButton, DeckCopy.useDeck);
-        if (tester.widget<PrimaryButton>(use).onPressed != null) {
-          await _tap(tester, setup, use);
-          final deal = find.widgetWithText(
-            PrimaryButton,
-            TableCopy.deal.fill({'n': table.seats!}),
-          );
-          expect(deal, findsOneWidget);
-          expect(
-            tester.widget<PrimaryButton>(deal).onPressed != null,
-            (table.body()['deal'] as Map)['ok'],
-          );
-          for (final word in _direction) {
-            expect(find.textContaining(word), findsNothing);
-          }
+        await _tap(tester, setup, find.text(DeckCopy.done));
+        final deal = find.widgetWithText(
+          PrimaryButton,
+          TableCopy.deal.fill({'n': table.seats!}),
+        );
+        expect(deal, findsOneWidget);
+        expect(
+          tester.widget<PrimaryButton>(deal).onPressed != null,
+          (table.body()['deal'] as Map)['ok'],
+        );
+        for (final word in _direction) {
+          expect(find.textContaining(word), findsNothing);
         }
         await setup.close(tester);
       });
     }
   }
+
+  group('while changes are on their way (the answers held)', () {
+    testWidgets('three taps on Players: the number, "3 of N" and the count '
+        'are the new number at once; 02 says "Deal to N"', (tester) async {
+      final (setup, table) = await open(tester, 3);
+      await _tap(tester, setup, _players(Icons.add)); // Any to 3, answered
+      final held = setup.http.hold(method: 'PATCH', path: '/lobbies/D3GL6S/');
+      for (var i = 0; i < 3; i++) {
+        await _tap(tester, setup, _players(Icons.add));
+      }
+      // One change at a time: the first is out, the other two wait their
+      // turn on the phone; nothing is answered yet.
+      expect(held.length, 1);
+      expect(
+        find.descendant(of: _playersRow(), matching: find.text('6')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(TableCopy.seated.fill({'d': 3, 'n': 6})),
+        findsOneWidget,
+      );
+      // Never the new number beside the old need.
+      expect(find.text('9 / 9'), findsOneWidget);
+      expect(find.text('6 / 6'), findsNothing);
+
+      await _tap(tester, setup, find.text(DeckCopy.done));
+      expect(
+        find.widgetWithText(PrimaryButton, TableCopy.deal.fill({'n': 6})),
+        findsOneWidget,
+      );
+      expect(find.text(TableCopy.deal.fill({'n': 3})), findsNothing);
+
+      // Answers from now on: the held one, then the two waiting their turn.
+      setup.http.stopHolding(method: 'PATCH', path: '/lobbies/D3GL6S/');
+      held.releaseAll();
+      await setup.settle(tester);
+      expect(table.seats, 6);
+      expect(
+        find.text(TableCopy.seated.fill({'d': 3, 'n': 6})),
+        findsOneWidget,
+      );
+      await setup.close(tester);
+    });
+
+    testWidgets('a length stepped twice shows at once; the others keep the '
+        "server's values, never a stored one", (tester) async {
+      // A stored look the server does not run with (past its most, older
+      // code): the body's `lengths` says what runs (no look).
+      final (setup, _) = await open(
+        tester,
+        1,
+        stored: (table) {
+          table.settings['card_look_seconds'] = 999;
+          table.lengths['card_look_seconds'] = 0;
+        },
+      );
+      setup.http.hold(method: 'PATCH', path: '/lobbies/D3GL6S/');
+      final talk = find.descendant(
+        of: find.widgetWithText(LabelledStepper, DeckCopy.talk),
+        matching: find.byIcon(Icons.add),
+      );
+      await _tap(tester, setup, talk);
+      await _tap(tester, setup, talk);
+
+      expect(find.text('7 min'), findsOneWidget, reason: 'talk, two steps');
+      final look = find.widgetWithText(LabelledStepper, DeckCopy.look);
+      expect(
+        find.descendant(of: look, matching: find.text(DeckCopy.off)),
+        findsOneWidget,
+        reason: "the server's look, not the stored 999",
+      );
+      await setup.close(tester);
+    });
+  });
 
   testWidgets('a guest\'s table shows the same roles face up as the '
       'host\'s, and follows a change', (tester) async {

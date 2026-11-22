@@ -28,8 +28,8 @@ import 'harness/ui_harness.dart';
 /// builds a deck of their own for eight), the others arrive one by one
 /// through the API while 02 counts them ("3 of 8", "Deal to 8" locked, the
 /// cards needed never moving), only seven come, the host taps "Play with 7"
-/// (the automatic deck follows; the own deck is one over and the host takes
-/// one card out on 03), and deals. And the owner's leave: the host alone
+/// (the automatic deck follows; the own deck, one over, opens 03 with its
+/// count and the host takes one card out), and deals. And the owner's leave: the host alone
 /// leaves and is at 01, never "Not sent.". Filmstrips:
 /// `integration_test/screenshots/setup-*/`.
 void main() {
@@ -86,7 +86,7 @@ void main() {
           await ui.pumpUntil(() => run.text('11 / 11'), reason: 'it fits');
         }
         await run.shoot('set-for-8');
-        await run.tap(find.text(DeckCopy.useDeck));
+        await run.tap(find.text(DeckCopy.done));
         await ui.pumpUntil(run.shows<AtTableScreen>, reason: 'back at 02');
         await run.expectDealLocked(8);
 
@@ -117,12 +117,18 @@ void main() {
           'the table set for seven',
         );
         if (own) {
-          // The own deck is for eight: one over, said by its count.
-          await ui.pumpUntil(() => run.text('11 / 10'), reason: '02: 11 / 10');
-          await run.expectDealLocked(7);
+          // The own deck was built for eight: "Play with 7" opens 03 with
+          // its count showing (11 / 10), never throwing the deck away.
+          await ui.pumpUntil(
+            () => run.shows<DeckView>() && run.text('11 / 10'),
+            reason: '03, the own deck one over',
+          );
           await run.shoot('lowered-own-deck');
-          await run.tap(find.text(TableCopy.editDeck));
-          await ui.pumpUntil(run.shows<DeckView>, reason: '03 again');
+          expect(
+            (((await run.lobby())['settings'] as Map)['deck']),
+            'custom',
+            reason: 'the own deck kept',
+          );
           await run.tap(
             find.descendant(
               of: run.card(run.lit().last),
@@ -134,7 +140,7 @@ void main() {
             'ten cards for seven',
           );
           await ui.pumpUntil(() => run.text('10 / 10'), reason: '03: fits');
-          await run.tap(find.text(DeckCopy.useDeck));
+          await run.tap(find.text(DeckCopy.done));
           await ui.pumpUntil(run.shows<AtTableScreen>, reason: '02');
         }
         final deal = find.widgetWithText(

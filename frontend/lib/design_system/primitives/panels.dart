@@ -60,67 +60,6 @@ class OutlinePanel extends StatelessWidget {
   }
 }
 
-/// One of the table's pace settings (S03): its name over its value, in an
-/// outline. With [onTap] it is a button (it opens a stepper).
-class PaceTile extends StatelessWidget {
-  const PaceTile({
-    super.key,
-    required this.label,
-    required this.value,
-    this.onTap,
-  });
-
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final skin = context.skin;
-    final ground = context.ground;
-    final radius = BorderRadius.circular(skin.shape.radius);
-    return Semantics(
-      button: onTap != null,
-      label: '$label $value',
-      excludeSemantics: true,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          highlightColor: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Space.smPlus,
-              vertical: Space.sm,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(
-                color: ground.hairline,
-                width: skin.shape.stroke,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: Space.hairline,
-              children: [
-                FitLine(
-                  label,
-                  style: skin.typography.caption.copyWith(
-                    color: ground.quietText,
-                  ),
-                ),
-                FitLine(value, style: skin.typography.heading),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// "My night" (S08): a strip of night laid on the day, with a small
 /// face-down card set into it at the skin's thumb tilt, and its title. It is
 /// the cover of a `HoldToReveal`; every player's is the same. The card

@@ -24,84 +24,90 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   link to another table while seated at one, and the server's 409 `already_at_table`, say
   "You're at another table." with "Go there" (it reads `/me/table/` again): never a silent
   second seat.
-- **02** (`at_table_screen.dart`): for everyone, "Scan to join" (the QR code's label only:
-  with no link there is no QR code and no "Scan to join") with Share beside it, the QR
-  code of the join link (`joinLink`: `<origin>/#/join/<code>`; `appOrigin` is the page's
-  address on the web, else `--dart-define=PUBLIC_ORIGIN`, else the code alone), never under
-  `Sizes.qrScannable`, and the code after its label "Code" (`_CodeLine`, 01's word). Nearly empty (`Sizes.nearlyEmptyTable`: alone or two)
-  the table's picture shows and the QR code is large and centred, the code under it. Past
-  that the next thing is who is here, the deck and Deal, so the card is short: no picture, the
-  QR code at its least on the left with the words, Share and the code beside it (stacked,
-  still at its least, where the code would have under `Sizes.joinCodeBeside`: at 320), and
-  from `Sizes.twoUpPlayers` the rows two to a line where each half keeps
-  `Sizes.playerColumn`. So the rows, the deck with its cards and Deal are all in view for six
-  at 390 x 844 and five at 360 x 640 (`table_fit_test.dart`); beyond that the body scrolls
-  under its fade. A row per player: their own outlined and never dimmed, names never cut,
-  another's dropped phone (`connected: false`; the server keeps it true through the grace
-  period) the whole row dimmed, its token more, with no words. Share is the system share sheet
-  (`share_plus`, no mail fallback); only where there is none, or it fails, the link is copied
-  and the screen says "Copied" (the skin has no share art: the platform's glyph). At a table set for a number (`settings.seats`): "{d} of {n}" over the rows
-  (`SeatsLine`, the same words 03 shows, for host and guests alike) and an empty place
-  (`_EmptySeat`, no words) for each seat not taken; the wait is said this one way, never as
-  card arithmetic. Everyone sees the game as set up (`_SetupPanel`): the chip (an automatic
-  deck), the talk's length ("Talk 5 min") and every role in the deck face up with its count
-  (`LobbyState.tableCards`: the server's `deck_cards`, the same for every viewer, following
-  every `lobby_update`); a tap or a hold on a role reads it (03b). At a number, a deck that
-  does not hold the cards the deal needs shows `DeckCount`. The host's panel opens 03
-  ("Edit"); fewer came than the number (3 or more here): "Play with {n}" sets the number to
-  who is here in one tap (an automatic deck follows; a custom deck is never changed, its
-  count says it no longer fits). The deal button is the server's `deal` (`DealState`):
-  "Deal to {n}", live only when `ok`, else the same words locked (at a number {n} is that
-  number), "Need 3 players" at an open table of fewer than three, or "Can't deal yet.".
-  Nobody is asked to be ready:
-  the server deals in everyone at the table. A deal refused all the same (the table changed
-  under the tap) says why when the server's refusal gives a reason worth saying
-  (`LobbyNotifier.dealRefusal`: the table playing, too few, the deck), else nothing extra,
-  never a bare "Not sent." nor a notice that repeats the button; the button stays busy until
-  the lobby is read again and its new verdict sets it. A quiet labelled "Leave" asks first
-  ("Stay" / "Leave"). Leaving (`LobbyNotifier.leave`) waits as long as a waking server takes
-  (`LobbyService.leaveWait`, not the client's 10 s); "not at this table" (400) and a table
-  gone (404) count as left (an earlier tap got there); with no answer at all `/me/table/`
-  decides, and only a phone the server still seats sees "Not sent." with "Try again"; a
-  refusal says why ("That table is playing now.", else "Can't leave now."). Off the table,
-  `/me/table/` puts the phone at 01 (the last one out closes the table). With a pace chosen, its talk length ("5:00") sits beside the chip,
-  selected, so 02 shows what 03 chose. A guest: "{host} deals" at the hero title size over the
-  same card, the rows, and "Leave" a quiet underlined word at the foot (`TextAction` in the
-  actions, no outlined button): waiting said by the shape, not a sentence. A deal, a handover or a host change reads `/me/table/` again; the layout follows
-  the lobby's host with no words; a table that is gone says so with "Go home".
+- **02** (`at_table_screen.dart`): the table's paper (`_JoinCard`) is two blocks: the QR code
+  of the join link (`joinLink`: `<origin>/#/join/<code>`; `appOrigin` is the page's address on
+  the web, else `--dart-define=PUBLIC_ORIGIN`, else no QR code) with "Scan to join" on it (its
+  label alone: under a large QR code, at the edge of a small one), never under
+  `Sizes.qrScannable`; and, past a hairline, the code with its own label "Code" (01's word)
+  and Share. Nearly empty (`Sizes.nearlyEmptyTable`) and open, the table's picture and the QR
+  code large and centred; past that, or at a table set for a number, the QR code at its least
+  beside the code (over it where the code would have under `Sizes.joinCodeBeside`: at 320).
+  From `Sizes.twoUpPlayers` the rows go two to a line where each half keeps
+  `Sizes.playerColumn`; the rows, the deck and Deal are in view for six at 390 x 844 and five
+  at 360 x 640, and alone at a table set for eight the deck and Leave too, at 320, 360 and
+  390, text x1 and x1.3 (`table_fit_test.dart`). A row per player: their own outlined and
+  never dimmed, names never cut, another's dropped phone (`connected: false`) dimmed with no
+  words. Share is the system share sheet (`share_plus`); only where there is none the link is
+  copied and the screen says "Copied". At a table set for a number (`settings.seats`): "{d} of
+  {n}" with an empty circle for each place not taken (`SeatsLine`, `SeatDots.empty`, the
+  same words 03 shows, for host and guests alike), above the rows; the wait is said this one
+  way, never as card arithmetic. Everyone sees the game as set up (`_SetupPanel`): the chip
+  (an automatic deck), the talk's length ("Talk 5 min") and every role in the deck face up
+  with its count, in `deckOrder` (`LobbyState.tableCards`; the same for every viewer,
+  following every `lobby_update`), in balanced lines (`_DeckStrip`: the thumbnails shrink to
+  `Sizes.thumbLeast` before a second line, and no card sits alone on one); a tap or a hold on
+  a role reads it (03b). The host's panel opens 03 ("Edit") and, at a number, shows a deck
+  that does not hold the cards the deal needs (`DeckCount`; a guest never sees it). Fewer
+  came than the number (3 or more here): "Play with {n}" sets the number to who is here in one
+  tap; an automatic deck follows, a deck of the host's own is never changed: the tap opens 03
+  with its count showing. The deal button is the server's `deal` (`DealState`): "Deal to
+  {n}", {n} the number as this phone shows it (a change on its way included), live only when
+  `ok` and nothing is on its way, else the same words locked; "Need 3 players" at an open
+  table of fewer than three, or "Can't deal yet.". Nobody is asked to be ready. A deal
+  refused all the same says why when the refusal gives a reason worth saying
+  (`LobbyNotifier.dealRefusal`), never a bare "Not sent.". A quiet labelled "Leave" asks
+  first ("Stay" / "Leave"); a guest's is a quiet underlined word at the foot (`TextAction`).
+  Either shows it is on its way at once (`busy`: a `BusyMark` beside the word). Leaving
+  (`LobbyNotifier.leave`): `not_in_lobby` (400) and a table gone (404) count as left (an
+  earlier leave got there); another refusal says why ("That table is playing now.", else
+  "Can't leave now."); no answer (no connection, the client's 10 s wait run out, a 5xx):
+  `/me/table/` decides, and only a phone the server still seats sees "Not sent." with "Try
+  again". Off the table, `/me/table/` puts the phone at 01 (the last one out closes the
+  table). A guest: "{host} deals" at the hero title size over the same card. A deal, a
+  handover or a host change reads `/me/table/` again; a table that is gone says so with "Go
+  home".
 - **03 Tonight's game** (`deck_screen.dart`): the set-up page, the host's, editable before
   anyone comes and until the deal; every change is saved as it is made (shown at once, a
   merged PATCH, one at a time), so a restart finds it at the server. Top to bottom:
-  - **Players**: a `ValueStepper` from 3 to 10 (`settings.seats`); below 3, "Any" (an open
-    table: dealt to whoever is there, the automatic deck for who is here); never below the
-    players here (the server refuses it). At a number, `SeatsLine` "3 of 8" (shared with 02).
-  - **The deck, face up**: the chips make it automatic; every role in a grid, lit with its
-    count (`LobbyState.tableCards`: the server's `deck_cards`, or the host's own deck with this
-    phone's taps); a tap puts one in (up to the role's most, Masons in pairs; at its most a
-    tap does nothing), a lit card's minus (`RoleCard.onRemove`) takes one out, a hold opens
-    03b (`showRoleSheet`). The first card changed on an automatic deck makes it the host's own
-    from those cards (`startCustomDeck`), for the number (an open table takes the players
-    here, at least 3). At a number, `DeckCount`: the cards picked over `deal.need` ("7 / 11")
-    and a slot each, the players' slots then the centre's three, in the danger ink while it
-    is not the need. No words say which way the deck is off.
-  - **Every length the server has** (`Length`: Look, Night, Night minimum, Doppelganger,
-    Talk, Vote, Dropped phone, Host away), each a `LabelledStepper`: its value with its unit
-    ("30 s", "5 min", "2:30 min", "Off" for 0) from the server's `lengths` (a new table shows
-    the server's defaults), moved by a step (`Length.up`/`down`: 5 s under a minute, 15 s
-    under five, 30 s under fifteen, then minutes) within `length_ranges`. The Doppelganger's
-    is drawn quiet while the deck holds no Doppelganger. There are no pace presets.
-  - "Use this deck" back to 02: one label, live while the deck holds the cards the deal needs
-    (always for an automatic deck), locked otherwise.
+  - **Players**: a `ValueStepper` within the server's `seats_range` (never below who is here,
+    never above what the table holds); below 3, "Any" (an open table, dealt to whoever is
+    there), offered only with an automatic deck, so a deck of the host's own is never quietly
+    dropped. At a number, `SeatsLine` "3 of 8" with every seat drawn.
+  - **The deck, face up**: the chips make it automatic; every role in a grid in `deckOrder`,
+    lit with its count; a tap puts one in (up to the role's most, Masons in pairs), a lit
+    card's minus (`RoleCard.onRemove`) takes one out, a hold opens 03b (`showRoleSheet`). The
+    first card changed on an automatic deck makes it the host's own from those cards
+    (`startCustomDeck`), for the number (an open table takes the least of `seats_range`). At
+    a number, `DeckCount`: the cards picked over the cards needed ("7 / 11", `cardsNeeded`,
+    `pickedCards`) and a slot each, the players' then the centre's three, in the danger ink
+    while it is not the need. No words say which way the deck is off.
+  - **Every length the server has**, in `Length` order (Talk, Vote, Night, Doppelganger,
+    Look, Night minimum, Dropped phone, Host away), each a `LabelledStepper`: its value with
+    its unit ("30 s", "5 min", "2:30 min"; 0 is "No clock" for the talk and the vote, "Off"
+    for the rest) from the server's `lengths` (a new table shows the server's defaults),
+    moved by a step (`Length.up`/`down`: 5 s under a minute, 15 s under five, then whole
+    minutes) within `length_ranges` (the server's rule table, so a step is never refused for
+    a range reason). The Doppelganger's row is there only while the deck holds one. Each
+    stepper is as wide as its own widest value; the rows stay even (every name beside its
+    stepper, or every name over it). There are no pace presets.
+  - "Done" back to 02, always live (a host who changed only a timer is never stuck).
 - **State.** Everything shown is `lobbyProvider(code)`, read until it answers (`retryForever`;
   "One moment" meanwhile): the lobby body, its socket (`lobby_update` is the whole lobby), and
   this phone's settings changes merged over it as the server merges a PATCH (shallow), shown
-  at once, sent one at a time; a refusal or no answer takes the change back and says "Not
-  sent." (`notSent`, `retry`); a host role that moved says nothing. `TableSettings` reads the
-  deck, the chip, the look and the number of players; the lengths are the server's
-  `lengths` (`LobbyState.secondsOf`, this phone's change while it is on its way).
+  at once, sent one at a time. What the host sees while a change is on its way is ONE value:
+  the server's state with only the pending keys (`LobbyState.pendingKeys`) taken from this
+  phone (`TableCards`: `secondsOf` a length, `tableCards`, `cardsNeeded`, `pickedCards`, and
+  `DealState`'s number), so nothing pairs a new value with an old one. A change the server
+  refuses (`serverAnswered`, `core/api/api_exception.dart`: the one classifier every host
+  action uses) is dropped and the lobby read again, never "Not sent." nor sent again; a
+  change that never got an answer says "Not sent." with "Try again". A host role that moved
+  says nothing. `TableSettings` reads the deck, the chip, the look and the number of players.
 - **Tests.** `test/features/lobby/` (`table_screens_test.dart` drives the screens through the
   routes on recorded lobby bodies, `test/helpers/table_setup.dart`: each chip's cards, a deck
   one card short, a player joining, a phone dropping and coming back, the 409; the deal's
-  verdicts in `lobby_state_test.dart`); the gallery's 01 to 03b states are
+  verdicts in `lobby_state_test.dart`; `setup_page_test.dart` drives 03 tap by tap for 3, 5,
+  8 and 10 players with 1, 2 and 5 here against a stand-in server, and holds answers to check
+  what shows while changes are on their way; `table_leave_test.dart` every way a leave ends); the gallery's 01 to 03b states are
   `test_screens/table_fixtures.dart`; the whole way from 01 to 11 and back to 02 against a
-  real server is `test_e2e/ui_journey_test.dart`.
+  real server is `test_e2e/ui_journey_test.dart`, and a table set for eight, filled one by
+  one, lowered to seven and dealt is `test_e2e/ui_setup_test.dart`.

@@ -1506,6 +1506,14 @@
       "description": "A deck with a role past its own limit (a short or long deck is stored and reported by `deal`; only each role's limits are refused)."
     },
     {
+      "name": "http/lobby/settings_lengths",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The host sets every length on the set-up page (each its own value): stored in `settings`, reported in `lengths`."
+    },
+    {
       "name": "http/lobby/settings_not_host",
       "kind": "http",
       "method": "PATCH",

@@ -70,8 +70,6 @@ changes. Last updated 20 November 2026.
 - The server now sends `CORS_EXPOSE_HEADERS = ["Date"]` (base settings) and `/me/`
   `stage_started_at`; the app does not read either yet (it times fetches by the phone's
   clock). The deployment session has to be told the CORS change.
-- `ENV` defaults to dev, so a build without `--dart-define=ENV=prod` includes the `/debug`
-  toolbar.
 - 01 to 03: no rename (a new name on a device makes a new guest account). 03 is the set-up
   page (players 3 to 10 or open, the deck face up, every length with its range; no pace
   presets); the lobby body carries `deck_cards`, `lengths`, `length_ranges` and `deal.seats`.

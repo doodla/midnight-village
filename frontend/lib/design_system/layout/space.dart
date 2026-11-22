@@ -62,6 +62,25 @@ abstract final class Sizes {
   /// A role card in the deck builder's grid, width over height: the
   /// portrait and its name under it (S03).
   static const roleGridCell = 0.66;
+
+  /// The smallest a control is to touch, both ways (the reading floor's 44:
+  /// a stepper's glyphs, a grid card's minus).
+  static const touch = 44.0;
+
+  /// A glyph inside a round control, as a share of its disc (the grid card's
+  /// minus, a stepper's minus and plus).
+  static const glyphInDisc = 0.6;
+
+  /// A seat at a table set for a number, drawn as a circle: taken, filled;
+  /// empty, its outline (02, 03).
+  static const seat = 18.0;
+
+  /// The least a deck strip's thumbnail shrinks to, as a share of its size,
+  /// before the strip takes a second line (02).
+  static const thumbLeast = 0.6;
+
+  /// A card's slot in 03's count, the players' and the centre's.
+  static const deckSlot = Size(12, 16);
 }
 
 /// How long things take to move: the same in every skin.
