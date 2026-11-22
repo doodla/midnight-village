@@ -264,18 +264,21 @@ void main() {
         'sooner than its minimum', () async {
       // Both boxes start before the table is dealt, so the server's windows
       // (which open after) can never be shorter than the client measures.
+      // The lengths leave room for the requests between them: five phones'
+      // worth of HTTP on a machine kept busy by other work took seconds.
+      const window1Seconds = 5, minimumSeconds = 8;
       final window1 = TimeBox(
         'the Doppelganger window',
-        const Duration(seconds: 3),
+        const Duration(seconds: window1Seconds),
       );
       final both = TimeBox(
         'the Doppelganger window plus the minimum of window 2',
-        const Duration(seconds: 6),
+        const Duration(seconds: window1Seconds + minimumSeconds),
       );
       final t = await table({
         ...fastTimers,
-        'night_doppelganger_window_seconds': 3,
-        'night_min_window_seconds': 3,
+        'night_doppelganger_window_seconds': window1Seconds,
+        'night_min_window_seconds': minimumSeconds,
       });
       final alice = t.players[0], bob = t.players[1];
       final carol = t.players[2], dave = t.players[3];
