@@ -42,5 +42,7 @@ A hook refuses any worker that is not on an allowed model with an effort set
 
 ## The owner
 
+What needs the owner's eyes or a decision goes on the owner's board, never in an issue or pull request alone: `docs/dev/owner-board.md`.
+
 Their reports from the live app, in their words, and what is in flight:
 `docs/dev/owner-feedback.md`. Keep it current: it is what a new session starts from.
