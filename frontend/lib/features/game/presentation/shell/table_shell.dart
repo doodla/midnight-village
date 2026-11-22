@@ -7,9 +7,12 @@ import '../../../../core/logging/app_logger.dart';
 import '../../../../core/wakelock/wakelock_service.dart';
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
+import '../../../../design_system/primitives/art_precache.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/scene_switcher.dart';
 import '../../../../design_system/skin/art_set.dart';
+import '../../../../design_system/skin/card_back.dart';
+import '../../../../design_system/skin/card_back_scope.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/ground_scope.dart';
 import '../../../../design_system/skin/skin.dart';
@@ -20,6 +23,7 @@ import '../../../lobby/presentation/join_screen.dart';
 import '../../../lobby/presentation/where_am_i_provider.dart';
 import '../../domain/game_me.dart' show GamePhase;
 import '../../domain/screen_table.dart';
+import '../card_back_provider.dart';
 import '../live_game.dart';
 import '../table_screen.dart';
 import 'count_screen.dart';
@@ -71,6 +75,10 @@ class _TableShellState extends ConsumerState<TableShell>
   /// The day's layers are decoded once this phone is at the night.
   var _dawnWarm = false;
 
+  /// The game whose card back has been decoded (the fallback's is decoded at
+  /// start).
+  String? _backWarmFor;
+
   @override
   void initState() {
     super.initState();
@@ -91,6 +99,19 @@ class _TableShellState extends ConsumerState<TableShell>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       SceneSwitcher.precacheHeader(context, id);
+    });
+  }
+
+  /// The back this game draws, decoded once, when the game is first named:
+  /// only the back in use (`gameCardBackProvider`).
+  void _warmBack(String gameId) {
+    if (_backWarmFor == gameId) return;
+    _backWarmFor = gameId;
+    final back = ref.read(gameCardBackProvider(gameId));
+    if (back == CardBack.fallback) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(precacheCardBack(context, back));
     });
   }
 
@@ -139,6 +160,7 @@ class _TableShellState extends ConsumerState<TableShell>
       myTableProvider.select((table) => table.hasError),
     );
     final gameId = shown?.gameId;
+    if (gameId != null) _warmBack(gameId);
     final gameAsync = gameId == null
         ? null
         : ref.watch(liveGameProvider(gameId));
@@ -179,7 +201,14 @@ class _TableShellState extends ConsumerState<TableShell>
           child: SceneSwitcher<_Stage>(
             stage: (key: key, screen: shown?.screen),
             sceneBetween: _sceneBetween,
-            child: screen,
+            // Every card of the game, on every screen of it, has the game's one
+            // back; the screens that are not a game's (01 to 03) the fallback.
+            child: CardBackScope(
+              back: gameId == null
+                  ? null
+                  : ref.watch(gameCardBackProvider(gameId)),
+              child: screen,
+            ),
           ),
         ),
         if (offline) const _OfflineBanner(),

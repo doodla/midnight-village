@@ -84,4 +84,7 @@ production) live in `apps/onuw/debug.py` and `debug_views.py`. `tools/game_drive
 whole game through them. Docs: `docs/dev/debug-harness/`.
 
 `.pre-commit-config.yaml` (repo root) is optional; the commit gate is git's own hooks in
-`.claude/hooks/git/` (`docs/claude-architecture.md`).
+`.claude/hooks/git/` (`docs/claude-architecture.md`). For backend changes it runs `just check`
+only (seconds). GitHub runs `just check` and `just test` (coverage floor, contract samples
+current, migration tests) on every pull request and merges nothing on red; `just gate-full` runs
+them locally.

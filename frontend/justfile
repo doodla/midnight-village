@@ -22,7 +22,7 @@ gen:
     dart run build_runner build --delete-conflicting-outputs
 
 # Fail when the committed generated code is not what `just gen` makes now
-# (about 50 s: CI runs it, the commit gate does not)
+# (about 50 s: GitHub runs it, and `just gate-full`; the commit gate does not)
 gen-check: gen
     git diff --exit-code -- '*.g.dart' '*.freezed.dart'
 
@@ -35,6 +35,11 @@ watch:
 # Run all tests (excludes the live-backend e2e harness — see test-harness)
 test:
     flutter test --dart-define=ENV=dev --exclude-tags e2e
+
+# The widget tests without the golden ones (GitHub runs those as their own job,
+# `just flutter-test-golden`; on Linux `just test` runs both)
+test-widgets:
+    flutter test --dart-define=ENV=dev --exclude-tags golden
 
 # Run tests with coverage (excludes the live-backend e2e harness)
 test-cov:
@@ -152,6 +157,12 @@ playtest-pack width="390":
 # (resized). Deterministic. Needs uv.
 skin-art:
     uv run --with pillow python tool/skin_art.py
+
+# Make the five card back masters (docs/design/art/card-backs/*.jpg) from the
+# raw generated pictures in card-backs/raw/ (grade, mirror, grain, lip shadow;
+# PROVENANCE.md there). Deterministic. Run `just skin-art` after. Needs uv.
+card-back-art:
+    uv run --with pillow --with numpy --with scipy python tool/card_back_art.py
 
 # Regenerate the app icon, the launch marks and the web icons from
 # docs/design/art/ (docs/design/app-icon.md). Deterministic. Needs uv.

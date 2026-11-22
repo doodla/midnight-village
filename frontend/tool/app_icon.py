@@ -114,14 +114,6 @@ MOON = Mark(
 )
 
 # Tried, shown on the review sheet, not shipped.
-EYE = Mark(
-    name="eye",
-    source=ART / "scenes" / "card-back.jpg",
-    centre=(390.0, 505.0),
-    visible=330.0,
-    mono_above=150,
-    mono_within=(390.0, 505.0, 140.0),
-)
 LANTERN = Mark(
     name="lantern",
     source=ART / "tokens" / "lantern.jpg",
@@ -132,7 +124,7 @@ LANTERN = Mark(
     keep_within=(160.0, 160.0, 134.0),
     outside_colour=(31, 36, 67),
 )
-CANDIDATES = (MOON, EYE, LANTERN)
+CANDIDATES = (MOON, LANTERN)
 CHOSEN = MOON
 
 

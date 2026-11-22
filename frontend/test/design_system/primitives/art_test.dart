@@ -12,6 +12,7 @@ import 'package:midnight_village/design_system/primitives/art_precache.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/player_token.dart';
+import 'package:midnight_village/design_system/skin/card_back.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
@@ -142,12 +143,28 @@ void main() {
     expect(drawn.image, isNotNull, reason: 'the face is never empty');
   });
 
-  test('the card back ships at a phone size', () async {
-    final back = skin.art.cardBack;
-    final bytes = await rootBundle.load(back.path);
-    // Drawn at most 250 wide (S07): 600 pixels is sharp at 2.4x.
-    expect(back.pixels.width, lessThanOrEqualTo(600));
-    expect(bytes.lengthInBytes, lessThan(150 * 1024));
+  test('every card back ships at a phone size', () async {
+    for (final back in CardBack.values) {
+      final art = skin.art.cardBack(back);
+      final bytes = await rootBundle.load(art.path);
+      // Drawn at most 250 wide (S07): 600 pixels is sharp at 2.4x.
+      expect(art.pixels.width, lessThanOrEqualTo(600), reason: back.name);
+      expect(bytes.lengthInBytes, lessThan(150 * 1024), reason: back.name);
+    }
+  });
+
+  testWidgets('the game\'s back is the one precached; the others are not', (
+    tester,
+  ) async {
+    final uses = secretArt(skin, back: CardBack.eye);
+    final paths = {for (final (image, _) in uses) image.path};
+    expect(paths, contains(skin.art.cardBack(CardBack.eye).path));
+    for (final other in CardBack.values.where((b) => b != CardBack.eye)) {
+      expect(paths, isNot(contains(skin.art.cardBack(other).path)));
+    }
+    // At start, with no game, it is the fallback's.
+    final atStart = {for (final (image, _) in secretArt(skin)) image.path};
+    expect(atStart, contains(skin.art.cardBack(CardBack.fallback).path));
   });
 
   testWidgets('a token this app does not know is a plain disc', (tester) async {

@@ -24,6 +24,7 @@ import 'waits.dart' show hangsFromArt;
 import '../../../../design_system/skin/art_set.dart' show LayeredSceneId;
 import '../../../../design_system/primitives/tag_chip.dart';
 import '../../../../design_system/primitives/you_tag.dart';
+import '../../../../design_system/skin/card_back_scope.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../domain/outcome_view.dart';
@@ -551,7 +552,7 @@ class _Turning extends StatelessWidget {
                 aspectRatio: RolePortrait.aspect,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
-                  child: ArtPicture(skin.art.cardBack),
+                  child: ArtPicture(context.cardBack),
                 ),
               ),
             ),

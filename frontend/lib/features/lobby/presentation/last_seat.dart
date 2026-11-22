@@ -29,6 +29,16 @@ abstract final class LastSeat {
     return kept.substring(mark.length);
   }
 
+  /// The game of the seat read at start, if it was in one, for any account:
+  /// only to decode that game's card back before the first frame
+  /// (`SkinLoader`), so a restart in a game never shows a card without it.
+  /// Nothing reads it for anything else.
+  static String? get openingGame {
+    final seat = _opening;
+    final split = seat?.indexOf('|') ?? -1;
+    return seat == null || split < 0 ? null : seat.substring(split + 1);
+  }
+
   /// `/me/table/` named another seat: the opening's head start is over.
   static void letGo() => _opening = null;
 

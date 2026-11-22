@@ -24,9 +24,16 @@ just loading-clips     # a tap going busy, a slow join, a failed send and its re
 just night-frames      # the night board's pick and candle, a frame per 17 ms
 just playtest-pack     # the cold-read pack: five first-game journeys to build/playtest/
 just test-harness      # boots its own backend on a free port, runs the e2e harness (not in `just test`)
+just gen-check         # fails when committed *.g.dart / *.freezed.dart differ from `just gen` (about 50 s)
+just test-widgets      # the widget tests without the goldens (GitHub's "Widget Tests")
 just skin-art          # regenerate assets/skins/shadow_paper/ from docs/design/art/
 just flutter-golden-update  # regenerate goldens (Linux only)
 ```
+
+The commit gate runs `just analyze` and `just format-check` only (seconds). GitHub runs the rest on
+every pull request, as its own checks, and merges nothing on red: analyze and format, widget tests
+with `just gen-check`, goldens, `just screens` strict at 360 and 390, `just check-release`, the
+web integration test and `just test-harness`. `just gate-full` runs the first four locally.
 
 ## Traps
 
@@ -82,6 +89,7 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 Every screen (01 to 11) is built from the primitives, against its mock in
 `docs/design/mocks/` (`docs/design/mock-to-skin.md` maps every element), to the copy in
 `docs/specs/frontend/first-time-play.md`. A change to one is checked by eye with
-`just screens` at 320, 360 and 390 wide (`strict` must pass), and you hand over before and
-after pictures. A change to words or screens also runs `just test-harness` before its pull
-request (the commit gate does not; GitHub does, as "End-to-end Harness").
+`just screens` at 320, 360 and 390 wide (`strict` must pass at 360 and 390: GitHub runs it as
+"Screens strict at 360" and "... at 390"), and you hand over before and after pictures. A change to
+words or screens also runs `just test-harness` before its pull request (the commit gate does
+not; GitHub does, as "End-to-end Harness").

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Tests the commit gate: routing (which suites a commit's paths run), renames,
+# Tests the commit gate: routing (which checks a commit's paths run), renames,
 # the commit-subject check, the Bash guard, the "already passed on this content"
-# record, failing closed when the gate is broken, and the git hooks end to end
-# in a throwaway repository. Run by `just test-guardrails`.
+# record, failing closed when the gate is broken, that the gate runs only the
+# fast checks (never a test suite) while `just gate-full` runs everything, and
+# the git hooks end to end in a throwaway repository. Run by `just test-guardrails`.
 set -uo pipefail
 # A hook (or a test run from one) inherits git's variables: never let them
 # point the throwaway repositories below at this one.
@@ -40,7 +41,8 @@ expect_route "guardrails"               .claude/settings.json
 expect_route "guardrails"               .claude/agents/frontend-code-reviewer.md
 expect_route "guardrails"               .claude/hooks/git/pre-commit .claude/hooks/git_guard.py
 expect_route "backend frontend guardrails" justfile
-expect_route "backend frontend"         .github/workflows/flutter-tests.yml
+expect_route "guardrails"               .github/workflows/flutter-tests.yml
+expect_route "guardrails"               docs/dev/main-ruleset.json
 expect_route "backend frontend"         .pre-commit-config.yaml
 
 # ---- a throwaway repository with this repo's hooks ----
@@ -105,6 +107,35 @@ commit -m "fix: x" frontend/lib/y.dart && fail "a pathspec commit with a failing
 (cd "$R" && git checkout -q -- . && git mv frontend/lib/y.dart docs/y.dart)
 commit -m "docs: move" && fail "a rename out of frontend/ skipped the frontend suite"
 (cd "$R" && git reset -q --hard)
+# the gate runs the fast checks and never a test suite: a stub `just` logs what
+# it was asked to run (the directory, then the recipe) and passes
+mkdir -p "$TMP/bin"
+printf '#!/bin/sh\necho "$(basename "$PWD") $*" >> "%s/just.log"\nexit 0\n' "$TMP" > "$TMP/bin/just"
+chmod +x "$TMP/bin/just"
+commit_ok() { (cd "$R" && PATH="$TMP/bin:$PATH" GATE_BLOCK_TIMEOUT=5 git commit -q "$@" >/dev/null 2>&1); }
+: > "$TMP/just.log"
+echo h >> "$R/frontend/lib/y.dart"; echo h >> "$R/backend/x.py"
+(cd "$R" && git add frontend/lib/y.dart backend/x.py)
+commit_ok -m "fix: both" || fail "a commit whose fast checks pass was blocked"
+grep -qx "frontend analyze" "$TMP/just.log" || fail "the gate did not run analyze for a frontend change"
+grep -qx "frontend format-check" "$TMP/just.log" || fail "the gate did not run format-check for a frontend change"
+grep -qx "backend check" "$TMP/just.log" || fail "the gate did not run check for a backend change"
+grep -qE ' (test|test-guardrails|gen-check|screens)' "$TMP/just.log" && fail "the gate ran a test suite: $(tr '\n' ';' < "$TMP/just.log")"
+# a commit of documentation runs no check at all
+: > "$TMP/just.log"
+echo i >> "$R/docs/z.md"; (cd "$R" && git add docs/z.md)
+commit_ok -m "docs: only" || fail "a docs-only commit was blocked"
+[ ! -s "$TMP/just.log" ] || fail "a docs-only commit ran checks: $(cat "$TMP/just.log")"
+# `just gate-full` runs the suites and the extras, records the pass, and fails when a suite fails
+: > "$TMP/just.log"
+(cd "$R" && PATH="$TMP/bin:$PATH" gate_full >/dev/null 2>&1) || fail "gate_full failed with every step passing"
+for want in "backend check" "backend test" "frontend test" "frontend gen-check" "frontend screens 360 strict" "frontend screens 390 strict" "repo test-guardrails"; do
+  grep -qx "$want" "$TMP/just.log" || fail "gate_full did not run: $want"
+done
+(cd "$R" && gate_passed "backend-full-$(gate_hash backend)" && gate_passed "backend-fast-$(gate_hash backend)") \
+  || fail "gate_full did not record its pass"
+(cd "$R" && gate_full >/dev/null 2>&1) && fail "gate_full passed with failing suites"
+(cd "$R" && gate_full nonsense >/dev/null 2>&1); [ $? -eq 2 ] || fail "gate_full took an unknown block"
 # a broken gate blocks every commit
 cp "$R/.claude/hooks/lib/gate.sh" "$TMP/gate.sh"
 echo "this is not bash (" >> "$R/.claude/hooks/lib/gate.sh"
@@ -163,15 +194,16 @@ guard 2 'HUSKY=0 git commit -m x'
 guard 2 'git cherry-pick abc123'
 guard 0 'git cherry-pick --no-commit abc123'
 guard 2 'git rebase main' 120000
-guard 2 'git commit -m "docs: x"' 120000
+guard 0 'git commit -m "docs: x"' 120000
 guard 0 'git commit -m "docs: x"' 120000 true
-guard 2 'cd x && git merge main' 120000
+guard 0 'git commit -m "docs: x"' 0
 guard 0 'git -c core.hooksPath=.claude/hooks/git commit -m x'
 guard 0 'git config --get core.hooksPath' 120000
 # a commit is blocked while core.hooksPath is unset or elsewhere, unless the
 # command itself names the hooks; other git commands go on
 (cd "$R" && git config --unset core.hooksPath)
 guard 2 'git commit -m "docs: x"'
+guard 2 'cd x && git merge main'
 guard 0 'git -c core.hooksPath=.claude/hooks/git commit -m "docs: x"'
 guard 0 'git status' 120000
 (cd "$R" && git config core.hooksPath /tmp/none)
