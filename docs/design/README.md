@@ -14,11 +14,29 @@ pictures.
 | `mocks/*.dc.html` | The mock markup. Every size, colour, radius, shadow and font size is an inline style, so read these for exact values. Image `src` values (`/_blob/...`) only resolve inside the mock canvas; use the files in `art/` instead. |
 | `art/roles/` | 12 role portraits, 576x768, one per role, file named after the role. |
 | `art/tokens/` | 10 player tokens (crow, key, moth, bell, thorn, antler, hare, lantern, spindle, scythe), 320x320, to be shown in a circle: one per seat at a table of 10. |
-| `art/scenes/` | Card back, candle, table, street door, sleeping village, night village, dawn rooftops, dawn gallows. |
+| `art/scenes/` | Card back, candle, table, street door, sleeping village (flat pictures). |
+| `art/layers/` | The two headers that move, drawn in layers (cuts of paper with alpha, PNG masters): `night-village/` (04: the plate, the moon, the clouds and their shadows) and `dawn-gallows/` (08: the sky, the sun, the hills, the birds, the roofs, the gallows). `flat.jpg` in each is the picture the layers were cut from. `PROVENANCE.md` says where every piece came from and how far each may move. |
 
 The mock canvas, where the product owner comments: https://claude.ai/artifact/AQ2LuLA5KkRPXHiZoGb6j9
 (page "Round 4"). The product owner's verdict on these mocks: "close enough"; build them and
 iterate on the real app.
+
+## How art gets in
+
+Originals live here, under `docs/design/art/`; the app ships phone-sized WebP made from them by
+`frontend/tool/skin_art.py` (`just skin-art`, from `frontend/`; deterministic), into
+`frontend/assets/skins/shadow_paper/{roles,tokens,scenes,layers/<scene>}/`. Flutter's asset folders are not
+recursive: a new folder is a new line under `flutter: assets:` in `pubspec.yaml`. The skin names every
+picture and its size (`ArtSet`: the `Scene` enum and `scenePixels` for a flat picture, `sceneFocus` for the point of it
+kept in view; `skin_contract_test.dart` decodes each file and fails on a size that is wrong or a file nothing declares).
+
+A header that moves is a `LayeredScene` in the skin (`shadow_paper.dart`: `_nightVillage`, `_dawnGallows`): the canvas it was
+cut from, its focus, and its layers bottom to top, each a file with its size, its anchor on the canvas, and where it
+starts from when a scene brings the screen in (`from`); a shadow cast on another layer says `clipTo`; a place the screen
+draws itself (08's sun and its dotted path) is a `SceneSlot`. `just skin-art` cuts each master to the box it
+paints and prints the size and anchor to declare; `layered_scene_test.dart` draws the layers at rest and holds them to
+`flat.jpg`. A layer that slides carries mirrored paper beyond the canvas (`*_bleedNN`). Nothing ships that nothing draws:
+a flat picture or a layer no skin uses is removed, with its master.
 
 ## Status of each screen
 
