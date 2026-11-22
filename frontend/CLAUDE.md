@@ -44,6 +44,15 @@ web integration test and `just test-harness`. `just gate-full` runs the first fo
 - **Goldens are Linux only** (`dart_test.yaml` skips them elsewhere); CI is the source of truth.
 - **`MockHttpClient`** lives in `integration_test/helpers/` (the web integration build cannot
   import out of its root); `test/helpers/mock_http_client.dart` re-exports it.
+- **A native release build needs `PUBLIC_ORIGIN`** (the web app's https origin): without it
+  there is no QR code and no Share, so `tool/build_android.sh` and `build.gradle.kts` stop the
+  build and say what to pass (`just build-android`; debug builds and tests need none). The
+  release keystore in `android/release-key/` is PUBLIC by the owner's decision (sideloaded
+  installs only; replace it before any store release; its README says how). A link is
+  `<origin>/join/<code>`, a path: the web host serves the app for it and Android opens it in
+  the app (`docs/dev/deploy-vercel.md`).
+- **The scanner is behind `CodeScanner`**: a test or a gallery picture brings its own
+  (`test/helpers/fake_code_scanner.dart`, `TableSetup.pump(scanner:)`), never the plugin.
 - **Test fonts**: real Gloock and Figtree are loaded in tests; `Roboto` (Material's default,
   the debug toolbar's) is a Figtree stand-in.
 

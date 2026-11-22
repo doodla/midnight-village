@@ -367,7 +367,7 @@ void main() {
       );
 
       final qr = tester.widget<QrPicture>(find.byType(QrPicture));
-      expect(qr.data, 'https://midnight.example/#/join/V9YC2J');
+      expect(qr.data, 'https://midnight.example/join/V9YC2J');
       expect(find.text('V9YC2J'), findsOneWidget);
       for (final name in ['Ana', 'Ben', 'Cleo', 'Dev', 'Esme']) {
         expect(find.text(name), findsOneWidget);
@@ -853,9 +853,7 @@ void main() {
 
       await _tap(tester, setup, find.byTooltip(TableCopy.share));
 
-      expect(setup.shared, [
-        Uri.parse('https://midnight.example/#/join/V9YC2J'),
-      ]);
+      expect(setup.shared, [Uri.parse('https://midnight.example/join/V9YC2J')]);
       await setup.close(tester);
     });
   });

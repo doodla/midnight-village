@@ -91,6 +91,13 @@ final screenCatalogue = <ScreenEntry>[
     '-x1.3': (tester) => pumpJoinFresh(tester, textScale: 1.3),
     '-x2': (tester) => pumpJoinFresh(tester, textScale: 2),
   }),
+  // The scanner 01 opens (no mock: its pictures are the build's own).
+  ..._rebuilt('01b-scan', null, {
+    '': pumpScanLooking,
+    '-found': pumpScanFound,
+    '-refused': pumpScanRefused,
+    '-x1.3': (tester) => pumpScanLooking(tester, textScale: 1.3),
+  }),
   ..._rebuilt('02-table', '02-table.png', {
     '': pumpTableHost,
     '-4': pumpTableHostFour,

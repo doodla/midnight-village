@@ -83,6 +83,7 @@ class ScreenFrame extends StatelessWidget {
     this.actionGap = Space.mdPlus,
     this.fitsHeight = false,
     this.minBodyHeight,
+    this.backdrop,
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
@@ -145,6 +146,10 @@ class ScreenFrame extends StatelessWidget {
   /// slot and the body scroll together, the body at this height, rather
   /// than overflow.
   final double? minBodyHeight;
+
+  /// Drawn on the ground behind everything, never taking a touch (the
+  /// scanner's faint village, `FaintArt`).
+  final Widget? backdrop;
 
   @override
   Widget build(BuildContext context) {
@@ -282,35 +287,47 @@ class ScreenFrame extends StatelessWidget {
       backgroundColor: colors.ground,
       body: GroundScope(
         ground: ground,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: maxWidth),
-            // The top runs under the status bar: each kind of top clears it
-            // by itself (above).
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: main),
-                if (actions.isNotEmpty)
-                  SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Space.gutter,
-                        Space.xs,
-                        Space.gutter,
-                        Space.screenBottom,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (backdrop case final backdrop?)
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: maxWidth),
+                  child: IgnorePointer(child: backdrop),
+                ),
+              ),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: maxWidth),
+                // The top runs under the status bar: each kind of top clears it
+                // by itself (above).
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: main),
+                    if (actions.isNotEmpty)
+                      SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            Space.gutter,
+                            Space.xs,
+                            Space.gutter,
+                            Space.screenBottom,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            spacing: actionGap,
+                            children: actions,
+                          ),
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        spacing: actionGap,
-                        children: actions,
-                      ),
-                    ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

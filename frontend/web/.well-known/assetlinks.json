@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.midnightvillage.midnight_village",
+      "sha256_cert_fingerprints": [
+        "09:0C:3F:15:6B:0D:B8:95:43:A1:FB:8C:80:AD:45:07:27:34:C5:2B:CB:B6:7B:89:68:A6:4D:2F:F7:E6:3B:A7"
+      ]
+    }
+  }
+]

@@ -16,7 +16,7 @@ import '../../helpers/pump_skinned.dart';
 void main() {
   testWidgets('the QR code paints its dark modules where the code has them, '
       'at its scannable least', (tester) async {
-    const link = 'https://midnight.example/#/join/V9YC2J';
+    const link = 'https://midnight.example/join/V9YC2J';
     final key = GlobalKey();
     await pumpSkinned(
       tester,

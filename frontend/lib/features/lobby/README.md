@@ -46,7 +46,22 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   height the form leaves, the whole scene and never more (`TopArtLayout.fill`), so the form
   sits low and a tall phone shows no empty lower half; with the keyboard up the form stays in
   view above it. A game that closed (404) lands here with "This table has closed."
-  (`JoinFlow.tableClosed`). The ways in are `JoinFlow`
+  (`JoinFlow.tableClosed`). **The scan action** (a glyph beside "Join a table" and the code
+  field, `GlyphButton` with `ScanGlyph`; not on a table's link) opens **01b**, the scanner
+  (`presentation/scan/scan_view.dart`: a `Viewfinder` window, a Back glyph, the light where the camera has
+  one), as a place of 01 with Back for its rule (`BackHandler`: Back closes it to 01 as it
+  was). The camera is behind `CodeScanner` (`presentation/scan/code_scanner.dart`; `MobileCodeScanner` on
+  `mobile_scanner`: QR only, the back camera, stopped with the app in the background); it is
+  made when the scanner opens and disposed when it goes, so the camera is never touched
+  before the tap and stops the moment the screen leaves. What it reads goes through
+  `tableCodeFrom` (`domain/table_link.dart`: a link of any origin with `/join/<code>`, or a
+  bare code; anything else is ignored silently). A code read stops the camera, closes the
+  corners in on the code and joins by `JoinFlow.join`, the same path as typing (with no name
+  yet: back to 01 with the code in and the name asking). The scanner's place (open, and the
+  code once read) is `ScanSession` (`presentation/scan/scan_session.dart`), outside 01's widgets, because
+  `HomeGate` swaps one 01 for another when a join starts; it closes when the join ends or is
+  refused. The camera refused, none, or an insecure page: `ScanProblem`, a `ShutteredWindow`, one line and "Type
+  the code". A scanner left open when 01 goes away ends (`ScanSession.left`), so only a tap starts the camera; a table's link shows none. A scanned code goes into 01's draft (`JoinDraft`) like a typed one, so 01, made again while the join runs or when it is refused, has the code in its field; the scanned join is `JoinFlow.join`, through `playerRequest`, with the same "Not sent." and "Try again". In browsers with no built-in detector the scanner decodes with the app's own `web/zxing/` (`own_decoder_web.dart`). The ways in are `JoinFlow`
   (`join_flow.dart`), outside any widget: the account (this device's when it has that name,
   else a new guest: the server has no rename), then `createTable` (always `defaults: "v2"`)
   or a join by code (`already_in_lobby` is no refusal: the player is there), then
@@ -57,7 +72,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   "You're at another table." with "Go there" (it reads `/me/table/` again): never a silent
   second seat.
 - **02** (`at_table_screen.dart`): the table's paper (`_JoinCard`) is two blocks: the QR code
-  of the join link (`joinLink`: `<origin>/#/join/<code>`; `appOrigin` is the page's address on
+  of the join link (`joinLink`: `<origin>/join/<code>`, a path; `appOrigin` is the page's origin on
   the web, else `--dart-define=PUBLIC_ORIGIN`, else no QR code) with "Scan to join" on it (its
   label alone: under a large QR code, at the edge of a small one), never under
   `Sizes.qrScannable`; and, past a hairline, the code with its own label "Code" (01's word)
