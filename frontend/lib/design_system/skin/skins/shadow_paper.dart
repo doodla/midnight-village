@@ -263,8 +263,6 @@ const shadowPaperArt = ArtSet(
     Scene.streetDoor: Alignment(0, -0.76), // 50% 12%
     Scene.sleepingVillage: Alignment.topCenter, // 50% 0%
     Scene.nightVillage: Alignment.topCenter, // 50% 0%
-    // Cropped to a tall phone, the sun (right of the middle) stays in view.
-    Scene.dawnRooftops: Alignment(0.5, 0),
     Scene.dawnGallows: Alignment(0, -0.2), // 50% 40%
   },
 );

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/scene_switcher.dart';
-import 'package:midnight_village/design_system/primitives/screen_frame.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
@@ -48,9 +47,8 @@ Widget _app(String stage, Map<String, int> taps, {bool still = false}) =>
       ),
     );
 
-/// The scene's own art is a [ScreenFrame] (the dusk) in these tests: the
-/// screens above are not one.
-Finder get _dusk => find.byType(ScreenFrame);
+/// The paper edge of the sinking screen: there while a scene runs.
+Finder get _edge => find.byKey(const ValueKey('scene'));
 
 void main() {
   const scene = Motion.scene;
@@ -90,15 +88,55 @@ void main() {
       });
     }
 
-    testWidgets('the dusk lays the night village on a ground of its own, '
-        'which goes with the scene', (tester) async {
+    testWidgets('the paper edge goes with the scene', (tester) async {
       await change(tester, 'table', 'night', {});
       await tester.pump();
-      expect(_dusk, findsOneWidget);
+      expect(_edge, findsOneWidget);
       await tester.pump(scene + ms * 3);
       await tester.pump();
-      expect(_dusk, findsNothing);
+      expect(_edge, findsNothing);
     });
+
+    for (final (from, to) in [('table', 'night'), ('night', 'talk')]) {
+      testWidgets('$from to $to: no screen is ever seen through another', (
+        tester,
+      ) async {
+        await change(tester, from, to, {});
+        await tester.pump();
+        for (var at = 0; at <= scene.inMilliseconds; at += 25) {
+          for (final name in [from, to]) {
+            final fade = tester.widget<FadeTransition>(
+              find
+                  .ancestor(
+                    of: find.byKey(Key('button-$name')),
+                    matching: find.byType(FadeTransition),
+                  )
+                  .first,
+            );
+            expect(fade.opacity.value, 1.0, reason: '$name at $at ms');
+          }
+          await tester.pump(ms * 25);
+        }
+      });
+
+      testWidgets('$from to $to: the leaving screen sinks off the arriving '
+          'one, which stays in place', (tester) async {
+        await change(tester, from, to, {});
+        await tester.pump();
+        final leavingTop = <double>[];
+        for (var at = 0; at < scene.inMilliseconds * 0.8; at += 50) {
+          leavingTop.add(tester.getTopLeft(find.byKey(Key('button-$from'))).dy);
+          await tester.pump(ms * 50);
+        }
+        expect(
+          leavingTop,
+          orderedEquals([...leavingTop]..sort()),
+          reason: 'only ever down',
+        );
+        expect(leavingTop.last, greaterThan(leavingTop.first + 100));
+        await tester.pump(scene);
+      });
+    }
 
     testWidgets('the arriving screen keeps its state from the first frame '
         'to the last', (tester) async {
@@ -118,11 +156,13 @@ void main() {
       for (final at in [0, 60, 250, 480]) {
         testWidgets('$from to $to, $at ms in', (tester) async {
           final taps = <String, int>{};
-          await change(tester, from, to, taps);
+          await tester.pumpWidget(_app(from, taps));
+          final rest = tester.getCenter(find.byKey(Key('button-$from')));
+          await tester.pumpWidget(_app(to, taps));
           await tester.pump();
           if (at > 0) await tester.pump(ms * at);
           expect(find.byKey(Key('button-$from')), findsOneWidget);
-          await tester.tap(find.byKey(Key('button-$to')));
+          await tester.tapAt(rest);
           await tester.pump();
           expect(taps[to], 1, reason: 'the new screen took the tap');
           expect(taps[from], isNull, reason: 'the old one is for the eyes');
@@ -140,7 +180,7 @@ void main() {
         await change(tester, from, to, {}, still: true);
         expect(find.byKey(Key('button-$from')), findsNothing);
         expect(find.byKey(Key('button-$to')), findsOneWidget);
-        expect(_dusk, findsNothing);
+        expect(_edge, findsNothing);
         expect(tester.hasRunningAnimations, isFalse);
       });
     }
@@ -159,7 +199,7 @@ void main() {
         await change(tester, from, to, taps);
         await tester.pump();
         expect(find.byKey(Key('button-$from')), findsOneWidget);
-        expect(_dusk, findsNothing, reason: 'no scene art');
+        expect(_edge, findsNothing, reason: 'no paper edge');
         await tester.pump(Motion.settle - ms * 2);
         expect(find.byKey(Key('button-$from')), findsOneWidget);
         await tester.pump(ms * 3);

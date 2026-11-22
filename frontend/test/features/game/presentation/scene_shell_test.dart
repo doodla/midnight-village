@@ -31,8 +31,34 @@ Future<void> _begun(WidgetTester tester, Finder screen) async {
   await tester.pump();
 }
 
-/// The scene's art, while a scene runs (the switcher's layer for it).
+/// The paper edge of the sinking screen, while a scene runs.
 Finder get _sceneArt => find.byKey(const ValueKey('scene'));
+
+/// Where [button] of the arriving screen rests: where it is drawn less the
+/// slide the arriving screen is still on (a touch lands where it will rest).
+Offset _rest(WidgetTester tester, Finder button) {
+  final slide = tester.widget<SlideTransition>(
+    find.ancestor(of: button, matching: find.byType(SlideTransition)).first,
+  );
+  final height = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+  return tester.getCenter(button) - Offset(0, slide.position.value.dy * height);
+}
+
+/// The arriving screen's primary button is fully uncovered (above the
+/// leaving screen's top edge) by [share] of the scene.
+Future<void> _buttonShownBy(
+  WidgetTester tester, {
+  required Finder button,
+  required Finder leaving,
+  required double share,
+}) async {
+  await tester.pump(Motion.scene * share);
+  expect(
+    tester.getRect(button).bottom,
+    lessThanOrEqualTo(tester.getTopLeft(leaving).dy),
+    reason: 'the button is uncovered by ${share * 100} % of the scene',
+  );
+}
 
 Future<ShellSetup> _atNight(WidgetTester tester, {bool still = false}) async {
   final s = await ShellSetup.pump(
@@ -76,7 +102,7 @@ void main() {
       s.resume();
       await _begun(tester, find.byType(TalkScreen));
       expect(find.byType(NightBoard), findsOneWidget, reason: 'leaving');
-      expect(_sceneArt, findsOneWidget, reason: 'the rooftops');
+      expect(_sceneArt, findsOneWidget, reason: 'the paper edge');
       await tester.pump(Motion.settle + const Duration(milliseconds: 40));
       expect(
         find.byType(NightBoard),
@@ -106,7 +132,7 @@ void main() {
         of: find.byType(TalkScreen),
         matching: find.byType(PrimaryButton),
       );
-      await tester.tap(ready);
+      await tester.tapAt(_rest(tester, ready));
       await tester.pump();
       expect(
         tester.widget<PrimaryButton>(ready).label,
@@ -116,6 +142,26 @@ void main() {
       await tester.pump(_ms * 20);
       expect(s.posts('/ready/'), 1, reason: 'sent mid-scene');
       expect(find.byType(NightBoard), findsOneWidget, reason: 'still going');
+      await tester.pump(Motion.scene);
+      await s.close(tester);
+    });
+
+    testWidgets('the Ready button is uncovered by 60% of the scene', (
+      tester,
+    ) async {
+      final s = await _atNight(tester);
+      s.answerMe(recordedMe('me_discussion_choose_seer'));
+      s.resume();
+      await _begun(tester, find.byType(TalkScreen));
+      await _buttonShownBy(
+        tester,
+        button: find.descendant(
+          of: find.byType(TalkScreen),
+          matching: find.byType(PrimaryButton),
+        ),
+        leaving: find.byType(NightBoard),
+        share: 0.6,
+      );
       await tester.pump(Motion.scene);
       await s.close(tester);
     });
@@ -132,20 +178,40 @@ void main() {
   });
 
   group('the dusk: the deal to the night', () {
-    testWidgets('runs for Motion.scene, with the village laid under the '
-        'card, and finishes', (tester) async {
+    testWidgets('runs for Motion.scene, the table sinking off the card, '
+        'and finishes', (tester) async {
       final s = await _atTable(tester);
       s.answerMe(recordedMe('me_look_stage'));
       s.resume();
       await _begun(tester, find.byType(YourCardScreen));
       expect(find.byType(AtTableScreen), findsOneWidget, reason: 'leaving');
-      expect(_sceneArt, findsOneWidget, reason: 'the village');
+      expect(_sceneArt, findsOneWidget, reason: 'the paper edge');
       await tester.pump(Motion.settle + const Duration(milliseconds: 40));
       expect(find.byType(AtTableScreen), findsOneWidget);
       await tester.pump(Motion.scene);
       await tester.pump();
       expect(find.byType(AtTableScreen), findsNothing);
       expect(_sceneArt, findsNothing);
+      await s.close(tester);
+    });
+
+    testWidgets('the Ready button is uncovered by 60% of the scene', (
+      tester,
+    ) async {
+      final s = await _atTable(tester);
+      s.answerMe(recordedMe('me_look_stage'));
+      s.resume();
+      await _begun(tester, find.byType(YourCardScreen));
+      await _buttonShownBy(
+        tester,
+        button: find.descendant(
+          of: find.byType(YourCardScreen),
+          matching: find.byType(PrimaryButton),
+        ),
+        leaving: find.byType(AtTableScreen),
+        share: 0.6,
+      );
+      await tester.pump(Motion.scene);
       await s.close(tester);
     });
 

@@ -1,32 +1,47 @@
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
-import '../skin/ground.dart';
 import '../skin/skin.dart';
-import 'art_picture.dart';
+import 'band.dart';
 import 'screen_frame.dart';
 
 /// The two scene changes of the game, the moments every phone at a table
-/// shares: the village sinks into night, and the rooftops rise on the day.
+/// shares. Both are the same gesture: the old world sinks away down the
+/// screen on a paper edge and the new one, whole and live where it will rest,
+/// rises the last few pixels into its place wearing its own picture.
 enum SceneKind {
-  /// The deal to the night: the table's screen sinks away and the night
-  /// village settles into place.
+  /// The deal to the night: the table's screen sinks; the card's own village
+  /// and moon rise into their place.
   dusk,
 
-  /// The night to the talk: the night sinks away and the dawn rooftops rise,
-  /// the sun with them.
-  dawn,
+  /// The night to the talk: the night sinks; the talk's own dawn rooftops,
+  /// the sun with them, rise into their place.
+  dawn;
+
+  /// How far the arriving screen rises into place, of the screen's height:
+  /// the rooftops and the sun of the dawn more than the dusk's moon.
+  double get rise => switch (this) {
+    SceneKind.dusk => 0.04,
+    SceneKind.dawn => 0.08,
+  };
 }
 
 /// Shows [child] and, when [stage] changes, takes the change over: a crossfade
 /// ([Motion.settle]) unless [sceneBetween] names a [SceneKind] for it, then
 /// that scene ([Motion.scene]). Reduce motion: an instant cut.
 ///
-/// Nothing in here waits or blocks. The screen arriving is in the tree and
-/// takes touches from the first frame, even while it is not yet seen (it is
-/// never wrapped in anything that stops a touch); the screen leaving and the
-/// scene's art are for the eyes only (no touch, no semantics), and everything
-/// that moves is an opacity or a slide of a layer already painted.
+/// A scene is made of nothing but the two screens: the arriving one is whole
+/// and opaque in its place under the leaving one, which sinks away down the
+/// screen on a hard paper edge (a lip and its shadow); the arriving one
+/// rises the last few pixels. No picture of its own, no dissolve, no layer
+/// seen through another.
+///
+/// Nothing in here waits or blocks. The arriving screen is in the tree and
+/// takes touches from the first frame, where it will rest (its slide does not
+/// move what a touch lands on), even while the leaving screen still covers
+/// it; the leaving screen and the lip are for the eyes only (no touch, no
+/// semantics), and everything that moves is a slide of a layer already
+/// painted.
 ///
 /// A change that comes while a scene runs (the night's "village sleeps" wait
 /// giving way to the card) swaps the arriving screen in place and lets the
@@ -46,6 +61,15 @@ class SceneSwitcher<T> extends StatefulWidget {
 
   /// The scene for a change from one stage to the next; null is a crossfade.
   final SceneKind? Function(T from, T to) sceneBetween;
+
+  /// The share of a scene the leaving screen takes to clear the screen (the
+  /// rest it holds still): the arriving screen's primary button, near the
+  /// foot, is uncovered before 60% of [Motion.scene].
+  static const move = 0.85;
+
+  /// The thickness of the paper edge and of the shadow it casts.
+  static const lip = 3.0;
+  static const shadow = 8.0;
 
   @override
   State<SceneSwitcher<T>> createState() => _SceneSwitcherState<T>();
@@ -72,15 +96,10 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
 
   /// The scene running, null for a crossfade or when nothing runs.
   SceneKind? _scene;
-  Widget? _plate;
-
-  /// The scene's art is over the arriving screen (the dawn) or under it.
-  var _plateAbove = false;
 
   Animation<double> _in = kAlwaysCompleteAnimation;
   Animation<Offset> _inSlide = const AlwaysStoppedAnimation(Offset.zero);
-  Animation<double> _plateOpacity = kAlwaysCompleteAnimation;
-  Animation<Offset> _plateSlide = const AlwaysStoppedAnimation(Offset.zero);
+  Animation<Offset>? _edge;
   final _curved = <CurvedAnimation>[];
 
   @override
@@ -99,19 +118,31 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
 
   bool get _running => _progress.isAnimating;
 
-  /// The scenes' art, decoded before it is needed: a scene never starts on
-  /// an empty picture. (Not awaited; the app does not start slower for it.)
+  /// The arriving screens' own pictures, decoded before they are needed: a
+  /// scene never rises on an empty header. (Not awaited; the app does not
+  /// start slower for it.) Sized as the screens draw them, so the same
+  /// decoded picture is found.
   void _warmUp() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final skin = context.skin;
       final size = MediaQuery.sizeOf(context);
-      final box = Size(
-        size.width.clamp(0, ScreenFrame.maxWidth).toDouble(),
-        size.height,
-      );
+      final top = MediaQuery.paddingOf(context).top;
       final ratio = MediaQuery.devicePixelRatioOf(context);
-      for (final art in [skin.art.nightVillage, skin.art.dawnRooftops]) {
+      final width = size.width.clamp(0, ScreenFrame.maxWidth).toDouble();
+      final pictures = [
+        // 04's village and moon.
+        (
+          skin.art.nightVillage,
+          Size(width, TopArtLayout.backdrop.height + top),
+        ),
+        // 08's dawn rooftops.
+        (
+          skin.art.dawnGallows,
+          Size(width, TimerBand.skyFor(size.height) + top),
+        ),
+      ];
+      for (final (art, box) in pictures) {
         precacheImage(art.decodedFor(box, ratio), context, onError: (_, _) {});
       }
     });
@@ -129,8 +160,6 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
     setState(() {
       _leaving = [];
       _scene = null;
-      _plate = null;
-      _plateAbove = false;
       _resting();
     });
   }
@@ -138,8 +167,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
   void _resting() {
     _in = kAlwaysCompleteAnimation;
     _inSlide = const AlwaysStoppedAnimation(Offset.zero);
-    _plateOpacity = kAlwaysCompleteAnimation;
-    _plateSlide = const AlwaysStoppedAnimation(Offset.zero);
+    _edge = null;
     _disposeCurves();
   }
 
@@ -161,7 +189,6 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
       _progress.stop();
       _leaving = [];
       _scene = null;
-      _plate = null;
       _resting();
       _id++;
       return;
@@ -180,14 +207,8 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
     _progress.stop();
     _disposeCurves();
     _scene = scene;
-    _plateAbove = false;
-    final (out, outSlide) = switch (scene) {
-      null => _crossfade(from),
-      SceneKind.dusk => _dusk(),
-      SceneKind.dawn => _dawn(),
-    };
+    final (out, outSlide) = scene == null ? _crossfade(from) : _sink(scene);
     _leaving = [_Leaving(oldId, oldChild, out, outSlide)];
-    _plate = scene == null ? null : _Plate(scene);
     _progress
       ..duration = scene == null ? Motion.settle : Motion.scene
       ..forward(from: 0);
@@ -196,73 +217,28 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
   (Animation<double>, Animation<Offset>) _crossfade(double from) {
     _in = _span(0, 1);
     _inSlide = const AlwaysStoppedAnimation(Offset.zero);
-    _plateOpacity = kAlwaysCompleteAnimation;
-    _plateSlide = const AlwaysStoppedAnimation(Offset.zero);
+    _edge = null;
     return (
       _span(0, 1).drive(Tween(begin: from, end: 0)),
       const AlwaysStoppedAnimation(Offset.zero),
     );
   }
 
-  /// The table's screen sinks and darkens away; the night village sinks down
-  /// from above into the place it has on the card, and the card, there from
-  /// the first frame, is seen once the village has settled.
-  (Animation<double>, Animation<Offset>) _dusk() {
-    _in = _span(0.4, 0.9);
-    _inSlide = const AlwaysStoppedAnimation(Offset.zero);
-    _plateOpacity = _span(0, 0.3);
-    _plateSlide = _span(
-      0,
-      0.6,
-    ).drive(Tween(begin: const Offset(0, -0.5), end: Offset.zero));
-    return (
-      _span(0, 0.6).drive(Tween(begin: 1, end: 0)),
-      _span(0, 0.9).drive(Tween(begin: Offset.zero, end: const Offset(0, 0.1))),
-    );
-  }
-
-  /// The dawn rooftops rise over the night, the sun with them, and go on up
-  /// and out, taking the sun off the top of the screen: under the night and
-  /// the rooftops the day's screen is whole and live all along.
-  (Animation<double>, Animation<Offset>) _dawn() {
-    _plateAbove = true;
+  /// The leaving screen, opaque, sinks down off the screen; the arriving one,
+  /// opaque, rises [SceneKind.rise] into its place.
+  (Animation<double>, Animation<Offset>) _sink(SceneKind scene) {
     _in = kAlwaysCompleteAnimation;
-    _inSlide = const AlwaysStoppedAnimation(Offset.zero);
-    _plateOpacity = _span(0.55, 0.95).drive(Tween(begin: 1, end: 0));
-    _plateSlide = _progress.drive(
-      TweenSequence<Offset>([
-        TweenSequenceItem(
-          tween: Tween(
-            begin: const Offset(0, 0.5),
-            end: Offset.zero,
-          ).chain(CurveTween(curve: Motion.curve)),
-          weight: 50,
-        ),
-        TweenSequenceItem(tween: ConstantTween(Offset.zero), weight: 5),
-        TweenSequenceItem(
-          tween: Tween(
-            begin: Offset.zero,
-            end: const Offset(0, -0.3),
-          ).chain(CurveTween(curve: Motion.curve)),
-          weight: 45,
-        ),
-      ]),
-    );
-    // The night stays as it is, under the rooftops, until they cover it; it
-    // is gone before they lift.
-    return (
-      _span(0.42, 0.55).drive(Tween(begin: 1, end: 0)),
-      const AlwaysStoppedAnimation(Offset.zero),
-    );
+    _inSlide = _span(
+      0,
+      SceneSwitcher.move,
+    ).drive(Tween(begin: Offset(0, scene.rise), end: Offset.zero));
+    final sink = _span(
+      0,
+      SceneSwitcher.move,
+    ).drive(Tween(begin: Offset.zero, end: const Offset(0, 1)));
+    _edge = sink;
+    return (kAlwaysCompleteAnimation, sink);
   }
-
-  Widget _sceneLayer(Widget plate) => _Layer(
-    key: const ValueKey('scene'),
-    opacity: _plateOpacity,
-    slide: _plateSlide,
-    leaving: true,
-    child: plate,
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -273,32 +249,40 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
       leaving: false,
       child: widget.child,
     );
+    final leaving = [
+      for (final gone in _leaving)
+        _Layer(
+          key: ValueKey(gone.id),
+          opacity: gone.opacity,
+          slide: gone.slide,
+          leaving: true,
+          child: gone.child,
+        ),
+    ];
     return Stack(
       fit: StackFit.expand,
       children: [
-        // The dawn's arriving screen is whole under everything (it is only
-        // covered); the others fade in over what is leaving.
-        if (_plateAbove) arriving,
-        for (final gone in _leaving)
-          _Layer(
-            key: ValueKey(gone.id),
-            opacity: gone.opacity,
-            slide: gone.slide,
-            leaving: true,
-            child: gone.child,
-          ),
-        if (_plate case final plate? when !_plateAbove) _sceneLayer(plate),
-        if (!_plateAbove) arriving,
-        if (_plate case final plate? when _plateAbove) _sceneLayer(plate),
+        // A scene: the arriving screen is whole under the leaving one, which
+        // sinks off it. A crossfade: the arriving one fades in over it.
+        if (_scene != null) ...[
+          arriving,
+          ...leaving,
+          if (_edge case final edge?)
+            _Edge(key: const ValueKey('scene'), slide: edge),
+        ] else ...[
+          ...leaving,
+          arriving,
+        ],
       ],
     );
   }
 }
 
-/// One screen, or the scene's art, in the switcher: always the same shape of
-/// widgets, so a screen keeps its state from arriving to leaving. A [leaving]
-/// layer is for the eyes only. The arriving one is never behind anything that
-/// stops a touch, and its semantics are in from the first frame.
+/// One screen in the switcher: always the same shape of widgets, so a screen
+/// keeps its state from arriving to leaving. A [leaving] layer is for the
+/// eyes only. The arriving one is never behind anything that stops a touch,
+/// its semantics are in from the first frame, and what it slides does not
+/// move where a touch lands.
 class _Layer extends StatelessWidget {
   const _Layer({
     super.key,
@@ -320,6 +304,7 @@ class _Layer extends StatelessWidget {
       excluding: leaving,
       child: SlideTransition(
         position: slide,
+        transformHitTests: leaving,
         child: FadeTransition(
           opacity: opacity,
           alwaysIncludeSemantics: true,
@@ -330,35 +315,45 @@ class _Layer extends StatelessWidget {
   );
 }
 
-/// What a scene is made of, in the skin's art: the dusk's night village laid
-/// exactly as the card has it (a ground under it, the picture across the
-/// top, fading into the ground), the dawn's rooftops across the whole
-/// screen.
-class _Plate extends StatelessWidget {
-  const _Plate(this.scene);
+/// The paper edge of the sinking screen and the hard shadow it casts on the
+/// one under it, riding the screen's top edge down.
+class _Edge extends StatelessWidget {
+  const _Edge({super.key, required this.slide});
 
-  final SceneKind scene;
+  final Animation<Offset> slide;
 
   @override
   Widget build(BuildContext context) {
-    final skin = context.skin;
-    return switch (scene) {
-      SceneKind.dusk => ScreenFrame(
-        ground: GroundKind.night,
-        topArt: skin.art.nightVillage,
-        topArtLayout: TopArtLayout.backdrop,
-        fitsHeight: true,
-        body: const SizedBox.shrink(),
-      ),
-      SceneKind.dawn => ColoredBox(
-        color: skin.day.ground,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: ScreenFrame.maxWidth),
-            child: SizedBox.expand(child: ArtPicture(skin.art.dawnRooftops)),
+    final night = context.skin.night;
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: LayoutBuilder(
+          builder: (context, box) => AnimatedBuilder(
+            animation: slide,
+            builder: (context, _) {
+              final top = box.maxHeight * slide.value.dy;
+              return Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: top - SceneSwitcher.shadow,
+                    height: SceneSwitcher.shadow,
+                    child: ColoredBox(color: night.shadow),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: top,
+                    height: SceneSwitcher.lip,
+                    child: ColoredBox(color: night.paperEdge),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
-    };
+    );
   }
 }
