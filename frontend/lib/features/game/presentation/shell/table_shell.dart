@@ -8,7 +8,10 @@ import '../../../../core/wakelock/wakelock_service.dart';
 import '../../../../core/websocket/websocket_channel.dart';
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
+import '../../../../design_system/primitives/band.dart';
+import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/notice.dart';
+import '../../../../design_system/primitives/scene_switcher.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/ground_scope.dart';
@@ -38,8 +41,11 @@ import 'your_card_screen.dart';
 ///   night board (06, 05 while `/me/` loads), 08 Talk, 09 Vote, 10 The count
 ///   and 11 Results (their calm wait while the results load). 08 and 09
 ///   show their day ground, nothing on it, while their `/me/` loads.
-/// - A change of screen fades quickly ([Motion.settle]); with reduce motion
-///   it is instant. Nothing waits for it.
+/// - A change of screen fades quickly ([Motion.settle]); two changes are a
+///   scene the whole table shares ([Motion.scene], `SceneSwitcher`): the
+///   deal to the night (dusk) and the night to the talk (dawn). With reduce
+///   motion it is instant. The screen arriving takes touches from the first
+///   frame; nothing waits for any of it.
 /// - While nothing is known yet (the first `/me/table/`), the night ground
 ///   and nothing on it; "One moment" when that fetch fails (it is retried
 ///   until it succeeds), and while the game's socket is down and its
@@ -55,6 +61,10 @@ class TableShell extends ConsumerStatefulWidget {
 class _TableShellState extends ConsumerState<TableShell>
     with WidgetsBindingObserver {
   late final WakelockService _wakelock;
+
+  /// This phone was at the table (02, 03) and the game has started: until the
+  /// night's own `/me/` lands, the night's first screen is the card's frame.
+  var _dealt = false;
 
   @override
   void initState() {
@@ -86,6 +96,14 @@ class _TableShellState extends ConsumerState<TableShell>
   Widget build(BuildContext context) {
     final at = ref.watch(tableScreenProvider);
     final shown = at.value;
+    switch (shown?.screen) {
+      case AppScreen.table || AppScreen.deck:
+        _dealt = true;
+      case AppScreen.yourCard || AppScreen.nightBoard:
+        break;
+      case _:
+        _dealt = false;
+    }
     final gameId = shown?.gameId;
     final gameAsync = gameId == null
         ? null
@@ -103,15 +121,13 @@ class _TableShellState extends ConsumerState<TableShell>
         (gameId != null &&
             _socketDown(ref, gameId) &&
             (game?.fetchFailing ?? false));
-    final still = MediaQuery.disableAnimationsOf(context);
     return Stack(
       children: [
         Positioned.fill(
-          child: AnimatedSwitcher(
-            duration: still ? Duration.zero : Motion.settle,
-            switchInCurve: Motion.curve,
-            switchOutCurve: Motion.curve,
-            child: KeyedSubtree(key: ValueKey(key), child: screen),
+          child: SceneSwitcher<_Stage>(
+            stage: (key: key, screen: shown?.screen),
+            sceneBetween: _sceneBetween,
+            child: screen,
           ),
         ),
         if (offline) const _OfflineBanner(),
@@ -144,6 +160,13 @@ class _TableShellState extends ConsumerState<TableShell>
         key,
         YourCardScreen(game: night, gameId: gameId!),
       ),
+      // 04 while its `/me/` loads: its own frame, village and headline, so
+      // the card arrives onto the screen it belongs to (a scene lands on it).
+      AppScreen.yourCard || AppScreen.nightBoard
+          when night == null &&
+              gameId != null &&
+              (shown.screen == AppScreen.yourCard || _dealt) =>
+        ('$key|wait', const _CardWaits()),
       AppScreen.yourCard || AppScreen.nightBoard when gameId != null => (
         // 05 and the board fade into each other too.
         '$key|${_boardOpen(night) ? 'board' : 'wait'}',
@@ -165,10 +188,12 @@ class _TableShellState extends ConsumerState<TableShell>
         key,
         ResultsScreen(gameId: gameId, game: end),
       ),
-      // 08 and 09 while their own `/me/` loads (and a game screen with no
-      // game, which the screen table never names): the screen's ground,
-      // nothing on it.
-      AppScreen.talk || AppScreen.vote => (key, const _Nothing(day: true)),
+      // 08 while its `/me/` loads: its own frame, the dawn rooftops and the
+      // headline, so the day breaks on the screen it belongs to.
+      AppScreen.talk => ('$key|wait', const _TalkWaits()),
+      // 09 while its `/me/` loads (and a game screen with no game, which the
+      // screen table never names): the screen's ground, nothing on it.
+      AppScreen.vote => (key, const _Nothing(day: true)),
       _ => (key, const _Nothing()),
     };
   }
@@ -186,6 +211,25 @@ class _TableShellState extends ConsumerState<TableShell>
       };
 }
 
+/// Which screen the shell shows: its key (it changes with the screen, the
+/// game and the player) and the screen the table names.
+typedef _Stage = ({String key, AppScreen? screen});
+
+/// The scene a change of screen is, if it is one: the deal's dusk (02 or 03
+/// to the night) and the night's dawn (04 or the board to the talk). Every
+/// other change, the vote to the count included, is a crossfade.
+SceneKind? _sceneBetween(_Stage from, _Stage to) =>
+    switch ((from.screen, to.screen)) {
+      (
+        AppScreen.table || AppScreen.deck,
+        AppScreen.yourCard || AppScreen.nightBoard,
+      ) =>
+        SceneKind.dusk,
+      (AppScreen.yourCard || AppScreen.nightBoard, AppScreen.talk) =>
+        SceneKind.dawn,
+      _ => null,
+    };
+
 /// Before the first answer: the night's (or the day's) ground, nothing on
 /// it.
 class _Nothing extends StatelessWidget {
@@ -196,6 +240,49 @@ class _Nothing extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ScreenFrame(
     ground: day ? GroundKind.day : GroundKind.night,
+    body: const SizedBox.shrink(),
+  );
+}
+
+/// 04 while its `/me/` loads: the frame the card is laid in, nothing in it
+/// but the headline.
+class _CardWaits extends StatelessWidget {
+  const _CardWaits();
+
+  @override
+  Widget build(BuildContext context) => ScreenFrame(
+    ground: GroundKind.night,
+    topArt: context.skin.art.nightVillage,
+    topArtLayout: TopArtLayout.backdrop,
+    fitsHeight: true,
+    body: Align(
+      alignment: Alignment.centerLeft,
+      child: Semantics(
+        header: true,
+        child: FitLine(
+          CardCopy.headline,
+          style: context.skin.typography.screenTitle,
+        ),
+      ),
+    ),
+  );
+}
+
+/// 08 while its `/me/` loads: the frame the talk is laid in, the sky with the
+/// sun at the start of its arc and the headline, no number yet.
+class _TalkWaits extends StatelessWidget {
+  const _TalkWaits();
+
+  @override
+  Widget build(BuildContext context) => ScreenFrame(
+    ground: GroundKind.day,
+    topSlot: const TimerBand.sun(
+      secondsLeft: null,
+      elapsed: 0,
+      title: TalkCopy.headline,
+    ),
+    fitsHeight: true,
+    minBodyHeight: TalkView.minBody,
     body: const SizedBox.shrink(),
   );
 }
