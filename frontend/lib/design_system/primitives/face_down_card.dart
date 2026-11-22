@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
+import '../skin/card_back_scope.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
@@ -268,7 +269,7 @@ class FaceDownCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            ArtPicture(skin.art.cardBack),
+            ArtPicture(context.cardBack),
             // Over the card's eye, clear of the token on its lower edge.
             if (hold case final teaching? when teaching)
               Padding(
@@ -305,7 +306,7 @@ class FaceDownCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
-              child: ArtPicture(skin.art.cardBack),
+              child: ArtPicture(context.cardBack),
             ),
             if (hold case final teaching?)
               Center(

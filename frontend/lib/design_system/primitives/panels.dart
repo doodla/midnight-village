@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
 import '../layout/space.dart';
+import '../skin/card_back_scope.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
@@ -195,7 +196,7 @@ class _PeekCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: radius,
-              child: ArtPicture(skin.art.cardBack),
+              child: ArtPicture(context.cardBack),
             ),
             Padding(
               padding: const EdgeInsets.all(Space.xxs),

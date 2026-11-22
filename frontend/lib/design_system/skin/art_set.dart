@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import '../models/role.dart';
+import 'card_back.dart';
 
 /// The emblems players are known by at the table, one per seat.
 enum TokenId {
@@ -26,7 +27,6 @@ enum TokenId {
 /// The scene pictures (flat). 04's village and 08's dawn are not here: they
 /// are layered ([LayeredSceneId]).
 enum Scene {
-  cardBack('card_back'),
   candle('candle'),
   table('table'),
   streetDoor('street_door'),
@@ -262,6 +262,7 @@ class ArtSet {
     required this.rolePixels,
     required this.tokenPixels,
     required this.scenePixels,
+    required this.cardBackPixels,
     required this.layered,
     required this.portraitFocus,
     this.faceCentres = const {},
@@ -278,6 +279,9 @@ class ArtSet {
 
   /// Each scene's size in pixels.
   final Map<Scene, Size> scenePixels;
+
+  /// Every card back's size in pixels (`scenes/card_back_<name>.webp`).
+  final Size cardBackPixels;
 
   /// The layered scenes, in `layers/<folder>/<file>.webp`.
   final Map<LayeredSceneId, LayeredScene> layered;
@@ -322,6 +326,13 @@ class ArtSet {
     focus: sceneFocus[scene] ?? Alignment.center,
   );
 
+  /// The picture of card back [back]. Screens never call this: a card back
+  /// is drawn from `context.cardBack`, the game's one back (`CardBackScope`).
+  ArtImage cardBack(CardBack back) => ArtImage(
+    '$folder/scenes/card_back_${back.fileName}.webp',
+    pixels: cardBackPixels,
+  );
+
   /// The layered scene [id].
   LayeredScene layeredScene(LayeredSceneId id) => layered[id]!;
 
@@ -331,7 +342,6 @@ class ArtSet {
     pixels: layer.size,
   );
 
-  ArtImage get cardBack => scene(Scene.cardBack);
   ArtImage get candle => scene(Scene.candle);
   ArtImage get table => scene(Scene.table);
   ArtImage get streetDoor => scene(Scene.streetDoor);

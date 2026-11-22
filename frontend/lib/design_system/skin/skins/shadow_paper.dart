@@ -230,12 +230,13 @@ const shadowPaperArt = ArtSet(
   rolePixels: Size(576, 768),
   tokenPixels: Size.square(192),
   scenePixels: {
-    Scene.cardBack: Size(600, 800),
     Scene.candle: Size(768, 1024),
     Scene.table: Size(1024, 768),
     Scene.streetDoor: Size(768, 1024),
     Scene.sleepingVillage: Size(768, 1024),
   },
+  // Drawn at most 250 wide (S07): sharp at 2.4x.
+  cardBackPixels: Size(600, 800),
   layered: {
     LayeredSceneId.nightVillage: _nightVillage,
     LayeredSceneId.dawnGallows: _dawnGallows,
