@@ -59,3 +59,9 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 - Polish passes: "include design improvements as well. Make the game look prettier and feel
   better, without costing usability". Screen by screen, after that screen's fixes land; before
   and after pictures to the owner; no added waits.
+- "Include vibration." (The coordinating session's reading: light, on day screens such as
+  locking a vote, the card flip and Ready; never at night.)
+- "The bar is a game that can win awards. Micro interactions matter." Every touch answers at
+  once; the small moments (press, lock, join, error, empty) are designed, not default.
+- "New assets are okay" for polish passes. Relayed only: this session still asks before making
+  art in bulk until the owner says so directly.
