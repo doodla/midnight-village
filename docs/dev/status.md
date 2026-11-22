@@ -73,7 +73,8 @@ changes. Last updated 20 November 2026.
 - 01 to 03: no rename (a new name on a device makes a new guest account). 03 is the set-up
   page (players 3 to 10 or open, the deck face up, every length with its range; no pace
   presets); the lobby body carries `deck_cards`, `lengths`, `length_ranges` and `deal.seats`.
-- Trying the game alone: proposed, not built (`docs/specs/onuw/solo-play-proposal.md`).
+- Trying the game alone: practice players, switched on by holding "Players" on 03
+  (`docs/specs/onuw/solo-play-proposal.md`).
 - 01 to 03, not built: in-app QR scanning (the phone's camera opens the link); path URLs for `/join/<code>` (the link
   is `<origin>/#/join/<code>` until the web host rewrites `/join/*`); a public origin for
   native builds (`--dart-define=PUBLIC_ORIGIN`); skin art for Share (the platform's glyph).

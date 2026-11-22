@@ -35,10 +35,10 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## In flight (22 November 2026)
 
-- Practice players: built (branch `worktree-agent-a50c7468d9e30a181`, not merged). The
-  hidden switch, in one sentence for the owner: "On the set-up page, press and hold the word
-  Players." A "Practice" stepper then seats village things (Scarecrow, Teapot, ...) tagged
-  "Practice"; the server plays them. Holding "Players" again takes them all away.
+- The owner, live app: "After I back after viewing a card's details. Can't see another cards
+  details till I remove/add a card from the deck." Not reproduced yet (widget tests, a real web
+  build, the Android back gesture simulated); guard tests are in `back_test.dart`. Asked: which
+  device, and how the sheet was closed.
 
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
   the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
@@ -48,6 +48,10 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## Done
 
+- Practice players (issue 26): on the set-up page, press and hold the word "Players". A
+  "Practice" stepper then seats village things (Scarecrow, Teapot, ...) with their own tokens
+  and the word "Practice"; the server plays them. Set it to 0 and hold again to hide it. A
+  person has practice players at one table at a time; closing the table removes them.
 - Back (issue 9): one policy for the phone's Back and the browser's. 01 leaves the app; a
   waiting table asks Stay / Leave; the set-up page returns to the table; in a game Back does
   nothing, only Leave exits; whatever is open on top closes first, and any sheet closes when
