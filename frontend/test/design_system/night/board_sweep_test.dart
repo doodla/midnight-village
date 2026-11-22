@@ -82,9 +82,18 @@ void main() {
       for (final rows in BoardLayout.splits(seats)) {
         expect(rows.reduce((a, b) => a + b), seats);
         expect(rows.first - rows.last, lessThanOrEqualTo(1));
-        if (rows.length > 1) expect(rows.last, greaterThan(1), reason: '$rows');
+        // The one card alone the board allows: three others as a pair with
+        // the third centred under it (a row of three is as wide as the
+        // phone and leaves a tall phone empty).
+        if (rows.length > 1 && seats != BoardLayout.triangle) {
+          expect(rows.last, greaterThan(1), reason: '$rows');
+        }
       }
     }
+    expect(BoardLayout.splits(BoardLayout.triangle), [
+      [3],
+      [2, 1],
+    ]);
     expect(BoardLayout.splits(5), anyElement(equals([3, 2])));
     expect(BoardLayout.splits(5), isNot(anyElement(equals([4, 1]))));
     expect(
@@ -121,7 +130,9 @@ void main() {
             final where = '$seats seats';
             final rows = _rows(tester);
             expect(rows.reduce((a, b) => a + b), seats - 1, reason: where);
-            if (rows.length > 1 && rows.contains(1)) {
+            final triangle =
+                seats - 1 == BoardLayout.triangle && rows.join() == '21';
+            if (rows.length > 1 && rows.contains(1) && !triangle) {
               findings.add('$where: a card alone on a row ($rows)');
             }
             findings.addAll([

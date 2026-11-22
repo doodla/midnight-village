@@ -187,6 +187,16 @@ Future<void> pumpNightThree(WidgetTester tester) => _shell(
   ),
 );
 
+/// 06 at four: game 7 without Esme: three others stand as a pair with the
+/// third centred under them.
+Future<void> pumpNightFour(WidgetTester tester) => _shell(
+  tester,
+  sheet.tableOf(
+    sheet.recordedMe('me_choose_prompt_seer'),
+    leave: {sheet.esme.name},
+  ),
+);
+
 /// 06 at ten, as many as the server seats, with long names (game 8 and one
 /// more seat).
 Future<void> pumpNightTenLong(WidgetTester tester) => _shell(

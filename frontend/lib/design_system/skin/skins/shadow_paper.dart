@@ -21,6 +21,7 @@ const _bone = Color(0xFFE9E2D0); // paper; text on night
 const _boneInset = Color(0xFFDCD4BF); // a box set into paper (S03b)
 const _paperEdge = Color(0xFFBFB69F);
 const _amber = Color(0xFFE3A13A); // the one warm accent
+const _boneGlow = Color(0x80E9E2D0); // bone at 50%: a picked card's light
 const _blood = Color(0xFF80241E); // 7.4:1 under bone words
 const _darkBlood = Color(0xFF5C0F0C); // the primary button's shadow at night
 const _bloodLine = Color(0xFFC2413A); // thin red lines on night
@@ -77,6 +78,7 @@ const _night = Ground(
     // A picked card at night lifts off the table (S06).
     selected: Elevation([HardShadow(Offset(0, 8), _deepShadow)]),
     badge: Elevation([HardShadow(Offset(0, 2), _deepShadow)]),
+    glow: _boneGlow,
   ),
 );
 

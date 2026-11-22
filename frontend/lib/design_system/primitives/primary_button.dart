@@ -77,6 +77,12 @@ enum ButtonPhase {
 /// or a thing to tap. A label ending in [checkMark] is drawn with the check
 /// before the words, in every phase. [busy] keeps a ready button filled and
 /// readable but shows that the action is on its way and ignores more taps.
+///
+/// The night board's Choose waits as a slot ([PrimaryButton.locked] with
+/// `slot`): a recess in the table's own tone with its words in full ink, so
+/// it reads as a place the amber paper is about to fill, not as a broken
+/// button; and when the picks make it ready ([rises]) the amber paper rises
+/// out of the slot over [Motion.quick] while it already takes the tap.
 class PrimaryButton extends StatefulWidget {
   /// Ready when [onPressed] is given, else waiting.
   const PrimaryButton({
@@ -86,7 +92,9 @@ class PrimaryButton extends StatefulWidget {
     this.busy = false,
     this.size = ButtonSize.regular,
     this.icon,
+    this.rises = false,
   }) : onLockedTap = null,
+       slot = false,
        _phase = null;
 
   /// A gate, locked: a tap calls [onLockedTap] (replay the cue) and does not
@@ -97,8 +105,10 @@ class PrimaryButton extends StatefulWidget {
     required VoidCallback this.onLockedTap,
     this.size = ButtonSize.regular,
     this.icon,
+    this.slot = false,
   }) : onPressed = null,
        busy = false,
+       rises = false,
        _phase = ButtonPhase.locked;
 
   /// It acts, outlined: never the screen's amber.
@@ -110,6 +120,8 @@ class PrimaryButton extends StatefulWidget {
   }) : onLockedTap = null,
        icon = null,
        busy = false,
+       rises = false,
+       slot = false,
        _phase = ButtonPhase.quiet;
 
   /// After the action: [label] says the state, and it stays disabled.
@@ -121,10 +133,16 @@ class PrimaryButton extends StatefulWidget {
        icon = null,
        onLockedTap = null,
        busy = false,
+       rises = false,
+       slot = false,
        _phase = ButtonPhase.done;
 
   /// The regular minimum height.
   static const height = 56.0;
+
+  /// A waiting slot's dark lip along its top, as a share of its height
+  /// (about 3 px at the regular size).
+  static const slotLip = 0.055;
 
   /// A check mark at the end of a label ("Ready ✓"): the skin's fonts have
   /// no such glyph, so it is drawn as an icon after the words, the same on
@@ -136,6 +154,12 @@ class PrimaryButton extends StatefulWidget {
   final VoidCallback? onLockedTap;
   final bool busy;
   final ButtonSize size;
+
+  /// A locked button drawn as a slot (see above) instead of an outline.
+  final bool slot;
+
+  /// Coming from a locked [slot], the amber paper rises out of it.
+  final bool rises;
 
   /// A glyph before the label (the padlock of "Lock in Cleo").
   final IconData? icon;
@@ -150,6 +174,38 @@ class PrimaryButton extends StatefulWidget {
 
 class _PrimaryButtonState extends State<PrimaryButton> {
   var _pressed = false;
+
+  /// The button has just become ready from a slot: for this one frame it is
+  /// drawn down in the slot, and the next build lets it rise.
+  var _rising = false;
+
+  /// Counts the rises: a rise is a new paper, amber from its first frame
+  /// (the container is built afresh, so the slot's colour is never blended
+  /// into the amber), drawn down in the slot and easing up.
+  var _rises = 0;
+
+  /// How long a change takes: `press`, but `quick` for the rise.
+  var _duration = Motion.press;
+
+  @override
+  void didUpdateWidget(PrimaryButton old) {
+    super.didUpdateWidget(old);
+    final rise =
+        widget.rises &&
+        widget.phase == ButtonPhase.ready &&
+        old.phase == ButtonPhase.locked &&
+        old.slot;
+    if (rise) {
+      _rising = true;
+      _rises++;
+      _duration = Motion.quick;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _rising = false);
+      });
+    } else if (!_rising) {
+      _duration = Motion.press;
+    }
+  }
 
   bool get _acts =>
       (widget.phase == ButtonPhase.ready && !widget.busy) ||
@@ -199,7 +255,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     final rest = filled
         ? ground.elevation.primary.scaled(widget.size.shadow)
         : Elevation.none;
-    final down = _pressed && _acts;
+    final down = (_pressed && _acts) || _rising;
     final ink = switch (widget.phase) {
       ButtonPhase.ready => ground.onAccent,
       ButtonPhase.waiting => ground.quietText,
@@ -225,6 +281,12 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           )
         : widget.phase == ButtonPhase.done
         ? const BoxDecoration()
+        : widget.phase == ButtonPhase.locked && widget.slot
+        ? BoxDecoration(
+            color: ground.panel,
+            borderRadius: radius,
+            border: Border.all(color: ground.hairline, width: skin.shape.ring),
+          )
         : BoxDecoration(
             borderRadius: radius,
             border: Border.all(color: ground.outline, width: skin.shape.stroke),
@@ -237,7 +299,8 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       value: widget.busy ? SpokenCopy.working : null,
       excludeSemantics: true,
       child: AnimatedContainer(
-        duration: Motion.press,
+        key: ValueKey(_rises),
+        duration: Motion.within(context, _duration),
         curve: Motion.curve,
         constraints: BoxConstraints(
           minHeight: widget.size.primaryHeight,
@@ -249,11 +312,37 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           0,
         ),
         decoration: decoration,
+        foregroundDecoration: widget.phase == ButtonPhase.locked && widget.slot
+            // The slot's cut edge: a hard dark lip along its top, the paper
+            // above it casting into the recess.
+            ? BoxDecoration(
+                borderRadius: radius,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [
+                    0,
+                    PrimaryButton.slotLip,
+                    PrimaryButton.slotLip,
+                    1,
+                  ],
+                  colors: [
+                    ground.shadow,
+                    ground.shadow,
+                    Colors.transparent,
+                    Colors.transparent,
+                  ],
+                ),
+              )
+            : null,
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
             onTap: _onTap,
-            onHighlightChanged: (value) => setState(() => _pressed = value),
+            onHighlightChanged: (value) => setState(() {
+              _pressed = value;
+              if (value && !_rising) _duration = Motion.press;
+            }),
             highlightColor: Colors.transparent,
             splashColor: Colors.transparent,
             borderRadius: radius,

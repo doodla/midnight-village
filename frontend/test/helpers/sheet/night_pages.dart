@@ -143,6 +143,7 @@ class BoardPage extends StatelessWidget {
     this.textScale = 1,
     this.fails = false,
     this.secondsLeft = 14,
+    this.share,
   });
 
   final Viewer viewer;
@@ -152,6 +153,9 @@ class BoardPage extends StatelessWidget {
 
   /// What the candle's number says.
   final int secondsLeft;
+
+  /// How much of the window the candle shows left; null, whole.
+  final double? share;
 
   @override
   Widget build(BuildContext context) {
@@ -167,6 +171,7 @@ class BoardPage extends StatelessWidget {
         prompt: prompt,
         face: NightReport.fromMe(me).you(prompt),
         secondsLeft: secondsLeft,
+        share: share,
         onChoose: (_, _) async =>
             fails ? ChooseAnswer.notSent : ChooseAnswer.taken,
       ),

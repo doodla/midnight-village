@@ -179,10 +179,13 @@ void main() {
             ),
           )
           .firstWhere((c) => c.decoration is BoxDecoration);
-      expect(
-        (card.decoration! as BoxDecoration).boxShadow!.single.offset,
-        const Offset(0, 4),
-      );
+      final shadows = (card.decoration! as BoxDecoration).boxShadow!;
+      expect(shadows.last.offset, const Offset(0, 4));
+      expect(shadows.last.blurRadius, 0, reason: 'the shadow stays hard');
+      // The picked card's light is in the list, unlit, so it fades with the
+      // pick (face_down_feel_test.dart).
+      expect(shadows.length, 2);
+      expect(shadows.first.color.a, 0);
     });
 
     testWidgets('shrink with their parent: four to a 320 phone', (

@@ -32,17 +32,28 @@ enum TopArtLayout {
   /// [scene]'s, the body at its foot over the last of its fade, so a tall
   /// phone shows more of the village instead of an empty lower half. The
   /// body still scrolls when it cannot fit.
-  fill(height: 330, bodyTop: 282, fadeFrom: 160);
+  fill(height: 330, bodyTop: 282, fadeFrom: 160),
+
+  /// A quiet strip behind a title (S06 the night board): 170 tall, the body
+  /// from the top margin (where a screen with no picture starts it), the
+  /// picture under a veil of the ground so the title is the loudest thing,
+  /// fading from 100.
+  strip(height: 170, bodyTop: Space.screenTop, fadeFrom: 100, veil: 0.5);
 
   const TopArtLayout({
     required this.height,
     required this.bodyTop,
     required this.fadeFrom,
+    this.veil = 0,
   });
 
   final double height;
   final double bodyTop;
   final double fadeFrom;
+
+  /// How much of the ground lies over the whole picture (0 none), for a
+  /// picture that must stay behind what is written on it.
+  final double veil;
 }
 
 /// A whole screen, laid out as a stack (design brief section 3, rule 6): an
@@ -162,6 +173,7 @@ class ScreenFrame extends StatelessWidget {
                 fadeTo: colors.ground,
                 fadeFrom:
                     (layout.fadeFrom + safeTop) / (layout.height + safeTop),
+                veil: layout.veil,
               ),
             ),
           ),
@@ -626,10 +638,14 @@ class _TopArt extends StatelessWidget {
     required this.art,
     required this.fadeTo,
     required this.fadeFrom,
+    this.veil = 0,
   });
 
   final ArtImage art;
   final Color fadeTo;
+
+  /// The share of [fadeTo] laid over the whole picture.
+  final double veil;
 
   /// Where the fade starts, as a fraction of the height.
   final double fadeFrom;
@@ -639,6 +655,7 @@ class _TopArt extends StatelessWidget {
     fit: StackFit.expand,
     children: [
       ArtPicture(art),
+      if (veil > 0) ColoredBox(color: fadeTo.withValues(alpha: veil)),
       DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(

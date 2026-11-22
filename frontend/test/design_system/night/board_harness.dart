@@ -29,6 +29,7 @@ class BoardHarness {
     this.learned = const {},
     Future<ChooseAnswer> Function()? answer,
     this.secondsLeft = 14,
+    this.share,
   }) : answer = answer ?? (() async => ChooseAnswer.taken) {
     show(me);
   }
@@ -50,6 +51,9 @@ class BoardHarness {
 
   /// The countdown shown; null for a window with no deadline.
   final int? secondsLeft;
+
+  /// How much of the window is left, for the candle; null, whole.
+  final double? share;
 
   /// The phone fetched [next] (a new stage, the Doppelganger's follow-up).
   void show(Map<String, dynamic> next) {
@@ -80,6 +84,7 @@ class BoardHarness {
       prompt: prompt,
       face: face,
       secondsLeft: secondsLeft,
+      share: share,
       onChoose: (stage, picks) {
         stages.add(stage);
         sent.add(picks);
