@@ -38,6 +38,20 @@ Shorthand: S = scratch folder
 
 ## Part 1: BACK, what happens today
 
+**Status, 22 November 2026: fixed (branch `fix-back-policy`).** Checked again on a prod web
+build at f078d38 before the fix: Back on 02 and on 04 left the site, as below. One claim no
+longer held: since c192441 the router does not redirect to `/game/<id>` after a reload, so
+after a reload Back also left the site (not "nothing"); the root cause (one page, nothing
+handling Back but the deck) was right. The fix is one policy for every Back
+(`frontend/lib/core/router/back_policy.dart`; `frontend/lib/features/game/README.md`,
+"Back"): the browser's history is held to the engine's single entry over the page the app
+came from, so the browser's Back reaches the same policy as Android's, and nothing adds a
+history entry (a reload, a link, a change of screen). Now: a sheet closes first; 01 leaves
+(its code field open: closes it first); 02 asks with "Stay" / "Leave" (host and guest); 03
+returns to 02; 08 puts My night away first; 04 to 11 do nothing. Not changed here: a held
+card's face, 11's folded night (Back does nothing there, as on 11), the link joiner's
+leftover `#/join/<code>` after Leave (rule 7).
+
 Legend: **fine** / **closes app** / **leaves silently** (out of the table or game screen with
 no question; the seat is kept on the server) / **wrong screen** / **blank** / **loses tap or
 state** / **nothing** / **unknown**. "Web back (fresh)" = no reload since the page was

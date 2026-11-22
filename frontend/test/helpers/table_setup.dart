@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/healing/healing.dart';
+import 'package:midnight_village/core/router/back_policy.dart';
 import 'package:midnight_village/core/router/routes.dart';
 import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/core/storage/token_storage.dart';
@@ -237,7 +238,8 @@ class TableSetup {
               ),
               child: GroundScope(ground: GroundKind.night, child: child!),
             ),
-            routerConfig: router,
+            // As the app keeps it: one browser history entry.
+            routerConfig: oneHistoryEntry(router),
           ),
         ),
       ),

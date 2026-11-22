@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
+import 'core/router/back_policy.dart';
 import 'design_system/copy/copy.dart';
 import 'design_system/skin/ground.dart';
 import 'design_system/skin/ground_scope.dart';
@@ -24,7 +25,9 @@ class App extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: theme,
       themeAnimationDuration: Duration.zero,
-      routerConfig: ref.watch(appRouterProvider),
+      // The browser's history holds one entry for the app, so its Back is
+      // the phone's Back (`BackPolicy`).
+      routerConfig: oneHistoryEntry(ref.watch(appRouterProvider)),
       builder: (context, child) =>
           GroundScope(ground: GroundKind.night, child: child!),
     );

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/router/back_policy.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
 import '../../../design_system/models/role.dart';
@@ -48,6 +49,7 @@ import 'where_am_i_provider.dart';
 ///   one stray tap never hands the table away.
 /// - Guest: "{host} deals" over the same code, the rows, and a quiet "Leave"
 ///   at the end.
+/// - Back asks first, host or guest, with the host's "Stay" / "Leave".
 /// - A handover makes another phone the host: it switches layout, with no
 ///   words. A table the server says is gone says so, with "Go home".
 ///
@@ -252,124 +254,138 @@ class AtTableView extends StatelessWidget {
     final roomy = lobby.players.length <= Sizes.nearlyEmptyTable;
     final present = lobby.players.length;
     final seats = lobby.table.seats;
-    return ScreenFrame(
-      ground: GroundKind.night,
-      topArt: roomy ? skin.art.table : null,
-      topArtLayout: TopArtLayout.banner,
-      body: Builder(
-        builder: (context) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: roomy ? Space.md : Space.sm,
-          children: [
-            // A guest waits for the host: said by the screen's shape, no
-            // sentence (playtest: Leave read as the one thing to do). Who
-            // deals is the loudest line; Leave is a quiet word at the foot.
-            if (!host)
-              Semantics(
-                header: true,
-                child: FitWords(
-                  TableCopy.hostDeals.fill({'host': lobby.hostName}),
-                  style: skin.typography.heroTitle,
-                ),
-              ),
-            _JoinCard(
-              code: lobby.code,
-              link: link,
-              onShare: onShare,
-              headline: host,
-              // Set for a number there is more to show (the places, the
-              // deck): the QR code at its scannable least.
-              compact: !roomy || seats != null,
-            ),
-            // At a number: who is here of it, an empty circle for each place
-            // not taken (compact, so the deck and Leave stay in view).
-            if (seats != null)
-              Padding(
-                padding: const EdgeInsets.only(top: Space.sm),
-                child: SeatsLine(
-                  present: present,
-                  seats: seats,
-                  dots: SeatDots.empty,
-                ),
-              ),
-            _Rows(
-              names: [for (final p in lobby.players) p.displayName],
-              rows: [
-                for (final player in lobby.players)
-                  _Row(
-                    player: player,
-                    own: player.id == viewerId,
-                    // This phone is here: its own row is never dimmed.
-                    away:
-                        player.id != viewerId &&
-                        (!player.connected || away.contains(player.id)),
+    // Back at the table asks first, for host and guest alike, with the
+    // host's own "Stay" / "Leave"; a table that is gone goes home.
+    return BackHandler(
+      onBack: () {
+        if (lobby.tableClosed) {
+          onGoHome?.call();
+        } else if (!leaving && onLeave != null) {
+          unawaited(_confirmLeave(context));
+        }
+      },
+      child: ScreenFrame(
+        ground: GroundKind.night,
+        topArt: roomy ? skin.art.table : null,
+        topArtLayout: TopArtLayout.banner,
+        body: Builder(
+          builder: (context) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: roomy ? Space.md : Space.sm,
+            children: [
+              // A guest waits for the host: said by the screen's shape, no
+              // sentence (playtest: Leave read as the one thing to do). Who
+              // deals is the loudest line; Leave is a quiet word at the foot.
+              if (!host)
+                Semantics(
+                  header: true,
+                  child: FitWords(
+                    TableCopy.hostDeals.fill({'host': lobby.hostName}),
+                    style: skin.typography.heroTitle,
                   ),
-              ],
-              spacing: roomy ? Space.md : Space.xs,
-            ),
-            // Fewer came: one tap sets the number to who is here.
-            if (host && seats != null && present >= minSeats && present < seats)
-              Align(
-                child: SecondaryButton(
-                  label: TableCopy.playWith.fill({'n': present}),
-                  size: ButtonSize.compact,
-                  onPressed: onPlayWith == null
-                      ? null
-                      : () => onPlayWith!(present),
                 ),
+              _JoinCard(
+                code: lobby.code,
+                link: link,
+                onShare: onShare,
+                headline: host,
+                // Set for a number there is more to show (the places, the
+                // deck): the QR code at its scannable least.
+                compact: !roomy || seats != null,
               ),
-            // The game as set up, face up for everyone; the host's opens 03.
-            _SetupPanel(lobby: lobby, host: host, onEdit: onEditDeck),
-            if (host)
-              Align(
-                child: SecondaryButton(
-                  label: CommonCopy.leave,
-                  size: ButtonSize.compact,
-                  busy: leaving,
-                  onPressed: onLeave == null
-                      ? null
-                      : () => unawaited(_confirmLeave(context)),
+              // At a number: who is here of it, an empty circle for each place
+              // not taken (compact, so the deck and Leave stay in view).
+              if (seats != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.sm),
+                  child: SeatsLine(
+                    present: present,
+                    seats: seats,
+                    dots: SeatDots.empty,
+                  ),
                 ),
+              _Rows(
+                names: [for (final p in lobby.players) p.displayName],
+                rows: [
+                  for (final player in lobby.players)
+                    _Row(
+                      player: player,
+                      own: player.id == viewerId,
+                      // This phone is here: its own row is never dimmed.
+                      away:
+                          player.id != viewerId &&
+                          (!player.connected || away.contains(player.id)),
+                    ),
+                ],
+                spacing: roomy ? Space.md : Space.xs,
               ),
-          ],
-        ),
-      ),
-      actions: [
-        if (lobby.tableClosed)
-          Notice(
-            message: BannerCopy.tableClosed,
-            action: BannerCopy.goHome,
-            onAction: onGoHome,
-          )
-        else if (leaveRefused case final why?)
-          Notice(message: why)
-        else if (notSent)
-          Notice(
-            message: BannerCopy.notSent,
-            action: BannerCopy.tryAgain,
-            onAction: onRetry,
-          )
-        // The button already says it when the table's new verdict agrees.
-        else if (host && refused != null && refused != _dealWords())
-          Notice(message: refused)
-        else if (copied)
-          const Notice(message: BannerCopy.copied),
-        if (host)
-          _dealButton()
-        else
-          Center(
-            child: TextAction(
-              label: CommonCopy.leave,
-              busy: leaving,
-              onPressed: onLeave,
-            ),
+              // Fewer came: one tap sets the number to who is here.
+              if (host &&
+                  seats != null &&
+                  present >= minSeats &&
+                  present < seats)
+                Align(
+                  child: SecondaryButton(
+                    label: TableCopy.playWith.fill({'n': present}),
+                    size: ButtonSize.compact,
+                    onPressed: onPlayWith == null
+                        ? null
+                        : () => onPlayWith!(present),
+                  ),
+                ),
+              // The game as set up, face up for everyone; the host's opens 03.
+              _SetupPanel(lobby: lobby, host: host, onEdit: onEditDeck),
+              if (host)
+                Align(
+                  child: SecondaryButton(
+                    label: CommonCopy.leave,
+                    size: ButtonSize.compact,
+                    busy: leaving,
+                    onPressed: onLeave == null
+                        ? null
+                        : () => unawaited(_confirmLeave(context)),
+                  ),
+                ),
+            ],
           ),
-      ],
+        ),
+        actions: [
+          if (lobby.tableClosed)
+            Notice(
+              message: BannerCopy.tableClosed,
+              action: BannerCopy.goHome,
+              onAction: onGoHome,
+            )
+          else if (leaveRefused case final why?)
+            Notice(message: why)
+          else if (notSent)
+            Notice(
+              message: BannerCopy.notSent,
+              action: BannerCopy.tryAgain,
+              onAction: onRetry,
+            )
+          // The button already says it when the table's new verdict agrees.
+          else if (host && refused != null && refused != _dealWords())
+            Notice(message: refused)
+          else if (copied)
+            const Notice(message: BannerCopy.copied),
+          if (host)
+            _dealButton()
+          else
+            Center(
+              child: TextAction(
+                label: CommonCopy.leave,
+                busy: leaving,
+                onPressed: onLeave,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
   /// The host leaves only after saying so again: the table moves to the
-  /// next member the moment the host goes.
+  /// next member the moment the host goes. Back asks it of anyone.
   Future<void> _confirmLeave(BuildContext context) async {
     final leave = await showSkinSheet<bool>(
       context,

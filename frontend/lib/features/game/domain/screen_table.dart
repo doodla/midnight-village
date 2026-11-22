@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/router/back_rule.dart';
+
 import '../../lobby/domain/lobby_state.dart';
 import '../../lobby/domain/where_am_i.dart';
 import 'game_me.dart';
@@ -155,3 +157,26 @@ AppScreen screenFor(
 
 AppScreen _end(LocalSteps local) =>
     local.countSeen ? AppScreen.results : AppScreen.count;
+
+/// What Back does on each screen with nothing open on it (`BackPolicy` does
+/// it; a sheet, a dialog or something open on the screen is closed first).
+/// Every screen the table can name has a rule here: a new screen does not
+/// build until it has one.
+///
+/// | Screen | Back |
+/// |---|---|
+/// | 01 Join | leaves the app |
+/// | 02 Table | asks first: the table's leave confirmation |
+/// | 03 Deck | back to 02 |
+/// | 04 to 11, the game | nothing; only Leave exits |
+BackRule backRuleFor(AppScreen screen) => switch (screen) {
+  AppScreen.join => BackRule.leavesApp,
+  AppScreen.table => BackRule.asksToLeave,
+  AppScreen.deck => BackRule.closesToTable,
+  AppScreen.yourCard ||
+  AppScreen.nightBoard ||
+  AppScreen.talk ||
+  AppScreen.vote ||
+  AppScreen.count ||
+  AppScreen.results => BackRule.staysPut,
+};

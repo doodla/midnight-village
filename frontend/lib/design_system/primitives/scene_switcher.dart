@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../core/router/back_policy.dart';
 import '../layout/space.dart';
 import '../skin/skin.dart';
 import 'band.dart';
@@ -352,16 +353,19 @@ class _Layer extends StatelessWidget {
   @override
   Widget build(BuildContext context) => IgnorePointer(
     ignoring: leaving,
-    child: ExcludeSemantics(
-      excluding: leaving,
-      child: SlideTransition(
-        position: slide,
-        transformHitTests: leaving,
-        child: FadeTransition(
-          opacity: opacity,
-          alwaysIncludeSemantics: true,
-          child: RepaintBoundary(
-            child: SceneArrival(progress: arrival, child: child),
+    child: BackMute(
+      muted: leaving,
+      child: ExcludeSemantics(
+        excluding: leaving,
+        child: SlideTransition(
+          position: slide,
+          transformHitTests: leaving,
+          child: FadeTransition(
+            opacity: opacity,
+            alwaysIncludeSemantics: true,
+            child: RepaintBoundary(
+              child: SceneArrival(progress: arrival, child: child),
+            ),
           ),
         ),
       ),
@@ -385,18 +389,21 @@ class _Group extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IgnorePointer(
-    child: ExcludeSemantics(
-      child: SlideTransition(
-        position: slide,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ...children,
-            FadeTransition(
-              opacity: dim,
-              child: ColoredBox(color: context.skin.night.shadow),
-            ),
-          ],
+    child: BackMute(
+      muted: true,
+      child: ExcludeSemantics(
+        child: SlideTransition(
+          position: slide,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ...children,
+              FadeTransition(
+                opacity: dim,
+                child: ColoredBox(color: context.skin.night.shadow),
+              ),
+            ],
+          ),
         ),
       ),
     ),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/router/back_policy.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
 import '../../../design_system/primitives/fit_line.dart';
@@ -27,7 +28,7 @@ import 'join_flow.dart';
 /// - "Join a table" comes first (a table has one host and many guests), and
 ///   "Start a table" under it, both outlined and of equal weight, locked
 ///   until a name is typed. "Join a table" gives way to the code and an
-///   amber "Join".
+///   amber "Join"; Back closes the code again.
 /// - Opened from a table's link ([code]): the name and an amber "Join".
 /// - Under them, "{n} at tables" and how this player's last game went.
 ///
@@ -246,121 +247,129 @@ class _JoinViewState extends State<JoinView> {
         : null;
 
     final banner = widget.banner;
-    return ScreenFrame(
-      ground: GroundKind.night,
-      topArt: skin.art.streetDoor,
-      // The village takes the height the form leaves: the form sits low,
-      // under the thumb, never above an empty lower half.
-      topArtLayout: TopArtLayout.fill,
-      body: Builder(
-        builder: (context) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: Space.lgPlus,
-          children: [
-            Semantics(
-              header: true,
-              child: FitLine(
-                JoinCopy.title,
-                style: type.heroTitle.copyWith(fontSize: 42),
+    // Back closes the code field first ("Join a table" again).
+    return BackHandler(
+      open: _codeOpen && link == null,
+      onBack: () => setState(() => _codeOpen = false),
+      child: ScreenFrame(
+        ground: GroundKind.night,
+        topArt: skin.art.streetDoor,
+        // The village takes the height the form leaves: the form sits low,
+        // under the thumb, never above an empty lower half.
+        topArtLayout: TopArtLayout.fill,
+        body: Builder(
+          builder: (context) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: Space.lgPlus,
+            children: [
+              Semantics(
+                header: true,
+                child: FitLine(
+                  JoinCopy.title,
+                  style: type.heroTitle.copyWith(fontSize: 42),
+                ),
               ),
-            ),
-            SkinField.paper(
-              controller: _name,
-              hint: JoinCopy.nameHint,
-              semanticLabel: JoinCopy.nameHint,
-              autofocus: widget.name.isEmpty,
-              maxLength: JoinView.nameLength,
-              inputFormatters: [_NameFormatter()],
-              textInputAction: TextInputAction.go,
-              onSubmitted: (_) => _nameEntered(link),
-            ),
-            if (banner != null)
-              Notice(
-                message: banner,
-                action: widget.onBannerAction == null
-                    ? null
-                    : widget.bannerAction,
-                onAction: widget.onBannerAction,
+              SkinField.paper(
+                controller: _name,
+                hint: JoinCopy.nameHint,
+                semanticLabel: JoinCopy.nameHint,
+                autofocus: widget.name.isEmpty,
+                maxLength: JoinView.nameLength,
+                inputFormatters: [_NameFormatter()],
+                textInputAction: TextInputAction.go,
+                onSubmitted: (_) => _nameEntered(link),
               ),
-            if (link != null && widget.seated)
-              const SizedBox.shrink()
-            else if (link != null)
-              PrimaryButton(
-                label: JoinCopy.join,
-                onPressed: join(link),
-                busy: busy == JoinWay.join,
-                size: ButtonSize.large,
-              )
-            else ...[
-              if (_codeOpen)
-                Row(
-                  spacing: Space.smPlus,
-                  children: [
-                    Expanded(
-                      child: SkinField.code(
-                        controller: _code,
-                        focusNode: _codeFocus,
-                        hint: JoinCopy.codeHint,
-                        semanticLabel: JoinCopy.codeHint,
-                        autofocus: _named,
-                        maxLength: JoinView.codeLength,
-                        inputFormatters: [_CodeFormatter()],
-                        textInputAction: TextInputAction.go,
-                        onSubmitted: (_) =>
-                            join(_coded ? _code.text : null)?.call(),
-                      ),
-                    ),
-                    PrimaryButton(
-                      label: JoinCopy.join,
-                      onPressed: join(_coded ? _code.text : null),
-                      busy: busy == JoinWay.join,
-                      size: ButtonSize.compact,
-                    ),
-                  ],
+              if (banner != null)
+                Notice(
+                  message: banner,
+                  action: widget.onBannerAction == null
+                      ? null
+                      : widget.bannerAction,
+                  onAction: widget.onBannerAction,
+                ),
+              if (link != null && widget.seated)
+                const SizedBox.shrink()
+              else if (link != null)
+                PrimaryButton(
+                  label: JoinCopy.join,
+                  onPressed: join(link),
+                  busy: busy == JoinWay.join,
+                  size: ButtonSize.large,
                 )
-              else
+              else ...[
+                if (_codeOpen)
+                  Row(
+                    spacing: Space.smPlus,
+                    children: [
+                      Expanded(
+                        child: SkinField.code(
+                          controller: _code,
+                          focusNode: _codeFocus,
+                          hint: JoinCopy.codeHint,
+                          semanticLabel: JoinCopy.codeHint,
+                          autofocus: _named,
+                          maxLength: JoinView.codeLength,
+                          inputFormatters: [_CodeFormatter()],
+                          textInputAction: TextInputAction.go,
+                          onSubmitted: (_) =>
+                              join(_coded ? _code.text : null)?.call(),
+                        ),
+                      ),
+                      PrimaryButton(
+                        label: JoinCopy.join,
+                        onPressed: join(_coded ? _code.text : null),
+                        busy: busy == JoinWay.join,
+                        size: ButtonSize.compact,
+                      ),
+                    ],
+                  )
+                else
+                  SecondaryButton(
+                    label: JoinCopy.joinTable,
+                    onPressed: idle && _named
+                        ? () => setState(() => _codeOpen = true)
+                        : null,
+                    size: ButtonSize.large,
+                  ),
                 SecondaryButton(
-                  label: JoinCopy.joinTable,
+                  label: JoinCopy.startTable,
                   onPressed: idle && _named
-                      ? () => setState(() => _codeOpen = true)
+                      ? () => widget.onStart(_typedName)
                       : null,
                   size: ButtonSize.large,
                 ),
-              SecondaryButton(
-                label: JoinCopy.startTable,
-                onPressed: idle && _named
-                    ? () => widget.onStart(_typedName)
-                    : null,
-                size: ButtonSize.large,
-              ),
+              ],
             ],
-          ],
-        ),
-      ),
-      actions: [
-        if (link == null && (widget.online != null || widget.lastWon != null))
-          Builder(
-            builder: (context) {
-              final style = type.lede.copyWith(color: context.ground.text);
-              final online = widget.online;
-              final won = widget.lastWon;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: Space.xs,
-                children: [
-                  const Divider(height: Space.mdPlus),
-                  if (online != null)
-                    FitWords(JoinCopy.online.fill({'n': online}), style: style),
-                  if (won != null)
-                    FitWords(
-                      won ? JoinCopy.lastWon : JoinCopy.lastLost,
-                      style: style,
-                    ),
-                ],
-              );
-            },
           ),
-      ],
+        ),
+        actions: [
+          if (link == null && (widget.online != null || widget.lastWon != null))
+            Builder(
+              builder: (context) {
+                final style = type.lede.copyWith(color: context.ground.text);
+                final online = widget.online;
+                final won = widget.lastWon;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: Space.xs,
+                  children: [
+                    const Divider(height: Space.mdPlus),
+                    if (online != null)
+                      FitWords(
+                        JoinCopy.online.fill({'n': online}),
+                        style: style,
+                      ),
+                    if (won != null)
+                      FitWords(
+                        won ? JoinCopy.lastWon : JoinCopy.lastLost,
+                        style: style,
+                      ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 }
