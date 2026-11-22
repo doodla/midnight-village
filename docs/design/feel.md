@@ -158,7 +158,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Finger on a card, and a picked card | Touch-down dips the card 2 px; the picked card lifts with a glow. Same for every role | `press`, `quick` | Colour and outline only | pass 2 |
 | Tap picks a card | The card lifts 8 px with the selection outline (bone) | `quick` | Cut | exists |
 | Tap a picked card; a third tap | The card settles back; a third pick drops the oldest as the new one rises, in one frame | `quick` | Cut | exists |
-| Choose button follows the picks | "Choose a card" (outlined) to "Choose Cleo" or "Keep my card" (amber); the label cuts | `press` | Cut | exists |
+| Choose button follows the picks | "Choose a card" (outlined) to "See Cleo" or the role's pass such as "Skip" (amber); the label cuts | `press` | Cut | exists |
 | Tap the locked Choose | The wave plays again over the cards | 120 / 90 ms | No wave | exists |
 | Choose pressed | "Chosen" at once, before any answer; picks stay lifted; nothing flashes. No vibration | `press` | Cut | exists |
 | Hold "You" | The face is cut in above the thumb 120 ms after the press and cut out on release | 120 ms | Same | exists |
