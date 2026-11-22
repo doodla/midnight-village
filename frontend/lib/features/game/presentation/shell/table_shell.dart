@@ -8,6 +8,8 @@ import '../../../../core/wakelock/wakelock_service.dart';
 import '../../../../core/websocket/websocket_channel.dart';
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
+import '../../../../design_system/primitives/band.dart';
+import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/scene_switcher.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
@@ -60,6 +62,10 @@ class _TableShellState extends ConsumerState<TableShell>
     with WidgetsBindingObserver {
   late final WakelockService _wakelock;
 
+  /// This phone was at the table (02, 03) and the game has started: until the
+  /// night's own `/me/` lands, the night's first screen is the card's frame.
+  var _dealt = false;
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +96,14 @@ class _TableShellState extends ConsumerState<TableShell>
   Widget build(BuildContext context) {
     final at = ref.watch(tableScreenProvider);
     final shown = at.value;
+    switch (shown?.screen) {
+      case AppScreen.table || AppScreen.deck:
+        _dealt = true;
+      case AppScreen.yourCard || AppScreen.nightBoard:
+        break;
+      case _:
+        _dealt = false;
+    }
     final gameId = shown?.gameId;
     final gameAsync = gameId == null
         ? null
@@ -146,6 +160,13 @@ class _TableShellState extends ConsumerState<TableShell>
         key,
         YourCardScreen(game: night, gameId: gameId!),
       ),
+      // 04 while its `/me/` loads: its own frame, village and headline, so
+      // the card arrives onto the screen it belongs to (a scene lands on it).
+      AppScreen.yourCard || AppScreen.nightBoard
+          when night == null &&
+              gameId != null &&
+              (shown.screen == AppScreen.yourCard || _dealt) =>
+        ('$key|wait', const _CardWaits()),
       AppScreen.yourCard || AppScreen.nightBoard when gameId != null => (
         // 05 and the board fade into each other too.
         '$key|${_boardOpen(night) ? 'board' : 'wait'}',
@@ -167,10 +188,12 @@ class _TableShellState extends ConsumerState<TableShell>
         key,
         ResultsScreen(gameId: gameId, game: end),
       ),
-      // 08 and 09 while their own `/me/` loads (and a game screen with no
-      // game, which the screen table never names): the screen's ground,
-      // nothing on it.
-      AppScreen.talk || AppScreen.vote => (key, const _Nothing(day: true)),
+      // 08 while its `/me/` loads: its own frame, the dawn rooftops and the
+      // headline, so the day breaks on the screen it belongs to.
+      AppScreen.talk => ('$key|wait', const _TalkWaits()),
+      // 09 while its `/me/` loads (and a game screen with no game, which the
+      // screen table never names): the screen's ground, nothing on it.
+      AppScreen.vote => (key, const _Nothing(day: true)),
       _ => (key, const _Nothing()),
     };
   }
@@ -217,6 +240,49 @@ class _Nothing extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ScreenFrame(
     ground: day ? GroundKind.day : GroundKind.night,
+    body: const SizedBox.shrink(),
+  );
+}
+
+/// 04 while its `/me/` loads: the frame the card is laid in, nothing in it
+/// but the headline.
+class _CardWaits extends StatelessWidget {
+  const _CardWaits();
+
+  @override
+  Widget build(BuildContext context) => ScreenFrame(
+    ground: GroundKind.night,
+    topArt: context.skin.art.nightVillage,
+    topArtLayout: TopArtLayout.backdrop,
+    fitsHeight: true,
+    body: Align(
+      alignment: Alignment.centerLeft,
+      child: Semantics(
+        header: true,
+        child: FitLine(
+          CardCopy.headline,
+          style: context.skin.typography.screenTitle,
+        ),
+      ),
+    ),
+  );
+}
+
+/// 08 while its `/me/` loads: the frame the talk is laid in, the sky with the
+/// sun at the start of its arc and the headline, no number yet.
+class _TalkWaits extends StatelessWidget {
+  const _TalkWaits();
+
+  @override
+  Widget build(BuildContext context) => ScreenFrame(
+    ground: GroundKind.day,
+    topSlot: const TimerBand.sun(
+      secondsLeft: null,
+      elapsed: 0,
+      title: TalkCopy.headline,
+    ),
+    fitsHeight: true,
+    minBodyHeight: TalkView.minBody,
     body: const SizedBox.shrink(),
   );
 }

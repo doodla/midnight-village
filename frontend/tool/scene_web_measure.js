@@ -101,6 +101,12 @@ function stats(deltas) {
     }
     await ctx.close();
   }
-  console.log(JSON.stringify(results, null, 1));
+  // Six runs of each: frames over 33.5 ms (two vsyncs) per transition.
+  for (const [name, r] of Object.entries(results)) {
+    const per = name.startsWith('idle') ? '' : `  slow/transition=${(r.dropped / 6).toFixed(1)}`;
+    console.log(
+      `${name.padEnd(38)} median=${r.median} p95=${r.p95} max=${r.max} >25ms=${r.over25} >33ms=${r.dropped}${per}`,
+    );
+  }
   await browser.close();
 })();

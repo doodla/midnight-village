@@ -21,6 +21,9 @@ import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
+/// `--dart-define=RING=true`: the card's hold ring breathes, as in a first game.
+const _ring = bool.fromEnvironment('RING');
+
 void main() => runApp(const _Demo());
 
 const _names = ['Ana', 'Ben', 'Cleo', 'Dev', 'Esme'];
@@ -113,7 +116,12 @@ class _Card extends StatelessWidget {
         Text('Your card', style: context.skin.typography.screenTitle),
         const SizedBox(height: Space.lg),
         const Expanded(
-          child: Center(child: FaceDownCard(size: FaceDownSize.hero)),
+          child: Center(
+            child: FaceDownCard(
+              size: FaceDownSize.hero,
+              hold: _ring ? true : null,
+            ),
+          ),
         ),
       ],
     ),

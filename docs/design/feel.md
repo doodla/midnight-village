@@ -46,7 +46,7 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 | `reveal` | 400 ms | The count's dead card turning over |
 | `stagger` | 150 ms | Between one row and the next landing (the count, the night on 11) |
 | `beat` | 1200 ms | The count's held beat before the flip. A tap skips it |
-| `scene` | 500 ms | The dusk (deal to night) and the dawn (night to talk), nothing else: the leaving screen sinks for the first 85% of it, the arriving one rises into place (pass 1, built) |
+| `scene` | 500 ms | The dusk (deal to night) and the dawn (night to talk), nothing else: one screen moves on a paper edge for the first 85% of it, the other stays; the destination's header travels further than its screen (pass 1, built) |
 | `curve` | easeOutCubic | Everything above, except the count's flip (easeInOut); inside a scene, each part runs its stretch of the 500 ms in this curve |
 | `Motion.within(context, d)` | `d`, or zero under reduce motion | The shell and the scene switcher use it; the other five places that check reduce motion move to it in their passes |
 
@@ -136,7 +136,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| The deal commits (02 or 03 to 04, on every phone together) | The dusk, 500 ms: the table's screen sinks down off the phone on a paper edge (a lip and its shadow) over the first 425 ms while the card, whole and opaque underneath, rises 4% of the height into place wearing its own village and moon. Nothing is faded through anything. The Ready button is uncovered by 60% of the scene. 04 takes touches from frame one, where it rests, even while the table still covers it. No vibration. A change that comes mid-scene (05's wait giving way to the card) swaps in place | `scene` | Cut | exists |
+| The deal commits (02 or 03 to 04, on every phone together) | The dusk, 500 ms: the night falls. The card's screen is lowered over the table's from above on a paper lip with a hard shadow that shortens as it lands, over the first 425 ms; the table under it dims to half; the header (village and moon) comes down 30% further than the sheet, so the moon arrives last. Nothing is faded through anything. The Ready button is on screen from 35 ms (7% of the scene). 04 takes touches from frame one, where it rests, even while it is still above the screen. While `/me/` loads, the card's own frame (village and headline) is what is lowered. No vibration. A change that comes mid-scene swaps in place | `scene` | Cut | exists |
 | The card arrives | A face-down card as large as the room under the headline allows, 3 by 4: its width is the smaller of the room's width and three quarters of its height; in a first game the ring breathes with "Hold" | breath 1400 ms | Ring still | exists |
 
 ### Your card (04)
@@ -178,7 +178,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| Dawn (night to talk, all phones together) | 500 ms, the same gesture: the night sinks off the phone on a paper edge over the first 425 ms while the talk, whole underneath, rises 8% of the height into place, so its own dawn rooftops and the sun rise into the header. No picture of its own, nothing faded through anything; the talk's "7:38", card and Ready are whole as the edge passes. Ready is uncovered by 60% of the scene and takes touches from frame one. No vibration | `scene` | Cut | exists |
+| Dawn (night to talk, all phones together) | 500 ms: the day breaks. The night sinks off the phone on its top edge over the first 425 ms (its lip's shadow thins as it goes); the talk, whole and live underneath, has its own header, rooftops and sun as one piece, rise from below into its window, the sun with it, while "7:38", the card and Ready do not move at all. While `/me/` loads, the talk's own sky and headline are what rise. Ready is uncovered at 285 ms (57% of the scene) and takes touches from frame one. No vibration | `scene` | Cut | exists |
 | The timer | Digits tick each second, and the sun on the talk's sky steps along its arc with them, a jump with no tween (the vote's bar on 09 steps the same way) | 1 s | Same | exists |
 | My night opens by itself (once, when the night told this phone something) | The same paper card a hold shows, every word on screen; a tap puts it away | none | Same | exists |
 | Hold "My night" | The face above the thumb; each hold shows the next page, dots inside | 120 ms | Same | exists |

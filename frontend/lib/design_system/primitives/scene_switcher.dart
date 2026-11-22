@@ -1,51 +1,52 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
 import 'band.dart';
+import 'scene_arrival.dart';
 import 'screen_frame.dart';
 
 /// The two scene changes of the game, the moments every phone at a table
-/// shares. Both are the same gesture: the old world sinks away down the
-/// screen on a paper edge and the new one, whole and live where it will rest,
-/// rises the last few pixels into its place wearing its own picture.
+/// shares. A scene is made of nothing but the two screens and a paper edge.
 enum SceneKind {
-  /// The deal to the night: the table's screen sinks; the card's own village
-  /// and moon rise into their place.
+  /// The deal to the night: the night comes down. The card's screen, a sheet
+  /// of paper, is lowered over the table's from above on a lip and its
+  /// shadow while the table dims; its own header picture comes down further
+  /// than the sheet, so the moon arrives last.
   dusk,
 
-  /// The night to the talk: the night sinks; the talk's own dawn rooftops,
-  /// the sun with them, rise into their place.
-  dawn;
-
-  /// How far the arriving screen rises into place, of the screen's height:
-  /// the rooftops and the sun of the dawn more than the dusk's moon.
-  double get rise => switch (this) {
-    SceneKind.dusk => 0.04,
-    SceneKind.dawn => 0.08,
-  };
+  /// The night to the talk: the day breaks. The night sheet sinks away down
+  /// the screen on its lip; the talk, whole and live underneath, has its own
+  /// header rise from below into its window, the sun with it, while the text
+  /// under it does not move.
+  dawn,
 }
 
 /// Shows [child] and, when [stage] changes, takes the change over: a crossfade
 /// ([Motion.settle]) unless [sceneBetween] names a [SceneKind] for it, then
-/// that scene ([Motion.scene]). Reduce motion: an instant cut.
+/// that scene ([Motion.scene]). Reduce motion ([Motion.within]): an instant
+/// cut.
 ///
-/// A scene is made of nothing but the two screens: the arriving one is whole
-/// and opaque in its place under the leaving one, which sinks away down the
-/// screen on a hard paper edge (a lip and its shadow); the arriving one
-/// rises the last few pixels. No picture of its own, no dissolve, no layer
-/// seen through another.
+/// A scene is made of nothing but the two screens, no picture of its own and
+/// no dissolve: one of them is a sheet of paper that moves on a hard edge,
+/// the other stays in place under (dawn) or over (dusk) it. No screen is ever
+/// seen through another. A crossfade fades the new screen in over the old,
+/// which stays whole.
 ///
 /// Nothing in here waits or blocks. The arriving screen is in the tree and
 /// takes touches from the first frame, where it will rest (its slide does not
-/// move what a touch lands on), even while the leaving screen still covers
-/// it; the leaving screen and the lip are for the eyes only (no touch, no
-/// semantics), and everything that moves is a slide of a layer already
-/// painted.
+/// move what a touch lands on), even while the other still covers it; the
+/// leaving screen and the edge are for the eyes only (no touch, no
+/// semantics), and everything that moves is a slide or one fade of a layer
+/// already painted.
 ///
 /// A change that comes while a scene runs (the night's "village sleeps" wait
 /// giving way to the card) swaps the arriving screen in place and lets the
-/// scene finish; it never restarts it.
+/// scene finish; it never restarts it. A change that cuts a crossfade short
+/// by starting a scene takes the screens of that crossfade into the scene's
+/// sheet, which finish fading inside it.
 class SceneSwitcher<T> extends StatefulWidget {
   const SceneSwitcher({
     super.key,
@@ -62,66 +63,94 @@ class SceneSwitcher<T> extends StatefulWidget {
   /// The scene for a change from one stage to the next; null is a crossfade.
   final SceneKind? Function(T from, T to) sceneBetween;
 
-  /// The share of a scene the leaving screen takes to clear the screen (the
-  /// rest it holds still): the arriving screen's primary button, near the
-  /// foot, is uncovered before 60% of [Motion.scene].
+  /// The share of a scene the sheet takes to land (the rest it holds still):
+  /// the arriving screen's primary button is on show by 60% of
+  /// [Motion.scene].
   static const move = 0.85;
 
-  /// The thickness of the paper edge and of the shadow it casts.
-  static const lip = 3.0;
-  static const shadow = 8.0;
+  /// How dark the table gets under the night coming down (the dusk).
+  static const dusk = 0.5;
 
   @override
   State<SceneSwitcher<T>> createState() => _SceneSwitcherState<T>();
 }
 
-/// A screen on its way out.
-class _Leaving {
-  const _Leaving(this.id, this.child, this.opacity, this.slide);
+/// One change in motion: its own controller, so a change that comes while
+/// another runs never moves the other's animations.
+class _Run {
+  _Run(TickerProvider vsync, Duration duration)
+    : controller = AnimationController(vsync: vsync, duration: duration);
 
-  final int id;
+  final AnimationController controller;
+  final _curves = <CurvedAnimation>[];
+
+  /// [from] to [to] of the change, [Motion.curve] over that stretch.
+  Animation<double> span(double from, double to) {
+    final curved = CurvedAnimation(
+      parent: controller,
+      curve: Interval(from, to, curve: Motion.curve),
+    );
+    _curves.add(curved);
+    return curved;
+  }
+
+  void dispose() {
+    for (final curve in _curves) {
+      curve.dispose();
+    }
+    controller.dispose();
+  }
+}
+
+/// A screen on its way out.
+class _Old {
+  const _Old(this.key, this.child, this.opacity);
+
+  final GlobalKey key;
   final Widget child;
+
+  /// 1 unless the screen was itself still fading in when it was left.
   final Animation<double> opacity;
-  final Animation<Offset> slide;
 }
 
 class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
-    with SingleTickerProviderStateMixin {
-  /// 0 to 1 over a change.
-  late final AnimationController _progress;
+    with TickerProviderStateMixin {
+  final _runs = <_Run>[];
+  _Run? _latest;
 
-  /// Names the screen showing now (a new one for each change of stage).
-  var _id = 0;
-  var _leaving = <_Leaving>[];
+  /// The arriving screen's own key: it keeps its state from arriving to
+  /// leaving, in whatever layer it is then in.
+  var _key = GlobalKey();
+  var _old = <_Old>[];
 
   /// The scene running, null for a crossfade or when nothing runs.
   SceneKind? _scene;
 
   Animation<double> _in = kAlwaysCompleteAnimation;
   Animation<Offset> _inSlide = const AlwaysStoppedAnimation(Offset.zero);
-  Animation<Offset>? _edge;
-  final _curved = <CurvedAnimation>[];
+  Animation<double>? _arrival;
+  Animation<Offset> _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
+  Animation<double> _dim = kAlwaysDismissedAnimation;
 
   @override
   void initState() {
     super.initState();
-    _progress = AnimationController(vsync: this)..addStatusListener(_finished);
     _warmUp();
   }
 
   @override
   void dispose() {
-    _disposeCurves();
-    _progress.dispose();
+    for (final run in _runs) {
+      run.dispose();
+    }
     super.dispose();
   }
 
-  bool get _running => _progress.isAnimating;
-
   /// The arriving screens' own pictures, decoded before they are needed: a
-  /// scene never rises on an empty header. (Not awaited; the app does not
-  /// start slower for it.) Sized as the screens draw them, so the same
-  /// decoded picture is found.
+  /// scene never lands on an empty header. About 137 KB of the two files
+  /// (6 MB decoded), asked for when the table's shell first shows, not
+  /// awaited: the app does not start slower for it. Sized as the screens
+  /// draw them, so the same decoded picture is found.
   void _warmUp() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -148,132 +177,153 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
     });
   }
 
-  void _disposeCurves() {
-    for (final curve in _curved) {
-      curve.dispose();
-    }
-    _curved.clear();
-  }
-
-  void _finished(AnimationStatus status) {
-    if (status != AnimationStatus.completed) return;
-    setState(() {
-      _leaving = [];
-      _scene = null;
-      _resting();
-    });
-  }
-
   void _resting() {
+    for (final run in _runs) {
+      run.dispose();
+    }
+    _runs.clear();
+    _latest = null;
+    _old = [];
+    _scene = null;
     _in = kAlwaysCompleteAnimation;
     _inSlide = const AlwaysStoppedAnimation(Offset.zero);
-    _edge = null;
-    _disposeCurves();
+    _arrival = null;
+    _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
+    _dim = kAlwaysDismissedAnimation;
   }
 
-  /// [from] to [to] of the change, [Motion.curve] over that stretch.
-  Animation<double> _span(double from, double to) {
-    final curved = CurvedAnimation(
-      parent: _progress,
-      curve: Interval(from, to, curve: Motion.curve),
-    );
-    _curved.add(curved);
-    return curved;
+  void _finished(_Run run, AnimationStatus status) {
+    // Only the last change finishing clears the stage: an earlier one has
+    // finished before it (a crossfade is shorter than a scene).
+    if (status != AnimationStatus.completed || run != _latest) return;
+    final done = [..._runs];
+    setState(() {
+      _runs.clear();
+      _latest = null;
+      _old = [];
+      _scene = null;
+      _in = kAlwaysCompleteAnimation;
+      _inSlide = const AlwaysStoppedAnimation(Offset.zero);
+      _arrival = null;
+      _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
+      _dim = kAlwaysDismissedAnimation;
+    });
+    // Not from inside the controller's own notification.
+    scheduleMicrotask(() {
+      for (final run in done) {
+        run.dispose();
+      }
+    });
   }
 
   @override
   void didUpdateWidget(SceneSwitcher<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.stage == widget.stage) return;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _progress.stop();
-      _leaving = [];
-      _scene = null;
+    final scene = Motion.within(context, Motion.scene);
+    final settle = Motion.within(context, Motion.settle);
+    if (settle == Duration.zero) {
       _resting();
-      _id++;
+      _key = GlobalKey();
       return;
     }
-    if (_running && _scene != null) {
+    if (_scene != null) {
       // The scene goes on; the screen it arrives on is another one now.
-      _id++;
+      _key = GlobalKey();
       return;
     }
-    final scene = widget.sceneBetween(oldWidget.stage, widget.stage);
-    // A crossfade cut across by this change: what was arriving at some
-    // opacity leaves from that opacity.
-    final from = _running ? _in.value : 1.0;
-    final oldChild = oldWidget.child;
-    final oldId = _id++;
-    _progress.stop();
-    _disposeCurves();
-    _scene = scene;
-    final (out, outSlide) = scene == null ? _crossfade(from) : _sink(scene);
-    _leaving = [_Leaving(oldId, oldChild, out, outSlide)];
-    _progress
-      ..duration = scene == null ? Motion.settle : Motion.scene
-      ..forward(from: 0);
-  }
-
-  (Animation<double>, Animation<Offset>) _crossfade(double from) {
-    _in = _span(0, 1);
-    _inSlide = const AlwaysStoppedAnimation(Offset.zero);
-    _edge = null;
-    return (
-      _span(0, 1).drive(Tween(begin: from, end: 0)),
-      const AlwaysStoppedAnimation(Offset.zero),
-    );
-  }
-
-  /// The leaving screen, opaque, sinks down off the screen; the arriving one,
-  /// opaque, rises [SceneKind.rise] into its place.
-  (Animation<double>, Animation<Offset>) _sink(SceneKind scene) {
-    _in = kAlwaysCompleteAnimation;
-    _inSlide = _span(
-      0,
-      SceneSwitcher.move,
-    ).drive(Tween(begin: Offset(0, scene.rise), end: Offset.zero));
-    final sink = _span(
-      0,
-      SceneSwitcher.move,
-    ).drive(Tween(begin: Offset.zero, end: const Offset(0, 1)));
-    _edge = sink;
-    return (kAlwaysCompleteAnimation, sink);
+    final kind = widget.sceneBetween(oldWidget.stage, widget.stage);
+    // The screen that was arriving leaves from where its fade had got to.
+    _old = [..._old, _Old(_key, oldWidget.child, _in)];
+    _key = GlobalKey();
+    final run = _Run(this, kind == null ? settle : scene);
+    run.controller.addStatusListener((status) => _finished(run, status));
+    _runs.add(run);
+    _latest = run;
+    _scene = kind;
+    switch (kind) {
+      case null:
+        _in = run.span(0, 1);
+        _inSlide = const AlwaysStoppedAnimation(Offset.zero);
+        _arrival = null;
+        _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
+        _dim = kAlwaysDismissedAnimation;
+      case SceneKind.dusk:
+        final landing = run.span(0, SceneSwitcher.move);
+        _in = kAlwaysCompleteAnimation;
+        _inSlide = landing.drive(
+          Tween(begin: const Offset(0, -1), end: Offset.zero),
+        );
+        _arrival = landing;
+        _oldSlide = landing.drive(
+          Tween(begin: Offset.zero, end: const Offset(0, 0.03)),
+        );
+        _dim = landing.drive(Tween<double>(begin: 0, end: SceneSwitcher.dusk));
+      case SceneKind.dawn:
+        final landing = run.span(0, SceneSwitcher.move);
+        _in = kAlwaysCompleteAnimation;
+        _inSlide = const AlwaysStoppedAnimation(Offset.zero);
+        _arrival = landing;
+        _oldSlide = landing.drive(
+          Tween(begin: Offset.zero, end: const Offset(0, 1)),
+        );
+        _dim = kAlwaysDismissedAnimation;
+    }
+    run.controller.forward(from: 0);
   }
 
   @override
   Widget build(BuildContext context) {
     final arriving = _Layer(
-      key: ValueKey(_id),
+      key: _key,
       opacity: _in,
       slide: _inSlide,
+      arrival: _arrival,
       leaving: false,
       child: widget.child,
     );
-    final leaving = [
-      for (final gone in _leaving)
-        _Layer(
-          key: ValueKey(gone.id),
-          opacity: gone.opacity,
-          slide: gone.slide,
-          leaving: true,
-          child: gone.child,
-        ),
-    ];
+    final old = _Group(
+      key: const ValueKey('old'),
+      slide: _oldSlide,
+      dim: _dim,
+      children: [
+        for (final gone in _old)
+          _Layer(
+            key: gone.key,
+            opacity: gone.opacity,
+            slide: const AlwaysStoppedAnimation(Offset.zero),
+            arrival: null,
+            leaving: true,
+            child: gone.child,
+          ),
+      ],
+    );
     return Stack(
       fit: StackFit.expand,
-      children: [
-        // A scene: the arriving screen is whole under the leaving one, which
-        // sinks off it. A crossfade: the arriving one fades in over it.
-        if (_scene != null) ...[
+      children: switch (_scene) {
+        // The day breaks under the night sheet sinking off it.
+        SceneKind.dawn => [
           arriving,
-          ...leaving,
-          if (_edge case final edge?)
-            _Edge(key: const ValueKey('scene'), slide: edge),
-        ] else ...[
-          ...leaving,
-          arriving,
+          old,
+          _Edge(
+            key: const ValueKey('scene'),
+            kind: SceneKind.dawn,
+            slide: _oldSlide,
+          ),
         ],
-      ],
+        // The night sheet is lowered over the table.
+        SceneKind.dusk => [
+          old,
+          arriving,
+          _Edge(
+            key: const ValueKey('scene'),
+            kind: SceneKind.dusk,
+            slide: _inSlide,
+          ),
+        ],
+        // The new screen fades in over the old, which stays whole.
+        null => [old, arriving],
+      },
     );
   }
 }
@@ -288,12 +338,14 @@ class _Layer extends StatelessWidget {
     super.key,
     required this.opacity,
     required this.slide,
+    required this.arrival,
     required this.leaving,
     required this.child,
   });
 
   final Animation<double> opacity;
   final Animation<Offset> slide;
+  final Animation<double>? arrival;
   final bool leaving;
   final Widget child;
 
@@ -308,48 +360,119 @@ class _Layer extends StatelessWidget {
         child: FadeTransition(
           opacity: opacity,
           alwaysIncludeSemantics: true,
-          child: RepaintBoundary(child: child),
+          child: RepaintBoundary(
+            child: SceneArrival(progress: arrival, child: child),
+          ),
         ),
       ),
     ),
   );
 }
 
-/// The paper edge of the sinking screen and the hard shadow it casts on the
-/// one under it, riding the screen's top edge down.
-class _Edge extends StatelessWidget {
-  const _Edge({super.key, required this.slide});
+/// The screens that are leaving, as one sheet: they slide together, and the
+/// dusk darkens them together.
+class _Group extends StatelessWidget {
+  const _Group({
+    super.key,
+    required this.slide,
+    required this.dim,
+    required this.children,
+  });
 
+  final Animation<Offset> slide;
+  final Animation<double> dim;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: ExcludeSemantics(
+      child: SlideTransition(
+        position: slide,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ...children,
+            FadeTransition(
+              opacity: dim,
+              child: ColoredBox(color: context.skin.night.shadow),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// The paper edge of the sheet that moves, and the hard shadow it casts, which
+/// grows with the sheet's height above what it is over: the dawn's night
+/// sheet, its top edge sinking, shadows the day; the dusk's, its foot coming
+/// down, shadows the table.
+class _Edge extends StatelessWidget {
+  const _Edge({super.key, required this.kind, required this.slide});
+
+  final SceneKind kind;
   final Animation<Offset> slide;
 
   @override
   Widget build(BuildContext context) {
-    final night = context.skin.night;
+    final skin = context.skin;
+    final night = skin.night;
+    final lip = skin.shape.paperLip;
+    final widest = skin.shape.paperShadow;
     return IgnorePointer(
       child: ExcludeSemantics(
         child: LayoutBuilder(
           builder: (context, box) => AnimatedBuilder(
             animation: slide,
             builder: (context, _) {
-              final top = box.maxHeight * slide.value.dy;
-              return Stack(
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: top - SceneSwitcher.shadow,
-                    height: SceneSwitcher.shadow,
-                    child: ColoredBox(color: night.shadow),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: top,
-                    height: SceneSwitcher.lip,
-                    child: ColoredBox(color: night.paperEdge),
-                  ),
-                ],
-              );
+              final dy = slide.value.dy;
+              final children = switch (kind) {
+                // Above the top edge of the sinking night: its shadow thins
+                // as the night goes.
+                SceneKind.dawn => () {
+                  final top = box.maxHeight * dy;
+                  final shadow = widest * (1 - 0.75 * dy);
+                  return [
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: top - shadow,
+                      height: shadow,
+                      child: ColoredBox(color: night.shadow),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: top,
+                      height: lip,
+                      child: ColoredBox(color: night.paperEdge),
+                    ),
+                  ];
+                }(),
+                // Below the foot of the sheet coming down: the shadow
+                // shortens as it lands.
+                SceneKind.dusk => () {
+                  final foot = box.maxHeight * (1 + dy);
+                  final shadow = widest * (0.25 - 0.75 * dy);
+                  return [
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: foot,
+                      height: lip,
+                      child: ColoredBox(color: night.paperEdge),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: foot + lip,
+                      height: shadow,
+                      child: ColoredBox(color: night.shadow),
+                    ),
+                  ];
+                }(),
+              };
+              return Stack(children: children);
             },
           ),
         ),

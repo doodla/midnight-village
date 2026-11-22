@@ -9,14 +9,24 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT="${1:-$(mktemp -d)}"
 export CHROME="${CHROME:-/usr/bin/google-chrome}"
+# Two builds: the card's hold ring still (a later game) and breathing (a first game).
 flutter build web --release -t test_screens/scene_demo_main.dart --no-web-resources-cdn \
   --output "$OUT/web" >/dev/null
-PORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("",0)); print(s.getsockname()[1])')"
+flutter build web --release -t test_screens/scene_demo_main.dart --no-web-resources-cdn \
+  --dart-define=RING=true --output "$OUT/web-ring" >/dev/null
+free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("",0)); print(s.getsockname()[1])'; }
+PORT="$(free_port)"
+PORT_RING="$(free_port)"
 (cd "$OUT/web" && python3 -m http.server "$PORT" >/dev/null 2>&1) &
 SERVER=$!
-trap 'kill $SERVER 2>/dev/null || true' EXIT
+(cd "$OUT/web-ring" && python3 -m http.server "$PORT_RING" >/dev/null 2>&1) &
+SERVER_RING=$!
+trap 'kill $SERVER $SERVER_RING 2>/dev/null || true' EXIT
 mkdir -p "$OUT/pw"
 cp tool/scene_web_measure.js "$OUT/pw/measure.js"
 (cd "$OUT/pw" && npm init -y >/dev/null 2>&1 && npm i playwright-core >/dev/null 2>&1)
 sleep 1
+echo "== hold ring still =="
 (cd "$OUT/pw" && node measure.js "http://localhost:$PORT/" "$OUT/web-shot")
+echo "== hold ring breathing (a first game) =="
+(cd "$OUT/pw" && node measure.js "http://localhost:$PORT_RING/" "$OUT/web-ring-shot")

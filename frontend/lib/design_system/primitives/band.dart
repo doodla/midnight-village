@@ -8,6 +8,7 @@ import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import 'art_picture.dart';
+import 'scene_arrival.dart';
 import 'fit_line.dart';
 import 'world_timer.dart';
 
@@ -315,20 +316,32 @@ class TimerBand extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                ColoredBox(
-                  color: skin.night.ground,
-                  child: ArtPicture(skin.art.dawnGallows),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(top: top),
-                  child: CustomPaint(
-                    painter: _SunPainter(
-                      elapsed: elapsed?.clamp(0, 1).toDouble(),
-                      // The pale sun: bone, never amber (copy rule 10).
-                      sun: skin.night.text,
-                      line: ground.text,
-                      lineWidth: skin.shape.ring,
-                      outlineWidth: skin.shape.selectedRing,
+                // The night's ground is the sky's window; the rooftops and the
+                // sun, one piece, rise into it when a scene brings this
+                // screen in (the dawn): from below the window, the whole of
+                // its height, the text under it not moving at all.
+                ColoredBox(color: skin.night.ground),
+                ClipRect(
+                  child: ArrivalShift(
+                    travel: 1,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ArtPicture(skin.art.dawnGallows),
+                        Padding(
+                          padding: EdgeInsets.only(top: top),
+                          child: CustomPaint(
+                            painter: _SunPainter(
+                              elapsed: elapsed?.clamp(0, 1).toDouble(),
+                              // The pale sun: bone, never amber (copy rule 10).
+                              sun: skin.night.text,
+                              line: ground.text,
+                              lineWidth: skin.shape.ring,
+                              outlineWidth: skin.shape.selectedRing,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

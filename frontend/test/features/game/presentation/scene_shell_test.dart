@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
+import 'package:midnight_village/design_system/primitives/band.dart';
+import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
@@ -12,6 +14,7 @@ import 'package:midnight_village/features/game/presentation/shell/your_card_scre
 import 'package:midnight_village/features/lobby/presentation/at_table_screen.dart';
 
 import '../../../helpers/contract/server_json.dart' show serverMyTable;
+import '../../../helpers/frame_pixels.dart';
 import '../../../helpers/outcome_samples.dart';
 import '../../../helpers/shell_setup.dart';
 
@@ -44,20 +47,64 @@ Offset _rest(WidgetTester tester, Finder button) {
   return tester.getCenter(button) - Offset(0, slide.position.value.dy * height);
 }
 
-/// The arriving screen's primary button is fully uncovered (above the
-/// leaving screen's top edge) by [share] of the scene.
+/// The arriving screen's primary button is on show by [share] of the scene:
+/// on the screen, and not under [leaving] (the screen that is sinking off it,
+/// the dawn's) if there is one.
 Future<void> _buttonShownBy(
   WidgetTester tester, {
   required Finder button,
-  required Finder leaving,
+  Finder? leaving,
   required double share,
 }) async {
   await tester.pump(Motion.scene * share);
-  expect(
-    tester.getRect(button).bottom,
-    lessThanOrEqualTo(tester.getTopLeft(leaving).dy),
-    reason: 'the button is uncovered by ${share * 100} % of the scene',
+  final rect = tester.getRect(button);
+  final height = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+  final reason = 'the button is on show by ${share * 100} % of the scene';
+  expect(rect.top, greaterThanOrEqualTo(0), reason: reason);
+  expect(rect.bottom, lessThanOrEqualTo(height), reason: reason);
+  if (leaving != null) {
+    expect(
+      rect.bottom,
+      lessThanOrEqualTo(tester.getTopLeft(leaving).dy),
+      reason: reason,
+    );
+  }
+}
+
+/// Every picture on screen loaded for real (the test clock never waits for
+/// image I/O), then drawn again.
+Future<void> _loadPictures(WidgetTester tester) async {
+  final images = [
+    for (final element in find.byType(Image).evaluate())
+      ((element.widget as Image).image, element),
+  ];
+  if (images.isEmpty) return;
+  await tester.runAsync(
+    () => Future.wait([
+      for (final (provider, context) in images)
+        precacheImage(provider, context),
+    ]),
   );
+  await tester.pump();
+}
+
+/// A phone's size, in whole pixels (so each frame is read quickly).
+void _phone(WidgetTester tester) {
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
+/// Every frame of the scene running now, each 40 ms: no pixel of the window
+/// is left unpainted (no gap opens at an edge of the screen).
+Future<void> _noGaps(WidgetTester tester) async {
+  await _loadPictures(tester);
+  for (var at = 0; at <= Motion.scene.inMilliseconds + 40; at += 40) {
+    await _loadPictures(tester);
+    final frame = await FramePixels.of(tester);
+    expect(frame.unpainted, 0, reason: 'a gap at $at ms');
+    await tester.pump(const Duration(milliseconds: 40));
+  }
 }
 
 Future<ShellSetup> _atNight(WidgetTester tester, {bool still = false}) async {
@@ -166,6 +213,47 @@ void main() {
       await s.close(tester);
     });
 
+    testWidgets('the table answering before /me/: the day still breaks on '
+        'the talk\'s own frame, and the talk arrives into the scene', (
+      tester,
+    ) async {
+      final s = await _atNight(tester);
+      final held = s.http.hold(
+        method: 'GET',
+        path: '/onuw/games/${s.gameId}/me/',
+      );
+      s.answerMe(recordedMe('me_discussion_choose_seer'));
+      s.resume();
+      // The talk's own sky and headline, no number yet: the scene's first
+      // frame has the header to raise, not an empty ground.
+      await _begun(tester, find.byType(TimerBand));
+      expect(find.byType(TalkScreen), findsNothing, reason: '/me/ is held');
+      expect(find.text(TalkCopy.headline), findsOneWidget);
+      expect(find.byType(NightBoard), findsOneWidget, reason: 'leaving');
+      expect(_sceneArt, findsOneWidget);
+      await tester.pump(_ms * 100);
+      held.releaseAll();
+      await tester.pump(_ms * 60);
+      expect(find.byType(TalkScreen), findsOneWidget, reason: 'arrived');
+      expect(_sceneArt, findsOneWidget, reason: 'into the scene that runs');
+      expect(find.byType(NightBoard), findsOneWidget);
+      await tester.pump(Motion.scene);
+      await tester.pump();
+      expect(find.byType(NightBoard), findsNothing);
+      expect(find.byType(TalkScreen), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('no frame leaves a gap anywhere in the window', (tester) async {
+      _phone(tester);
+      final s = await _atNight(tester);
+      s.answerMe(recordedMe('me_discussion_choose_seer'));
+      s.resume();
+      await _begun(tester, find.byType(TalkScreen));
+      await _noGaps(tester);
+      await s.close(tester);
+    });
+
     testWidgets('with reduce motion it is a cut', (tester) async {
       final s = await _atNight(tester, still: true);
       s.answerMe(recordedMe('me_discussion_choose_seer'));
@@ -208,10 +296,62 @@ void main() {
           of: find.byType(YourCardScreen),
           matching: find.byType(PrimaryButton),
         ),
-        leaving: find.byType(AtTableScreen),
         share: 0.6,
       );
       await tester.pump(Motion.scene);
+      await s.close(tester);
+    });
+
+    testWidgets('the table answering before /me/: the night still comes down '
+        'on the card\'s own frame, and the card arrives into the scene', (
+      tester,
+    ) async {
+      // A phone that has not read this game yet: at its table (02), the
+      // game's `/me/` never fetched.
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_look_stage'),
+        holdMe: true,
+      );
+      await s.settle(tester);
+      final code = s.me['lobby_code'] as String;
+      s.answerLobby(code);
+      s.answerTable(serverMyTable(code: code, isHost: true));
+      s.resume();
+      await s.settle(tester);
+      await s.settle(tester);
+      expect(find.byType(AtTableScreen), findsOneWidget);
+      final held = s.http.hold(
+        method: 'GET',
+        path: '/onuw/games/${s.gameId}/me/',
+      );
+      s.answerMe(recordedMe('me_look_stage'));
+      s.resume();
+      // The card's own frame, its village and headline, no card yet.
+      await _begun(tester, find.text(CardCopy.headline));
+      expect(find.byType(YourCardScreen), findsNothing, reason: '/me/ held');
+      expect(find.byType(FaceDownCard), findsNothing);
+      expect(find.byType(AtTableScreen), findsOneWidget, reason: 'leaving');
+      expect(_sceneArt, findsOneWidget);
+      await tester.pump(_ms * 100);
+      held.releaseAll();
+      await tester.pump(_ms * 60);
+      expect(find.byType(YourCardScreen), findsOneWidget, reason: 'arrived');
+      expect(_sceneArt, findsOneWidget, reason: 'into the scene that runs');
+      await tester.pump(Motion.scene);
+      await tester.pump();
+      expect(find.byType(AtTableScreen), findsNothing);
+      expect(_sceneArt, findsNothing);
+      await s.close(tester);
+    });
+
+    testWidgets('no frame leaves a gap anywhere in the window', (tester) async {
+      _phone(tester);
+      final s = await _atTable(tester);
+      s.answerMe(recordedMe('me_look_stage'));
+      s.resume();
+      await _begun(tester, find.byType(YourCardScreen));
+      await _noGaps(tester);
       await s.close(tester);
     });
 
