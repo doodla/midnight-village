@@ -25,6 +25,8 @@ class SkinShape {
     required this.pipEmptyStroke,
     required this.pipStretch,
     required this.archRoundness,
+    required this.paperLip,
+    required this.paperShadow,
   });
 
   /// Cards, buttons, panels, portraits in a grid.
@@ -77,6 +79,12 @@ class SkinShape {
   /// How round the top of an arched portrait frame is (the winner's portrait,
   /// S11): 1 a full half circle, 0 square.
   final double archRoundness;
+
+  /// The thickness of the edge of a sheet of paper seen in a scene change
+  /// (`SceneSwitcher`), in the ground's `paperEdge`, and of the hard shadow
+  /// it casts at its widest.
+  final double paperLip;
+  final double paperShadow;
 
   /// Corners of a box [height] tall at [roundness].
   double corner(double height, double roundness, {double square = 0}) =>

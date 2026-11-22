@@ -67,3 +67,8 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
   once; the small moments (press, lock, join, error, empty) are designed, not default.
 - "New assets are okay" for polish passes. Relayed only: this session still asks before making
   art in bulk until the owner says so directly.
+- From the owner's board, 22 November (relayed): the Doppelganger timer shows only "when it's
+  in the game"; renaming yourself at a table: yes; back during a game does nothing, only Leave
+  exits; polish passes 1 to 8: "Do it"; "See 1 or 2 cards is ambiguous" (the night wording is
+  being reworked by the coordinating session); sounds: none for now; "The text sizes on the
+  main screen feel a bit too big" (first screen and table; options going to the board).
