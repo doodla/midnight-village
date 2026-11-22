@@ -81,12 +81,6 @@ changes. Last updated 20 November 2026.
   only, to be replaced before any store release: `frontend/android/release-key/README.md`). Skin art for
   Share is still the platform's glyph.
 - Untidy payloads still open: `docs/dev/server-payload-quirks.md`.
-- `CLAUDE.md` files and `.claude/agents/` still describe protocol 1 in a few lines (the
-  cleanup did not edit them: they need the owner's go-ahead): `backend/CLAUDE.md` ("the
-  night, protocol 2" and the rule "Protocol 1 answers exactly as before"),
-  `frontend/CLAUDE.md` (the sample filter and `UnplayableScreen`),
-  `.claude/agents/backend-developer.md` ("an original (protocol 1) sample must not change")
-  and `.claude/agents/frontend-developer.md` ("the protocol-2 data layer").
 - Renames made with the cleanup: the night module is `apps/onuw/choose_night.py`, the `_v2` samples have
   plain names (`started_with_look`, `results_five`, `detail_*`, ...), the e2e runners are
   `api_game_test.dart` and `ui_game_test.dart`, `ui_end_test.dart`, `ui_journey_test.dart`,
