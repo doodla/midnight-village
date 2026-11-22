@@ -31,8 +31,11 @@ const _label = String.fromEnvironment(
   defaultValue: 'run',
 );
 
-/// How long the change is looked at, and how many frames of it.
+/// How many frames of the change, evenly from the first to the last; or, with
+/// `--dart-define=SCENE_FRAMES_STEP_MS=17`, one every that many milliseconds
+/// (for an animation at real speed; no strip is made then).
 const _frames = 8;
+const _stepMs = int.fromEnvironment('SCENE_FRAMES_STEP_MS');
 
 const _width = 390.0;
 const _height = 844.0;
@@ -92,8 +95,11 @@ Future<void> _film(
   final out = Directory('$_dir/$name')..createSync(recursive: true);
   final frames = <img.Image>[];
   var at = Duration.zero;
-  for (var i = 0; i < _frames; i++) {
-    final when = over * i ~/ (_frames - 1);
+  final count = _stepMs > 0 ? over.inMilliseconds ~/ _stepMs + 1 : _frames;
+  for (var i = 0; i < count; i++) {
+    final when = _stepMs > 0
+        ? Duration(milliseconds: i * _stepMs)
+        : over * i ~/ (_frames - 1);
     await tester.pump(when - at);
     at = when;
     await _loadPictures(tester);
@@ -104,6 +110,12 @@ Future<void> _film(
     ).writeAsBytesSync(png);
     frames.add(img.decodePng(png)!);
   }
+  if (_stepMs == 0) _writeStrip(frames, '$_dir/$name/$_label-strip.png');
+  // Let the rest of the change finish before the test ends.
+  await tester.pump(const Duration(seconds: 1));
+}
+
+void _writeStrip(List<img.Image> frames, String to) {
   const gap = 12;
   final small = [
     for (final frame in frames) img.copyResize(frame, width: frame.width ~/ 2),
@@ -115,9 +127,7 @@ Future<void> _film(
   for (var i = 0; i < small.length; i++) {
     img.compositeImage(strip, small[i], dstX: i * (small.first.width + gap));
   }
-  File('$_dir/$name/$_label-strip.png').writeAsBytesSync(img.encodePng(strip));
-  // Let the rest of the change finish before the test ends.
-  await tester.pump(const Duration(seconds: 1));
+  File(to).writeAsBytesSync(img.encodePng(strip));
 }
 
 void main() {
