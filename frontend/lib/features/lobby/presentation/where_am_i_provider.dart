@@ -5,6 +5,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/healing/healing.dart';
 import '../../../design_system/skin/skin_choice.dart'
     show devicePreferencesProvider;
+import '../../auth/domain/auth_state.dart';
+import '../../auth/presentation/auth_notifier.dart';
 import '../../game/domain/game_me.dart' show GamePhase;
 import '../domain/where_am_i.dart';
 import 'last_seat.dart';
@@ -22,7 +24,9 @@ part 'where_am_i_provider.g.dart';
 @Riverpod(retry: retryForever)
 Future<MyTable?> myTable(Ref ref) async {
   final table = await ref.watch(lobbyServiceProvider).fetchMyTable();
-  LastSeat.keep(ref.read(devicePreferencesProvider), table);
+  if (ref.read(authProvider) case AuthAuthenticated(:final user)) {
+    LastSeat.keep(ref.read(devicePreferencesProvider), user.id, table);
+  }
   if (table != null &&
       (table.status == TableStatus.waiting ||
           table.status == TableStatus.finished ||

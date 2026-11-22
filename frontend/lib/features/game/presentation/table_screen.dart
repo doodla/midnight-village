@@ -3,6 +3,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/storage/device_preferences.dart';
 import '../../../design_system/skin/skin_choice.dart';
+import '../../auth/domain/auth_state.dart';
+import '../../auth/presentation/auth_notifier.dart';
 import '../../lobby/domain/where_am_i.dart';
 import '../../lobby/presentation/last_seat.dart';
 import '../../lobby/presentation/lobby_notifier.dart';
@@ -58,7 +60,11 @@ void forgetRestoredLocalSteps() {
 /// `/me/table/` names (or it has not answered yet), its game's `/me/` or its
 /// lobby is read and kept: the screen that follows finds it on its way.
 void _readLastSeatBeside(Ref ref, AsyncValue<MyTable?> table) {
-  final seat = LastSeat.opening;
+  final user = switch (ref.watch(authProvider)) {
+    AuthAuthenticated(:final user) => user.id,
+    _ => null,
+  };
+  final seat = user == null ? null : LastSeat.openingFor(user);
   if (seat == null) return;
   if (table.hasValue && LastSeat.of(table.value) != seat) {
     LastSeat.letGo();

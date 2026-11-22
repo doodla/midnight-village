@@ -42,12 +42,36 @@
       "description": "A refresh token the server does not accept."
     },
     {
+      "name": "http/auth/token_refresh_user_gone",
+      "kind": "http",
+      "method": "POST",
+      "path": "/auth/token/refresh/",
+      "status": 401,
+      "description": "The refresh of an account that is gone (deleted): 401."
+    },
+    {
       "name": "http/auth/token_refreshed",
       "kind": "http",
       "method": "POST",
       "path": "/auth/token/refresh/",
       "status": 200,
       "description": "A refresh token is exchanged (and rotated)."
+    },
+    {
+      "name": "http/auth/user_gone",
+      "kind": "http",
+      "method": "GET",
+      "path": "/me/table/",
+      "status": 401,
+      "description": "An authenticated read by an account that is gone (deleted): 401."
+    },
+    {
+      "name": "http/auth/user_gone_game_me",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 401,
+      "description": "A game's /me/ read by an account that is gone (deleted): 401."
     },
     {
       "name": "http/core/online_stats",

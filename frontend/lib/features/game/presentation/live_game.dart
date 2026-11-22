@@ -195,7 +195,9 @@ class LiveGameNotifier extends _$LiveGameNotifier {
       _afterApply(fetched.me);
       return LiveGame._(server: fetched.me, outbox: Outbox.empty);
     } catch (e) {
-      _scheduleRetry();
+      // A game `/me/table/` does not name that answers "gone" is let go
+      // quietly (a read ahead of the table's); anything else is read again.
+      if (e is! NotFoundException || _named) _scheduleRetry();
       rethrow;
     } finally {
       _building = false;
@@ -381,7 +383,22 @@ class LiveGameNotifier extends _$LiveGameNotifier {
     }
   }
 
-  void _invalidateTable() => ref.invalidate(myTableProvider);
+  /// Asks for `/me/table/` again, only for a game it names ([_named]).
+  void _invalidateTable() {
+    if (_named) ref.invalidate(myTableProvider);
+  }
+
+  /// Whether `/me/table/` names this game. Until it does (a game read beside
+  /// the table's as the app opens, or from a deal's answer), this notifier
+  /// only reads: it closes nothing, says nothing and never asks for the
+  /// table again; only what `/me/table/` names can.
+  bool get _named {
+    if (!ref.exists(myTableProvider)) return false;
+    final table = ref.read(myTableProvider).value;
+    return table != null &&
+        table.gameId == gameId &&
+        table.status != TableStatus.waiting;
+  }
 
   /// Reconnect and resume: anything may have happened.
   void _healEverything() {
@@ -720,16 +737,22 @@ class LiveGameNotifier extends _$LiveGameNotifier {
   Future<void> _atTable(Future<void> Function() call) async {
     try {
       await call();
-      _invalidateTable();
+      ref.invalidate(myTableProvider);
     } on NotFoundException {
-      if (ref.mounted) _tableGone();
+      if (ref.mounted) _tableGone(tapped: true);
     }
   }
 
   /// The game's table is gone (404): `/me/table/` is read again, 01
-  /// follows (the table screen) and says why.
-  void _tableGone() {
-    _invalidateTable();
+  /// follows (the table screen) and says why. For a game `/me/table/` does
+  /// not name ([_named]) and no tap of this phone's: nothing (it stops).
+  void _tableGone({bool tapped = false}) {
+    if (!tapped && !_named) {
+      _retryTimer?.cancel();
+      _healTimer?.cancel();
+      return;
+    }
+    ref.invalidate(myTableProvider);
     _update((s) => s.copyWith(tableClosed: true));
     ref.read(joinFlowProvider.notifier).tableClosed();
   }

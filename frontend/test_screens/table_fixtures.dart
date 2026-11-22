@@ -38,8 +38,13 @@ const longNames = {
 Future<void> pumpJoinFresh(WidgetTester tester, {double textScale = 1}) =>
     TableSetup.pump(tester, textScale: textScale);
 
-/// Home while this device's saved account is read back and a try got no
-/// answer (it is made again by itself): the night's calm wait, never 01.
+/// Home while this device's saved account is read back: the game opening
+/// (01's village and title), never 01's form.
+Future<void> pumpHomeReading(WidgetTester tester) =>
+    TableSetup.pump(tester, authState: const AuthState.initial());
+
+/// The same once a try got no answer (it is made again by itself): "One
+/// moment" under the title.
 Future<void> pumpHomeUnanswered(WidgetTester tester) => TableSetup.pump(
   tester,
   authState: const AuthState.initial(unanswered: true),

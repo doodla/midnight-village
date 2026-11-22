@@ -5,7 +5,6 @@ import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
-import '../../game/presentation/shell/count_screen.dart' show EndWaiting;
 import '../../game/presentation/shell/table_shell.dart';
 import 'join_flow.dart';
 import 'join_screen.dart';
@@ -17,7 +16,7 @@ import 'where_am_i_provider.dart';
 /// so a player who comes back to a table they sit at is there without a
 /// tap; signed out, 01, whose first tap makes this device's guest account.
 /// While the saved account is read back (a try the server does not answer
-/// is made again by itself), the night's calm wait, never 01.
+/// is made again by itself), the game opening (`OpeningWait`), never 01.
 ///
 /// - While a way in is on its way ([JoinFlow]), 01 stays (the account it
 ///   makes first would otherwise swap the screen mid-way).
@@ -36,17 +35,11 @@ class HomeGate extends ConsumerWidget {
     final link = code;
     if (busy) return JoinScreen(code: link);
     return switch (auth) {
-      // The saved account is being read back: the night, calm, and "One
-      // moment" while a try got no answer (it is made again by itself).
-      // Never 01, whose Join would make a second account and lose a seat.
-      AuthInitial(:final unanswered) => EndWaiting(
-        ground: GroundKind.night,
-        failing: unanswered,
-      ),
-      AuthLoading() => const ScreenFrame(
-        ground: GroundKind.night,
-        body: SizedBox.shrink(),
-      ),
+      // The saved account is being read back: 01's village and title, and
+      // "One moment" while a try got no answer (it is made again by itself).
+      // Never 01's form, whose Join would make a second account.
+      AuthInitial(:final unanswered) => OpeningWait(unanswered: unanswered),
+      AuthLoading() => const OpeningWait(),
       AuthAuthenticated() when link != null => switch (ref.watch(
         myTableProvider,
       )) {

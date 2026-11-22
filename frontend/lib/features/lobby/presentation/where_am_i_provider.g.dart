@@ -63,4 +63,4 @@ final class MyTableProvider
   }
 }
 
-String _$myTableHash() => r'eadac06439dd4272b5679e0c82d51b7482e25851';
+String _$myTableHash() => r'4f28d1791f5e39c939a58c75e79f6f2e854362f0';

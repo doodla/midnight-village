@@ -13,9 +13,12 @@ part of 'join_flow.dart';
 /// loses nothing:
 /// - the name: this device's own guest account when it has that name, else
 ///   a new guest account with it (the server has no rename);
-/// - then a new table (`defaults: "v2"`, always) or a join by code;
+/// - then a new table (`defaults: "v2"`, always) or a join by code, whose
+///   answer is the table's lobby ([LobbySeed]: 02 draws it, no second read);
 /// - then `/me/table/` is read again, and the screen it names (02) follows.
 ///   Joining a table this player already sits at is no refusal: it is there.
+/// The account step never makes a second account over a saved one the
+/// server has not refused (`AuthNotifier.createGuest`).
 
 @ProviderFor(JoinFlow)
 const joinFlowProvider = JoinFlowProvider._();
@@ -25,9 +28,12 @@ const joinFlowProvider = JoinFlowProvider._();
 /// loses nothing:
 /// - the name: this device's own guest account when it has that name, else
 ///   a new guest account with it (the server has no rename);
-/// - then a new table (`defaults: "v2"`, always) or a join by code;
+/// - then a new table (`defaults: "v2"`, always) or a join by code, whose
+///   answer is the table's lobby ([LobbySeed]: 02 draws it, no second read);
 /// - then `/me/table/` is read again, and the screen it names (02) follows.
 ///   Joining a table this player already sits at is no refusal: it is there.
+/// The account step never makes a second account over a saved one the
+/// server has not refused (`AuthNotifier.createGuest`).
 final class JoinFlowProvider
     extends $NotifierProvider<JoinFlow, JoinFlowState> {
   /// The ways in from 01, outside any widget so a screen that is swapped
@@ -35,9 +41,12 @@ final class JoinFlowProvider
   /// loses nothing:
   /// - the name: this device's own guest account when it has that name, else
   ///   a new guest account with it (the server has no rename);
-  /// - then a new table (`defaults: "v2"`, always) or a join by code;
+  /// - then a new table (`defaults: "v2"`, always) or a join by code, whose
+  ///   answer is the table's lobby ([LobbySeed]: 02 draws it, no second read);
   /// - then `/me/table/` is read again, and the screen it names (02) follows.
   ///   Joining a table this player already sits at is no refusal: it is there.
+  /// The account step never makes a second account over a saved one the
+  /// server has not refused (`AuthNotifier.createGuest`).
   const JoinFlowProvider._()
     : super(
         from: null,
@@ -65,16 +74,19 @@ final class JoinFlowProvider
   }
 }
 
-String _$joinFlowHash() => r'6df6228ea386ad3f121ba9d6358aad44ea288236';
+String _$joinFlowHash() => r'e2f9cba67180b603930f647d3d40ce1d69f6d345';
 
 /// The ways in from 01, outside any widget so a screen that is swapped
 /// mid-way (the sign-in that comes first puts the app in the table's shell)
 /// loses nothing:
 /// - the name: this device's own guest account when it has that name, else
 ///   a new guest account with it (the server has no rename);
-/// - then a new table (`defaults: "v2"`, always) or a join by code;
+/// - then a new table (`defaults: "v2"`, always) or a join by code, whose
+///   answer is the table's lobby ([LobbySeed]: 02 draws it, no second read);
 /// - then `/me/table/` is read again, and the screen it names (02) follows.
 ///   Joining a table this player already sits at is no refusal: it is there.
+/// The account step never makes a second account over a saved one the
+/// server has not refused (`AuthNotifier.createGuest`).
 
 abstract class _$JoinFlow extends $Notifier<JoinFlowState> {
   JoinFlowState build();

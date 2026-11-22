@@ -11,6 +11,9 @@ import '../../../core/healing/healing.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/storage/user_storage.dart';
+import '../../../design_system/skin/skin_choice.dart'
+    show devicePreferencesProvider;
+import '../../lobby/presentation/last_seat.dart';
 import '../data/auth_repository.dart';
 import '../data/auth_service.dart';
 import '../domain/auth_state.dart';
@@ -86,9 +89,14 @@ class AuthNotifier extends _$AuthNotifier {
       try {
         final user = await ref.read(authRepositoryProvider).tryRestoreSession();
         if (!current()) return;
-        state = user == null
-            ? const AuthState.unauthenticated()
-            : AuthState.authenticated(user);
+        if (user == null) {
+          // No account (none saved, or the server refused it: it is gone):
+          // whatever this device kept for one goes too.
+          LastSeat.forgetAccount(ref.read(devicePreferencesProvider));
+          state = const AuthState.unauthenticated();
+        } else {
+          state = AuthState.authenticated(user);
+        }
         return;
       } catch (e) {
         if (!current()) return;
@@ -109,9 +117,12 @@ class AuthNotifier extends _$AuthNotifier {
   /// has not refused unless the player is signed in with it
   /// ([AuthRepository.createGuest]); a saved account found then is read
   /// back instead.
-  Future<void> createGuest({String? displayName}) async {
+  ///
+  /// True when the request was sent (it may have failed: [AuthError]); false
+  /// when nothing was sent at all, so there is nothing to call "Not sent.".
+  Future<bool> createGuest({String? displayName}) async {
     final before = state;
-    if (before is AuthInitial || before is AuthLoading) return;
+    if (before is AuthInitial || before is AuthLoading) return false;
     state = const AuthState.loading();
 
     try {
@@ -124,6 +135,7 @@ class AuthNotifier extends _$AuthNotifier {
     } on SavedAccountExists {
       logger.w('A saved account is here: reading it back, no new one');
       ref.invalidateSelf();
+      return false;
     } on ValidationException catch (e) {
       logger.w('Validation error during guest creation', error: e);
       state = AuthState.error(
@@ -148,16 +160,16 @@ class AuthNotifier extends _$AuthNotifier {
         'An unexpected error occurred. Please try again.',
       );
     }
+    return true;
   }
 
   /// DEBUG-ONLY perspective switch: adopts [user]'s session directly from a
   /// previously-issued access token, with NO refresh round-trip.
   ///
   /// The production restore path ([AuthRepository.tryRestoreSession]) refreshes
-  /// an expired access token, and the backend has `ROTATE_REFRESH_TOKENS +
-  /// BLACKLIST_AFTER_ROTATION`, so refreshing blacklists the stored token and
-  /// breaks re-switching to the same player. Reusing the original access token
-  /// avoids rotation entirely.
+  /// an expired access token, and the backend rotates refresh tokens
+  /// (`ROTATE_REFRESH_TOKENS`; a used one is not blacklisted). Reusing the
+  /// original access token avoids rotation entirely.
   ///
   /// Writes [accessToken]/[refreshToken] and [user] to storage so that the
   /// shared [AuthInterceptor] (and any provider that reads [TokenStorage], e.g.
@@ -195,6 +207,7 @@ class AuthNotifier extends _$AuthNotifier {
     try {
       final repository = ref.read(authRepositoryProvider);
       await repository.logout();
+      LastSeat.forgetAccount(ref.read(devicePreferencesProvider));
       state = const AuthState.unauthenticated();
     } catch (e, stack) {
       logger.e('Error during logout', error: e, stackTrace: stack);

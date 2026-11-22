@@ -124,6 +124,10 @@ class JoinFlow extends _$JoinFlow {
       _again = null;
       state = const JoinFlowState();
       return true;
+    } on _NotAsked {
+      _again = null;
+      if (ref.mounted) state = const JoinFlowState();
+      return false;
     } catch (e) {
       logger.d('Could not sit down ($e)');
       if (ref.mounted) state = _bannerFor(e);
@@ -135,7 +139,9 @@ class JoinFlow extends _$JoinFlow {
     final auth = ref.read(authProvider);
     if (auth is AuthAuthenticated && auth.user.displayName == name) return;
     final notifier = ref.read(authProvider.notifier);
-    await notifier.createGuest(displayName: name);
+    // Nothing sent (the saved account is still being read back, or one was
+    // found): no banner, nothing to try again; the screen follows the account.
+    if (!await notifier.createGuest(displayName: name)) throw const _NotAsked();
     final after = ref.read(authProvider);
     if (after is! AuthAuthenticated) throw const _NotSignedIn();
   }
@@ -166,4 +172,9 @@ class JoinFlow extends _$JoinFlow {
 
 class _NotSignedIn implements Exception {
   const _NotSignedIn();
+}
+
+/// Nothing was sent: no account was asked for (see [JoinFlow._account]).
+class _NotAsked implements Exception {
+  const _NotAsked();
 }

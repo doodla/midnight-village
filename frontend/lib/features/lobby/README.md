@@ -12,18 +12,24 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
 - **The saved account** (`AuthNotifier`, `AuthRepository.tryRestoreSession`). Read back at
   start from storage alone while its access token works (its own `exp`; no request), else
   renewed once. A try the server does not answer (no network, a timeout, a 5xx, an answer
-  that is not the server's) is made again by itself with the healing backoff, and meanwhile
-  home is the night's calm wait (`EndWaiting`, "One moment" once a try got no answer), never
-  01. Only the server refusing the saved tokens (401: the account is gone) clears them and
-  shows 01. `AuthRepository.createGuest` refuses (`SavedAccountExists`, nothing sent) while a
-  saved account is kept, unless the player is signed in with it and asks for another name
-  (`replacing`, from 01 at no table, where the server has said they have no seat), so 01 can
-  never cost a seat.
-- **Opening the app** reads the seat this device last had (`LastSeat`, `mv.seat.v1.`, kept
-  from every `/me/table/` answer) beside `/me/table/`: its game's `/me/`, or its waiting
-  table's lobby, goes out at the same moment; `/me/table/` decides and a seat it does not
-  name is let go. Seated with a working token: two requests, one round trip, then the screen
-  (`test/features/app_open_test.dart` pins it); a renewal first makes it three.
+  that is not the server's) is made again by itself with the healing backoff and the same
+  refresh token (the server no longer blacklists a used one, so a renewal whose answer was
+  lost still works); meanwhile home is the game opening (`OpeningWait`: 01's village and
+  title, "One moment" once a try got no answer), never 01's form. Only a 401 (the account is
+  gone: refused, deleted or inactive, on the renewal or on any read) clears it, and the seat
+  kept for it, and shows a fresh 01. `AuthRepository.createGuest` refuses
+  (`SavedAccountExists`, nothing sent) while a saved account is kept, unless the player is
+  signed in with it and asks for another name (`replacing`, from 01 at no table, where the
+  server has said they have no seat), so 01 can never cost a seat; a tap that sent nothing
+  says nothing (no "Not sent.").
+- **Opening the app** reads the seat this device last had for this account (`LastSeat`,
+  `mv.seat.v1.<user>:<seat>`, kept from every `/me/table/` answer, cleared with the account)
+  beside `/me/table/`: its game's `/me/`, or its waiting table's lobby, goes out at the same
+  moment; `/me/table/` decides and a seat it does not name is let go. The read beside it is
+  quiet: it closes nothing, says nothing ("This table has closed." comes only from a game
+  `/me/table/` names) and never asks for the table again (`LiveGameNotifier` acts only for a
+  game `/me/table/` names). Seated with a working token: two requests, one round trip, then
+  the screen (`test/features/app_open_test.dart` pins it); a renewal first makes it three.
 - **01** (`join_screen.dart`): the name is this device's own guest account's or empty and
   focused; "Join a table" first, then "Start a table", locked until a name is typed; Enter in
   the name opens the code (with a code, or from a link, it joins; never a table of one's own

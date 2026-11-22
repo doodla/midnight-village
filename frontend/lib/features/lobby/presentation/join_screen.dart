@@ -98,6 +98,37 @@ class JoinScreen extends ConsumerWidget {
   }
 }
 
+/// The app opening while this device's saved account is read back: 01's
+/// village and title, so it reads as the game opening, and "One moment"
+/// under them once a try got no answer (it is made again by itself). No
+/// field and no button: nothing here can make a second account.
+class OpeningWait extends StatelessWidget {
+  const OpeningWait({super.key, this.unanswered = false});
+
+  final bool unanswered;
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = context.skin;
+    return ScreenFrame(
+      ground: GroundKind.night,
+      topArt: skin.art.streetDoor,
+      topArtLayout: TopArtLayout.fill,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.lgPlus,
+        children: [
+          Semantics(
+            header: true,
+            child: FitLine(JoinCopy.title, style: skin.typography.heroTitle),
+          ),
+          if (unanswered) const Notice(message: BannerCopy.offline),
+        ],
+      ),
+    );
+  }
+}
+
 /// 01 drawn from plain values (the component sheet and the gallery draw it
 /// too): [name] to start the field with, the link's [code], the numbers
 /// under it, what is on its way ([busy]) and the last [banner].

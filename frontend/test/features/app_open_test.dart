@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/app.dart';
 import 'package:midnight_village/core/api/api_client.dart';
+import 'package:midnight_village/core/api/auth_interceptor.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/healing/healing.dart';
 import 'package:midnight_village/core/storage/device_preferences.dart';
@@ -19,7 +21,6 @@ import 'package:midnight_village/features/auth/data/auth_service.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/presentation/game_socket.dart';
-import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
 import 'package:midnight_village/features/game/presentation/table_screen.dart';
 import 'package:midnight_village/features/lobby/data/home_service.dart';
@@ -107,16 +108,34 @@ class _Phone {
   ];
 
   /// The app, opened: the real start (the saved account read back, the
-  /// router, home, the table's shell) over the strict mock server.
+  /// router, home, the table's shell, the real `AuthInterceptor` that sends
+  /// the token and renews it on a 401) over the strict mock server.
   Future<void> open(WidgetTester tester) async {
-    final client = AuthenticatedClient.forTesting(dio: http.dio);
+    // The signed-in client: the app's interceptor first, then the mock
+    // server (the same one the plain client and the requests list use).
+    final server = http.dio.interceptors.last;
+    final signedIn = Dio();
+    AuthenticatedClient signedInClient(Ref ref) {
+      final interceptor = AuthInterceptor(
+        tokenStorage: ref.watch(tokenStorageProvider),
+        unauthenticatedClient: ref.watch(apiClientProvider),
+        onAuthFailure: () => ref.invalidate(authProvider),
+        retryFetch: signedIn.fetch,
+      );
+      signedIn.interceptors
+        ..clear()
+        ..add(interceptor)
+        ..add(server);
+      return AuthenticatedClient.forTesting(dio: signedIn);
+    }
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           tokenStorageProvider.overrideWithValue(TokenStorage(storage: device)),
           userStorageProvider.overrideWithValue(UserStorage(storage: device)),
           apiClientProvider.overrideWithValue(ApiClient(dio: http.dio)),
-          authenticatedClientProvider.overrideWithValue(client),
+          authenticatedClientProvider.overrideWith(signedInClient),
           homeServiceProvider.overrideWithValue(
             HomeService(client: ApiClient(dio: http.dio)),
           ),
@@ -157,12 +176,13 @@ Future<void> _until(WidgetTester tester, bool Function() done) async {
   expect(done(), isTrue, reason: 'never happened');
 }
 
-/// A fresh device's preferences, holding the seat [seat] (`LastSeat`), read
-/// before the first frame as `main` reads them.
-Future<void> _preferences({String? seat}) async {
+/// A fresh device's preferences, holding the seat [seat] (`LastSeat`) of
+/// account [owner] (the player of [_me] unless given), read before the first
+/// frame as `main` reads them.
+Future<void> _preferences({String? seat, int? owner}) async {
   // ignore: invalid_use_of_visible_for_testing_member
   SharedPreferences.setMockInitialValues({
-    if (seat != null) '${LastSeat.prefix}$seat': '1',
+    if (seat != null) '${LastSeat.prefix}${owner ?? _playerId}:$seat': '1',
   });
   forgetRestoredLocalSteps();
   await restoreLocalSteps();
@@ -319,7 +339,7 @@ void main() {
         tester,
         () => find.text(BannerCopy.offline).evaluate().isNotEmpty,
       );
-      expect(find.byType(EndWaiting), findsOneWidget);
+      expect(find.byType(OpeningWait), findsOneWidget);
       expect(find.byType(JoinView), findsNothing);
       // The account is kept.
       expect(phone.device.values['refresh_token'], 'refresh-token-1');
@@ -364,7 +384,7 @@ void main() {
       await tester.pump(testHealTiming.maxRetry);
       await tester.pump(testHealTiming.maxRetry);
 
-      expect(find.byType(EndWaiting), findsOneWidget);
+      expect(find.byType(OpeningWait), findsOneWidget);
       expect(find.byType(JoinView), findsNothing);
       expect(phone.device.values['refresh_token'], 'refresh-token-1');
       expect(phone.device.values['user_id'], '$_playerId');
@@ -426,14 +446,22 @@ void main() {
       addTearDown(container.dispose);
       final states = <AuthState>[];
       container.listen(authProvider, (_, next) => states.add(next));
-      while (!states.contains(const AuthState.initial(unanswered: true))) {
+      // Waits on the state itself, bounded: a test fails, it never hangs.
+      for (
+        var turn = 0;
+        turn < 1000 &&
+            !states.contains(const AuthState.initial(unanswered: true));
+        turn++
+      ) {
         await Future<void>.delayed(Duration.zero);
       }
+      expect(states, contains(const AuthState.initial(unanswered: true)));
 
-      await container
+      final sent = await container
           .read(authProvider.notifier)
           .createGuest(displayName: 'Bo');
 
+      expect(sent, isFalse);
       expect(container.read(authProvider), isA<AuthInitial>());
       expect(
         http.requests.map((r) => r.path),
@@ -441,5 +469,272 @@ void main() {
       );
       expect(device.values['refresh_token'], 'refresh-token-1');
     });
+
+    testWidgets('a renewal whose answer is lost is sent again with the same '
+        'token and works: the account and the seat are kept', (tester) async {
+      await _preferences(seat: '${_me['lobby_code']}|$_gameId');
+      // The client gives up on an answer after its wait, as over a network.
+      final phone = _Phone(
+        MockHttpClient(timesOut: true),
+        _signedIn(_endedToken),
+      );
+      phone.http
+        ..answer(
+          'POST',
+          '/auth/token/refresh/',
+          ContractSamples.map('http/auth/token_refreshed'),
+        )
+        ..answer('GET', '/me/table/', tableOf(_me))
+        ..answer('GET', _mePath, _me);
+      // The first renewal reaches the server; its answer never comes back.
+      final lost = phone.http.hold(
+        method: 'POST',
+        path: '/auth/token/refresh/',
+      );
+
+      await phone.open(tester);
+      await _until(tester, () => lost.length == 1);
+      phone.http.stopHolding(method: 'POST', path: '/auth/token/refresh/');
+      await tester.pump(AuthenticatedClient.timeout);
+      // The try after it, with the healing backoff.
+      await tester.pump(testHealTiming.maxRetry);
+      await _until(
+        tester,
+        () => find.byType(YourCardScreen).evaluate().isNotEmpty,
+      );
+
+      final renewals = [
+        for (final r in phone.http.requests)
+          if (r.path == '/auth/token/refresh/') r.data,
+      ];
+      // Sent again with the same refresh token (the server, which no longer
+      // blacklists a rotated token, answers it: backend test_auth.py).
+      expect(renewals, [
+        {'refresh': 'refresh-token-1'},
+        {'refresh': 'refresh-token-1'},
+      ]);
+      expect(
+        phone.device.values['refresh_token'],
+        ContractSamples.map('http/auth/token_refreshed')['refresh'],
+      );
+      await phone.close(tester);
+    });
+
+    testWidgets('a token trusted by its end that the server refuses (the '
+        'phone\'s clock behind): one renewal, both reads again, the screen, '
+        'the account kept', (tester) async {
+      await _preferences(seat: '${_me['lobby_code']}|$_gameId');
+      final phone = _Phone(MockHttpClient(), _signedIn(_goodToken));
+      final renewed = ContractSamples.map('http/auth/token_refreshed');
+      final expired = ContractSamples.map('http/auth/token_expired');
+      phone.http.answer('POST', '/auth/token/refresh/', renewed);
+      // The server takes only the renewed access token.
+      for (final (path, body) in [
+        ('/me/table/', tableOf(_me)),
+        (_mePath, _me),
+      ]) {
+        phone.http.answerEach(
+          method: 'GET',
+          path: path,
+          answer: (request) {
+            final good =
+                request.headers['Authorization'] ==
+                'Bearer ${renewed['access']}';
+            phone.http.answer(
+              'GET',
+              path,
+              good ? body : expired,
+              status: good ? 200 : 401,
+            );
+          },
+        );
+      }
+
+      await phone.open(tester);
+      await _until(
+        tester,
+        () => find.byType(YourCardScreen).evaluate().isNotEmpty,
+      );
+
+      expect(
+        phone.sent.where((s) => s == 'POST /auth/token/refresh/'),
+        hasLength(1),
+      );
+      expect(phone.sent.where((s) => s == 'GET /me/table/'), hasLength(2));
+      expect(phone.sent.where((s) => s == 'GET $_mePath'), hasLength(2));
+      expect(phone.device.values['access_token'], renewed['access']);
+      expect(phone.device.values['user_id'], '$_playerId');
+      await phone.close(tester);
+    });
   });
+
+  group('An account that is gone (the server says 401) starts afresh', () {
+    testWidgets('its renewal refused: 01, nothing kept, no wait', (
+      tester,
+    ) async {
+      await _preferences(seat: '${_me['lobby_code']}|$_gameId');
+      final phone = _Phone(MockHttpClient(), _signedIn(_endedToken));
+      phone.http
+        ..answer(
+          'POST',
+          '/auth/token/refresh/',
+          ContractSamples.map('http/auth/token_refresh_user_gone'),
+          status: 401,
+        )
+        ..answer('GET', '/stats/online/', serverOnlineStats());
+
+      await phone.open(tester);
+      await _until(tester, () => find.byType(JoinView).evaluate().isNotEmpty);
+
+      expect(find.byType(OpeningWait), findsNothing);
+      expect(phone.device.values, isEmpty);
+      expect(await _keptSeats(tester), isEmpty);
+      await phone.close(tester);
+    });
+
+    testWidgets('a read refused and its renewal refused (a token trusted by '
+        'its end): 01, nothing kept, the seat forgotten', (tester) async {
+      await _preferences(seat: '${_me['lobby_code']}|$_gameId');
+      final phone = _Phone(MockHttpClient(), _signedIn(_goodToken));
+      final gone = ContractSamples.map('http/auth/user_gone');
+      phone.http
+        ..answer('GET', '/me/table/', gone, status: 401)
+        ..answer(
+          'GET',
+          _mePath,
+          ContractSamples.map('http/auth/user_gone_game_me'),
+          status: 401,
+        )
+        ..answer(
+          'POST',
+          '/auth/token/refresh/',
+          ContractSamples.map('http/auth/token_refresh_user_gone'),
+          status: 401,
+        )
+        ..answer('GET', '/stats/online/', serverOnlineStats());
+
+      await phone.open(tester);
+      await _until(tester, () => find.byType(JoinView).evaluate().isNotEmpty);
+
+      expect(tester.widget<JoinView>(find.byType(JoinView)).name, isEmpty);
+      expect(phone.device.values.containsKey('refresh_token'), isFalse);
+      expect(await _keptSeats(tester), isEmpty);
+      await phone.close(tester);
+    });
+  });
+
+  group('The read beside /me/table/ is a quiet head start', () {
+    testWidgets('a remembered game that is gone closes nothing, says '
+        'nothing and never asks for the table again', (tester) async {
+      await _preferences(seat: '${_me['lobby_code']}|$_gameId');
+      final phone = _Phone(MockHttpClient(), _signedIn(_goodToken));
+      phone.http
+        ..answer('GET', '/me/table/', serverMyTable())
+        ..answer(
+          'GET',
+          _mePath,
+          ContractSamples.map('http/game/me_not_found'),
+          status: 404,
+        )
+        ..answer('GET', '/stats/online/', serverOnlineStats())
+        ..answer(
+          'GET',
+          '/onuw/me/recent-games/',
+          ContractSamples.map('http/game/recent_games_none'),
+        );
+      // The game's 404 comes back before the table answers.
+      final table = phone.http.hold(method: 'GET', path: '/me/table/');
+
+      await phone.open(tester);
+      await _until(tester, () => phone.sent.contains('GET $_mePath'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(testHealTiming.maxRetry);
+      }
+      expect(phone.sent.where((s) => s == 'GET /me/table/'), hasLength(1));
+      table.releaseAll();
+      await _until(tester, () => find.byType(JoinView).evaluate().isNotEmpty);
+
+      expect(find.text(BannerCopy.tableClosed), findsNothing);
+      expect(phone.sent.where((s) => s == 'GET /me/table/'), hasLength(1));
+      expect(phone.sent.where((s) => s == 'GET $_mePath'), hasLength(1));
+      await phone.close(tester);
+    });
+
+    testWidgets('another account\'s remembered seat is not read', (
+      tester,
+    ) async {
+      await _preferences(seat: '${_me['lobby_code']}|$_gameId', owner: 99);
+      final phone = _Phone(MockHttpClient(), _signedIn(_goodToken));
+      phone.http
+        ..answer('GET', '/me/table/', tableOf(_me))
+        ..answer('GET', _mePath, _me);
+      final table = phone.http.hold(method: 'GET', path: '/me/table/');
+
+      await phone.open(tester);
+      await _until(tester, () => table.length == 1);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(Duration.zero);
+      }
+      expect(phone.sent, ['GET /me/table/']);
+
+      table.releaseAll();
+      await _until(
+        tester,
+        () => find.byType(YourCardScreen).evaluate().isNotEmpty,
+      );
+      await phone.close(tester);
+    });
+  });
+
+  group('01 never says "Not sent." for a tap that sent nothing', () {
+    testWidgets('a saved account appears (another tab signed in): Start '
+        'sends nothing, says nothing, and the account is read back', (
+      tester,
+    ) async {
+      // A phone's screen, so all of 01 is in view.
+      tester.view
+        ..physicalSize = const Size(390 * 3, 844 * 3)
+        ..devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await _preferences();
+      final phone = _Phone(MockHttpClient(), _Device({}));
+      phone.http
+        ..answer('GET', '/stats/online/', serverOnlineStats())
+        ..answer('GET', '/me/table/', serverMyTable())
+        ..answer(
+          'GET',
+          '/onuw/me/recent-games/',
+          ContractSamples.map('http/game/recent_games_none'),
+        );
+
+      await phone.open(tester);
+      await _until(tester, () => find.byType(JoinView).evaluate().isNotEmpty);
+      // Another tab of the same browser signs in meanwhile.
+      phone.device.values.addAll(_signedIn(_goodToken).values);
+
+      await tester.enterText(find.byType(EditableText).first, 'Bo');
+      await tester.pump();
+      await tester.tap(find.text(JoinCopy.startTable));
+      await _until(
+        tester,
+        () =>
+            find.byType(JoinView).evaluate().isNotEmpty &&
+            tester.widget<JoinView>(find.byType(JoinView)).name == 'Ana',
+      );
+
+      expect(find.text(BannerCopy.notSent), findsNothing);
+      expect(phone.sent, isNot(contains('POST /auth/guest/')));
+      expect(phone.sent, isNot(contains('POST /lobbies/')));
+      await phone.close(tester);
+    });
+  });
+}
+
+/// The seats this device keeps (`LastSeat`), once its writes have landed.
+Future<Set<String>> _keptSeats(WidgetTester tester) async {
+  Future<Set<String>> read() => DevicePreferences().readFlags(LastSeat.prefix);
+  for (var i = 0; i < 20 && (await read()).isNotEmpty; i++) {
+    await tester.pump(Duration.zero);
+  }
+  return read();
 }
