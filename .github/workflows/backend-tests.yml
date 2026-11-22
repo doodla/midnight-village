@@ -2,9 +2,11 @@
 #
 # Lint, format check, type check and the full test suite for the Django backend,
 # against a real PostgreSQL (the tests require it for parity with production).
-# Runs the same commands as a developer does before committing:
-#   just check   (ruff lint + ruff format --check + pyrefly)
-#   just test    (pytest; coverage floor enforced by pyproject.toml)
+# Runs the same root recipes the local commit gate runs (.claude/hooks/lib/gate.sh),
+# from the repo root, so CI and the hooks cannot drift:
+#   just check   (ruff lint + format check + pyrefly, then the instruction-link check)
+#   just test    (pytest with the coverage floor, then the .claude/ guardrail and
+#                 gate-routing tests)
 #
 # BRANCH PROTECTION: add the check "Backend Checks" next to the Flutter ones.
 
@@ -20,10 +22,6 @@ jobs:
   backend:
     name: Backend Checks
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-
     services:
       postgres:
         image: postgres:16
