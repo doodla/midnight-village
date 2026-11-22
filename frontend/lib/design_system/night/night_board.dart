@@ -108,6 +108,9 @@ class NightBoard extends ConsumerStatefulWidget {
   /// high (at the title's size before the text scale).
   static const timerLines = 1.3;
 
+  /// The lines of room a title has, at the full title size.
+  static const titleLines = 2;
+
   @override
   ConsumerState<NightBoard> createState() => _NightBoardState();
 }
@@ -241,9 +244,10 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         onLockedTap: _replay.replay,
       );
     }
+    final kind = widget.prompt.kind;
     final label = _picks.length == 1 && _picks.single is SelfPick
-        ? NightCopy.keep
-        : NightCopy.choose.fill({'cards': _picks.map(_caption).join(', ')});
+        ? kind.pass
+        : kind.go.fill({'cards': _picks.map(_caption).join(', ')});
     return PrimaryButton(label: label, onPressed: _choose);
   }
 
@@ -283,7 +287,6 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _header(context),
-                  const SizedBox(height: Space.xl),
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, room) {
@@ -332,26 +335,38 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  /// The title on one line, set smaller only where it must (the prompt's:
-  /// the role's night line in a few words, "The village sleeps" for a
-  /// sleeper; one line on every phone, so the board below sits alike), and
-  /// beside it the candle and the seconds as one compact unit, a line and a
-  /// third high.
+  /// The title in a room two lines high at the full title size, the same
+  /// height on every phone whatever the role (so the board below sits alike):
+  /// the prompt's words wrap between words, and are set smaller only where
+  /// two lines are not enough. Beside it, level with its first line, the
+  /// candle and the seconds as one compact unit, a line and a third high.
   Widget _header(BuildContext context) {
     final title = context.skin.typography.screenTitle;
     // At the title's own size, whatever the text scale: the unit sets its
     // larger digits smaller to keep to it.
     final line = title.fontSize! * title.height!;
+    // A pixel over two lines: a wrapped title measures a hair more than its
+    // lines times the line height.
+    final room =
+        MediaQuery.textScalerOf(context).scale(line) * NightBoard.titleLines +
+        1;
     return Row(
       spacing: Space.md,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Semantics(
-            header: true,
-            child: FitWords(
-              widget.prompt.kind.title,
-              maxLines: 1,
-              style: title,
+          child: SizedBox(
+            height: room,
+            child: Semantics(
+              header: true,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: FitWords(
+                  widget.prompt.kind.title,
+                  maxLines: NightBoard.titleLines,
+                  style: title,
+                ),
+              ),
             ),
           ),
         ),
@@ -390,6 +405,16 @@ class _NightBoardState extends ConsumerState<NightBoard> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(height: spare / 2),
+        // Room for the Seer's "1 player", empty on every other board.
+        SizedBox(
+          height: layout.seatLabelRoom,
+          child: widget.prompt.kind.seats == null
+              ? null
+              : Align(
+                  alignment: Alignment.topCenter,
+                  child: _label(widget.prompt.kind.seats!),
+                ),
+        ),
         for (final (i, row) in rows.indexed) ...[
           if (i > 0) const SizedBox(height: BoardLayout.rowGap),
           Row(
@@ -399,8 +424,41 @@ class _NightBoardState extends ConsumerState<NightBoard> {
             children: [for (final s in row) seat(s)],
           ),
         ],
-        SizedBox(height: BoardLayout.bandGap + spare / 2),
+        // The gap above the band: her rule with "or" on it, empty on every
+        // other board.
+        SizedBox(
+          height: layout.ruleRoom,
+          child: widget.prompt.kind.seats == null ? null : _rule(),
+        ),
+        SizedBox(height: spare / 2),
         _band(me, layout, wave),
+      ],
+    );
+  }
+
+  /// A label on the board: a caption line in full ink, like the captions
+  /// under the cards.
+  Widget _label(String text) => FitWords(
+    text,
+    textAlign: TextAlign.center,
+    maxLines: 1,
+    style: context.skin.typography.caption.copyWith(color: context.ground.text),
+  );
+
+  /// The Seer's thin rule with "or" on it, between her seats and the table's
+  /// cards.
+  Widget _rule() {
+    final line = Expanded(
+      child: Container(height: 1, color: context.ground.hairline),
+    );
+    return Row(
+      spacing: Space.md,
+      children: [
+        const SizedBox(width: Space.sm),
+        line,
+        _label(NightCopy.seerOr),
+        line,
+        const SizedBox(width: Space.sm),
       ],
     );
   }
@@ -427,21 +485,38 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           children: [
             _you(me, layout, wave, padding),
             Container(
-              padding: padding,
+              // No padding under the cards: their cells reach into it
+              // (`tapExtra`), so a tap is a thumb's height on a small card.
+              padding: padding.copyWith(bottom: 0),
               decoration: BoxDecoration(
                 color: context.ground.panel,
                 borderRadius: BorderRadius.circular(skin.shape.radius),
               ),
-              child: Row(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: BoardLayout.tableCardGap,
                 children: [
-                  for (var i = 0; i < 3; i++)
-                    SizedBox(
-                      width: layout.bandCell,
-                      child: wave(_center(i, layout)),
+                  SizedBox(
+                    width: 3 * layout.bandCell + 2 * BoardLayout.tableCardGap,
+                    height: layout.labelRoom,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: _label(
+                        widget.prompt.kind.strip ?? NightCopy.centerLabel,
+                      ),
                     ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: BoardLayout.tableCardGap,
+                    children: [
+                      for (var i = 0; i < 3; i++)
+                        SizedBox(
+                          width: layout.bandCell,
+                          child: wave(_center(i, layout)),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -450,6 +525,15 @@ class _NightBoardState extends ConsumerState<NightBoard> {
       ),
     );
   }
+
+  /// A card that cannot join the pick being made sits dimmed (a sleeper's
+  /// board has no pick to make: nothing dims).
+  bool _dims(NightPick pick) =>
+      !widget.prompt.sleeps && widget.prompt.rule.dims(pick, _picks);
+
+  /// A dimmed card says to a screen reader that a tap still switches the
+  /// pick: dimmed here is not switched off.
+  String? _hint(NightPick pick) => _dims(pick) ? NightCopy.switchesPick : null;
 
   Widget _player(NightSeat seat, BoardLayout layout) {
     final pick = PlayerPick(seat.id);
@@ -463,7 +547,9 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         owner: seat.token,
         ownerName: seat.name,
         selected: _picks.contains(pick),
+        dimmed: _dims(pick),
         semanticLabel: seat.name,
+        semanticHint: _hint(pick),
         onTap: () => _tap(pick),
       ),
     );
@@ -479,7 +565,10 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         caption: centerName(index),
         tilt: Tilt.scatter(index),
         selected: _picks.contains(pick),
+        dimmed: _dims(pick),
+        tapExtra: BoardLayout.bandPadding,
         semanticLabel: centerName(index),
+        semanticHint: _hint(pick),
         onTap: () => _tap(pick),
       ),
     );
@@ -502,7 +591,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         behavior: HitTestBehavior.opaque,
         excludeFromSemantics: true,
         child: PaperCard(
-          padding: padding,
+          // Level with the strip's cards, which sit under its label.
+          padding: padding.copyWith(
+            top: padding.top + layout.labelRoom,
+            bottom: 0,
+          ),
           child: SizedBox(
             width: layout.bandCell,
             child: wave(
@@ -512,7 +605,8 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                   size: FaceDownSize.board,
                   cardWidth: layout.bandCard,
                   nameSize: layout.nameSize,
-                  nameHeight: layout.nameHeight,
+                  nameHeight: layout.youNameHeight,
+                  tapExtra: BoardLayout.bandPadding,
                   owner: seat.token,
                   ownerName: NightCopy.you,
                   selected: _picks.contains(const SelfPick()),

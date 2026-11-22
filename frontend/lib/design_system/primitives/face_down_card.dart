@@ -57,12 +57,15 @@ class FaceDownCard extends StatelessWidget {
     this.ownerName,
     this.caption,
     this.selected = false,
+    this.dimmed = false,
+    this.tapExtra = 0,
     this.hold,
     this.tilt = Tilt.none,
     this.cardWidth,
     this.nameSize,
     this.nameHeight,
     this.semanticLabel,
+    this.semanticHint,
     this.onTap,
   });
 
@@ -71,12 +74,26 @@ class FaceDownCard extends StatelessWidget {
   final String? ownerName;
   final String? caption;
   final bool selected;
+
+  /// The card cannot join the pick being made (the night board): its back and
+  /// token sit at the skin's dimmed opacity. Its name or caption stays in
+  /// full ink, and a tap still reaches it.
+  final bool dimmed;
+
+  /// A tap reaches this much below the card and its caption (blank, inside
+  /// the card's own cell: the night board's table cards take it from the
+  /// strip's padding, so a small card is still a thumb's height).
+  final double tapExtra;
   final bool? hold;
   final Tilt tilt;
   final double? cardWidth;
   final double? nameSize;
   final double? nameHeight;
   final String? semanticLabel;
+
+  /// What a screen reader adds after the label (a dimmed card: a tap still
+  /// switches the pick).
+  final String? semanticHint;
   final VoidCallback? onTap;
 
   /// The mock's player card width, which the lying shadow is drawn for.
@@ -102,6 +119,7 @@ class FaceDownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     label: semanticLabel,
+    hint: semanticHint,
     button: onTap != null,
     selected: selected,
     excludeSemantics: semanticLabel != null,
@@ -118,7 +136,13 @@ class FaceDownCard extends StatelessWidget {
             final width = constraints.hasBoundedWidth
                 ? most.clamp(0.0, constraints.maxWidth)
                 : most;
-            return _column(context, width);
+            final column = _column(context, width);
+            return tapExtra == 0
+                ? column
+                : Padding(
+                    padding: EdgeInsets.only(bottom: tapExtra),
+                    child: column,
+                  );
           },
         ),
       ),
@@ -140,38 +164,46 @@ class FaceDownCard extends StatelessWidget {
     if (angle != 0) card = Transform.rotate(angle: angle, child: card);
 
     final token = ownerTokenFor(width);
+    Widget lit(Widget child) => AnimatedOpacity(
+      opacity: dimmed ? skin.dimmed : 1,
+      duration: Motion.quick,
+      curve: Motion.curve,
+      child: child,
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (owner case final owner?)
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(bottom: token / 2),
-                child: card,
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Center(
-                  child: SizedBox.square(
-                    dimension: token,
-                    child: FittedBox(
-                      child: PlayerToken(
-                        owner,
-                        size: TokenSize.card,
-                        ringColor: selected ? ground.selection : null,
+          lit(
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(bottom: token / 2),
+                  child: card,
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: SizedBox.square(
+                      dimension: token,
+                      child: FittedBox(
+                        child: PlayerToken(
+                          owner,
+                          size: TokenSize.card,
+                          ringColor: selected ? ground.selection : null,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           )
         else
-          card,
+          lit(card),
         if (ownerName case final name?) ...[
           const SizedBox(height: nameGap),
           if (nameHeight case final height?)

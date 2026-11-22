@@ -55,15 +55,15 @@ void main() {
           role: lines.fold(0, (sum, l) => sum + wordCount(l.text)),
       };
       expect(totals, {
-        'werewolf': 20,
-        'minion': 26,
+        'werewolf': 24,
+        'minion': 28,
         'villager': 15,
         'seer': 21,
         'robber': 22,
         'troublemaker': 20,
         'drunk': 21,
         'insomniac': 20,
-        'mason': 17,
+        'mason': 19,
         'hunter': 21,
         'tanner': 11,
         'doppelganger': 21,
