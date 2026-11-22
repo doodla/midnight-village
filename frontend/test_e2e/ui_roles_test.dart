@@ -29,7 +29,7 @@ import 'harness/scenarios.dart';
 ///        at the center, the Robber robs.
 /// - `4`  Alice, the Doppelganger, copies Bob (the Robber) and robs Carol on
 ///        her follow-up turn in window 1; then window 2.
-/// - `5`  Bob, the Hunter, has nothing to choose ("Keep my card"); the
+/// - `5`  Bob, the Hunter, has nothing to choose (the board asks nothing: "Nothing to do"); the
 ///        Hunter's chain and the Tanner's block at the end.
 /// - `8`  Eve, the Insomniac, sees her card at dawn; the Drunk swaps.
 /// - `21` Bob, the Seer, does nothing (he keeps his card): "You did nothing."
@@ -142,7 +142,8 @@ Future<void> _play(Phone r, ReferenceGame g, int seat) async {
     final mine = _windowTwo(g, seat);
     if (mine.isEmpty) {
       await r.tapCard(NightCopy.you);
-      expect(r.button.label, NightCopy.keep);
+      // What passing is depends on the seat's role (the app's per-kind word).
+      expect(r.button.label, r.board.prompt.kind.pass);
     } else {
       for (final pick in mine) {
         await r.tapCard(pick.$1 ?? _place(pick.$2!));
