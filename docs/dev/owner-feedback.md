@@ -112,3 +112,11 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
   main screen feel a bit too big" (first screen and table; options going to the board).
 - Haiku workers: "Use haiku where you can trust it. It's much faster and cheaper." (said
   directly, 22 November). What it can be trusted with: `docs/dev/haiku-trial.md`.
+- 22 Nov, same-address API trial (#66): it BROKE the live web app for about 30 minutes (23:15 to
+  23:49 UTC) and was reverted (#68). Cause: Vercel's rewrite `/api/:path*` does not match a path
+  ending in a slash, and every API path does, so calls got `index.html`. No local check can see
+  Vercel's own forwarding. Not retried: a retry needs (1) `/api/(.*)` -> `.../api/$1`, (2) proof
+  on a Vercel deployment's own address BEFORE it serves players (a slash path and a POST both
+  answer JSON), and (3) the owner's yes. Live baseline to beat: Start 1.41 s fast, 2.78 s slow
+  phone; Join 1.33 s, 2.60 s.
+
