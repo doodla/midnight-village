@@ -25,6 +25,7 @@ just night-frames      # the night board's pick and candle, a frame per 17 ms
 just vote-frames       # the vote's finger, pick and lock (the seal landing), a frame per 17 ms
 just vote-pictures     # the locked vote, the lock in four frames, the vote at several table sizes
 just count-pictures    # the count: one death, a tie, nobody, the moment in four frames, ten with long names
+just card-frames       # your card turning over (finger, hold, turn, release), a frame per 17 ms
 just playtest-pack     # the cold-read pack: five first-game journeys to build/playtest/
 just test-harness      # boots its own backend on a free port, runs the e2e harness (not in `just test`)
 just gen-check         # fails when committed *.g.dart / *.freezed.dart differ from `just gen` (about 50 s)

@@ -7,9 +7,11 @@ import 'package:flutter/material.dart';
 import '../copy/copy.dart';
 import '../faces/face_content.dart';
 import '../faces/held_face.dart';
+import '../feel/haptics.dart';
 import '../layout/space.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
+import 'paper_flip.dart';
 
 /// How the face came to be shown.
 enum _Shown { held, activated }
@@ -32,9 +34,10 @@ class HoldPress extends InheritedWidget {
 /// A secret behind press-and-hold (first-time play spec, section 2): [cover]
 /// shows until the player presses; [face] is drawn as a role card
 /// ([HeldFace]). [inPlace] (04, the card in your hand): the card turns over
-/// where it is, filling the cover's own frame, with a quick cross-fade
-/// (instant with reduce motion; product owner: a friendly game, the card
-/// flips under the thumb). Otherwise the face is drawn above the touch point,
+/// where it is, filling the cover's own frame, like a piece of paper
+/// ([PaperFlip]: a cut with reduce motion; product owner: a friendly game,
+/// the card flips under the thumb), with a light vibration as the face
+/// lands. Otherwise the face is drawn above the touch point,
 /// as large as fits there (below it, clear of the thumb, when above has
 /// less room).
 ///
@@ -100,8 +103,9 @@ class HoldToReveal extends StatefulWidget {
   /// Below the touch point, room for the thumb, when there is no room above.
   static const thumb = 72.0;
 
-  /// The face turning over in place.
-  static const flip = Motion.press;
+  /// The face turning over in place, to the face ([PaperFlip.turn]) and
+  /// back to the cover ([PaperFlip.turnBack], never slower than `press`).
+  static const flip = PaperFlip.turn;
 
   @override
   State<HoldToReveal> createState() => _HoldToRevealState();
@@ -118,6 +122,9 @@ class _HoldToRevealState extends State<HoldToReveal>
   /// How many times the face has been shown: which page is next.
   var _showings = 0;
   var _focusHighlight = false;
+
+  /// A finger is on the card (before it is a hold): the card dips.
+  var _touching = false;
   Timer? _counts;
 
   bool get _visible => _shown != null;
@@ -211,6 +218,12 @@ class _HoldToRevealState extends State<HoldToReveal>
     if (_shown == _Shown.held) _hide();
   }
 
+  /// A finger lands or lifts: only the card turning in place shows it.
+  void _touch(bool down) {
+    if (!widget.inPlace || _touching == down || !mounted) return;
+    setState(() => _touching = down);
+  }
+
   void _lostFocus() {
     if (_shown == _Shown.activated) _hide();
   }
@@ -258,8 +271,15 @@ class _HoldToRevealState extends State<HoldToReveal>
                   )
                 : null,
             child: Listener(
-              onPointerUp: (_) => _release(),
-              onPointerCancel: (_) => _release(),
+              onPointerDown: (_) => _touch(true),
+              onPointerUp: (_) {
+                _touch(false);
+                _release();
+              },
+              onPointerCancel: (_) {
+                _touch(false);
+                _release();
+              },
               child: RawGestureDetector(
                 behavior: HitTestBehavior.opaque,
                 // Assistive technology shows it through the Semantics above.
@@ -294,35 +314,23 @@ class _HoldToRevealState extends State<HoldToReveal>
 
   static Widget _nothing(BuildContext context) => const SizedBox.shrink();
 
-  /// In place: the face fades in over the cover, in the cover's own box,
-  /// and out again. The cover stays drawn under it (an opaque card over an
-  /// opaque card: no glimpse of the ground between them), and sets the size.
-  Widget _turned(BuildContext context) {
-    final still = MediaQuery.disableAnimationsOf(context);
-    return Stack(
-      children: [
-        widget.cover,
-        Positioned.fill(
-          child: AnimatedSwitcher(
-            duration: still ? Duration.zero : HoldToReveal.flip,
-            switchInCurve: Motion.curve,
-            switchOutCurve: Motion.curve,
-            child: _visible
-                ? IgnorePointer(
-                    key: const ValueKey('face'),
-                    child: HeldFace(
-                      content: widget.face,
-                      page: _showings - 1,
-                      announce: _shown == _Shown.activated,
-                      fill: true,
-                    ),
-                  )
-                : const SizedBox.shrink(key: ValueKey('cover')),
-          ),
-        ),
-      ],
-    );
-  }
+  /// In place: the card turns over like paper ([PaperFlip]): the cover is
+  /// its back, in its own box, and the face its other side. The cover
+  /// sets the size, so nothing about the hidden state depends on the secret.
+  Widget _turned(BuildContext context) => PaperFlip(
+    turned: _visible,
+    pressed: _touching,
+    back: widget.cover,
+    onLanded: Haptics.landed,
+    face: (context) => IgnorePointer(
+      child: HeldFace(
+        content: widget.face,
+        page: _showings - 1,
+        announce: _shown == _Shown.activated,
+        fill: true,
+      ),
+    ),
+  );
 
   /// The face, in the overlay, above the touch point, as tall as its words
   /// and portrait need and the room there allows (below it, clear of the

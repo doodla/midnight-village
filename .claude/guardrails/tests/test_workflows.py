@@ -9,6 +9,11 @@
 - the required checks in docs/dev/main-ruleset.json are exactly the jobs' names (a
   renamed or added job fails here until the ruleset file is updated).
 
+One workflow is not part of the wall: PUBLISHING (android-download.yml) builds the Android
+app's download on pushes to main. It is held to its own rules (WorkflowPublishing): never on a
+pull request, never a required check, `contents: write` on its one job only, a paths filter
+(it is not required, so a filter cannot block a merge). It still has to name only real recipes.
+
 No YAML library: the workflows are plain enough to read by indentation.
 Run with: python3 .claude/guardrails/tests/test_workflows.py
 """
@@ -21,7 +26,10 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+PUBLISHING = ["android-download.yml"]
+ALL_WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+# The merge wall's workflows: every pull request runs them, their jobs are the required checks.
+WORKFLOWS = [w for w in ALL_WORKFLOWS if w.name not in PUBLISHING]
 JUSTFILES = ["justfile", "backend/justfile", "frontend/justfile"]
 
 
@@ -58,7 +66,7 @@ class WorkflowRecipes(unittest.TestCase):
     def test_every_recipe_a_workflow_runs_exists(self):
         known = recipes()
         self.assertTrue(WORKFLOWS, "no workflows found")
-        for wf in WORKFLOWS:
+        for wf in ALL_WORKFLOWS:
             for n, line in enumerate(wf.read_text().splitlines(), 1):
                 code = line.split("#", 1)[0]
                 for m in re.finditer(r"(?:^|[\s\"'`(])just\s+([a-z][a-z0-9_-]*)", code):
@@ -150,6 +158,85 @@ class WorkflowShape(unittest.TestCase):
                 r"(?m)^  pull_request:",
                 f"{wf.name} does not run on pull requests",
             )
+
+
+class WorkflowPublishing(unittest.TestCase):
+    """The Android download: a publisher, not a check."""
+
+    def setUp(self):
+        self.path = ROOT / ".github" / "workflows" / PUBLISHING[0]
+        self.text = self.path.read_text()
+        self.code = "\n".join(l.split("#", 1)[0] for l in self.text.splitlines())
+
+    def test_exists_and_is_set_apart(self):
+        self.assertIn(self.path, ALL_WORKFLOWS)
+        self.assertNotIn(self.path, WORKFLOWS)
+
+    def test_runs_on_main_pushes_to_the_app_and_by_hand_never_on_pull_requests(self):
+        self.assertNotRegex(self.code, r"(?m)^  pull_request(_target)?:")
+        self.assertRegex(self.code, r'(?m)^  push:\s*\n    branches: \["main"\]')
+        self.assertRegex(self.code, r'(?m)^    paths: \["frontend/\*\*"\]')
+        self.assertRegex(self.code, r"(?m)^  workflow_dispatch:")
+
+    def test_is_not_a_required_check(self):
+        ruleset = json.loads((ROOT / "docs" / "dev" / "main-ruleset.json").read_text())
+        rules = {r["type"]: r.get("parameters", {}) for r in ruleset["rules"]}
+        required = [
+            c["context"]
+            for c in rules["required_status_checks"]["required_status_checks"]
+        ]
+        names = re.findall(r"(?m)^    name:\s*(.+?)\s*$", self.text)
+        self.assertTrue(names)
+        for name in names:
+            self.assertNotIn(name, required)
+
+    def test_writes_only_in_its_one_job(self):
+        top = self.code.split("\njobs:")[0]
+        self.assertRegex(top, r"(?m)^permissions:\s*\n  contents: read\s*$")
+        self.assertNotIn("write", top)
+        jobs = jobs_of(self.text)
+        self.assertEqual(len(jobs), 1)
+        (job,) = jobs.values()
+        self.assertRegex(job, r"(?m)^    permissions:\s*\n      contents: write\s*$")
+        self.assertRegex(job, r"(?m)^    name:\s*\S")
+        self.assertRegex(job, r"(?m)^    timeout-minutes:\s*\d+")
+
+    def test_the_job_publishes_only_from_main(self):
+        (job,) = jobs_of(self.text).values()
+        self.assertRegex(
+            job, r"(?m)^    if:\s*github\.ref == 'refs/heads/main'\s*$"
+        )
+
+    def test_builds_with_the_script_and_publishes_the_one_asset(self):
+        self.assertIn("tool/build_android.sh", self.code)
+        self.assertIn("TAG: android-latest", self.code)
+        self.assertIn("midnight-village.apk", self.code)
+        # Never an empty release: upload under another name, then swap by the API.
+        self.assertNotIn("--clobber", self.code)
+        self.assertIn("midnight-village-new.apk", self.code)
+        self.assertIn("-X PATCH", self.code)
+        self.assertIn("-X DELETE", self.code)
+        self.assertRegex(self.code, r"for attempt in 1 2 3")
+        self.assertIn("app-arm64-v8a-release.apk", self.code)
+        self.assertIn(
+            "PUBLIC_ORIGIN: https://midnight-village-app-anthelion.vercel.app",
+            self.code,
+        )
+
+    def test_vercel_redirects_the_short_address_to_the_asset(self):
+        cfg = json.loads((ROOT / "frontend" / "vercel.json").read_text())
+        (redirect,) = cfg["redirects"]
+        self.assertEqual(redirect["source"], "/app")
+        self.assertIs(redirect["permanent"], False)
+        self.assertEqual(
+            redirect["destination"],
+            "https://github.com/doodla/midnight-village/releases/download/"
+            "android-latest/midnight-village.apk",
+        )
+        # The single-page rewrite stays; Vercel answers redirects before rewrites.
+        self.assertEqual(
+            cfg["rewrites"], [{"source": "/(.*)", "destination": "/index.html"}]
+        )
 
 
 if __name__ == "__main__":

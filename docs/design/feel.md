@@ -26,7 +26,8 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 4. **Night is silent and still.** From the deal to the last night window: no vibration, no sound,
    and nothing that differs by role or only on the phone that acted (design brief section 3.3 and
    7, spec sections 3 and 8). Same board, same motion on every phone. Secrets show only while
-   held.
+   held. The one exception is the owner's: your own card's face landing on 04 gives one light
+   tap (section 3), the same on every phone whatever the role.
 5. **Usability never pays.** Tap targets, contrast, reading floor (16 and 14 px), taps to act and
    whole names stay the same or get better. A name is never cut, also in the middle of a motion.
 6. **Paper, not glass.** Things lift, sink, drop in and turn like cut paper with a shadow. Short
@@ -42,8 +43,8 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 
 | Token | Value | Used for today |
 |---|---|---|
-| `press` | 90 ms | A button going down and coming back; a quiet word dimming; the face fading in place (04) |
-| `quick` | 160 ms | A pick: card, row or chip lifts (4 to 8 px) and its outline; a row or card dimming |
+| `press` | 90 ms | A button going down and coming back; a quiet word dimming; your card turning back to its cover and dipping under a finger (04) |
+| `quick` | 160 ms | A pick: card, row or chip lifts (4 to 8 px) and its outline; a row or card dimming; your card turning to its face (04) |
 | `settle` | 260 ms | A part of a screen arriving: the shell's crossfade; a count row or night step landing |
 | `reveal` | 400 ms | The count's dead card turning over |
 | `stagger` | 150 ms | Between one row and the next landing (the count, the night on 11) |
@@ -55,7 +56,11 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 | `curve` | easeOutCubic | Everything above, except the count's flip (easeInOut); inside a scene, each part runs its stretch of the 500 ms in this curve |
 | `Motion.within(context, d)` | `d`, or zero under reduce motion | The shell and the scene switcher use it; the other five places that check reduce motion move to it in their passes |
 
-Their own constants (not `Motion`): `HoldToReveal.holdDelay` 120 ms (a touch shorter than this is
+Their own constants (not `Motion`): `PaperFlip` (`primitives/paper_flip.dart`, the one card
+turn-over: turning to the face `PaperFlip.turn` = `quick` 160 ms, back to the cover
+`PaperFlip.turnBack` = `press` 90 ms, lift 8 px, grow 3%, the shadow falling 4 px further, a
+2% dip under a finger, a settle of 3% of the turn, the paper's edge 3 px, perspective 0.001;
+`HoldToReveal.flip` is its `turn`); `HoldToReveal.holdDelay` 120 ms (a touch shorter than this is
 a tap, longer is a hold: the face shows after it) and `revealedAfter` 800 ms (a reveal counts once
 seen this long; a count, not a wait); `CueWave` 120 ms each, 90 ms apart, lifts 8 px (night) and
 6 px (vote); `HoldCue` breath 1400 ms, scale 1.06; a replayed cue runs 3 s. A list that staggers
@@ -69,7 +74,7 @@ take 1.6 s. A tap finishes them.
 |---|---|---|---|
 | `Motion.land` (built, pass 4a: `Curves.easeOutBack`) | a curve with at most 10% overshoot | 4, 6 | The lock stamp; a joining player's row dropping in |
 | `Motion.ambient` | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
-| the reduce-motion helper, the rest | Today six places check it (shell, hold flip, count, results, ring, wave) and, since pass 2, the night cards (dip, lift, glow, dim) and the Choose button's rise; buttons' press, rows, chips and dims ignore it. `Motion.within` exists (pass 1); passes 4 and 8 move the rest to it | 4, 8 | One check, so none is forgotten |
+| the reduce-motion helper, the rest | Today six places check it (shell, the card flip, count, results, ring, wave) and, since pass 2, the night cards (dip, lift, glow, dim) and the Choose button's rise; buttons' press, rows, chips and dims ignore it. `Motion.within` exists (pass 1); passes 4 and 8 move the rest to it | 4, 8 | One check, so none is forgotten |
 
 ## 3. Vibration
 
@@ -93,14 +98,22 @@ Decided 22 Nov 2026: everything is light except the dead card's flip, the one me
 Decided 22 Nov 2026. Where: 08, 09, 10 and 11, the day. "Ready" means only 08's "Ready to vote"; 04's "Ready" is in the
 night and has none. 11 counts as a day screen although its ground is the night's.
 
-Never fires: at night (04, 05, 06, the deal's dusk); on any hold or reveal; on 01 to 03; on a
+The one exception at night (decided 22 Nov 2026, the owner asked for it): `light` when your own
+card's face lands on 04 (`HoldToReveal` in place, through `PaperFlip.onLanded`). It is a hold of
+your own card in your own hand, the same on every phone and every role (everyone looks at the
+deal), once per turn that lands (a hold let go before the face lands gives none; a cut under
+reduce motion still gives it), and never when the card goes back. Holds of "You" and "My night"
+stay silent.
+
+Never fires: at night (05, 06, the deal's dusk, and 04 but for that one); on any other hold or
+reveal; on 01 to 03; on a
 banner, error, disabled tap, timer tick, reconnect or a player arriving or leaving; for anything
 that only one phone gets because of its role or what it did at night; no `heavyImpact`, no long
 `vibrate`.
 
-How it is built (pass 4a, `frontend/lib/design_system/feel/haptics.dart`; the vote's tick and light are wired, `thud` and the count's calls are wired in pass 4b, the others come with their passes): one `Haptics` class with these three names and nothing else calls
+How it is built (`frontend/lib/design_system/feel/haptics.dart`): one `Haptics` class is the one place that asks for a vibration, and nothing else calls
 `HapticFeedback` (`haptics_only_here_test.dart` fails any direct call, as `fixture_sources_test.dart` does for fixtures).
-It does nothing on the night's ground whoever calls it (the call takes the touched widget's context, so it must be made from under the screen's own ground), and never throws; a test listens on the platform channel to see what fired. A
+`tick`, `light` and `thud` take the touched widget's context and do nothing on the night's ground (so the call must be made from under the screen's own ground); `landed` is the card's face landing on 04, the one vibration at night (the owner's), and takes no context. None throws; a test listens on the platform channel to see what fired. A
 vibration goes with a visible change on the same frame and is never the only sign.
 
 Where there is nothing to vibrate it does nothing, and the screen is complete without it: a phone
@@ -154,9 +167,9 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| Finger lands on the card | The card dips about 2% the same frame (before the 120 ms that make it a hold) | `press` | Colour only, no dip | pass 3 |
-| Hold | After 120 ms the card turns over in place, readable from the start of the turn; in a first game the ring fills over the 0.8 s it takes to count. Today a 90 ms fade, so the pass keeps the existing token | 120 ms, then `press` (`quick` only if the builder's frames show it reads better; decided 22 Nov 2026) | Cut | pass 3 |
-| Release | The face is gone at once, never slower than `press` | `press` | Cut | pass 3 |
+| Finger lands on the card | The card dips 2% from the next frame (`PaperFlip.dip`, `press`), before the 120 ms that make it a hold; a tap gives it back | `press` | No dip | exists (pass 3) |
+| Hold | After 120 ms the card turns over in place like a piece of cut paper (`PaperFlip`): from its back (the game's back) it lifts 8 px and grows 3% as it goes through its edge, its shadow falls further from it, and it lands face up a few degrees past flat and settles; the face is never mirrored; it is built offstage from the moment the turn is asked for and shown only once past the edge. Measured: the turn is 160 ms; edge on at about 34 ms, the face 87% wide at about 68 ms, where the old fade was already 88% opaque at 45 ms, so the face reads about 50 ms later than the fade did. The settle peaks at 1.6% past flat, not 3%. The trade is taken because the turn reads as paper, and release hides the face within one frame. In a first game the ring fills over the 0.8 s it takes to count. One light tap as the face lands (section 3) | 120 ms, then `quick` (the frames read better than `press`'s five frames; decided in pass 3) | Cut, and the tap | exists (pass 3) |
+| Release | The card turns back through its edge to its back at once, never slower than `press`; let go mid-turn it goes back from where it is, taken again it goes on from there | `press` | Cut | exists (pass 3) |
 | A reveal counts (0.8 s seen) | "Ready" locked becomes amber; the ring stops for good | `press` | Cut | exists |
 | Tap "Ready" before holding | The `hold` ring breathes for 3 s; the button does not move | 3 s | Ring still, visible | exists |
 | "Ready" tapped | "Ready ✓", settled (no fill or outline), the pips count up on the tap, not on the answer. No vibration | `press` | Cut | exists |

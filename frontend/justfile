@@ -157,6 +157,16 @@ vote-frames folder="build/vote_frames" label="run" width="360":
       --dart-define=VOTE_FRAMES_LABEL={{label}} \
       --dart-define=VOTE_FRAMES_WIDTH={{width}}
 
+# Your card turning over (frontend/test/README.md): a finger lands, the hold, the
+# turn to the face, the face, and the turn back, one PNG per 17 ms step into
+# <folder>/<label>. No backend.
+# Usage: just card-frames [folder] [label]
+card-frames folder="build/card_frames" label="run":
+    flutter test test_screens/card_turn_frames_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=CARD_FRAMES_DIR={{folder}} \
+      --dart-define=CARD_FRAMES_LABEL={{label}}
+
 # The cold-read pack (docs/specs/frontend/first-time-play.md): the screens of
 # four first-game journeys (host, guest, sleeper, Seer) and a host setting up a
 # table for eight before anyone comes (host-sets-8), in order, as one
