@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/router/back_policy.dart';
-import '../../../design_system/primitives/screen_frame.dart';
-import '../../../design_system/skin/ground.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../game/domain/screen_table.dart' show backRuleFor;
@@ -46,9 +44,30 @@ class HomeGate extends ConsumerWidget {
   /// does on it.
   (BackRule, Object, Widget) _place(WidgetRef ref) {
     final auth = ref.watch(authProvider);
+    // Where this phone sits is held for as long as home is shown: while a way
+    // in is on its way 01 is shown on its own (the account made first would
+    // swap the shell away), and the read of the seat, which is all that
+    // follows, must not be dropped between 01 and the table's shell (a second
+    // read, and the opening shown for it, between 01 and 02).
+    if (auth is AuthAuthenticated) ref.listen(myTableProvider, (_, _) {});
     final busy = ref.watch(joinFlowProvider.select((f) => f.busy != null));
+    final seatUnread = ref.watch(joinFlowProvider.select((f) => f.seatUnread));
     final link = code;
-    if (busy) return (BackRule.leavesApp, 'join', JoinScreen(code: link));
+    if (busy) {
+      return (BackRule.leavesApp, 'join', JoinScreen(code: link));
+    }
+    // A way in worked and the seat cannot be read yet: the opening says so
+    // (never 01 again, whose buttons ask for a second seat).
+    if (seatUnread && auth is AuthAuthenticated) {
+      return (
+        BackRule.leavesApp,
+        'opening',
+        OpeningWait(
+          unanswered: ref.watch(myTableProvider.select((t) => t.hasError)),
+          onRetry: () => ref.invalidate(myTableProvider),
+        ),
+      );
+    }
     return switch (auth) {
       // The saved account is being read back: 01's village and title, and
       // "One moment" while a try got no answer (it is made again by itself).
@@ -57,7 +76,10 @@ class HomeGate extends ConsumerWidget {
       AuthInitial(:final unanswered) => (
         BackRule.leavesApp,
         'opening',
-        OpeningWait(unanswered: unanswered),
+        OpeningWait(
+          unanswered: unanswered,
+          onRetry: () => ref.invalidate(authProvider),
+        ),
       ),
       AuthLoading() => (BackRule.leavesApp, 'opening', const OpeningWait()),
       AuthAuthenticated() when link != null => switch (ref.watch(
@@ -78,11 +100,15 @@ class HomeGate extends ConsumerWidget {
           'join',
           JoinScreen(code: link),
         ),
-        // Not known yet: nothing to tap until it is; Back leaves, as on 01.
-        _ => (
+        // Not known yet: the opening, as before; nothing to tap until it is;
+        // Back leaves, as on 01.
+        final table => (
           BackRule.leavesApp,
           'opening',
-          const ScreenFrame(ground: GroundKind.night, body: SizedBox.shrink()),
+          OpeningWait(
+            unanswered: table.hasError,
+            onRetry: () => ref.invalidate(myTableProvider),
+          ),
         ),
       },
       AuthAuthenticated() => _shell(ref),

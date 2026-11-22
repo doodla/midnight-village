@@ -36,6 +36,7 @@ just test             # backend tests + guardrail and gate-routing tests
 just flutter-test     # frontend tests (frontend: just analyze, just format-check)
 just samples          # re-record contract_samples/
 just test-harness     # end-to-end harness against its own real backend (a free port)
+just gate-full        # the whole local suite on demand (GitHub runs it all, and the browser jobs)
 just screens          # every screen as a PNG beside its mock
 ```
 
@@ -44,7 +45,8 @@ More: `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `just --list`. Setup: `docs/dev
 ## Commits
 
 - `type(scope): description`; types feat, fix, test, refactor, docs, chore. Tests: descriptive names, seeded, several players; coverage 80% minimum.
-- Git's own hooks (`.claude/hooks/git/`, switched on by `.claude/hooks/session-start.sh` at every session start) run the checks for what you commit; never `--no-verify` or any other bypass. Give a committing Bash call `timeout` 600000 or run it in the background: the suites take minutes.
+- Git's own hooks (`.claude/hooks/git/`, switched on by `.claude/hooks/session-start.sh` at every session start) run the fast checks for what you commit (format, lint, types, analyze: seconds); never `--no-verify` or any other bypass.
+- GitHub is the wall: it runs every check on every pull request, and nothing merges to main except by pull request with every check green. Run the tests you touch while you work; `just gate-full` runs the whole local suite on demand (minutes).
 - A change under `.claude/` updates `docs/claude-architecture.md` in the same commit.
 
 ## Pointers

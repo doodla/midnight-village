@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
+import 'package:midnight_village/design_system/primitives/paper_lantern.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
@@ -54,7 +55,7 @@ void main() {
       await pump(busy: true);
       await tester.tap(find.byType(PrimaryButton));
       expect(taps, 1);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(LanternMark), findsOneWidget);
     });
 
     testWidgets('a locked gate keeps its label and, tapped, asks for its cue '

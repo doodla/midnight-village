@@ -20,11 +20,20 @@ just format-check      # dart format check of lib, test, test_screens
 just gen               # Riverpod code generation, after changing any provider
 just screens [width] [report|strict]  # every screen and the component sheet as PNGs beside the mocks
 just scene-frames      # the dusk and the dawn pumped to fixed times: frames and a strip each
+just loading-clips     # a tap going busy, a slow join, a failed send and its retry, a reconnect: looping WebPs
+just night-frames      # the night board's pick and candle, a frame per 17 ms
 just playtest-pack     # the cold-read pack: five first-game journeys to build/playtest/
 just test-harness      # boots its own backend on a free port, runs the e2e harness (not in `just test`)
+just gen-check         # fails when committed *.g.dart / *.freezed.dart differ from `just gen` (about 50 s)
+just test-widgets      # the widget tests without the goldens (GitHub's "Widget Tests")
 just skin-art          # regenerate assets/skins/shadow_paper/ from docs/design/art/
 just flutter-golden-update  # regenerate goldens (Linux only)
 ```
+
+The commit gate runs `just analyze` and `just format-check` only (seconds). GitHub runs the rest on
+every pull request, as its own checks, and merges nothing on red: analyze and format, widget tests
+with `just gen-check`, goldens, `just screens` strict at 360 and 390, `just check-release`, the
+web integration test and `just test-harness`. `just gate-full` runs the first four locally.
 
 ## Traps
 
@@ -65,6 +74,8 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   through the one `Outbox`; a choose is never sent twice for a turn; after any taken choose
   the phone re-reads `/me/` and trusts `chosen` and `chooses_left`. A phone with nothing to
   choose sends no choose at all; its board has no button.
+- **Every request a player's tap makes goes through `playerRequest`** (`core/requests/player_request.dart`), and the control that was tapped shows it: `Pending` (`design_system/primitives/pending.dart`) is busy in the frame of the tap, cannot be sent twice, stays busy until the screen it leads to is up (`settle`), and settles to done or to its own words with its own "Try again" (the very same request). The door is a compile-time rule: every write (the services' write methods, `AuthenticatedClient`'s post, patch and delete, the guest account) takes a `Door`, and only `playerRequest((door) => ...)` makes one, so a write outside it does not build; a door is shut when its request is done (a kept token throws in development and tests, is logged in release). `player_request_test.dart` scans for a bare `ref.read(p.future)` of a provider nobody holds (use `whileHeld`: a read that is dropped when the screen changes failed requests that had worked). A control that waits for the next screen is freed when that read fails (`readAnswered`), and says "One moment" with "Try again". A failure is the control's: never global state that can show up later on another screen. Nothing here waits.
+- **Every place the app waits is `Waiting`** (`design_system/primitives/waiting_sign.dart`) in the frame of the screen it waits for (`OpeningWait`, `lib/features/game/presentation/shell/waits.dart`, `EndWaiting`): never a bare ground. No sign for the first 300 ms (`Motion.signAfter`), then three paper lanterns hung from the header's edge and lit one after another (`PaperLantern`), "Still on its way." after 5 s (`Motion.slowAfter`), and, while a fetch fails, "One moment" with "Try again" alone on one line (never lanterns and a failure together); nothing is held back for it. A failure is one quiet line on the control (`Notice`), never a box; a busy control sinks into its shadow with a small lantern (`BusyMark`) in its own padding, so its words never move.
 - **Every fetch a screen depends on heals**: retried with backoff or polled until its reason
   ends (`core/healing/`). Never leave a screen on a failed fetch.
 - **No waits.** Nothing adds a wait, a minimum time or an assumed timer length: lengths come
@@ -87,6 +98,7 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 Every screen (01 to 11) is built from the primitives, against its mock in
 `docs/design/mocks/` (`docs/design/mock-to-skin.md` maps every element), to the copy in
 `docs/specs/frontend/first-time-play.md`. A change to one is checked by eye with
-`just screens` at 320, 360 and 390 wide (`strict` must pass), and you hand over before and
-after pictures. A change to words or screens also runs `just test-harness` before its pull
-request (the commit gate does not; GitHub does, as "End-to-end Harness").
+`just screens` at 320, 360 and 390 wide (`strict` must pass at 360 and 390: GitHub runs it as
+"Screens strict at 360" and "... at 390"), and you hand over before and after pictures. A change to
+words or screens also runs `just test-harness` before its pull request (the commit gate does
+not; GitHub does, as "End-to-end Harness").

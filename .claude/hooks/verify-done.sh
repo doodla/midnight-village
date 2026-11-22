@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Stop hook: an agent may not finish with uncommitted code whose tests fail.
+# Stop hook: an agent may not finish with uncommitted code that fails the fast checks.
 # What only this hook does: it looks at work that is NOT committed (staged,
-# unstaged or untracked code). It runs the tests of the blocks that work
-# touches (routing in lib/gate.sh), in parallel, and skips a block whose
-# tests already passed on exactly this content (by the commit gate or an
-# earlier stop), so it never repeats a run the gate just did.
+# unstaged or untracked code). It runs the fast checks of the blocks that work
+# touches (lint, format, types, analyze; routing in lib/gate.sh), in parallel,
+# and skips a block that already passed on exactly this content (by the commit
+# gate, `just gate-full` or an earlier stop). The test suites are GitHub's job
+# (and `just gate-full`): this hook takes seconds.
 
 INPUT=$(cat)
 STOP_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false')
@@ -32,19 +33,20 @@ CHANGED=$(git status --porcelain --no-renames --untracked-files=all 2>/dev/null 
 TO_RUN=()
 declare -A KEY
 for block in $(echo "$CHANGED" | gate_route); do
-  KEY[$block]="$block-tests-$(gate_hash "$block")"
-  gate_passed "${KEY[$block]}" || TO_RUN+=("$block")
+  hash=$(gate_hash "$block")
+  KEY[$block]="$block-fast-$hash"
+  gate_block_passed "$block" "$hash" || TO_RUN+=("$block")
 done
 [ ${#TO_RUN[@]} -eq 0 ] && exit 0
 
 OUT=$(mktemp -d)
-gate_run_blocks "$ROOT" "$OUT" tests "${TO_RUN[@]}"
+gate_run_blocks "$ROOT" "$OUT" fast "${TO_RUN[@]}"
 FAILED=0
 for block in "${TO_RUN[@]}"; do
   if [ "$(cat "$OUT/$block.status" 2>/dev/null || echo 1)" = "0" ]; then
     gate_record "${KEY[$block]}"
   else
-    echo "$block tests are failing with your uncommitted changes. Fix them before finishing." >&2
+    echo "$block checks are failing with your uncommitted changes. Fix them before finishing." >&2
     echo "" >&2
     tail -10 "$OUT/$block.log" >&2
     FAILED=1

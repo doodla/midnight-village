@@ -1,14 +1,18 @@
 # Flutter Test CI Pipeline
 #
-# Runs widget tests, golden tests, and integration tests on every push and PR.
-# Flutter is pinned to one exact version in every job (see flutter-version).
-# All three test layers run as independent jobs — a failure in one does NOT
-# skip the others. The merge is blocked if any job fails.
+# GitHub is the wall: nothing merges to main except by pull request with every check
+# green, and the commit gate on a builder's machine only runs what takes seconds. So
+# this workflow runs every frontend check, as independent parallel jobs (a failure in
+# one does NOT skip the others). Each job only calls `just` recipes: the checks are
+# defined once, in frontend/justfile. Flutter is pinned to one exact version in every
+# job (see flutter-version).
 #
-# BRANCH PROTECTION SETUP (T036):
-# Configure in GitHub Settings → Branches → main → Require status checks:
-#   Required checks: "Analyze and Format", "Widget Tests", "Golden Tests", "Integration Tests", "End-to-end Harness"
-# Each job is a separate required check so any single failure blocks the merge.
+# Required checks (the job names; docs/dev/running-the-work.md has the settings call):
+#   "Analyze and Format", "Release has no debug toolbar", "Widget Tests",
+#   "Golden Tests", "Screens strict at 360", "Screens strict at 390",
+#   "Integration Tests", "End-to-end Harness"
+# (the backend's is in backend-tests.yml: "Backend Checks"). No job has a paths
+# filter: a required check that does not start would block the merge for ever.
 #
 # GOLDEN BASELINES:
 # One set, made on Linux, in frontend/test/design_system/goldens/. Font
@@ -24,7 +28,7 @@ name: Flutter Tests
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
@@ -34,10 +38,10 @@ on:
         type: boolean
         default: false
 
-# A newer push to the same branch cancels the run still in progress.
+# A newer push to the same pull request cancels the run still in progress (never on main).
 concurrency:
   group: flutter-tests-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ─── Analyze and Format ────────────────────────────────────────────────────
@@ -119,13 +123,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install just
+        uses: extractions/setup-just@v2
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           # Pinned to the exact version frontend/pubspec.lock was resolved with.
           # A floating "stable" moves on without warning and, once it passed what
           # the lockfile supports, failed `flutter pub get` in every job. Bump it
-          # here (all three jobs) together with the lockfile.
+          # here (every job) together with the lockfile.
           flutter-version: "3.38.10"
           channel: "stable"
           cache: true
@@ -135,15 +142,60 @@ jobs:
         run: flutter pub get
 
       # The committed *.g.dart / *.freezed.dart are what `just gen` makes now
-      # (the same check as `just gen-check`; about 50 s, so CI only).
+      # (about 50 s, so GitHub and `just gate-full` only, not the commit gate).
       - name: Generated code is current
-        run: |
-          dart run build_runner build --delete-conflicting-outputs
-          git diff --exit-code -- '*.g.dart' '*.freezed.dart'
+        run: just gen-check
 
-      # Excludes golden-tagged tests to avoid running them in this job
+      # Excludes golden-tagged tests: the next job runs them
       - name: Widget tests
-        run: flutter test --dart-define=ENV=dev --exclude-tags golden
+        run: just test-widgets
+
+  # ─── Screens strict ────────────────────────────────────────────────────────
+  # Every screen rendered at 360 and at 390 wide, one job each so they run side by
+  # side; fails on a layout overflow, an exception, cut text or a reading-floor
+  # breach. No backend, no browser. The pictures are uploaded when it fails, for
+  # looking at.
+  screens:
+    name: Screens strict at ${{ matrix.width }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        width: [360, 390]
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: "stable"
+          cache: true
+          cache-key: flutter-3.38.10-${{ runner.os }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Screens, strict
+        run: just screens ${{ matrix.width }} strict
+
+      - name: Upload the screens
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens-${{ matrix.width }}
+          path: frontend/build/screens/
+          retention-days: 7
+          if-no-files-found: ignore
 
   # ─── Golden Tests ──────────────────────────────────────────────────────────
   golden-tests:

@@ -33,17 +33,28 @@ enum TopArtLayout {
   /// [scene]'s, the body at its foot over the last of its fade, so a tall
   /// phone shows more of the village instead of an empty lower half. The
   /// body still scrolls when it cannot fit.
-  fill(height: 330, bodyTop: 282, fadeFrom: 160);
+  fill(height: 330, bodyTop: 282, fadeFrom: 160),
+
+  /// A quiet strip behind a title (S06 the night board): 170 tall, the body
+  /// from the top margin (where a screen with no picture starts it), the
+  /// picture under a veil of the ground so the title is the loudest thing,
+  /// fading from 100.
+  strip(height: 170, bodyTop: Space.screenTop, fadeFrom: 100, veil: 0.5);
 
   const TopArtLayout({
     required this.height,
     required this.bodyTop,
     required this.fadeFrom,
+    this.veil = 0,
   });
 
   final double height;
   final double bodyTop;
   final double fadeFrom;
+
+  /// How much of the ground lies over the whole picture (0 none), for a
+  /// picture that must stay behind what is written on it.
+  final double veil;
 }
 
 /// A whole screen, laid out as a stack (design brief section 3, rule 6): an
@@ -65,6 +76,8 @@ class ScreenFrame extends StatelessWidget {
     this.actions = const [],
     this.topArt,
     this.topScene,
+    this.topSceneFrom,
+    this.topArtExtra = 0,
     this.topArtLayout = TopArtLayout.scene,
     this.topSlot,
     this.actionGap = Space.mdPlus,
@@ -80,8 +93,10 @@ class ScreenFrame extends StatelessWidget {
          'A screen has a top picture, a layered one or a top band, only one.',
        ),
        assert(
-         topScene == null || topArtLayout == TopArtLayout.backdrop,
-         'A layered top picture is a backdrop.',
+         topScene == null ||
+             topArtLayout == TopArtLayout.backdrop ||
+             topArtLayout == TopArtLayout.strip,
+         'A layered top picture is a backdrop or a strip.',
        );
 
   /// The widest the phone layout gets.
@@ -104,6 +119,14 @@ class ScreenFrame extends StatelessWidget {
   /// The same, drawn in layers ([LayeredArt]): at rest the flat picture it
   /// was cut from; a scene that brings the screen in moves its layers.
   final LayeredSceneId? topScene;
+
+  /// With [topScene] as a strip: the canvas row it starts at
+  /// ([LayeredArt.from]).
+  final double? topSceneFrom;
+
+  /// A picture taller than its layout by this much (the body does not move):
+  /// where a screen has air to spare, the picture takes it.
+  final double topArtExtra;
   final TopArtLayout topArtLayout;
 
   /// A full-width part above the body (`TimerBand`, `Band`), under the status
@@ -170,7 +193,7 @@ class ScreenFrame extends StatelessWidget {
       top = Stack(
         children: [
           SizedBox(
-            height: layout.height + safeTop,
+            height: layout.height + topArtExtra + safeTop,
             width: double.infinity,
             // Brought in by a scene (the dusk), the picture travels further
             // than the screen: it comes down into place from above, its moon
@@ -178,10 +201,14 @@ class ScreenFrame extends StatelessWidget {
             child: ArrivalShift(
               travel: -arrivalTravel,
               child: _TopArt(
-                picture: art != null ? ArtPicture(art) : LayeredArt(scene!),
+                picture: art != null
+                    ? ArtPicture(art)
+                    : LayeredArt(scene!, from: topSceneFrom),
                 fadeTo: colors.ground,
                 fadeFrom:
-                    (layout.fadeFrom + safeTop) / (layout.height + safeTop),
+                    (layout.fadeFrom + topArtExtra + safeTop) /
+                    (layout.height + topArtExtra + safeTop),
+                veil: layout.veil,
               ),
             ),
           ),
@@ -658,10 +685,14 @@ class _TopArt extends StatelessWidget {
     required this.picture,
     required this.fadeTo,
     required this.fadeFrom,
+    this.veil = 0,
   });
 
   final Widget picture;
   final Color fadeTo;
+
+  /// The share of [fadeTo] laid over the whole picture.
+  final double veil;
 
   /// Where the fade starts, as a fraction of the height.
   final double fadeFrom;
@@ -671,6 +702,7 @@ class _TopArt extends StatelessWidget {
     fit: StackFit.expand,
     children: [
       picture,
+      if (veil > 0) ColoredBox(color: fadeTo.withValues(alpha: veil)),
       DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(

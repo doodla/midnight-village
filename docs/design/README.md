@@ -14,7 +14,8 @@ pictures.
 | `mocks/*.dc.html` | The mock markup. Every size, colour, radius, shadow and font size is an inline style, so read these for exact values. Image `src` values (`/_blob/...`) only resolve inside the mock canvas; use the files in `art/` instead. |
 | `art/roles/` | 12 role portraits, 576x768, one per role, file named after the role. |
 | `art/tokens/` | 10 player tokens (crow, key, moth, bell, thorn, antler, hare, lantern, spindle, scythe), 320x320, to be shown in a circle: one per seat at a table of 10. And the practice players' 9, each the thing it is named for (scarecrow, teapot, broom, kettle, haystack, bucket, candle, weathervane, wheelbarrow; `apps/core/practice.py`), never handed to a person. |
-| `art/scenes/` | Card back, candle, table, street door, sleeping village (flat pictures). |
+| `art/scenes/` | Candle, table, street door, sleeping village (flat pictures). |
+| `art/card-backs/` | The five card backs (moon, window, teeth, eye, quilt), 1200x1600; one is drawn for a whole game. `PROVENANCE.md` says how each was made. |
 | `art/layers/` | The two headers that move, drawn in layers (cuts of paper with alpha, PNG masters): `night-village/` (04: the plate, the moon, the clouds and their shadows) and `dawn-gallows/` (08: the sky, the sun, the hills, the birds, the roofs, the gallows). `flat.jpg` in each is the picture the layers were cut from. `PROVENANCE.md` says where every piece came from and how far each may move. |
 
 The mock canvas, where the product owner comments: https://claude.ai/artifact/AQ2LuLA5KkRPXHiZoGb6j9

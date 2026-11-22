@@ -56,7 +56,7 @@ final class ScanSessionProvider
   }
 }
 
-String _$scanSessionHash() => r'10d81e4502b6aaf70e2d1c94576410b82b9cbca6';
+String _$scanSessionHash() => r'ff7682e22ce2a4fae15f2b5da93445bf669c2207';
 
 /// The scanner's place, kept outside 01's widgets: a join that starts makes
 /// the app swap one 01 for another (`HomeGate` shows 01 itself while a way

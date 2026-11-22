@@ -21,6 +21,7 @@ const _bone = Color(0xFFE9E2D0); // paper; text on night
 const _boneInset = Color(0xFFDCD4BF); // a box set into paper (S03b)
 const _paperEdge = Color(0xFFBFB69F);
 const _amber = Color(0xFFE3A13A); // the one warm accent
+const _boneGlow = Color(0x80E9E2D0); // bone at 50%: a picked card's light
 const _blood = Color(0xFF80241E); // 7.4:1 under bone words
 const _darkBlood = Color(0xFF5C0F0C); // the primary button's shadow at night
 const _bloodLine = Color(0xFFC2413A); // thin red lines on night
@@ -77,6 +78,7 @@ const _night = Ground(
     // A picked card at night lifts off the table (S06).
     selected: Elevation([HardShadow(Offset(0, 8), _deepShadow)]),
     badge: Elevation([HardShadow(Offset(0, 2), _deepShadow)]),
+    glow: _boneGlow,
   ),
 );
 
@@ -225,21 +227,37 @@ final _type = SkinType(
   badge: _figtree(14, FontWeight.w700, height: 1.2),
 );
 
+// The candle's cuts (tool/candle/cut_candle.py prints these), on a canvas of
+// 300 x 530 taken from the candle picture at (270, 330).
+const _candle = CandleArt(
+  // The dish and its handle's loop, flame to stem.
+  view: Rect.fromLTRB(40, 12, 280, 484),
+  wax: CandleCut('wax', Offset(58, 107), Size(136, 284)),
+  flame: CandleCut('flame', Offset(60, 15), Size(120, 106)),
+  holder: CandleCut('holder', Offset(36, 328), Size(235, 154)),
+  wick: Offset(120, 121),
+  stickBottom: 385,
+  stickTop: 122,
+  light: Color(0xFFE9A44A),
+);
+
 const shadowPaperArt = ArtSet(
   folder: 'assets/skins/shadow_paper',
   rolePixels: Size(576, 768),
   tokenPixels: Size.square(192),
   scenePixels: {
-    Scene.cardBack: Size(600, 800),
     Scene.candle: Size(768, 1024),
     Scene.table: Size(1024, 768),
     Scene.streetDoor: Size(768, 1024),
     Scene.sleepingVillage: Size(768, 1024),
   },
+  // Drawn at most 250 wide (S07): sharp at 2.4x.
+  cardBackPixels: Size(600, 800),
   layered: {
     LayeredSceneId.nightVillage: _nightVillage,
     LayeredSceneId.dawnGallows: _dawnGallows,
   },
+  candleCut: _candle,
   // `object-position: 50% 15%` throughout the mocks.
   portraitFocus: Alignment(0, -0.7),
   // Read off the portraits in docs/design/art/ (the face's middle, from the

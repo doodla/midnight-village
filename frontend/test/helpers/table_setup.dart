@@ -144,6 +144,7 @@ class TableSetup {
 
     /// The camera a tap on scan opens (a fake the test drives).
     FakeCodeScanner Function()? scanner,
+    bool settle = true,
     void Function(TableSetup setup)? before,
   }) async {
     // ignore: invalid_use_of_visible_for_testing_member
@@ -260,7 +261,7 @@ class TableSetup {
         ),
       ),
     );
-    await setup.settle(tester);
+    if (settle) await setup.settle(tester);
     return setup;
   }
 

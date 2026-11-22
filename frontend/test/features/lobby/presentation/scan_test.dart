@@ -325,6 +325,56 @@ void main() {
     });
   });
 
+  group(
+    'a scanned join is the one join of the app: it fails and retries as one',
+    () {
+      testWidgets('"Not sent." with "Try again", the very same join, and the '
+          'code still in its field', (tester) async {
+        final setup = await TableSetup.pump(
+          tester,
+          signedInAs: 'Ben',
+          before: (s) => s.http.answer(
+            'POST',
+            '/lobbies/V9YC2J/join/',
+            'Server Error',
+            status: 503,
+          ),
+        );
+        await _tapScan(tester, setup);
+        setup.scanners.single.see('https://midnight.example/join/V9YC2J');
+        await setup.settle(tester);
+
+        expect(find.byType(ScanView), findsNothing);
+        expect(find.text(BannerCopy.notSent), findsOneWidget);
+        expect(find.text(BannerCopy.tryAgain), findsOneWidget);
+        expect(
+          tester
+              .widgetList<TextField>(find.byType(TextField))
+              .map((f) => f.controller!.text),
+          contains('V9YC2J'),
+        );
+        expect(setup.count('POST', '/lobbies/V9YC2J/join/'), 1);
+
+        // The server is back: Try again sends the same join, and it seats him.
+        setup.http.answer(
+          'POST',
+          '/lobbies/V9YC2J/join/',
+          ContractSamples.map('http/lobby/joined'),
+        );
+        setup.sitAt(v2Lobby('detail_auto_deck_5'), 'Ben');
+        await tester.tap(find.text(BannerCopy.tryAgain));
+        await setup.settle(tester);
+
+        expect(setup.count('POST', '/lobbies/V9YC2J/join/'), 2);
+        expect(
+          find.text(TableCopy.hostDeals.fill({'host': 'Ana'})),
+          findsOneWidget,
+        );
+        await setup.close(tester);
+      });
+    },
+  );
+
   group('a typed join that is refused keeps its code too', () {
     for (final (sample, status, banner) in [
       ('join_not_found', 404, BannerCopy.lobbyNotFound),

@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show Notifier, NotifierProvider;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/requests/player_request.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
@@ -21,7 +26,7 @@ class JoinFlowState {
     this.banner,
     this.retry = false,
     this.goThere = false,
-    this.code,
+    this.seatUnread = false,
   });
 
   /// The way in on its way ([JoinWay.start] or [JoinWay.join]).
@@ -37,13 +42,41 @@ class JoinFlowState {
   /// server will not seat them twice.
   final bool goThere;
 
-  /// The table code of the join on its way, or of the last one that was
-  /// refused: 01 is made again while a join runs and when it is refused (the
-  /// app swaps one 01 for another), and brings the code back into its field.
-  final String? code;
+  /// The way in worked (the phone has a seat) but `/me/table/` could not be
+  /// read after it: the app says "One moment" (the opening) until it is,
+  /// never 01 again, whose buttons would ask for a second seat.
+  final bool seatUnread;
 }
 
 enum JoinWay { start, join }
+
+/// What 01's form holds, kept outside the screen: while a way in is on its
+/// way `HomeGate` shows 01 itself (the account that is made first would
+/// swap the table's shell away), which builds 01 again, and the typed name
+/// and code and the open code field must not go with the old one. Cleared
+/// once the phone sits at a table (the next 01 is a clean one).
+@immutable
+class JoinDraft {
+  const JoinDraft({this.name, this.code = '', this.codeOpen = false});
+
+  /// Null: not typed over (the field shows this device's own account's name).
+  final String? name;
+  final String code;
+  final bool codeOpen;
+}
+
+class JoinDraftNotifier extends Notifier<JoinDraft> {
+  @override
+  JoinDraft build() => const JoinDraft();
+
+  void keep(JoinDraft draft) => state = draft;
+
+  void clear() => state = const JoinDraft();
+}
+
+final joinDraftProvider = NotifierProvider<JoinDraftNotifier, JoinDraft>(
+  JoinDraftNotifier.new,
+);
 
 /// The ways in from 01, outside any widget so a screen that is swapped
 /// mid-way (the sign-in that comes first puts the app in the table's shell)
@@ -66,24 +99,34 @@ class JoinFlow extends _$JoinFlow {
   /// Starts a table as [name]. True when the player is at it. The answer is
   /// the new table's lobby: 02 shows it without reading it again (nobody
   /// else knows the code yet, so nothing can have changed).
-  Future<bool> start(String name) => _run(JoinWay.start, name, () async {
-    final lobby = await ref.read(lobbyServiceProvider).createTable();
+  Future<bool> start(String name) => _run(JoinWay.start, name, (door) async {
+    final lobby = await ref.read(lobbyServiceProvider).createTable(door);
     ref.read(lobbySeedProvider).put(lobby, settled: true);
   });
 
   /// Joins table [code] as [name]. True when the player is at it. The answer
   /// is the table's lobby: 02 shows it at once (and reads it again once its
   /// socket listens, for a join said meanwhile).
-  Future<bool> join(String name, String code) =>
-      _run(code: code, JoinWay.join, name, () async {
-        try {
-          final lobby = await ref.read(lobbyServiceProvider).joinLobby(code);
-          ref.read(lobbySeedProvider).put(lobby, settled: false);
-        } on ValidationException catch (e) {
-          // Already at this table: that is where they are going.
-          if (e.code != 'already_in_lobby') rethrow;
-        }
-      });
+  Future<bool> join(String name, String code) => _run(JoinWay.join, name, (
+    door,
+  ) async {
+    try {
+      final lobby = await ref.read(lobbyServiceProvider).joinLobby(door, code);
+      ref.read(lobbySeedProvider).put(lobby, settled: false);
+    } on ValidationException catch (e) {
+      // Already at this table: that is where they are going.
+      if (e.code != 'already_in_lobby') rethrow;
+    }
+  });
+
+  /// Until `/me/table/` is read after a way in whose read failed: then the
+  /// app goes on to the table.
+  Future<void> _untilRead() async {
+    await readSucceeded(ref, myTableProvider);
+    if (ref.mounted && state.seatUnread && state.busy == null) {
+      state = const JoinFlowState();
+    }
+  }
 
   /// "Try again" on the last banner.
   Future<bool> retry() async {
@@ -94,7 +137,9 @@ class JoinFlow extends _$JoinFlow {
 
   /// Forgets the banner (the player is typing again).
   void clearBanner() {
-    if (state.banner != null) state = JoinFlowState(busy: state.busy);
+    if (state.banner != null) {
+      state = JoinFlowState(busy: state.busy, seatUnread: state.seatUnread);
+    }
   }
 
   /// The game this phone was in is gone (its table closed: the server
@@ -114,30 +159,30 @@ class JoinFlow extends _$JoinFlow {
   Future<bool> _run(
     JoinWay way,
     String name,
-    Future<void> Function() sit, {
-    String? code,
-  }) async {
+    Future<void> Function(Door door) sit,
+  ) async {
     if (state.busy != null) return false;
-    _again = () => _run(way, name, sit, code: code);
-    state = JoinFlowState(busy: way, code: code);
+    _again = () => _run(way, name, sit);
+    state = JoinFlowState(busy: way);
     ref.read(lobbySeedProvider).clear();
     try {
-      await _account(name.trim());
-      await sit();
+      await playerRequest((door) async {
+        await _account(door, name.trim());
+        await sit(door);
+      });
       ref.invalidate(myTableProvider);
       // The table's screen follows /me/table/; wait for it so the app does
       // not show 01 again in between. Held while waited for: nothing else
-      // may be listening yet (01 shows while this runs), and a read nobody
-      // holds is disposed mid-fetch, which failed a seat that was taken
-      // ("Not sent." kept, and shown on 01 after the player left).
-      final held = ref.listen(myTableProvider, (_, _) {});
-      try {
-        await ref.read(myTableProvider.future);
-      } finally {
-        held.close();
-      }
+      // may be listening yet (01 shows while this runs). A read that is
+      // failing frees 01's button all the same: the seat is taken, and the
+      // app's opening says "One moment" with "Try again" until it is read
+      // (`OpeningWait`), instead of 01 spinning for as long as the phone is
+      // out of reach.
+      final read = await readAnswered(ref, myTableProvider);
       _again = null;
-      state = const JoinFlowState();
+      ref.read(joinDraftProvider.notifier).clear();
+      state = JoinFlowState(seatUnread: !read);
+      if (!read) unawaited(_untilRead());
       return true;
     } on _NotAsked {
       _again = null;
@@ -145,23 +190,25 @@ class JoinFlow extends _$JoinFlow {
       return false;
     } catch (e) {
       logger.d('Could not sit down ($e)');
-      if (ref.mounted) state = _bannerFor(e, code);
+      if (ref.mounted) state = _bannerFor(e);
       return false;
     }
   }
 
-  Future<void> _account(String name) async {
+  Future<void> _account(Door door, String name) async {
     final auth = ref.read(authProvider);
     if (auth is AuthAuthenticated && auth.user.displayName == name) return;
     final notifier = ref.read(authProvider.notifier);
     // Nothing sent (the saved account is still being read back, or one was
     // found): no banner, nothing to try again; the screen follows the account.
-    if (!await notifier.createGuest(displayName: name)) throw const _NotAsked();
+    if (!await notifier.createGuest(door, displayName: name)) {
+      throw const _NotAsked();
+    }
     final after = ref.read(authProvider);
     if (after is! AuthAuthenticated) throw const _NotSignedIn();
   }
 
-  static JoinFlowState _bannerFor(Object error, String? table) {
+  static JoinFlowState _bannerFor(Object error) {
     final code = switch (error) {
       ValidationException(:final code) => code,
       UnhandledHttpException(:final code) => code,
@@ -169,22 +216,18 @@ class JoinFlow extends _$JoinFlow {
       _ => null,
     };
     return switch (code) {
-      'lobby_not_found' => JoinFlowState(
+      'lobby_not_found' => const JoinFlowState(
         banner: BannerCopy.lobbyNotFound,
-        code: table,
       ),
-      'lobby_full' => JoinFlowState(banner: BannerCopy.lobbyFull, code: table),
-      'lobby_closed' => JoinFlowState(
-        banner: BannerCopy.lobbyClosed,
-        code: table,
-      ),
+      'lobby_full' => const JoinFlowState(banner: BannerCopy.lobbyFull),
+      'lobby_closed' => const JoinFlowState(banner: BannerCopy.lobbyClosed),
       // The server's coming refusal (409, with that table's code): the
       // player is seated elsewhere; "Go there" opens it.
       'already_at_table' => const JoinFlowState(
         banner: BannerCopy.alreadyInLobby,
         goThere: true,
       ),
-      _ => JoinFlowState(banner: BannerCopy.notSent, retry: true, code: table),
+      _ => const JoinFlowState(banner: BannerCopy.notSent, retry: true),
     };
   }
 }

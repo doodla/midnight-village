@@ -91,6 +91,7 @@ class LayeredArt extends StatelessWidget {
     super.key,
     this.slots = const {},
     this.travel = true,
+    this.from,
   });
 
   final LayeredSceneId id;
@@ -101,6 +102,24 @@ class LayeredArt extends StatelessWidget {
   /// Whether the layers start from their `from` when a scene brings the screen
   /// in. False: they only rest (the sheet carries them).
   final bool travel;
+
+  /// A strip of the picture: the row of the canvas (in its own pixels) the
+  /// box starts at, the box showing the picture from there down. Null: the
+  /// scene's own focus.
+  final double? from;
+
+  /// The focus that puts canvas row [from] at the top of a [box] the scene
+  /// covers.
+  static Alignment focusFrom(LayeredScene scene, Size box, double from) {
+    final canvas = scene.canvas;
+    final scale = box.width / canvas.width > box.height / canvas.height
+        ? box.width / canvas.width
+        : box.height / canvas.height;
+    final spare = canvas.height * scale - box.height;
+    if (spare <= 0) return Alignment.topCenter;
+    final top = (from * scale).clamp(0.0, spare);
+    return Alignment(0, 2 * top / spare - 1);
+  }
 
   /// Decodes every layer of [id] for a [box] of logical pixels, as they are
   /// drawn in it, so the first frame of a scene finds them. Not awaited.
@@ -122,7 +141,7 @@ class LayeredArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final art = context.skin.art;
-    final scene = art.layeredScene(id);
+    final flat = art.layeredScene(id);
     final arrival = travel ? SceneArrival.maybeOf(context) : null;
     final clock = travel ? SceneArrival.sceneOf(context) : null;
     final ratio = MediaQuery.devicePixelRatioOf(context);
@@ -130,6 +149,14 @@ class LayeredArt extends StatelessWidget {
       child: ClipRect(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final scene = from == null
+                ? flat
+                : LayeredScene(
+                    folder: flat.folder,
+                    canvas: flat.canvas,
+                    focus: focusFrom(flat, constraints.biggest, from!),
+                    layers: flat.layers,
+                  );
             final geometry = SceneGeometry.cover(scene, constraints.biggest);
 
             Widget placed(SceneLayer layer) {

@@ -11,9 +11,10 @@ is really about to commit. This hook only makes sure they cannot be skipped:
 - no `--no-verify`, no `-n` on commit, no other value for core.hooksPath, no
   `GIT_*=` variables on the command line, no HUSKY / SKIP style hook switches;
 - cherry-pick and revert only with `--no-commit` and no rebase or am: git runs
-  no commit hooks for the commits they make (merge, or commit the result);
-- a command that commits gets a Bash timeout of at least 600000 ms or runs in
-  the background, because the gate runs the suites (a few minutes) inside it.
+  no commit hooks for the commits they make (merge, or commit the result).
+
+The gate itself is fast (seconds: format, lint, types, analyze); GitHub runs the
+suites. So a commit needs no long Bash timeout.
 
 Reads the hook JSON on stdin; exit 2 with the reasons on stderr blocks.
 Tested by .claude/hooks/test_gate_routing.sh.
@@ -27,7 +28,6 @@ import sys
 from pathlib import Path
 
 HOOKS_PATH = ".claude/hooks/git"
-MIN_TIMEOUT_MS = 600000
 # git options before the subcommand that take a separate value
 GLOBAL_WITH_VALUE = {
     "-C",
@@ -146,16 +146,6 @@ def problems_with(command, tool_input):
             {"--abort", "--quit", "--ff-only", "-h"} & set(args)
         ):
             commits = True
-    if commits and not tool_input.get("run_in_background"):
-        try:
-            timeout = int(tool_input.get("timeout") or 0)
-        except (TypeError, ValueError):
-            timeout = 0
-        if timeout < MIN_TIMEOUT_MS:
-            out.append(
-                f"a commit runs the gate's suites (a few minutes): give this Bash call "
-                f"timeout {MIN_TIMEOUT_MS} or run_in_background."
-            )
     return out, commits
 
 

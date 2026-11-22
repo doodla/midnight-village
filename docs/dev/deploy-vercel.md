@@ -1,7 +1,7 @@
 # Running the backend on Vercel
 
 Status: **deployed and played end to end on 19 November 2026** (Vercel project
-`midnight-village`, a preview of the working branch). See "Verified by the first deploy" and
+`midnight-village`, a preview deployment). See "Verified by the first deploy" and
 "Still unverified" below. Everything here follows the facts measured on a throwaway
 FastAPI project and Vercel's docs (Django ASGI + Channels WebSockets are supported).
 
@@ -19,6 +19,24 @@ and stopped at any time. Three things assumed one long-lived process and were re
 Local development, the tests and the debug harness keep the `memory` backend
 (`ONUW_TIMER_BACKEND = "memory"`, the default) and need no Vercel account.
 
+## Which pushes deploy (and the daily cap)
+
+Both projects build **only `main`**. `backend/vercel.json` and `frontend/vercel.json` carry
+`"git": {"deploymentEnabled": {"main": true, "**": false}}`, so Vercel creates no deployment
+for a push to any other branch (a branch matching several rules deploys if one is `true`, so
+`main` still deploys). Each file sits in its project's Root Directory (`backend`, `frontend`).
+`backend/vercel.json` holds nothing else: the backend's build still comes from
+`pyproject.toml` and the dashboard.
+
+* **Daily cap**: Vercel's Limits page lists 100 deployments created per day on Hobby (a
+  86400 s window; once hit, wait for it to pass). Every deployment created counts, preview or
+  production, on each project. Vercel's monorepo docs say builds canceled by an Ignored Build
+  Step still count, which is why this uses `git.deploymentEnabled`, not `ignoreCommand`.
+* **Going live** is a merge to `main`: one deployment per project.
+* **A one-off preview** of a branch: run `vercel deploy` from a checkout linked to the project
+  (the CLI creates the deployment itself). It still counts toward the cap, and the backend
+  needs the new address in `ALLOWED_HOSTS`, so only when a preview is really wanted.
+
 ## Resources to create
 
 1. **Postgres** (any provider; use the **pooled** connection string).
@@ -33,7 +51,7 @@ Local development, the tests and the debug harness keep the `memory` backend
 | `SECRET_KEY` | required |
 | `DATABASE_URL` | required, `postgres://user:pass@host:port/db` (pooled) |
 | `REDIS_URL` | required (`rediss://...`) |
-| `ALLOWED_HOSTS` | comma-separated. The settings add `VERCEL_URL` (the per-build address) and `VERCEL_PROJECT_PRODUCTION_URL` (one production domain) themselves; every OTHER address people use must be listed here, or Django answers "Bad Request (400)". Currently set on the project: `midnight-village-anthelion.vercel.app`, `midnight-village-api.vercel.app`, `midnight-village-git-main-anthelion.vercel.app` and `midnight-village-git-ccr-2435dc07-33z3jn-anthelion.vercel.app` (the working branch's alias). A new branch alias or a custom domain needs adding, and the change only applies to the next build. |
+| `ALLOWED_HOSTS` | comma-separated. The settings add `VERCEL_URL` (the per-build address) and `VERCEL_PROJECT_PRODUCTION_URL` (one production domain) themselves; every OTHER address people use must be listed here, or Django answers "Bad Request (400)". Currently set on the project: `midnight-village-anthelion.vercel.app`, `midnight-village-api.vercel.app`, `midnight-village-git-main-anthelion.vercel.app` and the app's own host `midnight-village-app-anthelion.vercel.app` (it must stay: the socket origin check uses this list); a dead working-branch alias, `midnight-village-git-ccr-2435dc07-33z3jn-anthelion.vercel.app`, is still set and is to be removed. A custom domain needs adding, and the change only applies to the next build. |
 | `CORS_ALLOWED_ORIGINS` | comma-separated origins of the app (answers to them expose the `Date` header: `CORS_EXPOSE_HEADERS` in the base settings, not an env var) |
 | `CSRF_TRUSTED_ORIGINS` | comma-separated (admin only) |
 | `DB_CONN_MAX_AGE` | optional, default `0` (do not hold connections between requests) |
@@ -185,7 +203,7 @@ before real players can use it.
 
 ## Deploy-safe changes
 
-The previous code serves while `migrate` runs on every deploy (every push to the working branch builds and migrates the shared database). Checked by tests and `just check`, not by habit:
+The previous code serves while `migrate` runs on every deploy (every deployment of `main` builds and migrates the shared database). Checked by tests and `just check`, not by habit:
 - **Migrations are frozen once pushed.** Every push migrates the live database; to change the schema again, add a NEW migration, never edit a pushed one. `just check` runs `makemigrations --check --dry-run` (a model change without its migration fails the gate and CI).
 - **No application code in a migration** (no `from apps...`): copy what it needs, frozen. `tests/test_migration_rules.py` scans every migration file.
 - **`SET LOCAL lock_timeout = '5s'` is the first operation** of every migration from 0010 on (same test), so an ALTER that cannot get its lock fails the build instead of blocking the live site behind it.

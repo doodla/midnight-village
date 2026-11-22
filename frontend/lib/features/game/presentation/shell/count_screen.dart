@@ -13,15 +13,18 @@ import '../../../../design_system/models/role.dart';
 import '../../../../design_system/primitives/art_picture.dart';
 import '../../../../design_system/primitives/band.dart';
 import '../../../../design_system/primitives/fit_line.dart';
-import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/paper_card.dart';
 import '../../../../design_system/primitives/player_row.dart';
 import '../../../../design_system/primitives/player_token.dart';
 import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/primitives/role_card.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
+import '../../../../design_system/primitives/waiting_sign.dart';
+import 'waits.dart' show hangsFromArt;
+import '../../../../design_system/skin/art_set.dart' show LayeredSceneId;
 import '../../../../design_system/primitives/tag_chip.dart';
 import '../../../../design_system/primitives/you_tag.dart';
+import '../../../../design_system/skin/card_back_scope.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../domain/outcome_view.dart';
@@ -60,20 +63,40 @@ class CountScreen extends ConsumerWidget {
   }
 }
 
-/// 10 and 11 before the results have loaded: the screen's ground, calm,
-/// with "One moment" only while the fetch is failing (it is made again by
-/// itself until it succeeds).
+/// 10 and 11 before the results have loaded: the screen's ground and the
+/// wait ([Waiting]: the lanterns, a plain line when it is slow, "One
+/// moment" while the fetch is failing; it is made again by itself until it
+/// succeeds).
 class EndWaiting extends StatelessWidget {
   const EndWaiting({super.key, required this.ground, required this.failing});
 
   final GroundKind ground;
   final bool failing;
 
+  LayeredSceneId get scene => ground == GroundKind.day
+      ? LayeredSceneId.dawnGallows
+      : LayeredSceneId.nightVillage;
+
   @override
   Widget build(BuildContext context) => ScreenFrame(
     ground: ground,
-    body: const SizedBox.shrink(),
-    actions: [if (failing) const Notice(message: BannerCopy.offline)],
+    // The header the screen is on: the day's sky for the count, the
+    // village at night for the results (the same pictures 08 and 04 have),
+    // so the wait is a place and the screen arrives into it.
+    topScene: scene,
+    topArtLayout: TopArtLayout.backdrop,
+    fitsHeight: true,
+    // Hung from the picture's lower edge.
+    body: Stack(
+      children: [
+        Positioned(
+          top: hangsFromArt(scene),
+          left: 0,
+          right: 0,
+          child: Waiting(failing: failing, centred: true),
+        ),
+      ],
+    ),
   );
 }
 
@@ -529,7 +552,7 @@ class _Turning extends StatelessWidget {
                 aspectRatio: RolePortrait.aspect,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
-                  child: ArtPicture(skin.art.cardBack),
+                  child: ArtPicture(context.cardBack),
                 ),
               ),
             ),
