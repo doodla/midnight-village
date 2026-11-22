@@ -54,9 +54,5 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
   press on an element or something". Switched on by a hidden gesture on an existing element;
   nothing visible to ordinary players. Not started; after the set-up page.
 - "Polish puzzles" was a typo for "polish passes".
-- Six sample looks: "Dunno what you mean by sample looks." They do not recall seeing them, so
-  show them again properly: https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2
-
-## Waiting on the owner
-
-- A reaction to the six sample looks (link above). No more look work until then.
+- Six sample looks (https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2): "Skip till our default
+  is good". Parked: no other looks until Shadow paper is good.
