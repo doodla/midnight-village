@@ -70,8 +70,8 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
   locking a vote, the card flip and Ready; never at night.)
 - "The bar is a game that can win awards. Micro interactions matter." Every touch answers at
   once; the small moments (press, lock, join, error, empty) are designed, not default.
-- "New assets are okay" for polish passes. Relayed only: this session still asks before making
-  art in bulk until the owner says so directly.
+- New art is fine: "Use the image gen" (said directly, 22 November). A piece may make the
+  Shadow paper art it needs without asking first; the owner sees it in the pictures before merge.
 - From the owner's board, 22 November (relayed): the Doppelganger timer shows only "when it's
   in the game"; renaming yourself at a table: yes; back during a game does nothing, only Leave
   exits; polish passes 1 to 8: "Do it"; "See 1 or 2 cards is ambiguous" (the night wording is
