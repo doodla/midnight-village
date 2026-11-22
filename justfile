@@ -152,6 +152,10 @@ flutter-analyze:
 screens *args:
     {{frontend_just}} screens {{args}}
 
+# The dusk and the dawn in motion: frames and a strip of each (frontend/test/README.md)
+scene-frames *args:
+    {{frontend_just}} scene-frames {{args}}
+
 # The cold-read pack of first-game journeys (see frontend/lib/design_system/README.md)
 playtest-pack *args:
     {{frontend_just}} playtest-pack {{args}}

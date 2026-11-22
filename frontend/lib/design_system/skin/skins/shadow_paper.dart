@@ -290,6 +290,8 @@ final shadowPaper = Skin(
     pipEmptyStroke: 0,
     pipStretch: false,
     archRoundness: 1,
+    paperLip: 3,
+    paperShadow: 8,
   ),
   tilt: const SkinTilt(
     card: 0,
