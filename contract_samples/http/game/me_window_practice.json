@@ -1,0 +1,107 @@
+{
+  "game_id": "00000000-0000-4000-a000-000000000019",
+  "lobby_code": "F5HN2V",
+  "phase": "night",
+  "current_wave": 2,
+  "deadline": "2024-03-07T22:38:48+00:00",
+  "your_role": {
+    "original_role": "Seer"
+  },
+  "is_host": true,
+  "host_id": 92,
+  "players": [
+    {
+      "player_id": 92,
+      "display_name": "Pia",
+      "token": "antler",
+      "seat": 0
+    },
+    {
+      "player_id": 95,
+      "display_name": "Scarecrow",
+      "token": "key",
+      "seat": 1,
+      "practice": true
+    },
+    {
+      "player_id": 96,
+      "display_name": "Teapot",
+      "token": "moth",
+      "seat": 2,
+      "practice": true
+    },
+    {
+      "player_id": 93,
+      "display_name": "Quin",
+      "token": "bell",
+      "seat": 3
+    }
+  ],
+  "action_prompt": {
+    "window": 2,
+    "kind": "seer",
+    "shapes": [
+      {
+        "players": 1
+      },
+      {
+        "center": 2
+      }
+    ],
+    "role_acting_as": "Seer",
+    "action_types": [
+      "choose"
+    ],
+    "max_picks": 2,
+    "max_chooses": 1,
+    "chosen": 0,
+    "chooses_left": 1,
+    "valid_targets": {
+      "player_ids": [
+        95,
+        96,
+        93
+      ],
+      "center_indices": [
+        0,
+        1,
+        2
+      ]
+    }
+  },
+  "roles_in_game": [
+    {
+      "role": "Seer",
+      "count": 1
+    },
+    {
+      "role": "Robber",
+      "count": 1
+    },
+    {
+      "role": "Villager",
+      "count": 2
+    },
+    {
+      "role": "Werewolf",
+      "count": 1
+    },
+    {
+      "role": "Insomniac",
+      "count": 1
+    },
+    {
+      "role": "Troublemaker",
+      "count": 1
+    }
+  ],
+  "night_results": [],
+  "night_results_seen": 0,
+  "player_id": 92,
+  "my_vote": null,
+  "ready": null,
+  "progress": null,
+  "stage": "w2.000000000019",
+  "stage_started_at": "2024-03-07T22:38:18+00:00",
+  "vote_targets": null
+}

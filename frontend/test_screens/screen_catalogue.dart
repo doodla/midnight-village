@@ -81,6 +81,8 @@ final screenCatalogue = <ScreenEntry>[
     '-seats-7': pumpTableSeatsSeven,
     '-seats-lowered': pumpTableSeatsLowered,
     '-seats-full': pumpTableSeatsFull,
+    '-practice': pumpTablePractice,
+    '-practice-guest': (tester) => pumpTablePractice(tester, viewer: 'Quin'),
     '-seats-x1.3': (tester) => pumpTableSeatsAlone(tester, textScale: 1.3),
     '-x1.3': (tester) => pumpTableHost(tester, textScale: 1.3),
     '-guest-x2': (tester) => pumpTableGuest(tester, textScale: 2),
@@ -95,6 +97,8 @@ final screenCatalogue = <ScreenEntry>[
     '-alone': pumpDeckAlone,
     '-lengths': pumpDeckLengths,
     '-lengths-doppelganger': pumpDeckLengthsDoppelganger,
+    '-practice': pumpDeckPractice,
+    '-practice-switched': pumpDeckPracticeSwitched,
     '-x1.3': (tester) => pumpDeckAlone(tester, textScale: 1.3),
   }),
   ..._rebuilt('03b-deck-role', '03b-deck-role-explained.png', {
@@ -154,6 +158,7 @@ final screenCatalogue = <ScreenEntry>[
     '-restart-locked': pumpVoteRestartLocked,
     '-3': pumpVoteThree,
     '-10-long': pumpVoteTenLong,
+    '-practice': pumpVotePractice,
     '-x1.3': (tester) => pumpVoteOpen(tester, textScale: 1.3),
   }),
   ..._rebuilt('10-count', '10-the-count.png', {

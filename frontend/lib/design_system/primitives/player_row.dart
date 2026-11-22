@@ -97,6 +97,8 @@ class PlayerNameSize extends InheritedWidget {
 ///   (ink by day); never a fill (first-time play spec, copy rule 10).
 /// - [own]: the viewer's own row, a thicker outline in the paper's ink and
 ///   "You" ([YouTag]) after the name (S02, S10).
+/// - [practice]: a practice player (a seat the server plays), "Practice"
+///   ([PracticeTag]) after the name; never [own].
 /// - [away]: a dropped member, the token dimmed, with no words (S02).
 /// - [dimmed]: the vote once locked, where every row dims the same and none
 ///   shows the pick (S09).
@@ -109,6 +111,7 @@ class PlayerRow extends StatelessWidget {
     this.trailing,
     this.picked = false,
     this.own = false,
+    this.practice = false,
     this.away = false,
     this.dimmed = false,
     this.onTap,
@@ -121,6 +124,7 @@ class PlayerRow extends StatelessWidget {
   final Widget? trailing;
   final bool picked;
   final bool own;
+  final bool practice;
   final bool away;
   final bool dimmed;
   final VoidCallback? onTap;
@@ -190,10 +194,10 @@ class PlayerRow extends StatelessWidget {
                 children: [
                   // A long name wraps between words, then is set smaller;
                   // never cut short.
-                  // "You" beside the name where both fit, under it where
-                  // not, so a long name keeps its room and a short one its
-                  // size.
-                  if (own)
+                  // "You" (or "Practice") beside the name where both fit,
+                  // under it where not, so a long name keeps its room and a
+                  // short one its size.
+                  if (own || practice)
                     Wrap(
                       spacing: Space.sm,
                       runSpacing: Space.xxs,
@@ -204,7 +208,7 @@ class PlayerRow extends StatelessWidget {
                           maxLines: 2,
                           style: nameStyle.copyWith(color: ink),
                         ),
-                        YouTag(ink: ink),
+                        if (own) YouTag(ink: ink) else PracticeTag(ink: ink),
                       ],
                     )
                   else

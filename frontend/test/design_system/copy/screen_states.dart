@@ -166,6 +166,29 @@ final screens = <String, Screen>{
           ],
       // The host's "Leave" asks first, in a sheet over the table.
       'host: leave asked': [button(TableCopy.stay), button(CommonCopy.leave)],
+      // Practice players seated (the host switched them on with a hold on
+      // 03's "Players"): each row tagged "Practice", for host and guests.
+      'host, practice players seated': [
+        headline(TableCopy.scan),
+        text(JoinCopy.codeHint),
+        button(DeckCopy.chips.first),
+        text(DeckCopy.talk),
+        text(DeckCopy.minutes),
+        button(TableCopy.editDeck),
+        button(TableCopy.deal),
+        button(CommonCopy.leave),
+        text(TableCopy.practice),
+      ],
+      'guest, practice players seated': [
+        headline(TableCopy.hostDeals),
+        text(TableCopy.scan),
+        text(JoinCopy.codeHint),
+        text(DeckCopy.chips.first),
+        text(DeckCopy.talk),
+        text(DeckCopy.minutes),
+        button(CommonCopy.leave),
+        text(TableCopy.practice),
+      ],
       'guest': [
         headline(TableCopy.hostDeals),
         text(TableCopy.scan),
@@ -180,8 +203,9 @@ final screens = <String, Screen>{
   ),
   '03 Deck': (
     // The set-up page: the number of players, the deck face up (role names
-    // are exempt; the count is digits), every length with its value.
-    budget: 22,
+    // are exempt; the count is digits), every length with its value; and
+    // "Practice", the one word over 22, only for a host who held "Players".
+    budget: 23,
     states: {
       for (final open in [true, false])
         open ? 'an open table' : 'set for a number': [
@@ -196,6 +220,21 @@ final screens = <String, Screen>{
           text(DeckCopy.off),
           button(DeckCopy.done),
         ],
+      // Practice players switched on (a hold on "Players"; never shown
+      // otherwise): their stepper's name under Players, at a number.
+      'practice switched on': [
+        headline(DeckCopy.headline),
+        text(DeckCopy.players),
+        text(TableCopy.seated),
+        text(DeckCopy.practice),
+        for (final chip in DeckCopy.chips) button(chip),
+        for (final length in _lengths) text(length),
+        text(CommonCopy.seconds),
+        text(DeckCopy.minutes),
+        text(DeckCopy.noClock),
+        text(DeckCopy.off),
+        button(DeckCopy.done),
+      ],
     },
   ),
   '03b Role sheet': (
@@ -299,6 +338,13 @@ final screens = <String, Screen>{
           button(label),
           text(VoteCopy.progress),
         ],
+      // Practice players among the rows, each tagged.
+      'practice players at the table': [
+        headline(VoteCopy.headline),
+        button(VoteCopy.lockIn),
+        text(VoteCopy.progress),
+        text(TableCopy.practice),
+      ],
     },
   ),
   '10 The count': (

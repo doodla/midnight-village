@@ -16,6 +16,30 @@ class YouTag extends StatelessWidget {
   final Color ink;
 
   @override
+  Widget build(BuildContext context) => _OutlineTag(NightCopy.you, ink: ink);
+}
+
+/// "Practice" beside a practice player's name (a seat the server plays) at
+/// the table and in the vote: the same outlined tag as [YouTag], so it reads
+/// as who the seat is, never as a role.
+class PracticeTag extends StatelessWidget {
+  const PracticeTag({super.key, required this.ink});
+
+  /// The colour of the words on what it sits on.
+  final Color ink;
+
+  @override
+  Widget build(BuildContext context) =>
+      _OutlineTag(TableCopy.practice, ink: ink);
+}
+
+class _OutlineTag extends StatelessWidget {
+  const _OutlineTag(this.text, {required this.ink});
+
+  final String text;
+  final Color ink;
+
+  @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     return Container(
@@ -28,7 +52,7 @@ class YouTag extends StatelessWidget {
         border: Border.all(color: ink, width: skin.shape.ring),
       ),
       child: FitWords(
-        NightCopy.you,
+        text,
         maxLines: 1,
         style: skin.typography.tag.copyWith(color: ink),
       ),

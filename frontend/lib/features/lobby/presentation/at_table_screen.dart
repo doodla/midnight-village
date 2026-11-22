@@ -520,7 +520,8 @@ class _Rows extends StatelessWidget {
 }
 
 /// A member's row; a dropped phone's whole row dimmed (its token more),
-/// with no words, so it reads at a glance.
+/// with no words, so it reads at a glance; a practice player's tagged
+/// "Practice" (never dimmed: it has no phone to drop).
 class _Row extends StatelessWidget {
   const _Row({required this.player, required this.own, required this.away});
 
@@ -535,6 +536,7 @@ class _Row extends StatelessWidget {
       name: player.displayName,
       size: PlayerRowSize.lobby,
       own: own,
+      practice: player.practice,
       away: away,
     );
     if (!away) return row;

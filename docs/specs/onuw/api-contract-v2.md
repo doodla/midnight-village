@@ -80,7 +80,23 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
     the newest game). A phone that drops stays `true` for `disconnect_grace_seconds`, then
     the table hears a `lobby_update` with `false`; a phone back after being shown as gone
     sends one at once. A member never seen with a socket is `false`.
+  - `players[].practice: true` marks a practice player (a seat the server plays; see below;
+    always `connected`). Nobody else has the key.
+  - `practice: {"most": n}`, only at a table that switched practice players on or has some
+    seated: how many may sit now (those seated plus the free seats).
 - `lobby_update` is also sent when a member joins or leaves.
+- **Practice players.** `POST /lobbies/<code>/practice/` (host, waiting tables) with
+  `{"on": true | false}` and/or `{"count": n}`: on or off for the table (`settings.practice`;
+  off takes every one away), and how many sit (a target, so a resend changes nothing; above 0
+  switches them on). Answers the lobby body; the table hears `lobby_update`. `400
+  bad_request` (malformed), `400 lobby_full` (past the free seats), `403` not the host, `404
+  lobby_not_found`, `409 lobby_closed` once dealt. They take seats like anyone (tokens,
+  `seats`, "Deal to {n}"), are named for village things ("Scarecrow", "Teapot", ...), never
+  host (handover and the owner leaving skip them; the last person out closes the table) and
+  never drop. A person joining a full table takes the newest one's seat. In the game the
+  server plays them through the same requests a phone sends, the moment each stage opens
+  (`backend/apps/onuw/README.md`, "Practice players"); every players list marks them
+  `practice: true`. An app that knows nothing of them shows them as ordinary players.
 - `PATCH /lobbies/<code>/` (host, waiting tables): `{"settings": {...}}` is MERGED into the
   stored settings (a key given again is replaced whole). `deck` is `auto` or `custom`;
   `deck_chip` is `simple`, `classic` or `chaos`; with `auto` the deal builds the deck
@@ -147,7 +163,7 @@ The caller's own view, the same keys in every phase:
 | `stage` | the token every stage-scoped request sends back (`look.<g>`, `w1.<g>`, `w2.<g>`, `talk.<g>`, `vote.<g>`, ...) |
 | `player_id`, `is_host`, `host_id` | the caller's own id; who hosts now |
 | `your_role` | `{"original_role"}`; at the results also `current_role` and `night_action_data` |
-| `players[]` | `player_id`, `display_name`, `token`, `seat`, in seat order (who is connected: `GET .../players/`) |
+| `players[]` | `player_id`, `display_name`, `token`, `seat`, in seat order, and `practice: true` for a practice player (who is connected: `GET .../players/`) |
 | `roles_in_game` | the deck |
 | `action_prompt` | in an open window, for every player (section 5); otherwise null |
 | `night_results`, `night_results_seen` | the caller's own results of closed windows (and the Doppelganger's look at once), and how many the phone has shown |
@@ -297,6 +313,7 @@ as sending it once did (`backend/tests/onuw/test_resend.py`):
 | lobby `join` | state unchanged; `400 already_in_lobby` | n/a |
 | lobby `leave` | state unchanged; `400` (`404` if the table is gone) | n/a |
 | lobby `PATCH` | the same values: same answer | n/a |
+| lobby `practice` | the same switch and count: same answer | `409 lobby_closed` once dealt |
 
 For `join`, `leave` and `start`, whose second answer differs, the app treats the answer to
 its own resend as success and reads the table again. The app sends a phone's requests one at
@@ -312,6 +329,11 @@ a time and retries only the latest, so a stale resend never overtakes a newer re
   answer is the same bytes as anyone's.
 - Human tells (thinking time) are out of the server's reach; phones keep sound and haptics
   identical.
+- At a table with practice players, the request that opens a stage (the last "ready", the
+  choose that closes a window) waits while the server plays them: one request each per
+  practice player whatever their cards, so its time says how many there are, never what
+  they hold (a practice Doppelganger's look resolving is the same accepted tell as a
+  person's).
 - The online count misses people on the home screen (it counts players at tables).
 - The timeline assumes every card move is logged; a future role that moves cards outside the
   log must log its moves, or `night_timeline` is null.

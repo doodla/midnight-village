@@ -1,0 +1,319 @@
+{
+  "winning_teams": [
+    "village"
+  ],
+  "reason": "A Werewolf was eliminated.",
+  "eliminated_players": [
+    {
+      "player_id": 95,
+      "display_name": "Scarecrow",
+      "role": "Werewolf",
+      "elimination_reason": "vote"
+    }
+  ],
+  "players": [
+    {
+      "player_id": 92,
+      "display_name": "Pia",
+      "token": "antler",
+      "seat": 0,
+      "original_role": "Seer",
+      "final_role": "Robber",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 95
+    },
+    {
+      "player_id": 95,
+      "display_name": "Scarecrow",
+      "token": "key",
+      "seat": 1,
+      "practice": true,
+      "original_role": "Werewolf",
+      "final_role": "Werewolf",
+      "team": "werewolf",
+      "is_eliminated": true,
+      "elimination_reason": "vote",
+      "outcome": "lose",
+      "vote_target_id": 93
+    },
+    {
+      "player_id": 96,
+      "display_name": "Teapot",
+      "token": "moth",
+      "seat": 2,
+      "practice": true,
+      "original_role": "Robber",
+      "final_role": "Seer",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 95
+    },
+    {
+      "player_id": 93,
+      "display_name": "Quin",
+      "token": "bell",
+      "seat": 3,
+      "original_role": "Villager",
+      "final_role": "Villager",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 95
+    }
+  ],
+  "center_cards": [
+    "Troublemaker",
+    "Villager",
+    "Insomniac"
+  ],
+  "night_actions_log": [
+    {
+      "wave": 2,
+      "result": {
+        "werewolves": [],
+        "center_card": {
+          "role": "Insomniac",
+          "index": 2
+        }
+      },
+      "targets": {
+        "center_index": 2
+      },
+      "player_id": 95,
+      "action_type": "see_team",
+      "role_acting_as": "Werewolf",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 3,
+      "result": {
+        "peeked_role": "Werewolf"
+      },
+      "targets": {
+        "player_id": 95
+      },
+      "player_id": 92,
+      "action_type": "peek_player",
+      "role_acting_as": "Seer",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 3,
+      "result": {
+        "new_role": "Seer"
+      },
+      "targets": {
+        "player_id": 92
+      },
+      "player_id": 96,
+      "action_type": "swap_with_player",
+      "role_acting_as": "Robber",
+      "timestamp_order": 1
+    }
+  ],
+  "night_timeline": {
+    "seats": [
+      92,
+      95,
+      96,
+      93
+    ],
+    "cards": [
+      {
+        "card_id": "k0",
+        "role": "Seer",
+        "werewolf": false
+      },
+      {
+        "card_id": "k1",
+        "role": "Werewolf",
+        "werewolf": true
+      },
+      {
+        "card_id": "k2",
+        "role": "Robber",
+        "werewolf": false
+      },
+      {
+        "card_id": "k3",
+        "role": "Villager",
+        "werewolf": false
+      },
+      {
+        "card_id": "k4",
+        "role": "Troublemaker",
+        "werewolf": false
+      },
+      {
+        "card_id": "k5",
+        "role": "Villager",
+        "werewolf": false
+      },
+      {
+        "card_id": "k6",
+        "role": "Insomniac",
+        "werewolf": false
+      }
+    ],
+    "dealt": {
+      "players": {
+        "92": "k0",
+        "95": "k1",
+        "96": "k2",
+        "93": "k3"
+      },
+      "center": [
+        "k4",
+        "k5",
+        "k6"
+      ]
+    },
+    "steps": [
+      {
+        "step": 1,
+        "window": 2,
+        "order_group": 2,
+        "role": "Werewolf",
+        "actors": [
+          95
+        ],
+        "doppelganger_actors": [],
+        "action": "peek_center",
+        "made_by_server": false,
+        "looked_at": [
+          {
+            "center_index": 2,
+            "card_id": "k6"
+          }
+        ],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "92": "k0",
+            "95": "k1",
+            "96": "k2",
+            "93": "k3"
+          },
+          "center": [
+            "k4",
+            "k5",
+            "k6"
+          ]
+        }
+      },
+      {
+        "step": 2,
+        "window": 2,
+        "order_group": 3,
+        "role": "Seer",
+        "actors": [
+          92
+        ],
+        "doppelganger_actors": [],
+        "action": "peek_player",
+        "made_by_server": false,
+        "looked_at": [
+          {
+            "player_id": 95,
+            "card_id": "k1"
+          }
+        ],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "92": "k0",
+            "95": "k1",
+            "96": "k2",
+            "93": "k3"
+          },
+          "center": [
+            "k4",
+            "k5",
+            "k6"
+          ]
+        }
+      },
+      {
+        "step": 3,
+        "window": 2,
+        "order_group": 3,
+        "role": "Robber",
+        "actors": [
+          96
+        ],
+        "doppelganger_actors": [],
+        "action": "swap_with_player",
+        "made_by_server": false,
+        "looked_at": [
+          {
+            "player_id": 92,
+            "card_id": "k0"
+          }
+        ],
+        "team": [],
+        "copied_role": null,
+        "moves": [
+          {
+            "card_id": "k2",
+            "from": {
+              "player_id": 96
+            },
+            "to": {
+              "player_id": 92
+            }
+          },
+          {
+            "card_id": "k0",
+            "from": {
+              "player_id": 92
+            },
+            "to": {
+              "player_id": 96
+            }
+          }
+        ],
+        "positions_after": {
+          "players": {
+            "92": "k2",
+            "95": "k1",
+            "96": "k0",
+            "93": "k3"
+          },
+          "center": [
+            "k4",
+            "k5",
+            "k6"
+          ]
+        }
+      }
+    ],
+    "final": {
+      "players": {
+        "92": "k2",
+        "95": "k1",
+        "96": "k0",
+        "93": "k3"
+      },
+      "center": [
+        "k4",
+        "k5",
+        "k6"
+      ]
+    },
+    "center_moved": [
+      false,
+      false,
+      false
+    ]
+  }
+}

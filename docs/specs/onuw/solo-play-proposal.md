@@ -1,7 +1,32 @@
-# Proposal: trying the game alone (not built)
+# Proposal: trying the game alone (A built)
 
 21 November 2026. The owner, alone at a live table, could not get past the lobby: a game needs
 three phones. Two ways one person could try it, with rough cost. Recommended: **A**.
+
+**Built (22 November 2026), with the owner's hidden switch** ("hidden enable so it's not
+visible to everyone"). How it works now: `backend/apps/core/README.md` and
+`backend/apps/onuw/README.md` ("Practice players"), the API in
+`docs/specs/onuw/api-contract-v2.md`, the screens in `docs/specs/frontend/first-time-play.md`
+(02, 03, 09). Where the build differs from the plan below, and why:
+
+- **The mark is the account, not `settings.practice_ids`.** A practice player's username
+  starts with `practice-` (guest sign-up never makes one). A list in the settings could be
+  PATCHed by the host to name a real guest, and the server would then play for them; the
+  game would also need it copied. The settings keep only the switch (`practice: true`).
+- **`{"on": bool}` and `{"count": n}`, not `{"add": 1}` / `{"remove": 1}`.** A count is a
+  target, so a resend leaves the table as once; "on" is the hidden switch.
+- **Hidden.** No visible stepper by default: a hold on 03's "Players" switches them on,
+  then a "Practice" stepper appears under it. The tag is on 02 and 09 (the night board and
+  the count are not touched).
+- **One choose each per window, even with nothing to choose** (taken alike, read as
+  nothing), so the work after a window opens does not depend on their cards.
+- **The backstop is `GET /me/`, not the stage timers** (a timer fires at the deadline, too
+  late to act in the stage). Presence needed no change: a player with no socket is never
+  stamped disconnected, so they are never "gone"; only the players list says `connected`.
+- **Names are village things** ("Scarecrow", "Teapot", ...): "Moth" is a seat token.
+- **A person joining a full table takes a practice seat**, and the owner leaving with only
+  practice players left closes the table and deletes their accounts.
+- No migration.
 
 ## A. Practice players (recommended)
 

@@ -1,0 +1,136 @@
+{
+  "code": "F5HN2V",
+  "host": {
+    "id": 92,
+    "username": "00000000-0000-4000-8000-000000000092",
+    "display_name": "Pia"
+  },
+  "original_host_id": 92,
+  "is_acting_host": false,
+  "game_type": "onuw",
+  "status": "waiting",
+  "max_players": 10,
+  "settings": {
+    "deck": "auto",
+    "practice": true,
+    "deck_chip": "simple",
+    "night_protocol": 2,
+    "card_look_seconds": 30
+  },
+  "players": [
+    {
+      "user": {
+        "id": 92,
+        "username": "00000000-0000-4000-8000-000000000092",
+        "display_name": "Pia"
+      },
+      "token": "antler",
+      "joined_at": "2024-03-07T22:36:18Z",
+      "connected": true
+    },
+    {
+      "user": {
+        "id": 95,
+        "username": "practice-00000000-0000-4000-9000-000000000095",
+        "display_name": "Scarecrow"
+      },
+      "token": "key",
+      "joined_at": "2024-03-07T22:36:18Z",
+      "connected": true,
+      "practice": true
+    },
+    {
+      "user": {
+        "id": 96,
+        "username": "practice-00000000-0000-4000-9000-000000000096",
+        "display_name": "Teapot"
+      },
+      "token": "moth",
+      "joined_at": "2024-03-07T22:36:18Z",
+      "connected": true,
+      "practice": true
+    },
+    {
+      "user": {
+        "id": 93,
+        "username": "00000000-0000-4000-8000-000000000093",
+        "display_name": "Quin"
+      },
+      "token": "bell",
+      "joined_at": "2024-03-07T22:37:18Z",
+      "connected": false
+    }
+  ],
+  "created_at": "2024-03-07T22:36:18Z",
+  "deck_preview": {
+    "Werewolf": 2,
+    "Seer": 1,
+    "Robber": 1,
+    "Troublemaker": 1,
+    "Villager": 2
+  },
+  "deck_cards": {
+    "Werewolf": 2,
+    "Seer": 1,
+    "Robber": 1,
+    "Troublemaker": 1,
+    "Villager": 2
+  },
+  "deal": {
+    "ok": true,
+    "need": 7,
+    "have": 7,
+    "seats": null
+  },
+  "seats_range": [
+    4,
+    10
+  ],
+  "lengths": {
+    "night_wave_seconds": 30,
+    "night_min_window_seconds": 8,
+    "night_doppelganger_window_seconds": 10,
+    "discussion_seconds": 300,
+    "voting_seconds": 120,
+    "disconnect_grace_seconds": 25,
+    "card_look_seconds": 30,
+    "host_handover_seconds": 60
+  },
+  "length_ranges": {
+    "night_wave_seconds": [
+      0,
+      3600
+    ],
+    "night_min_window_seconds": [
+      0,
+      30
+    ],
+    "night_doppelganger_window_seconds": [
+      0,
+      3600
+    ],
+    "discussion_seconds": [
+      0,
+      3600
+    ],
+    "voting_seconds": [
+      0,
+      3600
+    ],
+    "disconnect_grace_seconds": [
+      0,
+      60
+    ],
+    "host_handover_seconds": [
+      0,
+      600
+    ],
+    "card_look_seconds": [
+      0,
+      120
+    ]
+  },
+  "practice": {
+    "most": 8
+  }
+}

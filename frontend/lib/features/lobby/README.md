@@ -65,7 +65,8 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   at 360 x 640, and alone at a table set for eight the deck and Leave too, at 320, 360 and
   390, text x1 and x1.3 (`table_fit_test.dart`). A row per player: their own outlined and
   never dimmed, names never cut, another's dropped phone (`connected: false`) dimmed with no
-  words. Share is the system share sheet (`share_plus`); only where there is none the link is
+  words, a practice player's (`players[].practice`, a seat the server plays) tagged
+  "Practice" (`PracticeTag`) and never dimmed, for host and guests. Share is the system share sheet (`share_plus`); only where there is none the link is
   copied and the screen says "Copied". At a table set for a number (`settings.seats`): "{d} of
   {n}" with an empty circle for each place not taken (`SeatsLine`, `SeatDots.empty`, the
   same words 03 shows, for host and guests alike), above the rows; the wait is said this one
@@ -119,6 +120,16 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
     a range reason). The Doppelganger's row is there only while the deck holds one. Each
     stepper is as wide as its own widest value; the rows stay even (every name beside its
     stepper, or every name over it). There are no pace presets.
+  - **Practice players, hidden** (the owner: "hidden enable so it's not visible to
+    everyone"): a hold on the word "Players" (`LabelledStepper.onLabelLongPress`) switches
+    them on for this table, or off (they all get up); a tap does nothing and nothing on
+    screen offers it. While on (`LobbyState.practiceOn`: the lobby's `practice`, or this
+    phone's change on its way), a "Practice" stepper under Players sets how many sit, 0 to
+    the server's `practice.most`. `LobbyNotifier.togglePractice` / `setPracticeCount` send
+    `POST /lobbies/<code>/practice/` on the settings' lane (one at a time, in order), shown
+    at once (`PracticeAsk`, `PracticeSeats`), the answer the server's lobby; a refusal reads
+    the lobby again, no answer says "Not sent." with "Try again". What to tell the owner: "On
+    the set-up page, press and hold the word Players."
   - "Done" back to 02, always live (a host who changed only a timer is never stuck).
 - **State.** Everything shown is `lobbyProvider(code)`, read until it answers (`retryForever`;
   "One moment" meanwhile): the lobby body, its socket (`lobby_update` is the whole lobby), and
@@ -139,4 +150,8 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   what shows while changes are on their way; `table_leave_test.dart` every way a leave ends); the gallery's 01 to 03b states are
   `test_screens/table_fixtures.dart`; the whole way from 01 to 11 and back to 02 against a
   real server is `test_e2e/ui_journey_test.dart`, and a table set for eight, filled one by
-  one, lowered to seven and dealt is `test_e2e/ui_setup_test.dart`.
+  one, lowered to seven and dealt is `test_e2e/ui_setup_test.dart`. Practice players:
+  `practice_players_test.dart` (the hidden hold, the stepper, the tags, switching off, a
+  guest), `practice_seats_test.dart` (what the app reads); one person alone holding
+  "Players", seating three and playing a whole game while the server plays them is
+  `test_e2e_practice/ui_practice_test.dart` (run by `just test-harness`).

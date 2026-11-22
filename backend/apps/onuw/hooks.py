@@ -100,3 +100,11 @@ class OnuwHooks(GameHooks):
         ):
             return None
         return {"game_id": str(game.id), "phase": game.phase}
+
+    def practice_seats(self, lobby) -> bool:
+        """Every ONUW table may seat practice players (``apps/onuw/practice.py``
+        plays them)."""
+        return True
+
+    def has_played(self, lobby, user_id: int) -> bool:
+        return PlayerRole.objects.filter(game__lobby=lobby, user_id=user_id).exists()

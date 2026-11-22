@@ -35,6 +35,11 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## In flight (22 November 2026)
 
+- Practice players: built (branch `worktree-agent-a50c7468d9e30a181`, not merged). The
+  hidden switch, in one sentence for the owner: "On the set-up page, press and hold the word
+  Players." A "Practice" stepper then seats village things (Scarecrow, Teapot, ...) tagged
+  "Practice"; the server plays them. Holding "Players" again takes them all away.
+
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
   the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
   (same files), as small pull requests: back, then loading, then speed. Back is built (branch
@@ -64,7 +69,7 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 - Practice players: yes, "but hidden enable so it's not visible to everyone. I'm thinking long
   press on an element or something". Switched on by a hidden gesture on an existing element;
-  nothing visible to ordinary players. Not started; after the set-up page.
+  nothing visible to ordinary players. Built (see "In flight").
 - "Polish puzzles" was a typo for "polish passes".
 - Six sample looks (https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2): "Skip till our default
   is good". Parked: no other looks until Shadow paper is good.

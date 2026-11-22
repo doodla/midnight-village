@@ -152,7 +152,14 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   LobbyState _withPending(LobbyState lobby) => _pending
       .fold(lobby, _mergeSettings)
-      .copyWith(pendingKeys: {for (final p in _pending) ...p.keys});
+      .copyWith(
+        pendingKeys: {for (final p in _pending) ...p.keys},
+        practiceAsk: _practiceAsk,
+      );
+
+  /// The practice change on its way (the newest asked), shown over the
+  /// server's lobby until it answers.
+  PracticeAsk? _practiceAsk;
 
   static LobbyState _mergeSettings(LobbyState lobby, Map<String, Object?> p) =>
       lobby.copyWith(
@@ -497,6 +504,65 @@ class LobbyNotifier extends _$LobbyNotifier {
   /// One length on the set-up page (a settings key, in seconds).
   Future<void> setLength(String key, int seconds) =>
       _changeSettings({key: seconds});
+
+  /// The host's long press on 03's "Players": practice players switched on
+  /// for this table, or off (which takes every one away).
+  Future<void> togglePractice() {
+    final lobby = state.value;
+    if (lobby == null) return Future.value();
+    return _changePractice(PracticeAsk(on: !lobby.practiceOn));
+  }
+
+  /// How many practice players sit at the table (03's Practice stepper).
+  Future<void> setPracticeCount(int count) =>
+      _changePractice(PracticeAsk(count: count));
+
+  /// Shows [ask] at once and sends it after the changes before it (one lane
+  /// with the settings, so the server sees them in the order tapped). The
+  /// answer is the server's lobby; a refusal drops it and reads the lobby
+  /// again; no answer says "Not sent." with "Try again".
+  Future<void> _changePractice(PracticeAsk ask) {
+    final lobby = state.value;
+    if (lobby == null) return Future.value();
+    _practiceAsk = ask;
+    _show(lobby.copyWith(notSent: false));
+    return _settingsQueue = _settingsQueue.then((_) => _sendPractice(ask));
+  }
+
+  Future<void> _sendPractice(PracticeAsk ask) async {
+    void settle() {
+      if (identical(_practiceAsk, ask)) _practiceAsk = null;
+    }
+
+    try {
+      final answer = await _hostAction(
+        () => ref
+            .read(lobbyServiceProvider)
+            .setPractice(code, on: ask.on, count: ask.count),
+      );
+      if (!ref.mounted) return;
+      settle();
+      _show(_adopt(answer));
+    } on NoLongerHostException {
+      settle();
+      if (ref.mounted) await refreshLobby();
+    } catch (e) {
+      if (!ref.mounted) return;
+      settle();
+      if (serverAnswered(e)) {
+        logger.d('Practice change refused ($e)');
+        await refreshLobby();
+        return;
+      }
+      logger.d('Practice change not sent ($e)');
+      _retry = () => _changePractice(ask);
+      final now = state.value;
+      if (now != null) {
+        state = AsyncData(_withPending(now).copyWith(notSent: true));
+      }
+      await refreshLobby();
+    }
+  }
 
   /// Sends [patch] (one at a time, in order) and shows it at once, merged
   /// as the server merges it. The answer is the server's lobby; a refusal

@@ -402,6 +402,14 @@ Future<void> pumpVoteTenLong(WidgetTester tester) => _shell(
   learned: Cue.values.toSet(),
 );
 
+/// 09 at a table with two practice players (Quin's phone): Scarecrow and
+/// Teapot tagged "Practice", Pia not.
+Future<void> pumpVotePractice(WidgetTester tester) => _shell(
+  tester,
+  sheet.recordedMe('me_voting_practice'),
+  learned: Cue.values.toSet(),
+);
+
 /// 09 at three: game 7 without Dev and Esme.
 Future<void> pumpVoteThree(WidgetTester tester) => _shell(
   tester,

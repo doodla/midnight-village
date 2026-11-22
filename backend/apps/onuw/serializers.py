@@ -6,6 +6,8 @@ from typing import Any
 
 from rest_framework import serializers
 
+from apps.core.practice import is_practice
+
 from .models import Game, Phase, PlayerRole
 from .protocol import in_look_stage, stage_token
 
@@ -14,14 +16,18 @@ def player_identity(pr: PlayerRole) -> dict[str, Any]:
     """A player's public table identity: who they are and where they sit.
 
     The one place the players lists (``/me/``, ``players/``, results) build it.
-    Needs ``pr.user`` loaded. Never includes a role or a vote.
+    Needs ``pr.user`` loaded. Never includes a role or a vote. A practice player
+    (``apps.core.practice``) also has ``practice: true``; nobody else has the key.
     """
-    return {
+    identity: dict[str, Any] = {
         "player_id": pr.user_id,
         "display_name": pr.user.display_name or pr.user.username,
         "token": pr.token,
         "seat": pr.seat,
     }
+    if is_practice(pr.user):
+        identity["practice"] = True
+    return identity
 
 
 class PlayerPublicSerializer(serializers.Serializer):

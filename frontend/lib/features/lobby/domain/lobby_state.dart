@@ -29,6 +29,11 @@ abstract class LobbyPlayer with _$LobbyPlayer {
     /// during the table's grace period after a drop). False is a dropped
     /// phone: its row is dimmed, with no words.
     required bool connected,
+
+    /// A practice player (`practice`): a seat the server plays, tagged
+    /// "Practice" for everyone; always `connected`. An older server sends
+    /// no key: a person.
+    @Default(false) bool practice,
   }) = _LobbyPlayer;
 
   /// Parses the backend's nested player format. `connected` is always sent:
@@ -42,8 +47,27 @@ abstract class LobbyPlayer with _$LobbyPlayer {
       joinedAt: DateTime.parse(json['joined_at'] as String),
       token: TokenId.fromServer(json['token'] as String),
       connected: json['connected'] as bool,
+      practice: json['practice'] as bool? ?? false,
     );
   }
+}
+
+/// A practice change of this phone's not answered yet (`POST
+/// /lobbies/<code>/practice/`): shown at once, the server's word once it
+/// answers. [on] the switch asked for, [count] how many asked to sit.
+@immutable
+class PracticeAsk {
+  const PracticeAsk({this.on, this.count});
+
+  final bool? on;
+  final int? count;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PracticeAsk && other.on == on && other.count == count;
+
+  @override
+  int get hashCode => Object.hash(on, count);
 }
 
 /// Whether the table can be dealt now (`deal`): [ok]
@@ -177,6 +201,14 @@ abstract class LobbyState with _$LobbyState {
     /// server has it; the server's numbers (`deal`) judge only once
     /// answered. Frontend only.
     @Default({}) Set<String> pendingKeys,
+
+    /// Practice players switched on for this table (`practice`, sent only
+    /// then): the most that may sit at it now. Null: switched off (the
+    /// table shows nothing of them).
+    int? practiceMost,
+
+    /// This phone's practice change not answered yet. Frontend only.
+    PracticeAsk? practiceAsk,
   }) = _LobbyState;
 
   /// Parses the backend's LobbyResponse format.
@@ -223,7 +255,38 @@ abstract class LobbyState with _$LobbyState {
             )
           : const {},
       seatsRange: (json['seats_range'] as List?)?.cast<int>(),
+      practiceMost:
+          (json['practice'] as Map<String, dynamic>?)?['most'] as int?,
     );
+  }
+}
+
+/// Practice players as this phone shows them (03's Practice row): the
+/// server's, with this phone's change not answered yet taken over it.
+extension PracticeSeats on LobbyState {
+  /// The practice players seated, as the server says.
+  int get practiceSeated => players.where((p) => p.practice).length;
+
+  /// The host has switched them on (a change on its way included).
+  bool get practiceOn {
+    final ask = practiceAsk;
+    if (ask?.on case final on?) return on;
+    if ((ask?.count ?? 0) > 0) return true;
+    return practiceMost != null;
+  }
+
+  /// How many sit at the table, as this phone shows it.
+  int get practiceCount =>
+      practiceAsk?.on == false ? 0 : practiceAsk?.count ?? practiceSeated;
+
+  /// The most that may sit: the server's, or, before it has said (the
+  /// switch on its way), every seat no person holds.
+  int get practiceLimit {
+    final most = practiceMost;
+    if (most != null) return most;
+    final people = players.length - practiceSeated;
+    final seats = table.seats ?? maxPlayers;
+    return (seats - people).clamp(0, maxPlayers);
   }
 }
 

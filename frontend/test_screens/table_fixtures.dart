@@ -9,6 +9,7 @@ import 'package:midnight_village/features/lobby/presentation/join_flow.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
 import '../test/helpers/contract/contract_samples.dart';
+import '../test/helpers/mock_http_client.dart';
 import '../test/helpers/table_setup.dart';
 
 // 01 Join, 02 Table, 03 Deck and 03b through the app's real routes and
@@ -275,6 +276,15 @@ Future<void> pumpTableSeatsFull(WidgetTester tester) => TableSetup.pump(
   viewer: 'Tia',
 );
 
+/// 02 at Pia's table: Quin and two practice players the server plays
+/// (Scarecrow and Teapot), each tagged "Practice"; [viewer]'s phone.
+Future<void> pumpTablePractice(WidgetTester tester, {String viewer = 'Pia'}) =>
+    TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_practice_guest'),
+      viewer: viewer,
+    );
+
 // ---------------------------------------------------------------------------
 // 03 Deck and 03b
 // ---------------------------------------------------------------------------
@@ -335,6 +345,35 @@ Future<void> pumpDeckAlone(WidgetTester tester, {double textScale = 1}) async {
     textScale: textScale,
   );
   await _openDeck(tester);
+}
+
+/// 03 at Pia's table with two practice players: the Practice row under
+/// Players (switched on: it shows nowhere else).
+Future<void> pumpDeckPractice(WidgetTester tester) async {
+  await _pumpHost(tester, 'detail_practice_guest', 'Pia');
+  await _openDeck(tester);
+}
+
+/// 03 alone at a new table, "Players" just held: the Practice row at 0,
+/// shown at once (the server's answer held).
+Future<void> pumpDeckPracticeSwitched(WidgetTester tester) async {
+  // A picture that holds an answer never waits it out.
+  final setup = _setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('created_with_defaults'),
+    viewer: 'Ana',
+    timesOut: false,
+  );
+  await _openDeck(tester);
+  final path = '/lobbies/${setup.code}/practice/';
+  setup.http.hold(method: 'POST', path: path);
+  setup.http.answer(
+    'POST',
+    path,
+    ContractSamples.map('http/lobby/practice_on'),
+  );
+  await tester.longPress(find.text(DeckCopy.players));
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
 /// 03 scrolled to its lengths, at a new table.

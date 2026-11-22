@@ -104,7 +104,9 @@ cd "$FRONTEND_DIR"
 # live-backend suites with no backend up) and NOT under integration_test/ (whose
 # device-bound binding falls back to a web device and dies, "Web devices are not
 # supported for integration tests yet"). They run on the host Dart VM under the
-# normal flutter_test binding when invoked by explicit path here.
+# normal flutter_test binding when invoked by explicit path here. The practice
+# players' journey sits beside them in test_e2e_practice/ (same rules, its own
+# folder while another piece of work holds test_e2e/).
 flutter test --tags e2e \
   --dart-define=ENV=dev \
   --dart-define=HARNESS_PORT="$HARNESS_PORT" \
@@ -115,7 +117,8 @@ flutter test --tags e2e \
   test_e2e/ui_roles_test.dart \
   test_e2e/ui_end_test.dart \
   test_e2e/ui_journey_test.dart \
-  test_e2e/ui_setup_test.dart
+  test_e2e/ui_setup_test.dart \
+  test_e2e_practice/ui_practice_test.dart
 test_exit=$?
 
 if [[ "$interrupted" -ne 0 ]]; then

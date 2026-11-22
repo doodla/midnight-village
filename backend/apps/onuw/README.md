@@ -82,6 +82,39 @@ The body also carries `deck_cards` (`deal.deck_cards`: the roles the table would
 
 **A table set for a number** (`settings.seats`, 3 to 10; `engine.validation.seats_of`, `validate_seats`): the host picks how many the game is for, sets everything up for that number, and the table waits. `need` and `deck_preview` are for that number, so they never move when people join or leave; the deal (`validate_onuw_settings` with `changed=None`) needs exactly that many here; a join past it is `lobby_full` (`GameHooks.seat_limit`, read by `core.lobbies.add_member` under the Lobby lock); a PATCH may change it any time before the deal within `seats_range` (`engine.validation.seats_range`: never below the players here, never above `max_players`; 400 otherwise). Absent or null is an open table (every table before the key; a new table, `APP_DEFAULTS` writes none): it deals to whoever is there, as before. A PATCH that gives `roles` checks only each role's own limits (a known role, 0 to its most, Masons in pairs), not the deck's size or the head count: a deck being built is stored card by card and `deal` reports whether it fits; the deal checks everything.
 
+## Practice players: the server plays them (`practice.py`, `engine/practice.py`)
+
+The seats are core's (`apps/core/README.md`, "Practice players"); this app plays them. There
+is no fake phone and no socket. Every stage opening (`_start_look_stage`, `_open_window`,
+`transition_to_discussion`, `transition_to_voting`) ends with `services._practice_after_commit`:
+once its transaction commits, `practice.drive(game_id)` acts for every practice player still
+behind in the stage the game is in NOW, through the functions a phone's request calls, with
+the stage token and the prompt's `chosen` a phone would echo: the look and the talk
+`services.set_ready(True)`; each night window exactly ONE `choose_night.submit_choose`
+whatever the card (the picks from `engine.practice.practice_picks`: one of the prompt's
+`shapes` uniformly, then that many distinct cards of that kind uniformly; empty when it has
+nothing to choose, which the server takes alike and reads as nothing), and a Doppelganger's
+follow-up when her prompt arms one; the vote `services.submit_vote(lock=True)` for one of the
+other players uniformly. So every rule holds for them as for anyone (stages, resends, the
+close rule, the minimum window, the reveal) and they never make anyone wait: they act the
+moment a stage opens. One choose per practice player per window keeps the work after a
+window opens the same whatever their cards (her look resolving in her request is the one
+difference, the same accepted tell as a person's). Draws are seeded from the game's seed,
+the step and the seat (`practice_rng`) and logged at INFO.
+
+- `drive` never raises (a failure is logged; the stage's clock or the host still moves the
+  game) and is safe any number of times (a lost race is a stage that is over, or a resend).
+  `GET /me/` is the backstop: `practice.behind` (in memory: no query at a table without
+  them) drives a practice player that has not done its part, and the read shows the game
+  after it.
+- Presence: they have no socket, so they are never stamped disconnected and never gone; the
+  players list (`PlayerListView`) says `connected: true`. `player_identity` adds `practice:
+  true` (every players list: `/me/`, `PlayerListView`, results); nobody else has the key.
+- Hidden information: nothing they pick is sent to anyone (the night has no per-player
+  event; the vote announces counts); their cards show in the results like anyone's.
+- Tests: `tests/onuw/test_practice_players.py` (each card they can be dealt, a whole game
+  alone, a mixed table, nothing leaking, the backstop, seating, never hosting).
+
 ## Night timeline (results)
 
 `GET .../results/` (results phase only, members only, as before) has `night_timeline`: `{seats, cards, dealt, steps, final, center_moved}` built by the PURE `engine/timeline.py` (`build_night_timeline`) FORWARDS from the dealt cards (`PlayerRole.original_role` by seat, `Game.dealt_center_cards`) and `Game.night_actions_log` (`ActionLogEntry.to_dict` is the one log format). Cards have stable ids (`k0..k<n-1>` by seat, then the three centre cards) and a server-set `werewolf` flag (a Werewolf card, or a Doppelganger card whose holder COPIED Werewolf: it is a werewolf card for whoever ends the night holding it, `docs/specs/onuw/doppelganger.md` Team Resolution Rule); each step is one log entry in WAKE order (the engine resolves team views in SEAT order, so inside order group 2 the timeline re-sorts to Werewolves, Minion, Masons with a stable sort; team views move no cards; `see_team` rows of one role in one group merge into ONE step with all its actors, dealt ones first, a Doppelganger who copied the role among them and named in `doppelganger_actors`; a Doppelganger-Minion acts in window 1 and keeps her own step) with `actors`, `doppelganger_actors`, `action` (`copy`, `see_team`, `peek_player`, `peek_center` (a lone Werewolf's look too), `swap_with_player`, `swap_others`, `swap_with_center`, `look_own`, `skip`), `looked_at` (card ids as the table was at that step), `moves`, `team`, `copied_role`, `made_by_server` and `positions_after`. A game dealt before `dealt_center_cards` recovers the centre with `recover_dealt_center` (undo the logged swaps from the final table and require the players' cards to equal their dealt roles). The undo checks ONLY that the players' cards come back to their dealt roles (the centre it returns is what the log implies). `services.night_timeline_for` is a presentation boundary: ANY failure answers `night_timeline: null` so the rest of the results still show; a refusal for a game from before the centre was stored is logged once at WARNING, anything else at ERROR. The proof is in the tests, not a runtime self-check: the replay's final table equals the engine's for all 29 reference games and 1500 seeded random nights, with the actions collected the way the server collects them (`tests/onuw/night_rules_reference.engine_night`: seat order, a Doppelganger's follow-up last) and seats the reverse of player-id order (`tests/onuw/test_night_timeline.py`).

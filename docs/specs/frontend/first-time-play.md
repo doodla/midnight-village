@@ -280,12 +280,13 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - Your own row has a thicker outline.
   - A dropped member's token dims to 40%, with no words.
   - After a host handover, that phone switches to the host layout, with no words.
+  - A practice player's row (a seat the server plays, below at 03) carries "Practice" after the name, an outlined tag like "You", for host and guests; it is never dimmed (no phone to drop) and counts in "{d} of {n}" and "Deal to {n}". A practice table is a full one, so "Play with {n}" is not on screen with it (12 of 13 words).
 - **Pass:** guest says "Wait or scan"; host says "Show the code, then deal".
 
 **03 Tonight's game** (host; the set-up page, editable before anyone joins and until the deal; amended 21 November 2026 after the owner got stuck in the deck editor, and after review)
 - **One thing / loudest:** nothing is required; amber "Done".
 - **Locked until:** never: "Done" is always live (the page holds the players and the lengths too; a host who changed only a timer is never stuck). A deck that does not fit is shown on 02, to the host, with Deal locked.
-- **Copy:** "Tonight's game"; "Players" with a stepper (within the server's range: never below who is here, never above what the table holds; "Any", an open table, only with an automatic deck) and, at a number, "{d} of {n}" with every seat drawn; chips "Simple", "Classic", "Chaos"; at a number the cards picked over the cards needed ("7 / 11", digits) with a slot each, the players' then the centre's three; every role face up in a grid (names exempt), a tap puts one in, a lit card's minus takes one out (spoken "Take one {role} out"); every length the server has, each its name and a stepper over its value, in this order: "Talk", "Vote", "Night", the Doppelganger's (the role's name; the row is there only while the deck holds a Doppelganger), "Look", "Night minimum", "Dropped phone", "Host away"; values "{n} s", "{n} min"; 0 is "No clock" for the talk and the vote (no deadline: it ends when everyone is ready) and "Off" for the rest. Button "Done". **22 of 22 words.**
+- **Copy:** "Tonight's game"; "Players" with a stepper (within the server's range: never below who is here, never above what the table holds; "Any", an open table, only with an automatic deck) and, at a number, "{d} of {n}" with every seat drawn; chips "Simple", "Classic", "Chaos"; at a number the cards picked over the cards needed ("7 / 11", digits) with a slot each, the players' then the centre's three; every role face up in a grid (names exempt), a tap puts one in, a lit card's minus takes one out (spoken "Take one {role} out"); every length the server has, each its name and a stepper over its value, in this order: "Talk", "Vote", "Night", the Doppelganger's (the role's name; the row is there only while the deck holds a Doppelganger), "Look", "Night minimum", "Dropped phone", "Host away"; values "{n} s", "{n} min"; 0 is "No clock" for the talk and the vote (no deadline: it ends when everyone is ready) and "Off" for the rest. Button "Done"; with practice players switched on (hidden, below), "Practice" with a stepper under Players. **22 of 23 words; 23 with practice players on.**
 - **Removed:** the pace chips "Quick", "Normal", "Long" and their tiles (the owner: "I just need the things to be editable"), "Add {n} cards" / "Remove {n} cards" (the deck's state is the count and the slots, never words of direction), the face-down deck and "Edit" (the deck is always face up), "Use this deck" (now "Done").
 - **States:**
   - The deck stays automatic (a chip) until a card is changed; then it is the host's own, from the cards shown, for the number (an open table takes who is here, at least 3), and no chip is selected. Tapping a chip returns it to automatic.
@@ -293,6 +294,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - No length the page offers can freeze a game: with "Dropped phone" at 0, Talk, Vote and Night each need a clock, and with any of them at 0, "Dropped phone" is at least 1 s (the server's rule; the steppers' ranges are the server's).
   - Holding a portrait opens 03b.
   - Dealing without opening 03 stays three taps.
+  - **Practice players** (owner, 22 November 2026: "hidden enable so it's not visible to everyone"). Holding the word "Players" switches them on for this table (holding it again switches them off and they all get up). Nothing on any screen offers or names the gesture, and a tap on "Players" does nothing. Once on, a "Practice" stepper under Players (its name in the action face) sets how many sit, 0 to the most the server says may; the row answers the hold at once. That word is the 23rd at a table set for a number (22 at an open one): the budget is 23, the one word over 22 seen only by a host who held "Players". What to tell the owner: "On the set-up page, press and hold the word Players."
 - **Pass:** "Set it for eight, then wait."
 
 **03b Role sheet**
@@ -363,6 +365,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - Your own row is never listed.
   - The picked row lifts and gets an ink outline. Tapping another row moves the pick.
   - After locking, the player's own pick stays lifted and outlined and the other rows dim; the button reads "Locked". (Owner, 20 November 2026: a neighbour could already read "Lock in Cleo" before the lock; hiding the pick afterwards only costs the player the sight of their own choice.)
+  - A practice player's row carries "Practice" after the name, as on 02: "Who dies today?", "Lock in {name}", "{d} of {n} locked" and "Practice" are 8 of 8 words.
   - The vote's length is the table's "Vote" (03; 2 min unless the host changes it).
 - **Pass:** "Tap a name, then Lock in."
 

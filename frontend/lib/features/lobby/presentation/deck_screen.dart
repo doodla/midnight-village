@@ -117,6 +117,8 @@ class DeckScreen extends ConsumerWidget {
         ),
         onLength: (length, seconds) =>
             unawaited(notifier.setLength(length.key, seconds)),
+        onPracticeSwitch: () => unawaited(notifier.togglePractice()),
+        onPractice: (count) => unawaited(notifier.setPracticeCount(count)),
         onRetry: () => unawaited(notifier.retry()),
         onUse: close,
       ),
@@ -139,6 +141,8 @@ class DeckView extends StatelessWidget {
     required this.onDeck,
     required this.onLength,
     required this.onUse,
+    this.onPracticeSwitch,
+    this.onPractice,
     this.onRetry,
   });
 
@@ -148,6 +152,13 @@ class DeckView extends StatelessWidget {
   final DeckChanged onDeck;
   final void Function(Length length, int seconds) onLength;
   final VoidCallback onUse;
+
+  /// A hold on "Players": practice players on or off for this table (the
+  /// hidden switch; nothing on screen offers it).
+  final VoidCallback? onPracticeSwitch;
+
+  /// How many practice players sit at the table.
+  final ValueChanged<int>? onPractice;
   final VoidCallback? onRetry;
 
   int get _present => lobby.players.length;
@@ -203,6 +214,11 @@ class DeckView extends StatelessWidget {
             // "Any" never quietly drops a deck of the host's own.
             open: table.autoDeck,
             onSeats: onSeats,
+            practice: lobby.practiceOn
+                ? (count: lobby.practiceCount, most: lobby.practiceLimit)
+                : null,
+            onPracticeSwitch: onPracticeSwitch,
+            onPractice: onPractice,
           ),
           _Chips(
             labels: DeckCopy.chips,
@@ -237,7 +253,10 @@ class DeckView extends StatelessWidget {
 /// How many players the game is for: a stepper over the server's range
 /// ([range]: never below who is here, never above what the table holds);
 /// below 3, "Any" (an open table), while [open] (the deck is automatic) and
-/// no more than 3 are here; at a number, who is here of it.
+/// no more than 3 are here; at a number, who is here of it. A hold on the
+/// name switches practice players on or off ([onPracticeSwitch]); while on
+/// ([practice]), a "Practice" stepper under it sets how many sit at the
+/// table, 0 to the most the server says may.
 class _Players extends StatelessWidget {
   const _Players({
     required this.seats,
@@ -245,6 +264,9 @@ class _Players extends StatelessWidget {
     required this.range,
     required this.open,
     required this.onSeats,
+    this.practice,
+    this.onPracticeSwitch,
+    this.onPractice,
   });
 
   final int? seats;
@@ -252,6 +274,9 @@ class _Players extends StatelessWidget {
   final (int, int) range;
   final bool open;
   final ValueChanged<int?> onSeats;
+  final ({int count, int most})? practice;
+  final VoidCallback? onPracticeSwitch;
+  final ValueChanged<int>? onPractice;
 
   @override
   Widget build(BuildContext context) {
@@ -259,6 +284,8 @@ class _Players extends StatelessWidget {
     final ground = context.ground;
     final seats = this.seats;
     final (least, most) = range;
+    final practice = this.practice;
+    final onPractice = this.onPractice;
     return OutlinePanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -267,6 +294,7 @@ class _Players extends StatelessWidget {
           LabelledStepper(
             label: DeckCopy.players,
             style: skin.typography.title.copyWith(color: ground.text),
+            onLabelLongPress: onPracticeSwitch,
             stepper: ValueStepper(
               value: seats == null ? DeckCopy.any : '$seats',
               widest: DeckCopy.any,
@@ -286,6 +314,24 @@ class _Players extends StatelessWidget {
             ),
           ),
           if (seats != null) SeatsLine(present: present, seats: seats),
+          if (practice != null)
+            LabelledStepper(
+              label: DeckCopy.practice,
+              style: skin.typography.action.copyWith(color: ground.text),
+              stepper: ValueStepper(
+                value: '${practice.count}',
+                widest: '${math.max(practice.most, 10)}',
+                lowerLabel: SpokenCopy.lower,
+                higherLabel: SpokenCopy.higher,
+                small: true,
+                onLower: practice.count > 0 && onPractice != null
+                    ? () => onPractice(practice.count - 1)
+                    : null,
+                onHigher: practice.count < practice.most && onPractice != null
+                    ? () => onPractice(practice.count + 1)
+                    : null,
+              ),
+            ),
         ],
       ),
     );

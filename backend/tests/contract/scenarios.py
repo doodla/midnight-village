@@ -2402,9 +2402,223 @@ def gone_account(run: Recording) -> None:
     )
 
 
+PRACTICE = "/lobbies/{code}/practice/"
+
+
+def practice_table(run: Recording) -> None:
+    """Practice players (``apps.core.practice``): the host switches them on and
+    seats village things; a guest sees them tagged; the server plays them through
+    the whole game while the two people play theirs; a person joining a full table
+    takes a practice seat. Recorded after every other table, so no other sample's
+    ids or codes move."""
+    t = run.table()
+    _sign_in(t, ["Pia", "Quin", "Rue"])
+    t.clock.advance(60)
+    created = t.call("POST", "Pia", CREATE, {"game_type": "onuw", "defaults": "v2"})
+    t.code = created["code"]
+    t.connect_lobby("Pia")
+    t.record(
+        "lobby/practice_on",
+        "POST",
+        "Pia",
+        PRACTICE,
+        {"on": True},
+        status=200,
+        about="The host switches practice players on (the app's hidden long "
+        "press): `settings.practice` and `practice.most`, the seats they may take; "
+        "nobody is seated yet.",
+    )
+    t.record(
+        "lobby/practice_three",
+        "POST",
+        "Pia",
+        PRACTICE,
+        {"count": 3},
+        status=200,
+        about="Three practice players sit down: `players[].practice` true, always "
+        "`connected`, named for village things, with seat tokens like anyone.",
+    )
+    t.seat_practice()
+    t.record_event(
+        "lobby/lobby_update_practice",
+        "Pia",
+        "lobby",
+        "lobby_update",
+        about="The table hears the practice players arrive (the whole lobby body).",
+    )
+    t.record(
+        "lobby/practice_full",
+        "POST",
+        "Pia",
+        PRACTICE,
+        {"count": 10},
+        status=400,
+        about="More practice players than the free seats: `lobby_full`, nothing "
+        "changes.",
+    )
+    t.record(
+        "lobby/practice_bad_request",
+        "POST",
+        "Pia",
+        PRACTICE,
+        {"count": "2"},
+        status=400,
+        about="A practice change that is not `on` (true or false) or a whole "
+        "`count`: `bad_request`.",
+    )
+    t.record(
+        "lobby/practice_two",
+        "POST",
+        "Pia",
+        PRACTICE,
+        {"count": 2},
+        status=200,
+        about="The count lowered: the newest practice player gets up.",
+    )
+    t.clock.advance(60)
+    t.call("POST", "Quin", JOIN)
+    t.record(
+        "lobby/practice_not_host",
+        "POST",
+        "Quin",
+        PRACTICE,
+        {"count": 3},
+        status=403,
+        about="A guest cannot seat practice players.",
+    )
+    t.record(
+        "lobby/detail_practice_guest",
+        "GET",
+        "Quin",
+        LOBBY,
+        status=200,
+        about="A guest's view of a table with two people and two practice players.",
+    )
+    t.seat_practice()
+    deck = {
+        "Werewolf": 1,
+        "Seer": 1,
+        "Robber": 1,
+        "Troublemaker": 1,
+        "Insomniac": 1,
+        "Villager": 2,
+    }
+    t.call(
+        "PATCH",
+        "Pia",
+        LOBBY,
+        {"settings": {"seats": 4, "deck": "custom", "roles": deck}},
+    )
+    t.clock.advance(60)
+    t.start(
+        {
+            "Pia": "Seer",
+            "Quin": "Villager",
+            "Scarecrow": "Werewolf",
+            "Teapot": "Robber",
+        },
+        ["Troublemaker", "Villager", "Insomniac"],
+    )
+    for name in ("Pia", "Quin"):
+        t.connect(name)
+    t.record(
+        "game/me_look_practice",
+        "GET",
+        "Pia",
+        ME,
+        status=200,
+        about="The look at a table with practice players: they looked the moment "
+        "it opened (`progress` 2 of 4); `players[].practice` marks them.",
+    )
+    t.record(
+        "lobby/practice_in_game",
+        "POST",
+        "Pia",
+        PRACTICE,
+        {"count": 0},
+        status=409,
+        about="Practice players cannot change once dealt: `lobby_closed`.",
+    )
+    _everyone(t, ["Pia", "Quin"], GAME_READY, {"ready": True})
+    t.record(
+        "game/me_window_practice",
+        "GET",
+        "Pia",
+        ME,
+        status=200,
+        about="Window 2 with practice players: they chose the moment it opened; "
+        "nothing about it reaches anyone (the Seer's prompt is her own).",
+    )
+    t.record(
+        "game/players_practice",
+        "GET",
+        "Quin",
+        PLAYERS,
+        status=200,
+        about="The players list: practice players are `practice` and always "
+        "`connected`.",
+    )
+    t.clock.advance(5)
+    _choose(t, "Pia", [_player(t, "Scarecrow")])
+    t.clock.advance(5)
+    t.fire("{game_id}:wave:2")
+    t.record(
+        "game/me_talk_practice",
+        "GET",
+        "Quin",
+        ME,
+        status=200,
+        about="The talk: the practice players are ready to vote at once "
+        "(`progress` 2 of 4); the people decide when it ends.",
+    )
+    _to_vote(t, ["Pia", "Quin"])
+    t.record(
+        "game/me_voting_practice",
+        "GET",
+        "Quin",
+        ME,
+        status=200,
+        about="The vote: the practice players locked a random vote at once "
+        "(`progress` 2 of 4), never told whom.",
+    )
+    _lock_votes(t, {"Pia": "Scarecrow", "Quin": "Scarecrow"})
+    t.record(
+        "game/results_practice",
+        "GET",
+        "Pia",
+        RESULTS,
+        status=200,
+        about="The results: a practice player's card, night and vote show like "
+        "anyone's.",
+    )
+    t.call("POST", "Pia", PLAY_AGAIN)
+    t.clock.advance(60)
+    t.record(
+        "lobby/join_takes_practice_seat",
+        "POST",
+        "Rue",
+        JOIN,
+        status=200,
+        about="A person joins a table whose every seat is taken: the newest "
+        "practice player gives up its seat.",
+    )
+    t.record(
+        "lobby/practice_off",
+        "POST",
+        "Pia",
+        PRACTICE,
+        {"on": False},
+        status=200,
+        about="The host switches practice players off (the long press again): "
+        "every one gets up; the body has no `practice` and `settings` no "
+        "`practice`, as at a table that never used them.",
+    )
+
+
 def record_all(run: Recording) -> None:
     classic_table(run)
     full_table(run, finished=doppelganger_table(run))
     choose_tables(run)
     results_tables(run)
     gone_account(run)
+    practice_table(run)

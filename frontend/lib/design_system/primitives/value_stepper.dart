@@ -96,7 +96,8 @@ class ValueStepper extends StatelessWidget {
 /// wrapping between words; where the name's longest word would not fit
 /// beside the stepper (a narrow phone, large text), the name over it and the
 /// stepper at the end. [beside] decides it for a list that must stay even
-/// (every row one way, [fitsBeside] of each).
+/// (every row one way, [fitsBeside] of each). [onLabelLongPress]: a hold on
+/// the name does it (a hidden switch: nothing on screen says so).
 class LabelledStepper extends StatelessWidget {
   const LabelledStepper({
     super.key,
@@ -104,12 +105,14 @@ class LabelledStepper extends StatelessWidget {
     required this.style,
     required this.stepper,
     this.beside,
+    this.onLabelLongPress,
   });
 
   final String label;
   final TextStyle style;
   final ValueStepper stepper;
   final bool? beside;
+  final VoidCallback? onLabelLongPress;
 
   /// Whether the name's longest word fits beside the stepper in [width].
   bool fitsBeside(BuildContext context, double width) {
@@ -130,7 +133,15 @@ class LabelledStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = FitWords(label, style: style);
+    final words = FitWords(label, style: style);
+    final hold = onLabelLongPress;
+    final name = hold == null
+        ? words
+        : GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onLongPress: hold,
+            child: words,
+          );
     return LayoutBuilder(
       builder: (context, room) {
         final beside = this.beside ?? fitsBeside(context, room.maxWidth);
