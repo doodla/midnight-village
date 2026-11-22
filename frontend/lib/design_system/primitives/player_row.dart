@@ -87,23 +87,6 @@ enum PlayerRowSize {
   };
 }
 
-/// What a locked vote does to the pick's row (09). The owner's choice: the
-/// spec's text says the pick "stays as it is" ([sealOnly]); [bloodFill] is the
-/// first build's red row.
-enum LockedFill {
-  /// The pick keeps its bone paper, its lift and its outline, and gets the
-  /// seal (a red disc); the other rows dim.
-  sealOnly,
-
-  /// The pick's paper turns dried-blood red, cut in on the frame of the lock
-  /// (a tween would pass through a grey no ink reads on), its words in bone,
-  /// with the seal (a bone disc); the other rows dim.
-  bloodFill;
-
-  /// The one in use until the owner chooses.
-  static const standard = sealOnly;
-}
-
 /// One name size for every [PlayerRowSize.lobby] row below it: the table's
 /// two-up rows all set their names at the size the longest word fits at, so a
 /// long name never makes one row's name smaller than its neighbour's.
@@ -132,8 +115,9 @@ class PlayerNameSize extends InheritedWidget {
 ///   first, never moved under it); never [own].
 /// - [sealed]: the vote locked on this player: a [PaperSeal] is stamped on
 ///   the token's lower corner (it lands once, unless the row opened already
-///   sealed), and with [lockedFill] [LockedFill.bloodFill] the paper turns
-///   dried-blood red with its words in bone. Never a fill of the screen's
+///   sealed), and the paper turns dried-blood red with its words in bone
+///   (owner, 22 November 2026: "red row and seal"), cut in on the frame of
+///   the lock (a tween would pass through a grey no ink reads on). Never a fill of the screen's
 ///   amber.
 /// - [condemned]: the count's verdict on a player the vote killed: the
 ///   [picked] outline is cut in thicker, in the paper's ink (a cut, never a
@@ -160,7 +144,6 @@ class PlayerRow extends StatefulWidget {
     this.dimmed = false,
     this.sealed = false,
     this.condemned = false,
-    this.lockedFill = LockedFill.standard,
     this.stretch = 0,
     this.onTap,
     this.size = PlayerRowSize.compact,
@@ -184,8 +167,6 @@ class PlayerRow extends StatefulWidget {
   final bool sealed;
   final bool condemned;
 
-  /// What [sealed] does to the paper.
-  final LockedFill lockedFill;
   final double stretch;
   final VoidCallback? onTap;
   final PlayerRowSize size;
@@ -247,8 +228,7 @@ class _PlayerRowState extends State<PlayerRow> {
     final sealed = widget.sealed;
     final skin = context.skin;
     final ground = context.ground;
-    final bloody = sealed && widget.lockedFill == LockedFill.bloodFill;
-    final red = bloody;
+    final red = sealed;
     final reduced = MediaQuery.disableAnimationsOf(context);
     // A finger answers in the first frame (`press` down, `quick` back up);
     // with reduce motion the paper tints instead of moving.
@@ -348,7 +328,6 @@ class _PlayerRowState extends State<PlayerRow> {
                     child: PaperSeal(
                       size: size.token.size * _sealSize,
                       lands: !_openedSealed,
-                      onBone: !bloody,
                     ),
                   ),
               ],

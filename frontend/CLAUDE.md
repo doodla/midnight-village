@@ -23,7 +23,7 @@ just scene-frames      # the dusk and the dawn pumped to fixed times: frames and
 just loading-clips     # a tap going busy, a slow join, a failed send and its retry, a reconnect: looping WebPs
 just night-frames      # the night board's pick and candle, a frame per 17 ms
 just vote-frames       # the vote's finger, pick and lock (the seal landing), a frame per 17 ms
-just vote-pictures     # the locked vote with each LockedFill, the lock in four frames, the vote at several table sizes
+just vote-pictures     # the locked vote, the lock in four frames, the vote at several table sizes
 just count-pictures    # the count: one death, a tie, nobody, the moment in four frames, ten with long names
 just playtest-pack     # the cold-read pack: five first-game journeys to build/playtest/
 just test-harness      # boots its own backend on a free port, runs the e2e harness (not in `just test`)

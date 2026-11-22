@@ -99,7 +99,7 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
 /// counted at once), never who; then the one amber action, "Lock in
 /// {name}", or "Pick a name" while there is no pick. Locking is final: the button
 /// says "Locked", the pick stays lifted and outlined with a seal stamped on
-/// its token ([LockedFill.bloodFill] also turns its paper dried-blood red),
+/// its token (its paper turns dried-blood red),
 /// and the other rows dim (owner, 20 November 2026: a neighbour could read
 /// "Lock in Cleo" already; hiding it only costs the player the sight of
 /// their own choice; a lock that is seen across the table is the point of
@@ -120,7 +120,6 @@ class VoteView extends StatelessWidget {
     required this.onPick,
     required this.onLock,
     this.accepts = VoteRows.defaultAccepts,
-    this.lockedFill = LockedFill.standard,
     this.notSent = false,
     this.onTryAgain,
   });
@@ -143,9 +142,6 @@ class VoteView extends StatelessWidget {
   /// Whether a tap would be taken now (the vote is on and not locked): a
   /// declined tap makes no tick and no knock.
   final bool Function() accepts;
-
-  /// What the lock does to the pick's row (the owner's choice).
-  final LockedFill lockedFill;
 
   /// The last pick or lock got no answer: "Not sent." with [onTryAgain].
   final bool notSent;
@@ -186,7 +182,6 @@ class VoteView extends StatelessWidget {
           locked: locked,
           nudge: teaching && !locked,
           onPick: onPick,
-          lockedFill: lockedFill,
           accepts: accepts,
         ),
       ),
@@ -249,7 +244,6 @@ class VoteRows extends StatefulWidget {
     required this.nudge,
     required this.onPick,
     this.practice = const {},
-    this.lockedFill = LockedFill.standard,
     this.accepts = defaultAccepts,
   });
 
@@ -264,9 +258,6 @@ class VoteRows extends StatefulWidget {
   final bool locked;
   final bool nudge;
   final ValueChanged<int> onPick;
-
-  /// What the lock does to the pick's row.
-  final LockedFill lockedFill;
 
   /// Whether a tap would be taken now; a declined tap ticks nothing.
   final bool Function() accepts;
@@ -449,7 +440,6 @@ class _VoteRowsState extends State<VoteRows> {
       practice: practice.contains(seat.id),
       picked: lifted,
       sealed: locked && mine,
-      lockedFill: widget.lockedFill,
       // Once locked, the others dim; this phone's own pick stays as it is.
       dimmed: locked && !mine,
       onTap: locked

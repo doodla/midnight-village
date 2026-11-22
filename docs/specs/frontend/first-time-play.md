@@ -369,7 +369,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 - **One thing / loudest:** pick a name; the rows.
 - **Locked until:** the button is disabled until a pick is made.
 - **Copy:** "Who dies today?"; "Pick a name", then "Lock in {name}" (with a padlock glyph), then "Locked"; pips "{d} of {n} locked"; timer digits and bar. **8 of 8 words.**
-- **Removed:** the pre-selected Cleo (2). The red X and the blood fill (5). Tokens on the pips (9). "Seconds to choose" (12). The ink button (18). The host's "Don't wait".
+- **Removed:** the pre-selected Cleo (2). The red X (5); the blood fill too, until the owner brought it back for a locked vote only (22 November 2026: "B: red row and seal": the pick's row turns dried-blood red with the seal on 09; the count's killed rows stay outline-only). Tokens on the pips (9). "Seconds to choose" (12). The ink button (18). The host's "Don't wait".
 - **States:**
   - Your own row is never listed.
   - The picked row lifts and gets an ink outline. Tapping another row moves the pick.

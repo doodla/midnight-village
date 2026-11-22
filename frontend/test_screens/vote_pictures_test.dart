@@ -1,6 +1,5 @@
-// The vote's locked row in pictures, for a look or an owner's choice: the
-// locked state with each [LockedFill], the moment of the lock as four frames
-// of each, and the vote at several table sizes (one long name, a large text
+// The vote's locked row in pictures, for a look: the locked state, the moment
+// of the lock as four frames, and the vote at several table sizes (one long name, a large text
 // size). Run it with `just vote-pictures`; it is not part of `just test`.
 // `just contact-sheet <folder>` makes one sheet of a folder.
 import 'dart:io';
@@ -10,7 +9,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
@@ -32,10 +30,9 @@ const _ratio = 2.0;
 const _long = 'Rosalind Fairweather-Okonkwo';
 
 class _Host extends StatefulWidget {
-  const _Host({required this.me, required this.fill});
+  const _Host({required this.me});
 
   final GameMe me;
-  final LockedFill fill;
 
   @override
   State<_Host> createState() => _HostState();
@@ -51,7 +48,6 @@ class _HostState extends State<_Host> {
       me: _me,
       secondsLeft: 72,
       remaining: 0.6,
-      lockedFill: widget.fill,
       onPick: (id) =>
           setState(() => _me = _me.withVote(MyVote.local(id, locked: false))),
       onLock: (id) =>
@@ -89,7 +85,6 @@ Map<String, dynamic> _table(int players, {bool long = false}) {
 Future<void> _show(
   WidgetTester tester,
   Map<String, dynamic> me, {
-  LockedFill fill = LockedFill.standard,
   double textScale = 1,
 }) async {
   const phone = Size(_width * 1.0, _height);
@@ -105,7 +100,7 @@ Future<void> _show(
       ),
       child: SizedBox.fromSize(
         size: phone,
-        child: _Host(me: GameMe.fromJson(me), fill: fill),
+        child: _Host(me: GameMe.fromJson(me)),
       ),
     ),
     ground: GroundKind.day,
@@ -142,11 +137,11 @@ Future<void> _pick(WidgetTester tester, String name) async {
 }
 
 void main() {
-  for (final fill in LockedFill.values) {
-    final label = fill == LockedFill.sealOnly ? 'seal-only' : 'blood-fill';
+  {
+    const label = 'blood-fill';
 
     testWidgets('locked, $label: six players', (tester) async {
-      await _show(tester, _table(6, long: true), fill: fill);
+      await _show(tester, _table(6, long: true));
       await _pick(tester, sheet.cleo.name);
       await tester.tap(find.byType(PrimaryButton).last);
       await tester.pump(const Duration(milliseconds: 1));
@@ -155,7 +150,7 @@ void main() {
     });
 
     testWidgets('the moment of the lock, $label: four frames', (tester) async {
-      await _show(tester, _table(6, long: true), fill: fill);
+      await _show(tester, _table(6, long: true));
       await _pick(tester, sheet.cleo.name);
       await _save(tester, 'moment-$label-0-picked');
       await tester.tap(find.byType(PrimaryButton).last);

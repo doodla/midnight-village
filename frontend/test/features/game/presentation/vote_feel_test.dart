@@ -35,14 +35,12 @@ class _Host extends StatefulWidget {
     required this.me,
     this.onPick,
     this.onLock,
-    this.lockedFill = LockedFill.standard,
     this.accepts = VoteRows.defaultAccepts,
   });
 
   final GameMe me;
   final ValueChanged<int>? onPick;
   final ValueChanged<int>? onLock;
-  final LockedFill lockedFill;
   final bool Function() accepts;
 
   @override
@@ -63,7 +61,6 @@ class _HostState extends State<_Host> {
       me: _me,
       secondsLeft: _seconds,
       remaining: null,
-      lockedFill: widget.lockedFill,
       accepts: widget.accepts,
       onPick: (id) {
         widget.onPick?.call(id);
@@ -85,7 +82,6 @@ Future<void> _pump(
   double textScale = 1,
   ValueChanged<int>? onPick,
   ValueChanged<int>? onLock,
-  LockedFill lockedFill = LockedFill.standard,
   bool Function() accepts = VoteRows.defaultAccepts,
 }) async {
   tester.view.physicalSize = phone;
@@ -105,7 +101,6 @@ Future<void> _pump(
           me: GameMe.fromJson(me),
           onPick: onPick,
           onLock: onLock,
-          lockedFill: lockedFill,
           accepts: accepts,
         ),
       ),
@@ -283,73 +278,61 @@ void main() {
       await tester.tap(find.byType(PrimaryButton).last);
     }
 
-    for (final fill in LockedFill.values) {
-      final red = fill == LockedFill.bloodFill;
-      testWidgets('${fill.name}: a lock stamps a seal on the pick and dims '
-          'the rest; the button says Locked', (tester) async {
-        await _pump(tester, unpicked, lockedFill: fill);
-        expect(find.byType(PaperSeal), findsNothing);
-        await lock(tester);
-        await tester.pump(Motion.quick);
-        expect(find.byType(PaperSeal), findsOneWidget);
-        expect(
-          find.descendant(of: _row(cleo), matching: find.byType(PaperSeal)),
-          findsOneWidget,
-        );
-        expect(tester.widget<PaperSeal>(find.byType(PaperSeal)).onBone, !red);
-        expect(_rowOf(tester, cleo).sealed, isTrue);
-        expect(_rowOf(tester, cleo).picked, isTrue, reason: 'stays lifted');
-        // Only the blood fill turns the paper; the seal alone keeps it bone.
-        expect(
-          _paperOf(tester, cleo).color,
-          red ? const Color(0xFF80241E) : const Color(0xFFE9E2D0),
-        );
-        expect(_rowOf(tester, ben).dimmed, isTrue);
-        expect(_rowOf(tester, ben).sealed, isFalse);
-        expect(find.text(VoteCopy.locked), findsOneWidget);
-        await tester.pump(Motion.settle);
-        expect(tester.takeException(), isNull);
-      });
+    testWidgets('a lock stamps a seal on the pick and dims '
+        'the rest; the button says Locked', (tester) async {
+      await _pump(tester, unpicked);
+      expect(find.byType(PaperSeal), findsNothing);
+      await lock(tester);
+      await tester.pump(Motion.quick);
+      expect(find.byType(PaperSeal), findsOneWidget);
+      expect(
+        find.descendant(of: _row(cleo), matching: find.byType(PaperSeal)),
+        findsOneWidget,
+      );
+      expect(_rowOf(tester, cleo).sealed, isTrue);
+      expect(_rowOf(tester, cleo).picked, isTrue, reason: 'stays lifted');
+      // The lock turns the pick's paper dried-blood red.
+      expect(_paperOf(tester, cleo).color, const Color(0xFF80241E));
+      expect(_rowOf(tester, ben).dimmed, isTrue);
+      expect(_rowOf(tester, ben).sealed, isFalse);
+      expect(find.text(VoteCopy.locked), findsOneWidget);
+      await tester.pump(Motion.settle);
+      expect(tester.takeException(), isNull);
+    });
 
-      testWidgets('${fill.name}: the words read on the paper on every frame '
-          'of the lock (4.5:1 at least)', (tester) async {
-        await _pump(tester, unpicked, lockedFill: fill);
-        await tester.tap(_row(cleo));
-        await tester.pump(Motion.quick);
-        final before = contrast(
-          tester.widget<Text>(find.text(cleo)).style!.color!,
-          _paintedPaper(tester, cleo),
+    testWidgets('the words read on the paper on every frame '
+        'of the lock (4.5:1 at least)', (tester) async {
+      await _pump(tester, unpicked);
+      await tester.tap(_row(cleo));
+      await tester.pump(Motion.quick);
+      final before = contrast(
+        tester.widget<Text>(find.text(cleo)).style!.color!,
+        _paintedPaper(tester, cleo),
+      );
+      expect(before, greaterThanOrEqualTo(4.5), reason: 'before the lock');
+      await tester.tap(find.byType(PrimaryButton).last);
+      var frames = 0;
+      // The tap's own frame, then a frame every 17 ms until it settles.
+      for (var t = 0; t <= Motion.settle.inMilliseconds; t += 17) {
+        await tester.pump(
+          t == 0 ? Duration.zero : const Duration(milliseconds: 17),
         );
-        expect(before, greaterThanOrEqualTo(4.5), reason: 'before the lock');
-        await tester.tap(find.byType(PrimaryButton).last);
-        var frames = 0;
-        // The tap's own frame, then a frame every 17 ms until it settles.
-        for (var t = 0; t <= Motion.settle.inMilliseconds; t += 17) {
-          await tester.pump(
-            t == 0 ? Duration.zero : const Duration(milliseconds: 17),
-          );
-          final ink = tester.widget<Text>(find.text(cleo)).style!.color!;
-          final paper = _paintedPaper(tester, cleo);
-          expect(
-            contrast(ink, paper),
-            greaterThanOrEqualTo(4.5),
-            reason: 'frame $frames: $ink on $paper',
-          );
-          frames++;
-        }
-        expect(frames, greaterThan(10));
-      });
-    }
+        final ink = tester.widget<Text>(find.text(cleo)).style!.color!;
+        final paper = _paintedPaper(tester, cleo);
+        expect(
+          contrast(ink, paper),
+          greaterThanOrEqualTo(4.5),
+          reason: 'frame $frames: $ink on $paper',
+        );
+        frames++;
+      }
+      expect(frames, greaterThan(10));
+    });
 
     testWidgets('reduce motion: the lock is the end state in one frame', (
       tester,
     ) async {
-      await _pump(
-        tester,
-        unpicked,
-        reduce: true,
-        lockedFill: LockedFill.bloodFill,
-      );
+      await _pump(tester, unpicked, reduce: true);
       await lock(tester);
       await tester.pump();
       expect(_paperOf(tester, cleo).color, const Color(0xFF80241E));

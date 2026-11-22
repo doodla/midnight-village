@@ -6,9 +6,8 @@ import '../layout/space.dart';
 import '../skin/skin.dart';
 
 /// A seal cut from paper: a scalloped disc with a hard shadow under it and a
-/// padlock cut out of it. It is what a locked vote is stamped with (09). On
-/// bone paper ([onBone]) the disc is dried-blood red with a bone padlock; on
-/// red paper it is bone with a red padlock.
+/// padlock cut out of it. It is what a locked vote is stamped with (09), on
+/// the pick's dried-blood red paper: a bone disc with a red padlock.
 ///
 /// It lands once when it first appears with [lands] true: it comes down from
 /// [landFrom] times its size to rest over [Motion.quick] on [Motion.land] (a
@@ -18,19 +17,11 @@ import '../skin/skin.dart';
 /// and to the left, over the token it is stamped on and away from the name
 /// beside it.
 class PaperSeal extends StatefulWidget {
-  const PaperSeal({
-    super.key,
-    required this.size,
-    this.lands = true,
-    this.onBone = true,
-  });
+  const PaperSeal({super.key, required this.size, this.lands = true});
 
   /// The disc's width and height.
   final double size;
   final bool lands;
-
-  /// The paper under it is bone (the disc is red), not red (the disc is bone).
-  final bool onBone;
 
   /// How large it is as it comes down, times its size.
   static const landFrom = 1.4;
@@ -112,18 +103,18 @@ class _PaperSealState extends State<PaperSeal>
         child: CustomPaint(
           size: Size.square(widget.size),
           painter: _SealPainter(
-            paper: widget.onBone ? ground.danger : ground.paper,
+            paper: ground.paper,
             shadow:
                 ground.elevation.card.layers.firstOrNull?.color ??
                 ground.shadow,
-            mark: widget.onBone ? ground.onDanger : ground.danger,
+            mark: ground.danger,
           ),
           child: SizedBox.square(
             dimension: widget.size,
             child: Icon(
               Icons.lock,
               size: widget.size * 0.5,
-              color: widget.onBone ? ground.onDanger : ground.danger,
+              color: ground.danger,
             ),
           ),
         ),
