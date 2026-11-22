@@ -147,6 +147,16 @@ night-frames folder="build/night_frames" label="run":
       --dart-define=NIGHT_FRAMES_DIR={{folder}} \
       --dart-define=NIGHT_FRAMES_LABEL={{label}}
 
+# The vote's choosing and locking in motion: a frame per 17 ms (a finger on a row,
+# the pick, the lock and the seal landing; six players, one long name) into
+# <folder>/<label>/vote. Usage: just vote-frames [folder] [label] [width]
+vote-frames folder="build/vote_frames" label="run" width="360":
+    flutter test test_screens/vote_frames_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=VOTE_FRAMES_DIR={{folder}} \
+      --dart-define=VOTE_FRAMES_LABEL={{label}} \
+      --dart-define=VOTE_FRAMES_WIDTH={{width}}
+
 # The cold-read pack (docs/specs/frontend/first-time-play.md): the screens of
 # four first-game journeys (host, guest, sleeper, Seer) and a host setting up a
 # table for eight before anyone comes (host-sets-8), in order, as one

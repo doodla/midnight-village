@@ -67,7 +67,7 @@ take 1.6 s. A tap finishes them.
 
 | Token | Start value | Pass | Why |
 |---|---|---|---|
-| `Motion.land` | a curve with at most 10% overshoot (`easeOutBack`) | 4, 6 | The lock stamp; a joining player's row dropping in |
+| `Motion.land` (built, pass 4a: `Curves.easeOutBack`) | a curve with at most 10% overshoot | 4, 6 | The lock stamp; a joining player's row dropping in |
 | `Motion.ambient` | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
 | the reduce-motion helper, the rest | Today six places check it (shell, hold flip, count, results, ring, wave) and, since pass 2, the night cards (dip, lift, glow, dim) and the Choose button's rise; buttons' press, rows, chips and dims ignore it. `Motion.within` exists (pass 1); passes 4 and 8 move the rest to it | 4, 8 | One check, so none is forgotten |
 
@@ -98,9 +98,9 @@ banner, error, disabled tap, timer tick, reconnect or a player arriving or leavi
 that only one phone gets because of its role or what it did at night; no `heavyImpact`, no long
 `vibrate`.
 
-How it is built (pass 4): one `Haptics` class with these three names and nothing else calls
-`HapticFeedback` (a test fails any direct call, as `fixture_sources_test.dart` does for fixtures).
-It does nothing in the night phase whoever calls it, nothing under test, and never throws. A
+How it is built (pass 4a, `frontend/lib/design_system/feel/haptics.dart`; the vote's tick and light are wired, `thud` and the other calls come with their passes): one `Haptics` class with these three names and nothing else calls
+`HapticFeedback` (`haptics_only_here_test.dart` fails any direct call, as `fixture_sources_test.dart` does for fixtures).
+It does nothing on the night's ground whoever calls it (the call takes the touched widget's context, so it must be made from under the screen's own ground), and never throws; a test listens on the platform channel to see what fired. A
 vibration goes with a visible change on the same frame and is never the only sign.
 
 Where there is nothing to vibrate it does nothing, and the screen is complete without it: a phone
@@ -219,11 +219,11 @@ One body for every place the app waits (`Waiting`), laid in the frame of the scr
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
 | Rows arrive (first game) | The rows nudge 6 px in one wave; learned at the first taken lock | 120 / 90 ms | No wave | exists |
-| Finger on a row | The row dips 2 px the frame it lands. Today nothing until the tap ends | `press` | Colour only | pass 4 |
-| Tap picks a row | The row lifts 6 px with the ink outline; a tap on another row moves the pick (one settles as the other rises) | `quick` | Cut | exists |
-| A vote pick has a vibration | A tick each time the pick moves (day only; decided 22 Nov 2026) | `tick` | The vibration still fires | pass 4 |
+| Finger on a row | The row dips 2 px the frame it lands, the shadow staying where it was; it comes back on release or when the finger slides off (no pick) | `press` down, `quick` back | Tint only, no dip | exists (pass 4a) |
+| Tap picks a row | The row rises 6 px into the room kept above it, with the ink outline and the deeper hard shadow; a tap on another row moves the pick (one settles as the other rises). Before pass 4a the lift was cancelled by the row's own padding and only the outline and shadow changed | `quick` | Cut | exists |
+| A vote pick has a vibration | A tick each time the pick moves (day only; decided 22 Nov 2026) | `tick` | The vibration still fires | exists (pass 4a) |
 | First pick | "Pick a name" (outlined) becomes the one amber "Lock in {name}" | `press` | Cut | exists |
-| "Lock in {name}" tapped | The label lands like a stamp (scale 1.12 to 1) and reads "Locked"; the other rows dim to 40%; your pick stays lifted. A light vibration on the tap. Today a label change and the dim | `land` over `quick`, `light` | Cut | pass 4 |
+| "Lock in {name}" tapped | A bone seal with a scalloped cut edge and a blood-red padlock is stamped on the pick's token: it comes down from 1.7 times its size and settles (`land` over `quick`, tilted a little) while the pick's paper turns dried-blood red with its words in bone, the button reads "Locked" (cut in, never blended from amber) and the other rows dim to 40%; your pick stays lifted and outlined. A light vibration on the tap, not on the answer. A screen that opens already locked has the seal in place, no stamp | `land` over `quick`, `light` | Cut: the end state in one frame | exists (pass 4a) |
 | A tap on a dimmed row | Nothing moves, nothing sounds | none | Same | exists |
 | A tap on a dimmed night card | The pick switches to it (lift and outline move). Dimmed on the night board means "cannot join this pick", not switched off; a screen reader hears "Switches your pick". Nothing is dimmed until the first pick, so no role shows across the table | `quick` | Same | exists |
 | Others lock | The pips count up, with no names and no vibration | none | Same | exists |
@@ -281,7 +281,7 @@ One body for every place the app waits (`Waiting`), laid in the frame of the scr
 | Progress pips advance | The pip fills, a small settle. Today a cut | `quick` | Cut | no pass |
 | Reduce motion: button press | The press sinks and returns over 90 ms although reduce motion is on. It should cut | the helper | Cut | pass 8 |
 | Reduce motion: quiet word and chip | The quiet word's dim and a chip's lift and outline still tween. They should cut | the helper | Cut | pass 8 |
-| Reduce motion: vote row | The row's lift, dim and padding still tween. They should cut | the helper | Cut | pass 4 |
+| Reduce motion: vote row | The row's lift, press, dim, paper colour and seal cut to the end state (`Motion.within`) | the helper | Cut | exists (pass 4a) |
 | Reduce motion: night card lift | A card's dip, lift, glow and dim cut to their end state | the helper | Cut | exists |
 | Reduce motion: deck role card dim | The portrait's dim still fades. It should cut | the helper | Cut | no pass |
 

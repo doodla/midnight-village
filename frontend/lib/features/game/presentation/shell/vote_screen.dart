@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/copy/copy.dart';
+import '../../../../design_system/feel/haptics.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/night/night_pick.dart';
 import '../../../../design_system/primitives/band.dart';
@@ -94,11 +95,12 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
 /// pick lifts and takes the selection's outline, a tap on another row moves
 /// it; how many have locked in, as plain pips (this phone's own lock
 /// counted at once), never who; then the one amber action, "Lock in
-/// {name}", or "Pick a name" while there is no pick. Locking is final and
-/// says so only by the button, "Locked": the pick stays lifted and outlined
-/// and the other rows dim (owner, 20 November 2026: a neighbour could read
-/// "Lock in Cleo" already; hiding it only costs the player the sight of
-/// their own choice). In a first vote the rows nudge once, in a wave.
+/// {name}", or "Pick a name" while there is no pick. Locking is final: the button
+/// says "Locked", the pick stays lifted and outlined, its paper turns
+/// dried-blood red with a seal stamped on its token, and the other rows dim
+/// (owner, 20 November 2026: a neighbour could read "Lock in Cleo" already;
+/// hiding it only costs the player the sight of their own choice; a lock
+/// that is seen across the table is the point of the stamp). In a first vote the rows nudge once, in a wave.
 ///
 /// The rows are sized to the room ([VoteRows]): the vote's tall rows when
 /// they all fit, the table's compact ones when only those do, and the
@@ -195,10 +197,17 @@ class VoteView extends StatelessWidget {
         else if (pick == null)
           const PrimaryButton(label: VoteCopy.pickName, onPressed: null)
         else
-          PrimaryButton(
-            label: VoteCopy.lockIn.fill({'name': pick.name}),
-            icon: Icons.lock_outline,
-            onPressed: () => onLock(pick.id),
+          // Under the frame's ground (the day's), where a knock is allowed.
+          Builder(
+            builder: (context) => PrimaryButton(
+              label: VoteCopy.lockIn.fill({'name': pick.name}),
+              icon: Icons.lock_outline,
+              onPressed: () {
+                // A light knock on the tap, not on the answer.
+                Haptics.light(context);
+                onLock(pick.id);
+              },
+            ),
           ),
       ],
     );
@@ -233,6 +242,7 @@ class VoteRows extends StatelessWidget {
 
   /// Every size, tallest first, with the gap it is set at.
   static const sizes = [
+    (PlayerRowSize.grand, Space.md),
     (PlayerRowSize.large, Space.md),
     (PlayerRowSize.compact, Space.sm),
   ];
@@ -245,6 +255,7 @@ class VoteRows extends StatelessWidget {
     double gap,
     double width, {
     Set<int> practice = const {},
+    double stretch = 0,
   }) {
     final skin = context.skin;
     final scaler = MediaQuery.textScalerOf(context);
@@ -267,33 +278,52 @@ class VoteRows extends StatelessWidget {
       )..layout(maxWidth: math.max(1, nameRoom));
       final content = math.max(size.token.size, painter.height);
       painter.dispose();
-      total += math.max(size.height, content + 2 * Space.xxs) + _lift;
+      total += math.max(size.height + stretch, content + 2 * Space.xxs) + _lift;
     }
     return total + (gap - _lift) * math.max(0, seats.length - 1);
   }
 
-  /// The room each row keeps for the lift (above when lifted, else below),
-  /// so the gaps between the papers stay even; it is taken out of the gap,
-  /// so the papers are still [sizes]' gap apart.
+  /// The room each row keeps above it for the lift, lifted or not, so the
+  /// gaps between the papers stay even; it is taken out of the gap, so the
+  /// papers are still [sizes]' gap apart.
   static const _lift = Space.xs;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, room) {
-      double height(PlayerRowSize size, double gap) => heightOf(
-        context,
-        seats,
-        size,
-        gap,
-        room.maxWidth,
-        practice: practice,
-      );
+      double height(PlayerRowSize size, double gap, [double stretch = 0]) =>
+          heightOf(
+            context,
+            seats,
+            size,
+            gap,
+            room.maxWidth,
+            practice: practice,
+            stretch: stretch,
+          );
       final (size, gap) = sizes.firstWhere(
         (s) => height(s.$1, s.$2) <= room.maxHeight,
         orElse: () => sizes.last,
       );
       final fits = height(size, gap) <= room.maxHeight;
+      // What the room still holds is shared out between the rows, so a table
+      // of few fills the screen instead of leaving the foot empty; a row
+      // grows by at most a third.
+      final spare = room.maxHeight - height(size, gap);
+      var stretch = !fits || seats.isEmpty
+          ? 0.0
+          : math.min(
+              spare / seats.length,
+              size.height *
+                  (seats.length <= fewRows ? maxStretchFew : maxStretch),
+            );
+      // A row whose name wraps is already taller than its size: take back
+      // what that leaves too little room for.
+      while (stretch > 0 && height(size, gap, stretch) > room.maxHeight) {
+        stretch = math.max(0, stretch - 2);
+      }
       final column = Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: gap - _lift,
         children: [
@@ -302,26 +332,44 @@ class VoteRows extends StatelessWidget {
               play: nudge,
               index: i,
               distance: CueWave.rowNudge,
-              child: _row(seat, size),
+              child: _row(context, seat, size, stretch),
             ),
         ],
       );
       return Align(
-        alignment: Alignment.topCenter,
+        alignment: fits && seats.length <= fewRows
+            ? Alignment.center
+            : Alignment.topCenter,
         child: fits ? column : FadingScroll(child: column),
       );
     },
   );
 
-  Widget _row(NightSeat seat, PlayerRowSize size) {
+  /// The most a row grows to fill the room, as a share of its own height.
+  static const maxStretch = 0.3;
+
+  /// With this few rows (a table of three or four) the room is mostly
+  /// empty, so a row may grow further, and the rows stand in the middle of
+  /// it rather than hang from the top.
+  static const fewRows = 3;
+  static const maxStretchFew = 0.6;
+
+  Widget _row(
+    BuildContext context,
+    NightSeat seat,
+    PlayerRowSize size,
+    double stretch,
+  ) {
     final mine = seat.id == pick;
     final lifted = mine;
     final row = PlayerRow(
       token: seat.token,
       name: seat.name,
       size: size,
+      stretch: stretch,
       practice: practice.contains(seat.id),
       picked: lifted,
+      sealed: locked && mine,
       // Once locked, the others dim; this phone's own pick stays as it is.
       dimmed: locked && !mine,
       onTap: locked
@@ -330,17 +378,19 @@ class VoteRows extends StatelessWidget {
           // The picked row stays a button (it reads as selected); a tap on
           // it changes nothing.
           ? () {}
-          : () => onPick(seat.id),
+          : () {
+              // A tick each time the pick moves.
+              Haptics.tick(context);
+              onPick(seat.id);
+            },
     );
-    return AnimatedPadding(
-      duration: Motion.quick,
-      curve: Motion.curve,
-      // The lift draws the row up by the same room it keeps above.
-      padding: EdgeInsets.only(
-        top: lifted ? _lift : 0,
-        bottom: lifted ? 0 : _lift,
-      ),
-      child: locked && mine ? Semantics(selected: true, child: row) : row,
+    // The room a lift needs sits above every row (lifted or not), so the
+    // gaps stay even and a pick rises into it ([PlayerRow] moves the paper).
+    return Padding(
+      padding: const EdgeInsets.only(top: _lift),
+      // Always wrapped, so the row keeps its state (and its colour tween and
+      // its stamp) when the lock arrives.
+      child: Semantics(selected: locked && mine ? true : null, child: row),
     );
   }
 }

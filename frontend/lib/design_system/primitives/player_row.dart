@@ -6,6 +6,7 @@ import '../skin/skin.dart';
 import '../skin/skin_type.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
+import 'paper_seal.dart';
 import 'player_token.dart';
 import 'you_tag.dart';
 
@@ -35,6 +36,15 @@ enum PlayerRowSize {
     token: TokenSize.vote,
     gap: Space.mdPlus,
     endPadding: Space.lg,
+  ),
+
+  /// In the vote when the room holds more than the mock's rows (S09): 88
+  /// tall, a 60 token, the name at 26, so a table of few fills the screen.
+  grand(
+    height: 88,
+    token: TokenSize.grand,
+    gap: Space.lg,
+    endPadding: Space.xl,
   ),
 
   /// In the count (S10): 64 tall, a 48 token, the name at 24, the voters'
@@ -69,7 +79,7 @@ enum PlayerRowSize {
   TextStyle nameStyle(SkinType type) => switch (this) {
     lobby => type.name.copyWith(fontSize: nameSize),
     compact => type.name,
-    large => type.title,
+    large || grand => type.title,
     count => type.heading,
   };
 }
@@ -100,10 +110,18 @@ class PlayerNameSize extends InheritedWidget {
 /// - [practice]: a practice player (a seat the server plays), "Practice"
 ///   ([PracticeTag]) on the name's line in every row (the name set smaller
 ///   first, never moved under it); never [own].
+/// - [sealed]: the vote locked on this player: the paper turns dried-blood
+///   red with its words in bone, and a [PaperSeal] is stamped on the token
+///   (it lands once, unless the row opened already sealed). Colour and a
+///   seal, never a fill of the screen's amber.
+/// - [stretch]: how much taller than its size the row stands, where the
+///   room allows it (the vote fills the screen).
+/// - A row with [onTap] dips 2 px the frame a finger lands and comes back
+///   when it lifts or slides away (colour only under reduce motion).
 /// - [away]: a dropped member, the token dimmed, with no words (S02).
 /// - [dimmed]: the vote once locked, where every row dims the same and none
 ///   shows the pick (S09).
-class PlayerRow extends StatelessWidget {
+class PlayerRow extends StatefulWidget {
   const PlayerRow({
     super.key,
     required this.token,
@@ -115,9 +133,14 @@ class PlayerRow extends StatelessWidget {
     this.practice = false,
     this.away = false,
     this.dimmed = false,
+    this.sealed = false,
+    this.stretch = 0,
     this.onTap,
     this.size = PlayerRowSize.compact,
   });
+
+  /// How far a finger presses a row down.
+  static const dip = 2.0;
 
   final TokenId? token;
   final String name;
@@ -128,16 +151,74 @@ class PlayerRow extends StatelessWidget {
   final bool practice;
   final bool away;
   final bool dimmed;
+  final bool sealed;
+  final double stretch;
   final VoidCallback? onTap;
   final PlayerRowSize size;
 
   @override
+  State<PlayerRow> createState() => _PlayerRowState();
+}
+
+class _PlayerRowState extends State<PlayerRow> {
+  /// A finger is on the row.
+  var _down = false;
+
+  /// The row opened already sealed: no stamp to play.
+  late final bool _openedSealed;
+
+  @override
+  void initState() {
+    super.initState();
+    _openedSealed = widget.sealed;
+  }
+
+  void _touch(bool down) {
+    if (_down != down && mounted) setState(() => _down = down);
+  }
+
+  Size _size(BuildContext context) => context.size ?? Size.zero;
+
+  PlayerRowSize get size => widget.size;
+  bool get picked => widget.picked;
+
+  @override
   Widget build(BuildContext context) {
+    final (token, name, detail, trailing) = (
+      widget.token,
+      widget.name,
+      widget.detail,
+      widget.trailing,
+    );
+    final (own, practice, away, dimmed, onTap) = (
+      widget.own,
+      widget.practice,
+      widget.away,
+      widget.dimmed,
+      widget.onTap,
+    );
+    final sealed = widget.sealed;
     final skin = context.skin;
     final ground = context.ground;
-    final ink = skin.paper.text;
+    final inkEnd = sealed ? ground.onDanger : skin.paper.text;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    // A finger answers in the first frame (`press` down, `quick` back up);
+    // with reduce motion the paper tints instead of moving.
+    final pressed = _down && onTap != null && !dimmed;
+    final dip = pressed && !reduced ? PlayerRow.dip : 0.0;
+    final lift = picked ? Space.xs : 0.0;
+    final base = picked ? ground.elevation.selected : ground.elevation.card;
+    final fill = sealed
+        ? ground.danger
+        : pressed && reduced
+        ? Color.alphaBlend(inkEnd.withValues(alpha: 0.08), ground.paper)
+        : ground.paper;
+    final duration = Motion.within(
+      context,
+      _down ? Motion.press : Motion.quick,
+    );
     final lead = skin.shape.corner(
-      size.height,
+      size.height + widget.stretch,
       skin.shape.rowLeadRoundness,
       square: skin.shape.radius,
     );
@@ -153,11 +234,10 @@ class PlayerRow extends StatelessWidget {
         ? size.nameStyle(skin.typography)
         : size.nameStyle(skin.typography).copyWith(fontSize: scoped);
 
-    final row = AnimatedContainer(
-      duration: Motion.quick,
+    final paper = AnimatedContainer(
+      duration: duration,
       curve: Motion.curve,
-      constraints: BoxConstraints(minHeight: size.height),
-      transform: Matrix4.translationValues(0, picked ? -Space.xs : 0, 0),
+      transform: Matrix4.translationValues(0, dip - lift, 0),
       padding: EdgeInsets.fromLTRB(
         Space.sm,
         Space.xxs,
@@ -166,9 +246,9 @@ class PlayerRow extends StatelessWidget {
       ),
       decoration: cutPaper(
         context,
-        fill: ground.paper,
+        fill: fill,
         radius: radius,
-        elevation: picked ? ground.elevation.selected : ground.elevation.card,
+        elevation: dip > 0 ? base.lowered(dip) : base,
       ),
       foregroundDecoration: picked
           ? ringDecoration(
@@ -179,96 +259,151 @@ class PlayerRow extends StatelessWidget {
           : own
           ? BoxDecoration(
               borderRadius: radius,
-              border: Border.all(color: ink, width: skin.shape.selectedRing),
+              border: Border.all(color: inkEnd, width: skin.shape.selectedRing),
             )
           : null,
-      child: _RowInk(
-        ink: ink,
-        child: Row(
-          spacing: size.gap,
-          children: [
-            PlayerToken(token, size: size.token, ringColor: ink, away: away),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // A long name wraps between words, then is set smaller;
-                  // never cut short.
-                  // "You" beside the name where both fit, under it where
-                  // not, so a long name keeps its room and a short one its
-                  // size.
-                  if (own)
-                    Wrap(
-                      spacing: Space.sm,
-                      runSpacing: Space.xxs,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
+      // The words and the ring change colour with the paper (a bone name on
+      // bone paper for a few frames would be gone).
+      child: TweenAnimationBuilder<Color?>(
+        tween: ColorTween(end: inkEnd),
+        duration: duration,
+        builder: (context, tweened, _) {
+          final ink = tweened ?? inkEnd;
+          return _RowInk(
+            ink: ink,
+            child: Row(
+              spacing: size.gap,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    PlayerToken(
+                      token,
+                      size: size.token,
+                      ringColor: ink,
+                      away: away && !sealed,
+                    ),
+                    // Stamped on the portrait's lower corner, so the name keeps
+                    // all its room.
+                    if (sealed)
+                      Positioned(
+                        right: -size.token.size * 0.28,
+                        bottom: -size.token.size * 0.28,
+                        child: PaperSeal(
+                          size: size.token.size * 0.8,
+                          lands: !_openedSealed,
+                        ),
+                      ),
+                  ],
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // A long name wraps between words, then is set smaller;
+                      // never cut short.
+                      // "You" beside the name where both fit, under it where
+                      // not, so a long name keeps its room and a short one its
+                      // size.
+                      if (own)
+                        Wrap(
+                          spacing: Space.sm,
+                          runSpacing: Space.xxs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            FitWords(
+                              name,
+                              maxLines: 2,
+                              style: nameStyle.copyWith(color: ink),
+                            ),
+                            YouTag(ink: ink),
+                          ],
+                        )
+                      // "Practice" always on the name's line, so every row of
+                      // a list is laid out alike.
+                      else if (practice)
+                        Row(
+                          spacing: Space.sm,
+                          children: [
+                            Flexible(
+                              child: FitWords(
+                                name,
+                                maxLines: 2,
+                                style: nameStyle.copyWith(color: ink),
+                              ),
+                            ),
+                            PracticeTag(ink: ink),
+                          ],
+                        )
+                      else
                         FitWords(
                           name,
                           maxLines: 2,
                           style: nameStyle.copyWith(color: ink),
                         ),
-                        YouTag(ink: ink),
-                      ],
-                    )
-                  // "Practice" always on the name's line, so every row of
-                  // a list is laid out alike.
-                  else if (practice)
-                    Row(
-                      spacing: Space.sm,
-                      children: [
-                        Flexible(
-                          child: FitWords(
-                            name,
-                            maxLines: 2,
-                            style: nameStyle.copyWith(color: ink),
+                      // Names wrap between words, never inside one.
+                      if (detail case final detail?)
+                        FitWords(
+                          detail,
+                          style: skin.typography.body.copyWith(
+                            color: skin.paper.quietText,
                           ),
                         ),
-                        PracticeTag(ink: ink),
-                      ],
-                    )
-                  else
-                    FitWords(
-                      name,
-                      maxLines: 2,
-                      style: nameStyle.copyWith(color: ink),
-                    ),
-                  // Names wrap between words, never inside one.
-                  if (detail case final detail?)
-                    FitWords(
-                      detail,
-                      style: skin.typography.body.copyWith(
-                        color: skin.paper.quietText,
-                      ),
-                    ),
-                ],
-              ),
+                    ],
+                  ),
+                ),
+                ?trailing,
+              ],
             ),
-            ?trailing,
-          ],
-        ),
+          );
+        },
       ),
     );
+    // The height is set here, outside the tween: a row that changes size
+    // (the room changed) is the new size at once, never mid-way and over.
+    final row = ConstrainedBox(
+      constraints: BoxConstraints(minHeight: size.height + widget.stretch),
+      child: paper,
+    );
     final shown = AnimatedOpacity(
-      duration: Motion.quick,
+      duration: Motion.within(context, Motion.quick),
       opacity: dimmed ? skin.dimmed : 1,
       child: row,
     );
     // Once locked (dimmed) a row cannot be picked: it reads as switched off.
-    if (dimmed) return Semantics(enabled: false, child: shown);
-    if (onTap == null) return shown;
+    // One tree whatever the row can do, so a row that is locked (or dimmed)
+    // keeps its state and its tweens.
+    final tappable = onTap != null && !dimmed;
     return Semantics(
-      button: true,
-      selected: picked,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          highlightColor: Colors.transparent,
-          splashColor: Colors.transparent,
-          child: shown,
+      enabled: dimmed ? false : null,
+      button: tappable ? true : null,
+      selected: tappable ? picked : null,
+      child: Listener(
+        // The press answers the frame the finger lands, not when the tap is
+        // recognised.
+        onPointerDown: (_) => tappable ? _touch(true) : null,
+        // Sliding off the row cancels the press (the tap is cancelled too).
+        onPointerMove: (event) {
+          if (_down &&
+              !(Offset.zero & _size(context)).contains(event.localPosition)) {
+            _touch(false);
+          }
+        },
+        onPointerUp: (_) => _touch(false),
+        onPointerCancel: (_) => _touch(false),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: tappable ? onTap : null,
+            onHighlightChanged: (value) {
+              if (!value) _touch(false);
+            },
+            borderRadius: radius,
+            highlightColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            child: shown,
+          ),
         ),
       ),
     );

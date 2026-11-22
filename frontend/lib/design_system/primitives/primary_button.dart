@@ -307,7 +307,9 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       onTap: _onTap,
       excludeSemantics: true,
       child: AnimatedContainer(
-        key: ValueKey(_rises),
+        // A button that has done its thing is cut in, not blended from the
+        // amber it was (a muddy middle for a few frames).
+        key: ValueKey((_rises, widget.phase == ButtonPhase.done)),
         duration: Motion.within(context, _duration),
         curve: Motion.curve,
         constraints: BoxConstraints(
