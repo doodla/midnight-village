@@ -253,8 +253,8 @@ class VoteRows extends StatelessWidget {
         width - Space.sm - size.token.size - size.gap - size.endPadding;
     var total = 0.0;
     for (final seat in seats) {
-      // A practice player's tag goes beside the name or under it: measured
-      // as one more word in the name's face (wider than the tag's own).
+      // A practice player's tag sits on the name's line: measured as one
+      // more word in the name's face (wider than the tag's own).
       final tagged = practice.contains(seat.id);
       final painter = TextPainter(
         text: TextSpan(
@@ -263,7 +263,7 @@ class VoteRows extends StatelessWidget {
         ),
         textDirection: TextDirection.ltr,
         textScaler: scaler,
-        maxLines: tagged ? 3 : 2,
+        maxLines: 2,
       )..layout(maxWidth: math.max(1, nameRoom));
       final content = math.max(size.token.size, painter.height);
       painter.dispose();

@@ -105,15 +105,22 @@ the step and the seat (`practice_rng`) and logged at INFO.
 - `drive` never raises (a failure is logged; the stage's clock or the host still moves the
   game) and is safe any number of times (a lost race is a stage that is over, or a resend).
   `GET /me/` is the backstop: `practice.behind` (in memory: no query at a table without
-  them) drives a practice player that has not done its part, and the read shows the game
-  after it.
+  them) drives a practice player that has not done its part (in window 1 that includes a
+  Doppelganger whose follow-up is armed and unsent), and the read shows the game after it.
+  A refused choose is sent again once as an empty one (taken from anyone, read as
+  nothing); a part still refused, or failing, is given up for that stage
+  (`practice._given_up`, this instance's memory, newest 512), so the backstop does not
+  re-drive and re-log it at every poll; the stage then ends as for a person who did
+  nothing.
 - Presence: they have no socket, so they are never stamped disconnected and never gone; the
   players list (`PlayerListView`) says `connected: true`. `player_identity` adds `practice:
   true` (every players list: `/me/`, `PlayerListView`, results); nobody else has the key.
 - Hidden information: nothing they pick is sent to anyone (the night has no per-player
   event; the vote announces counts); their cards show in the results like anyone's.
 - Tests: `tests/onuw/test_practice_players.py` (each card they can be dealt, a whole game
-  alone, a mixed table, nothing leaking, the backstop, seating, never hosting).
+  alone and its determinism by seat, a mixed table, the live lengths with window 1 ending on
+  its clock, driving twice, play again, nothing leaking, the backstop and a refused step,
+  seating, never hosting, accounts never piling up).
 
 ## Night timeline (results)
 

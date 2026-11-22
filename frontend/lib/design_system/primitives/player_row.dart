@@ -98,7 +98,8 @@ class PlayerNameSize extends InheritedWidget {
 /// - [own]: the viewer's own row, a thicker outline in the paper's ink and
 ///   "You" ([YouTag]) after the name (S02, S10).
 /// - [practice]: a practice player (a seat the server plays), "Practice"
-///   ([PracticeTag]) after the name; never [own].
+///   ([PracticeTag]) on the name's line in every row (the name set smaller
+///   first, never moved under it); never [own].
 /// - [away]: a dropped member, the token dimmed, with no words (S02).
 /// - [dimmed]: the vote once locked, where every row dims the same and none
 ///   shows the pick (S09).
@@ -194,10 +195,10 @@ class PlayerRow extends StatelessWidget {
                 children: [
                   // A long name wraps between words, then is set smaller;
                   // never cut short.
-                  // "You" (or "Practice") beside the name where both fit,
-                  // under it where not, so a long name keeps its room and a
-                  // short one its size.
-                  if (own || practice)
+                  // "You" beside the name where both fit, under it where
+                  // not, so a long name keeps its room and a short one its
+                  // size.
+                  if (own)
                     Wrap(
                       spacing: Space.sm,
                       runSpacing: Space.xxs,
@@ -208,7 +209,23 @@ class PlayerRow extends StatelessWidget {
                           maxLines: 2,
                           style: nameStyle.copyWith(color: ink),
                         ),
-                        if (own) YouTag(ink: ink) else PracticeTag(ink: ink),
+                        YouTag(ink: ink),
+                      ],
+                    )
+                  // "Practice" always on the name's line, so every row of
+                  // a list is laid out alike.
+                  else if (practice)
+                    Row(
+                      spacing: Space.sm,
+                      children: [
+                        Flexible(
+                          child: FitWords(
+                            name,
+                            maxLines: 2,
+                            style: nameStyle.copyWith(color: ink),
+                          ),
+                        ),
+                        PracticeTag(ink: ink),
                       ],
                     )
                   else

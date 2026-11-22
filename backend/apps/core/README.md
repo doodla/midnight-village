@@ -75,16 +75,34 @@ in as one and nothing a host sends can make a person one. That username is the o
 - They sit through `lobbies.add_member` like anyone (tokens, `seats`, `max_players`), named
   from a fixed list of village things (`NAMES`: "Scarecrow", "Teapot", ...; the first not
   taken at the table), so an older app that shows no tag still reads them as not people.
+  Each brings its own seat token, the thing it is named for (`practice.token_for`:
+  "teapot" for Teapot, through `lobbies.add_member(token=...)`), outside the people's ten
+  (`tokens.TOKENS`), so a practice player never takes a person's token; an app that does
+  not know one draws a plain disc.
   Lowering the count takes the newest away; its account is deleted unless it played a game
-  at the table (`GameHooks.has_played`: its results keep it).
+  at the table (`GameHooks.played_user_ids`: its results keep it until the table goes).
 - The lobby body (`practice.body_extras`, from `LobbySerializer`): each practice member has
   `practice: true` and is always `connected` (no phone to drop); a table that switched them
   on or has some seated also has `practice: {"most": n}` (seated plus free seats, the
   stepper's top). A table that never used them is answered exactly as before.
 - **Never host, never hold a table open alone.** `host._Presence.members` holds the PEOPLE
   only, so neither a handover nor the owner leaving (`transfer_ownership`) can pick one; the
-  owner leaving with only practice players left closes the table (`practice.close_table`:
-  the lobby, its games, and their accounts). A person joining a full table takes the newest
-  practice player's seat (`practice.make_room`, in `LobbyJoinView`).
+  owner leaving with only practice players left closes the table (`practice.close_table`).
+  A person joining a full table takes the newest practice player's seat
+  (`practice.make_room`, in `LobbyJoinView`).
+- **Accounts never pile up.** A table owns its practice accounts
+  (`practice.owned_account_ids`: seated now, or holding a seat in one of its games), and
+  closing the table deletes every one of them with the lobby and its games, those that
+  played and got up included. Nothing sweeps tables on a clock (no cron on Vercel), so the
+  number is BOUNDED instead: **a person has practice players at one table at a time.**
+  Switching them on (`LobbyPracticeView`, which locks the table with the caller's other
+  tables in one statement, primary-key order) and starting a new table
+  (`LobbyCreateView`) first run `practice.clear_elsewhere`: every other table the person
+  owns or acts as host for that is not in a running game loses its practice players and
+  its switch (`lobby_update` to it), and the accounts nothing kept points at are deleted
+  (a finished game's results keep theirs until that table goes). So at any moment a person
+  accounts for at most one table's practice seats, plus those their finished games hold.
+- `settings.practice` is the endpoint's alone: the settings PATCH and a new table's settings
+  drop the key (`practice.strip_setting`), so they never set or clear it.
 - No migration: the mark is the username, the switch a settings key.
 - Who plays them is the game's business (ONUW: `apps/onuw/practice.py`).

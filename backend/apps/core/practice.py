@@ -17,9 +17,27 @@ shown as here (they have no phone to drop), and never hold a table open alone: t
 last person leaving closes the table as before and their accounts go with it. A
 person joining a table whose every seat is taken takes a practice player's seat.
 
+**Accounts never pile up.** A table OWNS its practice accounts (``owned_account_ids``:
+seated now, or holding a seat in one of its games, whose results keep them), and
+every path that ends a table deletes them with it (``close_table``). A practice
+player taken off a table goes at once unless its games keep it. Tables are never
+swept on a clock (there is no cron), so the number is bounded instead: **a person
+has practice players at one table at a time.** Switching them on, or starting a new
+table, first clears that person's practice players from every other table they own
+or act as host for that is not in a running game (``clear_elsewhere``). So the
+accounts alive at any moment are at most one table's seats per person, plus the
+ones finished games' results hold (which go with their table).
+
+``settings.practice`` is written only here: the settings PATCH and a new table's
+settings never set or clear it (``strip_setting``).
+
 Names are a fixed list of village things, never a person's name, so even an app
 that shows no "Practice" tag reads them as not people. No randomness here: the
-next name is the first one not taken at the table.
+next name is the first one not taken at the table. Each has its own seat token,
+the thing it is named for (``token_for``: "teapot" for Teapot), drawn in the seat
+tokens' style but outside the people's ten (``tokens.TOKENS``): a practice player
+never takes a person's token, and an app that does not know the token draws a
+plain disc.
 
 Lock order: the caller holds the Lobby row (Lobby, then LobbyMember).
 """
@@ -29,6 +47,8 @@ from __future__ import annotations
 import logging
 import uuid
 from typing import Any
+
+from django.db.models import Q
 
 from apps.core import games, lobbies, tokens
 from apps.core.models import Lobby, LobbyMember, User
@@ -128,6 +148,11 @@ def body_extras(lobby: Lobby, players: list[dict[str, Any]]) -> dict[str, Any]:
     return {SETTING_KEY: {"most": most(lobby, len(players), seated)}}
 
 
+def token_for(name: str) -> str:
+    """A practice player's seat token: the thing it is named for."""
+    return name.lower()
+
+
 def _next_name(taken: set[str]) -> str:
     for name in NAMES:
         if name not in taken:
@@ -144,7 +169,7 @@ def _seat_one(lobby: Lobby, taken_names: set[str]) -> LobbyMember:
         display_name=name,
         is_guest=True,
     )
-    member = lobbies.add_member(lobby, user.pk)
+    member = lobbies.add_member(lobby, user.pk, token=token_for(name))
     taken_names.add(name)
     logger.info(
         "lobby %s: practice player %s (%s) sits down", lobby.code, user.pk, name
@@ -152,13 +177,33 @@ def _seat_one(lobby: Lobby, taken_names: set[str]) -> LobbyMember:
     return member
 
 
+def strip_setting(settings: Any) -> Any:
+    """``settings`` without ``practice``: only ``set_practice`` writes that key (the
+    settings PATCH and a new table's settings never set or clear it)."""
+    if isinstance(settings, dict) and SETTING_KEY in settings:
+        return {k: v for k, v in settings.items() if k != SETTING_KEY}
+    return settings
+
+
+def owned_account_ids(lobby: Lobby) -> set[int]:
+    """The practice accounts this table owns: seated at it now, or holding a seat
+    in one of its games. Every path that ends the table deletes them with it."""
+    played = games.hooks_for(lobby).played_user_ids(lobby, USERNAME_PREFIX)
+    return member_user_ids(lobby) | played
+
+
+def _delete_accounts(ids: set[int]) -> None:
+    if ids:
+        User.objects.filter(pk__in=ids, username__startswith=USERNAME_PREFIX).delete()
+
+
 def _unseat(lobby: Lobby, member: LobbyMember) -> None:
     """Take a practice player off the table; its account goes too unless it played
-    a game here (whose results keep it)."""
+    a game here (whose results keep it until the table goes)."""
     user_id: int = member.user_id  # type: ignore[attr-defined]
     member.delete()
-    if not games.hooks_for(lobby).has_played(lobby, user_id):
-        User.objects.filter(pk=user_id, username__startswith=USERNAME_PREFIX).delete()
+    if user_id not in games.hooks_for(lobby).played_user_ids(lobby, USERNAME_PREFIX):
+        _delete_accounts({user_id})
     logger.info("lobby %s: practice player %s leaves", lobby.code, user_id)
 
 
@@ -211,16 +256,63 @@ def make_room(lobby: Lobby) -> bool:
     return True
 
 
-def humans(lobby: Lobby, user_ids: list[int]) -> list[int]:
-    """``user_ids`` without the practice players, in the same order."""
-    practice = member_user_ids(lobby)
-    return [uid for uid in user_ids if uid not in practice]
-
-
 def close_table(lobby: Lobby) -> None:
-    """The last person left: delete the table (its games with it) and the
-    practice accounts that sat at it."""
-    ids = member_user_ids(lobby)
+    """The table ends (the last person left): delete it, its games with it, and
+    every practice account it owns (``owned_account_ids``), seated or not."""
+    ids = owned_account_ids(lobby)
     lobby.delete()
+    _delete_accounts(ids)
     if ids:
-        User.objects.filter(pk__in=ids, username__startswith=USERNAME_PREFIX).delete()
+        logger.info("lobby %s closed with %d practice accounts", lobby.code, len(ids))
+
+
+def _theirs(user_id: int) -> Q:
+    """The tables ``user_id`` owns or acts as host for."""
+    return Q(host_id=user_id) | Q(acting_host_id=user_id)
+
+
+def lock_with_theirs(code: str, user_id: int) -> Lobby | None:
+    """Lock the table ``code`` together with the other tables ``user_id`` owns or
+    hosts, all in one statement in primary-key order (so two requests of one
+    person at two tables never lock in opposite orders). Returns ``code``'s row,
+    or None when there is no such table."""
+    rows = list(
+        Lobby.objects.select_for_update()
+        .filter(Q(code=code) | _theirs(user_id))
+        .order_by("pk")
+    )
+    return next((row for row in rows if row.code == code), None)
+
+
+def clear_elsewhere(user_id: int, keep: Lobby | None = None) -> list[Lobby]:
+    """The bound: a person has practice players at one table at a time. Take every
+    practice player off the other tables ``user_id`` owns or hosts that are not in
+    a running game, switch them off there, and delete the accounts nothing kept
+    points at (a finished game's results keep theirs until that table goes).
+    Returns the tables changed (the caller announces them after commit). Locks
+    those tables (pk order); a caller that already holds them
+    (``lock_with_theirs``) takes no new lock."""
+    others = (
+        Lobby.objects.select_for_update()
+        .filter(_theirs(user_id))
+        .exclude(status=Lobby.Status.IN_GAME)
+        .order_by("pk")
+    )
+    if keep is not None:
+        others = others.exclude(pk=keep.pk)
+    changed = []
+    for other in others:
+        seated = members(other)
+        if not seated and not switched_on(other):
+            continue
+        for member in reversed(seated):
+            _unseat(other, member)
+        other.settings = strip_setting(other.settings)
+        other.save(update_fields=["settings", "updated_at"])
+        logger.info(
+            "lobby %s: practice players cleared (user %s is elsewhere)",
+            other.code,
+            user_id,
+        )
+        changed.append(other)
+    return changed

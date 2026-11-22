@@ -28,7 +28,7 @@
     {
       "player_id": 95,
       "display_name": "Scarecrow",
-      "token": "key",
+      "token": "scarecrow",
       "seat": 1,
       "practice": true,
       "original_role": "Werewolf",
@@ -42,7 +42,7 @@
     {
       "player_id": 96,
       "display_name": "Teapot",
-      "token": "moth",
+      "token": "teapot",
       "seat": 2,
       "practice": true,
       "original_role": "Robber",
@@ -56,7 +56,7 @@
     {
       "player_id": 93,
       "display_name": "Quin",
-      "token": "bell",
+      "token": "key",
       "seat": 3,
       "original_role": "Villager",
       "final_role": "Villager",

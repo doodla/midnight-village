@@ -1,6 +1,7 @@
 @Tags(['e2e'])
 library;
 
+import 'package:flutter/gestures.dart' show kLongPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
@@ -16,12 +17,12 @@ import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/helpers/test_fonts.dart';
-import '../test_e2e/harness/end_of_game.dart' as end_of_game;
-import '../test_e2e/harness/failure_report.dart';
-import '../test_e2e/harness/harness_config.dart';
-import '../test_e2e/harness/live_table.dart';
-import '../test_e2e/harness/time_budget.dart';
-import '../test_e2e/harness/ui_harness.dart';
+import 'harness/end_of_game.dart' as end_of_game;
+import 'harness/failure_report.dart';
+import 'harness/harness_config.dart';
+import 'harness/live_table.dart';
+import 'harness/time_budget.dart';
+import 'harness/ui_harness.dart';
 
 /// UI runner, one person alone against a real server: the owner's case. The
 /// phone opens a table (01), finds nothing of practice players on 02 or 03,
@@ -31,9 +32,6 @@ import '../test_e2e/harness/ui_harness.dart';
 /// the practice players but the server: they look, choose, are ready to vote
 /// and lock a vote by themselves, and the game reaches 10 and 11 as the
 /// oracle says. Filmstrip: `integration_test/screenshots/practice-alone/`.
-///
-/// (In its own folder beside `test_e2e/`, whose files another piece of work
-/// holds; `tool/run_harness.sh` runs it with the others.)
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -159,9 +157,12 @@ void main() {
       // request started under the test's fake clock never completes.
       await tester.runAsync(() async {
         // The recognizer's timer is armed in the real zone, so the hold fires
-        // (and its request goes) on the real clock.
+        // (and its request goes) on the real clock: held past the platform's
+        // long-press time, with a frame's margin.
         final hold = await tester.startGesture(tester.getCenter(players));
-        await Future<void>.delayed(const Duration(milliseconds: 800));
+        await Future<void>.delayed(
+          kLongPressTimeout + const Duration(milliseconds: 100),
+        );
         await hold.up();
       });
       await tester.pump();

@@ -135,12 +135,13 @@ class LabelledStepper extends StatelessWidget {
   Widget build(BuildContext context) {
     final words = FitWords(label, style: style);
     final hold = onLabelLongPress;
+    // The hold answers on the words alone, never the room between them and
+    // the stepper (a thumb near the minus must not switch anything).
     final name = hold == null
         ? words
-        : GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onLongPress: hold,
-            child: words,
+        : Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: GestureDetector(onLongPress: hold, child: words),
           );
     return LayoutBuilder(
       builder: (context, room) {

@@ -161,7 +161,9 @@ class DeckView extends StatelessWidget {
   final ValueChanged<int>? onPractice;
   final VoidCallback? onRetry;
 
-  int get _present => lobby.players.length;
+  /// Who sits at the table as this phone shows it (practice changes on
+  /// their way included).
+  int get _present => lobby.seatedCount;
 
   /// The number of players the table may be set to now (the server's;
   /// before a server that sends none: who is here, at least 3, to 10).

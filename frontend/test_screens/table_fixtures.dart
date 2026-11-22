@@ -285,6 +285,14 @@ Future<void> pumpTablePractice(WidgetTester tester, {String viewer = 'Pia'}) =>
       viewer: viewer,
     );
 
+/// 02 at Pia's table set for six: two people and two practice players
+/// here, "4 of 6", "Play with 4" beside the practice players.
+Future<void> pumpTablePracticeShort(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_practice_short'),
+  viewer: 'Pia',
+);
+
 // ---------------------------------------------------------------------------
 // 03 Deck and 03b
 // ---------------------------------------------------------------------------

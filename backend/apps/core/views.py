@@ -95,10 +95,15 @@ class LobbyCreateView(CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        # The host takes the first seat (and token) in the same transaction.
+        # The host takes the first seat (and token) in the same transaction. A
+        # person has practice players at one table at a time: a new table clears
+        # theirs from the others (``practice.clear_elsewhere``).
         with transaction.atomic():
+            cleared = practice.clear_elsewhere(self.request.user.id)  # type: ignore[arg-type]
             lobby = serializer.save(host=self.request.user)
             add_member(lobby, self.request.user.id)  # type: ignore[misc]
+            for other in cleared:
+                announce_lobby(other)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -132,6 +137,11 @@ class LobbyCreateView(CreateAPIView):
         # What the table starts with is checked now, not at the deal: a combination
         # the game refuses is refused here. Who will sit at the table is not known
         # yet, so the card list is not checked against a player count.
+        # ``practice`` is the practice endpoint's alone (``practice.strip_setting``).
+        if "settings" in serializer.validated_data:
+            serializer.validated_data["settings"] = practice.strip_setting(
+                serializer.validated_data["settings"]
+            )
         merged = serializer.validated_data.get("settings") or {}
         if merged:
             errors = hooks_for_type(
@@ -210,6 +220,8 @@ class LobbyDetailView(RetrieveAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # ``practice`` is set and cleared by the practice endpoint alone.
+            given = practice.strip_setting(given)
             merged = {**lobby.settings, **given}
             from apps.core import games
 
@@ -455,8 +467,11 @@ class LobbyPracticeView(APIView):
                 {"detail": "Send on (true or false) or count.", "code": "bad_request"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        switching_on = on is True or (on is None and bool(count))
         with transaction.atomic():
-            lobby = Lobby.objects.select_for_update().filter(code=code).first()
+            # With the caller's other tables (pk order): switching on clears
+            # theirs there (a person has practice players at one table at a time).
+            lobby = practice.lock_with_theirs(code, request.user.id)  # type: ignore[arg-type]
             if lobby is None or not hooks_for(lobby).practice_seats(lobby):
                 return Response(
                     {"detail": "Lobby not found.", "code": "lobby_not_found"},
@@ -475,6 +490,11 @@ class LobbyPracticeView(APIView):
                     },
                     status=status.HTTP_409_CONFLICT,
                 )
+            cleared = (
+                practice.clear_elsewhere(request.user.id, keep=lobby)  # type: ignore[arg-type]
+                if switching_on
+                else []
+            )
             try:
                 practice.set_practice(lobby, on=on, count=count)
             except practice.PracticeError as exc:
@@ -484,6 +504,8 @@ class LobbyPracticeView(APIView):
                 )
             data = LobbySerializer(lobby).data
             announce_lobby(lobby)
+            for other in cleared:
+                announce_lobby(other)
         return Response(data, status=status.HTTP_200_OK)
 
 

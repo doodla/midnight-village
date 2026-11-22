@@ -34,7 +34,7 @@
         "username": "practice-00000000-0000-4000-9000-000000000095",
         "display_name": "Scarecrow"
       },
-      "token": "key",
+      "token": "scarecrow",
       "joined_at": "2024-03-07T22:36:18Z",
       "connected": true,
       "practice": true
@@ -45,7 +45,7 @@
         "username": "practice-00000000-0000-4000-9000-000000000096",
         "display_name": "Teapot"
       },
-      "token": "moth",
+      "token": "teapot",
       "joined_at": "2024-03-07T22:36:18Z",
       "connected": true,
       "practice": true
@@ -56,7 +56,7 @@
         "username": "00000000-0000-4000-8000-000000000093",
         "display_name": "Quin"
       },
-      "token": "bell",
+      "token": "key",
       "joined_at": "2024-03-07T22:37:18Z",
       "connected": false
     }

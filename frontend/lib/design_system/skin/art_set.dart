@@ -5,7 +5,9 @@ import 'package:flutter/painting.dart';
 
 import '../models/role.dart';
 
-/// The emblems players are known by at the table, one per seat.
+/// The emblems players are known by at the table, one per seat: the people's
+/// ten, then the practice players' (each the thing it is named for: Teapot's
+/// is [teapot]), never handed to a person.
 enum TokenId {
   crow,
   key,
@@ -16,7 +18,27 @@ enum TokenId {
   hare,
   lantern,
   spindle,
-  scythe;
+  scythe,
+  scarecrow(practice: true),
+  teapot(practice: true),
+  broom(practice: true),
+  kettle(practice: true),
+  haystack(practice: true),
+  bucket(practice: true),
+  candle(practice: true),
+  weathervane(practice: true),
+  wheelbarrow(practice: true);
+
+  const TokenId({this.practice = false});
+
+  /// A practice player's token (the server hands it out with the name).
+  final bool practice;
+
+  /// The tokens people are given.
+  static List<TokenId> get people => [
+    for (final t in values)
+      if (!t.practice) t,
+  ];
 
   /// The token the server names, or null for one this app does not know (a
   /// newer server's): `PlayerToken` then draws a plain disc.

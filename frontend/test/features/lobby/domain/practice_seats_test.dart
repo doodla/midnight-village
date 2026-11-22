@@ -84,6 +84,53 @@ void main() {
     });
   });
 
+  group('several changes on their way fold as the server applies them', () {
+    PracticeAsk fold(List<PracticeAsk> asks) =>
+        asks.fold(const PracticeAsk(), (a, b) => a.then(b));
+
+    test('switched on, then + + − −: still on, at 0', () {
+      expect(
+        fold(const [
+          PracticeAsk(on: true),
+          PracticeAsk(count: 1),
+          PracticeAsk(count: 2),
+          PracticeAsk(count: 1),
+          PracticeAsk(count: 0),
+        ]),
+        const PracticeAsk(on: true, count: 0),
+      );
+    });
+
+    test('a count alone switches on; 0 alone leaves the switch as it is', () {
+      expect(fold(const [PracticeAsk(count: 2)]).on, isTrue);
+      expect(fold(const [PracticeAsk(count: 0)]).on, isNull);
+    });
+
+    test('off takes every one away; on again starts from none', () {
+      expect(
+        fold(const [PracticeAsk(count: 3), PracticeAsk(on: false)]),
+        const PracticeAsk(on: false, count: 0),
+      );
+      expect(
+        fold(const [PracticeAsk(on: false), PracticeAsk(on: true)]),
+        const PracticeAsk(on: true, count: 0),
+      );
+    });
+
+    test('Deal waits: a practice change on its way is pending', () {
+      final three = FromSample.lobby(
+        ContractSamples.map('http/lobby/practice_three'),
+      );
+      expect(DealState.of(three), isA<CanDeal>());
+      final asked = three.copyWith(
+        practiceAsk: const PracticeAsk(count: 2),
+        pendingKeys: const {PracticeAsk.key},
+      );
+      expect(asked.seatedCount, 3);
+      expect(DealState.of(asked), isNot(isA<CanDeal>()));
+    });
+  });
+
   group('the game', () {
     test("/me/ names the practice players (and an older body's none)", () {
       final me = GameMe.fromJson(recordedMe('me_voting_practice'));

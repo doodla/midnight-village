@@ -1298,6 +1298,14 @@
       "description": "A guest's view of a table with two people and two practice players."
     },
     {
+      "name": "http/lobby/detail_practice_short",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The host's table set for six, two people and two practice players here: four of six, 'Play with 4' beside the practice players."
+    },
+    {
       "name": "http/lobby/detail_seats_8_custom_alone",
       "kind": "http",
       "method": "GET",

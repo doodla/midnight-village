@@ -106,5 +106,9 @@ class OnuwHooks(GameHooks):
         plays them)."""
         return True
 
-    def has_played(self, lobby, user_id: int) -> bool:
-        return PlayerRole.objects.filter(game__lobby=lobby, user_id=user_id).exists()
+    def played_user_ids(self, lobby, username_prefix: str = "") -> set[int]:
+        return set(
+            PlayerRole.objects.filter(
+                game__lobby=lobby, user__username__startswith=username_prefix
+            ).values_list("user_id", flat=True)
+        )

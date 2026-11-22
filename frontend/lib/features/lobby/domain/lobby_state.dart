@@ -54,13 +54,29 @@ abstract class LobbyPlayer with _$LobbyPlayer {
 
 /// A practice change of this phone's not answered yet (`POST
 /// /lobbies/<code>/practice/`): shown at once, the server's word once it
-/// answers. [on] the switch asked for, [count] how many asked to sit.
+/// answers. [on] the switch asked for, [count] how many asked to sit; null:
+/// as the server has it. Several on their way are [then]-folded, oldest
+/// first, so the screen shows them all as the server will apply them.
 @immutable
 class PracticeAsk {
   const PracticeAsk({this.on, this.count});
 
   final bool? on;
   final int? count;
+
+  /// The settings key a practice change holds on the settings lane (only the
+  /// practice endpoint writes it).
+  static const key = 'practice';
+
+  /// [next] applied after this, as the server applies them: off takes every
+  /// one away; on keeps who sits; a count above 0 switches them on.
+  PracticeAsk then(PracticeAsk next) {
+    if (next.on == false) return const PracticeAsk(on: false, count: 0);
+    return PracticeAsk(
+      on: next.on ?? ((next.count ?? 0) > 0 ? true : on),
+      count: next.count ?? (next.on == true && on == false ? 0 : count),
+    );
+  }
 
   @override
   bool operator ==(Object other) =>
@@ -267,23 +283,23 @@ extension PracticeSeats on LobbyState {
   /// The practice players seated, as the server says.
   int get practiceSeated => players.where((p) => p.practice).length;
 
-  /// The host has switched them on (a change on its way included).
-  bool get practiceOn {
-    final ask = practiceAsk;
-    if (ask?.on case final on?) return on;
-    if ((ask?.count ?? 0) > 0) return true;
-    return practiceMost != null;
-  }
+  /// The host has switched them on (the changes on their way included).
+  bool get practiceOn => practiceAsk?.on ?? practiceMost != null;
 
   /// How many sit at the table, as this phone shows it.
   int get practiceCount =>
       practiceAsk?.on == false ? 0 : practiceAsk?.count ?? practiceSeated;
 
-  /// The most that may sit: the server's, or, before it has said (the
-  /// switch on its way), every seat no person holds.
+  /// Who sits at the table as this phone shows it: the people, and the
+  /// practice players with the changes on their way.
+  int get seatedCount => players.length - practiceSeated + practiceCount;
+
+  /// The most that may sit: the server's, or, before it has said (the switch
+  /// on its way) or while a new number is on its way, every seat no person
+  /// holds at the number shown.
   int get practiceLimit {
     final most = practiceMost;
-    if (most != null) return most;
+    if (most != null && !pendingKeys.contains('seats')) return most;
     final people = players.length - practiceSeated;
     final seats = table.seats ?? maxPlayers;
     return (seats - people).clamp(0, maxPlayers);
@@ -532,7 +548,8 @@ sealed class DealState {
   const DealState();
 
   factory DealState.of(LobbyState lobby) {
-    final players = lobby.players.length;
+    // Who sits as the host sees it (practice changes on their way included).
+    final players = lobby.seatedCount;
     final deal = lobby.deal;
     // No verdict yet (a state built before its first body): the button is
     // offered and the server's answer to the deal judges.
@@ -544,6 +561,9 @@ sealed class DealState {
     // A table set for a number waits for it: "Deal to 8", locked.
     if (seats != null) return WaitingFor(seats);
     if (players < minPlayers) return const NeedPlayers();
+    // A change on its way (a practice player sitting down or getting up,
+    // the chip): "Deal to {n}" for who sits as shown, locked until answered.
+    if (lobby.settling) return WaitingFor(players);
     if (!lobby.table.autoDeck) return const DeckDoesNotFit();
     return const CannotDeal();
   }

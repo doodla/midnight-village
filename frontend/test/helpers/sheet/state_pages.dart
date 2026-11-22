@@ -133,7 +133,10 @@ class PlayersPage extends StatelessWidget {
   Widget build(BuildContext context) => StatePage(
     ground: ground,
     children: [
-      const Note('Tokens: all ten, an unknown one, one away'),
+      const Note(
+        "Tokens: the people's ten, the practice players' nine, an unknown "
+        'one, one away',
+      ),
       Wrap(
         spacing: Space.smPlus,
         runSpacing: Space.smPlus,
@@ -143,10 +146,12 @@ class PlayersPage extends StatelessWidget {
           const PlayerToken(TokenId.bell, away: true),
         ],
       ),
-      const Note('Rows: own, away, a long name'),
+      const Note('Rows: own, away, a long name, a practice player'),
       PlayerRow(token: ana.token, name: ana.name, own: true),
       PlayerRow(token: dev.token, name: dev.name, away: true),
       const PlayerRow(token: TokenId.antler, name: 'Florentyna-Bartholomew'),
+      // A practice player: its own token, "Practice" on the name's line.
+      const PlayerRow(token: TokenId.teapot, name: 'Teapot', practice: true),
       const Note('The vote: picked; locked, all alike'),
       PlayerRow(
         token: cleo.token,

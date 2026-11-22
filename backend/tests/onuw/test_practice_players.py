@@ -11,22 +11,30 @@ and has several players.
 
 from __future__ import annotations
 
+import functools
 import json
+import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import timedelta
 from typing import Any
 from unittest.mock import patch
 
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core import host as core_host
+from apps.core import timers
 from apps.core.models import Lobby, LobbyMember, User
 from apps.core.practice import NAMES, USERNAME_PREFIX
+from apps.core.tokens import TOKENS
+from apps.onuw import choose_night
+from apps.onuw import practice as onuw_practice
 from apps.onuw.engine.choose import (
     build_choose_prompt,
     interpret_choice,
@@ -85,6 +93,8 @@ class PracticeTable:
     def __init__(self, capture: Any, people: list[str], settings: dict[str, Any]):
         self._capture = capture
         self.recorder = _Recorder()
+        # Every timer the server scheduled: (key, delay, the job as a firing runs it).
+        self.scheduled: list[tuple[str, float, Any]] = []
         self.people = {name: _person(name) for name in people}
         self.host = self.people[people[0]]
         self.client = APIClient()
@@ -109,7 +119,14 @@ class PracticeTable:
         """Run the block as a request whose transaction commits: the on-commit
         callbacks run (socket sends recorded, the practice players' drive)."""
         layer = type("Layer", (), {"group_send": self.recorder.group_send})()
+
+        def schedule(key, delay, job, params=None):
+            self.scheduled.append(
+                (key, delay, functools.partial(timers.run_job_quietly, job, params))
+            )
+
         with (
+            patch("apps.core.timers.schedule", side_effect=schedule),
             patch("apps.core.effects.get_channel_layer", return_value=layer),
             patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
             patch("apps.core.views.get_channel_layer", return_value=None),
@@ -152,7 +169,7 @@ class PracticeTable:
     # -- the game -----------------------------------------------------------
 
     @override_settings(DEBUG=True)
-    def deal(self, roles: dict[int, str], center: list[str]) -> Game:
+    def deal(self, roles: dict[int, str], center: list[str], seed: int = SEED) -> Game:
         """Deal these cards (user id -> role) and fix the practice players' seed."""
         reply = self.post(
             self.host.display_name,
@@ -167,9 +184,36 @@ class PracticeTable:
             },
         )
         assert reply.status_code == status.HTTP_201_CREATED, reply.data
-        Game.objects.filter(id=reply.data["game_id"]).update(random_seed=SEED)
+        Game.objects.filter(id=reply.data["game_id"]).update(random_seed=seed)
         self.game = Game.objects.get(id=reply.data["game_id"])
         return self.game
+
+    def fire(self, key_end: str) -> None:
+        """Run the newest timer whose key ends with ``key_end`` (its expiry)."""
+        due = [cb for key, _, cb in self.scheduled if key.endswith(key_end)]
+        assert due, f"no timer {key_end} scheduled: {[k for k, _, _ in self.scheduled]}"
+        with self.committed():
+            due[-1]()
+
+    def snapshot(self) -> Any:
+        """Everything the game holds that a practice player's step changes."""
+        game = self.refresh()
+        return (
+            game.phase,
+            game.current_wave,
+            stage_token(game),
+            json.dumps(game.night_actions_log, sort_keys=True, default=str),
+            [
+                (
+                    pr.user_id,
+                    pr.phase_ready,
+                    pr.has_acted,
+                    pr.vote_target_id,
+                    json.dumps(pr.night_action_data, sort_keys=True, default=str),
+                )
+                for pr in game.player_roles.order_by("user_id")
+            ],
+        )
 
     def refresh(self) -> Game:
         assert self.game is not None
@@ -261,7 +305,10 @@ class TestSeatingPracticePlayers:
         practice = [p for p in players if p.get("practice")]
         assert [p["user"]["display_name"] for p in practice] == list(NAMES[:3])
         assert all(p["connected"] is True for p in practice)
-        assert all(p["token"] for p in practice)  # a seat token like anyone's
+        # Each its own seat token, the thing it is named for, never a person's.
+        assert [p["token"] for p in practice] == [n.lower() for n in NAMES[:3]]
+        people_tokens = {p["token"] for p in players if not p.get("practice")}
+        assert people_tokens <= set(TOKENS)
         people = [p for p in players if not p.get("practice")]
         assert [p["user"]["display_name"] for p in people] == ["Ana", "Ben"]
         # They fill seats: the table is full and the deal counts them.
@@ -537,32 +584,66 @@ class TestAWholeGameAlone:
         assert by_id[b1]["practice"] is True
         assert "practice" not in by_id[ana]
 
-    def test_the_same_seed_plays_the_same_game(self, table):
-        logs = []
-        for _ in range(2):
-            t = table(["Ana"], **_deck(Werewolf=1, Seer=1, Troublemaker=1, Villager=3))
-            t.practice(count=2)
-            ana, b1, b2 = [t.host.pk, *t.practice_ids()]
-            t.deal(
-                {ana: "Villager", b1: "Seer", b2: "Troublemaker"},
-                ["Werewolf", "Villager", "Villager"],
-            )
-            _play_alone(t)
-            game = t.refresh()
-            # Seats are the same; ids differ between the two tables.
-            seat = {pr.user_id: pr.seat for pr in game.player_roles.all()}
-            logs.append(
-                [
-                    (
-                        seat[e["player_id"]],
-                        e["action_type"],
-                        json.dumps(e.get("targets")).count("player_id"),
+    @staticmethod
+    def _played_by_seat(table, seed: int) -> Any:
+        """A game of one person and four practice players on ``seed``: every
+        night step and every vote, each player named by seat (ids differ between
+        tables, seats do not)."""
+        t = table(
+            ["Ana"],
+            seats=5,
+            **_deck(Werewolf=2, Seer=1, Robber=1, Troublemaker=1, Drunk=1, Villager=2),
+        )
+        t.practice(count=4)
+        ana, *bots = [t.host.pk, *t.practice_ids()]
+        t.deal(
+            {
+                ana: "Villager",
+                bots[0]: "Seer",
+                bots[1]: "Robber",
+                bots[2]: "Troublemaker",
+                bots[3]: "Drunk",
+            },
+            ["Werewolf", "Werewolf", "Villager"],
+            seed=seed,
+        )
+        _play_alone(t)
+        game = t.refresh()
+        seat = {pr.user_id: pr.seat for pr in game.player_roles.all()}
+
+        def by_seat(value: Any) -> Any:
+            # A player is named by id under "player_id" / "player_ids".
+            if isinstance(value, dict):
+                return {
+                    k: (
+                        seat[v]
+                        if k == "player_id"
+                        else [seat[x] for x in v]
+                        if k == "player_ids"
+                        else by_seat(v)
                     )
-                    for e in game.night_actions_log
-                ]
-            )
-            t.post("Ana", reverse("core:lobby-leave", kwargs={"code": t.code}), {})
-        assert logs[0] == logs[1]
+                    for k, v in value.items()
+                }
+            if isinstance(value, list):
+                return [by_seat(v) for v in value]
+            return value
+
+        night = [
+            (seat[e["player_id"]], e["action_type"], by_seat(e.get("targets")))
+            for e in game.night_actions_log
+        ]
+        votes = sorted(
+            (pr.seat, seat[pr.vote_target_id]) for pr in game.player_roles.all()
+        )
+        t.post("Ana", reverse("core:lobby-leave", kwargs={"code": t.code}), {})
+        return night, votes
+
+    def test_the_same_seed_plays_the_same_game_and_another_seed_does_not(self, table):
+        first = self._played_by_seat(table, SEED)
+        assert first == self._played_by_seat(table, SEED)
+        # Every target is named (a Seer, a Robber, a Troublemaker, a Drunk).
+        assert all(targets for _, _, targets in first[0])
+        assert self._played_by_seat(table, SEED + 1) != first
 
 
 # ── Each card a practice player can be dealt ───────────────────────────────
@@ -791,3 +872,301 @@ def test_a_drive_that_fails_never_fails_the_persons_request(table):
     with patch("apps.onuw.practice._drive", side_effect=RuntimeError("boom")):
         assert t.ready("Ana").status_code == status.HTTP_200_OK
     assert t.refresh().current_wave == 2
+
+
+# ── Production lengths: window 1 ends on its clock ─────────────────────────
+
+
+def test_with_the_real_lengths_window_1_ends_on_its_clock_and_they_act_in_window_2(
+    table,
+):
+    # The lengths a live table has: a fixed Doppelganger window, a minimum window.
+    t = table(
+        ["Ana"],
+        card_look_seconds=30,
+        night_wave_seconds=30,
+        night_min_window_seconds=8,
+        night_doppelganger_window_seconds=10,
+        **_deck(Doppelganger=1, Seer=1, Robber=1, Werewolf=1, Villager=2),
+    )
+    t.practice(count=2)
+    ana, dop, seer = [t.host.pk, *t.practice_ids()]
+    t.deal(
+        {ana: "Villager", dop: "Doppelganger", seer: "Seer"},
+        ["Werewolf", "Robber", "Villager"],
+    )
+    assert t.ready("Ana").status_code == status.HTTP_200_OK
+    game = t.refresh()
+    assert (game.phase, game.current_wave) == (Phase.NIGHT, 1)
+    # Window 1 keeps its length: everyone chose, and it is still open.
+    assert t.log_of(dop)[0]["role_acting_as"] == "Doppelganger"
+    assert t.log_of(seer) == []
+    t.fire(":wave:1")
+    game = t.refresh()
+    assert (game.phase, game.current_wave) == (Phase.NIGHT, 2)
+    # Window 2 opened on a timer, and the practice Seer chose at once.
+    assert choose_night.chose_count(t.role_of(seer), 2) == 1
+    # The person (a Villager) chooses nothing; the minimum window ends it.
+    assert t.choose("Ana").status_code == status.HTTP_200_OK
+    if t.refresh().phase == Phase.NIGHT:
+        t.fire(":wave:2")
+    assert t.refresh().phase == Phase.DISCUSSION
+    (look,) = t.log_of(seer)  # its look, played in window 2
+    assert look["action_type"] in ("peek_player", "peek_center")
+    assert t.ready("Ana").status_code == status.HTTP_200_OK
+    assert t.refresh().phase == Phase.VOTING
+    assert t.vote("Ana", seer).status_code == status.HTTP_200_OK
+    assert t.refresh().phase == Phase.RESULTS
+
+
+# ── Driving again changes nothing ──────────────────────────────────────────
+
+
+def test_driving_twice_in_every_stage_leaves_the_same_state(table):
+    t = table(
+        ["Ana"],
+        **_deck(Doppelganger=1, Robber=1, Troublemaker=1, Werewolf=1, Villager=2),
+    )
+    t.practice(count=2)
+    ana, dop, other = [t.host.pk, *t.practice_ids()]
+    # The person is the Robber: every window waits for them.
+    t.deal(
+        {dop: "Doppelganger", ana: "Robber", other: "Troublemaker"},
+        ["Werewolf", "Villager", "Villager"],
+    )
+
+    def drive_again(where: str) -> None:
+        before = t.snapshot()
+        with t.committed():
+            onuw_practice.drive(t.game.id)
+            onuw_practice.drive(t.game.id)
+        assert t.snapshot() == before, where
+
+    drive_again("look")
+    t.ready("Ana")
+    seen = set()
+    while t.refresh().phase == Phase.NIGHT:
+        seen.add(t.game.current_wave)
+        drive_again(f"window {t.game.current_wave}")
+        t.choose("Ana")
+    assert seen  # the night was driven again in its windows
+    drive_again("talk")
+    t.ready("Ana")
+    drive_again("vote")
+    t.vote("Ana", dop)
+    assert t.refresh().phase == Phase.RESULTS
+
+
+# ── Play again ─────────────────────────────────────────────────────────────
+
+
+def test_play_again_with_practice_players_seated_plays_a_second_game(table):
+    t = table(["Ana"], **_deck(Werewolf=1, Seer=1, Robber=1, Villager=3))
+    t.practice(count=2)
+    ana, b1, b2 = [t.host.pk, *t.practice_ids()]
+    t.deal({ana: "Seer", b1: "Werewolf", b2: "Robber"}, ["Villager"] * 3)
+    _play_alone(t)
+    first = t.game
+    again = t.post("Ana", reverse("core:lobby-play-again", kwargs={"code": t.code}), {})
+    assert again.status_code == status.HTTP_200_OK
+    assert t.practice_ids() == [b1, b2]
+    assert [p.get("practice", False) for p in again.data["players"]] == [
+        False,
+        True,
+        True,
+    ]
+    t.deal({ana: "Robber", b1: "Seer", b2: "Werewolf"}, ["Villager"] * 3)
+    assert t.game.id != first.id
+    _play_alone(t)
+    for bot in (b1, b2):
+        assert t.role_of(bot).vote_target_id not in (None, bot)
+
+
+# ── Accounts never pile up ─────────────────────────────────────────────────
+
+
+def _new_table(t: PracticeTable, name: str) -> str:
+    reply = t.post(name, reverse("core:lobby-list"), {"game_type": "onuw"})
+    assert reply.status_code == status.HTTP_201_CREATED, reply.data
+    return reply.data["code"]
+
+
+class TestAccountsNeverPileUp:
+    def test_accounts_that_played_and_got_up_go_when_the_table_goes(self, table):
+        t = table(["Ana"], **_deck(Werewolf=1, Seer=1, Robber=1, Villager=3))
+        t.practice(count=2)
+        ana, b1, b2 = [t.host.pk, *t.practice_ids()]
+        t.deal({ana: "Seer", b1: "Werewolf", b2: "Robber"}, ["Villager"] * 3)
+        _play_alone(t)
+        t.post("Ana", reverse("core:lobby-play-again", kwargs={"code": t.code}), {})
+        t.practice(on=False)
+        # Their results keep them while the table is there.
+        assert t.practice_ids() == []
+        assert User.objects.filter(pk__in=[b1, b2]).count() == 2
+        t.post("Ana", reverse("core:lobby-leave", kwargs={"code": t.code}), {})
+        assert not Lobby.objects.filter(code=t.code).exists()
+        assert not User.objects.filter(pk__in=[b1, b2]).exists()
+        assert not User.objects.filter(username__startswith=USERNAME_PREFIX).exists()
+
+    def test_a_new_table_clears_the_persons_practice_players_elsewhere(self, table):
+        t = table(["Ana"])
+        t.practice(count=3)
+        ids = t.practice_ids()
+        old = t.code
+        new = _new_table(t, "Ana")
+        old_lobby = Lobby.objects.get(code=old)
+        assert not LobbyMember.objects.filter(
+            lobby=old_lobby, user__username__startswith=USERNAME_PREFIX
+        ).exists()
+        assert "practice" not in old_lobby.settings
+        assert not User.objects.filter(pk__in=ids).exists()
+        assert Lobby.objects.filter(code=new).exists()
+
+    def test_switching_on_at_another_table_clears_the_first(self, table):
+        t = table(["Ana"], **_deck(Werewolf=1, Seer=1, Robber=1, Villager=3))
+        t.practice(count=2)
+        ana, b1, b2 = [t.host.pk, *t.practice_ids()]
+        t.deal({ana: "Seer", b1: "Werewolf", b2: "Robber"}, ["Villager"] * 3)
+        _play_alone(t)
+        first = t.code
+        t.code = _new_table(t, "Ana")  # clears the finished table's
+        t.practice(count=2)
+        assert len(t.practice_ids()) == 2
+        everywhere = LobbyMember.objects.filter(
+            user__username__startswith=USERNAME_PREFIX
+        )
+        assert {m.lobby.code for m in everywhere} == {t.code}
+        # The finished game's results keep its two until that table goes.
+        assert User.objects.filter(pk__in=[b1, b2]).count() == 2
+        assert User.objects.filter(username__startswith=USERNAME_PREFIX).count() == 4
+        with t.committed():
+            from apps.core import practice as core_practice
+
+            core_practice.close_table(Lobby.objects.get(code=first))
+        assert not User.objects.filter(pk__in=[b1, b2]).exists()
+
+    def test_a_table_in_a_running_game_keeps_its_practice_players(self, table):
+        t = table(["Ana"], **_deck(Werewolf=1, Seer=1, Robber=1, Villager=3))
+        t.practice(count=2)
+        ana, b1, b2 = [t.host.pk, *t.practice_ids()]
+        t.deal({ana: "Seer", b1: "Werewolf", b2: "Robber"}, ["Villager"] * 3)
+        first = t.code
+        _new_table(t, "Ana")
+        assert (
+            LobbyMember.objects.filter(lobby__code=first, user_id__in=[b1, b2]).count()
+            == 2
+        )
+
+    def test_only_the_practice_endpoint_sets_or_clears_the_switch(self, table):
+        t = table(["Ana", "Ben"])
+        url = reverse("core:lobby-detail", kwargs={"code": t.code})
+        t.client.force_authenticate(user=t.host)
+        with t.committed():
+            t.client.patch(url, {"settings": {"practice": True}}, format="json")
+        assert "practice" not in t.lobby_row.settings
+        assert "practice" not in t.lobby()
+        t.practice(count=1)
+        with t.committed():
+            reply = t.client.patch(
+                url, {"settings": {"practice": False}}, format="json"
+            )
+        assert reply.status_code == status.HTTP_200_OK
+        assert t.lobby_row.settings["practice"] is True
+        assert len(t.practice_ids()) == 1
+        # A new table cannot start with it either.
+        reply = t.post(
+            "Ben",
+            reverse("core:lobby-list"),
+            {"game_type": "onuw", "settings": {"practice": True}},
+        )
+        assert "practice" not in reply.data["settings"]
+        assert "practice" not in reply.data
+
+
+# ── Never host: the real handover and a member leaving ─────────────────────
+
+
+def test_a_real_handover_and_a_member_leaving_never_pick_a_practice_player(table):
+    t = table(["Ana"])
+    t.practice(count=2)
+    ben = _person("Ben")
+    t.people["Ben"] = ben
+    t.post("Ben", reverse("core:lobby-join", kwargs={"code": t.code}), {})
+    lobby = t.lobby_row
+    # Even a practice player that looks connected (a socket row of its own,
+    # which never happens) is passed over; it sat down before Ben.
+    with t.committed():
+        for user_id in t.practice_ids():
+            core_host.register_lobby_connection(t.code, user_id)
+        core_host.register_lobby_connection(t.code, ben.pk)
+    LobbyMember.objects.filter(lobby=lobby, user=t.host).update(
+        disconnected_at=timezone.now() - timedelta(minutes=10)
+    )
+    with t.committed():
+        core_host._handover_due(lobby.pk)
+    assert t.lobby_row.acting_host_id == ben.pk
+    # Ben, acting, leaves: the role goes back to the owner, never to them.
+    reply = t.post("Ben", reverse("core:lobby-leave", kwargs={"code": t.code}), {})
+    assert reply.status_code == status.HTTP_200_OK
+    assert t.lobby_row.acting_host_id is None
+
+
+# ── The backstop, when a step is refused or missed ─────────────────────────
+
+
+def test_a_refused_choose_is_given_up_not_redriven_at_every_read(table, caplog):
+    t = table(["Ana"], **_deck(Werewolf=1, Seer=1, Robber=1, Villager=3))
+    t.practice(count=2)
+    ana, b1, b2 = [t.host.pk, *t.practice_ids()]
+    t.deal({ana: "Seer", b1: "Werewolf", b2: "Robber"}, ["Villager"] * 3)
+    real = choose_night.submit_choose
+    calls: list[int] = []
+
+    def refuse_practice(game, user_id, picks, stage, answered):
+        if user_id in (b1, b2):
+            calls.append(user_id)
+            return ["refused for the test"]
+        return real(game, user_id, picks, stage, answered)
+
+    with (
+        patch("apps.onuw.choose_night.submit_choose", side_effect=refuse_practice),
+        caplog.at_level(logging.ERROR, logger="apps.onuw.practice"),
+    ):
+        t.ready("Ana")
+        # Each sent its choose, then an empty one, both refused: given up.
+        assert sorted(calls) == sorted([b1, b1, b2, b2])
+        logged = len(caplog.records)
+        for _ in range(3):
+            t.me("Ana")
+        assert len(calls) == 4, "a read re-drove a practice player given up"
+        assert len(caplog.records) == logged
+    # The window does not wait for them for good: it ends as for anyone.
+    assert t.refresh().phase == Phase.NIGHT
+    t.choose("Ana", [{"player_id": b1}])
+    t.fire(":wave:2")
+    assert t.refresh().phase == Phase.DISCUSSION
+
+
+def test_a_doppelgangers_missed_follow_up_is_made_up_by_the_next_read(table):
+    t = table(
+        ["Ana"],
+        **_deck(Doppelganger=1, Robber=1, Troublemaker=1, Werewolf=1, Villager=2),
+    )
+    t.practice(count=2)
+    ana, dop, other = [t.host.pk, *t.practice_ids()]
+    t.deal(
+        {dop: "Doppelganger", ana: "Robber", other: "Troublemaker"},
+        ["Werewolf", "Villager", "Villager"],
+    )
+    # The drive stops after her copy (as if the instance died there).
+    with patch("apps.onuw.practice._MAX_CHOOSES", 1):
+        t.ready("Ana")
+    game = t.refresh()
+    assert (game.phase, game.current_wave) == (Phase.NIGHT, 1)
+    assert len(t.log_of(dop)) == 1
+    assert onuw_practice.behind(game, list(game.player_roles.select_related("user")))
+    t.me("Ana")  # the backstop
+    _copy, follow_up = t.log_of(dop)[:2]
+    assert (
+        follow_up["role_acting_as"] == t.role_of(dop).night_action_data["copied_role"]
+    )

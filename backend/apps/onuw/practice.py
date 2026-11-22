@@ -32,12 +32,17 @@ practice player picks is sent to anyone: the night has no per-player event, the
 vote announces counts only, and its role shows in the results like anyone's.
 
 A failure is logged and never raised: the stage's own clock (or the host) still
-moves the game, as for a person who did nothing.
+moves the game, as for a person who did nothing. A refused choose is sent again
+once as an empty one (which the server takes from anyone and reads as nothing);
+a practice player whose part is still refused, or fails, is given up for that
+stage (``_given_up``, this instance's memory), so the ``GET /me/`` backstop does
+not re-drive and re-log it at every poll for the rest of the stage.
 """
 
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 from typing import Any
 
 from apps.core.practice import USERNAME_PREFIX, is_practice
@@ -63,6 +68,23 @@ logger = logging.getLogger(__name__)
 # The most chooses a practice player sends in one window (a Doppelganger's look
 # and her follow-up); the server takes no more from anyone.
 _MAX_CHOOSES = 2
+
+# (game, stage token, player) given up for that stage: refused even when empty, or
+# failed. Kept in this instance's memory, the newest ``_GIVEN_UP_MOST`` only (a
+# stage token never comes back, so an old entry is dead weight).
+_GIVEN_UP_MOST = 512
+_given_up: OrderedDict[tuple[str, str, int], None] = OrderedDict()
+
+
+def _give_up(game: Game, user_id: int) -> None:
+    key = (str(game.id), stage_token(game) or "", user_id)
+    _given_up[key] = None
+    while len(_given_up) > _GIVEN_UP_MOST:
+        _given_up.popitem(last=False)
+
+
+def _gave_up(game: Game, user_id: int) -> bool:
+    return (str(game.id), stage_token(game) or "", user_id) in _given_up
 
 
 def drive(game_id: Any) -> None:
@@ -96,6 +118,8 @@ def _act(game_id: Any, user_id: int) -> bool:
     pr = PlayerRole.objects.get(game=game, user_id=user_id)
     stage = stage_name(game)
     token = stage_token(game)
+    if _gave_up(game, user_id):
+        return True
     try:
         if stage == LOOK and in_look_stage(game) and not pr.phase_ready:
             svc.set_ready(game, user_id, True, token)
@@ -109,6 +133,15 @@ def _act(game_id: Any, user_id: int) -> bool:
         return False
     except svc.AlreadyActedError:
         pass  # done already (a drive racing another): nothing to do
+    except Exception:
+        # Given up for this stage; the others still act.
+        logger.exception(
+            "game %s: practice player %s could not act in %s; given up for it",
+            game.id,
+            user_id,
+            stage,
+        )
+        _give_up(game, user_id)
     return True
 
 
@@ -133,13 +166,29 @@ def _choose(game: Game, pr: PlayerRole, stage: str) -> None:
         errors = choose_night.submit_choose(
             game, pr.user_id, picks, stage_token(game) or "", chosen
         )
+        if errors and picks:
+            # Never expected (the picks are the prompt's own); an empty choose is
+            # taken from anyone and read as nothing.
+            logger.error(
+                "game %s: practice player %s's choose %s refused (%s); "
+                "sending an empty one",
+                game.id,
+                pr.user_id,
+                picks,
+                errors,
+            )
+            errors = choose_night.submit_choose(
+                game, pr.user_id, [], stage_token(game) or "", chosen
+            )
         if errors:
             logger.error(
-                "game %s: practice player %s's choose refused: %s",
+                "game %s: practice player %s's choose refused: %s; given up for "
+                "this window",
                 game.id,
                 pr.user_id,
                 errors,
             )
+            _give_up(game, pr.user_id)
             return
         game = Game.objects.get(id=game.id)
         if stage_name(game) != stage:
@@ -170,7 +219,11 @@ def _vote(game: Game, pr: PlayerRole, token: str | None) -> None:
 def behind(game: Game, player_roles: list[PlayerRole]) -> bool:
     """Whether a practice player has not done its part in the stage open now
     (``player_roles`` with ``user`` loaded: no query unless one is there)."""
-    practice = [pr for pr in player_roles if is_practice(pr.user)]
+    practice = [
+        pr
+        for pr in player_roles
+        if is_practice(pr.user) and not _gave_up(game, pr.user_id)
+    ]
     if not practice:
         return False
     if game.phase == Phase.DISCUSSION or in_look_stage(game):
@@ -178,7 +231,17 @@ def behind(game: Game, player_roles: list[PlayerRole]) -> bool:
     if game.phase == Phase.VOTING:
         return any(not pr.has_acted for pr in practice)
     if game.phase == Phase.NIGHT and game.current_wave in (1, 2):
-        return any(
-            choose_night.chose_count(pr, game.current_wave) == 0 for pr in practice
-        )
+        return any(_behind_at_night(game, pr) for pr in practice)
     return False
+
+
+def _behind_at_night(game: Game, pr: PlayerRole) -> bool:
+    """Not chosen in the window yet, or a Doppelganger whose copy armed a
+    follow-up she has not sent (the only player with a second choose)."""
+    chosen = choose_night.chose_count(pr, game.current_wave)
+    if chosen == 0:
+        return True
+    if game.current_wave != 1 or pr.original_role != "Doppelganger":
+        return False
+    prompt = choose_night.prompt_for(game, pr)
+    return prompt is not None and prompt["chooses_left"] > 0

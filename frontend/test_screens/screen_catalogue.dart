@@ -83,6 +83,7 @@ final screenCatalogue = <ScreenEntry>[
     '-seats-full': pumpTableSeatsFull,
     '-practice': pumpTablePractice,
     '-practice-guest': (tester) => pumpTablePractice(tester, viewer: 'Quin'),
+    '-practice-short': pumpTablePracticeShort,
     '-seats-x1.3': (tester) => pumpTableSeatsAlone(tester, textScale: 1.3),
     '-x1.3': (tester) => pumpTableHost(tester, textScale: 1.3),
     '-guest-x2': (tester) => pumpTableGuest(tester, textScale: 2),

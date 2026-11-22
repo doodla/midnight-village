@@ -2494,6 +2494,17 @@ def practice_table(run: Recording) -> None:
         status=200,
         about="A guest's view of a table with two people and two practice players.",
     )
+    t.call("PATCH", "Pia", LOBBY, {"settings": {"seats": 6}})
+    t.record(
+        "lobby/detail_practice_short",
+        "GET",
+        "Pia",
+        LOBBY,
+        status=200,
+        about="The host's table set for six, two people and two practice players "
+        "here: four of six, 'Play with 4' beside the practice players.",
+    )
+    t.call("PATCH", "Pia", LOBBY, {"settings": {"seats": None}})
     t.seat_practice()
     deck = {
         "Werewolf": 1,
