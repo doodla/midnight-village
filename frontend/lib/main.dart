@@ -6,13 +6,22 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'design_system/skin/ground.dart';
 import 'design_system/skin/skin_id.dart';
+import 'design_system/skin/system_bars.dart';
 import 'design_system/skin_loader.dart';
 import 'design_system/teach/learned_store.dart';
 import 'features/game/presentation/table_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // The screens run under the status and navigation bars, as the launch
+  // screen does (android/app/src/main/res/values/styles.xml); each screen
+  // sets the bars' icons for its ground (`systemBarsOver`).
+  unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
+  SystemChrome.setSystemUIOverlayStyle(
+    systemBarsOver(SkinId.fallback.skin.ground(GroundKind.night)),
+  );
   registerFontLicences();
   // The cues this device has learned, before the first frame, so it is right.
   await restoreLearned();

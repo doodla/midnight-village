@@ -16,27 +16,17 @@ work stands: `docs/dev/status.md`.
 
 ## How we work
 
-- The owner is not an engineer: report in plain words, short. Decide and carry on; do not stop to ask.
+- Write plainly and briefly: the owner is not an engineer. Decide and carry on.
 - Fun first: a friendly game at a table. Do not over-index on secrecy or peeking. No added waits, minimum response times or assumed timer lengths: every length is the table's setting. Test: would friends notice the protection, or only the friction?
 - Few words on screen; elements do the job; teach a gesture once by doing it, then never again. A player's name is never truncated.
 - A look ("skin") is a complete design with its own layouts and original art, never a recolour or filter. One look today: Shadow paper.
-- Every screen change gets a "does it look good" review by eye, and before/after pictures go to the owner before it merges.
-- Every change is reviewed by a fresh agent that was not given the author's conclusions. When a review finds something, fix the cause as a mechanism, not the instance.
-- Subagents: one worktree and one `DB_NAME` each. `just test-harness` takes its own free port and stops only its own backend, so runs go side by side. Timer tests wait on the timer itself (`backend/tests/timer_threads.py`), never on a sleep.
-- Test fixtures come only from `contract_samples/`; after a payload change, and after merging a branch that changes payloads, run `just samples` and review the diff.
-- The server is LIVE: every push migrates the shared database (rules: `backend/CLAUDE.md`, "Deploy-safe changes"). Do not touch the owner's Vercel, Neon or Redis accounts; ask before generating large batches of art. Fetch and merge before pushing; after pushing server changes, tell the deployment session (id in `docs/dev/status.md`).
-- Never open or read https://github.com/mankidev/antialgorithm in a main session; only subagents may, and they must not reproduce it.
+- A screen is judged by eye: render it (`just screens`), look at every picture, and hand over before and after.
+- The owner plays the live app. What they hit is in `docs/dev/owner-feedback.md`: read it before touching a screen.
+- Fix the cause as a mechanism, not the instance.
+- Each checkout has its own `DB_NAME`. `just test-harness` takes its own free port and stops only its own backend. Timer tests wait on the timer itself (`backend/tests/timer_threads.py`), never on a sleep.
+- Test fixtures come only from `contract_samples/`; after a payload change run `just samples` and review the diff.
+- The server is LIVE: every push migrates the shared database (rules: `backend/CLAUDE.md`, "Deploy-safe changes"). Do not touch the owner's Vercel, Neon or Redis accounts; ask before generating large batches of art.
 - Ordering and concurrency logic (server stage handling, the phone's outbox) is model-checked in focused slices: `docs/dev/models/README.md`.
-
-## Subagents: model and effort
-
-A hook blocks any Agent or workflow `agent()` call that is not on an allowed model. Set `model` and `effort` on every call, or use a `.claude/agents/` type that pins them.
-
-- Only `opus` or `sonnet`, never the main session's model, never `haiku`.
-- Opus for design-heavy or tricky work and for reviews. Sonnet for well-specified work and lookups.
-- Effort: `low` for lookups, `medium` for routine edits, `high` for design and review.
-- Forks are not allowed (they inherit the main model). Spawn a fresh agent with the context in its prompt.
-- Change the allowed list in `.claude/guardrails/config.toml`.
 
 ## Commands (repo root)
 
@@ -63,3 +53,4 @@ More: `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `just --list`. Setup: `docs/dev
 - Screens and copy: `docs/specs/frontend/first-time-play.md` (sections 7 and 8 win); the look: `docs/design/`.
 - Harness and oracle: `docs/dev/debug-harness/`. Running on Vercel: `docs/dev/deploy-vercel.md`.
 - Hooks, guardrails, agents, skills: `docs/claude-architecture.md`.
+- Running the work (who builds, who reviews, pull requests, models): `docs/dev/running-the-work.md`.
