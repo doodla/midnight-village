@@ -27,6 +27,7 @@ just flutter-golden-update  # regenerate goldens (Linux only)
 
 ## Traps
 
+- **Bare `flutter test` / `flutter run` is prod** (fails with "Production API_ORIGIN not configured"): pass `--dart-define=ENV=dev` or use the just recipes.
 - **Forgot `just gen`**: analyzer errors in `*.g.dart` that look like real bugs.
 - **The harness runs side by side**: each `just test-harness` takes a free port (or
   `HARNESS_PORT`) and stops only the backend it started; the throwaway database is shared.

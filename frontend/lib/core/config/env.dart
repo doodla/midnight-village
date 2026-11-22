@@ -31,7 +31,12 @@ class Env {
   /// one a prod build was given (a prod build without one is a build mistake).
   static String _origin(String devDefault) {
     if (!isProd) return devDefault;
-    assert(_apiOrigin.isNotEmpty, 'Production API_ORIGIN not configured');
+    assert(
+      _apiOrigin.isNotEmpty,
+      'Production API_ORIGIN not configured. A build with no ENV is prod: '
+      'for dev pass --dart-define=ENV=dev (or use the just recipes: '
+      '`just run`, `just test`).',
+    );
     return _apiOrigin.replaceFirst(RegExp(r'/+$'), '');
   }
 }
