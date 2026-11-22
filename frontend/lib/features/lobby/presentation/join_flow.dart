@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    show Notifier, NotifierProvider;
+    show Notifier, NotifierProvider, ProviderSubscription;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_exception.dart';
@@ -11,6 +12,8 @@ import '../../../core/requests/player_request.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
+import '../domain/lobby_state.dart';
+import '../domain/where_am_i.dart';
 import 'lobby_notifier.dart';
 import 'where_am_i_provider.dart';
 
@@ -85,8 +88,10 @@ final joinDraftProvider = NotifierProvider<JoinDraftNotifier, JoinDraft>(
 ///   a new guest account with it (the server has no rename);
 /// - then a new table (`defaults: "v2"`, always) or a join by code, whose
 ///   answer is the table's lobby ([LobbySeed]: 02 draws it, no second read);
-/// - then `/me/table/` is read again, and the screen it names (02) follows.
-///   Joining a table this player already sits at is no refusal: it is there.
+/// - then the screen `/me/table/` names (02) follows, the answer being where
+///   the player sits ([SeatSeed]: nothing is asked after it). Joining a
+///   table this player already sits at is no refusal: it is there, and
+///   `/me/table/` is read to say so.
 /// The account step never makes a second account over a saved one the
 /// server has not refused (`AuthNotifier.createGuest`).
 @Riverpod(keepAlive: true)
@@ -102,6 +107,7 @@ class JoinFlow extends _$JoinFlow {
   Future<bool> start(String name) => _run(JoinWay.start, name, (door) async {
     final lobby = await ref.read(lobbyServiceProvider).createTable(door);
     ref.read(lobbySeedProvider).put(lobby, settled: true);
+    return lobby;
   });
 
   /// Joins table [code] as [name]. True when the player is at it. The answer
@@ -113,9 +119,12 @@ class JoinFlow extends _$JoinFlow {
     try {
       final lobby = await ref.read(lobbyServiceProvider).joinLobby(door, code);
       ref.read(lobbySeedProvider).put(lobby, settled: false);
+      return lobby;
     } on ValidationException catch (e) {
-      // Already at this table: that is where they are going.
+      // Already at this table: that is where they are going (no answer
+      // names the seat: `/me/table/` is read to say so).
       if (e.code != 'already_in_lobby') rethrow;
+      return null;
     }
   });
 
@@ -159,30 +168,44 @@ class JoinFlow extends _$JoinFlow {
   Future<bool> _run(
     JoinWay way,
     String name,
-    Future<void> Function(Door door) sit,
+    Future<LobbyState?> Function(Door door) sit,
   ) async {
     if (state.busy != null) return false;
     _again = () => _run(way, name, sit);
     state = JoinFlowState(busy: way);
     ref.read(lobbySeedProvider).clear();
+    ref.read(seatSeedProvider).clear();
     try {
-      await playerRequest((door) async {
-        await _account(door, name.trim());
-        await sit(door);
+      final (user, lobby) = await playerRequest((door) async {
+        final user = await _account(door, name.trim());
+        return (user, await sit(door));
       });
-      ref.invalidate(myTableProvider);
+      // The answer is where the player sits now: /me/table/ takes it
+      // without asking (with no answer naming it, it is asked). Held from
+      // here: nothing else may be listening yet (01 shows while this runs).
+      final seat = lobby == null
+          ? null
+          : MyTable.seatedAt(lobby, viewerId: user);
+      final held = holdSeatFromAnswer(ref, user, seat);
       // The table's screen follows /me/table/; wait for it so the app does
-      // not show 01 again in between. Held while waited for: nothing else
-      // may be listening yet (01 shows while this runs). A read that is
-      // failing frees 01's button all the same: the seat is taken, and the
-      // app's opening says "One moment" with "Try again" until it is read
-      // (`OpeningWait`), instead of 01 spinning for as long as the phone is
-      // out of reach.
-      final read = await readAnswered(ref, myTableProvider);
+      // not show 01 again in between. A read that is failing frees 01's
+      // button all the same: the seat is taken, and the app's opening says
+      // "One moment" with "Try again" until it is read (`OpeningWait`),
+      // instead of 01 spinning for as long as the phone is out of reach.
+      final bool read;
+      try {
+        read = await readAnswered(ref, myTableProvider);
+      } catch (_) {
+        held.close();
+        rethrow;
+      }
       _again = null;
       ref.read(joinDraftProvider.notifier).clear();
       state = JoinFlowState(seatUnread: !read);
       if (!read) unawaited(_untilRead());
+      // Held until the table's screen holds it (the frame that shows it):
+      // let go now, it would be disposed before that frame and read again.
+      _releaseAfterFrame(held);
       return true;
     } on _NotAsked {
       _again = null;
@@ -195,9 +218,13 @@ class JoinFlow extends _$JoinFlow {
     }
   }
 
-  Future<void> _account(Door door, String name) async {
+  /// The account to sit down with (its id): this device's own when it has
+  /// [name], else a new guest account.
+  Future<int> _account(Door door, String name) async {
     final auth = ref.read(authProvider);
-    if (auth is AuthAuthenticated && auth.user.displayName == name) return;
+    if (auth is AuthAuthenticated && auth.user.displayName == name) {
+      return auth.user.id;
+    }
     final notifier = ref.read(authProvider.notifier);
     // Nothing sent (the saved account is still being read back, or one was
     // found): no banner, nothing to try again; the screen follows the account.
@@ -206,6 +233,15 @@ class JoinFlow extends _$JoinFlow {
     }
     final after = ref.read(authProvider);
     if (after is! AuthAuthenticated) throw const _NotSignedIn();
+    return after.user.id;
+  }
+
+  /// Lets go of [held] once the next frame is drawn: by then the screen the
+  /// new state shows holds what it reads.
+  static void _releaseAfterFrame(ProviderSubscription<Object?> held) {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => held.close())
+      ..ensureVisualUpdate();
   }
 
   static JoinFlowState _bannerFor(Object error) {

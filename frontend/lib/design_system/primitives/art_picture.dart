@@ -29,6 +29,13 @@ class ArtPicture extends StatelessWidget {
         alignment: focus ?? image.focus,
         gaplessPlayback: true,
         excludeFromSemantics: true,
+        // Bytes that are not a picture (a Wi-Fi sign-in page answered for
+        // it) are not kept: the bundle reads the file again next time
+        // (`LoadOnceBundle`). Nothing is drawn meanwhile, as without this.
+        errorBuilder: (context, error, stack) {
+          DefaultAssetBundle.of(context).evict(image.path);
+          return const SizedBox.expand();
+        },
       ),
     );
   }

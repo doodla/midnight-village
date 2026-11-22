@@ -46,6 +46,9 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
   - The holds that "opened nothing" lasted 0.40 and 0.43 s; a card opened its sheet only at
     0.5 s (the holds that worked were 0.57 to 0.73 s; taps under 0.1 s). Nothing was stuck: a
     longer hold worked straight after. A card's hold is now 0.3 s (`RoleCard.holdDelay`).
+  - Owner, 22 Nov, on that reading: "Wrong. I held it a long time." The clip shows only the two
+    short presses, so a long hold that opens nothing after backing out of a card's details is
+    NOT ruled out: not reproduced, not fixed. Open until a new recording or a hunt settles it.
   Both shown before and after in a real Chromium with touches, against a release build.
 
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,

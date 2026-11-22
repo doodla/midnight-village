@@ -274,6 +274,28 @@ class ShellSetup {
     http.answer('GET', '/lobbies/$code/', body);
   }
 
+  /// The play-again answer for this phone's player (the one who tapped):
+  /// the recorded table, waiting, under this game's code, hosted by them
+  /// (the recorded host's seat and this phone's id trade places).
+  Map<String, dynamic> playedAgain() {
+    final body = ContractSamples.map('http/lobby/play_again');
+    final viewer = me['player_id'] as int;
+    final host = body['host'] as Map<String, dynamic>;
+    final was = host['id'] as int;
+    for (final player in (body['players'] as List).cast<Map>()) {
+      final user = player['user'] as Map;
+      user['id'] = switch (user['id']) {
+        final id when id == was => viewer,
+        final id when id == viewer => was,
+        final id => id,
+      };
+    }
+    body['code'] = me['lobby_code'];
+    body['original_host_id'] = viewer;
+    host['id'] = viewer;
+    return body;
+  }
+
   /// What 01's home numbers read: the players online, no finished game.
   void answerHome() => http
     ..answer('GET', '/stats/online/', serverOnlineStats())

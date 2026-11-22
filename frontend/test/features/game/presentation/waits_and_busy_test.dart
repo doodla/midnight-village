@@ -11,6 +11,7 @@ import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/waits.dart';
+import 'package:midnight_village/features/lobby/presentation/at_table_screen.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
@@ -89,25 +90,22 @@ void main() {
   group('11: a tapped button is busy in its own frame, and not live again '
       'until 02 is up', () {
     testWidgets('Play again: its own button busy, the others dead, one '
-        'request, busy through the answer until /me/table/ names 02', (
-      tester,
-    ) async {
+        'request, busy until its answer puts the phone at 02', (tester) async {
       final s = await _end(tester);
       final path = '/lobbies/${_code(s)}/play-again/';
-      s.http.answer(
-        'POST',
-        path,
-        ContractSamples.load('http/lobby/play_again'),
-      );
+      s.http.answer('POST', path, s.playedAgain());
       s.answerLobby(_code(s));
-      final table = serverMyTable(
-        code: _code(s),
-        isHost: true,
-        gameId: s.gameId,
-        phase: 'results',
+      s.answerTable(
+        serverMyTable(
+          code: _code(s),
+          isHost: true,
+          gameId: s.gameId,
+          phase: 'results',
+        ),
       );
-      s.answerTable(table);
+      // A slow network: the table's own reads are held throughout.
       final reads = s.http.hold(method: 'GET', path: '/me/table/');
+      final answers = s.http.hold(method: 'POST', path: path);
 
       await tester.tap(find.text(ResultsCopy.playAgain));
       await tester.pump();
@@ -119,8 +117,7 @@ void main() {
       await s.settle(tester);
       expect(_posts(s, 'play-again'), 1);
 
-      // The answer is in; the next screen is not: nothing is live.
-      expect(reads.length, greaterThan(0), reason: 'the table is read');
+      // Sent, not answered: nothing is live.
       await tester.tap(find.text(ResultsCopy.playAgain));
       await tester.tap(find.text(ResultsCopy.editDeck));
       await s.settle(tester);
@@ -131,10 +128,25 @@ void main() {
       );
       expect(s.screenOn(tester), AppScreen.results);
 
+      // The answer is the table and where this phone sits: 02 follows it,
+      // waiting on no table read, and none is sent after it.
+      s.http.stopHolding(method: 'POST', path: path);
+      final answered = s.http.requests.length;
+      answers.releaseAll();
+      // Frames only, no time passing (the table's slow poll never comes due).
+      for (
+        var i = 0;
+        i < 200 && find.byType(AtTableView).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(Duration.zero);
+      }
+      expect(s.screenOn(tester), AppScreen.table);
+      expect([
+        for (final r in s.http.requests.skip(answered)) r.path,
+      ], isNot(contains('/me/table/')));
       s.http.stopHolding(method: 'GET', path: '/me/table/');
       reads.releaseAll();
-      await s.settle(tester);
-      expect(s.screenOn(tester), AppScreen.table);
       await s.close(tester);
     });
 

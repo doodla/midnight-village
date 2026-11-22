@@ -5,12 +5,10 @@ import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/waiting_sign.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
-import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
 import 'package:midnight_village/design_system/primitives/text_action.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
-import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/outcome_samples.dart';
 import '../../../helpers/shell_setup.dart';
@@ -188,9 +186,9 @@ void main() {
     await setup.close(tester);
   });
 
-  testWidgets('Play again at 11: answered, then the table cannot be read: '
-      'the button is freed, "One moment" with "Try again" reads again and '
-      'never sends the request twice', (tester) async {
+  testWidgets('Play again at 11: the answer is the table and where the host '
+      'sits: 02 at once, nothing read after it (a failing /me/table/ is never '
+      'asked), and the request is sent once', (tester) async {
     final results = recordedResults('results');
     final s = await ShellSetup.pump(
       tester,
@@ -205,34 +203,22 @@ void main() {
     await s.settle(tester);
     final code = s.me['lobby_code'] as String;
     final path = '/lobbies/$code/play-again/';
-    s.http.answer('POST', path, ContractSamples.load('http/lobby/play_again'));
+    s.http.answer('POST', path, s.playedAgain());
     s.http.answer('GET', '/me/table/', 'Server Error', status: 503);
+    final reads = s.http.requests.where((r) => r.path == '/me/table/').length;
 
     await tester.tap(find.text(ResultsCopy.playAgain));
-    await s.settle(tester);
-    await s.settle(tester);
-    expect(find.byType(ResultsView), findsOneWidget);
-    expect(
-      tester.widget<PrimaryButton>(find.byType(PrimaryButton).last).busy,
-      isFalse,
-      reason: 'freed',
-    );
-    expect(find.text(BannerCopy.offline), findsWidgets);
-    expect(find.text(BannerCopy.tryAgain), findsOneWidget);
-
-    s.answerLobby(code);
-    s.answerTable(
-      serverMyTable(
-        code: code,
-        isHost: true,
-        gameId: s.gameId,
-        phase: 'results',
-      ),
-    );
-    await tester.tap(find.text(BannerCopy.tryAgain));
-    await s.settle(tester);
-    await s.settle(tester);
+    // Frames only, no time passing: the table's slow poll never comes due.
+    for (var i = 0; i < 200 && s.screenOn(tester) != AppScreen.table; i++) {
+      await tester.pump(Duration.zero);
+    }
     expect(s.screenOn(tester), AppScreen.table);
+    expect(find.text(BannerCopy.offline), findsNothing);
+    expect(
+      s.http.requests.where((r) => r.path == '/me/table/').length,
+      reads,
+      reason: 'the seat is the answer',
+    );
     expect(
       s.http.requests.where((r) => r.method == 'POST' && r.path == path),
       hasLength(1),
@@ -241,7 +227,9 @@ void main() {
   });
 
   testWidgets('01 goes straight to 02: the opening is never shown between '
-      'them, and the seat is read once', (tester) async {
+      'them, and the seat is not read (the answer is the seat)', (
+    tester,
+  ) async {
     final lobby = v2Lobby('created_with_defaults');
     final setup = await TableSetup.pump(
       tester,
@@ -266,7 +254,7 @@ void main() {
       }
     }
     expect(reads, isNotNull, reason: '02 came');
-    expect(reads, 1, reason: 'the seat is read once, not again when 02 mounts');
+    expect(reads, 0, reason: 'the answer is the seat; 02 mounting reads none');
     await setup.close(tester);
   });
 }
