@@ -20,6 +20,7 @@ just format-check      # dart format check of lib, test, test_screens
 just gen               # Riverpod code generation, after changing any provider
 just screens [width] [report|strict]  # every screen and the component sheet as PNGs beside the mocks
 just scene-frames      # the dusk and the dawn pumped to fixed times: frames and a strip each
+just night-frames      # the night board's pick and candle, a frame per 17 ms
 just playtest-pack     # the cold-read pack: five first-game journeys to build/playtest/
 just test-harness      # boots its own backend on a free port, runs the e2e harness (not in `just test`)
 just skin-art          # regenerate assets/skins/shadow_paper/ from docs/design/art/

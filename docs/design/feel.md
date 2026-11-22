@@ -30,7 +30,9 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 5. **Usability never pays.** Tap targets, contrast, reading floor (16 and 14 px), taps to act and
    whole names stay the same or get better. A name is never cut, also in the middle of a motion.
 6. **Paper, not glass.** Things lift, sink, drop in and turn like cut paper with a shadow. Short
-   moves, one idea at a time, no bounce beyond a small settle, no recolours or filters.
+   moves, one idea at a time, no bounce beyond a small settle, no recolours or filters. Shadows are
+   hard; the one soft thing is the faint bone glow of a card picked on the night board
+   (`GroundElevation.glow`, night only).
 7. **Teach a gesture once, by doing it** (the `hold`, `night_choose` and `vote_lock` cues). Then
    never again.
 
@@ -64,7 +66,7 @@ take 1.6 s. A tap finishes them.
 |---|---|---|---|
 | `Motion.land` | a curve with at most 10% overshoot (`easeOutBack`) | 4, 6 | The lock stamp; a joining player's row dropping in |
 | `Motion.ambient` | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
-| the reduce-motion helper, the rest | Today six places check it (shell, hold flip, count, results, ring, wave); buttons, rows, chips, cards and dims ignore it. `Motion.within` exists (pass 1); passes 2, 4 and 8 move them to it | 2, 4, 8 | One check, so none is forgotten |
+| the reduce-motion helper, the rest | Today six places check it (shell, hold flip, count, results, ring, wave) and, since pass 2, the night cards (dip, lift, glow, dim) and the Choose button's rise; buttons' press, rows, chips and dims ignore it. `Motion.within` exists (pass 1); passes 4 and 8 move the rest to it | 4, 8 | One check, so none is forgotten |
 
 ## 3. Vibration
 
@@ -155,16 +157,18 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
+| Board opens | The title in front of a quiet strip of the night village (under a half veil of the ground, the title above 7:1 on it), the candle and the seconds beside it, the cards using the height the phone gives them with no dead band (3 to 10 players, 320 wide and up), the Choose button waiting as a slot. Nothing moves; the same on every phone | none | Same | exists |
 | Board opens (first game only) | Each card lifts 8 px in one left-to-right wave; learned at the first taken Choose, never again | 120 ms each, 90 ms apart | No wave | exists |
-| Finger on a card, and a picked card | Touch-down dips the card 2 px; the picked card lifts with a glow. Same for every role | `press`, `quick` | Colour and outline only | pass 2 |
-| Tap picks a card | The card lifts 8 px with the selection outline (bone) | `quick` | Cut | exists |
-| Tap a picked card; a third tap | The card settles back; a third pick drops the oldest as the new one rises, in one frame | `quick` | Cut | exists |
-| Choose button follows the picks | "Choose a card" (outlined) to "See Cleo" or the role's pass such as "Skip" (amber); the label cuts | `press` | Cut | exists |
+| Finger on a card | The frame the finger lands the card dips 2 px and its shadow stays where it was; every card, whatever the role, whether or not a pick could take it (a dimmed card, a sleeper's card too). No vibration | `press` | Cut (dip and return) | exists |
+| Tap picks a card | The card lifts 8 px with the selection outline (bone), a soft bone glow and the deeper hard shadow, tweened together; the cards that cannot join dim | `quick` | Cut to the end state: the lift, the outline and the glow still show | exists |
+| Tap a picked card; a third tap | The card settles back, the glow out, the shadow and ring as before; a third pick drops the oldest as the new one rises, in one frame | `quick` | Cut | exists |
+| Choose button waits | "Choose a card" and "Choose 1 more" sit as a slot on purpose: a recess in the table's tone (`ground.panel`) with a dark lip along its top and its words in full ink, 56 tall; not an outline, not a faded button | none | Same | exists |
+| Choose button follows the picks | The slot becomes "See Cleo" or the role's pass such as "Skip" (amber): the amber paper rises out of the slot, drawn down in it for one frame and eased up, and takes the tap from the first frame; the label cuts. Taking the pick back returns it to the slot | `quick` | Cut | exists |
 | Tap the locked Choose | The wave plays again over the cards | 120 / 90 ms | No wave | exists |
 | Choose pressed | "Chosen" at once, before any answer; picks stay lifted; nothing flashes. No vibration | `press` | Cut | exists |
 | Hold "You" | The face is cut in above the thumb 120 ms after the press and cut out on release | 120 ms | Same | exists |
 | A sleeper taps a card | The card bobs 8 px once; nothing is picked or sent; there is no button | 120 ms | No bob (the press state answers) | exists |
-| Candle and seconds | The seconds tick; the candle's flame shrinks with the number. Today a still candle picture | 1 s ticks | Same | pass 2 |
+| Candle and seconds | The seconds tick and the drawn candle burns down with them: its flame shrinks and its wax shortens one step each second (from the server's own window), never out, no tween and no flicker, nothing between the steps; the number stays beside it as the one true carrier | 1 s steps | Same | exists |
 | Doppelganger's result arrives | Her picks drop and Choose locks again; only her held face changes | `quick` | Cut | exists |
 
 ### Waiting
@@ -254,7 +258,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Reduce motion: button press | The press sinks and returns over 90 ms although reduce motion is on. It should cut | the helper | Cut | pass 8 |
 | Reduce motion: quiet word and chip | The quiet word's dim and a chip's lift and outline still tween. They should cut | the helper | Cut | pass 8 |
 | Reduce motion: vote row | The row's lift, dim and padding still tween. They should cut | the helper | Cut | pass 4 |
-| Reduce motion: night card lift | A card's 8 px lift still tweens. It should cut | the helper | Cut | pass 2 |
+| Reduce motion: night card lift | A card's dip, lift, glow and dim cut to their end state | the helper | Cut | exists |
 | Reduce motion: deck role card dim | The portrait's dim still fades. It should cut | the helper | Cut | no pass |
 
 ## 5. How to judge it
