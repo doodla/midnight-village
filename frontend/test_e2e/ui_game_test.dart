@@ -97,7 +97,7 @@ void main() {
       await r.shoot('board');
 
       await r.tapCard('Cara');
-      expect(r.button.label, 'Choose Cara');
+      expect(r.button.label, r.board.prompt.kind.go.fill({'cards': 'Cara'}));
       await r.shoot('picked');
       await r.tapButton(until: () => r.button.phase == ButtonPhase.done);
       expect(r.button.label, NightCopy.chosen);
@@ -185,7 +185,10 @@ void main() {
 
       await r.tapCard(NightCopy.left);
       await r.tapCard(NightCopy.right);
-      expect(r.button.label, 'Choose Left, Right');
+      expect(
+        r.button.label,
+        r.board.prompt.kind.go.fill({'cards': 'Left, Right'}),
+      );
       await r.tapButton(until: () => r.button.phase == ButtonPhase.done);
       await r.shoot('follow-up-chosen');
 
