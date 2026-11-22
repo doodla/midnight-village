@@ -74,6 +74,8 @@ flutter:
     - assets/skins/shadow_paper/roles/
     - assets/skins/shadow_paper/tokens/
     - assets/skins/shadow_paper/scenes/
+    - assets/skins/shadow_paper/layers/night_village/
+    - assets/skins/shadow_paper/layers/dawn_gallows/
     # Shown on the licences page (registerFontLicences in lib/main.dart).
     - assets/fonts/gloock/OFL.txt
     - assets/fonts/figtree/OFL.txt

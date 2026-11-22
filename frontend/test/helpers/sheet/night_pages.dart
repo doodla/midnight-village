@@ -10,6 +10,7 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
+import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/teach/teach_once.dart';
@@ -58,7 +59,7 @@ class _CardPageState extends State<CardPage> {
     final skin = context.skin;
     return ScreenFrame(
       ground: GroundKind.night,
-      topArt: skin.art.nightVillage,
+      topScene: LayeredSceneId.nightVillage,
       topArtLayout: TopArtLayout.backdrop,
       body: Column(
         spacing: Space.lg,

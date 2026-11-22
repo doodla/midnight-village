@@ -7,10 +7,22 @@ assets/skins/shadow_paper/{roles,tokens,scenes}/<name>.webp: each original
 resized to the size the skin's ArtSet declares
 (lib/design_system/skin/skins/shadow_paper.dart) and encoded as WebP. The
 output is deterministic: run it twice and the files do not change.
+
+The layered scenes (docs/design/art/layers/<scene>/*.png, full-canvas alpha
+masters, see PROVENANCE.md there) become assets/skins/shadow_paper/layers/
+<scene>/<layer>.webp, each cut to the box its paint covers, so a cloud holds a
+cloud's pixels, not a whole picture. A master wider than its canvas (named
+`<layer>_bleedNN.png`) carries mirrored paper outside it (so a layer that slides
+sideways still reaches the picture's edge); its output is `<layer>.webp`. What the skin's
+LayeredScene must declare for each file (its size and where its top left sits
+on the scene's canvas, bleed counted) is printed, and checked by
+test/design_system/skin/layered_scene_test.dart, which also draws the layers at
+rest and compares them with the flat pictures they were cut from.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from PIL import Image
@@ -24,6 +36,9 @@ ROLE = (576, 768)
 TOKEN = (192, 192)
 CARD_BACK = (600, 800)  # drawn at most 250 wide (S07): sharp at 2.4x
 QUALITY = 75
+LAYER_QUALITY = 80
+# The layered scenes' canvases (the flat picture each was cut from), in pixels.
+CANVAS = {"night_village": (768, 1024), "dawn_gallows": (1024, 768)}
 
 
 def _jobs():
@@ -42,7 +57,50 @@ def _jobs():
             yield src, "scenes", name, size
 
 
+def _layer_jobs():
+    """(source, scene folder, layer name) for every layer master."""
+    for scene in sorted((ART / "layers").iterdir()):
+        if not scene.is_dir():
+            continue
+        for src in sorted(scene.glob("*.png")):
+            match = re.fullmatch(r"(.+)_bleed\d+", src.stem)
+            yield src, scene.name.replace("-", "_"), match[1] if match else src.stem
+
+
+def _layers() -> None:
+    for src, scene, name in _layer_jobs():
+        im = Image.open(src)
+        canvas = CANVAS[scene]
+        if im.width < canvas[0] or im.height < canvas[1]:
+            # A sprite (the sun): placed by its own centre, kept whole.
+            path = OUT / "layers" / scene / f"{name}.webp"
+            im.save(path, "WEBP", method=6, quality=LAYER_QUALITY, alpha_quality=100)
+            print(f"layers/{scene}/{name}.webp  size {im.width}x{im.height}  sprite")
+            continue
+        # A master wider than the canvas carries mirrored paper outside it.
+        extra = (im.width - canvas[0], im.height - canvas[1])
+        assert min(extra) >= 0 and extra[0] % 2 == 0 and extra[1] % 2 == 0, src
+        bleed = (extra[0] // 2, extra[1] // 2)
+        if im.mode == "RGBA":
+            # The box the layer paints in (alpha above 0), nothing around it.
+            box = im.getchannel("A").getbbox()
+        else:
+            box = (0, 0) + im.size
+        assert box is not None, f"{src} is empty"
+        im = im.crop(box)
+        path = OUT / "layers" / scene / f"{name}.webp"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        im.save(path, "WEBP", method=6, quality=LAYER_QUALITY, alpha_quality=100)
+        # Where the cut's top left sits on the scene's canvas (the master's
+        # bleed is paper outside the canvas).
+        print(
+            f"layers/{scene}/{name}.webp  size {im.width}x{im.height}"
+            f"  anchor ({box[0] - bleed[0]}, {box[1] - bleed[1]})"
+        )
+
+
 def main() -> None:
+    _layers()
     for src, folder, name, size in _jobs():
         im = Image.open(src).convert("RGB")
         if im.size != size:

@@ -105,7 +105,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 
 | Element | Primitive / role |
 |---|---|
-| Night-village picture 520 tall, focus 50% 0%, fading from 300; content from 52 | `ScreenFrame(topArt: skin.art.nightVillage, topArtLayout: TopArtLayout.backdrop)` |
+| Night-village picture 520 tall, focus 50% 0%, fading from 300; content from 52 | `ScreenFrame(topScene: LayeredSceneId.nightVillage, topArtLayout: TopArtLayout.backdrop)` (the layered village: at rest the same picture) |
 | Pill: 36 tall, padding 0 16, radius 4, 14/700, 0 3 shadow, moon icon | **Cut** by the first-time play spec ("Night one · your card"); the headline "Your card" in `type.screenTitle`, set left, clear of the moon in the picture |
 | Column gap 18, centred | `Space.lgPlus` |
 | Card: 310 wide, padding 12/12/20, gap 12, heroSlab (0 5 paperEdge, 0 11 amber, 0 17 deep) | Your card is face down: `FaceDownCard(size: FaceDownSize.hero, hold: teaching)` under a `TeachingHold`; the role text is its held face (`HeldFace`). The amber layer of `heroSlab` is cut (amber is the primary button's alone) |
