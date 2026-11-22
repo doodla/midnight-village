@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'app.dart';
+import 'core/web/start_done_stub.dart'
+    if (dart.library.js_interop) 'core/web/start_done_web.dart';
 import 'design_system/skin/card_back.dart';
 import 'design_system/skin/ground.dart';
 import 'design_system/skin/skin_id.dart';
@@ -34,14 +36,18 @@ Future<void> main() async {
   // Whether this phone had gone on from the count, so a restart lands there.
   await restoreLocalSteps();
   runApp(const ProviderScope(child: App()));
-  // The art secrets show, decoded long before the first card is dealt.
-  // The card back of the game this device was last in is decoded with them,
-  // so a restart in a game has it before the table is even named.
+  // 01's picture first, then the art secrets show, decoded long before the
+  // first card is dealt. The card back of the game this device was last in
+  // is decoded with them, so a restart in a game has it before the table is
+  // even named. Then, on the web, the page may install what serves the next
+  // visits from the cache.
   unawaited(
-    SkinLoader().prepare(
-      SkinId.fallback.skin,
-      back: CardBack.forGame(LastSeat.openingGame),
-    ),
+    SkinLoader()
+        .prepare(
+          SkinId.fallback.skin,
+          back: CardBack.forGame(LastSeat.openingGame),
+        )
+        .whenComplete(webStartDone),
   );
 }
 

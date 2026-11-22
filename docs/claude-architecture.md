@@ -60,6 +60,7 @@ merge for ever) or has a job with no name or time limit.
 | `Screens strict at 360`, `Screens strict at 390` | `just screens 360 strict`, `just screens 390 strict` (one job each, side by side) |
 | `Integration Tests` | `just test-integration-ci` |
 | `End-to-end Harness` | `just test-harness` |
+| `Web page smoke` | `just web-smoke-setup`, `just web-smoke`: the release web page in Chromium (first visit, return, a deploy runs the new build, a table's link) |
 
 One workflow is not part of the wall: `android-download.yml` ("Android App Download") builds the
 Android app on a push to main that touches `frontend/` (or by hand) and replaces the one asset of

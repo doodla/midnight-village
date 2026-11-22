@@ -10,8 +10,9 @@ import 'package:flutter/services.dart';
 ///
 /// Then registers Figtree as `Roboto`, Material's default family on the test
 /// platform, used by any text whose style names no family (the debug
-/// toolbar's): legible, in Figtree, not its real face. On a phone it is the
-/// system font.
+/// toolbar's): legible, in Figtree, not its real face, in its four weights.
+/// The app declares `Roboto` too, as Figtree's regular face (pubspec.yaml: so
+/// the web engine does not fetch Roboto at start), and draws no screen in it.
 ///
 /// Needs the test binding (its asset handler serves the manifest).
 Future<void> loadAppFonts() async {
