@@ -100,6 +100,19 @@ class MalformedResponseException extends ApiException {
   String toString() => 'MalformedResponseException: $message';
 }
 
+/// Whether the server ANSWERED a request that failed: it got there and the
+/// server chose to refuse it (a 4xx with its reason: a bad change, a deal the
+/// table cannot take, a leave from a table one is not at). Everything else, no
+/// connection, a timeout, a 5xx, too many requests, a sign-in to renew, means
+/// the phone cannot know the request got there: "Not sent.", and trying again
+/// is safe. The one classifier every host action uses (settings, deal, leave):
+/// an answered refusal is never "Not sent." and never retried.
+bool serverAnswered(Object error) => switch (error) {
+  ValidationException() || NotFoundException() || ForbiddenException() => true,
+  UnhandledHttpException(:final statusCode) => statusCode < 500,
+  _ => false,
+};
+
 /// Maps Dio exceptions to typed API exceptions.
 ApiException mapDioException(DioException e) {
   final statusCode = e.response?.statusCode;

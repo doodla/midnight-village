@@ -10,7 +10,7 @@ from django.conf import settings as django_settings
 from apps.core.games import GameHooks
 
 from . import deal, presence
-from .engine.validation import validate_onuw_settings
+from .engine.validation import seats_of, validate_onuw_settings
 from .models import Game, Phase, PlayerRole
 from .services import DEFAULT_DISCONNECT_GRACE_SECONDS
 
@@ -34,10 +34,13 @@ def _newest_game(lobby) -> Game | None:
 
 
 class OnuwHooks(GameHooks):
-    def validate_settings(self, settings, player_count: int, changed=None) -> list[str]:
+    def validate_settings(
+        self, settings, player_count: int, changed=None, max_players=None
+    ) -> list[str]:
         return validate_onuw_settings(
             settings,
             player_count,
+            max_players=max_players,
             check_deck=changed is None or "roles" in changed,
             allow_untimed=getattr(django_settings, "ONUW_ALLOW_UNTIMED_NIGHT", False),
             changed=None if changed is None else frozenset(changed),
@@ -73,6 +76,10 @@ class OnuwHooks(GameHooks):
 
     def lobby_extras(self, lobby) -> dict[str, Any]:
         return deal.lobby_extras(lobby)
+
+    def seat_limit(self, lobby) -> int | None:
+        """The number of players the table is set for (``seats``; None when open)."""
+        return seats_of(lobby.settings)
 
     def presence_grace_seconds(self, lobby) -> int:
         """The table's ``disconnect_grace_seconds`` (the game's own grace)."""

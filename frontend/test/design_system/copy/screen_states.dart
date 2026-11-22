@@ -76,7 +76,16 @@ final _myNight = <String, List<Object>>{
 
 List<Line> _face(List<Object> lines) => [for (final l in lines) face(l)];
 
-const _tiles = [DeckCopy.talk, DeckCopy.vote, DeckCopy.night, DeckCopy.copy];
+/// The set-up page's lengths (the Doppelganger's is the role's name).
+const _lengths = [
+  DeckCopy.look,
+  DeckCopy.night,
+  DeckCopy.nightMinimum,
+  DeckCopy.talk,
+  DeckCopy.vote,
+  DeckCopy.droppedPhone,
+  DeckCopy.hostAway,
+];
 
 const _winners = [
   ResultsCopy.villageWins,
@@ -119,23 +128,23 @@ final screens = <String, Screen>{
     },
   ),
   '02 Table': (
-    // The spec's 7, and the host's quiet labelled "Leave" (review, 21
-    // November 2026: a glyph in the corner handed the table away on one
-    // stray tap); Share is a glyph, spoken only.
-    budget: 8,
+    // The host's: the QR code's "Scan to join", the code's "Code", who is
+    // here of how many, "Play with {n}" when fewer came, the set-up (the
+    // chip, the talk's length, the roles face up: names exempt), "Edit",
+    // the deal button's one label and a quiet labelled "Leave"; Share is a
+    // glyph, spoken only.
+    budget: 13,
     states: {
       for (final chip in DeckCopy.chips)
-        for (final deal in <Object>[
-          TableCopy.deal,
-          TableCopy.needPlayers,
-          CommonCopy.addCards,
-          CommonCopy.removeCards,
-          CommonCopy.addCard,
-          CommonCopy.removeCard,
-        ])
+        for (final deal in <Object>[TableCopy.deal, TableCopy.needPlayers])
           'host, $chip: $deal': [
             headline(TableCopy.scan),
+            text(JoinCopy.codeHint),
+            text(TableCopy.seated),
+            button(TableCopy.playWith),
             button(chip),
+            text(DeckCopy.talk),
+            text(DeckCopy.minutes),
             button(TableCopy.editDeck),
             button(deal),
             button(CommonCopy.leave),
@@ -145,41 +154,32 @@ final screens = <String, Screen>{
       'guest': [
         headline(TableCopy.hostDeals),
         text(TableCopy.scan),
+        text(JoinCopy.codeHint),
+        text(TableCopy.seated),
+        text(DeckCopy.chips.first),
+        text(DeckCopy.talk),
+        text(DeckCopy.minutes),
         button(CommonCopy.leave),
       ],
     },
   ),
   '03 Deck': (
-    budget: 15,
+    // The set-up page: the number of players, the deck face up (role names
+    // are exempt; the count is digits), every length with its value.
+    budget: 22,
     states: {
-      // A chip's deck: its cards face up when the server sends them (role
-      // names are exempt), "Edit" opens the grid; the lengths show once set,
-      // "Copy" not (the chip's cards are the server's).
-      'chips': [
-        headline(DeckCopy.headline),
-        for (final chip in DeckCopy.chips) button(chip),
-        button(TableCopy.editDeck),
-        for (final pace in DeckCopy.paces) button(pace),
-        // Each chip's talk length: digits, no words.
-        text(DeckCopy.paceChip),
-        for (final tile in _tiles.take(3)) text(tile),
-        button(DeckCopy.useDeck),
-      ],
-      // The grid open: the role names are exempt; "Copy" with the
-      // Doppelganger in the deck.
-      for (final use in <Object>[
-        DeckCopy.useDeck,
-        CommonCopy.addCards,
-        CommonCopy.removeCards,
-        CommonCopy.addCard,
-        CommonCopy.removeCard,
-      ])
-        'grid: $use': [
+      for (final open in [true, false])
+        open ? 'an open table' : 'set for a number': [
           headline(DeckCopy.headline),
+          text(DeckCopy.players),
+          if (open) text(DeckCopy.any) else text(TableCopy.seated),
           for (final chip in DeckCopy.chips) button(chip),
-          for (final pace in DeckCopy.paces) button(pace),
-          for (final tile in _tiles) text(tile),
-          button(use),
+          for (final length in _lengths) text(length),
+          text(CommonCopy.seconds),
+          text(DeckCopy.minutes),
+          text(DeckCopy.noClock),
+          text(DeckCopy.off),
+          button(DeckCopy.done),
         ],
     },
   ),
@@ -383,6 +383,7 @@ final banners = <(String, String?)>[
   (BannerCopy.alreadyInLobby, BannerCopy.goThere),
   (BannerCopy.tableClosed, BannerCopy.goHome),
   (BannerCopy.notSent, BannerCopy.tryAgain),
+  (BannerCopy.cannotLeave, null),
   (BannerCopy.offline, null),
   (BannerCopy.leftGame, BannerCopy.goHome),
   (BannerCopy.copied, null),
@@ -397,4 +398,8 @@ final spoken = [
   ResultsCopy.nightSpoken,
   // 02's Share glyph.
   TableCopy.share,
+  // 03's steppers and the grid card's minus.
+  SpokenCopy.lower,
+  SpokenCopy.higher,
+  SpokenCopy.takeOut,
 ];

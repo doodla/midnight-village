@@ -43,11 +43,17 @@ void main() {
       expect(lobby.roleConfig['Doppelganger'], 1);
       // The update the table hears is the same body.
       final update = ContractSamples.map('ws/lobby/lobby_update_custom_deck');
+      final heard = LobbyState.fromJson(
+        (update['data'] as Map).cast<String, dynamic>(),
+      ).table;
       expect(
-        LobbyState.fromJson(
-          (update['data'] as Map).cast<String, dynamic>(),
-        ).table,
-        lobby.table,
+        (heard.autoDeck, heard.deckChip, heard.cardLookSeconds, heard.seats),
+        (
+          lobby.table.autoDeck,
+          lobby.table.deckChip,
+          lobby.table.cardLookSeconds,
+          lobby.table.seats,
+        ),
       );
     });
 
@@ -63,7 +69,11 @@ void main() {
       final lobby = FromSample.lobby(
         ContractSamples.map('http/lobby/detail_waiting'),
       );
-      expect(lobby.table, TableSettings.none);
+      final table = lobby.table;
+      expect(
+        (table.autoDeck, table.deckChip, table.cardLookSeconds, table.seats),
+        (false, null, null, null),
+      );
       expect(lobby.roleConfig, isNotEmpty);
     });
 

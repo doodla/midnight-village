@@ -87,16 +87,17 @@ Widget deckStrip(RoleCardSize size, [Map<RoleId, int>? deck]) => Row(
   ],
 );
 
-/// 03 with the grid open on game 7's deck (eight cards for five).
+/// 03 at a table set for eight, four here, the host's own deck.
 Widget _deck() => DeckView(
-  lobby: _table(),
-  editing: deckCounts,
+  lobby: FromSample.lobby(v2Lobby('detail_seats_8_four_here')),
+  onSeats: (_) {},
   onChip: (_) {},
-  onPace: (_) {},
-  onUse: (_) {},
+  onDeck: (_, {seats}) {},
+  onLength: (_, _) {},
+  onUse: () {},
 );
 
-/// 03: the chips, the grid of roles, the paces.
+/// 03: the players, the chips, the grid of roles, the lengths.
 class DeckPage extends StatelessWidget {
   const DeckPage({super.key});
 

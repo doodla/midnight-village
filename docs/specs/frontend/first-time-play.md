@@ -233,11 +233,11 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 - **Pass:** "Type my name."
 
 **02 Table**
-- **One thing / loudest (host):** guests scan. Loudest is the QR code for `/join/{code}`, with the code printed under it.
-- **Locked until:** "Deal to {n}" unlocks at 3 or more players.
-- **Copy (host):** "Scan to join"; quiet "Share" (opens the system share sheet); deck strip with count badges "2"; quiet "Edit deck"; amber "Deal to {n}", or disabled "Need 3 players". With a custom deck that does not match the player count: disabled "Add {n} cards" / "Remove {n} cards". **7 of 7 words.**
-- **Copy (guest):** "{host} deals"; the code in small type; quiet "Leave". **2 words.** Waiting is said by the shape, not a sentence (playtest, 21 November 2026: Leave read as the one thing to do): "{host} deals" at the hero title size, "Leave" a quiet underlined word at the foot, no outlined button.
-- **Pace (host):** once a pace is chosen on 03, its talk length ("5:00") sits beside the deck chip, selected: returning from 03 shows the choice (digits, no words).
+- **One thing / loudest (host):** guests scan. Loudest is the QR code for `/join/{code}`. Two blocks: the QR code with "Scan to join" on it (its label only), and, past a hairline, the code with its own label "Code" (01's word for it) and Share. An app build that knows no web address has no QR code: no "Scan to join", the code block alone.
+- **Locked until:** "Deal to {n}" unlocks exactly when the server says the deal would go (`deal.ok`); until then the same words, locked. At a table set for a number, {n} is that number; at an open table, the players here ("Need 3 players" under three).
+- **Copy (host):** "Scan to join" (the QR code's label); "Code" (the code's); quiet "Share" (a glyph); at a number "{d} of {n}" with a small empty circle for each place not taken (one wrapping line, so the deck and Leave stay in view), above the rows; with 3 or more here but fewer than the number, "Play with {n}" (one tap sets the number to who is here; with a deck of the host's own, the tap opens 03 with its count showing, never throwing the deck away); the set-up: the deck chip, "Talk {length}", every role in the deck face up with count badges in the deck builder's order, in balanced lines (no card alone on a line); a deck that does not fit shows its count ("11 / 10", digits) to the host only, and tapping the set-up opens 03; quiet "Edit"; amber "Deal to {n}", or the same words locked, or "Need 3 players"; "Leave" shows it is on its way at once. **13 of 13 words.**
+- **Copy (guest):** "{host} deals"; the same card, the same "{d} of {n}" and empty places, the same set-up face up (a tap or a hold on a role reads it); quiet "Leave". Waiting is said by the shape, not a sentence (playtest, 21 November 2026: Leave read as the one thing to do): "{host} deals" at the hero title size, "Leave" a quiet underlined word at the foot, no outlined button.
+- **The deck is always face up** (owner, 21 November 2026: "everybody should see what characters have been selected"): the roles the table would deal, for host and guests, in every state; never card arithmetic, never "Add {n} cards" / "Remove {n} cards".
 - **Removed:** "Table code", "At the table", "5 players", "Host · You", "8 cards", "x2", "Change" (10, 12, 15).
 - **States:**
   - Your own row has a thicker outline.
@@ -245,17 +245,18 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - After a host handover, that phone switches to the host layout, with no words.
 - **Pass:** guest says "Wait or scan"; host says "Show the code, then deal".
 
-**03 Deck** (host, optional)
-- **One thing / loudest:** nothing is required; amber "Use this deck".
-- **Locked until:** amber only while the deck holds exactly players + 3 cards.
-- **Copy:** "Tonight's deck"; chips "Simple", "Classic", "Chaos"; chips "Quick 3:00", "Normal 5:00", "Long 8:00" (each with the talk it gives; playtest: "Long of what?"), the one the table's lengths equal selected; tiles "Talk", "Vote", "Night", "Copy" ("Copy" only when the Doppelganger is in the deck). A tile opens a stepper with the tile name and "Done". Button "Use this deck", or disabled "Add {n} cards" / "Remove {n} cards". **15 of 15 words.**
-- **Removed:** "8 of 8 cards", the help line, "Double", and the role-sheet cue (10, 12).
+**03 Tonight's game** (host; the set-up page, editable before anyone joins and until the deal; amended 21 November 2026 after the owner got stuck in the deck editor, and after review)
+- **One thing / loudest:** nothing is required; amber "Done".
+- **Locked until:** never: "Done" is always live (the page holds the players and the lengths too; a host who changed only a timer is never stuck). A deck that does not fit is shown on 02, to the host, with Deal locked.
+- **Copy:** "Tonight's game"; "Players" with a stepper (within the server's range: never below who is here, never above what the table holds; "Any", an open table, only with an automatic deck) and, at a number, "{d} of {n}" with every seat drawn; chips "Simple", "Classic", "Chaos"; at a number the cards picked over the cards needed ("7 / 11", digits) with a slot each, the players' then the centre's three; every role face up in a grid (names exempt), a tap puts one in, a lit card's minus takes one out (spoken "Take one {role} out"); every length the server has, each its name and a stepper over its value, in this order: "Talk", "Vote", "Night", the Doppelganger's (the role's name; the row is there only while the deck holds a Doppelganger), "Look", "Night minimum", "Dropped phone", "Host away"; values "{n} s", "{n} min"; 0 is "No clock" for the talk and the vote (no deadline: it ends when everyone is ready) and "Off" for the rest. Button "Done". **22 of 22 words.**
+- **Removed:** the pace chips "Quick", "Normal", "Long" and their tiles (the owner: "I just need the things to be editable"), "Add {n} cards" / "Remove {n} cards" (the deck's state is the count and the slots, never words of direction), the face-down deck and "Edit" (the deck is always face up), "Use this deck" (now "Done").
 - **States:**
-  - The deck stays automatic (a chip) until a card is edited; then it is custom and no chip is selected.
-  - Tapping a chip returns the deck to automatic.
+  - The deck stays automatic (a chip) until a card is changed; then it is the host's own, from the cards shown, for the number (an open table takes who is here, at least 3), and no chip is selected. Tapping a chip returns it to automatic.
+  - Every change is saved as it is made; a new table shows the server's own lengths. What shows while a change is on its way is the server's state with only that change taken from the phone. A change the server refuses (the table moved under it) is dropped and the page read again, never "Not sent."
+  - No length the page offers can freeze a game: with "Dropped phone" at 0, Talk, Vote and Night each need a clock, and with any of them at 0, "Dropped phone" is at least 1 s (the server's rule; the steppers' ranges are the server's).
   - Holding a portrait opens 03b.
-  - A table made with no lengths runs on the server's defaults (talk 300, vote 120, night 30): no preset, so no pace chip is selected until the host picks one ("Normal" is 300/90/30). Dealing without opening 03 stays three taps.
-- **Pass:** "Use this deck."
+  - Dealing without opening 03 stays three taps.
+- **Pass:** "Set it for eight, then wait."
 
 **03b Role sheet**
 - **One thing / loudest:** read it; portrait and name.
@@ -325,7 +326,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - Your own row is never listed.
   - The picked row lifts and gets an ink outline. Tapping another row moves the pick.
   - After locking, the player's own pick stays lifted and outlined and the other rows dim; the button reads "Locked". (Owner, 20 November 2026: a neighbour could already read "Lock in Cleo" before the lock; hiding the pick afterwards only costs the player the sight of their own choice.)
-  - Normal pace gives 90 s (17).
+  - The vote's length is the table's "Vote" (03; 2 min unless the host changes it).
 - **Pass:** "Tap a name, then Lock in."
 
 **10 The count**
@@ -447,8 +448,8 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 4. **Doing nothing.** A lone Werewolf with no center pick, and a Doppelganger look with no other-player pick, both resolve as skip or timeout. A Drunk with no center pick gets the seeded swap (`made_by_server: true`). Reason: "Keep my card" must be valid for every role.
 5. **Window opening.** Every phone gets the same group event `night_window {window, deadline}` in one after-commit batch. Each phone then reads its own prompt from `/me`; there are no per-role prompt events. Reason: identical traffic and timing.
 6. **Automatic deck and defaults.**
-   - Lobby settings carry `deck: "auto"` and `deck_chip: "simple"|"classic"|"chaos"` until the host edits cards. The deal builds the deck from the chips table for the current player count, under the Lobby lock.
-   - At lobby create the server writes the defaults: Normal pace, `card_look_seconds` 30, and Normal `night_doppelganger_window_seconds` 15.
+   - Lobby settings carry `deck: "auto"` and `deck_chip: "simple"|"classic"|"chaos"` until the host edits cards. The deal builds the deck from the chips table for the table's size (`seats`, the number the host set; else the players at the table), under the Lobby lock.
+   - At lobby create the server writes `card_look_seconds` 30 and the Simple chip; every other length is the server's default, sent in the lobby body (`lengths`) and shown on 03. No pace presets (removed 21 November 2026).
    - Reason: this removes the client writer and its races.
 7. **Join link.** The web deployment serves the app for `/join/*` (a Vercel rewrite) and the app knows its public origin for the QR code. Reason: finding 15.
 
@@ -463,7 +464,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 7. `NightBoard`: built from the player list, taps, and the `choose` payload.
 8. **A night uniformity test**: drive every role through the look stage, window 1, window 2 and 07, and assert that the non-held widget trees, the transition times and the requests are identical.
 9. QR code, the `/join/:code` route, and the share sheet.
-10. Cold-read pack exported from `just screens` (host, guest, sleeper and Seer journeys).
+10. Cold-read pack exported from `just screens` (host, guest, sleeper and Seer journeys, and a host setting up a table for eight).
 
 ## 6. Open risks
 

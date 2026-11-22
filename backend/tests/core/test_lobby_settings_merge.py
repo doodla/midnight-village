@@ -263,15 +263,26 @@ class TestTheDeckIsCheckedOnlyWhenTheDeckChanges:
         assert bad.status_code == status.HTTP_400_BAD_REQUEST
         assert stored(lobby)["voting_seconds"] == 90
 
-    def test_a_patch_that_sets_roles_is_checked_against_who_is_here(
+    def test_a_patch_that_sets_roles_is_stored_and_deal_says_it_does_not_fit(
         self, somebody_joined
     ) -> None:
         lobby, client = somebody_joined  # 4 players need 7 cards; ROLES is 6
 
         response = patch_settings(client, lobby.code, {"roles": ROLES})
 
+        assert response.status_code == status.HTTP_200_OK
+        assert stored(lobby)["roles"] == ROLES
+        assert response.data["deal"]["ok"] is False
+        assert (response.data["deal"]["need"], response.data["deal"]["have"]) == (7, 6)
+
+    def test_a_patch_with_an_illegal_role_count_is_still_refused(
+        self, somebody_joined
+    ) -> None:
+        lobby, client = somebody_joined
+
+        response = patch_settings(client, lobby.code, {"roles": {"Seer": 2}})
+
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert any("Total role count" in e for e in response.data["detail"])
 
     def test_the_deal_still_refuses_the_mismatched_deck(self, somebody_joined) -> None:
         lobby, client = somebody_joined

@@ -81,7 +81,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Name under the card 12/700, gap 5, dimmed names #8a90b4 | `type.badge`, `ground.text` / `ground.faintText`; gap fixed in `RoleCard` |
 | Hint 13/600 quiet | `type.caption`, `ground.quietText` |
 | "Pace" label | **Cut** by the first-time play spec ("Pace"); the pace chips "Quick", "Normal", "Long" are `PresetChip`s |
-| Pace tiles: 4 across, gap 8, padding 9/10, 2 px hairline, radius 6; label 11/700 +0.1em quiet; value Gloock 24 | `PaceTile` (its name in `type.caption` 14, sentence case; `type.heading`, `ground.hairline`) in a `Row` of `Expanded`, `Space.sm` |
+| Pace tiles: 4 across, gap 8, padding 9/10, 2 px hairline, radius 6; label 11/700 +0.1em quiet; value Gloock 24 | Replaced (21 November 2026): every length is its own row, `LabelledStepper` over a `ValueStepper` (`small`), in an `OutlinePanel`; no pace presets |
 | "Use this deck" | `PrimaryButton` |
 
 ## S03b Role sheet (over S03)

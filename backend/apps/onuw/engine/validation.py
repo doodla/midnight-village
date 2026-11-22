@@ -6,7 +6,7 @@ NO Django imports allowed in this module. This is pure game logic.
 
 from __future__ import annotations
 
-from .decks import DECK_CHIPS
+from .decks import DECK_CHIPS, MAX_AUTO_PLAYERS, MIN_AUTO_PLAYERS
 from .roles import ROLE_REGISTRY
 
 # Every timer setting the server reads, in seconds. 0 disables that timer
@@ -48,48 +48,10 @@ def is_valid_timer_value(value: object, maximum: int = MAX_TIMER_SECONDS) -> boo
 
 
 def validate_timer_settings(settings: dict) -> list[str]:
-    """
-    Validate the timer keys of a settings dict (absent keys are fine).
-
-    Each must be an integer from 0 to MAX_TIMER_SECONDS (0 to 60 for
-    disconnect_grace_seconds, 0 to 600 for host_handover_seconds), and
-    night_min_window_seconds must not exceed night_wave_seconds when the
-    latter is set above 0 (the minimum length of a window cannot be longer
-    than its maximum). These are host-facing settings, so errors are explicit.
-    """
-    return timer_value_errors(settings) + window_order_errors(settings)
-
-
-def timer_value_errors(settings: dict) -> list[str]:
-    """Each timer key present is a whole number of seconds in its range."""
-    errors: list[str] = []
-    for key in TIMER_SETTING_KEYS:
-        if key not in settings:
-            continue
-        maximum = max_seconds_for(key)
-        if not is_valid_timer_value(settings[key], maximum):
-            errors.append(
-                f"{key!r} must be a whole number of seconds from 0 to {maximum}."
-            )
-    return errors
-
-
-def window_order_errors(settings: dict) -> list[str]:
-    """The minimum length of a night window cannot be longer than its maximum
-    (when that is set above 0)."""
-    errors: list[str] = []
-    wave_max = settings.get("night_wave_seconds")
-    window_min = settings.get("night_min_window_seconds")
-    if (
-        is_valid_timer_value(wave_max)
-        and is_valid_timer_value(window_min)
-        and wave_max > 0  # type: ignore[operator]
-        and window_min > wave_max  # type: ignore[operator]
-    ):
-        errors.append(
-            "'night_min_window_seconds' must not be longer than 'night_wave_seconds'."
-        )
-    return errors
+    """The timer keys of a settings dict (absent keys are fine), by the rule
+    table (``length_errors``, untimed nights allowed): each a whole number of
+    seconds within its range, given the others."""
+    return length_errors(settings, frozenset(settings), allow_untimed=True)
 
 
 # A label for the pace preset the deck screen used; the server never reads it,
@@ -119,6 +81,53 @@ def validate_deck_choice(settings: dict) -> list[str]:
     return errors
 
 
+# How many players the game is for (``seats``): the host picks it before anyone joins
+# and the table waits for that many. Absent or null: the table is "open" and deals to
+# whoever is there (every table before this setting, and a new table until the host
+# picks a number).
+MIN_SEATS = MIN_AUTO_PLAYERS
+MAX_SEATS = MAX_AUTO_PLAYERS
+
+
+def seats_of(settings: object) -> int | None:
+    """The number of players a table is set for, or None for an open table (no
+    ``seats``, null, or a value this server would refuse)."""
+    if not isinstance(settings, dict):
+        return None
+    seats = settings.get("seats")
+    if type(seats) is int and MIN_SEATS <= seats <= MAX_SEATS:
+        return seats
+    return None
+
+
+def seats_range(player_count: int, max_players: int | None) -> list[int]:
+    """``[least, most]`` the number of players may be set to now: never fewer than
+    the players here (nor 3), never more than the table holds (``max_players``) nor
+    10. The lobby body sends it as ``seats_range``; ``validate_seats`` takes the
+    same."""
+    most = MAX_SEATS if max_players is None else min(MAX_SEATS, max_players)
+    return [max(MIN_SEATS, player_count), most]
+
+
+def validate_seats(
+    settings: dict, player_count: int, max_players: int | None = None
+) -> list[str]:
+    """``seats`` (if given): null (open) or a whole number in ``seats_range``."""
+    if "seats" not in settings or settings["seats"] is None:
+        return []
+    seats = settings["seats"]
+    _, most = seats_range(player_count, max_players)
+    if type(seats) is not int or not MIN_SEATS <= seats <= MAX_SEATS:
+        return [
+            f"'seats' must be a whole number from {MIN_SEATS} to {MAX_SEATS}, or null."
+        ]
+    if seats < player_count:
+        return [f"{player_count} players are at the table already."]
+    if seats > most:
+        return [f"The table holds {most} players at most."]
+    return []
+
+
 # The close of a window must not depend on roles, so a window with no deadline (one
 # idle phone could stall the table, and a window 1 with no length singles out the
 # Doppelganger) and a minimum window shorter than this are refused, unless the server
@@ -130,51 +139,152 @@ TIMED_NIGHT_KEYS: tuple[str, ...] = (
 )
 
 
+# THE rule table for the lengths: what each is when the table sets none, the most it
+# may be, the least it may be now (``length_ranges``), the one check a settings change
+# gets (``length_errors``) and the clamp a deal applies to what older code stored
+# (``clamp_night_timing``). The ranges the lobby body sends are the ones the check
+# takes, so a phone can never be offered what the server refuses.
+#
+# The game's defaults (seconds) when a table sets none (``services`` reads them from
+# here; the host handover's is ``core.host``'s, a core setting with no rule here).
+LENGTH_DEFAULTS: dict[str, int] = {
+    "night_wave_seconds": 30,
+    "night_min_window_seconds": 8,
+    "night_doppelganger_window_seconds": 10,
+    "discussion_seconds": 300,
+    "voting_seconds": 120,
+    "disconnect_grace_seconds": 25,
+    "card_look_seconds": 0,
+}
+
+# A stage that ends on its own clock or when everyone present is done. With its
+# clock at 0 it waits for everyone, so a phone that dies must be counted gone
+# (``disconnect_grace_seconds`` > 0), or the game waits for good.
+DEADLINE_KEYS: tuple[str, ...] = (
+    "night_wave_seconds",
+    "discussion_seconds",
+    "voting_seconds",
+)
+GRACE_KEY = "disconnect_grace_seconds"
+
+
+def declared_lengths(settings: object) -> dict[str, int]:
+    """Each length the rules see: the stored value when it is one the server takes
+    (a whole number in 0 to the key's most), else the default."""
+    stored = settings if isinstance(settings, dict) else {}
+    out: dict[str, int] = {}
+    for key in TIMER_SETTING_KEYS:
+        value = stored.get(key)
+        if is_valid_timer_value(value, max_seconds_for(key)):
+            out[key] = value  # type: ignore[assignment]
+        elif key in LENGTH_DEFAULTS:
+            out[key] = LENGTH_DEFAULTS[key]
+    return out
+
+
+def length_ranges(
+    settings: object, *, allow_untimed: bool = True
+) -> dict[str, list[int]]:
+    """``{key: [least, most]}`` for every length, given the others as ``settings``
+    has them (a key's range never depends on its own value):
+
+    - 0 to the key's most (``TIMER_SETTING_MAX_SECONDS``, else an hour);
+    - unless ``allow_untimed``: a night window at least 1 s, the minimum window at
+      least 5 s;
+    - the minimum window no longer than the window (when that is above 0);
+    - unless ``allow_untimed``, no stage waits for good: with
+      ``disconnect_grace_seconds`` at 0 every ``DEADLINE_KEYS`` clock is at
+      least 1 s; with any of them at 0 the grace period is at least 1 s.
+    """
+    now = declared_lengths(settings)
+    ranges = {key: [0, max_seconds_for(key)] for key in TIMER_SETTING_KEYS}
+
+    def at_least(key: str, least: int) -> None:
+        ranges[key][0] = max(ranges[key][0], least)
+
+    if not allow_untimed:
+        for key in TIMED_NIGHT_KEYS:
+            at_least(key, 1)
+        at_least("night_min_window_seconds", MIN_WINDOW_FLOOR_SECONDS)
+    wave = now.get("night_wave_seconds", 0)
+    if wave > 0:
+        window_min = ranges["night_min_window_seconds"]
+        window_min[1] = max(window_min[0], min(window_min[1], wave))
+    if allow_untimed:
+        # Development, tests, the harness: games driven by hand, any clock.
+        return ranges
+    if now.get(GRACE_KEY, 0) == 0:
+        for key in DEADLINE_KEYS:
+            at_least(key, 1)
+    if any(now.get(key, 0) == 0 for key in DEADLINE_KEYS):
+        at_least(GRACE_KEY, 1)
+    return ranges
+
+
+def length_errors(
+    settings: dict, changed: set[str] | frozenset[str] | None, *, allow_untimed: bool
+) -> list[str]:
+    """The lengths a change gives (every length when ``changed`` is None, the deal)
+    that are not whole numbers within ``length_ranges`` of ``settings`` (the stored
+    ones with the change merged over them)."""
+    keys = [
+        key
+        for key in TIMER_SETTING_KEYS
+        if key in settings and (changed is None or key in changed)
+    ]
+    if not keys:
+        return []
+    ranges = length_ranges(settings, allow_untimed=allow_untimed)
+    errors = []
+    for key in keys:
+        least, most = ranges[key]
+        value = settings[key]
+        if type(value) is not int or not least <= value <= most:
+            errors.append(
+                f"{key!r} must be a whole number of seconds from {least} to {most}."
+            )
+    return errors
+
+
 def clamp_night_timing(settings: dict, *, allow_untimed: bool = True) -> dict:
-    """``settings`` with every stored timer value the server would refuse today
-    replaced, so a table older code wrote is never stuck: a timer value out of
-    range is dropped (the server's default applies, as ``get_timer_seconds``
-    reads it anyway); unless ``allow_untimed``, a night timer of 0 is dropped
-    too (its default is a real length) and a minimum window under 5 s becomes 5
-    (and a night window shorter than that minimum becomes the minimum). A new
-    dict; the input is not changed."""
+    """``settings`` with every stored length the rules would refuse today replaced,
+    so a table older code wrote is never stuck (the deal applies it): a value out of
+    its key's range is dropped (the default applies); unless ``allow_untimed``, a
+    night timer of 0 is dropped too, a minimum window under 5 s becomes 5, a
+    stored window shorter than its stored minimum becomes the minimum, and a
+    grace period of 0 beside a stage with no clock is dropped (its default counts
+    a dead phone gone, so the game cannot wait for good). A new dict; the input is
+    not changed."""
     out = dict(settings)
     for key in TIMER_SETTING_KEYS:
         if key in out and not is_valid_timer_value(out[key], max_seconds_for(key)):
             del out[key]
-    if allow_untimed:
-        return out
-    for key in TIMED_NIGHT_KEYS:
-        if out.get(key) == 0:
-            del out[key]
-    window_min = out.get("night_min_window_seconds")
-    if isinstance(window_min, int) and window_min < MIN_WINDOW_FLOOR_SECONDS:
-        out["night_min_window_seconds"] = MIN_WINDOW_FLOOR_SECONDS
-    wave = out.get("night_wave_seconds")
-    floor = out.get("night_min_window_seconds", 0)
-    if isinstance(wave, int) and isinstance(floor, int) and 0 < wave < floor:
-        out["night_wave_seconds"] = floor
+    if not allow_untimed:
+        for key in TIMED_NIGHT_KEYS:
+            if out.get(key) == 0:
+                del out[key]
+        window_min = out.get("night_min_window_seconds")
+        if isinstance(window_min, int) and window_min < MIN_WINDOW_FLOOR_SECONDS:
+            out["night_min_window_seconds"] = MIN_WINDOW_FLOOR_SECONDS
+        # A stored window shorter than its stored minimum becomes the minimum.
+        wave = out.get("night_wave_seconds")
+        floor = out.get("night_min_window_seconds", 0)
+        if isinstance(wave, int) and isinstance(floor, int) and 0 < wave < floor:
+            out["night_wave_seconds"] = floor
+        now = declared_lengths(out)
+        if now.get(GRACE_KEY) == 0 and any(now.get(k) == 0 for k in DEADLINE_KEYS):
+            del out[GRACE_KEY]
     return out
 
 
-def validate_night_timing(settings: dict, *, allow_untimed: bool = True) -> list[str]:
-    """Unless ``allow_untimed``: no zero night timers and a minimum window of at
-    least 5 s. (Keys the server does not know, such as a protocol flag older
-    tables carry, are ignored: every table plays the one night there is.)"""
-    if allow_untimed:
-        return []
-    errors = [
-        f"{key!r} cannot be 0 when phones choose at night."
-        for key in TIMED_NIGHT_KEYS
-        if type(settings.get(key)) is int and settings.get(key) == 0
-    ]
-    window_min = settings.get("night_min_window_seconds")
-    if type(window_min) is int and window_min < MIN_WINDOW_FLOOR_SECONDS:
-        errors.append(
-            "'night_min_window_seconds' must be at least "
-            f"{MIN_WINDOW_FLOOR_SECONDS} when phones choose at night."
-        )
-    return errors
+def running_lengths(settings: object) -> dict[str, int]:
+    """The lengths a game dealt with ``settings`` (already clamped) runs with: the
+    declared ones, the minimum window cut to the window as the night cuts it."""
+    now = declared_lengths(settings)
+    wave = now.get("night_wave_seconds", 0)
+    if wave > 0 and now.get("night_min_window_seconds", 0) > wave:
+        now["night_min_window_seconds"] = wave
+    return now
 
 
 def _changed_keys(settings: dict, changed: set[str] | frozenset[str]) -> dict:
@@ -189,9 +299,14 @@ def validate_onuw_settings(
     check_deck: bool = True,
     allow_untimed: bool = True,
     changed: set[str] | frozenset[str] | None = None,
+    max_players: int | None = None,
 ) -> list[str]:
     """
-    Validate ONUW role configuration.
+    Validate ONUW settings: for a lobby PATCH (``changed`` given) only the keys it
+    gives, and of a card list only each role's own limits (a deck being built is
+    stored card by card; whether it fits is the deal's question, reported by the
+    lobby body's ``deal``); for the deal (``changed`` None) everything, including
+    that the table holds the players it is set for and the deck fits them.
 
     Args:
         settings: Game settings dict. Must contain a "roles" key mapping
@@ -215,27 +330,30 @@ def validate_onuw_settings(
         return ["Settings must be an object."]
 
     scope = settings if changed is None else _changed_keys(settings, changed)
-    order = (
-        window_order_errors(settings)
-        if changed is None
-        or changed & {"night_wave_seconds", "night_min_window_seconds"}
-        else []
-    )
     errors: list[str] = [
-        *timer_value_errors(scope),
-        *order,
+        *length_errors(settings, changed, allow_untimed=allow_untimed),
         *validate_pace(scope),
-        *validate_night_timing(scope, allow_untimed=allow_untimed),
         *validate_deck_choice(scope),
+        *(
+            validate_seats(scope, player_count, max_players)
+            if changed is not None and "seats" in changed
+            else []
+        ),
     ]
     if not check_deck:
         return errors
 
-    if player_count < 3:
-        errors.append(f"At least 3 players required, got {player_count}.")
-
-    if player_count > 10:
-        errors.append(f"At most 10 players allowed, got {player_count}.")
+    at_deal = changed is None
+    seats = seats_of(settings)
+    if at_deal:
+        if seats is not None and player_count != seats:
+            errors.append(
+                f"The table is set for {seats} players, {player_count} are here."
+            )
+        if player_count < 3:
+            errors.append(f"At least 3 players required, got {player_count}.")
+        if player_count > 10:
+            errors.append(f"At most 10 players allowed, got {player_count}.")
 
     if settings.get("deck") == "auto":
         # The server builds the deck at the deal for the players then at the table
@@ -279,6 +397,9 @@ def validate_onuw_settings(
         errors.append(
             "Masons must be used in pairs — include 0 or 2 Mason cards, not 1."
         )
+
+    if not at_deal:
+        return errors
 
     expected = player_count + 3
     if total_roles != expected:
