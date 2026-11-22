@@ -51,6 +51,9 @@ abstract final class Sizes {
   /// The scanner's window (01b), at most this wide and always square.
   static const viewfinderLargest = 320.0;
 
+  /// The busy mark standing under the code in the scanner's window.
+  static const viewfinderBusy = 32.0;
+
   /// The least room for 02's code beside its QR code; with less, they stack.
   static const joinCodeBeside = 100.0;
 

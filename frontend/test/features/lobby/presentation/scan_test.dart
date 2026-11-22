@@ -3,8 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/viewfinder.dart';
+import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 import 'package:midnight_village/features/lobby/presentation/scan/code_scanner.dart';
+import 'package:midnight_village/features/lobby/presentation/scan/scan_session.dart';
 import 'package:midnight_village/features/lobby/presentation/scan/scan_view.dart';
+import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/fake_code_scanner.dart';
@@ -226,6 +231,8 @@ void main() {
       'hello there',
       '',
       '12345',
+      '123456',
+      'https://midnight.example/join/V9YC1J',
     ]) {
       testWidgets('"$junk": nothing happens, the camera keeps looking', (
         tester,
@@ -307,9 +314,48 @@ void main() {
       expect(find.byType(ScanView), findsNothing);
       expect(camera.disposed, isTrue);
       expect(find.text(BannerCopy.lobbyNotFound), findsOneWidget);
-      expect(find.text(JoinCopy.joinTable), findsOneWidget);
+      // 01 is back with the code still in its field.
+      expect(
+        tester
+            .widgetList<TextField>(find.byType(TextField))
+            .map((f) => f.controller!.text),
+        contains('ZZZZZZ'),
+      );
       await setup.close(tester);
     });
+  });
+
+  group('a typed join that is refused keeps its code too', () {
+    for (final (sample, status, banner) in [
+      ('join_not_found', 404, BannerCopy.lobbyNotFound),
+      ('join_full', 400, BannerCopy.lobbyFull),
+      ('join_closed', 400, BannerCopy.lobbyClosed),
+    ]) {
+      testWidgets(banner, (tester) async {
+        final setup = await TableSetup.pump(tester, signedInAs: 'Ben');
+        setup.http.answer(
+          'POST',
+          '/lobbies/ZZZZZZ/join/',
+          ContractSamples.map('http/lobby/$sample'),
+          status: status,
+        );
+        await tester.tap(find.text(JoinCopy.joinTable));
+        await setup.settle(tester);
+        await tester.enterText(find.byType(TextField).last, 'ZZZZZZ');
+        await tester.pump();
+        await tester.tap(find.text(JoinCopy.join));
+        await setup.settle(tester);
+
+        expect(find.text(banner), findsOneWidget);
+        expect(
+          tester
+              .widgetList<TextField>(find.byType(TextField))
+              .map((f) => f.controller!.text),
+          contains('ZZZZZZ'),
+        );
+        await setup.close(tester);
+      });
+    }
   });
 
   group('where the camera cannot be used, typing is the way on', () {
@@ -409,6 +455,71 @@ void main() {
         ),
         findsNothing,
       );
+      await setup.close(tester);
+    });
+  });
+
+  group('only a tap starts the camera, never the building of 01', () {
+    testWidgets('a scanner left open when 01 goes away is gone, and 01 built '
+        'again shows no camera', (tester) async {
+      final setup = await _benAtTheDoor(tester);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(JoinScreen)),
+      );
+      await _tapScan(tester, setup);
+      expect(container.read(scanSessionProvider).open, isTrue);
+      expect(setup.scanners, hasLength(1));
+
+      // The server seats the player: 02 takes the screen, the scanner with it.
+      setup.http.answer(
+        'POST',
+        '/lobbies/V9YC2J/join/',
+        ContractSamples.map('http/lobby/joined'),
+      );
+      container.invalidate(myTableProvider);
+      await setup.settle(tester);
+      expect(
+        find.text(TableCopy.hostDeals.fill({'host': 'Ana'})),
+        findsOneWidget,
+      );
+      expect(setup.scanners.single.disposed, isTrue);
+      expect(container.read(scanSessionProvider).open, isFalse);
+
+      // The player is at no table again: 01, with no camera and no scanner.
+      setup.lobby = null;
+      setup.viewerId = null;
+      setup.answerTable();
+      container.invalidate(myTableProvider);
+      await setup.settle(tester);
+      expect(find.text(JoinCopy.joinTable), findsOneWidget);
+      expect(find.byType(ScanView), findsNothing);
+      expect(setup.scanners, hasLength(1));
+      await setup.close(tester);
+    });
+
+    testWidgets('01 opened from a table\'s link shows no scanner, whatever '
+        'was left open', (tester) async {
+      final setup = await _benAtTheDoor(tester);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(JoinScreen)),
+      );
+      await _tapScan(tester, setup);
+      expect(container.read(scanSessionProvider).open, isTrue);
+
+      GoRouter.of(tester.element(find.byType(ScanView))).go('/join/V9YC2J');
+      await setup.settle(tester);
+
+      expect(find.byType(ScanView), findsNothing);
+      expect(find.text(JoinCopy.join), findsOneWidget);
+      expect(container.read(scanSessionProvider).open, isFalse);
+      expect(setup.scanners, hasLength(1));
+      expect(setup.scanners.single.disposed, isTrue);
+      await setup.close(tester);
+    });
+
+    testWidgets('building 01 never makes a camera', (tester) async {
+      final setup = await _benAtTheDoor(tester);
+      expect(setup.scanners, isEmpty);
       await setup.close(tester);
     });
   });

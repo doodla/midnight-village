@@ -165,6 +165,31 @@ void main() {
       expect('${result.stderr}', contains('https'));
     });
 
+    test('and with an origin that has a path, a query or a fragment (the '
+        "manifest's /join/ prefix would not match the app's own links)", () {
+      for (final origin in [
+        'https://app.example/play',
+        'https://app.example/play/',
+        'https://app.example/?x=1',
+        'https://app.example/#top',
+      ]) {
+        final result = run({
+          'API_ORIGIN': 'https://api.example',
+          'PUBLIC_ORIGIN': origin,
+        });
+        expect(result.exitCode, isNot(0), reason: origin);
+        expect('${result.stderr}', contains('PUBLIC_ORIGIN'), reason: origin);
+      }
+    });
+
+    test('and goes on with both (a trailing slash is still an origin)', () {
+      final result = run({
+        'API_ORIGIN': 'https://api.example',
+        'PUBLIC_ORIGIN': 'https://app.example/',
+      });
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+    });
+
     test('and goes on with both', () {
       final result = run({
         'API_ORIGIN': 'https://api.example',
@@ -178,6 +203,11 @@ void main() {
       expect(gradle, contains('it.name.contains("Release")'));
       expect(gradle, contains('--dart-define=PUBLIC_ORIGIN=https://'));
       expect(gradle, contains('throw GradleException'));
+      expect(gradle, contains('rawPath'));
+      expect(
+        File('tool/build_android.sh').readAsStringSync(),
+        contains('--split-per-abi'),
+      );
       // Only a release task throws: the check is the one `releasing` guards.
       expect(gradle, contains('if (releasing && publicHost == null)'));
     });

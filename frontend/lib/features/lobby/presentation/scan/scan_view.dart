@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
+import '../../../../design_system/primitives/faint_art.dart';
 import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
@@ -16,14 +17,15 @@ import 'code_scanner.dart';
 /// nothing to read while it looks (Back is a glyph, so is the light, where
 /// the camera has one).
 ///
-/// - The camera is [scanner]'s, started when this is built and stopped the
-///   moment it is read or this goes.
+/// - The camera is made by [makeScanner], started when this is built and
+///   stopped the moment a code is read or this goes. The village stands
+///   faintly behind the empty upper half ([FaintArt]).
 /// - A code that is a table's link or a bare code ([tableCodeFrom]) is
-///   "found": the camera stops, the window's corners close in, the code
-///   stands in the window, and [onCode] is told at once (no beat is waited
-///   out). Anything else a camera sees is ignored, silently.
+///   "found": the camera stops, the code stands in the window at once and the
+///   corners snap in round it (no fade through an empty window), and [onCode]
+///   is told at once (no beat is waited out). Anything else a camera sees is ignored, silently.
 /// - Where the camera cannot be used (refused, none, a page that may not):
-///   the window shows it is off, one calm line says so, and "Type the code"
+///   the window shows a shuttered window, one calm line says so, and "Type the code"
 ///   ([onType]) is the way on. Never a dead end.
 /// - [joining]: the table is being joined with the code that was found.
 class ScanView extends StatefulWidget {
@@ -122,21 +124,14 @@ class _ScanViewState extends State<ScanView> {
                   style: skin.typography.heroCode.copyWith(color: paper.text),
                 ),
                 if (widget.joining)
-                  BusyMark(size: Space.xl + 4, color: paper.text),
+                  BusyMark(size: Sizes.viewfinderBusy, color: paper.text),
               ],
             ),
           ),
         ),
       );
     } else if (problem != null) {
-      inside = Center(
-        key: const ValueKey('off'),
-        child: Icon(
-          Icons.videocam_off_outlined,
-          size: 56,
-          color: ground.faintText,
-        ),
-      );
+      inside = const ShutteredWindow(key: ValueKey('off'));
     } else {
       inside = KeyedSubtree(key: const ValueKey('looking'), child: _camera!);
     }
@@ -144,6 +139,8 @@ class _ScanViewState extends State<ScanView> {
     return ScreenFrame(
       ground: GroundKind.night,
       fitsHeight: true,
+      // The village stands faintly behind the empty upper half.
+      backdrop: FaintArt(skin.art.streetDoor),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: Space.xl,
@@ -188,10 +185,9 @@ class _ScanViewState extends State<ScanView> {
                       liveRegion: true,
                       child: Viewfinder(
                         found: code != null,
-                        child: AnimatedSwitcher(
-                          duration: Motion.within(context, Motion.quick),
-                          child: inside,
-                        ),
+                        // No fade between the camera and the code: that would
+                        // pass through an empty window. The corners snap in.
+                        child: inside,
                       ),
                     ),
                   ),

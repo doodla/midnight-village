@@ -4,6 +4,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../../core/logging/app_logger.dart';
+import 'own_decoder_stub.dart'
+    if (dart.library.js_interop) 'own_decoder_web.dart';
 
 part 'code_scanner.g.dart';
 
@@ -61,6 +63,12 @@ class MobileCodeScanner implements CodeScanner {
         facing: CameraFacing.back,
       ) {
     _controller.addListener(_lightChanged);
+    // Browsers with no built-in barcode detector decode with zxing-wasm: from
+    // this app's own files, never a CDN.
+    final decoder = ownDecoderUrl();
+    if (decoder != null) {
+      MobileScannerPlatform.instance.setBarcodeLibraryScriptUrl(decoder);
+    }
   }
 
   final MobileScannerController _controller;

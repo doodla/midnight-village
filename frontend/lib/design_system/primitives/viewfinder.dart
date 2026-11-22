@@ -287,3 +287,78 @@ class Viewfinder extends StatelessWidget {
     );
   }
 }
+
+/// A closed window, cut from paper: a frame, two shutter leaves with slats and
+/// a latch across them. It stands where the camera would be when the camera
+/// is off (01b), so "no camera" is a shuttered window of the village, not a
+/// stock icon. Drawn in code from the ground's own paper, edge and shadow.
+class ShutteredWindow extends StatelessWidget {
+  const ShutteredWindow({super.key});
+
+  static const _slats = 6;
+  static const _width = 0.5;
+  static const _aspect = 1.15;
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = context.skin;
+    final ground = context.ground;
+    final radius = BorderRadius.circular(skin.shape.radius * 0.5);
+    final stroke = skin.shape.stroke;
+    Widget leaf() => Expanded(
+      child: DecoratedBox(
+        decoration: cutPaper(
+          context,
+          fill: ground.paper,
+          radius: radius,
+          elevation: ground.elevation.card,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Space.sm),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              for (var i = 0; i < _slats; i++)
+                Container(height: stroke, color: ground.paperEdge),
+            ],
+          ),
+        ),
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, room) {
+        final width = room.maxWidth * _width;
+        return Center(
+          child: SizedBox(
+            width: width,
+            height: width * _aspect,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                border: Border.all(color: ground.outline, width: stroke * 2),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(Space.xs),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Row(spacing: Space.xxs, children: [leaf(), leaf()]),
+                    // The latch, across the two leaves.
+                    Container(
+                      width: width * 0.3,
+                      height: Space.xs,
+                      decoration: BoxDecoration(
+                        color: ground.outline,
+                        borderRadius: BorderRadius.circular(Space.xxs),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

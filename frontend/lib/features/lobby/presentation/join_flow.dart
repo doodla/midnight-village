@@ -21,6 +21,7 @@ class JoinFlowState {
     this.banner,
     this.retry = false,
     this.goThere = false,
+    this.code,
   });
 
   /// The way in on its way ([JoinWay.start] or [JoinWay.join]).
@@ -35,6 +36,11 @@ class JoinFlowState {
   /// The banner offers "Go there": the player sits at another table, and the
   /// server will not seat them twice.
   final bool goThere;
+
+  /// The table code of the join on its way, or of the last one that was
+  /// refused: 01 is made again while a join runs and when it is refused (the
+  /// app swaps one 01 for another), and brings the code back into its field.
+  final String? code;
 }
 
 enum JoinWay { start, join }
@@ -69,7 +75,7 @@ class JoinFlow extends _$JoinFlow {
   /// is the table's lobby: 02 shows it at once (and reads it again once its
   /// socket listens, for a join said meanwhile).
   Future<bool> join(String name, String code) =>
-      _run(JoinWay.join, name, () async {
+      _run(code: code, JoinWay.join, name, () async {
         try {
           final lobby = await ref.read(lobbyServiceProvider).joinLobby(code);
           ref.read(lobbySeedProvider).put(lobby, settled: false);
@@ -108,11 +114,12 @@ class JoinFlow extends _$JoinFlow {
   Future<bool> _run(
     JoinWay way,
     String name,
-    Future<void> Function() sit,
-  ) async {
+    Future<void> Function() sit, {
+    String? code,
+  }) async {
     if (state.busy != null) return false;
-    _again = () => _run(way, name, sit);
-    state = JoinFlowState(busy: way);
+    _again = () => _run(way, name, sit, code: code);
+    state = JoinFlowState(busy: way, code: code);
     ref.read(lobbySeedProvider).clear();
     try {
       await _account(name.trim());
@@ -138,7 +145,7 @@ class JoinFlow extends _$JoinFlow {
       return false;
     } catch (e) {
       logger.d('Could not sit down ($e)');
-      if (ref.mounted) state = _bannerFor(e);
+      if (ref.mounted) state = _bannerFor(e, code);
       return false;
     }
   }
@@ -154,7 +161,7 @@ class JoinFlow extends _$JoinFlow {
     if (after is! AuthAuthenticated) throw const _NotSignedIn();
   }
 
-  static JoinFlowState _bannerFor(Object error) {
+  static JoinFlowState _bannerFor(Object error, String? table) {
     final code = switch (error) {
       ValidationException(:final code) => code,
       UnhandledHttpException(:final code) => code,
@@ -162,18 +169,22 @@ class JoinFlow extends _$JoinFlow {
       _ => null,
     };
     return switch (code) {
-      'lobby_not_found' => const JoinFlowState(
+      'lobby_not_found' => JoinFlowState(
         banner: BannerCopy.lobbyNotFound,
+        code: table,
       ),
-      'lobby_full' => const JoinFlowState(banner: BannerCopy.lobbyFull),
-      'lobby_closed' => const JoinFlowState(banner: BannerCopy.lobbyClosed),
+      'lobby_full' => JoinFlowState(banner: BannerCopy.lobbyFull, code: table),
+      'lobby_closed' => JoinFlowState(
+        banner: BannerCopy.lobbyClosed,
+        code: table,
+      ),
       // The server's coming refusal (409, with that table's code): the
       // player is seated elsewhere; "Go there" opens it.
       'already_at_table' => const JoinFlowState(
         banner: BannerCopy.alreadyInLobby,
         goThere: true,
       ),
-      _ => const JoinFlowState(banner: BannerCopy.notSent, retry: true),
+      _ => JoinFlowState(banner: BannerCopy.notSent, retry: true, code: table),
     };
   }
 }

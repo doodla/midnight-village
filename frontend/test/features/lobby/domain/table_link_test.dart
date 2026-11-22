@@ -62,6 +62,12 @@ void main() {
         'WIFI:T:WPA;S:cafe;P:secret;;',
         'BEGIN:VCARD\nFN:Ana\nEND:VCARD',
         'two words here',
+        // Not the server's alphabet (no 0, O, I, 1 or L): never a table's.
+        '123456',
+        'HELLO2',
+        'V9YC1J',
+        'https://example.com/join/V9YC1J',
+        'https://example.com/join/OOOOOO',
       ]) {
         expect(tableCodeFrom(junk), isNull, reason: junk);
       }
@@ -95,8 +101,8 @@ void main() {
     });
 
     test('is a link tableCodeFrom reads back', () {
-      final link = joinLink(Uri.parse('https://x.example'), 'AB12CD');
-      expect(tableCodeFrom(link.toString()), 'AB12CD');
+      final link = joinLink(Uri.parse('https://x.example'), 'AB32CD');
+      expect(tableCodeFrom(link.toString()), 'AB32CD');
     });
   });
 }

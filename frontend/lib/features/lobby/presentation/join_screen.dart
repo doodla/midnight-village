@@ -98,10 +98,12 @@ class JoinScreen extends ConsumerWidget {
         name: auth is AuthAuthenticated ? auth.user.displayName : '',
         code: link,
         scanner: scanner,
+        retryCode: flow.code,
         scanning: scan.open,
         scanned: scan.code,
         onScanOpen: session.open,
         onScanClose: session.close,
+        onScanLeft: session.left,
         onScanned: session.found,
         seated: elsewhere,
         online: online?.players,
@@ -166,10 +168,12 @@ class JoinView extends StatefulWidget {
     this.onBannerAction,
     this.openCode = false,
     this.scanner,
+    this.retryCode,
     this.scanning = false,
     this.scanned,
     this.onScanOpen,
     this.onScanClose,
+    this.onScanLeft,
     this.onScanned,
     required this.onStart,
     required this.onJoin,
@@ -201,12 +205,19 @@ class JoinView extends StatefulWidget {
   /// Makes the camera the scan action opens; null: no scan action.
   final CodeScannerFactory? scanner;
 
+  /// The code of the join that is on its way or was refused ([JoinFlowState.code]):
+  /// 01 is made again then, and its code field comes back open with it.
+  final String? retryCode;
+
   /// The scanner (01b) is open, with the code it read once it has one. Kept
   /// by the caller: this widget is rebuilt from nothing when a join starts.
   final bool scanning;
   final String? scanned;
   final VoidCallback? onScanOpen;
   final VoidCallback? onScanClose;
+
+  /// This 01 is gone while the scanner was open.
+  final VoidCallback? onScanLeft;
   final ValueChanged<String>? onScanned;
 
   final ValueChanged<String> onStart;
@@ -229,13 +240,26 @@ class JoinView extends StatefulWidget {
 
 class _JoinViewState extends State<JoinView> {
   late final _name = TextEditingController(text: widget.name);
-  final _code = TextEditingController();
-  late var _codeOpen = widget.openCode;
+  late final _code = TextEditingController(text: widget.retryCode ?? '');
+  late var _codeOpen = widget.openCode || widget.retryCode != null;
   final _nameFocus = FocusNode();
+
+  /// The code field was filled by a scan: it takes no focus.
+  var _scannedIn = false;
+
+  /// The scanner is on screen: asked for, and 01 is not a table's link.
+  bool get _scanShown => widget.scanning && widget.code == null;
 
   @override
   void initState() {
     super.initState();
+    // A scanner left open by a screen that is gone is not this one's to show:
+    // only a tap starts the camera.
+    if (widget.scanning && widget.scanned == null && widget.code != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => widget.onScanClose?.call(),
+      );
+    }
     _name.addListener(_changed);
     _code.addListener(_changed);
   }
@@ -251,6 +275,14 @@ class _JoinViewState extends State<JoinView> {
     _code.dispose();
     _codeFocus.dispose();
     _nameFocus.dispose();
+    // The scanner belongs to this 01 and the tap that opened it: leaving 01
+    // (to a table, to a link) ends it, unless a join it started is on its way
+    // (the app swaps one 01 for another then, and the scanner stands through
+    // it). Otherwise the camera would start by itself on the next 01.
+    if (widget.scanning) {
+      final left = widget.onScanLeft;
+      Future.microtask(() => left?.call());
+    }
     super.dispose();
   }
 
@@ -259,6 +291,11 @@ class _JoinViewState extends State<JoinView> {
   /// one, 01 is back with the code in its field and the name field asking.
   void _scanned(String code) {
     if (_named && widget.busy == null && !widget.seated) {
+      // The code goes in its field too, so a refused join leaves it there
+      // (no focus taken: a field that gains it would clear the banner).
+      _scannedIn = true;
+      _code.text = code;
+      setState(() => _codeOpen = true);
       widget.onScanned?.call(code);
       widget.onJoin(_typedName, code);
     } else {
@@ -328,9 +365,9 @@ class _JoinViewState extends State<JoinView> {
           );
     // Back closes the scanner, then the code field ("Join a table" again).
     return BackHandler(
-      open: _codeOpen && link == null && !widget.scanning,
+      open: _codeOpen && link == null && !_scanShown,
       onBack: () => setState(() => _codeOpen = false),
-      child: widget.scanning && make != null
+      child: _scanShown && make != null
           ? BackHandler(
               onBack: widget.onScanClose ?? () {},
               child: ScanView(
@@ -400,7 +437,10 @@ class _JoinViewState extends State<JoinView> {
                                   focusNode: _codeFocus,
                                   hint: JoinCopy.codeHint,
                                   semanticLabel: JoinCopy.codeHint,
-                                  autofocus: _named,
+                                  autofocus:
+                                      _named &&
+                                      !_scannedIn &&
+                                      widget.retryCode == null,
                                   maxLength: JoinView.codeLength,
                                   inputFormatters: [_CodeFormatter()],
                                   textInputAction: TextInputAction.go,

@@ -29,7 +29,13 @@ val dartDefines: Map<String, String> =
 val publicOrigin: String = dartDefines["PUBLIC_ORIGIN"].orEmpty().trim()
 val publicHost: String? =
     try {
-        URI(publicOrigin).takeIf { it.scheme == "https" }?.host
+        URI(publicOrigin)
+            .takeIf {
+                it.scheme == "https" &&
+                    (it.rawPath.isNullOrEmpty() || it.rawPath == "/") &&
+                    it.rawQuery == null &&
+                    it.rawFragment == null
+            }?.host
     } catch (e: Exception) {
         null
     }
@@ -40,7 +46,7 @@ gradle.taskGraph.whenReady {
     val releasing = allTasks.any { it.project == project && it.name.contains("Release") }
     if (releasing && publicHost == null) {
         throw GradleException(
-            "PUBLIC_ORIGIN is missing or is not an https origin " +
+            "PUBLIC_ORIGIN is missing or is not an https origin with no path " +
                 "(got '$publicOrigin'). A release build needs the web app's address, " +
                 "so its QR code and Share link point at the web app: add " +
                 "--dart-define=PUBLIC_ORIGIN=https://<web app host> " +

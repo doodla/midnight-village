@@ -56,8 +56,8 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   yet: back to 01 with the code in and the name asking). The scanner's place (open, and the
   code once read) is `ScanSession` (`presentation/scan/scan_session.dart`), outside 01's widgets, because
   `HomeGate` swaps one 01 for another when a join starts; it closes when the join ends or is
-  refused. The camera refused, none, or an insecure page: `ScanProblem`, one line and "Type
-  the code". The ways in are `JoinFlow`
+  refused. The camera refused, none, or an insecure page: `ScanProblem`, a `ShutteredWindow`, one line and "Type
+  the code". A scanner left open when 01 goes away ends (`ScanSession.left`), so only a tap starts the camera; a table's link shows none. A join keeps its code in `JoinFlowState.code`, so 01, made again while it runs or when it is refused, has the code in its field. In browsers with no built-in detector the scanner decodes with the app's own `web/zxing/` (`own_decoder_web.dart`). The ways in are `JoinFlow`
   (`join_flow.dart`), outside any widget: the account (this device's when it has that name,
   else a new guest: the server has no rename), then `createTable` (always `defaults: "v2"`)
   or a join by code (`already_in_lobby` is no refusal: the player is there), then

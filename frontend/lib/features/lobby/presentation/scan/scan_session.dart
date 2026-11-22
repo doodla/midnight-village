@@ -41,5 +41,15 @@ class ScanSession extends _$ScanSession {
   /// The camera read [code] and its join starts.
   void found(String code) => state = ScanState(open: true, code: code);
 
-  void close() => state = const ScanState();
+  /// The 01 that showed the scanner is gone: it ends with it, unless a join it
+  /// started is on its way (the app swaps one 01 for another then, and this
+  /// reads the state as it is now, not as the old screen last drew it).
+  void left() {
+    if (ref.mounted && state.code == null) state = const ScanState();
+  }
+
+  void close() {
+    // A screen's last word can come after the app is gone.
+    if (ref.mounted) state = const ScanState();
+  }
 }
