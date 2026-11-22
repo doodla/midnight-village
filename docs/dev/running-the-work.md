@@ -14,6 +14,33 @@ does that piece and reports; the rest of this page is not theirs to do.
 4. The piece becomes its own pull request and is merged when its checks are green. The owner
    has asked for this as the standing way of working. Nothing unfinished merges; no giant
    changes.
+   A pull request is squash-merged (the owner's preference): its title is in the commit style
+   `type(scope): description` and its body summarises the piece. After a squash, main holds
+   one new commit that is not the builder's: a builder never continues on a branch whose pull
+   request was squashed. The coordinator starts the next piece's branch from main.
+
+## The wall is GitHub
+
+The commit gate on a builder's machine runs only what takes seconds (format, lint, types,
+analyze, the hook tests). Every other check runs on GitHub, on every pull request: backend
+`just check` and `just test` (coverage floor, contract samples current, migrations),
+frontend analyze and format, generated code current, widget, golden and web integration
+tests, every screen strict at 360 and 390, the release build without the debug toolbar, and
+the end-to-end harness.
+
+- A piece merges only when every GitHub check on its head commit is green. Nobody merges on
+  red, or while a check is still running.
+- A red check is read, not re-run: find the cause (the job's log, the uploaded pictures) and
+  fix it. A job is re-run at most once, and only after saying why it is believed flaky; a
+  second red is a cause to find.
+- To know before you push: `just gate-full` runs the local part (backend, frontend, hook
+  tests, generated code, screens) in parallel, in minutes. It skips the browser, build and
+  harness jobs, which only GitHub runs.
+- The ruleset `docs/dev/main-ruleset.json` is the wall: it makes a squash-merged pull request
+  and every check required on main. Not on until the owner imports it (`docs/claude-architecture.md`,
+  "GitHub: the wall"); until then the rule is ours to keep.
+- Add, rename or remove a check: change the job and `docs/dev/main-ruleset.json` in the same
+  commit (a test fails until they match), then the owner imports the file again.
 
 One heavy piece at a time: every worker shares this one machine. No extra cloud sessions.
 Step back often and look at the whole game, not the last report.
@@ -34,7 +61,7 @@ A hook refuses any worker that is not on an allowed model with an effort set
 - Effort: `low` for lookups, `medium` for routine edits, `high` for design and review.
 
 - A change to words or screens runs `just test-harness` before its pull request: the commit
-  gate skips it (too slow) and only GitHub's "End-to-end Harness" job runs it after.
+  gate skips it (too slow) and GitHub's "End-to-end Harness" job runs it after.
 
 ## Outside this repository
 
