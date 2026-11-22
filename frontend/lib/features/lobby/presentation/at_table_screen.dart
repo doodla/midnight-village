@@ -269,7 +269,7 @@ class AtTableView extends StatelessWidget {
                 header: true,
                 child: FitWords(
                   TableCopy.hostDeals.fill({'host': lobby.hostName}),
-                  style: skin.typography.heroTitle,
+                  style: skin.typography.headline,
                 ),
               ),
             _JoinCard(
@@ -305,7 +305,7 @@ class AtTableView extends StatelessWidget {
                         (!player.connected || away.contains(player.id)),
                   ),
               ],
-              spacing: roomy ? Space.md : Space.xs,
+              spacing: roomy ? Space.md : Space.sm,
             ),
             // Fewer came: one tap sets the number to who is here.
             if (host && seats != null && present >= minSeats && present < seats)
@@ -416,7 +416,7 @@ class AtTableView extends StatelessWidget {
 /// Everyone at the table, a row each; from [Sizes.twoUpPlayers] on, two to
 /// a line, so the deck and Deal stay in view, where each half still has
 /// [Sizes.playerColumn] and every name ([names]) fits its half at the
-/// caption floor (names wrap between words or are set smaller, never cut,
+/// reading floor (names wrap between words or are set smaller, never cut,
 /// never under the floor).
 class _Rows extends StatelessWidget {
   const _Rows({required this.names, required this.rows, required this.spacing});
@@ -425,11 +425,15 @@ class _Rows extends StatelessWidget {
   final List<Widget> rows;
   final double spacing;
 
-  /// The widest word of [names] in the rows' name face at the caption floor.
-  double _widestWord(BuildContext context) {
-    final style = PlayerRowSize.compact
+  /// The least a name is set at in two-up rows: the reading floor, so the
+  /// names stay readable and one size (past that, one row each).
+  static const _least = ReadingFloor.act;
+
+  /// The widest word of [names] in the rows' name face at [size].
+  double _widestWord(BuildContext context, double size) {
+    final style = PlayerRowSize.lobby
         .nameStyle(context.skin.typography)
-        .copyWith(fontSize: ReadingFloor.caption);
+        .copyWith(fontSize: size);
     final scaler = MediaQuery.textScalerOf(context);
     var widest = 0.0;
     for (final word in names.expand((n) => n.split(' '))) {
@@ -449,36 +453,44 @@ class _Rows extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, room) {
       final half = (room.maxWidth - Space.xs) / 2;
-      const size = PlayerRowSize.compact;
+      const size = PlayerRowSize.lobby;
       final nameRoom =
           half - Space.sm - size.token.size - size.gap - size.endPadding;
+      // The size every name is set at: the role's own, or smaller where the
+      // longest word needs it (a word's width is in step with the size).
+      final own = size.nameSize!;
+      final widest = _widestWord(context, own);
+      final fitted = widest > nameRoom ? own * nameRoom / widest * 0.99 : own;
       if (rows.length < Sizes.twoUpPlayers ||
           half < Sizes.playerColumn ||
-          _widestWord(context) > nameRoom) {
+          fitted < _least) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: spacing,
           children: rows,
         );
       }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: spacing,
-        children: [
-          for (var i = 0; i < rows.length; i += 2)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: Space.xs,
-              children: [
-                Expanded(child: rows[i]),
-                Expanded(
-                  child: i + 1 < rows.length
-                      ? rows[i + 1]
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ),
-        ],
+      return PlayerNameSize(
+        size: fitted,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: spacing,
+          children: [
+            for (var i = 0; i < rows.length; i += 2)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: Space.xs,
+                children: [
+                  Expanded(child: rows[i]),
+                  Expanded(
+                    child: i + 1 < rows.length
+                        ? rows[i + 1]
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+          ],
+        ),
       );
     },
   );
@@ -498,6 +510,7 @@ class _Row extends StatelessWidget {
     final row = PlayerRow(
       token: player.token,
       name: player.displayName,
+      size: PlayerRowSize.lobby,
       own: own,
       away: away,
     );
