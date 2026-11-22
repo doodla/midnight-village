@@ -87,6 +87,23 @@ void main() {
         expect(http.requests.single.data, {'refresh': 'old-refresh'});
       });
 
+      test('an answer with no tokens (a wifi sign-in page) is no answer, '
+          'never a refusal', () async {
+        http.answer(
+          'POST',
+          '/auth/token/refresh/',
+          '<html>Sign in to the wifi</html>',
+          offContract: true,
+        );
+
+        await expectLater(
+          authService.refreshToken('old-refresh'),
+          throwsA(
+            allOf(isA<ApiException>(), isNot(isA<UnauthorizedException>())),
+          ),
+        );
+      });
+
       test('a refresh token the server refuses is unauthorized', () async {
         answer(
           '/auth/token/refresh/',

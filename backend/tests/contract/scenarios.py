@@ -30,6 +30,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from rest_framework.throttling import SimpleRateThrottle
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.core.models import Lobby
 
@@ -49,6 +50,8 @@ RESULTS = "/onuw/games/{game_id}/results/"
 PLAY_AGAIN = "/lobbies/{code}/play-again/"
 JOIN = "/lobbies/{code}/join/"
 MY_TABLE = "/me/table/"
+# A game id no game has (the account that is gone reads it before any check).
+GONE_GAME_ID = "00000000-0000-4000-a000-000000000999"
 RECENT_GAMES = "/onuw/me/recent-games/"
 ONLINE = "/stats/online/"
 RESULTS_SEEN = "/onuw/games/{game_id}/night-results/seen/"
@@ -2361,8 +2364,47 @@ def _record_seats(t: Table, name: str, about: str) -> None:
     t.record(f"lobby/{name}", "GET", "Tia", LOBBY, status=200, about=about)
 
 
+def gone_account(run: Recording) -> None:
+    """An account that is gone (deleted): 401 on the refresh and on a read, the
+    one answer the app takes for "start afresh" (anything else: ask again).
+    Recorded last, so no other sample's ids move."""
+    t = run.table()
+    player = t.guest("Gone")
+    access = str(AccessToken.for_user(player.user))
+    player.user.delete()
+    t.record(
+        "auth/token_refresh_user_gone",
+        "POST",
+        "",
+        "/auth/token/refresh/",
+        {"refresh": player.refresh_token},
+        status=401,
+        about="The refresh of an account that is gone (deleted): 401.",
+    )
+    t.record(
+        "auth/user_gone",
+        "GET",
+        "",
+        MY_TABLE,
+        status=401,
+        about="An authenticated read by an account that is gone (deleted): 401.",
+        bearer=access,
+    )
+    t.record(
+        "auth/user_gone_game_me",
+        "GET",
+        "",
+        "/onuw/games/{game_id}/me/",
+        status=401,
+        about="A game's /me/ read by an account that is gone (deleted): 401.",
+        bearer=access,
+        game_id=GONE_GAME_ID,
+    )
+
+
 def record_all(run: Recording) -> None:
     classic_table(run)
     full_table(run, finished=doppelganger_table(run))
     choose_tables(run)
     results_tables(run)
+    gone_account(run)

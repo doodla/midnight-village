@@ -33,6 +33,32 @@ LobbyService lobbyService(Ref ref) {
   return LobbyService(client: ref.watch(authenticatedClientProvider));
 }
 
+/// The lobby the server just answered a start or a join with, so the
+/// table's first read uses it instead of asking again (one slot: the table
+/// this phone just sat down at). [settled]: nobody else can have changed it
+/// since (a table just opened: only its host knows the code); otherwise it
+/// is read once more as soon as its socket is up, for anything said before
+/// the socket listened.
+class LobbySeed {
+  ({LobbyState lobby, bool settled})? _seed;
+
+  void put(LobbyState lobby, {required bool settled}) =>
+      _seed = (lobby: lobby, settled: settled);
+
+  /// The seed for table [code], once.
+  ({LobbyState lobby, bool settled})? take(String code) {
+    final seed = _seed;
+    if (seed == null || seed.lobby.code != code) return null;
+    _seed = null;
+    return seed;
+  }
+
+  void clear() => _seed = null;
+}
+
+@Riverpod(keepAlive: true)
+LobbySeed lobbySeed(Ref ref) => LobbySeed();
+
 /// Factory for creating WebSocket connections to a lobby.
 ///
 /// This provider exists to decouple WebSocket creation from the notifier,
@@ -96,6 +122,10 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<void>? _refreshing;
   bool _refreshAgain = false;
 
+  /// Shown from a join's answer ([LobbySeed], not settled): read once more
+  /// when the socket is first up.
+  bool _readWhenUp = false;
+
   /// The lobby state events act on: the snapshot being replayed on, else the
   /// current state.
   LobbyState? get _current => _working ?? state.value;
@@ -146,7 +176,12 @@ class LobbyNotifier extends _$LobbyNotifier {
     // reading the lobby and this phone hearing about it is lost.
     _buffering = true;
     _buffered.clear();
+    final seed = ref.read(lobbySeedProvider).take(code);
+    _readWhenUp = seed != null && !seed.settled;
     _connectWebSocket(code);
+
+    // The start's or the join's answer is the lobby: no read before 02.
+    if (seed != null) return _replayBuffered(seed.lobby);
 
     // Fetch initial lobby state
     final lobbyState = await service.fetchLobby(code);
@@ -189,8 +224,10 @@ class LobbyNotifier extends _$LobbyNotifier {
       if (ws is ReconnectingWebSocket) {
         var wasDown = false;
         _connectionSubscription = ws.connectionState.listen((s) {
-          if (s == WebSocketConnectionState.connected && wasDown) {
+          if (s == WebSocketConnectionState.connected &&
+              (wasDown || _readWhenUp)) {
             wasDown = false;
+            _readWhenUp = false;
             unawaited(refreshLobby());
           } else if (s == WebSocketConnectionState.disconnected ||
               s == WebSocketConnectionState.reconnecting) {

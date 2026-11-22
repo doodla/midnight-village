@@ -187,7 +187,7 @@ Two deliverables share one core:
 | Perspective | **Switch one player at a time** (not simultaneous multi-screen), backed by a god panel showing all players' truth as data. |
 | **Surface** | **Headless `flutter test` on the host Dart VM** — NOT a built macOS `.app` (so no App Sandbox, no `macos/` target needed) and NOT `flutter drive`/Chrome. Real Dio + real WebSocket work here **only after `HttpOverrides.global = null`** — `flutter_test` installs an override that returns HTTP 400 and makes no real request. `[SPIKE]` |
 | Visual capture | Wrap the app root in `RepaintBoundary(GlobalKey)`; capture `boundary.toImage()` → PNG **inside `tester.runAsync()`** (raw `toImage` hangs the test clock — flutter#50783). `[SPIKE: no hang, real PNG]` **Load real fonts** (reuse the repo's golden font-loading path in `test/flutter_test_config.dart` / `font_loading_smoke_test.dart`) or text renders as Ahem boxes. `[SPIKE: confirmed boxes without fonts]` |
-| Switch mechanism | A debug-only `AuthNotifier.adoptSession(User)` that writes the target's token+user to storage and sets `AuthState.authenticated(user)` **from the access token directly — NO refresh round-trip.** The production restore path (`tryRestoreSession`) refreshes, and the backend has `ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION = True`, so refreshing **blacklists the stored token and breaks re-switching to the same player.** After `adoptSession`, invalidate the game providers named in §C. `[SPIKE: reusing a player's original access token after switching away and back returns 200 — adoptSession avoids rotation entirely]` |
+| Switch mechanism | A debug-only `AuthNotifier.adoptSession(User)` that writes the target's token+user to storage and sets `AuthState.authenticated(user)` **from the access token directly — NO refresh round-trip.** The production restore path (`tryRestoreSession`) refreshes an expired access token, and the backend rotates refresh tokens (`ROTATE_REFRESH_TOKENS = True`; since 22 November 2026 `BLACKLIST_AFTER_ROTATION = False`, so a token used twice is no longer refused), so a refresh would hand the switch a new token pair it does not need. After `adoptSession`, invalidate the game providers named in §C. `[SPIKE: reusing a player's original access token after switching away and back returns 200 — adoptSession avoids rotation entirely]` |
 | WebSocket from harness | The harness WS client (`dart:io`) **must set an `Origin` header matching `ALLOWED_HOSTS`** (e.g. `http://127.0.0.1:8001`). channels' `OriginValidator` 403s any handshake with no Origin (`security/websocket.py:52`); browsers always send one, `dart:io` does not. `[SPIKE: no Origin → 403 REJECT; with Origin → CONNECT]` |
 | Identity model | App identity is a single global JWT in `TokenStorage`, injected per-request by `AuthInterceptor`. Driving other players without switching the visible perspective uses an explicit-per-player-token client (§D2). |
 | Determinism | **Forced assignment** (exact player→role + center), not seed-guessing. Timeout paths via a **DEBUG fire-timer hook** (§B3). Happy-path transitions driven via existing host endpoints. There is **no general virtual clock** — only an on-demand fire-the-pending-timer hook. |
@@ -368,7 +368,7 @@ running tests.
   token is stored — no per-switch rebuild.
 - **Perspective switch** uses a NEW debug-only `AuthNotifier.adoptSession(User)` (see
   §2). Do NOT route switching through `tryRestoreSession` (`auth_repository.dart`) — it
-  refreshes and the backend rotates+blacklists.
+  may refresh, and the backend rotates the refresh token.
 - **Game WebSocket providers:** the game uses its own providers in
   `lib/features/game/presentation/game_socket.dart`: `gameWebSocketProvider`,
   `gameWebSocketStreamProvider`, `gameConnectionStateProvider`. `switchTo` invalidates
@@ -553,7 +553,8 @@ A throwaway spike (since deleted) validated the load-bearing claims before freez
    lobby created — all against a live backend. ✅
 3. **Access-token-only repeated switch** — created Alice+Bob, authed as Bob, then re-authed
    as Alice with her **original** access token → 200. Confirms `adoptSession` (no refresh)
-   avoids the rotation/blacklist bug. ✅
+   avoids rotation (at the time also the blacklist; since 22 November 2026 a rotated
+   token is no longer blacklisted). ✅
 4. **Real authenticated WebSocket** — `dart:io` WS with no Origin → 403 REJECT
    (`OriginValidator`); with `Origin: http://127.0.0.1:8001` → CONNECT. ✅
 5. **Backend lifecycle** — `config/settings/harness.py` + `createdb midnight_village_harness`

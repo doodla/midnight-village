@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/game/presentation/shell/table_shell.dart';
 import '../../features/lobby/presentation/home_gate.dart';
 
 part 'routes.g.dart';
@@ -29,8 +28,9 @@ class JoinRoute extends GoRouteData with $JoinRoute {
       HomeGate(code: code.toUpperCase());
 }
 
-/// A game's link (the router sends a player with a game running here). The
-/// screen is the table's shell, which shows what `/me/table/` and the
+/// A game's link (the debug toolbar opens one; an old address may still name
+/// one): home, the same gate, so nothing is read before the saved account
+/// is; signed in, the table's shell, which shows what `/me/table/` and the
 /// table's game's `/me/` say ([gameId] is the link's, not an input).
 @TypedGoRoute<GameRoute>(path: '/game/:gameId')
 class GameRoute extends GoRouteData with $GameRoute {
@@ -39,5 +39,5 @@ class GameRoute extends GoRouteData with $GameRoute {
   final String gameId;
 
   @override
-  Widget build(BuildContext context, GoRouterState state) => const TableShell();
+  Widget build(BuildContext context, GoRouterState state) => const HomeGate();
 }

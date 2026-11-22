@@ -123,8 +123,12 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    # Rotated, so the week slides with use; NOT blacklisted after rotation: a
+    # renewal whose answer was lost (a slow server, two tabs) is sent again with
+    # the same token, and a refusal then would sign the player out of their seat.
+    # The blacklist app stays installed: an explicit logout still blacklists.
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
+    "BLACKLIST_AFTER_ROTATION": False,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 

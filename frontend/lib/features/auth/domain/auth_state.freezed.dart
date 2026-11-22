@@ -128,10 +128,10 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  initial,TResult Function()?  loading,TResult Function( User user)?  authenticated,TResult Function()?  unauthenticated,TResult Function( String message)?  error,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( bool unanswered)?  initial,TResult Function()?  loading,TResult Function( User user)?  authenticated,TResult Function()?  unauthenticated,TResult Function( String message)?  error,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case AuthInitial() when initial != null:
-return initial();case AuthLoading() when loading != null:
+return initial(_that.unanswered);case AuthLoading() when loading != null:
 return loading();case AuthAuthenticated() when authenticated != null:
 return authenticated(_that.user);case AuthUnauthenticated() when unauthenticated != null:
 return unauthenticated();case AuthError() when error != null:
@@ -153,10 +153,10 @@ return error(_that.message);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  initial,required TResult Function()  loading,required TResult Function( User user)  authenticated,required TResult Function()  unauthenticated,required TResult Function( String message)  error,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( bool unanswered)  initial,required TResult Function()  loading,required TResult Function( User user)  authenticated,required TResult Function()  unauthenticated,required TResult Function( String message)  error,}) {final _that = this;
 switch (_that) {
 case AuthInitial():
-return initial();case AuthLoading():
+return initial(_that.unanswered);case AuthLoading():
 return loading();case AuthAuthenticated():
 return authenticated(_that.user);case AuthUnauthenticated():
 return unauthenticated();case AuthError():
@@ -174,10 +174,10 @@ return error(_that.message);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  initial,TResult? Function()?  loading,TResult? Function( User user)?  authenticated,TResult? Function()?  unauthenticated,TResult? Function( String message)?  error,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( bool unanswered)?  initial,TResult? Function()?  loading,TResult? Function( User user)?  authenticated,TResult? Function()?  unauthenticated,TResult? Function( String message)?  error,}) {final _that = this;
 switch (_that) {
 case AuthInitial() when initial != null:
-return initial();case AuthLoading() when loading != null:
+return initial(_that.unanswered);case AuthLoading() when loading != null:
 return loading();case AuthAuthenticated() when authenticated != null:
 return authenticated(_that.user);case AuthUnauthenticated() when unauthenticated != null:
 return unauthenticated();case AuthError() when error != null:
@@ -193,33 +193,67 @@ return error(_that.message);case _:
 
 
 class AuthInitial implements AuthState {
-  const AuthInitial();
+  const AuthInitial({this.unanswered = false});
   
 
+@JsonKey() final  bool unanswered;
 
-
+/// Create a copy of AuthState
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$AuthInitialCopyWith<AuthInitial> get copyWith => _$AuthInitialCopyWithImpl<AuthInitial>(this, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AuthInitial);
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AuthInitial&&(identical(other.unanswered, unanswered) || other.unanswered == unanswered));
 }
 
 
 @override
-int get hashCode => runtimeType.hashCode;
+int get hashCode => Object.hash(runtimeType,unanswered);
 
 @override
 String toString() {
-  return 'AuthState.initial()';
+  return 'AuthState.initial(unanswered: $unanswered)';
 }
 
 
 }
 
+/// @nodoc
+abstract mixin class $AuthInitialCopyWith<$Res> implements $AuthStateCopyWith<$Res> {
+  factory $AuthInitialCopyWith(AuthInitial value, $Res Function(AuthInitial) _then) = _$AuthInitialCopyWithImpl;
+@useResult
+$Res call({
+ bool unanswered
+});
 
 
+
+
+}
+/// @nodoc
+class _$AuthInitialCopyWithImpl<$Res>
+    implements $AuthInitialCopyWith<$Res> {
+  _$AuthInitialCopyWithImpl(this._self, this._then);
+
+  final AuthInitial _self;
+  final $Res Function(AuthInitial) _then;
+
+/// Create a copy of AuthState
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? unanswered = null,}) {
+  return _then(AuthInitial(
+unanswered: null == unanswered ? _self.unanswered : unanswered // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+
+}
 
 /// @nodoc
 

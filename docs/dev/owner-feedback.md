@@ -42,6 +42,11 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## Done
 
+- A seated player is never stranded, and the app opens with fewer requests (audit items 4
+  and 6): the saved account is restored by itself until the server answers, no new account
+  is made over a saved one, a deleted account gets a clean fresh start, a lost renewal answer
+  no longer costs the seat (the old refresh token is no longer cancelled on renewal), and
+  opening in a game is 2 requests at once where it was 4 in a row.
 - Set-up page (issue 7): the host picks the number of players, every timer has its own
   stepper (the Doppelganger's only while the card is in the deck), the deck is face up for
   everyone, a "picked / needed" counter, "Scan to join" only on a QR code, and leaving no
