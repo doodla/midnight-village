@@ -48,10 +48,16 @@ test *args:
     {{backend_just}} test {{args}}
     just test-guardrails
 
-# Run the .claude/ hook tests: guardrails (python3 >= 3.11) and the commit gate's routing
+# Run the .claude/ hook tests: guardrails (python3 >= 3.11), the workflows' recipes and the commit gate's routing
 test-guardrails:
     python3 -m unittest discover -s .claude/guardrails/tests
     .claude/hooks/test_gate_routing.sh
+
+# The whole local suite, on demand (minutes): what the commit gate skips (it only runs
+# the fast checks) and GitHub runs on a pull request, except the browser, release-build
+# and end-to-end jobs. Optionally only some of: backend frontend guardrails
+gate-full *blocks:
+    .claude/hooks/gate-full.sh {{blocks}}
 
 # Re-record contract_samples/ from the real server (see backend/tests/README.md)
 samples:
