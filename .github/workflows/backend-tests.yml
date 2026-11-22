@@ -1,27 +1,39 @@
 # Backend CI Pipeline
 #
-# Lint, format check, type check and the full test suite for the Django backend,
-# against a real PostgreSQL (the tests require it for parity with production).
-# Runs the same root recipes the local commit gate runs (.claude/hooks/lib/gate.sh),
-# from the repo root, so CI and the hooks cannot drift:
-#   just check   (ruff lint + format check + pyrefly, then the instruction-link check)
-#   just test    (pytest with the coverage floor, then the .claude/ guardrail and
-#                 gate-routing tests)
+# GitHub is the wall: nothing merges to main except by pull request with every check
+# green, and the commit gate on a builder's machine only runs what takes seconds. So
+# this job runs the whole backend side, against a real PostgreSQL (the tests require
+# it for parity with production), by calling the root recipes (the checks are
+# defined once, in the justfiles):
+#   just check   (ruff lint + format check + pyrefly + makemigrations --check, then
+#                 the instruction-link check)
+#   just test    (pytest with the coverage floor of 80%, which includes the contract
+#                 samples being up to date, then the migration tests against the
+#                 real migrations, then the .claude/ guardrail, gate-routing and
+#                 workflow tests)
 #
-# BRANCH PROTECTION: add the check "Backend Checks" next to the Flutter ones.
+# Required check: "Backend Checks" (the Flutter ones are listed in flutter-tests.yml).
+# No paths filter: a required check that does not start would block the merge for ever.
 
 name: Backend Tests
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
+
+# A newer push to the same pull request cancels the run still in progress (never on main).
+concurrency:
+  group: backend-tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   backend:
     name: Backend Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16
@@ -61,8 +73,10 @@ jobs:
       - name: Install dependencies
         run: just install
 
-      - name: Lint, format check, type check
+      - name: Lint, format check, type check, migrations, instruction links
         run: just check
 
+      # Both run even when the first fails: one red run shows both.
       - name: Tests
+        if: ${{ !cancelled() }}
         run: just test
