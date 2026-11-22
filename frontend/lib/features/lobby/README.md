@@ -53,7 +53,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   "You're at another table." with "Go there" (it reads `/me/table/` again): never a silent
   second seat.
 - **02** (`at_table_screen.dart`): the table's paper (`_JoinCard`) is two blocks: the QR code
-  of the join link (`joinLink`: `<origin>/#/join/<code>`; `appOrigin` is the page's address on
+  of the join link (`joinLink`: `<origin>/join/<code>`, a path; `appOrigin` is the page's origin on
   the web, else `--dart-define=PUBLIC_ORIGIN`, else no QR code) with "Scan to join" on it (its
   label alone: under a large QR code, at the edge of a small one), never under
   `Sizes.qrScannable`; and, past a hairline, the code with its own label "Code" (01's word)

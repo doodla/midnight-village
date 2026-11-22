@@ -35,7 +35,9 @@ Future<RecentGame?> lastGame(Ref ref) async {
 Uri? appOrigin(Ref ref) {
   const configured = String.fromEnvironment('PUBLIC_ORIGIN');
   if (configured.isNotEmpty) return Uri.parse(configured);
-  if (kIsWeb) return Uri.base.removeFragment();
+  // The page's own origin, whatever address it was opened at (`/join/<code>`
+  // included).
+  if (kIsWeb) return Uri.parse(Uri.base.origin);
   return null;
 }
 
@@ -60,10 +62,16 @@ ShareLink shareLink(Ref ref) => (link) async {
   return true;
 };
 
-/// The link that opens 01 ready to join table [code]: the app's `/join/`
-/// route, in the hash form the app's router reads on any static host
-/// (`<origin>/#/join/<code>`).
-Uri joinLink(Uri origin, String code) => origin.replace(
-  path: origin.path.isEmpty ? '/' : origin.path,
-  fragment: '/join/$code',
-);
+/// The link that opens 01 ready to join table [code]: `<origin>/join/<code>`,
+/// a path the web host serves the app for (`vercel.json`) and Android opens
+/// in the app (App Links, `docs/dev/deploy-vercel.md`). Only [origin]'s
+/// scheme, host, port and base path are kept.
+Uri joinLink(Uri origin, String code) {
+  final base = origin.path.replaceFirst(RegExp(r'/+$'), '');
+  return Uri(
+    scheme: origin.scheme,
+    host: origin.host,
+    port: origin.hasPort ? origin.port : null,
+    path: '$base/join/$code',
+  );
+}

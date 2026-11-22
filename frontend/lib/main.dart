@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'app.dart';
 import 'design_system/skin/ground.dart';
@@ -15,6 +16,9 @@ import 'features/game/presentation/table_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // A table's link is `<origin>/join/<code>`, with no `#` (nothing changes on
+  // other platforms). The web host serves the app for it (`vercel.json`).
+  usePathUrlStrategy();
   // The screens run under the status and navigation bars, as the launch
   // screen does (android/app/src/main/res/values/styles.xml); each screen
   // sets the bars' icons for its ground (`systemBarsOver`).
