@@ -12,3 +12,4 @@ Newest last. Calls past about 150 or a big token count are the signal to cut the
 | 22 Nov 2026 | speed: fewer round trips, faster first load | builder | not kept | 298 | 373k (notice) | before lean rules; one agent for both parts, too big: split next time |
 | 22 Nov 2026 | speed review | reviewer | not kept | n/a | n/a | before the ledger; figures not kept |
 | 22 Nov 2026 | speed: requests on open (found already done) | frontend-developer | opus | 11 | 103k (notice) | lean brief; checked main first, no code needed |
+| 22 Nov 2026 | card flip (pass 3) | frontend-developer | sonnet | 93 | 279k (notice) | briefed before the lean rules; fixes by fresh helpers: 16 and 7 calls |
