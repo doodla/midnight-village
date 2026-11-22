@@ -48,8 +48,15 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 - Android and web first impression (icon, name, launch screen): pull request 6, merged
   (06d0468). The deployment session was asked for a fresh Android install file.
 
+## Relayed by the coordinating session, 22 November 2026 (not heard directly; confirm with the owner)
+
+- Practice players: yes, "but hidden enable so it's not visible to everyone. I'm thinking long
+  press on an element or something". Switched on by a hidden gesture on an existing element;
+  nothing visible to ordinary players. Not started; after the set-up page.
+- "Polish puzzles" was a typo for "polish passes".
+- Six sample looks: "Dunno what you mean by sample looks." They do not recall seeing them, so
+  show them again properly: https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2
+
 ## Waiting on the owner
 
-- Six sample looks: https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2 (no reaction yet; no
-  more look work until then).
-- Practice players: build it next?
+- A reaction to the six sample looks (link above). No more look work until then.
