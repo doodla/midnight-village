@@ -3,8 +3,9 @@ import 'package:flutter/widgets.dart';
 /// Told to the screen that is arriving in a scene (`SceneSwitcher`): how far
 /// the scene has brought it, 0 as it starts, 1 as it lands (already eased by
 /// `Motion.curve`). A screen's own header picture reads it to travel further
-/// than the rest of the screen: the night village's moon coming down into
-/// place on 04, the dawn rooftops and the sun rising into 08's header. A
+/// than the rest of the screen: the layers of 04's village (the moon coming
+/// down into place, the clouds drifting) and of 08's dawn (the roofs rising,
+/// the sun coming up from behind the hills; `LayeredArt`). A
 /// screen with no scene running is told nothing (null) and sits where it
 /// rests.
 class SceneArrival extends InheritedWidget {

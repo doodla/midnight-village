@@ -10,9 +10,11 @@ import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/primitives/band.dart';
 import '../../../../design_system/primitives/fit_line.dart';
+import '../../../../design_system/primitives/layered_art.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/scene_switcher.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
+import '../../../../design_system/skin/art_set.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/ground_scope.dart';
 import '../../../../design_system/skin/skin.dart';
@@ -66,12 +68,42 @@ class _TableShellState extends ConsumerState<TableShell>
   /// night's own `/me/` lands, the night's first screen is the card's frame.
   var _dealt = false;
 
+  /// The day's layers are decoded once this phone is at the night.
+  var _dawnWarm = false;
+
   @override
   void initState() {
     super.initState();
     _wakelock = ref.read(wakelockServiceProvider);
     _keepAwake(_wakelock.enable);
     WidgetsBinding.instance.addObserver(this);
+    _warm(LayeredSceneId.nightVillage);
+  }
+
+  /// The layers of a header decoded before the scene that brings it in, at
+  /// the size the screen draws them, so a scene never lands on an empty
+  /// header and the same decoded pictures are found. Not awaited: the app
+  /// does not start slower for it. The night's (04's village) when the shell
+  /// first shows, since the deal comes to every phone; the day's (08's dawn)
+  /// once the phone is at the night, so a player who is not yet dealt does
+  /// not fetch it.
+  void _warm(LayeredSceneId id) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final size = MediaQuery.sizeOf(context);
+      final top = MediaQuery.paddingOf(context).top;
+      final width = size.width.clamp(0, ScreenFrame.maxWidth).toDouble();
+      LayeredArt.precache(context, id, switch (id) {
+        LayeredSceneId.nightVillage => Size(
+          width,
+          TopArtLayout.backdrop.height + top,
+        ),
+        LayeredSceneId.dawnGallows => Size(
+          width,
+          TimerBand.skyFor(size.height) + top,
+        ),
+      });
+    });
   }
 
   @override
@@ -100,7 +132,10 @@ class _TableShellState extends ConsumerState<TableShell>
       case AppScreen.table || AppScreen.deck:
         _dealt = true;
       case AppScreen.yourCard || AppScreen.nightBoard:
-        break;
+        if (!_dawnWarm) {
+          _dawnWarm = true;
+          _warm(LayeredSceneId.dawnGallows);
+        }
       case _:
         _dealt = false;
     }
@@ -188,7 +223,7 @@ class _TableShellState extends ConsumerState<TableShell>
         key,
         ResultsScreen(gameId: gameId, game: end),
       ),
-      // 08 while its `/me/` loads: its own frame, the dawn rooftops and the
+      // 08 while its `/me/` loads: its own frame, the layered dawn and the
       // headline, so the day breaks on the screen it belongs to.
       AppScreen.talk => ('$key|wait', const _TalkWaits()),
       // 09 while its `/me/` loads (and a game screen with no game, which the
@@ -252,7 +287,7 @@ class _CardWaits extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ScreenFrame(
     ground: GroundKind.night,
-    topArt: context.skin.art.nightVillage,
+    topScene: LayeredSceneId.nightVillage,
     topArtLayout: TopArtLayout.backdrop,
     fitsHeight: true,
     body: Align(

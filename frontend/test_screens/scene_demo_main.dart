@@ -15,6 +15,7 @@ import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/scene_switcher.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
+import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
@@ -107,7 +108,7 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ScreenFrame(
     ground: GroundKind.night,
-    topArt: context.skin.art.nightVillage,
+    topScene: LayeredSceneId.nightVillage,
     topArtLayout: TopArtLayout.backdrop,
     fitsHeight: true,
     body: Column(

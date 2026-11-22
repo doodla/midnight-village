@@ -296,6 +296,32 @@ void main() {
           }
         },
       );
+
+      test('every layer of a layered scene is in the bundle at the size its '
+          'scene says, and no other file is', () async {
+        final art = skin.art;
+        final declared = <String>{};
+        for (final id in LayeredSceneId.values) {
+          for (final layer in art.layeredScene(id).files) {
+            final picture = art.layer(id, layer);
+            declared.add(picture.path);
+            expect(assets, contains(picture.path));
+            expect(
+              await _pixels(picture.path),
+              picture.pixels,
+              reason: picture.path,
+            );
+          }
+        }
+        final bundled = assets
+            .where((path) => path.startsWith('${art.folder}/layers/'))
+            .toSet();
+        expect(
+          bundled,
+          declared,
+          reason: 'a layer nothing draws is dead weight',
+        );
+      });
     });
   }
 

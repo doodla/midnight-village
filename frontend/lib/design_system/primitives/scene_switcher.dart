@@ -4,9 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
-import 'band.dart';
 import 'scene_arrival.dart';
-import 'screen_frame.dart';
 
 /// The two scene changes of the game, the moments every phone at a table
 /// shares. A scene is made of nothing but the two screens and a paper edge.
@@ -133,48 +131,11 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
   Animation<double> _dim = kAlwaysDismissedAnimation;
 
   @override
-  void initState() {
-    super.initState();
-    _warmUp();
-  }
-
-  @override
   void dispose() {
     for (final run in _runs) {
       run.dispose();
     }
     super.dispose();
-  }
-
-  /// The arriving screens' own pictures, decoded before they are needed: a
-  /// scene never lands on an empty header. About 137 KB of the two files
-  /// (6 MB decoded), asked for when the table's shell first shows, not
-  /// awaited: the app does not start slower for it. Sized as the screens
-  /// draw them, so the same decoded picture is found.
-  void _warmUp() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final skin = context.skin;
-      final size = MediaQuery.sizeOf(context);
-      final top = MediaQuery.paddingOf(context).top;
-      final ratio = MediaQuery.devicePixelRatioOf(context);
-      final width = size.width.clamp(0, ScreenFrame.maxWidth).toDouble();
-      final pictures = [
-        // 04's village and moon.
-        (
-          skin.art.nightVillage,
-          Size(width, TopArtLayout.backdrop.height + top),
-        ),
-        // 08's dawn rooftops.
-        (
-          skin.art.dawnGallows,
-          Size(width, TimerBand.skyFor(size.height) + top),
-        ),
-      ];
-      for (final (art, box) in pictures) {
-        precacheImage(art.decodedFor(box, ratio), context, onError: (_, _) {});
-      }
-    });
   }
 
   void _resting() {
