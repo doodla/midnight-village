@@ -124,6 +124,21 @@ def _window_job_params(game: Game, window: int, *, deferred: bool = False) -> di
     return {"game_id": str(game.id), "wave": window, "deferred": deferred}
 
 
+def _practice_after_commit(game: Game) -> None:
+    """Once the transaction that opened a stage commits, the practice players act
+    in it (``apps/onuw/practice.py``: the same requests a phone sends, at once).
+    Called by every stage opening: the look, each night window, the talk, the
+    vote."""
+    game_id = game.id
+
+    def run() -> None:
+        from . import practice
+
+        practice.drive(game_id)
+
+    _after_commit(run)
+
+
 def _client_action_type(action: NightAction) -> str:
     """Map engine action to the action_type string the frontend expects.
 
@@ -494,6 +509,7 @@ def _start_look_stage(game: Game, seconds: int) -> None:
     _send_after_commit(
         [(f"game_{game.id}", {"type": "progress", **look_progress(game)})]
     )
+    _practice_after_commit(game)
 
 
 def _open_night_after_look(game: Game) -> None:
@@ -512,6 +528,7 @@ def _open_window(game: Game, window: int) -> None:
         game.player_roles.update(has_acted=False, phase_ready=False)
 
     send_wave_prompts(game, window)
+    _practice_after_commit(game)
 
     # With nobody to wait for (no actors, or every actor's phone has been gone
     # past the grace period), the window still lasts its minimum length.
@@ -1012,6 +1029,7 @@ def transition_to_discussion(game: Game) -> None:
             (f"game_{game.id}", {"type": "progress", **talk_progress(game)}),
         ]
     )
+    _practice_after_commit(game)
 
 
 def _advance_if_ready(game: Game) -> None:
@@ -1125,6 +1143,7 @@ def transition_to_voting(game: Game) -> None:
             (f"game_{game.id}", {"type": "progress", **vote_progress(game)}),
         ]
     )
+    _practice_after_commit(game)
 
 
 def end_discussion(game: Game) -> None:

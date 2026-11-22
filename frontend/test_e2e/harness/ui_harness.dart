@@ -279,6 +279,11 @@ class UiHarness {
     await settle();
   }
 
+  /// The next [captureFrame] waits out only the change of screen (one 450 ms
+  /// step), not the new screen's own motion: a frame of it opening (10's rows
+  /// landing, its cards not turned yet). Reset by that capture.
+  bool captureMidMotion = false;
+
   /// Lets the phase cross-fade (400ms `AnimatedSwitcher`) finish, so the outgoing
   /// view is really gone (assertions and filmstrip frames see one screen). Two
   /// steps: a change that lands during the first starts its fade there.
@@ -330,7 +335,13 @@ class UiHarness {
   /// `toImage` hangs the test clock otherwise — flutter#50783) and writes it to
   /// `integration_test/screenshots/<scenarioDir>/<frame>.png`.
   Future<void> captureFrame(String scenarioDir, String frame) async {
-    await settle();
+    if (captureMidMotion) {
+      // Only the change of screen: the screen's own motion is still running.
+      captureMidMotion = false;
+      await tester.pump(const Duration(milliseconds: 450));
+    } else {
+      await settle();
+    }
     await _decodeImages();
     final boundary =
         _captureKey.currentContext!.findRenderObject()!

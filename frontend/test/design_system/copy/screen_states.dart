@@ -15,6 +15,17 @@ import 'copy_rules.dart';
 /// A screen's budget (copy rule 2) and its states, by name.
 typedef Screen = ({int budget, Map<String, List<Line>> states});
 
+/// The states allowed past their screen's budget, each with its own, by
+/// screen and state: only states a host reaches by a gesture nothing on screen
+/// offers (practice players), so what every table shows stays in the budget.
+const stateAllowances = <String, Map<String, int>>{
+  // "Practice" on the rows (one word, the same on each practice row) over a
+  // full 13: a table set for a number, practice players seated, fewer came.
+  '02 Table': {'host, set for a number, practice players, Play with {n}': 14},
+  // The Practice stepper's name under Players, at a number: 23 of 22.
+  '03 Deck': {'practice switched on': 23},
+};
+
 /// Every role text, laid out as the 04 face and 03b show it.
 Iterable<(RoleId, List<Line>)> _roleTexts() => [
   for (final role in RoleId.values)
@@ -166,6 +177,44 @@ final screens = <String, Screen>{
           ],
       // The host's "Leave" asks first, in a sheet over the table.
       'host: leave asked': [button(TableCopy.stay), button(CommonCopy.leave)],
+      // Practice players seated (the host switched them on with a hold on
+      // 03's "Players"): each row tagged "Practice", for host and guests.
+      // Set for a number with fewer come: "Play with {n}" beside them (its
+      // own allowance, [stateAllowances]).
+      'host, set for a number, practice players, Play with {n}': [
+        headline(TableCopy.scan),
+        text(JoinCopy.codeHint),
+        text(TableCopy.seated),
+        button(TableCopy.playWith),
+        button(DeckCopy.chips.first),
+        text(DeckCopy.talk),
+        text(DeckCopy.minutes),
+        button(TableCopy.editDeck),
+        button(TableCopy.deal),
+        button(CommonCopy.leave),
+        text(TableCopy.practice),
+      ],
+      'host, practice players seated': [
+        headline(TableCopy.scan),
+        text(JoinCopy.codeHint),
+        button(DeckCopy.chips.first),
+        text(DeckCopy.talk),
+        text(DeckCopy.minutes),
+        button(TableCopy.editDeck),
+        button(TableCopy.deal),
+        button(CommonCopy.leave),
+        text(TableCopy.practice),
+      ],
+      'guest, practice players seated': [
+        headline(TableCopy.hostDeals),
+        text(TableCopy.scan),
+        text(JoinCopy.codeHint),
+        text(DeckCopy.chips.first),
+        text(DeckCopy.talk),
+        text(DeckCopy.minutes),
+        button(CommonCopy.leave),
+        text(TableCopy.practice),
+      ],
       'guest': [
         headline(TableCopy.hostDeals),
         text(TableCopy.scan),
@@ -180,7 +229,9 @@ final screens = <String, Screen>{
   ),
   '03 Deck': (
     // The set-up page: the number of players, the deck face up (role names
-    // are exempt; the count is digits), every length with its value.
+    // are exempt; the count is digits), every length with its value. The
+    // Practice stepper, only for a host who held "Players", has its own
+    // allowance ([stateAllowances]).
     budget: 22,
     states: {
       for (final open in [true, false])
@@ -196,6 +247,21 @@ final screens = <String, Screen>{
           text(DeckCopy.off),
           button(DeckCopy.done),
         ],
+      // Practice players switched on (a hold on "Players"; never shown
+      // otherwise): their stepper's name under Players, at a number.
+      'practice switched on': [
+        headline(DeckCopy.headline),
+        text(DeckCopy.players),
+        text(TableCopy.seated),
+        text(DeckCopy.practice),
+        for (final chip in DeckCopy.chips) button(chip),
+        for (final length in _lengths) text(length),
+        text(CommonCopy.seconds),
+        text(DeckCopy.minutes),
+        text(DeckCopy.noClock),
+        text(DeckCopy.off),
+        button(DeckCopy.done),
+      ],
     },
   ),
   '03b Role sheet': (
@@ -299,6 +365,13 @@ final screens = <String, Screen>{
           button(label),
           text(VoteCopy.progress),
         ],
+      // Practice players among the rows, each tagged.
+      'practice players at the table': [
+        headline(VoteCopy.headline),
+        button(VoteCopy.lockIn),
+        text(VoteCopy.progress),
+        text(TableCopy.practice),
+      ],
     },
   ),
   '10 The count': (

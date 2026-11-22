@@ -29,6 +29,11 @@ urlpatterns = [
         views.LobbyPlayAgainView.as_view(),
         name="lobby-play-again",
     ),
+    path(
+        "lobbies/<str:code>/practice/",
+        views.LobbyPracticeView.as_view(),
+        name="lobby-practice",
+    ),
     path("stats/online/", views.OnlineStatsView.as_view(), name="online-stats"),
     path("me/table/", views.MyTableView.as_view(), name="my-table"),
     path("auth/logout/", views.LogoutView.as_view(), name="logout"),

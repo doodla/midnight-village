@@ -167,6 +167,7 @@ class VoteView extends StatelessWidget {
         cue: Cue.voteLock,
         builder: (context, teaching) => VoteRows(
           seats: others,
+          practice: me.practiceIds,
           pick: pick?.id,
           locked: locked,
           nudge: teaching && !locked,
@@ -218,9 +219,13 @@ class VoteRows extends StatelessWidget {
     required this.locked,
     required this.nudge,
     required this.onPick,
+    this.practice = const {},
   });
 
   final List<NightSeat> seats;
+
+  /// The practice players among [seats], tagged "Practice".
+  final Set<int> practice;
   final int? pick;
   final bool locked;
   final bool nudge;
@@ -238,8 +243,9 @@ class VoteRows extends StatelessWidget {
     List<NightSeat> seats,
     PlayerRowSize size,
     double gap,
-    double width,
-  ) {
+    double width, {
+    Set<int> practice = const {},
+  }) {
     final skin = context.skin;
     final scaler = MediaQuery.textScalerOf(context);
     final style = size.nameStyle(skin.typography);
@@ -247,8 +253,14 @@ class VoteRows extends StatelessWidget {
         width - Space.sm - size.token.size - size.gap - size.endPadding;
     var total = 0.0;
     for (final seat in seats) {
+      // A practice player's tag sits on the name's line: measured as one
+      // more word in the name's face (wider than the tag's own).
+      final tagged = practice.contains(seat.id);
       final painter = TextPainter(
-        text: TextSpan(text: seat.name, style: style),
+        text: TextSpan(
+          text: tagged ? '${seat.name} ${TableCopy.practice}' : seat.name,
+          style: style,
+        ),
         textDirection: TextDirection.ltr,
         textScaler: scaler,
         maxLines: 2,
@@ -268,14 +280,19 @@ class VoteRows extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, room) {
+      double height(PlayerRowSize size, double gap) => heightOf(
+        context,
+        seats,
+        size,
+        gap,
+        room.maxWidth,
+        practice: practice,
+      );
       final (size, gap) = sizes.firstWhere(
-        (s) =>
-            heightOf(context, seats, s.$1, s.$2, room.maxWidth) <=
-            room.maxHeight,
+        (s) => height(s.$1, s.$2) <= room.maxHeight,
         orElse: () => sizes.last,
       );
-      final fits =
-          heightOf(context, seats, size, gap, room.maxWidth) <= room.maxHeight;
+      final fits = height(size, gap) <= room.maxHeight;
       final column = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: gap - _lift,
@@ -303,6 +320,7 @@ class VoteRows extends StatelessWidget {
       token: seat.token,
       name: seat.name,
       size: size,
+      practice: practice.contains(seat.id),
       picked: lifted,
       // Once locked, the others dim; this phone's own pick stays as it is.
       dimmed: locked && !mine,

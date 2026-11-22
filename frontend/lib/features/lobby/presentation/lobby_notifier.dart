@@ -138,21 +138,47 @@ class LobbyNotifier extends _$LobbyNotifier {
     }
   }
 
-  /// Settings changes sent and not answered yet, oldest first. What the
-  /// screen shows is the server's lobby with these merged over it as the
-  /// server merges them, so a tap shows at once and an event or a refetch
-  /// meanwhile never takes it back.
-  final List<Map<String, Object?>> _pending = [];
+  /// The host's changes on the settings lane (settings and practice), sent
+  /// one at a time in the order tapped and not answered yet, oldest first.
+  /// What the screen shows is the server's lobby with ALL of these over it,
+  /// as the server will apply them, so a tap shows at once, an event or a
+  /// refetch meanwhile never takes it back, and nothing judged from the
+  /// server's numbers (Deal, the seats, the practice limit) goes around one
+  /// ([LobbyState.pendingKeys]: `settling`).
+  final List<_Change> _pending = [];
   Future<void> _settingsQueue = Future.value();
 
-  /// The last change that did not reach the server ("Try again").
+  /// The number of the newest change asked, and per key the number of the
+  /// newest change that asked for it: a change sent again by "Try again"
+  /// keeps only the keys nothing newer has asked for, so it never undoes a
+  /// newer change on the same key (one that got through, or one on its way).
+  int _asked = 0;
+  final Map<String, int> _askedAt = {};
+
+  /// Changes that did not reach the server, oldest first ("Try again").
+  final List<_Change> _unsent = [];
+
+  /// What "Try again" does: the changes not sent, or the deal.
   Future<void> Function()? _retry;
 
   void _show(LobbyState server) => state = AsyncData(_withPending(server));
 
-  LobbyState _withPending(LobbyState lobby) => _pending
-      .fold(lobby, _mergeSettings)
-      .copyWith(pendingKeys: {for (final p in _pending) ...p.keys});
+  LobbyState _withPending(LobbyState lobby) {
+    var shown = lobby;
+    PracticeAsk? practice;
+    for (final change in _pending) {
+      switch (change) {
+        case _SettingsChange(:final patch):
+          shown = _mergeSettings(shown, patch);
+        case _PracticeChange(:final ask):
+          practice = (practice ?? const PracticeAsk()).then(ask);
+      }
+    }
+    return shown.copyWith(
+      pendingKeys: {for (final c in _pending) ...c.keys},
+      practiceAsk: practice,
+    );
+  }
 
   static LobbyState _mergeSettings(LobbyState lobby, Map<String, Object?> p) =>
       lobby.copyWith(
@@ -498,50 +524,110 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<void> setLength(String key, int seconds) =>
       _changeSettings({key: seconds});
 
-  /// Sends [patch] (one at a time, in order) and shows it at once, merged
-  /// as the server merges it. The answer is the server's lobby; a refusal
-  /// or no answer takes the change back (the lobby is read again) and the
-  /// screen says "Not sent." with "Try again".
-  Future<void> _changeSettings(Map<String, Object?> patch) {
+  /// The host's hold on 03's word "Players", the hidden switch: practice
+  /// players on for this table; once on, with none seated, off again (the row
+  /// goes). With some seated a hold does nothing: they are taken away one by
+  /// one with the minus, so a thumb resting on the word never removes
+  /// everyone.
+  Future<void> togglePractice() {
     final lobby = state.value;
     if (lobby == null) return Future.value();
-    _pending.add(patch);
-    _show(lobby.copyWith(notSent: false));
-    return _settingsQueue = _settingsQueue.then((_) => _send(patch));
+    if (!lobby.practiceOn) {
+      return _change((n) => _PracticeChange(const PracticeAsk(on: true), n));
+    }
+    if (lobby.practiceCount > 0) return Future.value();
+    return _change((n) => _PracticeChange(const PracticeAsk(on: false), n));
   }
 
-  Future<void> _send(Map<String, Object?> patch) async {
+  /// How many practice players sit at the table (03's Practice stepper).
+  Future<void> setPracticeCount(int count) =>
+      _change((n) => _PracticeChange(PracticeAsk(count: count), n));
+
+  /// Sends [patch] on the settings lane ([_change]).
+  Future<void> _changeSettings(Map<String, Object?> patch) =>
+      _change((n) => _SettingsChange(patch, n));
+
+  /// Shows a change at once (over the server's lobby, with every change
+  /// before it) and sends it after them, one at a time, in the order tapped.
+  /// The answer is the server's lobby; a refusal drops it and reads the lobby
+  /// again (nothing to send again); no answer says "Not sent." with "Try
+  /// again" ([_resendUnsent]). [make] takes the change's number.
+  Future<void> _change(_Change Function(int number) make) {
+    final lobby = state.value;
+    if (lobby == null) return Future.value();
+    final change = make(++_asked);
+    for (final key in change.keys) {
+      _askedAt[key] = change.number;
+    }
+    _pending.add(change);
+    _show(lobby.copyWith(notSent: false));
+    return _settingsQueue = _settingsQueue.then((_) => _send(change));
+  }
+
+  Future<void> _send(_Change change) async {
+    // The table was left while this waited its turn: nothing to send.
+    if (!ref.mounted) return;
+    final service = ref.read(lobbyServiceProvider);
     try {
       final answer = await _hostAction(
-        () => ref.read(lobbyServiceProvider).patchSettings(code, patch),
+        () => switch (change) {
+          _SettingsChange(:final patch) => service.patchSettings(code, patch),
+          _PracticeChange(:final ask) => service.setPractice(
+            code,
+            on: ask.on,
+            count: ask.count,
+          ),
+        },
       );
       if (!ref.mounted) return;
-      _pending.remove(patch);
+      _pending.remove(change);
       // The answer is the server's lobby with this change; what is still on
       // its way goes over it.
       _show(_adopt(answer));
     } on NoLongerHostException {
       // The role moved: the lobby was read again and this phone is a guest
       // now, which its screen shows with no words.
-      _pending.remove(patch);
+      _pending.remove(change);
       if (ref.mounted) await refreshLobby();
     } catch (e) {
       if (!ref.mounted) return;
-      _pending.remove(patch);
+      _pending.remove(change);
       if (serverAnswered(e)) {
         // An answer, not a loss: the server refused this change (the table
-        // moved under it: someone joined, another length changed first). It
-        // is dropped and the lobby read again; nothing to send again.
-        logger.d('Settings change refused ($e)');
+        // moved under it: someone joined, another length changed first, the
+        // seats filled). It is dropped and the lobby read again.
+        logger.d('Change refused ($e)');
         await refreshLobby();
         return;
       }
-      logger.d('Settings change not sent ($e)');
-      _retry = () => _changeSettings(patch);
+      logger.d('Change not sent ($e)');
+      _unsent.add(change);
+      _retry = _resendUnsent;
       final now = state.value;
-      if (now != null) state = AsyncData(now.copyWith(notSent: true));
+      if (now != null) {
+        state = AsyncData(_withPending(now).copyWith(notSent: true));
+      }
       await refreshLobby();
     }
+  }
+
+  /// "Try again" for changes not sent: each sent again with only the keys no
+  /// newer change has asked for since ([_askedAt]), so a newer value on the
+  /// same key, answered or on its way, is never undone; a change with
+  /// nothing left is not sent.
+  Future<void> _resendUnsent() async {
+    final unsent = [..._unsent];
+    _unsent.clear();
+    Future<void> last = Future.value();
+    for (final change in unsent) {
+      final keep = {
+        for (final key in change.keys)
+          if (_askedAt[key] == change.number) key,
+      };
+      if (keep.isEmpty) continue;
+      last = _change((n) => change.only(keep, n));
+    }
+    await last;
   }
 
   /// "Try again" after "Not sent.": the change (or the deal) that failed.
@@ -696,4 +782,48 @@ class LobbyNotifier extends _$LobbyNotifier {
     _wsSubscription = null;
     _webSocket = null;
   }
+}
+
+/// One change of the host's on the settings lane, numbered in the order
+/// asked ([number]).
+sealed class _Change {
+  const _Change(this.number);
+
+  final int number;
+
+  /// The settings keys it changes.
+  Set<String> get keys;
+
+  /// The same change with only [keep] of its keys (never empty), numbered
+  /// [number].
+  _Change only(Set<String> keep, int number);
+}
+
+/// A `PATCH /lobbies/<code>/` of [patch].
+final class _SettingsChange extends _Change {
+  const _SettingsChange(this.patch, super.number);
+
+  final Map<String, Object?> patch;
+
+  @override
+  Set<String> get keys => patch.keys.toSet();
+
+  @override
+  _Change only(Set<String> keep, int number) => _SettingsChange({
+    for (final MapEntry(:key, :value) in patch.entries)
+      if (keep.contains(key)) key: value,
+  }, number);
+}
+
+/// A `POST /lobbies/<code>/practice/` of [ask].
+final class _PracticeChange extends _Change {
+  const _PracticeChange(this.ask, super.number);
+
+  final PracticeAsk ask;
+
+  @override
+  Set<String> get keys => const {PracticeAsk.key};
+
+  @override
+  _Change only(Set<String> keep, int number) => _PracticeChange(ask, number);
 }

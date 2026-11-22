@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from . import practice
 from .games import hooks_for, hooks_for_type
 from .lobbies import (
     LobbyFullError,
@@ -94,10 +95,15 @@ class LobbyCreateView(CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        # The host takes the first seat (and token) in the same transaction.
+        # The host takes the first seat (and token) in the same transaction. A
+        # person has practice players at one table at a time: a new table clears
+        # theirs from the others (``practice.clear_elsewhere``).
         with transaction.atomic():
+            cleared = practice.clear_elsewhere(self.request.user.id)  # type: ignore[arg-type]
             lobby = serializer.save(host=self.request.user)
             add_member(lobby, self.request.user.id)  # type: ignore[misc]
+            for other in cleared:
+                announce_lobby(other)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -131,6 +137,11 @@ class LobbyCreateView(CreateAPIView):
         # What the table starts with is checked now, not at the deal: a combination
         # the game refuses is refused here. Who will sit at the table is not known
         # yet, so the card list is not checked against a player count.
+        # ``practice`` is the practice endpoint's alone (``practice.strip_setting``).
+        if "settings" in serializer.validated_data:
+            serializer.validated_data["settings"] = practice.strip_setting(
+                serializer.validated_data["settings"]
+            )
         merged = serializer.validated_data.get("settings") or {}
         if merged:
             errors = hooks_for_type(
@@ -209,6 +220,8 @@ class LobbyDetailView(RetrieveAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # ``practice`` is set and cleared by the practice endpoint alone.
+            given = practice.strip_setting(given)
             merged = {**lobby.settings, **given}
             from apps.core import games
 
@@ -294,7 +307,13 @@ class LobbyJoinView(APIView):
                 )
 
             try:
-                add_member(lobby, request.user.id)  # type: ignore[misc]
+                try:
+                    add_member(lobby, request.user.id)  # type: ignore[misc]
+                except LobbyFullError:
+                    # A person takes a practice player's seat at a full table.
+                    if not practice.make_room(lobby):
+                        raise
+                    add_member(lobby, request.user.id)  # type: ignore[misc]
             except LobbyFullError:
                 return Response(
                     {"detail": "Lobby is full.", "code": "lobby_full"},
@@ -361,7 +380,8 @@ class LobbyLeaveView(APIView):
                     )
                 username = request.user.username
                 if transfer_ownership(locked, request.user.id) is None:  # type: ignore[misc]
-                    locked.delete()
+                    # Nobody else, or only practice players: the table closes.
+                    practice.close_table(locked)
                     return Response(
                         {"detail": "Lobby deleted."}, status=status.HTTP_200_OK
                     )
@@ -418,6 +438,75 @@ class LobbyPlayAgainView(APIView):
         except PlayAgainError as exc:
             return Response({"detail": exc.detail}, status=exc.status_code)
         return Response(LobbySerializer(lobby).data, status=status.HTTP_200_OK)
+
+
+class LobbyPracticeView(APIView):
+    """Practice players (host, waiting table): ``{"on": bool}`` switches them on or
+    off for the table (off takes every one away), ``{"count": n}`` sets how many
+    sit at it (a target, so a request sent twice leaves the table as once; above
+    0 switches them on). Either or both. Answers the lobby body, like a PATCH,
+    and the table hears ``lobby_update``. 400 ``bad_request`` (malformed),
+    ``lobby_full`` (more than the free seats); 403 not the host; 404 unknown table
+    or a game with no practice players; 409 ``lobby_closed`` once dealt
+    (``apps.core.practice``).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, code: str) -> Response:
+        body = request.data if isinstance(request.data, dict) else None
+        on = None if body is None else body.get("on")
+        count = None if body is None else body.get("count")
+        if (
+            body is None
+            or (on is None and count is None)
+            or (on is not None and type(on) is not bool)
+            or (count is not None and (type(count) is not int or count < 0))
+        ):
+            return Response(
+                {"detail": "Send on (true or false) or count.", "code": "bad_request"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        switching_on = on is True or (on is None and bool(count))
+        with transaction.atomic():
+            # With the caller's other tables (pk order): switching on clears
+            # theirs there (a person has practice players at one table at a time).
+            lobby = practice.lock_with_theirs(code, request.user.id)  # type: ignore[arg-type]
+            if lobby is None or not hooks_for(lobby).practice_seats(lobby):
+                return Response(
+                    {"detail": "Lobby not found.", "code": "lobby_not_found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if not lobby.is_host(request.user.id):  # type: ignore[misc]
+                return Response(
+                    {"detail": "Only the host can seat practice players."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if lobby.status != Lobby.Status.WAITING:
+                return Response(
+                    {
+                        "detail": "Lobby is not accepting players.",
+                        "code": "lobby_closed",
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            cleared = (
+                practice.clear_elsewhere(request.user.id, keep=lobby)  # type: ignore[arg-type]
+                if switching_on
+                else []
+            )
+            try:
+                practice.set_practice(lobby, on=on, count=count)
+            except practice.PracticeError as exc:
+                transaction.set_rollback(True)
+                return Response(
+                    {"detail": exc.detail, "code": exc.code}, status=exc.status
+                )
+            data = LobbySerializer(lobby).data
+            announce_lobby(lobby)
+            for other in cleared:
+                announce_lobby(other)
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class MyTableView(APIView):

@@ -255,7 +255,8 @@ class AtTableView extends StatelessWidget {
     // A table nearly empty is about getting the others in: the picture and
     // the large code. Past that, who is here, the deck and Deal come first.
     final roomy = lobby.players.length <= Sizes.nearlyEmptyTable;
-    final present = lobby.players.length;
+    // Who sits, practice changes of the host's on their way included.
+    final present = lobby.seatedCount;
     final seats = lobby.table.seats;
     // Back at the table asks first, for host and guest alike, with the
     // host's own "Stay" / "Leave"; a table that is gone goes home. Nothing
@@ -424,7 +425,7 @@ class AtTableView extends StatelessWidget {
     WaitingFor(:final seats) => TableCopy.deal.fill({'n': seats}),
     NeedPlayers() => TableCopy.needPlayers,
     // The deck shows what is wrong; the button keeps its words.
-    DeckDoesNotFit() => TableCopy.deal.fill({'n': lobby.players.length}),
+    DeckDoesNotFit() => TableCopy.deal.fill({'n': lobby.seatedCount}),
     CannotDeal() => BannerCopy.cannotDeal,
   };
 
@@ -520,7 +521,8 @@ class _Rows extends StatelessWidget {
 }
 
 /// A member's row; a dropped phone's whole row dimmed (its token more),
-/// with no words, so it reads at a glance.
+/// with no words, so it reads at a glance; a practice player's tagged
+/// "Practice" (never dimmed: it has no phone to drop).
 class _Row extends StatelessWidget {
   const _Row({required this.player, required this.own, required this.away});
 
@@ -535,6 +537,7 @@ class _Row extends StatelessWidget {
       name: player.displayName,
       size: PlayerRowSize.lobby,
       own: own,
+      practice: player.practice,
       away: away,
     );
     if (!away) return row;
