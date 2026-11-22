@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
+import 'package:midnight_village/design_system/primitives/paper_lantern.dart';
 import 'package:midnight_village/design_system/primitives/waiting_sign.dart';
 
 import '../../helpers/pump_skinned.dart';
@@ -29,26 +30,34 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('the sign comes in after the first moment, and turns', (
-    tester,
-  ) async {
+  testWidgets('the lanterns come in after the first moment and are lit one '
+      'after another', (tester) async {
     await pumpSkinned(tester, const Waiting());
     await tester.pump(Motion.signAfter);
     await tester.pump(Motion.settle);
     expect(signOpacity(tester), 1);
 
-    Offset first() => tester.getTopLeft(
-      find
-          .descendant(
-            of: find.byType(WaitingSign),
-            matching: find.byType(Container),
-          )
-          .first,
-    );
-    final rest = first();
-    await tester.pump(Motion.waitLoop ~/ 6);
-    expect(first(), isNot(rest), reason: 'the first lantern lifts');
-    await tester.pump(Motion.waitLoop);
+    List<double> lit() => [
+      for (final l in tester.widgetList<PaperLantern>(
+        find.byType(PaperLantern),
+      ))
+        l.lit,
+    ];
+    expect(lit(), hasLength(3));
+    final peak = [0.0, 0.0, 0.0];
+    for (var ms = 0; ms < Motion.waitLoop.inMilliseconds; ms += 25) {
+      await tester.pump(const Duration(milliseconds: 25));
+      final now = lit();
+      expect(
+        now.where((l) => l > 0.6).length,
+        lessThanOrEqualTo(1),
+        reason: 'one burns at a time',
+      );
+      for (var i = 0; i < 3; i++) {
+        if (now[i] > peak[i]) peak[i] = now[i];
+      }
+    }
+    expect(peak.every((p) => p > 0.9), isTrue, reason: 'each burns in turn');
     expect(find.text(BannerCopy.slow), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
@@ -74,6 +83,11 @@ void main() {
       find.text(BannerCopy.slow),
       findsNothing,
       reason: 'failing is told once, not with the slow line over it',
+    );
+    expect(
+      find.byType(PaperLantern),
+      findsNothing,
+      reason: 'never lanterns and a failure at once',
     );
     await tester.pumpWidget(const SizedBox());
   });

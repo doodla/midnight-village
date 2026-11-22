@@ -86,11 +86,10 @@ abstract final class Sizes {
   /// so the title never changes size as 01 arrives.
   static const joinTitle = 42.0;
 
-  /// The sign of life of a wait: three paper lanterns of this size, how
-  /// far each lifts in its turn, and the gap between them.
-  static const waitLantern = 14.0;
-  static const waitLift = 7.0;
-  static const waitGap = 10.0;
+  /// The sign of life of a wait: three paper lanterns of this width, and the
+  /// gap between them.
+  static const waitLantern = 22.0;
+  static const waitGap = 18.0;
 }
 
 /// How long things take to move: the same in every skin.

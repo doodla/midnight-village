@@ -20,6 +20,7 @@ import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/primitives/role_card.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/waiting_sign.dart';
+import 'waits.dart' show hangsFromArt;
 import '../../../../design_system/skin/art_set.dart' show LayeredSceneId;
 import '../../../../design_system/primitives/tag_chip.dart';
 import '../../../../design_system/primitives/you_tag.dart';
@@ -71,21 +72,29 @@ class EndWaiting extends StatelessWidget {
   final GroundKind ground;
   final bool failing;
 
+  LayeredSceneId get scene => ground == GroundKind.day
+      ? LayeredSceneId.dawnGallows
+      : LayeredSceneId.nightVillage;
+
   @override
   Widget build(BuildContext context) => ScreenFrame(
     ground: ground,
     // The header the screen is on: the day's sky for the count, the
     // village at night for the results (the same pictures 08 and 04 have),
     // so the wait is a place and the screen arrives into it.
-    topScene: ground == GroundKind.day
-        ? LayeredSceneId.dawnGallows
-        : LayeredSceneId.nightVillage,
+    topScene: scene,
     topArtLayout: TopArtLayout.backdrop,
     fitsHeight: true,
-    // Below the picture, not on it.
-    body: Align(
-      alignment: const Alignment(0, 0.6),
-      child: Waiting(failing: failing, centred: true),
+    // Hung from the picture's lower edge.
+    body: Stack(
+      children: [
+        Positioned(
+          top: hangsFromArt(scene),
+          left: 0,
+          right: 0,
+          child: Waiting(failing: failing, centred: true),
+        ),
+      ],
     ),
   );
 }

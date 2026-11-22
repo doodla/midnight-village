@@ -396,7 +396,7 @@ abstract final class BannerCopy {
 
   /// A wait that has lasted (`Motion.slowAfter`) while nothing has failed:
   /// the answer is slow, not lost.
-  static const slow = 'The village is waking.';
+  static const slow = 'Still on its way.';
   static const leftGame = 'You left this game.';
 
   /// 02's Share copied the link (no share sheet on this device).

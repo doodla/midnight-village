@@ -21,7 +21,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   refresh token (the server no longer blacklists a used one, so a renewal whose answer was
   lost still works); meanwhile home is the game opening (`OpeningWait`: 01's village and
   title, and under them the one waiting body, `Waiting`: nothing for the first 300 ms, then
-  three paper lanterns, "The village is waking." after 5 s, "One moment" with "Try again"
+  three paper lanterns, "Still on its way." after 5 s, "One moment" with "Try again"
   (which starts the restore again now) once a try got no answer), never 01's form. The
   shell's first `/me/table/` is the same place (`OpeningWait`), so the app opens in one place
   until it knows where the player is. Only a 401 (the account is
@@ -89,7 +89,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   refused all the same says why when the refusal gives a reason worth saying
   (`LobbyNotifier.dealRefusal`), never a bare "Not sent.". A quiet labelled "Leave" asks
   first ("Stay" / "Leave"); a guest's is a quiet underlined word at the foot (`TextAction`).
-  Either shows it is on its way at once (`busy`: a `BusyMark` beside the word). The deal stays busy until `/me/table/` names the next screen (`LobbyNotifier.deal` returns only then), so Deal is never live again between the answer and the dusk. Leaving
+  Either shows it is on its way at once (`busy`: a `BusyMark` lantern in its own padding, the words unmoved). The deal stays busy until `/me/table/` names the next screen (`LobbyNotifier.deal` returns only then), so Deal is never live again between the answer and the dusk. Leaving
   (`LobbyNotifier.leave`): `not_in_lobby` (400) and a table gone (404) count as left (an
   earlier leave got there); another refusal says why ("That table is playing now.", else
   "Can't leave now."); no answer (no connection, the client's 10 s wait run out, a 5xx):

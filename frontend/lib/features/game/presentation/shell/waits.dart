@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/copy/copy.dart';
-import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/primitives/band.dart';
 import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
@@ -27,11 +26,21 @@ class GameWait extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ScreenFrame(
     ground: GroundKind.night,
-    body: Center(
+    body: Align(
+      alignment: Alignment.topCenter,
       child: Waiting(failing: failing, onRetry: onRetry, centred: true),
     ),
   );
 }
+
+/// Where the lanterns hang on a screen whose header is a picture laid as a
+/// backdrop (04's village, 10's dawn, 11's village): from the picture's lower
+/// edge, measured from the top of the body (the night's village ends higher
+/// than the day's).
+double hangsFromArt(LayeredSceneId scene) => switch (scene) {
+  LayeredSceneId.nightVillage => 322,
+  LayeredSceneId.dawnGallows => 440,
+};
 
 /// 04 while its `/me/` loads: the frame the card is laid in, the headline
 /// and, where the card will be, the wait.
@@ -47,11 +56,10 @@ class CardWait extends StatelessWidget {
     topScene: LayeredSceneId.nightVillage,
     topArtLayout: TopArtLayout.backdrop,
     fitsHeight: true,
-    body: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    body: Stack(
       children: [
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: Alignment.topLeft,
           child: Semantics(
             header: true,
             child: FitLine(
@@ -60,11 +68,12 @@ class CardWait extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: Space.lg),
-        Expanded(
-          child: Center(
-            child: Waiting(failing: failing, onRetry: onRetry, centred: true),
-          ),
+        // Hung from the village's lower edge, where the card will be.
+        Positioned(
+          top: hangsFromArt(LayeredSceneId.nightVillage),
+          left: 0,
+          right: 0,
+          child: Waiting(failing: failing, onRetry: onRetry, centred: true),
         ),
       ],
     ),
@@ -93,7 +102,9 @@ class TalkWait extends StatelessWidget {
     ),
     fitsHeight: true,
     minBodyHeight: TalkView.minBody,
-    body: Center(
+    // Hung from the band's lower edge.
+    body: Align(
+      alignment: Alignment.topCenter,
       child: Waiting(failing: failing, onRetry: onRetry, centred: true),
     ),
   );
@@ -116,7 +127,9 @@ class VoteWait extends StatelessWidget {
       remaining: null,
       title: VoteCopy.headline,
     ),
-    body: Center(
+    // Hung from the band's lower edge.
+    body: Align(
+      alignment: Alignment.topCenter,
       child: Waiting(failing: failing, onRetry: onRetry, centred: true),
     ),
   );

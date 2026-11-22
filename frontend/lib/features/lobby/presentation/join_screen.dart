@@ -110,8 +110,8 @@ class JoinScreen extends ConsumerWidget {
 
 /// The app opening: this device's saved account read back, then where this
 /// player sits. 01's village and title, so it reads as the game opening,
-/// and under them the one waiting body ([Waiting]): the lanterns, "The
-/// village is waking." when it is slow, "One moment" once a try got no
+/// and under them the one waiting body ([Waiting]): the lanterns, "Still
+/// on its way." when it is slow, "One moment" once a try got no
 /// answer (it is made again by itself; [onRetry] makes it now). No field
 /// and no button: nothing here can make a second account.
 class OpeningWait extends StatelessWidget {
@@ -129,7 +129,6 @@ class OpeningWait extends StatelessWidget {
       topArtLayout: TopArtLayout.fill,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Space.lgPlus,
         children: [
           Semantics(
             header: true,
@@ -140,6 +139,7 @@ class OpeningWait extends StatelessWidget {
               ),
             ),
           ),
+          // The lanterns hang from the title, as from a sign.
           Waiting(failing: unanswered, onRetry: onRetry),
         ],
       ),

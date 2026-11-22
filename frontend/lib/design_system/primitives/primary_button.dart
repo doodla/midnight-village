@@ -7,6 +7,7 @@ import '../skin/skin.dart';
 import '../skin/skin_type.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
+import 'secondary_button.dart' show BusyMark;
 
 /// The mocks' button sizes.
 enum ButtonSize {
@@ -199,7 +200,8 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     final rest = filled
         ? ground.elevation.primary.scaled(widget.size.shadow)
         : Elevation.none;
-    final down = _pressed && _acts;
+    // Busy, it stays pressed into its shadow while it works.
+    final down = (_pressed && _acts) || widget.busy;
     final ink = switch (widget.phase) {
       ButtonPhase.ready => ground.onAccent,
       ButtonPhase.waiting => ground.quietText,
@@ -288,13 +290,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                 if (widget.busy)
                   PositionedDirectional(
                     end: Space.sm,
-                    child: SizedBox.square(
-                      dimension: Space.lg,
-                      child: CircularProgressIndicator(
-                        strokeWidth: skin.shape.stroke,
-                        color: ink,
-                      ),
-                    ),
+                    child: BusyMark(size: Space.xl, color: ink),
                   ),
               ],
             ),
