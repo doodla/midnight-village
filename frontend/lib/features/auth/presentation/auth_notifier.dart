@@ -9,6 +9,7 @@ import '../../../core/api/authenticated_client.dart';
 import '../../../core/config/env.dart';
 import '../../../core/healing/healing.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/requests/player_request.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/storage/user_storage.dart';
 import '../../../design_system/skin/skin_choice.dart'
@@ -120,7 +121,7 @@ class AuthNotifier extends _$AuthNotifier {
   ///
   /// True when the request was sent (it may have failed: [AuthError]); false
   /// when nothing was sent at all, so there is nothing to call "Not sent.".
-  Future<bool> createGuest({String? displayName}) async {
+  Future<bool> createGuest(Door door, {String? displayName}) async {
     final before = state;
     if (before is AuthInitial || before is AuthLoading) return false;
     state = const AuthState.loading();
@@ -128,6 +129,7 @@ class AuthNotifier extends _$AuthNotifier {
     try {
       final repository = ref.read(authRepositoryProvider);
       final user = await repository.createGuest(
+        door,
         displayName: displayName,
         replacing: before is AuthAuthenticated,
       );

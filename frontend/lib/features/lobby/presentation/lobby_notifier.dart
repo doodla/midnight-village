@@ -516,7 +516,8 @@ class LobbyNotifier extends _$LobbyNotifier {
     try {
       final answer = await _hostAction(
         () => playerRequest(
-          () => ref.read(lobbyServiceProvider).patchSettings(code, patch),
+          (door) =>
+              ref.read(lobbyServiceProvider).patchSettings(door, code, patch),
         ),
       );
       if (!ref.mounted) return;
@@ -577,12 +578,10 @@ class LobbyNotifier extends _$LobbyNotifier {
       // dusk. (`startGame` has made the table's game known, which has the
       // table read again; a phone that listens to no table, or a read that
       // is not wanted, waits for nothing.)
+      // A read that is failing frees the button all the same (the screen
+      // says "One moment" over the table while it is).
       if (ref.mounted && ref.exists(myTableProvider)) {
-        await whileHeld(
-          ref,
-          myTableProvider,
-          () => ref.read(myTableProvider.future),
-        );
+        await readAnswered(ref, myTableProvider);
       }
       return id;
     } on NoLongerHostException {
@@ -657,7 +656,7 @@ class LobbyNotifier extends _$LobbyNotifier {
     try {
       final service = ref.read(lobbyServiceProvider);
       final id = await _hostAction(
-        () => playerRequest(() => service.startGame(code)),
+        () => playerRequest((door) => service.startGame(door, code)),
       );
       // The host does not have to wait for the lobby event to open the game.
       if (ref.mounted) _applyStartedGame(id);
@@ -679,7 +678,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<void> leave() async {
     final service = ref.read(lobbyServiceProvider);
     try {
-      await playerRequest(() => service.leaveLobby(code));
+      await playerRequest((door) => service.leaveLobby(door, code));
     } catch (e) {
       // Already off the table: an earlier leave got there, or the table is
       // gone (the last one out closed it).

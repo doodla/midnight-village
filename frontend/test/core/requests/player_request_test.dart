@@ -7,61 +7,63 @@ import 'package:midnight_village/core/requests/player_request.dart';
 import '../../helpers/mock_http_client.dart';
 
 /// The one door every request a player's tap makes goes through
-/// (`core/requests/player_request.dart`): enforced where requests leave the
-/// phone, and held for the code that sends them by a scan of `lib/`.
+/// (`core/requests/player_request.dart`). That a write needs a [Door] is a
+/// compile-time rule (the services' and the client's write methods take one,
+/// and only `playerRequest` makes one); what is tested here is what the
+/// compiler cannot see: the door is shut when its request is done, and the
+/// lib's awaits on providers.
 void main() {
-  group('a gated client', () {
+  group('the door', () {
     late MockHttpClient http;
     late AuthenticatedClient client;
 
     setUp(() {
       http = MockHttpClient();
       client = AuthenticatedClient.forTesting(dio: http.dio);
-      for (final method in ['POST', 'PATCH', 'DELETE', 'GET']) {
+      for (final method in ['POST', 'PATCH', 'DELETE']) {
         http.answer(method, '/x/', {'ok': true}, offContract: true);
       }
     });
 
-    test('sends nothing for a POST, PATCH or DELETE made outside the door', () {
-      expect(() => client.post<dynamic>('/x/'), throwsStateError);
-      expect(() => client.patch<dynamic>('/x/'), throwsStateError);
-      expect(() => client.delete<dynamic>('/x/'), throwsStateError);
-      expect(
-        http.requests,
-        isEmpty,
-        reason: 'a refused request never leaves the phone',
-      );
-    });
-
-    test('sends them inside the door, also after an await', () async {
-      await playerRequest(() async {
+    test('is open for the whole request, also after an await', () async {
+      await playerRequest((door) async {
         await Future<void>.delayed(Duration.zero);
-        await client.post<dynamic>('/x/');
-        await client.patch<dynamic>('/x/');
-        await client.delete<dynamic>('/x/');
+        await client.post<dynamic>(door, '/x/');
+        await client.patch<dynamic>(door, '/x/');
+        await client.delete<dynamic>(door, '/x/');
       });
       expect(http.requests.map((r) => r.method), ['POST', 'PATCH', 'DELETE']);
     });
 
-    test('a GET is a read, not a player request', () async {
-      await client.get<dynamic>('/x/');
-      expect(http.requests.single.method, 'GET');
+    test('is shut when the request is done: a token kept in a timer or a '
+        'socket callback sends nothing', () async {
+      late Door kept;
+      await playerRequest((door) async => kept = door);
+      expect(() => client.post<dynamic>(kept, '/x/'), throwsStateError);
+      expect(() => client.patch<dynamic>(kept, '/x/'), throwsStateError);
+      expect(() => client.delete<dynamic>(kept, '/x/'), throwsStateError);
+      expect(http.requests, isEmpty, reason: 'it never left the phone');
     });
 
-    test('the door closes behind the request', () async {
-      await playerRequest(() => client.post<dynamic>('/x/'));
-      expect(insidePlayerRequest, isFalse);
-      expect(() => client.post<dynamic>('/x/'), throwsStateError);
+    test('is shut also when the request failed', () async {
+      late Door kept;
+      await expectLater(
+        playerRequest<void>((door) async {
+          kept = door;
+          throw StateError('no answer');
+        }),
+        throwsStateError,
+      );
+      expect(() => client.post<dynamic>(kept, '/x/'), throwsStateError);
     });
 
-    test('a test of a service alone can open its client', () async {
-      final open = AuthenticatedClient.forTesting(dio: http.dio, gated: false);
-      await open.post<dynamic>('/x/');
+    test('a test door is for a test of a service alone', () async {
+      await client.post<dynamic>(Door.forTest(), '/x/');
       expect(http.requests, hasLength(1));
     });
   });
 
-  group('the code that sends them', () {
+  group('the code that waits on providers', () {
     final lib = [
       for (final file in Directory('lib').listSync(recursive: true))
         if (file is File &&
@@ -69,40 +71,6 @@ void main() {
             !file.path.endsWith('.g.dart'))
           file,
     ];
-
-    // The service methods that make a POST, PATCH or DELETE as the player.
-    final sends = RegExp(
-      r'\.(createTable|joinLobby|leaveLobby|startGame|playAgain|patchSettings|'
-      r'setDeckChip|setCustomDeck|advanceStage|endTalk|revealVotesAt|'
-      r'send)\(',
-    );
-
-    test('every file that calls one sends it inside playerRequest()', () {
-      final outside = <String>[];
-      for (final file in lib) {
-        final path = file.path;
-        // The services themselves; the debug toolbar's own clients (their
-        // own Dio, never the player's); a socket's own `send`.
-        if (path.contains('/data/') ||
-            path.contains('lib/core/debug/') ||
-            path.contains('lib/features/debug/') ||
-            path.contains('lib/core/websocket/')) {
-          continue;
-        }
-        final source = file.readAsStringSync();
-        if (sends.hasMatch(source) && !source.contains('playerRequest(')) {
-          outside.add(path);
-        }
-      }
-      expect(
-        outside,
-        isEmpty,
-        reason:
-            'these files call a request that a player\'s tap makes without '
-            'playerRequest(): its control would not show busy, and it could '
-            'double-send',
-      );
-    });
 
     test('a provider awaited by .future is held (whileHeld), never read '
         'bare: a read nobody holds is dropped mid-fetch when the screen '
@@ -123,6 +91,16 @@ void main() {
         }
       }
       expect(bare, isEmpty);
+    });
+
+    test('nothing in lib makes a test door', () {
+      final made = [
+        for (final file in lib)
+          if (!file.path.endsWith('core/requests/player_request.dart') &&
+              file.readAsStringSync().contains('Door.forTest'))
+            file.path,
+      ];
+      expect(made, isEmpty);
     });
   });
 }

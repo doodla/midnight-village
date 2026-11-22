@@ -1,3 +1,4 @@
+import 'package:midnight_village/core/requests/player_request.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
@@ -20,7 +21,7 @@ void main() {
   setUp(() {
     http = MockHttpClient();
     service = LobbyService(
-      client: AuthenticatedClient.forTesting(dio: http.dio, gated: false),
+      client: AuthenticatedClient.forTesting(dio: http.dio),
     );
   });
 
@@ -41,7 +42,7 @@ void main() {
           status: 201,
         );
 
-        final lobby = await service.createTable();
+        final lobby = await service.createTable(Door.forTest());
 
         expect(sent().$2, '/lobbies/');
         expect(sent().$3, {'game_type': 'onuw', 'defaults': 'v2'});
@@ -56,7 +57,7 @@ void main() {
         _lobby(code: 'XYZ789', deck: false),
       );
 
-      final lobby = await service.joinLobby('XYZ789');
+      final lobby = await service.joinLobby(Door.forTest(), 'XYZ789');
 
       expect(sent().$2, '/lobbies/XYZ789/join/');
       expect(lobby.code, 'XYZ789');
@@ -71,7 +72,7 @@ void main() {
       );
 
       await expectLater(
-        service.joinLobby('ABC123'),
+        service.joinLobby(Door.forTest(), 'ABC123'),
         throwsA(
           isA<ValidationException>()
               .having((e) => e.code, 'code', 'lobby_full')
@@ -87,7 +88,7 @@ void main() {
         ContractSamples.load('http/lobby/left'),
       );
 
-      await service.leaveLobby('ABC123');
+      await service.leaveLobby(Door.forTest(), 'ABC123');
 
       expect(sent().$2, '/lobbies/ABC123/leave/');
     });
@@ -96,7 +97,11 @@ void main() {
       final roles = {'Werewolf': 2, 'Seer': 1};
       http.answer('PATCH', '/lobbies/ABC123/', _lobby());
 
-      final lobby = await service.setCustomDeck('ABC123', roles);
+      final lobby = await service.setCustomDeck(
+        Door.forTest(),
+        'ABC123',
+        roles,
+      );
 
       expect(sent().$1, 'PATCH');
       expect(sent().$3, {
@@ -114,7 +119,7 @@ void main() {
       );
 
       await expectLater(
-        service.setCustomDeck('ABC123', {'Werewolf': 2}),
+        service.setCustomDeck(Door.forTest(), 'ABC123', {'Werewolf': 2}),
         throwsA(
           isA<UnhandledHttpException>()
               .having((e) => e.statusCode, 'status', 409)
@@ -132,7 +137,10 @@ void main() {
       final started = ContractSamples.map('http/game/started');
       http.answer('POST', '/onuw/lobbies/ABC123/start/', started, status: 201);
 
-      expect(await service.startGame('ABC123'), started['game_id']);
+      expect(
+        await service.startGame(Door.forTest(), 'ABC123'),
+        started['game_id'],
+      );
     });
 
     test('playAgain returns the reopened table', () async {
@@ -142,7 +150,7 @@ void main() {
         ContractSamples.load('http/lobby/play_again'),
       );
 
-      final lobby = await service.playAgain('ABC123');
+      final lobby = await service.playAgain(Door.forTest(), 'ABC123');
 
       expect(lobby.status, 'waiting');
     });
@@ -156,7 +164,7 @@ void main() {
       );
 
       await expectLater(
-        service.playAgain('ABC123'),
+        service.playAgain(Door.forTest(), 'ABC123'),
         throwsA(isA<ForbiddenException>()),
       );
     });

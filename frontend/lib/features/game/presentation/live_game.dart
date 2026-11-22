@@ -537,7 +537,7 @@ class LiveGameNotifier extends _$LiveGameNotifier {
 
   Future<StageAnswer> _send(OutboxItem item) async {
     final reply = await playerRequest(
-      () => _service.send(gameId, item.request),
+      (door) => _service.send(door, gameId, item.request),
     );
     if (!ref.mounted) return reply.answer;
     final box = _game.outbox;
@@ -730,9 +730,11 @@ class LiveGameNotifier extends _$LiveGameNotifier {
   /// gone (404) is closed, as a fetch answered 404 closes it; a refusal
   /// ([serverAnswered]) says why ([RequestRefused]), never "Not sent."; no
   /// answer reaches the caller as it is.
-  Future<void> playAgain() => _atTable(() async {
+  Future<void> playAgain() => _atTable((door) async {
     try {
-      await ref.read(lobbyServiceProvider).playAgain(_game.server.lobbyCode);
+      await ref
+          .read(lobbyServiceProvider)
+          .playAgain(door, _game.server.lobbyCode);
     } catch (e) {
       throw _refused(e, BannerCopy.cannotDeal) ?? e;
     }
@@ -741,9 +743,11 @@ class LiveGameNotifier extends _$LiveGameNotifier {
   /// Leaves the table this game was played at (a table already gone: the
   /// same, with "This table has closed." on 01; a phone already off it
   /// counts as left, as at 02).
-  Future<void> leaveTable() => _atTable(() async {
+  Future<void> leaveTable() => _atTable((door) async {
     try {
-      await ref.read(lobbyServiceProvider).leaveLobby(_game.server.lobbyCode);
+      await ref
+          .read(lobbyServiceProvider)
+          .leaveLobby(door, _game.server.lobbyCode);
     } catch (e) {
       if (e is ValidationException && e.code == 'not_in_lobby') return;
       throw _refused(e, BannerCopy.cannotLeave) ?? e;
@@ -758,7 +762,7 @@ class LiveGameNotifier extends _$LiveGameNotifier {
       ? RequestRefused(words)
       : null;
 
-  Future<void> _atTable(Future<void> Function() call) async {
+  Future<void> _atTable(Future<void> Function(Door door) call) async {
     try {
       await playerRequest(call);
       // The tap worked. A screen that has already moved on (the server said

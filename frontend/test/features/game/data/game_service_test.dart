@@ -9,7 +9,7 @@ import '../../../helpers/mock_http_client.dart';
 /// Creates a [GameService] backed by a [MockHttpClient].
 ({GameService service, MockHttpClient http}) _createService() {
   final http = MockHttpClient();
-  final client = AuthenticatedClient.forTesting(dio: http.dio, gated: false);
+  final client = AuthenticatedClient.forTesting(dio: http.dio);
   final service = GameService(client: client);
   return (service: service, http: http);
 }

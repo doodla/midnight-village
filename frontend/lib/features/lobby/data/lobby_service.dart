@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/api/authenticated_client.dart';
+import '../../../core/requests/player_request.dart';
 import '../domain/lobby_state.dart';
 import '../domain/where_am_i.dart';
 
@@ -20,9 +21,10 @@ class LobbyService {
   /// `{"game_type": "onuw", "defaults": "v2"}`, always (the app's starting
   /// set). The server writes the table's defaults (the look stage, the
   /// automatic Simple deck) and no timer length.
-  Future<LobbyState> createTable() async {
+  Future<LobbyState> createTable(Door door) async {
     try {
       final response = await _client.post<Map<String, dynamic>>(
+        door,
         '/lobbies/',
         data: {'game_type': 'onuw', 'defaults': 'v2'},
       );
@@ -38,14 +40,17 @@ class LobbyService {
   /// PATCH /lobbies/<code>/ with
   /// `{"settings": {"deck": "auto", "deck_chip": <chip>}}` (merged into the
   /// stored settings; refused 409 while a game runs).
-  Future<LobbyState> setDeckChip(String code, DeckChip chip) =>
-      _patchSettings(code, deckChip(chip));
+  Future<LobbyState> setDeckChip(Door door, String code, DeckChip chip) =>
+      _patchSettings(door, code, deckChip(chip));
 
   /// The host edits the cards: the deck is custom from now on.
   ///
   /// PATCH /lobbies/<code>/ with `{"settings": {"deck": "custom", "roles"}}`.
-  Future<LobbyState> setCustomDeck(String code, Map<String, int> roles) =>
-      _patchSettings(code, customDeck(roles));
+  Future<LobbyState> setCustomDeck(
+    Door door,
+    String code,
+    Map<String, int> roles,
+  ) => _patchSettings(door, code, customDeck(roles));
 
   /// The settings a deck chip writes ([setDeckChip]).
   static Map<String, Object> deckChip(DeckChip chip) => {
@@ -62,16 +67,19 @@ class LobbyService {
   /// PATCH /lobbies/<code>/ with `{"settings": settings}`: the server merges
   /// them over the stored ones (shallow) and answers the whole lobby.
   Future<LobbyState> patchSettings(
+    Door door,
     String code,
     Map<String, Object?> settings,
-  ) => _patchSettings(code, settings);
+  ) => _patchSettings(door, code, settings);
 
   Future<LobbyState> _patchSettings(
+    Door door,
     String code,
     Map<String, Object?> settings,
   ) async {
     try {
       final response = await _client.patch<Map<String, dynamic>>(
+        door,
         '/lobbies/$code/',
         data: {'settings': settings},
       );
@@ -107,9 +115,10 @@ class LobbyService {
   /// Joins an existing lobby by code.
   ///
   /// POST /lobbies/<code>/join/
-  Future<LobbyState> joinLobby(String code) async {
+  Future<LobbyState> joinLobby(Door door, String code) async {
     try {
       final response = await _client.post<Map<String, dynamic>>(
+        door,
         '/lobbies/$code/join/',
       );
       return _parseLobbyResponse(response);
@@ -119,9 +128,9 @@ class LobbyService {
   }
 
   /// Leaves a lobby: POST /lobbies/<code>/leave/.
-  Future<void> leaveLobby(String code) async {
+  Future<void> leaveLobby(Door door, String code) async {
     try {
-      await _client.post<Map<String, dynamic>>('/lobbies/$code/leave/');
+      await _client.post<Map<String, dynamic>>(door, '/lobbies/$code/leave/');
     } on DioException catch (e) {
       throw mapDioException(e);
     }
@@ -131,9 +140,10 @@ class LobbyService {
   ///
   /// POST /onuw/lobbies/<code>/start/
   /// Returns the game ID.
-  Future<String> startGame(String code) async {
+  Future<String> startGame(Door door, String code) async {
     try {
       final response = await _client.post<Map<String, dynamic>>(
+        door,
         '/onuw/lobbies/$code/start/',
       );
       return response.data!['game_id'] as String;
@@ -147,9 +157,10 @@ class LobbyService {
   /// POST /lobbies/<code>/play-again/
   /// 403 for a non-host, 409 when the game is not in results. Returns the
   /// lobby (same players, same deck, waiting).
-  Future<LobbyState> playAgain(String code) async {
+  Future<LobbyState> playAgain(Door door, String code) async {
     try {
       final response = await _client.post<Map<String, dynamic>>(
+        door,
         '/lobbies/$code/play-again/',
       );
       return _parseLobbyResponse(response);

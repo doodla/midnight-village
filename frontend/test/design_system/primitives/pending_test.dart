@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/core/requests/player_request.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/pending.dart';
 
@@ -45,13 +44,6 @@ void main() {
     expect(sends, 2);
   });
 
-  test('goes out through the one door', () async {
-    final pending = Pending();
-    var inside = false;
-    await pending.run(() async => inside = insidePlayerRequest);
-    expect(inside, isTrue);
-  });
-
   test('a request that did not get through is "Not sent." with "Try again", '
       'which sends exactly the same request', () async {
     final pending = Pending();
@@ -86,7 +78,13 @@ void main() {
     () async {
       final pending = Pending();
       final screen = Completer<void>();
-      final done = pending.run(() async {}, settle: () => screen.future);
+      final done = pending.run(
+        () async {},
+        settle: (_) async {
+          await screen.future;
+          return true;
+        },
+      );
       await Future<void>.delayed(Duration.zero);
       expect(
         pending.busy,
@@ -99,17 +97,35 @@ void main() {
     },
   );
 
-  test('a read of the next screen that fails is not this request failing, '
-      'and does not keep the control busy', () async {
+  test('a read of the next screen that is failing frees the control and says '
+      '"One moment" with "Try again", which reads again and never sends the '
+      'request twice', () async {
     final pending = Pending();
+    var sends = 0;
+    var reads = 0;
+    Future<bool> read(bool again) async => ++reads >= 2;
     expect(
-      await pending.run(
-        () async {},
-        settle: () async => throw StateError('not read yet'),
-      ),
+      await pending.run(() async => sends++, settle: read),
       isTrue,
+      reason: 'the request worked',
     );
+    expect(pending.failed, isTrue);
+    expect(pending.failure?.words, BannerCopy.offline);
+    expect(pending.failure?.canRetry, isTrue);
+
+    expect(await pending.retry(), isTrue);
+    expect(sends, 1, reason: 'the answered request is not sent again');
+    expect(reads, 2);
     expect(pending.phase, PendingPhase.idle);
+  });
+
+  test('a read that throws is a failing read too', () async {
+    final pending = Pending();
+    await pending.run(
+      () async {},
+      settle: (_) async => throw StateError('not read yet'),
+    );
+    expect(pending.failure?.words, BannerCopy.offline);
   });
 
   test('a screen that goes while its request is out is left alone: no '

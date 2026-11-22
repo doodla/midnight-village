@@ -1,14 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/logging/app_logger.dart';
-import '../../core/requests/player_request.dart';
 import '../copy/copy.dart';
 
 /// Why a request did not work, in the words its control shows (6 words at
 /// most, first-time play spec: "Banners and errors").
 @immutable
 class RequestFailure {
-  const RequestFailure(this.words, {this.canRetry = true});
+  const RequestFailure(this.words, {this.canRetry = true, this.resend = true});
 
   /// "Not sent." (no answer: it may not have arrived), or the server's
   /// reason in the player's words ("That table is playing now.").
@@ -17,8 +16,16 @@ class RequestFailure {
   /// "Try again" helps: nothing the player did was wrong.
   final bool canRetry;
 
+  /// "Try again" sends the request again. False: the request was answered
+  /// and it is the read of the next screen that is failing, which "Try again"
+  /// reads again (the request is never sent twice for it).
+  final bool resend;
+
   /// No answer came (or a 5xx): the one failure "Try again" is for.
   static const notSent = RequestFailure(BannerCopy.notSent);
+
+  /// The request was answered; the screen it leads to cannot be read.
+  static const offline = RequestFailure(BannerCopy.offline, resend: false);
 }
 
 /// A request the server refused with words of its own: [Pending.run] shows
@@ -71,7 +78,7 @@ class Pending extends ChangeNotifier {
   PendingPhase _phase = PendingPhase.idle;
   RequestFailure? _failure;
   Future<void> Function()? _last;
-  Future<void> Function()? _lastSettle;
+  Future<bool> Function(bool again)? _lastSettle;
   bool _disposed = false;
 
   PendingPhase get phase => _phase;
@@ -82,16 +89,22 @@ class Pending extends ChangeNotifier {
   RequestFailure? get failure => _failure;
 
   /// Sends [send] now unless one is on its way. True when it worked.
+  ///
+  /// [settle] reads the screen the request leads to: true when it is named,
+  /// false when the read is failing (`readAnswered`); [again] is true for a
+  /// "Try again" of that read. A failing read frees the control (it does not
+  /// spin for as long as the phone is out of reach) and says "One moment"
+  /// with "Try again".
   Future<bool> run(
     Future<void> Function() send, {
-    Future<void> Function()? settle,
+    Future<bool> Function(bool again)? settle,
   }) async {
     if (busy || _disposed) return false;
     _last = send;
     _lastSettle = settle;
     _set(PendingPhase.busy);
     try {
-      await playerRequest(send);
+      await send();
     } catch (e) {
       logger.d('A request did not work ($e)');
       if (_disposed) return false;
@@ -102,23 +115,41 @@ class Pending extends ChangeNotifier {
       return false;
     }
     if (_disposed) return true;
+    return _settle(settle, again: false);
+  }
+
+  Future<bool> _settle(
+    Future<bool> Function(bool again)? settle, {
+    required bool again,
+  }) async {
+    var named = true;
     if (settle != null) {
       try {
-        await settle();
+        named = await settle(again);
       } catch (e) {
-        // The read that names the next screen heals by itself; this
-        // request worked.
         logger.d('The screen after a request is not read yet ($e)');
+        named = false;
       }
     }
-    if (!_disposed) _set(PendingPhase.idle);
+    if (_disposed) return true;
+    if (named) {
+      _set(PendingPhase.idle);
+    } else {
+      _failure = RequestFailure.offline;
+      _set(PendingPhase.failed);
+    }
     return true;
   }
 
-  /// "Try again": the last request, as first made.
+  /// "Try again": the last request, as first made; or, when it was
+  /// answered and the next screen could not be read, that read again.
   Future<bool> retry() {
     final again = _last;
     if (again == null || busy) return Future.value(false);
+    if (_failure?.resend == false) {
+      _set(PendingPhase.busy);
+      return _settle(_lastSettle, again: true);
+    }
     return run(again, settle: _lastSettle);
   }
 

@@ -16,8 +16,7 @@ class AuthenticatedClient {
     required String baseUrl,
     required AuthInterceptor interceptor,
     Dio? dio,
-  }) : _gated = true,
-       _dio =
+  }) : _dio =
            dio ??
            Dio(
              BaseOptions(
@@ -38,41 +37,31 @@ class AuthenticatedClient {
 
   /// Test-only constructor that accepts a pre-configured [Dio] without
   /// requiring an [AuthInterceptor]. The caller is responsible for
-  /// setting up any interceptors on [dio]. [gated] false is for a test of a
-  /// service's own parsing, which calls it directly.
+  /// setting up any interceptors on [dio].
   @visibleForTesting
-  AuthenticatedClient.forTesting({required Dio dio, bool gated = true})
-    : _gated = gated,
-      _dio = dio;
+  AuthenticatedClient.forTesting({required Dio dio}) : _dio = dio;
 
   final Dio _dio;
-
-  /// A `POST`, `PATCH` or `DELETE` must be made inside `playerRequest`
-  /// (`core/requests/player_request.dart`): the one door every request a
-  /// player's tap makes goes through.
-  final bool _gated;
-
-  void _door(String method, String path) {
-    if (_gated) requirePlayerRequest('$method $path');
-  }
 
   /// How long a request waits to connect, and for its answer.
   static const timeout = Duration(seconds: 10);
 
   Future<Response<T>> get<T>(String path) => _dio.get<T>(path);
 
-  Future<Response<T>> post<T>(String path, {Object? data}) {
-    _door('POST', path);
+  /// The writes take the [Door] (`core/requests/player_request.dart`): the
+  /// one door every request a player's tap makes goes through.
+  Future<Response<T>> post<T>(Door door, String path, {Object? data}) {
+    door.require('POST $path');
     return _dio.post<T>(path, data: data);
   }
 
-  Future<Response<T>> patch<T>(String path, {Object? data}) {
-    _door('PATCH', path);
+  Future<Response<T>> patch<T>(Door door, String path, {Object? data}) {
+    door.require('PATCH $path');
     return _dio.patch<T>(path, data: data);
   }
 
-  Future<Response<T>> delete<T>(String path, {Object? data}) {
-    _door('DELETE', path);
+  Future<Response<T>> delete<T>(Door door, String path, {Object? data}) {
+    door.require('DELETE $path');
     return _dio.delete<T>(path, data: data);
   }
 }

@@ -135,6 +135,9 @@ class _TableShellState extends ConsumerState<TableShell>
       case _:
         _dealt = false;
     }
+    final tableFailing = ref.watch(
+      myTableProvider.select((table) => table.hasError),
+    );
     final gameId = shown?.gameId;
     final gameAsync = gameId == null
         ? null
@@ -156,7 +159,9 @@ class _TableShellState extends ConsumerState<TableShell>
       null => (
         'opening',
         OpeningWait(
-          unanswered: at.hasError,
+          // `tableScreen` turns a read that is being retried into a plain
+          // loading: the read itself says whether it is failing.
+          unanswered: tableFailing,
           onRetry: () => ref.invalidate(myTableProvider),
         ),
       ),
@@ -166,7 +171,8 @@ class _TableShellState extends ConsumerState<TableShell>
     // socket refused while fetches work changes nothing on the screen, and
     // a fetch that fails with the socket up is no less a phone the server
     // cannot reach). The waits above say it in their own frame.
-    final offline = shown != null && (game?.fetchFailing ?? false);
+    final offline =
+        shown != null && ((game?.fetchFailing ?? false) || tableFailing);
     return Stack(
       children: [
         Positioned.fill(

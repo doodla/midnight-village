@@ -181,7 +181,10 @@ void main() {
       for (final p in t.table.players) {
         expect((await t.currentGame(p))['game_id'], dealt.single);
       }
-      expect((await t.oracleJson())['phase'], 'night');
+      // What was dealt is the one game, whatever stage its clock has reached
+      // (a night is only as long as the table's setting, and a loaded
+      // machine can be past it: the phase is no part of this test).
+      expect((await t.controller.oracle()).gameId, dealt.single);
     });
   });
 

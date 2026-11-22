@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:midnight_village/core/requests/player_request.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
@@ -45,6 +46,7 @@ LobbyState _testLobbyState({
 );
 
 void main() {
+  setUpAll(() => registerFallbackValue(Door.forTest()));
   late MockLobbyService mockService;
   late MockWebSocketChannel mockWebSocket;
   late ProviderContainer container;
@@ -309,7 +311,7 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
 
         when(
-          () => mockService.startGame('ABC123'),
+          () => mockService.startGame(any(), 'ABC123'),
         ).thenAnswer((_) async => '550e8400-e29b-41d4-a716-446655440000');
 
         final notifier = container.read(lobbyProvider('ABC123').notifier);
@@ -322,12 +324,14 @@ void main() {
         container = createContainer();
         await container.read(lobbyProvider('ABC123').future);
 
-        when(() => mockService.leaveLobby('ABC123')).thenAnswer((_) async {});
+        when(
+          () => mockService.leaveLobby(any(), 'ABC123'),
+        ).thenAnswer((_) async {});
 
         final notifier = container.read(lobbyProvider('ABC123').notifier);
         await notifier.leave();
 
-        verify(() => mockService.leaveLobby('ABC123')).called(1);
+        verify(() => mockService.leaveLobby(any(), 'ABC123')).called(1);
       });
 
       test('a deck chip shows at once, before the answer, and the answer is '
@@ -337,7 +341,7 @@ void main() {
         await container.read(lobbyProvider('ABC123').future);
         final answer = Completer<LobbyState>();
         when(
-          () => mockService.patchSettings('ABC123', {
+          () => mockService.patchSettings(any(), 'ABC123', {
             'deck': 'auto',
             'deck_chip': 'chaos',
           }),
@@ -368,7 +372,7 @@ void main() {
         container.listen(lobbyProvider('ABC123'), (_, _) {});
         await container.read(lobbyProvider('ABC123').future);
         when(
-          () => mockService.patchSettings('ABC123', any()),
+          () => mockService.patchSettings(any(), 'ABC123', any()),
         ).thenThrow(const NetworkException('offline'));
 
         final notifier = container.read(lobbyProvider('ABC123').notifier);
@@ -380,8 +384,9 @@ void main() {
 
         await notifier.retry();
         verify(
-          () =>
-              mockService.patchSettings('ABC123', {'discussion_seconds': 180}),
+          () => mockService.patchSettings(any(), 'ABC123', {
+            'discussion_seconds': 180,
+          }),
         ).called(2);
       });
 

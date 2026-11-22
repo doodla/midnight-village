@@ -86,24 +86,22 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
     if (_pending.busy) return;
     _act = act;
     final container = ProviderScope.containerOf(context, listen: false);
-    Future<MyTable?> table() => whileHeldIn(
-      container,
-      myTableProvider,
-      () => container.read(myTableProvider.future),
-    );
     unawaited(
       _pending.run(
         switch (act) {
           ResultsAct.playAgain || ResultsAct.editDeck => _notifier.playAgain,
           ResultsAct.leave => _notifier.leaveTable,
         },
-        settle: () async {
-          final at = await table();
+        settle: (again) async {
+          if (again) container.invalidate(myTableProvider);
+          if (!await readAnsweredIn(container, myTableProvider)) return false;
+          final at = container.read(myTableProvider).value;
           if (act == ResultsAct.editDeck &&
               at != null &&
               at.status == TableStatus.waiting) {
             container.read(localStepsProvider.notifier).openDeck(at);
           }
+          return true;
         },
       ),
     );
