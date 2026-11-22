@@ -15,3 +15,5 @@ export FLUTTER_SUPPRESS_ANALYTICS=true CI=true
 flutter config --no-analytics >/dev/null 2>&1 || true
 flutter pub get
 flutter build web --release --dart-define=ENV=prod --dart-define="API_ORIGIN=$API_ORIGIN"
+# Fail the deploy if the toolbar slipped in.
+bash tool/check_release_has_no_debug.sh build/web

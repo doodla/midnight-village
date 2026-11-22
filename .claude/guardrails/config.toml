@@ -8,7 +8,8 @@ mode = "enforce"
 on_error = "closed"
 # Subagents may only run on these model families. A model (alias or full id,
 # e.g. "opus", "claude-sonnet-4-5") is allowed when it contains one of these
-# words, case-insensitively. "haiku" is not allowed unless you list it here.
-allowed_models = ["opus", "sonnet"]
+# words, case-insensitively. "haiku" is allowed on trial (owner's request, 22 Nov 2026);
+# see docs/dev/haiku-trial.md.
+allowed_models = ["opus", "sonnet", "haiku"]
 # A fork inherits the parent session's model, so forks are blocked unless true.
 allow_forks = false

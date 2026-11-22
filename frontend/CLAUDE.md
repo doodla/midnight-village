@@ -13,7 +13,8 @@ part you change, and keep it true:
 ## Commands
 
 ```bash
-just test              # flutter test --exclude-tags e2e
+just test              # flutter test --dart-define=ENV=dev --exclude-tags e2e (dev is explicit: a build with no ENV is prod, without /debug)
+just check-release     # builds web with no defines, fails if the /debug toolbar is in it
 just analyze           # flutter analyze: fails on any issue
 just format-check      # dart format check of lib, test, test_screens
 just gen               # Riverpod code generation, after changing any provider
@@ -26,6 +27,7 @@ just flutter-golden-update  # regenerate goldens (Linux only)
 
 ## Traps
 
+- **Bare `flutter test` / `flutter run` is prod** (fails with "Production API_ORIGIN not configured"): pass `--dart-define=ENV=dev` or use the just recipes.
 - **Forgot `just gen`**: analyzer errors in `*.g.dart` that look like real bugs.
 - **The harness runs side by side**: each `just test-harness` takes a free port (or
   `HARNESS_PORT`) and stops only the backend it started; the throwaway database is shared.

@@ -3,7 +3,7 @@
 The top-tier model the main session runs on is too expensive for subagents, so
 only the model families in `allowed_models` (config.toml; default opus, sonnet)
 may be used. A model, alias or full id, is allowed when it contains one of those
-words, case-insensitively. "haiku" is not allowed unless listed.
+words, case-insensitively. "haiku" is allowed only while listed (on trial; see config.toml).
 
 - Agent/Task calls: `model` and `effort` in the tool input, unless the
   subagent_type's definition sets them. The model actually used (the call's, else
