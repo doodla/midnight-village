@@ -1,13 +1,17 @@
 /// Environment configuration.
 ///
-/// Dev defaults with prod override via `--dart-define=ENV=prod`. A prod build
-/// also names the server it talks to: `--dart-define=API_ORIGIN=https://host`
+/// A build is prod unless it asks for dev: `--dart-define=ENV=dev` (local runs,
+/// tests, the harness, `just screens`) is the only way to get the `/debug`
+/// toolbar. A prod build also names the server it talks to: `--dart-define=API_ORIGIN=https://host`
 /// (the origin only: the REST base is `<origin>/api`, the sockets use the same
 /// host over wss).
 class Env {
   Env._();
 
-  static const String _env = String.fromEnvironment('ENV', defaultValue: 'dev');
+  static const String _env = String.fromEnvironment(
+    'ENV',
+    defaultValue: 'prod',
+  );
   static const String _apiOrigin = String.fromEnvironment('API_ORIGIN');
 
   /// True in dev builds. Declared as a `const bool` (not a getter) so that

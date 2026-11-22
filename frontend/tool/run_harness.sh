@@ -106,6 +106,7 @@ cd "$FRONTEND_DIR"
 # supported for integration tests yet"). They run on the host Dart VM under the
 # normal flutter_test binding when invoked by explicit path here.
 flutter test --tags e2e \
+  --dart-define=ENV=dev \
   --dart-define=HARNESS_PORT="$HARNESS_PORT" \
   test_e2e/api_runner_test.dart \
   test_e2e/api_lifecycle_test.dart \

@@ -1,6 +1,6 @@
 # Frontend tests
 
-`just test` runs `flutter test --exclude-tags e2e` (everything under `test/`). Two suites live
+`just test` runs `flutter test --dart-define=ENV=dev --exclude-tags e2e` (everything under `test/`). Two suites live
 outside `test/` on purpose and are not part of `just test`: `test_e2e/` (the live-backend
 harness, `just test-harness`) and `test_screens/` (the screen gallery and the cold-read pack,
 `just screens`, `just playtest-pack`). Server payloads in tests: `helpers/contract/README.md`.
