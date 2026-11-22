@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:midnight_village/core/requests/player_request.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -422,7 +423,7 @@ void main() {
       );
 
       await expectLater(
-        repository.createGuest(displayName: 'Bo'),
+        repository.createGuest(Door.forTest(), displayName: 'Bo'),
         throwsA(isA<SavedAccountExists>()),
       );
       expect(http.requests, isEmpty);
@@ -459,7 +460,7 @@ void main() {
 
       final sent = await container
           .read(authProvider.notifier)
-          .createGuest(displayName: 'Bo');
+          .createGuest(Door.forTest(), displayName: 'Bo');
 
       expect(sent, isFalse);
       expect(container.read(authProvider), isA<AuthInitial>());

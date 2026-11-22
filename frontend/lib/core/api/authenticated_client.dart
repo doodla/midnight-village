@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/env.dart';
+import '../requests/player_request.dart';
 import 'auth_interceptor.dart';
 import 'logging_interceptor.dart';
 
@@ -47,12 +48,20 @@ class AuthenticatedClient {
 
   Future<Response<T>> get<T>(String path) => _dio.get<T>(path);
 
-  Future<Response<T>> post<T>(String path, {Object? data}) =>
-      _dio.post<T>(path, data: data);
+  /// The writes take the [Door] (`core/requests/player_request.dart`): the
+  /// one door every request a player's tap makes goes through.
+  Future<Response<T>> post<T>(Door door, String path, {Object? data}) {
+    door.require('POST $path');
+    return _dio.post<T>(path, data: data);
+  }
 
-  Future<Response<T>> patch<T>(String path, {Object? data}) =>
-      _dio.patch<T>(path, data: data);
+  Future<Response<T>> patch<T>(Door door, String path, {Object? data}) {
+    door.require('PATCH $path');
+    return _dio.patch<T>(path, data: data);
+  }
 
-  Future<Response<T>> delete<T>(String path, {Object? data}) =>
-      _dio.delete<T>(path, data: data);
+  Future<Response<T>> delete<T>(Door door, String path, {Object? data}) {
+    door.require('DELETE $path');
+    return _dio.delete<T>(path, data: data);
+  }
 }

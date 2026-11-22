@@ -54,6 +54,14 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
   `fix-back-policy`, not merged yet): one policy for the phone's and the browser's Back. Keeping the server
   warm and moving the database are proposals for the deployment session only.
 
+- Loading, failing and busy states (issue 10), built on branch `worktree-agent-accfac18dd0dae241`, not yet merged: every
+  player request goes through one door and the tapped control shows busy until the next screen is up;
+  one waiting body (three paper lanterns, "Still on its way." after 5 s, "One moment" with
+  "Try again") in the frame of every screen that waits; a picture for every loading and error state
+  (`just screens`) and four looping clips (`just loading-clips`). Still open: 02's and 03's own waiting
+  and busy lines (held with the practice-players session), the first paint before Flutter (white page,
+  Android launch), the 10 s request timeout.
+
 ## Done
 
 - Practice players (issue 26): on the set-up page, press and hold the word "Players". A

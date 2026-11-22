@@ -79,15 +79,18 @@ class _TextActionState extends State<TextAction> {
               child: AnimatedOpacity(
                 opacity: _pressed ? context.skin.dimmed : 1,
                 duration: Motion.press,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  spacing: Space.sm,
+                // Busy: the lantern hangs off the end of the word, outside
+                // its box, so the word does not move.
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
                   children: [
-                    Flexible(
-                      child: FitWords(widget.label, maxLines: 1, style: style),
-                    ),
+                    FitWords(widget.label, maxLines: 1, style: style),
                     if (busy)
-                      BusyMark(size: style.fontSize, color: style.color),
+                      PositionedDirectional(
+                        end: -(Space.xl + Space.xs),
+                        child: BusyMark(size: Space.xl, color: style.color),
+                      ),
                   ],
                 ),
               ),

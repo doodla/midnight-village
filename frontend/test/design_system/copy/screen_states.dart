@@ -477,6 +477,7 @@ final banners = <(String, String?)>[
   (BannerCopy.notSent, BannerCopy.tryAgain),
   (BannerCopy.cannotLeave, null),
   (BannerCopy.offline, null),
+  (BannerCopy.slow, null),
   (BannerCopy.leftGame, BannerCopy.goHome),
   (BannerCopy.copied, null),
   (BannerCopy.deckDoesNotFit, null),

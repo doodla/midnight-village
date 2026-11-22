@@ -427,7 +427,8 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 | `already_in_lobby` | "You're at another table." + "Go there" |
 | The table was closed | "This table has closed." + "Go home" |
 | A request failed | "Not sent." + "Try again" |
-| This phone is offline, any phase | "One moment" |
+| This phone is offline, any phase | "One moment" (with "Try again" where a load is waiting on it) |
+| A wait that has lasted 5 s, nothing failed | "Still on its way." |
 | Storage was wiped mid-game | "You left this game." + "Go home" |
 
 ### Deck chips (each chip uses players + 3 cards; WW means 2 Werewolves; the server builds the deck at the deal)
