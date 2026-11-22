@@ -230,13 +230,15 @@ final _type = SkinType(
 // The candle's cuts (tool/candle/cut_candle.py prints these), on a canvas of
 // 300 x 530 taken from the candle picture at (270, 330).
 const _candle = CandleArt(
-  view: Rect.fromLTRB(30, 12, 280, 484),
+  // The dish's width: the handle's loop overflows it on the right.
+  view: Rect.fromLTRB(40, 12, 232, 484),
   wax: CandleCut('wax', Offset(58, 107), Size(136, 284)),
   flame: CandleCut('flame', Offset(60, 15), Size(120, 106)),
   holder: CandleCut('holder', Offset(36, 328), Size(235, 154)),
   wick: Offset(120, 121),
   stickBottom: 385,
   stickTop: 122,
+  light: Color(0xFFE9A44A),
 );
 
 const shadowPaperArt = ArtSet(

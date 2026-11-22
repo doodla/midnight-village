@@ -217,6 +217,7 @@ class CandleArt {
     required this.wick,
     required this.stickBottom,
     required this.stickTop,
+    required this.light,
   });
 
   /// The part of the canvas the candle is drawn in, flame to stem.
@@ -232,6 +233,10 @@ class CandleArt {
   /// and the row of its top at rest: the stick burns down between them.
   final double stickBottom;
   final double stickTop;
+
+  /// The warm light the flame lays on what is behind it: the flame's own
+  /// colour, part of the picture, not the interface's accent.
+  final Color light;
 }
 
 /// One picture: its asset, its size in pixels, and the point in it that must

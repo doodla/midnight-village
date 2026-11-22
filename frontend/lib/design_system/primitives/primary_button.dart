@@ -79,10 +79,12 @@ enum ButtonPhase {
 /// readable but shows that the action is on its way and ignores more taps.
 ///
 /// The night board's Choose waits as a slot ([PrimaryButton.locked] with
-/// `slot`): a recess in the table's own tone with its words in full ink, so
-/// it reads as a place the amber paper is about to fill, not as a broken
-/// button; and when the picks make it ready ([rises]) the amber paper rises
-/// out of the slot over [Motion.quick] while it already takes the tap.
+/// `slot`): the spec's outline with no fill (copy rule 10), cut into the
+/// table, a dark lip along the inside of its top edge and its words in full
+/// ink, so it reads as a place the amber paper is about to fill, not as a
+/// broken button; and when the picks make it ready ([rises]) the amber paper
+/// rises out of the slot over [Motion.quick] while it already takes the tap.
+/// Taking the picks back cuts the amber out at once (no blend of the two).
 class PrimaryButton extends StatefulWidget {
   /// Ready when [onPressed] is given, else waiting.
   const PrimaryButton({
@@ -140,9 +142,9 @@ class PrimaryButton extends StatefulWidget {
   /// The regular minimum height.
   static const height = 56.0;
 
-  /// A waiting slot's dark lip along its top, as a share of its height
-  /// (about 3 px at the regular size).
-  static const slotLip = 0.055;
+  /// A waiting slot's dark lip along the inside of its top edge, as a share
+  /// of its height (about 5 px at the regular size).
+  static const slotLip = 0.09;
 
   /// A check mark at the end of a label ("Ready ✓"): the skin's fonts have
   /// no such glyph, so it is drawn as an icon after the words, the same on
@@ -204,6 +206,12 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       });
     } else if (!_rising) {
       _duration = Motion.press;
+    }
+    // Taking the picks back: the slot is cut in again, not faded into.
+    if (widget.phase == ButtonPhase.locked &&
+        widget.slot &&
+        old.phase == ButtonPhase.ready) {
+      _rises++;
     }
   }
 
@@ -281,12 +289,6 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           )
         : widget.phase == ButtonPhase.done
         ? const BoxDecoration()
-        : widget.phase == ButtonPhase.locked && widget.slot
-        ? BoxDecoration(
-            color: ground.panel,
-            borderRadius: radius,
-            border: Border.all(color: ground.hairline, width: skin.shape.ring),
-          )
         : BoxDecoration(
             borderRadius: radius,
             border: Border.all(color: ground.outline, width: skin.shape.stroke),

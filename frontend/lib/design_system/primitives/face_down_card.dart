@@ -341,13 +341,18 @@ class _FaceDownCardState extends State<FaceDownCard> {
           ).copyWith(
             boxShadow: [
               // Under the hard shadow, and always in the list so it fades in
-              // and out with the pick instead of switching.
+              // and out with the pick instead of switching (the shadows are
+              // blended pair by pair). Unpicked it is a clear shadow with no
+              // blur, which costs nothing to paint: only a picked card, and
+              // one still fading, paints the soft light.
               if (glow != null)
-                BoxShadow(
-                  color: selected ? glow : glow.withValues(alpha: 0),
-                  blurRadius: FaceDownCard.glowBlur,
-                  spreadRadius: FaceDownCard.glowSpread,
-                ),
+                selected
+                    ? BoxShadow(
+                        color: glow,
+                        blurRadius: FaceDownCard.glowBlur,
+                        spreadRadius: FaceDownCard.glowSpread,
+                      )
+                    : BoxShadow(color: glow.withValues(alpha: 0)),
               ...(dip > 0 ? base.lowered(dip) : base).boxShadows,
             ],
           ),

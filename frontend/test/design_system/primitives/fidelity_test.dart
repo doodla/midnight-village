@@ -186,6 +186,7 @@ void main() {
       // pick (face_down_feel_test.dart).
       expect(shadows.length, 2);
       expect(shadows.first.color.a, 0);
+      expect(shadows.first.blurRadius, 0, reason: 'nothing soft to paint');
     });
 
     testWidgets('shrink with their parent: four to a 320 phone', (

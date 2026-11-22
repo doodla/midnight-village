@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../skin/art_set.dart';
@@ -34,13 +36,56 @@ class CandleGauge extends StatelessWidget {
   /// The wax at the end of the window, as a share of the whole stick.
   static const lowWax = 0.3;
 
+  /// How the candle burns: the share of the window left, raised to this, so
+  /// it is slow at first and steeper toward the end, where the last seconds
+  /// must show (on a 30 s window the last five take the wax down by a fifth
+  /// of the stick).
+  static const burnCurve = 0.6;
+
+  /// The burning that is left, 0 to 1, for [share].
+  static double left(double? share) =>
+      math.pow((share ?? 1).clamp(0.0, 1.0), burnCurve).toDouble();
+
   /// The flame's size for [share] (a step, never a tween).
   static double flameScale(double? share) =>
-      lowFlame + (1 - lowFlame) * (share ?? 1).clamp(0.0, 1.0);
+      lowFlame + (1 - lowFlame) * left(share);
 
   /// The wax's height, of the whole stick's, for [share].
-  static double waxScale(double? share) =>
-      lowWax + (1 - lowWax) * (share ?? 1).clamp(0.0, 1.0);
+  static double waxScale(double? share) => lowWax + (1 - lowWax) * left(share);
+
+  /// A candle this high gets a hard shadow [shadowReach] logical pixels long,
+  /// more on a taller one and less on a shorter, between the two bounds.
+  static const referenceHeight = 90.0;
+  static const shadowReach = 1.5;
+  static const shadowReachMost = 1.6;
+  static const shadowReachLeast = 0.8;
+
+  /// The warm light behind the flame: its radius in flame widths (a base and
+  /// what the flame adds), how high up the flame it centres, and how strong
+  /// it is at its centre, halfway and at its edge.
+  static const glowRadiusBase = 0.9;
+  static const glowRadiusGrow = 0.7;
+  static const glowRise = 0.45;
+  static const glowAlphas = [0.3, 0.1, 0.0];
+  static const glowStops = [0.0, 0.45, 1.0];
+
+  /// The dark nook the candle stands in, in the village: it quiets whatever
+  /// the picture draws behind the stick (a chimney would read as a ghost of
+  /// the wax once it burns down). Its radius in candle widths, where on the
+  /// stick it centres (0 the top, 1 the foot) and how dark it is at its
+  /// centre.
+  static const nookRadius = 1.05;
+  static const nookCentre = 0.3;
+  static const nookAlpha = 0.85;
+
+  /// The ledge: how high it is (a share of the candle's height, held between
+  /// the bounds) and how far it reaches out of the candle's width on each
+  /// side.
+  static const ledgeShare = 1 / 20;
+  static const ledgeLeast = 4.0;
+  static const ledgeMost = 7.0;
+  static const ledgeReachLeft = 0.04;
+  static const ledgeReachRight = 0.1;
 
   /// The width of a candle [height] high.
   static double widthFor(CandleArt art, double height) =>
@@ -105,7 +150,9 @@ class CandleGauge extends StatelessWidget {
     // The foot of the stick, where the holder's dish takes over: below it
     // the burning-down stick is not drawn.
     final clipBottom = (cut.stickBottom - cut.view.top) * scale;
-    final shadowOffset = 1.5 * (height / 90).clamp(0.8, 1.6);
+    final shadowOffset =
+        shadowReach *
+        (height / referenceHeight).clamp(shadowReachLeast, shadowReachMost);
     final flameBase = at(cut.wick + Offset(0, drop));
     final flameSize = cut.flame.size * scale;
 
@@ -116,13 +163,26 @@ class CandleGauge extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // A little warm light on what is behind the flame.
+            // A dark nook in the village behind the stick, then a little warm
+            // light on what is behind the flame.
             Positioned.fill(
               child: CustomPaint(
                 painter: _GlowPainter(
-                  centre: flameBase - Offset(0, flameSize.height * fire * 0.45),
-                  radius: flameSize.width * (0.9 + 0.7 * fire),
-                  colour: ground.accent,
+                  nook: at(
+                    Offset(
+                      cut.wick.dx,
+                      cut.stickTop +
+                          nookCentre * (cut.stickBottom - cut.stickTop),
+                    ),
+                  ),
+                  nookRadius: nookRadius * width,
+                  nookColour: ground.ground,
+                  centre:
+                      flameBase - Offset(0, flameSize.height * fire * glowRise),
+                  radius:
+                      flameSize.width *
+                      (glowRadiusBase + glowRadiusGrow * fire),
+                  colour: cut.light,
                 ),
               ),
             ),
@@ -180,10 +240,10 @@ class CandleGauge extends StatelessWidget {
             ),
             // The ledge it stands on, over the cut stem.
             Positioned(
-              left: -width * 0.04,
-              right: -width * 0.1,
+              left: -width * ledgeReachLeft,
+              right: -width * ledgeReachRight,
               bottom: -1,
-              height: (height / 20).clamp(4.0, 7.0),
+              height: (height * ledgeShare).clamp(ledgeLeast, ledgeMost),
               child: DecoratedBox(
                 key: const ValueKey(CandlePart.ledge),
                 decoration: BoxDecoration(
@@ -222,33 +282,55 @@ class _AboveRow extends CustomClipper<Rect> {
 
 class _GlowPainter extends CustomPainter {
   const _GlowPainter({
+    required this.nook,
+    required this.nookRadius,
+    required this.nookColour,
     required this.centre,
     required this.radius,
     required this.colour,
   });
 
+  final Offset nook;
+  final double nookRadius;
+  final Color nookColour;
   final Offset centre;
   final double radius;
   final Color colour;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawCircle(
-      centre,
-      radius,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            colour.withValues(alpha: 0.3),
-            colour.withValues(alpha: 0.1),
-            colour.withValues(alpha: 0),
-          ],
-          stops: const [0, 0.45, 1],
-        ).createShader(Rect.fromCircle(center: centre, radius: radius)),
-    );
+    canvas
+      ..drawCircle(
+        nook,
+        nookRadius,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              nookColour.withValues(alpha: CandleGauge.nookAlpha),
+              nookColour.withValues(alpha: 0),
+            ],
+          ).createShader(Rect.fromCircle(center: nook, radius: nookRadius)),
+      )
+      ..drawCircle(
+        centre,
+        radius,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              for (final a in CandleGauge.glowAlphas)
+                colour.withValues(alpha: a),
+            ],
+            stops: CandleGauge.glowStops,
+          ).createShader(Rect.fromCircle(center: centre, radius: radius)),
+      );
   }
 
   @override
   bool shouldRepaint(_GlowPainter old) =>
-      old.centre != centre || old.radius != radius || old.colour != colour;
+      old.nook != nook ||
+      old.nookRadius != nookRadius ||
+      old.nookColour != nookColour ||
+      old.centre != centre ||
+      old.radius != radius ||
+      old.colour != colour;
 }

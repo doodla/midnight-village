@@ -124,6 +124,41 @@ void main() {
       expect(_drawn(tester).waxTop, tops[2]);
     });
 
+    testWidgets(
+      'the burn is steeper toward the end: the last five seconds of a '
+      'window of 30 take the wax down by a fifth of the stick, a step each '
+      'second that shows at the size it is drawn',
+      (tester) async {
+        Future<double> top(double share) async {
+          await tester.pumpWidget(const SizedBox());
+          await _pump(tester, CandleGauge(share: share, height: 90));
+          return _drawn(tester).waxTop;
+        }
+
+        final art = _skin.art.candleCut;
+        final stick = (art.stickBottom - art.stickTop) * 90 / art.view.height;
+        final tops = [
+          for (var left = 5; left >= 0; left--) await top(left / 30),
+        ];
+        expect(
+          tops.last - tops.first,
+          greaterThan(0.2 * stick),
+          reason: 'five seconds: $tops',
+        );
+        for (var i = 1; i < tops.length; i++) {
+          expect(
+            tops[i],
+            greaterThan(tops[i - 1] + 1),
+            reason: 'step $i: $tops',
+          );
+        }
+        // And the first five seconds change it far less than the last five.
+        final early = await top(30 / 30);
+        final fifth = await top(25 / 30);
+        expect(fifth - early, lessThan((tops.last - tops.first) / 3));
+      },
+    );
+
     testWidgets('it holds still between the steps: nothing runs, so no '
         'flicker and nothing to draw a neighbour’s eye', (tester) async {
       await _pump(tester, const CandleGauge(share: 0.6, height: 180));

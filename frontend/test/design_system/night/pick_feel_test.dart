@@ -9,6 +9,7 @@ import 'package:midnight_village/design_system/skin/skin_id.dart';
 
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 
+import '../../helpers/frame_pixels.dart';
 import '../../helpers/sheet/sheet_data.dart';
 import 'board_harness.dart';
 
@@ -146,8 +147,10 @@ void main() {
       final board = _veteran(Viewer.seer);
       await board.pump(tester);
       final name = _seat(board);
-      // At rest: no light, the lying shadow, the hairline ring.
+      // At rest: no light (a clear shadow with no blur: nothing to paint),
+      // the lying shadow, the hairline ring.
       expect(_shadows(tester, name).first.color.a, 0);
+      expect(_shadows(tester, name).first.blurRadius, 0);
       final lying = _shadows(tester, name).last.offset.dy;
       final hairline = _ringWidth(tester, name);
 
@@ -298,15 +301,17 @@ void main() {
       ),
     );
 
-    testWidgets('waits as a slot on purpose, in the table’s tone with its '
-        'words in full ink: not an outline, not a faded button', (
-      tester,
-    ) async {
+    testWidgets('waits as a slot on purpose: the spec’s outline with no fill, '
+        'clearly drawn, a dark lip inside its top edge, its words in full '
+        'ink', (tester) async {
       await _veteran(Viewer.seer).pump(tester);
       expect(choose(tester).phase, ButtonPhase.locked);
       expect(choose(tester).slot, isTrue);
       final decoration = shell(tester).decoration! as BoxDecoration;
-      expect(decoration.color, _night.panel, reason: 'a recess, not a void');
+      expect(decoration.color, isNull, reason: 'disabled: outlined, no fill');
+      final border = decoration.border! as Border;
+      expect(border.top.color, _night.outline, reason: 'the outline is seen');
+      expect(border.top.width, greaterThanOrEqualTo(2));
       expect(shell(tester).foregroundDecoration, isNotNull, reason: 'its lip');
       final words = tester.widget<Text>(find.text(NightCopy.chooseNone));
       expect(words.style!.color, _night.text, reason: 'full ink');
@@ -361,8 +366,14 @@ void main() {
       await tapCard(tester, name);
       expect(choose(tester).phase, ButtonPhase.locked);
       expect(choose(tester).slot, isTrue);
+      // The amber is cut out at once, never blended into the slot: the
+      // button's own paper is the ground's from the first frame.
+      final button = tester.getRect(find.byType(PrimaryButton));
+      final frame = await FramePixels.of(tester);
+      final inside = frame.at(button.left + 10, button.center.dy + 8);
+      expect(inside & 0xFFFFFF, _night.ground.toARGB32() & 0xFFFFFF);
       await tester.pumpAndSettle();
-      expect((shell(tester).decoration! as BoxDecoration).color, _night.panel);
+      expect((shell(tester).decoration! as BoxDecoration).color, isNull);
     });
 
     testWidgets('reduce motion: the amber is there at once, no rise', (

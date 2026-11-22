@@ -115,10 +115,10 @@ class NightBoard extends ConsumerStatefulWidget {
   /// The candle stands as high as the title's room and this more: its flame
   /// level with the title's top, its ledge a little below the title's foot
   /// (the seats' labels and cards start further down).
-  static const candleRise = 22.0;
+  static const candleRise = 8.0;
 
   /// And its flame stands this far above the title's top, in the strip.
-  static const candleLift = 14.0;
+  static const candleLift = 8.0;
 
   /// The strip of the night village behind the title shows the picture from
   /// this row of pixels down: its roofs and spire, clear of the moon above,
@@ -395,10 +395,16 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     final room =
         MediaQuery.textScalerOf(context).scale(line) * NightBoard.titleLines +
         1;
+    // The candle and the seconds are the unit's own size, whatever the text
+    // size: the title beside them stops growing at its limit, and must never
+    // be set smaller to make room for them.
+    final unitRoom = line * NightBoard.titleLines + 1;
+    final candleHeight =
+        unitRoom + NightBoard.candleRise + NightBoard.candleLift;
     if (!_candleWarmed) {
       // The candle's cuts decoded now, for the first frame the board draws.
       _candleWarmed = true;
-      CandleGauge.precache(context, room + NightBoard.candleRise);
+      CandleGauge.precache(context, candleHeight);
     }
     return Row(
       spacing: Space.md,
@@ -426,16 +432,14 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         Align(
           alignment: Alignment.topRight,
           widthFactor: 1,
-          heightFactor:
-              room / (room + NightBoard.candleRise + NightBoard.candleLift),
+          heightFactor: room / candleHeight,
           child: Transform.translate(
             offset: const Offset(0, -NightBoard.candleLift),
             child: WorldTimer.candleCompact(
               secondsLeft: widget.secondsLeft,
               share: widget.share,
-              candleHeight:
-                  room + NightBoard.candleRise + NightBoard.candleLift,
-              lineHeight: MediaQuery.textScalerOf(context).scale(line),
+              candleHeight: candleHeight,
+              lineHeight: line,
               lift: NightBoard.candleLift,
             ),
           ),
