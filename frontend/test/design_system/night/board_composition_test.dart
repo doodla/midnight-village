@@ -12,6 +12,8 @@ import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
+import 'package:midnight_village/design_system/primitives/layered_art.dart';
+import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
@@ -290,20 +292,34 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         await _pump(tester, BoardPage(viewer: viewer));
         final frame = tester.widget<ScreenFrame>(find.byType(ScreenFrame));
-        expect(frame.topArt!.path, contains('night_village'));
+        expect(frame.topScene, LayeredSceneId.nightVillage);
+        expect(frame.topSceneFrom, NightBoard.villageFrom);
         expect(frame.topArtLayout, TopArtLayout.strip, reason: viewer.name);
       }
     });
 
     test('starts below the moon whatever the status bar adds', () {
-      final art = skinsUnderTest.values.first.art.nightVillage;
+      final scene = skinsUnderTest.values.first.art.layeredScene(
+        LayeredSceneId.nightVillage,
+      );
       for (final safeTop in [0.0, 24.0, 47.0, 59.0]) {
-        final box = TopArtLayout.strip.height + safeTop;
-        final focus = NightBoard.villageFocus(art, 390, box);
-        final cover = math.max(390 / art.pixels.width, box / art.pixels.height);
-        final top =
-            (focus.y + 1) / 2 * (art.pixels.height * cover - box) / cover;
-        expect(top, closeTo(NightBoard.villageFrom, 1), reason: '$safeTop');
+        final box = Size(390, TopArtLayout.strip.height + safeTop);
+        final focus = LayeredArt.focusFrom(scene, box, NightBoard.villageFrom);
+        final geometry = SceneGeometry.cover(
+          LayeredScene(
+            folder: scene.folder,
+            canvas: scene.canvas,
+            focus: focus,
+            layers: scene.layers,
+          ),
+          box,
+        );
+        // Canvas row [villageFrom] is the top of the box.
+        expect(
+          geometry.point(Offset(0, NightBoard.villageFrom)).dy,
+          closeTo(0, 1),
+          reason: '$safeTop',
+        );
       }
     });
 

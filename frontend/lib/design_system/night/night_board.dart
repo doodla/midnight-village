@@ -14,8 +14,8 @@ import '../primitives/notice.dart';
 import '../primitives/paper_card.dart';
 import '../primitives/primary_button.dart';
 import '../primitives/screen_frame.dart';
+import '../skin/art_set.dart' show LayeredSceneId;
 import '../primitives/world_timer.dart';
-import '../skin/art_set.dart';
 import '../skin/ground.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
@@ -119,19 +119,6 @@ class NightBoard extends ConsumerStatefulWidget {
   /// this row of pixels down: its roofs and spire, clear of the moon above,
   /// which would sit under the seconds.
   static const villageFrom = 360.0;
-
-  /// The picture's focus that starts the strip at [villageFrom] in a box
-  /// [width] wide and [height] tall (the status bar's height is in it).
-  static Alignment villageFocus(ArtImage art, double width, double height) {
-    final cover = math.max(
-      width / art.pixels.width,
-      height / art.pixels.height,
-    );
-    final spare = art.pixels.height * cover - height;
-    if (spare <= 0) return Alignment.topCenter;
-    final top = (villageFrom * cover).clamp(0.0, spare);
-    return Alignment(0, 2 * top / spare - 1);
-  }
 
   /// The lines of room a title has, at the full title size.
   static const titleLines = 2;
@@ -307,7 +294,8 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           child: ScreenFrame(
             ground: GroundKind.night,
             fitsHeight: true,
-            topArt: _village(context),
+            topScene: LayeredSceneId.nightVillage,
+            topSceneFrom: NightBoard.villageFrom,
             topArtLayout: TopArtLayout.strip,
             body: MediaQuery.withClampedTextScaling(
               maxScaleFactor: NightBoard.labelScale,
@@ -360,20 +348,6 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           ),
         );
       },
-    );
-  }
-
-  /// The night village, cropped to the strip behind the title.
-  ArtImage _village(BuildContext context) {
-    final art = context.skin.art.nightVillage;
-    return ArtImage(
-      art.path,
-      pixels: art.pixels,
-      focus: NightBoard.villageFocus(
-        art,
-        math.min(MediaQuery.sizeOf(context).width, ScreenFrame.maxWidth),
-        TopArtLayout.strip.height + MediaQuery.paddingOf(context).top,
-      ),
     );
   }
 

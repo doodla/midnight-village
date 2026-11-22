@@ -1,15 +1,15 @@
 import 'dart:math' as math;
-import 'dart:ui' show PathMetric, PointMode;
+import 'dart:ui' show PointMode;
 
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
 import '../skin/ground.dart';
+import '../skin/art_set.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
-import 'art_picture.dart';
-import 'scene_arrival.dart';
 import 'fit_line.dart';
+import 'layered_art.dart';
 import 'world_timer.dart';
 
 /// What a [Band] is painted in.
@@ -140,6 +140,7 @@ class TimerBand extends StatelessWidget {
     super.key,
     required this.secondsLeft,
     required this.elapsed,
+    this.showSun = true,
     this.title,
     this.semanticLabel,
   }) : _sun = true,
@@ -152,6 +153,7 @@ class TimerBand extends StatelessWidget {
     this.title,
     this.semanticLabel,
   }) : _sun = false,
+       showSun = true,
        elapsed = null;
 
   /// Null: the stage has no deadline, and nothing is counted.
@@ -159,6 +161,11 @@ class TimerBand extends StatelessWidget {
 
   /// The sun: how far through the phase it is, 0 to 1; null when unknown.
   final double? elapsed;
+
+  /// The sun: false draws the sky and its path with no sun (the talk's own
+  /// frame while its `/me/` loads: the table does not know where the talk is,
+  /// and a sun drawn at the start would be seen leaving as the real one comes).
+  final bool showSun;
 
   /// The bar: how much of the phase is left, 0 to 1; null when unknown.
   final double? remaining;
@@ -316,34 +323,28 @@ class TimerBand extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // The night's ground is the sky's window; the rooftops and the
-                // sun, one piece, rise into it when a scene brings this
-                // screen in (the dawn): from below the window, the whole of
-                // its height, the text under it not moving at all.
+                // The night's ground is the sky's window until the day's
+                // layers cover it. The dawn brings the roofs up into it from
+                // below, the sun climbing from behind the hills, the text
+                // under it not moving at all.
                 ColoredBox(color: skin.night.ground),
-                ClipRect(
-                  child: ArrivalShift(
-                    travel: 1,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ArtPicture(skin.art.dawnGallows),
-                        Padding(
-                          padding: EdgeInsets.only(top: top),
-                          child: CustomPaint(
-                            painter: _SunPainter(
-                              elapsed: elapsed?.clamp(0, 1).toDouble(),
-                              // The pale sun: bone, never amber (copy rule 10).
-                              sun: skin.night.text,
-                              line: ground.text,
-                              lineWidth: skin.shape.ring,
-                              outlineWidth: skin.shape.selectedRing,
-                            ),
-                          ),
-                        ),
-                      ],
+                LayeredArt(
+                  LayeredSceneId.dawnGallows,
+                  slots: {
+                    'sun': (context, geometry, slot, arrival) => _Sun(
+                      geometry: geometry,
+                      slot: slot,
+                      arrival: arrival,
+                      elapsed: elapsed?.clamp(0, 1).toDouble(),
+                      showSun: showSun,
+                      art: skin.art.layer(
+                        LayeredSceneId.dawnGallows,
+                        slot.sprite!,
+                      ),
+                      line: ground.text,
+                      lineWidth: skin.shape.ring,
                     ),
-                  ),
+                  },
                 ),
                 DecoratedBox(
                   decoration: BoxDecoration(
@@ -427,78 +428,133 @@ class TimerBand extends StatelessWidget {
   }
 }
 
-/// The sun's path over the rooftops, dotted, and the sun [elapsed] along it
-/// (the mock's `M20 190 Q195 -40 370 190` in a 390 x 250 sky).
-class _SunPainter extends CustomPainter {
-  _SunPainter({
+/// The sun on its dotted path, drawn where the scene's draw order puts it
+/// (over the sky, under the hills, so the ends of the path and the sun at
+/// the start and the end of the day are behind them). The sun's place is
+/// where the talk is: [TimerBand.restingSun] of the way when that is not known,
+/// else [elapsed] of the way between where the path's `rise` and `set` put it,
+/// stepped by the clock, never tweened. Brought in by the dawn, it comes up
+/// from behind the hills to that place over the scene's arrival.
+class _Sun extends StatelessWidget {
+  const _Sun({
+    required this.geometry,
+    required this.slot,
+    required this.arrival,
     required this.elapsed,
-    required this.sun,
+    required this.showSun,
+    required this.art,
     required this.line,
     required this.lineWidth,
-    required this.outlineWidth,
   });
+
+  final SceneGeometry geometry;
+  final SceneSlot slot;
+  final Animation<double>? arrival;
+  final bool showSun;
 
   /// Null: not known; the sun stands at [TimerBand.restingSun].
   final double? elapsed;
 
-  /// How far along the path the sun is at the start (and short of its end
-  /// at the finish).
-  static const rise = 0.12;
-
-  final Color sun;
+  final ArtImage art;
   final Color line;
   final double lineWidth;
-  final double outlineWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final arc = slot.arc!;
+    final sprite = slot.sprite!;
+    final path = Path()
+      ..moveTo(geometry.point(arc.start).dx, geometry.point(arc.start).dy)
+      ..quadraticBezierTo(
+        geometry.point(arc.control).dx,
+        geometry.point(arc.control).dy,
+        geometry.point(arc.end).dx,
+        geometry.point(arc.end).dy,
+      );
+    final metric = path.computeMetrics().first;
+    final target =
+        arc.rise + (arc.set - arc.rise) * (elapsed ?? TimerBand.restingSun);
+    final size = sprite.size * geometry.scale;
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    Widget sun(double landed) {
+      final at = metric.getTangentForOffset(metric.length * target)!.position;
+      final corner =
+          at +
+          (sprite.anchor + Offset(0, arc.dip * (1 - landed))) * geometry.scale;
+      return Positioned(
+        left: corner.dx,
+        top: corner.dy,
+        width: size.width,
+        height: size.height,
+        child: Image(
+          image: art.decodedFor(size, ratio),
+          fit: BoxFit.fill,
+          gaplessPlayback: true,
+          excludeFromSemantics: true,
+        ),
+      );
+    }
+
+    final arrival = this.arrival;
+    return Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.none,
+      children: [
+        CustomPaint(
+          painter: _DotsPainter(path: path, line: line, lineWidth: lineWidth),
+        ),
+        if (!showSun)
+          const SizedBox.shrink()
+        else if (arrival == null)
+          sun(1)
+        else
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: arrival,
+              builder: (context, _) => Stack(
+                clipBehavior: Clip.none,
+                children: [sun(arrival.value)],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The sun's path, dotted.
+class _DotsPainter extends CustomPainter {
+  _DotsPainter({
+    required this.path,
+    required this.line,
+    required this.lineWidth,
+  });
+
+  final Path path;
+  final Color line;
+  final double lineWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final arc = Path()
-      ..moveTo(size.width * 0.05, size.height * 0.76)
-      ..quadraticBezierTo(
-        size.width / 2,
-        -size.height * 0.16,
-        size.width * 0.95,
-        size.height * 0.76,
-      );
-    final metric = arc.computeMetrics().first;
-    _dots(canvas, metric);
-
-    // The sun rises clear of the rooftops and sets before it reaches them
-    // again: the ends of the path are the horizon, not the talk.
-    final along = rise + (1 - 2 * rise) * (elapsed ?? TimerBand.restingSun);
-    final position = metric.getTangentForOffset(metric.length * along)!;
-    final radius = size.height * 0.076;
-    canvas
-      ..drawCircle(position.position, radius, Paint()..color = sun)
-      ..drawCircle(
-        position.position,
-        radius,
-        Paint()
-          ..color = line
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = outlineWidth,
-      );
-  }
-
-  void _dots(Canvas canvas, PathMetric metric) {
+    final metric = path.computeMetrics().first;
     final dot = Paint()
       ..color = line.withValues(alpha: 0.55)
       ..strokeWidth = lineWidth
       ..strokeCap = StrokeCap.round;
     const step = 11.0;
-    for (var d = 0.0; d < metric.length; d += step) {
-      final p = metric.getTangentForOffset(d)!.position;
-      canvas.drawPoints(PointMode.points, [p], dot);
-    }
+    final points = [
+      for (var d = 0.0; d < metric.length; d += step)
+        metric.getTangentForOffset(d)!.position,
+    ];
+    canvas.drawPoints(PointMode.points, points, dot);
   }
 
+  // The path is made again with every build; its points are what is drawn.
   @override
-  bool shouldRepaint(_SunPainter old) =>
-      old.elapsed != elapsed ||
-      old.sun != sun ||
+  bool shouldRepaint(_DotsPainter old) =>
       old.line != line ||
       old.lineWidth != lineWidth ||
-      old.outlineWidth != outlineWidth;
+      old.path.getBounds() != path.getBounds();
 }
 
 /// A clock's figure on one line, set smaller rather than broken: the number

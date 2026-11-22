@@ -11,6 +11,7 @@ import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/system_bars.dart';
 import 'art_picture.dart';
+import 'layered_art.dart';
 import 'scene_arrival.dart';
 
 /// How a picture sits across the top of a screen, from the mocks. All three
@@ -74,6 +75,8 @@ class ScreenFrame extends StatelessWidget {
     required this.body,
     this.actions = const [],
     this.topArt,
+    this.topScene,
+    this.topSceneFrom,
     this.topArtLayout = TopArtLayout.scene,
     this.topSlot,
     this.actionGap = Space.mdPlus,
@@ -82,6 +85,16 @@ class ScreenFrame extends StatelessWidget {
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
+       ),
+       assert(
+         topScene == null || (topArt == null && topSlot == null),
+         'A screen has a top picture, a layered one or a top band, only one.',
+       ),
+       assert(
+         topScene == null ||
+             topArtLayout == TopArtLayout.backdrop ||
+             topArtLayout == TopArtLayout.strip,
+         'A layered top picture is a backdrop or a strip.',
        );
 
   /// The widest the phone layout gets.
@@ -100,6 +113,14 @@ class ScreenFrame extends StatelessWidget {
 
   /// A picture across the top, under the status bar, fading into the ground.
   final ArtImage? topArt;
+
+  /// The same, drawn in layers ([LayeredArt]): at rest the flat picture it
+  /// was cut from; a scene that brings the screen in moves its layers.
+  final LayeredSceneId? topScene;
+
+  /// With [topScene] as a strip: the canvas row it starts at
+  /// ([LayeredArt.from]).
+  final double? topSceneFrom;
   final TopArtLayout topArtLayout;
 
   /// A full-width part above the body (`TimerBand`, `Band`), under the status
@@ -125,6 +146,7 @@ class ScreenFrame extends StatelessWidget {
     final colors = context.skin.ground(ground);
     final safeTop = MediaQuery.paddingOf(context).top;
     final art = topArt;
+    final scene = topScene;
     final slot = topSlot;
 
     const padded = EdgeInsets.symmetric(horizontal: Space.gutter);
@@ -156,7 +178,7 @@ class ScreenFrame extends StatelessWidget {
         ),
       );
     }
-    if (art != null) {
+    if (art != null || scene != null) {
       final layout = topArtLayout;
       top = Stack(
         children: [
@@ -169,7 +191,9 @@ class ScreenFrame extends StatelessWidget {
             child: ArrivalShift(
               travel: -arrivalTravel,
               child: _TopArt(
-                art: art,
+                picture: art != null
+                    ? ArtPicture(art)
+                    : LayeredArt(scene!, from: topSceneFrom),
                 fadeTo: colors.ground,
                 fadeFrom:
                     (layout.fadeFrom + safeTop) / (layout.height + safeTop),
@@ -508,7 +532,7 @@ class _FillTop extends StatelessWidget {
       children: [
         LayoutBuilder(
           builder: (context, box) => _TopArt(
-            art: art,
+            picture: ArtPicture(art),
             fadeTo: fadeTo,
             fadeFrom: 1 - fade / box.maxHeight,
           ),
@@ -635,13 +659,13 @@ class _RenderArtOverBody extends RenderBox
 /// The top picture, its lower part fading into the ground.
 class _TopArt extends StatelessWidget {
   const _TopArt({
-    required this.art,
+    required this.picture,
     required this.fadeTo,
     required this.fadeFrom,
     this.veil = 0,
   });
 
-  final ArtImage art;
+  final Widget picture;
   final Color fadeTo;
 
   /// The share of [fadeTo] laid over the whole picture.
@@ -654,7 +678,7 @@ class _TopArt extends StatelessWidget {
   Widget build(BuildContext context) => Stack(
     fit: StackFit.expand,
     children: [
-      ArtPicture(art),
+      picture,
       if (veil > 0) ColoredBox(color: fadeTo.withValues(alpha: veil)),
       DecoratedBox(
         decoration: BoxDecoration(

@@ -237,9 +237,10 @@ const shadowPaperArt = ArtSet(
     Scene.table: Size(1024, 768),
     Scene.streetDoor: Size(768, 1024),
     Scene.sleepingVillage: Size(768, 1024),
-    Scene.nightVillage: Size(768, 1024),
-    Scene.dawnRooftops: Size(768, 1024),
-    Scene.dawnGallows: Size(1024, 768),
+  },
+  layered: {
+    LayeredSceneId.nightVillage: _nightVillage,
+    LayeredSceneId.dawnGallows: _dawnGallows,
   },
   // `object-position: 50% 15%` throughout the mocks.
   portraitFocus: Alignment(0, -0.7),
@@ -264,9 +265,155 @@ const shadowPaperArt = ArtSet(
     Scene.table: Alignment(0, 0.1), // 50% 55%
     Scene.streetDoor: Alignment(0, -0.76), // 50% 12%
     Scene.sleepingVillage: Alignment.topCenter, // 50% 0%
-    Scene.nightVillage: Alignment.topCenter, // 50% 0%
-    Scene.dawnGallows: Alignment(0, -0.2), // 50% 40%
   },
+);
+
+/// 04's village (768 x 1024, `docs/design/art/layers/night-village/`):
+/// the plate, then the clouds' shadows on the sky, the moon, the clouds'
+/// shadows on the moon, and the clouds. Sizes and anchors are what
+/// `just skin-art` prints for each cut. At rest they make the flat picture.
+/// Brought in by the dusk the plate comes with the sheet (and further, the
+/// screen's own `ArrivalShift`); then, inside the one scene, the clouds drift
+/// to their places (`span` 0.3 to 0.85: the sheet lands at 0.85 of the
+/// scene, 0.64 to the eye) and last the moon is lowered into its sky from
+/// above the top edge, 220 canvas px (110 on a phone), over the second half
+/// of the scene, after the sheet has landed. The paper is cut for 16 px of a
+/// cloud's drift (the bleed); the moon may be anywhere, nothing of the plate
+/// is under it and its shadows are cast by the clouds, not by where it is,
+/// so they slide across it as it comes. Light from the upper left, so
+/// shadows fall down and to the right.
+const _nightVillage = LayeredScene(
+  folder: 'night_village',
+  canvas: Size(768, 1024),
+  focus: Alignment.topCenter, // 50% 0%
+  layers: [
+    SceneLayer('village_plate', size: Size(768, 1024)),
+    SceneLayer(
+      'clouds_dark_shadow',
+      size: Size(800, 311),
+      anchor: Offset(-16, 4),
+      from: Offset(-16, 0),
+      span: _clouds,
+    ),
+    SceneLayer(
+      'clouds_cream_shadow',
+      size: Size(429, 332),
+      anchor: Offset(355, 99),
+      from: Offset(16, 0),
+      span: _clouds,
+    ),
+    SceneLayer(
+      'moon',
+      size: Size(294, 332),
+      anchor: Offset(453, 11),
+      from: Offset(0, -220),
+      span: _moon,
+    ),
+    SceneLayer(
+      'moon_shadow_dark',
+      size: Size(183, 115),
+      anchor: Offset(585, 149),
+      from: Offset(-16, 0),
+      span: _clouds,
+      clipTo: 'moon',
+    ),
+    SceneLayer(
+      'moon_shadow_cream',
+      size: Size(147, 48),
+      anchor: Offset(412, 173),
+      from: Offset(16, 0),
+      span: _clouds,
+      clipTo: 'moon',
+    ),
+    SceneLayer(
+      'clouds_dark',
+      size: Size(800, 166),
+      anchor: Offset(-16, 79),
+      from: Offset(-16, 0),
+      span: _clouds,
+    ),
+    SceneLayer(
+      'clouds_cream',
+      size: Size(362, 177),
+      anchor: Offset(422, 178),
+      from: Offset(16, 0),
+      span: _clouds,
+    ),
+  ],
+);
+
+/// The clouds settle after the sheet is down to the eye, and the moon after
+/// them (`Motion.scene` is 500 ms: 150 to 425 ms, and 250 to 500 ms).
+const _clouds = ArrivalSpan(0.3, 0.85);
+const _moon = ArrivalSpan(0.5, 1);
+
+/// 08's dawn (1024 x 768, `docs/design/art/layers/dawn-gallows/`): the sky,
+/// the sun on its dotted path (the screen's own), the far hills that hide
+/// the ends of the path, the birds, the middle roofs with the gallows
+/// standing on them, and the near roofs. Brought in by the dawn the hills,
+/// the middle roofs, the gallows and the near roofs rise from 300 canvas px
+/// below as one bank (the paper under their seams is drawn 12 px deep, so
+/// the near roofs start 12 px further down than the rest, no more, and no
+/// edge of one is ever shown free of what hides it), the sun comes up from
+/// behind the hills and the birds drift in; the sky stays. Light from the
+/// upper right, so shadows fall down and to the left.
+const _dawnGallows = LayeredScene(
+  folder: 'dawn_gallows',
+  canvas: Size(1024, 768),
+  focus: Alignment(0, -0.2), // 50% 40%
+  layers: [
+    SceneLayer('sky_plate', size: Size(1024, 768)),
+    SceneSlot(
+      'sun',
+      // The path over the hills (the mock's `M20 190 Q195 -40 370 190`, its
+      // top raised so the sun clears the far ridge), in canvas pixels.
+      arc: SceneArc(
+        start: Offset(51.2, 543.4),
+        control: Offset(512, -191.6),
+        end: Offset(972.8, 543.4),
+        // Just clear of the ridge at the start of the talk, and at its end
+        // 60% of the disc still in view above the roofs (the timer's picture
+        // is not gone before time is up); when a scene brings it in it starts 158 px
+        // below the hills (which start 300 below their place) and comes up
+        // from behind them.
+        rise: 0.33,
+        set: 0.79,
+        dip: 458,
+      ),
+      // Its disc is 50 px in radius, the sprite's centre at (75, 75).
+      sprite: SceneLayer('sun', size: Size(150, 150), anchor: Offset(-75, -75)),
+    ),
+    SceneLayer(
+      'hills_far',
+      size: Size(771, 208),
+      anchor: Offset(253, 267),
+      from: Offset(0, 300),
+    ),
+    SceneLayer(
+      'birds',
+      size: Size(921, 184),
+      anchor: Offset(52, 58),
+      from: Offset(-40, 30),
+    ),
+    SceneLayer(
+      'roofs_mid',
+      size: Size(627, 533),
+      anchor: Offset(242, 247),
+      from: Offset(0, 300),
+    ),
+    SceneLayer(
+      'gallows',
+      size: Size(284, 248),
+      anchor: Offset(433, 204),
+      from: Offset(0, 300),
+    ),
+    SceneLayer(
+      'roofs_near',
+      size: Size(1048, 620),
+      anchor: Offset(-12, 160),
+      from: Offset(0, 312),
+    ),
+  ],
 );
 
 final shadowPaper = Skin(
