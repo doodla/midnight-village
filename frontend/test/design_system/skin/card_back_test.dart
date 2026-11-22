@@ -1,14 +1,20 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/art_picture.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/panels.dart';
 import 'package:midnight_village/design_system/skin/card_back.dart';
 import 'package:midnight_village/design_system/skin/card_back_scope.dart';
+import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
+import 'package:midnight_village/design_system/skin_loader.dart';
+import 'package:midnight_village/features/lobby/presentation/last_seat.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/night_screen.dart';
@@ -24,6 +30,31 @@ import '../../helpers/shell_setup.dart';
 // another would let a player follow a card.
 
 final _art = SkinId.fallback.skin.art;
+
+/// The app's bundle, noting every asset asked for.
+class _AskedBundle extends AssetBundle {
+  _AskedBundle(this.asked);
+
+  final List<String> asked;
+
+  @override
+  Future<ByteData> load(String key) {
+    asked.add(key);
+    return rootBundle.load(key);
+  }
+
+  @override
+  Future<ui.ImmutableBuffer> loadBuffer(String key) {
+    asked.add(key);
+    return rootBundle.loadBuffer(key);
+  }
+
+  @override
+  Future<T> loadStructuredData<T>(
+    String key,
+    Future<T> Function(String value) parser,
+  ) => rootBundle.loadStructuredData(key, parser);
+}
 
 /// The back of every card back picture drawn on screen, by file.
 Set<String> _backsDrawn(WidgetTester tester) => {
@@ -241,6 +272,101 @@ void main() {
       for (final backs in backsByGame.values) {
         expect(backs, hasLength(1));
       }
+    });
+  });
+
+  group('the game\'s back is decoded before 04\'s card first shows', () {
+    // The deal names the game, and 04 shows its frame (no card) while its
+    // `/me/` is fetched. The back is decoded from that moment, in the
+    // background: the card never waits for it and never shows without it.
+    testWidgets('named at the deal, in the cache before /me/ answers, and '
+        'the card paints it on its first frame', (tester) async {
+      final me = recordedMe('me_look_stage');
+      final gameId = me['game_id'] as String;
+      final back = CardBack.forGame(gameId);
+      expect(back, isNot(CardBack.fallback), reason: 'the fallback is warm');
+
+      PaintingBinding.instance.imageCache.clear();
+      final s = await ShellSetup.pump(tester, me, holdMe: true);
+      await s.settle(tester);
+      // The decode runs on real time; the shell does not wait for it.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
+      await tester.pump();
+      expect(find.byType(YourCardScreen), findsNothing);
+      expect(find.byType(FaceDownCard), findsNothing);
+
+      final context = tester.element(find.byType(Scaffold).first);
+      final ratio = MediaQuery.devicePixelRatioOf(context);
+      final config = ImageConfiguration(devicePixelRatio: ratio);
+      final cache = PaintingBinding.instance.imageCache;
+      for (final size in FaceDownSize.values) {
+        final provider = _art.cardBack(back).decodedFor(size.mock, ratio);
+        final key = await tester.runAsync(() => provider.obtainKey(config));
+        expect(
+          cache.containsKey(key!),
+          isTrue,
+          reason: '${size.name} is decoded before 04 asks for it',
+        );
+      }
+
+      // /me/ answers: the card appears already painted.
+      s.meReplies!.releaseAll();
+      for (
+        var i = 0;
+        i < 60 && find.byType(YourCardScreen).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(find.byType(YourCardScreen), findsOneWidget);
+      final drawn = tester.widgetList<RawImage>(
+        find.descendant(
+          of: find.byType(FaceDownCard),
+          matching: find.byType(RawImage),
+        ),
+      );
+      expect(drawn, isNotEmpty);
+      expect(drawn.every((picture) => picture.image != null), isTrue);
+      await s.close(tester);
+    });
+  });
+
+  group('a restart in a game decodes that game\'s back with the start', () {
+    Future<void> restoreSeat(String? seat) async {
+      SharedPreferences.setMockInitialValues({
+        if (seat != null) '${LastSeat.prefix}$seat': '1',
+      });
+      await LastSeat.restore(DevicePreferences());
+    }
+
+    tearDown(LastSeat.forget);
+
+    test('the game of the seat kept on the device; none for a waiting '
+        'table or no table', () async {
+      await restoreSeat('7:ABCD|9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e');
+      expect(LastSeat.openingGame, '9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e');
+      await restoreSeat('7:ABCD');
+      expect(LastSeat.openingGame, isNull);
+      await restoreSeat(null);
+      expect(LastSeat.openingGame, isNull);
+      expect(CardBack.forGame(LastSeat.openingGame), CardBack.fallback);
+    });
+
+    testWidgets('prepare takes the back asked for, and no other of the '
+        'five', (tester) async {
+      final skin = SkinId.fallback.skin;
+      final asked = <String>[];
+      await tester.runAsync(
+        () => SkinLoader(
+          bundle: _AskedBundle(asked),
+          devicePixelRatio: () => 3,
+        ).prepare(skin, back: CardBack.quilt),
+      );
+      expect(asked.where((key) => key.contains('/card_back_')).toSet(), {
+        _art.cardBack(CardBack.quilt).path,
+      });
     });
   });
 }

@@ -6,12 +6,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'design_system/skin/card_back.dart';
 import 'design_system/skin/ground.dart';
 import 'design_system/skin/skin_id.dart';
 import 'design_system/skin/system_bars.dart';
 import 'design_system/skin_loader.dart';
 import 'design_system/teach/learned_store.dart';
 import 'features/game/presentation/table_screen.dart';
+import 'features/lobby/presentation/last_seat.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +31,14 @@ Future<void> main() async {
   await restoreLocalSteps();
   runApp(const ProviderScope(child: App()));
   // The art secrets show, decoded long before the first card is dealt.
-  unawaited(SkinLoader().prepare(SkinId.fallback.skin));
+  // The card back of the game this device was last in is decoded with them,
+  // so a restart in a game has it before the table is even named.
+  unawaited(
+    SkinLoader().prepare(
+      SkinId.fallback.skin,
+      back: CardBack.forGame(LastSeat.openingGame),
+    ),
+  );
 }
 
 /// The bundled fonts and their OFL licence texts (assets/fonts/).

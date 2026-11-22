@@ -39,7 +39,19 @@ deterministically.
    - `window`: a soft warm halo round the lit window, and the window a little brighter, so it reads at the 55 px
      card of a board of ten.
 
-The scripts were run in a scratch folder and are not kept here: the JPEGs are the record.
+## Regenerating
+
+`raw/<name>.webp` is what the image model gave (lossless WebP of the 1200 x 1600 result; for `moon`, the edit
+described below). Steps 2 and 3 are `frontend/tool/card_back_art.py`, with each card's settings in its `CARDS`
+table; from `frontend/`:
+
+```bash
+just card-back-art   # raw/<name>.webp -> <name>.jpg, the masters (deterministic: the same bytes every run)
+just skin-art        # the masters -> the app's scenes/card_back_<name>.webp
+```
+
+A new generated picture goes in `raw/` under the card's name; a change to the grading or the finishing is a
+change to the script, then both commands, and the pictures from `just screens`.
 
 ## Prompts of the kept pictures
 
