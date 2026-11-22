@@ -53,6 +53,9 @@ abstract final class JoinCopy {
   static const online = Template('{n} at tables');
   static const lastWon = 'You won last game';
   static const lastLost = 'You lost last game';
+
+  /// Only in an Android browser, at the foot: a quiet link to the app's file.
+  static const getApp = 'Get the app';
 }
 
 /// 01's scan action and the scanner it opens (01b). The action is a glyph and
