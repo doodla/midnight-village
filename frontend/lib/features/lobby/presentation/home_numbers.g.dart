@@ -151,7 +151,7 @@ final class AppOriginProvider extends $FunctionalProvider<Uri?, Uri?, Uri?>
   }
 }
 
-String _$appOriginHash() => r'f5b8b468c93e34b6365eb52740798c241f56127e';
+String _$appOriginHash() => r'6c280ef3459c94466b109397268aa32977f91c1e';
 
 @ProviderFor(shareLink)
 const shareLinkProvider = ShareLinkProvider._();

@@ -60,7 +60,7 @@ merge for ever) or has a job with no name or time limit.
 | `Screens strict at 360`, `Screens strict at 390` | `just screens 360 strict`, `just screens 390 strict` (one job each, side by side) |
 | `Integration Tests` | `just test-integration-ci` |
 | `End-to-end Harness` | `just test-harness` |
-| `Web page smoke` | `just web-smoke-setup`, `just web-smoke`: the release web page in Chromium (first visit, return, a deploy runs the new build) |
+| `Web page smoke` | `just web-smoke-setup`, `just web-smoke`: the release web page in Chromium (first visit, return, a deploy runs the new build, a table's link) |
 
 The ruleset `docs/dev/main-ruleset.json` is what makes this the wall: a pull request on the
 default branch, squash merges only, every check above required (up to date with main not

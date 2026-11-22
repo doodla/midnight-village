@@ -8,11 +8,14 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/lobby/presentation/join_flow.dart';
+import 'package:midnight_village/design_system/primitives/viewfinder.dart';
 import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
 import 'package:midnight_village/features/game/presentation/table_screen.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
+import 'package:midnight_village/features/lobby/presentation/scan/code_scanner.dart';
 
 import '../test/helpers/contract/contract_samples.dart';
+import '../test/helpers/fake_code_scanner.dart';
 import '../test/helpers/mock_http_client.dart';
 import '../test/helpers/table_setup.dart';
 
@@ -243,6 +246,70 @@ Future<void> pumpJoinLinkElsewhere(WidgetTester tester) => TableSetup.pump(
 /// 01 opened from a table's link (its QR code), signed out.
 Future<void> pumpJoinLink(WidgetTester tester) =>
     TableSetup.pump(tester, route: '/join/V9YC2J');
+
+/// 01 for a player with a name, the scan action tapped: the camera looking
+/// (a picture of a table with a code on it stands in), the light on offer.
+Future<void> pumpScanLooking(
+  WidgetTester tester, {
+  double textScale = 1,
+}) async {
+  await TableSetup.pump(
+    tester,
+    signedInAs: 'Ben',
+    lastWon: false,
+    textScale: textScale,
+    scanner: () => FakeCodeScanner(lit: LightState.off),
+  );
+  await _openScanner(tester);
+}
+
+/// The same, the code seen: the window's corners are in, the code stands in
+/// it and the join is on its way (its answer is held).
+Future<void> pumpScanFound(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    signedInAs: 'Ben',
+    lastWon: false,
+    // The held join is never answered, and never given up on.
+    timesOut: false,
+    scanner: () => FakeCodeScanner(lit: LightState.off),
+  );
+  setup.http
+    ..answer(
+      'POST',
+      '/lobbies/V9YC2J/join/',
+      ContractSamples.map('http/lobby/joined'),
+    )
+    ..hold(method: 'POST', path: '/lobbies/V9YC2J/join/');
+  setup.sitAt(v2Lobby('detail_auto_deck_5'), 'Ben');
+  await _openScanner(tester);
+  setup.scanners.single.see('https://midnight.example/join/V9YC2J');
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+/// The camera was refused: one calm line, and the way on.
+Future<void> pumpScanRefused(WidgetTester tester) async {
+  await TableSetup.pump(
+    tester,
+    signedInAs: 'Ben',
+    lastWon: false,
+    scanner: () => FakeCodeScanner(problem: ScanProblem.refused),
+  );
+  await _openScanner(tester);
+}
+
+Future<void> _openScanner(WidgetTester tester) async {
+  await tester.tap(
+    find.byWidgetPredicate(
+      (w) => w is GlyphButton && w.semanticLabel == ScanCopy.scan,
+    ),
+  );
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 02 Table

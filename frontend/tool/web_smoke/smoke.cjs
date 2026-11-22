@@ -1,7 +1,9 @@
 // The built web page in a real browser, served as Vercel serves it (every
 // file revalidated, unknown paths answered with index.html): a first visit
 // loads, a return loads (from Flutter's service worker), and a second build
-// served in the first one's place (a deploy) runs on its first open.
+// served in the first one's place (a deploy) runs on its first open; a
+// table's link (`/join/<code>`) opens the app, as a return and as a first
+// visit that registers the whole site's worker.
 //
 // usage: node tool/web_smoke/smoke.cjs <release build/web>
 // Needs the `playwright` package (NODE_PATH, or installed beside this file)
@@ -145,10 +147,28 @@ async function open(context, url, label) {
     check(again.controlled, 'the new build is served by the service worker');
     await again.page.close();
 
-    // 5. A table's link (any path) is the app too.
-    const link = await open(context, `${url}#/join/ABCD`, 'a join link');
+    // 5. A table's link (`/join/<code>`, a path) is the app too.
+    const link = await open(context, `${url}join/ABCD`, 'a join link');
     check(link.painted && link.build === 'B', "a table's link opens the app");
+    check(link.controlled, "a table's link is served by the service worker");
     await link.page.close();
+
+    // 6. A phone whose first visit is a table's link: the worker it then
+    // registers is the whole site's, not the link's folder.
+    const fresh = await browser.newContext();
+    const linked = await open(fresh, `${url}join/ABCD`, 'a first visit by a join link');
+    check(linked.painted && linked.build === 'B', "a first visit by a table's link loads the app");
+    let scope = null;
+    for (let i = 0; i < 120 && scope == null; i++) {
+      scope = await linked.page.evaluate(async () => {
+        const r = await navigator.serviceWorker.getRegistration();
+        return r?.active?.state === 'activated' ? r.scope : null;
+      });
+      if (scope == null) await linked.page.waitForTimeout(500);
+    }
+    check(scope === url, `that visit registers the site's service worker (scope ${scope})`);
+    check(linked.errors.length === 0, `no page errors on that visit ${linked.errors.join(' | ')}`);
+    await fresh.close();
   } finally {
     await browser.close();
     server.close();

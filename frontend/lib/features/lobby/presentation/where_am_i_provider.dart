@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    show ProviderSubscription, WidgetRef;
+    show ProviderSubscription;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/healing/healing.dart';
@@ -25,7 +25,7 @@ part 'where_am_i_provider.g.dart';
 /// Every answer is kept on the device as the last seat ([LastSeat]).
 ///
 /// A read asked for right after an answer that said where this player sits
-/// (a table started or joined, the host's deal, play again) takes that seat
+/// (a table started or joined, play again) takes that seat
 /// ([SeatSeed]) and sends nothing: the request is the answer's, already
 /// made.
 @Riverpod(retry: retryForever)
@@ -49,7 +49,7 @@ Future<MyTable?> myTable(Ref ref) async {
 }
 
 /// Where an answer just said this player sits (`MyTable.seatedAt`: a table
-/// started or joined, the host's deal, play again), so `/me/table/`'s next
+/// started or joined, play again), so `/me/table/`'s next
 /// read takes it instead of asking ([myTableProvider]): the screen it names
 /// follows the answer with no request after it. One slot, put and asked for
 /// together ([seatFromAnswer]) and taken by that read; a read for another
@@ -80,14 +80,6 @@ SeatSeed seatSeed(Ref ref) => SeatSeed();
 /// read and goes stale. Nothing mounted: nothing is put, and the next read
 /// asks the server.
 void seatFromAnswer(Ref ref, int userId, MyTable seat) {
-  if (!ref.exists(myTableProvider)) return;
-  ref.read(seatSeedProvider)._put(userId, seat);
-  ref.invalidate(myTableProvider);
-}
-
-/// [seatFromAnswer] from a screen (the same rule: only while `/me/table/`
-/// is mounted).
-void seatFromAnswerOnScreen(WidgetRef ref, int userId, MyTable seat) {
   if (!ref.exists(myTableProvider)) return;
   ref.read(seatSeedProvider)._put(userId, seat);
   ref.invalidate(myTableProvider);

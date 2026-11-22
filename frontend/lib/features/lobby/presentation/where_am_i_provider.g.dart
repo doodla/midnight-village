@@ -17,7 +17,7 @@ part of 'where_am_i_provider.dart';
 /// Every answer is kept on the device as the last seat ([LastSeat]).
 ///
 /// A read asked for right after an answer that said where this player sits
-/// (a table started or joined, the host's deal, play again) takes that seat
+/// (a table started or joined, play again) takes that seat
 /// ([SeatSeed]) and sends nothing: the request is the answer's, already
 /// made.
 
@@ -33,7 +33,7 @@ const myTableProvider = MyTableProvider._();
 /// Every answer is kept on the device as the last seat ([LastSeat]).
 ///
 /// A read asked for right after an answer that said where this player sits
-/// (a table started or joined, the host's deal, play again) takes that seat
+/// (a table started or joined, play again) takes that seat
 /// ([SeatSeed]) and sends nothing: the request is the answer's, already
 /// made.
 
@@ -50,7 +50,7 @@ final class MyTableProvider
   /// Every answer is kept on the device as the last seat ([LastSeat]).
   ///
   /// A read asked for right after an answer that said where this player sits
-  /// (a table started or joined, the host's deal, play again) takes that seat
+  /// (a table started or joined, play again) takes that seat
   /// ([SeatSeed]) and sends nothing: the request is the answer's, already
   /// made.
   const MyTableProvider._()

@@ -16,7 +16,6 @@ import '../../../design_system/primitives/pending.dart' show RequestRefused;
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../data/lobby_service.dart';
 import '../domain/lobby_state.dart';
-import '../../game/presentation/live_game.dart' show liveGameProvider;
 import 'where_am_i_provider.dart';
 
 part 'lobby_notifier.g.dart';
@@ -469,11 +468,6 @@ class LobbyNotifier extends _$LobbyNotifier {
   /// The consumer (lobby screen) watches [gameId] and navigates to
   /// `/game/<gameId>` when it becomes non-null. The provider is then
   /// invalidated by navigation, triggering dispose and WS cleanup.
-  ///
-  /// The event is the deal: this table's new game (it usually comes before
-  /// the host's own answer, and it is what a guest hears). Where this phone
-  /// sits then is read from that game's own `/me/` (`AtTableScreen`), not
-  /// assumed: the event names no phase.
   void _onGameStarted(Map<String, dynamic> message) {
     final id = message['game_id'] as String?;
     if (id != null) _applyStartedGame(id);
@@ -671,14 +665,11 @@ class LobbyNotifier extends _$LobbyNotifier {
       // The deal worked. 02's Deal stays busy (the caller's busy lasts as
       // long as this call) until `/me/table/` names the next screen, so the
       // button is never live again in the gap between the answer and the
-      // dusk. (`startGame` has made the table's game known: 02 reads that
-      // game's `/me/` at once, and its answer is where this phone sits, put
-      // as `/me/table/`'s next value: `AtTableScreen`. A phone that listens
-      // to no table, or a read that is not wanted, waits for nothing.)
+      // dusk. (`startGame` has made the table's game known, which has the
+      // table read again; a phone that listens to no table, or a read that
+      // is not wanted, waits for nothing.)
       // A read that is failing frees the button all the same (the screen
       // says "One moment" over the table while it is).
-      final dealt = liveGameProvider(id);
-      if (ref.mounted && ref.exists(dealt)) await readAnswered(ref, dealt);
       if (ref.mounted && ref.exists(myTableProvider)) {
         await readAnswered(ref, myTableProvider);
       }

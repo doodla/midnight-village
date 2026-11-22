@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/load_once_bundle.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/art_precache.dart';
@@ -125,6 +126,27 @@ void main() {
     expect(inner.art.first, door);
   });
 
+  test(
+    '01\'s picture is read first but not decoded by the start: 01 decodes '
+    'it at the size it draws (no full-size copy that nothing draws)',
+    () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+      final bundle = LoadOnceBundle(_Bundle());
+      await SkinLoader(
+        bundle: bundle,
+        devicePixelRatio: () => 3,
+      ).prepare(skin).timeout(const Duration(seconds: 20));
+
+      final full = await skin.art.streetDoor
+          .decodedFor(Size.infinite, 3)
+          .obtainKey(ImageConfiguration(bundle: bundle, devicePixelRatio: 3));
+      expect(PaintingBinding.instance.imageCache.containsKey(full), isFalse);
+    },
+  );
+
   test('each picture is read once, whatever sizes it is decoded at', () async {
     TestWidgetsFlutterBinding.ensureInitialized();
     final inner = _Bundle();
@@ -165,7 +187,8 @@ void main() {
   test('precached with no bundle named, a picture is decoded under the '
       "app's bundle, the one the screens draw from", () async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final [(door, box)] = openingArt(skin);
+    final [door] = openingArt(skin);
+    final box = HeldFace.portraitBox;
     final drawn = door.decodedFor(box, 3);
 
     await precacheArt([(door, box)], devicePixelRatio: 3);

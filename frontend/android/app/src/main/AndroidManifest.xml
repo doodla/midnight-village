@@ -31,6 +31,20 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- A table's link (`https://<web app host>/join/<code>`, the QR code and
+                 Share) opens this app, not the browser. The host is the build's
+                 PUBLIC_ORIGIN (build.gradle.kts); the web app serves
+                 /.well-known/assetlinks.json with this app's signing key for Android to
+                 verify it (docs/dev/deploy-vercel.md). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="${publicHost}"
+                    android:pathPrefix="/join/"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

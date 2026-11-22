@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
-import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
 import 'package:midnight_village/features/lobby/presentation/at_table_screen.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
@@ -14,8 +13,10 @@ import '../../../helpers/table_setup.dart';
 // row"): an answer that says where the player sits is used, never read
 // again. Start = the guest account, then the table (its answer is the
 // lobby); Join = the account, then the join; Deal = the start, then the
-// dealt game's /me/. Every request the app sends is listed (a request with
-// no mock fails the test), so a read added back fails here.
+// table and the dealt game side by side (its answer does not say the phase,
+// so the deal keeps main's two reads in one round trip). Every request the
+// app sends is listed (a request with no mock fails the test), so a read
+// added back fails here.
 
 /// The requests sent from the [from]th on, as "METHOD path", leaving out
 /// 01's home numbers (the players online, the last game), which are read
@@ -179,8 +180,8 @@ void main() {
     await setup.close(tester);
   });
 
-  testWidgets('Deal: the start, then the dealt game\'s /me/; 04 shows with '
-      'no /me/table/ in between', (tester) async {
+  testWidgets('Deal: the start, then the table and the dealt game read side '
+      'by side (one round trip after the answer, as on main)', (tester) async {
     final setup = await TableSetup.pump(
       tester,
       lobby: v2Lobby('detail_auto_deck_5'),
@@ -192,120 +193,20 @@ void main() {
       '/onuw/lobbies/V9YC2J/start/',
       started,
       status: 201,
-    );
-    final dealt = recordedMe('me_look_stage');
-    setup.answerGame(dealt);
-    final me = 'GET /onuw/games/${started['game_id']}/me/';
-    final from = setup.http.requests.length;
-
-    await _tapText(tester, TableCopy.deal.fill({'n': 5}));
-    await _until(tester, () => _shows(find.byType(YourCardScreen)));
-
-    final sent = _sent(setup, from);
-    expect(sent.take(2), ['POST /onuw/lobbies/V9YC2J/start/', me]);
-    // Only the game is read after that: the recorded look's deadline has
-    // passed by this test's clock, so its own deadline read follows (not a
-    // step of the deal).
-    expect(sent.skip(2), everyElement(me));
-    await setup.close(tester);
-  });
-
-  testWidgets('Deal, its event first (the server says it on the socket '
-      'before it answers): still only the start and the game\'s /me/', (
-    tester,
-  ) async {
-    final setup = await TableSetup.pump(
-      tester,
-      lobby: v2Lobby('detail_auto_deck_5'),
-      viewer: 'Ana',
-    );
-    final started = ContractSamples.map('http/game/started_with_look');
-    setup.http.answer(
-      'POST',
-      '/onuw/lobbies/V9YC2J/start/',
-      started,
-      status: 201,
-    );
-    final answer = setup.http.hold(
-      method: 'POST',
-      path: '/onuw/lobbies/V9YC2J/start/',
     );
     setup.answerGame(recordedMe('me_look_stage'));
     final me = 'GET /onuw/games/${started['game_id']}/me/';
     final from = setup.http.requests.length;
 
     await _tapText(tester, TableCopy.deal.fill({'n': 5}));
-    await _until(tester, () => answer.length == 1);
-    setup.event({
-      ...ContractSamples.map('ws/lobby/game_started'),
-      'game_id': started['game_id'],
+    await _until(tester, () {
+      final sent = _sent(setup, from);
+      return sent.contains(me) && sent.contains('GET /me/table/');
     });
-    await _until(tester, () => _sent(setup, from).contains(me));
-    answer.releaseAll();
-    await _until(tester, () => _shows(find.byType(YourCardScreen)));
 
     final sent = _sent(setup, from);
-    expect(sent.take(2), ['POST /onuw/lobbies/V9YC2J/start/', me]);
-    expect(sent, isNot(contains('GET /me/table/')));
-    await setup.close(tester);
-  });
-
-  testWidgets('Deal: the game\'s /me/ leaves while 02 is still up (never '
-      'behind the game\'s first frame); the card follows its answer', (
-    tester,
-  ) async {
-    final setup = await TableSetup.pump(
-      tester,
-      lobby: v2Lobby('detail_auto_deck_5'),
-      viewer: 'Ana',
-    );
-    final started = ContractSamples.map('http/game/started_with_look');
-    setup.http.answer(
-      'POST',
-      '/onuw/lobbies/V9YC2J/start/',
-      started,
-      status: 201,
-    );
-    setup.answerGame(recordedMe('me_look_stage'));
-    final mePath = '/onuw/games/${started['game_id']}/me/';
-    final me = setup.http.hold(method: 'GET', path: mePath);
-    final from = setup.http.requests.length;
-
-    await _tapText(tester, TableCopy.deal.fill({'n': 5}));
-    await _until(tester, () => me.length == 1);
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(Duration.zero);
-    }
-    expect(find.byType(AtTableView), findsOneWidget);
-    expect(find.byType(YourCardScreen), findsNothing);
-
-    setup.http.stopHolding(method: 'GET', path: mePath);
-    me.releaseAll();
-    await _until(tester, () => _shows(find.byType(YourCardScreen)));
-    expect(_sent(setup, from), isNot(contains('GET /me/table/')));
-    await setup.close(tester);
-  });
-
-  testWidgets('Deal whose game cannot be read: where the host sits is read '
-      'from /me/table/, as before', (tester) async {
-    final setup = await TableSetup.pump(
-      tester,
-      lobby: v2Lobby('detail_auto_deck_5'),
-      viewer: 'Ana',
-    );
-    final started = ContractSamples.map('http/game/started_with_look');
-    setup.http
-      ..answer('POST', '/onuw/lobbies/V9YC2J/start/', started, status: 201)
-      ..answer(
-        'GET',
-        '/onuw/games/${started['game_id']}/me/',
-        'Server Error',
-        status: 503,
-      );
-    final from = setup.http.requests.length;
-
-    await _tapText(tester, TableCopy.deal.fill({'n': 5}));
-    await _until(tester, () => _sent(setup, from).contains('GET /me/table/'));
+    expect(sent.first, 'POST /onuw/lobbies/V9YC2J/start/');
+    expect(sent.skip(1).take(2).toSet(), {'GET /me/table/', me});
     await setup.close(tester);
   });
 }

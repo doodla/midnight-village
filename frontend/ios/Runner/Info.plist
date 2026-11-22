@@ -14,6 +14,8 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>midnight_village</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The camera reads the code on the table's screen.</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

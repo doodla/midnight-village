@@ -36,14 +36,12 @@ List<(ArtImage, Size)> secretArt(
 ];
 
 /// The picture the app opens on: 01's village (`TopArtLayout.fill`), which
-/// the opening wait shows too. Decoded at its full width, the size a phone
-/// draws it at (the fill covers the screen's width at its pixel ratio, more
-/// than half the picture's width on any phone), so the screen finds it
-/// decoded; precached before [secretArt] (`SkinLoader`), so it is not queued
-/// behind the secrets' pictures on a slow line.
-List<(ArtImage, Size)> openingArt(Skin skin) => [
-  (skin.art.streetDoor, Size.infinite),
-];
+/// the opening wait shows too. Its bytes are read before [secretArt]'s
+/// (`SkinLoader`), so it is not queued behind the secrets' pictures on a slow
+/// line; it is not decoded here: 01 decodes it at the size it draws, from
+/// those same bytes (`LoadOnceBundle`). Decoded here at full size, it was a
+/// second, larger copy that no screen drew.
+List<ArtImage> openingArt(Skin skin) => [skin.art.streetDoor];
 
 /// Decodes card back [back] at every face-down size, for the game that is
 /// about to show it: the one back in use, not the other four. Not awaited by

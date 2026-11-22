@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # `/join/<code>` addresses with no `#` (usePathUrlStrategy in main.dart)
+  flutter_web_plugins:
+    sdk: flutter
 
   # State management - Riverpod 3.x with code generation
   flutter_riverpod: ^3.0.3
@@ -36,6 +39,9 @@ dependencies:
   shared_preferences: ^2.5.5
   qr: ^3.0.3
   share_plus: ^13.3.1
+  mobile_scanner: ^7.5.0
+  # The web scanner's own decoder URL (the page's base)
+  web: ^1.0.0
 
 dev_dependencies:
   flutter_test:

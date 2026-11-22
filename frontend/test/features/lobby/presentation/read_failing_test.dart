@@ -97,10 +97,8 @@ void main() {
     });
   }
 
-  testWidgets('Deal: answered, then neither the dealt game nor the table can '
-      'be read: Deal is freed and "One moment" says so; sent once', (
-    tester,
-  ) async {
+  testWidgets('Deal: answered, then the table cannot be read: Deal is freed '
+      'and "One moment" says so; sent once', (tester) async {
     final setup = await TableSetup.pump(
       tester,
       lobby: v2Lobby('detail_auto_deck_5'),
@@ -114,14 +112,7 @@ void main() {
       started,
       status: 201,
     );
-    // The next screen comes from the dealt game's /me/ (where the host
-    // sits); it fails, and so does the table it falls back to.
-    setup.http.answer(
-      'GET',
-      '/onuw/games/${started['game_id']}/me/',
-      'Server Error',
-      status: 503,
-    );
+    setup.answerGame(recordedMe('me_look_stage'));
     failTable(setup);
     await tester.tap(find.byType(PrimaryButton).last);
     await setup.settle(tester);
@@ -212,23 +203,7 @@ void main() {
     await s.settle(tester);
     final code = s.me['lobby_code'] as String;
     final path = '/lobbies/$code/play-again/';
-    // The recorded answer, under this game's table, hosted by this phone.
-    final me = s.me['player_id'] as int;
-    final answer = ContractSamples.map('http/lobby/play_again');
-    final host = answer['host'] as Map<String, dynamic>;
-    final was = host['id'] as int;
-    for (final player in (answer['players'] as List).cast<Map>()) {
-      final user = player['user'] as Map;
-      user['id'] = user['id'] == was
-          ? me
-          : user['id'] == me
-          ? was
-          : user['id'];
-    }
-    answer['code'] = code;
-    answer['original_host_id'] = me;
-    host['id'] = me;
-    s.http.answer('POST', path, answer);
+    s.http.answer('POST', path, s.playedAgain());
     s.http.answer('GET', '/me/table/', 'Server Error', status: 503);
     final reads = s.http.requests.where((r) => r.path == '/me/table/').length;
 

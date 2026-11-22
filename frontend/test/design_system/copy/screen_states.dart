@@ -153,6 +153,15 @@ final screens = <String, Screen>{
       ],
     },
   ),
+  // The scanner (spec 01b): no words while it looks; one calm line and a
+  // way out when the camera cannot be used.
+  '01b Scan': (
+    budget: 7,
+    states: {
+      'looking': [],
+      'camera off': [text(ScanCopy.cameraOff), button(ScanCopy.typeCode)],
+    },
+  ),
   '02 Table': (
     // The host's: the QR code's "Scan to join", the code's "Code", who is
     // here of how many, "Play with {n}" when fewer came, the set-up (the
@@ -491,6 +500,11 @@ final spoken = [
   ResultsCopy.nightSpoken,
   // A dimmed night card: a tap still switches the pick.
   NightCopy.switchesPick,
+  // 01's scan glyph, and the viewfinder's: what it does, Back and the light.
+  ScanCopy.scan,
+  ScanCopy.looking,
+  ScanCopy.back,
+  ScanCopy.light,
   // 02's Share glyph.
   TableCopy.share,
   // 03's steppers and the grid card's minus.

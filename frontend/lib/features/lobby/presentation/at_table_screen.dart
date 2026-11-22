@@ -28,10 +28,9 @@ import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
-import '../../game/presentation/live_game.dart' show LiveGame, liveGameProvider;
+import '../../game/presentation/live_game.dart' show liveGameProvider;
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
 import '../domain/lobby_state.dart';
-import '../domain/where_am_i.dart';
 import 'deck_screen.dart'
     show DeckCount, deckChipLabel, lengthText, minSeats, showRoleSheet;
 import 'seats_line.dart';
@@ -152,16 +151,11 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     );
   }
 
-  /// What the lobby's changes mean beyond what it shows: a handover moves
-  /// `/me/table/` on, so it is read again. A deal names its game (the deal's
-  /// answer, or `game_started`): that game's `/me/` is read at once, and when
-  /// it lands it is where this phone sits (`SeatSeed`: this table, in that
-  /// game, at the phase `/me/` says), so `/me/table/` is not asked. The
-  /// screen changes only then: the request leaves while this screen is still
-  /// up, before the game's heavy first frame (asked for as the screen
-  /// changed, it waited behind that frame, ~0.5 s on a slow phone). A `/me/`
-  /// that fails, or a table that does not seat this phone, reads
-  /// `/me/table/` as before.
+  /// What the lobby's changes mean beyond what it shows: a deal or a
+  /// handover moves `/me/table/` on, so it is read again. A deal names its
+  /// game (the deal's answer, or `game_started`): that game's `/me/` is read
+  /// at the same time, not after `/me/table/`, and the game's screen finds
+  /// it on its way.
   void _follow(AsyncValue<LobbyState>? before, AsyncValue<LobbyState> now) {
     final lobby = now.value;
     if (lobby == null) return;
@@ -169,34 +163,10 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     final started = lobby.startedGameId;
     final moved = started != null && started != was?.startedGameId;
     final hostMoved = was != null && was.hostId != lobby.hostId;
-    if (hostMoved) ref.invalidate(myTableProvider);
+    if (moved || hostMoved) ref.invalidate(myTableProvider);
     if (moved) {
       _dealt?.close();
-      var seated = false;
-      _dealt = ref.listenManual<AsyncValue<LiveGame>>(
-        liveGameProvider(started),
-        (_, game) {
-          if (seated || game.isLoading && !game.hasError) return;
-          seated = true;
-          final me = game.value?.me;
-          final viewer = _viewer;
-          final table = ref.read(lobbyProvider(lobby.code)).value ?? lobby;
-          final seat = me == null || viewer == null
-              ? null
-              : MyTable.seatedAt(
-                  table,
-                  viewerId: viewer,
-                  status: TableStatus.inGame,
-                  game: (id: started, phase: me.phase),
-                );
-          if (seat != null) {
-            seatFromAnswerOnScreen(ref, viewer!, seat);
-          } else {
-            ref.invalidate(myTableProvider);
-          }
-        },
-        fireImmediately: true,
-      );
+      _dealt = ref.listenManual(liveGameProvider(started), (_, _) {});
     }
   }
 

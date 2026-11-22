@@ -12,6 +12,7 @@ import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
+import 'package:midnight_village/design_system/primitives/viewfinder.dart';
 import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
@@ -175,6 +176,11 @@ AppScreen? _screen(WidgetTester tester) {
 int _requests(TableSetup setup, String method) =>
     setup.http.requests.where((r) => r.method == method).length;
 
+/// 01's scan action (a glyph: found by what a screen reader hears).
+final _scanAction = find.byWidgetPredicate(
+  (w) => w is GlyphButton && w.semanticLabel == ScanCopy.scan,
+);
+
 Future<void> _tap(WidgetTester tester, Finder what) async {
   await tester.ensureVisible(what);
   await tester.pump();
@@ -258,6 +264,45 @@ void main() {
 
       await _back(tester);
       expect(platform.left, isTrue);
+      await setup.close(tester);
+    });
+
+    testWidgets('with the scanner open, Back closes it (the camera stops) '
+        'and 01 is as it was; the next Back leaves', (tester) async {
+      final platform = _Platform.listen(tester);
+      final setup = await TableSetup.pump(tester, signedInAs: 'Ana');
+      await tester.tap(_scanAction);
+      await _settled(tester);
+      expect(setup.scanners.single.started, isTrue);
+      expect(find.text(JoinCopy.joinTable), findsNothing);
+      // The scanner answers Back itself: the system is told the app takes it.
+      expect(platform.appTakesBack, isTrue);
+
+      await _back(tester);
+      expect(platform.left, isFalse);
+      expect(setup.scanners.single.disposed, isTrue);
+      expect(find.text(JoinCopy.joinTable), findsOneWidget);
+      expect(find.text('Ana'), findsOneWidget);
+      expect(platform.appTakesBack, isFalse);
+
+      await _back(tester);
+      expect(platform.left, isTrue);
+      await setup.close(tester);
+    });
+
+    testWidgets('with the scanner open over the code field, Back closes the '
+        'scanner, then the field', (tester) async {
+      final platform = _Platform.listen(tester);
+      final setup = await TableSetup.pump(tester, signedInAs: 'Ana');
+      await _tap(tester, find.text(JoinCopy.joinTable));
+      await tester.tap(_scanAction);
+      await _settled(tester);
+
+      await _back(tester);
+      expect(find.text(JoinCopy.codeHint), findsOneWidget);
+      await _back(tester);
+      expect(find.text(JoinCopy.codeHint), findsNothing);
+      expect(platform.left, isFalse);
       await setup.close(tester);
     });
   });

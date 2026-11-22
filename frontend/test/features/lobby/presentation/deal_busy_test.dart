@@ -8,13 +8,13 @@ import 'package:midnight_village/features/lobby/presentation/at_table_screen.dar
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/live_game_setup.dart' show recordedMe;
 import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/table_setup.dart';
 
 // The deal is a tap that leads to another screen: Deal is busy in the frame
-// of the tap and is not live again until the next screen is named (by the
-// dealt game's `/me/`, which is where the host sits: `AtTableScreen`),
+// of the tap and is not live again until `/me/table/` names the next screen,
 // not just until the deal's answer (the gap the audit found: Deal tappable
 // again between the answer and the dusk).
 
@@ -38,10 +38,18 @@ void main() {
     final start = '/onuw/lobbies/${setup.code}/start/';
     int starts() => setup.count('POST', start);
 
-    // The next screen comes from the dealt game's own /me/ (its answer is
-    // where the host sits: `/me/table/` is not asked), and it is slow: held.
-    final mePath = '/onuw/games/${started['game_id']}/me/';
-    final me = setup.http.hold(method: 'GET', path: mePath);
+    // The next screen's name is slow: /me/table/ is held from now on.
+    final table = setup.http.hold(method: 'GET', path: '/me/table/');
+    setup.http.answer(
+      'GET',
+      '/me/table/',
+      serverMyTable(
+        code: setup.code,
+        status: 'in_game',
+        isHost: true,
+        gameId: started['game_id'] as String,
+      ),
+    );
 
     PrimaryButton deal() =>
         tester.widget<PrimaryButton>(find.byType(PrimaryButton).last);
@@ -59,8 +67,8 @@ void main() {
     await setup.settle(tester);
     expect(starts(), 1);
 
-    setup.http.stopHolding(method: 'GET', path: mePath);
-    me.releaseAll();
+    setup.http.stopHolding(method: 'GET', path: '/me/table/');
+    table.releaseAll();
     await setup.settle(tester);
     final container = ProviderScope.containerOf(
       tester.element(find.byType(TableShell)),

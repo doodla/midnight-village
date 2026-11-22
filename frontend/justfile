@@ -216,9 +216,10 @@ build-web:
 build-ios:
     flutter build ios --dart-define=ENV=prod
 
-# Build for Android (production)
+# Build the release APK (sideloaded; signed with the public key in android/release-key/).
+# Needs API_ORIGIN and PUBLIC_ORIGIN in the environment: stops, saying so, without them.
 build-android:
-    flutter build appbundle --dart-define=ENV=prod
+    bash tool/build_android.sh
 
 # --- Utilities ---
 

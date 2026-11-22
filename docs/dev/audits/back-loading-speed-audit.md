@@ -312,26 +312,30 @@ All of it shows as a white page, then an empty night ground: nothing says what i
 
 ### Fixes, ranked (expected gain, who)
 
-**Status, 22 November 2026: 3, 5 and 6 done (branch `speed-requests-sw-fonts`).** Measured
-on one machine, a release web build served locally as Vercel serves it (revalidated, no
-long cache) against a local backend, Playwright, 5 runs, medians; "phone" = 9 Mbit/s,
-150 ms, CPU x4. Fix 3: an answer that says where the player sits is `/me/table/`'s next
-value (`SeatSeed`): Start 4 requests in a row to 2 (phone: tap to 02 3.1 s to 2.4 s), Join
-4 to 2 (4.7 s to 2.8 s), the Deal start + `/me/table/` + `/me/` to start + `/me/`, for the host and a guest: the
-game's `/me/` leaves while 02 is still up and the seat is taken from it when it lands (a
-first version changed the screen at once: its frame came 0.9 s sooner on the phone, but
-the heavy first frames of 04 ran before `/me/` left and the card's data came 0.4 s later;
-taken out). The card's data now arrives as before (phone 1.37 s both; fast 0.56 s against
-0.54 s), the card screen at 2.40 s against 2.53 s. Play again 1 request (it was 3). Fix 5: the worker is never waited for on a first visit (registered
-once the start is in); the bootstrap is inlined in `index.html`, so after a deploy a
-returning phone runs the new build at its first open. Usable 01, first visit: fast 1.9 s
-to 1.1 s, phone 5.8 s to 5.4-5.8 s (within noise); the first return 0.2 to 0.3 s slower
-(the worker caches from that visit on), the third visit equal (phone 3.31 s to 3.34 s).
-Dropping the worker instead was measured too: first visits like this, every return 0.7 s
-slower on the phone without long cache headers (`vercel.json`). Fix 6: 01's picture is
-asked for first (phone, first visit: in at 6.5 s to 6.0 s), each picture is one request
-(28 to 15), Roboto is never fetched. Not done: a guest's Play again still reads
-`/me/table/` and the lobby (its event names only the code).
+**Status, 22 November 2026: 3, 5 and 6 done (branch `speed-requests-sw-fonts`, against
+main d93fed6).** Measured on one machine, a release web build served locally as Vercel
+serves it (revalidated, no long cache) against a local backend, Playwright, the same rounds
+for main and the branch, paired medians; "phone" = 9 Mbit/s, 150 ms, CPU x4. Fix 3: an
+answer that says where the player sits is `/me/table/`'s next value (`SeatSeed`): Start
+(the guest account, the table) and Join (the account, the join) send no `/me/table/` after
+their answer (5 requests to 4, 01's home numbers included): phone tap to 02 2.7 s to 2.2 s
+(Start) and 2.7 s to 2.1 s (Join), fast 0.1 s sooner each; Play again is its one request
+(it was 3). The Deal is main's: its answer names the game, and `/me/table/` and the game's
+`/me/` go out side by side (taking the seat from that `/me/` instead saved no round trip
+and, measured, no time; taken out). The card screen after the Deal is 0.1 to 0.3 s later
+than main on the phone profile (paired, in either order; 0 to 0.15 s fast) with main's own
+Deal code: no single piece of 3, 5 or 6 taken out alone removed it; open. Fix 5: the
+worker is never waited for on a first visit (registered once the start is in); the
+bootstrap is inlined in `index.html`, so after a deploy a returning phone runs the new
+build at its first open. Usable 01, first visit: fast 1.9 s to 1.6 s, phone 5.5 s to 5.4 s;
+the first return 0.1 to 0.35 s slower (the worker caches from that visit on), the third
+equal. Dropping the worker instead was measured too: first visits like this, every return
+0.7 s slower on the phone without long cache headers (`vercel.json` has none: its only
+header is the type of `/.well-known/assetlinks.json`). Fix 6: 01's picture is read first
+(its bytes; 01 decodes it at the size it draws), each picture is one request (28 to 15),
+Roboto is never fetched (phone, first visit: 01's picture in at 6.1 s to 5.5 s). Not done:
+a guest's Play again still reads `/me/table/` and the lobby (its event names only the
+code).
 
 1. Stop the 2 needless requests on open (start-up token refresh; the redirect's
    `current-game`), and run `/me/` beside `me/table/`: **-0.6 to -1.2 s on every open**; app (us).
