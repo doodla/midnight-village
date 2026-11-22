@@ -7,7 +7,7 @@
 #
 # BRANCH PROTECTION SETUP (T036):
 # Configure in GitHub Settings → Branches → main → Require status checks:
-#   Required checks: "Widget Tests", "Golden Tests", "Integration Tests"
+#   Required checks: "Analyze and Format", "Widget Tests", "Golden Tests", "Integration Tests"
 # Each job is a separate required check so any single failure blocks the merge.
 #
 # GOLDEN BASELINES:
@@ -40,6 +40,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ─── Analyze and Format ────────────────────────────────────────────────────
+  # The same two recipes the local commit gate runs for frontend changes.
+  static-checks:
+    name: Analyze and Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: "stable"
+          cache: true
+          cache-key: flutter-3.38.10-${{ runner.os }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: just analyze
+
+      - name: Format check
+        run: just format-check
+
   # ─── Widget Tests ──────────────────────────────────────────────────────────
   widget-tests:
     name: Widget Tests
