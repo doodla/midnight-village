@@ -124,6 +124,7 @@ class TableSetup {
     bool realAuth = false,
     bool lobbyDown = false,
     bool webAddress = true,
+    bool timesOut = true,
   }) async {
     // ignore: invalid_use_of_visible_for_testing_member
     SharedPreferences.setMockInitialValues({});
@@ -132,8 +133,9 @@ class TableSetup {
         : memberId(lobby, viewer);
     final setup = TableSetup._(
       lobby,
-      // The app's client gives up after its wait: so does this one.
-      MockHttpClient(timesOut: true),
+      // The app's client gives up after its wait: so does this one (not in
+      // a picture that holds an answer and never waits it out).
+      MockHttpClient(timesOut: timesOut),
       MockWebSocketChannel(),
       viewerId,
     );

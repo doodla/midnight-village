@@ -543,35 +543,31 @@ class _JoinCard extends StatelessWidget {
                   color: ink,
                   icon: const Icon(Icons.ios_share),
                 );
+          final codeOnly = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(JoinCopy.codeHint, style: type.caption.copyWith(color: ink)),
+              FitLine(
+                code,
+                style: type.heroCode.copyWith(color: ink),
+                alignment: AlignmentDirectional.centerStart,
+              ),
+            ],
+          );
           final codeBlock = Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      JoinCopy.codeHint,
-                      style: type.caption.copyWith(color: ink),
-                    ),
-                    FitLine(
-                      code,
-                      style: type.heroCode.copyWith(color: ink),
-                      alignment: AlignmentDirectional.centerStart,
-                    ),
-                  ],
-                ),
-              ),
+              Expanded(child: codeOnly),
               ?shareButton,
             ],
           );
           if (link == null) return codeBlock;
+          // Wraps between words beside a small QR code, never set small.
           final scan = Semantics(
             header: headline,
-            child: FitLine(
+            child: FitWords(
               TableCopy.scan,
               style: type.action.copyWith(color: ink),
-              alignment: AlignmentDirectional.centerStart,
             ),
           );
           Widget qrBlock(double side) => SizedBox(
@@ -622,7 +618,18 @@ class _JoinCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [scan, divider, codeBlock],
+                          // Share beside the words of the link it shares, so
+                          // the code has the column's whole width.
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(child: scan),
+                                ?shareButton,
+                              ],
+                            ),
+                            divider,
+                            codeOnly,
+                          ],
                         ),
                       ),
                     ),

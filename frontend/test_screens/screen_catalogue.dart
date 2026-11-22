@@ -89,6 +89,7 @@ final screenCatalogue = <ScreenEntry>[
     '-seats-8': pumpDeckSeats,
     '-alone': pumpDeckAlone,
     '-lengths': pumpDeckLengths,
+    '-lengths-doppelganger': pumpDeckLengthsDoppelganger,
     '-x1.3': (tester) => pumpDeckAlone(tester, textScale: 1.3),
   }),
   ..._rebuilt('03b-deck-role', '03b-deck-role-explained.png', {

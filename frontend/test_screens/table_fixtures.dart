@@ -128,6 +128,7 @@ Future<void> pumpTableHostChaos(WidgetTester tester) async {
     tester,
     lobby: v2Lobby('detail_deck_chaos_7'),
     viewer: 'Kai',
+    timesOut: false,
   );
   await tester.ensureVisible(find.text(TableCopy.editDeck));
   await tester.pumpAndSettle();
@@ -153,6 +154,7 @@ Future<void> pumpTableHostCustom(WidgetTester tester) async {
     tester,
     lobby: v2Lobby('detail_custom_deck'),
     viewer: 'Ana',
+    timesOut: false,
   );
 }
 
@@ -325,6 +327,15 @@ Future<void> pumpDeckAlone(WidgetTester tester, {double textScale = 1}) async {
 /// 03 scrolled to its lengths, at a new table.
 Future<void> pumpDeckLengths(WidgetTester tester) async {
   await pumpDeckAlone(tester);
+  final last = find.text(DeckCopy.hostAway);
+  await tester.ensureVisible(last);
+  await tester.pumpAndSettle();
+}
+
+/// 03 on the host's own deck, which holds a Doppelganger, scrolled to its
+/// lengths: the Doppelganger's row is there.
+Future<void> pumpDeckLengthsDoppelganger(WidgetTester tester) async {
+  await pumpDeckGrid(tester);
   final last = find.text(DeckCopy.hostAway);
   await tester.ensureVisible(last);
   await tester.pumpAndSettle();
