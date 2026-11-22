@@ -11,6 +11,7 @@ from unittest import mock
 
 GUARDRAILS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GUARDRAILS))
+sys.path.insert(0, str(GUARDRAILS.parents[1] / "tool"))  # repo_files: the repo's tracked files
 
 import runner  # noqa: E402
 from rules import subagent_model_effort as sme  # noqa: E402
@@ -256,6 +257,12 @@ class ModelAllowListTests(IsolatedEnv):
         self.define_agent("rev", model="opus", effort="high")
         self.assertDenied(pre("Agent", {"prompt": "x", "subagent_type": "rev", "model": "haiku"}), "from the call")
 
+    def test_real_config_haiku_still_needs_effort_and_no_fork(self):
+        real = {"rules": {"subagent_model_effort": runner.load_config()["rules"]["subagent_model_effort"]}}
+        self.assertSilent(self.agent(model="haiku"), real)
+        self.assertDenied(pre("Agent", {"prompt": "x", "model": "haiku"}), "must set effort", config=real)
+        self.assertDenied(pre("Agent", {"prompt": "x", "subagent_type": "fork"}), "forks are not allowed", config=real)
+
     def test_haiku_allowed_when_listed(self):
         cfg = {"rules": {"subagent_model_effort": {**OPTS, "allowed_models": ["haiku"]}}}
         self.assertSilent(self.agent(model="haiku"), cfg)
@@ -266,17 +273,17 @@ class ModelAllowListTests(IsolatedEnv):
         self.assertSilent(self.agent(model="opus"), cfg)
         self.assertDenied(self.agent(model="haiku"), "not allowed", config=cfg)
 
-    def test_real_config_allows_only_opus_and_sonnet(self):
+    def test_real_config_allows_opus_sonnet_and_haiku_on_trial(self):
         opts = runner.load_config()["rules"]["subagent_model_effort"]
-        self.assertEqual(sorted(opts["allowed_models"]), ["opus", "sonnet"])
+        self.assertEqual(sorted(opts["allowed_models"]), ["haiku", "opus", "sonnet"])
         self.assertIs(opts["allow_forks"], False)
         self.assertEqual(opts["mode"], "enforce")
 
     def test_real_project_agent_definitions_are_pinned_and_allowed(self):
         """Every agent in the repo's .claude/agents/ passes the rule with no model in the call."""
         from agent_defs import frontmatter
-        agents = GUARDRAILS.parent / "agents"
-        found = sorted(agents.glob("*.md"))
+        from repo_files import checkout_files
+        found = checkout_files(GUARDRAILS.parent / "agents", suffixes=(".md",))
         self.assertTrue(found)
         for path in found:
             fields = frontmatter(path.read_text())
@@ -411,7 +418,7 @@ class RunnerTests(IsolatedEnv):
         self.assertEqual((res.returncode, res.stderr), (0, ""))
 
     def test_blocked_spawn_end_to_end_cases(self):
-        for model, expected in (("haiku", "deny"), ("opus", None)):
+        for model, expected in (("gpt-4", "deny"), ("haiku", None), ("opus", None)):
             res = self.run_runner(json.dumps(pre("Agent", {"prompt": "x", "model": model, "effort": "low"})))
             self.assertEqual(res.returncode, 0, res.stderr)
             got = json.loads(res.stdout)["hookSpecificOutput"]["permissionDecision"] if res.stdout else None

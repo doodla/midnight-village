@@ -13,15 +13,19 @@ import re
 from pathlib import Path
 
 import pytest
+from repo_files import checkout_files
 
 pytestmark = pytest.mark.unit
 
 APPS = Path(__file__).resolve().parents[1] / "apps"
-MIGRATIONS = sorted(
+MIGRATIONS = [
     p
-    for p in APPS.glob("*/migrations/*.py")
-    if p.name != "__init__.py" and re.match(r"\d{4}_", p.name)
-)
+    for p in checkout_files(APPS, suffixes=(".py",))
+    if p.parent.name == "migrations"
+    and p.parent.parent.parent == APPS
+    and p.name != "__init__.py"
+    and re.match(r"\d{4}_", p.name)
+]
 FIRST_LOCKED_NUMBER = 10
 
 

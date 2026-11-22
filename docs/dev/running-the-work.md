@@ -23,8 +23,12 @@ Step back often and look at the whole game, not the last report.
 A hook refuses any worker that is not on an allowed model with an effort set
 (`.claude/guardrails/config.toml` holds the list; `docs/claude-architecture.md` describes it).
 
-- Only `opus` or `sonnet`. Never this session's own model, never `haiku`, never a fork (a fork
+- Only `opus`, `sonnet` or `haiku`. Never this session's own model, never a fork (a fork
   inherits this session's model): start a fresh worker with the context in its brief.
+- Haiku is allowed on trial at the owner's request (22 Nov 2026: "Haiku will go a long way and
+  it's faster"), for now only for work whose result is checked by something else (a test, a
+  check script, or a reviewer).
+- What haiku can be trusted with: `docs/dev/haiku-trial.md`.
 - Opus for design-heavy or tricky work and for reviews. Sonnet for well-specified work and
   lookups.
 - Effort: `low` for lookups, `medium` for routine edits, `high` for design and review.
@@ -37,6 +41,8 @@ A hook refuses any worker that is not on an allowed model with an effort set
   and must not reproduce it in its report.
 
 ## The owner
+
+What needs the owner's eyes or a decision goes on the owner's board, never in an issue or pull request alone: `docs/dev/owner-board.md`.
 
 Their reports from the live app, in their words, and what is in flight:
 `docs/dev/owner-feedback.md`. Keep it current: it is what a new session starts from.

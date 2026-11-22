@@ -11,11 +11,11 @@ default:
 
 # Run app on Chrome
 run:
-    flutter run -d chrome --web-port=3000
+    flutter run -d chrome --web-port=3000 --dart-define=ENV=dev
 
 # Run app on specific device
 run-device device:
-    flutter run -d {{device}}
+    flutter run -d {{device}} --dart-define=ENV=dev
 
 # Run code generation
 gen:
@@ -34,24 +34,25 @@ watch:
 
 # Run all tests (excludes the live-backend e2e harness — see test-harness)
 test:
-    flutter test --exclude-tags e2e
+    flutter test --dart-define=ENV=dev --exclude-tags e2e
 
 # Run tests with coverage (excludes the live-backend e2e harness)
 test-cov:
-    flutter test --coverage --exclude-tags e2e
+    flutter test --dart-define=ENV=dev --coverage --exclude-tags e2e
 
 # Run golden tests only (tagged 'golden'; Linux only, skipped on other OSes)
 flutter-test-golden:
-    flutter test --tags golden
+    flutter test --dart-define=ENV=dev --tags golden
 
 # Update the golden baselines in test/design_system/goldens/ (Linux only)
 flutter-golden-update:
-    flutter test --update-goldens --tags golden
+    flutter test --dart-define=ENV=dev --update-goldens --tags golden
 
 # Run integration tests on Chrome (requires Chrome installed)
 # Uses flutter drive because flutter test does not support web devices
 test-integration:
     flutter drive \
+      --dart-define=ENV=dev \
       --driver=test_driver/integration_test.dart \
       --target=integration_test/auth_flow_test.dart \
       -d chrome
@@ -59,6 +60,7 @@ test-integration:
 # Run integration tests in headless mode for CI
 test-integration-ci:
     flutter drive \
+      --dart-define=ENV=dev \
       --driver=test_driver/integration_test.dart \
       --target=integration_test/auth_flow_test.dart \
       -d web-server \
@@ -102,6 +104,7 @@ screens width="390" mode="report":
     esac
     flutter test test_screens/screens_test.dart test_screens/screen_gallery_test.dart \
       --reporter expanded \
+      --dart-define=ENV=dev \
       --dart-define=SCREENS_WIDTH={{width}} \
       --dart-define=SCREENS_STRICT=$strict
 
@@ -112,6 +115,7 @@ screens width="390" mode="report":
 # Usage: just playtest-pack [width]
 playtest-pack width="390":
     flutter test test_screens/playtest_pack_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
       --dart-define=SCREENS_WIDTH={{width}}
 
 # Regenerate Shadow paper's art in assets/skins/ from docs/design/art/
@@ -148,6 +152,10 @@ format-check:
     dart format --output=none --set-exit-if-changed lib test test_screens
 
 # --- Build ---
+
+# A web build with no --dart-define must not contain the /debug toolbar
+check-release:
+    bash tool/check_release_has_no_debug.sh
 
 # Build for web (production)
 build-web:
