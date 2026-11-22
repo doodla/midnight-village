@@ -112,6 +112,26 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
 .ref { margin: 0; font-size: 12px; color: var(--ink-faint); letter-spacing: .02em }
 .viewonly { margin: 0; font-size: 13px; color: var(--ink-soft) }
 
+/* a sound card: the takes to hear (Play, and the same on 10 phones), then the choice */
+.slot { display: grid; gap: 14px; min-width: 0 }
+.lead { margin: 0; font-size: 16px; font-weight: 500; color: var(--ink-soft); max-width: 60ch }
+.takes { display: grid; gap: 12px }
+.take { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; padding: 12px; background: var(--paper-2); border-radius: var(--r); border: 1.5px solid var(--line) }
+.take .tl { width: 44px; height: 44px; border-radius: 50%; background: var(--chip); color: var(--chip-ink); font-family: var(--f-display); font-size: 26px; line-height: 1; display: grid; place-items: center; padding-bottom: 2px }
+.take .tb { display: grid; gap: 10px; min-width: 0 }
+.take .tn { margin: 0; font-size: 14px; color: var(--ink-soft); min-height: 44px; display: flex; align-items: center }
+.take .tn:empty { display: none }
+.take button { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; border: 2px solid var(--ink); border-radius: var(--r); cursor: pointer; font-weight: 700; line-height: 1.1; text-align: center; transition: transform .08s ease, box-shadow .08s ease }
+.take button svg { flex: none }
+.take .play { min-height: 60px; font-size: 20px; background: var(--lamp); color: var(--lamp-ink); box-shadow: 3px 4px 0 var(--cut) }
+.take .many { min-height: 52px; font-size: 15.5px; background: var(--btn); color: var(--btn-ink); box-shadow: 2px 3px 0 var(--cut) }
+.take .play:active, .take .many:active { transform: translate(3px, 4px); box-shadow: 0 0 0 var(--cut) }
+.take button[aria-pressed="true"] { background: var(--ink); color: var(--paper) }
+.take button[disabled] { opacity: .5; cursor: not-allowed }
+.choices.sound { grid-template-columns: repeat(4, minmax(0, 1fr)) }
+.choices.sound .choice { padding-inline: 4px }
+.choices.sound .dflt { font-size: 9.5px; letter-spacing: .06em; padding: 2px 4px }
+
 /* decided: a ledger */
 .ledger { list-style: none; margin: 0; padding: 0; background: var(--paper); border-radius: var(--r); box-shadow: 5px 6px 0 var(--cut); }
 .ledger li { display: grid; grid-template-columns: 54px 1fr; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--line); min-width: 0 }
@@ -149,7 +169,7 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
   .top .wrap { padding-block: 170px 22px }
 }
 @media (prefers-reduced-motion: reduce) {
-  .card, .choice { transition: none }
+  .card, .choice, .take button { transition: none }
 }
 </style>
 
@@ -294,9 +314,104 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
     return box;
   }
 
+  /* ---------- sound: Play, and "Hear it on 10 phones" ---------- */
+  // Audio starts only from a tap. A take's `src` is a data: URI (base64 mp3, kept in the item) or a URL.
+  var ICON_PLAY = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+  var ICON_PHONES = '<svg viewBox="0 0 32 24" width="28" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="6" width="8" height="15" rx="2"/><rect x="12" y="2" width="8" height="15" rx="2"/><rect x="22.5" y="7" width="8" height="15" rx="2"/></svg>';
+  var AC = window.AudioContext || window.webkitAudioContext;
+  var actx = null, decoded = {}, voices = [], activeBtn = null, runId = 0;
+  function mulberry32(a) {
+    return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+  // Ten phones: fixed seeded offsets, 0 to 400 ms, the same every time.
+  var OFFSETS = (function () {
+    var rnd = mulberry32(2026), r = [], i;
+    for (i = 0; i < 10; i++) r.push(rnd());
+    var lo = Math.min.apply(null, r), hi = Math.max.apply(null, r);
+    return r.map(function (v) { return Math.round((v - lo) / (hi - lo) * 400); });
+  })();
+  function audioCtx() {
+    if (!actx && AC) { try { actx = new AC(); } catch (e) { actx = null; } }
+    return actx;
+  }
+  function bytesOf(src) {
+    var m = /^data:[^,]*;base64,(.*)$/.exec(src);
+    if (m) {
+      var bin = atob(m[1]), u = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      return Promise.resolve(u.buffer);
+    }
+    return fetch(src).then(function (r) { if (!r.ok) throw new Error("load"); return r.arrayBuffer(); });
+  }
+  function bufferOf(c, src) {
+    if (!decoded[src]) {
+      decoded[src] = bytesOf(src).then(function (b) {
+        return new Promise(function (ok, no) { c.decodeAudioData(b, ok, no); });
+      });
+      decoded[src].catch(function () { delete decoded[src]; });
+    }
+    return decoded[src];
+  }
+  function setActive(btn) {
+    if (activeBtn && activeBtn._idle) { activeBtn.setAttribute("aria-pressed", "false"); activeBtn.querySelector("span").textContent = activeBtn._idle; }
+    activeBtn = btn;
+    if (btn) { btn.setAttribute("aria-pressed", "true"); btn.querySelector("span").textContent = "Playing"; }
+  }
+  function stopAll() {
+    runId++;
+    voices.forEach(function (s) { try { s.stop(); } catch (e) {} });
+    voices = [];
+    setActive(null);
+  }
+  function playTake(take, many, btn) {
+    var c = audioCtx();
+    if (!c) { toast("This phone cannot play sound here."); return; }
+    try { if (c.state !== "running") { var p = c.resume(); if (p && p.catch) p.catch(function () {}); } } catch (e) {}
+    stopAll(); setActive(btn);
+    var run = runId;
+    bufferOf(c, take.src).then(function (buf) {
+      if (run !== runId) return;
+      var master = c.createGain(); master.gain.value = many ? 0.3 : 0.9;   // ten copies add up: leave headroom
+      var comp = c.createDynamicsCompressor(); comp.threshold.value = -4; comp.knee.value = 0; comp.ratio.value = 20; comp.attack.value = 0.002; comp.release.value = 0.12;
+      master.connect(comp); comp.connect(c.destination);
+      var offs = many ? OFFSETS : [0];
+      var rates = many && Array.isArray(take.rates) && take.rates.length ? take.rates : [1];   // e.g. root, fifth, octave
+      var t0 = c.currentTime + 0.06, end = -1, last = null;
+      offs.forEach(function (ms, i) {
+        var s = c.createBufferSource(), rate = +rates[i % rates.length] || 1;
+        s.buffer = buf; s.playbackRate.value = rate; s.connect(master); s.start(t0 + ms / 1000); voices.push(s);
+        var e = ms / 1000 + buf.duration / rate;
+        if (e > end) { end = e; last = s; }
+      });
+      last.onended = function () { if (run === runId) { voices = []; setActive(null); } };
+    }, function () {
+      if (run === runId) { setActive(null); toast("Could not play this one. Tap again."); }
+    });
+  }
+  function soundsArea(it) {
+    var takes = it.sounds.filter(function (t) { return t && t.label && typeof t.src === "string" && t.src; });
+    if (!takes.length) return null;
+    var box = el("div", "takes");
+    takes.forEach(function (t) {
+      var row = el("div", "take"), tb = el("div", "tb");
+      var tl = el("div", "tl", String(t.label)); tl.setAttribute("aria-hidden", "true"); row.appendChild(tl);
+      if (t.note) tb.appendChild(el("p", "tn", t.note));
+      function button(cls, icon, text, label, many) {
+        var b = el("button", cls); b.type = "button"; b.innerHTML = icon; b._idle = text;
+        b.appendChild(el("span", null, text)); b.setAttribute("aria-pressed", "false"); b.setAttribute("aria-label", label);
+        b.onclick = function () { if (activeBtn === b) stopAll(); else playTake(t, many, b); };
+        tb.appendChild(b);
+      }
+      button("play", ICON_PLAY, "Play", "Play take " + t.label, false);
+      button("many", ICON_PHONES, "Hear it on 10 phones", "Hear take " + t.label + " on 10 phones", true);
+      row.appendChild(tb); box.appendChild(row);
+    });
+    return box;
+  }
+
   /* ---------- one card ---------- */
   function cardFor(it) {
-    var card = el("article", "card"); card.dataset.key = it.id;
+    var card = el("article", "card"); if (!it.lead) card.dataset.key = it.id;
     var pic = pictureArea(it); if (pic) card.appendChild(pic);
     var body = el("div", "body");
     body.appendChild(el("h3", null, str(it.title)));
@@ -304,10 +419,12 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
     if (it.what) lines.appendChild(el("p", "what", it.what));
     if (it.ask) lines.appendChild(el("p", "ask", it.ask));
     if (lines.childNodes.length) body.appendChild(lines);
+    var hear = Array.isArray(it.sounds) && it.sounds.length ? soundsArea(it) : null;
+    if (hear) body.appendChild(hear);
     var choices = Array.isArray(it.choices) ? it.choices.filter(function (c) { return c && c.id && c.label; }) : [];
     if (choices.length) {
-      var long = choices.some(function (c) { return String(c.label).length > 16; }) || choices.length > 3;
-      var row = el("div", "choices" + (long ? " long" : ""));
+      var long = !hear && (choices.some(function (c) { return String(c.label).length > 16; }) || choices.length > 3);
+      var row = el("div", "choices" + (long ? " long" : "") + (hear && choices.length === 4 ? " sound" : ""));
       choices.forEach(function (c, i) {
         var b = el("button", "choice"); b.type = "button";
         b.appendChild(document.createTextNode(c.label));
@@ -328,6 +445,11 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
     }
     if (it.ref) body.appendChild(el("p", "ref", it.ref));
     card.appendChild(body);
+    if (it.lead) {   // one plain line above the card (used on the first of a group)
+      var slot = el("div", "slot"); slot.dataset.key = it.id;
+      slot.appendChild(el("p", "lead", it.lead)); slot.appendChild(card);
+      return slot;
+    }
     return card;
   }
 
@@ -335,12 +457,13 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
   function choose(it, c, card) {
     if (!db || S.pending[it.id]) return;
     var note = (drafts[it.id] || "").trim();
-    var doc = { item: it.id, choice: c.id, label: c.label, note: note, at: new Date().toISOString() };
+    var saidAs = str(c.say) || c.label;   // optional fuller words for the record, e.g. "Take A"
+    var doc = { item: it.id, choice: c.id, label: saidAs, note: note, at: new Date().toISOString() };
     S.pending[it.id] = doc;
     var go = function () {
-      render();
+      stopAll(); render();
       db.doc("answers/" + it.id).set(doc).then(function () {
-        delete S.pending[it.id]; toast("Saved: " + c.label);
+        delete S.pending[it.id]; toast("Saved: " + saidAs);
       }, function (e) {
         delete S.pending[it.id]; render();
         toast(e && e.code === "invalid_argument" ? "Only the owner can answer here." : "Not saved. Check your connection and tap again.");
