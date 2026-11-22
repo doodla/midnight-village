@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
@@ -43,6 +44,45 @@ void main() {
     '/me/table/',
     ContractSamples.map('http/lobby/my_table_none'),
   );
+
+  testWidgets('a host who started the table on this phone, alone, confirms '
+      'Leave: at 01, no "Not sent." (the harness\'s setup-leave-alone)', (
+    tester,
+  ) async {
+    final setup = await TableSetup.pump(tester, realAuth: true);
+    final created = v2Lobby('created_with_defaults');
+    // The guest account the sample makes is id 1; the table's host is Ana.
+    (created['host'] as Map)['id'] = 1;
+    ((created['players'] as List).first as Map)['user']['id'] = 1;
+    setup.http
+      ..answer(
+        'POST',
+        '/auth/guest/',
+        ContractSamples.map('http/auth/guest_created'),
+        status: 201,
+      )
+      ..answer('POST', '/lobbies/', created, status: 201);
+    setup.sitAt(created, 'Ana');
+
+    await tester.enterText(find.byType(TextField), 'Ana');
+    await tester.pump();
+    await _tap(tester, setup, find.text(JoinCopy.startTable));
+    await setup.settle(tester);
+    expect(find.text(TableCopy.scan), findsOneWidget);
+    expect(find.text(BannerCopy.notSent), findsNothing);
+
+    setup.http.answer(
+      'POST',
+      '/lobbies/${created['code']}/leave/',
+      ContractSamples.map('http/lobby/left_last_member'),
+    );
+    await _leave(tester, setup, then: () => offTheTable(setup));
+
+    expect(setup.count('POST', '/lobbies/${created['code']}/leave/'), 1);
+    expect(find.text(JoinCopy.startTable), findsOneWidget);
+    expect(find.text(BannerCopy.notSent), findsNothing);
+    await setup.close(tester);
+  });
 
   testWidgets('the host alone leaves: the table closes and the phone is at '
       'Join, no "Not sent."', (tester) async {
