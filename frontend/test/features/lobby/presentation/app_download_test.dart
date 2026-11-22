@@ -1,0 +1,123 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:midnight_village/core/host/app_download.dart';
+import 'package:midnight_village/core/router/routes.dart';
+import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/primitives/text_action.dart';
+import 'package:midnight_village/design_system/primitives/viewfinder.dart';
+import 'package:midnight_village/design_system/skin/skin.dart';
+
+import '../../../helpers/table_setup.dart';
+
+// 01's quiet "Get the app": offered only to a page in an Android browser, on
+// 01 alone, never amber, 48 to touch, and its address (`/app`) is the host's,
+// never a route of the app.
+
+Finder get _link => find.text(JoinCopy.getApp);
+
+void main() {
+  group('where the app is offered', () {
+    test('only the web build on Android', () {
+      for (final platform in TargetPlatform.values) {
+        expect(
+          offersAppDownload(web: true, platform: platform),
+          platform == TargetPlatform.android,
+          reason: 'web on $platform',
+        );
+        // Inside the Android app (or any native build): never.
+        expect(
+          offersAppDownload(web: false, platform: platform),
+          isFalse,
+          reason: 'native $platform',
+        );
+      }
+    });
+
+    test('a test run (not the web) is offered nothing by default', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      expect(container.read(appDownloadProvider), isNull);
+    });
+
+    test('the router has no /app of its own: the host answers it', () {
+      final paths = [for (final r in $appRoutes) (r as GoRoute).path];
+      expect(paths, isNot(contains('/app')));
+      expect(paths.where((p) => p.startsWith('/app')), isEmpty);
+    });
+  });
+
+  group('01', () {
+    testWidgets('in an Android browser: one "Get the app" at the foot, quiet '
+        'ink (never amber), 48 to touch, and a tap opens the download', (
+      tester,
+    ) async {
+      final setup = await TableSetup.pump(tester, androidWeb: true);
+
+      expect(_link, findsOneWidget);
+      expect(
+        tester.getSize(find.byType(TextAction)).height,
+        greaterThanOrEqualTo(48),
+      );
+      final ink = tester.widget<Text>(_link).style!.color;
+      final context = tester.element(_link);
+      expect(ink, context.ground.text);
+      expect(ink, isNot(context.ground.accent));
+      // The one amber fill of a screen stays the primary action's: 01 on a
+      // new phone has none, and this link is not one.
+      expect(find.byType(PrimaryButton), findsNothing);
+
+      // Below everything else on the screen.
+      final foot = tester.getBottomLeft(_link).dy;
+      for (final label in [JoinCopy.joinTable, JoinCopy.startTable]) {
+        expect(tester.getBottomLeft(find.text(label)).dy, lessThan(foot));
+      }
+
+      await tester.tap(_link);
+      expect(setup.appDownloads, 1);
+      await setup.close(tester);
+    });
+
+    testWidgets('on a table\'s link too (still 01)', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        route: '/join/V9YC2J',
+        androidWeb: true,
+      );
+      expect(_link, findsOneWidget);
+      await setup.close(tester);
+    });
+
+    testWidgets('not in an Android browser (the Android app, iOS, a desktop): '
+        'no link', (tester) async {
+      final setup = await TableSetup.pump(tester, lastWon: true);
+      expect(_link, findsNothing);
+      await setup.close(tester);
+    });
+
+    testWidgets('not on the scanner (01b)', (tester) async {
+      final setup = await TableSetup.pump(tester, androidWeb: true);
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is GlyphButton && w.semanticLabel == ScanCopy.scan,
+        ),
+      );
+      await setup.settle(tester);
+      expect(_link, findsNothing);
+      await setup.close(tester);
+    });
+
+    testWidgets('not on any other screen: the table (02)', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('created_with_defaults'),
+        viewer: 'Ana',
+        androidWeb: true,
+      );
+      expect(_link, findsNothing);
+      await setup.close(tester);
+    });
+  });
+}

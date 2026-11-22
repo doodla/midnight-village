@@ -18,6 +18,7 @@ class TextAction extends StatefulWidget {
     required this.label,
     required this.onPressed,
     this.busy = false,
+    this.roomy = false,
   });
 
   final String label;
@@ -26,8 +27,14 @@ class TextAction extends StatefulWidget {
   /// Tapped and on its way: the words keep their ink, a turning mark beside.
   final bool busy;
 
+  /// A link alone on a line (01's "Get the app"): [roomyTap] high to touch.
+  final bool roomy;
+
   /// The smallest touch target, both ways.
   static const minTap = 44.0;
+
+  /// The height of a [roomy] one.
+  static const roomyTap = 48.0;
 
   @override
   State<TextAction> createState() => _TextActionState();
@@ -68,9 +75,9 @@ class _TextActionState extends State<TextAction> {
         onTapUp: (_) => _press(false),
         onTapCancel: () => _press(false),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
+          constraints: BoxConstraints(
             minWidth: TextAction.minTap,
-            minHeight: TextAction.minTap,
+            minHeight: widget.roomy ? TextAction.roomyTap : TextAction.minTap,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.sm),

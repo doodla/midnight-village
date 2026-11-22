@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/host/app_download.dart';
 import '../../../core/router/back_policy.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
@@ -15,6 +16,7 @@ import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
 import '../../../design_system/primitives/waiting_sign.dart';
 import '../../../design_system/primitives/skin_field.dart';
+import '../../../design_system/primitives/text_action.dart';
 import '../../../design_system/primitives/viewfinder.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
@@ -62,6 +64,7 @@ class JoinScreen extends ConsumerWidget {
     final scanner = ref.watch(codeScannerFactoryProvider);
     final scan = ref.watch(scanSessionProvider);
     final session = ref.read(scanSessionProvider.notifier);
+    final download = ref.watch(appDownloadProvider);
 
     Future<void> sat(Future<bool> attempt) async {
       if (await attempt && link != null && context.mounted) context.go('/');
@@ -114,6 +117,7 @@ class JoinScreen extends ConsumerWidget {
         banner: banner,
         bannerAction: action,
         onBannerAction: onAction,
+        onGetApp: download?.open,
         onEdited: notifier.clearBanner,
         onStart: (name) => unawaited(sat(notifier.start(name))),
         onJoin: (name, code) => unawaited(sat(notifier.join(name, code))),
@@ -186,6 +190,7 @@ class JoinView extends StatefulWidget {
     this.onScanClose,
     this.onScanLeft,
     this.onScanned,
+    this.onGetApp,
     required this.onStart,
     required this.onJoin,
     this.onEdited,
@@ -231,6 +236,10 @@ class JoinView extends StatefulWidget {
   /// This 01 is gone while the scanner was open.
   final VoidCallback? onScanLeft;
   final ValueChanged<String>? onScanned;
+
+  /// "Get the app" at the foot: given only where the app can be downloaded
+  /// (a page in an Android browser); null: no link.
+  final VoidCallback? onGetApp;
 
   final ValueChanged<String> onStart;
   final void Function(String name, String code) onJoin;
@@ -543,6 +552,14 @@ class _JoinViewState extends State<JoinView> {
                         ],
                       );
                     },
+                  ),
+                if (widget.onGetApp != null)
+                  Center(
+                    child: TextAction(
+                      label: JoinCopy.getApp,
+                      onPressed: widget.onGetApp,
+                      roomy: true,
+                    ),
                   ),
               ],
             ),

@@ -47,7 +47,7 @@ them all.
 
 Every check runs on every pull request to main (and on each push to main), as parallel jobs that
 only call `just` recipes. `guardrails/tests/test_workflows.py` fails when a workflow names a
-recipe that does not exist, filters on paths (a required check that never starts blocks the
+recipe that does not exist, a check workflow filters on paths (a required check that never starts blocks the
 merge for ever) or has a job with no name or time limit.
 
 | Job (the check name) | Runs |
@@ -60,6 +60,13 @@ merge for ever) or has a job with no name or time limit.
 | `Screens strict at 360`, `Screens strict at 390` | `just screens 360 strict`, `just screens 390 strict` (one job each, side by side) |
 | `Integration Tests` | `just test-integration-ci` |
 | `End-to-end Harness` | `just test-harness` |
+
+One workflow is not part of the wall: `android-download.yml` ("Android App Download") builds the
+Android app on a push to main that touches `frontend/` (or by hand) and replaces the one asset of
+the rolling release `android-latest` (`docs/dev/deploy-vercel.md`, "Android app download"). It never
+runs on a pull request, is not in the ruleset, has a paths filter and `contents: write` on its one
+job. `guardrails/tests/test_workflows.py` sets it apart (`PUBLISHING`) and holds it to those rules
+(`WorkflowPublishing`); the wall's rules above apply to every other workflow.
 
 The ruleset `docs/dev/main-ruleset.json` is what makes this the wall: a pull request on the
 default branch, squash merges only, every check above required (up to date with main not

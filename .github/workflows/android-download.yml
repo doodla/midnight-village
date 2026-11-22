@@ -1,0 +1,102 @@
+# Android app download: the sideloaded APK, kept at one stable address.
+#
+# On every push to main that touches frontend/ (and by hand: "Run workflow"), builds
+# the release APKs with frontend/tool/build_android.sh and replaces the one asset
+# `midnight-village.apk` of ONE rolling GitHub release, tag `android-latest`:
+#   https://github.com/doodla/midnight-village/releases/download/android-latest/midnight-village.apk
+# The web app's /app address redirects there (frontend/vercel.json); 01 offers it in
+# an Android browser. docs/dev/deploy-vercel.md, "Android app download".
+#
+# This is NOT a check of the merge wall: it never runs on a pull request, is not in
+# docs/dev/main-ruleset.json, and has a paths filter on purpose (the checks in
+# flutter-tests.yml and backend-tests.yml have none: a required check that does not
+# start blocks the merge). guardrails/tests/test_workflows.py holds both to their rules.
+#
+# The signing key is public by the owner's decision (frontend/android/release-key/):
+# there is no secret here, and the token only writes this repository's release.
+
+name: Android App Download
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["frontend/**"]
+  workflow_dispatch:
+
+# Nothing the job does not name.
+permissions:
+  contents: read
+
+# One at a time, the later push after the earlier (never cancelling a half-uploaded asset).
+concurrency:
+  group: android-app-download
+  cancel-in-progress: false
+
+env:
+  TAG: android-latest
+  # The two addresses the app is built with (docs/dev/deploy-vercel.md).
+  API_ORIGIN: https://midnight-village-anthelion.vercel.app
+  PUBLIC_ORIGIN: https://midnight-village-app-anthelion.vercel.app
+
+jobs:
+  publish-apk:
+    name: Publish Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Only this job writes (the release).
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: "stable"
+          cache: true
+          cache-key: flutter-3.38.10-${{ runner.os }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # The script builds one APK per processor; the arm64 one (nearly every phone
+      # since 2017) is published. A universal APK would be a second build, so none.
+      - name: Build release APKs
+        run: tool/build_android.sh
+
+      - name: Name the file
+        run: |
+          set -euo pipefail
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "$RUNNER_TEMP/midnight-village.apk"
+          ls -l "$RUNNER_TEMP/midnight-village.apk"
+
+      # The release is made once (not "latest", so it never shadows a real release);
+      # after that the asset is replaced in place and the notes name the commit.
+      - name: Publish to the rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          notes="The Android app, built from ${GITHUB_SHA} (replaced on every change to the app). Download midnight-village.apk on an Android phone and open it."
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "Android app" \
+              --notes "$notes" \
+              --latest=false
+          else
+            gh release edit "$TAG" --notes "$notes" --latest=false
+          fi
+          gh release upload "$TAG" "$RUNNER_TEMP/midnight-village.apk" --clobber
