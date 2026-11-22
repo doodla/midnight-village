@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../skin/type_scale.dart';
+
 /// Spacing: the gaps and margins of the mocks, the same in every skin (a skin
 /// may change art, colours, type and shape, never where things sit; design
 /// brief section 2). Read it as `Space.md`, with no skin in reach.
@@ -90,7 +92,8 @@ abstract final class Sizes {
 
   /// The hero line's size on 01 and on the opening that comes before it,
   /// so the title never changes size as 01 arrives.
-  static const joinTitle = 42.0;
+  static double get joinTitle =>
+      TypeScale.pick(today: 42, compact: 40, tight: 36);
 
   /// The sign of life of a wait: three paper lanterns of this width, and the
   /// gap between them.

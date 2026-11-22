@@ -8,6 +8,7 @@ import '../skin.dart';
 import '../skin_shape.dart';
 import '../skin_tilt.dart';
 import '../skin_type.dart';
+import '../type_scale.dart';
 
 // "Shadow paper" (design brief section 2, mocks docs/design/mocks/S*.dc.html).
 // Every value is the mocks' unless its comment says otherwise.
@@ -192,7 +193,7 @@ TextStyle _figtree(
   letterSpacing: em * size,
 );
 
-final _type = SkinType(
+SkinType _todayType() => SkinType(
   heroTitle: _gloock(46, height: 1, em: -0.02), // S01
   heroCode: _gloock(46, height: 1, em: 0.08), // S02
   heroVerdict: _gloock(44, height: 0.95, em: -0.01), // S10
@@ -226,6 +227,87 @@ final _type = SkinType(
   tag: _figtree(14, FontWeight.w700, height: 1.2),
   badge: _figtree(14, FontWeight.w700, height: 1.2),
 );
+
+// Option "Compact" (the owner's type-size review, 23 November 2026): names 18,
+// screen questions 28, body 15, labels 12; ten sizes in all, bigger steps
+// between roles. Names stay in the display serif: it is the paper's voice and
+// 18 holds up. The timers and the role on a held face keep today's size.
+SkinType _compactType() => SkinType(
+  heroTitle: _gloock(40, height: 1, em: -0.02),
+  heroCode: _gloock(32, height: 1, em: 0.08),
+  heroVerdict: _gloock(36, height: 0.95, em: -0.01),
+  heroWinner: _gloock(36, height: 0.95, em: -0.01),
+  heroRole: _gloock(46, height: 0.9, em: -0.02),
+  display: _gloock(32, height: 0.95, em: -0.01),
+  screenTitle: _gloock(28, height: 1.05, em: -0.01),
+  headline: _gloock(28, height: 1.05, em: -0.01),
+  title: _gloock(22, height: 1.15, em: -0.01),
+  tally: _gloock(22, height: 1),
+  heading: _gloock(22, height: 1),
+  name: _gloock(18, height: 1.1),
+  nameSmall: _gloock(16, height: 1.1),
+  buttonLabelLarge: _gloock(16, height: 1),
+  buttonLabel: _gloock(16, height: 1),
+  buttonLabelSmall: _gloock(16, height: 1),
+  timer: _gloock(84, height: 0.9, em: -0.02),
+  timerVote: _gloock(76, height: 0.9, em: -0.02),
+  timerSmall: _gloock(64, height: 1),
+  timerCompact: _gloock(34, height: 1),
+  bodyLarge: _figtree(16, FontWeight.w500, height: 1.35),
+  lede: _figtree(15, FontWeight.w500, height: 1.3),
+  body: _figtree(15, FontWeight.w600, height: 1.35),
+  action: _figtree(15, FontWeight.w700, height: 1.2),
+  code: _figtree(16, FontWeight.w700, height: 1.2, em: 0.12),
+  cue: _figtree(18, FontWeight.w700, height: 1.2),
+  caption: _figtree(12, FontWeight.w600, height: 1.3),
+  tag: _figtree(12, FontWeight.w700, height: 1.2),
+  badge: _figtree(12, FontWeight.w700, height: 1.2),
+);
+
+// Option "Tight": names 16, screen questions 24, the rest a step under
+// Compact (labels stay at 12, the floor of the review). Names and buttons move
+// to the text face: Gloock's thin strokes do not hold at 16.
+SkinType _tightType() => SkinType(
+  heroTitle: _gloock(36, height: 1, em: -0.02),
+  heroCode: _gloock(28, height: 1, em: 0.08),
+  heroVerdict: _gloock(32, height: 0.95, em: -0.01),
+  heroWinner: _gloock(32, height: 0.95, em: -0.01),
+  heroRole: _gloock(46, height: 0.9, em: -0.02),
+  display: _gloock(28, height: 0.95, em: -0.01),
+  screenTitle: _gloock(24, height: 1.05, em: -0.01),
+  headline: _gloock(24, height: 1.05, em: -0.01),
+  title: _gloock(20, height: 1.15, em: -0.01),
+  tally: _gloock(20, height: 1),
+  heading: _gloock(20, height: 1),
+  name: _figtree(16, FontWeight.w700, height: 1.2),
+  nameSmall: _figtree(14, FontWeight.w700, height: 1.2),
+  buttonLabelLarge: _figtree(15, FontWeight.w700, height: 1.1),
+  buttonLabel: _figtree(15, FontWeight.w700, height: 1.1),
+  buttonLabelSmall: _figtree(15, FontWeight.w700, height: 1.1),
+  timer: _gloock(84, height: 0.9, em: -0.02),
+  timerVote: _gloock(76, height: 0.9, em: -0.02),
+  timerSmall: _gloock(64, height: 1),
+  timerCompact: _gloock(34, height: 1),
+  bodyLarge: _figtree(15, FontWeight.w500, height: 1.35),
+  lede: _figtree(14, FontWeight.w500, height: 1.3),
+  body: _figtree(14, FontWeight.w600, height: 1.35),
+  action: _figtree(14, FontWeight.w700, height: 1.2),
+  code: _figtree(15, FontWeight.w700, height: 1.2, em: 0.12),
+  cue: _figtree(16, FontWeight.w700, height: 1.2),
+  caption: _figtree(12, FontWeight.w600, height: 1.3),
+  tag: _figtree(12, FontWeight.w700, height: 1.2),
+  badge: _figtree(12, FontWeight.w700, height: 1.2),
+);
+
+/// The type roles at [scale]: only the shipped one is the app's, the others
+/// are the owner's options (`TypeScale`).
+SkinType shadowPaperType(TypeScale scale) => switch (scale) {
+  TypeScale.today => _todayType(),
+  TypeScale.compact => _compactType(),
+  TypeScale.tight => _tightType(),
+};
+
+final _type = shadowPaperType(TypeScale.current);
 
 // The candle's cuts (tool/candle/cut_candle.py prints these), on a canvas of
 // 300 x 530 taken from the candle picture at (270, 330).

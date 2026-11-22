@@ -391,7 +391,13 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     final title = context.skin.typography.screenTitle;
     // At the title's own size, whatever the text scale: the unit sets its
     // larger digits smaller to keep to it.
-    final line = title.fontSize! * title.height!;
+    final timer = context.skin.typography.timerCompact;
+    // The seconds keep their size when the title is set smaller (the type
+    // options): their line is never shorter than their own.
+    final line = math.max(
+      title.fontSize! * title.height!,
+      timer.fontSize! * WorldTimer.cornerNumberScale * timer.height!,
+    );
     // A pixel over two lines: a wrapped title measures a hair more than its
     // lines times the line height.
     final room =

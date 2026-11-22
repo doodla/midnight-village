@@ -5,6 +5,7 @@ import '../layout/space.dart';
 import '../skin/elevation.dart';
 import '../skin/skin.dart';
 import '../skin/skin_type.dart';
+import '../skin/type_scale.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
 import 'secondary_button.dart' show BusyMark;
@@ -12,25 +13,52 @@ import 'secondary_button.dart' show BusyMark;
 /// The mocks' button sizes.
 enum ButtonSize {
   /// The screen's one big moment (S01, S04, S11 "Play again"): 60 tall.
-  large(primaryHeight: 60, secondaryHeight: 60, shadow: 1.2, minWidth: 0),
+  large(
+    primaryHeights: (60, 54, 50),
+    secondaryHeights: (60, 52, 48),
+    shadow: 1.2,
+    minWidth: 0,
+  ),
 
   /// Everywhere else: 56 tall (a secondary button 48).
-  regular(primaryHeight: 56, secondaryHeight: 48, shadow: 1, minWidth: 0),
+  regular(
+    primaryHeights: (56, 50, 48),
+    secondaryHeights: (48, 48, 48),
+    shadow: 1,
+    minWidth: 0,
+  ),
 
   /// In a sheet or beside a field (S03b "Close", S01 "Join"): 52 tall, at
   /// least 104 wide.
-  compact(primaryHeight: 52, secondaryHeight: 52, shadow: 0.8, minWidth: 104);
+  compact(
+    primaryHeights: (52, 48, 48),
+    secondaryHeights: (52, 48, 48),
+    shadow: 0.8,
+    minWidth: 104,
+  );
 
   const ButtonSize({
-    required this.primaryHeight,
-    required this.secondaryHeight,
+    required this.primaryHeights,
+    required this.secondaryHeights,
     required this.shadow,
     required this.minWidth,
   });
 
-  /// Minimum heights; a button grows with larger text.
-  final double primaryHeight;
-  final double secondaryHeight;
+  /// Minimum heights, (today, compact, tight) (`TypeScale`); a button grows
+  /// with larger text. A touch target is never under 48 in the options.
+  final (double, double, double) primaryHeights;
+  final (double, double, double) secondaryHeights;
+
+  double get primaryHeight => TypeScale.pick(
+    today: primaryHeights.$1,
+    compact: primaryHeights.$2,
+    tight: primaryHeights.$3,
+  );
+  double get secondaryHeight => TypeScale.pick(
+    today: secondaryHeights.$1,
+    compact: secondaryHeights.$2,
+    tight: secondaryHeights.$3,
+  );
 
   /// The ground's primary shadow, times this (5,5 regular: 6,6 and 4,4).
   final double shadow;

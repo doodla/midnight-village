@@ -827,3 +827,11 @@ Future<void> pumpJoinAs(WidgetTester tester, {String? name}) async {
   await tester.enterText(find.byType(TextField), name);
   await tester.pump();
 }
+
+/// 02, the host's: six at the table (the recorded table of seven without
+/// its last player), for the type-size review (`docs/design/type-audit.md`).
+Future<void> pumpTableHostSix(WidgetTester tester) {
+  final lobby = v2Lobby('detail_deck_simple_7');
+  (lobby['players'] as List).removeLast();
+  return TableSetup.pump(tester, lobby: lobby, viewer: 'Kai');
+}

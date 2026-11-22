@@ -550,3 +550,16 @@ Future<void> pumpYourCardWaiting(WidgetTester tester) =>
 /// 04's wait while the game cannot be read: "One moment" with "Try again".
 Future<void> pumpYourCardWaitFailing(WidgetTester tester) =>
     _pumpFrame(tester, const CardWait(failing: true, onRetry: _noRetry));
+
+/// 09 at six, one of them "Rosalind Fairweather-Okonkwo": the type-size
+/// review's vote (`docs/design/type-audit.md`).
+Future<void> pumpVoteSixLong(WidgetTester tester) {
+  final me = sheet.tableOf(
+    sheet.recordedMe('me_voting_unpicked'),
+    add: 1,
+    rename: {'Cleo': 'Rosalind Fairweather-Okonkwo'},
+  );
+  // The new seat is one this phone may vote for.
+  (me['vote_targets'] as List).add((me['players'] as List).last['player_id']);
+  return _shell(tester, me, learned: Cue.values.toSet());
+}
