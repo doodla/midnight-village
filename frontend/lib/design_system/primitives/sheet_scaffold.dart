@@ -10,7 +10,12 @@ import 'screen_frame.dart';
 
 /// Opens [builder]'s [SheetScaffold] from the bottom over the scrim, on the
 /// ground of the screen it is opened from (a sheet opened on a day screen is
-/// lit as day).
+/// lit as day). It closes by its own button, a tap on the scrim, or Back;
+/// never by a drag. A phone's back gesture (an edge swipe, gesture
+/// navigation) reaches the page as a touch until the system claims it and
+/// cancels it: a sheet that could be dragged was swept shut by that touch,
+/// and the Back after it then did the screen's Back too (03 went to 02; 02
+/// asked to leave again).
 Future<T?> showSkinSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -23,6 +28,8 @@ Future<T?> showSkinSheet<T>(
       child: Builder(builder: builder),
     ),
     isScrollControlled: true,
+    // One back gesture, one thing: its touch never moves the sheet.
+    enableDrag: false,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     barrierColor: context.skin.scrim,
