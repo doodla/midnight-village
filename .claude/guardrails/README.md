@@ -11,7 +11,7 @@ It never returns `allow` (that could skip auto mode's own permission checks) or
 
 | Rule | Does |
 |---|---|
-| `subagent_model_effort` | Agent/Task calls and workflow `agent(...)` calls must pin `model` and `effort`, in the call or through an agent definition in `.claude/agents/`. The model must be one of `allowed_models` (default `opus`, `sonnet`; matched by family, so full ids work). Forks are blocked unless `allow_forks = true`. |
+| `subagent_model_effort` | Agent/Task calls and workflow `agent(...)` calls must pin `model` and `effort`, in the call or through an agent definition in `.claude/agents/`. The model must be one of `allowed_models` (default `opus`, `sonnet`; the config also lists `haiku` on trial; matched by family, so full ids work). Forks are blocked unless `allow_forks = true`. |
 
 ## Operating
 
