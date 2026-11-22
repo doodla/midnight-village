@@ -11,6 +11,7 @@ from unittest import mock
 
 GUARDRAILS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GUARDRAILS))
+sys.path.insert(0, str(GUARDRAILS.parents[1] / "tool"))  # repo_files: the repo's tracked files
 
 import runner  # noqa: E402
 from rules import subagent_model_effort as sme  # noqa: E402
@@ -281,8 +282,8 @@ class ModelAllowListTests(IsolatedEnv):
     def test_real_project_agent_definitions_are_pinned_and_allowed(self):
         """Every agent in the repo's .claude/agents/ passes the rule with no model in the call."""
         from agent_defs import frontmatter
-        agents = GUARDRAILS.parent / "agents"
-        found = sorted(agents.glob("*.md"))
+        from repo_files import checkout_files
+        found = checkout_files(GUARDRAILS.parent / "agents", suffixes=(".md",))
         self.assertTrue(found)
         for path in found:
             fields = frontmatter(path.read_text())
