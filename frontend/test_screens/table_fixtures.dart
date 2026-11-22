@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
+import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/lobby/presentation/join_flow.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
@@ -36,6 +37,13 @@ const longNames = {
 /// 01 on a phone that has never played: no name, nothing to say how it went.
 Future<void> pumpJoinFresh(WidgetTester tester, {double textScale = 1}) =>
     TableSetup.pump(tester, textScale: textScale);
+
+/// Home while this device's saved account is read back and a try got no
+/// answer (it is made again by itself): the night's calm wait, never 01.
+Future<void> pumpHomeUnanswered(WidgetTester tester) => TableSetup.pump(
+  tester,
+  authState: const AuthState.initial(unanswered: true),
+);
 
 /// 01 on a fresh phone with the keyboard up (the name field is focused):
 /// a phone keyboard's height at 390 wide.

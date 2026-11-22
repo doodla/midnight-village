@@ -54,6 +54,47 @@ final class LobbyServiceProvider
 
 String _$lobbyServiceHash() => r'307575c4fc9b15e2c921330c7fc21ef299e7cd8a';
 
+@ProviderFor(lobbySeed)
+const lobbySeedProvider = LobbySeedProvider._();
+
+final class LobbySeedProvider
+    extends $FunctionalProvider<LobbySeed, LobbySeed, LobbySeed>
+    with $Provider<LobbySeed> {
+  const LobbySeedProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'lobbySeedProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$lobbySeedHash();
+
+  @$internal
+  @override
+  $ProviderElement<LobbySeed> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  LobbySeed create(Ref ref) {
+    return lobbySeed(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(LobbySeed value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LobbySeed>(value),
+    );
+  }
+}
+
+String _$lobbySeedHash() => r'0b9b07556d7a756e1fc73b64d7d3dbe9b71ffe77';
+
 /// Provider for the WebSocket factory. Override in tests with a mock.
 
 @ProviderFor(lobbyWebSocketFactory)
@@ -209,7 +250,7 @@ final class LobbyNotifierProvider
   }
 }
 
-String _$lobbyNotifierHash() => r'77e8d8040a1058deacca9d37beeb42f90be8871f';
+String _$lobbyNotifierHash() => r'd81947698c4597cff0deeda0fa236e561d11d127';
 
 /// Manages lobby state for a given lobby code.
 ///

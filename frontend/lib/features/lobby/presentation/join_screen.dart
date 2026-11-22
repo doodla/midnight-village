@@ -58,9 +58,7 @@ class JoinScreen extends ConsumerWidget {
       if (await attempt && link != null && context.mounted) context.go('/');
     }
 
-    // This device's saved account could not be read back (no answer): it is
-    // tried again on "Try again", not given up for a new one.
-    final restoreFailed = auth is AuthError && flow.banner == null;
+    // (A saved account being read back never shows 01: `HomeGate` waits.)
     void goThere() {
       notifier.goThere();
       context.go('/');
@@ -68,21 +66,15 @@ class JoinScreen extends ConsumerWidget {
 
     final (String? banner, String? action, VoidCallback? onAction) = switch ((
       elsewhere,
-      restoreFailed,
       flow,
     )) {
-      (true, _, _) => (BannerCopy.alreadyInLobby, BannerCopy.goThere, goThere),
-      (_, true, _) => (
-        BannerCopy.notSent,
-        BannerCopy.tryAgain,
-        () => ref.invalidate(authProvider),
-      ),
-      (_, _, JoinFlowState(goThere: true)) => (
+      (true, _) => (BannerCopy.alreadyInLobby, BannerCopy.goThere, goThere),
+      (_, JoinFlowState(goThere: true)) => (
         flow.banner,
         BannerCopy.goThere,
         goThere,
       ),
-      (_, _, JoinFlowState(retry: true)) => (
+      (_, JoinFlowState(retry: true)) => (
         flow.banner,
         BannerCopy.tryAgain,
         () => unawaited(sat(notifier.retry())),

@@ -44,9 +44,12 @@ enum JoinWay { start, join }
 /// loses nothing:
 /// - the name: this device's own guest account when it has that name, else
 ///   a new guest account with it (the server has no rename);
-/// - then a new table (`defaults: "v2"`, always) or a join by code;
+/// - then a new table (`defaults: "v2"`, always) or a join by code, whose
+///   answer is the table's lobby ([LobbySeed]: 02 draws it, no second read);
 /// - then `/me/table/` is read again, and the screen it names (02) follows.
 ///   Joining a table this player already sits at is no refusal: it is there.
+/// The account step never makes a second account over a saved one the
+/// server has not refused (`AuthNotifier.createGuest`).
 @Riverpod(keepAlive: true)
 class JoinFlow extends _$JoinFlow {
   @override
@@ -54,18 +57,22 @@ class JoinFlow extends _$JoinFlow {
 
   Future<bool> Function()? _again;
 
-  /// Starts a table as [name]. True when the player is at it.
-  Future<bool> start(String name) => _run(
-    JoinWay.start,
-    name,
-    () => ref.read(lobbyServiceProvider).createTable(),
-  );
+  /// Starts a table as [name]. True when the player is at it. The answer is
+  /// the new table's lobby: 02 shows it without reading it again (nobody
+  /// else knows the code yet, so nothing can have changed).
+  Future<bool> start(String name) => _run(JoinWay.start, name, () async {
+    final lobby = await ref.read(lobbyServiceProvider).createTable();
+    ref.read(lobbySeedProvider).put(lobby, settled: true);
+  });
 
-  /// Joins table [code] as [name]. True when the player is at it.
+  /// Joins table [code] as [name]. True when the player is at it. The answer
+  /// is the table's lobby: 02 shows it at once (and reads it again once its
+  /// socket listens, for a join said meanwhile).
   Future<bool> join(String name, String code) =>
       _run(JoinWay.join, name, () async {
         try {
-          await ref.read(lobbyServiceProvider).joinLobby(code);
+          final lobby = await ref.read(lobbyServiceProvider).joinLobby(code);
+          ref.read(lobbySeedProvider).put(lobby, settled: false);
         } on ValidationException catch (e) {
           // Already at this table: that is where they are going.
           if (e.code != 'already_in_lobby') rethrow;
@@ -106,6 +113,7 @@ class JoinFlow extends _$JoinFlow {
     if (state.busy != null) return false;
     _again = () => _run(way, name, sit);
     state = JoinFlowState(busy: way);
+    ref.read(lobbySeedProvider).clear();
     try {
       await _account(name.trim());
       await sit();

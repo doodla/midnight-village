@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/healing/healing.dart';
+import '../../../design_system/skin/skin_choice.dart'
+    show devicePreferencesProvider;
 import '../../game/domain/game_me.dart' show GamePhase;
 import '../domain/where_am_i.dart';
+import 'last_seat.dart';
 import 'lobby_notifier.dart';
 
 part 'where_am_i_provider.g.dart';
@@ -15,9 +18,11 @@ part 'where_am_i_provider.g.dart';
 /// failed fetch is retried until it succeeds ([retryForever]). At a waiting
 /// table or a finished game, where only an event would say the table moved
 /// on, it is also polled slowly ([HealTiming.tablePoll]). Null: at no table.
+/// Every answer is kept on the device as the last seat ([LastSeat]).
 @Riverpod(retry: retryForever)
 Future<MyTable?> myTable(Ref ref) async {
   final table = await ref.watch(lobbyServiceProvider).fetchMyTable();
+  LastSeat.keep(ref.read(devicePreferencesProvider), table);
   if (table != null &&
       (table.status == TableStatus.waiting ||
           table.status == TableStatus.finished ||

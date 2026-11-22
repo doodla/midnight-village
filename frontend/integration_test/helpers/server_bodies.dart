@@ -26,6 +26,7 @@ abstract final class ServerBodies {
   /// `GET /onuw/me/recent-games/` -> 200: no finished game yet.
   static const recentGamesNone = {'games': <Object>[]};
 
-  /// `GET /onuw/me/current-game/` -> 200: in no game (the router asks at `/`).
+  /// `GET /onuw/me/current-game/` -> 200: in no game (the app no longer asks
+  /// on open; a lobby opened mid-game does).
   static const currentGameNone = {'game': null};
 }

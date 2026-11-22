@@ -58,11 +58,15 @@ class AuthService {
       );
 
       // The refresh token is rotated: a new one comes with the access token.
-      final data = response.data!;
-      return (
-        access: data['access'] as String,
-        refresh: data['refresh'] as String,
-      );
+      final data = response.data;
+      final access = data?['access'];
+      final refresh = data?['refresh'];
+      if (access is! String || refresh is! String) {
+        // Not the server's answer (a wifi sign-in page, a proxy): no answer
+        // at all, never a refusal.
+        throw const MalformedResponseException('No tokens in the refresh');
+      }
+      return (access: access, refresh: refresh);
     } on DioException catch (e) {
       throw mapDioException(e);
     }

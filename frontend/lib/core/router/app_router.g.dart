@@ -12,9 +12,10 @@ part of 'app_router.dart';
 ///
 /// Redirect rules:
 /// - Unauthenticated users on `/game/*` are redirected to `/`.
-/// - Authenticated users at `/` with an active game are redirected to
-///   `/game/:id`. The check is made on every visit to `/`: a cached answer
-///   would send a player who just left a finished game back into it.
+/// - Nothing else: home (`/`) is the table's shell for a signed-in player,
+///   which shows the game they are in from `/me/table/` with no extra
+///   request (a "which game" look-up here cost a round trip before the
+///   first screen, for a URL change only).
 
 @ProviderFor(appRouter)
 const appRouterProvider = AppRouterProvider._();
@@ -23,9 +24,10 @@ const appRouterProvider = AppRouterProvider._();
 ///
 /// Redirect rules:
 /// - Unauthenticated users on `/game/*` are redirected to `/`.
-/// - Authenticated users at `/` with an active game are redirected to
-///   `/game/:id`. The check is made on every visit to `/`: a cached answer
-///   would send a player who just left a finished game back into it.
+/// - Nothing else: home (`/`) is the table's shell for a signed-in player,
+///   which shows the game they are in from `/me/table/` with no extra
+///   request (a "which game" look-up here cost a round trip before the
+///   first screen, for a URL change only).
 
 final class AppRouterProvider
     extends $FunctionalProvider<GoRouter, GoRouter, GoRouter>
@@ -34,9 +36,10 @@ final class AppRouterProvider
   ///
   /// Redirect rules:
   /// - Unauthenticated users on `/game/*` are redirected to `/`.
-  /// - Authenticated users at `/` with an active game are redirected to
-  ///   `/game/:id`. The check is made on every visit to `/`: a cached answer
-  ///   would send a player who just left a finished game back into it.
+  /// - Nothing else: home (`/`) is the table's shell for a signed-in player,
+  ///   which shows the game they are in from `/me/table/` with no extra
+  ///   request (a "which game" look-up here cost a round trip before the
+  ///   first screen, for a URL change only).
   const AppRouterProvider._()
     : super(
         from: null,
@@ -70,4 +73,4 @@ final class AppRouterProvider
   }
 }
 
-String _$appRouterHash() => r'0e9eff882be1ebc3f0a14880049fa5c0065c241c';
+String _$appRouterHash() => r'c787862e3b94fdd697f2433e2a6de4a93a53735e';

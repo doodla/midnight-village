@@ -14,9 +14,10 @@ part 'app_router.g.dart';
 ///
 /// Redirect rules:
 /// - Unauthenticated users on `/game/*` are redirected to `/`.
-/// - Authenticated users at `/` with an active game are redirected to
-///   `/game/:id`. The check is made on every visit to `/`: a cached answer
-///   would send a player who just left a finished game back into it.
+/// - Nothing else: home (`/`) is the table's shell for a signed-in player,
+///   which shows the game they are in from `/me/table/` with no extra
+///   request (a "which game" look-up here cost a round trip before the
+///   first screen, for a URL change only).
 @Riverpod(keepAlive: true)
 GoRouter appRouter(Ref ref) {
   // Bridge Riverpod auth state changes to GoRouter's refreshListenable so
@@ -40,43 +41,15 @@ GoRouter appRouter(Ref ref) {
     ],
     debugLogDiagnostics: Env.isDev,
     refreshListenable: notifier,
-    redirect: (context, state) async {
+    redirect: (context, state) {
       final authState = ref.read(authProvider);
-      final path = state.uri.path;
-      final isAuthenticated = authState is AuthAuthenticated;
-
-      // While auth is still loading, don't redirect — wait for resolution.
-      if (authState is AuthInitial || authState is AuthLoading) {
-        return null;
-      }
-
+      // While the saved account is read back, nothing moves.
+      if (authState is AuthInitial || authState is AuthLoading) return null;
       // Redirect unauthenticated users away from protected routes.
-      if (!isAuthenticated) {
-        if (path.startsWith('/game/')) {
-          return '/';
-        }
-        return null;
+      if (authState is! AuthAuthenticated &&
+          state.uri.path.startsWith('/game/')) {
+        return '/';
       }
-
-      // Authenticated user navigating to home — check for an active game.
-      if (path == '/') {
-        try {
-          final client = ref.read(authenticatedClientProvider);
-          final response = await client.get<Map<String, dynamic>>(
-            '/onuw/me/current-game/',
-          );
-          final data = response.data;
-          if (data is Map<String, dynamic>) {
-            final gameId = data['game_id']?.toString();
-            if (gameId != null) {
-              return GameRoute(gameId: gameId).location;
-            }
-          }
-        } catch (_) {
-          // No active game or network error — remain on home.
-        }
-      }
-
       return null;
     },
   );

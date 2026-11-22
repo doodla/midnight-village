@@ -8,7 +8,22 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   table (03 for a host who opened it, a step of this phone's only: a restart lands on 02), the
   game's screens in a game. So a player who comes back to a table they sit at is there with no
   tap. `/join/<code>` (a table's link and QR code) is 01 with the name and "Join", or the table
-  itself for a player already at it.
+  itself for a player already at it; `/game/<id>` is the same gate.
+- **The saved account** (`AuthNotifier`, `AuthRepository.tryRestoreSession`). Read back at
+  start from storage alone while its access token works (its own `exp`; no request), else
+  renewed once. A try the server does not answer (no network, a timeout, a 5xx, an answer
+  that is not the server's) is made again by itself with the healing backoff, and meanwhile
+  home is the night's calm wait (`EndWaiting`, "One moment" once a try got no answer), never
+  01. Only the server refusing the saved tokens (401: the account is gone) clears them and
+  shows 01. `AuthRepository.createGuest` refuses (`SavedAccountExists`, nothing sent) while a
+  saved account is kept, unless the player is signed in with it and asks for another name
+  (`replacing`, from 01 at no table, where the server has said they have no seat), so 01 can
+  never cost a seat.
+- **Opening the app** reads the seat this device last had (`LastSeat`, `mv.seat.v1.`, kept
+  from every `/me/table/` answer) beside `/me/table/`: its game's `/me/`, or its waiting
+  table's lobby, goes out at the same moment; `/me/table/` decides and a seat it does not
+  name is let go. Seated with a working token: two requests, one round trip, then the screen
+  (`test/features/app_open_test.dart` pins it); a renewal first makes it three.
 - **01** (`join_screen.dart`): the name is this device's own guest account's or empty and
   focused; "Join a table" first, then "Start a table", locked until a name is typed; Enter in
   the name opens the code (with a code, or from a link, it joins; never a table of one's own
@@ -20,7 +35,9 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   (`join_flow.dart`), outside any widget: the account (this device's when it has that name,
   else a new guest: the server has no rename), then `createTable` (always `defaults: "v2"`)
   or a join by code (`already_in_lobby` is no refusal: the player is there), then
-  `/me/table/`. Refusals are the spec's banners; no answer is "Not sent." with "Try again". A
+  `/me/table/`. The start's or the join's answer is the table's lobby (`LobbySeed`): 02 shows
+  it without reading it again; a joined table is read once more when its socket is first up
+  (a join said before it listened), a started one never (only its host knows the code). Refusals are the spec's banners; no answer is "Not sent." with "Try again". A
   link to another table while seated at one, and the server's 409 `already_at_table`, say
   "You're at another table." with "Go there" (it reads `/me/table/` again): never a silent
   second seat.
@@ -64,8 +81,9 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   `/me/table/` decides, and only a phone the server still seats sees "Not sent." with "Try
   again". Off the table, `/me/table/` puts the phone at 01 (the last one out closes the
   table). A guest: "{host} deals" at the hero title size over the same card. A deal, a
-  handover or a host change reads `/me/table/` again; a table that is gone says so with "Go
-  home".
+  handover or a host change reads `/me/table/` again; a deal names its game (the deal's
+  answer for the host, `game_started` for a guest), and that game's `/me/` is read at the
+  same moment, not after `/me/table/`. A table that is gone says so with "Go home".
 - **03 Tonight's game** (`deck_screen.dart`): the set-up page, the host's, editable before
   anyone comes and until the deal; every change is saved as it is made (shown at once, a
   merged PATCH, one at a time), so a restart finds it at the server. Top to bottom:

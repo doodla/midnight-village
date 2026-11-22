@@ -1,9 +1,42 @@
+import 'dart:convert';
+
 import '../../../core/api/api_exception.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/storage/user_storage.dart';
 import '../domain/user.dart';
 import 'auth_service.dart';
+
+/// A new guest account was asked for while this device holds one the server
+/// has not refused: refused here, so a seat is never lost to a second
+/// account (see [AuthRepository.createGuest]).
+class SavedAccountExists implements Exception {
+  const SavedAccountExists();
+
+  @override
+  String toString() => 'SavedAccountExists';
+}
+
+/// When the access token [jwt] stops working, as the server wrote it in the
+/// token (its `exp`); null when the token cannot be read (then it is used
+/// as it is, and a refusal is renewed by `AuthInterceptor`).
+DateTime? accessTokenExpiry(String jwt) {
+  final parts = jwt.split('.');
+  if (parts.length != 3) return null;
+  try {
+    final payload = json.decode(
+      utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+    );
+    final exp = payload is Map ? payload['exp'] : null;
+    if (exp is! num) return null;
+    return DateTime.fromMillisecondsSinceEpoch(
+      (exp * 1000).round(),
+      isUtc: true,
+    );
+  } on FormatException {
+    return null;
+  }
+}
 
 /// Repository coordinating auth service and token storage.
 ///
@@ -13,20 +46,34 @@ class AuthRepository {
     required AuthService authService,
     required TokenStorage tokenStorage,
     required UserStorage userStorage,
+    DateTime Function()? now,
   }) : _authService = authService,
        _tokenStorage = tokenStorage,
-       _userStorage = userStorage;
+       _userStorage = userStorage,
+       _now = now ?? DateTime.now;
 
   final AuthService _authService;
   final TokenStorage _tokenStorage;
   final UserStorage _userStorage;
+  final DateTime Function() _now;
 
-  /// Checks for stored tokens and attempts silent refresh.
+  /// An access token this close to its end is renewed before it is used,
+  /// so the first read does not go out only to be refused.
+  static const renewBefore = Duration(minutes: 1);
+
+  /// Reads this device's saved account back.
   ///
-  /// Returns user if refresh succeeds, null if no tokens or refresh fails.
+  /// - No account saved: null.
+  /// - Its access token still works (its own `exp`, or unreadable): the
+  ///   account, with no request at all.
+  /// - Else the tokens are renewed (one request). The server refusing them
+  ///   (401: the account is gone) clears them: null. Anything else (no
+  ///   network, a timeout, a 5xx, an answer that is not the server's) keeps
+  ///   them and is thrown: the account is there, it could not be asked
+  ///   about yet, and the caller asks again. A failure to reach the server
+  ///   is never "no account".
   Future<User?> tryRestoreSession() async {
     try {
-      logger.d('Checking for stored tokens...');
       final hasTokens = await _tokenStorage.hasTokens;
       if (!hasTokens) {
         logger.d('No tokens found');
@@ -39,49 +86,45 @@ class AuthRepository {
         return null;
       }
 
-      logger.d('Attempting token refresh...');
+      final user = await _userStorage.getUser();
+      if (user == null) {
+        logger.w('User data missing or invalid, clearing session');
+        await _cleanupSession();
+        return null;
+      }
+
+      final access = await _tokenStorage.accessToken;
+      final expiry = access == null ? null : accessTokenExpiry(access);
+      if (access != null &&
+          (expiry == null || _now().add(renewBefore).isBefore(expiry))) {
+        logger.i('Session restored from storage: userId=${user.id}');
+        return user;
+      }
+
+      logger.d('Access token expired, renewing...');
       final tokens = await _authService.refreshToken(refreshToken);
       await _tokenStorage.saveTokens(
         accessToken: tokens.access,
         refreshToken: tokens.refresh,
       );
-
-      // Retrieve stored user data
-      final user = await _userStorage.getUser();
-      if (user == null) {
-        logger.w('User data missing or invalid, clearing session');
-        await _tokenStorage.deleteTokens();
-        await _userStorage.clear();
-        return null;
-      }
-
       logger.i('Session restored: userId=${user.id}');
       return user;
     } on UnauthorizedException catch (e) {
-      // Session expired - clear tokens and let user re-authenticate
-      logger.w('Session expired: $e');
+      // The server refused the saved tokens: the account is gone.
+      logger.w('Session refused: $e');
       await _cleanupSession();
       return null;
-    } on NetworkException catch (e) {
-      // Network issues are transient - don't delete tokens
-      logger.w('Network error during session restore: $e');
-      rethrow;
-    } on ServerException catch (e) {
-      // Server issues are transient - don't delete tokens
-      logger.w('Server error during session restore: $e');
-      rethrow;
     } on ApiException catch (e) {
-      // Other API errors (MalformedResponse, etc.) - clear potentially corrupted state
-      logger.w('Session restore failed (API): $e');
-      await _cleanupSession();
-      return null;
+      // No usable answer: the account is kept, and asked about again.
+      logger.w('Session not restored yet: $e');
+      rethrow;
     } catch (e, stack) {
+      // This device's storage could not be read: nothing to restore.
       logger.e(
         'Session restore failed (unexpected)',
         error: e,
         stackTrace: stack,
       );
-      // Attempt cleanup but log if it also fails
       try {
         await _cleanupSession();
       } catch (cleanupError, cleanupStack) {
@@ -98,9 +141,19 @@ class AuthRepository {
   /// Creates a guest account and stores tokens.
   ///
   /// [displayName] is optional - server generates one if not provided.
+  /// While this device holds a saved account, a new one is made only when
+  /// [replacing] it (the player is signed in with it and the server has
+  /// said where they sit): otherwise [SavedAccountExists] is thrown and
+  /// nothing is sent, so a seat is never lost to a second account.
   /// Returns the created user.
   /// Throws [ApiException] on failure.
-  Future<User> createGuest({String? displayName}) async {
+  Future<User> createGuest({
+    String? displayName,
+    bool replacing = false,
+  }) async {
+    if (!replacing && await _tokenStorage.hasTokens) {
+      throw const SavedAccountExists();
+    }
     final response = await _authService.createGuest(displayName: displayName);
 
     // Save tokens first
