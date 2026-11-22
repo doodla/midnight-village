@@ -101,11 +101,41 @@ Future<void> pumpNightBoard(WidgetTester tester, {double textScale = 1}) =>
 Future<void> pumpNightSleeper(WidgetTester tester) =>
     _shell(tester, sheet.recordedMe('me_choose_prompt_villager'));
 
-/// 06 with Cleo picked: "Choose Cleo".
+/// 06 with Cleo picked: "See Cleo".
 Future<void> pumpNightPicked(WidgetTester tester) async {
   await pumpNightBoard(tester);
   await tester.tap(find.text(sheet.cleo.name).last);
   await tester.pump();
+}
+
+/// 06 on the Seer's phone with one center card picked: "Choose 1 more".
+Future<void> pumpNightSeerCenter(WidgetTester tester) async {
+  await pumpNightBoard(tester);
+  await tester.tap(find.text(NightCopy.left).last);
+  await tester.pump();
+}
+
+/// 06 as the window opens on the phone of a recorded prompt (game 7 unless
+/// the name says otherwise): the Robber, the Troublemaker, the lone Werewolf,
+/// the Doppelganger's look.
+Future<void> pumpNightAs(WidgetTester tester, String recordedPrompt) =>
+    _shell(tester, sheet.recordedMe(recordedPrompt));
+
+/// 06 on the Troublemaker's phone with two of the longest names the server
+/// allows picked: "Swap {name}, {name}" wraps between words.
+Future<void> pumpNightTroublemakerLong(WidgetTester tester) async {
+  const long = ['Rosalind Fairweather', 'Bartholomew Longname'];
+  await _shell(
+    tester,
+    sheet.tableOf(
+      sheet.recordedMe('me_choose_prompt_troublemaker'),
+      rename: {sheet.ana.name: long[0], sheet.ben.name: long[1]},
+    ),
+  );
+  for (final name in long) {
+    await tester.tap(find.text(name).last);
+    await tester.pump();
+  }
 }
 
 /// 06 after Choose: "Chosen", the pick still lifted; the server's answer and

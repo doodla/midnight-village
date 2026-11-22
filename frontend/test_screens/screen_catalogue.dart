@@ -110,6 +110,15 @@ final screenCatalogue = <ScreenEntry>[
     '': pumpNightBoard,
     '-sleeper': pumpNightSleeper,
     '-picked': pumpNightPicked,
+    '-seer-center': pumpNightSeerCenter,
+    '-robber': (tester) => pumpNightAs(tester, 'me_choose_prompt_robber'),
+    '-troublemaker': (tester) =>
+        pumpNightAs(tester, 'me_choose_prompt_troublemaker'),
+    '-troublemaker-long': pumpNightTroublemakerLong,
+    '-lone-werewolf': (tester) =>
+        pumpNightAs(tester, 'me_choose_prompt_werewolf_lone'),
+    '-doppelganger': (tester) =>
+        pumpNightAs(tester, 'me_choose_prompt_doppelganger_look'),
     '-chosen': pumpNightChosen,
     '-follow-up': pumpNightFollowUp,
     '-3': pumpNightThree,

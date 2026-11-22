@@ -490,7 +490,7 @@ void main() {
       s.answerPost('/action/', 'game/choose_submitted_seer');
       await tester.tap(_seat('Cleo'));
       await tester.pump();
-      expect(_button(tester), 'Choose Cleo');
+      expect(_button(tester), 'See Cleo');
       final fetched = s.meFetches;
       s.answerMe(recordedMe('me_choose_chosen'));
       await tester.tap(find.byType(PrimaryButton).last);
@@ -564,7 +564,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.byType(PrimaryButton).last);
       await s.settle(tester);
-      expect(_button(tester), 'Choose Cleo');
+      expect(_button(tester), 'See Cleo');
       expect(find.text(BannerCopy.tryAgain), findsNothing);
       await s.close(tester);
     });

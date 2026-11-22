@@ -5,6 +5,7 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/night/board_layout.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
+import 'board_harness.dart' show card;
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
@@ -130,7 +131,9 @@ void main() {
               for (final element in find.byType(FaceDownCard).evaluate())
                 if (tester.getSize(find.byWidget(element.widget)) case final hit
                     when hit.width < BoardLayout.minTap - 0.5 ||
-                        hit.height < BoardLayout.minTap - 0.5)
+                        // With a margin of 4 px, so the smallest phone's
+                        // ten players do not hang on a pixel.
+                        hit.height < BoardLayout.minTap + 4)
                   '$where: "${(element.widget as FaceDownCard).semanticLabel}" '
                       'is tapped in ${hit.width.toStringAsFixed(1)} x '
                       '${hit.height.toStringAsFixed(1)}',
@@ -142,6 +145,122 @@ void main() {
         });
       }
     }
+  }
+
+  // The button says what will happen, with the names picked: "Swap Ana, Ben"
+  // with the two longest names the server allows. A name is never cut: the
+  // label wraps between words onto a second line, is set smaller if a word is
+  // too wide, and the board takes the height.
+  for (final phone in const [Size(320, 692), Size(320, 568)]) {
+    for (final scale in _textScales) {
+      testWidgets('the longest names in the button of every role on a '
+          '${phone.width.round()} x ${phone.height.round()} phone, text '
+          'x$scale: whole, on screen, no card pushed off', (tester) async {
+        tester.view.physicalSize = phone;
+        tester.view.devicePixelRatio = 1;
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.view.reset);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        const long = ['Rosalind Fairweather', 'Bartholomew Longname'];
+
+        final findings = <String>[];
+        for (final (viewer, picks) in [
+          (Viewer.seer, 1),
+          (Viewer.robber, 1),
+          (Viewer.troublemaker, 2),
+          (Viewer.doppelganger, 1),
+        ]) {
+          final me = viewer.nightMe;
+          final others = [
+            for (final seat in NightSeat.seatsOf(me))
+              if (seat.id != selfIn(me)) seat.name,
+          ];
+          final names = others.take(picks).toList();
+          // A phone that has shown no board yet: nothing kept from the last.
+          await tester.pumpWidget(const SizedBox());
+          await _pump(
+            tester,
+            BoardPage(
+              viewer: viewer,
+              table: (me) => tableOf(
+                me,
+                rename: {for (final (i, name) in names.indexed) name: long[i]},
+              ),
+            ),
+          );
+          // The opening wave, done.
+          await tester.pump(const Duration(seconds: 2));
+          for (var i = 0; i < picks; i++) {
+            await tester.tap(card(long[i]));
+            await tester.pump();
+          }
+          final label = find.byWidgetPredicate(
+            (w) =>
+                w is Text &&
+                w.data != null &&
+                w.data!.contains(long[0]) &&
+                w.data!.length > long[0].length,
+          );
+          final where = '${viewer.name} x$scale';
+          expect(label, findsOneWidget, reason: where);
+          final text = (tester.widget(label) as Text).data!;
+          expect(text, switch (viewer) {
+            Viewer.troublemaker => 'Swap ${long.join(', ')}',
+            Viewer.robber => 'Swap with ${long[0]}',
+            Viewer.doppelganger => 'Copy ${long[0]}',
+            _ => 'See ${long[0]}',
+          }, reason: where);
+          findings.addAll([
+            for (final cut in truncatedText(tester)) '$where: $cut',
+            for (final word in brokenWords(tester)) '$where: $word',
+            for (final card in offBoard(tester)) '$where: $card',
+            if (tester.getRect(label).right > phone.width ||
+                tester.getRect(label).left < 0)
+              '$where: the label runs off the screen',
+          ]);
+          final error = tester.takeException();
+          if (error != null) findings.add('$where: $error');
+        }
+        expect(findings, isEmpty);
+      });
+    }
+  }
+
+  // A title has two lines of room at the full title size on every board
+  // (issue 37: "1 player or 2 center cards" had been set at 21 px, a third
+  // under its siblings, and the seconds outshouted it).
+  for (final scale in _textScales) {
+    testWidgets('every night title is drawn at 0.8 of the title size or '
+        'more and whole, at 360 wide, text x$scale', (tester) async {
+      tester.view.physicalSize = const Size(360, 779);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final full = skinsUnderTest.values.first.typography.screenTitle.fontSize!;
+
+      final findings = <String>[];
+      final drawn = <String>[];
+      for (final viewer in Viewer.values) {
+        await tester.pumpWidget(const SizedBox());
+        await _pump(tester, BoardPage(viewer: viewer));
+        final title = viewer.prompt.kind.title;
+        final text = tester.widget<Text>(find.text(title));
+        final size = text.style!.fontSize!;
+        drawn.add('${viewer.name} ${size.toStringAsFixed(1)}');
+        if (size < 0.8 * full) {
+          findings.add('${viewer.name}: "$title" drawn at $size of $full');
+        }
+        findings.addAll([
+          for (final cut in truncatedText(tester)) '${viewer.name}: $cut',
+          for (final word in brokenWords(tester)) '${viewer.name}: $word',
+          for (final card in offBoard(tester)) '${viewer.name}: $card',
+        ]);
+        final error = tester.takeException();
+        if (error != null) findings.add('${viewer.name}: $error');
+      }
+      expect(findings, isEmpty, reason: drawn.join(', '));
+    });
   }
 
   testWidgets('the board is laid out from every name at the table: a long '

@@ -93,10 +93,36 @@ void main() {
     expect(_lines(_you('me_choose_prompt_doppelganger_look').pages.first), [
       NightCopy.doppelgangerLook,
     ]);
+    // A kind the server adds later is a plain board, never a throw.
+    final unknown = NightPrompt.fromKind('not_a_kind');
+    expect(unknown.title, NightCopy.chooseNone);
+    expect(unknown.go.fill({'cards': 'Cleo'}), 'Choose Cleo');
+    expect(unknown.pass, NightCopy.skip);
+  });
+
+  test('every prompt kind has its button words, so none can crash a board: '
+      '"Choose {cards}" and "Skip" where nothing better is said', () {
+    for (final prompt in NightPrompt.values) {
+      expect(
+        prompt.go.fill({'cards': 'Cleo'}),
+        allOf(contains('Cleo'), isNot(contains('{'))),
+        reason: prompt.kind,
+      );
+      expect(prompt.pass, isNotEmpty, reason: prompt.kind);
+    }
+    final fallback = NightPrompt.fromKind('none');
+    expect(fallback.go.fill({'cards': 'Cleo'}), 'Choose Cleo');
+    expect(fallback.pass, 'Skip');
     expect(
-      () => NightPrompt.fromKind('not_a_kind'),
-      throwsA(isA<FormatException>()),
+      NightPrompt.fromKind('not_a_kind').go.fill({'cards': 'a'}),
+      isNotEmpty,
     );
+  });
+
+  test("the Doppelganger's held line and her title agree: a player's role", () {
+    final prompt = NightPrompt.fromKind('doppelganger_look');
+    expect(prompt.instruction, "Copy 1 player's role.");
+    expect(prompt.title, "Copy a player's role");
   });
 
   test("the Doppelganger's follow-up shows whom she copied and what her "
