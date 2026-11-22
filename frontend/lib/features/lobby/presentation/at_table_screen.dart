@@ -24,6 +24,7 @@ import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
+import '../../game/presentation/live_game.dart' show liveGameProvider;
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
 import '../domain/lobby_state.dart';
 import 'deck_screen.dart'
@@ -120,17 +121,27 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
   }
 
   /// What the lobby's changes mean beyond what it shows: a deal or a
-  /// handover moves `/me/table/` on, so it is read again.
+  /// handover moves `/me/table/` on, so it is read again. A deal names its
+  /// game (the deal's answer, or `game_started`): that game's `/me/` is read
+  /// at the same time, not after `/me/table/`, and the game's screen finds
+  /// it on its way.
   void _follow(AsyncValue<LobbyState>? before, AsyncValue<LobbyState> now) {
     final lobby = now.value;
     if (lobby == null) return;
     final was = before?.value;
-    final moved =
-        lobby.startedGameId != null &&
-        lobby.startedGameId != was?.startedGameId;
+    final started = lobby.startedGameId;
+    final moved = started != null && started != was?.startedGameId;
     final hostMoved = was != null && was.hostId != lobby.hostId;
     if (moved || hostMoved) ref.invalidate(myTableProvider);
+    if (moved) {
+      _dealt?.close();
+      _dealt = ref.listenManual(liveGameProvider(started), (_, _) {});
+    }
   }
+
+  /// The dealt game, read from the moment it is named until this screen
+  /// gives way to it.
+  ProviderSubscription<Object?>? _dealt;
 
   Future<void> _share(Uri link) async {
     setState(() => _copied = false);

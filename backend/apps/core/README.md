@@ -5,6 +5,18 @@ any game uses. `apps.core` imports no game app (a test scans its source). The ON
 `apps/onuw/README.md`; running on Vercel in `docs/dev/deploy-vercel.md`. Keep this file true
 when you change the code it describes.
 
+## Sign-in (`auth.py`, SimpleJWT)
+
+Guests sign up with `POST /api/auth/guest/`; an access token lives 60 minutes, a refresh
+token 7 days. `POST /api/auth/token/refresh/` rotates the refresh token (the week slides with
+use) and does NOT blacklist the used one (`BLACKLIST_AFTER_ROTATION = False`): a renewal whose
+answer was lost (a slow server, two tabs) is sent again with the same token and must still
+work, or the phone loses its seat. The blacklist app stays installed for an explicit
+`POST /api/auth/logout/`. One rule for an account that is gone (deleted, inactive): 401, on
+the refresh (`AccountTokenRefreshView`: "User not found", as a read says it, where SimpleJWT's own answered 500)
+as on any authenticated read; the app starts afresh on a 401 and asks again on anything else
+(`tests/core/test_auth.py`, `contract_samples/http/auth/token_refresh_user_gone.json`, `user_gone.json`, `user_gone_game_me.json`).
+
 ## How many server processes?
 
 Depends on `ONUW_TIMER_BACKEND`. With `"vercel_queue"` (Vercel; `config/settings/vercel.py`) there is NO per-process state: timers are rows fired by queue messages, presence is rows with heartbeats, nothing resets or re-arms at start-up, so any number of instances may start and stop at any time (`docs/dev/deploy-vercel.md`). With `"memory"` (default: dev, tests, harness, `just dev`) still run ONE process: its timers are `threading.Timer`s in that process (the rows make them survive a restart, but a timer armed in process A is lost with A until a restart re-arms it, and a second process would not know about A's timers), and `recover_timers` re-derives and re-arms at start-up. Redis in `production.py` is only the channel layer. Recovery logs one INFO line about it at every start. (The repo has no Dockerfile or Procfile: `just dev`/`just serve`/`just harness-serve` and CI.)

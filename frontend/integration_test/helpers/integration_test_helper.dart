@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:midnight_village/app.dart';
@@ -96,6 +97,11 @@ class IntegrationTestSetup {
       }
     });
 
+    // Every test starts as a device that never signed in: a saved account
+    // from an earlier test is read back from storage alone now (no request a
+    // mock could refuse), so it is cleared here.
+    await const FlutterSecureStorage().deleteAll();
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -116,9 +122,7 @@ class IntegrationTestSetup {
 
   /// Registers mock responses for endpoints all integration tests need.
   static void _registerDefaultMocks() {
-    // If stored tokens exist from a prior run, tryRestoreSession() hits the
-    // refresh endpoint. Return 401 so it clears tokens and transitions to
-    // AuthUnauthenticated — ensuring each test run starts from a clean state.
+    // A renewal (an expired access token) is refused: the account is gone.
     mockHttp
         .when(method: 'POST', path: '/auth/token/refresh/')
         .thenReturn(

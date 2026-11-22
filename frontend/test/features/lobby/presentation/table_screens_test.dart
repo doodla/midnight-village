@@ -17,6 +17,7 @@ import 'package:midnight_village/features/lobby/presentation/deck_screen.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/mock_http_client.dart';
+import '../../../helpers/live_game_setup.dart' show recordedMe;
 import '../../../helpers/table_setup.dart';
 
 // 01 Join, 02 Table, 03 Deck and 03b through the app's routes and providers,
@@ -89,6 +90,9 @@ void main() {
         'a table and shows it', (tester) async {
       final setup = await TableSetup.pump(tester, realAuth: true);
       final created = v2Lobby('created_with_defaults');
+      // The guest account the sample makes is id 1; the table's host is Ana.
+      (created['host'] as Map)['id'] = 1;
+      ((created['players'] as List).first as Map)['user']['id'] = 1;
       setup.http
         ..answer(
           'POST',
@@ -97,9 +101,6 @@ void main() {
           status: 201,
         )
         ..answer('POST', '/lobbies/', created, status: 201);
-      // The guest account the sample makes is id 1; the table's host is Ana.
-      (created['host'] as Map)['id'] = 1;
-      ((created['players'] as List).first as Map)['user']['id'] = 1;
       setup.sitAt(created, 'Ana');
 
       await tester.enterText(find.byType(TextField), 'Ana');
@@ -117,6 +118,8 @@ void main() {
       expect(table.data, {'game_type': 'onuw', 'defaults': 'v2'});
       expect(find.text(TableCopy.scan), findsOneWidget);
       expect(find.byType(QrPicture), findsOneWidget);
+      // The answer is the table: no second read of it, before or after.
+      expect(setup.count('GET', '/lobbies/${created['code']}/'), 0);
       await setup.close(tester);
     });
 
@@ -536,7 +539,8 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('Deal deals, and the table is read again to open the game', (
+    testWidgets('Deal deals, and the table is read again to open the game; '
+        'the dealt game is read at the same time, not after the table', (
       tester,
     ) async {
       final setup = await TableSetup.pump(
@@ -545,17 +549,27 @@ void main() {
         viewer: 'Ana',
       );
       final reads = setup.count('GET', '/me/table/');
+      final started = ContractSamples.map('http/game/started_with_look');
       setup.http.answer(
         'POST',
         '/onuw/lobbies/V9YC2J/start/',
-        ContractSamples.map('http/game/started_with_look'),
+        started,
         status: 201,
       );
+      final dealt = recordedMe('me_look_stage');
+      expect(dealt['game_id'], started['game_id']);
+      setup.answerGame(dealt);
 
       await _tap(tester, setup, find.text(TableCopy.deal.fill({'n': 5})));
 
       expect(setup.count('POST', '/onuw/lobbies/V9YC2J/start/'), 1);
       expect(setup.count('GET', '/me/table/'), greaterThan(reads));
+      // The deal's answer names the game: its `/me/` is read from it, even
+      // while `/me/table/` (still waiting here) has not moved on.
+      expect(
+        setup.count('GET', '/onuw/games/${started['game_id']}/me/'),
+        isPositive,
+      );
       await setup.close(tester);
     });
 
@@ -582,6 +596,7 @@ void main() {
         ContractSamples.map('http/game/started_with_look'),
         status: 201,
       );
+      setup.answerGame(recordedMe('me_look_stage'));
       await _tap(tester, setup, find.text(BannerCopy.tryAgain));
 
       expect(setup.count('POST', '/onuw/lobbies/V9YC2J/start/'), 2);
@@ -598,14 +613,21 @@ void main() {
         viewer: 'Ben',
       );
       final reads = setup.count('GET', '/me/table/');
+      final dealt = recordedMe('me_look_stage');
+      setup.answerGame(dealt);
 
       setup.event({
         ...ContractSamples.map('ws/lobby/game_started'),
-        'game_id': 'game-two',
+        'game_id': dealt['game_id'],
       });
       await setup.settle(tester);
 
       expect(setup.count('GET', '/me/table/'), greaterThan(reads));
+      // The event names the game: a guest reads it at once too.
+      expect(
+        setup.count('GET', '/onuw/games/${dealt['game_id']}/me/'),
+        isPositive,
+      );
       await setup.close(tester);
     });
 

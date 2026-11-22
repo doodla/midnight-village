@@ -14,6 +14,7 @@ part of 'where_am_i_provider.dart';
 /// failed fetch is retried until it succeeds ([retryForever]). At a waiting
 /// table or a finished game, where only an event would say the table moved
 /// on, it is also polled slowly ([HealTiming.tablePoll]). Null: at no table.
+/// Every answer is kept on the device as the last seat ([LastSeat]).
 
 @ProviderFor(myTable)
 const myTableProvider = MyTableProvider._();
@@ -24,6 +25,7 @@ const myTableProvider = MyTableProvider._();
 /// failed fetch is retried until it succeeds ([retryForever]). At a waiting
 /// table or a finished game, where only an event would say the table moved
 /// on, it is also polled slowly ([HealTiming.tablePoll]). Null: at no table.
+/// Every answer is kept on the device as the last seat ([LastSeat]).
 
 final class MyTableProvider
     extends
@@ -35,6 +37,7 @@ final class MyTableProvider
   /// failed fetch is retried until it succeeds ([retryForever]). At a waiting
   /// table or a finished game, where only an event would say the table moved
   /// on, it is also polled slowly ([HealTiming.tablePoll]). Null: at no table.
+  /// Every answer is kept on the device as the last seat ([LastSeat]).
   const MyTableProvider._()
     : super(
         from: null,
@@ -60,4 +63,4 @@ final class MyTableProvider
   }
 }
 
-String _$myTableHash() => r'ab08f68aa2c1371fd5dc6dc6860cbc326a535a74';
+String _$myTableHash() => r'4f28d1791f5e39c939a58c75e79f6f2e854362f0';

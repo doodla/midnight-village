@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/core/storage/token_storage.dart';
+import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
@@ -21,6 +23,8 @@ import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_websocket.dart';
 
 class MockLobbyService extends Mock implements LobbyService {}
+
+class _MockTokenStorage extends Mock implements TokenStorage {}
 
 /// The server's lobby body: Alice (1) and Bob (2) unless [seats] are given,
 /// parsed as the app parses it.
@@ -74,6 +78,64 @@ void main() {
     addTearDown(c.dispose);
     return c;
   }
+
+  group('A lobby the server just answered with (LobbySeed)', () {
+    test('a started table: shown from the answer, never read again', () async {
+      container = createContainer();
+      container.read(lobbySeedProvider).put(_testLobbyState(), settled: true);
+
+      final lobby = await container.read(lobbyProvider('ABC123').future);
+
+      expect(lobby.code, 'ABC123');
+      verifyNever(() => mockService.fetchLobby(any()));
+      // Once only: the next build reads the lobby.
+      container.invalidate(lobbyProvider('ABC123'));
+      await container.read(lobbyProvider('ABC123').future);
+      verify(() => mockService.fetchLobby('ABC123')).called(1);
+    });
+
+    test('a joined table: shown from the answer at once, read once more '
+        'when its socket is up (a join said before it listened)', () async {
+      final tokens = _MockTokenStorage();
+      when(() => tokens.accessToken).thenAnswer((_) async => 'jwt');
+      final socket = ReconnectingWebSocket(
+        url: 'ws://localhost/ws/lobby/ABC123/',
+        tokenStorage: tokens,
+        channelFactory: (_) => MockWebSocketChannel(),
+      );
+      addTearDown(socket.dispose);
+      final c = ProviderContainer(
+        overrides: [
+          lobbyServiceProvider.overrideWithValue(mockService),
+          lobbyWebSocketFactoryProvider.overrideWithValue((_) => socket),
+          authenticatedClientProvider.overrideWithValue(
+            AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
+          ),
+        ],
+      );
+      addTearDown(c.dispose);
+      c.read(lobbySeedProvider).put(_testLobbyState(), settled: false);
+
+      final lobby = await c.read(lobbyProvider('ABC123').future);
+      expect(lobby.code, 'ABC123');
+      verifyNever(() => mockService.fetchLobby(any()));
+
+      await socket.connect();
+      await Future<void>.delayed(Duration.zero);
+      verify(() => mockService.fetchLobby('ABC123')).called(1);
+    });
+
+    test('a seed of another table is not used', () async {
+      container = createContainer();
+      container
+          .read(lobbySeedProvider)
+          .put(_testLobbyState(code: 'ZZZ999'), settled: true);
+
+      await container.read(lobbyProvider('ABC123').future);
+
+      verify(() => mockService.fetchLobby('ABC123')).called(1);
+    });
+  });
 
   group('LobbyNotifier', () {
     group('build', () {

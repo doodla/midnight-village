@@ -45,6 +45,11 @@ class ScreenEntry {
 /// component sheet. Adding a screen or a state is one entry here.
 final screenCatalogue = <ScreenEntry>[
   // 01 to 03b through the app's routes (table_fixtures.dart).
+  // Home before 01: the saved account read back (then a try unanswered).
+  ..._rebuilt('01-home-reading-account', null, {
+    '': pumpHomeReading,
+    '-unanswered': pumpHomeUnanswered,
+  }),
   ..._rebuilt('01-join', '01-join.png', {
     '': pumpJoinFresh,
     '-returning': pumpJoinReturning,

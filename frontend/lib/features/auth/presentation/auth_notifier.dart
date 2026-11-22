@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_client.dart';
@@ -5,9 +7,13 @@ import '../../../core/api/api_exception.dart';
 import '../../../core/api/auth_interceptor.dart';
 import '../../../core/api/authenticated_client.dart';
 import '../../../core/config/env.dart';
+import '../../../core/healing/healing.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/storage/user_storage.dart';
+import '../../../design_system/skin/skin_choice.dart'
+    show devicePreferencesProvider;
+import '../../lobby/presentation/last_seat.dart';
 import '../data/auth_repository.dart';
 import '../data/auth_service.dart';
 import '../domain/auth_state.dart';
@@ -38,6 +44,7 @@ AuthRepository authRepository(Ref ref) => AuthRepository(
   authService: ref.watch(authServiceProvider),
   tokenStorage: ref.watch(tokenStorageProvider),
   userStorage: ref.watch(userStorageProvider),
+  now: ref.watch(clockProvider),
 );
 
 /// Provides the authenticated HTTP client with JWT injection and auto-refresh.
@@ -57,51 +64,78 @@ AuthenticatedClient authenticatedClient(Ref ref) {
 }
 
 /// Manages authentication state.
+///
+/// The saved account is read back at start ([AuthRepository.tryRestoreSession]:
+/// from storage alone while its access token works). A try the server does
+/// not answer (no network, a timeout, a 5xx) is made again by itself, with
+/// the backoff every healing fetch uses ([HealTiming.retryAfter]), until it
+/// answers; meanwhile the state stays [AuthInitial] (`unanswered`), never
+/// "signed out", so no screen offers a new account. Only the server refusing
+/// the saved account (it is gone) signs out.
 @Riverpod(keepAlive: true)
 class AuthNotifier extends _$AuthNotifier {
+  /// Each build's restore; an older one (before an invalidate) stops.
+  int _restores = 0;
+
   @override
   AuthState build() {
-    // Start in initial state, then check for stored session
-    _checkStoredSession();
+    unawaited(_restore(++_restores));
     return const AuthState.initial();
   }
 
-  Future<void> _checkStoredSession() async {
-    try {
-      final repository = ref.read(authRepositoryProvider);
-      final user = await repository.tryRestoreSession();
-
-      if (user != null) {
-        state = AuthState.authenticated(user);
-      } else {
-        state = const AuthState.unauthenticated();
+  Future<void> _restore(int restore) async {
+    bool current() => ref.mounted && restore == _restores;
+    for (var attempt = 0; ; attempt++) {
+      try {
+        final user = await ref.read(authRepositoryProvider).tryRestoreSession();
+        if (!current()) return;
+        if (user == null) {
+          // No account (none saved, or the server refused it: it is gone):
+          // whatever this device kept for one goes too.
+          LastSeat.forgetAccount(ref.read(devicePreferencesProvider));
+          state = const AuthState.unauthenticated();
+        } else {
+          state = AuthState.authenticated(user);
+        }
+        return;
+      } catch (e) {
+        if (!current()) return;
+        logger.w('Saved account not read back yet (try ${attempt + 1})');
+        state = const AuthState.initial(unanswered: true);
+        await Future<void>.delayed(
+          ref.read(healTimingProvider).retryAfter(attempt),
+        );
+        if (!current()) return;
       }
-    } on NetworkException catch (e) {
-      logger.w('Network error checking stored session', error: e);
-      state = const AuthState.error(
-        'Could not connect. Check your connection and try again.',
-      );
-    } on ServerException catch (e) {
-      logger.w('Server error checking stored session', error: e);
-      state = const AuthState.error(
-        'Server temporarily unavailable. Please try again later.',
-      );
-    } catch (e, stack) {
-      logger.e('Error checking stored session', error: e, stackTrace: stack);
-      state = const AuthState.error(
-        'Could not restore your session. Please try again.',
-      );
     }
   }
 
   /// Creates a guest account with optional display name.
-  Future<void> createGuest({String? displayName}) async {
+  ///
+  /// Never while the saved account is still being read back (nothing to do:
+  /// the state stays as it is), and never over a saved account the server
+  /// has not refused unless the player is signed in with it
+  /// ([AuthRepository.createGuest]); a saved account found then is read
+  /// back instead.
+  ///
+  /// True when the request was sent (it may have failed: [AuthError]); false
+  /// when nothing was sent at all, so there is nothing to call "Not sent.".
+  Future<bool> createGuest({String? displayName}) async {
+    final before = state;
+    if (before is AuthInitial || before is AuthLoading) return false;
     state = const AuthState.loading();
 
     try {
       final repository = ref.read(authRepositoryProvider);
-      final user = await repository.createGuest(displayName: displayName);
+      final user = await repository.createGuest(
+        displayName: displayName,
+        replacing: before is AuthAuthenticated,
+      );
       state = AuthState.authenticated(user);
+    } on SavedAccountExists {
+      logger.w('A saved account is here: reading it back, no new one');
+      ref.invalidateSelf();
+      return false;
     } on ValidationException catch (e) {
       logger.w('Validation error during guest creation', error: e);
       state = AuthState.error(
@@ -126,15 +160,16 @@ class AuthNotifier extends _$AuthNotifier {
         'An unexpected error occurred. Please try again.',
       );
     }
+    return true;
   }
 
   /// DEBUG-ONLY perspective switch: adopts [user]'s session directly from a
   /// previously-issued access token, with NO refresh round-trip.
   ///
-  /// The production restore path ([AuthRepository.tryRestoreSession]) refreshes,
-  /// and the backend has `ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION`, so
-  /// refreshing blacklists the stored token and breaks re-switching to the same
-  /// player. Reusing the original access token avoids rotation entirely.
+  /// The production restore path ([AuthRepository.tryRestoreSession]) refreshes
+  /// an expired access token, and the backend rotates refresh tokens
+  /// (`ROTATE_REFRESH_TOKENS`; a used one is not blacklisted). Reusing the
+  /// original access token avoids rotation entirely.
   ///
   /// Writes [accessToken]/[refreshToken] and [user] to storage so that the
   /// shared [AuthInterceptor] (and any provider that reads [TokenStorage], e.g.
@@ -149,6 +184,8 @@ class AuthNotifier extends _$AuthNotifier {
     required String refreshToken,
   }) async {
     if (!Env.isDev) return;
+    // A restore still trying is over: this session is the one.
+    _restores++;
 
     final tokenStorage = ref.read(tokenStorageProvider);
     final userStorage = ref.read(userStorageProvider);
@@ -170,6 +207,7 @@ class AuthNotifier extends _$AuthNotifier {
     try {
       final repository = ref.read(authRepositoryProvider);
       await repository.logout();
+      LastSeat.forgetAccount(ref.read(devicePreferencesProvider));
       state = const AuthState.unauthenticated();
     } catch (e, stack) {
       logger.e('Error during logout', error: e, stackTrace: stack);

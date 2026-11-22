@@ -76,6 +76,8 @@ LOBBY_CODES = (
     "C9FJ2K",
     # The table set for eight (scenarios._seats_table).
     "D3GL6S",
+    # The account that is gone (scenarios.gone_account; no lobby opened).
+    "F5HN2V",
 )
 # Stand-ins for the game ids, in the order the games are dealt.
 GAME_IDS = (
