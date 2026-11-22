@@ -37,11 +37,16 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
   the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
-  (same files), as small pull requests: back, then loading, then speed. Keeping the server
+  (same files), as small pull requests: back, then loading, then speed. Back is built (branch
+  `fix-back-policy`, not merged yet): one policy for the phone's and the browser's Back. Keeping the server
   warm and moving the database are proposals for the deployment session only.
 
 ## Done
 
+- Back (issue 9): one policy for the phone's Back and the browser's. 01 leaves the app; a
+  waiting table asks Stay / Leave; the set-up page returns to the table; in a game Back does
+  nothing, only Leave exits; whatever is open on top closes first, and any sheet closes when
+  the screen under it changes. Not tested on a real Android phone or a real phone browser.
 - A seated player is never stranded, and the app opens with fewer requests (audit items 4
   and 6): the saved account is restored by itself until the server answers, no new account
   is made over a saved one, a deleted account gets a clean fresh start, a lost renewal answer
@@ -70,10 +75,12 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
   locking a vote, the card flip and Ready; never at night.)
 - "The bar is a game that can win awards. Micro interactions matter." Every touch answers at
   once; the small moments (press, lock, join, error, empty) are designed, not default.
-- "New assets are okay" for polish passes. Relayed only: this session still asks before making
-  art in bulk until the owner says so directly.
+- New art is fine: "Use the image gen" (said directly, 22 November). A piece may make the
+  Shadow paper art it needs without asking first; the owner sees it in the pictures before merge.
 - From the owner's board, 22 November (relayed): the Doppelganger timer shows only "when it's
   in the game"; renaming yourself at a table: yes; back during a game does nothing, only Leave
   exits; polish passes 1 to 8: "Do it"; "See 1 or 2 cards is ambiguous" (the night wording is
   being reworked by the coordinating session); sounds: none for now; "The text sizes on the
   main screen feel a bit too big" (first screen and table; options going to the board).
+- Haiku workers: "Use haiku where you can trust it. It's much faster and cheaper." (said
+  directly, 22 November). What it can be trusted with: `docs/dev/haiku-trial.md`.

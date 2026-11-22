@@ -6,6 +6,7 @@ import '../../features/auth/domain/auth_state.dart';
 import '../../features/auth/presentation/auth_notifier.dart';
 import '../../features/debug/presentation/debug_toolbar_screen.dart';
 import '../config/env.dart';
+import 'back_policy.dart';
 import 'routes.dart';
 
 part 'app_router.g.dart';
@@ -36,7 +37,14 @@ GoRouter appRouter(Ref ref) {
       if (Env.isDev)
         GoRoute(
           path: '/debug',
-          builder: (context, state) => const DebugToolbarScreen(),
+          // Back returns to the app (its own page: the policy is here too).
+          builder: (context, state) => BackPolicy(
+            rule: BackRule.staysPut,
+            child: BackHandler(
+              onBack: () => context.go('/'),
+              child: const DebugToolbarScreen(),
+            ),
+          ),
         ),
     ],
     debugLogDiagnostics: Env.isDev,

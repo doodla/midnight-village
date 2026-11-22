@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/router/back_policy.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
 import '../../../design_system/models/role.dart';
@@ -73,7 +74,7 @@ const minSeats = 3;
 ///   a stepper within the range the server takes now; the Doppelganger's only
 ///   while the deck holds one.
 /// - "Done" returns to 02, always live (a deck that does not fit is shown
-///   on 02, Deal locked).
+///   on 02, Deal locked); so does Back.
 ///
 /// A restart lands on 02: opening 03 is a step of this phone's only
 /// ([localStepsProvider]); what was set is the server's.
@@ -87,23 +88,24 @@ class DeckScreen extends ConsumerWidget {
         ? null
         : ref.watch(lobbyProvider(table.lobbyCode));
     final lobby = read?.value;
+    void close() => ref.read(localStepsProvider.notifier).closeDeck();
+    // Back returns to 02, as "Done" does (also while the lobby is read).
     if (lobby == null) {
       // Read until it answers; "One moment" while it cannot be.
-      return ScreenFrame(
-        ground: GroundKind.night,
-        body: const SizedBox.shrink(),
-        actions: [
-          if (read?.error != null) const Notice(message: BannerCopy.offline),
-        ],
+      return BackHandler(
+        onBack: close,
+        child: ScreenFrame(
+          ground: GroundKind.night,
+          body: const SizedBox.shrink(),
+          actions: [
+            if (read?.error != null) const Notice(message: BannerCopy.offline),
+          ],
+        ),
       );
     }
     final notifier = ref.read(lobbyProvider(lobby.code).notifier);
-    void close() => ref.read(localStepsProvider.notifier).closeDeck();
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (popped, _) {
-        if (!popped) close();
-      },
+    return BackHandler(
+      onBack: close,
       child: DeckView(
         lobby: lobby,
         onSeats: (seats) => unawaited(notifier.setSeats(seats)),

@@ -119,8 +119,16 @@ class JoinFlow extends _$JoinFlow {
       await sit();
       ref.invalidate(myTableProvider);
       // The table's screen follows /me/table/; wait for it so the app does
-      // not show 01 again in between.
-      await ref.read(myTableProvider.future);
+      // not show 01 again in between. Held while waited for: nothing else
+      // may be listening yet (01 shows while this runs), and a read nobody
+      // holds is disposed mid-fetch, which failed a seat that was taken
+      // ("Not sent." kept, and shown on 01 after the player left).
+      final held = ref.listen(myTableProvider, (_, _) {});
+      try {
+        await ref.read(myTableProvider.future);
+      } finally {
+        held.close();
+      }
       _again = null;
       state = const JoinFlowState();
       return true;
