@@ -539,13 +539,18 @@ class _JoinViewState extends State<JoinView> {
                           link == null && (online != null || won != null);
                       // "Get the app" shares the "at tables" row, at its end;
                       // with no such line it sits alone, at the end.
+                      // The target's side padding overhangs the column, so the
+                      // words end on its edge; the 48 px target stays whole.
                       final getApp = widget.onGetApp == null
                           ? null
-                          : TextAction(
-                              label: JoinCopy.getApp,
-                              onPressed: widget.onGetApp,
-                              roomy: true,
-                              quiet: true,
+                          : Transform.translate(
+                              offset: const Offset(Space.sm, 0),
+                              child: TextAction(
+                                label: JoinCopy.getApp,
+                                onPressed: widget.onGetApp,
+                                roomy: true,
+                                quiet: true,
+                              ),
                             );
                       final onlineLine = showStats && online != null
                           ? FitWords(

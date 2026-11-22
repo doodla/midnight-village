@@ -6,6 +6,7 @@ import 'package:midnight_village/core/host/app_download.dart';
 import 'package:midnight_village/core/router/routes.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/text_action.dart';
 import 'package:midnight_village/design_system/primitives/viewfinder.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
@@ -82,6 +83,24 @@ void main() {
         expect(
           tester.getTopRight(find.byType(TextAction)).dx,
           greaterThan(tester.getTopRight(line).dx),
+        );
+
+        // The words end on the column's edge, as the Start button does.
+        expect(
+          tester.getTopRight(_link).dx,
+          closeTo(
+            tester
+                .getTopRight(
+                  find
+                      .ancestor(
+                        of: find.text(JoinCopy.startTable),
+                        matching: find.byType(SecondaryButton),
+                      )
+                      .first,
+                )
+                .dx,
+            0.5,
+          ),
         );
 
         await tester.tap(_link);
