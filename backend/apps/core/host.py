@@ -46,7 +46,7 @@ from django.db import transaction
 from django.db.models.functions import Now
 from django.utils import timezone
 
-from apps.core import games, lobbies, presence, timers
+from apps.core import games, lobbies, practice, presence, timers
 from apps.core.effects import after_commit, schedule_after_commit, send_after_commit
 from apps.core.models import Lobby, LobbyMember, LobbySocket
 
@@ -87,11 +87,16 @@ def timer_key(lobby: Lobby | int) -> str:
 
 
 class _Presence:
-    """A snapshot of who is connected (lobby socket or newest-game socket)."""
+    """A snapshot of who is connected (lobby socket or newest-game socket).
+
+    ``members`` are the PEOPLE at the table, in join order: practice players
+    (``apps.core.practice``) never host, so no handover or transfer can pick one."""
 
     def __init__(self, lobby: Lobby) -> None:
         self.members = list(
-            LobbyMember.objects.filter(lobby=lobby).order_by("joined_at", "id")
+            LobbyMember.objects.filter(lobby=lobby)
+            .exclude(user__username__startswith=practice.USERNAME_PREFIX)
+            .order_by("joined_at", "id")
         )
         hooks = games.hooks_for(lobby)
         self.game_stamps = hooks.disconnect_stamps(lobby)
@@ -513,12 +518,15 @@ def transfer_ownership(lobby: Lobby, leaver_id: int) -> int | None:
     acting host is cleared, the leaver's membership and sockets go, everyone is
     told (``host.changed``, reason ``transferred``, ``host_id`` and
     ``original_host_id`` both the new owner), and the new owner's id is returned.
-    Returns None, changing nothing, when nobody else is there (the caller deletes
-    the lobby). The caller holds the Lobby row lock inside an atomic block.
+    Returns None, changing nothing, when nobody else is there, or only practice
+    players (the caller closes the table). The caller holds the Lobby row lock
+    inside an atomic block.
     """
     from apps.core.models import User
 
     presence = _Presence(lobby)
+    # People only (``_Presence``): with nobody else but practice players the
+    # caller closes the table (``practice.close_table``).
     others = [m.user_id for m in presence.members if m.user_id != leaver_id]
     if not others:
         return None

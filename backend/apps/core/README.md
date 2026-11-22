@@ -56,3 +56,53 @@ Each `LobbyMember` has a `token` (`core/tokens.py`: ten ids, a permutation seede
 ## The table before the deal (games that opt in)
 
 A game opts a table in with `GameHooks.shows_table_extras(lobby)` (settings only, cheap; ONUW: every table; a game that opts nothing in is answered without them). For such a table `LobbySerializer` adds the game's keys (ONUW: `deck_preview`, `deal`, `apps/onuw/README.md`) and, per member, `connected` (`lobbies.connected_members`: a fresh lobby socket, a socket on the newest game, or a phone that went away less than `GameHooks.presence_grace_seconds` ago, ONUW's `disconnect_grace_seconds`; a member never seen with a socket is not connected). The table hears `lobby_update` (the whole body, `lobbies.announce_lobby`, after commit) when a member joins or leaves, when a phone comes back after being SHOWN as gone (`register_lobby_connection` 0 to 1; a phone back inside its grace, a flapping one, sends nothing; the pending check is replaced by a staleness check then, so a silent death right after a blip is noticed on time) and when a dropped phone's grace period ends: `_lobby_went_offline` arms the existing durable `presence_check` (same key and job, no new job name, so an older instance that gets it simply finds no socket and does nothing) for the end of the grace, and when it fires with no socket row left `_announce_if_dropped` re-checks under the Lobby lock (back already, left, or reachable on the game socket: nothing; fired early: re-armed for the rest). The grace is measured on the instance clock, as `disconnected_at` is written. Not secret: who is at the table is shown at the table. **One table at a time (joins of opted-in tables only):** `POST /lobbies/<code>/join/` answers 409 `{"detail", "code": "already_at_table", "lobby_code"}` when the caller is a member of ANOTHER table that is WAITING (`lobbies.other_active_table`, with activity within `CORE_TABLE_RESUME_HOURS`). Only waiting tables count because any member, the owner included, can always leave one (200), so the refusal never traps anyone; a table in a game (whose owner cannot leave) or finished does not block a join, and `/me/table/` routes people back to a running game. The join locks the User row first, then the Lobby (lock order User, Lobby), so two joins by one user to two tables cannot both pass. Checked after `already_in_lobby` and `lobby_closed`, before `lobby_full`.
+
+## Practice players (`practice.py`)
+
+Computer-filled seats, so one person can try a whole game alone. A practice player is an
+account the server makes for one table: a guest whose username starts with `practice-`
+(guest sign-up only makes bare uuids, and the account has no password), so no phone can sign
+in as one and nothing a host sends can make a person one. That username is the one mark.
+
+- `POST /api/lobbies/<code>/practice/` (`LobbyPracticeView`; host, waiting table, a game
+  whose `GameHooks.practice_seats` says so): `{"on": bool}` switches them on or off for the
+  table (`settings.practice`; off takes every one away and drops the key), `{"count": n}` sets
+  how many sit (a target: a request sent twice leaves the table as once; above 0 switches
+  them on). Either or both; answers the lobby body and sends `lobby_update`. 400
+  `bad_request` (a non-bool `on`, a `count` that is not a plain non-negative integer, or
+  neither), 400 `lobby_full` (past the free seats; nothing changes), 403 not the host, 404
+  `lobby_not_found` (also for a game with no practice players), 409 `lobby_closed` once dealt.
+- They sit through `lobbies.add_member` like anyone (tokens, `seats`, `max_players`), named
+  from a fixed list of village things (`NAMES`: "Scarecrow", "Teapot", ...; the first not
+  taken at the table), so an older app that shows no tag still reads them as not people.
+  Each brings its own seat token, the thing it is named for (`practice.token_for`:
+  "teapot" for Teapot, through `lobbies.add_member(token=...)`), outside the people's ten
+  (`tokens.TOKENS`), so a practice player never takes a person's token; an app that does
+  not know one draws a plain disc.
+  Lowering the count takes the newest away; its account is deleted unless it played a game
+  at the table (`GameHooks.played_user_ids`: its results keep it until the table goes).
+- The lobby body (`practice.body_extras`, from `LobbySerializer`): each practice member has
+  `practice: true` and is always `connected` (no phone to drop); a table that switched them
+  on or has some seated also has `practice: {"most": n}` (seated plus free seats, the
+  stepper's top). A table that never used them is answered exactly as before.
+- **Never host, never hold a table open alone.** `host._Presence.members` holds the PEOPLE
+  only, so neither a handover nor the owner leaving (`transfer_ownership`) can pick one; the
+  owner leaving with only practice players left closes the table (`practice.close_table`).
+  A person joining a full table takes the newest practice player's seat
+  (`practice.make_room`, in `LobbyJoinView`).
+- **Accounts never pile up.** A table owns its practice accounts
+  (`practice.owned_account_ids`: seated now, or holding a seat in one of its games), and
+  closing the table deletes every one of them with the lobby and its games, those that
+  played and got up included. Nothing sweeps tables on a clock (no cron on Vercel), so the
+  number is BOUNDED instead: **a person has practice players at one table at a time.**
+  Switching them on (`LobbyPracticeView`, which locks the table with the caller's other
+  tables in one statement, primary-key order) and starting a new table
+  (`LobbyCreateView`) first run `practice.clear_elsewhere`: every other table the person
+  owns or acts as host for that is not in a running game loses its practice players and
+  its switch (`lobby_update` to it), and the accounts nothing kept points at are deleted
+  (a finished game's results keep theirs until that table goes). So at any moment a person
+  accounts for at most one table's practice seats, plus those their finished games hold.
+- `settings.practice` is the endpoint's alone: the settings PATCH and a new table's settings
+  drop the key (`practice.strip_setting`), so they never set or clear it.
+- No migration: the mark is the username, the switch a settings key.
+- Who plays them is the game's business (ONUW: `apps/onuw/practice.py`).

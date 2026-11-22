@@ -86,6 +86,17 @@ class GameHooks:
         """
         return None
 
+    def practice_seats(self, lobby) -> bool:
+        """Whether the game plays practice players at this table
+        (``apps.core.practice``): the host may seat them, the game acts for them."""
+        return False
+
+    def played_user_ids(self, lobby, username_prefix: str = "") -> set[int]:
+        """The users (those whose username starts with ``username_prefix``) who
+        hold a seat in one of this table's games: its results keep them until the
+        table goes."""
+        return set()
+
 
 _NO_GAME = GameHooks()
 _registry: dict[str, GameHooks] = {}

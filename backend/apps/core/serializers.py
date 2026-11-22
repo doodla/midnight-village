@@ -60,6 +60,7 @@ class LobbySerializer(serializers.ModelSerializer):
         """The body. A table whose game opts in (``GameHooks.shows_table_extras``:
         every ONUW table) also gets the game's keys and, per member, ``connected``
         (``lobbies.connected_members``)."""
+        from . import practice
         from .games import hooks_for
         from .lobbies import connected_members
 
@@ -72,6 +73,9 @@ class LobbySerializer(serializers.ModelSerializer):
         for entry in data["players"]:
             entry["connected"] = entry["user"]["id"] in connected
         data.update(extras)
+        # Practice players (``practice.body_extras``): marked, always here, and
+        # ``practice`` for a table that uses them; nothing for one that never did.
+        data.update(practice.body_extras(instance, data["players"]))
         return data
 
     def get_host(self, lobby: Lobby) -> dict:
