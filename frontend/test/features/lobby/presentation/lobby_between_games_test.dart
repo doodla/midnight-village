@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
+import 'package:midnight_village/features/game/domain/game_me.dart'
+    show GamePhase;
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
@@ -112,7 +114,7 @@ void main() {
       final t = await _open();
       when(
         () => t.service.startGame(_code),
-      ).thenAnswer((_) async => 'game-two');
+      ).thenAnswer((_) async => (id: 'game-two', phase: GamePhase.night));
 
       expect(await t.notifier.deal(), 'game-two');
       expect(t.lobby.startedGameId, 'game-two');
@@ -167,7 +169,7 @@ void main() {
       var calls = 0;
       when(() => t.service.startGame(_code)).thenAnswer((_) async {
         if (calls++ == 0) throw Exception('offline');
-        return 'game-two';
+        return (id: 'game-two', phase: GamePhase.night);
       });
 
       expect(await t.notifier.deal(), isNull);

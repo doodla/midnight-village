@@ -113,7 +113,7 @@ final class LiveGameNotifierProvider
   }
 }
 
-String _$liveGameNotifierHash() => r'c9e8885476d34912c4d09c9537d974939b21912e';
+String _$liveGameNotifierHash() => r'21278f3674e9b30fb939578c2fc789d99593973e';
 
 /// A game for the shell's screens, keyed by game id. The game id comes from
 /// `/me/table/` (`tableScreenProvider`), so a new deal replaces this game.

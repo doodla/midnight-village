@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/web/start_done_stub.dart'
+    if (dart.library.js_interop) 'core/web/start_done_web.dart';
 import 'design_system/skin/ground.dart';
 import 'design_system/skin/skin_id.dart';
 import 'design_system/skin/system_bars.dart';
@@ -28,8 +30,12 @@ Future<void> main() async {
   // Whether this phone had gone on from the count, so a restart lands there.
   await restoreLocalSteps();
   runApp(const ProviderScope(child: App()));
-  // The art secrets show, decoded long before the first card is dealt.
-  unawaited(SkinLoader().prepare(SkinId.fallback.skin));
+  // The opening picture, then the art secrets show, decoded long before the
+  // first card is dealt; then, on the web, the page may install what serves
+  // the next visits from the cache.
+  unawaited(
+    SkinLoader().prepare(SkinId.fallback.skin).whenComplete(webStartDone),
+  );
 }
 
 /// The bundled fonts and their OFL licence texts (assets/fonts/).

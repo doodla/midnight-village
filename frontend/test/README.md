@@ -27,7 +27,7 @@ halfway through a tap's requests: after a tap, wait for what the step ends on wi
 
 ## Fonts in tests
 
-`test/flutter_test_config.dart` loads every family in the build's FontManifest (Gloock, Figtree and MaterialIcons) via `test/helpers/test_fonts.dart`, so widget tests, goldens and the screen gallery draw real glyphs for those. `Roboto` (Material's default, the debug toolbar's) is drawn in a Figtree stand-in. The e2e UI runners load the same fonts (`HarnessConfig.loadFonts`); nothing is fetched.
+`test/flutter_test_config.dart` loads every family in the build's FontManifest (Gloock, Figtree and MaterialIcons) via `test/helpers/test_fonts.dart`, so widget tests, goldens and the screen gallery draw real glyphs for those. `Roboto` (Material's default, the debug toolbar's) is drawn in a Figtree stand-in, its four weights; the app declares `Roboto` as Figtree's regular face too (`pubspec.yaml`), so the web build never fetches Roboto from fonts.gstatic.com, and no screen is drawn in it. The e2e UI runners load the same fonts (`HarnessConfig.loadFonts`); nothing is fetched.
 
 ## Goldens
 

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/api/authenticated_client.dart';
+import '../../game/domain/game_me.dart' show GamePhase;
 import '../domain/lobby_state.dart';
 import '../domain/where_am_i.dart';
 
@@ -146,13 +147,17 @@ class LobbyService {
   /// Starts the game from the lobby (host only).
   ///
   /// POST /onuw/lobbies/<code>/start/
-  /// Returns the game ID.
-  Future<String> startGame(String code) async {
+  /// Returns the game's id and the phase it is at (`{"game_id", "phase"}`).
+  Future<({String id, GamePhase phase})> startGame(String code) async {
     try {
       final response = await _client.post<Map<String, dynamic>>(
         '/onuw/lobbies/$code/start/',
       );
-      return response.data!['game_id'] as String;
+      final body = response.data!;
+      return (
+        id: body['game_id'] as String,
+        phase: GamePhase.fromServer(body['phase']),
+      );
     } on DioException catch (e) {
       throw mapDioException(e);
     }

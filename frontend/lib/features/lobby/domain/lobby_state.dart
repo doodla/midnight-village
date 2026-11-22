@@ -138,6 +138,9 @@ abstract class LobbyState with _$LobbyState {
     required int hostId,
     required List<LobbyPlayer> players,
     required String status,
+
+    /// The game the table plays (`game_type`, e.g. `onuw`).
+    required String gameType,
     required int maxPlayers,
     @Default({}) Map<String, int> roleConfig,
 
@@ -245,6 +248,7 @@ abstract class LobbyState with _$LobbyState {
 
     return LobbyState(
       code: json['code'] as String,
+      gameType: json['game_type'] as String,
       hostId: host['id'] as int,
       players: playersJson
           .map((p) => LobbyPlayer.fromJson(p as Map<String, dynamic>))

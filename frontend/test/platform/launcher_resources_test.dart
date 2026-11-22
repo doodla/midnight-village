@@ -252,6 +252,29 @@ void main() {
         contains("getElementById('launch')"),
       );
     });
+
+    test('the page loads the app without waiting for a service worker on a '
+        'first visit, and knows the deployed build on every open', () {
+      final page = File('web/index.html').readAsStringSync();
+      final boot = File('web/flutter_bootstrap.js').readAsStringSync();
+      // Inlined in the page, which the worker fetches from the network
+      // first: a separate bootstrap would come from the worker's cache.
+      expect(page, contains('<script>{{flutter_bootstrap_js}}</script>'));
+      expect(page, isNot(contains('src="flutter_bootstrap.js"')));
+      // Flutter's worker check (and its wait) only for a phone a worker
+      // already serves; a first visit loads at once and registers the worker
+      // once the app's own start is in (`webStartDone`).
+      final returning = boot.indexOf('workers.controller');
+      final settings = boot.indexOf('serviceWorkerSettings');
+      expect(returning, isNonNegative);
+      expect(settings, greaterThan(returning));
+      expect(boot, contains('_flutter.loader.load();'));
+      expect(boot, contains('window.mvStarted = function'));
+      expect(
+        File('lib/core/web/start_done_web.dart').readAsStringSync(),
+        contains("@JS('mvStarted')"),
+      );
+    });
   });
 
   test('nothing still says what the Flutter template said', () {

@@ -4,6 +4,7 @@ import '../../../design_system/skin/art_set.dart' show TokenId;
 import '../../game/domain/game_me.dart' show GamePhase;
 import '../../game/domain/game_outcome.dart' show teamFromServer;
 import '../../../design_system/models/role.dart' show TeamId;
+import 'lobby_state.dart';
 
 /// A table's state, as `/me/table/` and the lobby bodies name it.
 enum TableStatus {
@@ -51,6 +52,32 @@ class MyTable {
       token: TokenId.fromServer(table['token'] as String),
       gameId: game == null ? null : game['game_id'] as String,
       gamePhase: game == null ? null : GamePhase.fromServer(game['phase']),
+    );
+  }
+
+  /// Where [viewerId] sits as a table's own answer says it (a table started
+  /// or joined, a deal, play again): the same seat `/me/table/` would name
+  /// right after it, so it is not asked for (`SeatSeed`). [status] is the
+  /// lobby's unless given (a deal's answer comes before the lobby says
+  /// "in_game"); [game] is the table's newest game this player plays in, as
+  /// the answer names it (none for a table started or joined). Null when the
+  /// viewer is not at the table the answer is (it is then asked for).
+  static MyTable? seatedAt(
+    LobbyState lobby, {
+    required int viewerId,
+    TableStatus? status,
+    ({String id, GamePhase phase})? game,
+  }) {
+    final me = lobby.players.where((p) => p.id == viewerId).firstOrNull;
+    if (me == null) return null;
+    return MyTable._(
+      lobbyCode: lobby.code,
+      gameType: lobby.gameType,
+      status: status ?? TableStatus.fromServer(lobby.status),
+      isHost: lobby.hostId == viewerId,
+      token: me.token,
+      gameId: game?.id,
+      gamePhase: game?.phase,
     );
   }
 

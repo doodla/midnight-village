@@ -8,6 +8,8 @@ import 'package:midnight_village/core/storage/token_storage.dart';
 import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
+import 'package:midnight_village/features/game/domain/game_me.dart'
+    show GamePhase;
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
@@ -308,9 +310,12 @@ void main() {
         container = createContainer();
         await container.read(lobbyProvider('ABC123').future);
 
-        when(
-          () => mockService.startGame('ABC123'),
-        ).thenAnswer((_) async => '550e8400-e29b-41d4-a716-446655440000');
+        when(() => mockService.startGame('ABC123')).thenAnswer(
+          (_) async => (
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            phase: GamePhase.night,
+          ),
+        );
 
         final notifier = container.read(lobbyProvider('ABC123').notifier);
         final gameId = await notifier.startGame();

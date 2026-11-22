@@ -45,10 +45,18 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   (`JoinFlow.tableClosed`). The ways in are `JoinFlow`
   (`join_flow.dart`), outside any widget: the account (this device's when it has that name,
   else a new guest: the server has no rename), then `createTable` (always `defaults: "v2"`)
-  or a join by code (`already_in_lobby` is no refusal: the player is there), then
-  `/me/table/`. The start's or the join's answer is the table's lobby (`LobbySeed`): 02 shows
-  it without reading it again; a joined table is read once more when its socket is first up
-  (a join said before it listened), a started one never (only its host knows the code). Refusals are the spec's banners; no answer is "Not sent." with "Try again". A
+  or a join by code (`already_in_lobby` is no refusal: the player is there), then the screen
+  `/me/table/` names. The start's or the join's answer is the table's lobby (`LobbySeed`): 02
+  shows it without reading it again; a joined table is read once more when its socket is
+  first up (a join said before it listened), a started one never (only its host knows the
+  code). The same answer is where the player sits (`MyTable.seatedAt`): `/me/table/` takes it
+  as its next value without asking (`SeatSeed`, put and asked for together by
+  `seatFromAnswer`; one slot, for one account, taken by that one read). So Start is two
+  requests in a row (the guest account, the table) and Join two (the account, the join);
+  `already_in_lobby` names no seat, so `/me/table/` is read then, as after any failure. The
+  flow holds `/me/table/` until the frame that shows the table has taken it (let go sooner,
+  it was disposed and read again). Counted in
+  `test/features/lobby/presentation/answers_used_test.dart`. Refusals are the spec's banners; no answer is "Not sent." with "Try again". A
   link to another table while seated at one, and the server's 409 `already_at_table`, say
   "You're at another table." with "Go there" (it reads `/me/table/` again): never a silent
   second seat.
@@ -96,7 +104,13 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   table). A guest: "{host} deals" at the hero title size over the same card. A deal, a
   handover or a host change reads `/me/table/` again; a deal names its game (the deal's
   answer for the host, `game_started` for a guest), and that game's `/me/` is read at the
-  same moment, not after `/me/table/`. A table that is gone says so with "Go home".
+  same moment, not after `/me/table/`. The deal is also where this phone sits (`SeatSeed`):
+  this table, playing that game, at its first phase (the host's answer names it; for the
+  event, a game is dealt into the night; everyone at the table is dealt in): the Deal is the
+  start, then the game's `/me/`, with no `/me/table/`, for the host and for a guest; a phase
+  it is behind on heals as any (`/me/` ahead reads `/me/table/`). Once per game (the event
+  and the answer name the same one), never from events replayed over a read. A table that
+  is gone says so with "Go home".
 - **03 Tonight's game** (`deck_screen.dart`): the set-up page, the host's, editable before
   anyone comes and until the deal; every change is saved as it is made (shown at once, a
   merged PATCH, one at a time), so a restart finds it at the server. Top to bottom:

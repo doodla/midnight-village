@@ -312,6 +312,25 @@ All of it shows as a white page, then an empty night ground: nothing says what i
 
 ### Fixes, ranked (expected gain, who)
 
+**Status, 22 November 2026: 3, 5 and 6 done (branch `speed-requests-sw-fonts`).** Measured
+on one machine, a release web build served locally as Vercel serves it (revalidated, no
+long cache) against a local backend, Playwright, 5 runs, medians; "phone" = 9 Mbit/s,
+150 ms, CPU x4. Fix 3: an answer that says where the player sits is `/me/table/`'s next
+value (`SeatSeed`): Start 4 requests in a row to 2 (phone: tap to 02 3.1 s to 2.4 s), Join
+4 to 2 (4.7 s to 2.8 s), the host's Deal start + `/me/table/` + `/me/` to start + `/me/`
+(card frame 2.7 s to 1.9 s; but the card's own `/me/` now leaves after the screen change's
+first frame, 1.7 s to 2.2 s), a guest's deal the same (from `game_started`), Play again 1
+request (it was 3). Fix 5: the worker is never waited for on a first visit (registered
+once the start is in); the bootstrap is inlined in `index.html`, so after a deploy a
+returning phone runs the new build at its first open. Usable 01, first visit: fast 1.9 s
+to 1.1 s, phone 5.8 s to 5.4-5.8 s (within noise); the first return 0.2 to 0.3 s slower
+(the worker caches from that visit on), the third visit equal (phone 3.31 s to 3.34 s).
+Dropping the worker instead was measured too: first visits like this, every return 0.7 s
+slower on the phone without long cache headers (`vercel.json`). Fix 6: 01's picture is
+asked for first (phone, first visit: in at 6.5 s to 6.0 s), each picture is one request
+(28 to 15), Roboto is never fetched. Not done: a guest's Play again still reads
+`/me/table/` and the lobby (its event names only the code).
+
 1. Stop the 2 needless requests on open (start-up token refresh; the redirect's
    `current-game`), and run `/me/` beside `me/table/`: **-0.6 to -1.2 s on every open**; app (us).
 2. Serve the API from the app's own origin (a rewrite `/api/(.*)` -> the API in

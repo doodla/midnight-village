@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
+import 'package:midnight_village/features/game/domain/game_me.dart'
+    show GamePhase;
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
@@ -132,7 +134,10 @@ void main() {
       final started = ContractSamples.map('http/game/started');
       http.answer('POST', '/onuw/lobbies/ABC123/start/', started, status: 201);
 
-      expect(await service.startGame('ABC123'), started['game_id']);
+      expect(await service.startGame('ABC123'), (
+        id: started['game_id'],
+        phase: GamePhase.night,
+      ));
     });
 
     test('playAgain returns the reopened table', () async {

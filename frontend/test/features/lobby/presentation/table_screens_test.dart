@@ -13,6 +13,7 @@ import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/text_action.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
+import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
 import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
 import 'package:midnight_village/features/lobby/presentation/deck_screen.dart';
 
@@ -572,10 +573,8 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('Deal deals, and the table is read again to open the game; '
-        'the dealt game is read at the same time, not after the table', (
-      tester,
-    ) async {
+    testWidgets('Deal deals; its answer names the game and where the host '
+        'sits: the game\'s /me/ is read, /me/table/ is not', (tester) async {
       final setup = await TableSetup.pump(
         tester,
         lobby: v2Lobby('detail_auto_deck_5'),
@@ -596,13 +595,14 @@ void main() {
       await _tap(tester, setup, find.text(TableCopy.deal.fill({'n': 5})));
 
       expect(setup.count('POST', '/onuw/lobbies/V9YC2J/start/'), 1);
-      expect(setup.count('GET', '/me/table/'), greaterThan(reads));
-      // The deal's answer names the game: its `/me/` is read from it, even
-      // while `/me/table/` (still waiting here) has not moved on.
+      // The deal's answer is where the host sits now (`/me/table/` still
+      // says "waiting" here, and is not asked): the game opens from it.
+      expect(setup.count('GET', '/me/table/'), reads);
       expect(
         setup.count('GET', '/onuw/games/${started['game_id']}/me/'),
         isPositive,
       );
+      expect(find.byType(YourCardScreen), findsOneWidget);
       await setup.close(tester);
     });
 
@@ -637,7 +637,8 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('a guest\'s table is read again when the host deals', (
+    testWidgets('a guest hears the deal: the dealt game is where it sits now, '
+        'its /me/ is read and its card shows, /me/table/ not asked', (
       tester,
     ) async {
       final setup = await TableSetup.pump(
@@ -655,12 +656,14 @@ void main() {
       });
       await setup.settle(tester);
 
-      expect(setup.count('GET', '/me/table/'), greaterThan(reads));
-      // The event names the game: a guest reads it at once too.
+      // The event is the deal: a game dealt into the night, which every
+      // member plays; `/me/table/` (still "waiting" here) is not asked.
+      expect(setup.count('GET', '/me/table/'), reads);
       expect(
         setup.count('GET', '/onuw/games/${dealt['game_id']}/me/'),
         isPositive,
       );
+      expect(find.byType(YourCardScreen), findsOneWidget);
       await setup.close(tester);
     });
 

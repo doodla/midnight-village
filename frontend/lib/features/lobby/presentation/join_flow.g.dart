@@ -15,8 +15,10 @@ part of 'join_flow.dart';
 ///   a new guest account with it (the server has no rename);
 /// - then a new table (`defaults: "v2"`, always) or a join by code, whose
 ///   answer is the table's lobby ([LobbySeed]: 02 draws it, no second read);
-/// - then `/me/table/` is read again, and the screen it names (02) follows.
-///   Joining a table this player already sits at is no refusal: it is there.
+/// - then the screen `/me/table/` names (02) follows, the answer being where
+///   the player sits ([SeatSeed]: nothing is asked after it). Joining a
+///   table this player already sits at is no refusal: it is there, and
+///   `/me/table/` is read to say so.
 /// The account step never makes a second account over a saved one the
 /// server has not refused (`AuthNotifier.createGuest`).
 
@@ -30,8 +32,10 @@ const joinFlowProvider = JoinFlowProvider._();
 ///   a new guest account with it (the server has no rename);
 /// - then a new table (`defaults: "v2"`, always) or a join by code, whose
 ///   answer is the table's lobby ([LobbySeed]: 02 draws it, no second read);
-/// - then `/me/table/` is read again, and the screen it names (02) follows.
-///   Joining a table this player already sits at is no refusal: it is there.
+/// - then the screen `/me/table/` names (02) follows, the answer being where
+///   the player sits ([SeatSeed]: nothing is asked after it). Joining a
+///   table this player already sits at is no refusal: it is there, and
+///   `/me/table/` is read to say so.
 /// The account step never makes a second account over a saved one the
 /// server has not refused (`AuthNotifier.createGuest`).
 final class JoinFlowProvider
@@ -43,8 +47,10 @@ final class JoinFlowProvider
   ///   a new guest account with it (the server has no rename);
   /// - then a new table (`defaults: "v2"`, always) or a join by code, whose
   ///   answer is the table's lobby ([LobbySeed]: 02 draws it, no second read);
-  /// - then `/me/table/` is read again, and the screen it names (02) follows.
-  ///   Joining a table this player already sits at is no refusal: it is there.
+  /// - then the screen `/me/table/` names (02) follows, the answer being where
+  ///   the player sits ([SeatSeed]: nothing is asked after it). Joining a
+  ///   table this player already sits at is no refusal: it is there, and
+  ///   `/me/table/` is read to say so.
   /// The account step never makes a second account over a saved one the
   /// server has not refused (`AuthNotifier.createGuest`).
   const JoinFlowProvider._()
@@ -74,7 +80,7 @@ final class JoinFlowProvider
   }
 }
 
-String _$joinFlowHash() => r'a61fa2e1e8a9568d2316a713690d24664d621eaf';
+String _$joinFlowHash() => r'51cada8a520754d4cdb718d787d3bfabddc554e1';
 
 /// The ways in from 01, outside any widget so a screen that is swapped
 /// mid-way (the sign-in that comes first puts the app in the table's shell)
@@ -83,8 +89,10 @@ String _$joinFlowHash() => r'a61fa2e1e8a9568d2316a713690d24664d621eaf';
 ///   a new guest account with it (the server has no rename);
 /// - then a new table (`defaults: "v2"`, always) or a join by code, whose
 ///   answer is the table's lobby ([LobbySeed]: 02 draws it, no second read);
-/// - then `/me/table/` is read again, and the screen it names (02) follows.
-///   Joining a table this player already sits at is no refusal: it is there.
+/// - then the screen `/me/table/` names (02) follows, the answer being where
+///   the player sits ([SeatSeed]: nothing is asked after it). Joining a
+///   table this player already sits at is no refusal: it is there, and
+///   `/me/table/` is read to say so.
 /// The account step never makes a second account over a saved one the
 /// server has not refused (`AuthNotifier.createGuest`).
 

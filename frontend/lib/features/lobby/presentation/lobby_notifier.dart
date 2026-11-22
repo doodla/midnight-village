@@ -11,9 +11,13 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/copy/copy.dart';
+import '../../../features/auth/domain/auth_state.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
+import '../../game/domain/game_me.dart' show GamePhase;
 import '../data/lobby_service.dart';
 import '../domain/lobby_state.dart';
+import '../domain/where_am_i.dart';
+import 'where_am_i_provider.dart' show seatFromAnswer;
 
 part 'lobby_notifier.g.dart';
 
@@ -466,17 +470,30 @@ class LobbyNotifier extends _$LobbyNotifier {
   /// The consumer (lobby screen) watches [gameId] and navigates to
   /// `/game/<gameId>` when it becomes non-null. The provider is then
   /// invalidated by navigation, triggering dispose and WS cleanup.
+  ///
+  /// The event is the deal: this table's new game, at its first phase (a
+  /// game is dealt into the night: `started*.json`). It usually comes
+  /// before the host's own answer, and it is what a guest hears.
   void _onGameStarted(Map<String, dynamic> message) {
     final id = message['game_id'] as String?;
-    if (id != null) _applyStartedGame(id);
+    if (id != null) _applyStartedGame(id, phase: GamePhase.night);
   }
 
   /// Records the started game and flips the table to in-game so listeners
-  /// (the lobby screen) open it.
-  void _applyStartedGame(String id) {
+  /// (the lobby screen) open it. Told the game's [phase] (the deal's answer,
+  /// or its event), it is where this phone sits now ([_seatIn]): the game
+  /// opens on its `/me/` alone, `/me/table/` not asked. Once per game: the
+  /// event and the answer name the same one. A phase it is behind on heals
+  /// as any (`LiveGameNotifier` reads `/me/table/` when `/me/` is ahead).
+  void _applyStartedGame(String id, {GamePhase? phase}) {
     gameId = id;
     final current = _current;
     if (current != null) {
+      // Not while held events are replayed over a read (a provider's
+      // build): the read that follows names the seat.
+      if (phase != null && current.startedGameId != id && _working == null) {
+        _seatIn(current, (id: id, phase: phase));
+      }
       _set(current.copyWith(status: 'in_game', startedGameId: id));
     }
   }
@@ -721,18 +738,37 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   /// Starts the game (host only).
   ///
-  /// Returns the game ID on success.
+  /// Returns the game ID on success. The answer names the game and its
+  /// phase: where the host sits now (`SeatSeed`), so `/me/table/` is not
+  /// asked as the game opens; only the game's `/me/` is.
   Future<String> startGame() async {
     try {
       final service = ref.read(lobbyServiceProvider);
-      final id = await _hostAction(() => service.startGame(code));
+      final game = await _hostAction(() => service.startGame(code));
       // The host does not have to wait for the lobby event to open the game.
-      if (ref.mounted) _applyStartedGame(id);
-      return id;
+      if (ref.mounted) _applyStartedGame(game.id, phase: game.phase);
+      return game.id;
     } catch (e, stack) {
       logger.e('Error starting game', error: e, stackTrace: stack);
       rethrow;
     }
+  }
+
+  /// The deal as where this phone sits: table [lobby], playing [game]
+  /// (everyone at the table is dealt in).
+  void _seatIn(LobbyState lobby, ({String id, GamePhase phase}) game) {
+    final user = switch (ref.read(authProvider)) {
+      AuthAuthenticated(:final user) => user.id,
+      _ => null,
+    };
+    if (user == null) return;
+    final seat = MyTable.seatedAt(
+      lobby,
+      viewerId: user,
+      status: TableStatus.inGame,
+      game: game,
+    );
+    if (seat != null) seatFromAnswer(ref, user, seat);
   }
 
   /// Leaves the table. Done when the server says so, and also when it says

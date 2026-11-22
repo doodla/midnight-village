@@ -29,6 +29,16 @@ List<(ArtImage, Size)> secretArt(Skin skin) => [
   (skin.art.sleepingVillage, HeldFace.portraitBox),
 ];
 
+/// The picture the app opens on: 01's village (`TopArtLayout.fill`), which
+/// the opening wait shows too. Decoded at its full width, the size a phone
+/// draws it at (the fill covers the screen's width at its pixel ratio, more
+/// than half the picture's width on any phone), so the screen finds it
+/// decoded; precached before [secretArt] (`SkinLoader`), so it is not queued
+/// behind the secrets' pictures on a slow line.
+List<(ArtImage, Size)> openingArt(Skin skin) => [
+  (skin.art.streetDoor, Size.infinite),
+];
+
 /// Decodes each picture in [uses] at the size `ArtPicture` will draw it, into
 /// the image cache, and completes when all are in (or failed: a missing
 /// picture costs that picture, not the app). [bundle] must be the one the

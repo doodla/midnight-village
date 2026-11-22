@@ -98,3 +98,10 @@ flutter:
           weight: 600
         - asset: assets/fonts/figtree/Figtree-Bold.ttf
           weight: 700
+    # Material's default family, which no screen uses (the skin's theme names
+    # Figtree), set in Figtree as the tests set it (test/helpers/test_fonts.dart).
+    # Declared so the web engine does not fetch Roboto from fonts.gstatic.com at
+    # start: it does that whenever the app bundles no family of that name.
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/figtree/Figtree-Regular.ttf

@@ -10,6 +10,8 @@ import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/night/night_pick.dart';
+import '../../auth/domain/auth_state.dart';
+import '../../auth/presentation/auth_notifier.dart';
 import '../../lobby/domain/where_am_i.dart';
 import '../../lobby/presentation/join_flow.dart';
 import '../../lobby/presentation/lobby_notifier.dart';
@@ -723,10 +725,25 @@ class LiveGameNotifier extends _$LiveGameNotifier {
 
   /// Host, at the results: the table goes back to waiting. A table that is
   /// gone (404) is closed, as a fetch answered 404 closes it; other errors
-  /// reach the caller.
-  Future<void> playAgain() => _atTable(
-    () => ref.read(lobbyServiceProvider).playAgain(_game.server.lobbyCode),
-  );
+  /// reach the caller. The answer is the table's lobby, waiting, with this
+  /// game still its newest: 02 shows it ([LobbySeed]) and `/me/table/` takes
+  /// it ([seatFromAnswer]), so nothing is asked after the tap.
+  Future<void> playAgain() => _atTable(() async {
+    final lobby = await ref
+        .read(lobbyServiceProvider)
+        .playAgain(_game.server.lobbyCode);
+    if (!ref.mounted) return;
+    // Others may leave before 02's socket listens: read once more then.
+    ref.read(lobbySeedProvider).put(lobby, settled: false);
+    if (ref.read(authProvider) case AuthAuthenticated(:final user)) {
+      final seat = MyTable.seatedAt(
+        lobby,
+        viewerId: user.id,
+        game: (id: gameId, phase: GamePhase.results),
+      );
+      if (seat != null) seatFromAnswer(ref, user.id, seat);
+    }
+  });
 
   /// Leaves the table this game was played at (a table already gone: the
   /// same, with "This table has closed." on 01).
