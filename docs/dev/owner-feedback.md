@@ -43,6 +43,10 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## Done
 
+- Back (issue 9): one policy for the phone's Back and the browser's. 01 leaves the app; a
+  waiting table asks Stay / Leave; the set-up page returns to the table; in a game Back does
+  nothing, only Leave exits; whatever is open on top closes first, and any sheet closes when
+  the screen under it changes. Not tested on a real Android phone or a real phone browser.
 - A seated player is never stranded, and the app opens with fewer requests (audit items 4
   and 6): the saved account is restored by itself until the server answers, no new account
   is made over a saved one, a deleted account gets a clean fresh start, a lost renewal answer
