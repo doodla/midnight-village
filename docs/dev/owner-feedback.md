@@ -33,13 +33,20 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 `docs/dev/running-the-work.md`.
 
-## In flight (21 November 2026)
+## In flight (22 November 2026)
 
 - Set-up page: host-chosen player count (`seats`), every timer editable, deck always face up,
-  the "Scan to join" wording, the leave bug. Worktree `agent-a6a63f89cd81af037`.
-- Android and web first impression (icon, name, launch). Worktree `agent-a9061e688f64e8332`.
-- Read-only audit of back, loading and speed on the live app; notes in the session scratchpad
-  (file audit.md in a folder named back-loading). The fix follows as its own piece, by a separate agent.
+  the "Scan to join" wording, the leave bug. Worktree `agent-a6a63f89cd81af037`, being built;
+  then one review, pictures for the owner, its own pull request.
+- Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
+  the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
+  (same files), as small pull requests: back, then loading, then speed. Keeping the server
+  warm and moving the database are proposals for the deployment session only.
+
+## Done
+
+- Android and web first impression (icon, name, launch screen): pull request 6, merged
+  (06d0468). The deployment session was asked for a fresh Android install file.
 
 ## Waiting on the owner
 
