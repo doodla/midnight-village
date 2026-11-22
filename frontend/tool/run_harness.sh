@@ -113,7 +113,8 @@ flutter test --tags e2e \
   test_e2e/ui_game_test.dart \
   test_e2e/ui_roles_test.dart \
   test_e2e/ui_end_test.dart \
-  test_e2e/ui_journey_test.dart
+  test_e2e/ui_journey_test.dart \
+  test_e2e/ui_setup_test.dart
 test_exit=$?
 
 if [[ "$interrupted" -ne 0 ]]; then
