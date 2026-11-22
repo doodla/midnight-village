@@ -14,8 +14,9 @@ import '../skin/skin.dart';
 ///   it comes down on the other side with a small settle ([settle]: it
 ///   swings a few degrees past flat and back, inside the same turn).
 /// - The face is turned the right way round (never mirrored) and is built
-///   only once it is [turned] and until the card is back past the edge, so a
-///   hidden secret is not in the tree.
+///   offstage from the moment it is [turned], and shown only once past the
+///   edge. Offstage it is not painted and not in the semantics tree, so a
+///   hidden secret is not visible to anyone.
 /// - It never makes anything wait. Turning to the face takes [turn], back
 ///   [turnBack]; a turn let go of half way goes back from where it is, in
 ///   proportion to what is left of it; taken again, goes on from there.
@@ -43,8 +44,8 @@ class PaperFlip extends StatefulWidget {
   final bool pressed;
   final Widget back;
 
-  /// The face, at the back's size. Called only while it can be seen, and
-  /// again each time the card is rebuilt then.
+  /// The face, at the back's size. Called from the moment the card is
+  /// [turned] (built offstage), and again each time the card is rebuilt.
   final WidgetBuilder face;
 
   final VoidCallback? onLanded;
