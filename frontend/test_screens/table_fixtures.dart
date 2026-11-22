@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
+import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/lobby/presentation/join_flow.dart';
+import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
+import 'package:midnight_village/features/game/presentation/table_screen.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
 import '../test/helpers/contract/contract_samples.dart';
@@ -50,6 +54,131 @@ Future<void> pumpHomeUnanswered(WidgetTester tester) => TableSetup.pump(
   tester,
   authState: const AuthState.initial(unanswered: true),
 );
+
+/// The opening in its first frame: the village and the title, and not yet a
+/// sign (an answer that comes now shows none, so nothing flashes).
+Future<void> pumpHomeFirstFrame(WidgetTester tester) => TableSetup.pump(
+  tester,
+  authState: const AuthState.initial(),
+  settle: false,
+);
+
+/// The opening after [Motion.slowAfter] with nothing failed: "The village is
+/// waking.".
+Future<void> pumpHomeSlow(WidgetTester tester) async {
+  await pumpHomeReading(tester);
+  await tester.pump(Motion.slowAfter);
+}
+
+/// The first `/me/table/` is slow (signed in; the player's seat is not known
+/// yet): the opening again, the same place.
+Future<void> pumpHomeSeatUnknown(WidgetTester tester) async {
+  late HeldReplies table;
+  await TableSetup.pump(
+    tester,
+    signedInAs: 'Ben',
+    timesOut: false,
+    before: (s) => table = s.http.hold(method: 'GET', path: '/me/table/'),
+  );
+  addTearDown(table.releaseAll);
+}
+
+/// "Start a table" tapped, the server not answered yet: its own button
+/// busy, the other way in dim.
+Future<void> pumpJoinStarting(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    signedInAs: 'Ben',
+    lastWon: false,
+    timesOut: false,
+    before: (s) => s.http
+      ..hold(method: 'POST', path: '/lobbies/')
+      ..answer(
+        'POST',
+        '/lobbies/',
+        v2Lobby('created_with_defaults'),
+        status: 201,
+      ),
+  );
+  await tester.tap(find.text(JoinCopy.startTable));
+  await setup.settle(tester);
+}
+
+Future<void> _typeCodeAndJoin(WidgetTester tester, TableSetup setup) async {
+  await tester.tap(find.text(JoinCopy.joinTable));
+  await tester.pump();
+  await tester.enterText(find.byType(TextField).last, 'V9YC2J');
+  await tester.pump();
+  await tester.tap(find.text(JoinCopy.join));
+  await setup.settle(tester);
+}
+
+/// "Join" tapped with a code typed, the server not answered yet.
+Future<void> pumpJoinJoining(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    signedInAs: 'Ben',
+    lastWon: false,
+    timesOut: false,
+    before: (s) => s.http
+      ..hold(method: 'POST', path: '/lobbies/V9YC2J/join/')
+      ..answer(
+        'POST',
+        '/lobbies/V9YC2J/join/',
+        ContractSamples.map('http/lobby/joined'),
+      ),
+  );
+  await _typeCodeAndJoin(tester, setup);
+}
+
+/// A join that got no answer: "Not sent." with "Try again", on 01.
+Future<void> pumpJoinNotSent(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    signedInAs: 'Ben',
+    lastWon: false,
+    before: (s) => s.http.answer(
+      'POST',
+      '/lobbies/V9YC2J/join/',
+      'Server Error',
+      status: 503,
+    ),
+  );
+  await _typeCodeAndJoin(tester, setup);
+}
+
+/// A join the server refused, with its reason: no "Try again".
+Future<void> pumpJoinRefused(
+  WidgetTester tester, {
+  String sample = 'join_not_found',
+  int status = 404,
+}) async {
+  final setup = await TableSetup.pump(
+    tester,
+    signedInAs: 'Ben',
+    lastWon: false,
+    before: (s) => s.http.answer(
+      'POST',
+      '/lobbies/V9YC2J/join/',
+      ContractSamples.load('http/lobby/$sample'),
+      status: status,
+    ),
+  );
+  await _typeCodeAndJoin(tester, setup);
+}
+
+/// A table started with no answer: "Not sent." with "Try again", on 01.
+Future<void> pumpStartNotSent(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    signedInAs: 'Ben',
+    lastWon: false,
+    before: (s) =>
+        s.http.answer('POST', '/lobbies/', 'Server Error', status: 503),
+  );
+  await tester.tap(find.text(JoinCopy.startTable));
+  await setup.settle(tester);
+}
 
 /// 01 on a fresh phone with the keyboard up (the name field is focused):
 /// a phone keyboard's height at 390 wide.
@@ -276,6 +405,102 @@ Future<void> pumpTableSeatsFull(WidgetTester tester) => TableSetup.pump(
   viewer: 'Tia',
 );
 
+/// 02 while the table's lobby is read (the seat is known, the lobby not).
+Future<void> pumpTableWaiting(WidgetTester tester) async {
+  late HeldReplies lobby;
+  await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_auto_deck_5'),
+    viewer: 'Ana',
+    timesOut: false,
+    before: (s) =>
+        lobby = s.http.hold(method: 'GET', path: '/lobbies/${s.code}/'),
+  );
+  addTearDown(lobby.releaseAll);
+}
+
+/// 02 while the lobby cannot be read: "One moment".
+Future<void> pumpTableOffline(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_auto_deck_5'),
+  viewer: 'Ana',
+  lobbyDown: true,
+);
+
+/// The host's "Deal to 5" tapped, the server not answered yet.
+Future<void> pumpTableDealing(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_auto_deck_5'),
+    viewer: 'Ana',
+    timesOut: false,
+    before: (s) => s.http
+      ..hold(method: 'POST', path: '/onuw/lobbies/${s.code}/start/')
+      ..answer(
+        'POST',
+        '/onuw/lobbies/${s.code}/start/',
+        ContractSamples.map('http/game/started_with_look'),
+        status: 201,
+      ),
+  );
+  await tester.tap(find.byType(PrimaryButton).last);
+  await setup.settle(tester);
+}
+
+/// A deal that got no answer: "Not sent." with "Try again".
+Future<void> pumpTableDealNotSent(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_auto_deck_5'),
+    viewer: 'Ana',
+    before: (s) => s.http.answer(
+      'POST',
+      '/onuw/lobbies/${s.code}/start/',
+      'Server Error',
+      status: 503,
+    ),
+  );
+  await tester.tap(find.byType(PrimaryButton).last);
+  await setup.settle(tester);
+}
+
+/// A guest's "Leave" tapped, the server not answered yet.
+Future<void> pumpTableLeaving(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_auto_deck_5'),
+    viewer: 'Ben',
+    timesOut: false,
+    before: (s) => s.http
+      ..hold(method: 'POST', path: '/lobbies/${s.code}/leave/')
+      ..answer(
+        'POST',
+        '/lobbies/${s.code}/leave/',
+        ContractSamples.load('http/lobby/left'),
+      ),
+  );
+  await tester.tap(find.text(CommonCopy.leave).last);
+  await setup.settle(tester);
+}
+
+/// A leave that got no answer while the server still has the phone at the
+/// table: "Not sent." with "Try again".
+Future<void> pumpTableLeaveNotSent(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_auto_deck_5'),
+    viewer: 'Ben',
+    before: (s) => s.http.answer(
+      'POST',
+      '/lobbies/${s.code}/leave/',
+      'Server Error',
+      status: 503,
+    ),
+  );
+  await tester.tap(find.text(CommonCopy.leave).last);
+  await setup.settle(tester);
+}
+
 /// 02 at Pia's table: Quin and two practice players the server plays
 /// (Scarecrow and Teapot), each tagged "Practice"; [viewer]'s phone.
 Future<void> pumpTablePractice(WidgetTester tester, {String viewer = 'Pia'}) =>
@@ -296,6 +521,43 @@ Future<void> pumpTablePracticeShort(WidgetTester tester) => TableSetup.pump(
 // ---------------------------------------------------------------------------
 // 03 Deck and 03b
 // ---------------------------------------------------------------------------
+
+/// 03 while the table's lobby is read (the host has it open): the wait.
+Future<void> pumpDeckWaiting(WidgetTester tester) async {
+  late HeldReplies lobby;
+  await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_auto_deck_5'),
+    viewer: 'Ana',
+    timesOut: false,
+    before: (s) =>
+        lobby = s.http.hold(method: 'GET', path: '/lobbies/${s.code}/'),
+  );
+  addTearDown(lobby.releaseAll);
+  _openDeckWithoutLobby(tester);
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+/// 03 while the lobby cannot be read: "One moment" with "Try again".
+Future<void> pumpDeckOffline(WidgetTester tester) async {
+  await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_auto_deck_5'),
+    viewer: 'Ana',
+    lobbyDown: true,
+  );
+  _openDeckWithoutLobby(tester);
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+void _openDeckWithoutLobby(WidgetTester tester) {
+  final container = ProviderScope.containerOf(
+    tester.element(find.byType(Scaffold).first),
+  );
+  container
+      .read(localStepsProvider.notifier)
+      .openDeck(container.read(myTableProvider).requireValue!);
+}
 
 /// 03 from the host's 02 ("Edit"): the chips, the Classic one chosen.
 Future<void> pumpDeckChips(WidgetTester tester) async {

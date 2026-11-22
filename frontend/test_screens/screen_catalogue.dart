@@ -15,6 +15,7 @@ class ScreenEntry {
     required this.mock,
     required this.build,
     this.playerScreen = false,
+    this.frames,
   }) : notBuilt = null;
 
   /// A screen the mocks have and the app does not yet: listed so the summary
@@ -22,7 +23,8 @@ class ScreenEntry {
   const ScreenEntry.notBuilt(this.id, {required this.mock, required String why})
     : notBuilt = why,
       build = null,
-      playerScreen = false;
+      playerScreen = false,
+      frames = null;
 
   /// File name stem of the PNG, e.g. `02-table`; states add a suffix.
   final String id;
@@ -39,6 +41,10 @@ class ScreenEntry {
   /// the reading floor (reading_floor.dart): every app screen, and the
   /// component sheet's screen pages.
   final bool playerScreen;
+
+  /// Frames drawn (100 ms each) after the build before the picture; null for
+  /// the gallery's own settling. A first frame is 1.
+  final int? frames;
 }
 
 /// Every screen and state, in the order of the design brief's table, then the
@@ -49,6 +55,29 @@ final screenCatalogue = <ScreenEntry>[
   ..._rebuilt('01-home-reading-account', null, {
     '': pumpHomeReading,
     '-unanswered': pumpHomeUnanswered,
+    '-slow': pumpHomeSlow,
+    '-seat-unknown': pumpHomeSeatUnknown,
+  }),
+  // The opening in its first frame (no sign yet: an answer that comes now
+  // shows none).
+  ScreenEntry(
+    '01-home-reading-account-first-frame',
+    mock: null,
+    build: pumpHomeFirstFrame,
+    playerScreen: true,
+    frames: 1,
+  ),
+  // What 01's taps look like while they are on their way and when they fail.
+  ..._rebuilt('01-join', null, {
+    '-starting': pumpJoinStarting,
+    '-joining': pumpJoinJoining,
+    '-join-not-sent': pumpJoinNotSent,
+    '-start-not-sent': pumpStartNotSent,
+    '-no-table': pumpJoinRefused,
+    '-full': (tester) =>
+        pumpJoinRefused(tester, sample: 'join_full', status: 400),
+    '-playing': (tester) =>
+        pumpJoinRefused(tester, sample: 'join_closed', status: 400),
   }),
   ..._rebuilt('01-join', '01-join.png', {
     '': pumpJoinFresh,
@@ -88,6 +117,20 @@ final screenCatalogue = <ScreenEntry>[
     '-x1.3': (tester) => pumpTableHost(tester, textScale: 1.3),
     '-guest-x2': (tester) => pumpTableGuest(tester, textScale: 2),
   }),
+  // 02 while its table is read, and while it is not reachable; its taps
+  // while they are on their way and when they fail.
+  ..._rebuilt('02-table', null, {
+    '-waiting': pumpTableWaiting,
+    '-offline': pumpTableOffline,
+    '-dealing': pumpTableDealing,
+    '-deal-not-sent': pumpTableDealNotSent,
+    '-leaving': pumpTableLeaving,
+    '-leave-not-sent': pumpTableLeaveNotSent,
+  }),
+  ..._rebuilt('03-deck', null, {
+    '-waiting': pumpDeckWaiting,
+    '-offline': pumpDeckOffline,
+  }),
   ..._rebuilt('03-deck', '03-deck.png', {
     '': pumpDeckChips,
     '-chaos': pumpDeckChaos,
@@ -113,8 +156,32 @@ final screenCatalogue = <ScreenEntry>[
     '-ready': pumpYourCardReady,
     '-x1.3': (tester) => pumpYourCard(tester, textScale: 1.3),
   }),
+  ..._rebuilt('04-your-card', null, {
+    '-waiting': pumpYourCardWaiting,
+    '-wait-failing': pumpYourCardWaitFailing,
+    '-not-sent': pumpYourCardNotSent,
+  }),
   ..._rebuilt('05-night-loading', '05-night-waiting.png', {
     '': pumpNightLoading,
+  }),
+  ..._rebuilt('06-night-board', null, {'-offline': pumpNightOffline}),
+  ..._rebuilt('08-talk', null, {
+    '-waiting': pumpTalkWaiting,
+    '-wait-failing': pumpTalkWaitFailing,
+    '-offline': pumpTalkOffline,
+  }),
+  ..._rebuilt('09-vote', null, {
+    '-waiting': pumpVoteWaiting,
+    '-not-sent': pumpVoteNotSent,
+    '-offline': pumpVoteOffline,
+  }),
+  ..._rebuilt('10-count', null, {'-loading': pumpCountLoading}),
+  ..._rebuilt('11-results', null, {
+    '-loading': pumpResultsLoading,
+    '-playing-again': pumpResultsPlayingAgain,
+    '-leaving': pumpResultsLeaving,
+    '-not-sent': pumpResultsNotSent,
+    '-refused': pumpResultsRefused,
   }),
   ..._rebuilt('06-night-board', '06-night-action.png', {
     '': pumpNightBoard,

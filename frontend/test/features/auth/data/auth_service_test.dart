@@ -1,3 +1,4 @@
+import 'package:midnight_village/core/requests/player_request.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
@@ -25,7 +26,10 @@ void main() {
         answer('/auth/guest/', 'http/auth/guest_created', status: 201);
         final created = ContractSamples.map('http/auth/guest_created');
 
-        final result = await authService.createGuest(displayName: 'Ana');
+        final result = await authService.createGuest(
+          Door.forTest(),
+          displayName: 'Ana',
+        );
 
         expect(result.tokens.access, created['access']);
         expect(result.tokens.refresh, created['refresh']);
@@ -36,7 +40,7 @@ void main() {
       test('sends the display name, trimmed', () async {
         answer('/auth/guest/', 'http/auth/guest_created', status: 201);
 
-        await authService.createGuest(displayName: '  Ana  ');
+        await authService.createGuest(Door.forTest(), displayName: '  Ana  ');
 
         expect(http.requests.single.data, {'display_name': 'Ana'});
       });
@@ -44,7 +48,7 @@ void main() {
       test('sends no display name when it is blank', () async {
         answer('/auth/guest/', 'http/auth/guest_created', status: 201);
 
-        await authService.createGuest(displayName: '   ');
+        await authService.createGuest(Door.forTest(), displayName: '   ');
 
         expect(http.requests.single.data, <String, dynamic>{});
       });
@@ -53,7 +57,7 @@ void main() {
         answer('/auth/guest/', 'http/auth/guest_invalid_name', status: 400);
 
         await expectLater(
-          authService.createGuest(displayName: 'Ana!!'),
+          authService.createGuest(Door.forTest(), displayName: 'Ana!!'),
           throwsA(
             isA<ValidationException>().having(
               (e) => e.firstErrorFor('display_name'),
@@ -69,7 +73,7 @@ void main() {
         answer('/auth/guest/', 'http/auth/guest_throttled', status: 429);
 
         await expectLater(
-          authService.createGuest(),
+          authService.createGuest(Door.forTest()),
           throwsA(isA<RateLimitException>()),
         );
       });

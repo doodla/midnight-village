@@ -34,6 +34,7 @@ void main() {
         entry.build!,
         width: _width,
         playerScreen: entry.playerScreen,
+        frames: entry.frames,
       );
       results[entry.id] = saveScreen(entry, capture, width: _width);
       // A screen that cannot be built always fails the run.

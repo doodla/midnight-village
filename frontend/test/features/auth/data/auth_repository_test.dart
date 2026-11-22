@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:midnight_village/core/requests/player_request.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_exception.dart';
 import 'package:midnight_village/core/storage/token_storage.dart';
@@ -16,6 +17,7 @@ class MockTokenStorage extends Mock implements TokenStorage {}
 class MockUserStorage extends Mock implements UserStorage {}
 
 void main() {
+  setUpAll(() => registerFallbackValue(Door.forTest()));
   late MockAuthService mockAuthService;
   late MockTokenStorage mockTokenStorage;
   late MockUserStorage mockUserStorage;
@@ -308,7 +310,7 @@ void main() {
         final createdUser = User(id: 42, displayName: 'Guest42');
 
         when(
-          () => mockAuthService.createGuest(displayName: 'TestGuest'),
+          () => mockAuthService.createGuest(any(), displayName: 'TestGuest'),
         ).thenAnswer(
           (_) async => (
             tokens: (access: 'access', refresh: 'refresh'),
@@ -325,7 +327,10 @@ void main() {
           () => mockUserStorage.saveUser(id: 42, displayName: 'Guest42'),
         ).thenAnswer((_) async {});
 
-        final user = await repository.createGuest(displayName: 'TestGuest');
+        final user = await repository.createGuest(
+          Door.forTest(),
+          displayName: 'TestGuest',
+        );
 
         expect(user, createdUser);
         verify(
@@ -342,7 +347,9 @@ void main() {
       test('rolls back tokens when user save fails', () async {
         final createdUser = User(id: 42, displayName: 'Guest42');
 
-        when(() => mockAuthService.createGuest(displayName: null)).thenAnswer(
+        when(
+          () => mockAuthService.createGuest(any(), displayName: null),
+        ).thenAnswer(
           (_) async => (
             tokens: (access: 'access', refresh: 'refresh'),
             user: createdUser,
@@ -360,7 +367,7 @@ void main() {
         when(() => mockTokenStorage.deleteTokens()).thenAnswer((_) async {});
 
         await expectLater(
-          () => repository.createGuest(),
+          () => repository.createGuest(Door.forTest()),
           throwsA(isA<Exception>()),
         );
 
@@ -369,11 +376,11 @@ void main() {
 
       test('propagates API exceptions', () async {
         when(
-          () => mockAuthService.createGuest(displayName: null),
+          () => mockAuthService.createGuest(any(), displayName: null),
         ).thenThrow(const NetworkException('No connection'));
 
         await expectLater(
-          () => repository.createGuest(),
+          () => repository.createGuest(Door.forTest()),
           throwsA(isA<NetworkException>()),
         );
       });
@@ -382,11 +389,12 @@ void main() {
         when(() => mockTokenStorage.hasTokens).thenAnswer((_) async => true);
 
         await expectLater(
-          () => repository.createGuest(displayName: 'Bo'),
+          () => repository.createGuest(Door.forTest(), displayName: 'Bo'),
           throwsA(isA<SavedAccountExists>()),
         );
         verifyNever(
           () => mockAuthService.createGuest(
+            any(),
             displayName: any(named: 'displayName'),
           ),
         );
@@ -395,7 +403,9 @@ void main() {
       test('replacing the signed-in account makes a new one', () async {
         final createdUser = User(id: 43, displayName: 'Bo');
         when(() => mockTokenStorage.hasTokens).thenAnswer((_) async => true);
-        when(() => mockAuthService.createGuest(displayName: 'Bo')).thenAnswer(
+        when(
+          () => mockAuthService.createGuest(any(), displayName: 'Bo'),
+        ).thenAnswer(
           (_) async => (
             tokens: (access: 'access', refresh: 'refresh'),
             user: createdUser,
@@ -412,6 +422,7 @@ void main() {
         ).thenAnswer((_) async {});
 
         final user = await repository.createGuest(
+          Door.forTest(),
           displayName: 'Bo',
           replacing: true,
         );

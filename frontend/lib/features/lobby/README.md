@@ -20,7 +20,11 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   that is not the server's) is made again by itself with the healing backoff and the same
   refresh token (the server no longer blacklists a used one, so a renewal whose answer was
   lost still works); meanwhile home is the game opening (`OpeningWait`: 01's village and
-  title, "One moment" once a try got no answer), never 01's form. Only a 401 (the account is
+  title, and under them the one waiting body, `Waiting`: nothing for the first 300 ms, then
+  three paper lanterns, "Still on its way." after 5 s, "One moment" with "Try again"
+  (which starts the restore again now) once a try got no answer), never 01's form. The
+  shell's first `/me/table/` is the same place (`OpeningWait`), so the app opens in one place
+  until it knows where the player is. Only a 401 (the account is
   gone: refused, deleted or inactive, on the renewal or on any read) clears it, and the seat
   kept for it, and shows a fresh 01. `AuthRepository.createGuest` refuses
   (`SavedAccountExists`, nothing sent) while a saved account is kept, unless the player is
@@ -48,7 +52,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   or a join by code (`already_in_lobby` is no refusal: the player is there), then
   `/me/table/`. The start's or the join's answer is the table's lobby (`LobbySeed`): 02 shows
   it without reading it again; a joined table is read once more when its socket is first up
-  (a join said before it listened), a started one never (only its host knows the code). Refusals are the spec's banners; no answer is "Not sent." with "Try again". A
+  (a join said before it listened), a started one never (only its host knows the code). Refusals are the spec's banners; no answer is "Not sent." with "Try again". "Start a table" and "Join" each show busy on themselves in the frame of the tap (the other way in and the field are dead meanwhile), and 01 stays until `/me/table/` names 02. Every request here goes through `playerRequest` (`core/requests`); `JoinFlow` is the one place a busy is global state (the account it makes first swaps the screen), and its failure is cleared once the phone is at any screen but 01, so it can never show up later after a Leave. A
   link to another table while seated at one, and the server's 409 `already_at_table`, say
   "You're at another table." with "Go there" (it reads `/me/table/` again): never a silent
   second seat.
@@ -87,7 +91,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   refused all the same says why when the refusal gives a reason worth saying
   (`LobbyNotifier.dealRefusal`), never a bare "Not sent.". A quiet labelled "Leave" asks
   first ("Stay" / "Leave"); a guest's is a quiet underlined word at the foot (`TextAction`).
-  Either shows it is on its way at once (`busy`: a `BusyMark` beside the word). Leaving
+  Either shows it is on its way at once (`busy`: a `BusyMark` lantern in its own padding, the words unmoved). The deal stays busy until `/me/table/` names the next screen (`LobbyNotifier.deal` returns only then), so Deal is never live again between the answer and the dusk. Leave is a `Pending` too (`AtTableScreen._leave`): busy until `/me/table/` names 01, "Not sent." or the server's reason on the control, and a seat read that keeps failing frees it and says "One moment" with "Try again". 02 and 03 wait with `Waiting` (lanterns, "One moment" with "Try again" for a lobby that cannot be read), never a bare ground. Leaving
   (`LobbyNotifier.leave`): `not_in_lobby` (400) and a table gone (404) count as left (an
   earlier leave got there); another refusal says why ("That table is playing now.", else
   "Can't leave now."); no answer (no connection, the client's 10 s wait run out, a 5xx):
