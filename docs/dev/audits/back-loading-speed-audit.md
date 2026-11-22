@@ -337,6 +337,16 @@ Roboto is never fetched (phone, first visit: 01's picture in at 6.1 s to 5.5 s).
 a guest's Play again still reads `/me/table/` and the lobby (its event names only the
 code).
 
+**Fix 1, checked 22 November 2026 against main d29a90e: done, in 66c8e7c (#11).** The saved
+account is read from storage while its access token works (its own `exp`); only a token
+past its end is renewed (one request), and the interceptor still renews on a 401. The
+router has no "which game" look-up (`/game/<id>` is home's gate). The seat this device last
+had is read beside `/me/table/`, so a signed-in mid-game open sends `/me/table/` and the
+game's `/me/` together: 2 requests, 1 round trip (3 requests, 2 round trips with an expired
+access token), down from 4 to 5 in a row. `test/features/app_open_test.dart` pins the counts
+and the side-by-side sending; `auth_repository_test.dart` the good, expired and refused
+tokens. Not timed on the phone profile (no change to time against).
+
 1. Stop the 2 needless requests on open (start-up token refresh; the redirect's
    `current-game`), and run `/me/` beside `me/table/`: **-0.6 to -1.2 s on every open**; app (us).
 2. Serve the API from the app's own origin (a rewrite `/api/(.*)` -> the API in
