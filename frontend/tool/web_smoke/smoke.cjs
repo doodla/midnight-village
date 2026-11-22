@@ -3,7 +3,8 @@
 // loads, a return loads (from Flutter's service worker), and a second build
 // served in the first one's place (a deploy) runs on its first open; a
 // table's link (`/join/<code>`) opens the app, as a return and as a first
-// visit that registers the whole site's worker.
+// visit that registers the whole site's worker. The worker never answers
+// `/api/` (the web build calls the API through its own origin).
 //
 // usage: node tool/web_smoke/smoke.cjs <release build/web>
 // Needs the `playwright` package (NODE_PATH, or installed beside this file)
@@ -54,7 +55,19 @@ const types = {
   '.json': 'application/json', '.wasm': 'application/wasm', '.webp': 'image/webp',
   '.png': 'image/png', '.ttf': 'font/ttf', '.otf': 'font/otf', '.txt': 'text/plain',
 };
+// `/api/...` stands in for the server behind vercel.json's rewrite: every
+// answer is new (a count), so one the service worker kept would show.
+// The app's own calls are listed: they must come here, to the page's origin.
+let apiHits = 0;
+const apiPaths = new Set();
 const server = http.createServer((req, res) => {
+  if (req.url.startsWith('/api/')) {
+    const where = req.url.split('?')[0];
+    if (where === '/api/probe/') apiHits += 1;
+    else apiPaths.add(where);
+    res.writeHead(200, { 'Content-Type': 'application/json', Date: new Date().toUTCString() });
+    return res.end(JSON.stringify({ hit: apiHits }));
+  }
   let url = decodeURIComponent(req.url.split('?')[0]);
   if (url === '/') url = '/index.html';
   let file = path.join(root, current, url);
@@ -132,7 +145,29 @@ async function open(context, url, label) {
     check(back.painted && back.build === 'A', 'a return loads the app');
     check(back.controlled, 'a return is served by the service worker');
     check(back.errors.length === 0, `no page errors on the return ${back.errors.join(' | ')}`);
+    // The API, called through the page's own origin (API_SAME_ORIGIN), is
+    // never kept or answered by the worker: each call reaches the server.
+    const seen = [];
+    back.page.on('response', (r) => {
+      if (new URL(r.url()).pathname.startsWith('/api/')) seen.push(r.fromServiceWorker());
+    });
+    const before = apiHits;
+    const api = await back.page.evaluate(async () => {
+      const read = async () => {
+        const r = await fetch('/api/probe/');
+        return { body: await r.json(), date: r.headers.get('date') };
+      };
+      return [await read(), await read()];
+    });
+    check(
+      apiHits - before === 2 && api[0].body.hit !== api[1].body.hit && !seen.includes(true),
+      'the worker never answers /api/: each call reaches the server',
+    );
+    check(api.every((a) => a.date), "the page reads the API's Date header (the clock)");
+    check(apiPaths.size > 0, `the app calls the API on its own origin (${[...apiPaths].join(', ')})`);
     await back.page.close();
+    const sw = fs.readFileSync(path.join(root, 'A', 'flutter_service_worker.js'), 'utf8');
+    check(!/"api\//.test(sw), 'the worker lists nothing under /api/');
 
     // 3. A deploy: B served in A's place. Its first open runs B.
     current = 'B';
