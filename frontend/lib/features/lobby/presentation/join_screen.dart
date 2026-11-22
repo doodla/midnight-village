@@ -236,7 +236,10 @@ class _JoinViewState extends State<JoinView> {
           children: [
             Semantics(
               header: true,
-              child: FitLine(JoinCopy.title, style: type.heroTitle),
+              child: FitLine(
+                JoinCopy.title,
+                style: type.heroTitle.copyWith(fontSize: 42),
+              ),
             ),
             SkinField.paper(
               controller: _name,

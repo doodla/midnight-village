@@ -10,8 +10,11 @@ enum TokenSize {
   /// The owner under a face-down card (S06).
   card(36),
 
-  /// A row at the table (S02).
+  /// A row in the vote's compact fallback (S09).
   row(38),
+
+  /// A row at the table (S02).
+  lobby(32),
 
   /// A row in the count (S10).
   count(48),

@@ -36,11 +36,11 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Element | Primitive / role |
 |---|---|
 | Street-door picture, 330 tall, focus 50% 12%, fading from 160 | `ScreenFrame(topArt: skin.art.streetDoor, topArtLayout: TopArtLayout.scene)`; focus from `ArtSet.sceneFocus` |
-| "Midnight Village" 46, -0.02em | `FitLine` in `type.heroTitle` (hero line) |
+| "Midnight Village" 46, -0.02em (42 in the owner's 22 November 2026 pass: the title no longer fills the width) | `FitLine` in `type.heroTitle` set to 42 (hero line) |
 | Subtitle 16/500 quiet | `type.lede`, `ground.quietText`; gap `Space.xs` |
 | Column gaps 18 | `Space.lgPlus` |
 | "Your name" label 13/700 +0.12em | **Cut** by the first-time play spec (no labels; the field's hint "Your name" says it) |
-| Name field: paper, 56 tall, radius 6, 4,4 shadow, Gloock 26 | `SkinField.paper` (`ground.paper`, `elevation.raised`, `type.title`) |
+| Name field: paper, 52 tall, radius 6, 4,4 shadow, Gloock 20 (the mock's 56 and 26; the owner, 22 November 2026: text on the first screen and the table feels too big, "Names") | `SkinField.paper` (`ground.paper`, `elevation.raised`, `type.title` set to `SkinField.nameSize`) |
 | "Start a table" 60 tall, 21 px, 6,6 shadow | `PrimaryButton(size: ButtonSize.large)` |
 | Gap 14 between the button and the code row | `Space.mdPlus` |
 | Code field: 52 tall, 2 px outline in quiet, 17/700 +0.12em | `SkinField.code` (`ground.outline`, `shape.stroke`, `type.code`) |

@@ -95,7 +95,8 @@ void main() {
 
   group('player rows', () {
     for (final (size, height, token, gap, end) in [
-      (PlayerRowSize.compact, 52.0, 38.0, 12.0, 12.0), // S02
+      (PlayerRowSize.lobby, 46.0, 32.0, 10.0, 10.0), // S02
+      (PlayerRowSize.compact, 52.0, 38.0, 12.0, 12.0), // S09 fallback
       (PlayerRowSize.large, 68.0, 52.0, 14.0, 16.0), // S09
       (PlayerRowSize.count, 64.0, 48.0, 12.0, 14.0), // S10
     ]) {
