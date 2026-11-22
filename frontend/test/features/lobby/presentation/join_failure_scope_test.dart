@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
 
@@ -106,6 +107,42 @@ void main() {
     start.releaseAll();
     await setup.settle(tester);
     expect(find.text(TableCopy.scan), findsOneWidget);
+    await setup.close(tester);
+  });
+
+  testWidgets('"Join" shows busy on itself and keeps the code that was '
+      'typed (01 is not built again when a way in starts)', (tester) async {
+    late HeldReplies join;
+    final setup = await TableSetup.pump(
+      tester,
+      signedInAs: 'Ben',
+      timesOut: false,
+      before: (s) {
+        join = s.http.hold(method: 'POST', path: '/lobbies/V9YC2J/join/');
+        s.http.answer(
+          'POST',
+          '/lobbies/V9YC2J/join/',
+          ContractSamples.map('http/lobby/joined'),
+        );
+      },
+    );
+    await tester.tap(find.text(JoinCopy.joinTable));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).last, 'V9YC2J');
+    await tester.pump();
+    await tester.tap(find.text(JoinCopy.join));
+    await tester.pump();
+    await setup.settle(tester);
+    expect(find.text('V9YC2J'), findsOneWidget, reason: 'the code stays');
+    final button = find.ancestor(
+      of: find.text(JoinCopy.join),
+      matching: find.byType(PrimaryButton),
+    );
+    expect(tester.widget<PrimaryButton>(button).busy, isTrue);
+    expect(join.length, 1);
+    await tester.tap(find.text(JoinCopy.join));
+    await setup.settle(tester);
+    expect(join.length, 1, reason: 'one request');
     await setup.close(tester);
   });
 }

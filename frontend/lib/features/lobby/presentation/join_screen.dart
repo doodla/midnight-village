@@ -95,6 +95,8 @@ class JoinScreen extends ConsumerWidget {
         online: online?.players,
         lastWon: last?.youWon,
         busy: flow.busy,
+        draft: ref.read(joinDraftProvider),
+        onDraft: ref.read(joinDraftProvider.notifier).keep,
         banner: banner,
         bannerAction: action,
         onBannerAction: onAction,
@@ -161,6 +163,8 @@ class JoinView extends StatefulWidget {
     this.bannerAction,
     this.onBannerAction,
     this.openCode = false,
+    this.draft,
+    this.onDraft,
     required this.onStart,
     required this.onJoin,
     this.onEdited,
@@ -188,6 +192,11 @@ class JoinView extends StatefulWidget {
   /// Starts with "Join a table" opened (the gallery's state).
   final bool openCode;
 
+  /// What the form held when this 01 was built (the one before it, when a
+  /// way in made the app build it again), and where it keeps what is typed.
+  final JoinDraft? draft;
+  final ValueChanged<JoinDraft>? onDraft;
+
   final ValueChanged<String> onStart;
   final void Function(String name, String code) onJoin;
   final VoidCallback? onEdited;
@@ -203,9 +212,11 @@ class JoinView extends StatefulWidget {
 }
 
 class _JoinViewState extends State<JoinView> {
-  late final _name = TextEditingController(text: widget.name);
-  final _code = TextEditingController();
-  late var _codeOpen = widget.openCode;
+  late final _name = TextEditingController(
+    text: widget.draft?.name ?? widget.name,
+  );
+  late final _code = TextEditingController(text: widget.draft?.code);
+  late var _codeOpen = widget.openCode || (widget.draft?.codeOpen ?? false);
 
   @override
   void initState() {
@@ -216,8 +227,18 @@ class _JoinViewState extends State<JoinView> {
 
   void _changed() {
     widget.onEdited?.call();
+    _keep();
     setState(() {});
   }
+
+  void _open(bool open) {
+    setState(() => _codeOpen = open);
+    _keep();
+  }
+
+  void _keep() => widget.onDraft?.call(
+    JoinDraft(name: _name.text, code: _code.text, codeOpen: _codeOpen),
+  );
 
   @override
   void dispose() {
@@ -240,7 +261,7 @@ class _JoinViewState extends State<JoinView> {
     } else if (_codeOpen && _coded) {
       widget.onJoin(_typedName, _code.text);
     } else {
-      setState(() => _codeOpen = true);
+      _open(true);
       _codeFocus.requestFocus();
     }
   }
@@ -257,7 +278,10 @@ class _JoinViewState extends State<JoinView> {
     final idle = busy == null;
     final link = widget.code;
 
-    VoidCallback? join(String? code) => idle && _named && code != null
+    // Busy, Join keeps its amber and its reading (a tap does nothing: the
+    // button ignores it and the flow sends one request at a time).
+    VoidCallback? join(String? code) =>
+        (idle || busy == JoinWay.join) && _named && code != null
         ? () => widget.onJoin(_typedName, code)
         : null;
 
@@ -265,7 +289,7 @@ class _JoinViewState extends State<JoinView> {
     // Back closes the code field first ("Join a table" again).
     return BackHandler(
       open: _codeOpen && link == null,
-      onBack: () => setState(() => _codeOpen = false),
+      onBack: () => _open(false),
       child: ScreenFrame(
         ground: GroundKind.night,
         topArt: skin.art.streetDoor,
@@ -341,9 +365,7 @@ class _JoinViewState extends State<JoinView> {
                 else
                   SecondaryButton(
                     label: JoinCopy.joinTable,
-                    onPressed: idle && _named
-                        ? () => setState(() => _codeOpen = true)
-                        : null,
+                    onPressed: idle && _named ? () => _open(true) : null,
                     size: ButtonSize.large,
                   ),
                 SecondaryButton(

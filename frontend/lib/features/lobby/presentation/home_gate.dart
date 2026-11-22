@@ -46,7 +46,9 @@ class HomeGate extends ConsumerWidget {
     final auth = ref.watch(authProvider);
     final busy = ref.watch(joinFlowProvider.select((f) => f.busy != null));
     final link = code;
-    if (busy) return (BackRule.leavesApp, 'join', JoinScreen(code: link));
+    if (busy) {
+      return (BackRule.leavesApp, 'join', JoinScreen(code: link));
+    }
     return switch (auth) {
       // The saved account is being read back: 01's village and title, and
       // "One moment" while a try got no answer (it is made again by itself).

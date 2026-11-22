@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show Notifier, NotifierProvider;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_exception.dart';
@@ -39,6 +41,34 @@ class JoinFlowState {
 }
 
 enum JoinWay { start, join }
+
+/// What 01's form holds, kept outside the screen: while a way in is on its
+/// way `HomeGate` shows 01 itself (the account that is made first would
+/// swap the table's shell away), which builds 01 again, and the typed name
+/// and code and the open code field must not go with the old one. Cleared
+/// once the phone sits at a table (the next 01 is a clean one).
+@immutable
+class JoinDraft {
+  const JoinDraft({this.name, this.code = '', this.codeOpen = false});
+
+  /// Null: not typed over (the field shows this device's own account's name).
+  final String? name;
+  final String code;
+  final bool codeOpen;
+}
+
+class JoinDraftNotifier extends Notifier<JoinDraft> {
+  @override
+  JoinDraft build() => const JoinDraft();
+
+  void keep(JoinDraft draft) => state = draft;
+
+  void clear() => state = const JoinDraft();
+}
+
+final joinDraftProvider = NotifierProvider<JoinDraftNotifier, JoinDraft>(
+  JoinDraftNotifier.new,
+);
 
 /// The ways in from 01, outside any widget so a screen that is swapped
 /// mid-way (the sign-in that comes first puts the app in the table's shell)
@@ -130,6 +160,7 @@ class JoinFlow extends _$JoinFlow {
         () => ref.read(myTableProvider.future),
       );
       _again = null;
+      ref.read(joinDraftProvider.notifier).clear();
       state = const JoinFlowState();
       return true;
     } on _NotAsked {
