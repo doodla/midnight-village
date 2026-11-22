@@ -35,13 +35,18 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## In flight (22 November 2026)
 
-- Back bugs on the set-up page, from the owner's screen recording (22 November, the live web
-  app in Chrome on Android, Back = edge swipe): (A) with a card's details open, one Back
-  closed the details AND left the set-up page for the table; (B) after that, holding a card
-  opened nothing (the owner's earlier words: "After I back after viewing a card's details.
-  Can't see another cards details till I remove/add a card from the deck."). A builder is
-  reproducing in a real touch browser; the first attempt (widget tests, mouse browser) saw
-  nothing.
+- The owner, live app: "After I back after viewing a card's details. Can't see another cards
+  details till I remove/add a card from the deck." Then a recording (web, Chrome on Android,
+  gesture navigation, 22 November), read frame by frame with Android's touch trace. Fixed,
+  not yet tried on a real phone:
+  - One back swipe closed the card's sheet and also left 03 for 02. The swipe starts as a
+    touch on the page; it dragged the sheet down fast enough to close it before Android took
+    the touch, so the Back that followed did 03's Back too. Sheets are no longer dragged
+    (`showSkinSheet`): the same in 02's leave question and 08's role sheet.
+  - The holds that "opened nothing" lasted 0.40 and 0.43 s; a card opened its sheet only at
+    0.5 s (the holds that worked were 0.57 to 0.73 s; taps under 0.1 s). Nothing was stuck: a
+    longer hold worked straight after. A card's hold is now 0.3 s (`RoleCard.holdDelay`).
+  Both shown before and after in a real Chromium with touches, against a release build.
 
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
   the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
