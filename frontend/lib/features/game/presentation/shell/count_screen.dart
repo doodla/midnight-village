@@ -32,6 +32,11 @@ import '../../domain/outcome_view.dart';
 import '../live_game.dart';
 import '../table_screen.dart';
 
+/// The games whose count has knocked on this phone already (this run): the
+/// knock is once per count, so a screen that opens again on the same result
+/// (the shell rebuilt, the app back from the background) does not knock again.
+final knockedCountsProvider = Provider<Set<String>>((ref) => <String>{});
+
 /// 10 The count (first-time play spec, section 3), wired to the game: the
 /// results body ([LiveGame.outcome], fetched again until it loads)
 /// drawn by [CountView]; "See who won" is this phone's own step to 11
@@ -58,6 +63,8 @@ class CountScreen extends ConsumerWidget {
     return CountView(
       count: TheCount.of(outcome),
       viewerId: game?.me.playerId,
+      knocked: ref.read(knockedCountsProvider).contains(gameId),
+      onKnock: () => ref.read(knockedCountsProvider).add(gameId),
       onSeeWhoWon: () =>
           unawaited(ref.read(localStepsProvider.notifier).seeWhoWon(gameId)),
     );
@@ -120,12 +127,12 @@ class EndWaiting extends StatelessWidget {
 ///   "Now" are said on the first card only.
 /// - Motion (the same on every phone, from the moment it opens): the rows
 ///   land one after another ([Motion.stagger]) and, as they do, the votes are
-///   struck on them one by one as paper tally marks, through the beat
+///   struck on them one by one as paper tally marks (on a row of two votes or more), through the beat
 ///   ([Motion.beat]) that follows; then the dead cards turn over
-///   ([Motion.reveal]), and as they land the rows the vote killed are cut red
-///   and the phone knocks (a medium thud, once; a light one when nobody dies,
+///   ([Motion.reveal]), and as they land the outlines of the rows the vote
+///   killed are cut in thicker (ink, never red) and the phone knocks (a medium thud, once; a light one when nobody dies,
 ///   as the marks finish). The band, each row's number and its voters are on
-///   the frame the row lands: the marks and the red are how the count arrives,
+///   the frame the row lands: the marks and the outline are how the count arrives,
 ///   never what it says, and no length is added. "See who won" works at once,
 ///   any other tap finishes it, and with reduce motion it starts finished.
 class CountView extends StatefulWidget {
@@ -134,6 +141,8 @@ class CountView extends StatefulWidget {
     required this.count,
     required this.onSeeWhoWon,
     this.viewerId,
+    this.knocked = false,
+    this.onKnock,
   });
 
   final TheCount count;
@@ -141,6 +150,12 @@ class CountView extends StatefulWidget {
 
   /// This phone's player: its row and its dead card say "You".
   final int? viewerId;
+
+  /// This count has knocked already on this phone: it knocks no more.
+  final bool knocked;
+
+  /// Called as the count knocks.
+  final VoidCallback? onKnock;
 
   @override
   State<CountView> createState() => _CountViewState();
@@ -170,25 +185,10 @@ class _CountViewState extends State<CountView>
     if (_struck case (final of, final strikes) when identical(of, count)) {
       return strikes;
     }
-    final rows = count.accused;
-    final landing =
-        Motion.stagger * math.max(0, rows.length - 1) + Motion.settle;
-    final strikeEnd = count.dead.isEmpty ? landing : landing + Motion.beat;
-    final marks = rows.fold(0, (sum, row) => sum + row.votes);
-    final first = Motion.settle * 0.6;
-    final span = strikeEnd - Motion.quick - first;
-    var k = 0;
-    final strikes = [
-      for (final (i, row) in rows.indexed)
-        [
-          for (var v = 0; v < row.votes; v++)
-            () {
-              final at = first + span * (marks <= 1 ? 0 : k++ / (marks - 1));
-              final ready = Motion.stagger * i + Motion.press;
-              return at < ready ? ready : at;
-            }(),
-        ],
-    ];
+    final strikes = strikeTimes(
+      votes: [for (final row in count.accused) row.votes],
+      dies: count.dead.isNotEmpty,
+    );
     _struck = (count, strikes);
     return strikes;
   }
@@ -249,6 +249,8 @@ class _CountViewState extends State<CountView>
             body: _Outcome(
               over: over,
               dies: dead.isNotEmpty,
+              knocked: widget.knocked,
+              onKnock: widget.onKnock,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -277,7 +279,8 @@ class _CountViewState extends State<CountView>
                           struck: (k) => _phase(strikes[i][k], Motion.quick),
                         ),
                         // Voted out: the Hunter's pick was not. Outlined from
-                        // the first frame, cut red as the cards land.
+                        // the first frame, the outline cut in thicker as the
+                        // cards land (ink, never red).
                         picked: row.player.diedBy == EliminationReason.vote,
                         condemned:
                             over && row.player.diedBy == EliminationReason.vote,
@@ -314,15 +317,54 @@ class _CountViewState extends State<CountView>
   }
 }
 
+/// When each vote's mark starts being struck, per row, from the count's first
+/// frame: spread over the landing and the beat, never before its row has
+/// landed, and every one early enough that it is struck whole ([Motion.quick])
+/// by the time the marks' stretch ends, with one row and one vote as with ten.
+@visibleForTesting
+List<List<Duration>> strikeTimes({
+  required List<int> votes,
+  required bool dies,
+}) {
+  final landing =
+      Motion.stagger * math.max(0, votes.length - 1) + Motion.settle;
+  final end = dies ? landing + Motion.beat : landing;
+  final latest = end > Motion.quick ? end - Motion.quick : Duration.zero;
+  final first = Motion.settle * 0.6 < latest ? Motion.settle * 0.6 : latest;
+  final span = latest - first;
+  final marks = votes.fold(0, (sum, v) => sum + v);
+  var k = 0;
+  return [
+    for (final (i, count) in votes.indexed)
+      [
+        for (var v = 0; v < count; v++)
+          () {
+            final at = first + span * (marks <= 1 ? 0 : k++ / (marks - 1));
+            final ready = Motion.stagger * i + Motion.press;
+            final start = at < ready ? ready : at;
+            return start > latest ? latest : start;
+          }(),
+      ],
+  ];
+}
+
 /// The count's knock: once, as it ends (the cards landing face up, or the
 /// last mark when nobody dies), on every phone at the same moment; at once when
 /// the screen opens finished (reduce motion). Made from under the screen's own
 /// ground, so it is never felt on the night's (`Haptics`).
 class _Outcome extends StatefulWidget {
-  const _Outcome({required this.over, required this.dies, required this.child});
+  const _Outcome({
+    required this.over,
+    required this.dies,
+    required this.knocked,
+    required this.onKnock,
+    required this.child,
+  });
 
   final bool over;
   final bool dies;
+  final bool knocked;
+  final VoidCallback? onKnock;
   final Widget child;
 
   @override
@@ -330,11 +372,13 @@ class _Outcome extends StatefulWidget {
 }
 
 class _OutcomeState extends State<_Outcome> {
-  var _knocked = false;
+  /// Knocked already: on an earlier open of this count, or on this one.
+  late var _knocked = widget.knocked;
 
   void _knock() {
     if (_knocked || !widget.over) return;
     _knocked = true;
+    widget.onKnock?.call();
     widget.dies ? Haptics.thud(context) : Haptics.light(context);
   }
 

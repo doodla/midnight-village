@@ -135,9 +135,10 @@ class PlayerNameSize extends InheritedWidget {
 ///   sealed), and with [lockedFill] [LockedFill.bloodFill] the paper turns
 ///   dried-blood red with its words in bone. Never a fill of the screen's
 ///   amber.
-/// - [condemned]: the count's verdict on a player the vote killed: the paper
-///   is cut dried-blood red with its words in bone, readable across a table
-///   (a cut, never a blend, as the locked vote's red). No seal.
+/// - [condemned]: the count's verdict on a player the vote killed: the
+///   [picked] outline is cut in thicker, in the paper's ink (a cut, never a
+///   tween). Never red: on this screen red is the Werewolf team's, and a dead
+///   Villager must not read as a wolf. No seal.
 /// - [stretch]: how much taller than its size the row stands, where the
 ///   room allows it (the vote fills the screen).
 /// - A row with [onTap] dips 2 px the frame a finger lands and comes back
@@ -167,6 +168,9 @@ class PlayerRow extends StatefulWidget {
 
   /// How far a finger presses a row down.
   static const dip = 2.0;
+
+  /// How much thicker a [condemned] row's outline is than a picked one's.
+  static const condemnedExtra = 2.0;
 
   final TokenId? token;
   final String name;
@@ -244,7 +248,7 @@ class _PlayerRowState extends State<PlayerRow> {
     final skin = context.skin;
     final ground = context.ground;
     final bloody = sealed && widget.lockedFill == LockedFill.bloodFill;
-    final red = bloody || widget.condemned;
+    final red = bloody;
     final reduced = MediaQuery.disableAnimationsOf(context);
     // A finger answers in the first frame (`press` down, `quick` back up);
     // with reduce motion the paper tints instead of moving.
@@ -307,7 +311,9 @@ class _PlayerRowState extends State<PlayerRow> {
       foregroundDecoration: picked
           ? ringDecoration(
               color: ground.selection,
-              width: skin.shape.selectedRing,
+              width: widget.condemned
+                  ? skin.shape.selectedRing + PlayerRow.condemnedExtra
+                  : skin.shape.selectedRing,
               radius: radius,
             )
           : own
@@ -476,13 +482,17 @@ class _RowInk extends InheritedWidget {
   bool updateShouldNotify(_RowInk old) => ink != old.ink;
 }
 
-/// The number of votes at the end of a count row (S10). With [struck], the
-/// votes are also tally marks under the number, cut from paper: four strokes
-/// and a fifth across them, in the row's ink. [struck] says how far mark `k`
+/// The number of votes at the end of a count row (S10). With [struck], and
+/// two votes or more, the votes are also tally marks under the number, cut
+/// from paper: four strokes and a fifth across them, in the row's ink (one
+/// vote is the number alone: a "1" over one mark is only noise). [struck] says how far mark `k`
 /// (from 0) is struck, 0 to 1; it is only how the marks arrive, the number is
 /// the whole count from the first frame (nothing is held back).
 class Tally extends StatelessWidget {
   const Tally(this.count, {super.key, this.struck});
+
+  /// Between the name and the number, on top of the row's own gap.
+  static const gap = Space.sm;
 
   final int count;
   final double Function(int mark)? struck;
@@ -496,22 +506,32 @@ class Tally extends StatelessWidget {
       style: context.skin.typography.tally.copyWith(color: ink),
     );
     final struck = this.struck;
-    if (struck == null) return number;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      spacing: Space.xxs,
-      children: [
-        number,
-        ExcludeSemantics(
-          child: CustomPaint(
-            size: TallyMarks.sizeOf(count),
-            painter: TallyMarks([
-              for (var k = 0; k < count; k++) struck(k),
-            ], ink),
+    // A gap of its own beyond the row's, so a long name (wrapped, set as
+    // large as the room allows) never reads as touching the number.
+    if (struck == null || count < 2) {
+      return Padding(
+        padding: const EdgeInsets.only(left: gap),
+        child: number,
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(left: gap),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        spacing: Space.xxs,
+        children: [
+          number,
+          ExcludeSemantics(
+            child: CustomPaint(
+              size: TallyMarks.sizeOf(count),
+              painter: TallyMarks([
+                for (var k = 0; k < count; k++) struck(k),
+              ], ink),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

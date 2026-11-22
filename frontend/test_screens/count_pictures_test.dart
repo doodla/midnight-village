@@ -141,6 +141,16 @@ void main() {
     await _frames(tester, 'moment', [250, 800, 1810, 2100]);
   });
 
+  testWidgets('a long name beside its number, text x1.6', (tester) async {
+    final results = _tie();
+    final players = (results['players'] as List).cast<Map<String, dynamic>>();
+    players.firstWhere((p) => p['display_name'] == 'Cleo')['display_name'] =
+        'Christopher';
+    await _show(tester, results, viewer: 56, textScale: 1.6);
+    await _end(tester);
+    await _save(tester, 'christopher-large-text');
+  });
+
   for (final (name, width, scale) in [
     ('sizes-ten-320', 320.0, 1.0),
     ('sizes-ten-360', 360.0, 1.0),
