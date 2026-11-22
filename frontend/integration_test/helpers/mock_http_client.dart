@@ -55,7 +55,9 @@ typedef ResponseCheck =
 /// ```
 class MockHttpClient {
   MockHttpClient() : dio = Dio() {
-    dio.interceptors.add(_MockInterceptor(_registry, requests, _holds));
+    dio.interceptors.add(
+      _MockInterceptor(_registry, requests, _holds, _beforeAnswer),
+    );
   }
 
   final Dio dio;
@@ -65,6 +67,17 @@ class MockHttpClient {
   final List<RequestOptions> requests = [];
   final Map<String, _MockResponse> _registry = {};
   final Map<String, HeldReplies> _holds = {};
+  final Map<String, void Function(RequestOptions)> _beforeAnswer = {};
+
+  /// Before each request for [method] [path] is answered, [answer] sees it
+  /// and registers its answer (with [when] and [thenReturn], so the body is
+  /// checked as any other): a server whose answer follows what was sent (a
+  /// settings change answered with the lobby it makes).
+  void answerEach({
+    required String method,
+    required String path,
+    required void Function(RequestOptions request) answer,
+  }) => _beforeAnswer['${method.toUpperCase()}:$path'] = answer;
   String? _pendingKey;
 
   /// From now on, requests for [method] [path] are answered only when the
@@ -167,16 +180,23 @@ class _MockResponse {
 }
 
 class _MockInterceptor extends Interceptor {
-  _MockInterceptor(this._registry, this._requests, this._holds);
+  _MockInterceptor(
+    this._registry,
+    this._requests,
+    this._holds,
+    this._beforeAnswer,
+  );
 
   final Map<String, _MockResponse> _registry;
   final List<RequestOptions> _requests;
   final Map<String, HeldReplies> _holds;
+  final Map<String, void Function(RequestOptions)> _beforeAnswer;
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     _requests.add(options);
     final key = '${options.method.toUpperCase()}:${options.path}';
+    _beforeAnswer[key]?.call(options);
     final mock = _registry[key];
 
     if (mock != null) {
