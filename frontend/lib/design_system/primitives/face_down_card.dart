@@ -58,6 +58,7 @@ class FaceDownCard extends StatelessWidget {
     this.caption,
     this.selected = false,
     this.dimmed = false,
+    this.tapExtra = 0,
     this.hold,
     this.tilt = Tilt.none,
     this.cardWidth,
@@ -78,6 +79,11 @@ class FaceDownCard extends StatelessWidget {
   /// token sit at the skin's dimmed opacity. Its name or caption stays in
   /// full ink, and a tap still reaches it.
   final bool dimmed;
+
+  /// A tap reaches this much below the card and its caption (blank, inside
+  /// the card's own cell: the night board's table cards take it from the
+  /// strip's padding, so a small card is still a thumb's height).
+  final double tapExtra;
   final bool? hold;
   final Tilt tilt;
   final double? cardWidth;
@@ -130,7 +136,13 @@ class FaceDownCard extends StatelessWidget {
             final width = constraints.hasBoundedWidth
                 ? most.clamp(0.0, constraints.maxWidth)
                 : most;
-            return _column(context, width);
+            final column = _column(context, width);
+            return tapExtra == 0
+                ? column
+                : Padding(
+                    padding: EdgeInsets.only(bottom: tapExtra),
+                    child: column,
+                  );
           },
         ),
       ),

@@ -143,7 +143,7 @@ abstract final class RoleCopy {
   static const hunterNight = 'Sleep. If you die, your pick dies.';
   static const sleep = 'Sleep.';
   static const tannerWins = 'You die.';
-  static const doppelgangerNight = "Copy a player's card. Act as that role.";
+  static const doppelgangerNight = "Copy a player's role. Act as that role.";
   static const doppelgangerWins = 'As the role you copy.';
 }
 
@@ -166,6 +166,15 @@ abstract final class NightCopy {
   /// The label on the table's three cards as a group (the titles say
   /// "center cards"; a word a title uses is on the board).
   static const centerLabel = 'Center';
+
+  /// The Seer's board names her two kinds of pick where the cards are (the
+  /// owner chose this on 22 November 2026, knowing hers is the one board
+  /// that carries labels the others do not): above the seats, on a rule
+  /// between them and the table's cards, and on the strip in place of
+  /// "Center".
+  static const seerSeats = '1 player';
+  static const seerOr = 'or';
+  static const seerCenter = '2 center cards';
 
   // The button says what will happen, by the prompt's kind (spec section 8
   // and the "which, how many, where" test): the verb and the cards picked.
@@ -217,7 +226,7 @@ abstract final class NightCopy {
   // A title passes the "which, how many, where" test (spec section 1): read
   // with the face covered, it says which cards, how many and from where, in
   // words a card or label on the board also carries.
-  static const seerTitle = '1 player or 2 center cards';
+  static const seerTitle = 'Look at cards';
   static const robberTitle = 'Swap with 1 player';
   static const troublemakerTitle = "Swap 2 other players' cards";
   static const drunkTitle = 'Swap with a center card';

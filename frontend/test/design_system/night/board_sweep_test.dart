@@ -131,7 +131,9 @@ void main() {
               for (final element in find.byType(FaceDownCard).evaluate())
                 if (tester.getSize(find.byWidget(element.widget)) case final hit
                     when hit.width < BoardLayout.minTap - 0.5 ||
-                        hit.height < BoardLayout.minTap - 0.5)
+                        // With a margin of 4 px, so the smallest phone's
+                        // ten players do not hang on a pixel.
+                        hit.height < BoardLayout.minTap + 4)
                   '$where: "${(element.widget as FaceDownCard).semanticLabel}" '
                       'is tapped in ${hit.width.toStringAsFixed(1)} x '
                       '${hit.height.toStringAsFixed(1)}',

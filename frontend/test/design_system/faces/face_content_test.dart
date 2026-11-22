@@ -93,10 +93,11 @@ void main() {
     expect(_lines(_you('me_choose_prompt_doppelganger_look').pages.first), [
       NightCopy.doppelgangerLook,
     ]);
-    expect(
-      () => NightPrompt.fromKind('not_a_kind'),
-      throwsA(isA<FormatException>()),
-    );
+    // A kind the server adds later is a plain board, never a throw.
+    final unknown = NightPrompt.fromKind('not_a_kind');
+    expect(unknown.title, NightCopy.chooseNone);
+    expect(unknown.go.fill({'cards': 'Cleo'}), 'Choose Cleo');
+    expect(unknown.pass, NightCopy.skip);
   });
 
   test('every prompt kind has its button words, so none can crash a board: '
@@ -112,6 +113,10 @@ void main() {
     final fallback = NightPrompt.fromKind('none');
     expect(fallback.go.fill({'cards': 'Cleo'}), 'Choose Cleo');
     expect(fallback.pass, 'Skip');
+    expect(
+      NightPrompt.fromKind('not_a_kind').go.fill({'cards': 'a'}),
+      isNotEmpty,
+    );
   });
 
   test("the Doppelganger's held line and her title agree: a player's role", () {

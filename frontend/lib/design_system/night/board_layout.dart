@@ -45,8 +45,11 @@ class BoardLayout {
     required this.bandCell,
     required this.bandHeight,
     required this.labelRoom,
+    required this.seatLabelRoom,
+    required this.ruleRoom,
     required this.nameSize,
     required this.nameHeight,
+    required this.youNameHeight,
     required this.used,
   });
 
@@ -73,12 +76,26 @@ class BoardLayout {
   /// place leaves empty above its own, so the four cards sit level).
   final double labelRoom;
 
+  /// The room above the first row of seats for a label (the Seer's "1
+  /// player"): kept on every board, empty on most, so every role's cards
+  /// sit in the same places.
+  final double seatLabelRoom;
+
+  /// The gap between the last row and the band, high enough for the rule
+  /// with "or" on it (the Seer's), kept on every board.
+  final double ruleRoom;
+
   /// The font size (before the text scale) every name is set at.
   final double nameSize;
 
   /// The room under every token for its name: [nameSize]'s lines (two when
   /// any name wraps).
   final double nameHeight;
+
+  /// The room under the player's own card for "You": one line, whatever
+  /// the table's names need (it never wraps), so a table of long names does
+  /// not make the band taller than its cards need.
+  final double youNameHeight;
 
   /// The height the board takes: the rest of the room is to spare.
   final double used;
@@ -91,14 +108,18 @@ class BoardLayout {
   static const seatGap = Space.lg;
 
   /// Gap between two rows of players: room for a picked card's lift.
-  static const rowGap = Space.lg;
+  static const rowGap = Space.md;
 
   /// Between the last row of players and the band.
   static const bandGap = Space.xl;
 
+  /// The rule between the seats and the band sits in this much of its own
+  /// line and a hair.
+  static const ruleSlack = 2.0;
+
   /// Inside the place and the strip, above and below their cards, and
   /// beside them.
-  static const bandPadding = Space.md;
+  static const bandPadding = Space.sm;
   static const bandPaddingSide = Space.sm;
 
   /// Between the place and the strip.
@@ -183,7 +204,12 @@ class BoardLayout {
     final youNeed = _Need.of(you, nameStyle, scaler);
     final captionHeight = _lineHeight(captionStyle, scaler);
     // The strip's "Center" label is a caption line and its gap.
-    final labelRoom = captionHeight + FaceDownCard.captionGap;
+    // Clear of a picked card's lift (Space.sm) and the table's tilt.
+    final labelRoom = captionHeight + Space.sm + Space.xxs;
+    // The Seer's "1 player" above the seats, and her rule between them and
+    // the band: room on every board, so none moves a card.
+    final seatLabelRoom = captionHeight + Space.md;
+    final ruleRoom = math.min(bandGap, captionHeight + ruleSlack);
     // A tilted card's height: its turned box.
     final turn = math.cos(tilt) + math.sin(tilt.abs()) / heightOf(1);
     // The band's four cells share what its paddings leave of the width.
@@ -204,8 +230,8 @@ class BoardLayout {
         fitIn(youNeed, column),
       ].reduce(math.min);
       final lines = needs.any((n) => n.oneLine * size / base > column) ? 2 : 1;
-      final nameHeight =
-          lines * _lineHeight(nameStyle.copyWith(fontSize: size), scaler);
+      final oneLine = _lineHeight(nameStyle.copyWith(fontSize: size), scaler);
+      final nameHeight = lines * oneLine;
 
       double band(double card) => math.min(card, bandMost);
       double bandHeightFor(double card) {
@@ -214,7 +240,7 @@ class BoardLayout {
             heightOf(b) +
             FaceDownCard.ownerTokenFor(b) / 2 +
             FaceDownCard.nameGap +
-            nameHeight;
+            oneLine;
         final strip =
             heightOf(b) * turn + FaceDownCard.captionGap + captionHeight;
         return 2 * bandPadding + labelRoom + math.max(place, strip);
@@ -227,7 +253,8 @@ class BoardLayout {
                   FaceDownCard.nameGap +
                   nameHeight) +
           (rows.length - 1) * rowGap +
-          bandGap +
+          seatLabelRoom +
+          ruleRoom +
           bandHeightFor(card);
 
       // The widest card that fits its column, the board's size and the
@@ -260,8 +287,11 @@ class BoardLayout {
           bandCell: math.min(bandMost, math.max(band(card), minTap)),
           bandHeight: bandHeightFor(card),
           labelRoom: labelRoom,
+          seatLabelRoom: seatLabelRoom,
+          ruleRoom: ruleRoom,
           nameSize: size,
           nameHeight: nameHeight,
+          youNameHeight: oneLine,
           used: heightFor(card),
         ),
         short:

@@ -180,11 +180,21 @@ void main() {
     });
   });
 
-  test('a shape the app does not know is a broken payload', () {
+  test('a shape the app does not know is left out, and a prompt left with '
+      'none takes any one card: no crash in a player\'s hand', () {
     final prompt =
         recordedMe('me_choose_prompt_seer')['action_prompt']
             as Map<String, dynamic>;
     (prompt['shapes'] as List).first = {'tokens': 1};
-    expect(() => PickRule.fromPrompt(prompt), throwsA(isA<FormatException>()));
+    final rule = PickRule.fromPrompt(prompt);
+    // Her {"center": 2} stays; the unknown one is gone.
+    expect(rule.fits([_left, _right]), isTrue);
+    expect(rule.fits([PlayerPick(cleo.id)]), isFalse);
+    (prompt['shapes'] as List)
+      ..clear()
+      ..add({'tokens': 1});
+    final plain = PickRule.fromPrompt(prompt);
+    expect(plain.fits([PlayerPick(cleo.id)]), isTrue);
+    expect(plain.fits([_left]), isTrue);
   });
 }

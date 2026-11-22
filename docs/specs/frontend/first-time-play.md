@@ -14,7 +14,7 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 
    | Screen | 01 | 02 | 03 | 03b | 04 | 05 | 06 | 07 | 08 | 09 | 10 | 11 |
    |---|---|---|---|---|---|---|---|---|---|---|---|---|
-   | Budget | 14 | 7 | 15 | 30 | 34 | 3 | 22 | 8 | 15 | 8 | 16 | 13 |
+   | Budget | 14 | 7 | 15 | 30 | 34 | 3 | 24 | 8 | 15 | 8 | 16 | 13 |
 
    On 11, each timeline row is also capped at 3 words.
 3. **Headlines.** One headline per screen, at most 5 words.
@@ -43,9 +43,9 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
     - On day grounds the amber button gets a 2 px ink outline, because amber on dawn grey is 1.55:1.
     - A selection is shown by lift plus an outline: bone on night grounds, ink on day grounds. This is a deviation from "bone outline", made for contrast: bone on bone rows is invisible.
     - Disabled buttons are outlined and have no fill.
-11. **Which, how many, where** (issue 37: "See 1 or 2 cards is ambiguous"). A reviewer applies this to every night title, button and pass. Cover the face of "You" and read the title alone: can the player say which cards, how many, and from where, in words a card or label on the board also carries?
-    - The board's words: a player's name (so "player"), "You", "Center", "Left", "Middle", "Right", and the game's own nouns "card" and "role" (a held face names a role).
-    - A title fails if it uses a word no card or label shows ("table", "deck", "pile"), or if the role may pick two kinds of card and the title does not name both ("See 1 or 2 cards": which cards?).
+11. **Which, how many, where** (issue 37: "See 1 or 2 cards is ambiguous"). A reviewer applies this to every night title, button and pass. Cover the face of "You" and read the title together with the labels on the board: can the player say which cards, how many, and from where, in words a card or label on the board also carries?
+    - The board's words: a player's name (so "player"), "You", "Center", "Left", "Middle", "Right", the Seer's three labels ("1 player", "or", "2 center cards"), and the game's own nouns "card" and "role" (a held face names a role).
+    - A title fails if it uses a word no card or label shows ("table", "deck", "pile"), or if the role may pick two kinds of card and neither the title nor the board's labels name both ("See 1 or 2 cards": which cards?). A title may leave the which, how many and where to the board when the board says them where the cards are: the Seer's does ("Look at cards", with "1 player" over the seats, a rule with "or" and "2 center cards" on the strip). The owner chose that on 22 November 2026, knowing hers is the one board that carries labels the others do not.
     - The screen carries what it can before a word does: once a pick has begun, a card it cannot take is dimmed, from the server's `shapes`; before the first tap the board is identical for every role (section 3, "The board's title").
     - A pass button must be true for its role. "Keep my card" is the Robber's alone (the one role whose pass leaves their card where it was). A Drunk who passes is still swapped, so his says "Choose for me". Every other actor's says "Skip".
     - No question marks: "Who dies today?" stays the only question (rule 9).
@@ -173,7 +173,9 @@ Shared rules for every phone at night:
 | Lone Werewolf | "You may see 1 center card." (5) |
 | Doppelganger's look | "Copy 1 player's role." (3; agrees with her title) |
 
-**The board's title** (06's headline, one line on every phone) is the prompt's: the role's night line in a few words on a phone with a choice, "The village sleeps" on a sleeper's (playtest, 21 November 2026: "The village sleeps" read as wrong while acting). Seer "1 player or 2 center cards" (4); Robber "Swap with 1 player" (3); Troublemaker "Swap 2 other players' cards" (4); Drunk "Swap with a center card" (4); Lone Werewolf "See 1 center card" (3; its "Skip" carries the "may"); Doppelganger's look "Copy a player's role" (4). Each passes rule 11 in section 1. The face of "You" says the rest.
+**The board's title** (06's headline, two lines of room on every phone) is the prompt's: the role's night line in a few words on a phone with a choice, "The village sleeps" on a sleeper's (playtest, 21 November 2026: "The village sleeps" read as wrong while acting). Seer "Look at cards" (3; her board says the rest, below); Robber "Swap with 1 player" (3); Troublemaker "Swap 2 other players' cards" (4); Drunk "Swap with a center card" (4); Lone Werewolf "See 1 center card" (3; its "Skip" carries the "may"); Doppelganger's look "Copy a player's role" (4). Each passes rule 11 in section 1. The face of "You" says the rest.
+
+**The Seer's board names her two kinds of pick where they are** (the owner chose this on 22 November 2026, from "A: the title says it" and "B: the board says it"): "1 player" above the seats, a thin rule with "or" between the seats and the table's cards, and "2 center cards" on the strip in place of "Center"; the same buttons. The board's geometry is the same for every role: every board keeps the room above its seats and in the gap above the band for these words and leaves it empty (`BoardLayout.seatLabelRoom`, `ruleRoom`), so no card sits elsewhere on any phone. What gave: the row gap and the band's padding are 4 px tighter on every board, and the header's gap to the board is the label room; the table's cards and "You" reach 8 px down into the band's padding for a tap (`FaceDownCard.tapExtra`), so on the smallest phone with ten players (320 x 568) every tap target stays 4 px over the 48 px floor (`board_sweep_test.dart`). A Seer's board shows two labels the others do not: an accepted tell (the Seer's title already told).
 
 **The board shows what can be picked** (issue 37). **The board is identical for every role until the first tap: nothing is dimmed.** Once a pick has begun, a card that cannot join it is dimmed (the card back and token; its name stays in full ink), read from the prompt's `shapes` only, and a tap on a dimmed card still switches the pick (a screen reader hears "Switches your pick": dimmed here is not switched off, as it is on the vote's locked rows). The strip of the table's three cards carries the word "Center".
 
@@ -186,6 +188,8 @@ Shared rules for every phone at night:
 | A phone with nothing to choose | Nothing dims | Nothing dims |
 
 "You" is never dimmed, and picking "You" alone leaves the board as at the start. The layout is the same for every role (section 8). Dimming at the start was tried and dropped: a dark block of players on a Drunk's phone is readable across the table, where before only the small title differed.
+
+**A kind or shape the server adds later never throws in a player's hand**: an unknown prompt `kind` is the plain generic board ("Choose a card", then "Choose {cards}" or "Skip"), an unknown `shape` is left out (a prompt left with none takes any one card), and each is logged.
 
 **The title has room for two lines at the full title size** on every board, the same height whatever the role, with the seconds level with its first line; it wraps between words and is set smaller only if two lines are not enough (a title is never drawn under 0.8 of the title size at 360 wide: `board_sweep_test.dart`).
 
@@ -219,7 +223,7 @@ Village line: **"A Werewolf dies. No Werewolf player: nobody dies."** (6 words)
 | Hunter | Village | Sleep. If you die, your pick dies. | Village line | 21 |
 | Villager | Village | Sleep. | Village line | 15 |
 | Tanner | Alone | Sleep. | You die. | 11 |
-| Doppelganger | Copies | Copy a player's card. Act as that role. | As the role you copy. | 21 |
+| Doppelganger | Copies | Copy a player's role. Act as that role. | As the role you copy. | 21 |
 
 **Team tags** on 10 and 11 come from the server's `team`: `village` → "Village", `werewolf` → "Werewolf", `neutral` → "Alone".
 
@@ -319,7 +323,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 **06 Night board**
 - **One thing / loudest:** hold "You", tap a card, then Choose; the board.
 - **Locked until:** Choose needs 1 or more picks and a 0.8 s hold of "You" in this window.
-- **Copy:** the board's title ("The village sleeps" for a sleeper, else the prompt's, see "The board's title" above); captions "You", "Left", "Middle", "Right", and "Center" on the strip; candle and number. Button: "Choose a card" (disabled), "Choose 1 more", then what will happen ("See Cleo", "Swap Ana, Ben") or the role's pass ("Skip", "Keep my card", "Choose for me": "You" alone picked), then "Chosen". "Hold" appears on "You" only as a cue. Held face: role name, instruction, window-1 page. **22 of 22 words.**
+- **Copy:** the board's title ("The village sleeps" for a sleeper, else the prompt's, see "The board's title" above); captions "You", "Left", "Middle", "Right", and "Center" on the strip (the Seer's board: "1 player", "or" and "2 center cards" instead); candle and number. Button: "Choose a card" (disabled), "Choose 1 more", then what will happen ("See Cleo", "Swap Ana, Ben") or the role's pass ("Skip", "Keep my card", "Choose for me": "You" alone picked), then "Chosen". "Hold" appears on "You" only as a cue. Held face: role name, instruction, window-1 page. **24 of 24 words.**
 - **Layout (product owner, 20 November 2026):** the other players' cards in balanced rows; the player's own card ("You") is not among them but in front of them, on a paper place beside the table's three cards, in the same place and size on every phone.
 - **Removed:**
   - The pre-selected Cleo (2).
@@ -584,4 +588,4 @@ tap.
 sleeper; a neighbour who reads your button can see how many cards you are picking; the
 Doppelganger taps twice; who taps at night (only a phone with a choice sends one, and only
 its board has a button), never what they chose; a glance at a board's title (an actor's
-says what the role does tonight, a sleeper's "The village sleeps"). None of these is worth a wait or a wasted turn.
+says what the role does tonight, a sleeper's "The village sleeps") or at the Seer's three labels. None of these is worth a wait or a wasted turn.

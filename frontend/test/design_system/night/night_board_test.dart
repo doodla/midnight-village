@@ -326,11 +326,66 @@ void main() {
     });
   });
 
+  testWidgets('a prompt kind and shape this app does not know (the server '
+      'added a role) is a plain board: "Choose a card", any one card, "Skip"', (
+    tester,
+  ) async {
+    final me = Viewer.seer.nightMe;
+    final prompt = me['action_prompt'] as Map<String, dynamic>;
+    prompt['kind'] = 'witch';
+    prompt['shapes'] = [
+      {'tokens': 1},
+    ];
+    final board = BoardHarness(me);
+    await board.pump(tester);
+    expect(find.text(NightCopy.chooseNone), findsWidgets);
+    expect(button(tester), (NightCopy.chooseNone, ButtonPhase.locked));
+    await tapCard(tester, cleo.name);
+    expect(button(tester), ('Choose Cleo', ButtonPhase.ready));
+    await tapCard(tester, NightCopy.you);
+    expect(button(tester), (NightCopy.skip, ButtonPhase.ready));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the Seer\'s board says where each kind of pick is: "1 player" '
+      'over the seats, a rule with "or" between them and the table\'s '
+      'cards, "2 center cards" on the strip in place of "Center"', (
+    tester,
+  ) async {
+    final board = BoardHarness.of(Viewer.seer);
+    await board.pump(tester);
+    expect(find.text(NightCopy.centerLabel), findsNothing);
+    final seats = tester.getRect(find.text(NightCopy.seerSeats));
+    final or = tester.getRect(find.text(NightCopy.seerOr));
+    final strip = tester.getRect(find.text(NightCopy.seerCenter));
+    final firstRow = tester.getRect(card(ben.name));
+    final lastRow = tester.getRect(card(esme.name));
+    final left = tester.getRect(card(NightCopy.left));
+    expect(seats.bottom, lessThanOrEqualTo(firstRow.top + 1));
+    expect(or.top, greaterThanOrEqualTo(lastRow.bottom - 1));
+    expect(or.bottom, lessThanOrEqualTo(left.top));
+    expect(strip.bottom, lessThanOrEqualTo(left.top + 1));
+    // The same board as a Robber's of the same game, card for card: the
+    // labels live in room every board keeps.
+    final seer = [
+      for (final e in find.byType(FaceDownCard).evaluate())
+        tester.getRect(find.byWidget(e.widget)).size,
+    ];
+    final other = BoardHarness.of(Viewer.robber);
+    await other.pump(tester);
+    expect([
+      for (final e in find.byType(FaceDownCard).evaluate())
+        tester.getRect(find.byWidget(e.widget)).size,
+    ], seer);
+  });
+
   testWidgets('the table\'s three cards carry the word "Center", on every '
       'phone, and the four cards of the band sit level', (tester) async {
-    for (final viewer in [Viewer.seer, Viewer.villager, Viewer.drunk]) {
+    for (final viewer in [Viewer.robber, Viewer.villager, Viewer.drunk]) {
       await BoardHarness.of(viewer).pump(tester);
       expect(find.text(NightCopy.centerLabel), findsOneWidget);
+      expect(find.text(NightCopy.seerSeats), findsNothing);
+      expect(find.text(NightCopy.seerOr), findsNothing);
       final label = tester.getRect(find.text(NightCopy.centerLabel));
       final left = tester.getRect(card(NightCopy.left));
       final right = tester.getRect(card(NightCopy.right));

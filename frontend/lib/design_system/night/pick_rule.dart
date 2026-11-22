@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../core/logging/app_logger.dart';
 import 'night_pick.dart';
 
 /// One entry of the prompt's `shapes`: `{"players": n}`, `{"center": n}` or
@@ -64,11 +65,20 @@ class PickRule {
   factory PickRule.fromPrompt(Map<String, dynamic> prompt) {
     final targets = prompt['valid_targets'] as Map<String, dynamic>;
     Set<int> ids(String key) => {...?(targets[key] as List?)?.cast<int>()};
+    // A shape this app does not know (the server added one) is left out,
+    // and a prompt left with none takes any one card: a plain board, logged,
+    // never a crash mid-game.
+    final shapes = <PickShape>[];
+    for (final shape in prompt['shapes'] as List) {
+      try {
+        shapes.add(PickShape.fromJson(shape as Map<String, dynamic>));
+      } on FormatException catch (e) {
+        logger.w('Night prompt shape left out: ${e.message} ${e.source}');
+      }
+    }
+    if (shapes.isEmpty) shapes.add(PickShape.fromJson({'any': 1}));
     return PickRule._(
-      shapes: [
-        for (final shape in prompt['shapes'] as List)
-          PickShape.fromJson(shape as Map<String, dynamic>),
-      ],
+      shapes: shapes,
       players: ids('player_ids'),
       centers: ids('center_indices'),
     );

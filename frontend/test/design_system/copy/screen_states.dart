@@ -235,7 +235,7 @@ final screens = <String, Screen>{
     },
   ),
   '06 Night board': (
-    budget: 22,
+    budget: 24,
     states: {
       for (final MapEntry(key: key, value: (prompt, face)) in _you.entries)
         for (final label in _buttons(prompt))
@@ -244,8 +244,17 @@ final screens = <String, Screen>{
             // The candle's number in its last minute.
             text(CommonCopy.seconds),
             text(NightCopy.you),
-            // The strip's label, and each card's own.
-            text(NightCopy.centerLabel),
+            // The strip's label (the Seer's board adds her two others), and
+            // each card's own.
+            for (final label in [
+              if (prompt.seats case final seats?) ...[
+                seats,
+                NightCopy.seerOr,
+                ?prompt.strip,
+              ] else
+                NightCopy.centerLabel,
+            ])
+              text(label),
             for (final side in NightCopy.center) text(side),
             cue(CommonCopy.hold),
             button(label),

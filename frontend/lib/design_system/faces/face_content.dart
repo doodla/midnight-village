@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../core/logging/app_logger.dart';
 import '../copy/copy.dart';
 import '../copy/role_text.dart';
 import '../copy/template.dart';
@@ -86,6 +87,8 @@ enum NightPrompt {
     NightCopy.seerTitle,
     go: NightCopy.see,
     pass: NightCopy.skip,
+    seats: NightCopy.seerSeats,
+    strip: NightCopy.seerCenter,
   ),
   robber(
     'robber',
@@ -121,6 +124,17 @@ enum NightPrompt {
     NightCopy.doppelgangerTitle,
     go: NightCopy.copyCard,
     pass: NightCopy.skip,
+  ),
+
+  /// A kind this app does not know (the server added one): a plain board
+  /// that still lets the player pick a card or skip, never a crash in a
+  /// player's hand mid-game. The picks it takes are the prompt's `shapes`.
+  generic(
+    'generic',
+    NightCopy.chooseNone,
+    NightCopy.chooseNone,
+    go: NightCopy.choose,
+    pass: NightCopy.skip,
   );
 
   const NightPrompt(
@@ -129,6 +143,8 @@ enum NightPrompt {
     this.title, {
     required this.go,
     required this.pass,
+    this.seats,
+    this.strip,
   });
 
   /// The server's name for it.
@@ -147,9 +163,22 @@ enum NightPrompt {
   /// The button with "You" alone picked: what passing is, for this role.
   final String pass;
 
-  static NightPrompt fromKind(String kind) =>
-      values.where((prompt) => prompt.kind == kind).firstOrNull ??
-      (throw FormatException('Unknown prompt kind', kind));
+  /// The words this board adds above its seats and on the table's strip in
+  /// place of "Center", with a rule saying "or" between them (the Seer's,
+  /// who may pick from either: the owner chose it, 22 November 2026); null
+  /// for every other prompt, whose board keeps the room empty.
+  final String? seats;
+  final String? strip;
+
+  /// The prompt of [kind]; a kind this app does not know is the plain
+  /// [generic] board, logged (a player is never thrown out mid-game for
+  /// a role the server added).
+  static NightPrompt fromKind(String kind) {
+    final known = values.where((prompt) => prompt.kind == kind).firstOrNull;
+    if (known != null) return known;
+    logger.w('Unknown night prompt kind "$kind": showing the generic board');
+    return generic;
+  }
 }
 
 /// What a phone was told when a window closed (one `night_results` entry):
