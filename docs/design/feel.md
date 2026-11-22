@@ -46,7 +46,9 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 | `reveal` | 400 ms | The count's dead card turning over |
 | `stagger` | 150 ms | Between one row and the next landing (the count, the night on 11) |
 | `beat` | 1200 ms | The count's held beat before the flip. A tap skips it |
-| `curve` | easeOutCubic | Everything above, except the count's flip (easeInOut) |
+| `scene` | 500 ms | The dusk (deal to night) and the dawn (night to talk), nothing else. Input is live from frame one (pass 1, built) |
+| `curve` | easeOutCubic | Everything above, except the count's flip (easeInOut); inside a scene, each part runs its stretch of the 500 ms in this curve |
+| `Motion.within(context, d)` | `d`, or zero under reduce motion | The shell and the scene switcher use it; the other five places that check reduce motion move to it in their passes |
 
 Their own constants (not `Motion`): `HoldToReveal.holdDelay` 120 ms (a touch shorter than this is
 a tap, longer is a hold: the face shows after it) and `revealedAfter` 800 ms (a reveal counts once
@@ -60,10 +62,9 @@ take 1.6 s. A tap finishes them.
 
 | Token | Start value | Pass | Why |
 |---|---|---|---|
-| `Motion.scene` | 500 ms, never over 600 | 1 | The dusk (deal to night) and dawn (night to talk) wipe replacing the 260 ms crossfade. Input is live from frame one. Nowhere else (decided 22 Nov 2026) |
 | `Motion.land` | a curve with at most 10% overshoot (`easeOutBack`) | 4, 6 | The lock stamp; a joining player's row dropping in |
 | `Motion.ambient` | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
-| a reduce-motion helper | `Motion` durations that are zero under reduce motion | 1 | Today six places check it (shell, hold flip, count, results, ring, wave); buttons, rows, chips, cards and dims ignore it |
+| the reduce-motion helper, the rest | Today six places check it (shell, hold flip, count, results, ring, wave); buttons, rows, chips, cards and dims ignore it. `Motion.within` exists (pass 1); passes 2, 4 and 8 move them to it | 2, 4, 8 | One check, so none is forgotten |
 
 ## 3. Vibration
 
@@ -135,7 +136,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| The deal commits (02 to 04, on every phone together) | The table's village sinks, night rises; 04 takes touches from frame one. No vibration. Today a crossfade | `scene` | Cut | pass 1 |
+| The deal commits (02 or 03 to 04, on every phone together) | The dusk, 500 ms: the table's screen sinks 10% and fades out over the first 300 ms while the night village, laid as the card has it, sinks in from above (50% of the height, done by 300 ms) and the card comes through from 200 ms to 450 ms. 04 takes touches from frame one, even while unseen. No vibration. A change that comes mid-scene (05's wait giving way to the card) swaps in place | `scene` | Cut | exists |
 | The card arrives | A face-down card as large as the room under the headline allows, 3 by 4: its width is the smaller of the room's width and three quarters of its height; in a first game the ring breathes with "Hold" | breath 1400 ms | Ring still | exists |
 
 ### Your card (04)
@@ -177,7 +178,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| Dawn (night to talk, all phones together) | Dawn rooftops rise as night sinks; the sun timer shows. No vibration. Today a crossfade | `scene` | Cut | pass 1 |
+| Dawn (night to talk, all phones together) | 500 ms: the dawn rooftops rise over the night from the foot, the sun with them, covering it by about 200 ms; the night is gone under them by 275 ms; the rooftops lift up and out with the sun (30% of the height) while they fade from 275 ms to 475 ms, the talk whole and live underneath all along. No vibration | `scene` | Cut | exists |
 | The timer | Digits tick each second, and the sun on the talk's sky steps along its arc with them, a jump with no tween (the vote's bar on 09 steps the same way) | 1 s | Same | exists |
 | My night opens by itself (once, when the night told this phone something) | The same paper card a hold shows, every word on screen; a tap puts it away | none | Same | exists |
 | Hold "My night" | The face above the thumb; each hold shows the next page, dots inside | 120 ms | Same | exists |

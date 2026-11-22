@@ -9,6 +9,7 @@ import '../../../../core/websocket/websocket_channel.dart';
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/primitives/notice.dart';
+import '../../../../design_system/primitives/scene_switcher.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/ground_scope.dart';
@@ -38,8 +39,11 @@ import 'your_card_screen.dart';
 ///   night board (06, 05 while `/me/` loads), 08 Talk, 09 Vote, 10 The count
 ///   and 11 Results (their calm wait while the results load). 08 and 09
 ///   show their day ground, nothing on it, while their `/me/` loads.
-/// - A change of screen fades quickly ([Motion.settle]); with reduce motion
-///   it is instant. Nothing waits for it.
+/// - A change of screen fades quickly ([Motion.settle]); two changes are a
+///   scene the whole table shares ([Motion.scene], `SceneSwitcher`): the
+///   deal to the night (dusk) and the night to the talk (dawn). With reduce
+///   motion it is instant. The screen arriving takes touches from the first
+///   frame; nothing waits for any of it.
 /// - While nothing is known yet (the first `/me/table/`), the night ground
 ///   and nothing on it; "One moment" when that fetch fails (it is retried
 ///   until it succeeds), and while the game's socket is down and its
@@ -103,15 +107,13 @@ class _TableShellState extends ConsumerState<TableShell>
         (gameId != null &&
             _socketDown(ref, gameId) &&
             (game?.fetchFailing ?? false));
-    final still = MediaQuery.disableAnimationsOf(context);
     return Stack(
       children: [
         Positioned.fill(
-          child: AnimatedSwitcher(
-            duration: still ? Duration.zero : Motion.settle,
-            switchInCurve: Motion.curve,
-            switchOutCurve: Motion.curve,
-            child: KeyedSubtree(key: ValueKey(key), child: screen),
+          child: SceneSwitcher<_Stage>(
+            stage: (key: key, screen: shown?.screen),
+            sceneBetween: _sceneBetween,
+            child: screen,
           ),
         ),
         if (offline) const _OfflineBanner(),
@@ -185,6 +187,25 @@ class _TableShellState extends ConsumerState<TableShell>
         _ => false,
       };
 }
+
+/// Which screen the shell shows: its key (it changes with the screen, the
+/// game and the player) and the screen the table names.
+typedef _Stage = ({String key, AppScreen? screen});
+
+/// The scene a change of screen is, if it is one: the deal's dusk (02 or 03
+/// to the night) and the night's dawn (04 or the board to the talk). Every
+/// other change, the vote to the count included, is a crossfade.
+SceneKind? _sceneBetween(_Stage from, _Stage to) =>
+    switch ((from.screen, to.screen)) {
+      (
+        AppScreen.table || AppScreen.deck,
+        AppScreen.yourCard || AppScreen.nightBoard,
+      ) =>
+        SceneKind.dusk,
+      (AppScreen.yourCard || AppScreen.nightBoard, AppScreen.talk) =>
+        SceneKind.dawn,
+      _ => null,
+    };
 
 /// Before the first answer: the night's (or the day's) ground, nothing on
 /// it.
