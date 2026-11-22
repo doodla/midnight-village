@@ -11,6 +11,7 @@ import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/system_bars.dart';
 import 'art_picture.dart';
+import 'scene_arrival.dart';
 
 /// How a picture sits across the top of a screen, from the mocks. All three
 /// grow by the status bar's height, so on a phone with a notch the picture
@@ -74,6 +75,10 @@ class ScreenFrame extends StatelessWidget {
 
   /// The widest the phone layout gets.
   static const maxWidth = 440.0;
+
+  /// How far, of its own height, a top picture comes down into place when a
+  /// scene brings the screen in, beyond what the screen itself travels.
+  static const arrivalTravel = 0.3;
 
   final GroundKind ground;
   final Widget body;
@@ -147,10 +152,17 @@ class ScreenFrame extends StatelessWidget {
           SizedBox(
             height: layout.height + safeTop,
             width: double.infinity,
-            child: _TopArt(
-              art: art,
-              fadeTo: colors.ground,
-              fadeFrom: (layout.fadeFrom + safeTop) / (layout.height + safeTop),
+            // Brought in by a scene (the dusk), the picture travels further
+            // than the screen: it comes down into place from above, its moon
+            // arriving last.
+            child: ArrivalShift(
+              travel: -arrivalTravel,
+              child: _TopArt(
+                art: art,
+                fadeTo: colors.ground,
+                fadeFrom:
+                    (layout.fadeFrom + safeTop) / (layout.height + safeTop),
+              ),
             ),
           ),
           Padding(

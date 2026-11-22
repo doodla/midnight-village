@@ -108,6 +108,15 @@ screens width="390" mode="report":
       --dart-define=SCREENS_WIDTH={{width}} \
       --dart-define=SCREENS_STRICT=$strict
 
+# The dusk and the dawn in motion: eight frames of each and a strip, to
+# <folder>/dusk and <folder>/dawn (test/README.md). No backend.
+# Usage: just scene-frames [folder] [label]
+scene-frames folder="build/scene_frames" label="after":
+    flutter test test_screens/scene_frames_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=SCENE_FRAMES_DIR={{folder}} \
+      --dart-define=SCENE_FRAMES_LABEL={{label}}
+
 # The cold-read pack (docs/specs/frontend/first-time-play.md): the screens of
 # four first-game journeys (host, guest, sleeper, Seer), in order, as one
 # phone sees them, to build/playtest/<journey>/screen-NN.png. Hand a folder to

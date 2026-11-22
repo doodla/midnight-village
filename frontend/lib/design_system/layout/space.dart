@@ -1,4 +1,4 @@
-import 'package:flutter/animation.dart';
+import 'package:flutter/widgets.dart';
 
 /// Spacing: the gaps and margins of the mocks, the same in every skin (a skin
 /// may change art, colours, type and shape, never where things sit; design
@@ -86,5 +86,16 @@ abstract final class Motion {
   /// turning). A tap skips it; nothing waits on it.
   static const beat = Duration(milliseconds: 1200);
 
+  /// The dusk (the deal to the night) and the dawn (the night to the talk):
+  /// the one scene change the whole table shares (`SceneSwitcher`). Nowhere
+  /// else; the screen it arrives on takes touches from its first frame.
+  static const scene = Duration(milliseconds: 500);
+
   static const curve = Curves.easeOutCubic;
+
+  /// [duration], or no time at all when the phone asks for reduced motion
+  /// (the shell and the scene switcher read it here; a motion that checks
+  /// the setting itself is to move to this).
+  static Duration within(BuildContext context, Duration duration) =>
+      MediaQuery.disableAnimationsOf(context) ? Duration.zero : duration;
 }
