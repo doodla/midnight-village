@@ -8,12 +8,14 @@ import '../../../core/config/env.dart';
 import '../../../core/healing/healing.dart';
 import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/requests/player_request.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../data/lobby_service.dart';
 import '../domain/lobby_state.dart';
+import 'where_am_i_provider.dart';
 
 part 'lobby_notifier.g.dart';
 
@@ -513,7 +515,9 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<void> _send(Map<String, Object?> patch) async {
     try {
       final answer = await _hostAction(
-        () => ref.read(lobbyServiceProvider).patchSettings(code, patch),
+        () => playerRequest(
+          () => ref.read(lobbyServiceProvider).patchSettings(code, patch),
+        ),
       );
       if (!ref.mounted) return;
       _pending.remove(patch);
@@ -567,6 +571,19 @@ class LobbyNotifier extends _$LobbyNotifier {
     try {
       final id = await startGame();
       _retry = null;
+      // The deal worked. 02's Deal stays busy (the caller's busy lasts as
+      // long as this call) until `/me/table/` names the next screen, so the
+      // button is never live again in the gap between the answer and the
+      // dusk. (`startGame` has made the table's game known, which has the
+      // table read again; a phone that listens to no table, or a read that
+      // is not wanted, waits for nothing.)
+      if (ref.mounted && ref.exists(myTableProvider)) {
+        await whileHeld(
+          ref,
+          myTableProvider,
+          () => ref.read(myTableProvider.future),
+        );
+      }
       return id;
     } on NoLongerHostException {
       return null;
@@ -639,7 +656,9 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<String> startGame() async {
     try {
       final service = ref.read(lobbyServiceProvider);
-      final id = await _hostAction(() => service.startGame(code));
+      final id = await _hostAction(
+        () => playerRequest(() => service.startGame(code)),
+      );
       // The host does not have to wait for the lobby event to open the game.
       if (ref.mounted) _applyStartedGame(id);
       return id;
@@ -660,7 +679,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<void> leave() async {
     final service = ref.read(lobbyServiceProvider);
     try {
-      await service.leaveLobby(code);
+      await playerRequest(() => service.leaveLobby(code));
     } catch (e) {
       // Already off the table: an earlier leave got there, or the table is
       // gone (the last one out closed it).

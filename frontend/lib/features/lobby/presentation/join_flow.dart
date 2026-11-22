@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/requests/player_request.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
@@ -115,20 +116,19 @@ class JoinFlow extends _$JoinFlow {
     state = JoinFlowState(busy: way);
     ref.read(lobbySeedProvider).clear();
     try {
-      await _account(name.trim());
-      await sit();
+      await playerRequest(() async {
+        await _account(name.trim());
+        await sit();
+      });
       ref.invalidate(myTableProvider);
       // The table's screen follows /me/table/; wait for it so the app does
       // not show 01 again in between. Held while waited for: nothing else
-      // may be listening yet (01 shows while this runs), and a read nobody
-      // holds is disposed mid-fetch, which failed a seat that was taken
-      // ("Not sent." kept, and shown on 01 after the player left).
-      final held = ref.listen(myTableProvider, (_, _) {});
-      try {
-        await ref.read(myTableProvider.future);
-      } finally {
-        held.close();
-      }
+      // may be listening yet (01 shows while this runs).
+      await whileHeld(
+        ref,
+        myTableProvider,
+        () => ref.read(myTableProvider.future),
+      );
       _again = null;
       state = const JoinFlowState();
       return true;

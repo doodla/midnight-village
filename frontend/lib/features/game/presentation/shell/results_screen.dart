@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/requests/player_request.dart';
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/faces/face_content.dart' show nameList;
 import '../../../../design_system/layout/space.dart';
@@ -11,6 +12,7 @@ import '../../../../design_system/models/role.dart';
 import '../../../../design_system/primitives/band.dart';
 import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/notice.dart';
+import '../../../../design_system/primitives/pending.dart';
 import '../../../../design_system/primitives/player_token.dart';
 import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/primitives/role_card.dart';
@@ -50,41 +52,61 @@ class ResultsScreen extends ConsumerStatefulWidget {
   ConsumerState<ResultsScreen> createState() => _ResultsScreenState();
 }
 
-enum _Act { playAgain, editDeck, leave }
+/// What a button on 11 asks for (the one on its way shows busy).
+enum ResultsAct { playAgain, editDeck, leave }
 
 class _ResultsScreenState extends ConsumerState<ResultsScreen> {
-  _Act? _busy;
-  _Act? _failed;
+  /// The one request on its way (or failed): [_act] says which button asked.
+  final _pending = Pending();
+  ResultsAct? _act;
 
   LiveGameNotifier get _notifier =>
       ref.read(liveGameProvider(widget.gameId).notifier);
 
-  Future<void> _run(_Act act) async {
-    if (_busy != null) return;
-    setState(() {
-      _busy = act;
-      _failed = null;
-    });
-    try {
-      switch (act) {
-        case _Act.playAgain:
-          await _notifier.playAgain();
-        case _Act.editDeck:
-          // Read before the table moves on: this screen goes with it.
-          final container = ProviderScope.containerOf(context, listen: false);
-          await _notifier.playAgain();
-          final table = await container.read(myTableProvider.future);
-          if (table != null && table.status == TableStatus.waiting) {
-            container.read(localStepsProvider.notifier).openDeck(table);
+  @override
+  void initState() {
+    super.initState();
+    _pending.addListener(_changed);
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _pending.dispose();
+    super.dispose();
+  }
+
+  /// A request that leads to another screen: busy until `/me/table/` names
+  /// it, and not live again in between. Read before the table moves on
+  /// (this screen goes with it), so the container, not the widget's ref.
+  void _run(ResultsAct act) {
+    if (_pending.busy) return;
+    _act = act;
+    final container = ProviderScope.containerOf(context, listen: false);
+    Future<MyTable?> table() => whileHeldIn(
+      container,
+      myTableProvider,
+      () => container.read(myTableProvider.future),
+    );
+    unawaited(
+      _pending.run(
+        switch (act) {
+          ResultsAct.playAgain || ResultsAct.editDeck => _notifier.playAgain,
+          ResultsAct.leave => _notifier.leaveTable,
+        },
+        settle: () async {
+          final at = await table();
+          if (act == ResultsAct.editDeck &&
+              at != null &&
+              at.status == TableStatus.waiting) {
+            container.read(localStepsProvider.notifier).openDeck(at);
           }
-        case _Act.leave:
-          await _notifier.leaveTable();
-      }
-    } catch (_) {
-      if (mounted) setState(() => _failed = act);
-    } finally {
-      if (mounted) setState(() => _busy = null);
-    }
+        },
+      ),
+    );
   }
 
   @override
@@ -105,12 +127,12 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
       // The host's name from the table; none when it is not there (then
       // nothing is said about who deals).
       hostName: me.seats.where((s) => s.id == me.hostId).firstOrNull?.name,
-      busy: _busy != null,
-      failed: _failed != null,
-      onPlayAgain: () => unawaited(_run(_Act.playAgain)),
-      onEditDeck: () => unawaited(_run(_Act.editDeck)),
-      onLeave: () => unawaited(_run(_Act.leave)),
-      onTryAgain: () => unawaited(_run(_failed ?? _Act.playAgain)),
+      busy: _pending.busy ? _act : null,
+      failure: _pending.failure,
+      onPlayAgain: () => _run(ResultsAct.playAgain),
+      onEditDeck: () => _run(ResultsAct.editDeck),
+      onLeave: () => _run(ResultsAct.leave),
+      onTryAgain: () => unawaited(_pending.retry()),
     );
   }
 }
@@ -144,8 +166,8 @@ class ResultsView extends StatefulWidget {
     required this.onEditDeck,
     required this.onLeave,
     required this.onTryAgain,
-    this.busy = false,
-    this.failed = false,
+    this.busy,
+    this.failure,
   });
 
   final GameOutcome outcome;
@@ -157,11 +179,13 @@ class ResultsView extends StatefulWidget {
   final VoidCallback onLeave;
   final VoidCallback onTryAgain;
 
-  /// A request is on its way.
-  final bool busy;
+  /// The button whose request is on its way: it shows busy, and the others
+  /// wait (no second request goes out).
+  final ResultsAct? busy;
 
-  /// The last request got no answer.
-  final bool failed;
+  /// The last request did not work: its words and "Try again" sit above the
+  /// buttons.
+  final RequestFailure? failure;
 
   @override
   State<ResultsView> createState() => _ResultsViewState();
@@ -287,11 +311,11 @@ class _ResultsViewState extends State<ResultsView>
     final type = context.skin.typography;
     final hostName = widget.hostName;
     return [
-      if (widget.failed)
+      if (widget.failure case final failure?)
         Notice(
-          message: BannerCopy.notSent,
-          action: BannerCopy.tryAgain,
-          onAction: widget.onTryAgain,
+          message: failure.words,
+          action: failure.canRetry ? BannerCopy.tryAgain : null,
+          onAction: failure.canRetry ? widget.onTryAgain : null,
         ),
       if (widget.host)
         _HostButtons(
@@ -316,7 +340,8 @@ class _ResultsViewState extends State<ResultsView>
             ),
             TextAction(
               label: CommonCopy.leave,
-              onPressed: widget.busy ? null : widget.onLeave,
+              busy: widget.busy == ResultsAct.leave,
+              onPressed: widget.busy != null ? null : widget.onLeave,
             ),
           ],
         ),
@@ -334,7 +359,7 @@ class _HostButtons extends StatelessWidget {
     required this.onEditDeck,
   });
 
-  final bool busy;
+  final ResultsAct? busy;
   final VoidCallback onPlayAgain;
   final VoidCallback onEditDeck;
 
@@ -356,13 +381,17 @@ class _HostButtons extends StatelessWidget {
     final type = context.skin.typography;
     final play = PrimaryButton(
       label: ResultsCopy.playAgain,
-      onPressed: onPlayAgain,
-      busy: busy,
+      // Busy stays a live look (filled, readable); a tap does nothing.
+      onPressed: busy == null || busy == ResultsAct.playAgain
+          ? onPlayAgain
+          : null,
+      busy: busy == ResultsAct.playAgain,
       size: ButtonSize.large,
     );
     final edit = SecondaryButton(
       label: ResultsCopy.editDeck,
-      onPressed: busy ? null : onEditDeck,
+      onPressed: busy == null ? onEditDeck : null,
+      busy: busy == ResultsAct.editDeck,
       size: ButtonSize.large,
     );
     return LayoutBuilder(

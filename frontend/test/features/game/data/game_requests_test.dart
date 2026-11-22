@@ -23,7 +23,7 @@ void main() {
   setUp(() {
     http = MockHttpClient();
     service = GameService(
-      client: AuthenticatedClient.forTesting(dio: http.dio),
+      client: AuthenticatedClient.forTesting(dio: http.dio, gated: false),
     );
   });
 
@@ -256,7 +256,7 @@ void main() {
     late LobbyService lobby;
     setUp(() {
       lobby = LobbyService(
-        client: AuthenticatedClient.forTesting(dio: http.dio),
+        client: AuthenticatedClient.forTesting(dio: http.dio, gated: false),
       );
     });
 

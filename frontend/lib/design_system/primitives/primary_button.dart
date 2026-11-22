@@ -260,32 +260,43 @@ class _PrimaryButtonState extends State<PrimaryButton> {
             highlightColor: Colors.transparent,
             splashColor: Colors.transparent,
             borderRadius: radius,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.xl,
-                vertical: Space.sm,
-              ),
-              child: Center(
-                heightFactor: 1,
-                widthFactor: 1,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  spacing: Space.md,
-                  children: [
-                    if (widget.icon case final icon?)
-                      Icon(icon, color: ink, size: style.fontSize),
-                    Flexible(child: _label(style.copyWith(color: ink))),
-                    if (widget.busy)
-                      SizedBox.square(
-                        dimension: style.fontSize,
-                        child: CircularProgressIndicator(
-                          strokeWidth: skin.shape.stroke,
-                          color: ink,
-                        ),
-                      ),
-                  ],
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.xl,
+                    vertical: Space.sm,
+                  ),
+                  child: Center(
+                    heightFactor: 1,
+                    widthFactor: 1,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: Space.md,
+                      children: [
+                        if (widget.icon case final icon?)
+                          Icon(icon, color: ink, size: style.fontSize),
+                        Flexible(child: _label(style.copyWith(color: ink))),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                // Busy: the mark turns in the button's own end padding, so
+                // the label keeps its place and its line (it never wraps
+                // for the mark).
+                if (widget.busy)
+                  PositionedDirectional(
+                    end: Space.sm,
+                    child: SizedBox.square(
+                      dimension: Space.lg,
+                      child: CircularProgressIndicator(
+                        strokeWidth: skin.shape.stroke,
+                        color: ink,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),

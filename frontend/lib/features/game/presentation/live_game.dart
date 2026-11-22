@@ -8,6 +8,9 @@ import '../../../core/api/api_exception.dart';
 import '../../../core/healing/healing.dart';
 import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/requests/player_request.dart';
+import '../../../design_system/copy/copy.dart';
+import '../../../design_system/primitives/pending.dart' show RequestRefused;
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/night/night_pick.dart';
 import '../../lobby/domain/where_am_i.dart';
@@ -533,7 +536,9 @@ class LiveGameNotifier extends _$LiveGameNotifier {
   }
 
   Future<StageAnswer> _send(OutboxItem item) async {
-    final reply = await _service.send(gameId, item.request);
+    final reply = await playerRequest(
+      () => _service.send(gameId, item.request),
+    );
     if (!ref.mounted) return reply.answer;
     final box = _game.outbox;
     if (box.current(item.lane)?.id != item.id) {
@@ -722,21 +727,44 @@ class LiveGameNotifier extends _$LiveGameNotifier {
   }
 
   /// Host, at the results: the table goes back to waiting. A table that is
-  /// gone (404) is closed, as a fetch answered 404 closes it; other errors
-  /// reach the caller.
-  Future<void> playAgain() => _atTable(
-    () => ref.read(lobbyServiceProvider).playAgain(_game.server.lobbyCode),
-  );
+  /// gone (404) is closed, as a fetch answered 404 closes it; a refusal
+  /// ([serverAnswered]) says why ([RequestRefused]), never "Not sent."; no
+  /// answer reaches the caller as it is.
+  Future<void> playAgain() => _atTable(() async {
+    try {
+      await ref.read(lobbyServiceProvider).playAgain(_game.server.lobbyCode);
+    } catch (e) {
+      throw _refused(e, BannerCopy.cannotDeal) ?? e;
+    }
+  });
 
   /// Leaves the table this game was played at (a table already gone: the
-  /// same, with "This table has closed." on 01).
-  Future<void> leaveTable() => _atTable(
-    () => ref.read(lobbyServiceProvider).leaveLobby(_game.server.lobbyCode),
-  );
+  /// same, with "This table has closed." on 01; a phone already off it
+  /// counts as left, as at 02).
+  Future<void> leaveTable() => _atTable(() async {
+    try {
+      await ref.read(lobbyServiceProvider).leaveLobby(_game.server.lobbyCode);
+    } catch (e) {
+      if (e is ValidationException && e.code == 'not_in_lobby') return;
+      throw _refused(e, BannerCopy.cannotLeave) ?? e;
+    }
+  });
+
+  /// [error] as the server's refusal with [words] to say (the table's 404
+  /// is not one: the table is gone), or null when the phone does not know it
+  /// got there.
+  static RequestRefused? _refused(Object error, String words) =>
+      error is! NotFoundException && serverAnswered(error)
+      ? RequestRefused(words)
+      : null;
 
   Future<void> _atTable(Future<void> Function() call) async {
     try {
-      await call();
+      await playerRequest(call);
+      // The tap worked. A screen that has already moved on (the server said
+      // so first: this notifier went with it) has nothing left to read, and
+      // is no failure.
+      if (!ref.mounted) return;
       ref.invalidate(myTableProvider);
     } on NotFoundException {
       if (ref.mounted) _tableGone(tapped: true);

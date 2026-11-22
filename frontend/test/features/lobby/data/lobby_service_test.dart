@@ -20,7 +20,7 @@ void main() {
   setUp(() {
     http = MockHttpClient();
     service = LobbyService(
-      client: AuthenticatedClient.forTesting(dio: http.dio),
+      client: AuthenticatedClient.forTesting(dio: http.dio, gated: false),
     );
   });
 

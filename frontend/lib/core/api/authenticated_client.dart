@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/env.dart';
+import '../requests/player_request.dart';
 import 'auth_interceptor.dart';
 import 'logging_interceptor.dart';
 
@@ -15,7 +16,8 @@ class AuthenticatedClient {
     required String baseUrl,
     required AuthInterceptor interceptor,
     Dio? dio,
-  }) : _dio =
+  }) : _gated = true,
+       _dio =
            dio ??
            Dio(
              BaseOptions(
@@ -36,23 +38,41 @@ class AuthenticatedClient {
 
   /// Test-only constructor that accepts a pre-configured [Dio] without
   /// requiring an [AuthInterceptor]. The caller is responsible for
-  /// setting up any interceptors on [dio].
+  /// setting up any interceptors on [dio]. [gated] false is for a test of a
+  /// service's own parsing, which calls it directly.
   @visibleForTesting
-  AuthenticatedClient.forTesting({required Dio dio}) : _dio = dio;
+  AuthenticatedClient.forTesting({required Dio dio, bool gated = true})
+    : _gated = gated,
+      _dio = dio;
 
   final Dio _dio;
+
+  /// A `POST`, `PATCH` or `DELETE` must be made inside `playerRequest`
+  /// (`core/requests/player_request.dart`): the one door every request a
+  /// player's tap makes goes through.
+  final bool _gated;
+
+  void _door(String method, String path) {
+    if (_gated) requirePlayerRequest('$method $path');
+  }
 
   /// How long a request waits to connect, and for its answer.
   static const timeout = Duration(seconds: 10);
 
   Future<Response<T>> get<T>(String path) => _dio.get<T>(path);
 
-  Future<Response<T>> post<T>(String path, {Object? data}) =>
-      _dio.post<T>(path, data: data);
+  Future<Response<T>> post<T>(String path, {Object? data}) {
+    _door('POST', path);
+    return _dio.post<T>(path, data: data);
+  }
 
-  Future<Response<T>> patch<T>(String path, {Object? data}) =>
-      _dio.patch<T>(path, data: data);
+  Future<Response<T>> patch<T>(String path, {Object? data}) {
+    _door('PATCH', path);
+    return _dio.patch<T>(path, data: data);
+  }
 
-  Future<Response<T>> delete<T>(String path, {Object? data}) =>
-      _dio.delete<T>(path, data: data);
+  Future<Response<T>> delete<T>(String path, {Object? data}) {
+    _door('DELETE', path);
+    return _dio.delete<T>(path, data: data);
+  }
 }
