@@ -323,6 +323,40 @@ void main() {
       expect((await board(const Size(320, 568), 3)).$1, 0);
     });
 
+    testWidgets('the candle and the number are one unit inside the page '
+        'margin: the candle’s right edge is on the button’s, whole at every '
+        'state', (tester) async {
+      for (final phone in const [Size(390, 844), Size(320, 568)]) {
+        tester.view.physicalSize = phone;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        for (final (seconds, share) in const [
+          (30, 1.0),
+          (188, 1.0),
+          (0, 0.0),
+        ]) {
+          await tester.pumpWidget(const SizedBox());
+          await _pump(
+            tester,
+            BoardPage(viewer: Viewer.drunk, secondsLeft: seconds, share: share),
+          );
+          final candle = tester.getRect(find.byType(CandleGauge));
+          final button = tester.getRect(find.byType(PrimaryButton));
+          expect(candle.right, closeTo(button.right, 0.5), reason: '$phone');
+          // The handle, the ledge and the dish's shadow are all inside the
+          // page: nothing runs on to the phone's edge.
+          final holder = tester.getRect(
+            find.byKey(const ValueKey(CandlePart.holder)),
+          );
+          expect(holder.right, lessThanOrEqualTo(button.right + 0.5));
+          expect(
+            tester.getRect(find.byKey(const ValueKey(CandlePart.ledge))).right,
+            lessThanOrEqualTo(button.right + 0.5),
+          );
+        }
+      }
+    });
+
     testWidgets('the candle takes no room of the board’s: the header is the '
         'title’s two lines whatever the candle’s height', (tester) async {
       tester.view.physicalSize = const Size(390, 844);

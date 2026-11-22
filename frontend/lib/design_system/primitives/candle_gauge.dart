@@ -85,7 +85,7 @@ class CandleGauge extends StatelessWidget {
   static const ledgeLeast = 4.0;
   static const ledgeMost = 7.0;
   static const ledgeReachLeft = 0.04;
-  static const ledgeReachRight = 0.1;
+  static const ledgeReachRight = 0.0;
 
   /// The width of a candle [height] high.
   static double widthFor(CandleArt art, double height) =>

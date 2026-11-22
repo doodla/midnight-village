@@ -115,10 +115,14 @@ class NightBoard extends ConsumerStatefulWidget {
   /// The candle stands as high as the title's room and this more: its flame
   /// level with the title's top, its ledge a little below the title's foot
   /// (the seats' labels and cards start further down).
-  static const candleRise = 8.0;
+  /// The gap between the title and the candle's unit: the unit has its own
+  /// gap before its number, and the title keeps all the width it had.
+  static const headerGap = Space.xs;
+
+  static const candleRise = 4.0;
 
   /// And its flame stands this far above the title's top, in the strip.
-  static const candleLift = 8.0;
+  static const candleLift = 6.0;
 
   /// The strip of the night village behind the title shows the picture from
   /// this row of pixels down: its roofs and spire, clear of the moon above,
@@ -407,7 +411,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
       CandleGauge.precache(context, candleHeight);
     }
     return Row(
-      spacing: Space.md,
+      spacing: NightBoard.headerGap,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(

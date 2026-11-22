@@ -253,7 +253,9 @@ void main() {
         candleLefts.add(tester.getTopLeft(find.byType(CandleGauge)).dx);
       }
       // The old unit drew the number at 34 x 46 / 58 = 27 px.
-      expect(sizes.toSet(), {_skin.typography.timerCompact.fontSize! * 0.8});
+      expect(sizes.toSet(), {
+        _skin.typography.timerCompact.fontSize! * WorldTimer.cornerNumberScale,
+      });
       expect(sizes.first, lessThanOrEqualTo(27.5));
       expect(candleLefts.toSet(), hasLength(1), reason: '$candleLefts');
     });
@@ -276,6 +278,61 @@ void main() {
       // Inside the first line's box, 14 px under the unit's top.
       expect(number.top, greaterThanOrEqualTo(unit.dy + 14));
       expect(number.bottom, lessThanOrEqualTo(unit.dy + 14 + 36 + 0.5));
+    });
+
+    testWidgets('the number stands to the left of the candle with a clear gap '
+        '(at least the width of its "s") from the wax, the dish and the '
+        'flame, full candle or stub, at every form of the clock', (
+      tester,
+    ) async {
+      for (final (seconds, share) in const [
+        (30, 1.0),
+        (14, 0.47),
+        (188, 1.0),
+        (0, 0.0),
+        (600, 1.0),
+      ]) {
+        await tester.pumpWidget(const SizedBox());
+        await _pump(
+          tester,
+          WorldTimer.candleCompact(
+            secondsLeft: seconds,
+            share: share,
+            candleHeight: 88,
+            lineHeight: 36,
+            lift: 6,
+          ),
+        );
+        final number = tester.getRect(find.text(WorldTimer.format(seconds)));
+        final candle = tester.getRect(find.byType(CandleGauge));
+        final s = TextPainter(
+          text: TextSpan(
+            text: 's',
+            style: _skin.typography.timerCompact.copyWith(
+              fontSize:
+                  _skin.typography.timerCompact.fontSize! *
+                  WorldTimer.cornerNumberScale,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        // Where the picture's own paper starts: the dish, the widest part.
+        final art = _skin.art.candleCut;
+        final scale = 88 / art.view.height;
+        final dish = candle.left + (art.holder.at.dx - art.view.left) * scale;
+        expect(
+          dish - number.right,
+          greaterThanOrEqualTo(s.width - 0.5),
+          reason: '${WorldTimer.format(seconds)}: the gap to the dish',
+        );
+        final wax = tester.getRect(find.byKey(const ValueKey(CandlePart.wax)));
+        expect(wax.left - number.right, greaterThanOrEqualTo(s.width));
+        expect(
+          number.right,
+          lessThanOrEqualTo(candle.left),
+          reason: 'the number never lies over the candle',
+        );
+      }
     });
 
     testWidgets('a candle with no known window is whole, with no number '

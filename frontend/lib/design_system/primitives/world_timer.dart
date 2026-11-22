@@ -65,20 +65,18 @@ class WorldTimer extends StatelessWidget {
   /// the unit's top; the number sits [lift] lower).
   final double lift;
 
-  /// The corner number's size, of the skin's `timerCompact`: what it was drawn
-  /// at when it sat in a 46 px unit (the board's numbers run no bigger than
-  /// that); the candle carries the drama, the number the fact.
-  static const cornerNumberScale = 0.8;
-
-  /// How far the number reaches into the candle's empty margin.
-  static const cornerOverlap = 6.0;
+  /// The corner number's size, of the skin's `timerCompact`: smaller than it
+  /// was drawn when it sat in a 46 px unit (27 px), so the unit is narrow
+  /// enough to leave the title all the width it had; the candle carries the
+  /// drama, the number the fact.
+  static const cornerNumberScale = 0.6;
 
   /// Read out instead of the number.
   final String? semanticLabel;
 
   final bool _compact;
 
-  /// The candle's size in the panel and in the corner (S05, S06).
+  /// The candle picture's size in the panel (S05).
   static const candleSize = Size(66, 88);
 
   /// Seconds as a clock: "19 s" under a minute, "4:12" from a minute.
@@ -142,48 +140,52 @@ class WorldTimer extends StatelessWidget {
 
   Widget _corner(BuildContext context, String? number, bool bounded) {
     final style = context.skin.typography.timerCompact;
-    final size = style.fontSize! * cornerNumberScale;
+    final numberStyle = style.copyWith(
+      fontSize: style.fontSize! * cornerNumberScale,
+    );
     final candle = CandleGauge(share: share, height: candleHeight);
     if (number == null) return candle;
     // The number is the unit's own size, whatever the text size (the title
     // beside it stops growing, and must not give way to the seconds): its slot
-    // is as wide as the widest it can read, its right edge against the
-    // candle, so nothing shifts as a ten turns into a nine.
-    final slot = _slot(style.copyWith(fontSize: size), number);
+    // is as wide as the widest it can read in its form, its right edge a gap
+    // (the width of its "s") from the candle, so nothing shifts as a ten turns
+    // into a nine and nothing touches the flame or the wax.
+    final slot = _slot(numberStyle, number);
     final line = lineHeight ?? candleHeight;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
-      // Laid out right to left, the candle first: it is painted under the
-      // number, whose end reaches over its empty margin.
-      textDirection: TextDirection.rtl,
+      spacing: _width('s', numberStyle) + 1,
       children: [
-        candle,
-        // The candle's picture has empty paper to the left of its dish: the
-        // number's box is that much narrower than the number, which reaches
-        // into it.
         Padding(
           padding: EdgeInsets.only(top: lift),
           child: SizedBox(
-            width: slot - cornerOverlap,
+            width: slot,
             height: line,
-            child: OverflowBox(
-              alignment: Alignment.centerLeft,
-              minWidth: slot,
-              maxWidth: slot,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  number,
-                  textScaler: TextScaler.noScaling,
-                  style: style.copyWith(fontSize: size),
-                ),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                number,
+                textScaler: TextScaler.noScaling,
+                style: numberStyle,
               ),
             ),
           ),
         ),
+        candle,
       ],
     );
+  }
+
+  static double _width(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.noScaling,
+    )..layout();
+    final w = painter.width;
+    painter.dispose();
+    return w;
   }
 
   /// The width of the widest the number can read in the form it is in: two
@@ -191,21 +193,12 @@ class WorldTimer extends StatelessWidget {
   /// seconds ("8:88") from a minute. The digits are not all one width, and
   /// the candle beside them must not move as they change.
   double _slot(TextStyle style, String number) {
-    double width(String text) {
-      final painter = TextPainter(
-        text: TextSpan(text: text, style: style),
-        textDirection: TextDirection.ltr,
-        textScaler: TextScaler.noScaling,
-      )..layout();
-      final w = painter.width;
-      painter.dispose();
-      return w;
-    }
-
-    final digit = [for (var d = 0; d < 10; d++) width('$d')].reduce(math.max);
+    final digit = [
+      for (var d = 0; d < 10; d++) _width('$d', style),
+    ].reduce(math.max);
     return number.contains(':')
-        ? math.max(3 * digit + width(':'), width(number))
-        : 2 * digit + width(format(0).substring(1));
+        ? math.max(3 * digit + _width(':', style), _width(number, style))
+        : 2 * digit + _width(format(0).substring(1), style);
   }
 }
 
