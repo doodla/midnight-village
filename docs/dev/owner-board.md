@@ -37,7 +37,9 @@ Load the tools once: `ToolSearch select:ArtifactData`. Every call below takes
   "pictures": [{"src": "/_blob/<id>", "alt": "...", "pos": "50% 100%", "caption": "..."}],
   "before": {"src": "/_blob/<id>", "alt": "..."},     // look items: before + after
   "after":  {"src": "/_blob/<id>", "alt": "..."},     //   give a touch slider instead of pictures
-  "ref": "Questions list, 5 · #24"  // tiny footer
+  "ref": "Questions list, 5 · #24", // tiny footer
+  "sounds": [ ...takes, see "Add sounds to choose by ear" ],   // optional
+  "lead": "One plain line shown above the card"                // optional, see below
 }
 ```
 
@@ -57,6 +59,57 @@ Artifact { action: "publish", url: "<board url>", asset: true,
 
 The result gives `"/_blob/<32 hex>"` per file; copy it exactly. PNG, JPEG, WebP or SVG.
 Today's pictures and their urls: `docs/dev/owner-board/live-map.json`.
+
+## Add sounds to choose by ear
+
+An item with `sounds` shows each take as a row: a big **Play** and a **Hear it on 10 phones**
+(the take 10 times at fixed seeded offsets between 0 and 400 ms, the same every time, so the
+owner hears the table effect). Sound starts only from a tap. Under the takes the card shows its
+`choices` as usual; with exactly 4 choices and `sounds` they sit in one row.
+
+```json
+{
+  "lead": "Four small sounds, all quiet. No music, and never at night.",   // optional line above the card
+  "sounds": [
+    {"label": "A", "src": "data:audio/mpeg;base64,....", "note": "Brass bell, soft mallet"},
+    {"label": "B", "src": "data:audio/mpeg;base64,...."},
+    {"label": "C", "src": "data:audio/mpeg;base64,....", "rates": [0.667, 1, 1.333]}
+  ],
+  "choices": [{"id": "A", "label": "A", "say": "Take A"}, {"id": "B", "label": "B", "say": "Take B"},
+              {"id": "C", "label": "C", "say": "Take C"}, {"id": "none", "label": "None", "say": "None: no sound here"}],
+  "default": "Take A.", "default_choice": "A"
+}
+```
+
+- `label`: the letter on the row. `note`: optional few words under it (leave it out if it would steer the ear).
+- `src`: a `data:` URI (base64) or a URL the page can fetch. **Keep audio in the item document as base64**:
+  the asset store refuses mp3 (it takes png, jpg, gif, webp, svg, mp4, webm, pdf and a few others), a
+  document holds up to 256 KiB (a 1 s mono mp3 at 64 kbps is about 10 KB, 14 KB as base64), and nothing
+  needs republishing to add or swap a take. Stay at or under 40 KB a file.
+- `rates`: optional. "Hear it on 10 phones" gives phone number *i* the speed `rates[i mod rates.length]`
+  (the dawn bell uses root, fifth, octave: `[0.667, 1, 1.333]`, so 4, 3 and 3 phones). Play uses the file as it is.
+- `choice.say`: optional fuller words saved as the answer's `label` and shown in Decided ("Take A"
+  instead of "A"). The answer doc is otherwise unchanged: `{item, choice, label, note, at}`.
+- `lead` works on any item: one plain line shown above that card (not inside it). Put it on the first of a group.
+
+Add audio without typing it into a call: write the item as a local JSON file (base64 included) and
+send it with `file_path`:
+
+```
+ArtifactData { action: "batch", url, writes: [
+  {"op": "set", "collection": "items", "doc_id": "sound-dawn", "file_path": "/abs/path/sound-dawn.json"}, ... ] }
+```
+
+Make the files mono, trimmed, tail faded, peak at or under -6 dBFS (check the decoded mp3, not the
+source: the encoder adds about 2 dB on tonal sounds). Browsers play mp3 on Safari and Chrome. On an
+iPhone the silent switch mutes web audio; Android plays on the media volume.
+
+The takes for the four sounds in #33 are in `docs/dev/owner-board/sounds-candidates/` (12 mp3 files,
+a spectrogram tile per sound, `measurements.json`). Items on the board: `sound-dawn`, `sound-seal`,
+`sound-knock`, `sound-result` (orders 13 to 16). They were made with the ElevenLabs sound-effects API
+(`POST /v1/sound-generation`, model `eleven_text_to_sound_v2`, `prompt_influence` 0.6, minimum length
+0.5 s, so the 100 ms sounds are cut from a 0.5 s render), then trimmed, faded, loudness-matched within
+each sound and encoded to mono mp3 at 64 kbps. Prompts describe only the sound.
 
 ## Add, change or retire an item
 
