@@ -5,6 +5,11 @@ tests in a second pass (`just test-migrations`). `just test tests/path/test_x.py
 file (first pass only). Conventions: descriptive names, every random choice seeded,
 multi-player scenarios. Coverage minimum 80% (`pyproject.toml`).
 
+**Scanning the repo.** A test or check that reads the repo's files takes them from
+`tool/repo_files.py` (`tracked_files(folder, suffixes=...)`, on pytest's path through
+`pythonpath`): what git tracks in the checkout, never a folder walk. A builder's worktree
+under `.claude/worktrees/` (gitignored) or an untracked file is therefore never read.
+
 ## Side effects after commit, and timers in tests
 
 Every WebSocket send and `timers.schedule` / `cancel` in the night flow goes through `transaction.on_commit` (`_send_after_commit`, `_schedule_after_commit`, `_cancel_after_commit`), so a rollback leaves nothing sent or rescheduled. Tests that call these services inside pytest's transaction must use `django_capture_on_commit_callbacks(execute=True)` (or `django_db(transaction=True)`). The autouse fixture makes `timers.schedule` a no-op; `make_night` (`tests/onuw/conftest.py`) records `(key, delay, callback)` instead, where calling the callback runs the job; tests that need real rows/threads use `@pytest.mark.uses_timers` and, for the queue backend, `timers.set_queue_sender(fake)` + `queue_worker.handle_message(payload)`. A test with real memory-backend threads waits for the thread itself (`tests/timer_threads.py`: `settle(key)` follows re-arms, `join(thread)` for one already cancelled or replaced), never a fixed sleep and never the job's side effect: the job runs inside the transaction that claims and deletes the row, so its effect shows before that deletion commits. A timer the test must cancel or replace first is scheduled far off (an hour), so a slow machine cannot fire it before the test gets there; due times are written with the database clock (`Now()`).
