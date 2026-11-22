@@ -77,6 +77,7 @@ class ScreenFrame extends StatelessWidget {
     this.topArt,
     this.topScene,
     this.topSceneFrom,
+    this.topArtExtra = 0,
     this.topArtLayout = TopArtLayout.scene,
     this.topSlot,
     this.actionGap = Space.mdPlus,
@@ -121,6 +122,10 @@ class ScreenFrame extends StatelessWidget {
   /// With [topScene] as a strip: the canvas row it starts at
   /// ([LayeredArt.from]).
   final double? topSceneFrom;
+
+  /// A picture taller than its layout by this much (the body does not move):
+  /// where a screen has air to spare, the picture takes it.
+  final double topArtExtra;
   final TopArtLayout topArtLayout;
 
   /// A full-width part above the body (`TimerBand`, `Band`), under the status
@@ -183,7 +188,7 @@ class ScreenFrame extends StatelessWidget {
       top = Stack(
         children: [
           SizedBox(
-            height: layout.height + safeTop,
+            height: layout.height + topArtExtra + safeTop,
             width: double.infinity,
             // Brought in by a scene (the dusk), the picture travels further
             // than the screen: it comes down into place from above, its moon
@@ -196,7 +201,8 @@ class ScreenFrame extends StatelessWidget {
                     : LayeredArt(scene!, from: topSceneFrom),
                 fadeTo: colors.ground,
                 fadeFrom:
-                    (layout.fadeFrom + safeTop) / (layout.height + safeTop),
+                    (layout.fadeFrom + topArtExtra + safeTop) /
+                    (layout.height + topArtExtra + safeTop),
                 veil: layout.veil,
               ),
             ),

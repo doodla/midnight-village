@@ -227,6 +227,18 @@ final _type = SkinType(
   badge: _figtree(14, FontWeight.w700, height: 1.2),
 );
 
+// The candle's cuts (tool/candle/cut_candle.py prints these), on a canvas of
+// 300 x 530 taken from the candle picture at (270, 330).
+const _candle = CandleArt(
+  view: Rect.fromLTRB(30, 12, 280, 484),
+  wax: CandleCut('wax', Offset(58, 107), Size(136, 284)),
+  flame: CandleCut('flame', Offset(60, 15), Size(120, 106)),
+  holder: CandleCut('holder', Offset(36, 328), Size(235, 154)),
+  wick: Offset(120, 121),
+  stickBottom: 385,
+  stickTop: 122,
+);
+
 const shadowPaperArt = ArtSet(
   folder: 'assets/skins/shadow_paper',
   rolePixels: Size(576, 768),
@@ -242,6 +254,7 @@ const shadowPaperArt = ArtSet(
     LayeredSceneId.nightVillage: _nightVillage,
     LayeredSceneId.dawnGallows: _dawnGallows,
   },
+  candleCut: _candle,
   // `object-position: 50% 15%` throughout the mocks.
   portraitFocus: Alignment(0, -0.7),
   // Read off the portraits in docs/design/art/ (the face's middle, from the

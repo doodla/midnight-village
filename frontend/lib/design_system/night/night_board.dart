@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../copy/copy.dart';
 import '../faces/face_content.dart';
 import '../layout/space.dart';
+import '../primitives/candle_gauge.dart';
 import '../primitives/face_down_card.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/notice.dart';
@@ -111,14 +112,26 @@ class NightBoard extends ConsumerStatefulWidget {
   /// The button's words grow further, as far as a held face's.
   static const buttonScale = 1.6;
 
-  /// The candle stands as high as the title's room less this (the flame's
-  /// top level with the title's, the dish just above its foot).
-  static const candleInset = 6.0;
+  /// The candle stands as high as the title's room and this more: its flame
+  /// level with the title's top, its ledge a little below the title's foot
+  /// (the seats' labels and cards start further down).
+  static const candleRise = 22.0;
+
+  /// And its flame stands this far above the title's top, in the strip.
+  static const candleLift = 14.0;
 
   /// The strip of the night village behind the title shows the picture from
   /// this row of pixels down: its roofs and spire, clear of the moon above,
   /// which would sit under the seconds.
   static const villageFrom = 360.0;
+
+  /// The strip behind the title grows with the height a phone has beyond
+  /// [tallPhone], by [stripShare] of it, to at most [stripMost], at a table of
+  /// [smallTable] seats.
+  static const smallTable = 3;
+  static const tallPhone = 700.0;
+  static const stripShare = 0.45;
+  static const stripMost = 72.0;
 
   /// The lines of room a title has, at the full title size.
   static const titleLines = 2;
@@ -139,6 +152,9 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   /// server already had the turn's choose before this board was shown).
   late List<NightPick>? _sent = _usedUp(widget.prompt);
   var _failed = false;
+
+  /// The candle's cuts have been asked for.
+  var _candleWarmed = false;
 
   /// Which send is the latest: an answer to an older one, or to an earlier
   /// turn, is ignored.
@@ -296,6 +312,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
             fitsHeight: true,
             topScene: LayeredSceneId.nightVillage,
             topSceneFrom: NightBoard.villageFrom,
+            topArtExtra: _stripExtra(context),
             topArtLayout: TopArtLayout.strip,
             body: MediaQuery.withClampedTextScaling(
               maxScaleFactor: NightBoard.labelScale,
@@ -351,6 +368,18 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
+  /// A table of three has two cards a row as wide as the phone allows, and on a
+  /// tall phone air to spare: the village strip takes some of it (it is only a
+  /// picture; nothing a neighbour could read moves).
+  double _stripExtra(BuildContext context) {
+    if (widget.seats.length != NightBoard.smallTable) return 0;
+    final height = MediaQuery.sizeOf(context).height;
+    return ((height - NightBoard.tallPhone) * NightBoard.stripShare).clamp(
+      0.0,
+      NightBoard.stripMost,
+    );
+  }
+
   /// The title in a room two lines high at the full title size, the same
   /// height on every phone whatever the role (so the board below sits alike):
   /// the prompt's words wrap between words, and are set smaller only where
@@ -366,6 +395,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     final room =
         MediaQuery.textScalerOf(context).scale(line) * NightBoard.titleLines +
         1;
+    if (!_candleWarmed) {
+      // The candle's cuts decoded now, for the first frame the board draws.
+      _candleWarmed = true;
+      CandleGauge.precache(context, room + NightBoard.candleRise);
+    }
     return Row(
       spacing: Space.md,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -386,10 +420,25 @@ class _NightBoardState extends ConsumerState<NightBoard> {
             ),
           ),
         ),
-        WorldTimer.candleCompact(
-          secondsLeft: widget.secondsLeft,
-          share: widget.share,
-          candleHeight: room - NightBoard.candleInset,
+        // The candle stands in the title's room and overflows it, upward into
+        // the strip and a little below the title: it takes no room of the
+        // board's, whatever its height.
+        Align(
+          alignment: Alignment.topRight,
+          widthFactor: 1,
+          heightFactor:
+              room / (room + NightBoard.candleRise + NightBoard.candleLift),
+          child: Transform.translate(
+            offset: const Offset(0, -NightBoard.candleLift),
+            child: WorldTimer.candleCompact(
+              secondsLeft: widget.secondsLeft,
+              share: widget.share,
+              candleHeight:
+                  room + NightBoard.candleRise + NightBoard.candleLift,
+              lineHeight: MediaQuery.textScalerOf(context).scale(line),
+              lift: NightBoard.candleLift,
+            ),
+          ),
         ),
       ],
     );

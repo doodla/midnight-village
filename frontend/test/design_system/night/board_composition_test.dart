@@ -7,6 +7,7 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/night/board_layout.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
+import 'package:midnight_village/design_system/primitives/candle_gauge.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
@@ -296,6 +297,51 @@ void main() {
         expect(frame.topSceneFrom, NightBoard.villageFrom);
         expect(frame.topArtLayout, TopArtLayout.strip, reason: viewer.name);
       }
+    });
+
+    testWidgets('at a table of three on a tall phone the strip takes some of '
+        'the air; at any other table or a short phone it does not, and the '
+        'cards stay where they are', (tester) async {
+      Future<(double, Rect)> board(Size phone, int seats) async {
+        tester.view.physicalSize = phone;
+        tester.view.devicePixelRatio = 1;
+        await tester.pumpWidget(const SizedBox());
+        await _pump(
+          tester,
+          BoardPage(viewer: Viewer.drunk, table: (_) => _table(seats)),
+        );
+        final frame = tester.widget<ScreenFrame>(find.byType(ScreenFrame));
+        return (frame.topArtExtra, tester.getRect(find.byType(PaperCard)));
+      }
+
+      addTearDown(tester.view.reset);
+      final (tall, _) = await board(const Size(390, 844), 3);
+      expect(tall, greaterThan(40));
+      expect(tall, lessThanOrEqualTo(NightBoard.stripMost));
+      expect((await board(const Size(390, 844), 4)).$1, 0);
+      expect((await board(const Size(390, 844), 10)).$1, 0);
+      expect((await board(const Size(320, 568), 3)).$1, 0);
+    });
+
+    testWidgets('the candle takes no room of the board’s: the header is the '
+        'title’s two lines whatever the candle’s height', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await _pump(tester, BoardPage(viewer: Viewer.seer));
+      final header = tester.getRect(
+        find
+            .ancestor(of: find.byType(WorldTimer), matching: find.byType(Row))
+            .first,
+      );
+      // Two lines of the title at its size (34 x 1.05) and the hair.
+      expect(header.height, closeTo(34 * 1.05 * 2 + 1, 0.6));
+      final candle = tester.getRect(find.byType(CandleGauge));
+      expect(
+        candle.height,
+        greaterThan(header.height),
+        reason: 'it stands above and below the title’s room',
+      );
     });
 
     test('starts below the moon whatever the status bar adds', () {

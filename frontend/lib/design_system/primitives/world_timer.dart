@@ -31,13 +31,17 @@ class WorldTimer extends StatelessWidget {
     this.semanticLabel,
   }) : _compact = false,
        share = null,
-       candleHeight = CandleGauge.tallest;
+       candleHeight = 90,
+       lineHeight = null,
+       lift = 0;
 
   const WorldTimer.candleCompact({
     super.key,
     required this.secondsLeft,
     this.share,
-    this.candleHeight = CandleGauge.tallest,
+    this.candleHeight = 90,
+    this.lineHeight,
+    this.lift = 0,
     this.semanticLabel,
   }) : _compact = true;
 
@@ -51,6 +55,20 @@ class WorldTimer extends StatelessWidget {
 
   /// The compact candle's height.
   final double candleHeight;
+
+  /// The height of the title's first line beside the compact timer: the
+  /// number sits in it, level with the title, the candle standing from its top.
+  /// Null: the number is centred on the candle.
+  final double? lineHeight;
+
+  /// How far the candle stands above the number's line (the candle's top is
+  /// the unit's top; the number sits [lift] lower).
+  final double lift;
+
+  /// The corner number's size, of the skin's `timerCompact`: what it was drawn
+  /// at when it sat in a 46 px unit (the board's numbers run no bigger than
+  /// that); the candle carries the drama, the number the fact.
+  static const cornerNumberScale = 0.8;
 
   /// Read out instead of the number.
   final String? semanticLabel;
@@ -120,37 +138,40 @@ class WorldTimer extends StatelessWidget {
   }
 
   Widget _corner(BuildContext context, String? number, bool bounded) {
-    final skin = context.skin;
+    final style = context.skin.typography.timerCompact;
+    final size = style.fontSize! * cornerNumberScale;
+    final candle = CandleGauge(share: share, height: candleHeight);
+    if (number == null) return candle;
+    // The number's slot is as wide as the widest two digits, its right edge
+    // fixed against the candle: nothing shifts as a ten turns into a nine.
+    final slot = _slot(context, number, style.copyWith(fontSize: size));
+    final line = lineHeight ?? candleHeight;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: Space.smPlus,
+      spacing: Space.md,
       children: [
-        CandleGauge(share: share, height: candleHeight),
-        if (number != null)
-          _flex(
-            bounded,
-            2,
-            // The number has the room of the widest two digits, its right
-            // edge fixed: the candle beside it never shifts as a ten turns
-            // into a nine.
-            SizedBox(
-              width: _slot(context, number),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Text(number, style: skin.typography.timerCompact),
-              ),
+        Padding(
+          padding: EdgeInsets.only(top: lift),
+          child: SizedBox(
+            width: slot,
+            height: line,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(number, style: style.copyWith(fontSize: size)),
             ),
           ),
+        ),
+        candle,
       ],
     );
   }
 
-  /// The width the corner's number is given: that of "88 s" or of [number],
-  /// whichever is wider.
-  double _slot(BuildContext context, String number) {
-    final style = context.skin.typography.timerCompact;
+  /// The width of the widest "NN s" (two of the widest digit and the unit),
+  /// or of [number] where that is wider ("10:00"): the digits are not all one
+  /// width, and the candle beside them must not move as they change.
+  double _slot(BuildContext context, String number, TextStyle style) {
     final scaler = MediaQuery.textScalerOf(context);
     double width(String text) {
       final painter = TextPainter(
@@ -163,12 +184,11 @@ class WorldTimer extends StatelessWidget {
       return w;
     }
 
-    return math.max(width(format(88)), width(number));
+    final digit = [for (var d = 0; d < 10; d++) width('$d')].reduce(math.max);
+    final unit = width(format(0).substring(1));
+    return math.max(2 * digit + unit, width(number));
   }
 }
-
-Widget _flex(bool bounded, int flex, Widget child) =>
-    bounded ? Flexible(flex: flex, child: child) : child;
 
 /// The candle picture, at most [size], keeping its shape.
 class _Candle extends StatelessWidget {

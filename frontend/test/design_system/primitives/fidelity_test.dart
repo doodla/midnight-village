@@ -300,19 +300,26 @@ void main() {
     );
   });
 
-  testWidgets('the corner timer: the number at 34, 10 from the candle, alone', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      const Align(child: WorldTimer.candleCompact(secondsLeft: 14)),
-    );
-    expect(tester.widget<Text>(find.text('14 s')).style!.fontSize, 34);
-    expect(
-      find.descendant(of: find.byType(WorldTimer), matching: find.byType(Text)),
-      findsOneWidget,
-    );
-  });
+  testWidgets(
+    'the corner timer: the number at 0.8 of 34 (what the old unit drew), alone',
+    (tester) async {
+      await _pump(
+        tester,
+        const Align(child: WorldTimer.candleCompact(secondsLeft: 14)),
+      );
+      expect(
+        tester.widget<Text>(find.text('14 s')).style!.fontSize,
+        closeTo(34 * 0.8, 1e-9),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(WorldTimer),
+          matching: find.byType(Text),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('preset chips are 44 tall', (tester) async {
     await _pump(

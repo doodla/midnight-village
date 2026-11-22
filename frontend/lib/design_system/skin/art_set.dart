@@ -191,6 +191,49 @@ class LayeredScene {
   }
 }
 
+/// One cut of the candle picture: its file in `candle/`, where its top left
+/// lies on the cut's canvas, and its size, in pixels.
+@immutable
+class CandleCut {
+  const CandleCut(this.file, this.at, this.size);
+
+  final String file;
+  final Offset at;
+  final Size size;
+}
+
+/// The night's candle, cut from the candle picture
+/// (`frontend/tool/candle/cut_candle.py`) so the clock can shorten the wax
+/// and shrink the flame in steps while the paper stays the art's own: the
+/// stick with its drips, the flame, and the iron holder that stands over the
+/// stick's foot. Positions are in pixels of one canvas.
+@immutable
+class CandleArt {
+  const CandleArt({
+    required this.view,
+    required this.wax,
+    required this.flame,
+    required this.holder,
+    required this.wick,
+    required this.stickBottom,
+    required this.stickTop,
+  });
+
+  /// The part of the canvas the candle is drawn in, flame to stem.
+  final Rect view;
+  final CandleCut wax;
+  final CandleCut flame;
+  final CandleCut holder;
+
+  /// Where the flame's foot rests, on the wick's tip.
+  final Offset wick;
+
+  /// The row the stick's foot ends at (where the holder's dish takes over)
+  /// and the row of its top at rest: the stick burns down between them.
+  final double stickBottom;
+  final double stickTop;
+}
+
 /// One picture: its asset, its size in pixels, and the point in it that must
 /// stay in view when it is cropped (CSS's `object-position`).
 ///
@@ -263,6 +306,7 @@ class ArtSet {
     required this.tokenPixels,
     required this.scenePixels,
     required this.layered,
+    required this.candleCut,
     required this.portraitFocus,
     this.faceCentres = const {},
     this.sceneFocus = const {},
@@ -281,6 +325,9 @@ class ArtSet {
 
   /// The layered scenes, in `layers/<folder>/<file>.webp`.
   final Map<LayeredSceneId, LayeredScene> layered;
+
+  /// The night's candle, in `candle/<file>.webp`.
+  final CandleArt candleCut;
 
   /// Where a role portrait's face is, wherever it is cropped.
   final Alignment portraitFocus;
@@ -330,6 +377,10 @@ class ArtSet {
     '$folder/layers/${layered[id]!.folder}/${layer.file}.webp',
     pixels: layer.size,
   );
+
+  /// One cut of the candle, at its own size in pixels.
+  ArtImage candleSprite(CandleCut cut) =>
+      ArtImage('$folder/candle/${cut.file}.webp', pixels: cut.size);
 
   ArtImage get cardBack => scene(Scene.cardBack);
   ArtImage get candle => scene(Scene.candle);
