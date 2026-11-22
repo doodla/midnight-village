@@ -25,9 +25,13 @@ In a real browser some of the app's work answers in later tasks with no frame sc
 halfway through a tap's requests: after a tap, wait for what the step ends on with
 `tester.pumpUntilFound(finder)` (`integration_test/helpers/navigation_helpers.dart`).
 
+## The built web page (`just web-smoke`)
+
+`tool/web_smoke/run.sh` builds the web app for release (no backend: it opens on 01) and `smoke.cjs` opens the built page in Chromium through Playwright, served as Vercel serves it (every file revalidated, unknown paths answered with `index.html`): a first visit paints without waiting for the service worker and then registers it; a return is served by it; a second copy of the build, told apart by a line at the end of `main.dart.js` and listed under a new worker version, served in the first one's place (a deploy) runs on its first open and after; a table's link (`/join/<code>`) opens the app, from the worker on a return, and on a first visit registers the whole site's worker (scope `/`). About a minute plus the build. Playwright comes from a node_modules folder beside `tool/web_smoke/smoke.cjs` (`just web-smoke-setup` installs it there, as CI does) or from `NODE_PATH` (the cloud container's node tools). CI job: "Web page smoke".
+
 ## Fonts in tests
 
-`test/flutter_test_config.dart` loads every family in the build's FontManifest (Gloock, Figtree and MaterialIcons) via `test/helpers/test_fonts.dart`, so widget tests, goldens and the screen gallery draw real glyphs for those. `Roboto` (Material's default, the debug toolbar's) is drawn in a Figtree stand-in. The e2e UI runners load the same fonts (`HarnessConfig.loadFonts`); nothing is fetched.
+`test/flutter_test_config.dart` loads every family in the build's FontManifest (Gloock, Figtree and MaterialIcons) via `test/helpers/test_fonts.dart`, so widget tests, goldens and the screen gallery draw real glyphs for those. `Roboto` (Material's default, the debug toolbar's) is drawn in a Figtree stand-in, its four weights; the app declares `Roboto` as Figtree's regular face too (`pubspec.yaml`), so the web build never fetches Roboto from fonts.gstatic.com, and no screen is drawn in it. The e2e UI runners load the same fonts (`HarnessConfig.loadFonts`); nothing is fetched.
 
 ## Goldens
 

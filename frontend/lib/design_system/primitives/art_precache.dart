@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../faces/held_face.dart';
+import '../load_once_bundle.dart';
 import '../models/role.dart';
 import '../skin/art_set.dart';
 import '../skin/card_back.dart';
@@ -35,6 +35,14 @@ List<(ArtImage, Size)> secretArt(
   (skin.art.sleepingVillage, HeldFace.portraitBox),
 ];
 
+/// The picture the app opens on: 01's village (`TopArtLayout.fill`), which
+/// the opening wait shows too. Its bytes are read before [secretArt]'s
+/// (`SkinLoader`), so it is not queued behind the secrets' pictures on a slow
+/// line; it is not decoded here: 01 decodes it at the size it draws, from
+/// those same bytes (`LoadOnceBundle`). Decoded here at full size, it was a
+/// second, larger copy that no screen drew.
+List<ArtImage> openingArt(Skin skin) => [skin.art.streetDoor];
+
 /// Decodes card back [back] at every face-down size, for the game that is
 /// about to show it: the one back in use, not the other four. Not awaited by
 /// anyone; a card back never waits for it (an undecoded one draws a frame
@@ -54,23 +62,35 @@ Future<void> precacheCardBack(BuildContext context, CardBack back) {
 /// Decodes each picture in [uses] at the size `ArtPicture` will draw it, into
 /// the image cache, and completes when all are in (or failed: a missing
 /// picture costs that picture, not the app). [bundle] must be the one the
-/// widget tree draws from (`DefaultAssetBundle`; the app's is [rootBundle]).
+/// widget tree draws from (`DefaultAssetBundle`): a decoded picture is kept
+/// under its bundle, so one decoded from another bundle is not found when it
+/// is drawn. The app's is [appAssets], the default. A picture that does not
+/// decode (the bytes were not a picture: a Wi-Fi sign-in page) is evicted
+/// from the bundle, so the next draw reads it again.
 Future<void> precacheArt(
   Iterable<(ArtImage, Size)> uses, {
   required double devicePixelRatio,
   AssetBundle? bundle,
 }) {
   final configuration = ImageConfiguration(
-    bundle: bundle ?? rootBundle,
+    bundle: bundle ?? appAssets,
     devicePixelRatio: devicePixelRatio,
   );
   return Future.wait([
     for (final (image, box) in uses)
-      _resolve(image.decodedFor(box, devicePixelRatio), configuration),
+      _resolve(
+        image.decodedFor(box, devicePixelRatio),
+        configuration,
+        image.path,
+      ),
   ]);
 }
 
-Future<void> _resolve(ImageProvider provider, ImageConfiguration config) {
+Future<void> _resolve(
+  ImageProvider provider,
+  ImageConfiguration config,
+  String path,
+) {
   final done = Completer<void>();
   final stream = provider.resolve(config);
   late final ImageStreamListener listener;
@@ -81,10 +101,16 @@ Future<void> _resolve(ImageProvider provider, ImageConfiguration config) {
     scheduleMicrotask(() => stream.removeListener(listener));
   }
 
-  listener = ImageStreamListener((image, _) {
-    image.dispose();
-    finish();
-  }, onError: (_, _) => finish());
+  listener = ImageStreamListener(
+    (image, _) {
+      image.dispose();
+      finish();
+    },
+    onError: (_, _) {
+      config.bundle?.evict(path);
+      finish();
+    },
+  );
   stream.addListener(listener);
   return done.future;
 }

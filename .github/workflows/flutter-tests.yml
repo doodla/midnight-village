@@ -10,7 +10,7 @@
 # Required checks (the job names; docs/dev/running-the-work.md has the settings call):
 #   "Analyze and Format", "Release has no debug toolbar", "Widget Tests",
 #   "Golden Tests", "Screens strict at 360", "Screens strict at 390",
-#   "Integration Tests", "End-to-end Harness"
+#   "Integration Tests", "End-to-end Harness", "Web page smoke"
 # (the backend's is in backend-tests.yml: "Backend Checks"). No job has a paths
 # filter: a required check that does not start would block the merge for ever.
 #
@@ -402,3 +402,45 @@ jobs:
           path: frontend/integration_test/screenshots/
           retention-days: 7
           if-no-files-found: ignore
+
+  # ─── Web page smoke ────────────────────────────────────────────────────────
+  # The built web page in Chromium, served as Vercel serves it: a first visit
+  # loads without waiting for the service worker, a return is served by it,
+  # and a second build served in its place runs on its first open (a deploy).
+  # `just web-smoke` (frontend/tool/web_smoke/), the same recipe as local.
+  web-smoke:
+    name: Web page smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: "stable"
+          cache: true
+          cache-key: flutter-3.38.10-${{ runner.os }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install Playwright and Chromium
+        run: just web-smoke-setup
+
+      - name: Web page smoke
+        run: just web-smoke

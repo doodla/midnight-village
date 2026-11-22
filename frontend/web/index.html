@@ -45,6 +45,11 @@
 </head>
 <body>
   <div id="launch" aria-hidden="true"><img src="icons/launch-mark.webp" alt=""></div>
-  <script src="flutter_bootstrap.js" async></script>
+  <!--
+    web/flutter_bootstrap.js, inlined: this page is always fetched from the
+    network first, so the loader always knows the deployed build (a separate
+    flutter_bootstrap.js would come from the service worker's cache).
+  -->
+  <script>{{flutter_bootstrap_js}}</script>
 </body>
 </html>
