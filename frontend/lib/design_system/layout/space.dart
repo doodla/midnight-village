@@ -1,7 +1,5 @@
 import 'package:flutter/widgets.dart';
 
-import '../skin/type_scale.dart';
-
 /// Spacing: the gaps and margins of the mocks, the same in every skin (a skin
 /// may change art, colours, type and shape, never where things sit; design
 /// brief section 2). Read it as `Space.md`, with no skin in reach.
@@ -32,15 +30,17 @@ abstract final class Space {
   static const screenBottom = 28.0;
 }
 
-/// The reading floor (first-time play spec, copy rule 7): the smallest a
-/// player's words are drawn at text scale 1.0, after any shrinking to fit.
-/// The screen gallery holds every player screen to it.
+/// The reading floor (first-time play spec, copy rule 7, as the owner's type
+/// choice of 23 November 2026 set it): the smallest a player's words are drawn
+/// at text scale 1.0, after any shrinking to fit. The screen gallery holds
+/// every player screen to it.
 abstract final class ReadingFloor {
-  /// Anything a player reads to act.
-  static const act = 16.0;
+  /// Anything a player reads to act or to know who is who: body, buttons and
+  /// names.
+  static const act = 14.0;
 
-  /// Captions under cards and tokens.
-  static const caption = 14.0;
+  /// Small labels: captions, tags, badges.
+  static const caption = 12.0;
 }
 
 /// Fixed sizes of things that are not text, the same in every skin.
@@ -89,11 +89,6 @@ abstract final class Sizes {
 
   /// A card's slot in 03's count, the players' and the centre's.
   static const deckSlot = Size(12, 16);
-
-  /// The hero line's size on 01 and on the opening that comes before it,
-  /// so the title never changes size as 01 arrives.
-  static double get joinTitle =>
-      TypeScale.pick(today: 42, compact: 40, tight: 36);
 
   /// The sign of life of a wait: three paper lanterns of this width, and the
   /// gap between them.

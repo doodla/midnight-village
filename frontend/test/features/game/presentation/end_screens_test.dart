@@ -445,7 +445,9 @@ void main() {
     });
 
     testWidgets('the host\'s buttons stack when "Play again" would not fit on '
-        'one line (320, text x1.3); side by side at 390', (tester) async {
+        'one line (320, text x1.3); side by side at 320 and 390', (
+      tester,
+    ) async {
       Future<bool> stacked(double width, double scale) async {
         tester.view.physicalSize = Size(width, 844);
         tester.view.devicePixelRatio = 1;
@@ -480,8 +482,9 @@ void main() {
 
       addTearDown(tester.view.reset);
       expect(await stacked(390, 1), isFalse);
-      expect(await stacked(320, 1), isTrue);
-      expect(await stacked(390, 1.3), isTrue);
+      expect(await stacked(320, 1), isFalse);
+      expect(await stacked(320, 1.3), isTrue);
+      expect(await stacked(390, 1.6), isTrue);
     });
 
     testWidgets('a guest whose host is not at the table hears nothing about '

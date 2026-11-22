@@ -36,10 +36,7 @@ class ProgressPips extends StatelessWidget {
         label,
         // A count is read from across the table: larger than body text,
         // bold, in full ink (playtest: "0 of 5 ready" small and grey).
-        style: skin.typography.bodyLarge.copyWith(
-          fontWeight: FontWeight.w700,
-          color: context.ground.text,
-        ),
+        style: skin.typography.bodyStrong.copyWith(color: context.ground.text),
       ),
     );
     final Widget row;

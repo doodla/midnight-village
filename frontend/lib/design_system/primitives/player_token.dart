@@ -2,37 +2,33 @@ import 'package:flutter/widgets.dart';
 
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
-import '../skin/type_scale.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
 
-/// The sizes a token is drawn at in the mocks.
+/// The sizes a token is drawn at: the mocks', shrunk with the names (the
+/// owner's type choice of 23 November 2026).
 enum TokenSize {
   /// The owner under a face-down card (S06).
-  card((36, 36, 36)),
+  card(36),
 
   /// A row in the vote's compact fallback (S09).
-  row((38, 34, 32)),
+  row(32),
 
   /// A row at the table (S02).
-  lobby((32, 28, 26)),
+  lobby(26),
 
   /// A row in the count (S10).
-  count((48, 38, 34)),
+  count(34),
 
   /// A row in the vote (S09).
-  vote((52, 40, 38)),
+  vote(38),
 
   /// The dead player in the count's band (S10).
-  band((64, 64, 64));
+  band(64);
 
-  const TokenSize(this.sizes);
+  const TokenSize(this.size);
 
-  /// (today, compact, tight): the type-size review's options (`TypeScale`).
-  final (double, double, double) sizes;
-
-  double get size =>
-      TypeScale.pick(today: sizes.$1, compact: sizes.$2, tight: sizes.$3);
+  final double size;
 }
 
 /// A player's emblem: a small cut-paper medallion in a ring. [away] for a

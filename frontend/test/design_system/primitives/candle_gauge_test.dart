@@ -252,10 +252,8 @@ void main() {
         );
         candleLefts.add(tester.getTopLeft(find.byType(CandleGauge)).dx);
       }
-      // The old unit drew the number at 34 x 46 / 58 = 27 px.
-      expect(sizes.toSet(), {
-        _skin.typography.timerCompact.fontSize! * WorldTimer.cornerNumberScale,
-      });
+      // The corner's number is the skin's own `timerCompact`: 27 px.
+      expect(sizes.toSet(), {_skin.typography.timerCompact.fontSize!});
       expect(sizes.first, lessThanOrEqualTo(27.5));
       expect(candleLefts.toSet(), hasLength(1), reason: '$candleLefts');
     });
@@ -306,14 +304,7 @@ void main() {
         final number = tester.getRect(find.text(WorldTimer.format(seconds)));
         final candle = tester.getRect(find.byType(CandleGauge));
         final s = TextPainter(
-          text: TextSpan(
-            text: 's',
-            style: _skin.typography.timerCompact.copyWith(
-              fontSize:
-                  _skin.typography.timerCompact.fontSize! *
-                  WorldTimer.cornerNumberScale,
-            ),
-          ),
+          text: TextSpan(text: 's', style: _skin.typography.timerCompact),
           textDirection: TextDirection.ltr,
         )..layout();
         // Where the picture's own paper starts: the dish, the widest part.

@@ -756,10 +756,7 @@ class _Line extends StatelessWidget {
                 ),
                 FitWords(
                   line.text,
-                  style: type.bodyLarge.copyWith(
-                    fontWeight: type.body.fontWeight,
-                    color: ground.text,
-                  ),
+                  style: type.body.copyWith(color: ground.text),
                 ),
                 if (line.cards.isNotEmpty)
                   Wrap(

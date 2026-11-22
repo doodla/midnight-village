@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
-import '../skin/type_scale.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
 
@@ -55,14 +54,8 @@ class SkinField extends StatelessWidget {
   final FocusNode? focusNode;
   final bool _paper;
 
-  static double get paperHeight =>
-      TypeScale.pick(today: 52, compact: 48, tight: 48);
-
-  /// The name's size in [SkinField.paper] (the heading role's face, set
-  /// smaller than the screen's own title: a name is read, not announced).
-  static const nameSize = 20.0;
-  static double get codeHeight =>
-      TypeScale.pick(today: 52, compact: 48, tight: 48);
+  static const paperHeight = 48.0;
+  static const codeHeight = 48.0;
 
   @override
   Widget build(BuildContext context) {
@@ -71,10 +64,7 @@ class SkinField extends StatelessWidget {
     final type = skin.typography;
     final radius = BorderRadius.circular(skin.shape.radius);
     final style = _paper
-        ? (TypeScale.current == TypeScale.today
-                  ? type.title.copyWith(fontSize: nameSize)
-                  : type.name)
-              .copyWith(color: skin.paper.text)
+        ? type.name.copyWith(color: skin.paper.text)
         : type.code.copyWith(color: ground.text);
     final hintColor = _paper ? skin.paper.quietText : ground.quietText;
     final field = TextField(

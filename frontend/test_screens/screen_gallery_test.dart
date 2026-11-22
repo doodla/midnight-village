@@ -58,18 +58,18 @@ void main() {
   });
 
   group('on a player screen, the reading floor', () {
-    testWidgets('is checked by the capture: text under 14 is a finding', (
+    testWidgets('is checked by the capture: text under 12 is a finding', (
       tester,
     ) async {
       final capture = await captureScreen(
         tester,
         (tester) => tester.pumpWidget(
-          const MaterialApp(home: Text('tiny', style: TextStyle(fontSize: 12))),
+          const MaterialApp(home: Text('tiny', style: TextStyle(fontSize: 11))),
         ),
         width: 390,
         playerScreen: true,
       );
-      expect(capture.findings, [contains('"tiny" is drawn at 12.0 px')]);
+      expect(capture.findings, [contains('"tiny" is drawn at 11.0 px')]);
     });
 
     testWidgets('a screen that is not a player screen is not checked', (
@@ -77,7 +77,7 @@ void main() {
     ) async {
       final capture = await _capture(
         tester,
-        const Text('tiny', style: TextStyle(fontSize: 12)),
+        const Text('tiny', style: TextStyle(fontSize: 11)),
       );
       expect(capture.findings, isEmpty);
     });
@@ -91,7 +91,7 @@ void main() {
       return readingFloorBreaches(tester);
     }
 
-    testWidgets('a 16 role set smaller to fit is a breach; a 14 caption is '
+    testWidgets('a 14 role set smaller to fit is a breach; a 12 label is '
         'not', (tester) async {
       expect(
         await breaches(
@@ -99,19 +99,19 @@ void main() {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Set at 0.85: 18 drawn at 15.3, between the two floors.
+              // Set at 0.85: 15 drawn at 12.75, between the two floors.
               Transform.scale(
                 scale: 0.85,
                 child: const Text(
                   'Troublemaker',
-                  style: TextStyle(fontSize: 18),
+                  style: TextStyle(fontSize: 15),
                 ),
               ),
-              const Text('Left', style: TextStyle(fontSize: 14)),
+              const Text('Left', style: TextStyle(fontSize: 12)),
             ],
           ),
         ),
-        [allOf(contains('"Troublemaker"'), contains('16.0 px reading floor'))],
+        [allOf(contains('"Troublemaker"'), contains('14.0 px reading floor'))],
       );
     });
 

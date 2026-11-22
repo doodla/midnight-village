@@ -316,7 +316,7 @@ void main() {
       final words = tester.widget<Text>(find.text(NightCopy.chooseNone));
       expect(words.style!.color, _night.text, reason: 'full ink');
       // The same words, the same height as before: nothing was added.
-      expect(tester.getSize(find.byType(PrimaryButton)).height, 56);
+      expect(tester.getSize(find.byType(PrimaryButton)).height, 48);
       expect(find.text(NightCopy.chooseNone), findsOneWidget);
     });
 

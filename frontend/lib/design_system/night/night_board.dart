@@ -396,7 +396,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     // options): their line is never shorter than their own.
     final line = math.max(
       title.fontSize! * title.height!,
-      timer.fontSize! * WorldTimer.cornerNumberScale * timer.height!,
+      timer.fontSize! * timer.height!,
     );
     // A pixel over two lines: a wrapped title measures a hair more than its
     // lines times the line height.

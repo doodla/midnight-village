@@ -7,7 +7,6 @@ import 'package:midnight_village/design_system/night/board_layout.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'board_harness.dart' show card;
-import 'titles_on_main.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
@@ -277,57 +276,67 @@ void main() {
   }
 
   // The candle and the seconds beside the title are their own size, whatever
-  // the text size and the clock: the title is never set smaller, nor broken
-  // onto more lines, than main drew it (`titles_on_main.dart`), at any width,
-  // text scale or time on the clock. (BoardPage takes the text scale itself:
+  // the text size and the clock: the title is at its role's size
+  // (`screenTitle`, 24; set smaller only where two lines are not enough, never
+  // under 0.8 of it) and never on more than the two lines it has room for,
+  // at any width, text scale or time on the clock. (BoardPage takes the text scale itself:
   // the platform's alone is not what it draws with.)
   for (final width in const [320, 360, 390]) {
     for (final scale in _textScales) {
-      testWidgets('the title is no smaller and on no more lines than on main, '
-          '$width wide, text x$scale, 14 s and 3:08 on the clock', (
-        tester,
-      ) async {
-        final phone = Size(width.toDouble(), width == 320 ? 568 : 844);
-        tester.view.physicalSize = phone;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        final findings = <String>[];
-        for (final viewer in [Viewer.drunk, Viewer.seer, Viewer.troublemaker]) {
-          for (final seconds in const [14, 188]) {
-            await tester.pumpWidget(const SizedBox());
-            await _pump(
-              tester,
-              BoardPage(viewer: viewer, textScale: scale, secondsLeft: seconds),
-            );
-            final title = viewer.prompt.kind.title;
-            final paragraph = tester.renderObject<RenderParagraph>(
-              find.byWidgetPredicate(
-                (w) => w is RichText && w.text.toPlainText() == title,
-              ),
-            );
-            final size = paragraph.text.style!.fontSize!;
-            final lines = paragraph
-                .getBoxesForSelection(
-                  TextSelection(
-                    baseOffset: 0,
-                    extentOffset: paragraph.text.toPlainText().length,
-                  ),
-                )
-                .map((b) => b.top.round())
-                .toSet()
-                .length;
-            final (sizeOnMain, linesOnMain) =
-                titlesOnMain[(width, scale, viewer.name, seconds)]!;
-            if (size < sizeOnMain - 0.05 || lines > linesOnMain) {
-              findings.add(
-                '${viewer.name} at ${seconds}s: ${size.toStringAsFixed(1)} px '
-                'on $lines lines, on main $sizeOnMain on $linesOnMain',
+      testWidgets(
+        'the title is the role\'s size (0.8 of it at least) on two lines at most, '
+        '$width wide, text x$scale, 14 s and 3:08 on the clock',
+        (tester) async {
+          final phone = Size(width.toDouble(), width == 320 ? 568 : 844);
+          tester.view.physicalSize = phone;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final findings = <String>[];
+          for (final viewer in [
+            Viewer.drunk,
+            Viewer.seer,
+            Viewer.troublemaker,
+          ]) {
+            for (final seconds in const [14, 188]) {
+              await tester.pumpWidget(const SizedBox());
+              await _pump(
+                tester,
+                BoardPage(
+                  viewer: viewer,
+                  textScale: scale,
+                  secondsLeft: seconds,
+                ),
               );
+              final title = viewer.prompt.kind.title;
+              final paragraph = tester.renderObject<RenderParagraph>(
+                find.byWidgetPredicate(
+                  (w) => w is RichText && w.text.toPlainText() == title,
+                ),
+              );
+              final size = paragraph.text.style!.fontSize!;
+              final lines = paragraph
+                  .getBoxesForSelection(
+                    TextSelection(
+                      baseOffset: 0,
+                      extentOffset: paragraph.text.toPlainText().length,
+                    ),
+                  )
+                  .map((b) => b.top.round())
+                  .toSet()
+                  .length;
+              final full =
+                  skinsUnderTest.values.first.typography.screenTitle.fontSize!;
+              if (size < full * 0.8 || lines > 2) {
+                findings.add(
+                  '${viewer.name} at ${seconds}s: ${size.toStringAsFixed(1)} px '
+                  'on $lines lines, the role is $full on 2, least ${full * 0.8}',
+                );
+              }
             }
           }
-        }
-        expect(findings, isEmpty);
-      });
+          expect(findings, isEmpty);
+        },
+      );
     }
   }
 

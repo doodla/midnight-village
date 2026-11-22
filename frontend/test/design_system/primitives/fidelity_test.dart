@@ -47,9 +47,9 @@ BoxDecoration _decoration(WidgetTester tester, Finder of) =>
 void main() {
   group('buttons: two sizes on the main screens, one in sheets', () {
     for (final (size, height, shadow) in [
-      (ButtonSize.large, 60.0, 6.0), // S01, S04, S11
-      (ButtonSize.regular, 56.0, 5.0), // S02, S03, S06 to S10
-      (ButtonSize.compact, 52.0, 4.0), // S03b
+      (ButtonSize.large, 50.0, 6.0), // S01, S04, S11
+      (ButtonSize.regular, 48.0, 5.0), // S02, S03, S06 to S10
+      (ButtonSize.compact, 48.0, 4.0), // S03b
     ]) {
       testWidgets('${size.name}: $height tall, a $shadow,$shadow shadow', (
         tester,
@@ -73,7 +73,9 @@ void main() {
       });
     }
 
-    testWidgets('a secondary button is 48 tall, 52 in a sheet', (tester) async {
+    testWidgets('a secondary button is 48 tall, in a sheet too', (
+      tester,
+    ) async {
       await _pump(
         tester,
         Column(
@@ -89,16 +91,16 @@ void main() {
       );
       final [a, b] = tester.widgetList(find.byType(SecondaryButton)).toList();
       expect(tester.getSize(find.byWidget(a)).height, 48);
-      expect(tester.getSize(find.byWidget(b)).height, 52);
+      expect(tester.getSize(find.byWidget(b)).height, 48);
     });
   });
 
   group('player rows', () {
     for (final (size, height, token, gap, end) in [
-      (PlayerRowSize.lobby, 46.0, 32.0, 10.0, 10.0), // S02
-      (PlayerRowSize.compact, 52.0, 38.0, 12.0, 12.0), // S09 fallback
-      (PlayerRowSize.large, 68.0, 52.0, 14.0, 16.0), // S09
-      (PlayerRowSize.count, 64.0, 48.0, 12.0, 14.0), // S10
+      (PlayerRowSize.lobby, 38.0, 26.0, 10.0, 10.0), // S02
+      (PlayerRowSize.compact, 48.0, 32.0, 12.0, 12.0), // S09 fallback
+      (PlayerRowSize.large, 52.0, 38.0, 14.0, 16.0), // S09
+      (PlayerRowSize.count, 52.0, 34.0, 12.0, 14.0), // S10
     ]) {
       testWidgets(
         '${size.name}: $height tall, a $token token, $gap to the name, '
@@ -124,7 +126,7 @@ void main() {
       );
     }
 
-    testWidgets('the trailing part keeps its own type (the tally is 28)', (
+    testWidgets('the trailing part keeps its own type (the tally is 20)', (
       tester,
     ) async {
       await _pump(
@@ -139,7 +141,7 @@ void main() {
       final style = DefaultTextStyle.of(
         tester.element(find.text('3')),
       ).style.merge(tester.widget<Text>(find.text('3')).style);
-      expect(style.fontSize, 28);
+      expect(style.fontSize, 20);
     });
   });
 
@@ -267,7 +269,7 @@ void main() {
     );
   });
 
-  testWidgets('a deck card\'s count is 24 tall, set at the 14 caption floor', (
+  testWidgets('a deck card\'s count is 24 tall, set at the 12 label floor', (
     tester,
   ) async {
     await _pump(
@@ -275,7 +277,7 @@ void main() {
       const Center(child: CountBadge(2, size: BadgeSize.large)),
     );
     expect(tester.getSize(find.byType(CountBadge)).height, 24);
-    expect(tester.widget<Text>(find.text('2')).style!.fontSize, 14);
+    expect(tester.widget<Text>(find.text('2')).style!.fontSize, 12);
   });
 
   testWidgets('the candle panel: padding 10/22/10/10, the number alone', (
@@ -308,10 +310,7 @@ void main() {
       tester,
       const Align(child: WorldTimer.candleCompact(secondsLeft: 14)),
     );
-    expect(
-      tester.widget<Text>(find.text('14 s')).style!.fontSize,
-      closeTo(34 * WorldTimer.cornerNumberScale, 1e-9),
-    );
+    expect(tester.widget<Text>(find.text('14 s')).style!.fontSize, 27);
     expect(
       find.descendant(of: find.byType(WorldTimer), matching: find.byType(Text)),
       findsOneWidget,

@@ -37,6 +37,7 @@ class SkinType {
     required this.timerSmall,
     required this.timerCompact,
     required this.bodyLarge,
+    required this.bodyStrong,
     required this.lede,
     required this.body,
     required this.action,
@@ -109,6 +110,10 @@ class SkinType {
   /// A paragraph read with care (what a role does, on the role sheet).
   final TextStyle bodyLarge;
 
+  /// [bodyLarge] bold: the word that leads a line ("At night:") and a count
+  /// read from across the table ("2 of 6 ready").
+  final TextStyle bodyStrong;
+
   /// The lines under the app's name (S01).
   final TextStyle lede;
 
@@ -156,6 +161,7 @@ class SkinType {
     'timerSmall': timerSmall,
     'timerCompact': timerCompact,
     'bodyLarge': bodyLarge,
+    'bodyStrong': bodyStrong,
     'lede': lede,
     'body': body,
     'action': action,

@@ -36,7 +36,10 @@ import '../../helpers/sheet/sheet_data.dart';
 /// between the rows), in logical pixels. More is a dead band. At three
 /// seats there are only two cards to a row, as wide as the phone allows, so
 /// a tall phone keeps some air.
-double _tolerance(int seats) => seats == 3 ? 72 : 40;
+// At three seats two cards are as wide as the phone allows and the room above
+// them is what the header leaves: 8 more since the title is 24, not 34 (the
+// type choice of 23 November 2026), until the design round uses it.
+double _tolerance(int seats) => seats == 3 ? 80 : 40;
 
 /// What the design itself puts in the gap under the title and in the one
 /// above the band (a label line and its gap, the rule's room), at the
@@ -110,7 +113,7 @@ void main() {
     for (final scale in const [1.0, 2.0]) {
       testWidgets('no dead band on a ${phone.width.round()} x '
           '${phone.height.round()} phone, text x$scale: every gap holds what '
-          'the design puts in it and at most 40 px more (72 at three seats), 3 to 10 '
+          'the design puts in it and at most 40 px more (80 at three seats), 3 to 10 '
           'seats', (tester) async {
         tester.view.physicalSize = phone;
         tester.view.devicePixelRatio = 1;
@@ -437,8 +440,9 @@ void main() {
             .ancestor(of: find.byType(WorldTimer), matching: find.byType(Row))
             .first,
       );
-      // Two lines of the title at its size (34 x 1.05) and the hair.
-      expect(header.height, closeTo(34 * 1.05 * 2 + 1, 0.6));
+      // Two lines, each the taller of the title's (24 x 1.05) and the
+      // seconds' own (27 x 1), and the hair.
+      expect(header.height, closeTo(27 * 2 + 1, 0.6));
       final unit = tester.getRect(find.byType(WorldTimer));
       expect(unit.top, closeTo(header.top, 0.5), reason: 'from the first line');
       expect(

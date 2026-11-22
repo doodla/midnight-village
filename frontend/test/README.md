@@ -49,9 +49,9 @@ Every place the app waits and every request that can fail has a picture in the c
 
 The scanner (`01b-scan`, `-found`, `-refused`) is drawn with `FakeCodeScanner` (`test/helpers/fake_code_scanner.dart`): a camera a test drives (`see(text)`), that remembers whether it was started, stopped and ended, with `FakeCameraFrame`, a picture of a table with a code on it, for the picture. `TableSetup.pump(scanner:)` gives the app one; the default is a fake, so no test reaches the camera plugin. It has no mock beside it: the mocks have no scanner.
 
-## Type scale options (`test_screens/type_scale_options_test.dart`)
+## The type scale guard (`test/design_system/skin/`)
 
-Six screens at 360 wide (first screen, table at 6, your card, night board, vote at 6 with a long name, results) for the scale the run is built with: `for s in today compact tight; do flutter test test_screens/type_scale_options_test.dart --dart-define=ENV=dev --dart-define=TYPE_SCALE=$s; done`, then `python3 tool/type_scale_sheet.py build/typescale <out>` joins them (one picture per screen with the three side by side, and an overview of all six). Findings (the 12 px labels are under today's floor by design) go to `build/typescale/<scale>-findings.txt`. Not part of `just test`; see `docs/design/type-audit.md`.
+The scale is the owner's choice of 23 November 2026 (`docs/design/type-audit.md`). `skin_contract_test.dart` holds every role to its cap (names at most 16, questions 24, headings 20, body 14 to 15, buttons 15, labels 12, timers and your role as they were: a mock's bigger number is converted at the cap), and `type_guard_test.dart` fails any `fontSize:`, `fontWeight:`, `fontFamily:`, `fontStyle:` or `TextStyle(` in `lib/` outside `design_system/skin/` and `features/debug/`, except the named fits in its allow-list (a role made smaller to fit its room). A new size is a role in `shadow_paper.dart` with a cap, never a number in a widget.
 
 ## Scenes in motion (`test_screens/scene_frames_test.dart`)
 

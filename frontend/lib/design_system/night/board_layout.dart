@@ -160,7 +160,7 @@ class BoardLayout {
   /// Names are set no smaller than the reading floor for captions, as drawn
   /// (after the text scale): with large text a name grows where there is
   /// room and is set back to this where there is not.
-  static const nameFloor = ReadingFloor.caption;
+  static const nameFloor = ReadingFloor.act;
 
   /// The smallest width a tap on a card reaches: its column, or its cell in
   /// the band (the platforms' 44 px target).

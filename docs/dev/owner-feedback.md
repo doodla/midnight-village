@@ -112,3 +112,11 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
   main screen feel a bit too big" (first screen and table; options going to the board).
 - Haiku workers: "Use haiku where you can trust it. It's much faster and cheaper." (said
   directly, 22 November). What it can be trusted with: `docs/dev/haiku-trial.md`.
+
+## 23 November 2026: the type scale (heard directly)
+
+- "The text sizes ... are so huge ... especially around the names." Two scales were rendered; the
+  owner chose: "Tight sizes, but keep the serif names." Names 16 in the serif, screen questions 24, body
+  14, buttons 15, labels 12; the timers and the role on your own card stay as big as they were. The
+  reading floor is now body 14, labels 12. Built: `docs/design/type-audit.md`. A design round follows
+  for the room it freed.

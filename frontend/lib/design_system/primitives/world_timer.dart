@@ -75,12 +75,6 @@ class WorldTimer extends StatelessWidget {
   /// the unit's top; the number sits [lift] lower).
   final double lift;
 
-  /// The corner number's size, of the skin's `timerCompact`: what it was drawn
-  /// at on main (27 px), and so no smaller than the players' names on the
-  /// board (18 px at most): the candle carries the drama, the number the
-  /// fact, and the number is not smaller than the rest of the text.
-  static const cornerNumberScale = 0.8;
-
   /// Read out instead of the number.
   final String? semanticLabel;
 
@@ -149,10 +143,8 @@ class WorldTimer extends StatelessWidget {
   }
 
   Widget _corner(BuildContext context, String? number, bool bounded) {
-    final style = context.skin.typography.timerCompact;
-    final numberStyle = style.copyWith(
-      fontSize: style.fontSize! * cornerNumberScale,
-    );
+    // The skin's `timerCompact` is the corner number's own size (27 px).
+    final numberStyle = context.skin.typography.timerCompact;
     final candle = CandleGauge(share: share, height: candleHeight);
     if (number == null) return candle;
     // The number is the unit's own size, whatever the text size (the title

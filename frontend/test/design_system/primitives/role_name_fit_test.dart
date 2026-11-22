@@ -81,14 +81,14 @@ void main() {
             matching: find.byType(RoleCard),
           ),
         );
-        // Set smaller to fit, but never under the 14 px caption floor.
+        // Set smaller to fit, but never under the 12 px label floor.
         final drawn = tester.getSize(find.text(role.displayName)).height;
         final laidOut = tester
             .renderObject<RenderParagraph>(find.text(role.displayName))
             .size
             .height;
         final size = skin.typography.badge.fontSize! * drawn / laidOut;
-        expect(size, greaterThanOrEqualTo(14), reason: role.displayName);
+        expect(size, greaterThanOrEqualTo(12), reason: role.displayName);
       }
     });
 

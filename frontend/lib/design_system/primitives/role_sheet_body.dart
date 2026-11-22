@@ -24,10 +24,7 @@ class RoleSheetBody extends StatelessWidget {
     final ink = context.ground.text;
     TextSpan labelled(String label, String line) => TextSpan(
       children: [
-        TextSpan(
-          text: '$label ',
-          style: TextStyle(fontWeight: type.action.fontWeight),
-        ),
+        TextSpan(text: '$label ', style: type.bodyStrong),
         TextSpan(text: line),
       ],
     );

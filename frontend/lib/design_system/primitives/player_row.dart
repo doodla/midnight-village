@@ -4,63 +4,58 @@ import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import '../skin/skin_type.dart';
-import '../skin/type_scale.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
 import 'player_token.dart';
 import 'you_tag.dart';
 
-/// [PlayerRow]'s sizes, from the mocks. Heights are
-/// (today, compact, tight): the type-size review's options (`TypeScale`).
+/// [PlayerRow]'s sizes: the mocks' rows, shrunk to the one name size (16,
+/// `type.name`; the owner's type choice of 23 November 2026). A row that is
+/// tapped (the vote's) is never under 48 tall.
 enum PlayerRowSize {
-  /// At the table (S02): 46 tall, a 32 token, the name at 18 (or the
-  /// [PlayerNameSize] above it).
+  /// At the table (S02): 38 tall, a 26 token (or the [PlayerNameSize] above
+  /// it for the name).
   lobby(
-    heights: (46, 40, 38),
+    height: 38,
     token: TokenSize.lobby,
     gap: Space.smPlus,
     endPadding: Space.smPlus,
-    todayNameSize: 18,
   ),
 
-  /// The vote's compact fallback (S09): 52 tall, a 38 token, the name at 21.
+  /// The vote's compact fallback (S09): 48 tall, a 32 token.
   compact(
-    heights: (52, 48, 48),
+    height: 48,
     token: TokenSize.row,
     gap: Space.md,
     endPadding: Space.md,
   ),
 
-  /// In the vote (S09): 68 tall, a 52 token, the name at 26.
+  /// In the vote (S09): 52 tall, a 38 token.
   large(
-    heights: (68, 56, 52),
+    height: 52,
     token: TokenSize.vote,
     gap: Space.mdPlus,
     endPadding: Space.lg,
   ),
 
-  /// In the count (S10): 64 tall, a 48 token, the name at 24, the voters'
-  /// names under it and a [Tally] at the end.
+  /// In the count (S10): 52 tall, a 34 token, the voters' names under the
+  /// name and a [Tally] at the end.
   count(
-    heights: (64, 56, 52),
+    height: 52,
     token: TokenSize.count,
     gap: Space.md,
     endPadding: Space.mdPlus,
   );
 
   const PlayerRowSize({
-    required this.heights,
+    required this.height,
     required this.token,
     required this.gap,
     required this.endPadding,
-    this.todayNameSize,
   });
 
-  final (double, double, double) heights;
-
-  /// The row's least height at the running scale.
-  double get height =>
-      TypeScale.pick(today: heights.$1, compact: heights.$2, tight: heights.$3);
+  /// The row's least height; it grows with larger text.
+  final double height;
   final TokenSize token;
 
   /// Between the token and the name.
@@ -69,21 +64,8 @@ enum PlayerRowSize {
   /// After the trailing part.
   final double endPadding;
 
-  /// Today's lobby name size, which the shipped scale sets by hand; the other
-  /// scales' names are the `name` role itself.
-  final double? todayNameSize;
-
-  /// The name's size where it is not a role's own (today's [lobby]).
-  double? get nameSize =>
-      TypeScale.current == TypeScale.today ? todayNameSize : null;
-
-  TextStyle nameStyle(SkinType type) => switch (this) {
-    lobby =>
-      nameSize == null ? type.name : type.name.copyWith(fontSize: nameSize),
-    compact => type.name,
-    large => TypeScale.current == TypeScale.today ? type.title : type.name,
-    count => TypeScale.current == TypeScale.today ? type.heading : type.name,
-  };
+  /// A player's name is one role in every row.
+  TextStyle nameStyle(SkinType type) => type.name;
 }
 
 /// One name size for every [PlayerRowSize.lobby] row below it: the table's
