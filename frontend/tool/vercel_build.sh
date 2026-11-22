@@ -3,9 +3,6 @@
 # Flutter, then builds for production against the server named by API_ORIGIN.
 # Vercel settings: root directory `frontend`, build command `bash tool/vercel_build.sh`,
 # output directory `build/web`, environment variable API_ORIGIN (https://<server host>).
-# API_SAME_ORIGIN=true: the page's HTTP calls go to its own /api/, which vercel.json
-# rewrites to the server (no CORS preflights); the sockets still use API_ORIGIN.
-# To undo: drop that define here and the /api/ rewrite in vercel.json.
 set -euo pipefail
 FLUTTER_VERSION="3.38.10"
 : "${API_ORIGIN:?set API_ORIGIN to the server origin, e.g. https://midnight-village-anthelion.vercel.app}"
@@ -17,7 +14,6 @@ export PATH="$HOME/flutter/bin:$PATH"
 export FLUTTER_SUPPRESS_ANALYTICS=true CI=true
 flutter config --no-analytics >/dev/null 2>&1 || true
 flutter pub get
-flutter build web --release --dart-define=ENV=prod --dart-define="API_ORIGIN=$API_ORIGIN" \
-  --dart-define=API_SAME_ORIGIN=true
+flutter build web --release --dart-define=ENV=prod --dart-define="API_ORIGIN=$API_ORIGIN"
 # Fail the deploy if the toolbar slipped in.
 bash tool/check_release_has_no_debug.sh build/web

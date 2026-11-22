@@ -347,15 +347,6 @@ access token), down from 4 to 5 in a row. `test/features/app_open_test.dart` pin
 and the side-by-side sending; `auth_repository_test.dart` the good, expired and refused
 tokens. Not timed on the phone profile (no change to time against).
 
-**Fix 2, 22 November 2026: a trial, not yet measured live (branch `speed-same-origin-api`).**
-The web build calls the API through its own address: `frontend/vercel.json` rewrites
-`/api/:path*` to the server (no Vercel caching of it), and a define passed only by
-`tool/vercel_build.sh` (`API_SAME_ORIGIN=true`) points the web app's HTTP calls at
-`<app>/api`; sockets and Android still go to `API_ORIGIN`. No preflights by construction;
-the gain and the extra edge hop are to be measured on the live site after merge. How it
-works and how to undo it: `docs/dev/deploy-vercel.md`. Open: the server's view of each
-player's address behind the rewrite (throttling by `X-Forwarded-For`).
-
 1. Stop the 2 needless requests on open (start-up token refresh; the redirect's
    `current-game`), and run `/me/` beside `me/table/`: **-0.6 to -1.2 s on every open**; app (us).
 2. Serve the API from the app's own origin (a rewrite `/api/(.*)` -> the API in
