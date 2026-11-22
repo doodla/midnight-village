@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
@@ -84,6 +86,23 @@ enum PlayerRowSize {
   };
 }
 
+/// What a locked vote does to the pick's row (09). The owner's choice: the
+/// spec's text says the pick "stays as it is" ([sealOnly]); [bloodFill] is the
+/// first build's red row.
+enum LockedFill {
+  /// The pick keeps its bone paper, its lift and its outline, and gets the
+  /// seal (a red disc); the other rows dim.
+  sealOnly,
+
+  /// The pick's paper turns dried-blood red, cut in on the frame of the lock
+  /// (a tween would pass through a grey no ink reads on), its words in bone,
+  /// with the seal (a bone disc); the other rows dim.
+  bloodFill;
+
+  /// The one in use until the owner chooses.
+  static const standard = sealOnly;
+}
+
 /// One name size for every [PlayerRowSize.lobby] row below it: the table's
 /// two-up rows all set their names at the size the longest word fits at, so a
 /// long name never makes one row's name smaller than its neighbour's.
@@ -110,10 +129,11 @@ class PlayerNameSize extends InheritedWidget {
 /// - [practice]: a practice player (a seat the server plays), "Practice"
 ///   ([PracticeTag]) on the name's line in every row (the name set smaller
 ///   first, never moved under it); never [own].
-/// - [sealed]: the vote locked on this player: the paper turns dried-blood
-///   red with its words in bone, and a [PaperSeal] is stamped on the token
-///   (it lands once, unless the row opened already sealed). Colour and a
-///   seal, never a fill of the screen's amber.
+/// - [sealed]: the vote locked on this player: a [PaperSeal] is stamped on
+///   the token's lower corner (it lands once, unless the row opened already
+///   sealed), and with [lockedFill] [LockedFill.bloodFill] the paper turns
+///   dried-blood red with its words in bone. Never a fill of the screen's
+///   amber.
 /// - [stretch]: how much taller than its size the row stands, where the
 ///   room allows it (the vote fills the screen).
 /// - A row with [onTap] dips 2 px the frame a finger lands and comes back
@@ -134,6 +154,7 @@ class PlayerRow extends StatefulWidget {
     this.away = false,
     this.dimmed = false,
     this.sealed = false,
+    this.lockedFill = LockedFill.standard,
     this.stretch = 0,
     this.onTap,
     this.size = PlayerRowSize.compact,
@@ -152,6 +173,9 @@ class PlayerRow extends StatefulWidget {
   final bool away;
   final bool dimmed;
   final bool sealed;
+
+  /// What [sealed] does to the paper.
+  final LockedFill lockedFill;
   final double stretch;
   final VoidCallback? onTap;
   final PlayerRowSize size;
@@ -177,6 +201,19 @@ class _PlayerRowState extends State<PlayerRow> {
     if (_down != down && mounted) setState(() => _down = down);
   }
 
+  /// The seal's width as a share of the token's.
+  static const _sealSize = 0.6;
+
+  /// The ink with more contrast on [paper].
+  static Color _inkOn(Color paper, Color dark, Color light) =>
+      _contrast(dark, paper) >= _contrast(light, paper) ? dark : light;
+
+  /// WCAG 2.1 contrast ratio of two opaque colours.
+  static double _contrast(Color a, Color b) {
+    final (la, lb) = (a.computeLuminance(), b.computeLuminance());
+    return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+  }
+
   Size _size(BuildContext context) => context.size ?? Size.zero;
 
   PlayerRowSize get size => widget.size;
@@ -200,7 +237,7 @@ class _PlayerRowState extends State<PlayerRow> {
     final sealed = widget.sealed;
     final skin = context.skin;
     final ground = context.ground;
-    final inkEnd = sealed ? ground.onDanger : skin.paper.text;
+    final bloody = sealed && widget.lockedFill == LockedFill.bloodFill;
     final reduced = MediaQuery.disableAnimationsOf(context);
     // A finger answers in the first frame (`press` down, `quick` back up);
     // with reduce motion the paper tints instead of moving.
@@ -208,11 +245,19 @@ class _PlayerRowState extends State<PlayerRow> {
     final dip = pressed && !reduced ? PlayerRow.dip : 0.0;
     final lift = picked ? Space.xs : 0.0;
     final base = picked ? ground.elevation.selected : ground.elevation.card;
-    final fill = sealed
+    final fill = bloody
         ? ground.danger
         : pressed && reduced
-        ? Color.alphaBlend(inkEnd.withValues(alpha: 0.08), ground.paper)
+        ? Color.alphaBlend(
+            skin.paper.text.withValues(alpha: 0.08),
+            ground.paper,
+          )
         : ground.paper;
+    // Whichever ink reads better on the paper. The paper only changes colour
+    // in a cut (the lock; a tint of a few percent), never through the grey
+    // between bone and red where neither ink reaches 4.5:1, so the ink is
+    // the right one on every frame.
+    final ink = _inkOn(fill, skin.paper.text, ground.onDanger);
     final duration = Motion.within(
       context,
       _down ? Motion.press : Motion.quick,
@@ -235,6 +280,8 @@ class _PlayerRowState extends State<PlayerRow> {
         : size.nameStyle(skin.typography).copyWith(fontSize: scoped);
 
     final paper = AnimatedContainer(
+      // The red is cut in, not blended from bone (see [ink]).
+      key: ValueKey(bloody),
       duration: duration,
       curve: Motion.curve,
       transform: Matrix4.translationValues(0, dip - lift, 0),
@@ -259,105 +306,100 @@ class _PlayerRowState extends State<PlayerRow> {
           : own
           ? BoxDecoration(
               borderRadius: radius,
-              border: Border.all(color: inkEnd, width: skin.shape.selectedRing),
+              border: Border.all(color: ink, width: skin.shape.selectedRing),
             )
           : null,
-      // The words and the ring change colour with the paper (a bone name on
-      // bone paper for a few frames would be gone).
-      child: TweenAnimationBuilder<Color?>(
-        tween: ColorTween(end: inkEnd),
-        duration: duration,
-        builder: (context, tweened, _) {
-          final ink = tweened ?? inkEnd;
-          return _RowInk(
-            ink: ink,
-            child: Row(
-              spacing: size.gap,
+      child: _RowInk(
+        ink: ink,
+        child: Row(
+          spacing: size.gap,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
               children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    PlayerToken(
-                      token,
-                      size: size.token,
-                      ringColor: ink,
-                      away: away && !sealed,
-                    ),
-                    // Stamped on the portrait's lower corner, so the name keeps
-                    // all its room.
-                    if (sealed)
-                      Positioned(
-                        right: -size.token.size * 0.28,
-                        bottom: -size.token.size * 0.28,
-                        child: PaperSeal(
-                          size: size.token.size * 0.8,
-                          lands: !_openedSealed,
-                        ),
-                      ),
-                  ],
+                PlayerToken(
+                  token,
+                  size: size.token,
+                  ringColor: ink,
+                  away: away && !sealed,
                 ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // A long name wraps between words, then is set smaller;
-                      // never cut short.
-                      // "You" beside the name where both fit, under it where
-                      // not, so a long name keeps its room and a short one its
-                      // size.
-                      if (own)
-                        Wrap(
-                          spacing: Space.sm,
-                          runSpacing: Space.xxs,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            FitWords(
-                              name,
-                              maxLines: 2,
-                              style: nameStyle.copyWith(color: ink),
-                            ),
-                            YouTag(ink: ink),
-                          ],
-                        )
-                      // "Practice" always on the name's line, so every row of
-                      // a list is laid out alike.
-                      else if (practice)
-                        Row(
-                          spacing: Space.sm,
-                          children: [
-                            Flexible(
-                              child: FitWords(
-                                name,
-                                maxLines: 2,
-                                style: nameStyle.copyWith(color: ink),
-                              ),
-                            ),
-                            PracticeTag(ink: ink),
-                          ],
-                        )
-                      else
+                // Stamped inside the portrait's lower right corner (its tilt
+                // and shadow too), so it never hangs below the paper or
+                // reaches the name, which it also grows away from.
+                if (sealed)
+                  Positioned(
+                    right: size.token.size * _sealSize * PaperSeal.tiltReach,
+                    bottom:
+                        size.token.size * _sealSize * PaperSeal.tiltReach +
+                        PaperSeal.drop,
+                    child: PaperSeal(
+                      size: size.token.size * _sealSize,
+                      lands: !_openedSealed,
+                      onBone: !bloody,
+                    ),
+                  ),
+              ],
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // A long name wraps between words, then is set smaller;
+                  // never cut short.
+                  // "You" beside the name where both fit, under it where
+                  // not, so a long name keeps its room and a short one its
+                  // size.
+                  if (own)
+                    Wrap(
+                      spacing: Space.sm,
+                      runSpacing: Space.xxs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
                         FitWords(
                           name,
                           maxLines: 2,
                           style: nameStyle.copyWith(color: ink),
                         ),
-                      // Names wrap between words, never inside one.
-                      if (detail case final detail?)
-                        FitWords(
-                          detail,
-                          style: skin.typography.body.copyWith(
-                            color: skin.paper.quietText,
+                        YouTag(ink: ink),
+                      ],
+                    )
+                  // "Practice" always on the name's line, so every row of
+                  // a list is laid out alike.
+                  else if (practice)
+                    Row(
+                      spacing: Space.sm,
+                      children: [
+                        Flexible(
+                          child: FitWords(
+                            name,
+                            maxLines: 2,
+                            style: nameStyle.copyWith(color: ink),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                ?trailing,
-              ],
+                        PracticeTag(ink: ink),
+                      ],
+                    )
+                  else
+                    FitWords(
+                      name,
+                      maxLines: 2,
+                      style: nameStyle.copyWith(color: ink),
+                    ),
+                  // Names wrap between words, never inside one.
+                  if (detail case final detail?)
+                    FitWords(
+                      detail,
+                      style: skin.typography.body.copyWith(
+                        color: skin.paper.quietText,
+                      ),
+                    ),
+                ],
+              ),
             ),
-          );
-        },
+            ?trailing,
+          ],
+        ),
       ),
     );
     // The height is set here, outside the tween: a row that changes size
@@ -394,6 +436,10 @@ class _PlayerRowState extends State<PlayerRow> {
         onPointerCancel: (_) => _touch(false),
         child: Material(
           type: MaterialType.transparency,
+          // Material sets its own default text style (the theme's body)
+          // under it, for every row, tappable or not; the row's words take
+          // the one they were given from above.
+          textStyle: DefaultTextStyle.of(context).style,
           child: InkWell(
             onTap: tappable ? onTap : null,
             onHighlightChanged: (value) {

@@ -693,15 +693,22 @@ class LiveGameNotifier extends _$LiveGameNotifier {
   /// 09: "Lock in {name}": final, after any pick still on its way.
   Future<TapOutcome> lockVote(int targetId) => _vote(targetId, lock: true);
 
-  Future<TapOutcome> _vote(int targetId, {required bool lock}) async {
+  /// Why a pick or a lock is declined right now (the vote is over, or this
+  /// phone has locked), or null when it would be taken. Read on the tap, so
+  /// a tap that is declined makes no tick and no knock.
+  DeclineReason? get voteDeclined {
     final server = _game.server;
-    final stage = server.stage;
-    if (server.phase != GamePhase.voting || stage == null) {
-      return const Declined(DeclineReason.notThisStage);
+    if (server.phase != GamePhase.voting || server.stage == null) {
+      return DeclineReason.notThisStage;
     }
-    if (_game.me.myVote?.locked ?? false) {
-      return const Declined(DeclineReason.locked);
-    }
+    if (_game.me.myVote?.locked ?? false) return DeclineReason.locked;
+    return null;
+  }
+
+  Future<TapOutcome> _vote(int targetId, {required bool lock}) async {
+    final declined = voteDeclined;
+    if (declined != null) return Declined(declined);
+    final stage = _game.server.stage!;
     return _submit(
       OutboxLane.vote,
       stage,

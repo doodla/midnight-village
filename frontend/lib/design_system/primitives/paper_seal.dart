@@ -5,21 +5,42 @@ import 'package:flutter/material.dart';
 import '../layout/space.dart';
 import '../skin/skin.dart';
 
-/// A seal cut from paper: a bone disc with a scalloped edge, a hard shadow
-/// under it and a padlock cut out in dried-blood red. It is what a locked
-/// vote is stamped with (09).
+/// A seal cut from paper: a scalloped disc with a hard shadow under it and a
+/// padlock cut out of it. It is what a locked vote is stamped with (09). On
+/// bone paper ([onBone]) the disc is dried-blood red with a bone padlock; on
+/// red paper it is bone with a red padlock.
 ///
 /// It lands once when it first appears with [lands] true: it comes down from
-/// 1.7 times its size to rest over [Motion.quick] on [Motion.land] (a short
-/// overshoot, under a tenth) and fades in over [Motion.press]; with reduce
-/// motion, or [lands] false (a screen that opens already locked), it is just
-/// there.
+/// [landFrom] times its size to rest over [Motion.quick] on [Motion.land] (a
+/// short overshoot, under a tenth) and fades in over [Motion.press]; with
+/// reduce motion, or [lands] false (a screen that opens already locked), it
+/// is just there. It grows from its lower right corner, so the growth goes up
+/// and to the left, over the token it is stamped on and away from the name
+/// beside it.
 class PaperSeal extends StatefulWidget {
-  const PaperSeal({super.key, required this.size, this.lands = true});
+  const PaperSeal({
+    super.key,
+    required this.size,
+    this.lands = true,
+    this.onBone = true,
+  });
 
   /// The disc's width and height.
   final double size;
   final bool lands;
+
+  /// The paper under it is bone (the disc is red), not red (the disc is bone).
+  final bool onBone;
+
+  /// How large it is as it comes down, times its size.
+  static const landFrom = 1.4;
+
+  /// How far the room around a seal at rest reaches past its disc, as a share
+  /// of its size: the tilt's corners (about a tenth each side).
+  static const tiltReach = 0.1;
+
+  /// The shadow's drop under the disc.
+  static const drop = 2.0;
 
   /// The scalloped edge's lobes.
   static const lobes = 14;
@@ -70,7 +91,8 @@ class _PaperSealState extends State<PaperSeal>
         animation: _controller,
         builder: (context, child) {
           final t = _controller.value;
-          final scale = 1 + 0.7 * (1 - Motion.land.transform(t));
+          final scale =
+              1 + (PaperSeal.landFrom - 1) * (1 - Motion.land.transform(t));
           return Opacity(
             opacity:
                 (t /
@@ -78,26 +100,30 @@ class _PaperSealState extends State<PaperSeal>
                             Motion.quick.inMilliseconds))
                     .clamp(0.0, 1.0),
             child: Transform.rotate(
-              angle: PaperSeal.tilt * 2 * math.pi * (2 - t),
-              child: Transform.scale(scale: scale, child: child),
+              angle: PaperSeal.tilt * 2 * math.pi * (1.5 - 0.5 * t),
+              child: Transform.scale(
+                scale: scale,
+                alignment: Alignment.bottomRight,
+                child: child,
+              ),
             ),
           );
         },
         child: CustomPaint(
           size: Size.square(widget.size),
           painter: _SealPainter(
-            paper: ground.paper,
+            paper: widget.onBone ? ground.danger : ground.paper,
             shadow:
                 ground.elevation.card.layers.firstOrNull?.color ??
                 ground.shadow,
-            mark: ground.danger,
+            mark: widget.onBone ? ground.onDanger : ground.danger,
           ),
           child: SizedBox.square(
             dimension: widget.size,
             child: Icon(
               Icons.lock,
               size: widget.size * 0.5,
-              color: ground.danger,
+              color: widget.onBone ? ground.onDanger : ground.danger,
             ),
           ),
         ),
@@ -137,7 +163,10 @@ class _SealPainter extends CustomPainter {
     final radius = size.width / 2;
     final edge = _edge(centre, radius);
     canvas
-      ..drawPath(edge.shift(const Offset(0, 2)), Paint()..color = shadow)
+      ..drawPath(
+        edge.shift(const Offset(0, PaperSeal.drop)),
+        Paint()..color = shadow,
+      )
       ..drawPath(edge, Paint()..color = paper)
       ..drawCircle(
         centre,

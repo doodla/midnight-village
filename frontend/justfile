@@ -235,3 +235,11 @@ deps:
 # Clean build artifacts
 clean:
     flutter clean && dart run build_runner clean
+
+# The vote's locked row in pictures (each locked look, the lock in four frames,
+# the vote at several table sizes) into <folder>. Usage: just vote-pictures [folder] [width]
+vote-pictures folder="build/vote_pictures" width="360":
+    flutter test test_screens/vote_pictures_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=VOTE_PICTURES_DIR={{folder}} \
+      --dart-define=VOTE_PICTURES_WIDTH={{width}}
