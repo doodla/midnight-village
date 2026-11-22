@@ -33,7 +33,7 @@ import '../../../helpers/table_setup.dart';
 //   back; "Not sent." and "Try again"; and a stale "Try again" never undoes a
 //   newer change that got through on the same key (practice or a setting).
 // - They show as not people: tagged "Practice" on 02 for the host and a
-//   guest, never dimmed, and they count towards "Deal to {n}".
+//   guest, never dimmed, and they count towards "Start game".
 
 /// The stand-in server: Pia's table, [count] practice players, switched
 /// [on] or off, at most [most]. Its bodies are `practice_three`'s with this
@@ -266,7 +266,7 @@ void main() {
 
   testWidgets('the stepper seats them one at a time; on 02 each is tagged '
       '"Practice" on the name\'s line, never dimmed, and counts towards '
-      '"Deal to {n}"', (tester) async {
+      '"Start game"', (tester) async {
     final (setup, table) = await open(tester);
     await toDeck(tester, setup);
     await holdPlayers(tester);
@@ -295,7 +295,7 @@ void main() {
         reason: '$name: the tag on the name\'s line',
       );
     }
-    expect(find.text(TableCopy.deal.fill({'n': 3})), findsOneWidget);
+    expect(find.text(TableCopy.start), findsOneWidget);
     // Never dimmed: a practice player has no phone to drop.
     final rows = tester.widgetList<PlayerRow>(find.byType(PlayerRow));
     expect(rows.where((r) => r.practice).map((r) => r.away), [false, false]);
@@ -349,8 +349,7 @@ void main() {
         ..on = true
         ..count = 2,
     );
-    Finder deal(int n) =>
-        find.widgetWithText(PrimaryButton, TableCopy.deal.fill({'n': n}));
+    Finder deal(int n) => find.widgetWithText(PrimaryButton, TableCopy.start);
     expect(tester.widget<PrimaryButton>(deal(3)).onPressed, isNotNull);
 
     final held = setup.http.hold(method: 'POST', path: practicePath(setup));

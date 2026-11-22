@@ -129,15 +129,10 @@ class _Table {
   }
 }
 
-const _direction = [
-  'Add',
-  'Remove',
-  'more',
-  'fewer',
-  'missing',
-  'short',
-  'too many',
-];
+/// The verbs of direction the owner read as "add players" (21 November
+/// 2026): never on the set-up page. How far off the deck is ("1 too many")
+/// is the count's own line (23 November 2026) and is allowed.
+const _direction = ['Add', 'Remove'];
 
 void main() {
   Future<(TableSetup, _Table)> open(
@@ -183,8 +178,13 @@ void main() {
         reason: step,
       );
     }
-    // One label, always live: the page holds the players and the lengths.
-    final done = find.widgetWithText(PrimaryButton, DeckCopy.done);
+    // Always live, never dimmed: "Done" with the right number of cards,
+    // else "Fix the deck" (a tap shows the count).
+    final done = find.widgetWithText(
+      PrimaryButton,
+      // An open table's automatic deck is built for who is here.
+      table.seats != null && have != need ? DeckCopy.fixDeck : DeckCopy.done,
+    );
     expect(done, findsOneWidget, reason: step);
     expect(tester.widget<PrimaryButton>(done).onPressed, isNotNull);
     // The Doppelganger's length only while the deck holds the card.
@@ -202,7 +202,7 @@ void main() {
   for (final seats in [3, 5, 8, 10]) {
     for (final present in [1, 2, 5]) {
       testWidgets('set for $seats with $present here: the counter is the '
-          'server\'s at every tap, one label, no direction words; 02 deals '
+          'server\'s at every tap, no direction words; 02 deals '
           'exactly on ok', (tester) async {
         final (setup, table) = await open(tester, present);
         check(tester, table, 'opened');
@@ -294,15 +294,14 @@ void main() {
         // Every tap went to the server, one change each.
         expect(setup.patches.length, greaterThan(need));
 
-        // Back on 02: "Deal to {n}", live exactly when the server says ok.
+        // Back on 02: "Start game", live exactly when the server says ok.
         await _tap(tester, setup, find.text(DeckCopy.done));
-        final deal = find.widgetWithText(
-          PrimaryButton,
-          TableCopy.deal.fill({'n': table.seats!}),
-        );
-        expect(deal, findsOneWidget);
+        // The one primary button: "Start game", live, when the server says ok;
+        // else it says what is missing or leads to the fix (never dimmed
+        // under the same words).
+        final deal = tester.widget<PrimaryButton>(find.byType(PrimaryButton));
         expect(
-          tester.widget<PrimaryButton>(deal).onPressed != null,
+          deal.label == TableCopy.start && deal.onPressed != null,
           (table.body()['deal'] as Map)['ok'],
         );
         for (final word in _direction) {
@@ -315,7 +314,7 @@ void main() {
 
   group('while changes are on their way (the answers held)', () {
     testWidgets('three taps on Players: the number, "3 of N" and the count '
-        'are the new number at once; 02 says "Deal to N"', (tester) async {
+        'are the new number at once; 02 says "Start game"', (tester) async {
       final (setup, table) = await open(tester, 3);
       await _tap(tester, setup, _players(Icons.add)); // Any to 3, answered
       final held = setup.http.hold(method: 'PATCH', path: '/lobbies/D3GL6S/');
@@ -338,11 +337,12 @@ void main() {
       expect(find.text('6 / 6'), findsNothing);
 
       await _tap(tester, setup, find.text(DeckCopy.done));
+      // Set for 6 with 3 here: it says how many more, never "Start game".
       expect(
-        find.widgetWithText(PrimaryButton, TableCopy.deal.fill({'n': 6})),
+        find.widgetWithText(PrimaryButton, TableCopy.needMore.fill({'n': 3})),
         findsOneWidget,
       );
-      expect(find.text(TableCopy.deal.fill({'n': 3})), findsNothing);
+      expect(find.text(TableCopy.start), findsNothing);
 
       // Answers from now on: the held one, then the two waiting their turn.
       setup.http.stopHolding(method: 'PATCH', path: '/lobbies/D3GL6S/');

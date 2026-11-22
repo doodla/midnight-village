@@ -87,7 +87,7 @@ void main() {
       }
 
       final night = await drawn(
-        PrimaryButton(label: 'Deal to 5', onPressed: () {}),
+        PrimaryButton(label: 'Start game', onPressed: () {}),
         GroundKind.night,
       );
       expect(night.color, skin.night.accent);

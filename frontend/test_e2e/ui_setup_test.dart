@@ -26,7 +26,7 @@ import 'harness/ui_harness.dart';
 /// UI runner, the host's phone against a real server: the owner's set-up.
 /// The host sets the table for eight before anyone joins (and, in one run,
 /// builds a deck of their own for eight), the others arrive one by one
-/// through the API while 02 counts them ("3 of 8", "Deal to 8" locked, the
+/// through the API while 02 counts them ("3 of 8", "Start game" locked, the
 /// cards needed never moving), only seven come, the host taps "Play with 7"
 /// (the automatic deck follows; the own deck, one over, opens 03 with its
 /// count and the host takes one card out), and deals. And the owner's leave: the host alone
@@ -88,7 +88,7 @@ void main() {
         await run.shoot('set-for-8');
         await run.tap(find.text(DeckCopy.done));
         await ui.pumpUntil(run.shows<AtTableScreen>, reason: 'back at 02');
-        await run.expectDealLocked(8);
+        await run.expectDealLocked(7);
 
         // They arrive one by one; only six of the seven others come.
         for (final (i, guest) in [
@@ -106,7 +106,7 @@ void main() {
           );
           final lobby = await run.lobby();
           expect((lobby['deal'] as Map)['need'], 11, reason: 'never moves');
-          await run.expectDealLocked(8);
+          await run.expectDealLocked(8 - (i + 2));
         }
         await run.shoot('seven-of-8');
 
@@ -143,15 +143,12 @@ void main() {
           await run.tap(find.text(DeckCopy.done));
           await ui.pumpUntil(run.shows<AtTableScreen>, reason: '02');
         }
-        final deal = find.widgetWithText(
-          PrimaryButton,
-          TableCopy.deal.fill({'n': 7}),
-        );
+        final deal = find.widgetWithText(PrimaryButton, TableCopy.start);
         await ui.pumpUntil(
           () =>
               deal.evaluate().isNotEmpty &&
               tester.widget<PrimaryButton>(deal).onPressed != null,
-          reason: '"Deal to 7" live',
+          reason: '"Start game" live',
         );
         await run.shoot('ready');
         await tester.ensureVisible(deal);
@@ -325,15 +322,11 @@ class _Run {
     );
   }
 
-  Future<void> expectDealLocked(int n) async {
-    final deal = find.widgetWithText(
-      PrimaryButton,
-      TableCopy.deal.fill({'n': n}),
-    );
-    await ui.pumpUntil(
-      () => deal.evaluate().isNotEmpty,
-      reason: '"Deal to $n"',
-    );
+  /// The button says how many more it waits for, never "Start game" dimmed.
+  Future<void> expectDealLocked(int missing) async {
+    final label = TableCopy.needMore.fill({'n': missing});
+    final deal = find.widgetWithText(PrimaryButton, label);
+    await ui.pumpUntil(() => deal.evaluate().isNotEmpty, reason: label);
     expect(tester.widget<PrimaryButton>(deal).onPressed, isNull);
   }
 }

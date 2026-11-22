@@ -156,6 +156,38 @@ void main() {
       await setup.close(tester);
     });
 
+    testWidgets('a locked Join is never silent: a tap leads to the field that '
+        'lacks it, the name first (the app\'s rule for primary buttons)', (
+      tester,
+    ) async {
+      final setup = await TableSetup.pump(
+        tester,
+        signedInAs: 'Ben',
+        userId: 42,
+      );
+      bool focused(int field) => tester
+          .widget<EditableText>(find.byType(EditableText).at(field))
+          .focusNode
+          .hasFocus;
+
+      await _tap(tester, setup, find.text(JoinCopy.joinTable));
+      // The name is there, the code is not: the tap goes to the code.
+      expect(_onPressed(tester, JoinCopy.join), isNull);
+      await tester.tap(find.byType(EditableText).first);
+      await tester.pump();
+      expect(focused(0), isTrue);
+      await _tap(tester, setup, find.text(JoinCopy.join));
+      expect(focused(1), isTrue, reason: 'the code field');
+
+      // The name is gone: the tap goes to the name.
+      await tester.enterText(find.byType(EditableText).first, '');
+      await tester.pump();
+      await _tap(tester, setup, find.text(JoinCopy.join));
+      expect(focused(0), isTrue, reason: 'the name field');
+      expect(setup.count('POST', '/lobbies/V9YC2J/join/'), 0);
+      await setup.close(tester);
+    });
+
     testWidgets('"Join a table" opens the code; Join sits the player at that '
         'table, and the table shows', (tester) async {
       final setup = await TableSetup.pump(
@@ -359,7 +391,7 @@ void main() {
 
   group('02 Table', () {
     testWidgets('the host: the QR code of the table\'s link, the code, '
-        'everyone, the chip and "Deal to 5"', (tester) async {
+        'everyone, the chip and "Start game"', (tester) async {
       final setup = await TableSetup.pump(
         tester,
         lobby: v2Lobby('detail_auto_deck_5'),
@@ -373,7 +405,7 @@ void main() {
         expect(find.text(name), findsOneWidget);
       }
       expect(_chip(tester, 'Classic').selected, isTrue);
-      expect(_onPressed(tester, TableCopy.deal.fill({'n': 5})), isNotNull);
+      expect(_onPressed(tester, TableCopy.start), isNotNull);
       // Nobody is asked to be ready: the deal deals in everyone there.
       expect(setup.count('POST', '/lobbies/V9YC2J/ready/'), 0);
       await setup.close(tester);
@@ -391,9 +423,8 @@ void main() {
     });
 
     testWidgets('the host\'s own deck shows its cards; one short for the '
-        'table (the server\'s need and have) says "Add 1 card", locked', (
-      tester,
-    ) async {
+        'table (the server\'s need and have) says "1 too few" and the button '
+        'is "Fix the deck", which opens 03', (tester) async {
       final setup = await TableSetup.pump(
         tester,
         lobby: v2Lobby('detail_custom_deck_short'),
@@ -401,26 +432,47 @@ void main() {
       );
 
       expect(find.byType(RoleCard), findsWidgets);
-      // One label, locked: never card arithmetic.
-      expect(_onPressed(tester, TableCopy.deal.fill({'n': 8})), isNull);
-      expect(find.textContaining('card'), findsNothing);
+      // Not silently locked: the count says how far off, the button is the
+      // fix (never "Start game" dimmed).
+      expect(find.text(TableCopy.start), findsNothing);
+      expect(find.text(DeckCopy.tooFew.fill({'n': 1})), findsOneWidget);
+      expect(_onPressed(tester, TableCopy.fixDeck), isNotNull);
+      await _tap(tester, setup, find.text(TableCopy.fixDeck));
+      expect(find.text(DeckCopy.headline), findsOneWidget);
       await setup.close(tester);
     });
 
-    testWidgets('a player joining tips the deal: "Deal to 7" becomes "Add 1 '
-        'card" as the socket brings the eighth', (tester) async {
+    testWidgets('the button says what is missing, never the same words '
+        'dimmed: "Need {n} more" at a table set for a number, and a tap on '
+        'it sends nothing', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_seats_8_seven_here'),
+        viewer: 'Tia',
+      );
+      expect(find.text(TableCopy.start), findsNothing);
+      expect(_onPressed(tester, TableCopy.needMore.fill({'n': 1})), isNull);
+      await tester.tap(find.text(TableCopy.needMore.fill({'n': 1})));
+      await setup.settle(tester);
+      expect(setup.count('POST', '/lobbies/V9YC2J/deal/'), 0);
+      await setup.close(tester);
+    });
+
+    testWidgets('a player joining tips the deal: "Start game" becomes "Fix '
+        'the deck" as the socket brings the eighth', (tester) async {
       final setup = await TableSetup.pump(
         tester,
         lobby: v2Lobby('detail_custom_deck_ok', asRecorded: true),
         viewer: 'Kai',
       );
-      expect(_onPressed(tester, TableCopy.deal.fill({'n': 7})), isNotNull);
+      expect(_onPressed(tester, TableCopy.start), isNotNull);
 
       setup.event(ContractSamples.map('ws/lobby/lobby_update_joined'));
       await setup.settle(tester);
 
       expect(find.text('Sam'), findsOneWidget);
-      expect(_onPressed(tester, TableCopy.deal.fill({'n': 8})), isNull);
+      expect(find.text(TableCopy.start), findsNothing);
+      expect(_onPressed(tester, TableCopy.fixDeck), isNotNull);
       await setup.close(tester);
     });
 
@@ -445,7 +497,7 @@ void main() {
         };
         expect(shown, preview);
         expect(_chip(tester, label).selected, isTrue);
-        expect(_onPressed(tester, TableCopy.deal.fill({'n': 7})), isNotNull);
+        expect(_onPressed(tester, TableCopy.start), isNotNull);
         await setup.close(tester);
       });
     }
@@ -568,7 +620,7 @@ void main() {
       );
 
       expect(find.text(long), findsOneWidget);
-      expect(_onPressed(tester, TableCopy.deal.fill({'n': 9})), isNotNull);
+      expect(_onPressed(tester, TableCopy.start), isNotNull);
       await setup.close(tester);
     });
 
@@ -593,7 +645,7 @@ void main() {
       expect(dealt['game_id'], started['game_id']);
       setup.answerGame(dealt);
 
-      await _tap(tester, setup, find.text(TableCopy.deal.fill({'n': 5})));
+      await _tap(tester, setup, find.text(TableCopy.start));
 
       expect(setup.count('POST', '/onuw/lobbies/V9YC2J/start/'), 1);
       expect(setup.count('GET', '/me/table/'), greaterThan(reads));
@@ -620,7 +672,7 @@ void main() {
         status: 503,
       );
 
-      await _tap(tester, setup, find.text(TableCopy.deal.fill({'n': 5})));
+      await _tap(tester, setup, find.text(TableCopy.start));
       expect(find.text(BannerCopy.notSent), findsOneWidget);
 
       setup.http.answer(
@@ -682,7 +734,7 @@ void main() {
       await setup.settle(tester);
 
       expect(find.text(TableCopy.editDeck), findsOneWidget);
-      expect(_onPressed(tester, TableCopy.deal.fill({'n': 5})), isNotNull);
+      expect(_onPressed(tester, TableCopy.start), isNotNull);
       expect(find.textContaining('host'), findsNothing);
       await setup.close(tester);
     });
@@ -808,7 +860,7 @@ void main() {
           status: 400,
         );
 
-        await _tap(tester, setup, find.text(TableCopy.deal.fill({'n': 5})));
+        await _tap(tester, setup, find.text(TableCopy.start));
 
         // No reason worth saying: nothing extra, never a bare "Not sent.".
         expect(find.text(BannerCopy.cannotDeal), findsNothing);
@@ -941,8 +993,9 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('a deck that does not fit: "Done" is still live; 02 shows '
-        'the count to the host only, Deal locked, and the count opens 03', (
+    testWidgets('a deck of the wrong size cannot be left silently (the owner, '
+        '23 November 2026): the count says how many too many, the button says '
+        '"Fix the deck" and stays, and fixing it makes "Done" leave', (
       tester,
     ) async {
       // Set for seven, the host's own deck of eleven (built for eight).
@@ -952,14 +1005,23 @@ void main() {
         viewer: 'Tia',
       );
       expect(find.text('11 / 10'), findsOneWidget);
-      expect(_onPressed(tester, DeckCopy.done), isNotNull);
-      expect(find.textContaining('card'), findsNothing);
-      await _tap(tester, setup, find.text(DeckCopy.done));
+      expect(find.text(DeckCopy.tooMany.fill({'n': 1})), findsOneWidget);
+      expect(find.text(DeckCopy.done), findsNothing);
+      expect(_onPressed(tester, DeckCopy.fixDeck), isNotNull);
 
-      expect(find.text('11 / 10'), findsOneWidget, reason: "on the host's 02");
-      expect(_onPressed(tester, TableCopy.deal.fill({'n': 7})), isNull);
-      await _tap(tester, setup, find.text('11 / 10'));
-      expect(find.text(DeckCopy.headline), findsOneWidget, reason: 'to 03');
+      // The button stays on 03 (and shows the count); nothing is sent.
+      await _tap(tester, setup, find.text(DeckCopy.fixDeck));
+      expect(find.text(DeckCopy.headline), findsOneWidget);
+      expect(find.text('11 / 10'), findsOneWidget);
+      expect(setup.patches, isEmpty);
+
+      // Eight places hold the deck of eleven: "Done" is back, and leaves.
+      setup.answerPatch(v2Lobby('detail_seats_8_seven_here'));
+      await _tap(tester, setup, find.byIcon(Icons.add).first);
+      expect(find.text('11 / 11'), findsOneWidget);
+      expect(find.text(DeckCopy.tooMany.fill({'n': 1})), findsNothing);
+      await _tap(tester, setup, find.text(DeckCopy.done));
+      expect(find.text(TableCopy.scan), findsOneWidget, reason: 'on the 02');
       await setup.close(tester);
 
       final guest = await TableSetup.pump(
@@ -969,6 +1031,23 @@ void main() {
       );
       expect(find.text('11 / 10'), findsNothing, reason: "never a guest's");
       await guest.close(tester);
+    });
+
+    testWidgets('the table the owner found: a wrong deck on 02 says "Fix the '
+        'deck" with the count, and a tap on the button opens 03', (
+      tester,
+    ) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('settings_seats_lowered'),
+        viewer: 'Tia',
+      );
+      expect(find.text('11 / 10'), findsOneWidget);
+      expect(find.text(DeckCopy.tooMany.fill({'n': 1})), findsOneWidget);
+      expect(find.text(TableCopy.start), findsNothing);
+      await _tap(tester, setup, find.text(TableCopy.fixDeck));
+      expect(find.text(DeckCopy.headline), findsOneWidget, reason: 'to 03');
+      await setup.close(tester);
     });
 
     testWidgets('"Done" sends nothing and goes back', (tester) async {

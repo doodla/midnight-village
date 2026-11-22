@@ -196,8 +196,8 @@ void main() {
         () =>
             shows<AtTableScreen>() &&
             find.byType(PracticeTag).evaluate().length == 3 &&
-            text(TableCopy.deal.fill({'n': 4})),
-        reason: '02: three tagged "Practice", "Deal to 4"',
+            text(TableCopy.start),
+        reason: '02: three tagged "Practice", "Start game"',
       );
       await shoot('table-four');
 
@@ -215,7 +215,7 @@ void main() {
             ),
       ];
 
-      await tap(find.text(TableCopy.deal.fill({'n': 4})));
+      await tap(find.text(TableCopy.start));
       final dealt = await ui.followTable(until: (t) => t?.gameId != null);
       final gameId = dealt!.gameId!;
       await ui.openShell(gameId);

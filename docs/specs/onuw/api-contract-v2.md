@@ -91,7 +91,7 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
   switches them on). Answers the lobby body; the table hears `lobby_update`. `400
   bad_request` (malformed), `400 lobby_full` (past the free seats), `403` not the host, `404
   lobby_not_found`, `409 lobby_closed` once dealt. They take seats like anyone (tokens,
-  `seats`, "Deal to {n}"), are named for village things ("Scarecrow", "Teapot", ...), never
+  `seats`, "Start game"), are named for village things ("Scarecrow", "Teapot", ...), never
   host (handover and the owner leaving skip them; the last person out closes the table) and
   never drop. A person joining a full table takes the newest one's seat. A person has practice players at one table at a time: switching them on, or `POST /lobbies/`, takes them off the caller's other tables that are not in a game (those tables hear `lobby_update`). The settings `PATCH` and a new table's settings ignore `practice`. In the game the
   server plays them through the same requests a phone sends, the moment each stage opens

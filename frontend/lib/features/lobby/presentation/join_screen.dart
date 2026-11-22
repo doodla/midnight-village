@@ -361,6 +361,25 @@ class _JoinViewState extends State<JoinView> {
     }
   }
 
+  /// The amber "Join". Never silently dimmed (the app's rule for primary
+  /// buttons): while the name or the code is missing a tap leads to the field
+  /// that lacks it, the name first.
+  Widget _joinButton(VoidCallback? go, ButtonSize size, JoinWay? busy) {
+    if (go == null && busy == null) {
+      return PrimaryButton.locked(
+        label: JoinCopy.join,
+        onLockedTap: _named ? _codeFocus.requestFocus : _nameFocus.requestFocus,
+        size: size,
+      );
+    }
+    return PrimaryButton(
+      label: JoinCopy.join,
+      onPressed: go,
+      busy: busy == JoinWay.join,
+      size: size,
+    );
+  }
+
   String get _typedName => _name.text.trim();
   bool get _named => _typedName.isNotEmpty;
   bool get _coded => _code.text.length == JoinView.codeLength;
@@ -448,12 +467,7 @@ class _JoinViewState extends State<JoinView> {
                     if (link != null && widget.seated)
                       const SizedBox.shrink()
                     else if (link != null)
-                      PrimaryButton(
-                        label: JoinCopy.join,
-                        onPressed: join(link),
-                        busy: busy == JoinWay.join,
-                        size: ButtonSize.large,
-                      )
+                      _joinButton(join(link), ButtonSize.large, busy)
                     else ...[
                       if (_codeOpen)
                         LayoutBuilder(
@@ -478,11 +492,10 @@ class _JoinViewState extends State<JoinView> {
                               // phones show the whole code, and scan is one Back away).
                               if (room.maxWidth >= JoinView.scanBesideCodeFrom)
                                 ?scan,
-                              PrimaryButton(
-                                label: JoinCopy.join,
-                                onPressed: join(_coded ? _code.text : null),
-                                busy: busy == JoinWay.join,
-                                size: ButtonSize.compact,
+                              _joinButton(
+                                join(_coded ? _code.text : null),
+                                ButtonSize.compact,
+                                busy,
                               ),
                             ],
                           ),

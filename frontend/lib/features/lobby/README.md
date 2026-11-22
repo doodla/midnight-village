@@ -105,14 +105,19 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   with its count, in `deckOrder` (`LobbyState.tableCards`; the same for every viewer,
   following every `lobby_update`), in balanced lines (`_DeckStrip`: the thumbnails shrink to
   `Sizes.thumbLeast` before a second line, and no card sits alone on one); a tap or a hold on
-  a role reads it (03b). The host's panel opens 03 ("Edit") and, at a number, shows a deck
-  that does not hold the cards the deal needs (`DeckCount`; a guest never sees it). Fewer
-  came than the number (3 or more here): "Play with {n}" sets the number to who is here in one
-  tap; an automatic deck follows, a deck of the host's own is never changed: the tap opens 03
-  with its count showing. The deal button is the server's `deal` (`DealState`): "Deal to
-  {n}", {n} the number as this phone shows it (a change on its way included), live only when
-  `ok` and nothing is on its way, else the same words locked; "Need 3 players" at an open
-  table of fewer than three, or "Can't deal yet.". Nobody is asked to be ready. A deal
+  a role reads it (03b). The host's panel opens 03 ("Edit") and shows a deck that does not hold the cards the
+  deal needs (`DeckCount`: "11 / 10" and, under it, "1 too many" or "2 too few"; a guest never
+  sees it; at an open table only for a deck of the host's own: `LobbyState.deckPlayers`).
+  Fewer came than the number (3 or more here): "Play with {n}" sets the number to who is
+  here in one tap; an automatic deck follows, a deck of the host's own is never changed: the
+  tap opens 03 with its count showing. The deal button is the server's `deal` (`DealState`)
+  and is never silently disabled (the app's rule, `frontend/CLAUDE.md`): "Start game", amber,
+  when `ok`; "Fix the deck", amber, when the deck is off (`LobbyState.deckOff`, from the
+  server's `deal.need` and `deal.have`; judged first), a tap opens 03; "Need 3 players" at an
+  open table of fewer than three; "Need {n} more" at a table set for a number with {n} places
+  empty; a refusal the phone cannot name (`CannotDeal`) leaves "Start game" live so the
+  deal's own answer says why; while this phone's own change is on its way (`CanDealSoon`) it
+  keeps "Start game", outlined. Nobody is asked to be ready. A deal
   refused all the same says why when the refusal gives a reason worth saying
   (`LobbyNotifier.dealRefusal`), never a bare "Not sent.". A quiet labelled "Leave" asks
   first ("Stay" / "Leave"); a guest's is a quiet underlined word at the foot (`TextAction`).
@@ -143,7 +148,12 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
     (`startCustomDeck`), for the number (an open table takes the least of `seats_range`). At
     a number, `DeckCount`: the cards picked over the cards needed ("7 / 11", `cardsNeeded`,
     `pickedCards`) and a slot each, the players' then the centre's three, in the danger ink
-    while it is not the need. No words say which way the deck is off.
+    while it is not the need, and a line under it, "{n} too many" or "{n} too few" (`DeckCopy`).
+    "Done" is "Fix the deck" while the deck is off; a tap, and Back (`DeckViewState.leave`),
+    stay on 03 and scroll the count into view, so the host never leaves for a table that
+    cannot start (the server still refuses such a deck at the deal; the phone only shows the
+    distance). Under each length but Talk and Vote, a short caption says what it is
+    (`lengthCaption`, `LabelledStepper.caption`).
   - **Every length the server has**, in `Length` order (Talk, Vote, Night, Doppelganger,
     Look, Night minimum, Dropped phone, Host away), each a `LabelledStepper`: its value with
     its unit ("30 s", "5 min", "2:30 min"; 0 is "No clock" for the talk and the vote, "Off"
@@ -173,7 +183,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   server's state with only the pending keys (`LobbyState.pendingKeys`) taken from this phone
   (`TableCards`: `secondsOf` a length, `tableCards`, `cardsNeeded`, `pickedCards`;
   `PracticeSeats`: `practiceOn`, `practiceCount`, `seatedCount` for the seats line,
-  `practiceLimit`; and `DealState`, which waits, "Deal to {n}" locked, while any change is
+  `practiceLimit`; and `DealState`, which keeps "Start game", outlined, while any change is
   on its way), so nothing pairs a new value with an old one and nothing goes around one. A
   change the server refuses (`serverAnswered`, `core/api/api_exception.dart`: the one
   classifier every host action uses) is dropped and the lobby read again, never "Not

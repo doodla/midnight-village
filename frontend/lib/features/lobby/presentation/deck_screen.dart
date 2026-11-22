@@ -54,6 +54,18 @@ String lengthLabel(Length length) => switch (length) {
   Length.hostAway => DeckCopy.hostAway,
 };
 
+/// What a length is, in a few words under its name; the talk and the vote
+/// say it themselves.
+String? lengthCaption(Length length) => switch (length) {
+  Length.look => DeckCopy.lookCaption,
+  Length.night => DeckCopy.nightCaption,
+  Length.nightMinimum => DeckCopy.nightMinimumCaption,
+  Length.doppelganger => DeckCopy.doppelgangerCaption,
+  Length.droppedPhone => DeckCopy.droppedPhoneCaption,
+  Length.hostAway => DeckCopy.hostAwayCaption,
+  Length.talk || Length.vote => null,
+};
+
 /// The fewest players a game is for (the server's `seats`).
 const minSeats = 3;
 
@@ -79,11 +91,18 @@ const minSeats = 3;
 ///
 /// A restart lands on 02: opening 03 is a step of this phone's only
 /// ([localStepsProvider]); what was set is the server's.
-class DeckScreen extends ConsumerWidget {
+class DeckScreen extends ConsumerStatefulWidget {
   const DeckScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DeckScreen> createState() => _DeckScreenState();
+}
+
+class _DeckScreenState extends ConsumerState<DeckScreen> {
+  final _view = GlobalKey<DeckViewState>();
+
+  @override
+  Widget build(BuildContext context) {
     final table = ref.watch(myTableProvider).value;
     final read = table == null
         ? null
@@ -111,9 +130,15 @@ class DeckScreen extends ConsumerWidget {
       );
     }
     final notifier = ref.read(lobbyProvider(lobby.code).notifier);
+    // Back leaves as "Done" does: with the wrong number of cards it shows the
+    // count instead (never a silent exit to a table that cannot start).
     return BackHandler(
-      onBack: close,
+      onBack: () {
+        final view = _view.currentState;
+        view == null ? close() : view.leave();
+      },
       child: DeckView(
+        key: _view,
         lobby: lobby,
         onSeats: (seats) => unawaited(notifier.setSeats(seats)),
         onChip: (chip) => unawaited(notifier.chooseChip(chip)),
@@ -139,7 +164,7 @@ typedef DeckChanged = void Function(Map<String, int> roles, {int? seats});
 
 /// 03 drawn from the lobby (the component sheet and the gallery draw it
 /// too).
-class DeckView extends StatelessWidget {
+class DeckView extends StatefulWidget {
   const DeckView({
     super.key,
     required this.lobby,
@@ -167,6 +192,39 @@ class DeckView extends StatelessWidget {
   /// How many practice players sit at the table.
   final ValueChanged<int>? onPractice;
   final VoidCallback? onRetry;
+
+  @override
+  State<DeckView> createState() => DeckViewState();
+}
+
+/// 03's state: the count's place, for the leave that shows it.
+class DeckViewState extends State<DeckView> {
+  final _count = GlobalKey();
+
+  LobbyState get lobby => widget.lobby;
+  DeckChanged get onDeck => widget.onDeck;
+
+  /// "Done", and Back: leaves with the right number of cards; with the wrong
+  /// number stays and shows the count (how many too many or too few), so the
+  /// table is never left in a state where the game cannot start.
+  void leave() {
+    final off = lobby.deckOff;
+    if (off == null || off == 0) {
+      widget.onUse();
+      return;
+    }
+    final at = _count.currentContext;
+    if (at != null) {
+      unawaited(
+        Scrollable.ensureVisible(
+          at,
+          alignment: 0.2,
+          duration: Motion.within(context, Motion.quick),
+          curve: Motion.curve,
+        ),
+      );
+    }
+  }
 
   /// Who sits at the table as this phone shows it (practice changes on
   /// their way included).
@@ -222,27 +280,32 @@ class DeckView extends StatelessWidget {
             range: _seatsRange,
             // "Any" never quietly drops a deck of the host's own.
             open: table.autoDeck,
-            onSeats: onSeats,
+            onSeats: widget.onSeats,
             practice: lobby.practiceOn
                 ? (count: lobby.practiceCount, most: lobby.practiceLimit)
                 : null,
-            onPracticeSwitch: onPracticeSwitch,
-            onPractice: onPractice,
+            onPracticeSwitch: widget.onPracticeSwitch,
+            onPractice: widget.onPractice,
           ),
           _Chips(
             labels: DeckCopy.chips,
             selected: table.autoDeck ? table.deckChip?.index : null,
-            onTap: (i) => onChip(DeckChip.values[i]),
+            onTap: (i) => widget.onChip(DeckChip.values[i]),
           ),
-          if (seats != null && need != null)
-            DeckCount(picked: picked, need: need, seats: seats),
+          if (lobby.deckPlayers case final players? when need != null)
+            DeckCount(
+              key: _count,
+              picked: picked,
+              need: need,
+              players: players,
+            ),
           _Grid(
             deck: lobby.tableCards,
             onAdd: (role) => _change(role, RoleConfig.stepSize(role)),
             onRemove: (role) => _change(role, -RoleConfig.stepSize(role)),
             onHold: (role) => unawaited(showRoleSheet(context, role)),
           ),
-          _Lengths(lobby: lobby, onLength: onLength),
+          _Lengths(lobby: lobby, onLength: widget.onLength),
         ],
       ),
       actions: [
@@ -250,10 +313,15 @@ class DeckView extends StatelessWidget {
           Notice(
             message: BannerCopy.notSent,
             action: BannerCopy.tryAgain,
-            onAction: onRetry,
+            onAction: widget.onRetry,
           ),
-        // Always live: a host who only changed a timer is never stuck.
-        PrimaryButton(label: DeckCopy.done, onPressed: onUse),
+        // Live, never stuck: a host who only changed a timer leaves at once.
+        // With the wrong number of cards it says what to fix and a tap shows
+        // the count (the page cannot be left to a table that cannot start).
+        PrimaryButton(
+          label: (lobby.deckOff ?? 0) == 0 ? DeckCopy.done : DeckCopy.fixDeck,
+          onPressed: leave,
+        ),
       ],
     );
   }
@@ -350,18 +418,21 @@ class _Players extends StatelessWidget {
 /// The cards picked over the cards the deal needs ("7 / 11"), and a slot
 /// for each: as many as the players, a gap, the three in the centre, so the
 /// count is tied to the number by sight. Cards past the need are drawn in
-/// the danger ink, as is the count while it is not the need.
+/// the danger ink, as is the count while it is not the need, with a line
+/// saying how many too many or too few.
 class DeckCount extends StatelessWidget {
   const DeckCount({
     super.key,
     required this.picked,
     required this.need,
-    required this.seats,
+    required this.players,
   });
 
   final int picked;
   final int need;
-  final int seats;
+
+  /// The players the deck is for: the slots before the centre's three.
+  final int players;
 
   @override
   Widget build(BuildContext context) {
@@ -386,30 +457,48 @@ class DeckCount extends StatelessWidget {
       );
     }
 
-    return Row(
-      spacing: Space.md,
+    final off = picked - need;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: Space.xs,
       children: [
-        Text(
-          '$picked / $need',
-          style: skin.typography.heading.copyWith(
-            color: picked == need ? ground.text : ground.dangerText,
-          ),
+        Row(
+          spacing: Space.md,
+          children: [
+            Text(
+              '$picked / $need',
+              style: skin.typography.heading.copyWith(
+                color: off == 0 ? ground.text : ground.dangerText,
+              ),
+            ),
+            Expanded(
+              child: ExcludeSemantics(
+                child: Wrap(
+                  spacing: Space.xxs,
+                  runSpacing: Space.xxs,
+                  children: [
+                    for (var i = 0; i < slots; i++) ...[
+                      // The centre's three after a gap.
+                      if (i == players) const SizedBox(width: Space.sm),
+                      slot(i),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-        Expanded(
-          child: ExcludeSemantics(
-            child: Wrap(
-              spacing: Space.xxs,
-              runSpacing: Space.xxs,
-              children: [
-                for (var i = 0; i < slots; i++) ...[
-                  // The centre's three after a gap.
-                  if (i == seats) const SizedBox(width: Space.sm),
-                  slot(i),
-                ],
-              ],
+        // How far off, in words, by the count (the slots show it by sight).
+        if (off != 0)
+          Semantics(
+            liveRegion: true,
+            child: FitWords(
+              (off > 0 ? DeckCopy.tooMany : DeckCopy.tooFew).fill({
+                'n': off.abs(),
+              }),
+              style: skin.typography.body.copyWith(color: ground.dangerText),
             ),
           ),
-        ),
       ],
     );
   }
@@ -488,6 +577,7 @@ class _Lengths extends StatelessWidget {
               for (final row in rows)
                 LabelledStepper(
                   label: row.label,
+                  caption: row.caption,
                   style: row.style,
                   stepper: row.stepper,
                   beside: beside,
@@ -509,6 +599,7 @@ class _Lengths extends StatelessWidget {
     final (least, most) = lobby.rangeOf(length);
     return LabelledStepper(
       label: lengthLabel(length),
+      caption: lengthCaption(length),
       style: type.copyWith(color: ink),
       stepper: ValueStepper(
         value: lengthText(seconds, length),

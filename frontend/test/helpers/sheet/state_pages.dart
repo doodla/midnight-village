@@ -82,11 +82,7 @@ class ButtonsPage extends StatelessWidget {
         icon: Icons.lock_outline,
         onPressed: () {},
       ),
-      PrimaryButton(
-        label: TableCopy.deal.fill({'n': 5}),
-        onPressed: () {},
-        busy: true,
-      ),
+      PrimaryButton(label: TableCopy.start, onPressed: () {}, busy: true),
       const Note('Waiting; a locked gate; done'),
       const PrimaryButton(label: TableCopy.needPlayers, onPressed: null),
       PrimaryButton.locked(label: CardCopy.ready, onLockedTap: () {}),

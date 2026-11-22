@@ -21,9 +21,19 @@ typedef Screen = ({int budget, Map<String, List<Line>> states});
 const stateAllowances = <String, Map<String, int>>{
   // "Practice" on the rows (one word, the same on each practice row) over a
   // full 13: a table set for a number, practice players seated, fewer came.
-  '02 Table': {'host, set for a number, practice players, Play with {n}': 14},
+  '02 Table': {
+    'host, set for a number, practice players, Play with {n}': 14,
+    // The deck is off: the count's line ("2 too many") and "Fix the deck"
+    // in place of "Start game" (23 November 2026).
+    'host, the deck does not fit': 17,
+  },
   // The Practice stepper's name under Players, at a number: 23 of 22.
-  '03 Deck': {'practice switched on': 23},
+  '03 Deck': {
+    'practice switched on': 38,
+    // "Fix the deck" in place of "Done" and the count's line.
+    'the deck does not fit, too many': 41,
+    'the deck does not fit, too few': 41,
+  },
 };
 
 /// Every role text, laid out as the 04 face and 03b show it.
@@ -105,12 +115,20 @@ List<Line> _face(List<Object> lines) => [for (final l in lines) face(l)];
 /// The set-up page's lengths (the Doppelganger's is the role's name).
 const _lengths = [
   DeckCopy.look,
+  DeckCopy.lookCaption,
   DeckCopy.night,
+  DeckCopy.nightCaption,
   DeckCopy.nightMinimum,
+  DeckCopy.nightMinimumCaption,
   DeckCopy.talk,
   DeckCopy.vote,
   DeckCopy.droppedPhone,
+  DeckCopy.droppedPhoneCaption,
   DeckCopy.hostAway,
+  DeckCopy.hostAwayCaption,
+  // The Doppelganger's row (the role's name) and its caption, while the
+  // deck holds one.
+  DeckCopy.doppelgangerCaption,
 ];
 
 const _winners = [
@@ -171,7 +189,11 @@ final screens = <String, Screen>{
     budget: 13,
     states: {
       for (final chip in DeckCopy.chips)
-        for (final deal in <Object>[TableCopy.deal, TableCopy.needPlayers])
+        for (final deal in <Object>[
+          TableCopy.start,
+          TableCopy.needPlayers,
+          TableCopy.needMore,
+        ])
           'host, $chip: $deal': [
             headline(TableCopy.scan),
             text(JoinCopy.codeHint),
@@ -184,6 +206,21 @@ final screens = <String, Screen>{
             button(deal),
             button(CommonCopy.leave),
           ],
+      // A table whose deck holds the wrong number of cards: the count says how
+      // far off and the button leads to the fix (its own allowance).
+      'host, the deck does not fit': [
+        headline(TableCopy.scan),
+        text(JoinCopy.codeHint),
+        text(TableCopy.seated),
+        button(TableCopy.playWith),
+        button(DeckCopy.chips.first),
+        text(DeckCopy.talk),
+        text(DeckCopy.minutes),
+        button(TableCopy.editDeck),
+        text(DeckCopy.tooMany),
+        button(TableCopy.fixDeck),
+        button(CommonCopy.leave),
+      ],
       // The host's "Leave" asks first, in a sheet over the table.
       'host: leave asked': [button(TableCopy.stay), button(CommonCopy.leave)],
       // Practice players seated (the host switched them on with a hold on
@@ -199,7 +236,7 @@ final screens = <String, Screen>{
         text(DeckCopy.talk),
         text(DeckCopy.minutes),
         button(TableCopy.editDeck),
-        button(TableCopy.deal),
+        button(TableCopy.start),
         button(CommonCopy.leave),
         text(TableCopy.practice),
       ],
@@ -210,7 +247,7 @@ final screens = <String, Screen>{
         text(DeckCopy.talk),
         text(DeckCopy.minutes),
         button(TableCopy.editDeck),
-        button(TableCopy.deal),
+        button(TableCopy.start),
         button(CommonCopy.leave),
         text(TableCopy.practice),
       ],
@@ -241,7 +278,7 @@ final screens = <String, Screen>{
     // are exempt; the count is digits), every length with its value. The
     // Practice stepper, only for a host who held "Players", has its own
     // allowance ([stateAllowances]).
-    budget: 22,
+    budget: 37,
     states: {
       for (final open in [true, false])
         open ? 'an open table' : 'set for a number': [
@@ -255,6 +292,25 @@ final screens = <String, Screen>{
           text(DeckCopy.noClock),
           text(DeckCopy.off),
           button(DeckCopy.done),
+        ],
+      // The deck holds the wrong number of cards: the count's line, and the
+      // button that says so in place of "Done" (its own allowance).
+      for (final (name, off) in [
+        ('too many', DeckCopy.tooMany),
+        ('too few', DeckCopy.tooFew),
+      ])
+        'the deck does not fit, $name': [
+          headline(DeckCopy.headline),
+          text(DeckCopy.players),
+          text(TableCopy.seated),
+          for (final chip in DeckCopy.chips) button(chip),
+          text(off),
+          for (final length in _lengths) text(length),
+          text(CommonCopy.seconds),
+          text(DeckCopy.minutes),
+          text(DeckCopy.noClock),
+          text(DeckCopy.off),
+          button(DeckCopy.fixDeck),
         ],
       // Practice players switched on (a hold on "Players"; never shown
       // otherwise): their stepper's name under Players, at a number.

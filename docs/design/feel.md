@@ -135,12 +135,12 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
 | Host opens the table | QR and code are on the first frame (art is precached) | none | Same | exists |
-| The third player arrives | "Need 3 players" outline becomes the one amber "Deal to {n}": fill and outline change, label cuts | `press` | Cut | exists |
+| The third player arrives | "Need 3 players" outline becomes the one amber "Start game" (or "Need {n} more", "Fix the deck"): fill and outline change, label cuts | `press` | Cut | exists |
 | Share | System share sheet; where there is none the link is copied and the screen says so | none | Same | exists |
 | Tap a deck chip | The chip lifts 4 px with the selection outline; the strip's counts follow | `quick` | Cut | exists |
 | A card added or removed in the editor (03) | The count badge ticks and the card lifts or settles, so "Add 2 cards" reads as cards. The editor is #8; polish waits on it | `quick` | Cut | no pass |
 | Guest waits | "{host} deals" large, a quiet underlined "Leave" that dims while pressed | `press` | Same | exists |
-| Host taps "Deal to {n}" | The busy mark on the button in the frame of the tap, taps ignored until the dusk lands (`LobbyNotifier.deal` returns only when `/me/table/` has named the next screen, so 02's own busy covers the gap; Leave is the same, a `Pending` until 01 is named) | none | Same | exists |
+| Host taps "Start game" | The busy mark on the button in the frame of the tap, taps ignored until the dusk lands (`LobbyNotifier.deal` returns only when `/me/table/` has named the next screen, so 02's own busy covers the gap; Leave is the same, a `Pending` until 01 is named) | none | Same | exists |
 
 ### The deal
 

@@ -46,8 +46,9 @@ import 'where_am_i_provider.dart';
 ///   only where there is no share sheet); then everyone at the table as a
 ///   row each, their own outlined, a dropped phone dimmed with no words.
 /// - Host: the deck as its chip with its cards face up (the server's
-///   `deck_preview`) or the custom deck's cards, with "Edit" (03); "Deal to
-///   {n}", amber, by the server's verdict on dealing ([DealState]); a refused
+///   `deck_preview`) or the custom deck's cards, with "Edit" (03); "Start
+///   game", amber, by the server's verdict on dealing ([DealState]), else what
+///   it needs ("Need 3 players", "Need {n} more") or the fix ("Fix the deck"); a refused
 ///   deal says why; a quiet "Leave" that asks first ("Stay" / "Leave"), so
 ///   one stray tap never hands the table away.
 /// - Guest: "{host} deals" over the same code, the rows, and a quiet "Leave"
@@ -406,7 +407,10 @@ class AtTableView extends StatelessWidget {
               onAction: onRetry,
             )
           // The button already says it when the table's new verdict agrees.
-          else if (host && refused != null && refused != _dealWords())
+          else if (host &&
+              refused != null &&
+              refused != _dealWords() &&
+              DealState.of(lobby) is! DeckDoesNotFit)
             Notice(message: refused)
           else if (copied)
             const Notice(message: BannerCopy.copied),
@@ -451,23 +455,34 @@ class AtTableView extends StatelessWidget {
     if ((leave ?? false) && context.mounted) onLeave?.call();
   }
 
-  /// The deal button's words, from the server's verdict ([DealState]).
+  /// The deal button's words, from the server's verdict ([DealState]): a
+  /// button that cannot be taken says why, in place.
   String _dealWords() => switch (DealState.of(lobby)) {
-    CanDeal(:final players) => TableCopy.deal.fill({'n': players}),
-    // The same words, locked, until everyone it is set for is here.
-    WaitingFor(:final seats) => TableCopy.deal.fill({'n': seats}),
+    CanDeal() || CanDealSoon() || CannotDeal() => TableCopy.start,
     NeedPlayers() => TableCopy.needPlayers,
-    // The deck shows what is wrong; the button keeps its words.
-    DeckDoesNotFit() => TableCopy.deal.fill({'n': lobby.seatedCount}),
-    CannotDeal() => BannerCopy.cannotDeal,
+    WaitingFor(:final missing) => TableCopy.needMore.fill({'n': missing}),
+    DeckDoesNotFit() => TableCopy.fixDeck,
   };
 
-  /// "Deal to {n}", amber, only when the server says the deal would go.
-  Widget _dealButton() => PrimaryButton(
-    label: _dealWords(),
-    onPressed: DealState.of(lobby) is CanDeal ? onDeal : null,
-    busy: dealing,
-  );
+  /// "Start game", amber, only when the server says the deal would go. Never
+  /// silently disabled (the app's rule): "Need 3 players" and "Need {n} more"
+  /// say what is missing (the places are drawn above), and "Fix the deck" is
+  /// the fix itself, a tap away: it opens 03 where the count shows. A refusal
+  /// this phone cannot name leaves it live: the deal's own answer says why.
+  Widget _dealButton() {
+    final label = _dealWords();
+    if (dealing) {
+      return PrimaryButton(label: label, onPressed: onDeal, busy: true);
+    }
+    return switch (DealState.of(lobby)) {
+      CanDeal() ||
+      CannotDeal() => PrimaryButton(label: label, onPressed: onDeal),
+      DeckDoesNotFit() => PrimaryButton(label: label, onPressed: onEditDeck),
+      CanDealSoon() ||
+      NeedPlayers() ||
+      WaitingFor() => PrimaryButton(label: label, onPressed: null),
+    };
+  }
 }
 
 /// Everyone at the table, a row each; from [Sizes.twoUpPlayers] on, two to
@@ -756,7 +771,7 @@ class _SetupPanel extends StatelessWidget {
     final chip = lobby.table.autoDeck ? lobby.table.deckChip : null;
     final talk = lobby.secondsOf(Length.talk);
     final cards = lobby.tableCards;
-    final seats = lobby.table.seats;
+    final players = lobby.deckPlayers;
     final need = lobby.cardsNeeded;
     final picked = lobby.pickedCards;
     final edit = host ? onEdit : null;
@@ -793,8 +808,8 @@ class _SetupPanel extends StatelessWidget {
                 ),
             ],
           ),
-          if (host && seats != null && need != null && picked != need)
-            DeckCount(picked: picked, need: need, seats: seats),
+          if (host && players != null && need != null && picked != need)
+            DeckCount(picked: picked, need: need, players: players),
           if (cards.isNotEmpty) _DeckStrip(cards: cards, onRead: read),
         ],
       ),

@@ -364,9 +364,27 @@ extension TableCards on LobbyState {
   /// and the centre. Null before the first body, or at an open table.
   int? get cardsNeeded {
     final seats = table.seats;
-    if (seats == null) return null;
+    // An open table's automatic deck is built for whoever is here: never
+    // short. A deck of the host's own is judged against the server's need.
+    if (seats == null) return table.autoDeck ? null : deal?.need;
     if (pendingKeys.contains('seats')) return seats + centreCards;
     return deal?.need;
+  }
+
+  /// How many players the deck is for (the slots drawn for them): the number
+  /// the table is set for, else the cards needed less the centre's.
+  int? get deckPlayers {
+    final need = cardsNeeded;
+    return table.seats ?? (need == null ? null : need - centreCards);
+  }
+
+  /// How far the deck is from the cards the deal needs: above 0 too many,
+  /// below 0 too few, 0 it fits; null when nothing says what is needed. The
+  /// server's `deal.need` and `deal.have` are the rule (cards = players + 3);
+  /// the phone only shows the distance.
+  int? get deckOff {
+    final need = cardsNeeded;
+    return need == null ? null : pickedCards - need;
   }
 
   /// The cards in the deck as this phone shows it (an automatic deck being
@@ -560,15 +578,17 @@ sealed class DealState {
     if (deal == null) return CanDeal(players);
     // The number as the host sees it (a change on its way included).
     final seats = lobby.table.seats;
+    // The deck first: it is the one reason the host fixes on this phone.
+    final off = lobby.deckOff;
+    if (off != null && off != 0) return DeckDoesNotFit(off);
     // A change of this phone's not answered yet: the old verdict is stale.
     if (deal.ok && !lobby.settling) return CanDeal(seats ?? players);
-    // A table set for a number waits for it: "Deal to 8", locked.
-    if (seats != null) return WaitingFor(seats);
-    if (players < minPlayers) return const NeedPlayers();
+    // A table set for a number waits for the rest of it.
+    if (seats != null && players < seats) return WaitingFor(seats - players);
+    if (seats == null && players < minPlayers) return const NeedPlayers();
     // A change on its way (a practice player sitting down or getting up,
-    // the chip): "Deal to {n}" for who sits as shown, locked until answered.
-    if (lobby.settling) return WaitingFor(players);
-    if (!lobby.table.autoDeck) return const DeckDoesNotFit();
+    // the chip): the button waits for the answer.
+    if (lobby.settling) return CanDealSoon(seats ?? players);
     return const CannotDeal();
   }
 
@@ -576,14 +596,21 @@ sealed class DealState {
   static const minPlayers = 3;
 }
 
-/// Refused for another reason (anything but the players or the deck).
+/// The server would refuse for a reason this phone cannot name (the timers,
+/// say): the button stays live and the deal's own refusal says why.
 final class CannotDeal extends DealState {
   const CannotDeal();
 }
 
-/// Deal to [players].
+/// Start, for [players].
 final class CanDeal extends DealState {
   const CanDeal(this.players);
+  final int players;
+}
+
+/// Ready as soon as this phone's own change on its way is answered.
+final class CanDealSoon extends DealState {
+  const CanDealSoon(this.players);
   final int players;
 }
 
@@ -592,14 +619,15 @@ final class NeedPlayers extends DealState {
   const NeedPlayers();
 }
 
-/// A table set for [seats] players that cannot be dealt yet (not all here,
-/// or the deck does not fit them): the button keeps "Deal to {seats}".
+/// A table set for a number with [missing] places still empty.
 final class WaitingFor extends DealState {
-  const WaitingFor(this.seats);
-  final int seats;
+  const WaitingFor(this.missing);
+  final int missing;
 }
 
-/// An open table's custom deck the deal would not take.
+/// The deck holds [off] cards over (above 0) or under (below 0) what the
+/// deal needs: the button leads to 03, where the count shows.
 final class DeckDoesNotFit extends DealState {
-  const DeckDoesNotFit();
+  const DeckDoesNotFit(this.off);
+  final int off;
 }

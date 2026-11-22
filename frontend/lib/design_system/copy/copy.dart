@@ -85,8 +85,20 @@ abstract final class TableCopy {
   /// On the deck strip. Spec: "Edit deck", which puts the host's 02 at 8
   /// words for a budget of 7; the strip it sits on names the deck.
   static const editDeck = 'Edit';
-  static const deal = Template('Deal to {n}');
+
+  /// The table's one primary button (owner, 23 November 2026: "Just say
+  /// 'Start the game' or whatever"; it said "Deal to {n}"). When it cannot be
+  /// taken it says why, in place ([needPlayers], [needMore], [fixDeck]); never
+  /// the same words dimmed.
+  static const start = 'Start game';
   static const needPlayers = 'Need 3 players';
+
+  /// A table set for a number, fewer here: how many more it waits for.
+  static const needMore = Template('Need {n} more');
+
+  /// The deck does not hold the cards the deal needs: the button is the way
+  /// to the fix (03), and the count shows how far off it is.
+  static const fixDeck = 'Fix the deck';
 
   /// At a table set for a number: who is here of how many (02 and 03, host
   /// and guests), by the seats, the empty ones drawn. The one way the wait
@@ -145,9 +157,25 @@ abstract final class DeckCopy {
   static const noClock = 'No clock';
   static const off = 'Off';
 
-  /// Back to 02: always live (the page holds the players and the lengths
-  /// too; a deck that does not fit is shown on 02, Deal locked).
+  /// Back to 02. Live, unless the deck holds the wrong number of cards: then
+  /// it is [fixDeck] and a tap shows the count (the owner, 23 November 2026,
+  /// left this page with 12 cards for 8 and found a button she could not press
+  /// on the page after it).
   static const done = 'Done';
+  static const fixDeck = TableCopy.fixDeck;
+
+  /// By the count, how far off the deck is.
+  static const tooMany = Template('{n} too many');
+  static const tooFew = Template('{n} too few');
+
+  /// What a timer is, one short line under its name (teach once; Talk and
+  /// Vote say it themselves).
+  static const lookCaption = 'See your card';
+  static const nightCaption = 'Time to act';
+  static const doppelgangerCaption = 'Acts first';
+  static const nightMinimumCaption = 'Shortest night';
+  static const droppedPhoneCaption = 'Wait before skipping';
+  static const hostAwayCaption = 'Then another hosts';
 }
 
 /// 03b Role sheet: the role text ([RoleCopy]) and this.

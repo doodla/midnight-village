@@ -541,7 +541,7 @@ void main() {
           method: 'POST',
           path: '/onuw/lobbies/V9YC2J/start/',
         );
-        await tester.tap(find.text(TableCopy.deal.fill({'n': 5})));
+        await tester.tap(find.text(TableCopy.start));
         await _until(tester, () => deal.length == 1);
         await _press(tester);
         await tester.pump(const Duration(milliseconds: 300));
@@ -610,6 +610,27 @@ void main() {
       expect(_screen(tester), AppScreen.table);
       expect(find.text(TableCopy.stay), findsNothing);
       expect(_requests(setup, 'PATCH') + _requests(setup, 'POST'), 0);
+      expect(platform.left, isFalse);
+      await setup.close(tester);
+    });
+
+    testWidgets('a deck of the wrong size: Back stays on 03 and shows the '
+        'count (never a silent exit to a table that cannot start)', (
+      tester,
+    ) async {
+      final platform = _Platform.listen(tester);
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('settings_seats_lowered'),
+        viewer: 'Tia',
+      );
+      await _tap(tester, find.text(TableCopy.editDeck));
+      expect(_screen(tester), AppScreen.deck);
+      expect(find.text(DeckCopy.tooMany.fill({'n': 1})), findsOneWidget);
+
+      await _back(tester);
+      expect(_screen(tester), AppScreen.deck);
+      expect(find.text(DeckCopy.tooMany.fill({'n': 1})), findsOneWidget);
       expect(platform.left, isFalse);
       await setup.close(tester);
     });

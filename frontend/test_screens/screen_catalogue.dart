@@ -144,6 +144,7 @@ final screenCatalogue = <ScreenEntry>[
     '-edit': pumpDeckEdit,
     '-grid': pumpDeckGrid,
     '-grid-short': pumpDeckGridShort,
+    '-grid-over': pumpDeckGridOver,
     '-seats-8': pumpDeckSeats,
     '-alone': pumpDeckAlone,
     '-lengths': pumpDeckLengths,
