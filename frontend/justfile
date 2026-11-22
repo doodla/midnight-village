@@ -243,3 +243,12 @@ vote-pictures folder="build/vote_pictures" width="360":
       --dart-define=ENV=dev \
       --dart-define=VOTE_PICTURES_DIR={{folder}} \
       --dart-define=VOTE_PICTURES_WIDTH={{width}}
+
+# The count in pictures (one death, a tie, nobody: at the end and one death as it
+# goes in four frames; ten players with long names at several widths and text
+# sizes) into <folder>. Usage: just count-pictures [folder] [width]
+count-pictures folder="build/count_pictures" width="360":
+    flutter test test_screens/count_pictures_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=COUNT_PICTURES_DIR={{folder}} \
+      --dart-define=COUNT_PICTURES_WIDTH={{width}}

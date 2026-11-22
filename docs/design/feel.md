@@ -87,8 +87,8 @@ Decided 22 Nov 2026: everything is light except the dead card's flip, the one me
 | Name | Is | Fires |
 |---|---|---|
 | `tick` | `selectionClick`, light | A vote pick on 09, each time the pick moves. Taking back "Ready to vote" on 08 |
-| `light` | `lightImpact` | "Ready to vote" tapped (08). "Lock in {name}" tapped (09), on the tap, not on the answer. 11 Results: once, when the result lands (every phone, the same instant) |
-| `thud` | `mediumImpact`, the one medium | The dead card landing face up (10): once per count, with several dead too, on every phone at the same moment. A tap that finishes the flip fires it once, as it lands |
+| `light` | `lightImpact` | "Ready to vote" tapped (08). "Lock in {name}" tapped (09), on the tap, not on the answer. 11 Results: once, when the result lands (every phone, the same instant). 10 when nobody dies: once, as the last mark is struck |
+| `thud` | `mediumImpact`, the one medium | The dead card landing face up (10): once per count, with several dead too, on every phone at the same moment. A tap that finishes the flip fires it once, as it lands. Wired in pass 4b (`light` too, once, when nobody dies) |
 
 Decided 22 Nov 2026. Where: 08, 09, 10 and 11, the day. "Ready" means only 08's "Ready to vote"; 04's "Ready" is in the
 night and has none. 11 counts as a day screen although its ground is the night's.
@@ -98,7 +98,7 @@ banner, error, disabled tap, timer tick, reconnect or a player arriving or leavi
 that only one phone gets because of its role or what it did at night; no `heavyImpact`, no long
 `vibrate`.
 
-How it is built (pass 4a, `frontend/lib/design_system/feel/haptics.dart`; the vote's tick and light are wired, `thud` and the other calls come with their passes): one `Haptics` class with these three names and nothing else calls
+How it is built (pass 4a, `frontend/lib/design_system/feel/haptics.dart`; the vote's tick and light are wired, `thud` and the count's calls are wired in pass 4b, the others come with their passes): one `Haptics` class with these three names and nothing else calls
 `HapticFeedback` (`haptics_only_here_test.dart` fails any direct call, as `fixture_sources_test.dart` does for fixtures).
 It does nothing on the night's ground whoever calls it (the call takes the touched widget's context, so it must be made from under the screen's own ground), and never throws; a test listens on the platform channel to see what fired. A
 vibration goes with a visible change on the same frame and is never the only sign.
@@ -233,11 +233,12 @@ One body for every place the app waits (`Waiting`), laid in the frame of the scr
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| Count opens | Rows land one after another (12 px up, fading in), the same on every phone | `stagger`, `settle` | Starts finished | exists |
-| The held beat, then the dead card turns | Nothing moves for 1.2 s, then the face-down card turns over | `beat`, `reveal` (easeInOut) | Starts finished | exists |
-| The card lands face up | A thud, once per count, as the flip ends; with several dead they turn together, one thud | `thud` | The vibration still fires | pass 4 |
-| Tap anywhere | The motion jumps to its end; "See who won" worked all along | none | n/a | exists |
-| Nobody dies | "Nobody dies." and the rows land; no flip, no vibration | `stagger` | Starts finished | exists |
+| Count opens | Rows drop in whole, one after another (12 px up, never faded: paper and words at half strength read on nothing), the same on every phone. The band's verdict, each row's number and its voters are there from the row's first frame | `stagger`, `settle` | Starts finished | pass 4b |
+| The votes are struck | Under each number the votes are struck as paper tally marks (four strokes and a fifth across), one after another down the rows, from the first row's landing to where the cards turn: the beat is filled, nothing is added. Marks only show how the count arrives; the number is whole from the start | `quick` each, spread over the landing and `beat` | All struck | pass 4b |
+| The dead card turns | Face down through the beat, then it rises a tenth in size and turns over (the face and its words cut in at the half, not faded) | `reveal` (easeInOut) | Starts finished | pass 4b |
+| The card lands face up | Every row the vote killed is cut dried-blood red with bone words (a cut, never a blend); a thud, once per count, with several dead too (a tie: both rows, one thud) | `thud` | Red at once; the vibration still fires | pass 4b |
+| Tap anywhere | The motion jumps to its end (red and the thud as it lands); "See who won" worked all along | none | n/a | exists |
+| Nobody dies | "Nobody dies." and the rows land with their marks, none red; no flip; a light knock as the last mark is struck (decided in pass 4b: the owner asked for a firm haptic on the outcome, and nobody dying is one) | `stagger`, `light` | All struck, the light knock at once | pass 4b |
 | "See who won" | Day to results: the band's scene rises. Today a crossfade | `settle` (`scene` if pass 5 needs it) | Cut | pass 5 |
 
 ### Results (11)

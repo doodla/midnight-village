@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
@@ -134,6 +135,9 @@ class PlayerNameSize extends InheritedWidget {
 ///   sealed), and with [lockedFill] [LockedFill.bloodFill] the paper turns
 ///   dried-blood red with its words in bone. Never a fill of the screen's
 ///   amber.
+/// - [condemned]: the count's verdict on a player the vote killed: the paper
+///   is cut dried-blood red with its words in bone, readable across a table
+///   (a cut, never a blend, as the locked vote's red). No seal.
 /// - [stretch]: how much taller than its size the row stands, where the
 ///   room allows it (the vote fills the screen).
 /// - A row with [onTap] dips 2 px the frame a finger lands and comes back
@@ -154,6 +158,7 @@ class PlayerRow extends StatefulWidget {
     this.away = false,
     this.dimmed = false,
     this.sealed = false,
+    this.condemned = false,
     this.lockedFill = LockedFill.standard,
     this.stretch = 0,
     this.onTap,
@@ -173,6 +178,7 @@ class PlayerRow extends StatefulWidget {
   final bool away;
   final bool dimmed;
   final bool sealed;
+  final bool condemned;
 
   /// What [sealed] does to the paper.
   final LockedFill lockedFill;
@@ -238,6 +244,7 @@ class _PlayerRowState extends State<PlayerRow> {
     final skin = context.skin;
     final ground = context.ground;
     final bloody = sealed && widget.lockedFill == LockedFill.bloodFill;
+    final red = bloody || widget.condemned;
     final reduced = MediaQuery.disableAnimationsOf(context);
     // A finger answers in the first frame (`press` down, `quick` back up);
     // with reduce motion the paper tints instead of moving.
@@ -245,7 +252,7 @@ class _PlayerRowState extends State<PlayerRow> {
     final dip = pressed && !reduced ? PlayerRow.dip : 0.0;
     final lift = picked ? Space.xs : 0.0;
     final base = picked ? ground.elevation.selected : ground.elevation.card;
-    final fill = bloody
+    final fill = red
         ? ground.danger
         : pressed && reduced
         ? Color.alphaBlend(
@@ -281,7 +288,7 @@ class _PlayerRowState extends State<PlayerRow> {
 
     final paper = AnimatedContainer(
       // The red is cut in, not blended from bone (see [ink]).
-      key: ValueKey(bloody),
+      key: ValueKey(red),
       duration: duration,
       curve: Motion.curve,
       transform: Matrix4.translationValues(0, dip - lift, 0),
@@ -391,7 +398,8 @@ class _PlayerRowState extends State<PlayerRow> {
                     FitWords(
                       detail,
                       style: skin.typography.body.copyWith(
-                        color: skin.paper.quietText,
+                        // On red paper the quiet ink is unreadable: the bone.
+                        color: red ? ink : skin.paper.quietText,
                       ),
                     ),
                 ],
@@ -468,18 +476,104 @@ class _RowInk extends InheritedWidget {
   bool updateShouldNotify(_RowInk old) => ink != old.ink;
 }
 
-/// The number of votes at the end of a count row (S10).
+/// The number of votes at the end of a count row (S10). With [struck], the
+/// votes are also tally marks under the number, cut from paper: four strokes
+/// and a fifth across them, in the row's ink. [struck] says how far mark `k`
+/// (from 0) is struck, 0 to 1; it is only how the marks arrive, the number is
+/// the whole count from the first frame (nothing is held back).
 class Tally extends StatelessWidget {
-  const Tally(this.count, {super.key});
+  const Tally(this.count, {super.key, this.struck});
 
   final int count;
+  final double Function(int mark)? struck;
 
   @override
-  Widget build(BuildContext context) => Text(
-    '$count',
-    textAlign: TextAlign.end,
-    style: context.skin.typography.tally.copyWith(
-      color: _RowInk.of(context)?.ink ?? context.ground.text,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final ink = _RowInk.of(context)?.ink ?? context.ground.text;
+    final number = Text(
+      '$count',
+      textAlign: TextAlign.end,
+      style: context.skin.typography.tally.copyWith(color: ink),
+    );
+    final struck = this.struck;
+    if (struck == null) return number;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      spacing: Space.xxs,
+      children: [
+        number,
+        ExcludeSemantics(
+          child: CustomPaint(
+            size: TallyMarks.sizeOf(count),
+            painter: TallyMarks([
+              for (var k = 0; k < count; k++) struck(k),
+            ], ink),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Votes as paper tally marks: groups of five (four strokes and a slash
+/// across them), each stroke drawn downward as it is struck. A hand's cut, so
+/// every stroke leans a little differently, the same each time.
+class TallyMarks extends CustomPainter {
+  TallyMarks(this.progress, this.ink);
+
+  /// How far each mark is struck, 0 to 1, in order.
+  final List<double> progress;
+  final Color ink;
+
+  static const strokeHeight = 18.0;
+  static const strokeWidth = 4.0;
+  static const pitch = 8.0;
+  static const groupGap = 10.0;
+
+  /// A group's width: four strokes (the fifth lies across them).
+  static const _group = 3 * pitch + strokeWidth;
+
+  static Size sizeOf(int count) {
+    final groups = (count + 4) ~/ 5;
+    final last = count - (groups - 1) * 5;
+    final lastWidth = last >= 4 ? _group : (last - 1) * pitch + strokeWidth;
+    final width = groups == 0
+        ? 0.0
+        : (groups - 1) * (_group + groupGap) + lastWidth;
+    return Size(width, strokeHeight);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = ink
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
+    for (var k = 0; k < progress.length; k++) {
+      final t = Motion.curve.transform(progress[k].clamp(0.0, 1.0));
+      if (t <= 0) continue;
+      final group = k ~/ 5;
+      final at = k % 5;
+      final left = group * (_group + groupGap);
+      // A little lean, from the stroke's place only.
+      final lean = ((k * 7) % 5 - 2) * 0.35;
+      if (at < 4) {
+        final x = left + at * pitch + strokeWidth / 2;
+        canvas.drawLine(
+          Offset(x - lean, 0),
+          Offset(x - lean + (lean * 2) * t, strokeHeight * t),
+          paint,
+        );
+      } else {
+        final end = Offset(left + _group + 1, strokeHeight * 0.15);
+        final start = Offset(left - 1, strokeHeight * 0.85);
+        canvas.drawLine(start, Offset.lerp(start, end, t)!, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(TallyMarks old) =>
+      ink != old.ink || !listEquals(progress, old.progress);
 }
