@@ -53,6 +53,18 @@ sealed class SceneEntry {
   const SceneEntry();
 }
 
+/// The share of a scene (0 to 1 of `Motion.scene`) a layer takes to travel
+/// from where it starts to where it rests, in `Motion.curve`: it holds still
+/// before [begin] and rests from [end].
+@immutable
+class ArrivalSpan {
+  const ArrivalSpan(this.begin, this.end)
+    : assert(0 <= begin && begin < end && end <= 1);
+
+  final double begin;
+  final double end;
+}
+
 /// One cut of paper: a picture with its own alpha, laid where it belongs on
 /// the scene's canvas.
 @immutable
@@ -62,6 +74,7 @@ class SceneLayer extends SceneEntry {
     required this.size,
     this.anchor = Offset.zero,
     this.from = Offset.zero,
+    this.span,
     this.clipTo,
   });
 
@@ -84,6 +97,11 @@ class SceneLayer extends SceneEntry {
   /// under an overlap and the ends of a shadow are only drawn so far;
   /// `docs/design/art/layers/*/PROVENANCE.md`).
   final Offset from;
+
+  /// When in the scene it travels. Null: with the screen, over the sheet's
+  /// own landing. A span later than that (the moon's) is its own arrival,
+  /// after the sheet has landed.
+  final ArrivalSpan? span;
 
   /// The [file] of an earlier layer this one is drawn over only where that
   /// one has paint (a shadow cast on the moon), the two moving apart as

@@ -294,6 +294,40 @@ void main() {
       await s.close(tester);
     });
 
+    testWidgets('while the talk\'s /me/ loads there is no sun (the table does '
+        'not know where the talk is), and the talk then brings the one sun', (
+      tester,
+    ) async {
+      _phone(tester);
+      final s = await _atNight(tester);
+      final held = s.http.hold(
+        method: 'GET',
+        path: '/onuw/games/${s.gameId}/me/',
+      );
+      s.answerMe(recordedMe('me_discussion_choose_seer'));
+      s.resume();
+      await _begun(tester, find.byType(TimerBand));
+      Finder sun() => find.byWidgetPredicate(
+        (w) =>
+            w is Image &&
+            w.image is ResizeImage &&
+            ((w.image as ResizeImage).imageProvider as AssetImage).assetName
+                .endsWith('/sun.webp'),
+      );
+      expect(find.byType(TalkScreen), findsNothing, reason: '/me/ is held');
+      expect(sun(), findsNothing, reason: 'no sun drawn at the start');
+      await tester.pump(_ms * 100);
+      expect(sun(), findsNothing);
+      held.releaseAll();
+      await tester.pump(_ms * 60);
+      expect(find.byType(TalkScreen), findsOneWidget);
+      expect(sun(), findsOneWidget, reason: 'the one sun, where the clock is');
+      await tester.pump(Motion.scene);
+      await tester.pump();
+      expect(sun(), findsOneWidget);
+      await s.close(tester);
+    });
+
     testWidgets('no frame leaves a gap anywhere in the window', (tester) async {
       _phone(tester);
       final s = await _atNight(tester);
@@ -316,6 +350,73 @@ void main() {
   });
 
   group('the dusk: the deal to the night', () {
+    testWidgets(
+      'the moon is lowered into its sky after the sheet has landed: '
+      'still moving against the plate when the sheet is within 2 px of rest',
+      (tester) async {
+        _phone(tester);
+        final s = await _atTable(tester);
+        s.answerMe(recordedMe('me_look_stage'));
+        s.resume();
+        await _begun(tester, find.byType(YourCardScreen));
+        final art = SkinId.fallback.skin.art;
+        final scene = art.layeredScene(LayeredSceneId.nightVillage);
+        Finder layer(String file) => find.byWidgetPredicate(
+          (w) =>
+              w is Image &&
+              w.image is ResizeImage &&
+              ((w.image as ResizeImage).imageProvider as AssetImage).assetName
+                  .endsWith('/$file.webp'),
+        );
+        final moon = scene.files.firstWhere((l) => l.file == 'moon');
+        final plate = scene.files.firstWhere((l) => l.file == 'village_plate');
+        final scale =
+            tester.getSize(layer('village_plate')).width / plate.size.width;
+        // Where the moon lies against the plate, less where it rests.
+        double away() =>
+            (tester.getTopLeft(layer('moon')) -
+                    tester.getTopLeft(layer('village_plate')) -
+                    (moon.anchor - plate.anchor) * scale)
+                .distance;
+        // How far the sheet (the card's screen) is from where it lands, in px.
+        double sheet() =>
+            tester
+                .widget<SlideTransition>(
+                  find
+                      .ancestor(
+                        of: find.byType(YourCardScreen),
+                        matching: find.byType(SlideTransition),
+                      )
+                      .first,
+                )
+                .position
+                .value
+                .dy
+                .abs() *
+            844;
+        expect(away(), closeTo(moon.from.distance * scale, 0.5));
+        var passed = 0;
+        while (sheet() > 2 && passed < 500) {
+          await tester.pump(_ms * 5);
+          passed += 5;
+        }
+        expect(passed, lessThan(Motion.scene.inMilliseconds));
+        final landed = away();
+        expect(
+          landed,
+          greaterThan(10),
+          reason: 'the sheet is down and the moon is still coming',
+        );
+        await tester.pump(_ms * 50);
+        expect(away(), lessThan(landed - 5), reason: 'and it keeps moving');
+        // It starts after the sheet is down to the eye, not with it: at the
+        // first frames it has not begun (it is where it started).
+        await tester.pump(Motion.scene);
+        expect(away(), closeTo(0, 0.01), reason: 'then it rests');
+        await s.close(tester);
+      },
+    );
+
     testWidgets('runs for Motion.scene, the table sinking off the card, '
         'and finishes', (tester) async {
       final s = await _atTable(tester);

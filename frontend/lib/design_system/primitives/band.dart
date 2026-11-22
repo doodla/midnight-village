@@ -140,6 +140,7 @@ class TimerBand extends StatelessWidget {
     super.key,
     required this.secondsLeft,
     required this.elapsed,
+    this.showSun = true,
     this.title,
     this.semanticLabel,
   }) : _sun = true,
@@ -152,6 +153,7 @@ class TimerBand extends StatelessWidget {
     this.title,
     this.semanticLabel,
   }) : _sun = false,
+       showSun = true,
        elapsed = null;
 
   /// Null: the stage has no deadline, and nothing is counted.
@@ -159,6 +161,11 @@ class TimerBand extends StatelessWidget {
 
   /// The sun: how far through the phase it is, 0 to 1; null when unknown.
   final double? elapsed;
+
+  /// The sun: false draws the sky and its path with no sun (the talk's own
+  /// frame while its `/me/` loads: the table does not know where the talk is,
+  /// and a sun drawn at the start would be seen leaving as the real one comes).
+  final bool showSun;
 
   /// The bar: how much of the phase is left, 0 to 1; null when unknown.
   final double? remaining;
@@ -329,6 +336,7 @@ class TimerBand extends StatelessWidget {
                       slot: slot,
                       arrival: arrival,
                       elapsed: elapsed?.clamp(0, 1).toDouble(),
+                      showSun: showSun,
                       art: skin.art.layer(
                         LayeredSceneId.dawnGallows,
                         slot.sprite!,
@@ -433,6 +441,7 @@ class _Sun extends StatelessWidget {
     required this.slot,
     required this.arrival,
     required this.elapsed,
+    required this.showSun,
     required this.art,
     required this.line,
     required this.lineWidth,
@@ -441,6 +450,7 @@ class _Sun extends StatelessWidget {
   final SceneGeometry geometry;
   final SceneSlot slot;
   final Animation<double>? arrival;
+  final bool showSun;
 
   /// Null: not known; the sun stands at [TimerBand.restingSun].
   final double? elapsed;
@@ -493,7 +503,9 @@ class _Sun extends StatelessWidget {
         CustomPaint(
           painter: _DotsPainter(path: path, line: line, lineWidth: lineWidth),
         ),
-        if (arrival == null)
+        if (!showSun)
+          const SizedBox.shrink()
+        else if (arrival == null)
           sun(1)
         else
           Positioned.fill(

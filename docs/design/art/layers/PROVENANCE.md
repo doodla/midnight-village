@@ -29,14 +29,32 @@ folder and are not kept here: the PNGs are the record, and `flat.jpg` is the che
 | 08 `gallows`, `birds` | colour masks, rim alpha measured against what is behind | 08 |
 | 08 `roofs_mid`, `roofs_near` | one roof cut, then split along the seams read off the picture; the middle roofs continue 14 px under the near roofs | 08 roof paper |
 
+## Making them again
+
+`frontend/tool/layers/` holds the scripts that cut the two flat pictures into these layers, in the
+order `run.sh` runs them (numpy, OpenCV, Pillow, scipy, fetched by `uv`):
+
+    frontend/tool/layers/run.sh /some/work/folder
+    uv run --with numpy --with pillow python frontend/tool/layers/compare.py /some/work/folder/out
+
+`run.sh` copies each `flat.jpg` in, runs 04 (`s04_masks.py`: the moon's circle; `s04_sky.py`: a cubic sky
+model; `s04_seg.py`: the moon, clouds, tips and shadows; `s04_export2.py`, through `s04_build.py` and
+`s04_layers2.py`: the plate, the cloud and shadow layers, the torn tips, the bleed) and then 08 (`s08_a.py`
+and `s08_b.py`: the classes, the plate and the pale band; `s08_c.py`: the roofs and gallows, birds, the fill
+under them; `s08_d.py`, through `s08_export.py`: the split of the roofs along the seams, the layers and
+their bleed; `s08_sun.py`: the sun, cut from 04's moon paper), and leaves the layers as PNG and WebP in
+`<folder>/out/`. `compare.py` sets them against the masters here: the run reproduces every one exactly
+(mean difference 0). To change a piece, change the stage that makes it, run, copy the new PNG over the master
+here (without the `04_`/`08_` prefix), then `just skin-art` and the numbers it prints into the skin.
+
 ## What each layer may do (and why the skin keeps to it)
 
 - A file named `*_bleedNN` carries NN px of mirrored paper outside the canvas on the sides it slides
   toward (04: 16 px left and right; 08: 12 px on every side), so a moved layer still reaches the
-  picture's edge. The art is cut for: 04's moon 60 px up or down, each cloud and its shadows 12 px sideways
-  (a cloud's own shadow moves with it); 08's roofs about 4 to 8 px of difference between the near and
-  the middle roofs before a seam shows (the app moves them much further, from below the window's faded
-  foot, where the rest is hidden), the birds freely.
+  picture's edge. The art is cut for: 04's clouds and their shadows 16 px sideways (a cloud's own shadow moves
+  with it), the moon anywhere (nothing of the plate is under it; its shadows are cast by the clouds, so they slide
+  over it as it moves); 08's roofs, hills and gallows as one bank (the paper under the seams is 12 px deep: the near
+  roofs may lead or lag it by that and no more), the birds freely.
 - Light: 04 from the upper left (shadows fall down and right), 08 from the upper right (down and left).
 - The shadows of the clouds on the moon are drawn over the moon only where the moon has paint
   (`BlendMode.srcATop`), and move with their cloud sideways, not with the moon.

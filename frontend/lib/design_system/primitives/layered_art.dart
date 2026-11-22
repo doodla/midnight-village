@@ -1,6 +1,7 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import 'scene_arrival.dart';
@@ -123,6 +124,7 @@ class LayeredArt extends StatelessWidget {
     final art = context.skin.art;
     final scene = art.layeredScene(id);
     final arrival = travel ? SceneArrival.maybeOf(context) : null;
+    final clock = travel ? SceneArrival.sceneOf(context) : null;
     final ratio = MediaQuery.devicePixelRatioOf(context);
     return RepaintBoundary(
       child: ClipRect(
@@ -137,6 +139,8 @@ class LayeredArt extends StatelessWidget {
                 child: _Travel(
                   from: layer.from * geometry.scale,
                   arrival: arrival,
+                  clock: clock,
+                  span: layer.span,
                   child: Image(
                     image: art.layer(id, layer).decodedFor(rect.size, ratio),
                     fit: BoxFit.fill,
@@ -206,22 +210,40 @@ class _Travel extends StatelessWidget {
   const _Travel({
     required this.from,
     required this.arrival,
+    required this.clock,
+    required this.span,
     required this.child,
   });
 
   final Offset from;
   final Animation<double>? arrival;
+  final Animation<double>? clock;
+  final ArrivalSpan? span;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final arrival = this.arrival;
-    if (arrival == null || from == Offset.zero) return child;
+    final span = this.span;
+    final clock = this.clock;
+    // A layer with a window of its own runs the scene's clock through it; any
+    // other (or a scene with no clock) goes with the sheet's landing.
+    final run = span != null && clock != null ? clock : arrival;
+    if (run == null || from == Offset.zero) return child;
+    final curve = span == null
+        ? null
+        : Interval(span.begin, span.end, curve: Motion.curve);
     return AnimatedBuilder(
-      animation: arrival,
+      animation: run,
       child: child,
-      builder: (context, child) =>
-          Transform.translate(offset: from * (1 - arrival.value), child: child),
+      builder: (context, child) => Transform.translate(
+        offset:
+            from *
+            (1 -
+                (curve == null || clock == null
+                    ? run.value
+                    : curve.transform(run.value))),
+        child: child,
+      ),
     );
   }
 }

@@ -9,17 +9,32 @@ import 'package:flutter/widgets.dart';
 /// screen with no scene running is told nothing (null) and sits where it
 /// rests.
 class SceneArrival extends InheritedWidget {
-  const SceneArrival({super.key, required this.progress, required super.child});
+  const SceneArrival({
+    super.key,
+    required this.progress,
+    this.scene,
+    required super.child,
+  });
 
   final Animation<double>? progress;
+
+  /// The whole scene's own clock, 0 to 1 over `Motion.scene`, linear: what a
+  /// layer with its own window in the scene (`SceneLayer.span`) takes its
+  /// share of, so one can arrive after the sheet has landed. Null where
+  /// there is no such clock (the layers then travel with [progress]).
+  final Animation<double>? scene;
 
   /// The arrival the nearest scene reports, or null when there is none.
   static Animation<double>? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<SceneArrival>()?.progress;
 
+  /// The nearest scene's own clock (see [scene]), or null.
+  static Animation<double>? sceneOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<SceneArrival>()?.scene;
+
   @override
   bool updateShouldNotify(SceneArrival oldWidget) =>
-      oldWidget.progress != progress;
+      oldWidget.progress != progress || oldWidget.scene != scene;
 }
 
 /// Shifts [child] by [travel] of its own height times what is left of the

@@ -290,8 +290,10 @@ class _CardWaits extends StatelessWidget {
   );
 }
 
-/// 08 while its `/me/` loads: the frame the talk is laid in, the sky with the
-/// sun at the start of its arc and the headline, no number yet.
+/// 08 while its `/me/` loads: the frame the talk is laid in, the sky with its
+/// dotted path and the headline, no number yet and no sun: where the talk is
+/// is not known until `/me/` says, and a sun drawn at the start would leave
+/// as the real one arrived (a player who opens the app mid-talk).
 class _TalkWaits extends StatelessWidget {
   const _TalkWaits();
 
@@ -300,7 +302,8 @@ class _TalkWaits extends StatelessWidget {
     ground: GroundKind.day,
     topSlot: const TimerBand.sun(
       secondsLeft: null,
-      elapsed: 0,
+      elapsed: null,
+      showSun: false,
       title: TalkCopy.headline,
     ),
     fitsHeight: true,

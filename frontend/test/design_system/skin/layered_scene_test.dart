@@ -28,13 +28,15 @@ const _flats = {
 /// what the art was cut for (the clouds' shadows end and the moon's rim are
 /// only drawn that far; `docs/design/art/layers/night-village/PROVENANCE.md`).
 const _nightTravel = {
-  'moon': Offset(0, 60),
-  'moon_shadow_dark': Offset(12, 0),
-  'moon_shadow_cream': Offset(12, 0),
-  'clouds_dark': Offset(12, 0),
-  'clouds_dark_shadow': Offset(12, 0),
-  'clouds_cream': Offset(12, 0),
-  'clouds_cream_shadow': Offset(12, 0),
+  // Nothing of the plate is under the moon and its shadows are cast by the
+  // clouds, so it may come from anywhere: from above the top edge.
+  'moon': Offset(0, 240),
+  'moon_shadow_dark': Offset(16, 0),
+  'moon_shadow_cream': Offset(16, 0),
+  'clouds_dark': Offset(16, 0),
+  'clouds_dark_shadow': Offset(16, 0),
+  'clouds_cream': Offset(16, 0),
+  'clouds_cream_shadow': Offset(16, 0),
 };
 
 void main() {
@@ -118,6 +120,90 @@ void main() {
           lessThanOrEqualTo(limit.dy),
           reason: layer.file,
         );
+      }
+    });
+
+    test('the dawn\'s hills, roofs and gallows rise as one bank: no edge of '
+        'one is shown free of what hides it', () {
+      final layers = {
+        for (final l
+            in _art
+                .layeredScene(LayeredSceneId.dawnGallows)
+                .layers
+                .whereType<SceneLayer>())
+          l.file: l,
+      };
+      final bank = layers['hills_far']!.from;
+      expect(layers['roofs_mid']!.from, bank);
+      expect(layers['gallows']!.from, bank);
+      // The paper under the seams is drawn 12 px deep: the near roofs may
+      // lead or lag the rest by that much, for the parallax, and no more.
+      expect(
+        (layers['roofs_near']!.from - bank).distance,
+        inInclusiveRange(1, 12),
+      );
+      expect(bank.dy, greaterThan(0), reason: 'they rise from below');
+    });
+
+    test('the sun is more than half in view from the first second to the '
+        'last of the talk', () {
+      final scene = _art.layeredScene(LayeredSceneId.dawnGallows);
+      final arc = scene.layers.whereType<SceneSlot>().single.arc!;
+      img.Image master(String name) => img.decodePng(
+        File(
+          '../docs/design/art/layers/dawn-gallows/$name.png',
+        ).readAsBytesSync(),
+      )!;
+      final hills = master('hills_far');
+      final gallows = master('gallows');
+      // The roofs' masters carry 12 px of paper beyond the canvas.
+      final mid = master('roofs_mid_bleed12');
+      final near = master('roofs_near_bleed12');
+      double covered(int x, int y) {
+        double alpha(img.Image im, int dx, int dy) {
+          final px = x + dx;
+          final py = y + dy;
+          if (px < 0 || py < 0 || px >= im.width || py >= im.height) return 0;
+          return im.getPixel(px, py).a / 255;
+        }
+
+        return 1 -
+            (1 - alpha(hills, 0, 0)) *
+                (1 - alpha(gallows, 0, 0)) *
+                (1 - alpha(mid, 12, 12)) *
+                (1 - alpha(near, 12, 12));
+      }
+
+      final path = Path()
+        ..moveTo(arc.start.dx, arc.start.dy)
+        ..quadraticBezierTo(
+          arc.control.dx,
+          arc.control.dy,
+          arc.end.dx,
+          arc.end.dy,
+        );
+      final metric = path.computeMetrics().first;
+      double inView(double elapsed) {
+        final at = metric
+            .getTangentForOffset(
+              metric.length * (arc.rise + (arc.set - arc.rise) * elapsed),
+            )!
+            .position;
+        var seen = 0.0;
+        var total = 0;
+        for (var dy = -50; dy <= 50; dy += 2) {
+          for (var dx = -50; dx <= 50; dx += 2) {
+            if (dx * dx + dy * dy > 2500) continue;
+            total++;
+            seen += 1 - covered((at.dx + dx).round(), (at.dy + dy).round());
+          }
+        }
+        return seen / total;
+      }
+
+      expect(inView(0), greaterThan(0.95), reason: 'just clear of the ridge');
+      for (final e in [0.25, 0.5, 0.75, 0.9, 0.99, 1.0]) {
+        expect(inView(e), greaterThan(0.5), reason: 'at $e of the talk');
       }
     });
 

@@ -151,6 +151,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
   Animation<double> _in = kAlwaysCompleteAnimation;
   Animation<Offset> _inSlide = const AlwaysStoppedAnimation(Offset.zero);
   Animation<double>? _arrival;
+  Animation<double>? _clock;
   Animation<Offset> _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
   Animation<double> _dim = kAlwaysDismissedAnimation;
 
@@ -173,6 +174,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
     _in = kAlwaysCompleteAnimation;
     _inSlide = const AlwaysStoppedAnimation(Offset.zero);
     _arrival = null;
+    _clock = null;
     _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
     _dim = kAlwaysDismissedAnimation;
   }
@@ -190,6 +192,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
       _in = kAlwaysCompleteAnimation;
       _inSlide = const AlwaysStoppedAnimation(Offset.zero);
       _arrival = null;
+      _clock = null;
       _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
       _dim = kAlwaysDismissedAnimation;
     });
@@ -231,6 +234,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
         _in = run.span(0, 1);
         _inSlide = const AlwaysStoppedAnimation(Offset.zero);
         _arrival = null;
+        _clock = null;
         _oldSlide = const AlwaysStoppedAnimation(Offset.zero);
         _dim = kAlwaysDismissedAnimation;
       case SceneKind.dusk:
@@ -240,6 +244,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
           Tween(begin: const Offset(0, -1), end: Offset.zero),
         );
         _arrival = landing;
+        _clock = run.controller;
         _oldSlide = landing.drive(
           Tween(begin: Offset.zero, end: const Offset(0, 0.03)),
         );
@@ -249,6 +254,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
         _in = kAlwaysCompleteAnimation;
         _inSlide = const AlwaysStoppedAnimation(Offset.zero);
         _arrival = landing;
+        _clock = run.controller;
         _oldSlide = landing.drive(
           Tween(begin: Offset.zero, end: const Offset(0, 1)),
         );
@@ -264,6 +270,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
       opacity: _in,
       slide: _inSlide,
       arrival: _arrival,
+      clock: _clock,
       leaving: false,
       child: widget.child,
     );
@@ -278,6 +285,7 @@ class _SceneSwitcherState<T> extends State<SceneSwitcher<T>>
             opacity: gone.opacity,
             slide: const AlwaysStoppedAnimation(Offset.zero),
             arrival: null,
+            clock: null,
             leaving: true,
             child: gone.child,
           ),
@@ -324,6 +332,7 @@ class _Layer extends StatelessWidget {
     required this.opacity,
     required this.slide,
     required this.arrival,
+    required this.clock,
     required this.leaving,
     required this.child,
   });
@@ -331,6 +340,7 @@ class _Layer extends StatelessWidget {
   final Animation<double> opacity;
   final Animation<Offset> slide;
   final Animation<double>? arrival;
+  final Animation<double>? clock;
   final bool leaving;
   final Widget child;
 
@@ -346,7 +356,7 @@ class _Layer extends StatelessWidget {
           opacity: opacity,
           alwaysIncludeSemantics: true,
           child: RepaintBoundary(
-            child: SceneArrival(progress: arrival, child: child),
+            child: SceneArrival(progress: arrival, scene: clock, child: child),
           ),
         ),
       ),
