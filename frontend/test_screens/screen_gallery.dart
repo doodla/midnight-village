@@ -73,6 +73,7 @@ Future<ScreenCapture> captureScreen(
   Future<void> Function(WidgetTester tester) build, {
   required int width,
   bool playerScreen = false,
+  int? frames,
 }) async {
   tester.view.physicalSize = Size(
     width * _pixelRatio,
@@ -93,7 +94,7 @@ Future<ScreenCapture> captureScreen(
   final (png, failure) = await () async {
     try {
       await build(tester);
-      for (var i = 0; i < _settleFrames; i++) {
+      for (var i = 0; i < (frames ?? _settleFrames); i++) {
         await tester.pump(_frameTime);
       }
       findings.addAll([

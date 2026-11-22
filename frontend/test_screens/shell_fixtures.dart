@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
@@ -5,7 +7,11 @@ import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/panels.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/skin/ground.dart';
+import 'package:midnight_village/design_system/skin/ground_scope.dart';
+import 'package:midnight_village/design_system/skin/skin_choice.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
+import 'package:midnight_village/features/game/presentation/shell/waits.dart';
 
 import '../test/helpers/component_sheet.dart' show holdDown;
 import '../test/helpers/sheet/sheet_data.dart' as sheet;
@@ -411,3 +417,118 @@ Future<void> pumpVoteThree(WidgetTester tester) => _shell(
   ),
   learned: Cue.values.toSet(),
 );
+// ---------------------------------------------------------------------------
+// Waiting and failing: what a phone shows while a game's data is not here, or
+// while the phone cannot reach the server (issue 10).
+// ---------------------------------------------------------------------------
+
+/// 08 while its `/me/` loads: the sky, the headline, the wait where the card
+/// will be.
+Future<void> pumpTalkWaiting(WidgetTester tester) => _shell(
+  tester,
+  sheet.recordedMe('me_discussion_choose_seer'),
+  learned: Cue.values.toSet(),
+  holdMe: true,
+);
+
+/// 09 while its `/me/` loads: the band, the headline, the wait where the
+/// names will be.
+Future<void> pumpVoteWaiting(WidgetTester tester) => _shell(
+  tester,
+  sheet.recordedMe('me_voting_unpicked'),
+  learned: Cue.values.toSet(),
+  holdMe: true,
+);
+
+/// 08 while its `/me/` cannot be read: "One moment" with "Try again", in the
+/// talk's own frame.
+Future<void> pumpTalkWaitFailing(WidgetTester tester) async {
+  final setup = await ShellSetup.pump(
+    tester,
+    sheet.recordedMe('me_discussion_choose_seer'),
+    learned: Cue.values.toSet(),
+    before: (s) => s.failMe(),
+  );
+  await setup.settle(tester);
+}
+
+/// A game on screen when the phone loses the server: "One moment" over the
+/// top, the seat and the screen as they were (the socket down, the fetches
+/// failing).
+Future<void> _offline(WidgetTester tester, ShellSetup setup) async {
+  setup.socket(connected: false);
+  setup.failMe();
+  setup.resume();
+  await setup.settle(tester);
+}
+
+/// 06 with the phone offline.
+Future<void> pumpNightOffline(WidgetTester tester) async {
+  final setup = await _shell(tester, sheet.recordedMe('me_choose_prompt_seer'));
+  await _offline(tester, setup);
+}
+
+/// 08 with the phone offline.
+Future<void> pumpTalkOffline(WidgetTester tester) async {
+  final setup = await pumpTalkPutAway(tester);
+  await _offline(tester, setup);
+}
+
+/// 09 with the phone offline.
+Future<void> pumpVoteOffline(WidgetTester tester) async {
+  final setup = await pumpVoteOpen(tester);
+  await _offline(tester, setup);
+}
+
+/// 04 when "Ready" got no answer: "Not sent." with "Try again".
+Future<void> pumpYourCardNotSent(WidgetTester tester) async {
+  final setup = await _shell(
+    tester,
+    sheet.recordedMe('me_look_stage'),
+    learned: Cue.values.toSet(),
+  );
+  final hold = await holdDown(tester, find.byType(FaceDownCard));
+  await hold.up();
+  await tester.pump();
+  setup.failPost('/ready/');
+  await tester.tap(find.byType(PrimaryButton).last);
+  await setup.settle(tester);
+}
+
+/// 09 when a pick got no answer: "Not sent." with "Try again".
+Future<void> pumpVoteNotSent(WidgetTester tester) async {
+  final setup = await pumpVoteOpen(tester);
+  setup.failPost('/vote/');
+  await tester.tap(find.text(sheet.cleo.name));
+  await setup.settle(tester);
+}
+
+/// [screen] on its own, in the app's theme (a frame no route reaches on
+/// its own in a picture: the shell shows it only between two answers).
+Future<void> _pumpFrame(WidgetTester tester, Widget screen) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      child: Consumer(
+        builder: (context, ref, _) => MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: ref.watch(appThemeProvider),
+          builder: (context, child) =>
+              GroundScope(ground: GroundKind.night, child: child!),
+          home: screen,
+        ),
+      ),
+    ),
+  );
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+void _noRetry() {}
+
+/// 04 while its `/me/` loads (the deal has just landed): the village and
+/// the headline, the wait where the card will be.
+Future<void> pumpYourCardWaiting(WidgetTester tester) =>
+    _pumpFrame(tester, const CardWait(failing: false, onRetry: _noRetry));
+
+/// 04's wait while the game cannot be read: "One moment" with "Try again".
+Future<void> pumpYourCardWaitFailing(WidgetTester tester) =>
+    _pumpFrame(tester, const CardWait(failing: true, onRetry: _noRetry));

@@ -20,6 +20,7 @@ just format-check      # dart format check of lib, test, test_screens
 just gen               # Riverpod code generation, after changing any provider
 just screens [width] [report|strict]  # every screen and the component sheet as PNGs beside the mocks
 just scene-frames      # the dusk and the dawn pumped to fixed times: frames and a strip each
+just loading-clips     # a tap going busy, a slow join, a failed send and its retry, a reconnect: looping WebPs
 just playtest-pack     # the cold-read pack: five first-game journeys to build/playtest/
 just test-harness      # boots its own backend on a free port, runs the e2e harness (not in `just test`)
 just skin-art          # regenerate assets/skins/shadow_paper/ from docs/design/art/
@@ -56,6 +57,8 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   through the one `Outbox`; a choose is never sent twice for a turn; after any taken choose
   the phone re-reads `/me/` and trusts `chosen` and `chooses_left`. A phone with nothing to
   choose sends no choose at all; its board has no button.
+- **Every request a player's tap makes goes through `playerRequest`** (`core/requests/player_request.dart`), and the control that was tapped shows it: `Pending` (`design_system/primitives/pending.dart`) is busy in the frame of the tap, cannot be sent twice, stays busy until the screen it leads to is up (`settle`), and settles to done or to its own words with its own "Try again" (the very same request). A gated `AuthenticatedClient` refuses a POST, PATCH or DELETE made outside the door (a `StateError` in development and tests), `player_request_test.dart` scans for a caller that does not use it, and for a bare `ref.read(p.future)` of a provider nobody holds (use `whileHeld`: a read that is dropped when the screen changes failed requests that had worked). A failure is the control's: never global state that can show up later on another screen. Nothing here waits.
+- **Every place the app waits is `Waiting`** (`design_system/primitives/waiting_sign.dart`) in the frame of the screen it waits for (`OpeningWait`, `lib/features/game/presentation/shell/waits.dart`, `EndWaiting`): never a bare ground. No sign for the first 300 ms (`Motion.signAfter`), then three paper lanterns, "The village is waking." after 5 s (`Motion.slowAfter`), "One moment" with "Try again" while a fetch fails; nothing is held back for it.
 - **Every fetch a screen depends on heals**: retried with backoff or polled until its reason
   ends (`core/healing/`). Never leave a screen on a failed fetch.
 - **No waits.** Nothing adds a wait, a minimum time or an assumed timer length: lengths come

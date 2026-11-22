@@ -108,6 +108,16 @@ screens width="390" mode="report":
       --dart-define=SCREENS_WIDTH={{width}} \
       --dart-define=SCREENS_STRICT=$strict
 
+# What a wait and a failed send look like in motion: a tap going busy then
+# done, a slow join, a failed send and its retry, a reconnect in a game; each a
+# looping WebP (390 wide, under 1.2 MB) in <folder>. No backend.
+# Usage: just loading-clips [folder]
+loading-clips folder="build/loading_clips_webp":
+    flutter test test_screens/loading_clips_test.dart \
+      --dart-define=ENV=dev \
+      --dart-define=CLIPS_DIR=build/loading_clips
+    python3 tool/loading_clips.py build/loading_clips {{folder}}
+
 # The dusk and the dawn in motion: eight frames of each and a strip, to
 # <folder>/dusk and <folder>/dawn (test/README.md). No backend.
 # Usage: just scene-frames [folder] [label]
