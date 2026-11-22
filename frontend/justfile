@@ -143,6 +143,12 @@ playtest-pack width="390":
 skin-art:
     uv run --with pillow python tool/skin_art.py
 
+# Make the five card back masters (docs/design/art/card-backs/*.jpg) from the
+# raw generated pictures in card-backs/raw/ (grade, mirror, grain, lip shadow;
+# PROVENANCE.md there). Deterministic. Run `just skin-art` after. Needs uv.
+card-back-art:
+    uv run --with pillow --with numpy --with scipy python tool/card_back_art.py
+
 # Regenerate the app icon, the launch marks and the web icons from
 # docs/design/art/ (docs/design/app-icon.md). Deterministic. Needs uv.
 # Usage: just app-icon [preview-dir]   (a folder: also each candidate's layers)

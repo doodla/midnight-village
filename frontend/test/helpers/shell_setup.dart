@@ -12,6 +12,7 @@ import 'package:midnight_village/core/router/routes.dart';
 import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart';
+import 'package:midnight_village/design_system/skin/card_back.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_choice.dart';
@@ -21,6 +22,7 @@ import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/data/game_service.dart';
+import 'package:midnight_village/features/game/presentation/card_back_provider.dart';
 import 'package:midnight_village/features/game/presentation/game_socket.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
 import 'package:midnight_village/features/game/presentation/table_screen.dart';
@@ -134,6 +136,12 @@ class ShellSetup {
     return setup;
   }
 
+  /// The card back every game is shown with, or null for the real choice
+  /// (`CardBack.forGame`, from the game's id). Only the screen gallery sets
+  /// it (`test_screens/flutter_test_config.dart`): a test of the app never
+  /// does, so it runs what players get.
+  static CardBack? pinnedCardBack;
+
   /// The first `/me/`, held ([pump]'s `holdMe`).
   HeldReplies? meReplies;
 
@@ -177,6 +185,9 @@ class ShellSetup {
         healTimingProvider.overrideWithValue(testHealTiming),
         clockProvider.overrideWithValue(() => clock),
         wakelockServiceProvider.overrideWithValue(wakelock),
+        // The screen gallery pins the back so its pictures are stable.
+        if (pinnedCardBack case final back?)
+          gameCardBackProvider.overrideWith((ref, id) => back),
       ],
       child: Consumer(
         builder: (context, ref, _) {

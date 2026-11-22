@@ -5,7 +5,8 @@
 (`just skin-art`, from frontend/.) Writes
 assets/skins/shadow_paper/{roles,tokens,scenes}/<name>.webp: each original
 resized to the size the skin's ArtSet declares
-(lib/design_system/skin/skins/shadow_paper.dart) and encoded as WebP. The
+(lib/design_system/skin/skins/shadow_paper.dart) and encoded as WebP (the card
+backs, docs/design/art/card-backs/<name>.jpg, go to scenes/card_back_<name>.webp). The
 output is deterministic: run it twice and the files do not change.
 
 The layered scenes (docs/design/art/layers/<scene>/*.png, full-canvas alpha
@@ -49,12 +50,13 @@ def _jobs():
         yield src, "tokens", src.stem, TOKEN
     for src in sorted((ART / "scenes").glob("*.jpg")):
         name = src.stem.replace("-", "_")
-        if name == "card_back":
-            yield src, "scenes", name, CARD_BACK
-        else:
-            with Image.open(src) as im:
-                size = im.size
-            yield src, "scenes", name, size
+        with Image.open(src) as im:
+            size = im.size
+        yield src, "scenes", name, size
+    # The card backs, one drawn for a whole game (CardBack in
+    # lib/design_system/skin/card_back.dart): scenes/card_back_<name>.webp.
+    for src in sorted((ART / "card-backs").glob("*.jpg")):
+        yield src, "scenes", f"card_back_{src.stem}", CARD_BACK
 
 
 def _layer_jobs():

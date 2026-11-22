@@ -12,10 +12,8 @@ the night ground so the bone moon reads first at 48 px, and the amber window is 
 one warm point. Nothing is drawn by hand: every pixel is the original art, cropped,
 toned within the palette and masked.
 
-Tried and not shipped (both still made by `just app-icon <dir>` for review):
+Tried and not shipped (still made by `just app-icon <dir>` for review):
 
-- **The card back's eye** (`art/scenes/card-back.jpg`): striking large, but at 48 px
-  the thorns turn to noise and the eye to a smudge.
 - **The lantern token** (`art/tokens/lantern.jpg`): reads well, but it is one of the
   ten seat tokens, so the app would look like a player's badge.
 
