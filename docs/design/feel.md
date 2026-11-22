@@ -119,6 +119,11 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | "Join a table" opens | The code field and amber "Join" arrive in place, focus moves to the code. Today a cut | `settle` | Cut | pass 7 |
 | Join or Start sent | A spinner beside the label; further taps ignored; nothing else moves | none | Same | exists |
 | Opened from a join link | Name field and amber "Join" on the first frame | none | Same | exists |
+| Tap the scan glyph | The glyph's outline fills with a hairline while down. The scanner arrives as the screen (no sheet, no slide), the window and its corners on the first frame, the camera's picture when the browser or phone has it ready; the camera is not touched before this tap | `press` | Same | exists |
+| A code is read | The camera stops the same frame; the corners close in from the window's inside to its edge and turn from cream to ink while the picture gives way to the code on paper, and the join starts at once: nothing waits for the motion. No vibration (01 to 03 have none) | `quick` | Cut | exists |
+| The light (Android) | The glyph shows it is on with the hairline fill and a stronger outline, never amber | `press` | Same | exists |
+| The camera cannot be used | The window shows the camera is off, one line and the amber "Type the code" under it; no dead end | none | Same | exists |
+| Back from the scanner | Back, the glyph or the phone's, ends the camera and lands on 01 as it was left (name and all) | none | Same | exists |
 
 ### The table (02, 03)
 

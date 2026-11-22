@@ -14,12 +14,16 @@ import '../../../design_system/primitives/primary_button.dart';
 import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
 import '../../../design_system/primitives/skin_field.dart';
+import '../../../design_system/primitives/viewfinder.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import 'home_numbers.dart';
 import 'join_flow.dart';
+import 'scan/code_scanner.dart';
+import 'scan/scan_session.dart';
+import 'scan/scan_view.dart';
 
 /// 01 Join (first-time play spec, section 3): a name first, then the way in.
 ///
@@ -54,6 +58,9 @@ class JoinScreen extends ConsumerWidget {
     final last = ref.watch(lastGameProvider).value;
     final notifier = ref.read(joinFlowProvider.notifier);
     final link = code;
+    final scanner = ref.watch(codeScannerFactoryProvider);
+    final scan = ref.watch(scanSessionProvider);
+    final session = ref.read(scanSessionProvider.notifier);
 
     Future<void> sat(Future<bool> attempt) async {
       if (await attempt && link != null && context.mounted) context.go('/');
@@ -90,6 +97,12 @@ class JoinScreen extends ConsumerWidget {
       child: JoinView(
         name: auth is AuthAuthenticated ? auth.user.displayName : '',
         code: link,
+        scanner: scanner,
+        scanning: scan.open,
+        scanned: scan.code,
+        onScanOpen: session.open,
+        onScanClose: session.close,
+        onScanned: session.found,
         seated: elsewhere,
         online: online?.players,
         lastWon: last?.youWon,
@@ -152,6 +165,12 @@ class JoinView extends StatefulWidget {
     this.bannerAction,
     this.onBannerAction,
     this.openCode = false,
+    this.scanner,
+    this.scanning = false,
+    this.scanned,
+    this.onScanOpen,
+    this.onScanClose,
+    this.onScanned,
     required this.onStart,
     required this.onJoin,
     this.onEdited,
@@ -179,6 +198,17 @@ class JoinView extends StatefulWidget {
   /// Starts with "Join a table" opened (the gallery's state).
   final bool openCode;
 
+  /// Makes the camera the scan action opens; null: no scan action.
+  final CodeScannerFactory? scanner;
+
+  /// The scanner (01b) is open, with the code it read once it has one. Kept
+  /// by the caller: this widget is rebuilt from nothing when a join starts.
+  final bool scanning;
+  final String? scanned;
+  final VoidCallback? onScanOpen;
+  final VoidCallback? onScanClose;
+  final ValueChanged<String>? onScanned;
+
   final ValueChanged<String> onStart;
   final void Function(String name, String code) onJoin;
   final VoidCallback? onEdited;
@@ -189,6 +219,10 @@ class JoinView extends StatefulWidget {
   /// The server's table codes: six letters and digits.
   static const codeLength = 6;
 
+  /// The least width the code row has for the scan glyph beside the code: the
+  /// code field keeps room for all six characters and the caret.
+  static const scanBesideCodeFrom = 300.0;
+
   @override
   State<JoinView> createState() => _JoinViewState();
 }
@@ -197,6 +231,7 @@ class _JoinViewState extends State<JoinView> {
   late final _name = TextEditingController(text: widget.name);
   final _code = TextEditingController();
   late var _codeOpen = widget.openCode;
+  final _nameFocus = FocusNode();
 
   @override
   void initState() {
@@ -215,7 +250,36 @@ class _JoinViewState extends State<JoinView> {
     _name.dispose();
     _code.dispose();
     _codeFocus.dispose();
+    _nameFocus.dispose();
     super.dispose();
+  }
+
+  /// The scanner read a table's code. With a name typed, the join goes at
+  /// once (the same path as Join) while the scanner shows the code; without
+  /// one, 01 is back with the code in its field and the name field asking.
+  void _scanned(String code) {
+    if (_named && widget.busy == null && !widget.seated) {
+      widget.onScanned?.call(code);
+      widget.onJoin(_typedName, code);
+    } else {
+      _code.text = code;
+      setState(() => _codeOpen = true);
+      widget.onScanClose?.call();
+      if (!_named) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _nameFocus.requestFocus(),
+        );
+      }
+    }
+  }
+
+  /// "Type the code": the camera cannot be used.
+  void _typeInstead() {
+    setState(() => _codeOpen = true);
+    widget.onScanClose?.call();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _codeFocus.requestFocus(),
+    );
   }
 
   final _codeFocus = FocusNode();
@@ -253,129 +317,168 @@ class _JoinViewState extends State<JoinView> {
         : null;
 
     final banner = widget.banner;
-    // Back closes the code field first ("Join a table" again).
+    final make = widget.scanner;
+    final scan = widget.scanner == null || link != null
+        ? null
+        : GlyphButton(
+            glyph: (ink) => ScanGlyph(color: ink),
+            semanticLabel: ScanCopy.scan,
+            onPressed: idle && !widget.seated ? widget.onScanOpen : null,
+            size: _codeOpen ? ButtonSize.compact : ButtonSize.large,
+          );
+    // Back closes the scanner, then the code field ("Join a table" again).
     return BackHandler(
-      open: _codeOpen && link == null,
+      open: _codeOpen && link == null && !widget.scanning,
       onBack: () => setState(() => _codeOpen = false),
-      child: ScreenFrame(
-        ground: GroundKind.night,
-        topArt: skin.art.streetDoor,
-        // The village takes the height the form leaves: the form sits low,
-        // under the thumb, never above an empty lower half.
-        topArtLayout: TopArtLayout.fill,
-        body: Builder(
-          builder: (context) => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: Space.lgPlus,
-            children: [
-              Semantics(
-                header: true,
-                child: FitLine(
-                  JoinCopy.title,
-                  style: type.heroTitle.copyWith(fontSize: 42),
-                ),
+      child: widget.scanning && make != null
+          ? BackHandler(
+              onBack: widget.onScanClose ?? () {},
+              child: ScanView(
+                makeScanner: make,
+                code: widget.scanned,
+                onCode: _scanned,
+                onBack: widget.onScanClose ?? () {},
+                onType: _typeInstead,
+                joining: busy == JoinWay.join,
               ),
-              SkinField.paper(
-                controller: _name,
-                hint: JoinCopy.nameHint,
-                semanticLabel: JoinCopy.nameHint,
-                autofocus: widget.name.isEmpty,
-                maxLength: JoinView.nameLength,
-                inputFormatters: [_NameFormatter()],
-                textInputAction: TextInputAction.go,
-                onSubmitted: (_) => _nameEntered(link),
-              ),
-              if (banner != null)
-                Notice(
-                  message: banner,
-                  action: widget.onBannerAction == null
-                      ? null
-                      : widget.bannerAction,
-                  onAction: widget.onBannerAction,
-                ),
-              if (link != null && widget.seated)
-                const SizedBox.shrink()
-              else if (link != null)
-                PrimaryButton(
-                  label: JoinCopy.join,
-                  onPressed: join(link),
-                  busy: busy == JoinWay.join,
-                  size: ButtonSize.large,
-                )
-              else ...[
-                if (_codeOpen)
-                  Row(
-                    spacing: Space.smPlus,
-                    children: [
-                      Expanded(
-                        child: SkinField.code(
-                          controller: _code,
-                          focusNode: _codeFocus,
-                          hint: JoinCopy.codeHint,
-                          semanticLabel: JoinCopy.codeHint,
-                          autofocus: _named,
-                          maxLength: JoinView.codeLength,
-                          inputFormatters: [_CodeFormatter()],
-                          textInputAction: TextInputAction.go,
-                          onSubmitted: (_) =>
-                              join(_coded ? _code.text : null)?.call(),
-                        ),
+            )
+          : ScreenFrame(
+              ground: GroundKind.night,
+              topArt: skin.art.streetDoor,
+              // The village takes the height the form leaves: the form sits low,
+              // under the thumb, never above an empty lower half.
+              topArtLayout: TopArtLayout.fill,
+              body: Builder(
+                builder: (context) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: Space.lgPlus,
+                  children: [
+                    Semantics(
+                      header: true,
+                      child: FitLine(
+                        JoinCopy.title,
+                        style: type.heroTitle.copyWith(fontSize: 42),
                       ),
+                    ),
+                    SkinField.paper(
+                      controller: _name,
+                      focusNode: _nameFocus,
+                      hint: JoinCopy.nameHint,
+                      semanticLabel: JoinCopy.nameHint,
+                      autofocus: widget.name.isEmpty,
+                      maxLength: JoinView.nameLength,
+                      inputFormatters: [_NameFormatter()],
+                      textInputAction: TextInputAction.go,
+                      onSubmitted: (_) => _nameEntered(link),
+                    ),
+                    if (banner != null)
+                      Notice(
+                        message: banner,
+                        action: widget.onBannerAction == null
+                            ? null
+                            : widget.bannerAction,
+                        onAction: widget.onBannerAction,
+                      ),
+                    if (link != null && widget.seated)
+                      const SizedBox.shrink()
+                    else if (link != null)
                       PrimaryButton(
                         label: JoinCopy.join,
-                        onPressed: join(_coded ? _code.text : null),
+                        onPressed: join(link),
                         busy: busy == JoinWay.join,
-                        size: ButtonSize.compact,
+                        size: ButtonSize.large,
+                      )
+                    else ...[
+                      if (_codeOpen)
+                        LayoutBuilder(
+                          builder: (context, room) => Row(
+                            spacing: Space.smPlus,
+                            children: [
+                              Expanded(
+                                child: SkinField.code(
+                                  controller: _code,
+                                  focusNode: _codeFocus,
+                                  hint: JoinCopy.codeHint,
+                                  semanticLabel: JoinCopy.codeHint,
+                                  autofocus: _named,
+                                  maxLength: JoinView.codeLength,
+                                  inputFormatters: [_CodeFormatter()],
+                                  textInputAction: TextInputAction.go,
+                                  onSubmitted: (_) =>
+                                      join(_coded ? _code.text : null)?.call(),
+                                ),
+                              ),
+                              // Only where the code keeps its room (the narrowest
+                              // phones show the whole code, and scan is one Back away).
+                              if (room.maxWidth >= JoinView.scanBesideCodeFrom)
+                                ?scan,
+                              PrimaryButton(
+                                label: JoinCopy.join,
+                                onPressed: join(_coded ? _code.text : null),
+                                busy: busy == JoinWay.join,
+                                size: ButtonSize.compact,
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Row(
+                          spacing: Space.smPlus,
+                          children: [
+                            Expanded(
+                              child: SecondaryButton(
+                                label: JoinCopy.joinTable,
+                                onPressed: idle && _named
+                                    ? () => setState(() => _codeOpen = true)
+                                    : null,
+                                size: ButtonSize.large,
+                              ),
+                            ),
+                            ?scan,
+                          ],
+                        ),
+                      SecondaryButton(
+                        label: JoinCopy.startTable,
+                        onPressed: idle && _named
+                            ? () => widget.onStart(_typedName)
+                            : null,
+                        size: ButtonSize.large,
                       ),
                     ],
-                  )
-                else
-                  SecondaryButton(
-                    label: JoinCopy.joinTable,
-                    onPressed: idle && _named
-                        ? () => setState(() => _codeOpen = true)
-                        : null,
-                    size: ButtonSize.large,
-                  ),
-                SecondaryButton(
-                  label: JoinCopy.startTable,
-                  onPressed: idle && _named
-                      ? () => widget.onStart(_typedName)
-                      : null,
-                  size: ButtonSize.large,
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          if (link == null && (widget.online != null || widget.lastWon != null))
-            Builder(
-              builder: (context) {
-                final style = type.lede.copyWith(color: context.ground.text);
-                final online = widget.online;
-                final won = widget.lastWon;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: Space.xs,
-                  children: [
-                    const Divider(height: Space.mdPlus),
-                    if (online != null)
-                      FitWords(
-                        JoinCopy.online.fill({'n': online}),
-                        style: style,
-                      ),
-                    if (won != null)
-                      FitWords(
-                        won ? JoinCopy.lastWon : JoinCopy.lastLost,
-                        style: style,
-                      ),
                   ],
-                );
-              },
+                ),
+              ),
+              actions: [
+                if (link == null &&
+                    (widget.online != null || widget.lastWon != null))
+                  Builder(
+                    builder: (context) {
+                      final style = type.lede.copyWith(
+                        color: context.ground.text,
+                      );
+                      final online = widget.online;
+                      final won = widget.lastWon;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: Space.xs,
+                        children: [
+                          const Divider(height: Space.mdPlus),
+                          if (online != null)
+                            FitWords(
+                              JoinCopy.online.fill({'n': online}),
+                              style: style,
+                            ),
+                          if (won != null)
+                            FitWords(
+                              won ? JoinCopy.lastWon : JoinCopy.lastLost,
+                              style: style,
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+              ],
             ),
-        ],
-      ),
     );
   }
 }

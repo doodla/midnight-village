@@ -75,9 +75,11 @@ changes. Last updated 20 November 2026.
   presets); the lobby body carries `deck_cards`, `lengths`, `length_ranges` and `deal.seats`.
 - Trying the game alone: practice players, switched on by holding "Players" on 03
   (`docs/specs/onuw/solo-play-proposal.md`).
-- 01 to 03, not built: in-app QR scanning (the phone's camera opens the link); path URLs for `/join/<code>` (the link
-  is `<origin>/#/join/<code>` until the web host rewrites `/join/*`); a public origin for
-  native builds (`--dart-define=PUBLIC_ORIGIN`); skin art for Share (the platform's glyph).
+- 01 scanning and links (built, not yet checked on a real phone or in the owner's app): the scan action on 01
+  (camera in the app on the web and Android), table links as `<origin>/join/<code>` paths, a native release
+  build that needs `PUBLIC_ORIGIN`, Android App Links with a committed PUBLIC signing key (sideloaded installs
+  only, to be replaced before any store release: `frontend/android/release-key/README.md`). Skin art for
+  Share is still the platform's glyph.
 - Untidy payloads still open: `docs/dev/server-payload-quirks.md`.
 - `CLAUDE.md` files and `.claude/agents/` still describe protocol 1 in a few lines (the
   cleanup did not edit them: they need the owner's go-ahead): `backend/CLAUDE.md` ("the

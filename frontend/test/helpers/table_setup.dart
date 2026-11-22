@@ -24,11 +24,13 @@ import 'package:midnight_village/features/lobby/data/home_service.dart';
 import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/presentation/home_numbers.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
+import 'package:midnight_village/features/lobby/presentation/scan/code_scanner.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'contract/contract_samples.dart';
 import 'contract/server_json.dart';
+import 'fake_code_scanner.dart';
 import 'fake_wakelock_service.dart';
 import 'mock_http_client.dart';
 import 'mock_websocket.dart';
@@ -112,6 +114,9 @@ class TableSetup {
   /// The links handed to the share sheet.
   final shared = <Uri>[];
 
+  /// Every camera 01's scan action has opened, the last one the live one.
+  final scanners = <FakeCodeScanner>[];
+
   /// The device has no share sheet: Share copies the link.
   var shareCopies = false;
 
@@ -136,6 +141,9 @@ class TableSetup {
     bool webAddress = true,
     bool timesOut = true,
     AuthState? authState,
+
+    /// The camera a tap on scan opens (a fake the test drives).
+    FakeCodeScanner Function()? scanner,
     void Function(TableSetup setup)? before,
   }) async {
     // ignore: invalid_use_of_visible_for_testing_member
@@ -225,6 +233,11 @@ class TableSetup {
           shareLinkProvider.overrideWithValue((link) async {
             setup.shared.add(link);
             return setup.shareCopies;
+          }),
+          codeScannerFactoryProvider.overrideWithValue(() {
+            final camera = (scanner ?? FakeCodeScanner.new)();
+            setup.scanners.add(camera);
+            return camera;
           }),
           healTimingProvider.overrideWithValue(testHealTiming),
           wakelockServiceProvider.overrideWithValue(FakeWakelockService()),

@@ -12,9 +12,9 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
    - Screen-reader labels are not counted, but must be 8 words or fewer.
 2. **Budgets.** These were measured from the final copy in §3, as the most words visible at once.
 
-   | Screen | 01 | 02 | 03 | 03b | 04 | 05 | 06 | 07 | 08 | 09 | 10 | 11 |
-   |---|---|---|---|---|---|---|---|---|---|---|---|---|
-   | Budget | 14 | 7 | 15 | 30 | 34 | 3 | 24 | 8 | 15 | 8 | 16 | 13 |
+   | Screen | 01 | 01b | 02 | 03 | 03b | 04 | 05 | 06 | 07 | 08 | 09 | 10 | 11 |
+   |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+   | Budget | 14 | 7 | 7 | 15 | 30 | 34 | 3 | 24 | 8 | 15 | 8 | 16 | 13 |
 
    On 11, each timeline row is also capped at 3 words.
 3. **Headlines.** One headline per screen, at most 5 words.
@@ -261,13 +261,22 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 
 **01 Join**
 - **One thing / loudest:** type a name; the empty name field, focused.
-- **Locked until:** both buttons stay locked until a name is entered.
+- **Locked until:** both buttons stay locked until a name is entered (the scan glyph is the one exception, below).
 - **Copy:** hint "Your name"; "Start a table" and "Join a table", outlined and of equal weight. "Join a table" opens a hint "Code" and an amber "Join". Body text at 16 px: "{n} at tables" and "You won last game" / "You lost last game". **14 of 14 words.**
 - **Removed:** the prefilled "Ana" (8). The amber "Start a table" (4). The tagline. The footer (12).
 - **States:**
   - Opened from a link: the name field and an amber "Join" (3 words).
   - The name is prefilled only from this device's own guest account.
+  - The scan action (22 November 2026, issue 14): a glyph beside "Join a table" (and beside the code field once it is open), an outlined square of the buttons' height, no word, "Scan the code" to a screen reader. It is not locked by an empty name (scanning is the natural first move for a guest told "scan to join"): the name is asked for after the scan if it is empty. It is not offered on a table's link (that already names the table).
+  - The words on 01 are unchanged: **14 of 14 words.**
 - **Pass:** "Type my name."
+
+**01b Scan** (the camera 01's scan action opens; a place of 01 with its own Back rule: Back, the glyph or the phone's, closes it to 01, as it was)
+- **One thing / loudest:** the camera, in a paper window with the viewfinder's four corners; nothing to read while it looks.
+- **Copy:** none while it looks (a Back glyph; a light glyph where the camera has one: Android; the web has none). Where the camera cannot be used (permission refused, no camera, a page that may not use one): the window shows the camera is off, one line "The camera is off.", and an amber "Type the code", which closes the scanner and opens 01's code field, focused. **7 of 7 words.** Screen reader: "Scan the code", "Looking for the table's code", "Back", "Light".
+- **Reads:** a table's link (`<origin>/join/<code>`, any origin) or a bare code, in any case and with spaces. Anything else is ignored, silently. The camera is never touched before the tap and stops the moment the screen leaves (a code read, Back, the app moving on or to the background).
+- **A code read:** the camera stops, the corners close in round the code, which stands in the window, and the join starts the same frame, by the same path as typing the code (no beat is waited out). With no name typed yet, 01 is back with the code in its field and the name field asking. A refused join leaves the scanner for 01 with its banner.
+- **Pass:** "Type the code."
 
 **02 Table**
 - **One thing / loudest (host):** guests scan. Loudest is the QR code for `/join/{code}`. Two blocks: the QR code with "Scan to join" on it (its label only), and, past a hairline, the code with its own label "Code" (01's word for it) and Share. An app build that knows no web address has no QR code: no "Scan to join", the code block alone.
