@@ -50,3 +50,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# The web smoke test's Playwright (CI installs it there: tool/web_smoke/run.sh)
+/tool/web_smoke/node_modules/
+/tool/web_smoke/package*.json

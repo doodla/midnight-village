@@ -574,15 +574,26 @@ void main() {
         'to 02', (tester) async {
       final s = await _end(tester, recordedResults('results'), viewer: 'Ana');
       await _seeWhoWon(tester, s);
-      s.http.answer(
-        'POST',
-        '/lobbies/${code(s)}/play-again/',
-        ContractSamples.load('http/lobby/play_again'),
-      );
+      s.http.answer('POST', '/lobbies/${code(s)}/play-again/', s.playedAgain());
       s.answerTable(waiting(s, host: true));
+      final from = s.http.requests.length;
       await tester.tap(find.text(ResultsCopy.playAgain));
-      await s.settle(tester);
+      // Frames only, no time passing (the table's slow poll never comes due).
+      for (
+        var i = 0;
+        i < 200 && find.byType(AtTableView).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(Duration.zero);
+      }
       expect(_screen(tester, s), AppScreen.table);
+      expect(find.byType(AtTableView), findsOneWidget);
+      // The answer is the table and where the host sits: nothing is read
+      // after it (no /me/table/, no lobby).
+      expect(
+        [for (final r in s.http.requests.skip(from)) '${r.method} ${r.path}'],
+        ['POST /lobbies/${code(s)}/play-again/'],
+      );
       await s.close(tester);
     });
 
@@ -613,11 +624,7 @@ void main() {
     ) async {
       final s = await _end(tester, recordedResults('results'), viewer: 'Ana');
       await _seeWhoWon(tester, s);
-      s.http.answer(
-        'POST',
-        '/lobbies/${code(s)}/play-again/',
-        ContractSamples.load('http/lobby/play_again'),
-      );
+      s.http.answer('POST', '/lobbies/${code(s)}/play-again/', s.playedAgain());
       s.answerTable(waiting(s, host: true));
       await tester.tap(find.text(ResultsCopy.editDeck));
       await s.settle(tester);
@@ -635,11 +642,7 @@ void main() {
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(find.byType(ResultsView), findsOneWidget);
-      s.http.answer(
-        'POST',
-        path,
-        ContractSamples.load('http/lobby/play_again'),
-      );
+      s.http.answer('POST', path, s.playedAgain());
       s.answerTable(waiting(s, host: true));
       await tester.tap(find.text(BannerCopy.tryAgain));
       await s.settle(tester);

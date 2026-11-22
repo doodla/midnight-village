@@ -37,7 +37,8 @@
           { "context": "Screens strict at 360" },
           { "context": "Screens strict at 390" },
           { "context": "Integration Tests" },
-          { "context": "End-to-end Harness" }
+          { "context": "End-to-end Harness" },
+          { "context": "Web page smoke" }
         ]
       }
     }
