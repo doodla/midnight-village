@@ -70,12 +70,11 @@ changes. Last updated 20 November 2026.
 - The server now sends `CORS_EXPOSE_HEADERS = ["Date"]` (base settings) and `/me/`
   `stage_started_at`; the app does not read either yet (it times fetches by the phone's
   clock). The deployment session has to be told the CORS change.
-- `ENV` defaults to dev, so a build without `--dart-define=ENV=prod` includes the `/debug`
-  toolbar.
-- 01 to 03: no rename (a new name on a device makes a new guest account); the lobby body
-  carries no timer lengths until a pace is chosen.
-- 01 to 03, not built: the pace tiles' steppers (03 shows the lengths once a pace is chosen);
-  in-app QR scanning (the phone's camera opens the link); path URLs for `/join/<code>` (the link
+- 01 to 03: no rename (a new name on a device makes a new guest account). 03 is the set-up
+  page (players 3 to 10 or open, the deck face up, every length with its range; no pace
+  presets); the lobby body carries `deck_cards`, `lengths`, `length_ranges` and `deal.seats`.
+- Trying the game alone: proposed, not built (`docs/specs/onuw/solo-play-proposal.md`).
+- 01 to 03, not built: in-app QR scanning (the phone's camera opens the link); path URLs for `/join/<code>` (the link
   is `<origin>/#/join/<code>` until the web host rewrites `/join/*`); a public origin for
   native builds (`--dart-define=PUBLIC_ORIGIN`); skin art for Share (the platform's glyph).
 - Untidy payloads still open: `docs/dev/server-payload-quirks.md`.

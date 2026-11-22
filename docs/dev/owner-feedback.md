@@ -35,9 +35,6 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## In flight (22 November 2026)
 
-- Set-up page: host-chosen player count (`seats`), every timer editable, deck always face up,
-  the "Scan to join" wording, the leave bug. Worktree `agent-a6a63f89cd81af037`, being built;
-  then one review, pictures for the owner, its own pull request.
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
   the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
   (same files), as small pull requests: back, then loading, then speed. Keeping the server
@@ -45,6 +42,11 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## Done
 
+- Set-up page (issue 7): the host picks the number of players, every timer has its own
+  stepper (the Doppelganger's only while the card is in the deck), the deck is face up for
+  everyone, a "picked / needed" counter, "Scan to join" only on a QR code, and leaving no
+  longer says "Not sent." Practice-players proposal: `docs/specs/onuw/solo-play-proposal.md`.
+  Still weak: "Play with 3" shows as soon as three are here.
 - Android and web first impression (icon, name, launch screen): pull request 6, merged
   (06d0468). The deployment session was asked for a fresh Android install file.
 

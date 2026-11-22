@@ -36,7 +36,11 @@ from .engine.night import (
 from .engine.roles import ActionType, get_role, window_for_order_group
 from .engine.state import ActionResult, GameState, NightAction
 from .engine.timeline import TimelineError, build_night_timeline, recover_dealt_center
-from .engine.validation import is_valid_timer_value, max_seconds_for
+from .engine.validation import (
+    LENGTH_DEFAULTS,
+    is_valid_timer_value,
+    max_seconds_for,
+)
 from .engine.voting import apply_hunter, count_votes, determine_elimination
 from .engine.win_conditions import evaluate_winner
 from .models import Game, Phase, PlayerRole, SocketPresence
@@ -53,16 +57,23 @@ class AlreadyActedError(Exception):
 NIGHT_WINDOWS = (1, 2)
 
 # Default maximum length of a night window (seconds). 0 disables the timer.
-DEFAULT_NIGHT_WAVE_SECONDS = 30
+DEFAULT_NIGHT_WAVE_SECONDS = LENGTH_DEFAULTS["night_wave_seconds"]
 # Default minimum length of a night window (seconds). A window never closes
 # sooner than this after it opened, so a fast window gives nothing away.
-DEFAULT_NIGHT_MIN_WINDOW_SECONDS = 8
+DEFAULT_NIGHT_MIN_WINDOW_SECONDS = LENGTH_DEFAULTS["night_min_window_seconds"]
 # Exact length of window 1 (the Doppelganger's), whatever happens in it. 0
 # turns the fixed length off: window 1 then behaves like any other window.
-DEFAULT_NIGHT_DOPPELGANGER_WINDOW_SECONDS = 10
+DEFAULT_NIGHT_DOPPELGANGER_WINDOW_SECONDS = LENGTH_DEFAULTS[
+    "night_doppelganger_window_seconds"
+]
 # How long a player's phone may be disconnected before the game stops waiting
 # for them at night and in the vote (0 turns the feature off).
-DEFAULT_DISCONNECT_GRACE_SECONDS = 25
+DEFAULT_DISCONNECT_GRACE_SECONDS = LENGTH_DEFAULTS["disconnect_grace_seconds"]
+# The talk and the vote when the table sets no length; no look stage unless set.
+# Every default is the rule table's (``engine.validation.LENGTH_DEFAULTS``).
+DEFAULT_DISCUSSION_SECONDS = LENGTH_DEFAULTS["discussion_seconds"]
+DEFAULT_VOTING_SECONDS = LENGTH_DEFAULTS["voting_seconds"]
+DEFAULT_CARD_LOOK_SECONDS = LENGTH_DEFAULTS["card_look_seconds"]
 
 # Phases that run on a clock (and so need a timer to move on).
 TIMED_PHASES = (Phase.NIGHT, Phase.DISCUSSION, Phase.VOTING)
@@ -80,9 +91,12 @@ def get_timer_seconds(game: Game, key: str, default: int) -> int:
     number of seconds (settings are validated on the way in, but a bad row must
     never be able to crash a window close).
     """
-    stored = (
-        game.settings.get(key, default) if isinstance(game.settings, dict) else default
-    )
+    return get_timer_value(game.settings, key, default)
+
+
+def get_timer_value(settings: Any, key: str, default: int) -> int:
+    """A timer duration from a settings dict (``get_timer_seconds``'s rule)."""
+    stored = settings.get(key, default) if isinstance(settings, dict) else default
     return stored if is_valid_timer_value(stored, max_seconds_for(key)) else default
 
 
@@ -455,7 +469,7 @@ def _look_timer_key(game: Game) -> str:
 def begin_night(game: Game) -> None:
     """The deal's last step: open the night, through the look stage if the game
     asks for one (``card_look_seconds`` > 0), else straight into the first window."""
-    seconds = get_timer_seconds(game, "card_look_seconds", 0)
+    seconds = get_timer_seconds(game, "card_look_seconds", DEFAULT_CARD_LOOK_SECONDS)
     if seconds > 0:
         _start_look_stage(game, seconds)
     else:
@@ -945,7 +959,9 @@ def persist_wave_results(
 
 def transition_to_discussion(game: Game) -> None:
     """Transition the game from night to discussion phase."""
-    discussion_seconds = get_timer_seconds(game, "discussion_seconds", 300)
+    discussion_seconds = get_timer_seconds(
+        game, "discussion_seconds", DEFAULT_DISCUSSION_SECONDS
+    )
 
     with transaction.atomic():
         game.phase = Phase.DISCUSSION
@@ -1058,7 +1074,7 @@ def transition_to_voting(game: Game) -> None:
         msg = f"Cannot transition from {game.phase} to voting."
         raise ValueError(msg)
 
-    voting_seconds = get_timer_seconds(game, "voting_seconds", 120)
+    voting_seconds = get_timer_seconds(game, "voting_seconds", DEFAULT_VOTING_SECONDS)
 
     with transaction.atomic():
         game.phase = Phase.VOTING

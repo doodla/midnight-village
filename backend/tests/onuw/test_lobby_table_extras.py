@@ -307,7 +307,7 @@ class TestConnected:
         body = t.body()
 
         assert body["deck_preview"] is None
-        assert body["deal"] == {"ok": False, "need": 7, "have": 8}
+        assert body["deal"] == {"ok": False, "need": 7, "have": 8, "seats": None}
         assert connected(body)[t.users["p1"].id] is True
 
 
@@ -379,7 +379,12 @@ class TestDealOk:
 
         reply = t.deal()
 
-        assert deal == {"ok": deal["ok"], "need": players + 3, "have": expected_have}
+        assert deal == {
+            "ok": deal["ok"],
+            "need": players + 3,
+            "have": expected_have,
+            "seats": None,
+        }
         assert deal["ok"] is (reply.status_code == status.HTTP_201_CREATED), reply.data
 
     def test_a_table_in_a_game_or_finished_is_not_ok(self, table) -> None:

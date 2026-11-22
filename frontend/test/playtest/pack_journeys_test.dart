@@ -42,7 +42,8 @@ void main() {
       });
 
       test('is one game: one table, the same players, names and tokens', () {
-        final table = playersOf(dealt.first.body!);
+        // A set-up journey (before the deal): the first table it shows.
+        final table = playersOf((dealt.firstOrNull ?? drawn.last).body!);
         for (final step in dealt) {
           expect(playersOf(step.body!), table, reason: step.sample);
         }
@@ -58,7 +59,8 @@ void main() {
         final games = {
           for (final step in drawn.where((s) => s.isMe)) step.body!['game_id'],
         };
-        expect(games, hasLength(1));
+        // One game; a set-up journey ends before the deal: none.
+        expect(games, hasLength(dealt.isEmpty ? 0 : 1));
         final codes = {
           for (final step in drawn)
             step.body!['lobby_code'] ?? step.body!['code'],
@@ -66,7 +68,8 @@ void main() {
         expect(codes, hasLength(lessThanOrEqualTo(1)));
       });
 
-      test("the deck the talk shows is the game's deck", () {
+      final game = dealt.isNotEmpty;
+      test("the deck the talk shows is the game's deck", skip: !game, () {
         // Every card of the game: in a hand or in the center at the end.
         final body = dealt
             .firstWhere((s) => s.screen == PackScreen.count)
@@ -85,32 +88,37 @@ void main() {
         }
       });
 
-      test("the vote offers everyone but the viewer, and the viewer's taps "
-          'and vote are at the table', () {
-        final table = playersOf(dealt.first.body!);
-        final me = viewerIn(dealt.first.body!, journey.viewer);
-        for (final step in drawn.where(
-          (s) =>
-              s.screen == PackScreen.vote ||
-              s.screen == PackScreen.votePicked ||
-              s.screen == PackScreen.voteLocked,
-        )) {
-          final offered = VoteView.votable(GameMe.fromJson(step.body!));
-          expect(
-            offered.map((p) => p.id).toSet(),
-            {for (final p in table) p.id}..remove(me),
-            reason: step.sample,
-          );
-        }
-        final names = {for (final p in table) p.name};
-        expect(names.containsAll(journey.taps), isTrue);
-        expect(names, contains(journey.vote));
-        expect(journey.vote, isNot(journey.viewer));
-      });
+      test(
+        "the vote offers everyone but the viewer, and the viewer's taps "
+        'and vote are at the table',
+        skip: !game,
+        () {
+          final table = playersOf(dealt.first.body!);
+          final me = viewerIn(dealt.first.body!, journey.viewer);
+          for (final step in drawn.where(
+            (s) =>
+                s.screen == PackScreen.vote ||
+                s.screen == PackScreen.votePicked ||
+                s.screen == PackScreen.voteLocked,
+          )) {
+            final offered = VoteView.votable(GameMe.fromJson(step.body!));
+            expect(
+              offered.map((p) => p.id).toSet(),
+              {for (final p in table) p.id}..remove(me),
+              reason: step.sample,
+            );
+          }
+          final names = {for (final p in table) p.name};
+          expect(names.containsAll(journey.taps), isTrue);
+          expect(names, contains(journey.vote));
+          expect(journey.vote, isNot(journey.viewer));
+        },
+      );
 
       test(
         "the journey is its game's: the viewer's taps are their night "
         "as the results log it, and the vote is the viewer's in the results",
+        skip: !game,
         () {
           final results = dealt
               .firstWhere((s) => s.screen == PackScreen.count)
@@ -143,34 +151,38 @@ void main() {
         },
       );
 
-      test('the clock moves on and never runs backwards within a stage', () {
-        final last = <String, int>{};
-        var timed = 0;
-        for (final step in drawn.where((s) => s.isMe && s.at != null)) {
-          final stage = step.body!['stage'] as String;
-          final seconds = step.secondsLeft!;
-          expect(seconds, greaterThan(0), reason: step.sample);
-          if (last[stage] case final before?) {
-            expect(seconds, lessThanOrEqualTo(before), reason: step.sample);
+      test(
+        'the clock moves on and never runs backwards within a stage',
+        skip: !game,
+        () {
+          final last = <String, int>{};
+          var timed = 0;
+          for (final step in drawn.where((s) => s.isMe && s.at != null)) {
+            final stage = step.body!['stage'] as String;
+            final seconds = step.secondsLeft!;
+            expect(seconds, greaterThan(0), reason: step.sample);
+            if (last[stage] case final before?) {
+              expect(seconds, lessThanOrEqualTo(before), reason: step.sample);
+            }
+            last[stage] = seconds;
+            timed++;
           }
-          last[stage] = seconds;
-          timed++;
-        }
-        expect(timed, greaterThan(0));
-        // Time passes between a stage's screens: not one frozen number.
-        final byStage = <String, Set<int>>{};
-        for (final step in drawn.where((s) => s.isMe && s.at != null)) {
-          (byStage[step.body!['stage'] as String] ??= {}).add(
-            step.secondsLeft!,
-          );
-        }
-        for (final MapEntry(:key, :value) in byStage.entries) {
-          final screens = drawn
-              .where((s) => s.isMe && s.at != null && s.body!['stage'] == key)
-              .length;
-          if (screens > 1) expect(value.length, greaterThan(1), reason: key);
-        }
-      });
+          expect(timed, greaterThan(0));
+          // Time passes between a stage's screens: not one frozen number.
+          final byStage = <String, Set<int>>{};
+          for (final step in drawn.where((s) => s.isMe && s.at != null)) {
+            (byStage[step.body!['stage'] as String] ??= {}).add(
+              step.secondsLeft!,
+            );
+          }
+          for (final MapEntry(:key, :value) in byStage.entries) {
+            final screens = drawn
+                .where((s) => s.isMe && s.at != null && s.body!['stage'] == key)
+                .length;
+            if (screens > 1) expect(value.length, greaterThan(1), reason: key);
+          }
+        },
+      );
     });
   }
 }

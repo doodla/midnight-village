@@ -36,6 +36,9 @@ enum RoleCardSize {
 /// one takes the selection's outline. The name is never broken: a long name
 /// ("Doppelganger") is set smaller instead. Holding one opens the role sheet
 /// ([onLongPress]; its words are the role text, `RoleSheetBody`).
+/// In the grid, [onRemove] puts a minus on a lit card's corner that takes
+/// one out (a tap on the card puts one in): both said by doing, no words;
+/// [removeLabel] is what a screen reader says for it.
 class RoleCard extends StatelessWidget {
   const RoleCard({
     super.key,
@@ -45,6 +48,8 @@ class RoleCard extends StatelessWidget {
     this.lit = true,
     this.onTap,
     this.onLongPress,
+    this.onRemove,
+    this.removeLabel,
   });
 
   final RoleId role;
@@ -53,6 +58,12 @@ class RoleCard extends StatelessWidget {
   final bool lit;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onRemove;
+  final String? removeLabel;
+
+  /// The minus's touch area (the reading floor's 44) and its disc.
+  static const removeTarget = Sizes.touch;
+  static const _removeDisc = BadgeSize.large;
 
   /// Width over height of a portrait in the grid (the mocks' 76.5 x 100).
   static const _gridAspect = 0.765;
@@ -62,21 +73,38 @@ class RoleCard extends StatelessWidget {
   static const gridCellAspect = Sizes.roleGridCell;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: role.displayName,
-    button: onTap != null,
-    selected: size == RoleCardSize.small && onTap != null ? lit : null,
-    excludeSemantics: true,
-    child: GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      behavior: HitTestBehavior.opaque,
-      child: switch (size.thumbnail) {
-        final thumbnail? => _thumbnail(context, thumbnail),
-        null => _small(context),
-      },
-    ),
-  );
+  Widget build(BuildContext context) {
+    final card = Semantics(
+      label: role.displayName,
+      button: onTap != null,
+      selected: size == RoleCardSize.small && onTap != null ? lit : null,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        behavior: HitTestBehavior.opaque,
+        child: switch (size.thumbnail) {
+          final thumbnail? => _thumbnail(context, thumbnail),
+          null => _small(context),
+        },
+      ),
+    );
+    final remove = onRemove;
+    if (remove == null || !lit || size.thumbnail != null) return card;
+    return Stack(
+      children: [
+        card,
+        // Inside the card's corner, so the whole 44 is hit-testable.
+        Positioned(
+          left: 0,
+          top: 0,
+          width: removeTarget,
+          height: removeTarget,
+          child: _Minus(onTap: remove, label: removeLabel),
+        ),
+      ],
+    );
+  }
 
   Widget _portrait(
     BuildContext context, {
@@ -177,6 +205,50 @@ class RoleCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The grid card's minus: a disc in the ground's ink with a minus in it,
+/// lifted like the count badge, never amber.
+class _Minus extends StatelessWidget {
+  const _Minus({required this.onTap, this.label});
+
+  final VoidCallback onTap;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final ground = context.ground;
+    final side = RoleCard._removeDisc.size;
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Padding(
+            padding: const EdgeInsets.all(Space.xs),
+            child: Container(
+              width: side,
+              height: side,
+              decoration: BoxDecoration(
+                color: ground.mark,
+                shape: BoxShape.circle,
+                boxShadow: ground.elevation.badge.boxShadows,
+              ),
+              child: Icon(
+                Icons.remove,
+                size: side * Sizes.glyphInDisc,
+                color: ground.onMark,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -17,6 +17,16 @@ import '../domain/lobby_state.dart';
 
 part 'lobby_notifier.g.dart';
 
+/// A leave the server refused, with the words to show ([why]): never "Not
+/// sent.", which is only for a leave that did not reach the server.
+class LeaveRefused implements Exception {
+  const LeaveRefused(this.why);
+  final String why;
+
+  @override
+  String toString() => 'LeaveRefused: $why';
+}
+
 /// Provides the [LobbyService] for HTTP lobby operations.
 @riverpod
 LobbyService lobbyService(Ref ref) {
@@ -102,7 +112,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   /// screen shows is the server's lobby with these merged over it as the
   /// server merges them, so a tap shows at once and an event or a refetch
   /// meanwhile never takes it back.
-  final List<Map<String, Object>> _pending = [];
+  final List<Map<String, Object?>> _pending = [];
   Future<void> _settingsQueue = Future.value();
 
   /// The last change that did not reach the server ("Try again").
@@ -110,10 +120,11 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   void _show(LobbyState server) => state = AsyncData(_withPending(server));
 
-  LobbyState _withPending(LobbyState lobby) =>
-      _pending.fold(lobby, _mergeSettings);
+  LobbyState _withPending(LobbyState lobby) => _pending
+      .fold(lobby, _mergeSettings)
+      .copyWith(pendingKeys: {for (final p in _pending) ...p.keys});
 
-  static LobbyState _mergeSettings(LobbyState lobby, Map<String, Object> p) =>
+  static LobbyState _mergeSettings(LobbyState lobby, Map<String, Object?> p) =>
       lobby.copyWith(
         table: lobby.table.merged(p),
         roleConfig: p['roles'] is Map<String, int>
@@ -430,14 +441,31 @@ class LobbyNotifier extends _$LobbyNotifier {
   Future<void> useCustomDeck(Map<String, int> roles) =>
       _changeSettings(LobbyService.customDeck(roles));
 
-  /// The host picks a pace preset.
-  Future<void> choosePace(Pace pace) => _changeSettings(pace.settings);
+  /// The host sets how many players the game is for (3 to 10), or opens the
+  /// table to whoever comes (null; offered only with an automatic deck, so a
+  /// deck of the host's own is never quietly dropped).
+  Future<void> setSeats(int? seats) => _changeSettings({'seats': seats});
+
+  /// The host starts a custom deck from [roles] (the deck shown), for
+  /// [seats] players when the table is open (a custom deck is built for a
+  /// number).
+  Future<void> startCustomDeck(Map<String, int> roles, {int? seats}) =>
+      _changeSettings({...LobbyService.customDeck(roles), 'seats': ?seats});
+
+  /// One tap on the grid: the custom deck as it now stands, stored at once
+  /// (the server's `deal` says whether it fits).
+  Future<void> setRoles(Map<String, int> roles) =>
+      _changeSettings({'roles': roles});
+
+  /// One length on the set-up page (a settings key, in seconds).
+  Future<void> setLength(String key, int seconds) =>
+      _changeSettings({key: seconds});
 
   /// Sends [patch] (one at a time, in order) and shows it at once, merged
   /// as the server merges it. The answer is the server's lobby; a refusal
   /// or no answer takes the change back (the lobby is read again) and the
   /// screen says "Not sent." with "Try again".
-  Future<void> _changeSettings(Map<String, Object> patch) {
+  Future<void> _changeSettings(Map<String, Object?> patch) {
     final lobby = state.value;
     if (lobby == null) return Future.value();
     _pending.add(patch);
@@ -445,13 +473,15 @@ class LobbyNotifier extends _$LobbyNotifier {
     return _settingsQueue = _settingsQueue.then((_) => _send(patch));
   }
 
-  Future<void> _send(Map<String, Object> patch) async {
+  Future<void> _send(Map<String, Object?> patch) async {
     try {
       final answer = await _hostAction(
         () => ref.read(lobbyServiceProvider).patchSettings(code, patch),
       );
       if (!ref.mounted) return;
       _pending.remove(patch);
+      // The answer is the server's lobby with this change; what is still on
+      // its way goes over it.
       _show(_adopt(answer));
     } on NoLongerHostException {
       // The role moved: the lobby was read again and this phone is a guest
@@ -459,9 +489,17 @@ class LobbyNotifier extends _$LobbyNotifier {
       _pending.remove(patch);
       if (ref.mounted) await refreshLobby();
     } catch (e) {
-      logger.d('Settings change not sent ($e)');
       if (!ref.mounted) return;
       _pending.remove(patch);
+      if (serverAnswered(e)) {
+        // An answer, not a loss: the server refused this change (the table
+        // moved under it: someone joined, another length changed first). It
+        // is dropped and the lobby read again; nothing to send again.
+        logger.d('Settings change refused ($e)');
+        await refreshLobby();
+        return;
+      }
+      logger.d('Settings change not sent ($e)');
       _retry = () => _changeSettings(patch);
       final now = state.value;
       if (now != null) state = AsyncData(now.copyWith(notSent: true));
@@ -532,13 +570,18 @@ class LobbyNotifier extends _$LobbyNotifier {
       NotFoundException() => (404, const <String>[]),
       _ => (null, const <String>[]),
     };
-    if (status == null || status >= 500) return (answered: false, why: null);
+    if (status == null || !serverAnswered(error)) {
+      return (answered: false, why: null);
+    }
     final why = status == 404
         ? BannerCopy.tableClosed
         : details.contains(_notWaiting)
         ? BannerCopy.lobbyClosed
         : details.any((d) => d.startsWith(_tooFew))
         ? TableCopy.needPlayers
+        // Not everyone the table is set for is here: the seats say so.
+        : details.any((d) => d.startsWith(_setFor))
+        ? null
         : details.any(_deckError.hasMatch)
         ? BannerCopy.deckDoesNotFit
         : null;
@@ -548,6 +591,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   /// The server's refusal words (`deal.py`, `validate_onuw_settings`).
   static const _notWaiting = 'Lobby is not in waiting state.';
   static const _tooFew = 'At least 3 players required';
+  static const _setFor = 'The table is set for';
   static final _deckError = RegExp(
     r'^(Total role count|Masons must|Unknown role|Count for|.* requires at least|.* allows at most)',
   );
@@ -568,16 +612,43 @@ class LobbyNotifier extends _$LobbyNotifier {
     }
   }
 
-  /// Leaves the lobby.
+  /// Leaves the table. Done when the server says so, and also when it says
+  /// this phone is not at the table (an earlier tap reached it: a slow answer
+  /// and "Try again", a second tap) or that the table is gone (the last one
+  /// out closed it). With no answer at all, where the server says this phone
+  /// sits decides: off this table is done. Throws [LeaveRefused] with the
+  /// words to show for a refusal (the table started playing), and the error
+  /// only when this phone is still at the table and the server could not be
+  /// asked ("Not sent.").
   Future<void> leave() async {
+    final service = ref.read(lobbyServiceProvider);
     try {
-      final service = ref.read(lobbyServiceProvider);
       await service.leaveLobby(code);
-    } catch (e, stack) {
-      logger.e('Error leaving lobby', error: e, stackTrace: stack);
+    } catch (e) {
+      // Already off the table: an earlier leave got there, or the table is
+      // gone (the last one out closed it).
+      if (e is NotFoundException ||
+          (e is ValidationException && e.code == _notAMember)) {
+        return;
+      }
+      if (serverAnswered(e)) {
+        logger.w('Leave refused: $e');
+        throw LeaveRefused(
+          e is UnhandledHttpException && e.statusCode == 409
+              ? BannerCopy.lobbyClosed
+              : BannerCopy.cannotLeave,
+        );
+      }
+      // No answer: did it get there anyway? The server says where we sit.
+      logger.w('Leave not answered: $e');
+      final where = await service.fetchMyTable();
+      if (where?.lobbyCode != code) return;
       rethrow;
     }
   }
+
+  /// The server's code for a leave from a table this player is not at.
+  static const _notAMember = 'not_in_lobby';
 
   void _dispose() {
     _noticeTimer?.cancel();

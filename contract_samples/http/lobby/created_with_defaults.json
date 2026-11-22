@@ -30,9 +30,65 @@
   ],
   "created_at": "2024-03-07T21:10:38Z",
   "deck_preview": null,
+  "deck_cards": {
+    "Werewolf": 2,
+    "Seer": 1,
+    "Robber": 1,
+    "Troublemaker": 1,
+    "Villager": 1
+  },
   "deal": {
     "ok": false,
     "need": 4,
-    "have": 0
+    "have": 0,
+    "seats": null
+  },
+  "seats_range": [
+    3,
+    10
+  ],
+  "lengths": {
+    "night_wave_seconds": 30,
+    "night_min_window_seconds": 8,
+    "night_doppelganger_window_seconds": 10,
+    "discussion_seconds": 300,
+    "voting_seconds": 120,
+    "disconnect_grace_seconds": 25,
+    "card_look_seconds": 30,
+    "host_handover_seconds": 60
+  },
+  "length_ranges": {
+    "night_wave_seconds": [
+      0,
+      3600
+    ],
+    "night_min_window_seconds": [
+      0,
+      30
+    ],
+    "night_doppelganger_window_seconds": [
+      0,
+      3600
+    ],
+    "discussion_seconds": [
+      0,
+      3600
+    ],
+    "voting_seconds": [
+      0,
+      3600
+    ],
+    "disconnect_grace_seconds": [
+      0,
+      60
+    ],
+    "host_handover_seconds": [
+      0,
+      600
+    ],
+    "card_look_seconds": [
+      0,
+      120
+    ]
   }
 }

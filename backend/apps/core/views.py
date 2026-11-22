@@ -216,6 +216,7 @@ class LobbyDetailView(RetrieveAPIView):
                 merged,
                 lobby.players.count(),  # type: ignore[attr-defined]
                 changed=set(given),
+                max_players=lobby.max_players,
             )
             if errors:
                 return Response(
@@ -333,7 +334,7 @@ class LobbyLeaveView(APIView):
             membership = LobbyMember.objects.get(lobby=lobby, user=request.user)
         except LobbyMember.DoesNotExist:
             return Response(
-                {"detail": "You are not in this lobby."},
+                {"detail": "You are not in this lobby.", "code": "not_in_lobby"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
