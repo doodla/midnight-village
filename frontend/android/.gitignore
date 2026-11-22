@@ -12,3 +12,8 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# EXCEPTION: release-key/ is committed on purpose. It is a PUBLIC key by the
+# owner's decision (release-key/README.md).
+!release-key/key.properties
+!release-key/*.jks
