@@ -205,7 +205,7 @@ void main() {
         reason: "03 shows the server's Classic deck for four, face up",
       );
       await shoot('deck-classic');
-      final use = find.text(DeckCopy.useDeck);
+      final use = find.text(DeckCopy.done);
       await tester.ensureVisible(use);
       await tester.tap(use);
       await ui.settle();

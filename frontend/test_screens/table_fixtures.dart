@@ -4,8 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
-import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
-import 'package:midnight_village/features/lobby/presentation/deck_screen.dart';
 import 'package:midnight_village/features/lobby/presentation/join_flow.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
@@ -126,10 +124,11 @@ Future<void> pumpTableHostFour(WidgetTester tester) => TableSetup.pump(
 /// 02, the host's: seven at the table, scrolled to the deck: the Chaos
 /// chip and its ten cards face up.
 Future<void> pumpTableHostChaos(WidgetTester tester) async {
-  await TableSetup.pump(
+  _setup = await TableSetup.pump(
     tester,
     lobby: v2Lobby('detail_deck_chaos_7'),
     viewer: 'Kai',
+    timesOut: false,
   );
   await tester.ensureVisible(find.text(TableCopy.editDeck));
   await tester.pumpAndSettle();
@@ -150,11 +149,14 @@ Future<void> pumpTableHostNine(WidgetTester tester) => TableSetup.pump(
 );
 
 /// 02, the host's, with her own deck of twelve for nine.
-Future<void> pumpTableHostCustom(WidgetTester tester) => TableSetup.pump(
-  tester,
-  lobby: v2Lobby('detail_custom_deck'),
-  viewer: 'Ana',
-);
+Future<void> pumpTableHostCustom(WidgetTester tester) async {
+  _setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_custom_deck'),
+    viewer: 'Ana',
+    timesOut: false,
+  );
+}
 
 /// 02, the host's own deck of ten, an eighth player in: "Add 1 card".
 Future<void> pumpTableHostMismatch(WidgetTester tester) => TableSetup.pump(
@@ -198,6 +200,68 @@ Future<TableSetup> pumpTableGuestSetup(WidgetTester tester) => TableSetup.pump(
   viewer: 'Ben',
 );
 
+/// 02 at Tia's table set for eight before anyone came: she alone, her own
+/// deck of eleven, seven empty places.
+Future<void> pumpTableSeatsAlone(WidgetTester tester, {double textScale = 1}) =>
+    TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_seats_8_custom_alone'),
+      viewer: 'Tia',
+      textScale: textScale,
+    );
+
+/// 02 at a table set for eight, four here: "4 of 8", four empty places,
+/// the deck face up, "Deal to 8" locked.
+Future<void> pumpTableSeatsFour(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_seats_8_four_here'),
+  viewer: 'Tia',
+);
+
+/// The same table on a guest's phone: the same count, the same roles.
+Future<void> pumpTableSeatsGuest(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_seats_8_four_here'),
+  viewer: 'Ugo',
+);
+
+/// Three of eight here (the recorded table of four, its last member not
+/// come yet): [viewer]'s phone, the host's or a guest's.
+Future<void> pumpTableSeatsThree(WidgetTester tester, {String viewer = 'Tia'}) {
+  final lobby = v2Lobby('detail_seats_8_four_here');
+  (lobby['players'] as List).removeLast();
+  return TableSetup.pump(tester, lobby: lobby, viewer: viewer);
+}
+
+/// Seven of eight came: "Play with 7".
+Future<void> pumpTableSeatsSeven(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_seats_8_seven_here'),
+  viewer: 'Tia',
+);
+
+/// "Play with 7" tapped: set for seven, the deck for eight now one over.
+Future<void> pumpTableSeatsLowered(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_seats_8_seven_here'),
+    viewer: 'Tia',
+  );
+  setup.answerPatch(v2Lobby('settings_seats_lowered'));
+  final play = find.text(TableCopy.playWith.fill({'n': 7}));
+  await tester.ensureVisible(play);
+  await tester.pumpAndSettle();
+  await tester.tap(play);
+  await setup.settle(tester);
+}
+
+/// Eight of eight, the automatic deck: "Deal to 8" live.
+Future<void> pumpTableSeatsFull(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_seats_8_full'),
+  viewer: 'Tia',
+);
+
 // ---------------------------------------------------------------------------
 // 03 Deck and 03b
 // ---------------------------------------------------------------------------
@@ -214,59 +278,97 @@ Future<void> pumpDeckChaos(WidgetTester tester) async {
   await _openDeck(tester);
 }
 
-/// 03: "Edit" on the Chaos chip's cards, the grid open on them.
+/// 03 on the Chaos chip's cards, a Tanner tapped in: the deck is the
+/// host's own now, for the seven here (its answer held: shown at once).
 Future<void> pumpDeckEdit(WidgetTester tester) async {
-  await pumpDeckChaos(tester);
-  final edit = find.text(TableCopy.editDeck);
-  await tester.ensureVisible(edit);
-  await tester.pumpAndSettle();
-  await tester.tap(edit);
-  await tester.pump(const Duration(milliseconds: 300));
+  await pumpTableHostChaos(tester);
+  await _openDeck(tester);
+  _holdPatch('B7DH4Q');
+  await _tapCard(tester, RoleId.tanner);
 }
 
-/// 03 with the grid open on the host's own deck.
+/// 03 on the host's own deck.
 Future<void> pumpDeckGrid(WidgetTester tester) async {
   await pumpTableHostCustom(tester);
   await _openDeck(tester);
 }
 
-/// 03 with the grid open and a card taken out: "Add 1 card".
+/// 03 on the host's own deck with a card taken out (its minus): the count
+/// under the need, "Use this deck" locked.
 Future<void> pumpDeckGridShort(WidgetTester tester) async {
   await pumpDeckGrid(tester);
-  await tester.tap(
-    find.byWidgetPredicate((w) => w is RoleCard && w.role == RoleId.tanner),
+  _holdPatch(_setup!.code);
+  final minus = find.bySemanticsLabel(
+    SpokenCopy.takeOut.fill({'role': RoleId.tanner.displayName}),
   );
+  await tester.ensureVisible(minus);
+  await tester.pumpAndSettle();
+  await tester.tap(minus);
   await tester.pump(const Duration(milliseconds: 300));
 }
 
-/// 03 with a pace chosen: "Normal 5:00" selected, the lengths under it.
-Future<void> pumpDeckPaced(WidgetTester tester) async {
-  final setup = await TableSetup.pump(
+/// 03 at Tia's table set for eight, four here, her own deck of eleven.
+Future<void> pumpDeckSeats(WidgetTester tester) async {
+  await _pumpHost(tester, 'detail_seats_8_four_here', 'Tia');
+  await _openDeck(tester);
+}
+
+/// 03 alone at a new table: open ("Any"), the server's defaults filled in.
+Future<void> pumpDeckAlone(WidgetTester tester, {double textScale = 1}) async {
+  _setup = await TableSetup.pump(
     tester,
-    lobby: v2Lobby('detail_auto_deck_5'),
+    lobby: v2Lobby('created_with_defaults'),
     viewer: 'Ana',
+    textScale: textScale,
   );
   await _openDeck(tester);
-  // The answer is not needed for what shows (the chip is chosen at once).
-  setup.http.hold(method: 'PATCH', path: '/lobbies/V9YC2J/');
-  setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
-  final normal = find.text(paceChipLabel(Pace.normal));
-  await tester.ensureVisible(normal);
-  await tester.pumpAndSettle();
-  await tester.tap(normal);
-  await tester.pump(const Duration(milliseconds: 300));
 }
 
-/// 02 back from 03 with a pace chosen: its talk length beside the chip.
-Future<void> pumpTableHostPaced(WidgetTester tester) async {
-  await pumpDeckPaced(tester);
-  final use = find.text(DeckCopy.useDeck);
-  await tester.ensureVisible(use);
+/// 03 scrolled to its lengths, at a new table.
+Future<void> pumpDeckLengths(WidgetTester tester) async {
+  await pumpDeckAlone(tester);
+  final last = find.text(DeckCopy.hostAway);
+  await tester.ensureVisible(last);
   await tester.pumpAndSettle();
-  await tester.tap(use);
-  for (var i = 0; i < 12; i++) {
-    await tester.pump(const Duration(milliseconds: 50));
-  }
+}
+
+/// 03 on the host's own deck, which holds a Doppelganger, scrolled to its
+/// lengths: the Doppelganger's row is there.
+Future<void> pumpDeckLengthsDoppelganger(WidgetTester tester) async {
+  await pumpDeckGrid(tester);
+  final last = find.text(DeckCopy.hostAway);
+  await tester.ensureVisible(last);
+  await tester.pumpAndSettle();
+}
+
+TableSetup? _setup;
+
+Future<void> _pumpHost(
+  WidgetTester tester,
+  String sample,
+  String viewer,
+) async {
+  _setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby(sample),
+    viewer: viewer,
+  );
+}
+
+/// The next settings change is shown at once, its answer held.
+void _holdPatch(String code) {
+  final setup = _setup;
+  if (setup == null) return;
+  setup.http.hold(method: 'PATCH', path: '/lobbies/$code/');
+  setup.answerPatch(ContractSamples.map('http/lobby/settings_deck_chip'));
+}
+
+Future<void> _tapCard(WidgetTester tester, RoleId role) async {
+  final card = find.byWidgetPredicate((w) => w is RoleCard && w.role == role);
+  await tester.ensureVisible(card);
+  await tester.pumpAndSettle();
+  await tester.tap(card);
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
 /// 03b: a card held on the grid.
@@ -299,23 +401,15 @@ Future<void> _openDeck(WidgetTester tester) async {
 Future<void> pumpTableOf(WidgetTester tester, String sample, String viewer) =>
     TableSetup.pump(tester, lobby: v2Lobby(sample), viewer: viewer);
 
-/// 03 opened from that 02; with [edit] its grid opened on the chip's cards,
-/// with [role] a card of it held (03b).
+/// 03 opened from that 02; with [role] a card of it held (03b).
 Future<void> pumpDeckOf(
   WidgetTester tester,
   String sample,
   String viewer, {
-  bool edit = false,
   bool role = false,
 }) async {
   await pumpTableOf(tester, sample, viewer);
   await _openDeck(tester);
-  if (!edit && !role) return;
-  final open = find.text(TableCopy.editDeck);
-  await tester.ensureVisible(open);
-  await tester.pumpAndSettle();
-  await tester.tap(open);
-  await tester.pump(const Duration(milliseconds: 300));
   if (!role) return;
   await tester.longPress(
     find.byWidgetPredicate(

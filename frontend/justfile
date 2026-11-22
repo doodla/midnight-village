@@ -118,7 +118,8 @@ scene-frames folder="build/scene_frames" label="after":
       --dart-define=SCENE_FRAMES_LABEL={{label}}
 
 # The cold-read pack (docs/specs/frontend/first-time-play.md): the screens of
-# four first-game journeys (host, guest, sleeper, Seer), in order, as one
+# four first-game journeys (host, guest, sleeper, Seer) and a host setting up a
+# table for eight before anyone comes (host-sets-8), in order, as one
 # phone sees them, to build/playtest/<journey>/screen-NN.png. Hand a folder to
 # someone who has never played and ask what they would do next. No backend.
 # Usage: just playtest-pack [width]

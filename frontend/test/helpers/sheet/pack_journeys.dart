@@ -3,7 +3,8 @@ import '../contract/contract_samples.dart';
 // The cold-read pack's journeys (test_screens/playtest_pack_test.dart draws
 // them, `just playtest-pack`), as data: each journey is ONE phone of ONE
 // recorded game (game 7: Ana the Seer hosts, Ben the Robber, Cleo the lone
-// Werewolf, Dev the Troublemaker, Esme a Villager), and each screen is that
+// Werewolf, Dev the Troublemaker, Esme a Villager; and Tia's table set up for
+// eight, which ends before the deal), and each screen is that
 // phone's own payload at a moment after the screen before it. Nothing here is
 // drawn: test/playtest/pack_journeys_test.dart checks the journeys hang
 // together (the same players and tokens, the same viewer, the deck in play,
@@ -112,7 +113,8 @@ class PackJourney {
   /// night results say it did.
   final List<String> taps;
 
-  /// Whom it voted for, as the results say.
+  /// Whom it voted for, as the results say ('' for a journey that ends
+  /// before the deal).
   final String vote;
   final List<PackStep> steps;
 }
@@ -231,6 +233,30 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.votePicked, 'http/game/me_voting_picked', 22),
       PackStep(PackScreen.count, _results),
       PackStep(PackScreen.results, _results),
+    ],
+  ),
+  // Tia sets up a table for eight before anyone comes: the number, a deck
+  // of her own built card by card, then the table filling one by one; only
+  // seven come, she plays with seven (back to a starter deck), then an
+  // eighth turns up after all and she sets eight again (the owner's set-up,
+  // 21 November 2026). Before the deal: no game, no clock.
+  'host-sets-8': PackJourney(
+    viewer: 'Tia',
+    host: true,
+    taps: [],
+    vote: '',
+    steps: [
+      PackStep(PackScreen.join),
+      PackStep(PackScreen.joinNamed),
+      PackStep(PackScreen.deck, 'http/lobby/settings_seats'),
+      PackStep(PackScreen.deck, 'http/lobby/settings_custom_deck_building'),
+      PackStep(PackScreen.deck, 'http/lobby/detail_seats_8_custom_alone'),
+      PackStep(PackScreen.table, 'http/lobby/detail_seats_8_custom_alone'),
+      PackStep(PackScreen.table, 'http/lobby/detail_seats_8_four_here'),
+      PackStep(PackScreen.table, 'http/lobby/detail_seats_8_seven_here'),
+      PackStep(PackScreen.table, 'http/lobby/settings_seats_lowered'),
+      PackStep(PackScreen.table, 'http/lobby/settings_back_to_auto'),
+      PackStep(PackScreen.table, 'http/lobby/detail_seats_8_full'),
     ],
   ),
 };

@@ -27,13 +27,6 @@ abstract final class CommonCopy {
   /// "1 of 5" on 04 read as cards, not players).
   static const progress = Template('{d} of {n} ready');
 
-  /// A custom deck that does not match the table (02, 03); one card is
-  /// singular.
-  static const addCards = Template('Add {n} cards');
-  static const removeCards = Template('Remove {n} cards');
-  static const addCard = 'Add 1 card';
-  static const removeCard = 'Remove 1 card';
-
   /// Night and dawn share the title (05, 06).
   static const nightTitle = 'The village sleeps';
 
@@ -77,6 +70,15 @@ abstract final class TableCopy {
   static const deal = Template('Deal to {n}');
   static const needPlayers = 'Need 3 players';
 
+  /// At a table set for a number: who is here of how many (02 and 03, host
+  /// and guests), by the seats, the empty ones drawn. The one way the wait
+  /// is said, never as card arithmetic.
+  static const seated = Template('{d} of {n}');
+
+  /// Fewer came than the table is set for: one tap sets the number to who
+  /// is here.
+  static const playWith = Template('Play with {n}');
+
   /// The host's way out, quiet and labelled, behind a confirm ([stay]
   /// keeps the table): one stray tap must not hand the table away.
   static const stay = 'Stay';
@@ -85,27 +87,39 @@ abstract final class TableCopy {
   static const hostDeals = Template('{host} deals');
 }
 
-/// 03 Deck (the host's, optional).
+/// 03 Tonight's game: the set-up page the host edits before anyone comes.
 abstract final class DeckCopy {
-  static const headline = "Tonight's deck";
+  static const headline = "Tonight's game";
+
+  /// The number of players the game is for; "Any": an open table, dealt to
+  /// whoever is there.
+  static const players = 'Players';
+  static const any = 'Any';
 
   /// In the order of the server's chips (`simple`, `classic`, `chaos`).
   static const chips = ['Simple', 'Classic', 'Chaos'];
 
-  /// In the order of the contract's presets (`quick`, `normal`, `long`).
-  static const paces = ['Quick', 'Normal', 'Long'];
-
-  /// A pace chip: its name and the talk it gives ("Normal 5:00"; playtest:
-  /// "Long of what?").
-  static const paceChip = Template('{pace} {talk}');
-
-  /// The pace tiles; "Copy" only when the Doppelganger is in the deck.
+  /// The lengths, in `Length` order; the Doppelganger's window is named by
+  /// the role ([RoleId] names are not words).
+  static const look = 'Look';
+  static const night = 'Night';
+  static const nightMinimum = 'Night minimum';
   static const talk = 'Talk';
   static const vote = 'Vote';
-  static const night = 'Night';
-  static const copy = 'Copy';
+  static const droppedPhone = 'Dropped phone';
+  static const hostAway = 'Host away';
 
-  static const useDeck = 'Use this deck';
+  /// A length's value: seconds ([CommonCopy.seconds]), whole minutes,
+  /// minutes and seconds ("2:30 min"). 0 for the talk or the vote: no clock
+  /// (it ends when everyone is ready); for the look, a dropped phone or the
+  /// host away: off.
+  static const minutes = Template('{n} min');
+  static const noClock = 'No clock';
+  static const off = 'Off';
+
+  /// Back to 02: always live (the page holds the players and the lengths
+  /// too; a deck that does not fit is shown on 02, Deal locked).
+  static const done = 'Done';
 }
 
 /// 03b Role sheet: the role text ([RoleCopy]) and this.
@@ -353,6 +367,9 @@ abstract final class BannerCopy {
   /// deck does not fit the table; any other reason.
   static const deckDoesNotFit = 'The deck does not fit.';
   static const cannotDeal = "Can't deal yet.";
+
+  /// A leave the server refused for a reason with no words of its own.
+  static const cannotLeave = "Can't leave now.";
 }
 
 /// What a screen reader says (8 words at most; not in the budgets).
@@ -362,4 +379,9 @@ abstract final class SpokenCopy {
 
   /// A button whose action is on its way.
   static const working = 'Working';
+
+  /// 03's steppers' glyphs and the grid card's minus.
+  static const lower = 'Lower';
+  static const higher = 'Higher';
+  static const takeOut = Template('Take one {role} out');
 }

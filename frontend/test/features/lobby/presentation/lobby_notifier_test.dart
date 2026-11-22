@@ -310,15 +310,16 @@ void main() {
         ).thenThrow(const NetworkException('offline'));
 
         final notifier = container.read(lobbyProvider('ABC123').notifier);
-        await notifier.choosePace(Pace.quick);
+        await notifier.setLength('discussion_seconds', 180);
 
         final lobby = container.read(lobbyProvider('ABC123')).value!;
         expect(lobby.notSent, isTrue);
-        expect(lobby.table.pace, isNull);
+        expect(lobby.table.raw.containsKey('discussion_seconds'), isFalse);
 
         await notifier.retry();
         verify(
-          () => mockService.patchSettings('ABC123', Pace.quick.settings),
+          () =>
+              mockService.patchSettings('ABC123', {'discussion_seconds': 180}),
         ).called(2);
       });
 

@@ -47,10 +47,6 @@ class LobbyService {
   Future<LobbyState> setCustomDeck(String code, Map<String, int> roles) =>
       _patchSettings(code, customDeck(roles));
 
-  /// The host picks a pace: the timer lengths of [pace] (PATCH, merged).
-  Future<LobbyState> setPace(String code, Pace pace) =>
-      _patchSettings(code, pace.settings);
-
   /// The settings a deck chip writes ([setDeckChip]).
   static Map<String, Object> deckChip(DeckChip chip) => {
     'deck': 'auto',
@@ -65,12 +61,14 @@ class LobbyService {
 
   /// PATCH /lobbies/<code>/ with `{"settings": settings}`: the server merges
   /// them over the stored ones (shallow) and answers the whole lobby.
-  Future<LobbyState> patchSettings(String code, Map<String, Object> settings) =>
-      _patchSettings(code, settings);
+  Future<LobbyState> patchSettings(
+    String code,
+    Map<String, Object?> settings,
+  ) => _patchSettings(code, settings);
 
   Future<LobbyState> _patchSettings(
     String code,
-    Map<String, Object> settings,
+    Map<String, Object?> settings,
   ) async {
     try {
       final response = await _client.patch<Map<String, dynamic>>(
@@ -120,9 +118,7 @@ class LobbyService {
     }
   }
 
-  /// Leaves a lobby.
-  ///
-  /// POST /lobbies/<code>/leave/
+  /// Leaves a lobby: POST /lobbies/<code>/leave/.
   Future<void> leaveLobby(String code) async {
     try {
       await _client.post<Map<String, dynamic>>('/lobbies/$code/leave/');

@@ -1,7 +1,8 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:flutter/foundation.dart' show mapEquals;
 
 import '../../../core/host/host_change.dart';
-import '../../../design_system/models/role.dart' show RoleId;
+import '../../../design_system/models/role.dart' show RoleId, RoleIdX;
 import '../../../design_system/skin/art_set.dart' show TokenId;
 
 part 'lobby_state.freezed.dart';
@@ -47,34 +48,44 @@ abstract class LobbyPlayer with _$LobbyPlayer {
 
 /// Whether the table can be dealt now (`deal`): [ok]
 /// is exactly what the server's deal would answer; [need] the cards the deal
-/// needs, [have] the cards in the deck. The app holds no deck-size rule.
+/// needs, [have] the cards in the deck; [seats] the number of players the
+/// table is set for (null: an open table, dealt to whoever is there). The
+/// app holds no deck-size rule.
 @immutable
 class DealReadiness {
   const DealReadiness({
     required this.ok,
     required this.need,
     required this.have,
+    this.seats,
   });
 
   factory DealReadiness.fromJson(Map<String, dynamic> json) => DealReadiness(
     ok: json['ok'] as bool,
     need: json['need'] as int,
     have: json['have'] as int,
+    // A server from before the number of players sends none: open.
+    seats: json['seats'] as int?,
   );
 
   final bool ok;
   final int need;
   final int have;
+  final int? seats;
+
+  /// The deck holds the cards the deal needs (the server's two numbers).
+  bool get deckFits => have == need;
 
   @override
   bool operator ==(Object other) =>
       other is DealReadiness &&
       other.ok == ok &&
       other.need == need &&
-      other.have == have;
+      other.have == have &&
+      other.seats == seats;
 
   @override
-  int get hashCode => Object.hash(ok, need, have);
+  int get hashCode => Object.hash(ok, need, have, seats);
 }
 
 /// The state of a lobby, including players, settings, and status.
@@ -142,6 +153,30 @@ abstract class LobbyState with _$LobbyState {
     /// Whether the table can be dealt now (`deal`, always sent); null only in
     /// a state built before its first body.
     DealReadiness? deal,
+
+    /// The roles the table would deal (`deck_cards`, role name to count),
+    /// face up for everyone at the table: a custom deck as picked so far, an
+    /// automatic deck for the table's size (for an open table of fewer than
+    /// 3, the smallest game's).
+    @Default({}) Map<String, int> deckCards,
+
+    /// Every length the game would run with if dealt now (`lengths`, the
+    /// settings key to seconds): the table's own, else the game's default.
+    @Default({}) Map<String, int> lengths,
+
+    /// The range a PATCH of each length takes now (`length_ranges`, the
+    /// settings key to `[least, most]` seconds).
+    @Default({}) Map<String, List<int>> lengthRanges,
+
+    /// The number of players the table may be set to now (`seats_range`,
+    /// `[least, most]`): never below who is here, never above what it holds.
+    List<int>? seatsRange,
+
+    /// The settings keys of this phone's changes not answered yet: the
+    /// screen shows those keys as changed at once and everything else as the
+    /// server has it; the server's numbers (`deal`) judge only once
+    /// answered. Frontend only.
+    @Default({}) Set<String> pendingKeys,
   }) = _LobbyState;
 
   /// Parses the backend's LobbyResponse format.
@@ -179,8 +214,83 @@ abstract class LobbyState with _$LobbyState {
           ? DeckChip.fromServer(settings['deck_chip'])
           : null,
       deal: DealReadiness.fromJson(deal),
+      // A server from before these keys sends neither (a deploy in flight).
+      deckCards: _counts(json['deck_cards']),
+      lengths: _counts(json['lengths']),
+      lengthRanges: json['length_ranges'] is Map<String, dynamic>
+          ? (json['length_ranges'] as Map<String, dynamic>).map(
+              (k, v) => MapEntry(k, (v as List).cast<int>()),
+            )
+          : const {},
+      seatsRange: (json['seats_range'] as List?)?.cast<int>(),
     );
   }
+}
+
+Map<String, int> _counts(Object? json) => json is Map<String, dynamic>
+    ? json.map((k, v) => MapEntry(k, v as int))
+    : const {};
+
+/// The roles in the one order every deck is shown in (02's strip, 03's
+/// grid).
+const deckOrder = [
+  RoleId.werewolf,
+  RoleId.minion,
+  RoleId.mason,
+  RoleId.seer,
+  RoleId.robber,
+  RoleId.troublemaker,
+  RoleId.drunk,
+  RoleId.insomniac,
+  RoleId.hunter,
+  RoleId.tanner,
+  RoleId.doppelganger,
+  RoleId.villager,
+];
+
+/// The cards in the middle of the table in every game: the deal needs one
+/// per player and these. Used only while a change of the number is on its
+/// way; otherwise the server's `deal.need` is the need.
+const centreCards = 3;
+
+/// What the host sees while a change is on its way: the server's state with
+/// only the pending keys ([LobbyState.pendingKeys]) taken from this phone.
+extension TableCards on LobbyState {
+  /// A change of this phone's is on its way.
+  bool get settling => pendingKeys.isNotEmpty;
+
+  /// The table's deck face up (02 for host and guests, 03), in [deckOrder]:
+  /// the host's own deck as it stands on this phone (its taps shown at
+  /// once), else the server's `deck_cards`.
+  Map<RoleId, int> get tableCards {
+    final source = table.autoDeck ? deckCards : roleConfig;
+    return {
+      for (final role in deckOrder)
+        if ((source[role.displayName] ?? 0) case final n when n > 0) role: n,
+    };
+  }
+
+  /// The automatic deck is being rebuilt by the server for a change on its
+  /// way (the number, the chip): its cards are the server's to say.
+  bool get _autoDeckPending =>
+      table.autoDeck &&
+      pendingKeys.intersection({'seats', 'deck', 'deck_chip'}).isNotEmpty;
+
+  /// The cards the deal needs for the table as this phone shows it: the
+  /// server's `deal.need`, or, while a new number is on its way, that number
+  /// and the centre. Null before the first body, or at an open table.
+  int? get cardsNeeded {
+    final seats = table.seats;
+    if (seats == null) return null;
+    if (pendingKeys.contains('seats')) return seats + centreCards;
+    return deal?.need;
+  }
+
+  /// The cards in the deck as this phone shows it (an automatic deck being
+  /// rebuilt holds what it needs, by construction).
+  int get pickedCards => _autoDeckPending && cardsNeeded != null
+      ? cardsNeeded!
+      : tableCards.values.fold(0, (a, b) => a + b);
 }
 
 /// The cards a chip's deck holds now, face up (02's strip, 03's chips
@@ -212,50 +322,83 @@ enum DeckChip {
       (throw FormatException('Unknown deck chip', name));
 }
 
-/// The pace presets (api-contract-v2, section 7): the talk, the vote and a
-/// night window, in seconds. The phone writes the numbers; which preset a
-/// table is at is read back from the numbers its settings carry. The
-/// Doppelganger's window is not a pace knob (first-time play spec, section
-/// 7), and neither is the night's minimum window (a hidden-information guard).
-enum Pace {
-  quick(talk: 180, vote: 45, night: 20),
-  normal(talk: 300, vote: 90, night: 30),
-  long(talk: 480, vote: 120, night: 45);
+/// The lengths a host sets on the set-up page (03), in its order: the
+/// server's timer settings, every one it reads. Each shows the value the game
+/// would run with (the table's own, else the server's default: `lengths`)
+/// and moves within the range the server takes now (`length_ranges`).
+enum Length {
+  talk('discussion_seconds'),
+  vote('voting_seconds'),
+  night('night_wave_seconds'),
+  doppelganger('night_doppelganger_window_seconds'),
+  look('card_look_seconds'),
+  nightMinimum('night_min_window_seconds'),
+  droppedPhone('disconnect_grace_seconds'),
+  hostAway('host_handover_seconds');
 
-  const Pace({required this.talk, required this.vote, required this.night});
+  const Length(this.key);
 
-  final int talk;
-  final int vote;
-  final int night;
+  /// The settings key.
+  final String key;
 
-  /// The settings keys a preset writes.
-  Map<String, int> get settings => {
-    'discussion_seconds': talk,
-    'voting_seconds': vote,
-    'night_wave_seconds': night,
-  };
+  /// The stepper's step at [seconds]: fine where a few seconds matter,
+  /// whole minutes from five on.
+  static int stepAt(int seconds) => seconds < 60
+      ? 5
+      : seconds < 300
+      ? 15
+      : 60;
 
-  /// The preset the stored numbers are at, if any.
-  static Pace? of(Map<String, dynamic> settings) => values
-      .where((p) => p.settings.entries.every((e) => settings[e.key] == e.value))
-      .firstOrNull;
+  /// Whether 0 means no clock at all for this length (the talk and the vote
+  /// then end when everyone is ready), rather than the thing being off.
+  bool get zeroIsNoClock => this == talk || this == vote;
+
+  /// One step up from [seconds] (to the next whole step), at most [most].
+  static int up(int seconds, int most) {
+    final step = stepAt(seconds);
+    return (((seconds ~/ step) + 1) * step).clamp(seconds, most);
+  }
+
+  /// One step down from [seconds] (to the step below), at least [least].
+  static int down(int seconds, int least) {
+    if (seconds <= least) return least;
+    final step = stepAt(seconds - 1);
+    final next = ((seconds - 1) ~/ step) * step;
+    return next < least ? least : next;
+  }
 }
 
-/// What a lobby's `settings` say about the deck, the look and the lengths,
-/// beyond the card list ([LobbyState.roleConfig]). Every key is optional on
-/// the server (a table made without `defaults: "v2"` has none of them); a key
-/// that is there must have its type.
+/// The set-up page's lengths, as this phone shows them.
+extension TableLengths on LobbyState {
+  /// The seconds [length] runs for: this phone's change not answered yet,
+  /// else the server's `lengths` (the table's own or the default). Null
+  /// from a server that sends no `lengths`.
+  int? secondsOf(Length length) {
+    if (pendingKeys.contains(length.key)) {
+      if (table.raw[length.key] case final int mine) return mine;
+    }
+    return lengths[length.key];
+  }
+
+  /// The range a PATCH of [length] takes now (`length_ranges`); a server
+  /// that sends none: 0 to an hour.
+  (int, int) rangeOf(Length length) => switch (lengthRanges[length.key]) {
+    [final least, final most] => (least, most),
+    _ => (0, 3600),
+  };
+}
+
+/// What a lobby's `settings` say about the deck, the look and the number of
+/// players, beyond the card list ([LobbyState.roleConfig]). Every key is
+/// optional on the server (a table made without `defaults: "v2"` has none of
+/// them); a key that is there must have its type.
 @immutable
 class TableSettings {
   const TableSettings._({
     required this.autoDeck,
     required this.deckChip,
     required this.cardLookSeconds,
-    required this.pace,
-    this.talkSeconds,
-    this.voteSeconds,
-    this.nightSeconds,
-    this.copySeconds,
+    this.seats,
     Map<String, dynamic> raw = const {},
   }) : _raw = raw;
 
@@ -264,7 +407,6 @@ class TableSettings {
     autoDeck: false,
     deckChip: null,
     cardLookSeconds: null,
-    pace: null,
   );
 
   factory TableSettings.fromSettings(Map<String, dynamic> settings) {
@@ -277,11 +419,7 @@ class TableSettings {
       autoDeck: deck == 'auto',
       deckChip: chip == null ? null : DeckChip.fromServer(chip),
       cardLookSeconds: settings['card_look_seconds'] as int?,
-      pace: Pace.of(settings),
-      talkSeconds: settings['discussion_seconds'] as int?,
-      voteSeconds: settings['voting_seconds'] as int?,
-      nightSeconds: settings['night_wave_seconds'] as int?,
-      copySeconds: settings['night_doppelganger_window_seconds'] as int?,
+      seats: settings['seats'] as int?,
       raw: Map.unmodifiable(settings),
     );
   }
@@ -289,10 +427,13 @@ class TableSettings {
   /// These settings with [patch] merged over them as the server merges a
   /// `PATCH /lobbies/<code>/` (shallow: a key given again is replaced
   /// whole), so a change shows before its answer.
-  TableSettings merged(Map<String, Object> patch) =>
+  TableSettings merged(Map<String, Object?> patch) =>
       TableSettings.fromSettings({..._raw, ...patch});
 
   final Map<String, dynamic> _raw;
+
+  /// The settings as stored (with this phone's changes merged over them).
+  Map<String, dynamic> get raw => _raw;
 
   /// The server builds the deck at the deal from [deckChip] (`deck: "auto"`);
   /// otherwise the card list is the deck.
@@ -302,19 +443,8 @@ class TableSettings {
   /// The look stage's length; null or 0 when off.
   final int? cardLookSeconds;
 
-  /// The pace preset the stored timer lengths are at; null when they are at
-  /// none (the server's own defaults, or lengths set some other way).
-  final Pace? pace;
-
-  /// The table's own lengths, in seconds, when its settings carry them (a
-  /// new table carries none: the server's defaults apply, and the phone
-  /// does not assume them).
-  final int? talkSeconds;
-  final int? voteSeconds;
-  final int? nightSeconds;
-
-  /// The Doppelganger's window ("Copy").
-  final int? copySeconds;
+  /// The number of players the game is for (`seats`, 3 to 10); null: open.
+  final int? seats;
 
   @override
   bool operator ==(Object other) =>
@@ -322,29 +452,18 @@ class TableSettings {
       other.autoDeck == autoDeck &&
       other.deckChip == deckChip &&
       other.cardLookSeconds == cardLookSeconds &&
-      other.pace == pace &&
-      other.talkSeconds == talkSeconds &&
-      other.voteSeconds == voteSeconds &&
-      other.nightSeconds == nightSeconds &&
-      other.copySeconds == copySeconds;
+      other.seats == seats &&
+      mapEquals(other._raw, _raw);
 
   @override
-  int get hashCode => Object.hash(
-    autoDeck,
-    deckChip,
-    cardLookSeconds,
-    pace,
-    talkSeconds,
-    voteSeconds,
-    nightSeconds,
-    copySeconds,
-  );
+  int get hashCode => Object.hash(autoDeck, deckChip, cardLookSeconds, seats);
 }
 
 /// Whether the host may deal now: the server's own verdict (`deal`), which is
-/// exactly what its deal would answer. The phone holds no deck-size rule:
-/// when a custom deck is what stands in the way, the cards to add or remove
-/// are the server's `need` against its `have`.
+/// exactly what its deal would answer. The phone holds no deck-size rule and
+/// never says the deck in card arithmetic: what stands in the way is shown by
+/// the elements (the empty seats, the deck's count); the button keeps one
+/// label.
 @immutable
 sealed class DealState {
   const DealState();
@@ -354,23 +473,25 @@ sealed class DealState {
     final deal = lobby.deal;
     // No verdict yet (a state built before its first body): the button is
     // offered and the server's answer to the deal judges.
-    if (deal == null || deal.ok) return CanDeal(players);
+    if (deal == null) return CanDeal(players);
+    // The number as the host sees it (a change on its way included).
+    final seats = lobby.table.seats;
+    // A change of this phone's not answered yet: the old verdict is stale.
+    if (deal.ok && !lobby.settling) return CanDeal(seats ?? players);
+    // A table set for a number waits for it: "Deal to 8", locked.
+    if (seats != null) return WaitingFor(seats);
     if (players < minPlayers) return const NeedPlayers();
-    if (lobby.table.autoDeck) return const CannotDeal();
-    if (deal.have < deal.need) return AddCards(deal.need - deal.have);
-    if (deal.have > deal.need) return RemoveCards(deal.have - deal.need);
-    return const CannotDeal(deck: true);
+    if (!lobby.table.autoDeck) return const DeckDoesNotFit();
+    return const CannotDeal();
   }
 
   /// The players "Need 3 players" names ([TableCopy.needPlayers]).
   static const minPlayers = 3;
 }
 
-/// Refused for another reason: a custom deck of the right size the deal
-/// would not take ([deck]: its roles, e.g. one Mason), or anything else.
+/// Refused for another reason (anything but the players or the deck).
 final class CannotDeal extends DealState {
-  const CannotDeal({this.deck = false});
-  final bool deck;
+  const CannotDeal();
 }
 
 /// Deal to [players].
@@ -379,19 +500,19 @@ final class CanDeal extends DealState {
   final int players;
 }
 
-/// Fewer than three at the table.
+/// An open table with fewer than three.
 final class NeedPlayers extends DealState {
   const NeedPlayers();
 }
 
-/// A custom deck [count] cards short.
-final class AddCards extends DealState {
-  const AddCards(this.count);
-  final int count;
+/// A table set for [seats] players that cannot be dealt yet (not all here,
+/// or the deck does not fit them): the button keeps "Deal to {seats}".
+final class WaitingFor extends DealState {
+  const WaitingFor(this.seats);
+  final int seats;
 }
 
-/// A custom deck [count] cards over.
-final class RemoveCards extends DealState {
-  const RemoveCards(this.count);
-  final int count;
+/// An open table's custom deck the deal would not take.
+final class DeckDoesNotFit extends DealState {
+  const DeckDoesNotFit();
 }

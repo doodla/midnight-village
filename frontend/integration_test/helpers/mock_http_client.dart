@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:midnight_village/core/api/authenticated_client.dart';
 
 /// Thrown when a request is made to an endpoint with no registered mock response.
 ///
@@ -54,8 +55,19 @@ typedef ResponseCheck =
 /// client.when(method: 'POST', path: '/api/v1/games/').thenReturn(...);
 /// ```
 class MockHttpClient {
-  MockHttpClient() : dio = Dio() {
-    dio.interceptors.add(_MockInterceptor(_registry, requests, _holds));
+  /// With [timesOut], this client waits [AuthenticatedClient.timeout] for an
+  /// answer as the app's own does, so a held answer that comes later times
+  /// out as it would over the network (the test's teardown then runs out
+  /// that wait).
+  MockHttpClient({bool timesOut = false})
+    : dio = Dio(
+        BaseOptions(
+          receiveTimeout: timesOut ? AuthenticatedClient.timeout : null,
+        ),
+      ) {
+    dio.interceptors.add(
+      _MockInterceptor(_registry, requests, _holds, _beforeAnswer),
+    );
   }
 
   final Dio dio;
@@ -65,6 +77,17 @@ class MockHttpClient {
   final List<RequestOptions> requests = [];
   final Map<String, _MockResponse> _registry = {};
   final Map<String, HeldReplies> _holds = {};
+  final Map<String, void Function(RequestOptions)> _beforeAnswer = {};
+
+  /// Before each request for [method] [path] is answered, [answer] sees it
+  /// and registers its answer (with [when] and [thenReturn], so the body is
+  /// checked as any other): a server whose answer follows what was sent (a
+  /// settings change answered with the lobby it makes).
+  void answerEach({
+    required String method,
+    required String path,
+    required void Function(RequestOptions request) answer,
+  }) => _beforeAnswer['${method.toUpperCase()}:$path'] = answer;
   String? _pendingKey;
 
   /// From now on, requests for [method] [path] are answered only when the
@@ -167,16 +190,23 @@ class _MockResponse {
 }
 
 class _MockInterceptor extends Interceptor {
-  _MockInterceptor(this._registry, this._requests, this._holds);
+  _MockInterceptor(
+    this._registry,
+    this._requests,
+    this._holds,
+    this._beforeAnswer,
+  );
 
   final Map<String, _MockResponse> _registry;
   final List<RequestOptions> _requests;
   final Map<String, HeldReplies> _holds;
+  final Map<String, void Function(RequestOptions)> _beforeAnswer;
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     _requests.add(options);
     final key = '${options.method.toUpperCase()}:${options.path}';
+    _beforeAnswer[key]?.call(options);
     final mock = _registry[key];
 
     if (mock != null) {
@@ -204,7 +234,28 @@ class _MockInterceptor extends Interceptor {
 
       final held = _holds[key];
       if (held != null) {
-        held._waiting.add(answer);
+        // Held past the client's wait: the request times out, as it would.
+        var done = false;
+        final wait = options.receiveTimeout;
+        final timer = wait == null
+            ? null
+            : Timer(wait, () {
+                if (done) return;
+                done = true;
+                handler.reject(
+                  DioException.receiveTimeout(
+                    timeout: wait,
+                    requestOptions: options,
+                  ),
+                  true,
+                );
+              });
+        held._waiting.add(() {
+          timer?.cancel();
+          if (done) return;
+          done = true;
+          answer();
+        });
       } else {
         answer();
       }

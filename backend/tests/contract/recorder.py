@@ -74,6 +74,8 @@ LOBBY_CODES = (
     # The lobby table (scenarios.lobby_table).
     "B7DH4Q",
     "C9FJ2K",
+    # The table set for eight (scenarios._seats_table).
+    "D3GL6S",
 )
 # Stand-ins for the game ids, in the order the games are dealt.
 GAME_IDS = (

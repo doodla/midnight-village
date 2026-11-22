@@ -107,6 +107,9 @@ class TableSetup {
 
   String get code => lobby!['code'] as String;
 
+  /// Where the app is served from in these tests (the QR code's link).
+  static final _webOrigin = Uri.parse('https://midnight.example');
+
   static Future<TableSetup> pump(
     WidgetTester tester, {
     Map<String, dynamic>? lobby,
@@ -120,6 +123,8 @@ class TableSetup {
     double keyboard = 0,
     bool realAuth = false,
     bool lobbyDown = false,
+    bool webAddress = true,
+    bool timesOut = true,
   }) async {
     // ignore: invalid_use_of_visible_for_testing_member
     SharedPreferences.setMockInitialValues({});
@@ -128,7 +133,9 @@ class TableSetup {
         : memberId(lobby, viewer);
     final setup = TableSetup._(
       lobby,
-      MockHttpClient(),
+      // The app's client gives up after its wait: so does this one (not in
+      // a picture that holds an answer and never waits it out).
+      MockHttpClient(timesOut: timesOut),
       MockWebSocketChannel(),
       viewerId,
     );
@@ -192,9 +199,8 @@ class TableSetup {
             HomeService(client: ApiClient(dio: http.dio)),
           ),
           lobbyWebSocketFactoryProvider.overrideWithValue((_) => setup.ws),
-          appOriginProvider.overrideWithValue(
-            Uri.parse('https://midnight.example'),
-          ),
+          // Without: an app build that knows no web address (no QR code).
+          appOriginProvider.overrideWithValue(webAddress ? _webOrigin : null),
           shareLinkProvider.overrideWithValue((link) async {
             setup.shared.add(link);
             return setup.shareCopies;
@@ -282,10 +288,11 @@ class TableSetup {
     }
   }
 
-  /// Unmounts the app (its timers go with it).
+  /// Unmounts the app (its timers go with it; an answer still held runs
+  /// out the client's wait).
   Future<void> close(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(AuthenticatedClient.timeout + const Duration(seconds: 1));
   }
 }
 
