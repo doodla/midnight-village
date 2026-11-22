@@ -371,13 +371,6 @@ extension TableCards on LobbyState {
     return deal?.need;
   }
 
-  /// How many players the deck is for (the slots drawn for them): the number
-  /// the table is set for, else the cards needed less the centre's.
-  int? get deckPlayers {
-    final need = cardsNeeded;
-    return table.seats ?? (need == null ? null : need - centreCards);
-  }
-
   /// How far the deck is from the cards the deal needs: above 0 too many,
   /// below 0 too few, 0 it fits; null when nothing says what is needed. The
   /// server's `deal.need` and `deal.have` are the rule (cards = players + 3);
@@ -563,8 +556,10 @@ class TableSettings {
 /// Whether the host may deal now: the server's own verdict (`deal`), which is
 /// exactly what its deal would answer. The phone holds no deck-size rule and
 /// never says the deck in card arithmetic: what stands in the way is shown by
-/// the elements (the empty seats, the deck's count); the button keeps one
-/// label.
+/// the elements (the empty seats, the deck's count). The reasons come in the
+/// order the host can act on them: the friends first ("Need 3 players",
+/// "Need {n} more"), then the deck ("Add 1 card", "Remove 2 cards"), then
+/// start.
 @immutable
 sealed class DealState {
   const DealState();
@@ -578,17 +573,20 @@ sealed class DealState {
     if (deal == null) return CanDeal(players);
     // The number as the host sees it (a change on its way included).
     final seats = lobby.table.seats;
-    // The deck first: it is the one reason the host fixes on this phone.
-    final off = lobby.deckOff;
-    if (off != null && off != 0) return DeckDoesNotFit(off);
-    // A change of this phone's not answered yet: the old verdict is stale.
-    if (deal.ok && !lobby.settling) return CanDeal(seats ?? players);
-    // A table set for a number waits for the rest of it.
+    // The friends first: nothing else matters to a host alone at a table. The
+    // places are the table's own number, or at an open ("Any") table the
+    // three a game takes; either way the count shown is the one the phone
+    // holds now (who sits, the number set), and the cards needed below are the
+    // server's current `need` (it follows the players at an open table).
     if (seats != null && players < seats) return WaitingFor(seats - players);
     if (seats == null && players < minPlayers) return const NeedPlayers();
-    // A change on its way (a practice player sitting down or getting up,
-    // the chip): the button waits for the answer.
+    // Then the deck: the one other reason the host fixes on this phone.
+    final off = lobby.deckOff;
+    if (off != null && off != 0) return DeckDoesNotFit(off);
+    // A change of this phone's not answered yet: the old verdict is stale,
+    // the button waits for the answer.
     if (lobby.settling) return CanDealSoon(seats ?? players);
+    if (deal.ok) return CanDeal(seats ?? players);
     return const CannotDeal();
   }
 

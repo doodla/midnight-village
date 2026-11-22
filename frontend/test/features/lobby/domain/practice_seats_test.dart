@@ -128,6 +128,7 @@ void main() {
       );
       expect(asked.seatedCount, 3);
       expect(DealState.of(asked), isNot(isA<CanDeal>()));
+      expect(DealState.of(asked), isA<CanDealSoon>());
     });
   });
 

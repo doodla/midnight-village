@@ -49,7 +49,8 @@ enum ButtonPhase {
   /// It acts: the screen's one amber fill.
   ready,
 
-  /// Waiting for input; its label names what is missing ("Pick a name").
+  /// Waiting for input; its label names what is missing ("Pick a name") and
+  /// its reason is spoken ([PrimaryButton.waiting]).
   waiting,
 
   /// A gate: it keeps the label of what it will do ("Ready", "Choose
@@ -87,18 +88,39 @@ enum ButtonPhase {
 /// rises out of the slot over [Motion.quick] while it already takes the tap.
 /// Taking the picks back cuts the amber out at once (no blend of the two).
 class PrimaryButton extends StatefulWidget {
-  /// Ready when [onPressed] is given, else waiting.
+  /// It acts. A main button never sits silently disabled (the app's rule): a
+  /// button that cannot act yet is [PrimaryButton.locked] (a tap leads to
+  /// the fix) or [PrimaryButton.waiting] (it says why), never an `onPressed`
+  /// of null, which this constructor does not take.
   const PrimaryButton({
     super.key,
     required this.label,
-    required this.onPressed,
+    required VoidCallback this.onPressed,
     this.busy = false,
     this.size = ButtonSize.regular,
     this.icon,
     this.rises = false,
   }) : onLockedTap = null,
+       reason = null,
        slot = false,
-       _phase = null;
+       _phase = ButtonPhase.ready;
+
+  /// Nothing to do yet, and its label names what is missing ("Pick a name",
+  /// "Need 3 players"): an outline with no fill that [reason] explains to a
+  /// screen reader. Only where there is no fix a tap could lead to (else
+  /// [PrimaryButton.locked]), or a change of this phone's is on its way.
+  const PrimaryButton.waiting({
+    super.key,
+    required this.label,
+    required String this.reason,
+    this.size = ButtonSize.regular,
+  }) : onPressed = null,
+       onLockedTap = null,
+       busy = false,
+       icon = null,
+       rises = false,
+       slot = false,
+       _phase = ButtonPhase.waiting;
 
   /// A gate, locked: a tap calls [onLockedTap] (replay the cue) and does not
   /// act.
@@ -110,6 +132,7 @@ class PrimaryButton extends StatefulWidget {
     this.icon,
     this.slot = false,
   }) : onPressed = null,
+       reason = null,
        busy = false,
        rises = false,
        _phase = ButtonPhase.locked;
@@ -121,6 +144,7 @@ class PrimaryButton extends StatefulWidget {
     required VoidCallback this.onPressed,
     this.size = ButtonSize.regular,
   }) : onLockedTap = null,
+       reason = null,
        icon = null,
        busy = false,
        rises = false,
@@ -135,6 +159,7 @@ class PrimaryButton extends StatefulWidget {
   }) : onPressed = null,
        icon = null,
        onLockedTap = null,
+       reason = null,
        busy = false,
        rises = false,
        slot = false,
@@ -155,6 +180,9 @@ class PrimaryButton extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
   final VoidCallback? onLockedTap;
+
+  /// Why a [PrimaryButton.waiting] waits, for a screen reader.
+  final String? reason;
   final bool busy;
   final ButtonSize size;
 
@@ -166,10 +194,9 @@ class PrimaryButton extends StatefulWidget {
 
   /// A glyph before the label (the padlock of "Lock in Cleo").
   final IconData? icon;
-  final ButtonPhase? _phase;
+  final ButtonPhase _phase;
 
-  ButtonPhase get phase =>
-      _phase ?? (onPressed == null ? ButtonPhase.waiting : ButtonPhase.ready);
+  ButtonPhase get phase => _phase;
 
   @override
   State<PrimaryButton> createState() => _PrimaryButtonState();
@@ -301,6 +328,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       button: true,
       enabled: _acts,
       label: widget.label,
+      hint: widget.reason,
       value: widget.busy ? SpokenCopy.working : null,
       // The words are this node's own, and so is the tap (the ink's tap is
       // left out with its words): a screen reader can press it.

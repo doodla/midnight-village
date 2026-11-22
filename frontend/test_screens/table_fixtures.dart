@@ -439,7 +439,7 @@ Future<void> pumpTableSeatsAlone(WidgetTester tester, {double textScale = 1}) =>
     );
 
 /// 02 at a table set for eight, four here: "4 of 8", four empty places,
-/// the deck face up, "Start game" locked.
+/// the deck face up, "Need 4 more".
 Future<void> pumpTableSeatsFour(WidgetTester tester) => TableSetup.pump(
   tester,
   lobby: v2Lobby('detail_seats_8_four_here'),
@@ -483,7 +483,23 @@ Future<void> pumpTableSeatsLowered(WidgetTester tester) async {
   await setup.settle(tester);
 }
 
-/// Eight of eight, the automatic deck: "Start game" live.
+/// 02 at the blocked table, the host's: set for seven, her own deck of eleven
+/// one over: "Remove 1 card", no "Edit", no second count.
+Future<void> pumpTableLowered(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('settings_seats_lowered'),
+  viewer: 'Tia',
+);
+
+/// The same blocked table on a guest's phone (set for seven, the host's deck
+/// of eleven one over): the same places and cards, no button to fix it.
+Future<void> pumpTableLoweredGuest(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('settings_seats_lowered'),
+  viewer: 'Ugo',
+);
+
+/// Eight of eight, the automatic deck: "Start the game" live.
 Future<void> pumpTableSeatsFull(WidgetTester tester) => TableSetup.pump(
   tester,
   lobby: v2Lobby('detail_seats_8_full'),
@@ -512,7 +528,7 @@ Future<void> pumpTableOffline(WidgetTester tester) => TableSetup.pump(
   lobbyDown: true,
 );
 
-/// The host's "Start game" tapped, the server not answered yet.
+/// The host's "Start the game" tapped, the server not answered yet.
 Future<void> pumpTableDealing(WidgetTester tester) async {
   final setup = await TableSetup.pump(
     tester,
@@ -686,15 +702,16 @@ Future<void> pumpDeckGridShort(WidgetTester tester) async {
 }
 
 /// 03 on the host's own deck with two cards put in: two over the need, and
-/// "Fix the deck" tapped (the owner's dead end, 23 November 2026: the page used
+/// "Done" tapped once (the owner's dead end, 23 November 2026: the page used
 /// to let her leave it so).
 Future<void> pumpDeckGridOver(WidgetTester tester) async {
   await pumpDeckGrid(tester);
   _holdPatch(_setup!.code);
   await _tapCard(tester, RoleId.robber);
   await _tapCard(tester, RoleId.hunter);
-  // "Fix the deck" does not leave: it brings the count into view.
-  await tester.tap(find.text(DeckCopy.fixDeck));
+  // The first "Done" does not leave: it brings the count into view and
+  // nudges it.
+  await tester.tap(find.text(DeckCopy.done));
   await tester.pumpAndSettle();
 }
 

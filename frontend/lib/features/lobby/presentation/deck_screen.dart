@@ -11,6 +11,7 @@ import '../../../design_system/models/role.dart';
 import '../../../design_system/primitives/chips.dart';
 import '../../../design_system/primitives/fit_line.dart';
 import '../../../design_system/primitives/notice.dart';
+import '../../../design_system/primitives/nudge.dart';
 import '../../../design_system/primitives/panels.dart';
 import '../../../design_system/primitives/primary_button.dart';
 import '../../../design_system/primitives/role_card.dart';
@@ -86,8 +87,9 @@ const minSeats = 3;
 /// - Every length the server has, each its own value with its unit, moved by
 ///   a stepper within the range the server takes now; the Doppelganger's only
 ///   while the deck holds one.
-/// - "Done" returns to 02, always live (a deck that does not fit is shown
-///   on 02, Deal locked); so does Back.
+/// - "Done" returns to 02, always live; so does Back. With a deck that does
+///   not fit the first one stays and nudges the count, the second leaves (02's
+///   one button then says what to add or remove).
 ///
 /// A restart lands on 02: opening 03 is a step of this phone's only
 /// ([localStepsProvider]); what was set is the server's.
@@ -197,22 +199,36 @@ class DeckView extends StatefulWidget {
   State<DeckView> createState() => DeckViewState();
 }
 
-/// 03's state: the count's place, for the leave that shows it.
+/// 03's state: the count's place and nudge, for the leave that shows it.
 class DeckViewState extends State<DeckView> {
   final _count = GlobalKey();
+  final _nudge = GlobalKey<NudgeState>();
+
+  /// The wrong count the host has been shown (by "Done" or Back): leaving
+  /// with that same count again goes. Null while the count is right.
+  int? _shownAt;
+
+  @override
+  void didUpdateWidget(DeckView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((lobby.deckOff ?? 0) == 0) _shownAt = null;
+  }
 
   LobbyState get lobby => widget.lobby;
   DeckChanged get onDeck => widget.onDeck;
 
-  /// "Done", and Back: leaves with the right number of cards; with the wrong
-  /// number stays and shows the count (how many too many or too few), so the
-  /// table is never left in a state where the game cannot start.
+  /// "Done", and Back: with the right number of cards it leaves. With the
+  /// wrong number the first one stays, brings the count into view and nudges
+  /// it (the count says what to add or remove); the second leaves, so the
+  /// host is never trapped (the table's code, to let friends in, is on 02,
+  /// and 02's button is the way back here).
   void leave() {
     final off = lobby.deckOff;
-    if (off == null || off == 0) {
+    if (off == null || off == 0 || _shownAt == off) {
       widget.onUse();
       return;
     }
+    _shownAt = off;
     final at = _count.currentContext;
     if (at != null) {
       unawaited(
@@ -224,6 +240,7 @@ class DeckViewState extends State<DeckView> {
         ),
       );
     }
+    _nudge.currentState?.nudge();
   }
 
   /// Who sits at the table as this phone shows it (practice changes on
@@ -292,12 +309,10 @@ class DeckViewState extends State<DeckView> {
             selected: table.autoDeck ? table.deckChip?.index : null,
             onTap: (i) => widget.onChip(DeckChip.values[i]),
           ),
-          if (lobby.deckPlayers case final players? when need != null)
-            DeckCount(
-              key: _count,
-              picked: picked,
-              need: need,
-              players: players,
+          if (need != null)
+            Nudge(
+              key: _nudge,
+              child: DeckCount(key: _count, picked: picked, need: need),
             ),
           _Grid(
             deck: lobby.tableCards,
@@ -315,13 +330,11 @@ class DeckViewState extends State<DeckView> {
             action: BannerCopy.tryAgain,
             onAction: widget.onRetry,
           ),
-        // Live, never stuck: a host who only changed a timer leaves at once.
-        // With the wrong number of cards it says what to fix and a tap shows
-        // the count (the page cannot be left to a table that cannot start).
-        PrimaryButton(
-          label: (lobby.deckOff ?? 0) == 0 ? DeckCopy.done : DeckCopy.fixDeck,
-          onPressed: leave,
-        ),
+        // An action, always "Done": a host who only changed a timer leaves
+        // at once. With the wrong number of cards the first tap shows the
+        // count (the page is not left to a table that cannot start by
+        // accident), the second leaves.
+        PrimaryButton(label: DeckCopy.done, onPressed: leave),
       ],
     );
   }
@@ -415,24 +428,24 @@ class _Players extends StatelessWidget {
   }
 }
 
-/// The cards picked over the cards the deal needs ("7 / 11"), and a slot
-/// for each: as many as the players, a gap, the three in the centre, so the
-/// count is tied to the number by sight. Cards past the need are drawn in
-/// the danger ink, as is the count while it is not the need, with a line
-/// saying how many too many or too few.
+/// What to do about [off] cards over (above 0) or under (below 0) what the
+/// deal needs, in the player's words ("Remove 2 cards", "Add 1 card"): the
+/// count's instruction on 03 and 02's one button.
+String deckFixWords(int off) => off > 0
+    ? (off == 1 ? DeckCopy.removeCard : DeckCopy.removeCards.fill({'n': off}))
+    : (off == -1 ? DeckCopy.addCard : DeckCopy.addCards.fill({'n': -off}));
+
+/// The cards picked of the cards the deal needs, said in the player's words
+/// on one line in one face ("14 of 12 · Remove 2 cards", "10 of 11 · Add 1
+/// card", "11 of 11"), and a pip for each: one per card needed, filled for a
+/// card picked, empty for one still to add, and the cards over the need in the
+/// danger ink, so a deck too big reads at a glance. No gap between them: the
+/// count is what is said, the pips only show it.
 class DeckCount extends StatelessWidget {
-  const DeckCount({
-    super.key,
-    required this.picked,
-    required this.need,
-    required this.players,
-  });
+  const DeckCount({super.key, required this.picked, required this.need});
 
   final int picked;
   final int need;
-
-  /// The players the deck is for: the slots before the centre's three.
-  final int players;
 
   @override
   Widget build(BuildContext context) {
@@ -462,43 +475,29 @@ class DeckCount extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: Space.xs,
       children: [
-        Row(
-          spacing: Space.md,
-          children: [
-            Text(
-              '$picked / $need',
-              style: skin.typography.heading.copyWith(
-                color: off == 0 ? ground.text : ground.dangerText,
-              ),
-            ),
-            Expanded(
-              child: ExcludeSemantics(
-                child: Wrap(
-                  spacing: Space.xxs,
-                  runSpacing: Space.xxs,
-                  children: [
-                    for (var i = 0; i < slots; i++) ...[
-                      // The centre's three after a gap.
-                      if (i == players) const SizedBox(width: Space.sm),
-                      slot(i),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        // How far off, in words, by the count (the slots show it by sight).
-        if (off != 0)
-          Semantics(
-            liveRegion: true,
-            child: FitWords(
-              (off > 0 ? DeckCopy.tooMany : DeckCopy.tooFew).fill({
-                'n': off.abs(),
-              }),
-              style: skin.typography.body.copyWith(color: ground.dangerText),
+        Semantics(
+          liveRegion: true,
+          child: FitLine(
+            off == 0
+                ? DeckCopy.count.fill({'picked': picked, 'need': need})
+                : DeckCopy.countFix.fill({
+                    'picked': picked,
+                    'need': need,
+                    'fix': deckFixWords(off),
+                  }),
+            alignment: AlignmentDirectional.centerStart,
+            style: skin.typography.title.copyWith(
+              color: off == 0 ? ground.text : ground.dangerText,
             ),
           ),
+        ),
+        ExcludeSemantics(
+          child: Wrap(
+            spacing: Space.xxs,
+            runSpacing: Space.xxs,
+            children: [for (var i = 0; i < slots; i++) slot(i)],
+          ),
+        ),
       ],
     );
   }

@@ -614,8 +614,8 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('a deck of the wrong size: Back stays on 03 and shows the '
-        'count (never a silent exit to a table that cannot start)', (
+    testWidgets('a deck of the wrong size: the first Back stays on 03 and '
+        'shows the count, the second goes back (never trapped)', (
       tester,
     ) async {
       final platform = _Platform.listen(tester);
@@ -624,13 +624,23 @@ void main() {
         lobby: v2Lobby('settings_seats_lowered'),
         viewer: 'Tia',
       );
-      await _tap(tester, find.text(TableCopy.editDeck));
+      // The button is the way in (no "Edit" while the deck is wrong).
+      await _tap(tester, find.text(DeckCopy.removeCard));
       expect(_screen(tester), AppScreen.deck);
-      expect(find.text(DeckCopy.tooMany.fill({'n': 1})), findsOneWidget);
+      final count = DeckCopy.countFix.fill({
+        'picked': 11,
+        'need': 10,
+        'fix': DeckCopy.removeCard,
+      });
+      expect(find.text(count), findsOneWidget);
 
+      // The first Back stays and nudges the count; the second goes back.
       await _back(tester);
       expect(_screen(tester), AppScreen.deck);
-      expect(find.text(DeckCopy.tooMany.fill({'n': 1})), findsOneWidget);
+      expect(find.text(count), findsOneWidget);
+      expect(platform.left, isFalse);
+      await _back(tester);
+      expect(_screen(tester), AppScreen.table);
       expect(platform.left, isFalse);
       await setup.close(tester);
     });

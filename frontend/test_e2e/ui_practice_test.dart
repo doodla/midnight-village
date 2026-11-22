@@ -197,7 +197,7 @@ void main() {
             shows<AtTableScreen>() &&
             find.byType(PracticeTag).evaluate().length == 3 &&
             text(TableCopy.start),
-        reason: '02: three tagged "Practice", "Start game"',
+        reason: '02: three tagged "Practice", "Start the game"',
       );
       await shoot('table-four');
 

@@ -15,7 +15,7 @@ OPEN (said "which is okay"; the polish passes cover motion).
 
 > Also the stepper or card picker allows you to go over the limit so you can essentially go 10 or 8 or 12 or 8. It tells you that, yeah, you're over the limit but it allows you to leave the page. Now you're sitting on the main page with a disabled button that says "Deal to 5", which is not good. Just say "Start the game" or whatever. I guess most people would be confused, like, "What, what do I do?" Rather there should be some sort of nice text or error message or something that says, "Hey you can't go back to the game unless you correct the count."
 
-HANDLED by this piece: the set-up page cannot be left with a wrong count (it says how many too many or too few, and its leave control says so); the table's primary button is never silently disabled and its label is plain.
+HANDLED by this piece: the set-up page cannot be left with a wrong count (it says how many too many or too few, and its leave control says so); the table's primary button is never silently disabled and its label is plain. Reviewed and reworked (23 November 2026): 03's "Done" is always "Done" and its count line says what to do ("14 of 12 · Remove 2 cards"), the first "Done" or Back with a wrong count stays and nudges it, the second leaves; 02's one button says "Add 1 card" / "Remove 2 cards", "Need 3 players" / "Need {n} more" (players before deck) or "Start the game"; 01's "Start a table" and "Join a table" with no name take the cursor to the name field and nudge it; `PrimaryButton` and `SecondaryButton` cannot be built disabled without a reason.
 
 > The timers aren't really explained as such but I guess that's a pretty minor thing.
 

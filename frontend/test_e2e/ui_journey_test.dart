@@ -27,7 +27,7 @@ import 'harness/ui_harness.dart';
 /// UI runner, the whole way on the host's phone: the REAL
 /// widget tree from 01 Join ("Start a table") through 02 (the others join
 /// through the API; the phone follows the lobby's socket), 03 (a chip, its
-/// cards face up from the server), "Start game" on 02, the game played by
+/// cards face up from the server), "Start the game" on 02, the game played by
 /// every player through the API while the phone follows, 10 and 11 as the
 /// oracle says, and "Play again" back to 02. Nothing here is forced: the
 /// deal is the server's own. Filmstrip: `integration_test/screenshots/
@@ -147,7 +147,7 @@ void main() {
       }
       await ui.pumpUntil(
         () => text('Dan') && text(TableCopy.start),
-        reason: '02 follows the lobby: four at the table, "Start game"',
+        reason: '02 follows the lobby: four at the table, "Start the game"',
       );
       await shoot('table-four');
 
@@ -242,7 +242,7 @@ void main() {
       await ui.readLobby(code);
       await ui.pumpUntil(
         () => text(TableCopy.start),
-        reason: '02 again: "Start game"',
+        reason: '02 again: "Start the game"',
       );
       await shoot('table-again');
       final again = await api(() => live.lobby(alice));

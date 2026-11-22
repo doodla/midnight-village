@@ -91,17 +91,15 @@ abstract final class TableCopy {
 
   /// The table's one primary button (owner, 23 November 2026: "Just say
   /// 'Start the game' or whatever"; it said "Deal to {n}"). When it cannot be
-  /// taken it says why, in place ([needPlayers], [needMore], [fixDeck]); never
-  /// the same words dimmed.
-  static const start = 'Start game';
+  /// taken it says what to do, and tapping it does it: [needPlayers],
+  /// [needMore] (the friends are the way in: the code is above), or the deck's
+  /// fix ([DeckCopy.addCard] and its kin, which opens 03). Never the same
+  /// words dimmed.
+  static const start = 'Start the game';
   static const needPlayers = 'Need 3 players';
 
   /// A table set for a number, fewer here: how many more it waits for.
   static const needMore = Template('Need {n} more');
-
-  /// The deck does not hold the cards the deal needs: the button is the way
-  /// to the fix (03), and the count shows how far off it is.
-  static const fixDeck = 'Fix the deck';
 
   /// At a table set for a number: who is here of how many (02 and 03, host
   /// and guests), by the seats, the empty ones drawn. The one way the wait
@@ -160,16 +158,21 @@ abstract final class DeckCopy {
   static const noClock = 'No clock';
   static const off = 'Off';
 
-  /// Back to 02. Live, unless the deck holds the wrong number of cards: then
-  /// it is [fixDeck] and a tap shows the count (the owner, 23 November 2026,
-  /// left this page with 12 cards for 8 and found a button she could not press
-  /// on the page after it).
+  /// Back to 02: an action, always. With the wrong number of cards the first
+  /// "Done" (or Back) stays and nudges the count; the second leaves (the
+  /// owner, 23 November 2026, left this page with 12 cards for 8 and found a
+  /// button she could not press on the page after it).
   static const done = 'Done';
-  static const fixDeck = TableCopy.fixDeck;
 
-  /// By the count, how far off the deck is.
-  static const tooMany = Template('{n} too many');
-  static const tooFew = Template('{n} too few');
+  /// By the count, in the player's words: the cards in the deck of the cards
+  /// the deal needs, and what to do about the difference. The same words are
+  /// 02's button.
+  static const count = Template('{picked} of {need}');
+  static const countFix = Template('{picked} of {need} · {fix}');
+  static const addCard = 'Add 1 card';
+  static const addCards = Template('Add {n} cards');
+  static const removeCard = 'Remove 1 card';
+  static const removeCards = Template('Remove {n} cards');
 
   /// What a timer is, one short line under its name (teach once; Talk and
   /// Vote say it themselves).
@@ -478,6 +481,9 @@ abstract final class SpokenCopy {
   /// A button whose action is on its way, or a screen waiting for its
   /// answer.
   static const working = 'Working';
+
+  /// The vote's button before a name is picked.
+  static const pickFirst = 'Pick a name first';
 
   /// 03's steppers' glyphs and the grid card's minus.
   static const lower = 'Lower';

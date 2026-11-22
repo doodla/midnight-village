@@ -24,18 +24,13 @@ const stateAllowances = <String, Map<String, int>>{
   '01 Join': {'in an Android browser, Get the app': 17},
   // "Practice" on the rows (one word, the same on each practice row) over a
   // full 13: a table set for a number, practice players seated, fewer came.
-  '02 Table': {
-    'host, set for a number, practice players, Play with {n}': 14,
-    // The deck is off: the count's line ("2 too many") and "Fix the deck"
-    // in place of "Start game" (23 November 2026).
-    'host, the deck does not fit': 17,
-  },
+  '02 Table': {'host, set for a number, practice players, Play with {n}': 15},
   // The Practice stepper's name under Players, at a number: 23 of 22.
   '03 Deck': {
     'practice switched on': 38,
-    // "Fix the deck" in place of "Done" and the count's line.
-    'the deck does not fit, too many': 41,
-    'the deck does not fit, too few': 41,
+    // The count's line ("14 of 12 · Remove 2 cards").
+    'the deck does not fit, too many': 43,
+    'the deck does not fit, too few': 43,
   },
 };
 
@@ -199,7 +194,7 @@ final screens = <String, Screen>{
     // chip, the talk's length, the roles face up: names exempt), "Edit",
     // the deal button's one label and a quiet labelled "Leave"; Share is a
     // glyph, spoken only.
-    budget: 13,
+    budget: 14,
     states: {
       for (final chip in DeckCopy.chips)
         for (final deal in <Object>[
@@ -219,21 +214,25 @@ final screens = <String, Screen>{
             button(deal),
             button(CommonCopy.leave),
           ],
-      // A table whose deck holds the wrong number of cards: the count says how
-      // far off and the button leads to the fix (its own allowance).
-      'host, the deck does not fit': [
-        headline(TableCopy.scan),
-        text(JoinCopy.codeHint),
-        text(TableCopy.seated),
-        button(TableCopy.playWith),
-        button(DeckCopy.chips.first),
-        text(DeckCopy.talk),
-        text(DeckCopy.minutes),
-        button(TableCopy.editDeck),
-        text(DeckCopy.tooMany),
-        button(TableCopy.fixDeck),
-        button(CommonCopy.leave),
-      ],
+      // A table whose deck holds the wrong number of cards: the one button
+      // says what to add or remove (and opens 03); "Edit" is hidden.
+      for (final fix in <Object>[
+        DeckCopy.addCard,
+        DeckCopy.addCards,
+        DeckCopy.removeCard,
+        DeckCopy.removeCards,
+      ])
+        'host, the deck does not fit: $fix': [
+          headline(TableCopy.scan),
+          text(JoinCopy.codeHint),
+          text(TableCopy.seated),
+          button(TableCopy.playWith),
+          button(DeckCopy.chips.first),
+          text(DeckCopy.talk),
+          text(DeckCopy.minutes),
+          button(fix),
+          button(CommonCopy.leave),
+        ],
       // The host's "Leave" asks first, in a sheet over the table.
       'host: leave asked': [button(TableCopy.stay), button(CommonCopy.leave)],
       // Practice players seated (the host switched them on with a hold on
@@ -306,24 +305,21 @@ final screens = <String, Screen>{
           text(DeckCopy.off),
           button(DeckCopy.done),
         ],
-      // The deck holds the wrong number of cards: the count's line, and the
-      // button that says so in place of "Done" (its own allowance).
-      for (final (name, off) in [
-        ('too many', DeckCopy.tooMany),
-        ('too few', DeckCopy.tooFew),
-      ])
+      // The deck holds the wrong number of cards: the count's line says what
+      // to do about it ([DeckCopy.countFix], its own allowance); "Done" stays.
+      for (final name in ['too many', 'too few'])
         'the deck does not fit, $name': [
           headline(DeckCopy.headline),
           text(DeckCopy.players),
           text(TableCopy.seated),
           for (final chip in DeckCopy.chips) button(chip),
-          text(off),
+          text(DeckCopy.countFix),
           for (final length in _lengths) text(length),
           text(CommonCopy.seconds),
           text(DeckCopy.minutes),
           text(DeckCopy.noClock),
           text(DeckCopy.off),
-          button(DeckCopy.fixDeck),
+          button(DeckCopy.done),
         ],
       // Practice players switched on (a hold on "Players"; never shown
       // otherwise): their stepper's name under Players, at a number.
@@ -566,6 +562,7 @@ final banners = <(String, String?)>[
 final spoken = [
   SpokenCopy.hidden,
   SpokenCopy.working,
+  SpokenCopy.pickFirst,
   ResultsCopy.nightSpoken,
   // A dimmed night card: a tap still switches the pick.
   NightCopy.switchesPick,

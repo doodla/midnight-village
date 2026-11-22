@@ -120,6 +120,8 @@ final screenCatalogue = <ScreenEntry>[
     '-seats-4-guest': pumpTableSeatsGuest,
     '-seats-7': pumpTableSeatsSeven,
     '-seats-lowered': pumpTableSeatsLowered,
+    '-blocked': pumpTableLowered,
+    '-blocked-guest': pumpTableLoweredGuest,
     '-seats-full': pumpTableSeatsFull,
     '-practice': pumpTablePractice,
     '-practice-guest': (tester) => pumpTablePractice(tester, viewer: 'Quin'),
