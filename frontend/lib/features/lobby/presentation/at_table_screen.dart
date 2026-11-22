@@ -26,7 +26,9 @@ import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
 import '../domain/lobby_state.dart';
-import 'deck_screen.dart' show deckChipLabel;
+import 'deck_screen.dart'
+    show DeckCount, deckChipLabel, lengthText, minSeats, showRoleSheet;
+import 'seats_line.dart';
 import 'home_numbers.dart';
 import 'lobby_notifier.dart';
 import 'where_am_i_provider.dart';
@@ -103,6 +105,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
       },
       onShare: (link) => unawaited(_share(link)),
       onEditDeck: () => ref.read(localStepsProvider.notifier).openDeck(table),
+      onSeats: (seats) => unawaited(notifier.setSeats(seats)),
       onDeal: () => unawaited(_deal(notifier)),
       onLeave: () => unawaited(_leave(code)),
       onGoHome: () => ref.invalidate(myTableProvider),
@@ -192,6 +195,7 @@ class AtTableView extends StatelessWidget {
     this.onRetry,
     this.onShare,
     this.onEditDeck,
+    this.onSeats,
     this.onDeal,
     this.onLeave,
     this.onGoHome,
@@ -211,6 +215,9 @@ class AtTableView extends StatelessWidget {
   final VoidCallback? onRetry;
   final ValueChanged<Uri>? onShare;
   final VoidCallback? onEditDeck;
+
+  /// The host sets the number of players (02's "Play with {n}").
+  final ValueChanged<int?>? onSeats;
   final VoidCallback? onDeal;
   final VoidCallback? onLeave;
   final VoidCallback? onGoHome;
@@ -225,6 +232,8 @@ class AtTableView extends StatelessWidget {
     // A table nearly empty is about getting the others in: the picture and
     // the large code. Past that, who is here, the deck and Deal come first.
     final roomy = lobby.players.length <= Sizes.nearlyEmptyTable;
+    final present = lobby.players.length;
+    final seats = lobby.table.seats;
     return ScreenFrame(
       ground: GroundKind.night,
       topArt: roomy ? skin.art.table : null,
@@ -252,6 +261,9 @@ class AtTableView extends StatelessWidget {
               headline: host,
               compact: !roomy,
             ),
+            // At a number: who is here of it, the empty places drawn.
+            if (seats != null)
+              SeatsLine(present: present, seats: seats, dots: false),
             _Rows(
               names: [for (final p in lobby.players) p.displayName],
               rows: [
@@ -264,11 +276,23 @@ class AtTableView extends StatelessWidget {
                         player.id != viewerId &&
                         (!player.connected || away.contains(player.id)),
                   ),
+                if (seats != null)
+                  for (var i = present; i < seats; i++) const _EmptySeat(),
               ],
               spacing: roomy ? Space.md : Space.xs,
             ),
-            if (host) ...[
-              _DeckPanel(lobby: lobby, onEdit: onEditDeck),
+            // Fewer came: one tap sets the number to who is here.
+            if (host && seats != null && present >= minSeats && present < seats)
+              Align(
+                child: SecondaryButton(
+                  label: TableCopy.playWith.fill({'n': present}),
+                  size: ButtonSize.compact,
+                  onPressed: onSeats == null ? null : () => onSeats!(present),
+                ),
+              ),
+            // The game as set up, face up for everyone; the host's opens 03.
+            _SetupPanel(lobby: lobby, onEdit: host ? onEditDeck : null),
+            if (host)
               Align(
                 child: SecondaryButton(
                   label: CommonCopy.leave,
@@ -278,7 +302,6 @@ class AtTableView extends StatelessWidget {
                       : () => unawaited(_confirmLeave(context)),
                 ),
               ),
-            ],
           ],
         ),
       ),
@@ -586,9 +609,9 @@ class _JoinCard extends StatelessWidget {
   }
 }
 
-/// The table's code to type, after its label ("Code", the word 01's field
-/// asks for), in the hero face: centred under a large QR code, else from the
-/// start.
+/// The table's code to type, with its label ("Code", the word 01's field
+/// asks for), in the hero face: centred under a large QR code with the label
+/// before it; beside a small one, the label over it.
 class _CodeLine extends StatelessWidget {
   const _CodeLine({required this.code, required this.centred});
 
@@ -599,31 +622,73 @@ class _CodeLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = context.skin.typography;
     final ink = context.ground.text;
+    final label = Text(
+      JoinCopy.codeHint,
+      style: type.caption.copyWith(color: ink),
+    );
+    final letters = FitLine(
+      code,
+      style: type.heroCode.copyWith(color: ink),
+      alignment: AlignmentDirectional.centerStart,
+    );
+    // Beside a QR code at its least: the label over the letters.
+    if (!centred) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [label, letters],
+      );
+    }
     final line = Row(
-      mainAxisSize: centred ? MainAxisSize.min : MainAxisSize.max,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
+      mainAxisSize: MainAxisSize.min,
       spacing: Space.sm,
       children: [
-        Text(JoinCopy.codeHint, style: type.caption.copyWith(color: ink)),
-        Flexible(
-          child: FitLine(
-            code,
-            style: type.heroCode.copyWith(color: ink),
-            alignment: AlignmentDirectional.centerStart,
-          ),
-        ),
+        label,
+        Flexible(child: letters),
       ],
     );
     return centred ? Center(child: line) : line;
   }
 }
 
-/// The host's deck: its chip with "Edit" and the chip's cards face up (none
-/// for a count with no automatic deck); or the custom deck's cards with
-/// "Edit".
-class _DeckPanel extends StatelessWidget {
-  const _DeckPanel({required this.lobby, this.onEdit});
+/// A place not taken yet at a table set for a number: a row's outline with
+/// an empty token, no words.
+class _EmptySeat extends StatelessWidget {
+  const _EmptySeat();
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = context.skin;
+    final ground = context.ground;
+    const size = PlayerRowSize.compact;
+    return ExcludeSemantics(
+      child: Container(
+        height: size.height,
+        padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+        alignment: AlignmentDirectional.centerStart,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(size.height / 2),
+          border: Border.all(color: ground.hairline, width: skin.shape.stroke),
+        ),
+        child: Container(
+          width: size.token.size,
+          height: size.token.size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: ground.outline, width: skin.shape.stroke),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The game as set up, the same for everyone at the table: the chip (an
+/// automatic deck) and the talk's length, then every role in the deck face
+/// up with its count (a tap or a hold reads it, 03b); at a number, a deck
+/// that does not hold the cards the deal needs shows its count
+/// ([DeckCount]). The host's opens 03 ("Edit").
+class _SetupPanel extends StatelessWidget {
+  const _SetupPanel({required this.lobby, this.onEdit});
 
   final LobbyState lobby;
   final VoidCallback? onEdit;
@@ -631,61 +696,61 @@ class _DeckPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final type = context.skin.typography;
+    final ink = context.ground.text;
     final chip = lobby.table.autoDeck ? lobby.table.deckChip : null;
-    final cards =
-        lobby.chipCards ??
-        (chip != null
-            ? const <RoleId, int>{}
-            : {
-                for (final MapEntry(:key, :value) in lobby.roleConfig.entries)
-                  if (RoleId.fromServer(key) case final role? when value > 0)
-                    role: value,
-              });
-    final edit = Text(
-      TableCopy.editDeck,
-      style: type.action.copyWith(color: context.ground.text),
-    );
+    final talk = lobby.secondsOf(Length.talk);
+    final cards = lobby.tableCards;
+    final seats = lobby.table.seats;
+    final need = lobby.deal?.need;
+    final picked = lobby.pickedCards;
+    void read(RoleId role) => unawaited(showRoleSheet(context, role));
     return OutlinePanel(
       onTap: onEdit,
-      semanticLabel: TableCopy.editDeck,
+      semanticLabel: onEdit == null ? null : TableCopy.editDeck,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: Space.smPlus,
         children: [
-          if (chip != null)
-            Row(
-              spacing: Space.sm,
-              children: [
+          Row(
+            spacing: Space.sm,
+            children: [
+              if (chip != null)
                 PresetChip(
                   label: deckChipLabel(chip),
                   selected: true,
                   onTap: null,
                 ),
-                const Spacer(),
-                edit,
-              ],
-            ),
-          if (cards.isNotEmpty)
-            Row(
-              spacing: Space.smPlus,
-              children: [
-                Expanded(
-                  child: Row(
-                    spacing: Space.sm,
-                    children: [
-                      for (final MapEntry(key: role, value: count)
-                          in cards.entries)
-                        Flexible(
-                          child: RoleCard(
-                            role: role,
-                            size: RoleCardSize.thumbSmall,
-                            count: count,
-                          ),
-                        ),
-                    ],
-                  ),
+              // The talk's length: the room left, wrapping between words.
+              Expanded(
+                child: talk == null
+                    ? const SizedBox.shrink()
+                    : FitWords(
+                        '${DeckCopy.talk} ${lengthText(talk)}',
+                        style: type.action.copyWith(color: ink),
+                      ),
+              ),
+              if (onEdit != null)
+                Text(
+                  TableCopy.editDeck,
+                  style: type.action.copyWith(color: ink),
                 ),
-                if (chip == null) edit,
+            ],
+          ),
+          if (seats != null && need != null && picked != need)
+            DeckCount(picked: picked, need: need, seats: seats),
+          if (cards.isNotEmpty)
+            Wrap(
+              spacing: Space.sm,
+              runSpacing: Space.sm,
+              children: [
+                for (final MapEntry(key: role, value: count) in cards.entries)
+                  RoleCard(
+                    role: role,
+                    size: RoleCardSize.thumbSmall,
+                    count: count,
+                    onTap: () => read(role),
+                    onLongPress: () => read(role),
+                  ),
               ],
             ),
         ],

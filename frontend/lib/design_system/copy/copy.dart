@@ -75,6 +75,10 @@ abstract final class TableCopy {
   /// is said, never as card arithmetic.
   static const seated = Template('{d} of {n}');
 
+  /// Fewer came than the table is set for: one tap sets the number to who
+  /// is here.
+  static const playWith = Template('Play with {n}');
+
   /// The host's way out, quiet and labelled, behind a confirm ([stay]
   /// keeps the table): one stray tap must not hand the table away.
   static const stay = 'Stay';

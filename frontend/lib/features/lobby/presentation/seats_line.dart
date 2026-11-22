@@ -8,10 +8,18 @@ import '../../../design_system/skin/skin.dart';
 /// guests alike): "3 of 8" and a seat for each, the taken ones filled. The
 /// one way the table's wait is said; never card arithmetic.
 class SeatsLine extends StatelessWidget {
-  const SeatsLine({super.key, required this.present, required this.seats});
+  const SeatsLine({
+    super.key,
+    required this.present,
+    required this.seats,
+    this.dots = true,
+  });
 
   final int present;
   final int seats;
+
+  /// The seats drawn as dots (03); 02 draws them as the empty places.
+  final bool dots;
 
   /// A seat's side.
   static const _seat = 14.0;
@@ -27,29 +35,30 @@ class SeatsLine extends StatelessWidget {
           TableCopy.seated.fill({'d': present, 'n': seats}),
           style: skin.typography.title.copyWith(color: ground.text),
         ),
-        Expanded(
-          child: ExcludeSemantics(
-            child: Wrap(
-              spacing: Space.xs,
-              runSpacing: Space.xs,
-              children: [
-                for (var i = 0; i < seats; i++)
-                  Container(
-                    width: _seat,
-                    height: _seat,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: i < present ? ground.text : null,
-                      border: Border.all(
-                        color: i < present ? ground.text : ground.outline,
-                        width: skin.shape.stroke,
+        if (dots)
+          Expanded(
+            child: ExcludeSemantics(
+              child: Wrap(
+                spacing: Space.xs,
+                runSpacing: Space.xs,
+                children: [
+                  for (var i = 0; i < seats; i++)
+                    Container(
+                      width: _seat,
+                      height: _seat,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: i < present ? ground.text : null,
+                        border: Border.all(
+                          color: i < present ? ground.text : ground.outline,
+                          width: skin.shape.stroke,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
       ],
     );
   }

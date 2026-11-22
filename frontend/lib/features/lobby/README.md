@@ -40,12 +40,20 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   another's dropped phone (`connected: false`; the server keeps it true through the grace
   period) the whole row dimmed, its token more, with no words. Share is the system share sheet
   (`share_plus`, no mail fallback); only where there is none, or it fails, the link is copied
-  and the screen says "Copied" (the skin has no share art: the platform's glyph). The host:
-  the deck as its chip with its cards face up (`deck_preview`) or the custom deck's cards,
-  with "Edit"; the deal button is the server's `deal` (`DealState`): "Deal to {n}", live only when
-  `ok`, else the same words locked (at a table set for a number, `deal.seats`, {n} is that
-  number; never card arithmetic), "Need 3 players" at an open table of fewer than three, or
-  "Can't deal yet.". Nobody is asked to be ready:
+  and the screen says "Copied" (the skin has no share art: the platform's glyph). At a table set for a number (`settings.seats`): "{d} of {n}" over the rows
+  (`SeatsLine`, the same words 03 shows, for host and guests alike) and an empty place
+  (`_EmptySeat`, no words) for each seat not taken; the wait is said this one way, never as
+  card arithmetic. Everyone sees the game as set up (`_SetupPanel`): the chip (an automatic
+  deck), the talk's length ("Talk 5 min") and every role in the deck face up with its count
+  (`LobbyState.tableCards`: the server's `deck_cards`, the same for every viewer, following
+  every `lobby_update`); a tap or a hold on a role reads it (03b). At a number, a deck that
+  does not hold the cards the deal needs shows `DeckCount`. The host's panel opens 03
+  ("Edit"); fewer came than the number (3 or more here): "Play with {n}" sets the number to
+  who is here in one tap (an automatic deck follows; a custom deck is never changed, its
+  count says it no longer fits). The deal button is the server's `deal` (`DealState`):
+  "Deal to {n}", live only when `ok`, else the same words locked (at a number {n} is that
+  number), "Need 3 players" at an open table of fewer than three, or "Can't deal yet.".
+  Nobody is asked to be ready:
   the server deals in everyone at the table. A deal refused all the same (the table changed
   under the tap) says why when the server's refusal gives a reason worth saying
   (`LobbyNotifier.dealRefusal`: the table playing, too few, the deck), else nothing extra,

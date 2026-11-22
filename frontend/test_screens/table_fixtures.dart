@@ -198,6 +198,60 @@ Future<TableSetup> pumpTableGuestSetup(WidgetTester tester) => TableSetup.pump(
   viewer: 'Ben',
 );
 
+/// 02 at Tia's table set for eight before anyone came: she alone, her own
+/// deck of eleven, seven empty places.
+Future<void> pumpTableSeatsAlone(WidgetTester tester, {double textScale = 1}) =>
+    TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_seats_8_custom_alone'),
+      viewer: 'Tia',
+      textScale: textScale,
+    );
+
+/// 02 at a table set for eight, four here: "4 of 8", four empty places,
+/// the deck face up, "Deal to 8" locked.
+Future<void> pumpTableSeatsFour(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_seats_8_four_here'),
+  viewer: 'Tia',
+);
+
+/// The same table on a guest's phone: the same count, the same roles.
+Future<void> pumpTableSeatsGuest(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_seats_8_four_here'),
+  viewer: 'Ugo',
+);
+
+/// Seven of eight came: "Play with 7".
+Future<void> pumpTableSeatsSeven(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_seats_8_seven_here'),
+  viewer: 'Tia',
+);
+
+/// "Play with 7" tapped: set for seven, the deck for eight now one over.
+Future<void> pumpTableSeatsLowered(WidgetTester tester) async {
+  final setup = await TableSetup.pump(
+    tester,
+    lobby: v2Lobby('detail_seats_8_seven_here'),
+    viewer: 'Tia',
+  );
+  setup.answerPatch(v2Lobby('settings_seats_lowered'));
+  final play = find.text(TableCopy.playWith.fill({'n': 7}));
+  await tester.ensureVisible(play);
+  await tester.pumpAndSettle();
+  await tester.tap(play);
+  await setup.settle(tester);
+}
+
+/// Eight of eight, the automatic deck: "Deal to 8" live.
+Future<void> pumpTableSeatsFull(WidgetTester tester) => TableSetup.pump(
+  tester,
+  lobby: v2Lobby('detail_seats_8_full'),
+  viewer: 'Tia',
+);
+
 // ---------------------------------------------------------------------------
 // 03 Deck and 03b
 // ---------------------------------------------------------------------------
