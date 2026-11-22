@@ -35,10 +35,13 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 ## In flight (22 November 2026)
 
-- The owner, live app: "After I back after viewing a card's details. Can't see another cards
-  details till I remove/add a card from the deck." Not reproduced yet (widget tests, a real web
-  build, the Android back gesture simulated); guard tests are in `back_test.dart`. Asked: which
-  device, and how the sheet was closed.
+- Back bugs on the set-up page, from the owner's screen recording (22 November, the live web
+  app in Chrome on Android, Back = edge swipe): (A) with a card's details open, one Back
+  closed the details AND left the set-up page for the table; (B) after that, holding a card
+  opened nothing (the owner's earlier words: "After I back after viewing a card's details.
+  Can't see another cards details till I remove/add a card from the deck."). A builder is
+  reproducing in a real touch browser; the first attempt (widget tests, mouse browser) saw
+  nothing.
 
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
   the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
