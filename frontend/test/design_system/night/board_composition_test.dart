@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -323,36 +324,104 @@ void main() {
       expect((await board(const Size(320, 568), 3)).$1, 0);
     });
 
-    testWidgets('the candle and the number are one unit inside the page '
-        'margin: the candle’s right edge is on the button’s, whole at every '
-        'state', (tester) async {
-      for (final phone in const [Size(390, 844), Size(320, 568)]) {
-        tester.view.physicalSize = phone;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        for (final (seconds, share) in const [
-          (30, 1.0),
-          (188, 1.0),
-          (0, 0.0),
-        ]) {
-          await tester.pumpWidget(const SizedBox());
-          await _pump(
-            tester,
-            BoardPage(viewer: Viewer.drunk, secondsLeft: seconds, share: share),
-          );
-          final candle = tester.getRect(find.byType(CandleGauge));
-          final button = tester.getRect(find.byType(PrimaryButton));
-          expect(candle.right, closeTo(button.right, 0.5), reason: '$phone');
-          // The handle, the ledge and the dish's shadow are all inside the
-          // page: nothing runs on to the phone's edge.
-          final holder = tester.getRect(
-            find.byKey(const ValueKey(CandlePart.holder)),
-          );
-          expect(holder.right, lessThanOrEqualTo(button.right + 0.5));
-          expect(
-            tester.getRect(find.byKey(const ValueKey(CandlePart.ledge))).right,
-            lessThanOrEqualTo(button.right + 0.5),
-          );
+    testWidgets(
+      'the seconds and the candle under them are one unit inside the '
+      'page margin: its right edge is on the button’s, whole at every state',
+      (tester) async {
+        for (final phone in const [Size(390, 844), Size(320, 568)]) {
+          tester.view.physicalSize = phone;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          for (final (seconds, share) in const [
+            (30, 1.0),
+            (188, 1.0),
+            (0, 0.0),
+          ]) {
+            await tester.pumpWidget(const SizedBox());
+            await _pump(
+              tester,
+              BoardPage(
+                viewer: Viewer.drunk,
+                secondsLeft: seconds,
+                share: share,
+              ),
+            );
+            final unit = tester.getRect(find.byType(WorldTimer));
+            final button = tester.getRect(find.byType(PrimaryButton));
+            expect(unit.right, closeTo(button.right, 0.5), reason: '$phone');
+            expect(
+              tester.getRect(find.byType(CandleGauge)).right,
+              lessThanOrEqualTo(button.right),
+            );
+            // The handle, the ledge and the dish's shadow are all inside the
+            // page: nothing runs on to the phone's edge.
+            final holder = tester.getRect(
+              find.byKey(const ValueKey(CandlePart.holder)),
+            );
+            expect(holder.right, lessThanOrEqualTo(button.right + 0.5));
+            expect(
+              tester
+                  .getRect(find.byKey(const ValueKey(CandlePart.ledge)))
+                  .right,
+              lessThanOrEqualTo(button.right + 0.5),
+            );
+          }
+        }
+      },
+    );
+
+    testWidgets('the seconds are as big as the rest of the text: no smaller '
+        'than the players’ names at any width and text size, nor than they '
+        'were on main (27 px)', (tester) async {
+      final drawn = <String>[];
+      for (final width in const [320, 360, 390]) {
+        for (final scale in const [1.0, 1.3, 2.0]) {
+          tester.view.physicalSize = Size(width.toDouble(), 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          for (final seats in const [3, 10]) {
+            await tester.pumpWidget(const SizedBox());
+            await _pump(
+              tester,
+              BoardPage(
+                viewer: Viewer.drunk,
+                table: (_) => _table(seats),
+                textScale: scale,
+              ),
+            );
+            final number = tester.renderObject<RenderParagraph>(
+              find.byWidgetPredicate(
+                (w) => w is RichText && w.text.toPlainText() == '14 s',
+              ),
+            );
+            final numberSize = number.textScaler.scale(
+              number.text.style!.fontSize!,
+            );
+            var names = 0.0;
+            for (final element in find.byType(FaceDownCard).evaluate()) {
+              final card = element.widget as FaceDownCard;
+              if (card.ownerName == null) continue;
+              final paragraph = tester.renderObject<RenderParagraph>(
+                find.descendant(
+                  of: find.byWidget(card),
+                  matching: find.byWidgetPredicate(
+                    (w) =>
+                        w is RichText && w.text.toPlainText() == card.ownerName,
+                  ),
+                ),
+              );
+              names = math.max(
+                names,
+                paragraph.textScaler.scale(paragraph.text.style!.fontSize!),
+              );
+            }
+            drawn.add(
+              '$width x$scale $seats seats: number '
+              '${numberSize.toStringAsFixed(1)} names ${names.toStringAsFixed(1)}',
+            );
+            expect(numberSize, greaterThanOrEqualTo(names), reason: drawn.last);
+            expect(numberSize, greaterThanOrEqualTo(27), reason: drawn.last);
+          }
         }
       }
     });
@@ -370,11 +439,12 @@ void main() {
       );
       // Two lines of the title at its size (34 x 1.05) and the hair.
       expect(header.height, closeTo(34 * 1.05 * 2 + 1, 0.6));
-      final candle = tester.getRect(find.byType(CandleGauge));
+      final unit = tester.getRect(find.byType(WorldTimer));
+      expect(unit.top, closeTo(header.top, 0.5), reason: 'from the first line');
       expect(
-        candle.height,
-        greaterThan(header.height),
-        reason: 'it stands above and below the title’s room',
+        unit.bottom,
+        greaterThan(header.bottom - 12),
+        reason: 'the candle stands down to the title’s foot or a little below',
       );
     });
 

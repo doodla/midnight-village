@@ -33,6 +33,7 @@ class WorldTimer extends StatelessWidget {
        share = null,
        candleHeight = 90,
        lineHeight = null,
+       stacked = false,
        lift = 0;
 
   const WorldTimer.candleCompact({
@@ -42,6 +43,7 @@ class WorldTimer extends StatelessWidget {
     this.candleHeight = 90,
     this.lineHeight,
     this.lift = 0,
+    this.stacked = false,
     this.semanticLabel,
   }) : _compact = true;
 
@@ -61,15 +63,23 @@ class WorldTimer extends StatelessWidget {
   /// Null: the number is centred on the candle.
   final double? lineHeight;
 
+  /// The candle stands under the number (centred in the number's slot, the
+  /// unit as wide as the slot) instead of beside it.
+  final bool stacked;
+
+  /// How far the candle's top (the flame's tip) reaches up into the number's
+  /// line box, under the digits' feet, when it stands under the number.
+  static const stackedOverlap = 5.0;
+
   /// How far the candle stands above the number's line (the candle's top is
   /// the unit's top; the number sits [lift] lower).
   final double lift;
 
-  /// The corner number's size, of the skin's `timerCompact`: smaller than it
-  /// was drawn when it sat in a 46 px unit (27 px), so the unit is narrow
-  /// enough to leave the title all the width it had; the candle carries the
-  /// drama, the number the fact.
-  static const cornerNumberScale = 0.6;
+  /// The corner number's size, of the skin's `timerCompact`: what it was drawn
+  /// at on main (27 px), and so no smaller than the players' names on the
+  /// board (18 px at most): the candle carries the drama, the number the
+  /// fact, and the number is not smaller than the rest of the text.
+  static const cornerNumberScale = 0.8;
 
   /// Read out instead of the number.
   final String? semanticLabel;
@@ -152,6 +162,39 @@ class WorldTimer extends StatelessWidget {
     // into a nine and nothing touches the flame or the wax.
     final slot = _slot(numberStyle, number);
     final line = lineHeight ?? candleHeight;
+    final numberBox = SizedBox(
+      width: slot,
+      height: line,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Text(
+          number,
+          textScaler: TextScaler.noScaling,
+          style: numberStyle,
+        ),
+      ),
+    );
+    if (stacked) {
+      // The number on the title's first line, the candle standing under it on
+      // its ledge, centred under the slot; the unit is as wide as the slot.
+      return SizedBox(
+        width: slot,
+        height: line - stackedOverlap + candleHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Painted first: the number lies over the candle's dark nook.
+            Positioned(
+              top: line - stackedOverlap,
+              left: 0,
+              right: 0,
+              child: Center(child: candle),
+            ),
+            Positioned(top: 0, left: 0, child: numberBox),
+          ],
+        ),
+      );
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,

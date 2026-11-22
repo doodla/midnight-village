@@ -112,17 +112,15 @@ class NightBoard extends ConsumerStatefulWidget {
   /// The button's words grow further, as far as a held face's.
   static const buttonScale = 1.6;
 
-  /// The candle stands as high as the title's room and this more: its flame
-  /// level with the title's top, its ledge a little below the title's foot
-  /// (the seats' labels and cards start further down).
-  /// The gap between the title and the candle's unit: the unit has its own
-  /// gap before its number, and the title keeps all the width it had.
-  static const headerGap = Space.xs;
+  /// The candle stands under the seconds, this high (its flame's tip under
+  /// the digits' feet, its ledge a little below the title's room, above the
+  /// seats' labels and cards, which start further down).
+  static const candleHeight = 65.0;
 
-  static const candleRise = 4.0;
-
-  /// And its flame stands this far above the title's top, in the strip.
-  static const candleLift = 6.0;
+  /// The width the title has always given the seconds and the candle (the
+  /// unit it replaced, 85 px, and the title's gap to it): the title is never
+  /// set smaller, nor broken onto more lines, than it was.
+  static const unitReserve = 85.0;
 
   /// The strip of the night village behind the title shows the picture from
   /// this row of pixels down: its roofs and spire, clear of the moon above,
@@ -402,16 +400,16 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     // The candle and the seconds are the unit's own size, whatever the text
     // size: the title beside them stops growing at its limit, and must never
     // be set smaller to make room for them.
-    final unitRoom = line * NightBoard.titleLines + 1;
-    final candleHeight =
-        unitRoom + NightBoard.candleRise + NightBoard.candleLift;
+    const candleHeight = NightBoard.candleHeight;
+    // The whole unit's height: the number's line, the candle under it.
+    final unitHeight = line - WorldTimer.stackedOverlap + candleHeight;
     if (!_candleWarmed) {
       // The candle's cuts decoded now, for the first frame the board draws.
       _candleWarmed = true;
       CandleGauge.precache(context, candleHeight);
     }
     return Row(
-      spacing: NightBoard.headerGap,
+      spacing: Space.md,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
@@ -430,21 +428,21 @@ class _NightBoardState extends ConsumerState<NightBoard> {
             ),
           ),
         ),
-        // The candle stands in the title's room and overflows it, upward into
-        // the strip and a little below the title: it takes no room of the
-        // board's, whatever its height.
-        Align(
-          alignment: Alignment.topRight,
-          widthFactor: 1,
-          heightFactor: room / candleHeight,
-          child: Transform.translate(
-            offset: const Offset(0, -NightBoard.candleLift),
+        // The seconds on the title's first line and the candle under them,
+        // standing a little below the title's room: the unit takes the width
+        // the title has always given it ([NightBoard.unitReserve]) and none
+        // of the board's height.
+        SizedBox(
+          width: NightBoard.unitReserve,
+          child: Align(
+            alignment: Alignment.topRight,
+            heightFactor: room / unitHeight,
             child: WorldTimer.candleCompact(
               secondsLeft: widget.secondsLeft,
               share: widget.share,
               candleHeight: candleHeight,
               lineHeight: line,
-              lift: NightBoard.candleLift,
+              stacked: true,
             ),
           ),
         ),

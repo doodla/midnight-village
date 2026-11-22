@@ -169,7 +169,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Choose pressed | "Chosen" at once, before any answer; picks stay lifted; nothing flashes. No vibration | `press` | Cut | exists |
 | Hold "You" | The face is cut in above the thumb 120 ms after the press and cut out on release | 120 ms | Same | exists |
 | A sleeper taps a card | The card bobs 8 px once; nothing is picked or sent; there is no button | 120 ms | No bob (the press state answers) | exists |
-| Candle and seconds | The seconds tick and the paper candle (cut from the candle picture, on a ledge of the village, a warm light behind its flame) burns down with them: its wax sinks into the holder and its flame shrinks one step each second (from the server's own window), never out, no tween and no flicker, nothing between the steps; the number (no bigger than before) stays beside it, in a fixed slot, as the one true carrier | 1 s steps | Same | exists |
+| Candle and seconds | The seconds tick and the paper candle (cut from the candle picture, on a ledge of the village, a warm light behind its flame) burns down with them: its wax sinks into the holder and its flame shrinks one step each second (from the server's own window), never out, no tween and no flicker, nothing between the steps; the number (the size it was on main, never smaller than the players' names, on the title's first line with the candle standing under it, in a fixed slot) is the one true carrier | 1 s steps | Same | exists |
 | Doppelganger's result arrives | Her picks drop and Choose locks again; only her held face changes | `quick` | Cut | exists |
 
 ### Waiting
