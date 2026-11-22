@@ -102,9 +102,17 @@ worktree copy under `.claude/worktrees/` is never scanned.
 
 | Agent | Model, effort | Tools |
 |---|---|---|
-| `backend-developer`, `frontend-developer` | opus, high | all |
+| `backend-developer`, `frontend-developer` | opus, high | Read, Edit, Write, Grep, Glob, Bash, Agent (Agent so a builder can call `eyes`) |
 | `backend-code-reviewer`, `frontend-code-reviewer` | opus, high | Read, Grep, Glob, Bash: no edit tools |
 | `player-experience` | opus, high | Read, Grep, Glob |
+| `worker` (small exact jobs) | sonnet, medium | Read, Edit, Write, Grep, Glob, Bash |
+| `eyes` (looks at PNGs, reports in words) | sonnet, medium | Read, Glob: no edits |
+
+Every agent lists its tools: one defined with all tools starts at about 78k tokens of context
+(connector tool descriptions), one with a short list at 7-10k. A new agent lists its tools too.
+`just contact-sheet` (run in `frontend/`) makes one image of the `just screens` output
+(`frontend/tool/contact_sheet.py`). The rules for using them: `docs/dev/running-the-work.md`,
+"Lean helpers"; the numbers: `docs/dev/agent-ledger.md`.
 
 The developer agents' briefs carry no old-look or protocol-1 rule any more: both are deleted.
 

@@ -289,6 +289,7 @@ class ModelAllowListTests(IsolatedEnv):
             fields = frontmatter(path.read_text())
             self.assertTrue(sme.is_allowed(fields.get("model"), OPTS), f"{path.name}: model {fields.get('model')!r}")
             self.assertTrue(fields.get("effort"), f"{path.name}: no effort pinned")
+            self.assertTrue(fields.get("tools"), f"{path.name}: no tools listed (an agent with all tools starts ~70k tokens heavier)")
 
 
 class ForkTests(IsolatedEnv):

@@ -113,6 +113,11 @@ screens width="390" mode="report":
       --dart-define=SCREENS_WIDTH={{width}} \
       --dart-define=SCREENS_STRICT=$strict
 
+# One image of every screen `just screens` rendered (about 240 px wide each, name under it):
+# view this instead of opening screens one by one. Usage: just contact-sheet [folder] [out.png]
+contact-sheet folder="build/screens" out="build/screens/contact_sheet.png":
+    uv run --with pillow python tool/contact_sheet.py {{folder}} {{out}}
+
 # What a wait and a failed send look like in motion: a tap going busy then
 # done, a slow join, a failed send and its retry, a reconnect in a game; each a
 # looping WebP (390 wide, under 1.2 MB) in <folder>. No backend.
