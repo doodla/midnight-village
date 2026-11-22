@@ -125,10 +125,11 @@ void main() {
         ),
         isTrue,
       );
-      // /join/<code> reaches the app through the one rewrite to index.html.
-      expect(vercel['rewrites'], [
-        {'source': '/(.*)', 'destination': '/index.html'},
-      ]);
+      // /join/<code> reaches the app through the last rewrite, to index.html.
+      expect((vercel['rewrites'] as List).last, {
+        'source': '/(.*)',
+        'destination': '/index.html',
+      });
     });
   });
 

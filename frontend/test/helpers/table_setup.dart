@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/healing/healing.dart';
+import 'package:midnight_village/core/host/app_download.dart';
 import 'package:midnight_village/core/router/back_policy.dart';
 import 'package:midnight_village/core/router/routes.dart';
 import 'package:midnight_village/core/storage/device_preferences.dart';
@@ -120,6 +121,9 @@ class TableSetup {
   /// The device has no share sheet: Share copies the link.
   var shareCopies = false;
 
+  /// How many times "Get the app" was tapped (only with `androidWeb`).
+  var appDownloads = 0;
+
   String get code => lobby!['code'] as String;
 
   /// Where the app is served from in these tests (the QR code's link).
@@ -139,6 +143,9 @@ class TableSetup {
     bool realAuth = false,
     bool lobbyDown = false,
     bool webAddress = true,
+
+    /// The page runs in an Android browser: 01 offers the app's download.
+    bool androidWeb = false,
     bool timesOut = true,
     AuthState? authState,
 
@@ -231,6 +238,9 @@ class TableSetup {
           ),
           // Without: an app build that knows no web address (no QR code).
           appOriginProvider.overrideWithValue(webAddress ? _webOrigin : null),
+          appDownloadProvider.overrideWithValue(
+            androidWeb ? AppDownload(() => setup.appDownloads++) : null,
+          ),
           shareLinkProvider.overrideWithValue((link) async {
             setup.shared.add(link);
             return setup.shareCopies;

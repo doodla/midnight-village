@@ -269,6 +269,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - The name is prefilled only from this device's own guest account.
   - The scan action (22 November 2026, issue 14): a glyph beside "Join a table" (and beside the code field once it is open), an outlined square of the buttons' height, no word, "Scan the code" to a screen reader. It is not locked by an empty name (scanning is the natural first move for a guest told "scan to join"): the name is asked for after the scan if it is empty. It is not offered on a table's link (that already names the table).
   - The words on 01 are unchanged: **14 of 14 words.**
+  - The app's download (22 November 2026): in an Android browser only (the web build on Android; never inside the Android app, on iOS or a desktop, and on no other screen), one quiet link "Get the app" on the "N at tables" row, right-aligned (alone on that row, right-aligned, when the line is absent): dimmed bone, underlined, the same size and face as that line, never amber and never louder than the dimmed buttons, 48 to touch. It opens `/app`, which the host sends on to the Android file (`docs/dev/deploy-vercel.md`, "Android app download"). No banner, no dialog, no other words. In that browser 01 is **17 of 14 words** (its own allowance in `screen_states.dart`, as the practice states have).
 - **Pass:** "Type my name."
 
 **01b Scan** (the camera 01's scan action opens; a place of 01 with its own Back rule: Back, the glyph or the phone's, closes it to 01, as it was)

@@ -22,6 +22,7 @@ just screens [width] [report|strict]  # every screen and the component sheet as 
 just scene-frames      # the dusk and the dawn pumped to fixed times: frames and a strip each
 just loading-clips     # a tap going busy, a slow join, a failed send and its retry, a reconnect: looping WebPs
 just night-frames      # the night board's pick and candle, a frame per 17 ms
+just card-frames       # your card turning over (finger, hold, turn, release), a frame per 17 ms
 just playtest-pack     # the cold-read pack: five first-game journeys to build/playtest/
 just test-harness      # boots its own backend on a free port, runs the e2e harness (not in `just test`)
 just gen-check         # fails when committed *.g.dart / *.freezed.dart differ from `just gen` (about 50 s)

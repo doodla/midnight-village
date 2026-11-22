@@ -46,6 +46,24 @@ const longNames = {
 Future<void> pumpJoinFresh(WidgetTester tester, {double textScale = 1}) =>
     TableSetup.pump(tester, textScale: textScale);
 
+/// 01 in an Android browser: the quiet "Get the app" at its foot.
+Future<void> pumpJoinAndroidWeb(WidgetTester tester, {double textScale = 1}) =>
+    TableSetup.pump(
+      tester,
+      signedInAs: 'Ben',
+      lastWon: true,
+      androidWeb: true,
+      textScale: textScale,
+    );
+
+/// 01 in an Android browser, on a new phone (no numbers to say how it went).
+Future<void> pumpJoinAndroidWebFresh(WidgetTester tester) =>
+    TableSetup.pump(tester, androidWeb: true);
+
+/// 01 in an Android browser, on a new phone with the keyboard up.
+Future<void> pumpJoinAndroidWebKeyboard(WidgetTester tester) =>
+    TableSetup.pump(tester, androidWeb: true, keyboard: 336);
+
 /// Home while this device's saved account is read back: the game opening
 /// (01's village and title), never 01's form.
 Future<void> pumpHomeReading(WidgetTester tester) =>

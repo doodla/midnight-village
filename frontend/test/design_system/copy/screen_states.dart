@@ -19,6 +19,9 @@ typedef Screen = ({int budget, Map<String, List<Line>> states});
 /// screen and state: only states a host reaches by a gesture nothing on screen
 /// offers (practice players), so what every table shows stays in the budget.
 const stateAllowances = <String, Map<String, int>>{
+  // "Get the app" (3), the quiet link at the foot of 01, only in an Android
+  // browser: 14 and the link.
+  '01 Join': {'in an Android browser, Get the app': 17},
   // "Practice" on the rows (one word, the same on each practice row) over a
   // full 13: a table set for a number, practice players seated, fewer came.
   '02 Table': {
@@ -168,6 +171,16 @@ final screens = <String, Screen>{
         headline(JoinCopy.title),
         text(JoinCopy.nameHint),
         button(JoinCopy.join),
+      ],
+      // Only a page in an Android browser: a quiet link under the numbers.
+      'in an Android browser, Get the app': [
+        headline(JoinCopy.title),
+        text(JoinCopy.nameHint),
+        button(JoinCopy.startTable),
+        button(JoinCopy.joinTable),
+        text(JoinCopy.online),
+        text(JoinCopy.lastWon),
+        button(JoinCopy.getApp),
       ],
     },
   ),
