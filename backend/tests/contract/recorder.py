@@ -76,8 +76,12 @@ LOBBY_CODES = (
     "C9FJ2K",
     # The table set for eight (scenarios._seats_table).
     "D3GL6S",
-    # The account that is gone (scenarios.gone_account; no lobby opened).
+    # The account that is gone (scenarios.gone_account) opens no lobby, so the
+    # table of practice players after it (scenarios.practice_table) is given
+    # this code by the generator and takes it from the create's answer.
     "F5HN2V",
+    # Its run.table() slot (never a lobby's code).
+    "G8JP4W",
 )
 # Stand-ins for the game ids, in the order the games are dealt.
 GAME_IDS = (
@@ -213,6 +217,8 @@ class Table:
         self._game_ids = game_ids
         self.code = lobby_code
         self.players: dict[str, Player] = {}
+        # Practice players (``seat_practice``), by name: seats, not phones.
+        self.practice: dict[str, User] = {}
         self.game_id = ""
 
     # -- HTTP -------------------------------------------------------------
@@ -368,7 +374,33 @@ class Table:
         return str(token)
 
     def pid(self, name: str) -> int:
+        if name in self.practice:
+            return self.practice[name].id  # type: ignore[return-value]
         return self.players[name].user.id  # type: ignore[return-value]
+
+    def seat_practice(self) -> list[str]:
+        """Learn the practice players seated at the table now, by name (their
+        usernames are random: each gets a stable stand-in), so a deal can name
+        them. Returns their names in join order."""
+        from apps.core.practice import USERNAME_PREFIX
+
+        rows = (
+            LobbyMember.objects.filter(
+                lobby__code=self.code, user__username__startswith=USERNAME_PREFIX
+            )
+            .select_related("user")
+            .order_by("joined_at", "id")
+        )
+        names = []
+        for member in rows:
+            user = member.user
+            self.practice[user.display_name] = user
+            self.recorder.stable(
+                user.username,
+                f"{USERNAME_PREFIX}00000000-0000-4000-9000-{user.id:012d}",
+            )
+            names.append(user.display_name)
+        return names
 
     # -- sockets ----------------------------------------------------------
 

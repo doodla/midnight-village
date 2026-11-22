@@ -109,24 +109,27 @@ void main() {
     for (final MapEntry(key: name, value: screen) in screens.entries) {
       test('$name: at most ${screen.budget} words', () {
         expect(screen.states, isNotEmpty);
+        // A state with its own allowance is held to that ([stateAllowances]).
+        final allowed = stateAllowances[name] ?? const <String, int>{};
+        expect(
+          allowed.keys.where((s) => !screen.states.containsKey(s)),
+          isEmpty,
+          reason: 'an allowance names a state that is not listed',
+        );
+        int budgetOf(String state) => allowed[state] ?? screen.budget;
         final totals = {
           for (final MapEntry(key: state, value: lines)
               in screen.states.entries)
             state: lines.fold(0, (sum, l) => sum + wordCount(l.text)),
         };
-        final most = totals.values.reduce((a, b) => a > b ? a : b);
-        expect(
-          most,
-          lessThanOrEqualTo(screen.budget),
-          reason: [
-            for (final MapEntry(:key, :value) in totals.entries)
-              if (value > screen.budget) '$key: $value',
-          ].join('\n'),
-        );
+        expect([
+          for (final MapEntry(:key, :value) in totals.entries)
+            if (value > budgetOf(key)) '$key: $value',
+        ], isEmpty);
         expect([
           for (final MapEntry(key: state, value: lines)
               in screen.states.entries)
-            for (final v in stateViolations(lines, budget: screen.budget))
+            for (final v in stateViolations(lines, budget: budgetOf(state)))
               '$state: $v',
         ], isEmpty);
       });

@@ -36,15 +36,18 @@ def touch(lobby_id: int) -> None:
     Lobby.objects.filter(pk=lobby_id).update(updated_at=timezone.now())
 
 
-def add_member(lobby: Lobby, user_id: int) -> LobbyMember:
+def add_member(lobby: Lobby, user_id: int, token: str | None = None) -> LobbyMember:
     """Seat a user at the table with the next free token, logged for replay.
 
     The caller holds the Lobby row lock inside an atomic block, so the capacity
-    check, the token and the insert cannot interleave with another join.
+    check, the token and the insert cannot interleave with another join. A
+    practice player brings its own ``token`` (``practice.token_for``: its name's,
+    outside the people's ten).
 
     Raises LobbyFullError.
     """
-    token = tokens.assign_token(lobby)
+    if token is None:
+        token = tokens.assign_token(lobby)
     limit = games.hooks_for(lobby).seat_limit(lobby)
     capacity = lobby.max_players if limit is None else min(lobby.max_players, limit)
     if token is None or lobby.players.count() >= capacity:  # type: ignore[attr-defined]

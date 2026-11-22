@@ -546,6 +546,14 @@
       "description": "/me/ in the talk: the werewolf_pack's night results, canonical names."
     },
     {
+      "name": "http/game/me_look_practice",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The look at a table with practice players: they looked the moment it opened (`progress` 2 of 4); `players[].practice` marks them."
+    },
+    {
       "name": "http/game/me_look_ready",
       "kind": "http",
       "method": "GET",
@@ -576,6 +584,14 @@
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in the results phase."
+    },
+    {
+      "name": "http/game/me_talk_practice",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The talk: the practice players are ready to vote at once (`progress` 2 of 4); the people decide when it ends."
     },
     {
       "name": "http/game/me_talk_ready",
@@ -626,6 +642,14 @@
       "description": "/me/ with a pick that is not locked yet (`my_vote`, own only)."
     },
     {
+      "name": "http/game/me_voting_practice",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The vote: the practice players locked a random vote at once (`progress` 2 of 4), never told whom."
+    },
+    {
       "name": "http/game/me_voting_ten",
       "kind": "http",
       "method": "GET",
@@ -648,6 +672,14 @@
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in an untimed vote (`voting_seconds` 0): no deadline and no stage start; the vote ends when everyone has locked in (or the host)."
+    },
+    {
+      "name": "http/game/me_window_practice",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "Window 2 with practice players: they chose the moment it opened; nothing about it reaches anyone (the Seer's prompt is her own)."
     },
     {
       "name": "http/game/night_results_seen",
@@ -736,6 +768,14 @@
       "path": "/onuw/games/{game_id}/players/",
       "status": 200,
       "description": "Who is at the table and connected (one phone away)."
+    },
+    {
+      "name": "http/game/players_practice",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/players/",
+      "status": 200,
+      "description": "The players list: practice players are `practice` and always `connected`."
     },
     {
       "name": "http/game/players_results",
@@ -880,6 +920,14 @@
       "path": "/onuw/games/{game_id}/results/",
       "status": 403,
       "description": "Results asked for before the game ends."
+    },
+    {
+      "name": "http/game/results_practice",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "The results: a practice player's card, night and vote show like anyone's."
     },
     {
       "name": "http/game/results_tanner",
@@ -1242,6 +1290,22 @@
       "description": "Noa's phone closed a moment ago: still `connected` during the table's grace period (`disconnect_grace_seconds`), so a blip shows nothing."
     },
     {
+      "name": "http/lobby/detail_practice_guest",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "A guest's view of a table with two people and two practice players."
+    },
+    {
+      "name": "http/lobby/detail_practice_short",
+      "kind": "http",
+      "method": "GET",
+      "path": "/lobbies/{code}/",
+      "status": 200,
+      "description": "The host's table set for six, two people and two practice players here: four of six, 'Play with 4' beside the practice players."
+    },
+    {
       "name": "http/lobby/detail_seats_8_custom_alone",
       "kind": "http",
       "method": "GET",
@@ -1328,6 +1392,14 @@
       "path": "/lobbies/{code}/join/",
       "status": 404,
       "description": "Joining a table code that does not exist."
+    },
+    {
+      "name": "http/lobby/join_takes_practice_seat",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/join/",
+      "status": 200,
+      "description": "A person joins a table whose every seat is taken: the newest practice player gives up its seat."
     },
     {
       "name": "http/lobby/joined",
@@ -1480,6 +1552,70 @@
       "path": "/lobbies/{code}/play-again/",
       "status": 403,
       "description": "Someone other than the host starts another game."
+    },
+    {
+      "name": "http/lobby/practice_bad_request",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/practice/",
+      "status": 400,
+      "description": "A practice change that is not `on` (true or false) or a whole `count`: `bad_request`."
+    },
+    {
+      "name": "http/lobby/practice_full",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/practice/",
+      "status": 400,
+      "description": "More practice players than the free seats: `lobby_full`, nothing changes."
+    },
+    {
+      "name": "http/lobby/practice_in_game",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/practice/",
+      "status": 409,
+      "description": "Practice players cannot change once dealt: `lobby_closed`."
+    },
+    {
+      "name": "http/lobby/practice_not_host",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/practice/",
+      "status": 403,
+      "description": "A guest cannot seat practice players."
+    },
+    {
+      "name": "http/lobby/practice_off",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/practice/",
+      "status": 200,
+      "description": "The host switches practice players off (the long press again): every one gets up; the body has no `practice` and `settings` no `practice`, as at a table that never used them."
+    },
+    {
+      "name": "http/lobby/practice_on",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/practice/",
+      "status": 200,
+      "description": "The host switches practice players on (the app's hidden long press): `settings.practice` and `practice.most`, the seats they may take; nobody is seated yet."
+    },
+    {
+      "name": "http/lobby/practice_three",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/practice/",
+      "status": 200,
+      "description": "Three practice players sit down: `players[].practice` true, always `connected`, named for village things, with seat tokens like anyone."
+    },
+    {
+      "name": "http/lobby/practice_two",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/practice/",
+      "status": 200,
+      "description": "The count lowered: the newest practice player gets up."
     },
     {
       "name": "http/lobby/settings_back_to_auto",
@@ -2119,6 +2255,17 @@
         "Noa"
       ],
       "description": "Noa's phone has been away past the grace period: the table is told (`connected` false), calmly, by a lobby_update."
+    },
+    {
+      "name": "ws/lobby/lobby_update_practice",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "lobby_update",
+      "group": "broadcast",
+      "recipients": [
+        "Pia"
+      ],
+      "description": "The table hears the practice players arrive (the whole lobby body)."
     },
     {
       "name": "ws/lobby/lobby_update_seats_joined",

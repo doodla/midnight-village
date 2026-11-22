@@ -66,7 +66,7 @@ Map<String, dynamic> widened(
   final timeline = results['night_timeline'] as Map<String, dynamic>;
   final cards = (timeline['cards'] as List).cast<Map<String, dynamic>>();
   final villageWon = (results['winning_teams'] as List).contains('village');
-  final unused = TokenId.values
+  final unused = TokenId.people
       .map((t) => t.name)
       .where((t) => !players.any((p) => p['token'] == t))
       .toList();

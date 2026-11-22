@@ -97,6 +97,9 @@ class PlayerNameSize extends InheritedWidget {
 ///   (ink by day); never a fill (first-time play spec, copy rule 10).
 /// - [own]: the viewer's own row, a thicker outline in the paper's ink and
 ///   "You" ([YouTag]) after the name (S02, S10).
+/// - [practice]: a practice player (a seat the server plays), "Practice"
+///   ([PracticeTag]) on the name's line in every row (the name set smaller
+///   first, never moved under it); never [own].
 /// - [away]: a dropped member, the token dimmed, with no words (S02).
 /// - [dimmed]: the vote once locked, where every row dims the same and none
 ///   shows the pick (S09).
@@ -109,6 +112,7 @@ class PlayerRow extends StatelessWidget {
     this.trailing,
     this.picked = false,
     this.own = false,
+    this.practice = false,
     this.away = false,
     this.dimmed = false,
     this.onTap,
@@ -121,6 +125,7 @@ class PlayerRow extends StatelessWidget {
   final Widget? trailing;
   final bool picked;
   final bool own;
+  final bool practice;
   final bool away;
   final bool dimmed;
   final VoidCallback? onTap;
@@ -205,6 +210,22 @@ class PlayerRow extends StatelessWidget {
                           style: nameStyle.copyWith(color: ink),
                         ),
                         YouTag(ink: ink),
+                      ],
+                    )
+                  // "Practice" always on the name's line, so every row of
+                  // a list is laid out alike.
+                  else if (practice)
+                    Row(
+                      spacing: Space.sm,
+                      children: [
+                        Flexible(
+                          child: FitWords(
+                            name,
+                            maxLines: 2,
+                            style: nameStyle.copyWith(color: ink),
+                          ),
+                        ),
+                        PracticeTag(ink: ink),
                       ],
                     )
                   else

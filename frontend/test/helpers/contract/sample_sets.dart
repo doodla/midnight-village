@@ -53,6 +53,11 @@ const meScreens = <String, AppScreen>{
   'me_voting_ten': AppScreen.vote,
   'me_voting_untimed': AppScreen.vote,
   'me_results': AppScreen.count,
+  // A table with practice players: the same screens as any table.
+  'me_look_practice': AppScreen.yourCard,
+  'me_window_practice': AppScreen.nightBoard,
+  'me_talk_practice': AppScreen.talk,
+  'me_voting_practice': AppScreen.vote,
 };
 
 /// Every recorded `/me/` sample, by its name under `http/game/`.
