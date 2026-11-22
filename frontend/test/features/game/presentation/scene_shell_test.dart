@@ -214,34 +214,36 @@ void main() {
       await s.close(tester);
     });
 
-    testWidgets('a tap in the first frames reaches the talk\'s own button', (
-      tester,
-    ) async {
-      final s = await _atNight(tester);
-      s.answerMe(recordedMe('me_discussion_choose_seer'));
-      s.resume();
-      await _begun(tester, find.byType(TalkScreen));
-      await tester.pump(_ms * 60);
-      expect(find.byType(NightBoard), findsOneWidget, reason: 'mid-scene');
-      s.answerPost('/ready/', 'game/ready_talk');
-      // The night board, still showing, has a button too: the talk's own.
-      final ready = find.descendant(
-        of: find.byType(TalkScreen),
-        matching: find.byType(PrimaryButton),
-      );
-      await tester.tapAt(_rest(tester, ready));
-      await tester.pump();
-      expect(
-        tester.widget<PrimaryButton>(ready).label,
-        CommonCopy.readyDone,
-        reason: 'on the tap, mid-scene',
-      );
-      await tester.pump(_ms * 20);
-      expect(s.posts('/ready/'), 1, reason: 'sent mid-scene');
-      expect(find.byType(NightBoard), findsOneWidget, reason: 'still going');
-      await tester.pump(Motion.scene);
-      await s.close(tester);
-    });
+    testWidgets(
+      'a tap in the first frames reaches the talk\'s own button (a night '
+      'that told nothing: no sheet comes up over it)',
+      (tester) async {
+        final s = await _atNight(tester);
+        s.answerMe(recordedMe('me_discussion_choose_villager'));
+        s.resume();
+        await _begun(tester, find.byType(TalkScreen));
+        await tester.pump(_ms * 60);
+        expect(find.byType(NightBoard), findsOneWidget, reason: 'mid-scene');
+        s.answerPost('/ready/', 'game/ready_talk');
+        // The night board, still showing, has a button too: the talk's own.
+        final ready = find.descendant(
+          of: find.byType(TalkScreen),
+          matching: find.byType(PrimaryButton),
+        );
+        await tester.tapAt(_rest(tester, ready));
+        await tester.pump();
+        expect(
+          tester.widget<PrimaryButton>(ready).label,
+          CommonCopy.readyDone,
+          reason: 'on the tap, mid-scene',
+        );
+        await tester.pump(_ms * 20);
+        expect(s.posts('/ready/'), 1, reason: 'sent mid-scene');
+        expect(find.byType(NightBoard), findsOneWidget, reason: 'still going');
+        await tester.pump(Motion.scene);
+        await s.close(tester);
+      },
+    );
 
     testWidgets('the Ready button is uncovered by 60% of the scene', (
       tester,
@@ -340,7 +342,7 @@ void main() {
 
     testWidgets('with reduce motion it is a cut', (tester) async {
       final s = await _atNight(tester, still: true);
-      s.answerMe(recordedMe('me_discussion_choose_seer'));
+      s.answerMe(recordedMe('me_discussion_choose_villager'));
       s.resume();
       await _begun(tester, find.byType(TalkScreen));
       expect(find.byType(NightBoard), findsNothing);

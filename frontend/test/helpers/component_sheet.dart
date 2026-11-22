@@ -161,12 +161,15 @@ enum ComponentPage {
         await holdDown(tester, find.byType(FaceDownCard));
       case actionHeld || actionHeldVillager || actionFollowUpHeld:
         await holdDown(tester, _you);
-      case talkHeld || talkRobber || talkLoneWerewolf || talkDrunk:
-        await holdDown(tester, find.byType(PeekBox));
-      case talkDoppelganger:
-        // The second hold shows My night's second page: window 1's.
-        await holdAndLetGo(tester, find.byType(PeekBox));
-        await holdDown(tester, find.byType(PeekBox));
+      case talkHeld ||
+          talkRobber ||
+          talkLoneWerewolf ||
+          talkDrunk ||
+          talkDoppelganger:
+        // My night is a sheet: a tap opens it, every page of it at once
+        // (the Doppelganger's window 1 page too).
+        await tester.tap(find.byType(PeekBox));
+        await tester.pumpAndSettle();
       case actionPicked:
         await tapAll(who.taps);
       case actionOneMore:

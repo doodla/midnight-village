@@ -98,22 +98,21 @@ Decided 22 Nov 2026: everything is light except the dead card's flip, the one me
 Decided 22 Nov 2026. Where: 08, 09, 10 and 11, the day. "Ready" means only 08's "Ready to vote"; 04's "Ready" is in the
 night and has none. 11 counts as a day screen although its ground is the night's.
 
-The one exception at night (decided 22 Nov 2026, the owner asked for it): `light` when your own
-card's face lands on 04 (`HoldToReveal` in place, through `PaperFlip.onLanded`). It is a hold of
-your own card in your own hand, the same on every phone and every role (everyone looks at the
-deal), once per turn that lands (a hold let go before the face lands gives none; a cut under
-reduce motion still gives it), and never when the card goes back. Holds of "You" and "My night"
-stay silent.
+No exception at night. Decided 22 Nov 2026 and withdrawn 23 Nov 2026: `light` when your own
+card's face lands on 04 was built (`PaperFlip.onLanded` wired to `Haptics.light`), and the owner,
+playing the live app, said: "The vibration on the card after I press to reveal it, I don't like
+it so maybe get rid of it." Nothing vibrates when a card is held, turned or revealed: your
+card, "You", "My night". `PaperFlip.onLanded` stays as a callback for the screen's own use; the
+card on 04 passes none.
 
-Never fires: at night (05, 06, the deal's dusk, and 04 but for that one); on any other hold or
-reveal; on 01 to 03; on a
+Never fires: at night (04, 05, 06, the deal's dusk); on any hold or reveal of a card; on 01 to 03; on a
 banner, error, disabled tap, timer tick, reconnect or a player arriving or leaving; for anything
 that only one phone gets because of its role or what it did at night; no `heavyImpact`, no long
 `vibrate`.
 
-How it is built: `Haptics` (`lib/design_system/feel/haptics.dart`, built in pass 3 with `light`
-only; pass 4 adds `tick` and `thud`) is the one place that asks for a vibration. Pass 4 makes it
-so: one `Haptics` class with these three names and nothing else calls
+How it is built: `Haptics` (`lib/design_system/feel/haptics.dart`) was built in pass 3 for the one
+vibration above and deleted on 23 Nov 2026 with it: today nothing in the app vibrates. Pass 4 builds
+it again, the one place that asks for a vibration, with `tick`, `light` and `thud`: one `Haptics` class with these three names and nothing else calls
 `HapticFeedback` (a test fails any direct call, as `fixture_sources_test.dart` does for fixtures).
 It does nothing in the night phase whoever calls it, nothing under test, and never throws. A
 vibration goes with a visible change on the same frame and is never the only sign.

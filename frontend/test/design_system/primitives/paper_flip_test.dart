@@ -323,28 +323,28 @@ void main() {
       );
     }
 
-    testWidgets('holding turns the card to its face, a light buzz as it '
-        'lands, and letting go turns it back with none', (tester) async {
+    testWidgets('holding turns the card to its face and letting go turns it '
+        'back, with no vibration at all (the owner, 23 Nov 2026)', (
+      tester,
+    ) async {
       await listen(tester);
       await tester.pumpWidget(hold());
       final card = find.byType(HoldToReveal);
       final frame = tester.getRect(card);
       final finger = await tester.startGesture(tester.getCenter(card));
       await tester.pump(HoldToReveal.holdDelay);
-      expect(buzzes, isEmpty, reason: 'not before it lands');
       await tester.pumpAndSettle();
       expect(find.byType(HeldFace), findsOneWidget);
       expect(tester.getRect(find.byType(HeldFace)), frame);
-      expect(buzzes, hasLength(1));
-      expect(buzzes.single.arguments, 'HapticFeedbackType.lightImpact');
+      expect(buzzes, isEmpty, reason: 'the face landing is silent');
 
       await finger.up();
       await tester.pumpAndSettle();
       expect(find.byType(HeldFace, skipOffstage: false), findsNothing);
-      expect(buzzes, hasLength(1), reason: 'letting go is silent');
+      expect(buzzes, isEmpty, reason: 'letting go is silent');
     });
 
-    testWidgets('let go before it lands: no buzz, and the face is gone at '
+    testWidgets('let go before it lands: the face is gone at '
         'once', (tester) async {
       await listen(tester);
       await tester.pumpWidget(hold());
@@ -362,14 +362,14 @@ void main() {
     });
 
     testWidgets('under reduce motion the face is there the frame it shows, '
-        'still buzzes, and is gone on release', (tester) async {
+        'without a buzz, and is gone on release', (tester) async {
       await listen(tester);
       await tester.pumpWidget(hold(still: true));
       final card = find.byType(HoldToReveal);
       final finger = await tester.startGesture(tester.getCenter(card));
       await tester.pump(HoldToReveal.holdDelay);
       expect(find.byType(HeldFace), findsOneWidget);
-      expect(buzzes, hasLength(1));
+      expect(buzzes, isEmpty);
       await finger.up();
       await tester.pump();
       expect(find.byType(HeldFace, skipOffstage: false), findsNothing);
@@ -458,7 +458,7 @@ void main() {
   });
 
   group('your card in a hold, pressed twice', () {
-    testWidgets('press, release, press ends face up with one buzz a landing', (
+    testWidgets('press, release, press ends face up and never buzzes', (
       tester,
     ) async {
       final buzzes = <MethodCall>[];
@@ -501,11 +501,11 @@ void main() {
       await tester.pump(HoldToReveal.holdDelay);
       await tester.pumpAndSettle();
       expect(find.byType(HeldFace), findsOneWidget);
-      expect(buzzes, hasLength(1));
+      expect(buzzes, isEmpty);
       await second.up();
       await tester.pumpAndSettle();
       expect(find.byType(HeldFace, skipOffstage: false), findsNothing);
-      expect(buzzes, hasLength(1));
+      expect(buzzes, isEmpty);
     });
   });
 }

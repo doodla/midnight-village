@@ -4,6 +4,20 @@ The owner plays the live app (web and an Android install) and reports what they 
 words are the brief; do not soften them. Add to the top; move an item to "Done" with the
 commit when it has shipped. In-flight state is here too, so a new session can pick up.
 
+## 23 November 2026, from the live app (card, "My night", the night's story)
+
+- "The vibration on the card after I press to reveal it, I don't like it so maybe get rid of
+  it." Done: no vibration anywhere on a card (`feel.md` section 3; the `Haptics` seam is gone).
+- "The 'My night' thing seems like it floats: depending on where I tap it, it shows up in a
+  different spot." Done: My night is a sheet from the bottom edge, one place, one way to close
+  (design system README, "Where information a player asks for appears"). It was the held face,
+  drawn above the touch point.
+- "The card, 'What happened?' is kind of dumb. It should be like a pop-up or something." NOT
+  done: no text "What happened?" exists in the app; the only card of that kind is the night's
+  story on 11 Results (the red line and steps in the page), and that screen was held by other
+  sessions. To do: open it as the same sheet (`showSkinSheet`) from the existing night control
+  (`_NightHead`), closed by default; update the spec's 11 lines with the date.
+
 ## 21 November 2026, from the live lobby (the owner was alone, so stuck there)
 
 - "I need the number of players to be configurable and I need the settings page to be really
