@@ -501,6 +501,17 @@ asserting what clients are told AND the oracle.
   machine too slow" if the period was already over), every wait has an explicit timeout
   derived from the period, and a "nothing arrived" check is made after a positive barrier
   (an event that travels the same socket after anything sent earlier), never after a sleep.
+- *A phase an API test reads must be held by the test itself*: either by the table's own
+  timer settings (`600` = a window that only the test closes, `0` = host-driven talk and
+  vote) or by the deal. Never by a random deal: an unforced deal can give every player a
+  role with nothing to choose (two Werewolves and two Villagers, about 1 in 35 at four
+  players on the lifecycle deck), and then the night ends AT the deal. So a deal made
+  through `LiveTable.startRequest` / `startGame` is forced (the table's own deal unless the
+  caller names another); only a test of the random deal itself (the deck tests, which
+  pass `debug.seed`) deals without one. A check that a game was dealt asserts what it
+  means (its `game_id`, that exactly one exists, who is host, the 201 / 409), not a phase.
+  A UI run on the app's own random deal (the journey and practice tests) likewise reads
+  its outcome from the oracle (`end_of_game.dart`: nobody, one team or two can win).
 
 **Test harness setup** (every harness test): `HttpOverrides.global = null` (real
 network), load fonts, target `127.0.0.1:8001`. Use the §B3 fire-timer hook (not

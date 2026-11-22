@@ -156,6 +156,10 @@ screens *args:
 scene-frames *args:
     {{frontend_just}} scene-frames {{args}}
 
+# The night board's pick and candle in motion: a frame per 17 ms (frontend/test/README.md)
+night-frames *args:
+    {{frontend_just}} night-frames {{args}}
+
 # The cold-read pack of first-game journeys (see frontend/lib/design_system/README.md)
 playtest-pack *args:
     {{frontend_just}} playtest-pack {{args}}

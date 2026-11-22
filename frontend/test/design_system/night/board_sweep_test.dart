@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -6,6 +7,7 @@ import 'package:midnight_village/design_system/night/board_layout.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'board_harness.dart' show card;
+import 'titles_on_main.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
@@ -82,9 +84,18 @@ void main() {
       for (final rows in BoardLayout.splits(seats)) {
         expect(rows.reduce((a, b) => a + b), seats);
         expect(rows.first - rows.last, lessThanOrEqualTo(1));
-        if (rows.length > 1) expect(rows.last, greaterThan(1), reason: '$rows');
+        // The one card alone the board allows: three others as a pair with
+        // the third centred under it (a row of three is as wide as the
+        // phone and leaves a tall phone empty).
+        if (rows.length > 1 && seats != BoardLayout.triangle) {
+          expect(rows.last, greaterThan(1), reason: '$rows');
+        }
       }
     }
+    expect(BoardLayout.splits(BoardLayout.triangle), [
+      [3],
+      [2, 1],
+    ]);
     expect(BoardLayout.splits(5), anyElement(equals([3, 2])));
     expect(BoardLayout.splits(5), isNot(anyElement(equals([4, 1]))));
     expect(
@@ -121,7 +132,9 @@ void main() {
             final where = '$seats seats';
             final rows = _rows(tester);
             expect(rows.reduce((a, b) => a + b), seats - 1, reason: where);
-            if (rows.length > 1 && rows.contains(1)) {
+            final triangle =
+                seats - 1 == BoardLayout.triangle && rows.join() == '21';
+            if (rows.length > 1 && rows.contains(1) && !triangle) {
               findings.add('$where: a card alone on a row ($rows)');
             }
             findings.addAll([
@@ -243,7 +256,7 @@ void main() {
       final drawn = <String>[];
       for (final viewer in Viewer.values) {
         await tester.pumpWidget(const SizedBox());
-        await _pump(tester, BoardPage(viewer: viewer));
+        await _pump(tester, BoardPage(viewer: viewer, textScale: scale));
         final title = viewer.prompt.kind.title;
         final text = tester.widget<Text>(find.text(title));
         final size = text.style!.fontSize!;
@@ -261,6 +274,61 @@ void main() {
       }
       expect(findings, isEmpty, reason: drawn.join(', '));
     });
+  }
+
+  // The candle and the seconds beside the title are their own size, whatever
+  // the text size and the clock: the title is never set smaller, nor broken
+  // onto more lines, than main drew it (`titles_on_main.dart`), at any width,
+  // text scale or time on the clock. (BoardPage takes the text scale itself:
+  // the platform's alone is not what it draws with.)
+  for (final width in const [320, 360, 390]) {
+    for (final scale in _textScales) {
+      testWidgets('the title is no smaller and on no more lines than on main, '
+          '$width wide, text x$scale, 14 s and 3:08 on the clock', (
+        tester,
+      ) async {
+        final phone = Size(width.toDouble(), width == 320 ? 568 : 844);
+        tester.view.physicalSize = phone;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final findings = <String>[];
+        for (final viewer in [Viewer.drunk, Viewer.seer, Viewer.troublemaker]) {
+          for (final seconds in const [14, 188]) {
+            await tester.pumpWidget(const SizedBox());
+            await _pump(
+              tester,
+              BoardPage(viewer: viewer, textScale: scale, secondsLeft: seconds),
+            );
+            final title = viewer.prompt.kind.title;
+            final paragraph = tester.renderObject<RenderParagraph>(
+              find.byWidgetPredicate(
+                (w) => w is RichText && w.text.toPlainText() == title,
+              ),
+            );
+            final size = paragraph.text.style!.fontSize!;
+            final lines = paragraph
+                .getBoxesForSelection(
+                  TextSelection(
+                    baseOffset: 0,
+                    extentOffset: paragraph.text.toPlainText().length,
+                  ),
+                )
+                .map((b) => b.top.round())
+                .toSet()
+                .length;
+            final (sizeOnMain, linesOnMain) =
+                titlesOnMain[(width, scale, viewer.name, seconds)]!;
+            if (size < sizeOnMain - 0.05 || lines > linesOnMain) {
+              findings.add(
+                '${viewer.name} at ${seconds}s: ${size.toStringAsFixed(1)} px '
+                'on $lines lines, on main $sizeOnMain on $linesOnMain',
+              );
+            }
+          }
+        }
+        expect(findings, isEmpty);
+      });
+    }
   }
 
   testWidgets('the board is laid out from every name at the table: a long '

@@ -297,6 +297,34 @@ void main() {
         },
       );
 
+      test(
+        'the candle\'s three cuts are in the bundle at the size the skin '
+        'says, inside its view, and no other file is in its folder',
+        () async {
+          final art = skin.art;
+          final cut = art.candleCut;
+          final declared = <String>{};
+          for (final c in [cut.wax, cut.flame, cut.holder]) {
+            final picture = art.candleSprite(c);
+            declared.add(picture.path);
+            expect(assets, contains(picture.path));
+            expect(await _pixels(picture.path), picture.pixels);
+            // Each cut lies on the canvas the view is part of.
+            expect(
+              cut.view.overlaps(c.at & c.size),
+              isTrue,
+              reason: picture.path,
+            );
+          }
+          final bundled = assets
+              .where((path) => path.startsWith('${art.folder}/candle/'))
+              .toSet();
+          expect(bundled, declared);
+          expect(cut.stickTop, lessThan(cut.stickBottom));
+          expect(cut.view.contains(cut.wick), isTrue);
+        },
+      );
+
       test('every layer of a layered scene is in the bundle at the size its '
           'scene says, and no other file is', () async {
         final art = skin.art;
