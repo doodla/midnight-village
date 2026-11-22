@@ -112,6 +112,7 @@ worktree copy under `.claude/worktrees/` is never scanned.
 | `backend-developer`, `frontend-developer` | opus, high | Read, Edit, Write, Grep, Glob, Bash, Agent (Agent so a builder can call `eyes`) |
 | `backend-code-reviewer`, `frontend-code-reviewer` | opus, high | Read, Grep, Glob, Bash: no edit tools |
 | `player-experience` | opus, high | Read, Grep, Glob |
+| `critic-editor`, `critic-art-director` (judge pictures cold, see "The two critics" in `docs/dev/running-the-work.md`) | opus, high | Read, Glob: no edits |
 | `worker` (small exact jobs) | sonnet, medium | Read, Edit, Write, Grep, Glob, Bash |
 | `eyes` (looks at PNGs, reports in words) | sonnet, medium | Read, Glob: no edits |
 
