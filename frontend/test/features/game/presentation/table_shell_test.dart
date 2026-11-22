@@ -9,6 +9,7 @@ import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
+import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/night_screen.dart';
@@ -457,6 +458,17 @@ void main() {
       expect(board.seats, hasLength((me['players'] as List).length));
       expect(board.prompt.stage, me['stage']);
       expect(board.secondsLeft, 14);
+      // The candle: the share of the window left, from the server's own
+      // `stage_started_at` and deadline, the same as the talk's sun.
+      final parsed = GameMe.fromJson(me);
+      final length = parsed.deadline!
+          .difference(parsed.stageStartedAt!)
+          .inMilliseconds;
+      expect(board.share, closeTo(14000 / length, 1e-9));
+      expect(
+        tester.widget<WorldTimer>(find.byType(WorldTimer)).share,
+        board.share,
+      );
       await s.close(tester);
     });
 

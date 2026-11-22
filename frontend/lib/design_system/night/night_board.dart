@@ -8,12 +8,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../copy/copy.dart';
 import '../faces/face_content.dart';
 import '../layout/space.dart';
+import '../primitives/candle_gauge.dart';
 import '../primitives/face_down_card.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/notice.dart';
 import '../primitives/paper_card.dart';
 import '../primitives/primary_button.dart';
 import '../primitives/screen_frame.dart';
+import '../skin/art_set.dart' show LayeredSceneId;
 import '../primitives/world_timer.dart';
 import '../skin/ground.dart';
 import '../skin/skin.dart';
@@ -66,6 +68,7 @@ class NightBoard extends ConsumerStatefulWidget {
     required this.prompt,
     required this.face,
     required this.secondsLeft,
+    this.share,
     required this.onChoose,
   });
 
@@ -83,6 +86,11 @@ class NightBoard extends ConsumerStatefulWidget {
   /// The stage's countdown, as the server gives it; null in a window with
   /// no deadline (the candle alone).
   final int? secondsLeft;
+
+  /// How much of the window is left, 0 to 1, for the candle's flame and wax
+  /// ([StageShare.left]: the same on every phone); null when the server did
+  /// not say how long the window is: the candle whole.
+  final double? share;
 
   /// Sends the picks, in tap order, with the prompt's stage, and says what
   /// became of them ([ChooseAnswer.fromStatus] on the server's answer). The
@@ -104,9 +112,28 @@ class NightBoard extends ConsumerStatefulWidget {
   /// The button's words grow further, as far as a held face's.
   static const buttonScale = 1.6;
 
-  /// The candle and the seconds beside the title: this many title lines
-  /// high (at the title's size before the text scale).
-  static const timerLines = 1.3;
+  /// The candle stands under the seconds, this high (its flame's tip under
+  /// the digits' feet, its ledge a little below the title's room, above the
+  /// seats' labels and cards, which start further down).
+  static const candleHeight = 65.0;
+
+  /// The width the title has always given the seconds and the candle (the
+  /// unit it replaced, 85 px, and the title's gap to it): the title is never
+  /// set smaller, nor broken onto more lines, than it was.
+  static const unitReserve = 85.0;
+
+  /// The strip of the night village behind the title shows the picture from
+  /// this row of pixels down: its roofs and spire, clear of the moon above,
+  /// which would sit under the seconds.
+  static const villageFrom = 360.0;
+
+  /// The strip behind the title grows with the height a phone has beyond
+  /// [tallPhone], by [stripShare] of it, to at most [stripMost], at a table of
+  /// [smallTable] seats.
+  static const smallTable = 3;
+  static const tallPhone = 700.0;
+  static const stripShare = 0.45;
+  static const stripMost = 72.0;
 
   /// The lines of room a title has, at the full title size.
   static const titleLines = 2;
@@ -127,6 +154,9 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   /// server already had the turn's choose before this board was shown).
   late List<NightPick>? _sent = _usedUp(widget.prompt);
   var _failed = false;
+
+  /// The candle's cuts have been asked for.
+  var _candleWarmed = false;
 
   /// Which send is the latest: an answer to an older one, or to an earlier
   /// turn, is ignored.
@@ -242,13 +272,14 @@ class _NightBoardState extends ConsumerState<NightBoard> {
       return PrimaryButton.locked(
         label: _picks.isEmpty ? NightCopy.chooseNone : NightCopy.chooseMore,
         onLockedTap: _replay.replay,
+        slot: true,
       );
     }
     final kind = widget.prompt.kind;
     final label = _picks.length == 1 && _picks.single is SelfPick
         ? kind.pass
         : kind.go.fill({'cards': _picks.map(_caption).join(', ')});
-    return PrimaryButton(label: label, onPressed: _choose);
+    return PrimaryButton(label: label, onPressed: _choose, rises: true);
   }
 
   @override
@@ -281,6 +312,10 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           child: ScreenFrame(
             ground: GroundKind.night,
             fitsHeight: true,
+            topScene: LayeredSceneId.nightVillage,
+            topSceneFrom: NightBoard.villageFrom,
+            topArtExtra: _stripExtra(context),
+            topArtLayout: TopArtLayout.strip,
             body: MediaQuery.withClampedTextScaling(
               maxScaleFactor: NightBoard.labelScale,
               child: Column(
@@ -335,11 +370,23 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
+  /// A table of three has two cards a row as wide as the phone allows, and on a
+  /// tall phone air to spare: the village strip takes some of it (it is only a
+  /// picture; nothing a neighbour could read moves).
+  double _stripExtra(BuildContext context) {
+    if (widget.seats.length != NightBoard.smallTable) return 0;
+    final height = MediaQuery.sizeOf(context).height;
+    return ((height - NightBoard.tallPhone) * NightBoard.stripShare).clamp(
+      0.0,
+      NightBoard.stripMost,
+    );
+  }
+
   /// The title in a room two lines high at the full title size, the same
   /// height on every phone whatever the role (so the board below sits alike):
   /// the prompt's words wrap between words, and are set smaller only where
-  /// two lines are not enough. Beside it, level with its first line, the
-  /// candle and the seconds as one compact unit, a line and a third high.
+  /// two lines are not enough. Beside it the candle, as high as that room,
+  /// and the seconds level with the title's first line.
   Widget _header(BuildContext context) {
     final title = context.skin.typography.screenTitle;
     // At the title's own size, whatever the text scale: the unit sets its
@@ -350,6 +397,17 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     final room =
         MediaQuery.textScalerOf(context).scale(line) * NightBoard.titleLines +
         1;
+    // The candle and the seconds are the unit's own size, whatever the text
+    // size: the title beside them stops growing at its limit, and must never
+    // be set smaller to make room for them.
+    const candleHeight = NightBoard.candleHeight;
+    // The whole unit's height: the number's line, the candle under it.
+    final unitHeight = line - WorldTimer.stackedOverlap + candleHeight;
+    if (!_candleWarmed) {
+      // The candle's cuts decoded now, for the first frame the board draws.
+      _candleWarmed = true;
+      CandleGauge.precache(context, candleHeight);
+    }
     return Row(
       spacing: Space.md,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -370,10 +428,22 @@ class _NightBoardState extends ConsumerState<NightBoard> {
             ),
           ),
         ),
+        // The seconds on the title's first line and the candle under them,
+        // standing a little below the title's room: the unit takes the width
+        // the title has always given it ([NightBoard.unitReserve]) and none
+        // of the board's height.
         SizedBox(
-          height: line * NightBoard.timerLines,
-          child: FittedBox(
-            child: WorldTimer.candleCompact(secondsLeft: widget.secondsLeft),
+          width: NightBoard.unitReserve,
+          child: Align(
+            alignment: Alignment.topRight,
+            heightFactor: room / unitHeight,
+            child: WorldTimer.candleCompact(
+              secondsLeft: widget.secondsLeft,
+              share: widget.share,
+              candleHeight: candleHeight,
+              lineHeight: line,
+              stacked: true,
+            ),
           ),
         ),
       ],
@@ -381,14 +451,16 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   }
 
   /// The other seats in [layout]'s rows, then the band in front of the
-  /// player; what is to spare goes above the seats and between them and
-  /// the band, half each.
+  /// player; what is to spare (little: the cards grew to the room) goes in
+  /// equal shares above the seats, between the rows and between them and
+  /// the band, so no one gap is a dead band.
   Widget _board(
     BoardLayout layout,
     Size room,
     Widget Function(Widget card) wave,
   ) {
     final spare = math.max(0.0, room.height - layout.used);
+    final share = spare / (layout.rows.length + 1);
     final others = [
       for (final seat in widget.seats)
         if (seat.id != widget.selfId) seat,
@@ -404,7 +476,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(height: spare / 2),
+        SizedBox(height: share),
         // Room for the Seer's "1 player", empty on every other board.
         SizedBox(
           height: layout.seatLabelRoom,
@@ -416,7 +488,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                 ),
         ),
         for (final (i, row) in rows.indexed) ...[
-          if (i > 0) const SizedBox(height: BoardLayout.rowGap),
+          if (i > 0) SizedBox(height: BoardLayout.rowGap + share),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,13 +496,14 @@ class _NightBoardState extends ConsumerState<NightBoard> {
             children: [for (final s in row) seat(s)],
           ),
         ],
+        SizedBox(height: share / 2),
         // The gap above the band: her rule with "or" on it, empty on every
-        // other board.
+        // other board, in the middle of it.
         SizedBox(
           height: layout.ruleRoom,
           child: widget.prompt.kind.seats == null ? null : _rule(),
         ),
-        SizedBox(height: spare / 2),
+        SizedBox(height: share / 2),
         _band(me, layout, wave),
       ],
     );

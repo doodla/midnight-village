@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
@@ -5,6 +7,7 @@ import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import 'art_picture.dart';
+import 'candle_gauge.dart';
 import 'cut_paper.dart';
 
 /// The night's countdown, told by a candle, with the number beside it. It
@@ -12,8 +15,9 @@ import 'cut_paper.dart';
 /// actually ends. (The day's timers run edge to edge: `TimerBand`.)
 ///
 /// - [WorldTimer.candle]: in its own panel (S05).
-/// - [WorldTimer.candleCompact]: a small candle and the number, for a
-///   screen's corner (S06).
+/// - [WorldTimer.candleCompact]: a drawn candle ([CandleGauge]: its flame and
+///   wax shrink with the window, stepping with the number) and the number,
+///   beside the night board's title (S06).
 ///
 /// The mocks' "seconds of night" is cut (first-time play spec, copy rule 9);
 /// under a minute the number keeps its unit ("14 s"), which a bare number did
@@ -25,11 +29,21 @@ class WorldTimer extends StatelessWidget {
     super.key,
     required this.secondsLeft,
     this.semanticLabel,
-  }) : _compact = false;
+  }) : _compact = false,
+       share = null,
+       candleHeight = 90,
+       lineHeight = null,
+       stacked = false,
+       lift = 0;
 
   const WorldTimer.candleCompact({
     super.key,
     required this.secondsLeft,
+    this.share,
+    this.candleHeight = 90,
+    this.lineHeight,
+    this.lift = 0,
+    this.stacked = false,
     this.semanticLabel,
   }) : _compact = true;
 
@@ -37,14 +51,43 @@ class WorldTimer extends StatelessWidget {
   /// loads): the candle alone, no number made up.
   final int? secondsLeft;
 
+  /// How much of the window is left, 0 to 1, for the compact candle (null:
+  /// the candle whole, the server did not say how long the window is).
+  final double? share;
+
+  /// The compact candle's height.
+  final double candleHeight;
+
+  /// The height of the title's first line beside the compact timer: the
+  /// number sits in it, level with the title, the candle standing from its top.
+  /// Null: the number is centred on the candle.
+  final double? lineHeight;
+
+  /// The candle stands under the number (centred in the number's slot, the
+  /// unit as wide as the slot) instead of beside it.
+  final bool stacked;
+
+  /// How far the candle's top (the flame's tip) reaches up into the number's
+  /// line box, under the digits' feet, when it stands under the number.
+  static const stackedOverlap = 5.0;
+
+  /// How far the candle stands above the number's line (the candle's top is
+  /// the unit's top; the number sits [lift] lower).
+  final double lift;
+
+  /// The corner number's size, of the skin's `timerCompact`: what it was drawn
+  /// at on main (27 px), and so no smaller than the players' names on the
+  /// board (18 px at most): the candle carries the drama, the number the
+  /// fact, and the number is not smaller than the rest of the text.
+  static const cornerNumberScale = 0.8;
+
   /// Read out instead of the number.
   final String? semanticLabel;
 
   final bool _compact;
 
-  /// The candle's size in the panel and in the corner (S05, S06).
+  /// The candle picture's size in the panel (S05).
   static const candleSize = Size(66, 88);
-  static const compactCandleSize = Size(44, 58);
 
   /// Seconds as a clock: "19 s" under a minute, "4:12" from a minute.
   static String format(int seconds) {
@@ -106,60 +149,118 @@ class WorldTimer extends StatelessWidget {
   }
 
   Widget _corner(BuildContext context, String? number, bool bounded) {
-    final skin = context.skin;
+    final style = context.skin.typography.timerCompact;
+    final numberStyle = style.copyWith(
+      fontSize: style.fontSize! * cornerNumberScale,
+    );
+    final candle = CandleGauge(share: share, height: candleHeight);
+    if (number == null) return candle;
+    // The number is the unit's own size, whatever the text size (the title
+    // beside it stops growing, and must not give way to the seconds): its slot
+    // is as wide as the widest it can read in its form, its right edge a gap
+    // (the width of its "s") from the candle, so nothing shifts as a ten turns
+    // into a nine and nothing touches the flame or the wax.
+    final slot = _slot(numberStyle, number);
+    final line = lineHeight ?? candleHeight;
+    final numberBox = SizedBox(
+      width: slot,
+      height: line,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Text(
+          number,
+          textScaler: TextScaler.noScaling,
+          style: numberStyle,
+        ),
+      ),
+    );
+    if (stacked) {
+      // The number on the title's first line, the candle standing under it on
+      // its ledge, centred under the slot; the unit is as wide as the slot.
+      return SizedBox(
+        width: slot,
+        height: line - stackedOverlap + candleHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Painted first: the number lies over the candle's dark nook.
+            Positioned(
+              top: line - stackedOverlap,
+              left: 0,
+              right: 0,
+              child: Center(child: candle),
+            ),
+            Positioned(top: 0, left: 0, child: numberBox),
+          ],
+        ),
+      );
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
-      spacing: Space.smPlus,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: _width('s', numberStyle) + 1,
       children: [
-        _flex(
-          bounded,
-          1,
-          _Candle(size: compactCandleSize, ring: context.ground.hairline),
-        ),
-        if (number != null)
-          _flex(
-            bounded,
-            2,
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(number, style: skin.typography.timerCompact),
+        Padding(
+          padding: EdgeInsets.only(top: lift),
+          child: SizedBox(
+            width: slot,
+            height: line,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                number,
+                textScaler: TextScaler.noScaling,
+                style: numberStyle,
+              ),
             ),
           ),
+        ),
+        candle,
       ],
     );
   }
-}
 
-Widget _flex(bool bounded, int flex, Widget child) =>
-    bounded ? Flexible(flex: flex, child: child) : child;
+  static double _width(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.noScaling,
+    )..layout();
+    final w = painter.width;
+    painter.dispose();
+    return w;
+  }
+
+  /// The width of the widest the number can read in the form it is in: two
+  /// of the widest digit and the unit ("88 s") under a minute, minutes and
+  /// seconds ("8:88") from a minute. The digits are not all one width, and
+  /// the candle beside them must not move as they change.
+  double _slot(TextStyle style, String number) {
+    final digit = [
+      for (var d = 0; d < 10; d++) _width('$d', style),
+    ].reduce(math.max);
+    return number.contains(':')
+        ? math.max(3 * digit + _width(':', style), _width(number, style))
+        : 2 * digit + _width(format(0).substring(1), style);
+  }
+}
 
 /// The candle picture, at most [size], keeping its shape.
 class _Candle extends StatelessWidget {
-  const _Candle({required this.size, this.ring});
+  const _Candle({required this.size});
 
   final Size size;
-  final Color? ring;
 
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
-    final radius = BorderRadius.circular(skin.shape.radiusSmall);
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: size.width),
       child: AspectRatio(
         aspectRatio: size.aspectRatio,
-        child: Container(
-          foregroundDecoration: ring == null
-              ? null
-              : ringDecoration(
-                  color: ring!,
-                  width: skin.shape.ring,
-                  radius: radius,
-                ),
-          child: ClipRRect(
-            borderRadius: radius,
-            child: ArtPicture(skin.art.scene(Scene.candle)),
-          ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(skin.shape.radiusSmall),
+          child: ArtPicture(skin.art.scene(Scene.candle)),
         ),
       ),
     );

@@ -106,7 +106,8 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
     dropped. At a number, `SeatsLine` "3 of 8" with every seat drawn.
   - **The deck, face up**: the chips make it automatic; every role in a grid in `deckOrder`,
     lit with its count; a tap puts one in (up to the role's most, Masons in pairs), a lit
-    card's minus (`RoleCard.onRemove`) takes one out, a hold opens 03b (`showRoleSheet`). The
+    card's minus (`RoleCard.onRemove`) takes one out, a hold (`RoleCard.holdDelay`, 0.3 s: the
+    owner's holds of 0.4 s read nothing at Flutter's 0.5 s) opens 03b (`showRoleSheet`). The
     first card changed on an automatic deck makes it the host's own from those cards
     (`startCustomDeck`), for the number (an open table takes the least of `seats_range`). At
     a number, `DeckCount`: the cards picked over the cards needed ("7 / 11", `cardsNeeded`,

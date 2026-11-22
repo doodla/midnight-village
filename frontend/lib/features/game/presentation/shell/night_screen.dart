@@ -52,6 +52,11 @@ class NightScreen extends ConsumerWidget {
         face: me.report.you(prompt),
         // An untimed window (a debug setting): the candle alone.
         secondsLeft: seconds,
+        share: StageShare.left(
+          startedAt: me.stageStartedAt,
+          deadline: me.deadline,
+          secondsLeft: seconds,
+        ),
         onChoose: (stage, picks) async =>
             (await notifier.choose(stage, picks)).forBoard,
       ),

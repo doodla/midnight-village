@@ -50,7 +50,9 @@ class LiveTable {
       centerCards: centerCards,
       timerSettings: timerSettings,
     );
-    return LiveTable._(clients.client, clients.controller);
+    return LiveTable._(clients.client, clients.controller)
+      .._dealtByName = playerRolesByName
+      .._centerCards = centerCards;
   }
 
   /// A table opened some other way (a phone's own 01 and 02) and dealt:
@@ -63,6 +65,15 @@ class LiveTable {
 
   final DebugApiClient client;
   final DebugTableController controller;
+
+  /// The deal this table was opened with (by player name, and the centre). A
+  /// later deal on the same table (a play again) repeats it unless the caller
+  /// gives another: an unforced deal is random, and a random deal can hand
+  /// every player a role with nothing to choose (two Werewolves and two
+  /// Villagers), so the night ends AT the deal. A test that asks about the
+  /// night must never depend on that draw. Null for a [adopt]ed table.
+  Map<String, String>? _dealtByName;
+  List<String>? _centerCards;
 
   final Map<int, PlayerWire> _gameWires = {};
   final Map<int, PlayerWire> _lobbyWires = {};
@@ -178,31 +189,36 @@ class LiveTable {
 
   /// One `POST /onuw/lobbies/<code>/start/` as [player], not yet adopted: for a
   /// double tap, where only one of two requests may deal a game. The body is
-  /// the response (`game_id`).
+  /// the response (`game_id`). The deal is forced: [dealtByName] and
+  /// [centerCards], else the deal the table was opened with.
   Future<Map<String, dynamic>> startRequest(
     DebugPlayer player, {
     Map<String, String>? dealtByName,
     List<String>? centerCards,
-  }) => client.post(
-    '/onuw/lobbies/$lobbyCode/start/',
-    token: player.accessToken,
-    data: dealtByName == null
-        ? null
-        : {
-            'debug': {
-              'forced_assignment': ForcedAssignment(
-                playerRoles: {
-                  for (final p in table.players)
-                    p.userId: dealtByName[p.displayName]!,
-                },
-                center: centerCards!,
-              ).toJson(),
+  }) {
+    final dealt = dealtByName ?? _dealtByName;
+    final center = centerCards ?? _centerCards;
+    return client.post(
+      '/onuw/lobbies/$lobbyCode/start/',
+      token: player.accessToken,
+      data: dealt == null
+          ? null
+          : {
+              'debug': {
+                'forced_assignment': ForcedAssignment(
+                  playerRoles: {
+                    for (final p in table.players)
+                      p.userId: dealt[p.displayName]!,
+                  },
+                  center: center!,
+                ).toJson(),
+              },
             },
-          },
-  );
+    );
+  }
 
-  /// Starts the next game as [player] and attaches the controller to it. With
-  /// [dealtByName] and [centerCards] the deal is forced.
+  /// Starts the next game as [player] and attaches the controller to it. The
+  /// deal is forced, as in [startRequest].
   Future<Map<String, dynamic>> startGame(
     DebugPlayer player, {
     Map<String, String>? dealtByName,

@@ -50,7 +50,14 @@ enum FaceDownSize {
 /// ([FitWords]). [nameSize] sets the name's size and [nameHeight] the room
 /// under the token (the night board sets every name at one size that fits
 /// them all, in the same room, so a name on two lines moves no card).
-class FaceDownCard extends StatelessWidget {
+///
+/// Touch (the night board): the frame a finger lands the card dips [dip] and
+/// its shadow stays where it was; a pick lifts it [lift] with the selection's
+/// outline, a soft glow of the ground's light ([GroundElevation.glow]) and a
+/// deeper hard shadow. Every card does this, whatever it is and whether or
+/// not a pick can take it, so no role shows in how a board answers a touch.
+/// Under reduce motion each is a cut to its end state.
+class FaceDownCard extends StatefulWidget {
   const FaceDownCard({
     super.key,
     this.size = FaceDownSize.player,
@@ -100,13 +107,31 @@ class FaceDownCard extends StatelessWidget {
   /// The mock's player card width, which the lying shadow is drawn for.
   static const _shadowWidth = 78.0;
 
+  /// How far a picked card lifts off the table.
+  static const lift = Space.sm;
+
+  /// How far a card dips under a finger.
+  static const dip = 2.0;
+
+  /// The picked card's soft light: its blur and its spread.
+  static const glowBlur = 22.0;
+  static const glowSpread = 2.0;
+
   /// The owner's token takes at most this share of a card's width: the
   /// mocks' 36 on a card 86 or wider, smaller on a small card.
   static const ownerTokenShare = 0.42;
 
+  /// A card wider than the mocks' board card (96) lets its token grow by
+  /// this share of the extra width, so a large card is not a small token on
+  /// a big back.
+  static const ownerTokenGrowth = 0.15;
+
   /// The owner's token under a card [width] wide.
-  static double ownerTokenFor(double width) =>
-      math.min(TokenSize.card.size, width * ownerTokenShare);
+  static double ownerTokenFor(double width) => math.min(
+    TokenSize.card.size +
+        math.max(0, width - FaceDownSize.board.mock.width) * ownerTokenGrowth,
+    width * ownerTokenShare,
+  );
 
   /// Between the token and the name under it.
   static const nameGap = Space.xxs;
@@ -118,56 +143,99 @@ class FaceDownCard extends StatelessWidget {
   static const holdShare = 0.8;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: semanticLabel,
-    hint: semanticHint,
-    button: onTap != null,
-    selected: selected,
-    excludeSemantics: semanticLabel != null,
-    child: GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: Motion.quick,
-        curve: Motion.curve,
-        transform: Matrix4.translationValues(0, selected ? -Space.sm : 0, 0),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final most = cardWidth ?? size.mock.width;
-            final width = constraints.hasBoundedWidth
-                ? most.clamp(0.0, constraints.maxWidth)
-                : most;
-            final column = _column(context, width);
-            return tapExtra == 0
-                ? column
-                : Padding(
-                    padding: EdgeInsets.only(bottom: tapExtra),
-                    child: column,
-                  );
-          },
+  State<FaceDownCard> createState() => _FaceDownCardState();
+}
+
+class _FaceDownCardState extends State<FaceDownCard> {
+  /// A finger is on the card.
+  var _down = false;
+
+  void _touch(bool down) {
+    if (_down != down && mounted) setState(() => _down = down);
+  }
+
+  FaceDownSize get size => widget.size;
+
+  @override
+  Widget build(BuildContext context) {
+    // Going down is `press`, coming back up and a pick `quick`; no time at
+    // all under reduce motion.
+    final duration = Motion.within(
+      context,
+      _down ? Motion.press : Motion.quick,
+    );
+    final dip = _down && widget.onTap != null ? FaceDownCard.dip : 0.0;
+    return Semantics(
+      label: widget.semanticLabel,
+      hint: widget.semanticHint,
+      button: widget.onTap != null,
+      selected: widget.selected,
+      excludeSemantics: widget.semanticLabel != null,
+      child: Listener(
+        // The press answers the frame the finger lands, not when the tap is
+        // recognised (a card under a hold's cover waits for neither).
+        onPointerDown: (_) => _touch(true),
+        onPointerUp: (_) => _touch(false),
+        onPointerCancel: (_) => _touch(false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: duration,
+            curve: Motion.curve,
+            transform: Matrix4.translationValues(
+              0,
+              (widget.selected ? -FaceDownCard.lift : 0) + dip,
+              0,
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final most = widget.cardWidth ?? size.mock.width;
+                final width = constraints.hasBoundedWidth
+                    ? most.clamp(0.0, constraints.maxWidth)
+                    : most;
+                final column = _column(context, width, duration, dip);
+                return widget.tapExtra == 0
+                    ? column
+                    : Padding(
+                        padding: EdgeInsets.only(bottom: widget.tapExtra),
+                        child: column,
+                      );
+              },
+            ),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
-  Widget _column(BuildContext context, double width) {
+  Widget _column(
+    BuildContext context,
+    double width,
+    Duration duration,
+    double dip,
+  ) {
+    final selected = widget.selected;
+    final owner = widget.owner;
+    final ownerName = widget.ownerName;
+    final caption = widget.caption;
     final skin = context.skin;
     final ground = context.ground;
     final height = width * size.mock.height / size.mock.width;
-    final angle = skin.tilt.angle(tilt);
+    final angle = skin.tilt.angle(widget.tilt);
     Widget card = SizedBox(
       width: width,
       height: height,
       child: size == FaceDownSize.hero
           ? _hero(context, width)
-          : _back(context, width),
+          : _back(context, width, duration, dip),
     );
     if (angle != 0) card = Transform.rotate(angle: angle, child: card);
 
-    final token = ownerTokenFor(width);
+    final token = FaceDownCard.ownerTokenFor(width);
     Widget lit(Widget child) => AnimatedOpacity(
-      opacity: dimmed ? skin.dimmed : 1,
-      duration: Motion.quick,
+      opacity: widget.dimmed ? skin.dimmed : 1,
+      duration: duration,
       curve: Motion.curve,
       child: child,
     );
@@ -206,8 +274,8 @@ class FaceDownCard extends StatelessWidget {
         else
           lit(card),
         if (ownerName case final name?) ...[
-          const SizedBox(height: nameGap),
-          if (nameHeight case final height?)
+          const SizedBox(height: FaceDownCard.nameGap),
+          if (widget.nameHeight case final height?)
             SizedBox(
               height: height,
               child: Align(
@@ -219,7 +287,7 @@ class FaceDownCard extends StatelessWidget {
             _name(context, name),
         ],
         if (caption case final caption?) ...[
-          const SizedBox(height: captionGap),
+          const SizedBox(height: FaceDownCard.captionGap),
           FitWords(
             caption,
             textAlign: TextAlign.center,
@@ -239,26 +307,56 @@ class FaceDownCard extends StatelessWidget {
     textAlign: TextAlign.center,
     maxLines: 2,
     style: context.skin.typography.nameSmall.copyWith(
-      fontSize: nameSize,
+      fontSize: widget.nameSize,
       color: context.ground.text,
     ),
   );
 
-  /// The card back in its ring, lying on the table.
-  Widget _back(BuildContext context, double width) {
+  /// The card back in its ring, lying on the table; picked, it is lifted: a
+  /// deeper hard shadow, the ground's soft light and the selection's ring,
+  /// each tweened with the lift. [dip] is how far a finger has pressed it
+  /// down: the shadow stays where it was.
+  Widget _back(
+    BuildContext context,
+    double width,
+    Duration duration,
+    double dip,
+  ) {
     final skin = context.skin;
     final ground = context.ground;
+    final selected = widget.selected;
     final radius = BorderRadius.circular(skin.shape.radius);
-    final lift = selected
+    final base = selected
         ? ground.elevation.selected
-        : ground.elevation.lying.scaled(width / _shadowWidth);
-    return Container(
-      decoration: cutPaper(
-        context,
-        fill: ground.ground,
-        radius: radius,
-        elevation: lift,
-      ),
+        : ground.elevation.lying.scaled(width / FaceDownCard._shadowWidth);
+    final glow = ground.elevation.glow;
+    return AnimatedContainer(
+      duration: duration,
+      curve: Motion.curve,
+      decoration:
+          cutPaper(
+            context,
+            fill: ground.ground,
+            radius: radius,
+            elevation: dip > 0 ? base.lowered(dip) : base,
+          ).copyWith(
+            boxShadow: [
+              // Under the hard shadow, and always in the list so it fades in
+              // and out with the pick instead of switching (the shadows are
+              // blended pair by pair). Unpicked it is a clear shadow with no
+              // blur, which costs nothing to paint: only a picked card, and
+              // one still fading, paints the soft light.
+              if (glow != null)
+                selected
+                    ? BoxShadow(
+                        color: glow,
+                        blurRadius: FaceDownCard.glowBlur,
+                        spreadRadius: FaceDownCard.glowSpread,
+                      )
+                    : BoxShadow(color: glow.withValues(alpha: 0)),
+              ...(dip > 0 ? base.lowered(dip) : base).boxShadows,
+            ],
+          ),
       foregroundDecoration: ringDecoration(
         color: selected ? ground.selection : ground.hairline,
         width: selected ? skin.shape.selectedRing : skin.shape.ring,
@@ -271,13 +369,18 @@ class FaceDownCard extends StatelessWidget {
           children: [
             ArtPicture(context.cardBack),
             // Over the card's eye, clear of the token on its lower edge.
-            if (hold case final teaching? when teaching)
+            if (widget.hold case final teaching? when teaching)
               Padding(
                 padding: EdgeInsets.only(
-                  bottom: owner == null ? 0 : ownerTokenFor(width) / 2,
+                  bottom: widget.owner == null
+                      ? 0
+                      : FaceDownCard.ownerTokenFor(width) / 2,
                 ),
                 child: Center(
-                  child: HoldCue(teaching: teaching, size: width * holdShare),
+                  child: HoldCue(
+                    teaching: teaching,
+                    size: width * FaceDownCard.holdShare,
+                  ),
                 ),
               ),
           ],
@@ -308,7 +411,7 @@ class FaceDownCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
               child: ArtPicture(context.cardBack),
             ),
-            if (hold case final teaching?)
+            if (widget.hold case final teaching?)
               Center(
                 child: HoldCue(
                   teaching: teaching,

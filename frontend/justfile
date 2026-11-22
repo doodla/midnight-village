@@ -117,6 +117,16 @@ scene-frames folder="build/scene_frames" label="after":
       --dart-define=SCENE_FRAMES_DIR={{folder}} \
       --dart-define=SCENE_FRAMES_LABEL={{label}}
 
+# The night board's small moments in motion (frontend/test/README.md): a finger
+# on a card, the pick, the pick taken back, and the candle across a window, one
+# PNG per 17 ms step into <folder>/<label>/pick and /candle. No backend.
+# Usage: just night-frames [folder] [label]
+night-frames folder="build/night_frames" label="run":
+    flutter test test_screens/night_frames_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=NIGHT_FRAMES_DIR={{folder}} \
+      --dart-define=NIGHT_FRAMES_LABEL={{label}}
+
 # The cold-read pack (docs/specs/frontend/first-time-play.md): the screens of
 # four first-game journeys (host, guest, sleeper, Seer) and a host setting up a
 # table for eight before anyone comes (host-sets-8), in order, as one
