@@ -33,7 +33,7 @@ Every hook command starts from `$CLAUDE_PROJECT_DIR`, never a relative path: a s
 
 | Event | Script | Does |
 |---|---|---|
-| PreToolUse Agent, Task, Workflow | `guardrails/runner.py` | Blocks a subagent not pinned to `opus` or `sonnet` with an effort, and forks. |
+| PreToolUse Agent, Task, Workflow | `guardrails/runner.py` | Blocks a subagent not pinned to `opus`, `sonnet` or `haiku` (on trial) with an effort, and forks. |
 | PreToolUse Bash | `hooks/git_guard.py` | Blocks a commit unless `core.hooksPath` is the git hooks; blocks `--no-verify`, `commit -n`, hooksPath changes, `GIT_*=` and HUSKY/SKIP switches, cherry-pick/revert without `--no-commit`, rebase and am (git runs no commit hooks for those); asks a committing call for timeout 600000 or the background. |
 | SessionStart startup, resume, compact | `hooks/session-start.sh` | Sets `core.hooksPath` to the git hooks if it is anything else and makes the hooks executable; silent, one line if it cannot, never fails the session. |
 | PostToolUse Edit, Write | `hooks/post-edit-format.sh` | Formats the edited `.py` (ruff) or `.dart` file. |
