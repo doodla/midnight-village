@@ -15,6 +15,8 @@ import 'package:midnight_village/core/storage/token_storage.dart';
 import 'package:midnight_village/core/storage/user_storage.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/load_once_bundle.dart';
+import 'package:midnight_village/design_system/skin_loader.dart';
 import 'package:midnight_village/design_system/skin/skin_choice.dart';
 import 'package:midnight_village/features/auth/data/auth_repository.dart';
 import 'package:midnight_village/features/auth/data/auth_service.dart';
@@ -216,6 +218,13 @@ void main() {
         () => find.byType(YourCardScreen).evaluate().isNotEmpty,
       );
       expect(phone.sent, hasLength(2));
+      // The screens draw from the bundle the start precaches with (a
+      // picture decoded from another bundle would not be found).
+      final drawnFrom = DefaultAssetBundle.of(
+        tester.element(find.byType(YourCardScreen)),
+      );
+      expect(drawnFrom, same(appAssets));
+      expect(SkinLoader().bundle, same(appAssets));
       await phone.close(tester);
     });
 

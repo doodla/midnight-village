@@ -167,6 +167,11 @@ format-check:
 check-release:
     bash tool/check_release_has_no_debug.sh
 
+# The built web page in Chromium, served as Vercel serves it: a first visit, a return,
+# and a deploy runs the new build on its first open (tool/web_smoke/). About 2 minutes.
+web-smoke *build:
+    bash tool/web_smoke/run.sh {{build}}
+
 # Build for web (production)
 build-web:
     flutter build web --dart-define=ENV=prod

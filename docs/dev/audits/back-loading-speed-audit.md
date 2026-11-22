@@ -317,10 +317,12 @@ on one machine, a release web build served locally as Vercel serves it (revalida
 long cache) against a local backend, Playwright, 5 runs, medians; "phone" = 9 Mbit/s,
 150 ms, CPU x4. Fix 3: an answer that says where the player sits is `/me/table/`'s next
 value (`SeatSeed`): Start 4 requests in a row to 2 (phone: tap to 02 3.1 s to 2.4 s), Join
-4 to 2 (4.7 s to 2.8 s), the host's Deal start + `/me/table/` + `/me/` to start + `/me/`
-(card frame 2.7 s to 1.9 s; but the card's own `/me/` now leaves after the screen change's
-first frame, 1.7 s to 2.2 s), a guest's deal the same (from `game_started`), Play again 1
-request (it was 3). Fix 5: the worker is never waited for on a first visit (registered
+4 to 2 (4.7 s to 2.8 s), the Deal start + `/me/table/` + `/me/` to start + `/me/`, for the host and a guest: the
+game's `/me/` leaves while 02 is still up and the seat is taken from it when it lands (a
+first version changed the screen at once: its frame came 0.9 s sooner on the phone, but
+the heavy first frames of 04 ran before `/me/` left and the card's data came 0.4 s later;
+taken out). The card's data now arrives as before (phone 1.37 s both; fast 0.56 s against
+0.54 s), the card screen at 2.40 s against 2.53 s. Play again 1 request (it was 3). Fix 5: the worker is never waited for on a first visit (registered
 once the start is in); the bootstrap is inlined in `index.html`, so after a deploy a
 returning phone runs the new build at its first open. Usable 01, first visit: fast 1.9 s
 to 1.1 s, phone 5.8 s to 5.4-5.8 s (within noise); the first return 0.2 to 0.3 s slower

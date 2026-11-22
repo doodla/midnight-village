@@ -51,7 +51,9 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   first up (a join said before it listened), a started one never (only its host knows the
   code). The same answer is where the player sits (`MyTable.seatedAt`): `/me/table/` takes it
   as its next value without asking (`SeatSeed`, put and asked for together by
-  `seatFromAnswer`; one slot, for one account, taken by that one read). So Start is two
+  `holdSeatFromAnswer`, which mounts and holds `/me/table/` at once; one slot, for one
+  account, taken by that one read; `seatFromAnswer` puts nothing while nothing holds
+  `/me/table/`, so a seed never waits and goes stale; `seat_seed_test.dart`). So Start is two
   requests in a row (the guest account, the table) and Join two (the account, the join);
   `already_in_lobby` names no seat, so `/me/table/` is read then, as after any failure. The
   flow holds `/me/table/` until the frame that shows the table has taken it (let go sooner,
@@ -104,13 +106,12 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   table). A guest: "{host} deals" at the hero title size over the same card. A deal, a
   handover or a host change reads `/me/table/` again; a deal names its game (the deal's
   answer for the host, `game_started` for a guest), and that game's `/me/` is read at the
-  same moment, not after `/me/table/`. The deal is also where this phone sits (`SeatSeed`):
-  this table, playing that game, at its first phase (the host's answer names it; for the
-  event, a game is dealt into the night; everyone at the table is dealt in): the Deal is the
-  start, then the game's `/me/`, with no `/me/table/`, for the host and for a guest; a phase
-  it is behind on heals as any (`/me/` ahead reads `/me/table/`). Once per game (the event
-  and the answer name the same one), never from events replayed over a read. A table that
-  is gone says so with "Go home".
+  same moment (it leaves while 02 is still up, never behind the game's heavy first frame).
+  When that `/me/` lands it is where this phone sits (`SeatSeed`, `seatFromAnswerOnScreen`:
+  this table, in that game, at the phase `/me/` says; everyone at the table is dealt in), and
+  the game's screen follows with no `/me/table/`, for the host and for a guest: the Deal is
+  the start, then the game's `/me/`. A `/me/` that fails, or a table that does not seat this
+  phone, reads `/me/table/` as before. A table that is gone says so with "Go home".
 - **03 Tonight's game** (`deck_screen.dart`): the set-up page, the host's, editable before
   anyone comes and until the deal; every change is saved as it is made (shown at once, a
   merged PATCH, one at a time), so a restart finds it at the server. Top to bottom:

@@ -249,4 +249,63 @@ void main() {
     expect(sent, isNot(contains('GET /me/table/')));
     await setup.close(tester);
   });
+
+  testWidgets('Deal: the game\'s /me/ leaves while 02 is still up (never '
+      'behind the game\'s first frame); the card follows its answer', (
+    tester,
+  ) async {
+    final setup = await TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_auto_deck_5'),
+      viewer: 'Ana',
+    );
+    final started = ContractSamples.map('http/game/started_with_look');
+    setup.http.answer(
+      'POST',
+      '/onuw/lobbies/V9YC2J/start/',
+      started,
+      status: 201,
+    );
+    setup.answerGame(recordedMe('me_look_stage'));
+    final mePath = '/onuw/games/${started['game_id']}/me/';
+    final me = setup.http.hold(method: 'GET', path: mePath);
+    final from = setup.http.requests.length;
+
+    await _tapText(tester, TableCopy.deal.fill({'n': 5}));
+    await _until(tester, () => me.length == 1);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(Duration.zero);
+    }
+    expect(find.byType(AtTableView), findsOneWidget);
+    expect(find.byType(YourCardScreen), findsNothing);
+
+    setup.http.stopHolding(method: 'GET', path: mePath);
+    me.releaseAll();
+    await _until(tester, () => _shows(find.byType(YourCardScreen)));
+    expect(_sent(setup, from), isNot(contains('GET /me/table/')));
+    await setup.close(tester);
+  });
+
+  testWidgets('Deal whose game cannot be read: where the host sits is read '
+      'from /me/table/, as before', (tester) async {
+    final setup = await TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_auto_deck_5'),
+      viewer: 'Ana',
+    );
+    final started = ContractSamples.map('http/game/started_with_look');
+    setup.http
+      ..answer('POST', '/onuw/lobbies/V9YC2J/start/', started, status: 201)
+      ..answer(
+        'GET',
+        '/onuw/games/${started['game_id']}/me/',
+        'Server Error',
+        status: 503,
+      );
+    final from = setup.http.requests.length;
+
+    await _tapText(tester, TableCopy.deal.fill({'n': 5}));
+    await _until(tester, () => _sent(setup, from).contains('GET /me/table/'));
+    await setup.close(tester);
+  });
 }

@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/load_once_bundle.dart';
 import 'package:midnight_village/design_system/models/role.dart';
+import 'package:midnight_village/design_system/primitives/art_precache.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/skin_loader.dart';
 
@@ -137,4 +139,95 @@ void main() {
     expect(bytes.lengthInBytes, greaterThan(0));
     expect(inner.asked, [portrait, portrait]);
   });
+
+  test('precached with no bundle named, a picture is decoded under the '
+      "app's bundle, the one the screens draw from", () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final [(door, box)] = openingArt(skin);
+    final drawn = door.decodedFor(box, 3);
+
+    await precacheArt([(door, box)], devicePixelRatio: 3);
+
+    final key = await drawn.obtainKey(
+      const ImageConfiguration(
+        bundle: null,
+        devicePixelRatio: 3,
+      ).copyWith(bundle: appAssets),
+    );
+    expect(PaintingBinding.instance.imageCache.containsKey(key), isTrue);
+  });
+
+  test('bytes that do not decode (a Wi-Fi sign-in page answered for the '
+      'picture) are not kept: the next read asks again', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final inner = _SignInPage();
+    final once = _Once(inner);
+    final door = skin.art.streetDoor;
+
+    await precacheArt(
+      [(door, Size.infinite)],
+      devicePixelRatio: 1,
+      bundle: once,
+    );
+    expect(inner.asked, [door.path]);
+    expect(once.evicted, [door.path]);
+
+    // The network is back: the picture is read again, and decodes.
+    inner.signedIn = true;
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+    await precacheArt(
+      [(door, Size.infinite)],
+      devicePixelRatio: 1,
+      bundle: once,
+    );
+    expect(inner.asked, [door.path, door.path]);
+  });
+}
+
+/// The app's bundle, noting what is evicted from it.
+class _Once extends LoadOnceBundle {
+  _Once(super.inner);
+
+  final evicted = <String>[];
+
+  @override
+  void evict(String key) {
+    evicted.add(key);
+    super.evict(key);
+  }
+}
+
+/// A bundle that answers every read with a web page until [signedIn].
+class _SignInPage extends AssetBundle {
+  final asked = <String>[];
+  var signedIn = false;
+
+  @override
+  Future<ByteData> load(String key) async {
+    asked.add(key);
+    if (signedIn) return rootBundle.load(key);
+    final page = Uint8List.fromList(
+      '<html>Sign in to the Wi-Fi</html>'.codeUnits,
+    );
+    return ByteData.sublistView(page);
+  }
+
+  @override
+  Future<String> loadString(String key, {bool cache = true}) =>
+      rootBundle.loadString(key, cache: cache);
+
+  @override
+  Future<T> loadStructuredData<T>(
+    String key,
+    Future<T> Function(String value) parser,
+  ) => rootBundle.loadStructuredData(key, parser);
+
+  // The asset manifest is the app's own (only pictures are answered badly).
+  @override
+  Future<T> loadStructuredBinaryData<T>(
+    String key,
+    FutureOr<T> Function(ByteData data) parser,
+  ) => rootBundle.loadStructuredBinaryData(key, parser);
 }

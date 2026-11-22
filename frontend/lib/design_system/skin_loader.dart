@@ -17,6 +17,10 @@ class SkinLoader {
   final AssetBundle _bundle;
   final double Function() _ratio;
 
+  /// The bundle it reads from: the app's ([appAssets]) unless given, the
+  /// one the screens draw from, so what it decodes is what they find.
+  AssetBundle get bundle => _bundle;
+
   static double _screenRatio() {
     final views = WidgetsBinding.instance.platformDispatcher.views;
     return views.isEmpty ? 1 : views.first.devicePixelRatio;

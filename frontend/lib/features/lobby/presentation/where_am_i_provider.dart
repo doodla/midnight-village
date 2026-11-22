@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ProviderSubscription, WidgetRef;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/healing/healing.dart';
@@ -73,9 +75,41 @@ SeatSeed seatSeed(Ref ref) => SeatSeed();
 
 /// An answer said where account [userId] sits now ([seat]): `/me/table/`
 /// is read again at once, and that read is the answer's seat (no request).
+/// Only while `/me/table/` is mounted (a screen holds it), so the read that
+/// takes the seed is the one asked for here: a seed never waits for a later
+/// read and goes stale. Nothing mounted: nothing is put, and the next read
+/// asks the server.
 void seatFromAnswer(Ref ref, int userId, MyTable seat) {
+  if (!ref.exists(myTableProvider)) return;
   ref.read(seatSeedProvider)._put(userId, seat);
   ref.invalidate(myTableProvider);
+}
+
+/// [seatFromAnswer] from a screen (the same rule: only while `/me/table/`
+/// is mounted).
+void seatFromAnswerOnScreen(WidgetRef ref, int userId, MyTable seat) {
+  if (!ref.exists(myTableProvider)) return;
+  ref.read(seatSeedProvider)._put(userId, seat);
+  ref.invalidate(myTableProvider);
+}
+
+/// [seatFromAnswer] where nothing may hold `/me/table/` yet (01 signed out,
+/// before the first account): reads it again now, from [seat] when one is
+/// given (else from the server), and holds it (the subscription returned) so
+/// that read is the one the seed is for.
+ProviderSubscription<AsyncValue<MyTable?>> holdSeatFromAnswer(
+  Ref ref,
+  int userId,
+  MyTable? seat,
+) {
+  final seeds = ref.read(seatSeedProvider);
+  if (seat != null) {
+    seeds._put(userId, seat);
+  } else {
+    seeds.clear();
+  }
+  ref.invalidate(myTableProvider);
+  return ref.listen(myTableProvider, (_, _) {});
 }
 
 int? _userId(Ref ref) => switch (ref.read(authProvider)) {

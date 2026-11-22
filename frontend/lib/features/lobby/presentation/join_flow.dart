@@ -134,17 +134,12 @@ class JoinFlow extends _$JoinFlow {
       final seat = lobby == null
           ? null
           : MyTable.seatedAt(lobby, viewerId: user);
-      if (seat != null) {
-        seatFromAnswer(ref, user, seat);
-      } else {
-        ref.invalidate(myTableProvider);
-      }
       // The table's screen follows /me/table/; wait for it so the app does
       // not show 01 again in between. Held while waited for: nothing else
       // may be listening yet (01 shows while this runs), and a read nobody
       // holds is disposed mid-fetch, which failed a seat that was taken
       // ("Not sent." kept, and shown on 01 after the player left).
-      final held = ref.listen(myTableProvider, (_, _) {});
+      final held = holdSeatFromAnswer(ref, user, seat);
       try {
         await ref.read(myTableProvider.future);
       } catch (_) {
