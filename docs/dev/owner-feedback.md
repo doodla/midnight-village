@@ -37,7 +37,8 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
   the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
-  (same files), as small pull requests: back, then loading, then speed. Keeping the server
+  (same files), as small pull requests: back, then loading, then speed. Back is built (branch
+  `fix-back-policy`, not merged yet): one policy for the phone's and the browser's Back. Keeping the server
   warm and moving the database are proposals for the deployment session only.
 
 ## Done

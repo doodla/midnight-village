@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/api/api_client.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/healing/healing.dart';
+import 'package:midnight_village/core/router/back_policy.dart';
+import 'package:midnight_village/core/router/routes.dart';
 import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart';
@@ -77,6 +79,8 @@ class ShellSetup {
   /// shell; [userId] is the signed-in player when [me] does not say (a
   /// malformed `/me/`); [wakelock] is the platform's (one that refuses, for
   /// a test of that); [before] changes the answers before the first frame.
+  /// [appRoutes] opens the app's own routes at home (`HomeGate`, its back
+  /// policy, the browser history the app keeps) instead of the shell alone.
   static Future<ShellSetup> pump(
     WidgetTester tester,
     Map<String, dynamic> me, {
@@ -87,6 +91,7 @@ class ShellSetup {
     bool disableAnimations = false,
     bool sameDevice = false,
     bool entry = false,
+    bool appRoutes = false,
     int? userId,
     FakeWakelockService? wakelock,
     void Function(ShellSetup setup)? before,
@@ -120,6 +125,7 @@ class ShellSetup {
         textScale: textScale,
         disableAnimations: disableAnimations,
         entry: entry,
+        appRoutes: appRoutes,
         userId: userId ?? me['player_id'] as int,
       ),
     );
@@ -141,6 +147,7 @@ class ShellSetup {
     required double textScale,
     required bool disableAnimations,
     required bool entry,
+    required bool appRoutes,
     required int userId,
   }) {
     final client = AuthenticatedClient.forTesting(dio: http.dio);
@@ -180,6 +187,16 @@ class ShellSetup {
             ),
             child: GroundScope(ground: GroundKind.night, child: child!),
           );
+          if (appRoutes) {
+            return MaterialApp.router(
+              debugShowCheckedModeBanner: false,
+              theme: ref.watch(appThemeProvider),
+              builder: builder,
+              routerConfig: oneHistoryEntry(
+                _router ??= GoRouter(routes: $appRoutes),
+              ),
+            );
+          }
           if (!entry) {
             return MaterialApp(
               debugShowCheckedModeBanner: false,

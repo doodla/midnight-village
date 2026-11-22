@@ -235,6 +235,9 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       enabled: _acts,
       label: widget.label,
       value: widget.busy ? SpokenCopy.working : null,
+      // The words are this node's own, and so is the tap (the ink's tap is
+      // left out with its words): a screen reader can press it.
+      onTap: _onTap,
       excludeSemantics: true,
       child: AnimatedContainer(
         duration: Motion.press,
