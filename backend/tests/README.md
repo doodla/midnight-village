@@ -6,9 +6,10 @@ file (first pass only). Conventions: descriptive names, every random choice seed
 multi-player scenarios. Coverage minimum 80% (`pyproject.toml`).
 
 **Scanning the repo.** A test or check that reads the repo's files takes them from
-`tool/repo_files.py` (`tracked_files(folder, suffixes=...)`, on pytest's path through
-`pythonpath`): what git tracks in the checkout, never a folder walk. A builder's worktree
-under `.claude/worktrees/` (gitignored) or an untracked file is therefore never read.
+`tool/repo_files.py` (`checkout_files(folder, suffixes=...)`, on pytest's path through
+`pythonpath`): the files git tracks plus new files git does not ignore, never a folder
+walk. A builder's worktree copy under `.claude/worktrees/` (gitignored) or `__pycache__`
+is therefore never read.
 
 ## Side effects after commit, and timers in tests
 

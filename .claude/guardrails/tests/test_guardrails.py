@@ -282,8 +282,8 @@ class ModelAllowListTests(IsolatedEnv):
     def test_real_project_agent_definitions_are_pinned_and_allowed(self):
         """Every agent in the repo's .claude/agents/ passes the rule with no model in the call."""
         from agent_defs import frontmatter
-        from repo_files import tracked_files
-        found = tracked_files(GUARDRAILS.parent / "agents", suffixes=(".md",))
+        from repo_files import checkout_files
+        found = checkout_files(GUARDRAILS.parent / "agents", suffixes=(".md",))
         self.assertTrue(found)
         for path in found:
             fields = frontmatter(path.read_text())

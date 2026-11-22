@@ -13,14 +13,14 @@ import re
 from pathlib import Path
 
 import pytest
-from repo_files import tracked_files
+from repo_files import checkout_files
 
 pytestmark = pytest.mark.unit
 
 APPS = Path(__file__).resolve().parents[1] / "apps"
 MIGRATIONS = [
     p
-    for p in tracked_files(APPS, suffixes=(".py",))
+    for p in checkout_files(APPS, suffixes=(".py",))
     if p.parent.name == "migrations"
     and p.parent.parent.parent == APPS
     and p.name != "__init__.py"

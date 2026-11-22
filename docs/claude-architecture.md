@@ -45,7 +45,7 @@ Every hook command starts from `$CLAUDE_PROJECT_DIR`, never a relative path: a s
 `subagent_model_effort`, keeps subagents off the main session's model for cost. Its message points at
 `docs/dev/running-the-work.md`, which holds how to choose a model and effort. Adding a
 rule: `.claude/guardrails/README.md`. Tests: `just test-guardrails`. A test or check that scans
-repo files reads them from `tool/repo_files.py` (git's tracked files only), so a builder's
+repo files reads them from `tool/repo_files.py` (the files git tracks or does not ignore), so a builder's
 worktree copy under `.claude/worktrees/` is never scanned.
 
 ## Agents (`.claude/agents/`, each pins model and effort)

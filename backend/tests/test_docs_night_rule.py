@@ -3,7 +3,7 @@
 (first time play spec, section 8). The old rule ("every phone sends / chooses")
 outlived the change in a dozen READMEs and docstrings; this fails on any line
 that says it again, anywhere in the repository's prose or code. Only the files git
-tracks are read: a builder's worktree copy under .claude/worktrees/ is not the repo."""
+does not ignore are read: a builder's worktree copy under .claude/worktrees/ is not the repo."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from repo_files import tracked_files
+from repo_files import checkout_files
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -45,7 +45,7 @@ EXEMPT_FILES = {
 
 
 def _lines(root: Path = ROOT):
-    for path in tracked_files(root, suffixes=SUFFIXES):
+    for path in checkout_files(root, suffixes=SUFFIXES):
         rel = path.relative_to(root)
         if SKIP_DIRS & set(rel.parts) or rel.as_posix() in EXEMPT_FILES:
             continue
