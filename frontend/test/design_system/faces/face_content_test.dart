@@ -99,6 +99,27 @@ void main() {
     );
   });
 
+  test('every prompt kind has its button words, so none can crash a board: '
+      '"Choose {cards}" and "Skip" where nothing better is said', () {
+    for (final prompt in NightPrompt.values) {
+      expect(
+        prompt.go.fill({'cards': 'Cleo'}),
+        allOf(contains('Cleo'), isNot(contains('{'))),
+        reason: prompt.kind,
+      );
+      expect(prompt.pass, isNotEmpty, reason: prompt.kind);
+    }
+    final fallback = NightPrompt.fromKind('none');
+    expect(fallback.go.fill({'cards': 'Cleo'}), 'Choose Cleo');
+    expect(fallback.pass, 'Skip');
+  });
+
+  test("the Doppelganger's held line and her title agree: a player's role", () {
+    final prompt = NightPrompt.fromKind('doppelganger_look');
+    expect(prompt.instruction, "Copy 1 player's role.");
+    expect(prompt.title, "Copy a player's role");
+  });
+
   test("the Doppelganger's follow-up shows whom she copied and what her "
       'copy may do', () {
     final face = _you('me_choose_doppelganger_followup');

@@ -118,14 +118,25 @@ void main() {
       expect(seer.dims(_middle, [_left, _right]), isTrue);
     });
 
+    test('nothing dims before the first pick, for any recorded prompt: the '
+        'board shows no role until the first tap', () {
+      for (final sample in _prompts) {
+        final rule = _rule(sample);
+        for (final card in [cleoPick, _left, _middle, _right]) {
+          expect(rule.dims(card, const []), isFalse, reason: sample);
+          expect(rule.dims(card, [_you]), isFalse, reason: sample);
+        }
+      }
+    });
+
     test('"You" is never dimmed, a card picked is not, and "You" alone '
         'leaves the pick empty', () {
       expect(seer.dims(_you, [cleoPick]), isFalse);
       expect(seer.dims(cleoPick, [cleoPick]), isFalse);
       expect(seer.dims(_left, [_you]), isFalse);
-      expect(seer.dims(PlayerPick(ben.id), [_you]), isFalse);
       final robber = _rule('me_choose_prompt_robber');
-      expect(robber.dims(_left, [_you]), isTrue);
+      expect(robber.dims(_left, [_you]), isFalse);
+      expect(robber.dims(_left, [cleoPick]), isTrue);
     });
 
     test("a sleeper's shape is any one card: nothing dims", () {

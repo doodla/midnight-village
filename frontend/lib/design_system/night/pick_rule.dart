@@ -99,13 +99,15 @@ class PickRule {
   bool canPick(NightPick pick) => _begun([pick]);
 
   /// [card] cannot join [picks]: tapping it would not add to the pick but
-  /// replace it (a Robber's centre card, a Seer's second player). The board
-  /// dims such a card. "You" is never one, a card already picked is not, and
-  /// "You" alone picked leaves the pick empty. It reads the `shapes` only,
-  /// so a board with `{"any": 1}` (a sleeper's) dims nothing.
+  /// replace it (a Seer's second player, a Drunk's second center card). The
+  /// board dims such a card, but only once a pick has begun: with none made
+  /// (or "You" alone, which is none) nothing dims, for every role, so the
+  /// board is identical for every role until the first tap. "You" is never
+  /// dimmed and a card already picked is not. It reads the `shapes` only.
   bool dims(NightPick card, List<NightPick> picks) {
     if (card is SelfPick || picks.contains(card)) return false;
     final held = _alone(picks) ? const <NightPick>[] : picks;
+    if (held.isEmpty) return false;
     return !(_allowed(card) &&
         held.every(_allowed) &&
         shapes.any((shape) => shape.begunBy([...held, card])));

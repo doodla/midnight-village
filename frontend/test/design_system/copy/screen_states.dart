@@ -67,16 +67,19 @@ final _you = <String, (NightPrompt, List<Object>)>{
 };
 
 /// The buttons a board of [prompt] shows: waiting for a pick, the picks
-/// whole (what will happen), passing, and chosen; a sleeper's is quiet.
-List<Object> _buttons(NightPrompt prompt) => prompt.go == null
-    ? [NightCopy.nothingToDo]
-    : [
-        NightCopy.chooseNone,
-        NightCopy.chooseMore,
-        ?prompt.go,
-        ?prompt.pass,
-        NightCopy.chosen,
-      ];
+/// whole (what will happen), passing, and chosen; a sleeper's is quiet (and
+/// carries the plain fallback words no board shows).
+List<Object> _buttons(NightPrompt prompt) => [
+  if (prompt.instruction == NightCopy.noChoice) ...[
+    NightCopy.nothingToDo,
+  ] else ...[
+    NightCopy.chooseNone,
+    NightCopy.chooseMore,
+    NightCopy.chosen,
+  ],
+  prompt.go,
+  prompt.pass,
+];
 
 /// My night's pages (08).
 final _myNight = <String, List<Object>>{
@@ -402,6 +405,8 @@ final spoken = [
   SpokenCopy.hidden,
   SpokenCopy.working,
   ResultsCopy.nightSpoken,
+  // A dimmed night card: a tap still switches the pick.
+  NightCopy.switchesPick,
   // 02's Share glyph.
   TableCopy.share,
 ];

@@ -108,6 +108,9 @@ class NightBoard extends ConsumerStatefulWidget {
   /// high (at the title's size before the text scale).
   static const timerLines = 1.3;
 
+  /// The lines of room a title has, at the full title size.
+  static const titleLines = 2;
+
   @override
   ConsumerState<NightBoard> createState() => _NightBoardState();
 }
@@ -243,8 +246,8 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     }
     final kind = widget.prompt.kind;
     final label = _picks.length == 1 && _picks.single is SelfPick
-        ? kind.pass!
-        : kind.go!.fill({'cards': _picks.map(_caption).join(', ')});
+        ? kind.pass
+        : kind.go.fill({'cards': _picks.map(_caption).join(', ')});
     return PrimaryButton(label: label, onPressed: _choose);
   }
 
@@ -284,7 +287,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _header(context),
-                  const SizedBox(height: Space.xl),
+                  const SizedBox(height: Space.xxs),
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, room) {
@@ -333,26 +336,38 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  /// The title on one line, set smaller only where it must (the prompt's:
-  /// the role's night line in a few words, "The village sleeps" for a
-  /// sleeper; one line on every phone, so the board below sits alike), and
-  /// beside it the candle and the seconds as one compact unit, a line and a
-  /// third high.
+  /// The title in a room two lines high at the full title size, the same
+  /// height on every phone whatever the role (so the board below sits alike):
+  /// the prompt's words wrap between words, and are set smaller only where
+  /// two lines are not enough. Beside it, level with its first line, the
+  /// candle and the seconds as one compact unit, a line and a third high.
   Widget _header(BuildContext context) {
     final title = context.skin.typography.screenTitle;
     // At the title's own size, whatever the text scale: the unit sets its
     // larger digits smaller to keep to it.
     final line = title.fontSize! * title.height!;
+    // A pixel over two lines: a wrapped title measures a hair more than its
+    // lines times the line height.
+    final room =
+        MediaQuery.textScalerOf(context).scale(line) * NightBoard.titleLines +
+        1;
     return Row(
       spacing: Space.md,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Semantics(
-            header: true,
-            child: FitWords(
-              widget.prompt.kind.title,
-              maxLines: 1,
-              style: title,
+          child: SizedBox(
+            height: room,
+            child: Semantics(
+              header: true,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: FitWords(
+                  widget.prompt.kind.title,
+                  maxLines: NightBoard.titleLines,
+                  style: title,
+                ),
+              ),
             ),
           ),
         ),
@@ -478,6 +493,10 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   bool _dims(NightPick pick) =>
       !widget.prompt.sleeps && widget.prompt.rule.dims(pick, _picks);
 
+  /// A dimmed card says to a screen reader that a tap still switches the
+  /// pick: dimmed here is not switched off.
+  String? _hint(NightPick pick) => _dims(pick) ? NightCopy.switchesPick : null;
+
   Widget _player(NightSeat seat, BoardLayout layout) {
     final pick = PlayerPick(seat.id);
     return _fidget(
@@ -492,6 +511,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         selected: _picks.contains(pick),
         dimmed: _dims(pick),
         semanticLabel: seat.name,
+        semanticHint: _hint(pick),
         onTap: () => _tap(pick),
       ),
     );
@@ -509,6 +529,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
         selected: _picks.contains(pick),
         dimmed: _dims(pick),
         semanticLabel: centerName(index),
+        semanticHint: _hint(pick),
         onTap: () => _tap(pick),
       ),
     );

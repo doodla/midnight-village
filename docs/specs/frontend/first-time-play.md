@@ -46,7 +46,7 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 11. **Which, how many, where** (issue 37: "See 1 or 2 cards is ambiguous"). A reviewer applies this to every night title, button and pass. Cover the face of "You" and read the title alone: can the player say which cards, how many, and from where, in words a card or label on the board also carries?
     - The board's words: a player's name (so "player"), "You", "Center", "Left", "Middle", "Right", and the game's own nouns "card" and "role" (a held face names a role).
     - A title fails if it uses a word no card or label shows ("table", "deck", "pile"), or if the role may pick two kinds of card and the title does not name both ("See 1 or 2 cards": which cards?).
-    - The screen carries what it can before a word does: a card the pick cannot take is dimmed, from the server's `shapes` (section 3, "The board's title").
+    - The screen carries what it can before a word does: once a pick has begun, a card it cannot take is dimmed, from the server's `shapes`; before the first tap the board is identical for every role (section 3, "The board's title").
     - A pass button must be true for its role. "Keep my card" is the Robber's alone (the one role whose pass leaves their card where it was). A Drunk who passes is still swapped, so his says "Choose for me". Every other actor's says "Skip".
     - No question marks: "Who dies today?" stays the only question (rule 9).
 
@@ -171,21 +171,23 @@ Shared rules for every phone at night:
 | Troublemaker | "Swap 2 other players' cards." (4) |
 | Drunk | "Swap with 1 center card. Don't look." (6) |
 | Lone Werewolf | "You may see 1 center card." (5) |
-| Doppelganger's look | "Copy 1 player's card." (3) |
+| Doppelganger's look | "Copy 1 player's role." (3; agrees with her title) |
 
 **The board's title** (06's headline, one line on every phone) is the prompt's: the role's night line in a few words on a phone with a choice, "The village sleeps" on a sleeper's (playtest, 21 November 2026: "The village sleeps" read as wrong while acting). Seer "1 player or 2 center cards" (4); Robber "Swap with 1 player" (3); Troublemaker "Swap 2 other players' cards" (4); Drunk "Swap with a center card" (4); Lone Werewolf "See 1 center card" (3; its "Skip" carries the "may"); Doppelganger's look "Copy a player's role" (4). Each passes rule 11 in section 1. The face of "You" says the rest.
 
-**The board shows what can be picked** (issue 37). A card that cannot join the pick being made is dimmed (the card back and token; its name stays in full ink), read from the prompt's `shapes` only, and a tap on a dimmed card still switches the pick. The strip of the table's three cards carries the word "Center".
+**The board shows what can be picked** (issue 37). **The board is identical for every role until the first tap: nothing is dimmed.** Once a pick has begun, a card that cannot join it is dimmed (the card back and token; its name stays in full ink), read from the prompt's `shapes` only, and a tap on a dimmed card still switches the pick (a screen reader hears "Switches your pick": dimmed here is not switched off, as it is on the vote's locked rows). The strip of the table's three cards carries the word "Center".
 
-| Prompt | At the start | Once picked |
+| Prompt | At the start | After the first pick |
 |---|---|---|
-| Robber, Doppelganger's look | Center cards dim | One player: the other players dim too |
-| Troublemaker | Center cards dim | One player: only the center dims; two: the other players dim too |
-| Drunk, lone Werewolf | Players dim | One center card: the other two center cards dim too |
+| Robber, Doppelganger's look | Nothing dims | One player: the center and the other players dim |
+| Troublemaker | Nothing dims | One player: the center dims; two: the other players dim too |
+| Drunk, lone Werewolf | Nothing dims | One center card: the players and the other two center cards dim |
 | Seer | Nothing dims | One player: everything else dims. One center card: the players dim, the other two center cards stay lit. Two: the third dims too |
 | A phone with nothing to choose | Nothing dims | Nothing dims |
 
-"You" is never dimmed, and picking "You" alone leaves the board as at the start. The layout is the same for every role (section 8); only which cards are dimmed differs, which a glance at the title tells already (accepted tells). A Seer's board at the start and a sleeper's dim alike (nothing).
+"You" is never dimmed, and picking "You" alone leaves the board as at the start. The layout is the same for every role (section 8). Dimming at the start was tried and dropped: a dark block of players on a Drunk's phone is readable across the table, where before only the small title differed.
+
+**The title has room for two lines at the full title size** on every board, the same height whatever the role, with the seconds level with its first line; it wraps between words and is set smaller only if two lines are not enough (a title is never drawn under 0.8 of the title size at 360 wide: `board_sweep_test.dart`).
 
 | Prompt | Button with the picks whole | Pass ("You" alone) |
 |---|---|---|
@@ -206,9 +208,9 @@ Village line: **"A Werewolf dies. No Werewolf player: nobody dies."** (6 words)
 
 | Role | Tag | Night: | Wins: | Total words |
 |---|---|---|---|---|
-| Werewolf | Werewolf | See the other Werewolves. Alone: you may see 1 center card. | No Werewolf and no Tanner dies. | 20 |
-| Minion | Werewolf | See the Werewolves. They don't see you. | With the Werewolves, even if you die. No Werewolf player: someone else dies, not the Tanner. | 26 |
-| Mason | Village | See the other Mason. | Village line | 17 |
+| Werewolf | Werewolf | At dawn, see the other Werewolves. Alone at night: you may see 1 center card. | No Werewolf and no Tanner dies. | 24 |
+| Minion | Werewolf | At dawn, see the Werewolves. They don't see you. | With the Werewolves, even if you die. No Werewolf player: someone else dies, not the Tanner. | 28 |
+| Mason | Village | At dawn, see the other Mason. | Village line | 19 |
 | Seer | Village | Look at 1 player's card, or 2 center cards. | Village line | 21 |
 | Robber | Village | Swap with a player. See your new card. | Village line | 22 |
 | Troublemaker | Village | Swap 2 other players' cards. Don't look. | Village line | 20 |
@@ -220,6 +222,8 @@ Village line: **"A Werewolf dies. No Werewolf player: nobody dies."** (6 words)
 | Doppelganger | Copies | Copy a player's card. Act as that role. | As the role you copy. | 21 |
 
 **Team tags** on 10 and 11 come from the server's `team`: `village` → "Village", `werewolf` → "Werewolf", `neutral` → "Alone".
+
+**Where the team shows** (issue 37): the other Werewolves, the Minion's Werewolves and the other Mason are shown only at dawn, when the talk opens, on My night ("Werewolves were: {names}."; section 3, "Brief amendments": team shown only there), never at night; so these role texts say "At dawn", as the Insomniac's does, and a sleeper's night face says only "Nothing to do tonight." A lone Werewolf's center look is at night ("Alone at night").
 
 **Where I chose brevity over precision** (each string was checked against `roles.md` and `voting-and-resolution.md`):
 1. "You are your last card": for a Doppelganger card, "your card" means the role she copied. Her own line says this.
@@ -580,4 +584,4 @@ tap.
 sleeper; a neighbour who reads your button can see how many cards you are picking; the
 Doppelganger taps twice; who taps at night (only a phone with a choice sends one, and only
 its board has a button), never what they chose; a glance at a board's title (an actor's
-says what the role does tonight, a sleeper's "The village sleeps") or at which cards are dimmed (the same kind of pick the title already names). None of these is worth a wait or a wasted turn.
+says what the role does tonight, a sleeper's "The village sleeps"). None of these is worth a wait or a wasted turn.

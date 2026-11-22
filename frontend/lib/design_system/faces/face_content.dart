@@ -73,7 +73,13 @@ RoleId serverRole(Object? name) =>
 /// one: what its "You" face says, the board's title, and the words of its
 /// button (what will happen with the picks; what passing is for this role).
 enum NightPrompt {
-  noChoice('none', NightCopy.noChoice, CommonCopy.nightTitle),
+  noChoice(
+    'none',
+    NightCopy.noChoice,
+    CommonCopy.nightTitle,
+    go: NightCopy.choose,
+    pass: NightCopy.skip,
+  ),
   seer(
     'seer',
     NightCopy.seer,
@@ -121,8 +127,8 @@ enum NightPrompt {
     this.kind,
     this.instruction,
     this.title, {
-    this.go,
-    this.pass,
+    required this.go,
+    required this.pass,
   });
 
   /// The server's name for it.
@@ -134,11 +140,12 @@ enum NightPrompt {
   final String title;
 
   /// The button once the picks are whole: what will happen to them ("See
-  /// {cards}", "Swap with {cards}"); null for a sleeper, who has no button.
-  final Template? go;
+  /// {cards}", "Swap with {cards}"); a sleeper has no button, and carries
+  /// the plain "Choose {cards}" so no kind is ever without one.
+  final Template go;
 
   /// The button with "You" alone picked: what passing is, for this role.
-  final String? pass;
+  final String pass;
 
   static NightPrompt fromKind(String kind) =>
       values.where((prompt) => prompt.kind == kind).firstOrNull ??

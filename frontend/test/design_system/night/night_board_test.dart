@@ -213,27 +213,27 @@ void main() {
         if (s.id != board.selfId) s.name,
     ];
 
-    testWidgets('at the start: the centre for a role that takes players, '
-        'the players for one that takes a centre card, nothing for the Seer '
-        'or a sleeper', (tester) async {
-      for (final viewer in [
-        Viewer.robber,
-        Viewer.troublemaker,
-        Viewer.doppelganger,
-      ]) {
+    testWidgets('until the first tap the board is identical for every role: '
+        'nothing is dimmed (no role is readable across the table)', (
+      tester,
+    ) async {
+      for (final viewer in Viewer.values) {
         await open(tester, viewer);
-        expect(dimmed(tester), NightCopy.center, reason: viewer.name);
+        expect(dimmed(tester), isEmpty, reason: viewer.name);
       }
+    });
+
+    testWidgets('after the first pick: a Drunk\'s or a lone Werewolf\'s center '
+        'card dims the players and the other two center cards', (tester) async {
       for (final viewer in [Viewer.drunk, Viewer.loneWerewolf]) {
         final board = await open(tester, viewer);
-        expect(dimmed(tester), others(board), reason: viewer.name);
-      }
-      for (final viewer in [
-        Viewer.seer,
-        Viewer.villager,
-        Viewer.windowOneSleeper,
-      ]) {
-        await open(tester, viewer);
+        await tapCard(tester, NightCopy.middle);
+        expect(dimmed(tester), [
+          ...others(board),
+          NightCopy.left,
+          NightCopy.right,
+        ], reason: viewer.name);
+        await tapCard(tester, NightCopy.middle);
         expect(dimmed(tester), isEmpty, reason: viewer.name);
       }
     });
@@ -267,19 +267,21 @@ void main() {
       expect(dimmed(tester), contains(NightCopy.left));
     });
 
-    testWidgets('the Robber, once a player is picked: the other players '
-        'dim too; "You" is never dimmed and picking it leaves the pick '
-        'empty', (tester) async {
-      final board = await open(tester, Viewer.robber);
-      final [first, ...rest] = others(board);
-      await tapCard(tester, first);
-      expect(dimmed(tester), [...rest, ...NightCopy.center]);
-      await tapCard(tester, NightCopy.you);
-      expect(dimmed(tester), NightCopy.center);
+    testWidgets('the Robber and the Doppelganger, once a player is picked: '
+        'the other players and the center dim; "You" is never dimmed and '
+        'picking it leaves the pick empty', (tester) async {
+      for (final viewer in [Viewer.robber, Viewer.doppelganger]) {
+        final board = await open(tester, viewer);
+        final [first, ...rest] = others(board);
+        await tapCard(tester, first);
+        expect(dimmed(tester), [...rest, ...NightCopy.center]);
+        await tapCard(tester, NightCopy.you);
+        expect(dimmed(tester), isEmpty);
+      }
     });
 
-    testWidgets('the Troublemaker: the second player is lit until two are '
-        'picked', (tester) async {
+    testWidgets('the Troublemaker: after one player only the center dims; '
+        'after two the other players dim too', (tester) async {
       final board = await open(tester, Viewer.troublemaker);
       final [first, second, ...rest] = others(board);
       await tapCard(tester, first);
@@ -288,9 +290,24 @@ void main() {
       expect(dimmed(tester), [...rest, ...NightCopy.center]);
     });
 
+    testWidgets('a dimmed card tells a screen reader that a tap still '
+        'switches the pick; a lit one says nothing', (tester) async {
+      final handle = tester.ensureSemantics();
+      final board = await open(tester, Viewer.robber);
+      await tapCard(tester, others(board).first);
+      for (final caption in NightCopy.center) {
+        final node = tester.getSemantics(card(caption));
+        expect(node.label, caption);
+        expect(node.hint, NightCopy.switchesPick);
+      }
+      expect(tester.getSemantics(card(others(board).first)).hint, isEmpty);
+      handle.dispose();
+    });
+
     testWidgets('names and captions stay in full ink: only the card back '
         'and its token dim', (tester) async {
-      await open(tester, Viewer.robber);
+      final board = await open(tester, Viewer.robber);
+      await tapCard(tester, others(board).first);
       final caption = tester.widget<Text>(find.text(NightCopy.left));
       expect(caption.style!.color!.a, 1);
       final back = find.descendant(

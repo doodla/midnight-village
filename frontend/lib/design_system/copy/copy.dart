@@ -128,13 +128,13 @@ abstract final class RoleCopy {
   static const copies = 'Copies';
 
   static const werewolfNight =
-      'See the other Werewolves. Alone: you may see 1 center card.';
+      'At dawn, see the other Werewolves. Alone at night: you may see 1 center card.';
   static const werewolfWins = 'No Werewolf and no Tanner dies.';
-  static const minionNight = "See the Werewolves. They don't see you.";
+  static const minionNight = "At dawn, see the Werewolves. They don't see you.";
   static const minionWins =
       'With the Werewolves, even if you die. No Werewolf player: someone '
       'else dies, not the Tanner.';
-  static const masonNight = 'See the other Mason.';
+  static const masonNight = 'At dawn, see the other Mason.';
   static const seerNight = "Look at 1 player's card, or 2 center cards.";
   static const robberNight = 'Swap with a player. See your new card.';
   static const troublemakerNight = "Swap 2 other players' cards. Don't look.";
@@ -180,6 +180,14 @@ abstract final class NightCopy {
   // this role. The Robber alone keeps a card; the Drunk who passes is still
   // swapped (the server's seeded swap), so he asks the server to choose.
   static const skip = 'Skip';
+
+  /// The fallback button words, for a prompt with nothing to say better
+  /// (`NightPrompt.noChoice` carries them; a sleeper never shows them).
+  static const choose = Template('Choose {cards}');
+
+  /// Said after a dimmed card's name: dimmed here is not switched off, a tap
+  /// still switches the pick (a vote row dimmed once locked is switched off).
+  static const switchesPick = 'Switches your pick';
   static const keep = 'Keep my card';
   static const chooseForMe = 'Choose for me';
   static const chosen = 'Chosen';
@@ -198,7 +206,7 @@ abstract final class NightCopy {
   static const troublemaker = "Swap 2 other players' cards.";
   static const drunk = "Swap with 1 center card. Don't look.";
   static const loneWerewolf = 'You may see 1 center card.';
-  static const doppelgangerLook = "Copy 1 player's card.";
+  static const doppelgangerLook = "Copy 1 player's role.";
 
   // The board's title on a phone with a choice: the role's night line
   // (RoleText) in a few words (a headline; the board's budget of 20 leaves

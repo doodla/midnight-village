@@ -64,6 +64,7 @@ class FaceDownCard extends StatelessWidget {
     this.nameSize,
     this.nameHeight,
     this.semanticLabel,
+    this.semanticHint,
     this.onTap,
   });
 
@@ -83,6 +84,10 @@ class FaceDownCard extends StatelessWidget {
   final double? nameSize;
   final double? nameHeight;
   final String? semanticLabel;
+
+  /// What a screen reader adds after the label (a dimmed card: a tap still
+  /// switches the pick).
+  final String? semanticHint;
   final VoidCallback? onTap;
 
   /// The mock's player card width, which the lying shadow is drawn for.
@@ -108,6 +113,7 @@ class FaceDownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     label: semanticLabel,
+    hint: semanticHint,
     button: onTap != null,
     selected: selected,
     excludeSemantics: semanticLabel != null,

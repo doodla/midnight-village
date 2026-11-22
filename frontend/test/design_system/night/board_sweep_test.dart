@@ -224,6 +224,43 @@ void main() {
     }
   }
 
+  // A title has two lines of room at the full title size on every board
+  // (issue 37: "1 player or 2 center cards" had been set at 21 px, a third
+  // under its siblings, and the seconds outshouted it).
+  for (final scale in _textScales) {
+    testWidgets('every night title is drawn at 0.8 of the title size or '
+        'more and whole, at 360 wide, text x$scale', (tester) async {
+      tester.view.physicalSize = const Size(360, 779);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final full = skinsUnderTest.values.first.typography.screenTitle.fontSize!;
+
+      final findings = <String>[];
+      final drawn = <String>[];
+      for (final viewer in Viewer.values) {
+        await tester.pumpWidget(const SizedBox());
+        await _pump(tester, BoardPage(viewer: viewer));
+        final title = viewer.prompt.kind.title;
+        final text = tester.widget<Text>(find.text(title));
+        final size = text.style!.fontSize!;
+        drawn.add('${viewer.name} ${size.toStringAsFixed(1)}');
+        if (size < 0.8 * full) {
+          findings.add('${viewer.name}: "$title" drawn at $size of $full');
+        }
+        findings.addAll([
+          for (final cut in truncatedText(tester)) '${viewer.name}: $cut',
+          for (final word in brokenWords(tester)) '${viewer.name}: $word',
+          for (final card in offBoard(tester)) '${viewer.name}: $card',
+        ]);
+        final error = tester.takeException();
+        if (error != null) findings.add('${viewer.name}: $error');
+      }
+      expect(findings, isEmpty, reason: drawn.join(', '));
+    });
+  }
+
   testWidgets('the board is laid out from every name at the table: a long '
       'name moves every phone\'s board the same', (tester) async {
     tester.view.physicalSize = const Size(320, 692);

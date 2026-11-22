@@ -196,6 +196,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | First pick | "Pick a name" (outlined) becomes the one amber "Lock in {name}" | `press` | Cut | exists |
 | "Lock in {name}" tapped | The label lands like a stamp (scale 1.12 to 1) and reads "Locked"; the other rows dim to 40%; your pick stays lifted. A light vibration on the tap. Today a label change and the dim | `land` over `quick`, `light` | Cut | pass 4 |
 | A tap on a dimmed row | Nothing moves, nothing sounds | none | Same | exists |
+| A tap on a dimmed night card | The pick switches to it (lift and outline move). Dimmed on the night board means "cannot join this pick", not switched off; a screen reader hears "Switches your pick". Nothing is dimmed until the first pick, so no role shows across the table | `quick` | Same | exists |
 | Others lock | The pips count up, with no names and no vibration | none | Same | exists |
 | Vote ends to the count | Day to day: no wipe, a plain crossfade; the count's own moment follows (decided 22 Nov 2026) | `settle` | Cut | exists |
 
