@@ -24,3 +24,6 @@ Thumbs.db
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Python bytecode (the helpers in tool/ and the tests write it)
+__pycache__/
