@@ -56,3 +56,6 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 - "Polish puzzles" was a typo for "polish passes".
 - Six sample looks (https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2): "Skip till our default
   is good". Parked: no other looks until Shadow paper is good.
+- Polish passes: "include design improvements as well. Make the game look prettier and feel
+  better, without costing usability". Screen by screen, after that screen's fixes land; before
+  and after pictures to the owner; no added waits.
