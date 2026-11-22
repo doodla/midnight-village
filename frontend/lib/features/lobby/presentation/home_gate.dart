@@ -27,8 +27,10 @@ import 'where_am_i_provider.dart';
 ///   the name and "Join" for one at no table; "You're at another table."
 ///   with "Go there" for one seated elsewhere (never a second seat).
 /// - Back goes through the one [BackPolicy] here, by the rule of what is
-///   shown: 01 leaves the app, the table's shell the rule of its screen
-///   ([backRuleFor]), a wait keeps the phone where it is.
+///   shown: 01 and the opening waits leave the app (the seat is kept;
+///   reopening restores it), "You're at another table." goes there, the
+///   table's shell takes the rule of its screen ([backRuleFor]). A sheet
+///   open on one of them closes when another is shown.
 class HomeGate extends ConsumerWidget {
   const HomeGate({super.key, this.code});
 
@@ -36,59 +38,64 @@ class HomeGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final (rule, screen) = _place(ref);
-    return BackPolicy(rule: rule, child: screen);
+    final (rule, place, screen) = _place(ref);
+    return BackPolicy(rule: rule, place: place, child: screen);
   }
 
-  /// The screen for where this phone is, and what Back does on it.
-  (BackRule, Widget) _place(WidgetRef ref) {
+  /// The screen for where this phone is, which screen it is, and what Back
+  /// does on it.
+  (BackRule, Object, Widget) _place(WidgetRef ref) {
     final auth = ref.watch(authProvider);
     final busy = ref.watch(joinFlowProvider.select((f) => f.busy != null));
     final link = code;
-    if (busy) return (BackRule.leavesApp, JoinScreen(code: link));
+    if (busy) return (BackRule.leavesApp, 'join', JoinScreen(code: link));
     return switch (auth) {
       // The saved account is being read back: 01's village and title, and
       // "One moment" while a try got no answer (it is made again by itself).
-      // Never 01's form, whose Join would make a second account. The phone
-      // may hold a seat: Back keeps it here.
+      // Never 01's form, whose Join would make a second account. Back leaves:
+      // the seat is the server's, and reopening reads it back.
       AuthInitial(:final unanswered) => (
-        BackRule.staysPut,
+        BackRule.leavesApp,
+        'opening',
         OpeningWait(unanswered: unanswered),
       ),
-      AuthLoading() => (BackRule.staysPut, const OpeningWait()),
+      AuthLoading() => (BackRule.leavesApp, 'opening', const OpeningWait()),
       AuthAuthenticated() when link != null => switch (ref.watch(
         myTableProvider,
       )) {
-        AsyncValue(value: final table?) when table.lobbyCode == link => (
-          _shellRule(ref),
-          const TableShell(),
+        AsyncValue(value: final table?) when table.lobbyCode == link => _shell(
+          ref,
         ),
-        // Seated elsewhere: say so; never a silent second seat.
+        // Seated elsewhere: say so; never a silent second seat. Back goes
+        // there ("Go there"), never out of the app with a seat.
         AsyncValue(value: final _?) => (
-          BackRule.leavesApp,
+          BackRule.staysPut,
+          'elsewhere',
           JoinScreen(code: link, elsewhere: true),
         ),
         AsyncValue(hasValue: true) => (
           BackRule.leavesApp,
+          'join',
           JoinScreen(code: link),
         ),
-        // Not known yet: nothing to tap until it is.
+        // Not known yet: nothing to tap until it is; Back leaves, as on 01.
         _ => (
-          BackRule.staysPut,
+          BackRule.leavesApp,
+          'opening',
           const ScreenFrame(ground: GroundKind.night, body: SizedBox.shrink()),
         ),
       },
-      AuthAuthenticated() => (_shellRule(ref), const TableShell()),
+      AuthAuthenticated() => _shell(ref),
       AuthUnauthenticated() ||
-      AuthError() => (BackRule.leavesApp, JoinScreen(code: link)),
+      AuthError() => (BackRule.leavesApp, 'join', JoinScreen(code: link)),
     };
   }
 
-  /// The rule of the screen the table's shell shows ([backRuleFor]); none
-  /// while it is not known yet.
-  static BackRule _shellRule(WidgetRef ref) =>
+  /// The table's shell, by the rule of the screen it shows ([backRuleFor]);
+  /// before the first answer names one, Back leaves, as on the opening wait.
+  static (BackRule, Object, Widget) _shell(WidgetRef ref) =>
       switch (ref.watch(tableScreenProvider.select((at) => at.value?.screen))) {
-        final screen? => backRuleFor(screen),
-        null => BackRule.staysPut,
+        final screen? => (backRuleFor(screen), screen, const TableShell()),
+        null => (BackRule.leavesApp, 'opening', const TableShell()),
       };
 }

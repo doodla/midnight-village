@@ -168,6 +168,9 @@ class _CountViewState extends State<CountView>
     final dead = count.dead;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
+      // A finger's tap anywhere finishes the motion; it is no button of its
+      // own to a screen reader, whose taps reach the screen's buttons.
+      excludeFromSemantics: true,
       onTap: _finish,
       child: AnimatedBuilder(
         animation: _motion,

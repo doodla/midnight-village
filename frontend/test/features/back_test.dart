@@ -7,6 +7,9 @@ import 'package:midnight_village/core/router/back_policy.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
+import 'package:midnight_village/design_system/teach/learned_store.dart';
+import 'package:midnight_village/features/auth/domain/auth_state.dart';
+import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
@@ -15,6 +18,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../helpers/contract/contract_samples.dart';
+import '../helpers/game_events.dart';
+import '../helpers/contract/server_json.dart' show serverMyTable;
 import '../helpers/mock_http_client.dart';
 import '../helpers/shell_setup.dart';
 import '../helpers/table_setup.dart';
@@ -83,18 +88,42 @@ class _Platform {
   }
 }
 
-/// Back, as the platform sends it, then the screen settles.
+/// Back, as the platform sends it.
+Future<void> _press(WidgetTester tester) =>
+    tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+      SystemChannels.navigation.name,
+      SystemChannels.navigation.codec.encodeMethodCall(
+        const MethodCall('popRoute'),
+      ),
+      (_) {},
+    );
+
+/// Back, then whatever it moved settles (a sheet closing, a screen
+/// changing, the fetches they start).
 Future<void> _back(WidgetTester tester) async {
-  await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
-    SystemChannels.navigation.name,
-    SystemChannels.navigation.codec.encodeMethodCall(
-      const MethodCall('popRoute'),
-    ),
-    (_) {},
-  );
-  for (var i = 0; i < 12; i++) {
+  await _press(tester);
+  await _settled(tester);
+}
+
+/// Pumps until the app is still: no frame due for three pumps in a row
+/// (an answer that lands asks for a frame again). A screen that never stops
+/// moving fails.
+Future<void> _settled(WidgetTester tester) async {
+  var still = 0;
+  for (var i = 0; i < 200 && still < 3; i++) {
+    final due = tester.binding.hasScheduledFrame;
     await tester.pump(const Duration(milliseconds: 50));
+    still = due ? 0 : still + 1;
   }
+  expect(still, 3, reason: 'never settled');
+}
+
+/// Pumps frames until [done] (a screen with a spinner never settles).
+Future<void> _until(WidgetTester tester, bool Function() done) async {
+  for (var i = 0; i < 200 && !done(); i++) {
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  expect(done(), isTrue, reason: 'never happened');
 }
 
 /// The screen the table's shell shows (null outside it: 01 signed out).
@@ -113,15 +142,15 @@ Future<void> _tap(WidgetTester tester, Finder what) async {
   await tester.ensureVisible(what);
   await tester.pump();
   await tester.tap(what);
-  for (var i = 0; i < 12; i++) {
-    await tester.pump(const Duration(milliseconds: 50));
-  }
+  await _settled(tester);
 }
 
-/// A game's screen through the app's routes: [sample]'s `/me/`.
+/// A game's screen through the app's routes: [sample]'s `/me/`, on a phone
+/// past its first game (no teaching ring breathing).
 Future<ShellSetup> _game(WidgetTester tester, String sample) => ShellSetup.pump(
   tester,
   recordedMe(sample),
+  learned: {...Cue.values},
   appRoutes: true,
   before: (s) => s.answerNightResultsSeen(),
 );
@@ -196,6 +225,54 @@ void main() {
     });
   });
 
+  group('the opening waits: Back leaves (the seat is the server\'s)', () {
+    testWidgets('the saved account being read back', (tester) async {
+      final platform = _Platform.listen(tester);
+      final setup = await TableSetup.pump(
+        tester,
+        authState: const AuthState.initial(),
+      );
+      expect(find.byType(OpeningWait), findsOneWidget);
+      await _back(tester);
+      expect(platform.left, isTrue);
+      await setup.close(tester);
+    });
+
+    testWidgets('a link\'s table not known yet', (tester) async {
+      final platform = _Platform.listen(tester);
+      late HeldReplies table;
+      final setup = await TableSetup.pump(
+        tester,
+        signedInAs: 'Ana',
+        route: '/join/V9YC2J',
+        before: (s) => table = s.http.hold(method: 'GET', path: '/me/table/'),
+      );
+      expect(find.text(JoinCopy.join), findsNothing);
+      await _back(tester);
+      expect(platform.left, isTrue);
+      table.releaseAll();
+      await setup.close(tester);
+    });
+  });
+
+  testWidgets('"You\'re at another table.": Back goes there, as "Go there" '
+      'does; never out of the app with a seat', (tester) async {
+    final platform = _Platform.listen(tester);
+    final setup = await TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_auto_deck_5'),
+      viewer: 'Ana',
+      route: '/join/ABC234',
+    );
+    expect(find.text(BannerCopy.alreadyInLobby), findsOneWidget);
+    expect(platform.appTakesBack, isTrue);
+    await _back(tester);
+    expect(platform.left, isFalse);
+    expect(find.text(BannerCopy.alreadyInLobby), findsNothing);
+    expect(_screen(tester), AppScreen.table);
+    await setup.close(tester);
+  });
+
   group(
     '02 Table: Back asks first, with the table\'s own "Stay" / "Leave"',
     () {
@@ -261,25 +338,173 @@ void main() {
         await setup.close(tester);
       });
 
-      testWidgets(
-        'a guest is asked the same (their Leave button does not ask)',
-        (tester) async {
-          final platform = _Platform.listen(tester);
-          final setup = await TableSetup.pump(
-            tester,
-            lobby: v2Lobby('detail_auto_deck_5'),
-            viewer: 'Ben',
+      testWidgets('a guest is asked the same by Back; their own Leave '
+          'button does not ask', (tester) async {
+        final platform = _Platform.listen(tester);
+        final setup = await TableSetup.pump(
+          tester,
+          lobby: v2Lobby('detail_auto_deck_5'),
+          viewer: 'Ben',
+        );
+        expect(_screen(tester), AppScreen.table);
+        await _back(tester);
+        expect(find.text(TableCopy.stay), findsOneWidget);
+        expect(_requests(setup, 'POST'), 0);
+        await _back(tester);
+        expect(find.text(TableCopy.stay), findsNothing);
+        expect(platform.left, isFalse);
+
+        setup.http
+          ..answer(
+            'POST',
+            '/lobbies/V9YC2J/leave/',
+            ContractSamples.map('http/lobby/left'),
+          )
+          ..answer(
+            'GET',
+            '/me/table/',
+            ContractSamples.map('http/lobby/my_table_none'),
           );
-          expect(_screen(tester), AppScreen.table);
-          await _back(tester);
-          expect(find.text(TableCopy.stay), findsOneWidget);
-          expect(_requests(setup, 'POST'), 0);
-          await _back(tester);
-          expect(find.text(TableCopy.stay), findsNothing);
-          expect(platform.left, isFalse);
-          await setup.close(tester);
-        },
-      );
+        await tester.tap(find.text(CommonCopy.leave));
+        await tester.pump();
+        expect(find.text(TableCopy.stay), findsNothing);
+        await _settled(tester);
+        expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
+        expect(_screen(tester), AppScreen.join);
+        await setup.close(tester);
+      });
+
+      testWidgets('a table that is gone: Back goes home, as "Go home"', (
+        tester,
+      ) async {
+        final platform = _Platform.listen(tester);
+        final setup = await TableSetup.pump(
+          tester,
+          lobby: v2Lobby('detail_auto_deck_5'),
+          viewer: 'Ben',
+        );
+        setup.http.answer(
+          'GET',
+          '/lobbies/V9YC2J/',
+          ContractSamples.map('http/lobby/not_found'),
+          status: 404,
+        );
+        setup.event(ContractSamples.map('ws/lobby/player_left'));
+        await _settled(tester);
+        expect(find.text(BannerCopy.tableClosed), findsOneWidget);
+
+        setup.http.answer(
+          'GET',
+          '/me/table/',
+          ContractSamples.map('http/lobby/my_table_none'),
+        );
+        await _back(tester);
+        expect(find.text(TableCopy.stay), findsNothing);
+        expect(_screen(tester), AppScreen.join);
+        expect(platform.left, isFalse);
+        await setup.close(tester);
+      });
+
+      testWidgets('nothing is asked while a leave is on its way', (
+        tester,
+      ) async {
+        final setup = await TableSetup.pump(
+          tester,
+          lobby: v2Lobby('detail_auto_deck_5'),
+          viewer: 'Ben',
+        );
+        setup.http
+          ..answer(
+            'POST',
+            '/lobbies/V9YC2J/leave/',
+            ContractSamples.map('http/lobby/left'),
+          )
+          ..answer(
+            'GET',
+            '/me/table/',
+            ContractSamples.map('http/lobby/my_table_none'),
+          );
+        final leave = setup.http.hold(
+          method: 'POST',
+          path: '/lobbies/V9YC2J/leave/',
+        );
+        await tester.tap(find.text(CommonCopy.leave));
+        await _until(tester, () => leave.length == 1);
+        await _press(tester);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text(TableCopy.stay), findsNothing);
+        leave.releaseAll();
+        await _until(tester, () => _screen(tester) == AppScreen.join);
+        await setup.close(tester);
+      });
+
+      testWidgets('nothing is asked while a deal is on its way', (
+        tester,
+      ) async {
+        final setup = await TableSetup.pump(
+          tester,
+          lobby: v2Lobby('detail_auto_deck_5'),
+          viewer: 'Ana',
+        );
+        final started = ContractSamples.map('http/game/started_with_look');
+        setup.http.answer(
+          'POST',
+          '/onuw/lobbies/V9YC2J/start/',
+          started,
+          status: 201,
+        );
+        setup.answerGame(recordedMe('me_look_stage'));
+        final deal = setup.http.hold(
+          method: 'POST',
+          path: '/onuw/lobbies/V9YC2J/start/',
+        );
+        await tester.tap(find.text(TableCopy.deal.fill({'n': 5})));
+        await _until(tester, () => deal.length == 1);
+        await _press(tester);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text(TableCopy.stay), findsNothing);
+        deal.releaseAll();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text(TableCopy.stay), findsNothing);
+        await setup.close(tester);
+      });
+
+      testWidgets('the question closes with its screen: the host deals while '
+          'a guest is asked, and the guest is at the card, nothing left', (
+        tester,
+      ) async {
+        final setup = await TableSetup.pump(
+          tester,
+          lobby: v2Lobby('detail_auto_deck_5'),
+          viewer: 'Ben',
+        );
+        await _back(tester);
+        expect(find.text(TableCopy.stay), findsOneWidget);
+
+        final dealt = recordedMe('me_look_stage');
+        setup.answerGame(dealt);
+        setup.http.answer(
+          'GET',
+          '/me/table/',
+          serverMyTable(
+            code: 'V9YC2J',
+            status: 'in_game',
+            gameId: dealt['game_id'] as String,
+          ),
+        );
+        setup.event({
+          ...ContractSamples.map('ws/lobby/game_started'),
+          'game_id': dealt['game_id'],
+        });
+        await _until(tester, () => _screen(tester) == AppScreen.yourCard);
+        // The question goes with the table.
+        await _until(
+          tester,
+          () => find.text(TableCopy.stay).evaluate().isEmpty,
+        );
+        expect(_requests(setup, 'POST'), 0);
+        await setup.close(tester);
+      });
     },
   );
 
@@ -355,6 +580,17 @@ void main() {
       });
     }
 
+    testWidgets('04: two Backs at once do nothing either', (tester) async {
+      final platform = _Platform.listen(tester);
+      final s = await _game(tester, 'me_look_stage');
+      await s.settle(tester);
+      await Future.wait([_press(tester), _press(tester)]);
+      await _settled(tester);
+      expect(s.screenOn(tester), AppScreen.yourCard);
+      expect(platform.left, isFalse);
+      await s.close(tester);
+    });
+
     testWidgets('11 Results', (tester) async {
       final platform = _Platform.listen(tester);
       final s = await _game(tester, 'me_results');
@@ -421,6 +657,69 @@ void main() {
       expect(s.screenOn(tester), AppScreen.talk);
       expect(platform.left, isFalse);
       await s.close(tester);
+    });
+  });
+
+  testWidgets('a sheet never outlives its screen: 08\'s role sheet closes '
+      'when the vote opens', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final s = await _game(tester, 'me_talk_ready');
+    await s.settle(tester);
+    // My night is open on arrival: Back puts it away.
+    await _back(tester);
+    final card = find.byType(RoleCard).first;
+    await tester.ensureVisible(card);
+    await tester.longPress(card);
+    await _settled(tester);
+    expect(find.byType(RoleSheetBody), findsOneWidget);
+
+    s.answerMe(recordedMe('me_voting_picked'));
+    s.ws.addServerEvent(GameEvents.phaseChange(phase: 'voting'));
+    await _settled(tester);
+    expect(s.screenOn(tester), AppScreen.vote);
+    expect(find.byType(RoleSheetBody), findsNothing);
+    await s.close(tester);
+  });
+
+  group('on the web', () {
+    var left = 0;
+    setUp(() {
+      left = 0;
+      BackPolicy.web = true;
+      BackPolicy.leaveWeb = () => left++;
+    });
+    tearDown(() {
+      BackPolicy.web = false;
+      BackPolicy.leaveWeb = () {};
+    });
+
+    testWidgets('01: Back steps back past the app\'s history entry, never '
+        'through the engine\'s exit (which disarms Back where there is no '
+        'page before)', (tester) async {
+      final platform = _Platform.listen(tester);
+      final setup = await TableSetup.pump(tester);
+      await _back(tester);
+      expect(left, 1);
+      expect(platform.left, isFalse);
+      await setup.close(tester);
+    });
+
+    testWidgets('02: the same as on a phone', (tester) async {
+      final platform = _Platform.listen(tester);
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_auto_deck_5'),
+        viewer: 'Ben',
+      );
+      await _back(tester);
+      expect(find.text(TableCopy.stay), findsOneWidget);
+      await _back(tester);
+      expect(find.text(TableCopy.stay), findsNothing);
+      expect(left, 0);
+      expect(platform.left, isFalse);
+      await setup.close(tester);
     });
   });
 

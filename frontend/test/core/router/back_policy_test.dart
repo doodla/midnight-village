@@ -30,16 +30,21 @@ RoutePopDisposition _disposition(WidgetTester tester) =>
 
 const _page = Key('page');
 
-Future<void> _pump(WidgetTester tester, BackRule rule, Widget child) =>
-    tester.pumpWidget(
-      MaterialApp(
-        theme: skinTheme(SkinId.fallback.skin),
-        home: BackPolicy(
-          rule: rule,
-          child: SizedBox(key: _page, child: child),
-        ),
-      ),
-    );
+Future<void> _pump(
+  WidgetTester tester,
+  BackRule rule,
+  Widget child, {
+  Object? place,
+}) => tester.pumpWidget(
+  MaterialApp(
+    theme: skinTheme(SkinId.fallback.skin),
+    home: BackPolicy(
+      rule: rule,
+      place: place,
+      child: SizedBox(key: _page, child: child),
+    ),
+  ),
+);
 
 void main() {
   testWidgets('only "leaves the app" lets Back leave, and only with nothing '
@@ -152,5 +157,73 @@ void main() {
       ),
     );
     await _back(tester);
+  });
+
+  testWidgets('a sheet never outlives its screen: another place closes it, '
+      'and whoever opened it gets no answer', (tester) async {
+    await _pump(tester, BackRule.staysPut, const SizedBox(), place: 'a');
+    Object? answer = 'none yet';
+    unawaited(
+      showModalBottomSheet<bool>(
+        context: tester.element(find.byKey(_page)),
+        builder: (_) => const Text('sheet'),
+      ).then((value) => answer = value),
+    );
+    await tester.pumpAndSettle();
+    // The same place, new values: the sheet stays.
+    await _pump(tester, BackRule.staysPut, const SizedBox(), place: 'a');
+    await tester.pumpAndSettle();
+    expect(find.text('sheet'), findsOneWidget);
+    await _pump(tester, BackRule.staysPut, const SizedBox(), place: 'b');
+    await tester.pumpAndSettle();
+    expect(find.text('sheet'), findsNothing);
+    expect(answer, isNull);
+  });
+
+  group('on the web', () {
+    var left = 0;
+    setUp(() {
+      left = 0;
+      BackPolicy.web = true;
+      BackPolicy.leaveWeb = () => left++;
+    });
+    tearDown(() {
+      BackPolicy.web = false;
+      BackPolicy.leaveWeb = () {};
+    });
+
+    testWidgets('the page never pops (the engine\'s exit would take the '
+        'app\'s history down where there is no page before it): where Back '
+        'leaves, the app steps back in the browser\'s history', (tester) async {
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          calls.add(call);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await _pump(tester, BackRule.leavesApp, const SizedBox());
+      expect(_disposition(tester), RoutePopDisposition.doNotPop);
+      await _back(tester);
+      expect(left, 1);
+      expect(
+        calls.map((c) => c.method),
+        isNot(contains('SystemNavigator.pop')),
+      );
+      // Twice: still armed.
+      await _back(tester);
+      expect(left, 2);
+
+      await _pump(tester, BackRule.staysPut, const SizedBox());
+      await _back(tester);
+      expect(left, 2);
+    });
   });
 }

@@ -10,8 +10,10 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   tap. `/join/<code>` (a table's link and QR code) is 01 with the name and "Join", or the table
   itself for a player already at it; `/game/<id>` is the same gate. Back is the gate's one
   policy (`BackPolicy`, `features/game/README.md`): 01 leaves the app (its code field open,
-  Back closes it first), 02 asks first with the host's "Stay" / "Leave" (a guest too), 03
-  returns to 02, the opening waits keep the phone where it is.
+  Back closes it first), "You're at another table." goes there, 02 asks first with the
+  host's "Stay" / "Leave" (a guest too; not while a deal or a leave is on its way; the
+  question closes when the screen changes), 03 returns to 02, the opening waits leave the app
+  (the seat is kept).
 - **The saved account** (`AuthNotifier`, `AuthRepository.tryRestoreSession`). Read back at
   start from storage alone while its access token works (its own `exp`; no request), else
   renewed once. A try the server does not answer (no network, a timeout, a 5xx, an answer

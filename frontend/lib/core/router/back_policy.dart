@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'back_rule.dart';
+import 'leave_web_stub.dart' if (dart.library.js_interop) 'leave_web.dart';
 
 export 'back_rule.dart';
 
@@ -20,16 +21,38 @@ export 'back_rule.dart';
 /// 3. Else [rule]: only [BackRule.leavesApp] lets Back leave the app; every
 ///    other rule keeps the player where they are.
 ///
+/// A sheet or dialog never outlives the screen it was opened on: when
+/// [place] changes (another screen), every route above the page closes.
+///
 /// On Android, the system is told whether the app wants Back, so the back
 /// gesture previews leaving only where Back leaves. On the web, the browser's
 /// history holds one entry for the app over the page it came from
-/// ([oneHistoryEntry]): the browser's Back arrives here as the phone's does.
+/// ([oneHistoryEntry]): the browser's Back arrives here as the phone's does,
+/// and where Back leaves, the app steps back past its entry to the page
+/// before ([leaveWebPage]; with none, a fresh tab, it stays and Back keeps
+/// working).
 class BackPolicy extends StatefulWidget {
-  const BackPolicy({super.key, required this.rule, required this.child});
+  const BackPolicy({
+    super.key,
+    required this.rule,
+    this.place,
+    required this.child,
+  });
 
   /// What Back does here when nothing is open.
   final BackRule rule;
+
+  /// Which screen this is (any value that changes with the screen).
+  final Object? place;
   final Widget child;
+
+  /// The app runs in a browser (tests of the web's way pretend to).
+  @visibleForTesting
+  static bool web = kIsWeb;
+
+  /// Leaves the app on the web (tests count it instead).
+  @visibleForTesting
+  static void Function() leaveWeb = leaveWebPage;
 
   @override
   State<BackPolicy> createState() => _BackPolicyState();
@@ -52,9 +75,12 @@ class _BackPolicyState extends State<BackPolicy> implements PopEntry<Object?> {
   }
 
   /// Back may leave the app: the rule says so and nothing open answers it.
-  /// (A change reaches the route and Android without a rebuild.)
-  void _changed() =>
-      canPopNotifier.value = widget.rule == BackRule.leavesApp && _top == null;
+  /// (A change reaches the route and Android without a rebuild.) On the web
+  /// the page never pops: [onPopInvokedWithResult] leaves by the browser's
+  /// history.
+  bool get _leaves => widget.rule == BackRule.leavesApp && _top == null;
+
+  void _changed() => canPopNotifier.value = _leaves && !BackPolicy.web;
 
   void _add(_BackHandlerState handler) {
     _handlers
@@ -74,7 +100,11 @@ class _BackPolicyState extends State<BackPolicy> implements PopEntry<Object?> {
   @override
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) return;
-    _top?.widget.onBack();
+    if (_top case final top?) {
+      top.widget.onBack();
+    } else if (_leaves && BackPolicy.web) {
+      BackPolicy.leaveWeb();
+    }
   }
 
   @override
@@ -98,7 +128,19 @@ class _BackPolicyState extends State<BackPolicy> implements PopEntry<Object?> {
   void didUpdateWidget(BackPolicy oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.rule != widget.rule) _changed();
+    if (oldWidget.place != widget.place) _closeAbove();
   }
+
+  /// Closes every sheet and dialog over this page (after this frame: a
+  /// navigator does not change while it builds). Their callers get no
+  /// answer, so nothing they asked for is done on the screen that went.
+  void _closeAbove() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    final route = _route;
+    if (!mounted || route == null || !route.isActive || route.isCurrent) {
+      return;
+    }
+    route.navigator?.popUntil((r) => r == route || r.isFirst);
+  });
 
   @override
   void dispose() {

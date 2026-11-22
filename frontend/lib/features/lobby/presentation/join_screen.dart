@@ -82,19 +82,25 @@ class JoinScreen extends ConsumerWidget {
       ),
       _ => (flow.banner, null, null),
     };
-    return JoinView(
-      name: auth is AuthAuthenticated ? auth.user.displayName : '',
-      code: link,
-      seated: elsewhere,
-      online: online?.players,
-      lastWon: last?.youWon,
-      busy: flow.busy,
-      banner: banner,
-      bannerAction: action,
-      onBannerAction: onAction,
-      onEdited: notifier.clearBanner,
-      onStart: (name) => unawaited(sat(notifier.start(name))),
-      onJoin: (name, code) => unawaited(sat(notifier.join(name, code))),
+    // Seated at another table: Back does what "Go there" does (never out of
+    // the app with a seat).
+    return BackHandler(
+      open: onAction == goThere,
+      onBack: goThere,
+      child: JoinView(
+        name: auth is AuthAuthenticated ? auth.user.displayName : '',
+        code: link,
+        seated: elsewhere,
+        online: online?.players,
+        lastWon: last?.youWon,
+        busy: flow.busy,
+        banner: banner,
+        bannerAction: action,
+        onBannerAction: onAction,
+        onEdited: notifier.clearBanner,
+        onStart: (name) => unawaited(sat(notifier.start(name))),
+        onJoin: (name, code) => unawaited(sat(notifier.join(name, code))),
+      ),
     );
   }
 }
