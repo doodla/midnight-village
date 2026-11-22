@@ -166,7 +166,7 @@
       3600
     ],
     "disconnect_grace_seconds": [
-      1,
+      0,
       60
     ],
     "host_handover_seconds": [

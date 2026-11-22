@@ -62,8 +62,8 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
   - `length_ranges`: `{key: [least, most]}` seconds a PATCH of each length takes now, from
     the same rule table the check uses (`engine/validation.py`): 0 to the key's most; this
     server's floors for a night window (1 s) and the shortest window (5 s) unless it allows
-    untimed nights; the shortest window never longer than the window; and no stage waits
-    for good: with `disconnect_grace_seconds` 0 the window, the talk and the vote each need a
+    untimed nights; the shortest window never longer than the window; and (again unless
+    untimed games are allowed) no stage waits for good: with `disconnect_grace_seconds` 0 the window, the talk and the vote each need a
     clock of at least 1 s, and with any of them at 0 the grace period is at least 1 s.
   - `seats_range`: `[least, most]` the number of players may be set to now: never below the
     players here (nor 3), never above `max_players` (nor 10).

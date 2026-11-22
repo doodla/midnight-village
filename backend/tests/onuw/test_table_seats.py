@@ -328,7 +328,10 @@ class TestEveryLengthWithItsRange:
         reply = t.patch({"night_min_window_seconds": 13})
         assert reply.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_no_clock_and_nobody_ever_counted_gone_is_refused(self, table) -> None:
+    def test_no_clock_and_nobody_ever_counted_gone_is_refused(
+        self, table, settings
+    ) -> None:
+        settings.ONUW_ALLOW_UNTIMED_NIGHT = False
         t = table(players=3)
         assert t.patch({"discussion_seconds": 0}).status_code == 200
         ranges = t.body()["length_ranges"]

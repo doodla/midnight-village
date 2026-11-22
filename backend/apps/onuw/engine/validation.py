@@ -192,9 +192,9 @@ def length_ranges(
     - unless ``allow_untimed``: a night window at least 1 s, the minimum window at
       least 5 s;
     - the minimum window no longer than the window (when that is above 0);
-    - no stage waits for good: with ``disconnect_grace_seconds`` at 0 every
-      ``DEADLINE_KEYS`` clock is at least 1 s; with any of them at 0 the grace
-      period is at least 1 s.
+    - unless ``allow_untimed``, no stage waits for good: with
+      ``disconnect_grace_seconds`` at 0 every ``DEADLINE_KEYS`` clock is at
+      least 1 s; with any of them at 0 the grace period is at least 1 s.
     """
     now = declared_lengths(settings)
     ranges = {key: [0, max_seconds_for(key)] for key in TIMER_SETTING_KEYS}
@@ -210,6 +210,9 @@ def length_ranges(
     if wave > 0:
         window_min = ranges["night_min_window_seconds"]
         window_min[1] = max(window_min[0], min(window_min[1], wave))
+    if allow_untimed:
+        # Development, tests, the harness: games driven by hand, any clock.
+        return ranges
     if now.get(GRACE_KEY, 0) == 0:
         for key in DEADLINE_KEYS:
             at_least(key, 1)
@@ -247,10 +250,10 @@ def clamp_night_timing(settings: dict, *, allow_untimed: bool = True) -> dict:
     """``settings`` with every stored length the rules would refuse today replaced,
     so a table older code wrote is never stuck (the deal applies it): a value out of
     its key's range is dropped (the default applies); unless ``allow_untimed``, a
-    night timer of 0 is dropped too, a minimum window under 5 s becomes 5 and a
-    stored window shorter than its stored minimum becomes the minimum; a
-    grace period of 0 beside a stage with no clock is dropped (its default counts a
-    dead phone gone, so the game cannot wait for good). A new dict; the input is
+    night timer of 0 is dropped too, a minimum window under 5 s becomes 5, a
+    stored window shorter than its stored minimum becomes the minimum, and a
+    grace period of 0 beside a stage with no clock is dropped (its default counts
+    a dead phone gone, so the game cannot wait for good). A new dict; the input is
     not changed."""
     out = dict(settings)
     for key in TIMER_SETTING_KEYS:
@@ -268,9 +271,9 @@ def clamp_night_timing(settings: dict, *, allow_untimed: bool = True) -> dict:
         floor = out.get("night_min_window_seconds", 0)
         if isinstance(wave, int) and isinstance(floor, int) and 0 < wave < floor:
             out["night_wave_seconds"] = floor
-    now = declared_lengths(out)
-    if now.get(GRACE_KEY) == 0 and any(now.get(k) == 0 for k in DEADLINE_KEYS):
-        del out[GRACE_KEY]
+        now = declared_lengths(out)
+        if now.get(GRACE_KEY) == 0 and any(now.get(k) == 0 for k in DEADLINE_KEYS):
+            del out[GRACE_KEY]
     return out
 
 

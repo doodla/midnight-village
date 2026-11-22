@@ -31,11 +31,13 @@ from apps.onuw.protocol import in_look_stage, stage_token
 
 pytestmark = pytest.mark.django_db
 
+# The production rules (``allow_untimed=False``): development, tests and the
+# harness allow untimed games, driven by hand.
 STORED = {
     "defaults": {},
     "no grace": {"disconnect_grace_seconds": 0},
     "no talk clock": {"discussion_seconds": 0},
-    "untimed night and vote": {"night_wave_seconds": 0, "voting_seconds": 0},
+    "no vote clock": {"voting_seconds": 0},
     "a look and short windows": {
         "card_look_seconds": 20,
         "night_wave_seconds": 6,
@@ -50,7 +52,7 @@ DEAD = "Dev"
 def _cases() -> list[Any]:
     cases = []
     for state_name, stored in STORED.items():
-        ranges = length_ranges(stored, allow_untimed=True)
+        ranges = length_ranges(stored, allow_untimed=False)
         for key in TIMER_SETTING_KEYS:
             for end, value in zip(("least", "most"), ranges[key], strict=True):
                 cases.append(
@@ -112,7 +114,10 @@ def _live_players_act(night: Any) -> None:
 
 @pytest.mark.parametrize(("settings", "key"), _cases())
 def test_a_game_with_a_dead_phone_still_finishes(make_night, settings, key) -> None:
-    assert length_errors(settings, {key}, allow_untimed=True) == [], (key, settings)
+    assert length_errors(settings, {key}, allow_untimed=False) == [], (
+        key,
+        settings,
+    )
     night = make_night(ROLES, **settings)
     PlayerRole.objects.filter(game=night.game, user=night.users[DEAD]).update(
         disconnected_at=timezone.now() - timedelta(hours=2)
