@@ -4,6 +4,7 @@ import ast
 from pathlib import Path
 
 import pytest
+from repo_files import tracked_files
 
 pytestmark = pytest.mark.unit
 
@@ -25,7 +26,7 @@ def _imports(path: Path) -> list[str]:
 
 def test_core_never_imports_a_game_app():
     offenders = []
-    for path in CORE.rglob("*.py"):
+    for path in tracked_files(CORE, suffixes=(".py",)):
         if "migrations" in path.parts:
             continue
         for name in _imports(path):
@@ -38,7 +39,7 @@ def test_only_migration_dependencies_may_name_a_game_app():
     """A migration may depend on a game app's migration (the timer table moved
     out of it); nothing else under core may even mention one by module path."""
     offenders = []
-    for path in CORE.rglob("*.py"):
+    for path in tracked_files(CORE, suffixes=(".py",)):
         if "migrations" in path.parts:
             continue
         for number, line in enumerate(path.read_text().splitlines(), 1):

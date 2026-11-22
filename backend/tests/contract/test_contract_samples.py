@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from repo_files import tracked_files
 
 from .recorder import recording
 from .scenarios import record_all
@@ -41,7 +42,7 @@ def _text(payload: Any) -> str:
 def _committed() -> dict[str, str]:
     return {
         path.relative_to(SAMPLES_DIR).as_posix(): path.read_text(encoding="utf-8")
-        for path in sorted(SAMPLES_DIR.rglob("*.json"))
+        for path in tracked_files(SAMPLES_DIR, suffixes=(".json",))
     }
 
 

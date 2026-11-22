@@ -12,6 +12,7 @@ from django.test import override_settings
 from django.urls import reverse
 
 import pytest
+from repo_files import tracked_files
 
 pytestmark = pytest.mark.integration
 
@@ -58,8 +59,9 @@ def test_the_setting_is_in_base_and_no_environment_drops_it() -> None:
     """Every environment's settings start from base and none overrides it."""
     assert settings.CORS_EXPOSE_HEADERS == ["Date"]
     assert 'CORS_EXPOSE_HEADERS = ["Date"]' in (SETTINGS / "base.py").read_text()
-    for module in SETTINGS.glob("*.py"):
-        if module.name in {"base.py", "__init__.py"}:
+    settings_dir = SETTINGS.resolve()
+    for module in tracked_files(SETTINGS, suffixes=(".py",)):
+        if module.parent != settings_dir or module.name in {"base.py", "__init__.py"}:
             continue
         text = module.read_text()
         assert "from .base import *" in text or "from .development import *" in text
