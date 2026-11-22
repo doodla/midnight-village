@@ -7,10 +7,11 @@ section 4; a reviewer checks against section 5. Do not invent timings or gesture
 needs: use the tokens here, or add one here first.
 
 Where this page and `../specs/frontend/first-time-play.md` differ, the spec wins (its sections 7
-and 8 first). Differences are listed in section 6, not decided here. Status words, as of this
+and 8 first). A difference found later goes to section 6, not decided here. Status words, as of this
 page: **exists** is built as written; **pass N** is to build in pass N of the whole-game review
 in #28 (1 dusk and dawn, 2 night board, 3 your card, 4 vote and count, 5 results, 6 table, 7 join,
-8 press feel); **no pass** is missing and no pass owns it yet.
+8 press feel; pass 1 covers deal to night and night to talk only, which corrects #28's list: vote to
+count has no wipe); **no pass** is missing and no pass owns it yet.
 
 ## 1. Principles
 
@@ -19,7 +20,7 @@ in #28 (1 dusk and dawn, 2 night board, 3 your card, 4 vote and count, 5 results
    answers (it presses and returns); its words already say what is missing.
 2. **Motion never blocks and never waits.** A new screen takes touches from its first frame; any
    tap finishes a running motion; nothing is locked behind an animation. Every stage length is
-   the table's setting. The one held beat (the count's 1.2 s) is skippable.
+   the table's setting. The one held beat, the count's 1.2 s, stays (decided 22 Nov 2026): a tap skips it, so it is not an added wait.
 3. **Reduce motion gets the same information, instantly.** Slides, lifts, scales, wipes, staggers,
    flips and breathing become a cut to the end state. A colour or outline change still shows.
 4. **Night is silent and still.** From the deal to the last night window: no vibration, no sound,
@@ -57,25 +58,37 @@ finish within about 2 s whatever their length (10 rows: 1.6 s), and a tap finish
 
 | Token | Start value | Pass | Why |
 |---|---|---|---|
-| `Motion.scene` | 500 ms, never over 600 | 1 | The dusk and dawn wipe replacing the 260 ms crossfade. Input is live from frame one |
+| `Motion.scene` | 500 ms, never over 600 | 1 | The dusk (deal to night) and dawn (night to talk) wipe replacing the 260 ms crossfade. Input is live from frame one. Nowhere else (decided 22 Nov 2026) |
 | `Motion.land` | a curve with at most 10% overshoot (`easeOutBack`) | 4, 6 | The lock stamp; a joining player's row dropping in |
 | `Motion.ambient` | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
 | a reduce-motion helper | `Motion` durations that are zero under reduce motion | 1 | Today six places check it (shell, hold flip, count, results, ring, wave); buttons, rows, chips, cards and dims ignore it |
 
 ## 3. Vibration
 
-Flutter's own `HapticFeedback`; no new package. Only these, only lightly (the owner: "light").
+Flutter's own `HapticFeedback`; no new package.
+
+**The rule** (decided 22 Nov 2026; it governs all of this section). A vibration fires only for
+something every player does openly in the day (ready, vote), or for something that happens on every
+phone at the same instant. Never at night, and never in a way that could tell a neighbour who acted
+or what role someone holds. Design brief section 7 ("no vibration may reveal who acted") stays
+true under it: nothing here fires on a night action or a hold, and a day vibration only goes with
+a public act.
+
+Decided 22 Nov 2026: everything is light except the dead card's flip, the one medium. Nothing stronger exists.
 
 | Name | Is | Fires |
 |---|---|---|
-| `tick` | `selectionClick` | Taking back "Ready to vote" (08). Proposed, off until the owner agrees: moving a vote pick (09) |
-| `light` | `lightImpact` | "Ready to vote" tapped (08). "Lock in {name}" tapped (09), on the tap, not on the answer |
-| `thud` | `mediumImpact` | The dead card landing face up (10): once per count, with several dead too, on every phone at the same moment. A tap that finishes the flip fires it once, as it lands |
+| `tick` | `selectionClick`, light | A vote pick on 09, each time the pick moves. Taking back "Ready to vote" on 08 |
+| `light` | `lightImpact` | "Ready to vote" tapped (08). "Lock in {name}" tapped (09), on the tap, not on the answer. 11 Results: once, when the result lands (every phone, the same instant) |
+| `thud` | `mediumImpact`, the one medium | The dead card landing face up (10): once per count, with several dead too, on every phone at the same moment. A tap that finishes the flip fires it once, as it lands |
+
+Decided 22 Nov 2026. Where: 08, 09, 10 and 11, the day. "Ready" means only 08's "Ready to vote"; 04's "Ready" is in the
+night and has none. 11 counts as a day screen although its ground is the night's.
 
 Never fires: at night (04, 05, 06, the deal's dusk); on any hold or reveal; on 01 to 03; on a
 banner, error, disabled tap, timer tick, reconnect or a player arriving or leaving; for anything
 that only one phone gets because of its role or what it did at night; no `heavyImpact`, no long
-`vibrate`. 11 Results: none until the owner says (section 6).
+`vibrate`.
 
 How it is built (pass 4): one `Haptics` class with these three names and nothing else calls
 `HapticFeedback` (a test fails any direct call, as `fixture_sources_test.dart` does for fixtures).
@@ -128,7 +141,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
 | Finger lands on the card | The card dips about 2% the same frame (before the 120 ms that make it a hold) | `press` | Colour only, no dip | pass 3 |
-| Hold | After 120 ms the card turns over in place, readable from the start of the turn; in a first game the ring fills over the 0.8 s it takes to count. Today a 90 ms fade | 120 ms, then `quick` | Cut | pass 3 |
+| Hold | After 120 ms the card turns over in place, readable from the start of the turn; in a first game the ring fills over the 0.8 s it takes to count. Today a 90 ms fade, so the pass keeps the existing token | 120 ms, then `press` (`quick` only if the builder's frames show it reads better; decided 22 Nov 2026) | Cut | pass 3 |
 | Release | The face is gone at once, never slower than `press` | `press` | Cut | pass 3 |
 | A reveal counts (0.8 s seen) | "Ready" locked becomes amber; the ring stops for good | `press` | Cut | exists |
 | Tap "Ready" before holding | The `hold` ring breathes for 3 s; the button does not move | 3 s | Ring still, visible | exists |
@@ -177,11 +190,12 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Rows arrive (first game) | The rows nudge 6 px in one wave; learned at the first taken lock | 120 / 90 ms | No wave | exists |
 | Finger on a row | The row dips 2 px the frame it lands. Today nothing until the tap ends | `press` | Colour only | pass 4 |
 | Tap picks a row | The row lifts 6 px with the ink outline; a tap on another row moves the pick (one settles as the other rises) | `quick` | Cut | exists |
+| A vote pick has a vibration | A tick each time the pick moves (day only; decided 22 Nov 2026) | `tick` | The vibration still fires | pass 4 |
 | First pick | "Pick a name" (outlined) becomes the one amber "Lock in {name}" | `press` | Cut | exists |
 | "Lock in {name}" tapped | The label lands like a stamp (scale 1.12 to 1) and reads "Locked"; the other rows dim to 40%; your pick stays lifted. A light vibration on the tap. Today a label change and the dim | `land` over `quick`, `light` | Cut | pass 4 |
 | A tap on a dimmed row | Nothing moves, nothing sounds | none | Same | exists |
 | Others lock | The pips count up, with no names and no vibration | none | Same | exists |
-| Vote ends to the count | Pass 1 names this a dusk and dawn moment (open question 4) | `scene` | Cut | pass 1 |
+| Vote ends to the count | Day to day: no wipe, a plain crossfade; the count's own moment follows (decided 22 Nov 2026) | `settle` | Cut | exists |
 
 ### The count (10)
 
@@ -198,7 +212,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| The winner arrives | The band for the win (village, Werewolves, Tanner each their own); the winners' cards lift, the losers dim; "You won." or "You lost." No vibration until the owner says | `settle`, `quick` | Cut | pass 5 |
+| The winner arrives | The band for the win (village, Werewolves, Tanner each their own); the winners' cards lift, the losers dim; "You won." or "You lost." One light vibration as the result lands (decided 22 Nov 2026) | `settle`, `quick`, `light` | The vibration still fires | pass 5 |
 | Every card, then the night | Dealt to final, "Won" or "Died"; then the red line, then the steps landing 150 ms apart from 12 px to the side; a tap finishes them | `stagger`, `settle` | Cut | exists |
 | Tap the red line | The steps fold away or open again (the fold is a cut; opening lands the steps again) | `stagger` | Cut | exists |
 
@@ -214,9 +228,10 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
 | Press, amber button | The shadow collapses to 20% and the paper sinks by its offset; back on release | `press` | Cut | exists |
-| Press, outlined button | A hairline fill while down. It does not sink yet; make it sink like the amber one | `press` | Fill only | pass 8 |
+| Press, outlined button | A hairline fill while down. It does not sink yet; make it sink like the amber one, which already does (#28's pass 8 is to bring every other pressable to that feel) | `press` | Fill only | pass 8 |
 | Press, quiet word | Dims to 40% while down | `press` | Same | exists |
-| Press, any other tappable (chips, pace tiles, deck cards, panels) | Today nothing until the tap ends. Dip 2 px the frame it lands | `press` | Colour only | no pass |
+| Press, any other tappable (chips, pace tiles, deck cards, panels, quiet words) | Today nothing until the tap ends (quiet words only dim). Dip 2 px the frame it lands | `press` | Colour only | pass 8 |
+| Tap target size | Chips and the quiet "Leave" word are 44 px; they become 48 px wherever the layout holds at 320 wide. One that cannot fit stays 44 and is named in the pass (decided 22 Nov 2026) | none | Same | pass 8 |
 | Release, or slide off | It comes back; sliding off cancels with no commit and no other sign; a scroll that starts on it cancels too | `press` | Same | exists |
 | A disabled tap ("Pick a name", "Need 3 players") | Today nothing. The button dips and returns, no colour change, no shake, no vibration; its words say what is missing | `press` | Colour only | pass 8 |
 | Request in flight | A spinner beside the label; taps ignored | none | Same | exists |
@@ -232,7 +247,11 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | A role sheet (03b) | Hold a portrait: the sheet rises over the scrim, closes with "Close" or a tap outside. It is Flutter's own sheet motion, not a token | framework | Framework | exists |
 | Any other change of screen | A crossfade, input live on the new screen from frame one | `settle` | Cut | exists |
 | Progress pips advance | The pip fills, a small settle. Today a cut | `quick` | Cut | no pass |
-| Reduce motion, small tweens | Buttons, rows, chips, card lifts and dims still move under reduce motion today. They should cut | the helper | Cut | pass 1 |
+| Reduce motion: button press | The press sinks and returns over 90 ms although reduce motion is on. It should cut | the helper | Cut | pass 8 |
+| Reduce motion: quiet word and chip | The quiet word's dim and a chip's lift and outline still tween. They should cut | the helper | Cut | pass 8 |
+| Reduce motion: vote row | The row's lift, dim and padding still tween. They should cut | the helper | Cut | pass 4 |
+| Reduce motion: night card lift | A card's 8 px lift still tweens. It should cut | the helper | Cut | pass 2 |
+| Reduce motion: deck role card dim | The portrait's dim still fades. It should cut | the helper | Cut | no pass |
 
 ## 5. How to judge it
 
@@ -255,29 +274,15 @@ frontend rules say; the owner sees them before the pass merges.
 5. Night: no vibration, no sound, same layout and motion on every role's phone; faces held above
    the thumb are cut in and out, never faded half-seen.
 6. Vibration: only the three names, only where section 3 allows, always with a visible change.
-7. Usability held: targets (44 px at least today; see question 6), 16 and 14 px floors, contrast,
+7. Usability held: targets (48 px, 44 only where named in the pass), 16 and 14 px floors, contrast,
    taps to act, and every name whole at 10 players and 320 wide.
 8. One look: original Shadow paper art, no recolour or filter; new art shown to the owner.
 9. The row for the moment in section 4 is updated in the same change (status, timings).
 
-## 6. Open questions
+## 6. Open question
 
-For the owner or the coordinator. Where they touch the spec, the spec is followed until answered.
+For the owner. Everything else raised while writing this page was decided on 22 November 2026 and
+sits in the body above.
 
-1. "Ready" in #28 pass 4: the only Ready on a day screen is 08 "Ready to vote". 04 "Ready" is in
-   the night phase, so it gets no vibration. Right?
-2. Is 11 Results a day screen for vibration? It is on the night ground but after the night.
-   None for now.
-3. Is `thud` (medium) for the dead card too strong for "light"? The other option is `light`
-   for all three.
-4. #28 pass 1 lists vote to count as a dusk and dawn wipe, but both are day screens. Which scene,
-   or a plain crossfade? (This page also assumes night to night, 04 to 06, is a plain crossfade.)
-5. Design brief section 7 says no vibration may reveal who acted. A vote-lock vibration fires on
-   the locking phone only. This page reads section 7 as night only (it cites rule 3, "Nobody
-   stands out at night"). Confirm.
-6. #28 pass 8 says targets of 48 px at least. Today chips and the quiet "Leave" word are 44, the
-   outlined button 48. Raise them to 48?
-7. Is the 1.2 s held beat before the dead card turns acceptable under "no added waits"? Any tap
-   skips it and nothing is locked behind it. Keep it?
-8. Add `tick` on every vote pick, and any sound? None of either is asked for; this page has
-   neither.
+1. Should the game ever make a sound? Today it makes none, and this page assumes none. Say so if
+   you want some, for example a soft knock when the dead card turns over.
