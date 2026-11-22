@@ -7,7 +7,7 @@
 #
 # BRANCH PROTECTION SETUP (T036):
 # Configure in GitHub Settings → Branches → main → Require status checks:
-#   Required checks: "Analyze and Format", "Widget Tests", "Golden Tests", "Integration Tests"
+#   Required checks: "Analyze and Format", "Widget Tests", "Golden Tests", "Integration Tests", "End-to-end Harness"
 # Each job is a separate required check so any single failure blocks the merge.
 #
 # GOLDEN BASELINES:
@@ -277,6 +277,76 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: integration-test-screenshots
+          path: frontend/integration_test/screenshots/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ─── End-to-end harness ────────────────────────────────────────────────────
+  # The real app against a real backend: `just test-harness` (the same recipe
+  # as local; it boots the backend on a free port and runs the e2e suites
+  # headless on the Dart VM, no browser). Neither the commit gate nor the other
+  # jobs run it, so a change to words or screens is only checked here.
+  harness:
+    name: End-to-end Harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    # Read by config/settings/harness.py (the harness-serve recipe creates its
+    # own throwaway database; the postgres superuser is enough).
+    env:
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: localhost
+      DB_PORT: "5432"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: "stable"
+          cache: true
+          cache-key: flutter-3.38.10-${{ runner.os }}
+
+      - name: Install backend dependencies
+        run: just install
+
+      - name: Install frontend dependencies
+        run: flutter pub get
+        working-directory: frontend
+
+      - name: Harness
+        run: just test-harness
+
+      - name: Upload failures and filmstrips
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-filmstrips
           path: frontend/integration_test/screenshots/
           retention-days: 7
           if-no-files-found: ignore
