@@ -13,6 +13,7 @@ import '../../../design_system/primitives/notice.dart';
 import '../../../design_system/primitives/primary_button.dart';
 import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
+import '../../../design_system/primitives/waiting_sign.dart';
 import '../../../design_system/primitives/skin_field.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
@@ -105,14 +106,17 @@ class JoinScreen extends ConsumerWidget {
   }
 }
 
-/// The app opening while this device's saved account is read back: 01's
-/// village and title, so it reads as the game opening, and "One moment"
-/// under them once a try got no answer (it is made again by itself). No
-/// field and no button: nothing here can make a second account.
+/// The app opening: this device's saved account read back, then where this
+/// player sits. 01's village and title, so it reads as the game opening,
+/// and under them the one waiting body ([Waiting]): the lanterns, "The
+/// village is waking." when it is slow, "One moment" once a try got no
+/// answer (it is made again by itself; [onRetry] makes it now). No field
+/// and no button: nothing here can make a second account.
 class OpeningWait extends StatelessWidget {
-  const OpeningWait({super.key, this.unanswered = false});
+  const OpeningWait({super.key, this.unanswered = false, this.onRetry});
 
   final bool unanswered;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -127,9 +131,14 @@ class OpeningWait extends StatelessWidget {
         children: [
           Semantics(
             header: true,
-            child: FitLine(JoinCopy.title, style: skin.typography.heroTitle),
+            child: FitLine(
+              JoinCopy.title,
+              style: skin.typography.heroTitle.copyWith(
+                fontSize: Sizes.joinTitle,
+              ),
+            ),
           ),
-          if (unanswered) const Notice(message: BannerCopy.offline),
+          Waiting(failing: unanswered, onRetry: onRetry),
         ],
       ),
     );
@@ -272,7 +281,7 @@ class _JoinViewState extends State<JoinView> {
                 header: true,
                 child: FitLine(
                   JoinCopy.title,
-                  style: type.heroTitle.copyWith(fontSize: 42),
+                  style: type.heroTitle.copyWith(fontSize: Sizes.joinTitle),
                 ),
               ),
               SkinField.paper(
@@ -339,6 +348,7 @@ class _JoinViewState extends State<JoinView> {
                   ),
                 SecondaryButton(
                   label: JoinCopy.startTable,
+                  busy: busy == JoinWay.start,
                   onPressed: idle && _named
                       ? () => widget.onStart(_typedName)
                       : null,

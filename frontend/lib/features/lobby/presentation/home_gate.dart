@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/router/back_policy.dart';
-import '../../../design_system/primitives/screen_frame.dart';
-import '../../../design_system/skin/ground.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../game/domain/screen_table.dart' show backRuleFor;
@@ -57,7 +55,10 @@ class HomeGate extends ConsumerWidget {
       AuthInitial(:final unanswered) => (
         BackRule.leavesApp,
         'opening',
-        OpeningWait(unanswered: unanswered),
+        OpeningWait(
+          unanswered: unanswered,
+          onRetry: () => ref.invalidate(authProvider),
+        ),
       ),
       AuthLoading() => (BackRule.leavesApp, 'opening', const OpeningWait()),
       AuthAuthenticated() when link != null => switch (ref.watch(
@@ -78,11 +79,15 @@ class HomeGate extends ConsumerWidget {
           'join',
           JoinScreen(code: link),
         ),
-        // Not known yet: nothing to tap until it is; Back leaves, as on 01.
-        _ => (
+        // Not known yet: the opening, as before; nothing to tap until it is;
+        // Back leaves, as on 01.
+        final table => (
           BackRule.leavesApp,
           'opening',
-          const ScreenFrame(ground: GroundKind.night, body: SizedBox.shrink()),
+          OpeningWait(
+            unanswered: table.hasError,
+            onRetry: () => ref.invalidate(myTableProvider),
+          ),
         ),
       },
       AuthAuthenticated() => _shell(ref),

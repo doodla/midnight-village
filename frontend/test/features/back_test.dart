@@ -233,8 +233,9 @@ void main() {
         authState: const AuthState.initial(),
       );
       expect(find.byType(OpeningWait), findsOneWidget);
-      await _back(tester);
-      expect(platform.left, isTrue);
+      // The wait's lanterns turn, so the app is never still here.
+      await _press(tester);
+      await _until(tester, () => platform.left);
       await setup.close(tester);
     });
 
@@ -248,8 +249,8 @@ void main() {
         before: (s) => table = s.http.hold(method: 'GET', path: '/me/table/'),
       );
       expect(find.text(JoinCopy.join), findsNothing);
-      await _back(tester);
-      expect(platform.left, isTrue);
+      await _press(tester);
+      await _until(tester, () => platform.left);
       table.releaseAll();
       await setup.close(tester);
     });

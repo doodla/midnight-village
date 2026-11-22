@@ -5,24 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/logging/app_logger.dart';
 import '../../../../core/wakelock/wakelock_service.dart';
-import '../../../../core/websocket/websocket_channel.dart';
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
-import '../../../../design_system/primitives/band.dart';
-import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/scene_switcher.dart';
-import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/skin/art_set.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/ground_scope.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../../lobby/presentation/at_table_screen.dart';
 import '../../../lobby/presentation/deck_screen.dart';
+import '../../../lobby/presentation/join_flow.dart';
 import '../../../lobby/presentation/join_screen.dart';
+import '../../../lobby/presentation/where_am_i_provider.dart';
 import '../../domain/game_me.dart' show GamePhase;
 import '../../domain/screen_table.dart';
-import '../game_socket.dart';
 import '../live_game.dart';
 import '../table_screen.dart';
 import 'count_screen.dart';
@@ -30,6 +27,7 @@ import 'night_screen.dart';
 import 'results_screen.dart';
 import 'talk_screen.dart';
 import 'vote_screen.dart';
+import 'waits.dart';
 import 'your_card_screen.dart';
 
 /// The app's one place for a table: it shows exactly the screen
@@ -40,17 +38,20 @@ import 'your_card_screen.dart';
 ///
 /// - 01 Join, 02 Table, 03 Deck (`features/lobby`), 04 Your card, the
 ///   night board (06, 05 while `/me/` loads), 08 Talk, 09 Vote, 10 The count
-///   and 11 Results (their calm wait while the results load). 08 and 09
-///   show their day ground, nothing on it, while their `/me/` loads.
+///   and 11 Results (their calm wait while the results load). While a
+///   game screen's `/me/` loads it shows that screen's own frame with the
+///   one waiting body in it (`waits.dart`, [Waiting]): never a bare ground.
 /// - A change of screen fades quickly ([Motion.settle]); two changes are a
 ///   scene the whole table shares ([Motion.scene], `SceneSwitcher`): the
 ///   deal to the night (dusk) and the night to the talk (dawn). With reduce
 ///   motion it is instant. The screen arriving takes touches from the first
 ///   frame; nothing waits for any of it.
-/// - While nothing is known yet (the first `/me/table/`), the night ground
-///   and nothing on it; "One moment" when that fetch fails (it is retried
-///   until it succeeds), and while the game's socket is down and its
-///   fetches fail too.
+/// - While nothing is known yet (the first `/me/table/`), the opening, as
+///   it was while the saved account was read back (`OpeningWait`); "One
+///   moment" with "Try again" when that fetch fails (it is retried until it
+///   succeeds). Over a screen that is shown, "One moment" whenever the
+///   fetches that keep it true fail (the socket down or not); the seat and
+///   the screen stay.
 /// - The screen is kept awake while the shell is shown.
 class TableShell extends ConsumerStatefulWidget {
   const TableShell({super.key});
@@ -114,6 +115,14 @@ class _TableShellState extends ConsumerState<TableShell>
   @override
   Widget build(BuildContext context) {
     final at = ref.watch(tableScreenProvider);
+    // 01's last failure ("Not sent.", a refusal) belongs to 01: once the
+    // phone is anywhere else, it is gone, so it can never show up later,
+    // after a Leave, as a failure of something that worked.
+    ref.listen(tableScreenProvider.select((a) => a.value?.screen), (_, next) {
+      if (next != null && next != AppScreen.join) {
+        ref.read(joinFlowProvider.notifier).clearBanner();
+      }
+    });
     final shown = at.value;
     switch (shown?.screen) {
       case AppScreen.table || AppScreen.deck:
@@ -131,18 +140,33 @@ class _TableShellState extends ConsumerState<TableShell>
         ? null
         : ref.watch(liveGameProvider(gameId));
     final game = gameAsync?.value;
+    // The wait for a game's first `/me/`: failing is told in the wait's own
+    // frame, with "Try again" to read it now.
+    final failing = gameAsync?.hasError ?? false;
+    void readNow() {
+      if (gameId != null) {
+        unawaited(ref.read(liveGameProvider(gameId).notifier).refresh());
+      }
+    }
+
     final (key, screen) = switch (shown) {
-      null => ('nothing', const _Nothing()),
-      _ => _screen(shown, game),
+      // Nothing known yet (the first `/me/table/`): the opening, as it was
+      // while the saved account was read back, so the app opens in one
+      // place until it knows where the player is.
+      null => (
+        'opening',
+        OpeningWait(
+          unanswered: at.hasError,
+          onRetry: () => ref.invalidate(myTableProvider),
+        ),
+      ),
+      _ => _screen(shown, game, failing: failing, onRetry: readNow),
     };
-    // Offline: nothing fetched yet and the fetch fails, or the socket is
-    // down and the fetches fail too (a socket refused while fetches work
-    // changes nothing on the screen).
-    final offline =
-        (shown == null && at.hasError) ||
-        (gameId != null &&
-            _socketDown(ref, gameId) &&
-            (game?.fetchFailing ?? false));
+    // Offline: a screen is shown and the fetches that keep it true fail (a
+    // socket refused while fetches work changes nothing on the screen, and
+    // a fetch that fails with the socket up is no less a phone the server
+    // cannot reach). The waits above say it in their own frame.
+    final offline = shown != null && (game?.fetchFailing ?? false);
     return Stack(
       children: [
         Positioned.fill(
@@ -158,7 +182,12 @@ class _TableShellState extends ConsumerState<TableShell>
   }
 
   /// The screen for [shown], and the key that says when it is another one.
-  (String, Widget) _screen(TableScreen shown, LiveGame? game) {
+  (String, Widget) _screen(
+    TableScreen shown,
+    LiveGame? game, {
+    required bool failing,
+    required VoidCallback onRetry,
+  }) {
     final gameId = shown.gameId;
     // The player too: a `/debug` perspective switch is another phone, and
     // nothing of one player's screen (a reveal, picks) carries to the next.
@@ -188,7 +217,7 @@ class _TableShellState extends ConsumerState<TableShell>
           when night == null &&
               gameId != null &&
               (shown.screen == AppScreen.yourCard || _dealt) =>
-        ('$key|wait', const _CardWaits()),
+        ('$key|wait', CardWait(failing: failing, onRetry: onRetry)),
       AppScreen.yourCard || AppScreen.nightBoard when gameId != null => (
         // 05 and the board fade into each other too.
         '$key|${_boardOpen(night) ? 'board' : 'wait'}',
@@ -202,21 +231,30 @@ class _TableShellState extends ConsumerState<TableShell>
         key,
         VoteScreen(game: vote, gameId: gameId!),
       ),
+      // The results being read are one wait, however many answers (`/me/`,
+      // then the results) come before them: one key, so the wait is not
+      // crossfaded into itself (its sign would blink).
       AppScreen.count when gameId != null => (
-        key,
+        end?.outcome == null ? '${shown.screen.name}|$gameId|wait' : key,
         CountScreen(gameId: gameId, game: end),
       ),
       AppScreen.results when gameId != null => (
-        key,
+        end?.outcome == null ? '${shown.screen.name}|$gameId|wait' : key,
         ResultsScreen(gameId: gameId, game: end),
       ),
       // 08 while its `/me/` loads: its own frame, the layered dawn and the
       // headline, so the day breaks on the screen it belongs to.
-      AppScreen.talk => ('$key|wait', const _TalkWaits()),
-      // 09 while its `/me/` loads (and a game screen with no game, which the
-      // screen table never names): the screen's ground, nothing on it.
-      AppScreen.vote => (key, const _Nothing(day: true)),
-      _ => (key, const _Nothing()),
+      AppScreen.talk => (
+        '$key|wait',
+        TalkWait(failing: failing, onRetry: onRetry),
+      ),
+      // 09 while its `/me/` loads: its own frame, the band and the headline.
+      AppScreen.vote => (
+        '$key|wait',
+        VoteWait(failing: failing, onRetry: onRetry),
+      ),
+      // A game screen with no game, which the screen table never names.
+      _ => (key, GameWait(failing: failing, onRetry: onRetry)),
     };
   }
 
@@ -224,13 +262,6 @@ class _TableShellState extends ConsumerState<TableShell>
     final me = game?.me;
     return me != null && me.inWindow && me.prompt != null;
   }
-
-  static bool _socketDown(WidgetRef ref, String gameId) =>
-      switch (ref.watch(gameConnectionStateProvider(gameId)).value) {
-        WebSocketConnectionState.disconnected ||
-        WebSocketConnectionState.reconnecting => true,
-        _ => false,
-      };
 }
 
 /// Which screen the shell shows: its key (it changes with the screen, the
@@ -252,85 +283,41 @@ SceneKind? _sceneBetween(_Stage from, _Stage to) =>
       _ => null,
     };
 
-/// Before the first answer: the night's (or the day's) ground, nothing on
-/// it.
-class _Nothing extends StatelessWidget {
-  const _Nothing({this.day = false});
-
-  final bool day;
-
-  @override
-  Widget build(BuildContext context) => ScreenFrame(
-    ground: day ? GroundKind.day : GroundKind.night,
-    body: const SizedBox.shrink(),
-  );
-}
-
-/// 04 while its `/me/` loads: the frame the card is laid in, nothing in it
-/// but the headline.
-class _CardWaits extends StatelessWidget {
-  const _CardWaits();
-
-  @override
-  Widget build(BuildContext context) => ScreenFrame(
-    ground: GroundKind.night,
-    topScene: LayeredSceneId.nightVillage,
-    topArtLayout: TopArtLayout.backdrop,
-    fitsHeight: true,
-    body: Align(
-      alignment: Alignment.centerLeft,
-      child: Semantics(
-        header: true,
-        child: FitLine(
-          CardCopy.headline,
-          style: context.skin.typography.screenTitle,
-        ),
-      ),
-    ),
-  );
-}
-
-/// 08 while its `/me/` loads: the frame the talk is laid in, the sky with its
-/// dotted path and the headline, no number yet and no sun: where the talk is
-/// is not known until `/me/` says, and a sun drawn at the start would leave
-/// as the real one arrived (a player who opens the app mid-talk).
-class _TalkWaits extends StatelessWidget {
-  const _TalkWaits();
-
-  @override
-  Widget build(BuildContext context) => ScreenFrame(
-    ground: GroundKind.day,
-    topSlot: const TimerBand.sun(
-      secondsLeft: null,
-      elapsed: null,
-      showSun: false,
-      title: TalkCopy.headline,
-    ),
-    fitsHeight: true,
-    minBodyHeight: TalkView.minBody,
-    body: const SizedBox.shrink(),
-  );
-}
-
-/// "One moment", over the top of whatever is shown: this phone is offline.
-/// Nothing else changes; the screen heals by itself when it is back.
+/// "One moment", over the top of whatever is shown: this phone cannot reach
+/// the server. The seat and the screen stay as they are, nothing else
+/// changes; the screen heals by itself when it is back. It settles in from
+/// 8 px above over [Motion.settle] (a cut with reduce motion).
 class _OfflineBanner extends StatelessWidget {
   const _OfflineBanner();
+
+  static const _from = 8.0;
 
   @override
   Widget build(BuildContext context) => Positioned(
     top: MediaQuery.paddingOf(context).top + Space.sm,
     left: Space.gutter,
     right: Space.gutter,
-    child: GroundScope(
-      ground: GroundKind.night,
-      child: Builder(
-        builder: (context) => DecoratedBox(
-          decoration: BoxDecoration(
-            color: context.ground.ground,
-            borderRadius: BorderRadius.circular(context.skin.shape.radius),
+    child: TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Motion.within(context, Motion.settle),
+      curve: Motion.curve,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, -_from * (1 - t)),
+          child: child,
+        ),
+      ),
+      child: GroundScope(
+        ground: GroundKind.night,
+        child: Builder(
+          builder: (context) => DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.ground.ground,
+              borderRadius: BorderRadius.circular(context.skin.shape.radius),
+            ),
+            child: const Notice(message: BannerCopy.offline),
           ),
-          child: const Notice(message: BannerCopy.offline),
         ),
       ),
     ),
