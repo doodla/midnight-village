@@ -29,6 +29,7 @@ These specs cover the 12 roles targeted for initial implementation.
 |----------|----------|
 | [series-catalog.md](series-catalog.md) | Complete catalog of all One Night games (Werewolf, Daybreak, Vampire, Alien, Super Villains, Bonus Roles, Epic Battle) |
 | [recommended-setups.md](recommended-setups.md) | Curated role combinations by player count |
+| [solo-play-proposal.md](solo-play-proposal.md) | Proposal, not built: trying the game alone (practice players, or every seat on one phone) |
 
 ## Implementation Status
 
