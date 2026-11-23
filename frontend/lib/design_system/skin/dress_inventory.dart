@@ -390,7 +390,14 @@ const inventory = <PartEntry>[
     'primitives/sliced_art.dart',
     plain: 'the banner\'s words alone; no frame (the child as it is), no roof',
     paper:
-        'a swallowtail banner of cut paper (bone, or red when you lost) that stretches with its words, ends never distorted; a nine-slice frame of planks about 19 thick round felt with grain; a three-slice roof',
+        'a swallowtail banner of cut paper (bone, or red when the Werewolf team or the Tanner won) that stretches with its words, ends never distorted; a nine-slice frame of planks about 19 thick round felt with grain; a three-slice roof',
+  ),
+  PartEntry(
+    'BoardCard / DealtCard / BoardLight / BoardFoot',
+    'primitives/board_pieces.dart',
+    plain: 'a card is its words alone; the rest draw nothing',
+    paper:
+        'a player\'s card pinned on the board: bone paper for a winner, dull for a loser (portrait darkened and drained), the Werewolf team\'s red, a name header, a 4:3 portrait with the role on a strip across its foot, a little darker the further it is from the lantern, its shadow away from it and bigger when raised; the small older sepia card tucked behind its corner; the lantern\'s warm pool on the living winners (screen blend) with the two darkenings; the cobbles with a torn lip and a shadow thrown up onto the board',
   ),
   PartEntry(
     'EndLantern',

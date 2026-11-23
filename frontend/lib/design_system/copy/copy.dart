@@ -495,3 +495,58 @@ abstract final class SpokenCopy {
   static const higher = 'Higher';
   static const takeOut = Template('Take one {role} out');
 }
+
+/// The end board (the end-of-game screen that replaces 10 The count and 11
+/// Results): the banner's two sentences, the foot's words, and the labels.
+/// The names are the players', never cut.
+abstract final class EndCopy {
+  /// Line 1: who was hanged.
+  static const nobodyHanged = 'No one hanged.';
+  static const hanged = Template('{names} hanged.');
+
+  /// With the Hunter: the vote's dead, then the player the Hunter took.
+  static const hangedToo = Template('{names} hanged, {chosen} too.');
+
+  /// "Ana, Ben" and "Cleo": the names of a list.
+  static const andThen = Template('{first} and {last}');
+
+  /// A number in place of the names, when the names will not fit.
+  static const hangedCount = Template('{n} hanged.');
+
+  /// Line 2 when you won.
+  static const youWinVillage = 'You and the village win.';
+  static const youWinWerewolves = 'You and the Werewolves win.';
+  static const youWinAlone = 'You win alone.';
+
+  /// Line 2 when you lost.
+  static const youLoseVillage = 'You lose to the village.';
+  static const youLoseWerewolves = 'You lose to the Werewolves.';
+  static const youLoseTanner = 'The Tanner wins. You lose.';
+
+  /// Line 2 when nobody won.
+  static const nobodyWins = 'Nobody wins.';
+
+  /// Line 2 shortened, when the sentence will not fit three lines.
+  static const youWinShort = 'You win.';
+  static const youLoseShort = 'You lose.';
+
+  /// The foot.
+  static const whatHappened = 'What happened';
+  static const editDeck = ResultsCopy.editDeck;
+  static const playAgain = ResultsCopy.playAgain;
+  static const leave = CommonCopy.leave;
+  static const hostDealsNext = ResultsCopy.hostDealsNext;
+
+  /// The slip the Hunter's pick hangs on.
+  static const picked = Template("{hunter}'s pick");
+
+  /// What a screen reader says for a card and the middle.
+  static const cardYou = Template('{name}, you.');
+  static const cardPicked = Template("{name}, {hunter}'s pick.");
+  static const wasRole = Template('{now}, was {dealt}.');
+  static const hangedWord = 'Hanged.';
+  static const diedWord = 'Died.';
+  static const wonWord = 'Won.';
+  static const votes = Template('Votes: {names}.');
+  static const middle = Template('Middle cards: {roles}.');
+}

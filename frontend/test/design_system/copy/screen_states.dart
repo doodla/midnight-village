@@ -498,7 +498,58 @@ final screens = <String, Screen>{
         },
     },
   ),
+  // The end board: the banner's two sentences (the whole line one and line
+  // two of each outcome), the foot, and the slip of the Hunter's pick. The
+  // names on cards, tags and strips are the players' and the roles', not
+  // words.
+  '12 End board': (
+    budget: 16,
+    states: {
+      for (final you in _endYouLines) ...{
+        'host, $you': [
+          text(EndCopy.hangedToo),
+          headline(you),
+          text(EndCopy.picked),
+          button(EndCopy.whatHappened),
+          button(EndCopy.editDeck),
+          button(EndCopy.playAgain),
+        ],
+        'guest, $you': [
+          text(EndCopy.hangedToo),
+          headline(you),
+          text(EndCopy.picked),
+          button(EndCopy.whatHappened),
+          text(EndCopy.hostDealsNext),
+          button(EndCopy.leave),
+        ],
+      },
+      'nobody hanged, count form': [
+        text(EndCopy.nobodyHanged),
+        text(EndCopy.hangedCount),
+        text(EndCopy.youWinShort),
+        headline(EndCopy.youLoseShort),
+        button(EndCopy.whatHappened),
+        button(EndCopy.editDeck),
+        button(EndCopy.playAgain),
+      ],
+      'one hanged, two hanged': [
+        text(EndCopy.hanged),
+        text(EndCopy.andThen),
+        headline(EndCopy.youWinShort),
+      ],
+    },
+  ),
 };
+
+const _endYouLines = [
+  EndCopy.youWinVillage,
+  EndCopy.youWinWerewolves,
+  EndCopy.youWinAlone,
+  EndCopy.youLoseVillage,
+  EndCopy.youLoseWerewolves,
+  EndCopy.youLoseTanner,
+  EndCopy.nobodyWins,
+];
 
 /// The dead players' cards on 10, every one moved: "Now" and "Dealt" are
 /// said on the first card only (the others show the same arrow), and each
@@ -566,6 +617,15 @@ final banners = <(String, String?)>[
 
 /// Everything a screen reader says that no screen shows.
 final spoken = [
+  // The end board's cards and middle, said by the screen reader.
+  EndCopy.cardYou,
+  EndCopy.cardPicked,
+  EndCopy.wasRole,
+  EndCopy.hangedWord,
+  EndCopy.diedWord,
+  EndCopy.wonWord,
+  EndCopy.votes,
+  EndCopy.middle,
   SpokenCopy.hidden,
   SpokenCopy.working,
   SpokenCopy.pickFirst,

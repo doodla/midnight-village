@@ -2,7 +2,9 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderCustomPaint;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/twine.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
@@ -219,6 +221,10 @@ void main() {
             .firstOrNull;
         if (paint == null || !isRed(paint.color)) continue;
         if (paint.color.toARGB32() == 0xA0B71C1C) continue; // the banner
+        // The one other red there is: the thread of a `Twine(werewolf: true)`,
+        // and nothing wider (a painter of another kind, or a thread of another
+        // red, is still found).
+        if (_isWerewolfTwine(owner)) continue;
         final creator = owner.debugCreator;
         final teamTag =
             creator is DebugCreator && underTeamTag(creator.element);
@@ -536,4 +542,12 @@ List<String> _hairlines(WidgetTester tester) {
     if (thin <= 2 && long >= 24) out.add('${w.runtimeType} $s');
   }
   return out;
+}
+
+/// A paint owned by a `TwinePainter` whose thread is the Werewolf team's red.
+bool _isWerewolfTwine(RenderObject owner) {
+  if (owner is! RenderCustomPaint) return false;
+  final painter = owner.painter;
+  return painter is TwinePainter &&
+      painter.color == skinsUnderTest.values.first.parts.werewolfTag;
 }
