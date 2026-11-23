@@ -92,22 +92,15 @@ final editedNights = <String, Map<String, dynamic> Function()>{
   // The server records a skip for a Seer whose window timed out
   // (night_window.py, `_timeout_action_type`): the very entry of a Seer who
   // chose nothing.
-  'seer-timed-out': () =>
-      _game7('Seer', [_entry('me_discussion_choose_seer_nothing_chosen', 0)]),
+  'seer-timed-out': () => recordedMe('me_discussion_choose_seer_timed_out'),
   'insomniac-changed': () => _game8('Insomniac', [
     _entry('me_discussion_choose_insomniac', 0)
       ..['revealed_info'] = {'current_role': 'Seer'},
   ]),
-  'minion-none': () => _game8('Minion', [
-    _entry('me_discussion_choose_minion', 0)
-      ..['revealed_info'] = {'teammate_names': [], 'role_acting_as': 'Minion'},
-  ]),
-  'mason-alone': () => _game8('Mason', [
-    _entry('me_discussion_choose_mason', 0)
-      ..['revealed_info'] = {'teammate_names': [], 'role_acting_as': 'Mason'},
-  ]),
-  'hunter': () => _game8('Hunter', []),
-  'tanner': () => _game8('Tanner', []),
+  'minion-none': () => recordedMe('me_discussion_choose_minion_no_werewolves'),
+  'mason-alone': () => recordedMe('me_discussion_choose_mason_lone'),
+  'hunter': () => recordedMe('me_discussion_choose_hunter'),
+  'tanner': () => recordedMe('me_discussion_choose_tanner'),
   'doppelganger-troublemaker': () => _game8('Doppelganger', [
     _copy('Gus', 'Troublemaker'),
     _night(1, 'swap_others', {'player1_name': 'Ben', 'player2_name': 'Cleo'}),
@@ -131,9 +124,8 @@ final editedNights = <String, Map<String, dynamic> Function()>{
   ]),
   'doppelganger-villager': () =>
       _game8('Doppelganger', [_copy('Fin', 'Villager')]),
-  'doppelganger-nothing': () => _game8('Doppelganger', [
-    _entry('me_discussion_choose_seer_nothing_chosen', 0)..['wave'] = 1,
-  ]),
+  'doppelganger-nothing': () =>
+      recordedMe('me_discussion_choose_doppelganger_look_timed_out'),
 };
 
 /// The fourteen stories of the mock (round 3), by its frame's name, as the
