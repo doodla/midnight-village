@@ -35,14 +35,6 @@ from .engine.validation import (
 
 NOT_WAITING = "Lobby is not in waiting state."
 
-# ``night_protocol: 2``, written for the code BEFORE the cleanup, which still serves
-# for a moment while a deploy is promoted: it reads a table or game without it as the
-# old night (a refused look, a ready check at the deal, a ``/me/`` with no stage). This
-# code ignores the key. ``hooks.APP_DEFAULTS`` writes it on a new table and
-# ``dealt_settings`` on every dealt game. Stop writing it in a later push, once no
-# instance of the older code is left (``docs/dev/status.md``).
-OLD_CODE_NIGHT_FLAG: dict[str, Any] = {"night_protocol": 2}
-
 
 def _allow_untimed() -> bool:
     return getattr(django_settings, "ONUW_ALLOW_UNTIMED_NIGHT", False)
@@ -51,15 +43,10 @@ def _allow_untimed() -> bool:
 def dealt_settings(settings: Any) -> dict[str, Any]:
     """The settings a deal of a table with ``settings`` uses: stored timer values the
     server refuses today (a table older code wrote) clamped, so no stored table is
-    stuck (``engine.validation.clamp_night_timing``), and ``night_protocol: 2`` for
-    the code before the cleanup, which reads a game without it as the old night
-    while a deploy is promoted (``OLD_CODE_NIGHT_FLAG``; this code ignores it).
-    A new dict."""
+    stuck (``engine.validation.clamp_night_timing``). A ``night_protocol`` key an
+    older table still stores is carried along and ignored. A new dict."""
     base = settings if isinstance(settings, dict) else {}
-    return {
-        **clamp_night_timing(base, allow_untimed=_allow_untimed()),
-        **OLD_CODE_NIGHT_FLAG,
-    }
+    return dict(clamp_night_timing(base, allow_untimed=_allow_untimed()))
 
 
 def deal_refusal(lobby: Lobby, members: list[LobbyMember]) -> Any | None:
