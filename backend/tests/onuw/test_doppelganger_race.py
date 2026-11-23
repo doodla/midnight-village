@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from apps.onuw import services
+from apps.onuw import night_window
 from apps.onuw.models import Phase, PlayerRole
 
 pytestmark = pytest.mark.integration
@@ -61,7 +61,7 @@ class TestTheWindowClosesBeforeTheLookWasResolved:
             {"d": "Doppelganger", "dr": "Drunk", "w": "Werewolf", "v": "Villager"},
         )
         store_look_without_resolving(night, "d", "dr")
-        idx = services.drunk_timeout_center_index(42, night.users["d"].id, 3)
+        idx = night_window.drunk_timeout_center_index(42, night.users["d"].id, 3)
 
         self._close(night, closer)
 

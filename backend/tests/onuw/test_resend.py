@@ -34,7 +34,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core.models import LobbyMember
-from apps.onuw import choose_night, services
+from apps.onuw import choose_night, night_flow, night_window, voting
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night
@@ -159,14 +159,14 @@ def snapshot(night: Night) -> tuple:
 
 def to_talk(night: Night) -> None:
     with night.committed():
-        services.transition_to_discussion(Game.objects.get(id=night.game.id))
+        night_window.transition_to_discussion(Game.objects.get(id=night.game.id))
     night.refresh()
 
 
 def to_vote(night: Night) -> None:
     to_talk(night)
     with night.committed():
-        services.transition_to_voting(Game.objects.get(id=night.game.id))
+        voting.transition_to_voting(Game.objects.get(id=night.game.id))
     night.refresh()
     assert night.game.phase == Phase.VOTING
 
@@ -480,7 +480,7 @@ class TestOtherRequestsResent:
     def test_a_resent_look_ready_changes_nothing(self, make_p2) -> None:
         night = make_p2(LONE, card_look_seconds=30)
         with night.committed():
-            services.begin_night(night.game)
+            night_flow.begin_night(night.game)
         body = staged(night, {"ready": True})
         first = send(night, "seer", "onuw:ready", body)
         before = snapshot(night)
@@ -649,7 +649,7 @@ def _all_but_robber_chose(night: Night) -> None:
 
 def _look_stage(night: Night) -> None:
     with night.committed():
-        services.begin_night(night.game)
+        night_flow.begin_night(night.game)
 
 
 def _all_but_villager_looked(night: Night) -> None:
@@ -866,7 +866,7 @@ class TestTwiceIsOnce:
         # The server's Drunk default is seeded by the player id, which differs
         # between the two tables; tie it to the game seed so they are comparable.
         monkeypatch.setattr(
-            services, "drunk_timeout_center_index", lambda seed_, _pid, n: seed_ % n
+            night_window, "drunk_timeout_center_index", lambda seed_, _pid, n: seed_ % n
         )
         plain = _play_seeded_game(make_p2, seed, "a", resend=False)
         resent = _play_seeded_game(make_p2, seed, "b", resend=True)

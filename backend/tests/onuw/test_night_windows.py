@@ -36,7 +36,13 @@ from rest_framework.test import APIClient
 from apps.core import timers
 from apps.core.lobbies import add_member
 from apps.core.models import Lobby, User
-from apps.onuw import choose_night, night_results, services
+from apps.onuw import (
+    basics,
+    choose_night,
+    night_flow,
+    night_results,
+    night_window,
+)
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import staged
 
@@ -140,7 +146,7 @@ class Night:
 
     def start(self) -> None:
         with self.committed():
-            services.start_night_phase(self.game)
+            night_flow.start_night_phase(self.game)
         self.game.refresh_from_db()
 
     def chosen(self, name: str) -> int:
@@ -169,7 +175,7 @@ class Night:
         game = Game.objects.get(id=self.game.id)
         pr = PlayerRole.objects.get(game=game, user=self.users[name])
         return choose_night.turn_open(
-            services.build_game_state(game), pr, game.current_wave
+            basics.build_game_state(game), pr, game.current_wave
         )
 
     def post(
@@ -548,7 +554,7 @@ class TestMinimumWindowLength:
         night.game.refresh_from_db()
         night.game.night_window_opened_at = timezone.now()
 
-        assert 7 < services._min_close_delay(night.game) <= 8
+        assert 7 < night_window._min_close_delay(night.game) <= 8
 
     def test_close_is_deferred_when_everyone_chooses_early(self, make_night) -> None:
         night = make_night(
@@ -912,7 +918,7 @@ class TestDealtCardsDecideWhoWakes:
         assert night.prompt("w")["kind"] == "lone_werewolf"
         assert night.prompt("w")["role_acting_as"] == "Werewolf"
         assert night.prompt("d")["kind"] == "none"
-        assert sorted(services.get_wave_actors(night.game, 2)) == sorted(
+        assert sorted(night_window.get_wave_actors(night.game, 2)) == sorted(
             [night.users["w"].id, night.users["r"].id]
         )
 
@@ -1017,8 +1023,8 @@ class TestFixedDoppelgangerWindow:
         night = make_night({"a": "Villager", "b": "Villager", "c": "Villager"})
         night.game.settings = {}
 
-        assert services._fixed_window_seconds(night.game, 1) == 10
-        assert services._fixed_window_seconds(night.game, 2) == 0
+        assert night_window._fixed_window_seconds(night.game, 1) == 10
+        assert night_window._fixed_window_seconds(night.game, 2) == 0
 
     def test_deadline_announced_at_the_start_is_the_real_close_time(
         self, make_night
@@ -1185,7 +1191,7 @@ class TestSideEffectsWaitForCommit:
         night = make_night({"s": "Seer", "r": "Robber", "v": "Villager"})
 
         with django_capture_on_commit_callbacks(execute=False) as callbacks:
-            services.start_night_phase(night.game)
+            night_flow.start_night_phase(night.game)
 
         # The window is open in the database, but nobody was told yet and no
         # timer exists.
@@ -1209,7 +1215,7 @@ class TestSideEffectsWaitForCommit:
         sent_before = len(night.recorder.events)
 
         with django_capture_on_commit_callbacks(execute=False) as callbacks:
-            services.advance_wave(night.game)
+            night_flow.advance_wave(night.game)
 
         assert night.refresh().phase == Phase.DISCUSSION
         assert len(night.recorder.events) == sent_before  # nothing yet
@@ -1233,13 +1239,14 @@ class TestSideEffectsWaitForCommit:
         with (
             patch("apps.core.timers.cancel") as cancel,
             patch(
-                "apps.onuw.services.send_wave_prompts", side_effect=RuntimeError("boom")
+                "apps.onuw.night_window.send_wave_prompts",
+                side_effect=RuntimeError("boom"),
             ),
             django_capture_on_commit_callbacks(execute=True) as callbacks,
             pytest.raises(RuntimeError),
             transaction.atomic(),
         ):
-            services.advance_wave(night.game)
+            night_flow.advance_wave(night.game)
 
         # Rolled back: still window 1, no log, nothing sent, timer untouched.
         assert callbacks == []
@@ -1258,7 +1265,9 @@ class TestSideEffectsWaitForCommit:
         callback = night.scheduled[-1][2]
 
         with (
-            patch("apps.onuw.services.advance_wave", side_effect=RuntimeError("boom")),
+            patch(
+                "apps.onuw.night_flow.advance_wave", side_effect=RuntimeError("boom")
+            ),
             caplog.at_level(logging.ERROR, logger="apps.core.timers"),
         ):
             callback()  # must not raise inside the timer thread
@@ -1284,19 +1293,19 @@ class TestBadStoredTimerValues:
         night = make_night({"a": "Villager", "b": "Villager", "c": "Villager"})
         night.game.settings = {"night_wave_seconds": bad}
 
-        assert services.get_timer_seconds(night.game, "night_wave_seconds", 30) == 30
-        assert services.get_timer_seconds(night.game, "voting_seconds", 120) == 120
+        assert basics.get_timer_seconds(night.game, "night_wave_seconds", 30) == 30
+        assert basics.get_timer_seconds(night.game, "voting_seconds", 120) == 120
 
     def test_valid_values_are_used_and_a_non_object_row_falls_back(
         self, make_night
     ) -> None:
         night = make_night({"a": "Villager", "b": "Villager", "c": "Villager"})
         night.game.settings = {"night_wave_seconds": 0, "voting_seconds": 45}
-        assert services.get_timer_seconds(night.game, "night_wave_seconds", 30) == 0
-        assert services.get_timer_seconds(night.game, "voting_seconds", 120) == 45
+        assert basics.get_timer_seconds(night.game, "night_wave_seconds", 30) == 0
+        assert basics.get_timer_seconds(night.game, "voting_seconds", 120) == 45
 
         night.game.settings = ["not", "an", "object"]
-        assert services.get_timer_seconds(night.game, "voting_seconds", 120) == 120
+        assert basics.get_timer_seconds(night.game, "voting_seconds", 120) == 120
 
     def test_a_whole_night_runs_on_garbage_timer_settings(self, make_night) -> None:
         night = make_night(

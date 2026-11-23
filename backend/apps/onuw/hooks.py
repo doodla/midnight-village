@@ -10,9 +10,9 @@ from django.conf import settings as django_settings
 from apps.core.games import GameHooks
 
 from . import deal, presence
+from .basics import DEFAULT_DISCONNECT_GRACE_SECONDS
 from .engine.validation import seats_of, validate_onuw_settings
 from .models import Game, Phase, PlayerRole
-from .services import DEFAULT_DISCONNECT_GRACE_SECONDS
 
 # What a lobby made with ``defaults: "v2"`` (the app's name for its starting set)
 # starts with: a look at the cards and the automatic Simple deck. It writes no timer

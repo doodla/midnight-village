@@ -22,7 +22,7 @@ from django.conf import settings as django_settings
 from apps.core import host
 from apps.core.models import Lobby, LobbyMember
 
-from . import services
+from . import basics
 from .engine.decks import MIN_AUTO_PLAYERS, auto_deck
 from .engine.validation import (
     clamp_night_timing,
@@ -97,7 +97,7 @@ def lengths(settings: Any) -> dict[str, int]:
     table; the host handover's default is ``core.host``'s). So the set-up page
     shows what will run without the phone knowing a default."""
     now = running_lengths(dealt_settings(settings))
-    now["host_handover_seconds"] = services.get_timer_value(
+    now["host_handover_seconds"] = basics.get_timer_value(
         settings, "host_handover_seconds", host.DEFAULT_HOST_HANDOVER_SECONDS
     )
     return now

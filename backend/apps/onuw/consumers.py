@@ -182,16 +182,18 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
 
     @database_sync_to_async
     def _register_presence(self):
-        from . import services
+        from . import game_presence
 
-        if services.register_connection(self.game_id, self.user_id, self.channel_name):
+        if game_presence.register_connection(
+            self.game_id, self.user_id, self.channel_name
+        ):
             _host_presence(self.game_id, self.user_id, True)
 
     @database_sync_to_async
     def _unregister_presence(self):
-        from . import services
+        from . import game_presence
 
-        if services.unregister_connection(
+        if game_presence.unregister_connection(
             self.game_id, self.user_id, self.channel_name
         ):
             _host_presence(self.game_id, self.user_id, False)
@@ -210,9 +212,9 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
             )
 
     def _refresh_presence(self):
-        from . import services
+        from . import game_presence
 
-        return services.refresh_connection(
+        return game_presence.refresh_connection(
             self.game_id, self.user_id, self.channel_name
         )
 

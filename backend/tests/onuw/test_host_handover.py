@@ -24,7 +24,7 @@ from apps.core import host
 from apps.core import presence as core_presence
 from apps.core.consumers import LobbyConsumer
 from apps.core.models import Lobby, LobbyMember, LobbySocket, User
-from apps.onuw import presence, recovery, services
+from apps.onuw import game_presence, presence, recovery, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
 from apps.onuw.models import Game, Phase, PlayerRole
@@ -84,7 +84,7 @@ def lobby_socket_closes(night: Night, name: str, seconds_ago: float = 0) -> None
 
 def game_socket(night: Night, name: str) -> None:
     with night.committed():
-        if services.register_connection(night.game.id, uid(night, name)):
+        if game_presence.register_connection(night.game.id, uid(night, name)):
             services.report_game_presence(night.game.id, uid(night, name), True)
 
 
@@ -94,7 +94,7 @@ def game_socket_closes(night: Night, name: str, seconds_ago: float = 0) -> None:
     ).exists():
         game_socket(night, name)
     with night.committed():
-        if services.unregister_connection(night.game.id, uid(night, name)):
+        if game_presence.unregister_connection(night.game.id, uid(night, name)):
             services.report_game_presence(night.game.id, uid(night, name), False)
     if seconds_ago:
         PlayerRole.objects.filter(game=night.game, user=night.users[name]).update(

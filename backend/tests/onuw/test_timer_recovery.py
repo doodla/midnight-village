@@ -25,7 +25,7 @@ from django.utils import timezone
 import pytest
 
 from apps.core import timers
-from apps.onuw import presence, recovery, services
+from apps.onuw import game_presence, presence, recovery
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night, _Recorder
@@ -42,7 +42,7 @@ ROLES = {
 
 def connect_after_restart(night: Night, name: str) -> None:
     with night.committed():
-        services.register_connection(night.game.id, night.users[name].id)
+        game_presence.register_connection(night.game.id, night.users[name].id)
 
 
 def _restart(night: Night) -> None:
@@ -635,7 +635,7 @@ class TestPresenceIsNotResetOnRestart:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
         for name in ("seer", "wolf"):
-            services.register_connection(night.game.id, night.users[name].id)
+            game_presence.register_connection(night.game.id, night.users[name].id)
         before = sorted(SocketPresence.objects.values_list("channel_name", flat=True))
         _restart(night)
 
@@ -657,7 +657,7 @@ class TestPresenceIsNotResetOnRestart:
         _recover(night)
 
         with night.committed():
-            services.register_connection(night.game.id, night.users["seer"].id)
+            game_presence.register_connection(night.game.id, night.users["seer"].id)
 
         assert presence.fresh_rows(
             game_id=night.game.id, user_id=night.users["seer"].id
@@ -669,7 +669,7 @@ class TestPresenceIsNotResetOnRestart:
     ) -> None:
         night = make_night(ROLES, night_wave_seconds=60)
         night.start()
-        services.register_connection(night.game.id, night.users["seer"].id)
+        game_presence.register_connection(night.game.id, night.users["seer"].id)
         SocketPresence.objects.filter(game=night.game).update(
             last_seen=timezone.now() - timedelta(seconds=300)
         )
@@ -678,7 +678,9 @@ class TestPresenceIsNotResetOnRestart:
         assert night.role_of("seer").disconnected_at is None  # not yet noticed
 
         with night.committed():  # the re-armed presence check fires
-            assert services.check_game_presence(night.game.id, night.users["seer"].id)
+            assert game_presence.check_game_presence(
+                night.game.id, night.users["seer"].id
+            )
 
         assert night.role_of("seer").disconnected_at is not None
         # ...and now the usual grace period applies.

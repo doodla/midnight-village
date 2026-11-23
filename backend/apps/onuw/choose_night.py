@@ -51,7 +51,7 @@ from typing import Any
 
 from django.db import transaction
 
-from . import services as svc
+from . import basics, night_flow, night_window, readiness
 from .engine.choose import (
     build_choose_prompt,
     chooses_left,
@@ -92,7 +92,7 @@ def submit_choose(
     """A phone's ``choose``. Returns the list of errors (empty = success: stored, or
     a resend of a choose already taken); ``CHOOSE_ERROR_CODES`` maps them to codes. A
     phone that has used its chooses in the window raises
-    ``services.AlreadyActedError``; a request aimed at a stage that is over raises
+    ``basics.AlreadyActedError``; a request aimed at a stage that is over raises
     ``WrongStageError``.
 
     ``answered`` is the request's ``chosen``: the count the prompt it answers showed.
@@ -118,9 +118,9 @@ def submit_choose(
         if answered > chosen:
             return [CHOOSE_BAD_COUNT]
         if chosen >= max_chooses(window):
-            raise svc.AlreadyActedError(CHOOSE_ALREADY)
+            raise basics.AlreadyActedError(CHOOSE_ALREADY)
 
-        state = svc.build_game_state(game)  # for EVERY caller, not only Werewolves
+        state = basics.build_game_state(game)  # for EVERY caller, not only Werewolves
         picks = parse_picks(
             raw_picks,
             own_id=user_id,
@@ -130,7 +130,7 @@ def submit_choose(
         if picks is None:
             return [CHOOSE_BAD_PICKS]
 
-        acting = svc.get_player_acting_role_for_wave(pr, window)
+        acting = night_window.get_player_acting_role_for_wave(pr, window)
         # One look: a Doppelganger who has not copied has had her look (her first
         # choose, whatever it held), so a later choose of hers reads as nothing.
         reads = acting is not None and not (acting == "Doppelganger" and chosen >= 1)
@@ -162,9 +162,9 @@ def submit_choose(
         # The Doppelganger's look resolves here (her copy must be known to the
         # follow-up and to the close): the one role-dependent step of a request.
         if window == 1 and acting == "Doppelganger" and reading is not None:
-            svc._resolve_doppelganger_look(game)
-        if svc._night_ready_to_close(game):
-            svc._close_or_defer(game)
+            night_window._resolve_doppelganger_look(game)
+        if readiness._night_ready_to_close(game):
+            night_flow._close_or_defer(game)
     return []
 
 
@@ -174,7 +174,7 @@ def submit_choose(
 def _prompt_role(pr: PlayerRole, window: int) -> str | None:
     """The role the caller's prompt acts as: their acting role in the window, except
     a Doppelganger whose one look is over (a second choose does nothing)."""
-    acting = svc.get_player_acting_role_for_wave(pr, window)
+    acting = night_window.get_player_acting_role_for_wave(pr, window)
     if acting == "Doppelganger" and chose_count(pr, window) >= 1:
         return None
     return acting
@@ -187,7 +187,7 @@ def prompt_for(game: Game, pr: PlayerRole) -> dict[str, Any] | None:
     if game.phase != Phase.NIGHT or window not in (1, 2):
         return None
     return build_choose_prompt(
-        svc.build_game_state(game),
+        basics.build_game_state(game),
         pr.user_id,
         window,
         _prompt_role(pr, window),
@@ -209,8 +209,8 @@ def turn_open(state: GameState, pr: PlayerRole, window: int) -> bool:
 def announce_window(game: Game, window: int) -> None:
     """Tell the table a window opened with ONE group event, the same bytes for every
     phone and nothing per player (each phone reads its prompt from ``GET /me/``).
-    The caller (``services.send_wave_prompts``) has set the deadline and the timer."""
-    svc._send_after_commit(
+    The caller (``night_window.send_wave_prompts``) has set the deadline and the timer."""
+    basics._send_after_commit(
         [
             (
                 f"game_{game.id}",
@@ -236,7 +236,8 @@ def ready_to_close(
     off, in development, and then a Doppelganger who copied a role that chooses in
     window 1 is also waited for until she has sent her follow-up.)"""
     return all(
-        not turn_open(state, pr, window) or svc._is_gone(pr, grace, now) for pr in prs
+        not turn_open(state, pr, window) or readiness._is_gone(pr, grace, now)
+        for pr in prs
     )
 
 

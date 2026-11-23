@@ -18,7 +18,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
-from apps.onuw import choose_night, services
+from apps.onuw import choose_night, night_flow, night_window
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import current_stage, staged
 from tests.onuw.test_night_windows import Night
@@ -593,7 +593,7 @@ class TestIdenticalAnswers:
     def test_a_choose_in_the_look_stage_is_wrong_stage(self, make_p2) -> None:
         night = make_p2(TEN, card_look_seconds=30)
         with night.committed():
-            services.begin_night(night.game)
+            night_flow.begin_night(night.game)
         night.refresh()
         assert night.game.current_wave == 0
 
@@ -714,7 +714,7 @@ class TestReadingsThroughTheNight:
         night.start()
         finish_window_two(night, {"drunk": [SELF]})
 
-        expected = services.drunk_timeout_center_index(
+        expected = night_window.drunk_timeout_center_index(
             night.game.random_seed, pid(night, "drunk"), 3
         )
         entry = log_entry(night, "drunk")

@@ -490,7 +490,7 @@ class TestReveal:
     def test_a_stale_game_object_cannot_vote_after_the_reveal(self, vote_night) -> None:
         """The phase is re-read under the Game lock: a caller holding an old row
         (taken while the vote was open) is still refused once it has closed."""
-        from apps.onuw import services
+        from apps.onuw import voting
 
         night = vote_night
         stale = Game.objects.get(id=night.game.id)
@@ -498,7 +498,7 @@ class TestReveal:
         fire_voting_deadline(night)
 
         with pytest.raises(WrongStageError):
-            services.submit_vote(
+            voting.submit_vote(
                 stale,
                 night.users["robber"].id,
                 night.users["wolf"].id,
