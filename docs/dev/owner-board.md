@@ -84,6 +84,15 @@ and give 2 or more `pictures`, each with an `id` and a `caption`:
   note, nothing marked) writes `"choice": "none"`, `"choices": []`, `"label": "None of these"`.
 - Decided shows the picked captions; "Change my answer" brings the card back with those still marked.
 
+Rules for what goes on a picker (the owner's, 23 Nov):
+
+- One card per area or decision, holding EVERY real option for it. No option appears on two cards.
+- Only real alternatives are options. More pictures of the same option (other states, player counts,
+  roles) are not options: put them in that option's `views`, a list of `{"src", "alt", "caption"}`.
+  They show as small pictures under the option, headed "Same option, N more views"; tapping opens them
+  full size; they cannot be marked. Never list "more of option 1" as an option.
+- Anything asked of the owner goes on the board at the moment it is asked, not only in chat.
+
 ## Add a picture
 
 Upload it to the board's asset store, then use the returned url as `src`:
