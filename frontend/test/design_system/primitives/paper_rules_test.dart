@@ -139,7 +139,7 @@ final Map<
 >
 paperSheets = {
   'table (host): a card\'s sheet': (
-    file: 'features/lobby/presentation/at_table_screen.dart',
+    file: 'features/lobby/presentation/at_table_parts.dart',
     light: MoodKind.lantern,
     open: (t) async {
       await _screen(t, const TablePage());
@@ -149,7 +149,7 @@ paperSheets = {
     },
   ),
   'table (host): Leave asks first': (
-    file: 'features/lobby/presentation/at_table_screen.dart',
+    file: 'features/lobby/presentation/at_table_view.dart',
     light: MoodKind.lantern,
     open: (t) async {
       await _screen(t, const TablePage());
@@ -159,7 +159,7 @@ paperSheets = {
     },
   ),
   'table (guest): Back asks first': (
-    file: 'features/lobby/presentation/at_table_screen.dart',
+    file: 'features/lobby/presentation/at_table_view.dart',
     light: MoodKind.lantern,
     open: (t) async {
       await _screen(
@@ -175,7 +175,7 @@ paperSheets = {
     },
   ),
   'deck page: a card\'s sheet': (
-    file: 'features/lobby/presentation/deck_screen.dart',
+    file: 'features/lobby/presentation/deck_parts.dart',
     light: MoodKind.night,
     open: (t) async {
       await _screen(t, const DeckPage());

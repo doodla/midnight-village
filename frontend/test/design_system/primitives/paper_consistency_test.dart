@@ -87,7 +87,7 @@ void main() {
         unlocked: null,
         why: 'the pick it waits for ("Choose a card", "Choose 1 more")',
       ),
-      'features/lobby/presentation/at_table_screen.dart': (
+      'features/lobby/presentation/at_table_view.dart': (
         says: TableCopy.needPlayers,
         unlocked: null,
         why: 'what the table needs ("Need 3 players", "Add 1 card")',

@@ -6,15 +6,12 @@
 # build, which deletes results_screen and count_screen (coordinator, 23 Nov 2026).
 1729 backend/apps/onuw/services.py
 938 backend/apps/onuw/views.py
-913 frontend/lib/features/lobby/presentation/at_table_screen.dart until 2026-11-26
 851 frontend/lib/features/lobby/presentation/lobby_notifier.dart
 825 frontend/lib/features/game/presentation/live_game.dart
 820 .claude/hooks/git_guard.py
-798 frontend/lib/design_system/primitives/screen_frame.dart until 2026-11-26
 797 frontend/lib/design_system/night/night_board.dart until 2026-11-26
 789 frontend/lib/features/game/presentation/shell/results_screen.dart until 2026-11-26
 787 frontend/lib/design_system/primitives/face_down_card.dart
-739 frontend/lib/features/lobby/presentation/deck_screen.dart until 2026-11-26
 727 frontend/lib/design_system/primitives/mood.dart until 2026-11-26
 709 frontend/lib/features/game/presentation/shell/count_screen.dart until 2026-11-26
 671 frontend/lib/design_system/primitives/player_row.dart until 2026-11-26

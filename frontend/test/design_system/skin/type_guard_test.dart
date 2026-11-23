@@ -115,7 +115,7 @@ const _sites = [
     'the board measuring a name at a candidate size',
   ),
   _Site(
-    'features/lobby/presentation/at_table_screen.dart',
+    'features/lobby/presentation/at_table_view.dart',
     '.copyWith(fontSize: size);',
     'the two-up rows measuring a name at a candidate size',
   ),
