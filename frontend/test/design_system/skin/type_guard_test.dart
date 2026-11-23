@@ -70,6 +70,16 @@ const _sites = [
     'FitWords: a role set smaller until the words fit its room',
   ),
   _Site(
+    'design_system/primitives/face_down_card.dart',
+    'style: base.copyWith(fontSize: fontSize),',
+    'a face-up card\'s role name measured at a size that fits its card',
+  ),
+  _Site(
+    'design_system/primitives/face_down_card.dart',
+    'final style = base.copyWith(fontSize: size);',
+    'a face-up card\'s role name set to fit its card (never under 12)',
+  ),
+  _Site(
     'design_system/primitives/band.dart',
     'style: TextStyle(fontSize: size * unitShare),',
     'the clock\'s unit ("s") drawn at a share of its number',

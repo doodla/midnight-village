@@ -89,7 +89,7 @@ class ScreenFrame extends StatelessWidget {
     this.backdrop,
     this.dress,
     this.mood,
-    this.moodLight = const Alignment(0, 0.1),
+    this.moodLight = MoodLight.standard,
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
@@ -169,7 +169,7 @@ class ScreenFrame extends StatelessWidget {
   final MoodKind? mood;
 
   /// Where a lantern's pool lies on the screen ([MoodKind.lantern]).
-  final Alignment moodLight;
+  final MoodLight moodLight;
 
   @override
   Widget build(BuildContext context) => DressScope(
@@ -341,7 +341,7 @@ class ScreenFrame extends StatelessWidget {
             // A screen with a picture of its own has no need of the village
             // behind it.
             scene: topArt == null && topScene == null,
-            lightAt: moodLight,
+            light: moodLight,
           ),
         if (backdrop case final backdrop?)
           Center(

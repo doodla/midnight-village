@@ -58,7 +58,7 @@ class TablePage extends StatelessWidget {
 
   final bool guest;
 
-  /// How the table is dressed; null: plain.
+  /// How the table is dressed; null: as the live screen (`AtTableView.defaultDress`).
   final Dress? dress;
 
   @override
