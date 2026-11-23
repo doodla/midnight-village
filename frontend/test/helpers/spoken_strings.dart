@@ -35,6 +35,9 @@ class _Visible extends RecursiveAstVisitor<void> {
   void visitImportDirective(ImportDirective node) {}
 
   @override
+  void visitExportDirective(ExportDirective node) {}
+
+  @override
   void visitPartDirective(PartDirective node) {}
 
   @override

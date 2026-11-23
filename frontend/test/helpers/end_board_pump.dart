@@ -8,7 +8,8 @@ import 'text_scale.dart';
 
 /// The end board on the results [results], for the player in seat [viewer]
 /// (0 is the first), as a host or a guest, at text size [scale]. A guest's
-/// host is the first seat.
+/// host is the first seat. With [reveal] the board plays its reveal from the
+/// first frame (the clock at 0 after this returns).
 Future<void> pumpEndBoardOn(
   WidgetTester tester,
   Map<String, dynamic> results, {
@@ -16,6 +17,12 @@ Future<void> pumpEndBoardOn(
   bool host = true,
   double scale = 1,
   ScrollController? controller,
+  bool reveal = false,
+  bool reduceMotion = false,
+  VoidCallback? onPlayAgain,
+  VoidCallback? onEditDeck,
+  bool stepTaught = false,
+  VoidCallback? onStepTaught,
 }) async {
   final outcome = GameOutcome.fromJson(results);
   await tester.pumpWidget(
@@ -23,9 +30,10 @@ Future<void> pumpEndBoardOn(
       debugShowCheckedModeBanner: false,
       theme: skinTheme(SkinId.fallback.skin),
       builder: (context, app) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: ambientTextScaler(context, scale)),
+        data: MediaQuery.of(context).copyWith(
+          textScaler: ambientTextScaler(context, scale),
+          disableAnimations: reduceMotion,
+        ),
         child: app!,
       ),
       home: EndBoardView(
@@ -34,10 +42,13 @@ Future<void> pumpEndBoardOn(
         isHost: host,
         hostName: host ? null : outcome.seats.first.name,
         onWhatHappened: () {},
-        onEditDeck: () {},
-        onPlayAgain: () {},
+        onEditDeck: onEditDeck ?? () {},
+        onPlayAgain: onPlayAgain ?? () {},
         onLeave: () {},
         scrollController: controller,
+        reveal: reveal,
+        stepTaught: stepTaught,
+        onStepTaught: onStepTaught,
       ),
     ),
   );

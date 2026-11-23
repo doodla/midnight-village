@@ -170,9 +170,13 @@ void main() {
         [for (final c in plan.cards) c.name],
         ['Ana', 'Ben', 'Dev', 'Cleo', 'Fin', 'Esme'],
       );
+      // Ben held the Troublemaker in the night (robbed from Dev, swapped on
+      // to Ana): his card is as wide as that role too, so What happened can
+      // turn it in place, and it is too wide beside the lantern: it changes
+      // places with the next row's narrower card, Cleo (rule 3).
       expect(plan.rows, [
-        [0, 1],
-        [2, 3],
+        [0, 3],
+        [2, 1],
         [4, 5],
       ]);
       expect(plan.cards[4].hanged && plan.cards[5].hanged, isTrue);

@@ -16,6 +16,7 @@ class SizedCard {
     required this.pw,
     required this.width,
     required this.height,
+    required this.nameWidth,
     required this.tagNames,
     required this.tagWidth,
     required this.dealt,
@@ -37,6 +38,9 @@ class SizedCard {
   final double pw;
   final double width;
   final double height;
+
+  /// The name and its room in the header (what a card of it is at least).
+  final double nameWidth;
   final List<String> tagNames;
 
   /// The widest tag of its strand (0 with none).
@@ -107,11 +111,12 @@ SizedCard sizeCard({
   final role = stripWords
       .map((w) => measure(EndText.role, w))
       .fold(0.0, math.max);
+  final nameWidth = measure(EndText.name, name) + EndMetrics.nameRoom;
   final width = math
       .max(
         pw + 2 * EndMetrics.portraitInset,
         math.max(
-          measure(EndText.name, name) + EndMetrics.nameRoom,
+          nameWidth,
           role +
               EndMetrics.roleRoom +
               (tagNames.isEmpty ? 0 : EndMetrics.tagRoom),
@@ -146,6 +151,7 @@ SizedCard sizeCard({
     pw: pw,
     width: width,
     height: height,
+    nameWidth: nameWidth,
     header: header,
     lean: lean,
     tagHeight: tagHeight,

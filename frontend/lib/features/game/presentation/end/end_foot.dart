@@ -12,6 +12,11 @@ import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_board_metrics.dart';
+import '../../domain/end_story.dart';
+import '../../domain/night_timeline.dart';
+
+import 'end_night.dart';
+import 'end_reveal.dart';
 
 // The foot of the end board, on the cobbles, under the board's window: "What
 // happened" and the three cards nobody held on a row; then, for the host,
@@ -87,6 +92,14 @@ class EndFootBand extends StatelessWidget {
             ],
           ),
         ),
+        // The first time the night plays, the cue that it goes on: on the
+        // board's lower edge, over the lip.
+        const Positioned(
+          left: 0,
+          right: 0,
+          top: -EndMetrics.lip / 2,
+          child: Center(child: NightCue()),
+        ),
       ],
     );
   }
@@ -99,13 +112,17 @@ class EndFootBand extends StatelessWidget {
     if (!foot.whatHappened) {
       return Align(alignment: Alignment.centerRight, child: cards);
     }
+    // While the night plays the same scrap leads back to the result: as wide
+    // as the wider of its two labels, so nothing beside it moves.
+    double wide(String day) =>
+        math.max(_scrapWidth(context, day), _scrapWidth(context, _backOf(day)));
     Widget scrap(String label) => Transform.rotate(
       angle: _whatHappenedTurn,
-      child: PaperScrap(label: label, onTap: onWhatHappened),
+      child: _NightScrap(day: label, width: wide(label), onTap: onWhatHappened),
     );
     final room = width - Space.xs - cards.widthIn(context);
     for (final label in [EndCopy.whatHappened, EndCopy.whatHappenedTwoLines]) {
-      if (_scrapWidth(context, label) <= room) {
+      if (wide(label) <= room) {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [scrap(label), const Spacer(), cards],
@@ -179,6 +196,35 @@ class EndFootBand extends StatelessWidget {
   }
 }
 
+/// The scrap's words at night for its words [day] (on as many lines).
+String _backOf(String day) =>
+    day.contains('\n') ? EndCopy.backToResultTwoLines : EndCopy.backToResult;
+
+/// "What happened" by day; while the night plays, the way back to the result,
+/// in the same place and the same paper.
+class _NightScrap extends StatelessWidget {
+  const _NightScrap({
+    required this.day,
+    required this.width,
+    required this.onTap,
+  });
+
+  final String day;
+  final double width;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = EndNightScope.maybeOf(context)?.on ?? false;
+    return PaperScrap(
+      label: on ? _backOf(day) : day,
+      id: EndCopy.whatHappened,
+      width: width,
+      onTap: onTap,
+    );
+  }
+}
+
 double _textWidth(BuildContext context, String text, TextStyle style) {
   final p = TextPainter(
     text: TextSpan(text: text, style: style),
@@ -211,13 +257,22 @@ class _MiddleCards extends StatelessWidget {
         _middlePortrait.height +
         EndMetrics.cardFoot +
         (strip - EndMetrics.stripHeight);
+    // Each as wide as every role it shows, the night's too (What happened
+    // turns it in place).
+    final story = EndNightScope.read(context)?.story;
+    List<RoleId> held(int i) => [
+      roles[i],
+      if (story != null)
+        for (final faces in [story.dealt, ...story.steps.map((s) => s.after)])
+          if (i < faces.centre.length) faces.centre[i].strip,
+    ];
     return [
-      for (final r in roles)
+      for (var i = 0; i < roles.length; i++)
         Size(
-          math.max(
-            _middleLeast,
-            _textWidth(context, r.displayName, type.tag) + _middleRoom,
-          ),
+          held(i)
+                  .map((r) => _textWidth(context, r.displayName, type.tag))
+                  .fold(_middleLeast - _middleRoom, math.max) +
+              _middleRoom,
           height,
         ),
     ];
@@ -238,6 +293,21 @@ class _MiddleCards extends StatelessWidget {
       scaler.scale(type.tag.fontSize!) * (type.tag.height ?? 1.2) + 2,
     );
     final sizes = _sizes(context);
+    final night = EndNightScope.maybeOf(context);
+    if (night != null && night.on && night.story != null) {
+      return _atNight(context, night, sizes, strip);
+    }
+    final driver = EndRevealScope.maybeOf(context);
+    // In the reveal they lie face down and turn with the last row.
+    Widget turning(int i, Widget face) => driver == null
+        ? face
+        : revealMiddleTurn(
+            driver,
+            size: sizes[i],
+            portraitWidth: _middlePortrait.width,
+            angle: (i - 1) * _middleTurn,
+            face: face,
+          );
     return Semantics(
       label: EndCopy.middle.fill({
         'roles': roles.map((r) => r.displayName).join(EndCopy.listComma),
@@ -251,17 +321,92 @@ class _MiddleCards extends StatelessWidget {
           for (var i = 0; i < roles.length; i++)
             SizedBox.fromSize(
               size: sizes[i],
-              child: BoardCard(
-                role: roles[i],
-                strip: roles[i].displayName,
-                paper: BoardPaper.winner,
-                size: sizes[i],
-                portraitWidth: _middlePortrait.width,
-                rect: Offset.zero & sizes[i],
-                angle: (i - 1) * _middleTurn,
-                stripHeight: strip,
-                semantics: roles[i].displayName,
+              child: turning(
+                i,
+                BoardCard(
+                  role: roles[i],
+                  strip: roles[i].displayName,
+                  paper: BoardPaper.winner,
+                  size: sizes[i],
+                  portraitWidth: _middlePortrait.width,
+                  rect: Offset.zero & sizes[i],
+                  angle: (i - 1) * _middleTurn,
+                  stripHeight: strip,
+                  semantics: roles[i].displayName,
+                ),
               ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  BoardCard _card(int i, Size size, double strip, StoryFace f, BoardPaper p) =>
+      BoardCard(
+        role: f.face,
+        strip: f.strip.displayName,
+        paper: p,
+        size: size,
+        portraitWidth: _middlePortrait.width,
+        rect: Offset.zero & size,
+        angle: (i - 1) * _middleTurn,
+        stripHeight: strip,
+        semantics: f.strip.displayName,
+      );
+
+  /// At night: the cards in the middle at this step, turning as the step
+  /// moves one (and at the night's opening from the result to the deal).
+  Widget _atNight(
+    BuildContext context,
+    EndNight night,
+    List<Size> sizes,
+    double strip,
+  ) {
+    final before = night.before.centre, after = night.after.centre;
+    Widget turned(int i) {
+      final size = sizes[i];
+      final box = Offset.zero & size;
+      Widget face(StoryFace f) => _card(i, size, strip, f, paperAtNight(f));
+      Widget card = before[i] == after[i]
+          ? face(after[i])
+          : RevealTurn(
+              driver: night.driver,
+              value: night.moveTurn,
+              backAt: box,
+              back: face(before[i]),
+              face: face(after[i]),
+            );
+      if (night.opening) {
+        final role = roles[i];
+        card = RevealTurn(
+          driver: night.driver,
+          value: night.dealTurn,
+          backAt: box,
+          back: _card(i, size, strip, (
+            face: role,
+            strip: role,
+          ), BoardPaper.winner),
+          face: card,
+        );
+      }
+      return card;
+    }
+
+    return Semantics(
+      label: EndCopy.middle.fill({
+        'roles': after.map((f) => f.strip.displayName).join(EndCopy.listComma),
+      }),
+      excludeSemantics: true,
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: _middleApart,
+        runSpacing: Space.xs,
+        children: [
+          for (var i = 0; i < roles.length; i++)
+            SizedBox.fromSize(
+              key: night.placeKey(CenterPlace(i)),
+              size: sizes[i],
+              child: turned(i),
             ),
         ],
       ),

@@ -174,8 +174,26 @@ class BannerSlice extends StatelessWidget {
         }
       }
     }
+    // Three lines will not take it at the phone's text size: smaller, as far
+    // as the headline's own size (a sentence of long names at large text).
+    for (var f = factor - _shrinkStep; f >= 1 - 1e-9; f -= _shrinkStep) {
+      for (final form in forms) {
+        final words = wordsOf(form);
+        for (var n = math.min(minLines, mostLines); n <= mostLines; n++) {
+          if (n > words.length) break;
+          final lines = _balanced(words, n, (l) => width(l) * f);
+          if (lines.every((l) => width(l) * f <= room)) {
+            return BannerFit(lines, f, scale);
+          }
+        }
+      }
+    }
     return BannerFit(lastTry ?? [forms.last], factor, scale);
   }
+
+  /// How much smaller a sentence is set at a time when three lines will not
+  /// take it.
+  static const _shrinkStep = 0.05;
 
   /// [words] in [n] lines whose widest is the narrowest possible.
   static List<String> _balanced(
