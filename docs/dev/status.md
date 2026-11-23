@@ -90,6 +90,5 @@ last gone through on 20 November, and what landed since is `git log` on main (#6
   many places) and the app's `defaults: "v2"` request value (the server accepts it).
 - DRF throttles are per instance on Vercel and keyed on a spoofable header: a courtesy, not
   protection.
-- Parallel agents set their own `DB_NAME` by hand; nothing enforces it.
 - Six sample looks were made for the owner (https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2,
   not in the repository). Parked by the owner: no other looks until Shadow paper is good.

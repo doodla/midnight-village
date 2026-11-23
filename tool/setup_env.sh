@@ -13,7 +13,13 @@ if [[ ! "$db" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
   echo "setup_env: the database name may hold only letters, digits and _, got '$db'" >&2
   exit 2
 fi
-root="$(git rev-parse --show-toplevel)"
+# test_<name>_<process id> is what a test run calls its own database, and Postgres
+# cuts a name at 63 characters.
+if [[ "$db" == test_* || ${#db} -gt 40 ]]; then
+  echo "setup_env: the database name may not start with test_ or be longer than 40 characters, got '$db'" >&2
+  exit 2
+fi
+root=""$(git rev-parse --show-toplevel)"
 env_file="$root/backend/.env"
 
 service postgresql start
@@ -23,7 +29,8 @@ if [ ! -f "$env_file" ]; then
       -e 's/^DB_PASSWORD=.*/DB_PASSWORD=postgres/' \
       "$root/backend/.env.example" > "$env_file"
 fi
-# Every checkout has its own database; DJANGO_SETTINGS_MODULE makes the tests
+# The checkout's own development database (each test run builds its own beside
+# it, backend/config/test_database.py); DJANGO_SETTINGS_MODULE makes the tests
 # run under dev settings, so it never belongs here.
 sed -i -e "s/^DB_NAME=.*/DB_NAME=$db/" -e '/^DJANGO_SETTINGS_MODULE=/d' "$env_file"
 

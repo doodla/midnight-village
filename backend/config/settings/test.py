@@ -8,6 +8,8 @@ import os
 
 from dotenv import load_dotenv
 
+from config.test_database import run_database_name
+
 from .base import *
 
 load_dotenv()
@@ -37,6 +39,13 @@ DATABASES = {
         "PASSWORD": os.environ.get("DB_PASSWORD", ""),
         "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": os.environ.get("DB_PORT", "5432"),
+        # Each run has its own database, so runs side by side never collide
+        # (config/test_database.py; leftovers are dropped in tests/conftest.py).
+        "TEST": {
+            "NAME": run_database_name(
+                os.environ.get("DB_NAME", "midnight_village_test"), os.getpid()
+            )
+        },
     }
 }
 
