@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """A fresh checkout works as it stands, and gives the same answers as GitHub.
 
 Three things have each stopped builders: a shell script with a syntax error that

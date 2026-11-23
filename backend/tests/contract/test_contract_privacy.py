@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """What the sockets tell the table never gives a seat away (principle 2),
 checked on the recorded samples.
 

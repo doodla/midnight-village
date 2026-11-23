@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """The GitHub workflows are the merge wall, so they are held to four things:
 
 - every `just <recipe>` a workflow runs is a recipe of the root, backend or frontend

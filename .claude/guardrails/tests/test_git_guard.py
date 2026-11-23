@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """The Bash guard on git (.claude/hooks/git_guard.py): what it blocks and what it lets through.
 
 Run with: python3 -m unittest discover -s .claude/guardrails/tests

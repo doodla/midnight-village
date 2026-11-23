@@ -59,6 +59,11 @@ test-guardrails:
 previous-build-check *args:
     @tool/previous_build_check.sh {{args}}
 
+# A pull request that edits a guard test says so, and why, in its description
+# (tool/guard_edits.py). Locally it only reminds; on GitHub (PR_BODY set) it fails.
+guard-edits *args:
+    @tool/guard_edits.py {{args}}
+
 # While building: the fast checks and only the tests this change can reach
 # (tool/piece_check.py; `just piece-check --list` prints the plan). GitHub runs everything.
 piece-check *args:
@@ -121,6 +126,7 @@ typecheck:
 # that no source file has grown past what can be read whole (tool/check_file_sizes.py)
 check:
     {{backend_just}} check
+    {{backend_just}} lint-tools
     tool/check_instruction_links.sh
     tool/check_file_sizes.py
 
