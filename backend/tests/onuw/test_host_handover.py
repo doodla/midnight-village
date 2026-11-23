@@ -24,7 +24,7 @@ from apps.core import host
 from apps.core import presence as core_presence
 from apps.core.consumers import LobbyConsumer
 from apps.core.models import Lobby, LobbyMember, LobbySocket, User
-from apps.onuw import presence, services
+from apps.onuw import presence, recovery, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
 from apps.onuw.models import Game, Phase, PlayerRole
@@ -828,7 +828,7 @@ class TestRestart:
     def _restart(self, night: Night) -> None:
         night.scheduled.clear()
         with night.committed():
-            services.recover_timers()
+            recovery.recover_timers()
 
     def _die_silently(self, night: Night, name: str) -> None:
         """The player's socket died with its instance: stale row, no disconnect."""

@@ -15,7 +15,7 @@ How a timer fires depends on the backend (setting ``ONUW_TIMER_BACKEND``):
 
 * ``"memory"`` (default: dev, tests, the harness): a ``threading.Timer`` in this
   process carrying ``(key, token)``. Lost with the process, so start-up recovery
-  re-derives or re-arms from the table (``services.recover_timers``).
+  re-derives or re-arms from the table (``recovery.recover_timers``).
 * ``"vercel_queue"``: a delayed queue message ``{"key", "token"}``; nothing
   stays in this process, so any instance (the subscriber in
   ``apps/core/queue_worker.py``) may fire it. A queued message cannot be
@@ -74,7 +74,7 @@ CLOCK_SKEW_SECONDS = 2.0
 
 # Queue backend: a row this long past its due time whose message never ran it
 # (lost, or its job kept failing) no longer counts as scheduled, so the lazy
-# repair (services.ensure_timers) can re-create the timer.
+# repair (recovery.ensure_timers) can re-create the timer.
 OVERDUE_AFTER_SECONDS = 120.0
 # A row that has not been published for this long is not "scheduled" (an
 # instance died between the row and the send): sweep / the lazy repair publish it.
@@ -431,7 +431,7 @@ def rearm_from_table(prefixes: tuple[str, ...] | None = None) -> int:
     """Memory backend: arm a thread for every stored timer (optionally only
     keys with these prefixes) that has none in this process; overdue ones fire
     at once. Returns how many were armed. After a restart derived plans
-    (``services.recover_timers``) run first, so this only picks up what they do
+    (``recovery.recover_timers``) run first, so this only picks up what they do
     not know how to derive."""
     from apps.core.models import ScheduledTimer
 

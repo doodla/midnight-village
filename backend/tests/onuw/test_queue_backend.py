@@ -25,7 +25,7 @@ import pytest
 
 from apps.core import host, queue_worker, timers
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer
-from apps.onuw import presence, services
+from apps.onuw import presence, recovery, services
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests import timer_threads
 from tests.onuw.stages import staged
@@ -325,8 +325,8 @@ class TestNothingHappensAtStartUp:
 
         settings.ONUW_TIMER_BACKEND = "vercel_queue"
         settings.ONUW_RECOVER_TIMERS_ON_START = True
-        with patch("apps.onuw.services.recover_timers") as recover:
-            services.run_startup_recovery()
+        with patch("apps.onuw.recovery.recover_timers") as recover:
+            recovery.run_startup_recovery()
         recover.assert_not_called()
 
     def test_importing_the_asgi_app_with_the_queue_backend_recovers_nothing(
@@ -339,7 +339,7 @@ class TestNothingHappensAtStartUp:
         settings.ONUW_RECOVER_TIMERS_ON_START = True
         import config.asgi
 
-        with patch("apps.onuw.services.recover_timers") as recover:
+        with patch("apps.onuw.recovery.recover_timers") as recover:
             importlib.reload(config.asgi)
         recover.assert_not_called()
 
@@ -351,7 +351,7 @@ class TestNothingHappensAtStartUp:
         settings.ONUW_RECOVER_TIMERS_ON_START = True
         import config.asgi
 
-        with patch("apps.onuw.services.recover_timers", return_value=0) as recover:
+        with patch("apps.onuw.recovery.recover_timers", return_value=0) as recover:
             importlib.reload(config.asgi)
         recover.assert_called_once()
 
@@ -743,7 +743,7 @@ class TestLostPublications:
         other = _row(key="someone-else:1", published=False, due_in=30)
         queue.sent.clear()
 
-        assert timers.sweep(services.timer_prefixes(n.game)) == 1
+        assert timers.sweep(recovery.timer_prefixes(n.game)) == 1
 
         assert [p["key"] for _, p, _ in queue.sent] == [mine.key]
         assert ScheduledTimer.objects.get(key=other.key).published_at is None
