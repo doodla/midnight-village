@@ -36,6 +36,7 @@ import 'fake_wakelock_service.dart';
 import 'mock_http_client.dart';
 import 'mock_websocket.dart';
 import 'live_game_setup.dart' show testHealTiming;
+import 'text_scale.dart';
 
 // 01 Join, 02 Table and 03 Deck through the app's real routes and providers
 // (`HomeGate`, the table's shell), every answer a recorded server payload
@@ -259,7 +260,7 @@ class TableSetup {
             theme: ref.watch(appThemeProvider),
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(context).copyWith(
-                textScaler: TextScaler.linear(textScale),
+                textScaler: ambientTextScaler(context, textScale),
                 // The phone's keyboard, up (a field focused).
                 viewInsets: EdgeInsets.only(bottom: keyboard),
               ),

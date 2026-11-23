@@ -11,7 +11,7 @@ import 'outcome_samples.dart';
 // sizes no recording has (the recordings widened), on three phones, for the
 // first and the last seat, at text sizes 1, 1.3 and 1.6. The measure is a plain
 // stand-in for the serif (a name 8.4 a letter, a role 6.8 a letter, times the
-// text size); the drawn board on the real fonts is `end_board_sweep_test.dart`.
+// text size); the drawn board on the real fonts is the screen sweep (`end_board_pages.dart`).
 
 double endMeasure(EndText kind, String text) => switch (kind) {
   EndText.role => text.length * 6.8,

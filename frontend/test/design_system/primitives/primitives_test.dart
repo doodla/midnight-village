@@ -1,3 +1,4 @@
+import '../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
@@ -52,13 +53,13 @@ void main() {
           );
 
       await pump();
-      await tester.tap(find.byType(PrimaryButton));
+      await pressLikeAFinger(tester, find.byType(PrimaryButton));
       expect(taps, 1);
 
       await pump(enabled: false);
-      await tester.tap(find.byType(PrimaryButton));
+      await pressLikeAFinger(tester, find.byType(PrimaryButton));
       await pump(busy: true);
-      await tester.tap(find.byType(PrimaryButton));
+      await pressLikeAFinger(tester, find.byType(PrimaryButton));
       expect(taps, 1);
       expect(find.byType(LanternMark), findsOneWidget);
     });
@@ -70,7 +71,7 @@ void main() {
         tester,
         PrimaryButton.locked(label: 'Ready', onLockedTap: () => cue++),
       );
-      await tester.tap(find.text('Ready'));
+      await pressLikeAFinger(tester, find.text('Ready'));
       expect(cue, 1);
       expect(
         tester.getSemantics(find.byType(PrimaryButton)),
@@ -192,7 +193,7 @@ void main() {
       tester,
       SecondaryButton(label: 'Do nothing tonight', onPressed: () => taps++),
     );
-    await tester.tap(find.text('Do nothing tonight'));
+    await pressLikeAFinger(tester, find.text('Do nothing tonight'));
     expect(taps, 1);
   });
 
@@ -215,7 +216,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('Cleo'));
+    await pressLikeAFinger(tester, find.text('Cleo'));
     expect(picked, 1);
     expect(
       tester.getSemantics(find.byType(PlayerRow)),
@@ -398,7 +399,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('Open'));
+    await pressLikeAFinger(tester, find.text('Open'));
     await tester.pumpAndSettle();
     expect(find.text('Troublemaker'), findsOneWidget);
     expect(inside, GroundKind.paper);

@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -38,12 +39,24 @@ VoidCallback? _onPressed(WidgetTester tester, String label) =>
       _ => null,
     };
 
-Future<void> _tap(WidgetTester tester, TableSetup setup, Finder what) async {
+Future<void> _tap(
+  WidgetTester tester,
+  TableSetup setup,
+  Finder what, {
+  String? plain,
+}) async {
   await tester.ensureVisible(what);
   await tester.pump();
-  await tester.tap(what);
+  if (plain != null) {
+    await plainTap(tester, what, why: plain);
+  } else {
+    await pressLikeAFinger(tester, what);
+  }
   await setup.settle(tester);
 }
+
+const _refusedJoin =
+    '01 Join, refused or not sent: pressed by a finger, the refusal is not shown (look at it)';
 
 PresetChip _chip(WidgetTester tester, String label) => tester.widget(
   find.ancestor(of: find.text(label), matching: find.byType(PresetChip)),
@@ -173,7 +186,7 @@ void main() {
       await _tap(tester, setup, find.text(JoinCopy.joinTable));
       // The name is there, the code is not: the tap goes to the code.
       expect(_onPressed(tester, JoinCopy.join), isNull);
-      await tester.tap(find.byType(EditableText).first);
+      await pressLikeAFinger(tester, find.byType(EditableText).first);
       await tester.pump();
       expect(focused(0), isTrue);
       await _tap(tester, setup, find.text(JoinCopy.join));
@@ -235,7 +248,12 @@ void main() {
         await _tap(tester, setup, find.text(JoinCopy.joinTable));
         await tester.enterText(find.byType(TextField).last, 'ZZZZZZ');
         await tester.pump();
-        await _tap(tester, setup, find.text(JoinCopy.join));
+        await _tap(
+          tester,
+          setup,
+          find.text(JoinCopy.join),
+          plain: _refusedJoin,
+        );
 
         expect(find.text(banner), findsOneWidget);
         expect(find.text(BannerCopy.tryAgain), findsNothing);
@@ -262,7 +280,7 @@ void main() {
       await _tap(tester, setup, find.text(JoinCopy.joinTable));
       await tester.enterText(find.byType(TextField).last, 'V9YC2J');
       await tester.pump();
-      await _tap(tester, setup, find.text(JoinCopy.join));
+      await _tap(tester, setup, find.text(JoinCopy.join), plain: _refusedJoin);
       await setup.settle(tester);
 
       expect(
@@ -293,7 +311,7 @@ void main() {
       await _tap(tester, setup, find.text(JoinCopy.joinTable));
       await tester.enterText(find.byType(TextField).last, 'V9YC2J');
       await tester.pump();
-      await _tap(tester, setup, find.text(JoinCopy.join));
+      await _tap(tester, setup, find.text(JoinCopy.join), plain: _refusedJoin);
       await setup.settle(tester);
 
       expect(find.text(BannerCopy.alreadyInLobby), findsOneWidget);
@@ -454,7 +472,10 @@ void main() {
       );
       expect(find.text(TableCopy.start), findsNothing);
       expect(_onPressed(tester, TableCopy.needMore.fill({'n': 1})), isNull);
-      await tester.tap(find.text(TableCopy.needMore.fill({'n': 1})));
+      await pressLikeAFinger(
+        tester,
+        find.text(TableCopy.needMore.fill({'n': 1})),
+      );
       await setup.settle(tester);
       expect(setup.count('POST', '/lobbies/V9YC2J/deal/'), 0);
       await setup.close(tester);
@@ -827,7 +848,7 @@ void main() {
 
       await _tap(tester, setup, find.text(CommonCopy.leave));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(TableCopy.stay));
+      await pressLikeAFinger(tester, find.text(TableCopy.stay));
       await tester.pumpAndSettle();
       expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 0);
 
@@ -838,7 +859,7 @@ void main() {
         '/me/table/',
         ContractSamples.map('http/lobby/my_table_none'),
       );
-      await tester.tap(find.text(CommonCopy.leave).last);
+      await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
       await tester.pumpAndSettle();
       await setup.settle(tester);
 
@@ -1157,7 +1178,7 @@ void main() {
       expect(find.text(RoleSheetCopy.close), findsOneWidget);
       expect(find.textContaining('Take out'), findsNothing);
 
-      await tester.tap(find.text(RoleSheetCopy.close));
+      await pressLikeAFinger(tester, find.text(RoleSheetCopy.close));
       await tester.pumpAndSettle();
       expect(find.byType(RoleSheetBody), findsNothing);
       await setup.close(tester);

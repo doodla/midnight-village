@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -57,7 +58,7 @@ void _answerAck(ShellSetup s) =>
 
 /// Puts the open My night away (the sheet's Close).
 Future<void> _putAway(WidgetTester tester) async {
-  await tester.tap(find.text(RoleSheetCopy.close));
+  await pressLikeAFinger(tester, find.text(RoleSheetCopy.close));
   await tester.pumpAndSettle();
 }
 
@@ -142,14 +143,14 @@ void main() {
         path: '/onuw/games/${s.gameId}/ready/',
       );
       s.answerPost('/ready/', 'game/ready_talk');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       expect(_button(tester), CommonCopy.readyDone, reason: 'before an answer');
       expect(_phase(tester), ButtonPhase.quiet, reason: 'never locked');
       expect(find.text('1 of 5 ready'), findsOneWidget, reason: 'counted');
 
       s.answerPost('/ready/', 'game/ready_talk_off');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 10));
       expect(_button(tester), TalkCopy.readyToVote);
@@ -180,7 +181,7 @@ void main() {
       await s.settle(tester);
       await _putAway(tester); // Ready is under the sheet it opened with
       s.answerPost('/ready/', 'game/ready_talk');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(find.text('1 of 5 ready'), findsOneWidget);
       // The server now counts it, and says so in the event and in /me/.
@@ -208,7 +209,7 @@ void main() {
       expect(s.posts('/ready/'), 0);
       // Tapped again: taken back.
       s.answerPost('/ready/', 'game/ready_talk_off');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(_bodies(s, '/ready/').single, {
         'ready': false,
@@ -230,7 +231,7 @@ void main() {
       await _putAway(tester); // Ready is under the sheet it opened with
       s.answerPost('/ready/', 'game/ready_wrong_stage', status: 409);
       final fetched = s.meFetches;
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(s.meFetches, greaterThan(fetched));
       expect(find.text(BannerCopy.notSent), findsNothing);
@@ -249,14 +250,14 @@ void main() {
       await s.settle(tester);
       await _putAway(tester); // Ready is under the sheet it opened with
       s.failPost('/ready/');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(_button(tester), CommonCopy.readyDone, reason: 'still shown');
 
       s.answerPost('/ready/', 'game/ready_talk');
       final fetched = s.meFetches;
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       expect(s.meFetches, greaterThan(fetched));
       final bodies = _bodies(s, '/ready/');
@@ -292,12 +293,12 @@ void main() {
 
       // Ready works at once with it away.
       s.answerPost('/ready/', 'game/ready_talk');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       expect(_button(tester), CommonCopy.readyDone);
 
       // Tapped later: the same face, the result first; no second ack.
-      await tester.tap(find.byType(PeekBox));
+      await pressLikeAFinger(tester, find.byType(PeekBox));
       await s.settle(tester);
       expect(find.byType(HeldFace), findsOneWidget);
       expect(find.text("Cleo's card was: Werewolf."), findsOneWidget);
@@ -366,12 +367,12 @@ void main() {
       expect(find.byType(HeldFace), findsNothing);
       expect(find.byType(PeekBox), findsOneWidget);
       expect(s.posts('/night-results/seen/'), 0);
-      await tester.tap(find.byType(PeekBox));
+      await pressLikeAFinger(tester, find.byType(PeekBox));
       await s.settle(tester);
       expect(find.text(NightCopy.slept), findsOneWidget);
       expect(s.posts('/night-results/seen/'), 1);
       await _putAway(tester);
-      await tester.tap(find.byType(PeekBox));
+      await pressLikeAFinger(tester, find.byType(PeekBox));
       await s.settle(tester);
       await _putAway(tester);
       expect(s.posts('/night-results/seen/'), 1);
@@ -394,7 +395,7 @@ void main() {
       await tester.longPress(find.byType(RoleCard).first);
       await tester.pumpAndSettle();
       expect(find.byType(RoleSheetBody), findsOneWidget);
-      await tester.tap(find.text(RoleSheetCopy.close));
+      await pressLikeAFinger(tester, find.text(RoleSheetCopy.close));
       await tester.pumpAndSettle();
       expect(find.byType(RoleSheetBody), findsNothing);
       await s.close(tester);
@@ -445,14 +446,14 @@ void main() {
       );
       // Ana settles on Cleo: the recorded pick that names her.
       s.answerPost('/vote/', 'game/vote_repicked');
-      await tester.tap(find.text(sheet.cleo.name));
+      await pressLikeAFinger(tester, find.text(sheet.cleo.name));
       await tester.pump();
       expect(_row(tester, sheet.cleo.name).picked, isTrue);
       expect(_button(tester), 'Lock in Cleo');
       expect(_phase(tester), ButtonPhase.ready);
 
       s.answerPost('/vote/', 'game/vote_locked');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 10));
       expect(_button(tester), VoteCopy.locked);
@@ -480,7 +481,7 @@ void main() {
       expect(container.read(learnedCuesProvider), contains(Cue.voteLock));
 
       // Locked is final: a tap on a row sends nothing.
-      await tester.tap(find.text(sheet.ben.name));
+      await pressLikeAFinger(tester, find.text(sheet.ben.name));
       await s.settle(tester);
       expect(s.posts('/vote/'), 2);
       await s.close(tester);
@@ -502,10 +503,10 @@ void main() {
       final first = seat('vote_picked');
       final other = seat('vote_repicked');
       s.answerPost('/vote/', 'game/vote_picked');
-      await tester.tap(find.text(first.name));
+      await pressLikeAFinger(tester, find.text(first.name));
       await s.settle(tester);
       s.answerPost('/vote/', 'game/vote_repicked');
-      await tester.tap(find.text(other.name));
+      await pressLikeAFinger(tester, find.text(other.name));
       await s.settle(tester);
       expect(_row(tester, other.name).picked, isTrue);
       expect(_row(tester, first.name).picked, isFalse);
@@ -541,7 +542,7 @@ void main() {
       await s.settle(tester);
       s.answerPost('/vote/', 'game/vote_after_reveal', status: 409);
       final fetched = s.meFetches;
-      await tester.tap(find.text(sheet.cleo.name));
+      await pressLikeAFinger(tester, find.text(sheet.cleo.name));
       await s.settle(tester);
       expect(s.meFetches, greaterThan(fetched));
       expect(find.text(BannerCopy.tryAgain), findsNothing);
@@ -557,13 +558,13 @@ void main() {
       );
       await s.settle(tester);
       s.failPost('/vote/');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(_button(tester), VoteCopy.locked, reason: 'still shown');
 
       s.answerPost('/vote/', 'game/vote_locked');
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       final bodies = _bodies(s, '/vote/');
       expect(bodies, hasLength(2));
@@ -582,7 +583,7 @@ void main() {
       );
       await s.settle(tester);
       s.answerPost('/vote/', 'game/vote_invalid_target', status: 400);
-      await tester.tap(find.text(sheet.cleo.name));
+      await pressLikeAFinger(tester, find.text(sheet.cleo.name));
       await s.settle(tester);
       expect(_button(tester), VoteCopy.pickName);
       expect(find.text(BannerCopy.tryAgain), findsNothing);

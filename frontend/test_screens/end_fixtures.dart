@@ -1,3 +1,4 @@
+import '../test/helpers/finger.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,7 +40,7 @@ Future<ShellSetup> _end(
 
 /// From the count to 11, the way a player goes: "See who won".
 Future<void> _seeWhoWon(WidgetTester tester, ShellSetup setup) async {
-  await tester.tap(find.text(CountCopy.seeWhoWon));
+  await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
   await setup.settle(tester);
 }
 
@@ -172,7 +173,7 @@ Future<void> pumpResultsFolded(WidgetTester tester) async {
   final night = find.bySemanticsLabel(ResultsCopy.nightSpoken);
   await tester.ensureVisible(night);
   await tester.pump();
-  await tester.tap(night);
+  await pressLikeAFinger(tester, night);
   await setup.settle(tester);
 }
 
@@ -274,7 +275,7 @@ Future<void> pumpResultsPlayingAgain(WidgetTester tester) async {
   setup.http
     ..hold(method: 'POST', path: path)
     ..answer('POST', path, ContractSamples.load('http/lobby/play_again'));
-  await tester.tap(find.text(ResultsCopy.playAgain));
+  await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
   await setup.settle(tester);
 }
 
@@ -286,7 +287,7 @@ Future<void> pumpResultsLeaving(WidgetTester tester) async {
   setup.http
     ..hold(method: 'POST', path: path)
     ..answer('POST', path, ContractSamples.load('http/lobby/left'));
-  await tester.tap(find.text(CommonCopy.leave));
+  await pressLikeAFinger(tester, find.text(CommonCopy.leave));
   await setup.settle(tester);
 }
 
@@ -300,7 +301,7 @@ Future<void> pumpResultsNotSent(WidgetTester tester) async {
     'Server Error',
     status: 503,
   );
-  await tester.tap(find.text(ResultsCopy.playAgain));
+  await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
   await setup.settle(tester);
 }
 
@@ -314,6 +315,6 @@ Future<void> pumpResultsRefused(WidgetTester tester) async {
     ContractSamples.load('http/lobby/play_again_not_finished'),
     status: 409,
   );
-  await tester.tap(find.text(ResultsCopy.playAgain));
+  await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
   await setup.settle(tester);
 }

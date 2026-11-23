@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -40,7 +41,7 @@ bool _shows(Finder finder) => finder.evaluate().isNotEmpty;
 Future<void> _tapText(WidgetTester tester, String text) async {
   await tester.ensureVisible(find.text(text));
   await tester.pump();
-  await tester.tap(find.text(text));
+  await pressLikeAFinger(tester, find.text(text));
 }
 
 /// The server's new guest account for [name], with id [id].
@@ -157,7 +158,12 @@ void main() {
     await tester.enterText(find.byType(TextField).last, 'V9YC2J');
     await tester.pump();
 
-    await _tapText(tester, JoinCopy.join);
+    await plainTap(
+      tester,
+      find.text(JoinCopy.join),
+      why:
+          '01 Join, refused or not sent: pressed by a finger, the refusal is not shown (look at it)',
+    );
     await setup.settle(tester);
     expect(find.text(BannerCopy.notSent), findsOneWidget);
 

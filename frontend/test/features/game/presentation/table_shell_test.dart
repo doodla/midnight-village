@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
@@ -267,7 +268,7 @@ void main() {
       expect(find.text(CommonCopy.hold), findsOneWidget);
 
       // A locked tap sends nothing.
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       expect(s.posts('/ready/'), 0);
 
@@ -297,7 +298,7 @@ void main() {
       final gesture = await holdDown(tester, find.byType(FaceDownCard));
       await gesture.up();
       await tester.pump();
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 10));
       // Before any answer.
@@ -404,14 +405,14 @@ void main() {
       s.failPost('/ready/');
       final gesture = await holdDown(tester, find.byType(FaceDownCard));
       await gesture.up();
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(_button(tester), CommonCopy.readyDone, reason: 'still shown');
 
       s.answerPost('/ready/', 'game/ready_look');
       final fetched = s.meFetches;
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       expect(s.meFetches, greaterThan(fetched));
       expect(s.posts('/ready/'), 2);
@@ -500,12 +501,12 @@ void main() {
       final s = await ShellSetup.pump(tester, me, learned: Cue.values.toSet());
       await s.settle(tester);
       s.answerPost('/action/', 'game/choose_submitted_seer');
-      await tester.tap(_seat('Cleo'));
+      await pressLikeAFinger(tester, _seat('Cleo'));
       await tester.pump();
       expect(_button(tester), 'See Cleo');
       final fetched = s.meFetches;
       s.answerMe(recordedMe('me_choose_chosen'));
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       expect(_button(tester), NightCopy.chosen);
       await s.settle(tester);
@@ -530,10 +531,10 @@ void main() {
       );
       await s.settle(tester);
       s.answerPost('/action/', 'game/choose_wrong_stage', status: 409);
-      await tester.tap(_seat('Cleo'));
+      await pressLikeAFinger(tester, _seat('Cleo'));
       await tester.pump();
       final fetched = s.meFetches;
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(s.meFetches, greaterThan(fetched));
       expect(find.text(BannerCopy.tryAgain), findsNothing);
@@ -547,16 +548,16 @@ void main() {
       final s = await ShellSetup.pump(tester, me, learned: Cue.values.toSet());
       await s.settle(tester);
       s.failPost('/action/');
-      await tester.tap(_seat('Cleo'));
+      await pressLikeAFinger(tester, _seat('Cleo'));
       await tester.pump();
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(_button(tester), NightCopy.chosen);
       final first = s.lastBody('/action/');
 
       s.answerPost('/action/', 'game/choose_submitted_seer');
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       expect(s.posts('/action/'), 2);
       expect(s.lastBody('/action/'), first);
@@ -572,9 +573,9 @@ void main() {
       );
       await s.settle(tester);
       s.answerPost('/action/', 'game/choose_bad_request', status: 400);
-      await tester.tap(_seat('Cleo'));
+      await pressLikeAFinger(tester, _seat('Cleo'));
       await tester.pump();
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(_button(tester), 'See Cleo');
       expect(find.text(BannerCopy.tryAgain), findsNothing);
@@ -605,9 +606,9 @@ void main() {
       final other = board.seats.firstWhere((p) => p.id != board.selfId);
       s.answerPost('/action/', 'game/choose_submitted_doppelganger_look');
       s.answerMe(recordedMe('me_choose_doppelganger_followup'));
-      await tester.tap(_seat(other.name));
+      await pressLikeAFinger(tester, _seat(other.name));
       await tester.pump();
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       expect(_button(tester), NightCopy.chosen);
       await s.settle(tester);

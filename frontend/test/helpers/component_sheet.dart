@@ -1,3 +1,4 @@
+import 'finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -148,7 +149,7 @@ enum ComponentPage {
     final who = viewer ?? this.viewer;
     Future<void> tapAll(Iterable<String> captions) async {
       for (final caption in captions) {
-        await tester.tap(find.text(caption).last);
+        await pressLikeAFinger(tester, find.text(caption).last);
         await tester.pump();
       }
     }
@@ -168,7 +169,7 @@ enum ComponentPage {
           talkDoppelganger:
         // My night is a sheet: a tap opens it, every page of it at once
         // (the Doppelganger's window 1 page too).
-        await tester.tap(find.byType(PeekBox));
+        await pressLikeAFinger(tester, find.byType(PeekBox));
         // The sheet slides up; the screen under it may have a loop of its own.
         await tester.pump();
         await tester.pump(const Duration(seconds: 1));
@@ -180,19 +181,19 @@ enum ComponentPage {
         await tapAll([NightCopy.left, NightCopy.right]);
       case actionChosen:
         await tapAll(who.taps);
-        await tester.tap(find.byType(PrimaryButton));
+        await pressLikeAFinger(tester, find.byType(PrimaryButton));
       case actionNotSent:
         await tapAll(who.taps);
-        await tester.tap(find.byType(PrimaryButton));
+        await pressLikeAFinger(tester, find.byType(PrimaryButton));
         await tester.pump();
       case votePicked:
-        await tester.tap(find.text(cleo.name));
+        await pressLikeAFinger(tester, find.text(cleo.name));
       case voteLocked:
-        await tester.tap(find.text(cleo.name));
+        await pressLikeAFinger(tester, find.text(cleo.name));
         await tester.pump();
-        await tester.tap(find.byType(PrimaryButton));
+        await pressLikeAFinger(tester, find.byType(PrimaryButton));
       case gates:
-        await tester.tap(find.byKey(replayedGateKey));
+        await pressLikeAFinger(tester, find.byKey(replayedGateKey));
       default:
     }
     await tester.pump();

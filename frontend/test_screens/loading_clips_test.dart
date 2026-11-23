@@ -5,6 +5,7 @@
 // The frames are drawn on the test's clock (so the same every run): a step
 // is 83 ms (12 per second); a long wait is stepped wider, and each frame
 // says how long it stays (`<clip>/NNN-<ms>.png`).
+import '../test/helpers/finger.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -140,7 +141,7 @@ void main() {
         );
       },
     );
-    await tester.tap(find.text(JoinCopy.joinTable));
+    await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
     await tester.pump();
     await tester.enterText(find.byType(TextField).last, 'V9YC2J');
     await tester.pump();
@@ -178,7 +179,7 @@ void main() {
     for (var i = 0; i < 40; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    await tester.tap(find.text(CountCopy.seeWhoWon));
+    await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
     await s.settle(tester);
     final code = s.me['lobby_code'] as String;
     final path = '/lobbies/$code/play-again/';

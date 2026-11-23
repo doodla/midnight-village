@@ -19,7 +19,7 @@ import '../../../helpers/truncated_text.dart';
 import '../../../helpers/end_board_pump.dart';
 
 // The static end board on the real fonts (the sweep of every sample, phone and
-// text size is `end_board_sweep_test.dart`): the banner in at most three
+// text size is the screen sweep (`end_board_pages.dart`)): the banner in at most three
 // lines, even for three long names hanged and the Werewolves winning; the two feet; the one seal; the red banner only when the
 // Werewolf team or the Tanner wins; the numbers that are also a part's own.
 

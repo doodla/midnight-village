@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -38,7 +39,7 @@ void main() {
     final reads = setup.count('GET', '/me/table/');
 
     setup.answerTable();
-    await tester.tap(find.text(BannerCopy.tryAgain));
+    await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
     await setup.settle(tester);
     expect(setup.count('GET', '/me/table/'), greaterThan(reads));
     expect(find.text(JoinCopy.startTable), findsOneWidget, reason: '01');
@@ -71,13 +72,13 @@ void main() {
           '/lobbies/V9YC2J/join/',
           ContractSamples.map('http/lobby/joined'),
         );
-        await tester.tap(find.text(JoinCopy.joinTable));
+        await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
         await tester.pump();
         await tester.enterText(find.byType(TextField).last, 'V9YC2J');
         await tester.pump();
       }
       failTable(setup);
-      await tester.tap(find.text(tap).last);
+      await pressLikeAFinger(tester, find.text(tap).last);
       await setup.settle(tester);
       await setup.settle(tester);
 
@@ -114,7 +115,7 @@ void main() {
     );
     setup.answerGame(recordedMe('me_look_stage'));
     failTable(setup);
-    await tester.tap(find.byType(PrimaryButton).last);
+    await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
     await setup.settle(tester);
     await setup.settle(tester);
     expect(
@@ -144,7 +145,7 @@ void main() {
     TextAction leave() =>
         tester.widget<TextAction>(find.byType(TextAction).last);
 
-    await tester.tap(find.text(CommonCopy.leave).last);
+    await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
     await tester.pump();
     expect(leave().busy, isTrue, reason: 'busy in the frame of the tap');
     await setup.settle(tester);
@@ -152,7 +153,7 @@ void main() {
     // Answered; where the phone sits is not named yet: still busy, and a
     // tap sends nothing.
     expect(leave().busy, isTrue);
-    await tester.tap(find.text(CommonCopy.leave).last);
+    await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
     await setup.settle(tester);
     expect(setup.count('POST', path), 1);
 
@@ -199,7 +200,7 @@ void main() {
     for (var i = 0; i < 40; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    await tester.tap(find.text(CountCopy.seeWhoWon));
+    await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
     await s.settle(tester);
     final code = s.me['lobby_code'] as String;
     final path = '/lobbies/$code/play-again/';
@@ -207,7 +208,7 @@ void main() {
     s.http.answer('GET', '/me/table/', 'Server Error', status: 503);
     final reads = s.http.requests.where((r) => r.path == '/me/table/').length;
 
-    await tester.tap(find.text(ResultsCopy.playAgain));
+    await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
     // Frames only, no time passing: the table's slow poll never comes due.
     for (var i = 0; i < 200 && s.screenOn(tester) != AppScreen.table; i++) {
       await tester.pump(Duration.zero);
@@ -240,7 +241,7 @@ void main() {
     setup.http.answer('POST', '/lobbies/', lobby, status: 201);
     setup.sitAt(lobby, 'Ana');
     final before = setup.count('GET', '/me/table/');
-    await tester.tap(find.text(JoinCopy.startTable));
+    await pressLikeAFinger(tester, find.text(JoinCopy.startTable));
     int? reads;
     for (var i = 0; i < 60 && reads == null; i++) {
       await tester.pump(const Duration(milliseconds: 16));

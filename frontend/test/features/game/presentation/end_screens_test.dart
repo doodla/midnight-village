@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -67,7 +68,7 @@ PrimaryButton _button(WidgetTester tester) =>
 
 Future<void> _seeWhoWon(WidgetTester tester, ShellSetup s) async {
   await _countDone(tester);
-  await tester.tap(find.text(CountCopy.seeWhoWon));
+  await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
   await s.settle(tester);
 }
 
@@ -165,7 +166,7 @@ void main() {
         'goes straight to 11', (tester) async {
       final s = await _end(tester, recordedResults('results_doppelganger'));
       expect(_button(tester).phase, ButtonPhase.ready);
-      await tester.tap(find.text(CountCopy.seeWhoWon));
+      await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
       await s.settle(tester);
       expect(find.byType(ResultsView), findsOneWidget);
       await s.close(tester);
@@ -174,7 +175,7 @@ void main() {
     testWidgets('any other tap finishes the motion; with reduce motion it '
         'opens finished', (tester) async {
       var s = await _end(tester, recordedResults('results_doppelganger'));
-      await tester.tap(find.text('Cleo dies.'));
+      await pressLikeAFinger(tester, find.text('Cleo dies.'));
       await tester.pump();
       expect(find.byType(RolePortrait), findsOneWidget, reason: 'turned');
       await s.close(tester);
@@ -208,7 +209,7 @@ void main() {
       await _countDone(tester);
       expect(truncatedText(tester), isEmpty);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text(CountCopy.seeWhoWon));
+      await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
       await s.settle(tester);
       expect(find.byType(ResultsView), findsOneWidget);
       expect(truncatedText(tester), isEmpty);
@@ -420,7 +421,7 @@ void main() {
         recordedResults('results_doppelganger'),
         disableAnimations: true,
       );
-      await tester.tap(find.text(CountCopy.seeWhoWon));
+      await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
       await s.settle(tester);
       // The Werewolf card the Drunk took: from Left to Gus.
       expect(find.text('Left'), findsWidgets);
@@ -436,7 +437,7 @@ void main() {
       final night = find.bySemanticsLabel(ResultsCopy.nightSpoken);
       await tester.ensureVisible(night);
       await tester.pump();
-      await tester.tap(night);
+      await pressLikeAFinger(tester, night);
       await tester.pump();
       expect(
         find.textContaining('Gus takes Left.', findRichText: true),
@@ -460,7 +461,7 @@ void main() {
           before: (s) => s.answerResults(recordedResults('results')),
         );
         await s.settle(tester);
-        await tester.tap(find.text(CountCopy.seeWhoWon));
+        await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
         await s.settle(tester);
         final play = tester.getRect(find.byType(PrimaryButton));
         final edit = tester.getRect(find.byType(SecondaryButton));
@@ -500,7 +501,7 @@ void main() {
         before: (s) => s.answerResults(results),
       );
       await s.settle(tester);
-      await tester.tap(find.text(CountCopy.seeWhoWon));
+      await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
       await s.settle(tester);
       expect(find.textContaining('deals next'), findsNothing);
       expect(find.text(CommonCopy.leave), findsOneWidget);
@@ -580,7 +581,7 @@ void main() {
       s.http.answer('POST', '/lobbies/${code(s)}/play-again/', s.playedAgain());
       s.answerTable(waiting(s, host: true));
       final from = s.http.requests.length;
-      await tester.tap(find.text(ResultsCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
       // Frames only, no time passing (the table's slow poll never comes due).
       for (
         var i = 0;
@@ -629,7 +630,7 @@ void main() {
       await _seeWhoWon(tester, s);
       s.http.answer('POST', '/lobbies/${code(s)}/play-again/', s.playedAgain());
       s.answerTable(waiting(s, host: true));
-      await tester.tap(find.text(ResultsCopy.editDeck));
+      await pressLikeAFinger(tester, find.text(ResultsCopy.editDeck));
       await s.settle(tester);
       expect(_screen(tester, s), AppScreen.deck);
       await s.close(tester);
@@ -641,13 +642,13 @@ void main() {
       await _seeWhoWon(tester, s);
       final path = '/lobbies/${code(s)}/play-again/';
       s.http.answer('POST', path, 'Server Error', status: 503);
-      await tester.tap(find.text(ResultsCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(find.byType(ResultsView), findsOneWidget);
       s.http.answer('POST', path, s.playedAgain());
       s.answerTable(waiting(s, host: true));
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       expect(_screen(tester, s), AppScreen.table);
       await s.close(tester);
@@ -680,7 +681,7 @@ void main() {
         s
           ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
           ..answerHome();
-        await tester.tap(find.text(tap));
+        await pressLikeAFinger(tester, find.text(tap));
         await s.settle(tester);
         expect(_screen(tester, s), AppScreen.join);
         expect(find.text(BannerCopy.tableClosed), findsOneWidget);
@@ -726,7 +727,7 @@ void main() {
       s
         ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
         ..answerHome();
-      await tester.tap(find.text(CommonCopy.leave));
+      await pressLikeAFinger(tester, find.text(CommonCopy.leave));
       await s.settle(tester);
       expect(_screen(tester, s), AppScreen.join);
       await s.close(tester);

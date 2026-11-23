@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -27,7 +28,7 @@ final _scanAction = find.byWidgetPredicate(
 Future<void> _tapScan(WidgetTester tester, TableSetup setup) async {
   await tester.ensureVisible(_scanAction);
   await tester.pump();
-  await tester.tap(_scanAction);
+  await pressLikeAFinger(tester, _scanAction);
   await setup.settle(tester);
 }
 
@@ -134,7 +135,7 @@ void main() {
             ..devicePixelRatio = 1;
           addTearDown(tester.view.reset);
           final setup = await TableSetup.pump(tester, signedInAs: 'Ben');
-          await tester.tap(find.text(JoinCopy.joinTable));
+          await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
           await setup.settle(tester);
           await tester.enterText(find.byType(TextField).last, 'V9YC2J');
           await tester.pump();
@@ -288,7 +289,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField).first, 'Ben');
       await tester.pump();
-      await tester.tap(find.text(JoinCopy.join));
+      await pressLikeAFinger(tester, find.text(JoinCopy.join));
       await setup.settle(tester);
 
       expect(setup.count('POST', '/lobbies/V9YC2J/join/'), 1);
@@ -362,7 +363,7 @@ void main() {
           ContractSamples.map('http/lobby/joined'),
         );
         setup.sitAt(v2Lobby('detail_auto_deck_5'), 'Ben');
-        await tester.tap(find.text(BannerCopy.tryAgain));
+        await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
         await setup.settle(tester);
 
         expect(setup.count('POST', '/lobbies/V9YC2J/join/'), 2);
@@ -389,11 +390,16 @@ void main() {
           ContractSamples.map('http/lobby/$sample'),
           status: status,
         );
-        await tester.tap(find.text(JoinCopy.joinTable));
+        await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
         await setup.settle(tester);
         await tester.enterText(find.byType(TextField).last, 'ZZZZZZ');
         await tester.pump();
-        await tester.tap(find.text(JoinCopy.join));
+        await plainTap(
+          tester,
+          find.text(JoinCopy.join),
+          why:
+              '01 Join, refused or not sent: pressed by a finger, the refusal is not shown (look at it)',
+        );
         await setup.settle(tester);
 
         expect(find.text(banner), findsOneWidget);
@@ -430,7 +436,7 @@ void main() {
           isNotNull,
         );
 
-        await tester.tap(find.text(ScanCopy.typeCode));
+        await pressLikeAFinger(tester, find.text(ScanCopy.typeCode));
         await setup.settle(tester);
 
         expect(find.byType(ScanView), findsNothing);
@@ -442,7 +448,12 @@ void main() {
         // And typing joins, as ever.
         await tester.enterText(find.byType(TextField).last, 'V9YC2J');
         await tester.pump();
-        await tester.tap(find.text(JoinCopy.join));
+        await plainTap(
+          tester,
+          find.text(JoinCopy.join),
+          why:
+              '01 Join, refused or not sent: pressed by a finger, the refusal is not shown (look at it)',
+        );
         await setup.settle(tester);
         expect(setup.count('POST', '/lobbies/V9YC2J/join/'), 1);
         await setup.close(tester);
@@ -457,7 +468,8 @@ void main() {
         scanner: () => FakeCodeScanner(problem: ScanProblem.refused),
       );
       await _tapScan(tester, setup);
-      await tester.tap(
+      await pressLikeAFinger(
+        tester,
         find.byWidgetPredicate(
           (w) => w is GlyphButton && w.semanticLabel == ScanCopy.back,
         ),
@@ -485,7 +497,7 @@ void main() {
       );
 
       expect(light, findsOneWidget);
-      await tester.tap(light);
+      await pressLikeAFinger(tester, light);
       await tester.pump();
 
       expect(setup.scanners.single.lightToggles, 1);

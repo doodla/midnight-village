@@ -2,6 +2,7 @@
 // of the lock as four frames, and the vote at several table sizes (one long name, a large text
 // size). Run it with `just vote-pictures`; it is not part of `just test`.
 // `just contact-sheet <folder>` makes one sheet of a folder.
+import '../test/helpers/finger.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -132,7 +133,7 @@ Future<void> _save(WidgetTester tester, String name) async {
 }
 
 Future<void> _pick(WidgetTester tester, String name) async {
-  await tester.tap(find.text(name));
+  await pressLikeAFinger(tester, find.text(name));
   await tester.pump(const Duration(milliseconds: 400));
 }
 
@@ -143,7 +144,7 @@ void main() {
     testWidgets('locked, $label: six players', (tester) async {
       await _show(tester, _table(6, long: true));
       await _pick(tester, sheet.cleo.name);
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump(const Duration(milliseconds: 600));
       await _save(tester, 'locked-$label');
@@ -153,7 +154,7 @@ void main() {
       await _show(tester, _table(6, long: true));
       await _pick(tester, sheet.cleo.name);
       await _save(tester, 'moment-$label-0-picked');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       var at = 0;
       for (final (i, ms) in [0, 50, 110, 400].indexed) {
         await tester.pump(Duration(milliseconds: ms - at));
@@ -174,7 +175,7 @@ void main() {
     testWidgets('$name: locked on one', (tester) async {
       await _show(tester, _table(players, long: long), textScale: scale);
       await _pick(tester, long ? _long : sheet.cleo.name);
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump(const Duration(milliseconds: 600));
       expect(tester.takeException(), isNull);

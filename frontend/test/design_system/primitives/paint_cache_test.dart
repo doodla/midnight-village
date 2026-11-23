@@ -1,3 +1,4 @@
+import '../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,7 +44,7 @@ void main() {
 
     // Start the wave (a tap on the locked button replays the cue) and run ten
     // frames of it, with the hold ring still breathing.
-    await tester.tap(find.text(NightCopy.chooseNone));
+    await pressLikeAFinger(tester, find.text(NightCopy.chooseNone));
     await tester.pump();
     expect(find.byType(CueWave), findsWidgets, reason: 'the wave is running');
     final before = {for (final p in pieces) p: painted[p] ?? 0};

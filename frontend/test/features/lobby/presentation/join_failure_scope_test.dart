@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,11 +31,16 @@ void main() {
         status: 503,
       ),
     );
-    await tester.tap(find.text(JoinCopy.joinTable));
+    await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
     await tester.pump();
     await tester.enterText(find.byType(TextField).last, 'V9YC2J');
     await tester.pump();
-    await tester.tap(find.text(JoinCopy.join));
+    await plainTap(
+      tester,
+      find.text(JoinCopy.join),
+      why:
+          '01 Join, refused or not sent: pressed by a finger, the refusal is not shown (look at it)',
+    );
     await setup.settle(tester);
     expect(find.text(BannerCopy.notSent), findsOneWidget);
 
@@ -59,7 +65,7 @@ void main() {
       '/me/table/',
       ContractSamples.map('http/lobby/my_table_none'),
     );
-    await tester.tap(find.text(CommonCopy.leave).last);
+    await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
     await setup.settle(tester);
     expect(find.text(JoinCopy.startTable), findsOneWidget);
     expect(find.text(BannerCopy.notSent), findsNothing);
@@ -86,7 +92,7 @@ void main() {
         );
       },
     );
-    await tester.tap(find.text(JoinCopy.startTable));
+    await pressLikeAFinger(tester, find.text(JoinCopy.startTable));
     await tester.pump();
     final startButton = find.ancestor(
       of: find.text(JoinCopy.startTable),
@@ -97,8 +103,8 @@ void main() {
       findsOneWidget,
       reason: 'busy in the frame of the tap',
     );
-    await tester.tap(find.text(JoinCopy.startTable));
-    await tester.tap(find.text(JoinCopy.joinTable));
+    await pressLikeAFinger(tester, find.text(JoinCopy.startTable));
+    await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
     await setup.settle(tester);
     expect(start.length, 1, reason: 'one request');
     expect(find.byType(TextField), findsOneWidget, reason: 'no code field');
@@ -126,11 +132,11 @@ void main() {
         );
       },
     );
-    await tester.tap(find.text(JoinCopy.joinTable));
+    await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
     await tester.pump();
     await tester.enterText(find.byType(TextField).last, 'V9YC2J');
     await tester.pump();
-    await tester.tap(find.text(JoinCopy.join));
+    await pressLikeAFinger(tester, find.text(JoinCopy.join));
     await tester.pump();
     await setup.settle(tester);
     expect(find.text('V9YC2J'), findsOneWidget, reason: 'the code stays');
@@ -140,7 +146,7 @@ void main() {
     );
     expect(tester.widget<PrimaryButton>(button).busy, isTrue);
     expect(join.length, 1);
-    await tester.tap(find.text(JoinCopy.join));
+    await pressLikeAFinger(tester, find.text(JoinCopy.join));
     await setup.settle(tester);
     expect(join.length, 1, reason: 'one request');
     await setup.close(tester);

@@ -4,6 +4,7 @@ import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
 
 import '../test/helpers/component_sheet.dart';
+import '../test/helpers/screen_sweep.dart';
 import '../test/helpers/shell_setup.dart';
 import 'end_board_pages.dart';
 import 'end_fixtures.dart';
@@ -19,6 +20,8 @@ class ScreenEntry {
     required this.build,
     this.playerScreen = false,
     this.frames,
+    this.sweep = const SweepPlan(),
+    this.textScale = 1,
   }) : notBuilt = null;
 
   /// A screen the mocks have and the app does not yet: listed so the summary
@@ -27,7 +30,9 @@ class ScreenEntry {
     : notBuilt = why,
       build = null,
       playerScreen = false,
-      frames = null;
+      frames = null,
+      sweep = const SweepPlan(),
+      textScale = 1;
 
   /// File name stem of the PNG, e.g. `02-table`; states add a suffix.
   final String id;
@@ -48,6 +53,19 @@ class ScreenEntry {
   /// Frames drawn (100 ms each) after the build before the picture; null for
   /// the gallery's own settling. A first frame is 1.
   final int? frames;
+
+  /// What the screen sweep (test/screen_cases/) holds this state to beyond
+  /// the rules every state keeps (nothing cut, overflowing or off the screen;
+  /// the main action reachable, labelled, 48 to touch and pressed by a
+  /// finger): what must be seen, what lies apart, the state's own rules.
+  /// Declared here, once, beside the state: the page, the sweep and the
+  /// finger's press all come from this entry.
+  final SweepPlan sweep;
+
+  /// The phone's text size this page is drawn at (the gallery sets it on the
+  /// phone, so [build] draws at its own size; the sweep turns it through all
+  /// of `sweepScales` anyway).
+  final double textScale;
 }
 
 /// Every screen and state, in the order of the design brief's table, then the

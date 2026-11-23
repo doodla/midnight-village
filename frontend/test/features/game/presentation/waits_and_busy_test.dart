@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -73,7 +74,7 @@ Future<ShellSetup> _end(
   for (var i = 0; i < 40; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
-  await tester.tap(find.text(CountCopy.seeWhoWon));
+  await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
   await s.settle(tester);
   return s;
 }
@@ -107,7 +108,7 @@ void main() {
       final reads = s.http.hold(method: 'GET', path: '/me/table/');
       final answers = s.http.hold(method: 'POST', path: path);
 
-      await tester.tap(find.text(ResultsCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
       await tester.pump();
       expect(
         tester.widget<PrimaryButton>(find.byType(PrimaryButton).last).busy,
@@ -118,8 +119,8 @@ void main() {
       expect(_posts(s, 'play-again'), 1);
 
       // Sent, not answered: nothing is live.
-      await tester.tap(find.text(ResultsCopy.playAgain));
-      await tester.tap(find.text(ResultsCopy.editDeck));
+      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(ResultsCopy.editDeck));
       await s.settle(tester);
       expect(_posts(s, 'play-again'), 1, reason: 'never sent twice');
       expect(
@@ -161,7 +162,7 @@ void main() {
         ContractSamples.load('http/lobby/play_again'),
       );
       s.http.hold(method: 'POST', path: path);
-      await tester.tap(find.text(ResultsCopy.editDeck));
+      await pressLikeAFinger(tester, find.text(ResultsCopy.editDeck));
       await s.settle(tester);
       expect(
         find.descendant(
@@ -189,14 +190,14 @@ void main() {
         ContractSamples.load('http/lobby/play_again_not_finished'),
         status: 409,
       );
-      await tester.tap(find.text(ResultsCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
       await s.settle(tester);
       expect(find.text(BannerCopy.cannotDeal), findsOneWidget);
       expect(find.text(BannerCopy.tryAgain), findsNothing);
       expect(find.text(BannerCopy.notSent), findsNothing);
 
       s.http.answer('POST', path, 'Server Error', status: 503);
-      await tester.tap(find.text(ResultsCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(find.text(BannerCopy.tryAgain), findsOneWidget);
@@ -218,7 +219,7 @@ void main() {
         path,
         ContractSamples.load('http/lobby/play_again'),
       );
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       expect(s.screenOn(tester), AppScreen.table);
       expect(find.text(BannerCopy.notSent), findsNothing);
@@ -241,7 +242,7 @@ void main() {
         ContractSamples.map('http/lobby/my_table_none'),
       );
       s.answerHome();
-      await tester.tap(find.text(CommonCopy.leave));
+      await pressLikeAFinger(tester, find.text(CommonCopy.leave));
       await s.settle(tester);
       expect(find.byType(JoinScreen), findsOneWidget);
       expect(find.text(BannerCopy.notSent), findsNothing);
@@ -317,7 +318,7 @@ void main() {
           .length;
       s.answerMe(me);
       s.answerNightResultsSeen();
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       expect(
         s.http.requests

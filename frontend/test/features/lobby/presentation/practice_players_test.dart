@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
@@ -176,7 +177,7 @@ void main() {
     final edit = find.text(TableCopy.editDeck);
     await tester.ensureVisible(edit);
     await tester.pump();
-    await tester.tap(edit);
+    await pressLikeAFinger(tester, edit);
     await setup.settle(tester);
     expect(find.text(DeckCopy.headline), findsOneWidget);
   }
@@ -185,7 +186,7 @@ void main() {
     final done = find.widgetWithText(PrimaryButton, DeckCopy.done);
     await tester.ensureVisible(done);
     await tester.pump();
-    await tester.tap(done);
+    await pressLikeAFinger(tester, done);
     await setup.settle(tester);
   }
 
@@ -207,7 +208,7 @@ void main() {
     final glyph = _glyph(row, icon);
     await tester.ensureVisible(glyph);
     await tester.pump();
-    await tester.tap(glyph);
+    await pressLikeAFinger(tester, glyph);
     if (settle) {
       await setup.settle(tester);
     } else {
@@ -227,7 +228,7 @@ void main() {
     await toDeck(tester, setup);
     expect(find.text(DeckCopy.practice), findsNothing, reason: '03');
 
-    await tester.tap(find.text(DeckCopy.players));
+    await pressLikeAFinger(tester, find.text(DeckCopy.players));
     await setup.settle(tester);
     expect(find.text(DeckCopy.practice), findsNothing);
     expect(practiceSent(setup), isEmpty);
@@ -313,7 +314,7 @@ void main() {
     await tapIn(tester, setup, _practiceRow(), Icons.add);
     expect(table.count, 2);
     expect(_practiceStepper(tester).onHigher, isNull, reason: 'at the most');
-    await tester.tap(_glyph(_practiceRow(), Icons.add));
+    await pressLikeAFinger(tester, _glyph(_practiceRow(), Icons.add));
     await setup.settle(tester);
     expect(practiceSent(setup).length, 3, reason: 'nothing past the most');
   });
@@ -455,7 +456,7 @@ void main() {
         each.answer('POST', request.path, table.body());
       },
     );
-    await tester.tap(find.text(BannerCopy.tryAgain));
+    await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
     await setup.settle(tester);
     expect(find.text(BannerCopy.notSent), findsNothing);
     expect(table.count, 1);
@@ -495,7 +496,7 @@ void main() {
     await holdPlayers(tester); // off: does not get through either
     await setup.settle(tester);
     answering();
-    await tester.tap(find.text(BannerCopy.tryAgain));
+    await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
     await setup.settle(tester);
     // Only the switch is sent again: the 2 was overtaken by the 0.
     expect(practiceSent(setup).skip(sent + 1), [
@@ -548,7 +549,7 @@ void main() {
         setup.http.answer('PATCH', request.path, table.body());
       },
     );
-    await tester.tap(find.text(BannerCopy.tryAgain));
+    await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
     await setup.settle(tester);
     final again = patchesSent(setup).skip(sent + 1).toList();
     expect(again, [

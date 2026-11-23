@@ -62,6 +62,7 @@ Future<ScreenCapture> captureScreen(
   required int width,
   bool playerScreen = false,
   int? frames,
+  double textScale = 1,
 }) async {
   tester.view.physicalSize = Size(
     width * _pixelRatio,
@@ -69,6 +70,10 @@ Future<ScreenCapture> captureScreen(
   );
   tester.view.devicePixelRatio = _pixelRatio;
   addTearDown(tester.view.reset);
+  if (textScale != 1) {
+    tester.platformDispatcher.textScaleFactorTestValue = textScale;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  }
   // The "DEBUG" ribbon is not part of the screen.
   WidgetsApp.debugAllowBannerOverride = false;
   addTearDown(() => WidgetsApp.debugAllowBannerOverride = true);

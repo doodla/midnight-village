@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -18,7 +19,7 @@ import '../../../helpers/table_setup.dart';
 Future<void> _tap(WidgetTester tester, TableSetup setup, Finder what) async {
   await tester.ensureVisible(what);
   await tester.pump();
-  await tester.tap(what);
+  await pressLikeAFinger(tester, what);
   await setup.settle(tester);
 }
 
@@ -159,11 +160,11 @@ void main() {
       ContractSamples.map('http/lobby/left'),
     );
 
-    await tester.tap(find.text(CommonCopy.leave));
+    await pressLikeAFinger(tester, find.text(CommonCopy.leave));
     await tester.pump();
     // At once: the turning mark beside "Leave", and a second tap is inert.
     expect(find.byType(BusyMark), findsOneWidget);
-    await tester.tap(find.text(CommonCopy.leave));
+    await pressLikeAFinger(tester, find.text(CommonCopy.leave));
     await tester.pump(const Duration(milliseconds: 100));
     expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
 

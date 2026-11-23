@@ -1,3 +1,4 @@
+import '../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -154,7 +155,7 @@ void main() {
     expect(_cue, findsNothing);
     expect(_ring, findsNothing);
 
-    await tester.tap(find.byType(PrimaryButton));
+    await pressLikeAFinger(tester, find.byType(PrimaryButton));
     await tester.pump();
     expect(_cue, findsOneWidget);
     await tester.pump(TeachOnce.replayFor - const Duration(milliseconds: 1));

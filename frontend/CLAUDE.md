@@ -150,3 +150,12 @@ Every screen (01 to 11) is built from the primitives, against its mock in
 "Screens strict at 360" and "... at 390"), and you hand over before and after pictures. A change to
 words or screens also runs `just test-harness` before its pull request (the commit gate does
 not; GitHub does, as "End-to-end Harness").
+
+A screen state is declared once, as a `ScreenEntry` in `test_screens/screen_catalogue.dart`:
+from it come its page in `just screens` and the screen sweep in `just test`
+(`test/screen_cases/`: three phones, three text sizes, nothing cut, overflowing or lying on
+another piece, the main button reachable, labelled, 48 to touch and pressed by a finger; what
+it must show, its pieces kept apart and its own rules in its `SweepPlan`). A test presses a
+main button with `pressLikeAFinger` (`test/helpers/finger.dart`); a plain `tester.tap` on one
+fails the test. Screen code adds no raw size and no sentence (`raw_values_test.dart`, against
+origin/main).

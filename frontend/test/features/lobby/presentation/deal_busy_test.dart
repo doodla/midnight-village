@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
@@ -53,7 +54,7 @@ void main() {
 
     PrimaryButton deal() =>
         tester.widget<PrimaryButton>(find.byType(PrimaryButton).last);
-    await tester.tap(find.byType(PrimaryButton).last);
+    await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
     await tester.pump();
     expect(deal().busy, isTrue, reason: 'busy in the frame of the tap');
     await setup.settle(tester);
@@ -63,7 +64,7 @@ void main() {
     // tap sends nothing.
     expect(find.byType(AtTableScreen), findsOneWidget);
     expect(deal().busy, isTrue);
-    await tester.tap(find.byType(PrimaryButton).last);
+    await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
     await setup.settle(tester);
     expect(starts(), 1);
 

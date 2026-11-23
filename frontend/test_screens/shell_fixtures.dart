@@ -1,3 +1,4 @@
+import '../test/helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -110,14 +111,14 @@ Future<void> pumpNightSleeper(WidgetTester tester) =>
 /// 06 with Cleo picked: "See Cleo".
 Future<void> pumpNightPicked(WidgetTester tester) async {
   await pumpNightBoard(tester);
-  await tester.tap(find.text(sheet.cleo.name).last);
+  await pressLikeAFinger(tester, find.text(sheet.cleo.name).last);
   await tester.pump();
 }
 
 /// 06 on the Seer's phone with one center card picked: "Choose 1 more".
 Future<void> pumpNightSeerCenter(WidgetTester tester) async {
   await pumpNightBoard(tester);
-  await tester.tap(find.text(NightCopy.left).last);
+  await pressLikeAFinger(tester, find.text(NightCopy.left).last);
   await tester.pump();
 }
 
@@ -139,7 +140,7 @@ Future<void> pumpNightTroublemakerLong(WidgetTester tester) async {
     ),
   );
   for (final name in long) {
-    await tester.tap(find.text(name).last);
+    await pressLikeAFinger(tester, find.text(name).last);
     await tester.pump();
   }
 }
@@ -151,9 +152,9 @@ Future<void> pumpNightChosen(WidgetTester tester) async {
   setup
     ..answerPost('/action/', 'game/choose_submitted_seer')
     ..answerMe(sheet.recordedMe('me_choose_chosen'));
-  await tester.tap(find.text(sheet.cleo.name).last);
+  await pressLikeAFinger(tester, find.text(sheet.cleo.name).last);
   await tester.pump();
-  await tester.tap(find.byType(PrimaryButton).last);
+  await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
   await setup.settle(tester);
 }
 
@@ -167,9 +168,9 @@ Future<void> pumpNightFollowUp(WidgetTester tester) async {
   setup
     ..answerPost('/action/', 'game/choose_submitted_doppelganger_look')
     ..answerMe(sheet.recordedMe('me_choose_doppelganger_followup'));
-  await tester.tap(find.text(other.name).last);
+  await pressLikeAFinger(tester, find.text(other.name).last);
   await tester.pump();
-  await tester.tap(find.byType(PrimaryButton).last);
+  await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
   await setup.settle(tester);
   await holdDown(
     tester,
@@ -309,7 +310,7 @@ Future<void> pumpTalkNotSent(WidgetTester tester) async {
   final setup = await pumpTalkOpen(tester, learned: Cue.values.toSet());
   await _putAway(tester, setup);
   setup.failPost('/ready/');
-  await tester.tap(find.byType(PrimaryButton).last);
+  await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
   await setup.settle(tester);
 }
 
@@ -382,7 +383,7 @@ Future<ShellSetup> pumpVoteOpen(WidgetTester tester, {double textScale = 1}) =>
 Future<ShellSetup> pumpVotePicked(WidgetTester tester) async {
   final setup = await pumpVoteOpen(tester);
   setup.answerPost('/vote/', 'game/vote_repicked');
-  await tester.tap(find.text(sheet.cleo.name));
+  await pressLikeAFinger(tester, find.text(sheet.cleo.name));
   await setup.settle(tester);
   return setup;
 }
@@ -391,7 +392,7 @@ Future<ShellSetup> pumpVotePicked(WidgetTester tester) async {
 Future<void> pumpVoteLocked(WidgetTester tester) async {
   final setup = await pumpVotePicked(tester);
   setup.answerPost('/vote/', 'game/vote_locked');
-  await tester.tap(find.byType(PrimaryButton).last);
+  await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
   await setup.settle(tester);
 }
 
@@ -513,7 +514,7 @@ Future<void> pumpYourCardNotSent(WidgetTester tester) async {
   await hold.up();
   await tester.pump();
   setup.failPost('/ready/');
-  await tester.tap(find.byType(PrimaryButton).last);
+  await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
   await setup.settle(tester);
 }
 
@@ -521,7 +522,7 @@ Future<void> pumpYourCardNotSent(WidgetTester tester) async {
 Future<void> pumpVoteNotSent(WidgetTester tester) async {
   final setup = await pumpVoteOpen(tester);
   setup.failPost('/vote/');
-  await tester.tap(find.text(sheet.cleo.name));
+  await pressLikeAFinger(tester, find.text(sheet.cleo.name));
   await setup.settle(tester);
 }
 

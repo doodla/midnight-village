@@ -1,3 +1,4 @@
+import '../../helpers/finger.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -298,10 +299,10 @@ void _checks(Dress dress) {
     ].reduce(math.min);
     expect(height(), greaterThanOrEqualTo(48), reason: 'waiting');
     expect(narrowest(), greaterThanOrEqualTo(BoardLayout.minTap - 0.5));
-    await tester.tap(find.text('Left'));
+    await pressLikeAFinger(tester, find.text('Left'));
     await tester.pump();
     expect(height(), greaterThanOrEqualTo(48), reason: 'ready');
-    await tester.tap(find.byType(PrimaryButton));
+    await pressLikeAFinger(tester, find.byType(PrimaryButton));
     await tester.pump();
     expect(height(), greaterThanOrEqualTo(48), reason: 'done');
   });
