@@ -15,9 +15,12 @@ import 'art_picture.dart';
 /// replayed and the moon is the light) it is the same lantern with no glow.
 /// Plain, it is the picture alone.
 class EndLantern extends StatelessWidget {
-  const EndLantern({super.key, this.lit = true});
+  const EndLantern({super.key, this.lit = true, this.scale = 1});
 
   final bool lit;
+
+  /// Of the end board's size (08's wall lantern is smaller).
+  final double scale;
 
   /// How wide the glow is.
   static const glow = 180.0;
@@ -25,7 +28,8 @@ class EndLantern extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
-    final size = EndArt.lanternSize;
+    final size = EndArt.lanternSize * scale;
+    final glow = EndLantern.glow * scale;
     final light = Offset(
       EndArt.lanternLight.dx * size.width,
       EndArt.lanternLight.dy * size.height,

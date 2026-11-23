@@ -37,11 +37,12 @@ const meScreens = <String, AppScreen>{
   'me_discussion_choose_robber': AppScreen.talk,
   'me_discussion_choose_seer': AppScreen.talk,
   'me_discussion_choose_seer_nothing_chosen': AppScreen.talk,
+  'me_discussion_choose_troublemaker': AppScreen.talk,
   'me_discussion_choose_villager': AppScreen.talk,
   'me_discussion_choose_werewolf_lone': AppScreen.talk,
   'me_discussion_choose_werewolf_pack': AppScreen.talk,
-  // Every "My night" story (backend/tests/contract/story_scenarios.py).
-  'me_discussion_choose_troublemaker': AppScreen.talk,
+  // Every "My night" story (backend/tests/contract/story_scenarios.py), with
+  // the Troublemaker's above.
   'me_discussion_choose_seer_center': AppScreen.talk,
   'me_discussion_choose_insomniac_changed': AppScreen.talk,
   'me_discussion_choose_minion_no_werewolves': AppScreen.talk,

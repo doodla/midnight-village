@@ -108,7 +108,8 @@ def _village_night(t: Table) -> None:
             "Ben": [{"center_index": 0}, {"center_index": 2}],
         },
     )
-    _talk_me(t, "Ana", "troublemaker", "the Troublemaker swapped two others' cards.")
+    # The Troublemaker's talk /me/ is recorded by the plain choose table
+    # (scenarios.py, me_discussion_choose_troublemaker): not again here.
     _talk_me(t, "Ben", "seer_center", "a dealt Seer who looked at two centre cards.")
     _talk_me(
         t,

@@ -25,6 +25,7 @@ is the shipped value before the choice (a mock's number is never copied: a role 
 | nameSmall | G | 14 | 18 | a name under a card on the night board |
 | buttonLabel (large, regular, small) | F 700 | 15 | 21 / 20 / 19 (G) | primary button words |
 | timer, timerVote, timerSmall | G | **84, 76, 64** | same | the countdowns (unchanged) |
+| timerTalk | G | **40** | 40 | the talk's clock in the square's sky (owner, 23 November 2026): the scale's one large timer under 64; the guard holds it to exactly 40 and every other timer to 64 or more (`skin_contract_test.dart`) |
 | timerSmall | G | **64** | 64 | the night's seconds, on the board (S06) as on the candle's panel (S05): the one timer style; the role `timerCompact` (27) is gone |
 | bodyLarge / bodyStrong | F 500 / 700 | 15 | 17 | a role's text, a count read across the table, a lead word |
 | lede, body, action | F | 14 | 16 | ordinary text, secondary buttons, chips |

@@ -49,7 +49,7 @@ const inventory = <PartEntry>[
     plain:
         'amber fill, hard offset shadow, ink edge by day; waiting, locked and quiet are a 2 px outline',
     paper:
-        'ready: one amber piece on a darker backing, only its label in it; waiting and locked (the night board\'s "Choose" slot too): the quietest piece there is, dark indigo paper barely lifted off the ground with its label saying why (one locked form, 4.5:1); quiet: a bone scrap; done: words and the paper mark, no paper',
+        'ready: one amber piece on a darker backing, only its label in it (a second smaller line under it where it has one: 08\'s count); waiting and locked (the night board\'s "Choose" slot too): the quietest piece there is, dark indigo paper barely lifted off the ground with its label saying why (one locked form, 4.5:1); quiet: a bone scrap; on (a toggle pressed, 08\'s "Ready ✓"): navy paper laid lower where the amber was, its words bone; done: words and the paper mark, no paper',
   ),
   PartEntry(
     'SecondaryButton',
@@ -366,9 +366,16 @@ const inventory = <PartEntry>[
     'Twine',
     'primitives/twine.dart',
     plain:
-        'the same thread (filled, never a stroke): solid for a move, gapped for a look',
+        'the same thread (filled, never a stroke): solid for a move, gapped for a look, a head at its far end where it says a way',
     paper:
-        'paper thread in bone, a sagging curve between two cards\' corners with a paper shadow away from the light; solid for a move, gapped for a look; red only for the Werewolf team',
+        'paper thread in bone, a sagging curve between two cards\' corners with a paper shadow away from the light; solid for a move, gapped for a look; with a head, a filled paper triangle at its far end, the way it went; red only for the Werewolf team',
+  ),
+  PartEntry(
+    'StoryCardFace',
+    'primitives/story_card.dart',
+    plain: 'its tab\'s words and the role, no paper',
+    paper:
+        'a card of a night\'s picture story (08, My night held): a tab with whose it is in the name face, never cut, the role\'s portrait with its name on a strip at its foot (bone paper, the Werewolf team\'s red), or face down the game\'s card back on the back\'s dark rim; its shadow away from the light',
   ),
   PartEntry(
     'YouSeal',
@@ -411,6 +418,36 @@ const inventory = <PartEntry>[
     plain: 'a card is its words alone; the rest draw nothing',
     paper:
         'a player\'s card pinned on the board: bone paper for a winner, dull for a loser (portrait darkened and drained), the Werewolf team\'s red, a name header, a 4:3 portrait with the role on a strip across its foot, a little darker the further it is from the lantern, its shadow away from it and bigger when raised; the small older sepia card tucked behind its corner; the lantern\'s warm pool on the living winners (screen blend) with the two darkenings; the cobbles with a torn lip and a shadow thrown up onto the board',
+  ),
+  PartEntry(
+    'NameTag',
+    'primitives/name_tag.dart',
+    part: PaperPart.scrap,
+    plain: 'the player\'s sigil and their name, no paper',
+    paper:
+        'a player in the square (08): a tag of bone paper set a hair off square, the player\'s sigil in a small disc (your own tag: your wax seal) and their name in the name face, set smaller rather than cut; not a button',
+  ),
+  PartEntry(
+    'DeckPile',
+    'primitives/deck_pile.dart',
+    plain: 'the role\'s words alone ("3 Villagers")',
+    paper:
+        'one role of the deck in play: a board card (bone, the Werewolf team\'s red) with the role on the strip at its foot, the other copies fanned behind it; a tap or a hold opens the role',
+  ),
+  PartEntry(
+    'SealedNote',
+    'primitives/sealed_note.dart',
+    part: PaperPart.scrap,
+    plain: 'its words ("My night")',
+    paper:
+        'a folded note of bone paper, the flap a fold of the same paper (filled, no line), sealed with the player\'s own wax; held, it sinks into its shadow; until learned its seal lifts and settles once (the hold taught by doing it)',
+  ),
+  PartEntry(
+    'SquareSky',
+    'primitives/square_sky.dart',
+    plain: 'the dawn\'s layers, the clock, the lantern\'s picture',
+    paper:
+        'a strip of night sky over the dawn\'s far roofs and gallows under a veil of the night, the clock large in its middle, the wall lantern lit at its right, the board\'s roof along its foot',
   ),
   PartEntry(
     'EndLantern',

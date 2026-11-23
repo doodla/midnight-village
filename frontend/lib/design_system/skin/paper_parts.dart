@@ -22,8 +22,6 @@ class PaperParts {
     this.bannerDepth = 4.5,
     this.bannerCandle = 0.78,
     this.bannerStep = 13,
-    this.skyDepth = 9,
-    this.skyStep = 16,
     this.barDepth = 2,
     this.plaqueDepth = 3.4,
     this.plaqueStep = 7,
@@ -61,6 +59,21 @@ class PaperParts {
     this.sealHang = 12,
     this.boardShade = const Color(0xFF000000),
     this.lanternGlowAlpha = 0.5,
+    this.foldShade = 0.18,
+    this.flapLight = 0.12,
+    this.squareLantern = 0.62,
+    this.squareVeil = 0.8,
+    this.squarePortraitFew = 84,
+    this.squarePortraitMany = 64,
+    this.squarePortraitLeast = 48,
+    this.squarePortraitStep = 2,
+    this.squareSpareAbove = 0.3,
+    this.squareSpareBetween = 0.4,
+    this.squareButtonWidest = 264,
+    this.squareLeastBody = 380,
+    this.storySlipWidest = 360,
+    this.storySceneShare = 1.4,
+    this.storyLookSag = 8,
     this.winnerPaper = const Color(0xFFF4E8CB),
     this.loserPaper = const Color(0xFFC9C0AA),
     this.nightPaper = const Color(0xFFCFD2E2),
@@ -102,8 +115,8 @@ class PaperParts {
   final Offset pinDrop;
 
   /// A torn edge: how far it steps in and the length of one nibble, for a
-  /// card, a card pinned up, a banner (a rougher tear), the day's sky window
-  /// foot and the strip of time left.
+  /// card, a card pinned up, a banner (a rougher tear) and the strip of
+  /// time left.
   final double deckleDepth;
   final double deckleStep;
   final double pinnedDepth;
@@ -116,8 +129,6 @@ class PaperParts {
   /// inside the slip, whose torn edges and turn take a few pixels.
   final double bannerCandle;
   final double bannerStep;
-  final double skyDepth;
-  final double skyStep;
   final double barDepth;
 
   /// The plaque (the primary button's amber paper): its torn edge.
@@ -225,6 +236,43 @@ class PaperParts {
   /// `OneLight.dimFilter`), and the lantern's glow at its centre.
   final Color boardShade;
   final double lanternGlowAlpha;
+
+  /// 08's sealed note: the fold's shade under its flap (toward the paper's
+  /// ink) and the flap a hair lighter (toward the ground's light), as shares.
+  final double foldShade;
+  final double flapLight;
+
+  /// 08's wall lantern, of the end board's lantern's size.
+  final double squareLantern;
+
+  /// 08's sky: how much of the night lies over the dawn's layers, so the
+  /// clock is the loudest thing in it.
+  final double squareVeil;
+
+  /// 08's deck portraits: the widest, with six roles or fewer and with more;
+  /// the least that still reads as a face (below it the cards become
+  /// name-only, before the board scrolls); and the step they shrink by.
+  final double squarePortraitFew;
+  final double squarePortraitMany;
+  final double squarePortraitLeast;
+  final double squarePortraitStep;
+
+  /// 08's spare height: the share above the deck, and the share between the
+  /// deck and the tags (the rest is below).
+  final double squareSpareAbove;
+  final double squareSpareBetween;
+
+  /// 08's one button's widest, on the cobbles, and the least height the
+  /// board and its foot are given before the band and body scroll together.
+  final double squareButtonWidest;
+  final double squareLeastBody;
+
+  /// 08's picture story: the slip's sentence is set at most this wide, the
+  /// sleeping village is this many portrait widths tall, and a look across
+  /// a row sags this far.
+  final double storySlipWidest;
+  final double storySceneShare;
+  final double storyLookSag;
 
   /// The end board's card papers: a winner lit, a loser dull, the Werewolf
   /// team's red (won, lost) and the cool paper of the replayed night. Ink on
