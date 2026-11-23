@@ -37,6 +37,7 @@ const meScreens = <String, AppScreen>{
   'me_discussion_choose_robber': AppScreen.talk,
   'me_discussion_choose_seer': AppScreen.talk,
   'me_discussion_choose_seer_nothing_chosen': AppScreen.talk,
+  'me_discussion_choose_troublemaker': AppScreen.talk,
   'me_discussion_choose_villager': AppScreen.talk,
   'me_discussion_choose_werewolf_lone': AppScreen.talk,
   'me_discussion_choose_werewolf_pack': AppScreen.talk,

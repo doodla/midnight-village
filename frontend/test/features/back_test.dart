@@ -10,6 +10,8 @@ import 'package:midnight_village/core/router/back_policy.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
+import 'package:midnight_village/design_system/primitives/deck_pile.dart';
+import 'package:midnight_village/features/game/presentation/shell/talk_square.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
 import 'package:midnight_village/design_system/primitives/viewfinder.dart';
@@ -830,17 +832,17 @@ void main() {
       await s.close(tester);
     });
 
-    testWidgets('08 with My night open: Back closes the sheet; then nothing', (
-      tester,
-    ) async {
+    testWidgets('08 with My night up as it opens: Back puts it away (it is on '
+        'the board, not a sheet); then nothing', (tester) async {
       final platform = _Platform.listen(tester);
       final s = await _game(tester, 'me_discussion_choose_seer');
       await s.settle(tester);
-      expect(find.byType(SheetScaffold), findsOneWidget);
+      expect(find.byType(MyNightPanel), findsOneWidget);
 
       await _back(tester);
       await s.settle(tester);
-      expect(find.byType(SheetScaffold), findsNothing);
+      expect(find.byType(MyNightPanel), findsNothing);
+      expect(find.byType(DeckPile), findsWidgets);
       expect(s.screenOn(tester), AppScreen.talk);
       await _back(tester);
       expect(s.screenOn(tester), AppScreen.talk);
@@ -855,7 +857,7 @@ void main() {
       addTearDown(tester.view.reset);
       final s = await _game(tester, 'me_talk_results_seen');
       await s.settle(tester);
-      final card = find.byType(RoleCard).first;
+      final card = find.byType(DeckPile).first;
       await tester.ensureVisible(card);
       await tester.longPress(card);
       await s.settle(tester);
@@ -878,7 +880,7 @@ void main() {
     await s.settle(tester);
     // My night is open on arrival: Back puts it away.
     await _back(tester);
-    final card = find.byType(RoleCard).first;
+    final card = find.byType(DeckPile).first;
     await tester.ensureVisible(card);
     await tester.longPress(card);
     await _settled(tester);
@@ -917,8 +919,9 @@ void main() {
         WidgetTester tester,
         int i, {
         PointerDeviceKind? kind,
+        Type cards = RoleCard,
       }) async {
-        final card = find.byType(RoleCard).at(i);
+        final card = find.byType(cards).at(i);
         await tester.ensureVisible(card);
         await tester.pump();
         await tester.longPress(card, kind: kind ?? PointerDeviceKind.touch);
@@ -1091,7 +1094,7 @@ void main() {
           await s.settle(tester);
           await reopens(
             tester,
-            open: (i) => hold(tester, i),
+            open: (i) => hold(tester, i, cards: DeckPile),
             close: () => byBack ? _back(tester) : pressClose(tester),
           );
           expect(s.screenOn(tester), AppScreen.talk);

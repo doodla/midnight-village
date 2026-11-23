@@ -1,5 +1,6 @@
 import 'template.dart';
 
+export 'story_copy.dart';
 part 'end_copy.dart';
 
 // Every word a player reads, keyed by screen and state: the final copy of

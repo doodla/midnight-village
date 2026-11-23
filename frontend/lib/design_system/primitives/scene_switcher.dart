@@ -6,9 +6,9 @@ import '../../core/router/back_policy.dart';
 import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
-import 'band.dart';
 import 'layered_art.dart';
 import 'scene_arrival.dart';
+import 'square_sky.dart';
 import 'screen_frame.dart';
 
 /// The two scene changes of the game, the moments every phone at a table
@@ -89,7 +89,7 @@ class SceneSwitcher<T> extends StatefulWidget {
       ),
       LayeredSceneId.dawnGallows => Size(
         width,
-        TimerBand.skyFor(size.height) + top,
+        SquareSky.heightFor(size.height) + top,
       ),
     });
   }

@@ -31,7 +31,6 @@ void main() {
           child: TalkView(
             me: GameMe.fromJson(sheet.recordedMe('me_discussion_choose_seer')),
             secondsLeft: 252,
-            elapsed: null,
             onReady: () {},
           ),
         ),

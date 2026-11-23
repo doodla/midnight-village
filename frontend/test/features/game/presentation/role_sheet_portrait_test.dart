@@ -2,11 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/features/game/presentation/shell/talk_square.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/art_picture.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
-import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
 
@@ -55,10 +54,10 @@ void main() {
       expect(WerewolfPortrait.forGame(s.gameId), wolf);
 
       // My night comes up by itself: it holds the Werewolf's face.
-      final night = find.byType(SheetScaffold);
+      final night = find.byType(MyNightPanel);
       expect(night, findsOneWidget);
       expect(_wolvesIn(tester, night), {expected});
-      await tester.tap(find.text(RoleSheetCopy.close));
+      await tester.tapAt(const Offset(4, 400));
       await tester.pumpAndSettle();
 
       // The deck's Werewolf chip opens the card details.

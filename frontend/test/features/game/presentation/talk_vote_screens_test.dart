@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/night/night_story_view.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
-import 'package:midnight_village/design_system/faces/held_face.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/band.dart';
-import 'package:midnight_village/design_system/primitives/panels.dart';
+import 'package:midnight_village/design_system/primitives/deck_pile.dart';
+import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
+import 'package:midnight_village/design_system/primitives/name_tag.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
-import 'package:midnight_village/design_system/primitives/player_token.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
-import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
+import 'package:midnight_village/design_system/primitives/sealed_note.dart';
 import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
+import 'package:midnight_village/design_system/primitives/square_sky.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/talk_square.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 
+import '../../../helpers/component_sheet.dart' show holdDown;
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/sheet/sheet_data.dart' as sheet;
 import '../../../helpers/shell_setup.dart';
@@ -55,9 +60,10 @@ const _everything = {...Cue.values};
 void _answerAck(ShellSetup s) =>
     s.answerPost('/night-results/seen/', 'game/night_results_seen');
 
-/// Puts the open My night away (the sheet's Close).
+/// Puts My night away when it is up by itself as the talk opens: the first
+/// touch anywhere (it is only that touch).
 Future<void> _putAway(WidgetTester tester) async {
-  await tester.tap(find.text(RoleSheetCopy.close));
+  await tester.tapAt(const Offset(4, 400));
   await tester.pumpAndSettle();
 }
 
@@ -74,8 +80,9 @@ void _expectLockedOn(WidgetTester tester, String name) {
 void main() {
   group('08 Talk', () {
     testWidgets('fed from /me/: the seconds left by the deadline, the title '
-        'in the band, no names (the vote lists them), the deck, counts only; '
-        '"Ready to vote" outlined and never locked', (tester) async {
+        'spoken by the band, every player as a name tag, the deck, counts '
+        'only (on the button); "Ready to vote" the one amber action and '
+        'never locked', (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -90,35 +97,33 @@ void main() {
       await s.settle(tester);
       expect(find.byType(TalkScreen), findsOneWidget);
       await _putAway(tester);
-      expect(find.text(TalkCopy.headline), findsOneWidget);
-      final band = tester.widget<TimerBand>(find.byType(TimerBand));
+      final band = tester.widget<SquareSky>(find.byType(SquareSky));
       expect(band.secondsLeft, 14);
       expect(band.title, TalkCopy.headline);
-      // The share left, from the server's own `stage_started_at` and deadline.
+      expect(find.text(TalkCopy.headline), findsNothing, reason: 'spoken');
       final parsed = GameMe.fromJson(me);
-      final length = parsed.deadline!
-          .difference(parsed.stageStartedAt!)
-          .inMilliseconds;
-      expect(band.elapsed, closeTo(1 - 14000 / length, 1e-9));
-      for (final seat in sheet.fiveSeats) {
-        expect(find.text(seat.name), findsNothing);
-      }
+      final tags = tester.widgetList<NameTag>(find.byType(NameTag));
       expect(
-        find.byType(RoleCard),
-        findsNWidgets((me['roles_in_game'] as List).length),
+        tags.map((t) => t.name),
+        sheet.fiveSeats.map((s) => s.name),
+        reason: 'every player, in seat order',
       );
+      expect(tags.where((t) => t.you).map((t) => t.name), [
+        parsed.seats.singleWhere((s) => s.id == parsed.playerId).name,
+      ]);
+      expect(find.byType(DeckPile), findsNWidgets(parsed.deck.length));
 
-      expect(find.text('0 of 5 ready'), findsOneWidget);
       expect(
         find.descendant(
-          of: find.byType(ProgressPips),
-          matching: find.byType(PlayerToken),
+          of: find.byType(PrimaryButton),
+          matching: find.text('0 of 5 ready'),
         ),
-        findsNothing,
-        reason: 'who is slow never shows',
+        findsOneWidget,
+        reason: 'the count is on the button; who is slow never shows',
       );
+      expect(find.byType(ProgressPips), findsNothing);
       expect(_button(tester), TalkCopy.readyToVote);
-      expect(_phase(tester), ButtonPhase.quiet);
+      expect(_phase(tester), ButtonPhase.ready, reason: 'the one amber');
 
       s.ws.addServerEvent(ContractSamples.map('ws/game/progress_talk'));
       await s.settle(tester);
@@ -145,7 +150,7 @@ void main() {
       await tester.tap(find.byType(PrimaryButton).last);
       await tester.pump();
       expect(_button(tester), CommonCopy.readyDone, reason: 'before an answer');
-      expect(_phase(tester), ButtonPhase.quiet, reason: 'never locked');
+      expect(_phase(tester), ButtonPhase.on, reason: 'never locked');
       expect(find.text('1 of 5 ready'), findsOneWidget, reason: 'counted');
 
       s.answerPost('/ready/', 'game/ready_talk_off');
@@ -267,8 +272,10 @@ void main() {
     });
 
     testWidgets('a night that told something opens the talk with My night '
-        'up as a sheet, no tap; the ack goes as it shows; Close puts it '
-        'away; the box under it opens the same sheet again', (tester) async {
+        'up on the board, no touch; the ack goes as it shows; the first touch '
+        'puts it away; held, the note shows the same night again', (
+      tester,
+    ) async {
       final me = recordedMe('me_discussion_choose_seer');
       final s = await ShellSetup.pump(
         tester,
@@ -277,18 +284,25 @@ void main() {
         before: _answerAck,
       );
       await s.settle(tester);
-      expect(find.byType(SheetScaffold), findsOneWidget, reason: 'a sheet');
-      expect(find.byType(HeldFace), findsOneWidget, reason: 'open, no tap');
-      expect(find.text("Cleo's card was: Werewolf."), findsOneWidget);
-      expect(find.byType(PeekBox), findsOneWidget, reason: 'the box, behind');
+      expect(find.byType(MyNightPanel), findsOneWidget, reason: 'no touch');
+      expect(find.byType(NightStoryView), findsOneWidget);
+      expect(
+        find.text("Cleo's card was the Werewolf.", findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.byType(DeckPile), findsNothing, reason: "the deck's place");
+      expect(find.byType(SheetScaffold), findsNothing, reason: 'not a sheet');
       expect(_bodies(s, '/night-results/seen/'), [
         {'seen': (me['night_results'] as List).length},
       ], reason: 'shown is seen');
       expect(find.text(CommonCopy.hold), findsNothing, reason: 'taught on 04');
 
-      await _putAway(tester);
-      expect(find.byType(HeldFace), findsNothing);
-      expect(find.byType(SheetScaffold), findsNothing);
+      // The first touch only puts it away: Ready is not pressed by it.
+      await tester.tap(find.byType(PrimaryButton).last);
+      await tester.pumpAndSettle();
+      expect(find.byType(NightStoryView), findsNothing);
+      expect(find.byType(DeckPile), findsWidgets);
+      expect(_button(tester), TalkCopy.readyToVote);
 
       // Ready works at once with it away.
       s.answerPost('/ready/', 'game/ready_talk');
@@ -296,18 +310,29 @@ void main() {
       await tester.pump();
       expect(_button(tester), CommonCopy.readyDone);
 
-      // Tapped later: the same face, the result first; no second ack.
-      await tester.tap(find.byType(PeekBox));
+      // Held later: the same face, the result first, only while held; no
+      // second ack.
+      final finger = await holdDown(tester, find.byType(SealedNote));
+      expect(find.byType(NightStoryView), findsOneWidget);
+      expect(
+        find.text("Cleo's card was the Werewolf.", findRichText: true),
+        findsOneWidget,
+      );
+      await finger.up();
+      await tester.pump();
+      expect(
+        find.byType(NightStoryView),
+        findsNothing,
+        reason: 'only while held',
+      );
       await s.settle(tester);
-      expect(find.byType(HeldFace), findsOneWidget);
-      expect(find.text("Cleo's card was: Werewolf."), findsOneWidget);
       expect(s.posts('/night-results/seen/'), 1);
       await s.close(tester);
     });
 
-    testWidgets('My night opens in the same place whatever was tapped, and '
-        'Back closes it (the owner, 23 Nov 2026: "it shows up in a '
-        'different spot")', (tester) async {
+    testWidgets('My night shows in the same place wherever the note is held, '
+        "from the board's top (the owner, 23 Nov 2026: \"it shows up in a "
+        'different spot"; "the empty space up top")', (tester) async {
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_talk_results_seen'),
@@ -315,26 +340,24 @@ void main() {
         before: _answerAck,
       );
       await s.settle(tester);
-      final box = find.byType(PeekBox);
-      final rect = tester.getRect(box);
-      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      final note = tester.getRect(find.byType(SealedNote));
+      final board = tester.getRect(find.byType(SquareBoard));
       Rect? first;
       for (final at in [
-        rect.topLeft + const Offset(8, 8),
-        rect.center,
-        rect.bottomRight - const Offset(8, 8),
+        note.topLeft + const Offset(8, 8),
+        note.center,
+        note.bottomRight - const Offset(8, 8),
       ]) {
-        await tester.tapAt(at);
-        await s.settle(tester);
-        final sheet = tester.getRect(find.byType(SheetScaffold));
-        expect(find.byType(HeldFace), findsOneWidget);
-        expect(sheet.bottom, screen.height, reason: 'from the bottom edge');
-        expect(sheet.left, first?.left ?? sheet.left);
-        first ??= sheet;
-        expect(sheet, first, reason: 'where it was tapped changes nothing');
-        await tester.binding.handlePopRoute();
-        await s.settle(tester);
-        expect(find.byType(SheetScaffold), findsNothing, reason: 'Back');
+        final finger = await tester.startGesture(at);
+        await tester.pump(HoldToReveal.holdDelay);
+        await tester.pump(HoldToReveal.revealedAfter);
+        final face = tester.getRect(find.byType(NightStoryView));
+        expect(face.top - board.top, lessThan(Space.lg), reason: 'the top');
+        expect(face, first ?? face, reason: 'where it was held: no matter');
+        first ??= face;
+        await finger.up();
+        await tester.pump();
+        expect(find.byType(NightStoryView), findsNothing, reason: 'let go');
       }
       await s.close(tester);
     });
@@ -348,14 +371,14 @@ void main() {
         learned: _everything,
       );
       await s.settle(tester);
-      expect(find.byType(HeldFace), findsNothing);
-      expect(find.byType(PeekBox), findsOneWidget);
+      expect(find.byType(NightStoryView), findsNothing);
+      expect(find.byType(SealedNote), findsOneWidget);
       expect(s.posts('/night-results/seen/'), 0);
       await s.close(tester);
     });
 
     testWidgets('a night that told nothing ("You slept.") opens nothing; the '
-        'first opening of My night acknowledges, once', (tester) async {
+        'first hold of My night acknowledges, once', (tester) async {
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_discussion_choose_villager'),
@@ -363,17 +386,17 @@ void main() {
         before: _answerAck,
       );
       await s.settle(tester);
-      expect(find.byType(HeldFace), findsNothing);
-      expect(find.byType(PeekBox), findsOneWidget);
+      expect(find.byType(NightStoryView), findsNothing);
+      expect(find.byType(SealedNote), findsOneWidget);
       expect(s.posts('/night-results/seen/'), 0);
-      await tester.tap(find.byType(PeekBox));
+      var finger = await holdDown(tester, find.byType(SealedNote));
+      expect(find.text(NightCopy.slept, findRichText: true), findsOneWidget);
+      await finger.up();
       await s.settle(tester);
-      expect(find.text(NightCopy.slept), findsOneWidget);
       expect(s.posts('/night-results/seen/'), 1);
-      await _putAway(tester);
-      await tester.tap(find.byType(PeekBox));
+      finger = await holdDown(tester, find.byType(SealedNote));
+      await finger.up();
       await s.settle(tester);
-      await _putAway(tester);
       expect(s.posts('/night-results/seen/'), 1);
       await s.close(tester);
     });
@@ -390,8 +413,8 @@ void main() {
       );
       await s.settle(tester);
       await _putAway(tester);
-      await tester.ensureVisible(find.byType(RoleCard).first);
-      await tester.longPress(find.byType(RoleCard).first);
+      await tester.ensureVisible(find.byType(DeckPile).first);
+      await tester.longPress(find.byType(DeckPile).first);
       await tester.pumpAndSettle();
       expect(find.byType(RoleSheetBody), findsOneWidget);
       await tester.tap(find.text(RoleSheetCopy.close));
@@ -639,18 +662,18 @@ void main() {
                 (w.decoration as BoxDecoration).gradient!.colors.first.a == 0,
           );
           final inBand = find
-              .descendant(of: find.byType(TimerBand), matching: fades)
+              .descendant(of: find.byType(SquareSky), matching: fades)
               .evaluate()
               .toSet();
           return fades.evaluate().any((e) => !inBand.contains(e));
         }
 
         testWidgets('$label, $size: the open card\'s words are all above the '
-            'count', (tester) async {
+            'note, on the board', (tester) async {
           final s = await pump(tester);
-          final count = tester.getRect(find.byType(ProgressPips)).top;
+          final count = tester.getRect(find.byType(SealedNote)).top;
           final words = find.descendant(
-            of: find.byType(HeldFace),
+            of: find.byType(NightStoryView),
             matching: find.byType(RichText),
           );
           expect(words, findsWidgets);
@@ -664,22 +687,38 @@ void main() {
           await s.close(tester);
         });
 
-        testWidgets('$label, $size: put away, every deck chip is whole above '
-            'the count, none faded', (tester) async {
+        testWidgets('$label, $size: put away, every pile of the deck and '
+            'every name tag is whole above the note, none faded', (
+          tester,
+        ) async {
           final s = await pump(tester);
           await _putAway(tester);
-          final count = tester.getRect(find.byType(ProgressPips)).top;
+          final count = tester.getRect(find.byType(SealedNote)).top;
           final chips = find.byWidgetPredicate(
-            (w) => w.runtimeType.toString() == '_DeckChip',
+            (w) => w is DeckPile || w is NameTag,
           );
-          expect(chips, findsNWidgets((me()['roles_in_game'] as List).length));
-          for (final element in chips.evaluate()) {
-            final rect = tester.getRect(
-              find.byElementPredicate((e) => e == element),
-            );
-            expect(rect.bottom, lessThanOrEqualTo(count));
+          final parsed = GameMe.fromJson(me());
+          expect(
+            chips,
+            findsNWidgets(parsed.deck.length + parsed.seats.length),
+          );
+          // Ten long names on the narrowest phone are more than the board
+          // holds: it scrolls there, and its end comes into view whole.
+          final scrolls = width < 360 && label != 'five';
+          if (scrolls) {
+            await tester.drag(find.byType(SquareBoard), const Offset(0, -3000));
+            await tester.pumpAndSettle();
+            final last = tester.getRect(find.byType(NameTag).last);
+            expect(last.bottom, lessThanOrEqualTo(count));
+          } else {
+            for (final element in chips.evaluate()) {
+              final rect = tester.getRect(
+                find.byElementPredicate((e) => e == element),
+              );
+              expect(rect.bottom, lessThanOrEqualTo(count));
+            }
+            expect(faded(), isFalse);
           }
-          expect(faded(), isFalse);
           expect(truncatedText(tester), isEmpty);
           await s.close(tester);
         });

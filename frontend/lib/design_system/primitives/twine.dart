@@ -111,7 +111,8 @@ class TwineRoute {
 /// The thread of a twine, painted as a FILLED ribbon of [width] along the
 /// route (a stroke is not paper: `paper_components_test.dart` fails one), in
 /// one length for a [TwineKind.move], in dashes for a [TwineKind.look], with
-/// the paper shadow under it falling away from the light.
+/// the paper shadow under it falling away from the light; with [head], a
+/// filled head at its far end ([TwineRoute.to]) says which way it went.
 class TwinePainter extends CustomPainter {
   const TwinePainter({
     required this.route,
@@ -124,11 +125,19 @@ class TwinePainter extends CustomPainter {
     this.dash = 8,
     this.gap = 6,
     this.alpha = 1,
+    this.head = false,
   });
 
   final TwineRoute route;
   final TwineKind kind;
   final Color color;
+
+  /// A head at the far end: the way a card went, or a look's way.
+  final bool head;
+
+  /// The head's length along the thread and its width across.
+  static const headLength = 9.0;
+  static const headWidth = 9.0;
   final Color shadow;
 
   /// Which way the shadow leans (`PaperLight`'s lean): away from the light.
@@ -168,6 +177,7 @@ class TwinePainter extends CustomPainter {
       path.addPolygon([...left, ...right.reversed], true);
     }
 
+    if (head) _head(path);
     if (kind == TwineKind.move) {
       strip(points);
       return path;
@@ -201,6 +211,20 @@ class TwinePainter extends CustomPainter {
     return path;
   }
 
+  /// The head: a filled triangle whose tip is the route's end, turned along
+  /// the thread's last stretch.
+  void _head(Path path) {
+    final tip = route.to;
+    final back = route.at(0.9);
+    final along = tip - back;
+    final length = along.distance;
+    if (length == 0) return;
+    final unit = along / length;
+    final normal = Offset(-unit.dy, unit.dx) * (headWidth / 2);
+    final base = tip - unit * headLength;
+    path.addPolygon([tip, base + normal, base - normal], true);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final path = thread();
@@ -229,6 +253,7 @@ class TwinePainter extends CustomPainter {
       shadow != old.shadow ||
       lean != old.lean ||
       alpha != old.alpha ||
+      head != old.head ||
       width != old.width;
 }
 
@@ -244,10 +269,14 @@ class Twine extends StatelessWidget {
     this.kind = TwineKind.move,
     this.werewolf = false,
     this.alpha = 1,
+    this.head = false,
   });
 
   final TwineRoute route;
   final TwineKind kind;
+
+  /// A head at the far end ([TwinePainter.head]).
+  final bool head;
 
   /// A werewolf's: red.
   final bool werewolf;
@@ -275,6 +304,7 @@ class Twine extends StatelessWidget {
               shadow: ink ?? ground.shadow,
               lean: lean,
               alpha: alpha,
+              head: head,
             ),
           ),
         ),

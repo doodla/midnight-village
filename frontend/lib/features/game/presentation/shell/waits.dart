@@ -4,11 +4,13 @@ import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/primitives/band.dart';
 import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
+import '../../../../design_system/primitives/sliced_art.dart';
+import '../../../../design_system/primitives/square_sky.dart';
+import '../../../../design_system/skin/dress.dart';
 import '../../../../design_system/primitives/waiting_sign.dart';
 import '../../../../design_system/skin/art_set.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
-import 'talk_screen.dart';
 
 // The frames a game screen has while its `/me/` is not here (issue 10): each
 // is the screen's own frame (ground, header, headline), so what arrives
@@ -93,19 +95,18 @@ class TalkWait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ScreenFrame(
-    ground: GroundKind.day,
-    topSlot: const TimerBand.sun(
-      secondsLeft: null,
-      elapsed: null,
-      showSun: false,
-      title: TalkCopy.headline,
-    ),
+    ground: GroundKind.night,
+    dress: Dress.paper,
+    bleed: true,
+    topSlot: const SquareSky(secondsLeft: null, title: TalkCopy.headline),
     fitsHeight: true,
-    minBodyHeight: TalkView.minBody,
-    // Hung from the band's lower edge.
-    body: Align(
-      alignment: Alignment.topCenter,
-      child: Waiting(failing: failing, onRetry: onRetry, centred: true),
+    minBodyHeight: context.skin.parts.squareLeastBody,
+    // On the board, where the square will be.
+    body: BoardFrame(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Waiting(failing: failing, onRetry: onRetry, centred: true),
+      ),
     ),
   );
 }

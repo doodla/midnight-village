@@ -26,6 +26,7 @@ just night-frames      # the night board's pick and candle, a frame per 17 ms
 just vote-frames       # the vote's finger, pick and lock (the seal landing), a frame per 17 ms
 just vote-pictures     # the locked vote, the lock in four frames, the vote at several table sizes
 just count-pictures    # the count: one death, a tie, nobody, the moment in four frames, ten with long names
+just story-pictures    # My night held: every night's picture story (recorded or edited) at 360 x 640 and text 1.6
 just paper-parts       # every component in paper dress, every state (the parts page)
 just paper-components  # the table, your card, the night board and the card sheet, for before and after
 just paper-dress       # the dressed-up pass: every paper part in both dresses, and the table, your card and the night board in paper dress
@@ -126,7 +127,7 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 - **Names are never cut**: they wrap between words or are set smaller (`FitWords`, `FitLine`),
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
 - **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink
-  for anything that says something true; no uppercase micro-labels; one amber fill per screen; a selection is lift plus outline, never amber.
+  for anything that says something true; no uppercase micro-labels; one amber fill per screen (08's "Ready to vote" is its one, the owner's choice of 23 November 2026); a selection is lift plus outline, never amber.
 - **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks
   `ScreenFrame(dress: Dress.paper)`; sizes, angles and colours are the skin's, never a number
   in a screen. Detail: `docs/app-rules.md`, "The dress", and `lib/design_system/README.md`.
@@ -135,8 +136,8 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   type role, never a number in a widget: `type_guard_test.dart` fails it), no `SkinId` checks in
   layout code. One look, Shadow paper; a new look is a whole design, not a recolour.
 - **Secrets are held, not tapped**: `HoldToReveal` and `HeldFace`; art for secrets is
-  precached at start so a reveal fetches nothing. The one day exception is "My night" on 08: a
-  tap opens it as a sheet. Nothing vibrates on a card (owner, 23 November 2026).
+  precached at start so a reveal fetches nothing. "My night" on 08 is held too, and shows on the
+  board, from its top, only while held. Nothing vibrates on a card (owner, 23 November 2026).
 - **Information a player asks for opens as a sheet from the bottom edge** (`showSkinSheet`),
   the same place whatever was tapped, closed by its button, the scrim or Back; never a popover
   at the touch point, and opened from a context under the screen's `ScreenFrame` (asserted), so it is dressed and lit as its screen is (`lib/design_system/README.md`, "Where information a player asks for appears").

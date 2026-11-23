@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/square_sky.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
-import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/layered_art.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
@@ -169,7 +169,7 @@ void main() {
       _phone(tester);
       PaintingBinding.instance.imageCache.clear();
       const night = Size(390, 520);
-      final sky = Size(390, TimerBand.skyFor(844));
+      final sky = Size(390, SquareSky.heightFor(844));
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_look_stage'),
@@ -278,9 +278,12 @@ void main() {
       s.resume();
       // The talk's own sky and headline, no number yet: the scene's first
       // frame has the header to raise, not an empty ground.
-      await _begun(tester, find.byType(TimerBand));
+      await _begun(tester, find.byType(SquareSky));
       expect(find.byType(TalkScreen), findsNothing, reason: '/me/ is held');
-      expect(find.text(TalkCopy.headline), findsOneWidget);
+      expect(
+        tester.widget<SquareSky>(find.byType(SquareSky)).title,
+        TalkCopy.headline,
+      );
       expect(find.byType(NightBoard), findsOneWidget, reason: 'leaving');
       expect(_sceneArt, findsOneWidget);
       await tester.pump(_ms * 100);
@@ -296,10 +299,9 @@ void main() {
       await s.close(tester);
     });
 
-    testWidgets('while the talk\'s /me/ loads there is no sun (the table does '
-        'not know where the talk is), and the talk then brings the one sun', (
-      tester,
-    ) async {
+    testWidgets('while the talk\'s /me/ loads its sky has no number (the '
+        'table does not know where the talk is), and the talk then brings '
+        'its clock', (tester) async {
       _phone(tester);
       final s = await _atNight(tester);
       final held = s.http.hold(
@@ -308,25 +310,21 @@ void main() {
       );
       s.answerMe(recordedMe('me_discussion_choose_seer'));
       s.resume();
-      await _begun(tester, find.byType(TimerBand));
-      Finder sun() => find.byWidgetPredicate(
-        (w) =>
-            w is Image &&
-            w.image is ResizeImage &&
-            ((w.image as ResizeImage).imageProvider as AssetImage).assetName
-                .endsWith('/sun.webp'),
+      await _begun(tester, find.byType(SquareSky));
+      Finder clock() => find.byWidgetPredicate(
+        (w) => w is SquareSky && w.secondsLeft != null,
       );
       expect(find.byType(TalkScreen), findsNothing, reason: '/me/ is held');
-      expect(sun(), findsNothing, reason: 'no sun drawn at the start');
+      expect(clock(), findsNothing, reason: 'no number drawn at the start');
       await tester.pump(_ms * 100);
-      expect(sun(), findsNothing);
+      expect(clock(), findsNothing);
       held.releaseAll();
       await tester.pump(_ms * 60);
       expect(find.byType(TalkScreen), findsOneWidget);
-      expect(sun(), findsOneWidget, reason: 'the one sun, where the clock is');
+      expect(clock(), findsOneWidget, reason: 'the one clock');
       await tester.pump(Motion.scene);
       await tester.pump();
-      expect(sun(), findsOneWidget);
+      expect(clock(), findsOneWidget);
       await s.close(tester);
     });
 
