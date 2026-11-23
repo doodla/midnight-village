@@ -193,7 +193,10 @@ class VoteView extends StatelessWidget {
         if (locked)
           const PrimaryButton.done(label: VoteCopy.locked)
         else if (pick == null)
-          const PrimaryButton(label: VoteCopy.pickName, onPressed: null)
+          const PrimaryButton.waiting(
+            label: VoteCopy.pickName,
+            reason: SpokenCopy.pickFirst,
+          )
         else
           PrimaryButton(
             label: VoteCopy.lockIn.fill({'name': pick.name}),

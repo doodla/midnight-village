@@ -24,9 +24,14 @@ const stateAllowances = <String, Map<String, int>>{
   '01 Join': {'in an Android browser, Get the app': 17},
   // "Practice" on the rows (one word, the same on each practice row) over a
   // full 13: a table set for a number, practice players seated, fewer came.
-  '02 Table': {'host, set for a number, practice players, Play with {n}': 14},
+  '02 Table': {'host, set for a number, practice players, Play with {n}': 15},
   // The Practice stepper's name under Players, at a number: 23 of 22.
-  '03 Deck': {'practice switched on': 23},
+  '03 Deck': {
+    'practice switched on': 38,
+    // The count's line ("14 of 12 · Remove 2 cards").
+    'the deck does not fit, too many': 43,
+    'the deck does not fit, too few': 43,
+  },
 };
 
 /// Every role text, laid out as the 04 face and 03b show it.
@@ -108,12 +113,20 @@ List<Line> _face(List<Object> lines) => [for (final l in lines) face(l)];
 /// The set-up page's lengths (the Doppelganger's is the role's name).
 const _lengths = [
   DeckCopy.look,
+  DeckCopy.lookCaption,
   DeckCopy.night,
+  DeckCopy.nightCaption,
   DeckCopy.nightMinimum,
+  DeckCopy.nightMinimumCaption,
   DeckCopy.talk,
   DeckCopy.vote,
   DeckCopy.droppedPhone,
+  DeckCopy.droppedPhoneCaption,
   DeckCopy.hostAway,
+  DeckCopy.hostAwayCaption,
+  // The Doppelganger's row (the role's name) and its caption, while the
+  // deck holds one.
+  DeckCopy.doppelgangerCaption,
 ];
 
 const _winners = [
@@ -181,10 +194,14 @@ final screens = <String, Screen>{
     // chip, the talk's length, the roles face up: names exempt), "Edit",
     // the deal button's one label and a quiet labelled "Leave"; Share is a
     // glyph, spoken only.
-    budget: 13,
+    budget: 14,
     states: {
       for (final chip in DeckCopy.chips)
-        for (final deal in <Object>[TableCopy.deal, TableCopy.needPlayers])
+        for (final deal in <Object>[
+          TableCopy.start,
+          TableCopy.needPlayers,
+          TableCopy.needMore,
+        ])
           'host, $chip: $deal': [
             headline(TableCopy.scan),
             text(JoinCopy.codeHint),
@@ -197,6 +214,25 @@ final screens = <String, Screen>{
             button(deal),
             button(CommonCopy.leave),
           ],
+      // A table whose deck holds the wrong number of cards: the one button
+      // says what to add or remove (and opens 03); "Edit" is hidden.
+      for (final fix in <Object>[
+        DeckCopy.addCard,
+        DeckCopy.addCards,
+        DeckCopy.removeCard,
+        DeckCopy.removeCards,
+      ])
+        'host, the deck does not fit: $fix': [
+          headline(TableCopy.scan),
+          text(JoinCopy.codeHint),
+          text(TableCopy.seated),
+          button(TableCopy.playWith),
+          button(DeckCopy.chips.first),
+          text(DeckCopy.talk),
+          text(DeckCopy.minutes),
+          button(fix),
+          button(CommonCopy.leave),
+        ],
       // The host's "Leave" asks first, in a sheet over the table.
       'host: leave asked': [button(TableCopy.stay), button(CommonCopy.leave)],
       // Practice players seated (the host switched them on with a hold on
@@ -212,7 +248,7 @@ final screens = <String, Screen>{
         text(DeckCopy.talk),
         text(DeckCopy.minutes),
         button(TableCopy.editDeck),
-        button(TableCopy.deal),
+        button(TableCopy.start),
         button(CommonCopy.leave),
         text(TableCopy.practice),
       ],
@@ -223,7 +259,7 @@ final screens = <String, Screen>{
         text(DeckCopy.talk),
         text(DeckCopy.minutes),
         button(TableCopy.editDeck),
-        button(TableCopy.deal),
+        button(TableCopy.start),
         button(CommonCopy.leave),
         text(TableCopy.practice),
       ],
@@ -254,7 +290,7 @@ final screens = <String, Screen>{
     // are exempt; the count is digits), every length with its value. The
     // Practice stepper, only for a host who held "Players", has its own
     // allowance ([stateAllowances]).
-    budget: 22,
+    budget: 37,
     states: {
       for (final open in [true, false])
         open ? 'an open table' : 'set for a number': [
@@ -262,6 +298,22 @@ final screens = <String, Screen>{
           text(DeckCopy.players),
           if (open) text(DeckCopy.any) else text(TableCopy.seated),
           for (final chip in DeckCopy.chips) button(chip),
+          for (final length in _lengths) text(length),
+          text(CommonCopy.seconds),
+          text(DeckCopy.minutes),
+          text(DeckCopy.noClock),
+          text(DeckCopy.off),
+          button(DeckCopy.done),
+        ],
+      // The deck holds the wrong number of cards: the count's line says what
+      // to do about it ([DeckCopy.countFix], its own allowance); "Done" stays.
+      for (final name in ['too many', 'too few'])
+        'the deck does not fit, $name': [
+          headline(DeckCopy.headline),
+          text(DeckCopy.players),
+          text(TableCopy.seated),
+          for (final chip in DeckCopy.chips) button(chip),
+          text(DeckCopy.countFix),
           for (final length in _lengths) text(length),
           text(CommonCopy.seconds),
           text(DeckCopy.minutes),
@@ -510,6 +562,7 @@ final banners = <(String, String?)>[
 final spoken = [
   SpokenCopy.hidden,
   SpokenCopy.working,
+  SpokenCopy.pickFirst,
   ResultsCopy.nightSpoken,
   // A dimmed night card: a tap still switches the pick.
   NightCopy.switchesPick,

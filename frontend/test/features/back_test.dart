@@ -541,7 +541,7 @@ void main() {
           method: 'POST',
           path: '/onuw/lobbies/V9YC2J/start/',
         );
-        await tester.tap(find.text(TableCopy.deal.fill({'n': 5})));
+        await tester.tap(find.text(TableCopy.start));
         await _until(tester, () => deal.length == 1);
         await _press(tester);
         await tester.pump(const Duration(milliseconds: 300));
@@ -610,6 +610,37 @@ void main() {
       expect(_screen(tester), AppScreen.table);
       expect(find.text(TableCopy.stay), findsNothing);
       expect(_requests(setup, 'PATCH') + _requests(setup, 'POST'), 0);
+      expect(platform.left, isFalse);
+      await setup.close(tester);
+    });
+
+    testWidgets('a deck of the wrong size: the first Back stays on 03 and '
+        'shows the count, the second goes back (never trapped)', (
+      tester,
+    ) async {
+      final platform = _Platform.listen(tester);
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('settings_seats_lowered'),
+        viewer: 'Tia',
+      );
+      // The button is the way in (no "Edit" while the deck is wrong).
+      await _tap(tester, find.text(DeckCopy.removeCard));
+      expect(_screen(tester), AppScreen.deck);
+      final count = DeckCopy.countFix.fill({
+        'picked': 11,
+        'need': 10,
+        'fix': DeckCopy.removeCard,
+      });
+      expect(find.text(count), findsOneWidget);
+
+      // The first Back stays and nudges the count; the second goes back.
+      await _back(tester);
+      expect(_screen(tester), AppScreen.deck);
+      expect(find.text(count), findsOneWidget);
+      expect(platform.left, isFalse);
+      await _back(tester);
+      expect(_screen(tester), AppScreen.table);
       expect(platform.left, isFalse);
       await setup.close(tester);
     });
