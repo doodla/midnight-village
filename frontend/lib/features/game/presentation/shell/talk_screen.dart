@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/copy/copy.dart';
+import '../../../../core/router/back_policy.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/night/night_story.dart';
 import '../../../../design_system/primitives/board_pieces.dart';
@@ -16,6 +17,7 @@ import '../../../../design_system/primitives/sliced_art.dart';
 import '../../../../design_system/primitives/square_sky.dart';
 import '../../../../design_system/skin/dress.dart';
 import '../../../../design_system/skin/ground.dart';
+import '../../../../design_system/skin/skin.dart';
 import '../../../../design_system/teach/learned_store.dart';
 import '../../domain/game_me.dart';
 import '../live_game.dart';
@@ -27,7 +29,7 @@ import 'talk_square.dart';
 /// ([StageSeconds]), "Ready to vote" sent through the game's outbox as a
 /// toggle. A phone whose night told it something it has not acknowledged
 /// opens the talk with My night up, once ([TalkView.openNight]): the ack
-/// goes when it is shown, the first touch puts it away. Otherwise the
+/// goes when it is shown, the first touch (or Back) puts it away. Otherwise the
 /// results are acknowledged the first time My night is held. The talk ends
 /// on the server (everyone ready, or its deadline); this screen never
 /// decides it.
@@ -107,10 +109,6 @@ class TalkView extends ConsumerStatefulWidget {
     this.onTryAgain,
   });
 
-  /// The least height the body (the board and its foot) is given; a
-  /// shorter phone (large text) scrolls the band and the body together.
-  static const minBody = SquareMetrics.leastBody;
-
   final GameMe me;
 
   /// Null: the talk has no deadline (no number).
@@ -164,7 +162,7 @@ class _TalkViewState extends ConsumerState<TalkView> {
         title: TalkCopy.headline,
       ),
       fitsHeight: true,
-      minBodyHeight: TalkView.minBody,
+      minBodyHeight: context.skin.parts.squareLeastBody,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -194,22 +192,27 @@ class _TalkViewState extends ConsumerState<TalkView> {
       ),
     );
     if (!_opened) return frame;
-    // Up by itself: the first touch anywhere puts it away (and is only that).
-    return Stack(
-      children: [
-        frame,
-        Positioned.fill(
-          child: Semantics(
-            button: true,
-            label: RoleSheetCopy.close,
-            onTap: () => setState(() => _opened = false),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (_) => setState(() => _opened = false),
+    // Up by itself: the first touch anywhere puts it away (and is only that),
+    // and so does Back (it is on the screen, not a sheet over it).
+    return BackHandler(
+      onBack: () => setState(() => _opened = false),
+      child: Stack(
+        children: [
+          frame,
+          Positioned.fill(
+            child: Semantics(
+              button: true,
+              label: RoleSheetCopy.close,
+              onTap: () => setState(() => _opened = false),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                excludeFromSemantics: true,
+                onTapDown: (_) => setState(() => _opened = false),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -225,6 +228,9 @@ class _TalkViewState extends ConsumerState<TalkView> {
           unawaited(ref.read(learnedCuesProvider.notifier).learn(Cue.myNight)),
       cover: GestureDetector(
         // A tap too short to open it: until it is learned, the seal stirs.
+        // Not a semantic tap: a screen reader shows the night through
+        // HoldToReveal's own action, with no second, unnamed target here.
+        excludeFromSemantics: true,
         onTap: () {
           if (!_learned) setState(() => _stirs++);
         },
@@ -281,8 +287,8 @@ class _TalkViewState extends ConsumerState<TalkView> {
                     onAction: widget.onTryAgain,
                   ),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: SquareMetrics.buttonWidest,
+                  constraints: BoxConstraints(
+                    maxWidth: context.skin.parts.squareButtonWidest,
                   ),
                   child: SizedBox(width: double.infinity, child: button),
                 ),

@@ -1,18 +1,12 @@
-import 'dart:math' as math;
-import 'dart:ui' show PointMode;
-
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
 import '../skin/ground.dart';
-import '../skin/art_set.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/dress.dart';
-import '../skin/paper_parts.dart';
 import 'deckle.dart';
 import 'fit_line.dart';
-import 'layered_art.dart';
 import 'paper_banner.dart';
 import 'world_timer.dart';
 
@@ -120,22 +114,4 @@ class _ArchedFootPainter extends CustomPainter {
       old.ground != ground ||
       old.depth != depth ||
       old.shadowDepth != shadowDepth;
-}
-
-/// The sky's window: its foot torn off along a seeded ragged line.
-class _TornFoot extends CustomClipper<Path> {
-  const _TornFoot(this.parts);
-
-  final PaperParts parts;
-
-  @override
-  Path getClip(Size size) => DeckleBorder(
-    seed: deckleSeed(#sky),
-    depth: parts.skyDepth,
-    step: parts.skyStep,
-    torn: true,
-  ).getOuterPath(Offset.zero & size);
-
-  @override
-  bool shouldReclip(_TornFoot old) => old.parts != parts;
 }

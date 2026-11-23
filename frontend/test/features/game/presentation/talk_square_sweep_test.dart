@@ -5,7 +5,9 @@
 // cut; no pile of the deck lies on another or on a tag; no tag on another;
 // the deck and the tags lie inside the board, above the note; the note, the
 // button and the clock lie on the screen and apart; the note and the button
-// are each at least 48 to touch; where the board holds too much (a short
+// are each at least 48 to touch; portraits are never below what reads as a
+// face (the skin's least): the cards become name-only first, before the board
+// ever scrolls; where the board holds too much (a short
 // phone, large text) it scrolls and its end comes into view whole; every player has a tag, and only this phone's
 // carries the seal. And My night held, every night's picture story
 // (story_samples.dart) on the same phones and text sizes: nothing cut, no
@@ -22,6 +24,7 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/paper_piece.dart';
 import 'package:midnight_village/design_system/primitives/sealed_note.dart';
 import 'package:midnight_village/design_system/primitives/story_card.dart';
+import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/primitives/square_sky.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
@@ -145,18 +148,52 @@ void main() {
           _apart(piles, piles, 'pile on pile', same: true);
           _apart(names, names, 'tag on tag', same: true);
           _apart(piles, names, 'pile on tag');
-          final scrolls = find
-              .descendant(
-                of: find.byType(SquareBoard),
-                matching: find.byType(Scrollable),
-              )
-              .evaluate()
-              .isNotEmpty;
+          final scrollable = find.descendant(
+            of: find.byType(SquareBoard),
+            matching: find.byType(Scrollable),
+          );
+          // A board that can move (the plan may call a hair's breadth too
+          // much; then it holds still, and everything lies on it).
+          final scrolls =
+              scrollable.evaluate().isNotEmpty &&
+              tester
+                      .state<ScrollableState>(scrollable)
+                      .position
+                      .maxScrollExtent >
+                  0;
+          // The rule: portraits below what reads as a face are not drawn at
+          // all, the cards become name-only; and they do before the board
+          // ever scrolls.
+          final least = tester
+              .element(find.byType(SquareBoard))
+              .skin
+              .parts
+              .squarePortraitLeast;
+          for (final pile in tester.widgetList<DeckPile>(
+            find.byType(DeckPile),
+          )) {
+            expect(
+              pile.nameOnly || pile.portraitWidth >= least,
+              isTrue,
+              reason: 'a sliver of a portrait: ${pile.portraitWidth}',
+            );
+          }
+          if (scrolls) {
+            expect(
+              tester
+                  .widgetList<DeckPile>(find.byType(DeckPile))
+                  .every((p) => p.nameOnly),
+              isTrue,
+              reason: 'the board scrolls while the cards still have portraits',
+            );
+          }
           if (!scrolls) {
             _inside([...piles, ...names], board, 'on the board');
           } else {
             // Too much for the board (many players, large text, a short
-            // phone): it scrolls, and its end comes into view whole.
+            // phone): it scrolls (it has something to scroll to, so its fade
+            // is drawn: no name sits under a fade on a board that does not
+            // move), and its end comes into view whole.
             final wide = Rect.fromLTRB(board.left, -1e6, board.right, 1e6);
             _inside([...piles, ...names], wide, 'across the board');
             await tester.drag(find.byType(SquareBoard), const Offset(0, -3000));

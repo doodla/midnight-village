@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/night/night_story_view.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
-import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/deck_pile.dart';
@@ -285,8 +285,11 @@ void main() {
       );
       await s.settle(tester);
       expect(find.byType(MyNightPanel), findsOneWidget, reason: 'no touch');
-      expect(find.byType(HeldFace), findsOneWidget);
-      expect(find.text("Cleo's card was: Werewolf."), findsOneWidget);
+      expect(find.byType(NightStoryView), findsOneWidget);
+      expect(
+        find.text("Cleo's card was the Werewolf.", findRichText: true),
+        findsOneWidget,
+      );
       expect(find.byType(DeckPile), findsNothing, reason: "the deck's place");
       expect(find.byType(SheetScaffold), findsNothing, reason: 'not a sheet');
       expect(_bodies(s, '/night-results/seen/'), [
@@ -297,7 +300,7 @@ void main() {
       // The first touch only puts it away: Ready is not pressed by it.
       await tester.tap(find.byType(PrimaryButton).last);
       await tester.pumpAndSettle();
-      expect(find.byType(HeldFace), findsNothing);
+      expect(find.byType(NightStoryView), findsNothing);
       expect(find.byType(DeckPile), findsWidgets);
       expect(_button(tester), TalkCopy.readyToVote);
 
@@ -310,11 +313,18 @@ void main() {
       // Held later: the same face, the result first, only while held; no
       // second ack.
       final finger = await holdDown(tester, find.byType(SealedNote));
-      expect(find.byType(HeldFace), findsOneWidget);
-      expect(find.text("Cleo's card was: Werewolf."), findsOneWidget);
+      expect(find.byType(NightStoryView), findsOneWidget);
+      expect(
+        find.text("Cleo's card was the Werewolf.", findRichText: true),
+        findsOneWidget,
+      );
       await finger.up();
       await tester.pump();
-      expect(find.byType(HeldFace), findsNothing, reason: 'only while held');
+      expect(
+        find.byType(NightStoryView),
+        findsNothing,
+        reason: 'only while held',
+      );
       await s.settle(tester);
       expect(s.posts('/night-results/seen/'), 1);
       await s.close(tester);
@@ -341,13 +351,13 @@ void main() {
         final finger = await tester.startGesture(at);
         await tester.pump(HoldToReveal.holdDelay);
         await tester.pump(HoldToReveal.revealedAfter);
-        final face = tester.getRect(find.byType(HeldFace));
+        final face = tester.getRect(find.byType(NightStoryView));
         expect(face.top - board.top, lessThan(Space.lg), reason: 'the top');
         expect(face, first ?? face, reason: 'where it was held: no matter');
         first ??= face;
         await finger.up();
         await tester.pump();
-        expect(find.byType(HeldFace), findsNothing, reason: 'let go');
+        expect(find.byType(NightStoryView), findsNothing, reason: 'let go');
       }
       await s.close(tester);
     });
@@ -361,7 +371,7 @@ void main() {
         learned: _everything,
       );
       await s.settle(tester);
-      expect(find.byType(HeldFace), findsNothing);
+      expect(find.byType(NightStoryView), findsNothing);
       expect(find.byType(SealedNote), findsOneWidget);
       expect(s.posts('/night-results/seen/'), 0);
       await s.close(tester);
@@ -376,11 +386,11 @@ void main() {
         before: _answerAck,
       );
       await s.settle(tester);
-      expect(find.byType(HeldFace), findsNothing);
+      expect(find.byType(NightStoryView), findsNothing);
       expect(find.byType(SealedNote), findsOneWidget);
       expect(s.posts('/night-results/seen/'), 0);
       var finger = await holdDown(tester, find.byType(SealedNote));
-      expect(find.text(NightCopy.slept), findsOneWidget);
+      expect(find.text(NightCopy.slept, findRichText: true), findsOneWidget);
       await finger.up();
       await s.settle(tester);
       expect(s.posts('/night-results/seen/'), 1);
@@ -663,7 +673,7 @@ void main() {
           final s = await pump(tester);
           final count = tester.getRect(find.byType(SealedNote)).top;
           final words = find.descendant(
-            of: find.byType(HeldFace),
+            of: find.byType(NightStoryView),
             matching: find.byType(RichText),
           );
           expect(words, findsWidgets);

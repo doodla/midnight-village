@@ -38,7 +38,11 @@ void main() {
       _phone(tester);
       await pumpComponentPage(tester, page, page.grounds.single);
       for (final word in words) {
-        expect(find.text(word), findsOneWidget, reason: word);
+        expect(
+          find.text(word, findRichText: true),
+          findsOneWidget,
+          reason: word,
+        );
       }
     });
   }

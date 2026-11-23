@@ -4,7 +4,6 @@ import 'package:midnight_village/design_system/primitives/square_sky.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
-import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/layered_art.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
@@ -170,7 +169,7 @@ void main() {
       _phone(tester);
       PaintingBinding.instance.imageCache.clear();
       const night = Size(390, 520);
-      final sky = Size(390, TimerBand.skyFor(844));
+      final sky = Size(390, SquareSky.heightFor(844));
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_look_stage'),

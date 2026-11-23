@@ -11,7 +11,6 @@ import '../../../../design_system/primitives/waiting_sign.dart';
 import '../../../../design_system/skin/art_set.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
-import 'talk_screen.dart';
 
 // The frames a game screen has while its `/me/` is not here (issue 10): each
 // is the screen's own frame (ground, header, headline), so what arrives
@@ -101,7 +100,7 @@ class TalkWait extends StatelessWidget {
     bleed: true,
     topSlot: const SquareSky(secondsLeft: null, title: TalkCopy.headline),
     fitsHeight: true,
-    minBodyHeight: TalkView.minBody,
+    minBodyHeight: context.skin.parts.squareLeastBody,
     // On the board, where the square will be.
     body: BoardFrame(
       child: Align(

@@ -58,7 +58,7 @@ class SquareSky extends StatelessWidget {
     final screen = MediaQuery.sizeOf(context);
     final seconds = secondsLeft;
     final number = seconds == null ? null : WorldTimer.format(seconds);
-    final style = skin.typography.timer.copyWith(color: ground.text);
+    final style = skin.typography.timerTalk.copyWith(color: ground.text);
     final scaler = MediaQuery.textScalerOf(context);
     final line = (TextPainter(
       text: TextSpan(text: '0:00', style: style),

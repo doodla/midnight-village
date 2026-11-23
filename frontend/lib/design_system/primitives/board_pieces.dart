@@ -153,6 +153,8 @@ class BoardCard extends StatelessWidget {
       );
     }
     final fill = _fill(context);
+    // No portrait (a name-only card): the words stand on the paper itself.
+    final nameOnly = portraitWidth <= 0;
     final window = SizedBox(
       width: portraitWidth,
       height: portraitWidth * 3 / 4,
@@ -172,13 +174,15 @@ class BoardCard extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: fill,
-            boxShadow: [
-              BoxShadow(
-                color: parts.boardShade.withValues(alpha: 0.35),
-                blurRadius: 2,
-                offset: const Offset(0, -1),
-              ),
-            ],
+            boxShadow: nameOnly
+                ? null
+                : [
+                    BoxShadow(
+                      color: parts.boardShade.withValues(alpha: 0.35),
+                      blurRadius: 2,
+                      offset: const Offset(0, -1),
+                    ),
+                  ],
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: stripPad),
@@ -219,7 +223,7 @@ class BoardCard extends StatelessWidget {
                   )
                 else
                   const SizedBox(height: inset),
-                window,
+                if (!nameOnly) window,
               ],
             ),
             stripBar,

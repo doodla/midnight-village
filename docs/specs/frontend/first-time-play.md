@@ -64,7 +64,7 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 - A reveal counts once it has been visible for at least 0.8 s.
 - A tap is never a reveal (review, 20 November 2026: the double tap is withdrawn, so a tap on "You" picks at once). The path without a hold is the accessible activate below.
 
-**The held-face frame** is the same on every face: 04, "You" on 06, 07, and 08's My night (a sheet, not a hold: see 08).
+**The held-face frame** is the same on every face: 04, "You" on 06, 07, and 08's My night (held, and shown on the board only while held: see 08).
 - Always the same fixed size.
 - Drawn above the touch point, never under the thumb.
 - At most one portrait, in bone-on-indigo duotone (never red), taking 30% of the frame.
@@ -360,14 +360,14 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 - **The square (owner's choice, 23 November 2026; overrides the lines below where they differ):** the clock (40) in a strip of night sky with the lantern; a board holding the deck in play (one pile per role, "2 Werewolves", the Werewolf team's red) and every player as a name tag with their sigil; "My night" sealed at the board's foot, its night shown on the board from the top ONLY WHILE HELD (no sheet; taught once by doing it: the seal stirs until the first hold; no words); "Ready to vote" is the screen's one amber action with the count under its words ("2 of 6 ready"), "Ready ✓" in navy once tapped, tapped again to take it back. No marks on the tags and no list of who is ready. "The village wakes" is spoken, not drawn. The night's ground, never the day's.
 - **Locked until:** "Ready to vote" is never locked.
 - **Copy:** "The village wakes"; timer digits (the unit "s" set smaller than the number); "My night"; deck strip; pips "{d} of {n} ready"; "Ready to vote", then "Ready ✓" (tap again to undo). My night pages, the same count on every phone: the result face; the window-1 page if window 1 ran; "Dealt: {role}". **15 of 15 words.**
-- **Opening (playtest, 21 November 2026: "never saw my result"):** a phone whose night told it something (a result other than "You slept." or "You did nothing.", or the Doppelganger's copy) that the server has not had acknowledged opens the talk with My night UP, once, as the sheet below: every word on screen. The ack (`night-results/seen`) goes as it shows; "Close", a tap on the scrim or Back puts it away; "Ready to vote" is under the sheet, one tap on the scrim away (changed 23 November 2026: it used to work beside the open card). A phone that slept opens nothing; a restart after the ack opens nothing. No server change, no wait.
-- **My night is a sheet (owner, 23 November 2026: "The 'My night' thing seems like it floats: depending on where I tap it, it shows up in a different spot"; this changes the hold of sections 7 and 8):** a tap on the box opens the player's night as the app's one information sheet (`showSkinSheet`, `SheetScaffold`: up from the bottom edge, the same place whatever was tapped, closed by "Close", the scrim or Back), holding the same paper card with every page stacked. It is not a hold and carries no `hold` cue; the ack goes the first time the sheet opens. The one rule for where extra information appears is in `lib/design_system/README.md`, "Where information a player asks for appears".
+- **Opening (playtest, 21 November 2026: "never saw my result"):** a phone whose night told it something (a result other than "You slept." or "You did nothing.", or the Doppelganger's copy) that the server has not had acknowledged opens the talk with My night UP, once, on the board (the square, above): every word on screen. The ack (`night-results/seen`) goes as it shows; the first touch anywhere (only that: it presses nothing), "Close" for a screen reader, or Back puts it away (changed 23 November 2026: it used to be a sheet over the screen). A phone that slept opens nothing; a restart after the ack opens nothing. No server change, no wait.
+- **My night is held, and shows on the board (owner, 23 November 2026: "The 'My night' thing seems like it floats: depending on where I tap it, it shows up in a different spot"; decided the same day, and sections 7 and 8 say the same):** press and hold the sealed note on the discussion screen, and the player's night shows on the board, from its top, in the same place wherever the note is held, ONLY WHILE HELD (it is not a sheet, and no tap opens it); the ack goes the first time it shows. The count of who is ready sits on the "Ready to vote" button, under its words. A screen reader, a switch or the keyboard activates the note instead: it shows until activated again, and is put away by a change of screen, another route over it or the app leaving the foreground. Nothing about it vibrates. The one rule for where extra information appears (a role's sheet) is in `lib/design_system/README.md`, "Where information a player asks for appears".
 - **Deck:** in columns, sized to the room under My night (two at the acting size, then the caption size, then three; then the names alone): every chip whole and on screen at 320 wide, text x1 and x1.3, never under a fade. The large My night box only where the deck still fits under it.
 - **Removed:** "Left to talk", "Hold to peek", "In the deck tonight" (12). A loud ready button (4, 19). Tokens on the pips (9).
 - **States:**
   - Never paused. No host button. No dropped-player copy.
   - Holding a deck portrait opens 03b.
-- **Pass:** "Talk; tap My night."
+- **Pass:** "Talk; hold My night."
 
 **09 Vote**
 - **One thing / loudest:** pick a name; the rows.
@@ -564,7 +564,7 @@ Doppelganger's look resolves the moment she chooses). Two rules close what the r
 "Done" (section 3, 07) was an added delay and is withdrawn, and without it a separate 07
 screen would show who had little to read. So when the last night window closes every phone
 goes straight to 08 Talk at the same moment (the talk's clock is already running on the
-server). "My night" on 08 is the box that shows it (a hold when this was written; a tap that opens a sheet since 23 November 2026, see 08): page 1 is the last window's result
+server). "My night" on 08 is the box that shows it (a hold, and since 23 November 2026 shown on the board only while it is held: press and hold, see 08): page 1 is the last window's result
 face from the "07 faces" table (what a player holds it for), then window 1's page when it ran,
 then "Dealt: {role}", the same number of pages on every phone (review, 20 November 2026). "Ready to vote"
 stays locked until it has been held once this game, as already specified. The results ack is
@@ -592,7 +592,7 @@ night.
 | Every phone chooses at night, a sleeper by tapping any card, and every window waits for every phone | A phone with nothing to choose (its prompt is `none`) is not asked to do anything (playtest on the real screens, 20 November 2026: "Choose a card" contradicted "Night: Sleep."). Its board says the village sleeps and shows the table calmly; a tap lifts a card and lets it settle (cover for anyone who wants to fidget), nothing is picked or sent; there is no button. The server never waits for it: a window closes once every phone WITH a choice has chosen (no sooner than the table's minimum) or at its deadline. A player with a choice still picks, then presses; "Keep my card" stays the pass. |
 | Every phone chooses twice in window 1 | A phone with a choice chooses once per window. Only the Doppelganger, after her look, gets a second pick in window 1 (her board re-arms when her result arrives). |
 | A held face hides after 5 s | No cap anywhere. It hides on release. |
-| "Ready to vote" locked until "My night" was held | Never locked. (The `hold` cue no longer breathes on "My night": it is a tap, 23 November 2026.) |
+| "Ready to vote" locked until "My night" was held | Never locked. ("My night" is held, shown on the board only while held, 23 November 2026; the seal stirs until the first hold, with no `hold` cue and no words. The count of who is ready is on the button.) |
 | A tap on a locked gate replays the cue | Unchanged, but the only gates left are 04 "Ready" (you must have seen your card) and buttons waiting for a valid pick. |
 | One fixed frame, one portrait, no red, 2 lines for every face | A face is drawn above the thumb and may use the full role card (portrait and colour included). Keep faces a similar size; do not police their content. |
 | Cross-role identical widget trees for the night board | The board's LAYOUT and motion are the same for every role (same cards, same lift, same button position). Button text and enabled state follow the player's own picks. |
