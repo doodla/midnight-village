@@ -125,10 +125,14 @@ void main() {
         ),
         isTrue,
       );
-      // /join/<code> reaches the app through the one rewrite to index.html.
-      expect(vercel['rewrites'], [
-        {'source': '/(.*)', 'destination': '/index.html'},
-      ]);
+      // /join/<code> reaches the app through the one rewrite to index.html
+      // (which sends only app routes there: a missing file is a 404).
+      final rewrites = (vercel['rewrites'] as List).cast<Map>();
+      expect(rewrites, hasLength(1));
+      expect(rewrites.single['destination'], '/index.html');
+      final app = RegExp('^${rewrites.single['source']}\$');
+      expect(app.hasMatch('/join/ABCD'), isTrue);
+      expect(app.hasMatch('/assets/assets/skins/x.webp'), isFalse);
     });
   });
 

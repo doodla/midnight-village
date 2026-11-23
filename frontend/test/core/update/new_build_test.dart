@@ -324,29 +324,8 @@ void main() {
   });
 
   group('what smells of a stale build', () {
-    Future<int> smells(
-      Response<dynamic> Function(RequestOptions) answer,
-    ) async {
-      var count = 0;
-      final unlisten = StaleSmell.listen(() => count++);
-      final dio = Dio()..interceptors.add(StalePageInterceptor());
-      dio.httpClientAdapter = _Fake(answer);
-      try {
-        await dio.get<dynamic>('http://api.test/x');
-      } on DioException {
-        // refused answers are the callers' business
-      }
-      unlisten();
-      return count;
-    }
-
-    Response<dynamic> reply(
-      RequestOptions o,
-      int status,
-      String type,
-      Object body,
-    ) => Response(
-      requestOptions: o,
+    Response<dynamic> reply(int status, String type, Object body) => Response(
+      requestOptions: RequestOptions(path: '/x'),
       statusCode: status,
       data: body,
       headers: Headers.fromMap({
@@ -354,50 +333,44 @@ void main() {
       }),
     );
 
-    test('an API call answered with a page', () async {
-      expect(
-        await smells((o) => reply(o, 200, 'text/html', '<html></html>')),
-        1,
-      );
+    /// How many smells an answer makes, as the success or the failure the
+    /// client would see.
+    int smells(Response<dynamic> answer) {
+      var count = 0;
+      final unlisten = StaleSmell.listen(() => count++);
+      final interceptor = StalePageInterceptor();
+      if (answer.statusCode! < 400) {
+        interceptor.onResponse(answer, ResponseInterceptorHandler());
+      } else {
+        final handler = ErrorInterceptorHandler();
+        // The failure is passed on to the caller, who is not here.
+        // ignore: invalid_use_of_protected_member
+        handler.future.ignore();
+        interceptor.onError(
+          DioException.badResponse(
+            statusCode: answer.statusCode!,
+            requestOptions: answer.requestOptions,
+            response: answer,
+          ),
+          handler,
+        );
+      }
+      unlisten();
+      return count;
+    }
+
+    test('an API call answered with a page', () {
+      expect(smells(reply(200, 'text/html', '<html></html>')), 1);
     });
 
-    test('a 404 that is not the server\'s own JSON', () async {
-      expect(await smells((o) => reply(o, 404, 'text/plain', 'NOT_FOUND')), 1);
+    test("a 404 that is not the server's own JSON", () {
+      expect(smells(reply(404, 'text/plain', 'NOT_FOUND')), 1);
     });
 
-    test('the server\'s own answers and refusals smell of nothing', () async {
-      expect(await smells((o) => reply(o, 200, 'application/json', '{}')), 0);
-      expect(
-        await smells((o) => reply(o, 404, 'application/json', '{"a":1}')),
-        0,
-      );
-      expect(
-        await smells((o) => reply(o, 400, 'application/json', '{"a":1}')),
-        0,
-      );
+    test("the server's own answers and refusals smell of nothing", () {
+      expect(smells(reply(200, 'application/json', '{}')), 0);
+      expect(smells(reply(404, 'application/json', '{"a":1}')), 0);
+      expect(smells(reply(400, 'application/json', '{"a":1}')), 0);
     });
   });
-}
-
-class _Fake implements HttpClientAdapter {
-  _Fake(this.answer);
-
-  final Response<dynamic> Function(RequestOptions) answer;
-
-  @override
-  Future<ResponseBody> fetch(
-    RequestOptions options,
-    Stream<List<int>>? requestStream,
-    Future<void>? cancelFuture,
-  ) async {
-    final r = answer(options);
-    return ResponseBody.fromString(
-      r.data as String,
-      r.statusCode!,
-      headers: r.headers.map,
-    );
-  }
-
-  @override
-  void close({bool force = false}) {}
 }

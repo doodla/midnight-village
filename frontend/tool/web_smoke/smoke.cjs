@@ -101,7 +101,8 @@ const server = http.createServer((req, res) => {
     }
     file = path.join(dir, rewrite.destination);
   }
-  if (path.basename(file) === 'index.html') documents.push(url);
+  // Page loads (the worker's own copy of index.html is not one).
+  if (req.headers['sec-fetch-dest'] === 'document') documents.push(url);
   const body = fs.readFileSync(file);
   const etag = `"${crypto.createHash('md5').update(body).digest('hex')}"`;
   headers.ETag = etag;

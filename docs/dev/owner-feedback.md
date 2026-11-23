@@ -17,6 +17,10 @@ OPEN (said "which is okay"; the polish passes cover motion).
 
 HANDLED by this piece: the set-up page cannot be left with a wrong count (it says how many too many or too few, and its leave control says so); the table's primary button is never silently disabled and its label is plain. Reviewed and reworked (23 November 2026): 03's "Done" is always "Done" and its count line says what to do ("14 of 12 · Remove 2 cards"), the first "Done" or Back with a wrong count stays and nudges it, the second leaves; 02's one button says "Add 1 card" / "Remove 2 cards", "Need 3 players" / "Need {n} more" (players before deck) or "Start the game"; 01's "Start a table" and "Join a table" with no name take the cursor to the name field and nudge it; `PrimaryButton` and `SecondaryButton` cannot be built disabled without a reason.
 
+> (Seen in the live app, 23 November 2026: a tab left open showed a blank red box where the Werewolf should be.)
+
+HANDLED: an app left open now notices a newer build (`/commit.txt`) and reloads itself at a safe moment and lands in the same seat on the same screen (nothing shown, nothing said; the rule is in `docs/dev/deploy-vercel.md`, "What an open app does when a new build goes live"); a file that is not there is a real 404 and never the app's page; and a file removed from the bundle without a retired copy fails a test (`asset_release_test.dart`).
+
 > The timers aren't really explained as such but I guess that's a pretty minor thing.
 
 HANDLED by this piece (a one-line caption under each timer's name, set once).

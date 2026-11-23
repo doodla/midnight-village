@@ -194,6 +194,13 @@ playtest-pack width="390":
       --dart-define=ENV=dev \
       --dart-define=SCREENS_WIDTH={{width}}
 
+# Record the bundled files as the last release's (tool/release_assets.json): run it
+# deliberately when a build goes out, after every removed or renamed file is covered
+# (ArtSet.retired, or a dated removedOnPurpose line in the file). The test
+# test/design_system/asset_release_test.dart holds the bundle to this list.
+record-assets:
+    python3 tool/record_release_assets.py
+
 # Regenerate Shadow paper's art in assets/skins/ from docs/design/art/
 # (resized). Deterministic. Needs uv.
 skin-art:

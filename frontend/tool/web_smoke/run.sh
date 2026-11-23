@@ -14,7 +14,7 @@ if [ ! -d "$here/node_modules/playwright" ] && [ -z "${NODE_PATH:-}" ] \
   export NODE_PATH=/opt/node-tools/node_modules
 fi
 out="${1:-}"
-cleanup() { [ -n "${tmp:-}" ] && rm -rf "$tmp"; }
+cleanup() { if [ -n "${tmp:-}" ]; then rm -rf "$tmp"; fi; }
 trap cleanup EXIT
 if [ -z "$out" ]; then
   tmp="$(mktemp -d)"

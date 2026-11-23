@@ -14,6 +14,7 @@ part you change, and keep it true:
 
 ```bash
 just test              # flutter test --dart-define=ENV=dev --exclude-tags e2e (dev is explicit: a build with no ENV is prod, without /debug)
+just record-assets     # records the bundled files as the last release's (tool/release_assets.json), deliberately, when a build goes out
 just check-release     # builds web with no defines, fails if the /debug toolbar is in it
 just analyze           # flutter analyze: fails on any issue
 just format-check      # dart format check of lib, test, test_screens
@@ -60,6 +61,18 @@ web integration test and `just test-harness`. `just gate-full` runs the first fo
   (`test/helpers/fake_code_scanner.dart`, `TableSetup.pump(scanner:)`), never the plugin.
 - **Test fonts**: real Gloock and Figtree are loaded in tests; `Roboto` (Material's default,
   the debug toolbar's) is a Figtree stand-in.
+
+## An app left open
+
+- **The app renews itself for a new build** (`lib/core/update/`, the rule `mayReloadNow` in
+  `features/game/domain/reload_rule.dart`, `docs/dev/deploy-vercel.md`): it knows its commit
+  (`BUILD_COMMIT`), reads `/commit.txt`, and reloads at a safe moment through the cold opening, so
+  a seated player lands in their seat. Nothing is shown. A build with no commit (local, tests, the
+  installed app) never looks. A new place that shows a screen or starts a request must not break
+  the rule: a screen is an `AppScreen` or one of `HomeGate`'s names, a write goes through
+  `playerRequest`.
+- **A file removed or renamed in `assets/`** fails `asset_release_test.dart` until it is an
+  `ArtSet.retired` copy or a dated `removedOnPurpose` line in `tool/release_assets.json`.
 
 ## Server payloads in tests
 
