@@ -13,8 +13,7 @@
   "settings": {
     "card_look_seconds": 30,
     "deck": "auto",
-    "deck_chip": "simple",
-    "night_protocol": 2
+    "deck_chip": "simple"
   },
   "players": [
     {

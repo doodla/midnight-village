@@ -38,7 +38,7 @@ def _create_game_with_settings(roles: dict, phase: str = Phase.DISCUSSION):
         settings={"roles": roles},
     )
     for u in [host, player2, player3]:
-        LobbyMember.objects.create(lobby=lobby, user=u, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=u)
     lobby.status = Lobby.Status.IN_GAME
     lobby.save()
 

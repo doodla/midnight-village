@@ -57,7 +57,7 @@ class TestDiscussionToVotingE2E:
             },
         )
         for user in [host, p1, p2, p3, p4]:
-            LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
+            LobbyMember.objects.create(lobby=lobby, user=user)
         lobby.status = Lobby.Status.IN_GAME
         lobby.save()
 

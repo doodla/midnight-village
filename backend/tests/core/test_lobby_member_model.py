@@ -20,7 +20,6 @@ class TestLobbyMemberModel:
 
         assert membership.lobby == lobby
         assert membership.user == player
-        assert membership.is_ready is False
 
     def test_player_cannot_join_same_lobby_twice(self, db):
         """A user cannot join the same lobby twice."""

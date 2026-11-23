@@ -30,6 +30,8 @@ serves. Full rules: `docs/dev/deploy-vercel.md`, "Deploy-safe changes". In one l
 - No `from apps...` in a migration; copy what it needs.
 - `SET LOCAL lock_timeout = '5s'` is the first operation of every migration from 0010 on.
 - Every new NOT NULL column has a `db_default` and a Python `default`.
+- A column is removed in two pushes: first the model stops naming it and the database gets a
+  default (state-only removal), then a later push drops it.
 - Every migration gets a case in `tests/test_migrations.py`; never add columns to the old
   code's INSERTs in `tests/old_code.py`; a backfill touches only what it must.
 - Socket consumers extend `TolerantJsonWebsocketConsumer`, so old instances drop a new event type.

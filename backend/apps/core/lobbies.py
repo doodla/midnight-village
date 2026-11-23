@@ -214,11 +214,6 @@ def play_again(code: str, user_id: int) -> Lobby:
 
         lobby.status = Lobby.Status.WAITING
         lobby.save(update_fields=["status", "updated_at"])
-        # For the code before the cleanup only (it checked readiness at the deal of a
-        # table without ``night_protocol: 2``) while a deploy is promoted; nothing here
-        # reads the column. Goes with the column (``docs/dev/status.md``).
-        LobbyMember.objects.filter(lobby=lobby).update(is_ready=True)
-
         messages = [
             (
                 f"lobby_{lobby.code}",

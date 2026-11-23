@@ -318,14 +318,11 @@ class TestDefaults:
 
     # ONLY what the app's screens need to start: a look at the cards and the
     # automatic Simple deck. No timer the server already defaults, never the
-    # Doppelganger's window (the table's own setting, or the server's). The night
-    # flag is for the code before the cleanup only (``deal.OLD_CODE_NIGHT_FLAG``):
-    # this code ignores it.
+    # Doppelganger's window (the table's own setting, or the server's).
     EXPECTED = {
         "card_look_seconds": 30,
         "deck": "auto",
         "deck_chip": "simple",
-        "night_protocol": 2,
     }
 
     def test_the_app_defaults_are_written_when_the_create_body_asks(self, db) -> None:
@@ -359,7 +356,6 @@ class TestDefaults:
             "card_look_seconds",
             "deck",
             "deck_chip",
-            "night_protocol",
         }
 
     def test_nothing_is_written_unless_the_body_asks(self, db) -> None:
@@ -401,6 +397,6 @@ class TestDefaults:
 
         game = Game.objects.get(id=table.start().data["game_id"])
 
-        assert game.settings["night_protocol"] == 2  # for the code before (deal.py)
+        assert "night_protocol" not in game.settings  # the old night's flag is gone
         assert (game.phase, game.current_wave) == ("night", 0)  # the look stage
         assert dealt_roles(game) == DECK_TABLE[(5, "simple")]

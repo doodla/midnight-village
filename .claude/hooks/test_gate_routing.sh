@@ -189,7 +189,8 @@ guard 2 'git commit -anm x'
 guard 2 'git -c core.hooksPath=/dev/null commit -m x'
 guard 2 'git config core.hooksPath /tmp/none' 120000
 guard 2 'git config --unset core.hooksPath' 120000
-guard 2 'GIT_INDEX_FILE=/tmp/i git commit -m x'
+guard 2 'GIT_DIR=/tmp/other/.git git commit -m x'
+guard 0 'GIT_INDEX_FILE=/tmp/i git add -A'
 guard 2 'HUSKY=0 git commit -m x'
 guard 2 'git cherry-pick abc123'
 guard 0 'git cherry-pick --no-commit abc123'

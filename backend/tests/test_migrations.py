@@ -193,3 +193,75 @@ class TestTokenAndPlayerRoleMigrations:
         assert tokens_of(again, "TIE234") == tokens.token_order("TIE234")[:5]
         assert tokens_of(again, "BIG234") == [*tokens.token_order("BIG234"), "", ""]
         assert tokens_of(again, "DON234") == ["", "", ""]
+
+
+# Before and after the ready flag is left to the database (core 0011).
+READY_BEFORE = [
+    ("core", "0010_lobbymember_token"),
+    ("onuw", "0010_playerrole_v2_fields"),
+]
+READY_AFTER = [
+    ("core", "0011_lobbymember_is_ready_left_to_the_database"),
+    ("onuw", "0010_playerrole_v2_fields"),
+]
+
+
+def ready_flags(lobby_id: int) -> list[bool]:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT is_ready FROM core_lobbymember WHERE lobby_id = %s ORDER BY id",
+            [lobby_id],
+        )
+        return [row[0] for row in cursor.fetchall()]
+
+
+class TestReadyFlagLeftToTheDatabase:
+    def seed(self, old) -> tuple[Any, list[Any]]:
+        users = [
+            old.get_model("core", "User").objects.create(username=f"r{i}")
+            for i in range(4)
+        ]
+        lobby = old.get_model("core", "Lobby").objects.create(
+            code="RDY234", host=users[0], game_type="onuw", status="waiting"
+        )
+        member = old.get_model("core", "LobbyMember")
+        member.objects.create(lobby=lobby, user=users[0], is_ready=True)
+        return lobby, users
+
+    def test_both_builds_can_seat_a_player_after_it(self, migrator) -> None:
+        lobby, users = self.seed(migrator.apply(READY_BEFORE))
+        new = migrator.apply(READY_AFTER)
+
+        member = new.get_model("core", "LobbyMember")
+        assert "is_ready" not in {f.name for f in member._meta.fields}
+        # This build's INSERT does not name the column: the database fills it in.
+        member.objects.create(lobby_id=lobby.pk, user_id=users[1].pk)
+        # The previous build's INSERT names it, and still works.
+        insert_member(lobby.pk, users[2].pk)
+
+        assert member.objects.filter(lobby_id=lobby.pk).count() == 3
+        assert ready_flags(lobby.pk) == [True, False, False]  # stored values are kept
+
+    def test_back_and_forward_again(self, migrator) -> None:
+        lobby, users = self.seed(migrator.apply(READY_BEFORE))
+        migrator.apply(READY_AFTER)
+
+        back = migrator.apply(READY_BEFORE)
+        member = back.get_model("core", "LobbyMember")
+        assert "is_ready" in {f.name for f in member._meta.fields}
+        with pytest.raises(IntegrityError), transaction.atomic():
+            # without the database default, an INSERT that leaves the column out fails:
+            # this is what the previous build would hit if the column had no default
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO core_lobbymember (lobby_id, user_id, joined_at, token)"
+                    " VALUES (%s, %s, now(), '')",
+                    [lobby.pk, users[1].pk],
+                )
+        insert_member(lobby.pk, users[2].pk)
+
+        again = migrator.apply(READY_AFTER)
+        again.get_model("core", "LobbyMember").objects.create(
+            lobby_id=lobby.pk, user_id=users[3].pk
+        )
+        assert ready_flags(lobby.pk) == [True, False, False]

@@ -19,12 +19,10 @@ from .services import DEFAULT_DISCONNECT_GRACE_SECONDS
 # value the server already defaults and never the Doppelganger's window: every length
 # is the table's own setting or the server's existing default. Nothing is written
 # unless the create body asks for it.
-# It also carries ``deal.OLD_CODE_NIGHT_FLAG`` for the code before the cleanup.
 APP_DEFAULTS: dict[str, Any] = {
     "card_look_seconds": 30,
     "deck": "auto",
     "deck_chip": "simple",
-    **deal.OLD_CODE_NIGHT_FLAG,
 }
 
 

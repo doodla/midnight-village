@@ -45,9 +45,9 @@ def _create_lobby(host, players, role_config):
         max_players=10,
         settings={"roles": role_config},
     )
-    LobbyMember.objects.create(lobby=lobby, user=host, is_ready=True)
+    LobbyMember.objects.create(lobby=lobby, user=host)
     for player in players:
-        LobbyMember.objects.create(lobby=lobby, user=player, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=player)
     return lobby
 
 
@@ -483,7 +483,7 @@ def _make_game_with_roles(players_roles, center_cards, phase=Phase.NIGHT, wave=0
         host=host, game_type="onuw", max_players=10, settings={"roles": {}}
     )
     for user in users.values():
-        LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=user)
     lobby.status = Lobby.Status.IN_GAME
     lobby.save()
     game = Game.objects.create(

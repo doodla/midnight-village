@@ -43,7 +43,7 @@ def _create_voting_game(players_roles: dict[str, str], center_cards: list[str]):
         settings={"roles": {}},
     )
     for user in users.values():
-        LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=user)
     lobby.status = Lobby.Status.IN_GAME
     lobby.save()
 

@@ -109,10 +109,7 @@ class Night:
         )
         members = {}
         for user in self.users.values():
-            member = add_member(lobby, user.id)
-            member.is_ready = True
-            member.save(update_fields=["is_ready"])
-            members[user.id] = member
+            members[user.id] = add_member(lobby, user.id)
         lobby.status = Lobby.Status.IN_GAME
         lobby.save()
         self.game = Game.objects.create(

@@ -15,7 +15,6 @@
     "seats": 6,
     "practice": true,
     "deck_chip": "simple",
-    "night_protocol": 2,
     "card_look_seconds": 30
   },
   "players": [

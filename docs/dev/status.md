@@ -21,9 +21,9 @@ last gone through on 20 November, and what landed since is `git log` on main (#6
   events, `wave_complete`, `vote_submitted`, `has_voted`, `your_role.has_acted` and the
   lobby ready flag (endpoint, `player_ready`, `is_ready` in bodies) are deleted; a stored
   `night_protocol` key on an older table is ignored, a lobby PATCH checks only the keys it
-  gives and the deal clamps stored timer values the server refuses today. New tables and
-  dealt games still carry `night_protocol: 2` for the previous code during a deploy (see
-  "Next", 2). Runs on Vercel (durable timers and presence rows).
+  gives and the deal clamps stored timer values the server refuses today. Nothing writes
+  `night_protocol` or the lobby ready flag any more (23 November 2026).
+  Runs on Vercel (durable timers and presence rows).
 - Contract samples recorded from the real server, with drift, privacy and shape guards; the
   protocol-1 samples are gone and the app's tests read every sample.
 - App: the Shadow paper skin and primitives (the only look); the first-time-play pieces (copy,
@@ -52,12 +52,15 @@ last gone through on 20 November, and what landed since is `git log` on main (#6
 1. Rerun the cold-read playtest on the real screens (method in
    `docs/dev/playtests/2026-11-19-mocks-cold-read.md`). A screen passes when 4 of 5 simulated
    players name the right first action and nobody makes an unrecoverable mistake.
-2. A later push, once no instance of the code before the protocol-1 cleanup serves: stop
-   writing `night_protocol: 2` (`deal.OLD_CODE_NIGHT_FLAG`, used by `hooks.APP_DEFAULTS` and
-   `deal.dealt_settings`; `tests/onuw/test_old_code_reads_new_rows.py` goes with it) and the
-   play-again write of `LobbyMember.is_ready` (`core/lobbies.py`). After that, a later
-   migration may drop `LobbyMember.is_ready` (nothing reads it; the deploy-safe two-step:
-   the code stops writing it first, the column goes in the next push).
+2. The lobby ready column, in two more pushes (issue #20). It cannot be dropped at once: the
+   build that serves while a deploy migrates still names it in every INSERT, so a join would
+   fail until the new build is promoted. First push (core migration 0011): the model stops
+   naming the column and the database gives it a default, so both builds can seat a player.
+   Second push, once the first is live: a migration drops the column. `insert_member` in
+   `backend/tests/old_code.py` stays as it is (the tests of migration 0010 run it on the old
+   schema); that push adds a second frozen INSERT in the first push's shape (no `is_ready`,
+   with `token`) for its own test. After it, a rollback to a build from before the first push
+   cannot seat a player (`docs/dev/deploy-vercel.md`, "Deploy-safe changes").
 
 ## Open items
 

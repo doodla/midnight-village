@@ -42,7 +42,6 @@ class _Table {
     'deck': 'auto',
     'deck_chip': 'simple',
     'card_look_seconds': 30,
-    'night_protocol': 2,
   };
 
   static final _shape = ContractSamples.map(
