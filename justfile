@@ -53,6 +53,11 @@ test-guardrails:
     python3 -m unittest discover -s .claude/guardrails/tests
     .claude/hooks/test_gate_routing.sh
 
+# While building: the fast checks and only the tests this change can reach
+# (tool/piece_check.py; `just piece-check --list` prints the plan). GitHub runs everything.
+piece-check *args:
+    @tool/piece_check.py {{args}}
+
 # The whole local suite, on demand (minutes): what the commit gate skips (it only runs
 # the fast checks) and GitHub runs on a pull request, except the browser, release-build
 # and end-to-end jobs. Optionally only some of: backend frontend guardrails

@@ -71,10 +71,19 @@ makemigrations *args:
 _env:
     @../tool/ensure_env.sh
 
+# The whole suite runs on every core (`-n auto`): each worker is its own process, so each
+# has its own database (config/test_database.py). With arguments it runs as given, in
+# one process.
+
 # Run all tests (and the migration tests when no arguments are given)
 test *args: _env
-    uv run pytest {{args}}
+    uv run pytest {{ if args == "" { "-n auto" } else { args } }}
     {{ if args == "" { "just test-migrations" } else { "true" } }}
+
+# Every test on every core, no coverage report: the quick answer while building
+# (`just piece-check` at the root uses it)
+test-fast: _env
+    uv run pytest -n auto --no-cov -q -p no:cacheprovider
 
 # The migration tests, against a database built by the real migrations (no coverage)
 test-migrations: _env
