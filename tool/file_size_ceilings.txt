@@ -4,8 +4,8 @@
 # `until YYYY-MM-DD`: that file may grow until then (work in the middle of it).
 # The allowances below are for the paper screens (#85) and the end-of-game board
 # build, which deletes results_screen and count_screen (coordinator, 23 Nov 2026).
-2275 backend/apps/onuw/services.py
-940 backend/apps/onuw/views.py
+2005 backend/apps/onuw/services.py
+939 backend/apps/onuw/views.py
 913 frontend/lib/features/lobby/presentation/at_table_screen.dart until 2026-11-26
 851 frontend/lib/features/lobby/presentation/lobby_notifier.dart
 825 frontend/lib/features/game/presentation/live_game.dart

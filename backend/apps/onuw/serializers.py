@@ -185,7 +185,7 @@ class GameMeSerializer(serializers.Serializer):
         player_role = self.context.get("player_role")
         if player_role is None:
             return []
-        from .services import night_results_for_player
+        from .night_results import night_results_for_player
 
         names = {
             pr.user_id: pr.user.display_name or pr.user.username

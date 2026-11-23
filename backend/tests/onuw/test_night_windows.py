@@ -36,7 +36,7 @@ from rest_framework.test import APIClient
 from apps.core import timers
 from apps.core.lobbies import add_member
 from apps.core.models import Lobby, User
-from apps.onuw import choose_night, services
+from apps.onuw import choose_night, night_results, services
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import staged
 
@@ -250,7 +250,7 @@ class Night:
             pr.user_id: pr.user.display_name or pr.user.username
             for pr in game.player_roles.select_related("user")
         }
-        return services.night_results_for_player(game, self.users[name].id, names)
+        return night_results.night_results_for_player(game, self.users[name].id, names)
 
     def display_name(self, name: str) -> str:
         user = self.users[name]

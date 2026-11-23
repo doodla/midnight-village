@@ -16,7 +16,7 @@ from rest_framework import status
 
 from apps.onuw.engine.state import NightAction
 from apps.onuw.models import Game, Phase
-from apps.onuw.services import _client_action_type
+from apps.onuw.night_results import _client_action_type
 from tests.onuw.test_night_windows import PER_PLAYER_NIGHT_EVENTS, Night
 
 pytestmark = pytest.mark.integration
