@@ -15,7 +15,6 @@ import '../../domain/end_board_metrics.dart';
 import '../../domain/end_reveal.dart';
 import '../../domain/night_timeline.dart';
 import 'end_cards.dart';
-import 'end_foot.dart' show middleCardsAt;
 import 'end_night.dart';
 import 'end_reveal.dart';
 
@@ -183,18 +182,7 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
             ),
           ),
           Positioned.fill(
-            child: NightBoard(
-              plan: plan,
-              origin: origin,
-              centre: [
-                for (final r in middleCardsAt(
-                  context,
-                  plan.centre,
-                  plan.screen.width,
-                ))
-                  r.translate(-_side, plan.boardHeight + Space.xl),
-              ],
-            ),
+            child: NightBoard(plan: plan, origin: origin),
           ),
         ],
       ),

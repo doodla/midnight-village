@@ -216,29 +216,6 @@ class _NightScrap extends StatelessWidget {
   }
 }
 
-/// Where the middle cards lie on a phone [screenWidth] wide, in the screen's
-/// x (their tops at 0): right-aligned at the foot, 3 apart. What happened's
-/// twines run to them.
-List<Rect> middleCardsAt(
-  BuildContext context,
-  List<RoleId> roles,
-  double screenWidth,
-) {
-  final sizes = _MiddleCards(roles: roles)._sizes(context);
-  var right = screenWidth - Space.sm;
-  final rects = List.filled(sizes.length, Rect.zero);
-  for (var i = sizes.length - 1; i >= 0; i--) {
-    rects[i] = Rect.fromLTWH(
-      right - sizes[i].width,
-      0,
-      sizes[i].width,
-      sizes[i].height,
-    );
-    right -= sizes[i].width + _middleApart;
-  }
-  return rects;
-}
-
 double _textWidth(BuildContext context, String text, TextStyle style) {
   final p = TextPainter(
     text: TextSpan(text: text, style: style),
@@ -377,6 +354,7 @@ class _MiddleCards extends StatelessWidget {
     double strip,
   ) {
     final before = night.before.centre, after = night.after.centre;
+    final numbers = nightNumbersOf(night.story!, night.step!, roles.length);
     Widget turned(int i) {
       final size = sizes[i];
       final box = Offset.zero & size;
@@ -390,6 +368,22 @@ class _MiddleCards extends StatelessWidget {
               back: face(before[i]),
               face: face(after[i]),
             );
+      // The step's number, on the middle card it looked at or took.
+      if (numbers[i] case final n?) {
+        card = Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(child: card),
+            Positioned(
+              right: -Space.xxs,
+              top: Space.xs - nightNumberSize.height,
+              width: nightNumberSize.width,
+              height: nightNumberSize.height,
+              child: ExcludeSemantics(child: NightNumber('$n')),
+            ),
+          ],
+        );
+      }
       if (night.opening) {
         final role = roles[i];
         card = RevealTurn(

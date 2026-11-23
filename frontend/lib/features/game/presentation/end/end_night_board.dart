@@ -38,20 +38,12 @@ const _numberSize = Size(26, 30);
 const _alongs = [0.5, 0.38, 0.62, 0.28, 0.72, 0.18, 0.82];
 
 /// The board at night: drawn over the hidden settled board in the board's
-/// content, [origin] its frame's place there, [centre] where the middle cards
-/// lie in the board's coordinates (under the foot: a twine to one runs down
-/// off the board). Nothing at all by day.
+/// content, [origin] its frame's place there. Nothing at all by day.
 class NightBoard extends StatelessWidget {
-  const NightBoard({
-    super.key,
-    required this.plan,
-    required this.origin,
-    required this.centre,
-  });
+  const NightBoard({super.key, required this.plan, required this.origin});
 
   final EndBoardPlan plan;
   final Offset origin;
-  final List<Rect> centre;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +61,7 @@ class NightBoard extends StatelessWidget {
       plan.boardWidth,
       plan.boardHeight,
     );
-    final ties = tiesOf(plan, story, step, origin: origin, centre: centre);
+    final ties = tiesOf(plan, story, step, origin: origin);
     return GroundScope(
       ground: GroundKind.night,
       child: OneLightScope(
@@ -141,9 +133,9 @@ class NightBoard extends StatelessWidget {
                         ? revealPaint(
                             night.driver,
                             opacity: () => night.landed(),
-                            child: _Number(tie.label),
+                            child: NightNumber(tie.label),
                           )
-                        : _Number(tie.label),
+                        : NightNumber(tie.label),
                   ),
                 ),
           ],
@@ -219,13 +211,15 @@ typedef NightTie = ({
 
 /// Every twine tied up to step [upTo] (its own last), routed round the other
 /// cards, each step's number slip hung where it covers no card and no other
-/// slip; in the board's content ([origin] the frame's place in it).
+/// slip; in the board's content ([origin] the frame's place in it). A look at
+/// a middle card, or a take from one, ties no twine down off the board: the
+/// middle card carries the step's number on the foot ([nightNumbersOf]), and
+/// so does the card of the one who acted.
 List<NightTie> tiesOf(
   EndBoardPlan plan,
   EndStory story,
   int upTo, {
   required Offset origin,
-  required List<Rect> centre,
 }) {
   final cards = {for (final c in plan.cards) c.id: c.leaned.shift(origin)};
   final content = Rect.fromLTWH(
@@ -234,10 +228,7 @@ List<NightTie> tiesOf(
     plan.boardWidth,
     plan.boardHeight,
   ).deflate(EndMetrics.lip);
-  Rect at(CardPlace place) => switch (place) {
-    PlayerPlace(:final playerId) => cards[playerId]!,
-    CenterPlace(:final index) => centre[index].shift(origin),
-  };
+  Rect at(PlayerPlace place) => cards[place.playerId]!;
   final taken = <Rect>[];
   bool free(Rect r) =>
       content.contains(r.topLeft) &&
@@ -255,14 +246,16 @@ List<NightTie> tiesOf(
     final step = story.steps[i];
     final routes = [
       for (final t in step.threads)
-        TwineRoute.between(
-          at(t.from),
-          at(t.to),
-          avoid: [
-            for (final MapEntry(:key, :value) in cards.entries)
-              if (PlayerPlace(key) != t.from && PlayerPlace(key) != t.to) value,
-          ],
-        ),
+        if ((t.from, t.to) case (final PlayerPlace a, final PlayerPlace b))
+          TwineRoute.between(
+            at(a),
+            at(b),
+            avoid: [
+              for (final MapEntry(:key, :value) in cards.entries)
+                if (PlayerPlace(key) != t.from && PlayerPlace(key) != t.to)
+                  value,
+            ],
+          ),
     ];
     final Rect number;
     if (routes.isNotEmpty) {
@@ -276,7 +269,7 @@ List<NightTie> tiesOf(
       ]);
     } else {
       // No twine (the Insomniac, a lone Werewolf): the slip beside the card.
-      final c = at(step.places.first);
+      final c = at(step.places.whereType<PlayerPlace>().first);
       final y = c.center.dy - _numberSize.height / 2;
       number = numbered(
         [
@@ -406,9 +399,23 @@ class _TwinesPainter extends CustomPainter {
       old.step != step || old.ties != ties || old.night != night;
 }
 
+/// The number a middle card carries at night: the last step up to [upTo]
+/// that looked at it or took it (null: none).
+List<int?> nightNumbersOf(EndStory story, int upTo, int slots) => [
+  for (var slot = 0; slot < slots; slot++)
+    story.steps
+        .take(upTo + 1)
+        .where((s) => s.places.contains(CenterPlace(slot)))
+        .lastOrNull
+        ?.number,
+];
+
+/// A number slip's size.
+const nightNumberSize = _numberSize;
+
 /// A step's number on a small slip of bone paper.
-class _Number extends StatelessWidget {
-  const _Number(this.label);
+class NightNumber extends StatelessWidget {
+  const NightNumber(this.label, {super.key});
 
   final String label;
 

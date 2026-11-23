@@ -292,6 +292,28 @@ tested on every recorded sample; the widgets read it off one clock.
 
 ### What happened, on the board (`png/3-what-1` to `-5`)
 
+As built (piece 4): the steps are `endStoryOf` in `features/game/domain/end_story.dart`, pure and tested on every
+recorded sample; `EndNight` steps through them. Where the build differs from the round's mock, on purpose:
+
+- **The way back reads "See the result"** (three words; the copy budget is three): "Back to / the result" was four.
+- **No auto-advance.** A step plays on a tap (or a swipe left; a swipe right goes back), its motion short
+  (`settle` + `quick`; the opening `scene` + `settle`), and a tap while it plays finishes it. The `beat` per step is
+  gone: the owner's no-added-waits rule.
+- **The way back is exact.** The settled board is hidden as it is, not rebuilt, and comes back pixel for pixel,
+  scrolled where it stood.
+- **A middle card has no twine.** A look at a middle card, or a take from one (the Seer, the lone Werewolf, the
+  Drunk), puts the step's number on that middle card in the foot and beside the actor's card: a twine would run down
+  off the board across every card under it.
+- **Team twines are gapped** (a look), red for the Werewolves and the Minion, bone for the Masons. The mock drew the
+  Werewolves' solid. The swap's twine has no knot yet: the number slip marks it.
+- **Card widths count the night.** Each card is as wide as every role it shows in the night (Ben, robbed of the
+  Troublemaker's card in `results`, is as wide as "Troublemaker"), so nothing moves when faces change; this can move
+  a card to the next row beside the lantern (rule 3). Each middle card likewise.
+- **Two names in a step read "Cleo, Esme see each other."** as today's timeline rows do (`nightLinesOf`); the mock
+  says "Cleo and Rosa Maria". Changing the rows is open (owner's word, with the results screen's piece 5).
+- **The moon** is the night village's moon, small, up at the left; the felt takes a cool wash; the sky the night's
+  ground at `veilMidAlpha`; the unlit lantern is laid in the night's ground.
+
 | Moment | What moves | Tokens |
 |---|---|---|
 | Tap "What happened" | The sky turns to night. The moon comes up and becomes the light; the lantern goes out. Every card turns to the face it was dealt, on cool night paper. Tags, ribbons and dealt cards fade out; the seal stays. The scrap becomes "Back to / the result" | sky `scene` 500 ms; turns `PaperFlip`; fades `quick` |

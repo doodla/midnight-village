@@ -183,6 +183,15 @@ end-reveal-frames folder="build/end_reveal" width="390":
       --dart-define=END_REVEAL_DIR={{folder}} \
       --dart-define=END_REVEAL_WIDTH={{width}}
 
+# What happened, filmed (frontend/test/README.md): the six-player game's night
+# stepped through at a player's pace, a frame every 66 ms, to <folder>/film.
+# Usage: just end-night-frames [folder] [width]
+end-night-frames folder="build/end_night" width="360":
+    flutter test test_screens/end_night_frames_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=END_NIGHT_DIR={{folder}} \
+      --dart-define=END_NIGHT_WIDTH={{width}}
+
 # Your card turning over (frontend/test/README.md): a finger lands, the hold, the
 # turn to the face, the face, and the turn back, one PNG per 17 ms step into
 # <folder>/<label>. No backend.
