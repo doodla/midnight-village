@@ -19,7 +19,6 @@ import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
-import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/table_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -827,17 +826,17 @@ void main() {
       await s.close(tester);
     });
 
-    testWidgets('08 with My night open: Back puts it away; then nothing', (
+    testWidgets('08 with My night open: Back closes the sheet; then nothing', (
       tester,
     ) async {
       final platform = _Platform.listen(tester);
       final s = await _game(tester, 'me_discussion_choose_seer');
       await s.settle(tester);
-      TalkView talk() => tester.widget<TalkView>(find.byType(TalkView));
-      expect(talk().resultOpen, isTrue);
+      expect(find.byType(SheetScaffold), findsOneWidget);
 
       await _back(tester);
-      expect(talk().resultOpen, isFalse);
+      await s.settle(tester);
+      expect(find.byType(SheetScaffold), findsNothing);
       expect(s.screenOn(tester), AppScreen.talk);
       await _back(tester);
       expect(s.screenOn(tester), AppScreen.talk);

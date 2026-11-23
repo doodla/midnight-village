@@ -97,7 +97,11 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   type role, never a number in a widget: `type_guard_test.dart` fails it), no `SkinId` checks in
   layout code. One look, Shadow paper; a new look is a whole design, not a recolour.
 - **Secrets are held, not tapped**: `HoldToReveal` and `HeldFace`; art for secrets is
-  precached at start so a reveal fetches nothing.
+  precached at start so a reveal fetches nothing. The one day exception is "My night" on 08: a
+  tap opens it as a sheet. Nothing vibrates on a card (owner, 23 November 2026).
+- **Information a player asks for opens as a sheet from the bottom edge** (`showSkinSheet`),
+  the same place whatever was tapped, closed by its button, the scrim or Back; never a popover
+  at the touch point (`lib/design_system/README.md`, "Where information a player asks for appears").
 
 ## Screens
 

@@ -5,14 +5,14 @@ import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 
+import '../painted_text.dart' show BehindScrim;
 import 'sheet_data.dart';
 
 // 08 Talk and 09 Vote, to the first-time play spec (10 and 11:
 // end_pages.dart).
 
 /// 08: the talk, as the app draws it ([TalkView]) on the viewer's phone of
-/// game 7 or 8, its `/me/` in the talk. The sun is loudest, then My night
-/// (the hold cue on it in a first game); "Ready to vote" is outlined and
+/// game 7 or 8, its `/me/` in the talk. The sun is loudest, then My night; "Ready to vote" is outlined and
 /// never locked.
 class TalkPage extends StatefulWidget {
   const TalkPage({
@@ -26,8 +26,8 @@ class TalkPage extends StatefulWidget {
 
   final Viewer viewer;
 
-  /// As the talk opens: My night open where the night told this phone
-  /// something it has not acknowledged (a tap puts it away).
+  /// As the talk opens: My night's sheet up where the night told this phone
+  /// something it has not acknowledged (Close puts it away).
   final bool open;
 
   /// The phone's `/me/` in the talk: [viewer]'s recorded one when not given.
@@ -44,18 +44,30 @@ class TalkPage extends StatefulWidget {
 class _TalkPageState extends State<TalkPage> {
   late final _me = GameMe.fromJson(widget.me ?? widget.viewer.talkMe);
   var _ready = false;
-  late var _open =
+  late final _open =
       widget.open && _me.hasUnseenResults && _me.report.tellsSomething;
 
+  final _talk = GlobalKey();
+
   @override
-  Widget build(BuildContext context) => TalkView(
-    me: _me.withReady(_ready),
-    secondsLeft: widget.secondsLeft,
-    elapsed: widget.elapsed,
-    onReady: () => setState(() => _ready = !_ready),
-    resultOpen: _open,
-    onPutAway: () => setState(() => _open = false),
-  );
+  Widget build(BuildContext context) {
+    final view = KeyedSubtree(
+      key: _talk,
+      child: TalkView(
+        me: _me.withReady(_ready),
+        secondsLeft: widget.secondsLeft,
+        elapsed: widget.elapsed,
+        onReady: () => setState(() => _ready = !_ready),
+        openNight: _open,
+      ),
+    );
+    // My night's sheet over it: what is under its scrim is not meant to be
+    // read ([BehindScrim]); the talk keeps its state (it opens the sheet
+    // once) whichever way it is wrapped.
+    return ModalRoute.of(context)?.isCurrent == false
+        ? BehindScrim(child: view)
+        : view;
+  }
 }
 
 /// 09: pick a name, then lock it in, as the app draws it ([VoteView]) on

@@ -14,8 +14,9 @@ import '../skin/ground_scope.dart';
 /// nothing and the screen is whole without it. Never throws, never waits.
 ///
 /// [tick], [light] and [thud] take the [context] of the thing that was
-/// touched and do nothing on the night's ground. [landed] is the one
-/// exception.
+/// touched and do nothing on the night's ground. Nothing here is for a card
+/// being revealed or held: a card never vibrates (the owner, 23 November
+/// 2026; `docs/design/feel.md`, section 3).
 abstract final class Haptics {
   /// A vote pick on 09, each time it moves; taking back "Ready to vote".
   static void tick(BuildContext context) =>
@@ -29,10 +30,6 @@ abstract final class Haptics {
   /// The dead card landing face up: the one medium.
   static void thud(BuildContext context) =>
       _day(context, HapticFeedback.mediumImpact);
-
-  /// Your card's face landing on 04 (the owner asked for it, 22 November
-  /// 2026): the only vibration at night, so it takes no context.
-  static void landed() => _fire(HapticFeedback.lightImpact);
 
   static void _day(BuildContext context, Future<void> Function() buzz) {
     if (GroundScope.maybeOf(context) == GroundKind.night) return;
