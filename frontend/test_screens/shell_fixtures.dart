@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/night/night_story_view.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
-import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/sealed_note.dart';
@@ -240,7 +240,7 @@ Future<ShellSetup> pumpTalkOpen(
 
 /// A tap puts the open My night away: the box, the deck under it.
 Future<void> _putAway(WidgetTester tester, ShellSetup setup) async {
-  final face = find.byType(HeldFace);
+  final face = find.byType(NightStoryView);
   if (face.evaluate().isEmpty) return;
   await tester.tapAt(tester.getRect(face).topCenter + const Offset(0, 24));
   await setup.settle(tester);
@@ -272,7 +272,18 @@ Future<void> pumpTalkSlept(WidgetTester tester) => _shell(
   learned: Cue.values.toSet(),
 );
 
-/// 08 with My night held: the result first (Cleo's card).
+/// 08 with My night held on the phone of [me] (a talk `/me/`, recorded or
+/// edited off the contract: story_samples.dart): its night's picture story.
+Future<void> pumpTalkHeldNight(
+  WidgetTester tester,
+  Map<String, dynamic> me,
+) async {
+  final setup = await _shell(tester, me, learned: Cue.values.toSet());
+  await _putAway(tester, setup);
+  await holdDown(tester, find.byType(SealedNote));
+}
+
+/// 08 with My night held: its story (Cleo's card).
 Future<void> pumpTalkHeld(WidgetTester tester) async {
   await pumpTalkPutAway(tester);
   await holdDown(tester, find.byType(SealedNote));

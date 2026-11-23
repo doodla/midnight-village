@@ -366,9 +366,16 @@ const inventory = <PartEntry>[
     'Twine',
     'primitives/twine.dart',
     plain:
-        'the same thread (filled, never a stroke): solid for a move, gapped for a look',
+        'the same thread (filled, never a stroke): solid for a move, gapped for a look, a head at its far end where it says a way',
     paper:
-        'paper thread in bone, a sagging curve between two cards\' corners with a paper shadow away from the light; solid for a move, gapped for a look; red only for the Werewolf team',
+        'paper thread in bone, a sagging curve between two cards\' corners with a paper shadow away from the light; solid for a move, gapped for a look; with a head, a filled paper triangle at its far end, the way it went; red only for the Werewolf team',
+  ),
+  PartEntry(
+    'StoryCardFace',
+    'primitives/story_card.dart',
+    plain: 'its tab\'s words and the role, no paper',
+    paper:
+        'a card of a night\'s picture story (08, My night held): a tab with whose it is in the name face, never cut, the role\'s portrait with its name on a strip at its foot (bone paper, the Werewolf team\'s red), or face down the game\'s card back on the back\'s dark rim; its shadow away from the light',
   ),
   PartEntry(
     'YouSeal',

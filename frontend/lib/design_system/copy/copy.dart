@@ -1,5 +1,7 @@
 import 'template.dart';
 
+export 'story_copy.dart';
+
 // Every word a player reads, keyed by screen and state: the final copy of
 // docs/specs/frontend/first-time-play.md, section 3. Nothing a player reads
 // is written anywhere else (role names are the server's, in

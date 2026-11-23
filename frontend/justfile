@@ -328,6 +328,14 @@ talk-pictures folder="build/talk_pictures":
       --dart-define=ENV=dev \
       --dart-define=TALK_PICTURES_DIR={{folder}}
 
+# My night held, every night's picture story (each recorded or edited night of
+# test/helpers/sheet/story_samples.dart, then at 360 x 640 and text 1.6), into
+# <folder>. Usage: just story-pictures [folder]
+story-pictures folder="build/story_pictures":
+    flutter test test_screens/story_pictures_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=STORY_PICTURES_DIR={{folder}}
+
 # The count in pictures (one death, a tie, nobody: at the end and one death as it
 # goes in four frames; ten players with long names at several widths and text
 # sizes) into <folder>. Usage: just count-pictures [folder] [width]

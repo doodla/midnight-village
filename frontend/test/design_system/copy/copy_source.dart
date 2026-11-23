@@ -4,7 +4,7 @@ import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 
-/// Every string written in the Dart file at [path] (imports aside), as its
+/// Every string written in the Dart file at [path] (imports and exports aside), as its
 /// value, with the strings that interpolate (copy is never built in place:
 /// gaps are `{name}`, filled by `Template.fill`).
 ({List<String> strings, List<String> interpolated}) stringsIn(String path) {
@@ -20,6 +20,9 @@ class _Strings extends RecursiveAstVisitor<void> {
 
   @override
   void visitImportDirective(ImportDirective node) {}
+
+  @override
+  void visitExportDirective(ExportDirective node) {}
 
   @override
   void visitAdjacentStrings(AdjacentStrings node) => _add(node);

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
+import '../../../../design_system/night/night_story.dart';
 import '../../../../design_system/primitives/board_pieces.dart';
 import '../../../../design_system/primitives/hold_to_reveal.dart';
 import '../../../../design_system/primitives/notice.dart';
@@ -174,7 +175,7 @@ class _TalkViewState extends ConsumerState<TalkView> {
                 children: [
                   Expanded(
                     child: up
-                        ? MyNightPanel(face: me.report.myNight)
+                        ? MyNightPanel(story: NightStory.of(me.report))
                         : SquareBoard(
                             deck: me.deck,
                             seats: me.seats,

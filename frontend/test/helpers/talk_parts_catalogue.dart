@@ -5,6 +5,8 @@ import 'package:midnight_village/design_system/primitives/name_tag.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/sealed_note.dart';
 import 'package:midnight_village/design_system/primitives/square_sky.dart';
+import 'package:midnight_village/design_system/primitives/story_card.dart';
+import 'package:midnight_village/design_system/primitives/twine.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
 
 import 'parts_catalogue.dart';
@@ -81,6 +83,68 @@ final List<PartSample> talkPartsCatalogue = [
     (c) => const SizedBox(
       width: 340,
       child: SquareSky(secondsLeft: 192, title: 'The village wakes'),
+    ),
+  ),
+  // My night held: a story's cards and its threads with heads.
+  PartSample(
+    'StoryCardFace',
+    PartState.rest,
+    (c) => const StoryCardFace(
+      label: 'You',
+      role: RoleId.seer,
+      width: 96,
+      windowHeight: 96,
+      headerHeight: 22,
+      stripHeight: 18,
+    ),
+  ),
+  PartSample(
+    'StoryCardFace',
+    PartState.picked,
+    (c) => const StoryCardFace(
+      label: 'Rosa Maria',
+      role: RoleId.werewolf,
+      width: 96,
+      windowHeight: 96,
+      headerHeight: 22,
+      stripHeight: 18,
+    ),
+  ),
+  PartSample(
+    'StoryCardFace',
+    PartState.locked,
+    (c) => const StoryCardFace(
+      label: 'Left',
+      role: null,
+      width: 96,
+      windowHeight: 96,
+      headerHeight: 22,
+      stripHeight: 18,
+    ),
+  ),
+  PartSample(
+    'Twine',
+    PartState.picked,
+    (c) => const SizedBox(
+      width: 150,
+      height: 70,
+      child: Twine(
+        kind: TwineKind.look,
+        head: true,
+        route: TwineRoute(Offset(10, 10), Offset(75, 20), Offset(140, 60)),
+      ),
+    ),
+  ),
+  PartSample(
+    'Twine',
+    PartState.pressed,
+    (c) => const SizedBox(
+      width: 150,
+      height: 70,
+      child: Twine(
+        head: true,
+        route: TwineRoute(Offset(10, 60), Offset(75, 0), Offset(140, 60)),
+      ),
     ),
   ),
 ];

@@ -26,12 +26,20 @@ List<String> brokenWords(WidgetTester tester) {
       textAlign: paragraph.textAlign,
       maxLines: paragraph.maxLines,
     )..layout(maxWidth: width);
-    // A word is broken where two letters of it sit on different lines.
-    double top(int i) {
+    // A word is broken where two letters of it sit on different lines: by
+    // the line each starts, not its box's top (a name set larger than the
+    // words round it sits higher on the same line).
+    final lines = painter.computeLineMetrics();
+    int line(int i) {
       final boxes = painter.getBoxesForSelection(
         TextSelection(baseOffset: i, extentOffset: i + 1),
       );
-      return boxes.isEmpty ? double.nan : boxes.first.top;
+      if (boxes.isEmpty) return -1;
+      final middle = (boxes.first.top + boxes.first.bottom) / 2;
+      for (final (n, m) in lines.indexed) {
+        if (middle <= m.baseline + m.descent) return n;
+      }
+      return lines.length - 1;
     }
 
     bool inWord(String c) => c.trim().isNotEmpty;
@@ -39,7 +47,7 @@ List<String> brokenWords(WidgetTester tester) {
       final (before, after) = (text[i - 1], text[i]);
       if (!inWord(before) || !inWord(after)) continue;
       if (before == '-' || before == '\u00AD') continue;
-      if (top(i) > top(i - 1) + 0.5) {
+      if (line(i) > line(i - 1)) {
         broken.add('"$text" breaks after "${text.substring(0, i)}"');
       }
     }

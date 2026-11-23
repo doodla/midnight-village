@@ -7,15 +7,21 @@
 // button and the clock lie on the screen and apart; the note and the button
 // are each at least 48 to touch; where the board holds too much (a short
 // phone, large text) it scrolls and its end comes into view whole; every player has a tag, and only this phone's
-// carries the seal.
+// carries the seal. And My night held, every night's picture story
+// (story_samples.dart) on the same phones and text sizes: nothing cut, no
+// card on another or on the slip, the story inside its room (scrolling where
+// it must, its end coming into view whole), never on the note.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/night/night_story_view.dart';
 import 'package:midnight_village/design_system/primitives/deck_pile.dart';
 import 'package:midnight_village/design_system/primitives/name_tag.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/primitives/paper_piece.dart';
 import 'package:midnight_village/design_system/primitives/sealed_note.dart';
+import 'package:midnight_village/design_system/primitives/story_card.dart';
 import 'package:midnight_village/design_system/primitives/square_sky.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
@@ -25,6 +31,7 @@ import 'package:midnight_village/features/game/presentation/shell/talk_square.da
 import '../../../helpers/component_sheet.dart' show learnedOverrides;
 import '../../../helpers/pump_skinned.dart';
 import '../../../helpers/sheet/sheet_data.dart' as sheet;
+import '../../../helpers/sheet/story_samples.dart';
 import '../../../helpers/truncated_text.dart';
 
 const _sizes = [Size(360, 640), Size(360, 780), Size(390, 844)];
@@ -174,6 +181,58 @@ void main() {
           _apart([button], [sky], 'the button');
           expect(note.height, greaterThanOrEqualTo(48), reason: 'touch');
           expect(button.height, greaterThanOrEqualTo(48), reason: 'touch');
+        });
+      }
+    }
+  }
+
+  for (final MapEntry(key: night, value: body) in allNights.entries) {
+    for (final size in _sizes) {
+      for (final scale in _scales) {
+        final name =
+            'My night held, $night, ${size.width.toInt()} x '
+            '${size.height.toInt()}, text $scale';
+        testWidgets(name, (tester) async {
+          tester.view.physicalSize = size;
+          tester.view.devicePixelRatio = 1;
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          addTearDown(tester.view.reset);
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await pumpSkinned(
+            tester,
+            ProviderScope(
+              overrides: learnedOverrides({...Cue.values}),
+              child: TalkView(
+                me: GameMe.fromJson(body()),
+                secondsLeft: 192,
+                onReady: () {},
+                openNight: true,
+              ),
+            ),
+          );
+          await tester.pump();
+          expect(truncatedText(tester), isEmpty);
+          final story = find.byType(NightStoryView);
+          final room = tester.getRect(story);
+          final note = tester.getRect(find.byType(SealedNote));
+          Finder inStory(Type type) =>
+              find.descendant(of: story, matching: find.byType(type));
+          final cards = _all(inStory(StoryCardFace));
+          final slip = _all(inStory(PaperPiece));
+          expect(slip, hasLength(1));
+          _apart(cards, cards, 'card on card', same: true);
+          _apart(cards, slip, 'card on the slip');
+          expect(_over(room, note), isFalse, reason: 'the story on the note');
+          final scrolls = inStory(Scrollable).evaluate().isNotEmpty;
+          if (!scrolls) {
+            _inside([...cards, ...slip], room, 'in its room');
+          } else {
+            final wide = Rect.fromLTRB(room.left, -1e6, room.right, 1e6);
+            _inside([...cards, ...slip], wide, 'across its room');
+            await tester.drag(story, const Offset(0, -3000));
+            await tester.pumpAndSettle();
+            _inside(_all(inStory(PaperPiece)), room, 'scrolled');
+          }
         });
       }
     }

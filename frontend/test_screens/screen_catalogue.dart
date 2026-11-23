@@ -4,6 +4,7 @@ import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
 
 import '../test/helpers/component_sheet.dart';
+import '../test/helpers/sheet/story_samples.dart';
 import '../test/helpers/shell_setup.dart';
 import 'end_board_pages.dart';
 import 'end_fixtures.dart';
@@ -249,6 +250,12 @@ final screenCatalogue = <ScreenEntry>[
     '-9': pumpTalkNine,
     '-10-long': pumpTalkTenLong,
     '-x1.3': (tester) => pumpTalkPutAway(tester, textScale: 1.3),
+  }),
+  // My night held, every night's picture story (recorded, else edited off
+  // the contract: story_samples.dart).
+  ..._rebuilt('08-talk', '08-talk.png', {
+    for (final MapEntry(key: night, value: me) in allNights.entries)
+      '-held-$night': (tester) => pumpTalkHeldNight(tester, me()),
   }),
   ..._rebuilt('09-vote', '09-vote.png', {
     '': pumpVoteOpen,

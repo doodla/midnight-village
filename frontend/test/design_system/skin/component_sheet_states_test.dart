@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
+import 'package:midnight_village/design_system/night/night_story_view.dart';
 
 import '../../helpers/component_sheet.dart';
 
@@ -24,14 +25,11 @@ void main() {
     ComponentPage.actionTwoPicks: ['See Left, Right'],
     ComponentPage.actionChosen: [NightCopy.chosen],
     ComponentPage.actionNotSent: [BannerCopy.notSent, BannerCopy.tryAgain],
-    ComponentPage.talkHeld: ["Cleo's card was: Werewolf."],
-    ComponentPage.talkRobber: ["You took Ana's card: Seer."],
-    ComponentPage.talkLoneWerewolf: ['Only you.', 'Left was: Werewolf.'],
-    ComponentPage.talkDrunk: ['You took Middle, unseen.'],
-    ComponentPage.talkDoppelganger: [
-      'You copied Ben.',
-      'Left was: Villager. Middle was: Villager.',
-    ],
+    ComponentPage.talkHeld: ["Cleo's card was the Werewolf."],
+    ComponentPage.talkRobber: ["You took Ana's card, the Seer."],
+    ComponentPage.talkLoneWerewolf: ['You are the only Werewolf.'],
+    ComponentPage.talkDrunk: ['You took the middle card, unseen.'],
+    ComponentPage.talkDoppelganger: ['You copied Ben, saw 2 center cards.'],
     ComponentPage.actionFollowUpHeld: ['You copied Ben.', NightCopy.seer],
     ComponentPage.voteLocked: [VoteCopy.locked],
   };
@@ -47,13 +45,16 @@ void main() {
 
   testWidgets('held pages show a face', (tester) async {
     _phone(tester);
-    for (final page in [
-      ComponentPage.cardHeld,
-      ComponentPage.actionHeld,
-      ComponentPage.talkHeld,
-    ]) {
+    for (final page in [ComponentPage.cardHeld, ComponentPage.actionHeld]) {
       await pumpComponentPage(tester, page, page.grounds.single);
       expect(find.byType(HeldFace), findsOneWidget, reason: page.name);
     }
+    // My night held is the night's picture story.
+    await pumpComponentPage(
+      tester,
+      ComponentPage.talkHeld,
+      ComponentPage.talkHeld.grounds.single,
+    );
+    expect(find.byType(NightStoryView), findsOneWidget);
   });
 }

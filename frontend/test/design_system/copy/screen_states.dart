@@ -100,12 +100,25 @@ List<Object> _buttons(NightPrompt prompt) => [
   prompt.pass,
 ];
 
-/// My night's pages (08).
+/// My night held (08): the picture story's one sentence, each kind (a
+/// name list joined with "and"), and what a screen reader hears of a card.
 final _myNight = <String, List<Object>>{
+  // The held face's last page: still `HoldToReveal`'s face for the note,
+  // which shows the story instead (`away`).
   'dealt': [TalkCopy.dealt],
-  for (final MapEntry(:key, :value) in _windowOne.entries)
-    'window 1, $key': value,
-  for (final MapEntry(:key, :value) in _saw.entries) 'saw, $key': value,
+  for (final MapEntry(:key, :value) in _saw.entries) 'face, $key': value,
+  for (final line in <Object>[
+    NightCopy.slept, SawCopy.didNothing, SawCopy.swapped, //
+    SawCopy.noWerewolves, StoryCopy.seerPlayer, StoryCopy.seerCenter,
+    StoryCopy.robbed, StoryCopy.drunk, StoryCopy.now, StoryCopy.still,
+    StoryCopy.onlyWerewolf, StoryCopy.minionOne, StoryCopy.onlyMason,
+    StoryCopy.copied, StoryCopy.copiedSaw, StoryCopy.copiedCenter,
+    StoryCopy.copiedTook, StoryCopy.copiedSwapped, StoryCopy.copiedDrunk,
+    StoryCopy.copiedMinion, StoryCopy.copiedNone, StoryCopy.copiedNothing,
+  ])
+    '$line': [line],
+  for (final list in [StoryCopy.werewolves, StoryCopy.minion, StoryCopy.masons])
+    '$list': [list, StoryCopy.and],
 };
 
 List<Line> _face(List<Object> lines) => [for (final l in lines) face(l)];
@@ -628,6 +641,8 @@ final spoken = [
   EndCopy.votes,
   EndCopy.middle,
   SpokenCopy.hidden,
+  StoryCopy.cardUp,
+  StoryCopy.cardDown,
   SpokenCopy.working,
   SpokenCopy.pickFirst,
   ResultsCopy.nightSpoken,

@@ -12,6 +12,9 @@ import 'screen_states.dart';
 
 const _copyFile = 'lib/design_system/copy/copy.dart';
 
+/// The parts `copy.dart` exports, read with it.
+const _copyParts = ['lib/design_system/copy/story_copy.dart'];
+
 /// Every line the screens, banners and screen reader use, as written.
 final _counted = [
   for (final screen in screens.values)
@@ -24,7 +27,13 @@ final _counted = [
 ];
 
 void main() {
-  final copy = stringsIn(_copyFile);
+  final copy = [_copyFile, ..._copyParts].map(stringsIn).fold(
+    (strings: <String>[], interpolated: <String>[]),
+    (all, file) => (
+      strings: [...all.strings, ...file.strings],
+      interpolated: [...all.interpolated, ...file.interpolated],
+    ),
+  );
 
   group('rule 1: how words are counted', () {
     test('a word is a piece with a letter; gaps, role names, digits and '

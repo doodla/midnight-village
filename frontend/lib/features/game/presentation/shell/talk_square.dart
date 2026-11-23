@@ -4,11 +4,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/copy/copy.dart';
-import '../../../../design_system/faces/face_content.dart';
-import '../../../../design_system/faces/held_face.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/models/role.dart';
 import '../../../../design_system/night/night_pick.dart';
+import '../../../../design_system/night/night_story.dart';
+import '../../../../design_system/night/night_story_view.dart';
 import '../../../../design_system/primitives/board_pieces.dart';
 import '../../../../design_system/primitives/deck_pile.dart';
 import '../../../../design_system/primitives/name_tag.dart';
@@ -286,32 +286,15 @@ class _Plan {
   }
 }
 
-/// "My night", held (piece 1 of 2): the board's area from its top, under
-/// the clock, shows this player's night while the note is held (today the
-/// face, every page stacked, as the sheet had it; piece 2 draws each night
-/// as a picture story here). Built only while shown: nothing of it is in the
-/// tree otherwise.
+/// "My night", held: the board's area from its top, under the clock, shows
+/// this player's night as a picture story ([NightStoryView], from
+/// [NightStory.of] their own night record) while the note is held. Built
+/// only while shown: nothing of it is in the tree otherwise.
 class MyNightPanel extends StatelessWidget {
-  const MyNightPanel({super.key, required this.face});
+  const MyNightPanel({super.key, required this.story});
 
-  final FaceContent face;
+  final NightStory story;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    // The face takes the board's area from its top; its portrait takes what
-    // the words leave, so the words keep their size (the reading floor).
-    builder: (context, box) => Align(
-      alignment: Alignment.topCenter,
-      child: Padding(
-        padding: const EdgeInsets.only(top: Space.sm),
-        child: SizedBox(
-          width: HeldFace.widthFor(
-            math.min(box.maxWidth + 2 * Space.gutter, ScreenFrame.maxWidth),
-          ),
-          height: math.max(0.0, box.maxHeight - Space.sm),
-          child: HeldFace(content: face, page: 0, announce: true, fill: true),
-        ),
-      ),
-    ),
-  );
+  Widget build(BuildContext context) => NightStoryView(story: story);
 }
