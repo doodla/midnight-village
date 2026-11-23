@@ -1,23 +1,31 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/night/board_layout.dart';
+import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
+import 'package:midnight_village/design_system/primitives/candle_gauge.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
-import 'package:midnight_village/design_system/layout/space.dart';
-import 'package:midnight_village/design_system/primitives/paper_banner.dart';
 import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
+import 'package:midnight_village/design_system/primitives/mood.dart';
+import 'package:midnight_village/design_system/primitives/paper_banner.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
+import 'package:midnight_village/design_system/primitives/layered_art.dart';
+import 'package:midnight_village/design_system/skin/art_set.dart';
+import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
 import '../../helpers/component_sheet.dart';
+import '../../helpers/frame_pixels.dart';
 import '../../helpers/pump_skinned.dart';
 import '../../helpers/sheet/night_pages.dart';
 import '../../helpers/sheet/sheet_data.dart';
@@ -90,7 +98,26 @@ List<(double, double)> _rows(WidgetTester tester) {
   return [for (final top in rows.keys.toList()..sort()) (top, rows[top]!)];
 }
 
+double _luminance(int pixel) {
+  double lin(int c) {
+    final v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4) * 1.0;
+  }
+
+  return 0.2126 * lin(FramePixels.red(pixel)) +
+      0.7152 * lin(FramePixels.green(pixel)) +
+      0.0722 * lin(FramePixels.blue(pixel));
+}
+
 void main() {
+  // The board is held to the same composition plain (today's look) and
+  // dressed up: the same checks, the same numbers.
+  for (final dress in const [null, Dress.paper]) {
+    group(dress == null ? 'plain' : 'paper dress', () => _checks(dress));
+  }
+}
+
+void _checks(Dress? dress) {
   for (final phone in _phones) {
     for (final scale in const [1.0, 2.0]) {
       testWidgets('no dead band on a ${phone.width.round()} x '
@@ -109,6 +136,7 @@ void main() {
           await _pump(
             tester,
             BoardPage(
+              dress: dress,
               viewer: Viewer.drunk,
               table: (_) => _table(seats),
               textScale: scale,
@@ -179,7 +207,11 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await _pump(
         tester,
-        BoardPage(viewer: Viewer.drunk, table: (_) => _table(seats)),
+        BoardPage(
+          dress: dress,
+          viewer: Viewer.drunk,
+          table: (_) => _table(seats),
+        ),
       );
       final seat = find
           .byWidgetPredicate(
@@ -223,6 +255,7 @@ void main() {
       await _pump(
         tester,
         BoardPage(
+          dress: dress,
           viewer: viewer,
           table: (me) => tableOf(
             me,
@@ -255,7 +288,7 @@ void main() {
     addTearDown(tester.view.reset);
     await _pump(
       tester,
-      BoardPage(viewer: Viewer.drunk, table: (_) => _table(10)),
+      BoardPage(dress: dress, viewer: Viewer.drunk, table: (_) => _table(10)),
     );
     double height() => tester.getSize(find.byType(PrimaryButton)).height;
     double narrowest() => [
@@ -272,24 +305,322 @@ void main() {
     expect(height(), greaterThanOrEqualTo(48), reason: 'done');
   });
 
-  group('the header and the village behind it', () {
-    testWidgets('the village is the screen\'s own mood behind the board, not a '
-        'strip of its own; the title and the seconds sit on a paper banner, '
-        'inside the page margin', (tester) async {
+  group('the village behind the title', () {
+    // The strip of village is the plain look's; a dressed screen has the mood.
+    void plainOnly(String name, Future<void> Function(WidgetTester) body) {
+      if (dress == null) testWidgets(name, body);
+    }
+
+    // The strip is the plain look's: a dressed screen has the mood.
+    plainOnly('is the night village, cropped to a strip, on every board', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       for (final viewer in [Viewer.seer, Viewer.villager]) {
         await tester.pumpWidget(const SizedBox());
-        await _pump(tester, BoardPage(viewer: viewer));
+        await _pump(tester, BoardPage(dress: dress, viewer: viewer));
         final frame = tester.widget<ScreenFrame>(find.byType(ScreenFrame));
-        expect(frame.topScene, isNull, reason: viewer.name);
-        expect(frame.topArt, isNull, reason: viewer.name);
-        expect(find.byType(PaperBanner), findsOneWidget, reason: viewer.name);
-        // The words keep the page margin; only the paper reaches past it.
-        final words = tester.getRect(find.byType(WorldTimer));
-        expect(words.right, lessThanOrEqualTo(390 - Space.gutter + 0.5));
+        expect(frame.topScene, LayeredSceneId.nightVillage);
+        expect(frame.topSceneFrom, NightBoard.villageFrom);
+        expect(frame.topArtLayout, TopArtLayout.strip, reason: viewer.name);
       }
     });
+
+    // The strip is the plain look's: a dressed screen has the mood.
+    plainOnly('at a table of three on a tall phone the strip takes some of '
+        'the air; at any other table or a short phone it does not, and the '
+        'cards stay where they are', (tester) async {
+      Future<(double, Rect)> board(Size phone, int seats) async {
+        tester.view.physicalSize = phone;
+        tester.view.devicePixelRatio = 1;
+        await tester.pumpWidget(const SizedBox());
+        await _pump(
+          tester,
+          BoardPage(
+            dress: dress,
+            viewer: Viewer.drunk,
+            table: (_) => _table(seats),
+          ),
+        );
+        final frame = tester.widget<ScreenFrame>(find.byType(ScreenFrame));
+        return (frame.topArtExtra, tester.getRect(find.byType(PaperCard)));
+      }
+
+      addTearDown(tester.view.reset);
+      final (tall, _) = await board(const Size(390, 844), 3);
+      expect(tall, greaterThan(40));
+      expect(tall, lessThanOrEqualTo(NightBoard.stripMost));
+      expect((await board(const Size(390, 844), 4)).$1, 0);
+      expect((await board(const Size(390, 844), 10)).$1, 0);
+      expect((await board(const Size(320, 568), 3)).$1, 0);
+    });
+
+    testWidgets(
+      'the seconds and the candle under them are one unit inside the '
+      'page margin: its right edge is on the button’s, whole at every state',
+      (tester) async {
+        for (final phone in const [Size(390, 844), Size(320, 568)]) {
+          tester.view.physicalSize = phone;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          for (final (seconds, share) in const [
+            (30, 1.0),
+            (188, 1.0),
+            (0, 0.0),
+          ]) {
+            await tester.pumpWidget(const SizedBox());
+            await _pump(
+              tester,
+              BoardPage(
+                dress: dress,
+                viewer: Viewer.drunk,
+                secondsLeft: seconds,
+                share: share,
+              ),
+            );
+            final unit = tester.getRect(find.byType(WorldTimer));
+            final button = tester.getRect(find.byType(PrimaryButton));
+            expect(unit.right, closeTo(button.right, 0.5), reason: '$phone');
+            expect(
+              tester.getRect(find.byType(CandleGauge)).right,
+              lessThanOrEqualTo(button.right),
+            );
+            // The handle, the ledge and the dish's shadow are all inside the
+            // page: nothing runs on to the phone's edge.
+            final holder = tester.getRect(
+              find.byKey(const ValueKey(CandlePart.holder)),
+            );
+            expect(holder.right, lessThanOrEqualTo(button.right + 0.5));
+            expect(
+              tester
+                  .getRect(find.byKey(const ValueKey(CandlePart.ledge)))
+                  .right,
+              lessThanOrEqualTo(button.right + 0.5),
+            );
+          }
+        }
+      },
+    );
+
+    testWidgets('the seconds are as big as the rest of the text: no smaller '
+        'than the players’ names at any width and text size, nor than they '
+        'were on main (27 px)', (tester) async {
+      final drawn = <String>[];
+      for (final width in const [320, 360, 390]) {
+        for (final scale in const [1.0, 1.3, 2.0]) {
+          tester.view.physicalSize = Size(width.toDouble(), 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          for (final seats in const [3, 10]) {
+            await tester.pumpWidget(const SizedBox());
+            await _pump(
+              tester,
+              BoardPage(
+                dress: dress,
+                viewer: Viewer.drunk,
+                table: (_) => _table(seats),
+                textScale: scale,
+              ),
+            );
+            final number = tester.renderObject<RenderParagraph>(
+              find.byWidgetPredicate(
+                (w) => w is RichText && w.text.toPlainText() == '14 s',
+              ),
+            );
+            final numberSize = number.textScaler.scale(
+              number.text.style!.fontSize!,
+            );
+            var names = 0.0;
+            for (final element in find.byType(FaceDownCard).evaluate()) {
+              final card = element.widget as FaceDownCard;
+              if (card.ownerName == null) continue;
+              final paragraph = tester.renderObject<RenderParagraph>(
+                find.descendant(
+                  of: find.byWidget(card),
+                  matching: find.byWidgetPredicate(
+                    (w) =>
+                        w is RichText && w.text.toPlainText() == card.ownerName,
+                  ),
+                ),
+              );
+              names = math.max(
+                names,
+                paragraph.textScaler.scale(paragraph.text.style!.fontSize!),
+              );
+            }
+            drawn.add(
+              '$width x$scale $seats seats: number '
+              '${numberSize.toStringAsFixed(1)} names ${names.toStringAsFixed(1)}',
+            );
+            expect(numberSize, greaterThanOrEqualTo(names), reason: drawn.last);
+            expect(numberSize, greaterThanOrEqualTo(27), reason: drawn.last);
+          }
+        }
+      }
+    });
+
+    testWidgets('the header is the taller of the title’s two lines and the '
+        'timer’s own line, the seconds and the candle level in it', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await _pump(tester, BoardPage(dress: dress, viewer: Viewer.seer));
+      final type = skinsUnderTest.values.first.typography;
+      final header = tester.getRect(
+        find
+            .ancestor(of: find.byType(WorldTimer), matching: find.byType(Row))
+            .first,
+      );
+      // The timer's line (the one timer style, 64 x 1) is taller than two
+      // title lines (24 x 1.05 each, and the hair).
+      expect(
+        header.height,
+        closeTo(
+          math.max(
+            type.timerSmall.fontSize! * type.timerSmall.height!,
+            type.screenTitle.fontSize! * type.screenTitle.height! * 2 + 1,
+          ),
+          0.6,
+        ),
+      );
+      final unit = tester.getRect(find.byType(WorldTimer));
+      expect(unit.height, closeTo(header.height, 0.5));
+      expect(
+        unit.right,
+        closeTo(header.right, 0.5),
+        reason: 'inside the margin',
+      );
+      expect(
+        tester.getCenter(find.text('14 s')).dy,
+        closeTo(unit.center.dy, 0.5),
+      );
+    });
+
+    // The strip is the plain look's: a dressed screen has the mood.
+    plainOnly('starts below the moon whatever the status bar adds', (_) async {
+      final scene = skinsUnderTest.values.first.art.layeredScene(
+        LayeredSceneId.nightVillage,
+      );
+      for (final safeTop in [0.0, 24.0, 47.0, 59.0]) {
+        final box = Size(390, TopArtLayout.strip.height + safeTop);
+        final focus = LayeredArt.focusFrom(scene, box, NightBoard.villageFrom);
+        final geometry = SceneGeometry.cover(
+          LayeredScene(
+            folder: scene.folder,
+            canvas: scene.canvas,
+            focus: focus,
+            layers: scene.layers,
+          ),
+          box,
+        );
+        // Canvas row [villageFrom] is the top of the box.
+        expect(
+          geometry.point(Offset(0, NightBoard.villageFrom)).dy,
+          closeTo(0, 1),
+          reason: '$safeTop',
+        );
+      }
+    });
+
+    // The strip is the plain look's: a dressed screen has the mood.
+    plainOnly('keeps the title at 7:1 or more over the picture', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await _pump(tester, BoardPage(dress: dress, viewer: Viewer.seer));
+      await tester.runAsync(
+        () => Future.wait([
+          for (final element in find.byType(Image).evaluate())
+            precacheImage((element.widget as Image).image, element),
+        ]),
+      );
+      await tester.pump();
+      final title = tester.getRect(find.text('Look at cards'));
+      final frame = await FramePixels.of(tester);
+      // The brightest of the picture in the rows just above and below the
+      // words, as far across as the title is wide: what the words sit on.
+      var worst = 0.0;
+      for (var x = 4.0; x < title.right + 20; x += 3) {
+        for (final y in [title.top - 8, title.bottom + 8]) {
+          worst = math.max(worst, _luminance(frame.at(x, y)));
+        }
+      }
+      final bone = _luminance(0xFFE9E2D0);
+      expect(
+        (bone + 0.05) / (worst + 0.05),
+        greaterThanOrEqualTo(7),
+        reason: 'the brightest of the picture behind the title',
+      );
+    });
+
+    if (dress != null) {
+      testWidgets('the village is the screen\'s own mood behind the board, '
+          'not a strip of its own; the title and the seconds sit on one '
+          'paper banner whose words keep the page margin', (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        for (final viewer in [Viewer.seer, Viewer.villager]) {
+          await tester.pumpWidget(const SizedBox());
+          await _pump(tester, BoardPage(dress: dress, viewer: viewer));
+          final frame = tester.widget<ScreenFrame>(find.byType(ScreenFrame));
+          expect(frame.topScene, isNull, reason: viewer.name);
+          expect(frame.topArt, isNull, reason: viewer.name);
+          expect(find.byType(Mood), findsOneWidget, reason: viewer.name);
+          expect(find.byType(PaperBanner), findsOneWidget, reason: viewer.name);
+          // The words keep the page margin; only the paper reaches past it.
+          final words = tester.getRect(find.byType(WorldTimer));
+          expect(words.right, lessThanOrEqualTo(390 - Space.gutter + 0.5));
+        }
+      });
+
+      testWidgets('the title keeps 7:1 on its banner, whatever is behind it', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await _pump(tester, BoardPage(dress: dress, viewer: Viewer.seer));
+        await tester.runAsync(
+          () => Future.wait([
+            for (final element in find.byType(Image).evaluate())
+              precacheImage((element.widget as Image).image, element),
+          ]),
+        );
+        await tester.pump();
+        final title = tester.getRect(find.text('Look at cards'));
+        final frame = await FramePixels.of(tester);
+        // The darkest and the lightest of what is painted just above and
+        // below the words: the ink must read on both.
+        var lightest = 0.0;
+        for (var x = title.left; x < title.right; x += 3) {
+          for (final y in [title.top - 2, title.bottom + 2]) {
+            lightest = math.max(lightest, _luminance(frame.at(x, y)));
+          }
+        }
+        var darkest = 1.0;
+        for (var x = title.left; x < title.right; x += 3) {
+          for (final y in [title.top - 2, title.bottom + 2]) {
+            darkest = math.min(darkest, _luminance(frame.at(x, y)));
+          }
+        }
+        final ink = _luminance(
+          skinsUnderTest.values.first.dressedUp!.day.text.toARGB32(),
+        );
+        expect(
+          (darkest + 0.05) / (ink + 0.05),
+          greaterThanOrEqualTo(7),
+          reason:
+              'the banner is paper, light behind dark ink (lightest '
+              '$lightest, darkest $darkest)',
+        );
+      });
+    }
   });
 }

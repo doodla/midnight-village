@@ -1,10 +1,12 @@
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
-import 'deckle.dart';
+import 'deckled_paper.dart';
+import 'paper_pin.dart';
 
 /// A screen's header on a banner of torn paper: the question or the timer (in
 /// their own type roles, set in the day's ink on bone) on a strip with torn
@@ -12,12 +14,14 @@ import 'deckle.dart';
 /// paper's shadow falling away from the screen's light. The words stay
 /// level; the banner is the whole width it is given and as high as its
 /// content and [padding].
+///
+/// On a plain screen there is no banner: [child] is built as it is, on the
+/// screen's own ground.
 class PaperBanner extends StatelessWidget {
   const PaperBanner({
     super.key,
     required this.child,
     this.id = #banner,
-    this.angle = -0.012,
     this.bleed = 0,
     this.padding = const EdgeInsets.fromLTRB(
       Space.lg,
@@ -27,12 +31,10 @@ class PaperBanner extends StatelessWidget {
     ),
   });
 
-  /// Built under the day's ground: its words are ink on the paper.
+  /// Built under the day's ground on a dressed screen: its words are ink on
+  /// the paper.
   final WidgetBuilder child;
   final Object id;
-
-  /// In radians (positive is clockwise).
-  final double angle;
   final EdgeInsetsGeometry padding;
 
   /// How far the paper reaches past the box on each side (the content keeps
@@ -41,10 +43,10 @@ class PaperBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!context.dress.isPaper) return Builder(builder: child);
     final skin = context.skin;
-    final outer = context.ground;
+    final parts = skin.parts;
     final day = skin.day;
-    final pin = day.text.withValues(alpha: 0.78);
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -54,16 +56,16 @@ class PaperBanner extends StatelessWidget {
           top: 0,
           bottom: 0,
           child: Transform.rotate(
-            angle: angle,
+            angle: parts.bannerAngle,
             child: DecoratedBox(
               decoration: deckledPaper(
                 context,
                 fill: day.paper,
                 id: id,
-                elevation: outer.elevation.slab,
+                elevation: context.ground.elevation.slab,
                 torn: true,
-                depth: 4.5,
-                step: 13,
+                depth: parts.bannerDepth,
+                step: parts.bannerStep,
                 edgeLine: false,
               ),
             ),
@@ -79,12 +81,12 @@ class PaperBanner extends StatelessWidget {
         Positioned(
           top: 1,
           left: Space.md,
-          child: PaperPin(ink: pin),
+          child: PaperPin(ink: day.text),
         ),
         Positioned(
           top: 1,
           right: Space.md,
-          child: PaperPin(ink: pin),
+          child: PaperPin(ink: day.text),
         ),
       ],
     );

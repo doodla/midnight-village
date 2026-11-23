@@ -259,6 +259,7 @@ class _ResultsViewState extends State<ResultsView>
       onTap: _finish,
       child: ScreenFrame(
         ground: GroundKind.night,
+        // The light of a dressed screen: the dawn.
         mood: MoodKind.dawn,
         topSlot: Band(
           tone: _winners.werewolvesWon ? BandTone.danger : BandTone.night,

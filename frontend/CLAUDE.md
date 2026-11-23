@@ -22,6 +22,10 @@ just screens [width] [report|strict]  # every screen and the component sheet as 
 just scene-frames      # the dusk and the dawn pumped to fixed times: frames and a strip each
 just loading-clips     # a tap going busy, a slow join, a failed send and its retry, a reconnect: looping WebPs
 just night-frames      # the night board's pick and candle, a frame per 17 ms
+just vote-frames       # the vote's finger, pick and lock (the seal landing), a frame per 17 ms
+just vote-pictures     # the locked vote, the lock in four frames, the vote at several table sizes
+just count-pictures    # the count: one death, a tie, nobody, the moment in four frames, ten with long names
+just paper-dress       # the dressed-up pass: every paper part in both dresses, and the table, your card and the night board in paper dress
 just card-frames       # your card turning over (finger, hold, turn, release), a frame per 17 ms
 just playtest-pack     # the cold-read pack: five first-game journeys to build/playtest/
 just test-harness      # boots its own backend on a free port, runs the e2e harness (not in `just test`)
@@ -89,12 +93,17 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
 - **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink
   for anything that says something true; no uppercase micro-labels; one amber fill per screen; a selection is lift plus outline, never amber.
+- **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks `ScreenFrame(dress: Dress.paper)`; shared parts read `context.dress`/`context.skin` and draw the paper, torn edges, pins, banners, plaque and mood only there; sizes, angles and colours are the skin's (`skin.parts`, `skin.mood`), never a number in a screen (`lib/design_system/README.md`, "The dress").
 - **Values from the skin**: build screens from `lib/design_system/primitives/`, read
   `context.skin`, `context.ground`, `Space`, `Motion`; no literals (a text size, weight or face is a
   type role, never a number in a widget: `type_guard_test.dart` fails it), no `SkinId` checks in
   layout code. One look, Shadow paper; a new look is a whole design, not a recolour.
 - **Secrets are held, not tapped**: `HoldToReveal` and `HeldFace`; art for secrets is
-  precached at start so a reveal fetches nothing.
+  precached at start so a reveal fetches nothing. The one day exception is "My night" on 08: a
+  tap opens it as a sheet. Nothing vibrates on a card (owner, 23 November 2026).
+- **Information a player asks for opens as a sheet from the bottom edge** (`showSkinSheet`),
+  the same place whatever was tapped, closed by its button, the scrim or Back; never a popover
+  at the touch point (`lib/design_system/README.md`, "Where information a player asks for appears").
 
 ## Screens
 

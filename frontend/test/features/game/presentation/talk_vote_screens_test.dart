@@ -11,12 +11,12 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
+import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 
-import '../../../helpers/component_sheet.dart' show holdDown, holdAndLetGo;
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/sheet/sheet_data.dart' as sheet;
 import '../../../helpers/shell_setup.dart';
@@ -55,12 +55,9 @@ const _everything = {...Cue.values};
 void _answerAck(ShellSetup s) =>
     s.answerPost('/night-results/seen/', 'game/night_results_seen');
 
-/// Puts the open My night away (a tap on it).
+/// Puts the open My night away (the sheet's Close).
 Future<void> _putAway(WidgetTester tester) async {
-  // Near its top: a tall card runs past a small test screen's edge.
-  await tester.tapAt(
-    tester.getRect(find.byType(HeldFace)).topCenter + const Offset(0, 24),
-  );
+  await tester.tap(find.text(RoleSheetCopy.close));
   await tester.pumpAndSettle();
 }
 
@@ -139,6 +136,7 @@ void main() {
         before: _answerAck,
       );
       await s.settle(tester);
+      await _putAway(tester); // Ready is under the sheet it opened with
       final replies = s.http.hold(
         method: 'POST',
         path: '/onuw/games/${s.gameId}/ready/',
@@ -180,6 +178,7 @@ void main() {
         before: _answerAck,
       );
       await s.settle(tester);
+      await _putAway(tester); // Ready is under the sheet it opened with
       s.answerPost('/ready/', 'game/ready_talk');
       await tester.tap(find.byType(PrimaryButton).last);
       await s.settle(tester);
@@ -203,6 +202,7 @@ void main() {
         before: _answerAck,
       );
       await s.settle(tester);
+      await _putAway(tester); // Ready is under the sheet it opened with
       expect(_button(tester), CommonCopy.readyDone);
       expect(find.text('1 of 5 ready'), findsOneWidget);
       expect(s.posts('/ready/'), 0);
@@ -227,6 +227,7 @@ void main() {
         before: _answerAck,
       );
       await s.settle(tester);
+      await _putAway(tester); // Ready is under the sheet it opened with
       s.answerPost('/ready/', 'game/ready_wrong_stage', status: 409);
       final fetched = s.meFetches;
       await tester.tap(find.byType(PrimaryButton).last);
@@ -246,6 +247,7 @@ void main() {
         before: _answerAck,
       );
       await s.settle(tester);
+      await _putAway(tester); // Ready is under the sheet it opened with
       s.failPost('/ready/');
       await tester.tap(find.byType(PrimaryButton).last);
       await s.settle(tester);
@@ -265,8 +267,8 @@ void main() {
     });
 
     testWidgets('a night that told something opens the talk with My night '
-        'open, no hold; the ack goes as it shows; a tap puts it away; '
-        '"Ready to vote" works at once, open or not', (tester) async {
+        'up as a sheet, no tap; the ack goes as it shows; Close puts it '
+        'away; the box under it opens the same sheet again', (tester) async {
       final me = recordedMe('me_discussion_choose_seer');
       final s = await ShellSetup.pump(
         tester,
@@ -275,32 +277,65 @@ void main() {
         before: _answerAck,
       );
       await s.settle(tester);
-      expect(find.byType(HeldFace), findsOneWidget, reason: 'open, no hold');
+      expect(find.byType(SheetScaffold), findsOneWidget, reason: 'a sheet');
+      expect(find.byType(HeldFace), findsOneWidget, reason: 'open, no tap');
       expect(find.text("Cleo's card was: Werewolf."), findsOneWidget);
-      expect(find.byType(PeekBox), findsNothing);
+      expect(find.byType(PeekBox), findsOneWidget, reason: 'the box, behind');
       expect(_bodies(s, '/night-results/seen/'), [
         {'seen': (me['night_results'] as List).length},
       ], reason: 'shown is seen');
       expect(find.text(CommonCopy.hold), findsNothing, reason: 'taught on 04');
 
-      // Ready under the open card, at once.
+      await _putAway(tester);
+      expect(find.byType(HeldFace), findsNothing);
+      expect(find.byType(SheetScaffold), findsNothing);
+
+      // Ready works at once with it away.
       s.answerPost('/ready/', 'game/ready_talk');
       await tester.tap(find.byType(PrimaryButton).last);
       await tester.pump();
       expect(_button(tester), CommonCopy.readyDone);
-      expect(find.byType(HeldFace), findsOneWidget, reason: 'still open');
 
-      await _putAway(tester);
-      expect(find.byType(HeldFace), findsNothing);
-      expect(find.byType(PeekBox), findsOneWidget, reason: 'into My night');
-
-      // Held later: the same face, the result first; no second ack.
-      final gesture = await holdDown(tester, find.byType(PeekBox));
+      // Tapped later: the same face, the result first; no second ack.
+      await tester.tap(find.byType(PeekBox));
+      await s.settle(tester);
       expect(find.byType(HeldFace), findsOneWidget);
       expect(find.text("Cleo's card was: Werewolf."), findsOneWidget);
-      await gesture.up();
-      await s.settle(tester);
       expect(s.posts('/night-results/seen/'), 1);
+      await s.close(tester);
+    });
+
+    testWidgets('My night opens in the same place whatever was tapped, and '
+        'Back closes it (the owner, 23 Nov 2026: "it shows up in a '
+        'different spot")', (tester) async {
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_talk_results_seen'),
+        learned: _everything,
+        before: _answerAck,
+      );
+      await s.settle(tester);
+      final box = find.byType(PeekBox);
+      final rect = tester.getRect(box);
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      Rect? first;
+      for (final at in [
+        rect.topLeft + const Offset(8, 8),
+        rect.center,
+        rect.bottomRight - const Offset(8, 8),
+      ]) {
+        await tester.tapAt(at);
+        await s.settle(tester);
+        final sheet = tester.getRect(find.byType(SheetScaffold));
+        expect(find.byType(HeldFace), findsOneWidget);
+        expect(sheet.bottom, screen.height, reason: 'from the bottom edge');
+        expect(sheet.left, first?.left ?? sheet.left);
+        first ??= sheet;
+        expect(sheet, first, reason: 'where it was tapped changes nothing');
+        await tester.binding.handlePopRoute();
+        await s.settle(tester);
+        expect(find.byType(SheetScaffold), findsNothing, reason: 'Back');
+      }
       await s.close(tester);
     });
 
@@ -320,7 +355,7 @@ void main() {
     });
 
     testWidgets('a night that told nothing ("You slept.") opens nothing; the '
-        'first hold of My night acknowledges, once', (tester) async {
+        'first opening of My night acknowledges, once', (tester) async {
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_discussion_choose_villager'),
@@ -331,13 +366,14 @@ void main() {
       expect(find.byType(HeldFace), findsNothing);
       expect(find.byType(PeekBox), findsOneWidget);
       expect(s.posts('/night-results/seen/'), 0);
-      final gesture = await holdDown(tester, find.byType(PeekBox));
+      await tester.tap(find.byType(PeekBox));
+      await s.settle(tester);
       expect(find.text(NightCopy.slept), findsOneWidget);
-      await gesture.up();
-      await s.settle(tester);
       expect(s.posts('/night-results/seen/'), 1);
-      await holdAndLetGo(tester, find.byType(PeekBox));
+      await _putAway(tester);
+      await tester.tap(find.byType(PeekBox));
       await s.settle(tester);
+      await _putAway(tester);
       expect(s.posts('/night-results/seen/'), 1);
       await s.close(tester);
     });

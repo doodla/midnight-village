@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
@@ -18,17 +19,22 @@ import 'screen_frame.dart';
 /// navigation) reaches the page as a touch until the system claims it and
 /// cancels it: a sheet that could be dragged was swept shut by that touch,
 /// and the Back after it then did the screen's Back too (03 went to 02; 02
-/// asked to leave again).
+/// asked to leave again). A sheet is dressed as the screen it is opened from
+/// is ([DressScope]).
 Future<T?> showSkinSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
 }) {
   final ground = GroundScope.of(context);
+  final dress = context.dress;
   return showModalBottomSheet<T>(
     context: context,
-    builder: (sheetContext) => GroundScope(
-      ground: ground,
-      child: Builder(builder: builder),
+    builder: (sheetContext) => DressScope(
+      dress: dress,
+      child: GroundScope(
+        ground: ground,
+        child: Builder(builder: builder),
+      ),
     ),
     isScrollControlled: true,
     // One back gesture, one thing: its touch never moves the sheet.
@@ -51,13 +57,17 @@ Future<T?> showSkinDialog<T>(
   bool barrierDismissible = true,
 }) {
   final ground = GroundScope.of(context);
+  final dress = context.dress;
   return showDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
     barrierColor: context.skin.scrim,
-    builder: (dialogContext) => GroundScope(
-      ground: ground,
-      child: Builder(builder: builder),
+    builder: (dialogContext) => DressScope(
+      dress: dress,
+      child: GroundScope(
+        ground: ground,
+        child: Builder(builder: builder),
+      ),
     ),
   );
 }
@@ -94,48 +104,48 @@ class SheetScaffold extends StatelessWidget {
   }
 
   Widget _sheet(BuildContext context, BorderRadius top, MediaQueryData media) {
-    // The top edge is torn, not cut: a sheet of paper pulled from a pad.
-    return ClipPath(
-      clipper: const TornTop(),
+    final dressed = context.dress.isPaper;
+    final sheet = Container(
+      padding: const EdgeInsets.only(top: Space.xs),
+      decoration: BoxDecoration(
+        color: context.ground.selection,
+        borderRadius: top,
+      ),
       child: Container(
-        padding: const EdgeInsets.only(top: Space.xs),
         decoration: BoxDecoration(
-          color: context.ground.selection,
+          color: context.ground.paper,
+          image: dressed ? PaperGrain.image : null,
           borderRadius: top,
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: context.ground.paper,
-            image: PaperGrain.image,
-            borderRadius: top,
-          ),
-          padding: EdgeInsets.fromLTRB(
-            Space.gutter,
-            Space.lgPlus,
-            Space.gutter,
-            Space.screenBottom +
-                media.viewPadding.bottom +
-                media.viewInsets.bottom,
-          ),
-          child: GroundScope(
-            ground: GroundKind.paper,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // A sheet taller than the screen (large text, a small phone)
-                // scrolls its body; the actions stay in reach.
-                Flexible(child: SingleChildScrollView(child: child)),
-                if (actions.isNotEmpty) ...[
-                  const SizedBox(height: Space.lg),
-                  Row(spacing: Space.smPlus, children: actions),
-                ],
+        padding: EdgeInsets.fromLTRB(
+          Space.gutter,
+          Space.lgPlus,
+          Space.gutter,
+          Space.screenBottom +
+              media.viewPadding.bottom +
+              media.viewInsets.bottom,
+        ),
+        child: GroundScope(
+          ground: GroundKind.paper,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // A sheet taller than the screen (large text, a small phone)
+              // scrolls its body; the actions stay in reach.
+              Flexible(child: SingleChildScrollView(child: child)),
+              if (actions.isNotEmpty) ...[
+                const SizedBox(height: Space.lg),
+                Row(spacing: Space.smPlus, children: actions),
               ],
-            ),
+            ],
           ),
         ),
       ),
     );
+    // Dressed up the top edge is torn, not cut: a sheet of paper pulled from
+    // a pad.
+    return dressed ? ClipPath(clipper: const TornTop(), child: sheet) : sheet;
   }
 }
 

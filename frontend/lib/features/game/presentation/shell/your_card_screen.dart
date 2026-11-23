@@ -10,10 +10,11 @@ import '../../../../design_system/primitives/face_down_card.dart';
 import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/primary_button.dart';
-import '../../../../design_system/primitives/progress_pips.dart';
 import '../../../../design_system/primitives/paper_banner.dart';
+import '../../../../design_system/primitives/progress_pips.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/skin/art_set.dart';
+import '../../../../design_system/skin/dress.dart';
 import '../../../../design_system/skin/skin_choice.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
@@ -41,7 +42,16 @@ import '../live_game.dart';
 /// ends on the server (everyone ready, or its backstop); this screen never
 /// decides it.
 class YourCardScreen extends ConsumerStatefulWidget {
-  const YourCardScreen({super.key, required this.game, required this.gameId});
+  const YourCardScreen({
+    super.key,
+    required this.game,
+    required this.gameId,
+    this.dress,
+  });
+
+  /// How the screen is dressed (`ScreenFrame.dress`; null: as the screen
+  /// above it).
+  final Dress? dress;
 
   /// Where this device keeps the look stage its card was seen in
   /// (`DevicePreferences`, beside the learned cues).
@@ -101,7 +111,12 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
       ref.read(liveGameProvider(widget.gameId).notifier);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DressScope(
+    dress: widget.dress ?? context.dress,
+    child: Builder(builder: _screen),
+  );
+
+  Widget _screen(BuildContext context) {
     final skin = context.skin;
     final me = widget.game.me;
     final progress = me.progress;
@@ -119,7 +134,8 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
             alignment: Alignment.centerLeft,
             child: Semantics(
               header: true,
-              // On a torn banner, pinned: the moon stays clear on the right.
+              // Dressed up, on a torn banner, pinned: the moon stays clear on
+              // the right.
               child: PaperBanner(
                 id: #card,
                 child: (context) => FitLine(

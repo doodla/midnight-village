@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
 
 /// A card turning over like a piece of cut paper: the one turn-over the
@@ -57,7 +58,8 @@ class PaperFlip extends StatefulWidget {
   /// How much further its shadow falls at the edge, beyond the lift.
   static const drop = Space.xs;
 
-  /// How dark the shadow block is while the card is off the table.
+  /// How dark the shadow block is while the card is off the table on a
+  /// dressed screen (a plain one's is solid).
   static const shadowAlpha = 0.55;
 
   /// How far a finger presses the back down (a share of its size).
@@ -229,9 +231,11 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
                         ),
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: shadow.color.withValues(
-                              alpha: PaperFlip.shadowAlpha,
-                            ),
+                            color: context.dress.isPaper
+                                ? shadow.color.withValues(
+                                    alpha: PaperFlip.shadowAlpha,
+                                  )
+                                : shadow.color,
                             borderRadius: radius,
                           ),
                         ),

@@ -14,6 +14,7 @@ import 'cut_paper.dart';
 import 'paper_mark.dart';
 import 'fit_line.dart';
 import 'player_token.dart';
+import 'text_backing.dart';
 
 /// [FaceDownCard]'s sizes in the mocks. A card is at most this wide and
 /// shrinks, keeping its shape, when its parent is narrower (five players'
@@ -306,13 +307,15 @@ class _FaceDownCardState extends State<FaceDownCard> {
   }
 
   /// The owner's name under the token.
-  Widget _name(BuildContext context, String name) => FitWords(
-    name,
-    textAlign: TextAlign.center,
-    maxLines: 2,
-    style: context.skin.typography.nameSmall.copyWith(
-      fontSize: widget.nameSize,
-      color: context.ground.text,
+  Widget _name(BuildContext context, String name) => TextBacking(
+    child: FitWords(
+      name,
+      textAlign: TextAlign.center,
+      maxLines: 2,
+      style: context.skin.typography.nameSmall.copyWith(
+        fontSize: widget.nameSize,
+        color: context.ground.text,
+      ),
     ),
   );
 

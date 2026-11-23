@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import '../skin/dress.dart';
 import '../skin/elevation.dart';
 import '../skin/skin.dart';
 
@@ -40,7 +41,8 @@ class PaperMark extends StatelessWidget {
   }
 }
 
-/// A [PaperMark] on the upper corner of what is picked, half over its edge.
+/// A [PaperMark] on the upper corner of what is picked, half over its edge
+/// (on a dressed screen; a plain one marks a pick by its ring alone).
 class PaperMarkCorner extends StatelessWidget {
   const PaperMarkCorner({super.key, required this.child, required this.shown});
 
@@ -53,18 +55,20 @@ class PaperMarkCorner extends StatelessWidget {
   static const hang = 8.0;
 
   @override
-  Widget build(BuildContext context) => Stack(
-    clipBehavior: Clip.none,
-    children: [
-      child,
-      if (shown)
-        const Positioned(
-          top: -hang,
-          right: -hang,
-          child: IgnorePointer(child: PaperMark(size: size)),
-        ),
-    ],
-  );
+  Widget build(BuildContext context) => !context.dress.isPaper
+      ? child
+      : Stack(
+          clipBehavior: Clip.none,
+          children: [
+            child,
+            if (shown)
+              const Positioned(
+                top: -hang,
+                right: -hang,
+                child: IgnorePointer(child: PaperMark(size: size)),
+              ),
+          ],
+        );
 }
 
 class _MarkPainter extends CustomPainter {

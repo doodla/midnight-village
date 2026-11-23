@@ -2,11 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../skin/elevation.dart';
-import '../skin/skin.dart';
-import 'paper_grain.dart';
-import 'paper_light.dart';
-
 /// The edge of a piece of paper that was torn, not cut: a rectangle whose four
 /// sides step in and out by a hair (a deckle), seeded so the same piece is
 /// the same on every build and phone. [depth] is how far an edge may step in;
@@ -118,71 +113,4 @@ int deckleSeed(Object id) {
     hash = ((hash << 5) + hash + unit) & 0x7fffffff;
   }
   return hash;
-}
-
-/// Torn paper on the current ground: [fill], the grain, a deckled edge seeded
-/// by [id] and the paper shadow of [elevation], leaning from the screen's light.
-ShapeDecoration deckledPaper(
-  BuildContext context, {
-  required Color fill,
-  required Object id,
-  Elevation elevation = Elevation.none,
-  double depth = 2.4,
-  double step = 6,
-  bool torn = false,
-  bool grain = true,
-  bool edgeLine = true,
-  BorderSide? side,
-}) {
-  final edgeWidth = context.skin.shape.edgeWidth;
-  return ShapeDecoration(
-    color: fill,
-    image: grain ? PaperGrain.image : null,
-    shape: DeckleBorder(
-      seed: deckleSeed(id),
-      depth: depth,
-      step: step,
-      torn: torn,
-      side:
-          side ??
-          (edgeLine && edgeWidth > 0
-              ? BorderSide(color: context.ground.edge, width: edgeWidth)
-              : BorderSide.none),
-    ),
-    shadows: elevation.litBy(context),
-  );
-}
-
-/// A flat matte pin through a piece of paper, with its own small shadow
-/// (hard, offset away from the light like everything else): [ink] is its
-/// colour, [size] its diameter.
-class PaperPin extends StatelessWidget {
-  const PaperPin({super.key, required this.ink, this.size = 9});
-
-  final Color ink;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final lean = PaperLight.of(context);
-    return IgnorePointer(
-      child: ExcludeSemantics(
-        child: SizedBox.square(
-          dimension: size,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: ink,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0x73000000),
-                  offset: Offset(lean * 3.5, 2.5),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

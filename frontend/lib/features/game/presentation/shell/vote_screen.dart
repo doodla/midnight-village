@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/copy/copy.dart';
+import '../../../../design_system/feel/haptics.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/night/night_pick.dart';
 import '../../../../design_system/primitives/band.dart';
@@ -81,6 +83,7 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
         ),
         onPick: (id) => unawaited(_notifier.pickVote(id)),
         onLock: (id) => unawaited(_notifier.lockVote(id)),
+        accepts: () => _notifier.voteDeclined == null,
         notSent: widget.game.unsent.contains(OutboxLane.vote),
         onTryAgain: () => unawaited(_notifier.retry(OutboxLane.vote)),
       ),
@@ -94,11 +97,13 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
 /// pick lifts and takes the selection's outline, a tap on another row moves
 /// it; how many have locked in, as plain pips (this phone's own lock
 /// counted at once), never who; then the one amber action, "Lock in
-/// {name}", or "Pick a name" while there is no pick. Locking is final and
-/// says so only by the button, "Locked": the pick stays lifted and outlined
+/// {name}", or "Pick a name" while there is no pick. Locking is final: the button
+/// says "Locked", the pick stays lifted and outlined with a seal stamped on
+/// its token (its paper turns dried-blood red),
 /// and the other rows dim (owner, 20 November 2026: a neighbour could read
 /// "Lock in Cleo" already; hiding it only costs the player the sight of
-/// their own choice). In a first vote the rows nudge once, in a wave.
+/// their own choice; a lock that is seen across the table is the point of
+/// the stamp). In a first vote the rows nudge once, in a wave.
 ///
 /// The rows are sized to the room ([VoteRows]): the vote's tall rows when
 /// they all fit, the table's compact ones when only those do, and the
@@ -114,6 +119,7 @@ class VoteView extends StatelessWidget {
     required this.remaining,
     required this.onPick,
     required this.onLock,
+    this.accepts = VoteRows.defaultAccepts,
     this.notSent = false,
     this.onTryAgain,
   });
@@ -132,6 +138,10 @@ class VoteView extends StatelessWidget {
 
   /// "Lock in {name}" tapped, with the player picked.
   final ValueChanged<int> onLock;
+
+  /// Whether a tap would be taken now (the vote is on and not locked): a
+  /// declined tap makes no tick and no knock.
+  final bool Function() accepts;
 
   /// The last pick or lock got no answer: "Not sent." with [onTryAgain].
   final bool notSent;
@@ -172,6 +182,7 @@ class VoteView extends StatelessWidget {
           locked: locked,
           nudge: teaching && !locked,
           onPick: onPick,
+          accepts: accepts,
         ),
       ),
       actions: [
@@ -198,23 +209,36 @@ class VoteView extends StatelessWidget {
             reason: SpokenCopy.pickFirst,
           )
         else
-          PrimaryButton(
-            label: VoteCopy.lockIn.fill({'name': pick.name}),
-            icon: Icons.lock_outline,
-            onPressed: () => onLock(pick.id),
+          // Under the frame's ground (the day's), where a knock is allowed.
+          Builder(
+            builder: (context) => PrimaryButton(
+              label: VoteCopy.lockIn.fill({'name': pick.name}),
+              icon: Icons.lock_outline,
+              onPressed: () {
+                // A light knock on the tap, not on the answer, and none for
+                // a tap the phone declines.
+                if (accepts()) Haptics.light(context);
+                onLock(pick.id);
+              },
+            ),
           ),
       ],
     );
   }
 }
 
-/// The vote's rows, sized to the room they are given: [PlayerRowSize.large]
-/// with [Space.md] between when every row fits, else
-/// [PlayerRowSize.compact] with [Space.sm], else the compact rows scrolling
-/// ([FadingScroll]). Each row's height is measured from its name at the
-/// text size (a name wraps to two lines before it is set smaller). A
+/// The vote's rows, sized to the room they are given: [PlayerRowSize.grand]
+/// or [PlayerRowSize.large] with [Space.md] between when every row fits,
+/// else [PlayerRowSize.compact] with [Space.sm], else the compact rows
+/// scrolling ([FadingScroll]). Each row's height is measured from its name at
+/// the text size (a name wraps to two lines before it is set smaller). A
 /// lifted row keeps its place in the column, so the gaps stay even.
-class VoteRows extends StatelessWidget {
+///
+/// What room is left is shared between the rows by one rule: a row grows by
+/// at most [maxStretch] of its size's height and never past [maxRowHeight];
+/// the rest of the room stays above and below the rows, which stand in the
+/// middle of it, so two rows are never two slabs.
+class VoteRows extends StatefulWidget {
   const VoteRows({
     super.key,
     required this.seats,
@@ -223,7 +247,11 @@ class VoteRows extends StatelessWidget {
     required this.nudge,
     required this.onPick,
     this.practice = const {},
+    this.accepts = defaultAccepts,
   });
+
+  /// Every tap is taken (a view with no one to decline it).
+  static bool defaultAccepts() => true;
 
   final List<NightSeat> seats;
 
@@ -234,11 +262,20 @@ class VoteRows extends StatelessWidget {
   final bool nudge;
   final ValueChanged<int> onPick;
 
+  /// Whether a tap would be taken now; a declined tap ticks nothing.
+  final bool Function() accepts;
+
   /// Every size, tallest first, with the gap it is set at.
   static const sizes = [
+    (PlayerRowSize.grand, Space.md),
     (PlayerRowSize.large, Space.md),
     (PlayerRowSize.compact, Space.sm),
   ];
+
+  /// How many names have been measured, ever (a test reads it: the screen's
+  /// timer must not make the rows measure their names again).
+  @visibleForTesting
+  static var measured = 0;
 
   /// The height [seats] take at [size] with [gap] between, [width] wide.
   static double heightOf(
@@ -248,6 +285,7 @@ class VoteRows extends StatelessWidget {
     double gap,
     double width, {
     Set<int> practice = const {},
+    double stretch = 0,
   }) {
     final skin = context.skin;
     final scaler = MediaQuery.textScalerOf(context);
@@ -259,6 +297,7 @@ class VoteRows extends StatelessWidget {
       // A practice player's tag sits on the name's line: measured as one
       // more word in the name's face (wider than the tag's own).
       final tagged = practice.contains(seat.id);
+      measured++;
       final painter = TextPainter(
         text: TextSpan(
           text: tagged ? '${seat.name} ${TableCopy.practice}' : seat.name,
@@ -270,61 +309,140 @@ class VoteRows extends StatelessWidget {
       )..layout(maxWidth: math.max(1, nameRoom));
       final content = math.max(size.token.size, painter.height);
       painter.dispose();
-      total += math.max(size.height, content + 2 * Space.xxs) + _lift;
+      total += math.max(size.height + stretch, content + 2 * Space.xxs) + _lift;
     }
     return total + (gap - _lift) * math.max(0, seats.length - 1);
   }
 
-  /// The room each row keeps for the lift (above when lifted, else below),
-  /// so the gaps between the papers stay even; it is taken out of the gap,
-  /// so the papers are still [sizes]' gap apart.
+  /// The room each row keeps above it for the lift, lifted or not, so the
+  /// gaps between the papers stay even; it is taken out of the gap, so the
+  /// papers are still [sizes]' gap apart.
   static const _lift = Space.xs;
+
+  /// The most a row grows to fill the room, as a share of its own size's
+  /// height.
+  static const maxStretch = 0.3;
+
+  /// The tallest a row is made to stand: [PlayerRowSize.grand] 88 and a
+  /// little.
+  static const maxRowHeight = 96.0;
+
+  @override
+  State<VoteRows> createState() => _VoteRowsState();
+}
+
+/// How [VoteRows] lays its rows out.
+typedef _Layout = ({PlayerRowSize size, double gap, bool fits, double stretch});
+
+class _VoteRowsState extends State<VoteRows> {
+  /// What [_layout] was measured for: the names (and who is practice), the
+  /// room and the text scale. The screen rebuilds every second for its
+  /// timer; the names are measured again only when one of these changes.
+  (List<String>, Set<int>, Size, TextScaler)? _measured;
+  late _Layout _layout;
+
+  _Layout _layoutFor(BuildContext context, Size room) {
+    final seats = widget.seats;
+    final practice = widget.practice;
+    final key = (
+      [for (final seat in seats) seat.name],
+      {...practice},
+      room,
+      MediaQuery.textScalerOf(context),
+    );
+    final last = _measured;
+    if (last != null &&
+        listEquals(last.$1, key.$1) &&
+        setEquals(last.$2, key.$2) &&
+        last.$3 == key.$3 &&
+        last.$4 == key.$4) {
+      return _layout;
+    }
+    double height(PlayerRowSize size, double gap, [double stretch = 0]) =>
+        VoteRows.heightOf(
+          context,
+          seats,
+          size,
+          gap,
+          room.width,
+          practice: practice,
+          stretch: stretch,
+        );
+    final (size, gap) = VoteRows.sizes.firstWhere(
+      (s) => height(s.$1, s.$2) <= room.height,
+      orElse: () => VoteRows.sizes.last,
+    );
+    final fits = height(size, gap) <= room.height;
+    // What the room still holds is shared out between the rows, so a table
+    // of few fills the screen instead of leaving the foot empty.
+    final spare = room.height - height(size, gap);
+    var stretch = !fits || seats.isEmpty
+        ? 0.0
+        : math.max(
+            0.0,
+            math.min(
+              spare / seats.length,
+              math.min(
+                size.height * VoteRows.maxStretch,
+                VoteRows.maxRowHeight - size.height,
+              ),
+            ),
+          );
+    // A row whose name wraps is already taller than its size: take back
+    // what that leaves too little room for.
+    while (stretch > 0 && height(size, gap, stretch) > room.height) {
+      stretch = math.max(0, stretch - 2);
+    }
+    _measured = key;
+    return _layout = (size: size, gap: gap, fits: fits, stretch: stretch);
+  }
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, room) {
-      double height(PlayerRowSize size, double gap) => heightOf(
-        context,
-        seats,
-        size,
-        gap,
-        room.maxWidth,
-        practice: practice,
-      );
-      final (size, gap) = sizes.firstWhere(
-        (s) => height(s.$1, s.$2) <= room.maxHeight,
-        orElse: () => sizes.last,
-      );
-      final fits = height(size, gap) <= room.maxHeight;
+      final (:size, :gap, :fits, :stretch) = _layoutFor(context, room.biggest);
       final column = Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: gap - _lift,
+        spacing: gap - VoteRows._lift,
         children: [
-          for (final (i, seat) in seats.indexed)
+          for (final (i, seat) in widget.seats.indexed)
             CueWave(
-              play: nudge,
+              play: widget.nudge,
               index: i,
               distance: CueWave.rowNudge,
-              child: _row(seat, size),
+              child: _row(context, seat, size, stretch),
             ),
         ],
       );
       return Align(
-        alignment: Alignment.topCenter,
+        alignment: fits ? Alignment.center : Alignment.topCenter,
         child: fits ? column : FadingScroll(child: column),
       );
     },
   );
 
-  Widget _row(NightSeat seat, PlayerRowSize size) {
+  Widget _row(
+    BuildContext context,
+    NightSeat seat,
+    PlayerRowSize size,
+    double stretch,
+  ) {
+    final (pick, locked, practice) = (
+      widget.pick,
+      widget.locked,
+      widget.practice,
+    );
     final mine = seat.id == pick;
     final lifted = mine;
     final row = PlayerRow(
       token: seat.token,
       name: seat.name,
       size: size,
+      stretch: stretch,
       practice: practice.contains(seat.id),
       picked: lifted,
+      sealed: locked && mine,
       // Once locked, the others dim; this phone's own pick stays as it is.
       dimmed: locked && !mine,
       onTap: locked
@@ -333,17 +451,20 @@ class VoteRows extends StatelessWidget {
           // The picked row stays a button (it reads as selected); a tap on
           // it changes nothing.
           ? () {}
-          : () => onPick(seat.id),
+          : () {
+              // A tick each time the pick moves; none for a tap the phone
+              // declines.
+              if (widget.accepts()) Haptics.tick(context);
+              widget.onPick(seat.id);
+            },
     );
-    return AnimatedPadding(
-      duration: Motion.quick,
-      curve: Motion.curve,
-      // The lift draws the row up by the same room it keeps above.
-      padding: EdgeInsets.only(
-        top: lifted ? _lift : 0,
-        bottom: lifted ? 0 : _lift,
-      ),
-      child: locked && mine ? Semantics(selected: true, child: row) : row,
+    // The room a lift needs sits above every row (lifted or not), so the
+    // gaps stay even and a pick rises into it ([PlayerRow] moves the paper).
+    return Padding(
+      padding: const EdgeInsets.only(top: VoteRows._lift),
+      // Always wrapped, so the row keeps its state (and its colour tween and
+      // its stamp) when the lock arrives.
+      child: Semantics(selected: locked && mine ? true : null, child: row),
     );
   }
 }

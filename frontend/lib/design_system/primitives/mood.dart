@@ -1,9 +1,12 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
 import '../skin/art_set.dart';
-import 'layered_art.dart';
+import '../skin/mood_palette.dart';
+import '../skin/skin.dart';
+import 'layered_art.dart' show SceneGeometry;
 
 /// The light a game screen stands in. Night is deep indigo under the village,
 /// one cool moon pool and a cone of it falling on the table, a heavy vignette;
@@ -12,16 +15,27 @@ import 'layered_art.dart';
 /// sun in a long light, never a flat lilac field.
 enum MoodKind { night, lantern, dawn, day }
 
-/// The ground and the light of a phase, laid under the play surface of every
-/// screen (`ScreenFrame` does it, so no screen asks): a ground, the game's own
-/// village (the layered art, at real strength in the top third and falling
-/// into shadow below it), a light and the vignette that keeps the eye on the
-/// evidence. The whole is a few image layers and two painters inside one
-/// repaint boundary, painted once and kept (no animation, no layer saved), so
-/// it costs nothing per frame. Text keeps its contrast on every pixel of it
-/// (`mood_test.dart`); where a word has to sit over the picture it sits on a
-/// paper backing, never on a dulled scene.
-class Mood extends StatelessWidget {
+/// The ground and the light of a phase, laid under the play surface of a
+/// screen dressed up (`ScreenFrame(dress: Dress.paper)` does it, so no screen
+/// draws it): a ground, the game's own village (the layered art, at real
+/// strength in the top third and falling into shadow below it), a light and
+/// the vignette that keeps the eye on the evidence. Its colours and lengths are
+/// the skin's (`skin.mood`, [MoodPalette]).
+///
+/// What it costs: it is composed ONCE per (screen size, phase, light) into one
+/// picture (a few image draws, the veil, the pools and the vignette, with the
+/// blends done there, never on a frame) kept in a small cache, and what a
+/// frame draws is that one picture. Nothing in it is a layer to rasterise or a
+/// blend over the screen: an animation ticking above it, a button press or the
+/// keyboard rising does not draw it again (`mood_test.dart` counts: [composed]
+/// and [painted] stay where they are). A picture is the screen's size at the
+/// device's pixel ratio, at most [maxRatio]; two or three are kept. For the
+/// frame or two before the village's layers are decoded (art is precached at
+/// start) the ground and the lights are painted live, so the screen is never
+/// bare. Text keeps its contrast on every pixel of it (`mood_test.dart`);
+/// where a word has to sit over the picture it sits on a paper backing, never
+/// on a dulled scene.
+class Mood extends StatefulWidget {
   const Mood({
     super.key,
     required this.kind,
@@ -39,156 +53,422 @@ class Mood extends StatelessWidget {
   /// [MoodKind.dawn]).
   final Alignment lightAt;
 
-  /// How much of a quiet strip's fill shows (the night board's strip of
-  /// centre cards): the village behind it shows through the rest.
-  static const panelShow = 0.62;
+  /// The pixel ratio the picture is made at, at most.
+  static const maxRatio = 2.0;
 
-  /// Night: the ground the village falls into, a moon pool of
-  /// `rgba(220, 226, 255, .22)` and a cone of it, a vignette of
-  /// `rgba(3, 4, 12, .62)` from a third of the way out.
-  static const nightBase = Color(0xFF0C0E22);
-  static const moon = Color(0xFFDCE2FF);
-  static const moonAlpha = 0.2;
-  static const vignetteInk = Color(0xFF03040C);
-  static const nightVignette = 0.6;
+  /// How many pictures are kept (a screen, the one it came from, a sheet's).
+  static const kept = 3;
 
-  /// How much of the night's own ground lies over the village at its top, and
-  /// where it is whole (of the picture's height): the top third is lit, the
-  /// rest falls into shadow.
-  static const veilTop = 0.0;
-  static const veilFrom = 0.30;
-  static const veilFromAlpha = 0.22;
-  static const veilMid = 0.62;
-  static const veilMidAlpha = 0.74;
+  /// How many times a mood was composed into a picture, and how many times
+  /// any of it was painted by a painter (a composition, or the live ground
+  /// before it is ready): for tests, which expect them not to move on a frame.
+  @visibleForTesting
+  static int composed = 0;
+  @visibleForTesting
+  static int painted = 0;
 
-  /// The lantern's `rgba(255, 190, 110, .30)` pooling on what it lights.
-  static const lantern = Color(0xFFFFBE6E);
-  static const lanternAlpha = 0.26;
-
-  /// Day: a pale sky over a golden foot, the sun low and warm on the left,
-  /// a soft vignette in a warm plum that stays above the reading floor's
-  /// luminance.
-  static const daySky = Color(0xFFD6CCE6);
-  static const dayMid = Color(0xFFF0D2BC);
-  static const dayFoot = Color(0xFFF5C27A);
-  static const sun = Color(0xFFFFD98E);
-  static const dayVignetteInk = Color(0xFF8A6A88);
-  static const dayVignette = 0.26;
+  /// Forgets every kept picture (a test that changes the art).
+  @visibleForTesting
+  static void forget() {
+    for (final image in _cache.values) {
+      image.dispose();
+    }
+    _cache.clear();
+  }
 
   /// Which way paper's shadow leans on a screen of this light: away from it.
-  static double leanOf(MoodKind kind) => switch (kind) {
-    MoodKind.night => -0.45, // the moon high on the right
-    MoodKind.lantern => 0.0, // a lantern overhead
-    MoodKind.dawn => 0.0,
-    MoodKind.day => 0.8, // a low sun on the left: long shadows to the right
+  static double leanOf(MoodKind kind, MoodPalette palette) => switch (kind) {
+    MoodKind.night => palette.leanNight,
+    MoodKind.lantern || MoodKind.dawn => palette.leanLantern,
+    MoodKind.day => palette.leanDay,
   };
+
+  /// What the pictures and the body's lower edge fade into: the ground the
+  /// mood paints under them (the night's deep base, the day's golden foot).
+  static Color fadeOf(MoodKind kind, MoodPalette palette) =>
+      kind == MoodKind.day ? palette.dayFoot : palette.nightBase;
 
   /// The village's height for a screen [size].
   static double sceneHeight(MoodKind kind, Size size) => kind == MoodKind.day
       ? math.min(size.height * 0.40, size.width * 0.9)
       : math.min(size.height * 0.66, size.width * 4 / 3);
 
-  /// How far above the screen's foot the day's village stands: its roofs and
-  /// the low sun clear the progress line and the action under it, whose words
-  /// stay on the plain gold.
-  static const dayFootMargin = 0.0;
+  static final _cache = <_Spec, ui.Image>{};
+
+  @override
+  State<Mood> createState() => _MoodState();
+}
+
+class _MoodState extends State<Mood> {
+  /// The picture on show: this state's own clone of the cached one.
+  ui.Image? _image;
+  _Spec? _shown;
+  _Spec? _loading;
+
+  @override
+  void dispose() {
+    _image?.dispose();
+    super.dispose();
+  }
+
+  void _show(_Spec spec, ui.Image image) {
+    _image?.dispose();
+    _image = image.clone();
+    _shown = spec;
+  }
+
+  /// Composes [spec] from its loaded layers into a picture, keeps it.
+  ui.Image _compose(_Spec spec, List<_Loaded> loaded) {
+    Mood.composed++;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(spec.ratio);
+    _paintMood(canvas, spec, loaded);
+    final image = recorder.endRecording().toImageSync(
+      (spec.size.width * spec.ratio).ceil(),
+      (spec.size.height * spec.ratio).ceil(),
+    );
+    Mood._cache[spec] = image;
+    while (Mood._cache.length > Mood.kept) {
+      Mood._cache.remove(Mood._cache.keys.first)!.dispose();
+    }
+    return image;
+  }
+
+  /// Gets [spec]'s picture: from the cache, composed at once if its layers are
+  /// decoded, or null until they are (then this state shows it).
+  ui.Image? _get(_Spec spec) {
+    final cached = Mood._cache.remove(spec);
+    if (cached != null) {
+      Mood._cache[spec] = cached; // most recent last
+      return cached;
+    }
+    final plan = _layerPlan(spec);
+    final images = List<ui.Image?>.filled(plan.length, null);
+    var pending = plan.length;
+    var asking = true;
+    ui.Image compose() {
+      final loaded = [
+        for (final (i, item) in plan.indexed)
+          _Loaded(item.layer, item.rect, images[i]),
+      ];
+      final image = _compose(spec, loaded);
+      for (final loaded in images) {
+        loaded?.dispose();
+      }
+      return image;
+    }
+
+    void arrived() {
+      pending--;
+      if (pending > 0 || asking || !mounted || _loading != spec) return;
+      final image = compose();
+      setState(() => _show(spec, image));
+    }
+
+    for (final (i, item) in plan.indexed) {
+      final stream = item.provider.resolve(ImageConfiguration.empty);
+      late ImageStreamListener listener;
+      listener = ImageStreamListener(
+        (info, _) {
+          images[i] = info.image.clone();
+          stream.removeListener(listener);
+          arrived();
+        },
+        onError: (_, _) {
+          stream.removeListener(listener);
+          arrived();
+        },
+      );
+      stream.addListener(listener);
+    }
+    asking = false;
+    if (pending <= 0) return compose();
+    _loading = spec;
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final art = switch (kind) {
-      MoodKind.night || MoodKind.lantern => LayeredSceneId.nightVillage,
-      MoodKind.day => LayeredSceneId.dawnGallows,
-      MoodKind.dawn => null,
-    };
+    final skin = context.skin;
+    final ratio = math.min(
+      MediaQuery.devicePixelRatioOf(context),
+      Mood.maxRatio,
+    );
+    final screen = MediaQuery.sizeOf(context);
     return IgnorePointer(
-      child: RepaintBoundary(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CustomPaint(painter: _GroundPainter(kind)),
-            if (scene && art != null)
-              LayoutBuilder(
-                builder: (context, box) {
-                  final height = sceneHeight(kind, box.biggest);
-                  return Align(
-                    // The lantern's village stands at the foot, behind the
-                    // lower half a table's content leaves; the others hang
-                    // from the top.
-                    alignment: kind == MoodKind.lantern || kind == MoodKind.day
-                        ? Alignment.bottomCenter
-                        : Alignment.topCenter,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        bottom: kind == MoodKind.day ? Mood.dayFootMargin : 0,
-                      ),
-                      child: SizedBox(
-                        height: height,
-                        width: box.maxWidth,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            LayeredArt(art, travel: false),
-                            DecoratedBox(
-                              decoration: BoxDecoration(gradient: _veil(kind)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            CustomPaint(painter: _LightPainter(kind, lightAt, scene)),
-          ],
-        ),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          // The picture is the screen's size, however much of it the keyboard
+          // leaves: the body shrinking never makes a new one.
+          final size = Size(
+            box.maxWidth.isFinite ? box.maxWidth : screen.width,
+            math.max(box.maxHeight.isFinite ? box.maxHeight : 0, screen.height),
+          );
+          final spec = _Spec(
+            kind: widget.kind,
+            size: size,
+            ratio: ratio,
+            lightAt: widget.lightAt,
+            scene: widget.scene,
+            palette: skin.mood,
+            art: skin.art,
+          );
+          if (_shown != spec) {
+            final image = _get(spec);
+            if (image != null) {
+              _image?.dispose();
+              _image = image.clone();
+              _shown = spec;
+            }
+          }
+          final image = _shown == spec ? _image : null;
+          return ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              minWidth: size.width,
+              maxWidth: size.width,
+              minHeight: size.height,
+              maxHeight: size.height,
+              child: image != null
+                  ? RawImage(
+                      image: image,
+                      width: size.width,
+                      height: size.height,
+                      scale: ratio,
+                      fit: BoxFit.fill,
+                    )
+                  // Till the layers are decoded: the ground and the lights.
+                  : CustomPaint(size: size, painter: _LivePainter(spec)),
+            ),
+          );
+        },
       ),
     );
   }
+}
 
-  /// The ground laid over the picture, thin at the top and whole at its foot,
-  /// so the village stands lit above and sinks into shadow below.
-  static LinearGradient _veil(MoodKind kind) {
-    if (kind == MoodKind.day) {
-      return const LinearGradient(
+/// What a picture is of; its key in the cache.
+@immutable
+class _Spec {
+  const _Spec({
+    required this.kind,
+    required this.size,
+    required this.ratio,
+    required this.lightAt,
+    required this.scene,
+    required this.palette,
+    required this.art,
+  });
+
+  final MoodKind kind;
+  final Size size;
+  final double ratio;
+  final Alignment lightAt;
+  final bool scene;
+  final MoodPalette palette;
+  final ArtSet art;
+
+  LayeredSceneId? get sceneId => !scene
+      ? null
+      : switch (kind) {
+          MoodKind.night || MoodKind.lantern => LayeredSceneId.nightVillage,
+          MoodKind.day => LayeredSceneId.dawnGallows,
+          MoodKind.dawn => null,
+        };
+
+  /// The village's box: hung from the top, or standing at the foot.
+  Rect get sceneRect {
+    final height = Mood.sceneHeight(kind, size);
+    final atFoot = kind == MoodKind.lantern || kind == MoodKind.day;
+    return Rect.fromLTWH(
+      0,
+      atFoot ? size.height - height : 0,
+      size.width,
+      height,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _Spec &&
+      other.kind == kind &&
+      other.size == size &&
+      other.ratio == ratio &&
+      other.lightAt == lightAt &&
+      other.scene == scene &&
+      other.palette == palette &&
+      identical(other.art, art);
+
+  @override
+  int get hashCode => Object.hash(
+    kind,
+    size,
+    ratio,
+    lightAt,
+    scene,
+    palette,
+    identityHashCode(art),
+  );
+}
+
+/// A layer of the village, where it lies on the screen.
+class _Loaded {
+  const _Loaded(this.layer, this.rect, this.image);
+
+  final SceneLayer layer;
+  final Rect rect;
+  final ui.Image? image;
+
+  _Loaded withImage(ui.Image image) => _Loaded(layer, rect, image);
+}
+
+class _Plan {
+  const _Plan(this.layer, this.rect, this.provider);
+
+  final SceneLayer layer;
+  final Rect rect;
+  final ImageProvider provider;
+}
+
+List<_Plan> _layerPlan(_Spec spec) {
+  final id = spec.sceneId;
+  if (id == null) return const [];
+  final scene = spec.art.layeredScene(id);
+  final box = spec.sceneRect;
+  final geometry = SceneGeometry.cover(scene, box.size);
+  return [
+    for (final entry in scene.layers)
+      if (entry is SceneLayer)
+        () {
+          final rect = geometry
+              .rect(entry.anchor, entry.size)
+              .shift(box.topLeft);
+          return _Plan(
+            entry,
+            rect,
+            spec.art.layer(id, entry).decodedFor(rect.size, spec.ratio),
+          );
+        }(),
+  ];
+}
+
+/// Everything of a mood on [canvas] (the size of [spec], at logical pixels):
+/// the ground, the village with its veil, the light and the vignette.
+void _paintMood(Canvas canvas, _Spec spec, List<_Loaded> layers) {
+  Mood.painted++;
+  final size = spec.size;
+  final kind = spec.kind;
+  final palette = spec.palette;
+  final rect = Offset.zero & size;
+  final ground = Paint();
+  switch (kind) {
+    case MoodKind.night || MoodKind.lantern || MoodKind.dawn:
+      ground.color = palette.nightBase;
+    case MoodKind.day:
+      ground.shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [
-          Color(0xFFF2D3B6),
-          Color(0xD9F0D2BC),
-          Color(0x00F0D2BC),
-          Color(0x00F0D2BC),
-          Color(0xFFF2C98C),
-          Color(0xFFF5C27A),
-        ],
-        stops: [0, 0.18, 0.38, 0.5, 0.66, 1],
-      );
+        colors: [palette.daySky, palette.dayMid, palette.dayFoot],
+        stops: const [0, 0.5, 1],
+      ).createShader(rect);
+  }
+  canvas.drawRect(rect, ground);
+  if (spec.sceneId != null && layers.isNotEmpty) {
+    final box = spec.sceneRect;
+    canvas
+      ..save()
+      ..clipRect(box);
+    _paintVillage(canvas, spec, layers);
+    canvas.drawRect(
+      box,
+      Paint()..shader = _veil(kind, palette).createShader(box),
+    );
+    canvas.restore();
+  }
+  _paintLight(canvas, spec);
+}
+
+/// The village's layers in order; a layer with a `clipTo` is a shadow cast on
+/// the one before it, drawn over it only where that one has paint.
+void _paintVillage(Canvas canvas, _Spec spec, List<_Loaded> layers) {
+  final paint = Paint()..filterQuality = FilterQuality.medium;
+  void draw(_Loaded l) {
+    final image = l.image;
+    if (image == null) return;
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      l.rect,
+      paint,
+    );
+  }
+
+  final cast = <String, List<_Loaded>>{};
+  for (final l in layers) {
+    if (l.layer.clipTo case final to?) (cast[to] ??= []).add(l);
+  }
+  for (final l in layers) {
+    if (l.layer.clipTo != null) continue;
+    final shadows = cast[l.layer.file];
+    if (shadows == null) {
+      draw(l);
+      continue;
     }
-    if (kind == MoodKind.lantern) {
-      return LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          nightBase,
-          nightBase.withValues(alpha: 0.96),
-          nightBase.withValues(alpha: 0.55),
-          nightBase.withValues(alpha: 0.28),
-          nightBase.withValues(alpha: 0.42),
-        ],
-        stops: const [0, 0.2, 0.36, 0.64, 1],
-      );
+    final bounds = l.rect.inflate(1);
+    canvas.saveLayer(bounds, Paint());
+    draw(l);
+    for (final shadow in shadows) {
+      canvas.saveLayer(bounds, Paint()..blendMode = BlendMode.srcATop);
+      draw(shadow);
+      canvas.restore();
     }
+    canvas.restore();
+  }
+}
+
+/// The ground laid over the picture, thin at the top and whole at its foot,
+/// so the village stands lit above and sinks into shadow below.
+LinearGradient _veil(MoodKind kind, MoodPalette p) {
+  if (kind == MoodKind.day) {
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        nightBase.withValues(alpha: veilTop),
-        nightBase.withValues(alpha: veilFromAlpha),
-        nightBase.withValues(alpha: veilMidAlpha),
-        nightBase,
+        p.dayVeilTop,
+        p.dayMid.withValues(alpha: 0.85),
+        p.dayMid.withValues(alpha: 0),
+        p.dayMid.withValues(alpha: 0),
+        p.dayVeilFoot,
+        p.dayFoot,
       ],
-      stops: const [0, veilFrom, veilMid, 1],
+      stops: const [0, 0.18, 0.38, 0.5, 0.66, 1],
     );
   }
+  if (kind == MoodKind.lantern) {
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        p.nightBase,
+        p.nightBase.withValues(alpha: 0.96),
+        p.nightBase.withValues(alpha: 0.55),
+        p.nightBase.withValues(alpha: 0.28),
+        p.nightBase.withValues(alpha: 0.42),
+      ],
+      stops: const [0, 0.2, 0.36, 0.64, 1],
+    );
+  }
+  return LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      p.nightBase.withValues(alpha: 0),
+      p.nightBase.withValues(alpha: p.veilFromAlpha),
+      p.nightBase.withValues(alpha: p.veilMidAlpha),
+      p.nightBase,
+    ],
+    stops: [0, p.veilFrom, p.veilMid, 1],
+  );
 }
 
 /// A radial light of [colors] over an ellipse [rx] wide and [ry] tall (in
@@ -226,173 +506,148 @@ void _pool(
   canvas.restore();
 }
 
-class _GroundPainter extends CustomPainter {
-  const _GroundPainter(this.kind);
-
-  final MoodKind kind;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final paint = Paint();
-    switch (kind) {
-      case MoodKind.night || MoodKind.lantern || MoodKind.dawn:
-        paint.color = Mood.nightBase;
-      case MoodKind.day:
-        paint.shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Mood.daySky, Mood.dayMid, Mood.dayFoot],
-          stops: [0, 0.5, 1],
-        ).createShader(rect);
-    }
-    canvas.drawRect(rect, paint);
+void _paintLight(Canvas canvas, _Spec spec) {
+  final size = spec.size;
+  final p = spec.palette;
+  final w = size.width;
+  final h = size.height;
+  switch (spec.kind) {
+    case MoodKind.night:
+      _moonLight(canvas, spec);
+      _vignette(canvas, size, p.vignetteInk, p.nightVignette);
+    case MoodKind.lantern || MoodKind.dawn:
+      _lanternPool(canvas, spec);
+      _vignette(canvas, size, p.vignetteInk, p.nightVignette);
+    case MoodKind.day:
+      // The sun, low on the left, its light long: a hot core on the left
+      // edge, a wide warm pool over the lower panel, and a band of light
+      // lying across it that the shadows lean away from.
+      _pool(
+        canvas,
+        size,
+        at: const Alignment(-1.05, 0.30),
+        rx: w * 1.3,
+        ry: h * 0.45,
+        colors: [
+          p.sun.withValues(alpha: 0.95),
+          p.sun.withValues(alpha: 0.42),
+          p.sun.withValues(alpha: 0),
+        ],
+        stops: const [0, 0.45, 1],
+      );
+      final beam = Path()
+        ..moveTo(0, h * 0.18)
+        ..lineTo(w, h * 0.50)
+        ..lineTo(w, h * 0.74)
+        ..lineTo(0, h * 0.38)
+        ..close();
+      canvas.drawPath(
+        beam,
+        Paint()
+          ..shader = LinearGradient(
+            colors: [
+              p.sun.withValues(alpha: 0.38),
+              p.sun.withValues(alpha: 0.0),
+            ],
+          ).createShader(Rect.fromLTWH(0, 0, w, h)),
+      );
+      _vignette(canvas, size, p.dayVignetteInk, p.dayVignette);
   }
-
-  @override
-  bool shouldRepaint(_GroundPainter old) => old.kind != kind;
 }
 
-class _LightPainter extends CustomPainter {
-  const _LightPainter(this.kind, this.lightAt, this.scene);
+/// The moon in the village's top right: a cool pool round it and a cone of
+/// its light falling on the table, the cards in it lit.
+void _moonLight(Canvas canvas, _Spec spec) {
+  final size = spec.size;
+  final p = spec.palette;
+  final w = size.width;
+  final h = size.height;
+  final art = Mood.sceneHeight(spec.kind, size);
+  final scale = math.max(w / 768, art / 1024);
+  final moon = Offset((w - 768 * scale) / 2 + 650 * scale, 114 * scale);
+  _pool(
+    canvas,
+    size,
+    at: Alignment((moon.dx / w) * 2 - 1, (moon.dy / h) * 2 - 1),
+    rx: w * 0.62,
+    ry: w * 0.62,
+    colors: [
+      p.moon.withValues(alpha: p.moonAlpha),
+      p.moon.withValues(alpha: p.moonAlpha / 3),
+      p.moon.withValues(alpha: 0),
+    ],
+    stops: const [0, 0.5, 1],
+    blend: BlendMode.screen,
+  );
+  final cone = Path()
+    ..moveTo(moon.dx - 14, moon.dy + 10)
+    ..lineTo(moon.dx + 14, moon.dy + 10)
+    ..lineTo(w * 0.62, h * 0.86)
+    ..lineTo(-w * 0.12, h * 0.80)
+    ..close();
+  canvas.drawPath(
+    cone,
+    Paint()
+      ..blendMode = BlendMode.screen
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          p.moon.withValues(alpha: 0.2),
+          p.moon.withValues(alpha: 0.1),
+          p.moon.withValues(alpha: 0.0),
+        ],
+        stops: const [0, 0.5, 1],
+      ).createShader(Rect.fromLTWH(0, moon.dy, w, h * 0.86 - moon.dy)),
+  );
+}
 
-  final MoodKind kind;
-  final Alignment lightAt;
-  final bool scene;
+void _lanternPool(Canvas canvas, _Spec spec) {
+  final p = spec.palette;
+  _pool(
+    canvas,
+    spec.size,
+    at: spec.lightAt,
+    rx: spec.size.width * 0.85,
+    ry: spec.size.width * 0.62,
+    colors: [
+      p.lantern.withValues(alpha: p.lanternAlpha),
+      p.lantern.withValues(alpha: p.lanternAlpha * 0.45),
+      p.lantern.withValues(alpha: 0),
+    ],
+    stops: const [0, 0.5, 1],
+    blend: BlendMode.screen,
+  );
+}
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    switch (kind) {
-      case MoodKind.night:
-        _moonLight(canvas, size);
-        _vignette(canvas, size, Mood.vignetteInk, Mood.nightVignette);
-      case MoodKind.lantern:
-        _lanternPool(canvas, size);
-        _vignette(canvas, size, Mood.vignetteInk, Mood.nightVignette);
-      case MoodKind.dawn:
-        _lanternPool(canvas, size);
-        _vignette(canvas, size, Mood.vignetteInk, Mood.nightVignette);
-      case MoodKind.day:
-        // The sun, low on the left, its light long: a hot core on the left
-        // edge, a wide warm pool over the lower panel, and a band of light
-        // lying across it that the shadows lean away from.
-        _pool(
-          canvas,
-          size,
-          at: const Alignment(-1.05, 0.30),
-          rx: w * 1.3,
-          ry: h * 0.45,
-          colors: [
-            Mood.sun.withValues(alpha: 0.95),
-            Mood.sun.withValues(alpha: 0.42),
-            Mood.sun.withValues(alpha: 0),
-          ],
-          stops: const [0, 0.45, 1],
-        );
-        final beam = Path()
-          ..moveTo(0, h * 0.18)
-          ..lineTo(w, h * 0.50)
-          ..lineTo(w, h * 0.74)
-          ..lineTo(0, h * 0.38)
-          ..close();
-        canvas.drawPath(
-          beam,
-          Paint()
-            ..shader = LinearGradient(
-              colors: [
-                Mood.sun.withValues(alpha: 0.38),
-                Mood.sun.withValues(alpha: 0.0),
-              ],
-            ).createShader(Rect.fromLTWH(0, 0, w, h)),
-        );
-        _vignette(canvas, size, Mood.dayVignetteInk, Mood.dayVignette);
-    }
-  }
+/// A heavy vignette: clear in the middle third, the whole [alpha] at the
+/// corners.
+void _vignette(Canvas canvas, Size size, Color ink, double alpha) {
+  _pool(
+    canvas,
+    size,
+    at: const Alignment(0, -0.08),
+    rx: size.width * 0.78,
+    ry: size.height * 0.60,
+    colors: [
+      ink.withValues(alpha: 0),
+      ink.withValues(alpha: 0),
+      ink.withValues(alpha: alpha),
+    ],
+    stops: const [0, 0.38, 1],
+  );
+}
 
-  /// The moon in the village's top right: a cool pool round it and a cone of
-  /// its light falling on the table, the cards in it lit.
-  void _moonLight(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final art = Mood.sceneHeight(kind, size);
-    final scale = math.max(w / 768, art / 1024);
-    final moon = Offset((w - 768 * scale) / 2 + 650 * scale, 114 * scale);
-    _pool(
-      canvas,
-      size,
-      at: Alignment((moon.dx / w) * 2 - 1, (moon.dy / h) * 2 - 1),
-      rx: w * 0.62,
-      ry: w * 0.62,
-      colors: [
-        Mood.moon.withValues(alpha: Mood.moonAlpha),
-        Mood.moon.withValues(alpha: Mood.moonAlpha / 3),
-        Mood.moon.withValues(alpha: 0),
-      ],
-      stops: const [0, 0.5, 1],
-      blend: BlendMode.screen,
-    );
-    final cone = Path()
-      ..moveTo(moon.dx - 14, moon.dy + 10)
-      ..lineTo(moon.dx + 14, moon.dy + 10)
-      ..lineTo(w * 0.62, h * 0.86)
-      ..lineTo(-w * 0.12, h * 0.80)
-      ..close();
-    canvas.drawPath(
-      cone,
-      Paint()
-        ..blendMode = BlendMode.screen
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Mood.moon.withValues(alpha: 0.2),
-            Mood.moon.withValues(alpha: 0.1),
-            Mood.moon.withValues(alpha: 0.0),
-          ],
-          stops: const [0, 0.5, 1],
-        ).createShader(Rect.fromLTWH(0, moon.dy, w, h * 0.86 - moon.dy)),
-    );
-  }
+/// Before the village's layers are decoded: the ground and the lights, painted
+/// live (it is for a frame or two; the picture takes over).
+class _LivePainter extends CustomPainter {
+  const _LivePainter(this.spec);
 
-  void _lanternPool(Canvas canvas, Size size) {
-    final w = size.width;
-    _pool(
-      canvas,
-      size,
-      at: lightAt,
-      rx: w * 0.85,
-      ry: w * 0.62,
-      colors: [
-        Mood.lantern.withValues(alpha: Mood.lanternAlpha),
-        Mood.lantern.withValues(alpha: Mood.lanternAlpha * 0.45),
-        Mood.lantern.withValues(alpha: 0),
-      ],
-      stops: const [0, 0.5, 1],
-      blend: BlendMode.screen,
-    );
-  }
-
-  /// A heavy vignette: clear in the middle third, the whole [alpha] at the
-  /// corners.
-  void _vignette(Canvas canvas, Size size, Color ink, double alpha) {
-    _pool(
-      canvas,
-      size,
-      at: const Alignment(0, -0.08),
-      rx: size.width * 0.78,
-      ry: size.height * 0.60,
-      colors: [
-        ink.withValues(alpha: 0),
-        ink.withValues(alpha: 0),
-        ink.withValues(alpha: alpha),
-      ],
-      stops: const [0, 0.38, 1],
-    );
-  }
+  final _Spec spec;
 
   @override
-  bool shouldRepaint(_LightPainter old) =>
-      old.kind != kind || old.lightAt != lightAt || old.scene != scene;
+  void paint(Canvas canvas, Size size) => _paintMood(canvas, spec, const []);
+
+  @override
+  bool shouldRepaint(_LivePainter old) => old.spec != spec;
 }

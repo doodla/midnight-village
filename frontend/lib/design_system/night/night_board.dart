@@ -8,16 +8,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../copy/copy.dart';
 import '../faces/face_content.dart';
 import '../layout/space.dart';
-import '../primitives/paper_banner.dart';
 import '../primitives/candle_gauge.dart';
-import '../primitives/mood.dart';
 import '../primitives/face_down_card.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/notice.dart';
+import '../primitives/paper_banner.dart';
 import '../primitives/paper_card.dart';
 import '../primitives/primary_button.dart';
 import '../primitives/screen_frame.dart';
+import '../primitives/text_backing.dart';
+import '../skin/art_set.dart' show LayeredSceneId;
 import '../primitives/world_timer.dart';
+import '../skin/dress.dart';
 import '../skin/ground.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
@@ -71,7 +73,14 @@ class NightBoard extends ConsumerStatefulWidget {
     required this.secondsLeft,
     this.share,
     required this.onChoose,
+    this.dress,
   });
+
+  /// How the screen is dressed (`ScreenFrame.dress`; null: as the screen
+  /// above it): plain is the look the game has today; paper puts the title and
+  /// the seconds on a banner and the mood's own village behind the board
+  /// instead of a strip of it.
+  final Dress? dress;
 
   final List<NightSeat> seats;
 
@@ -277,8 +286,14 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DressScope(
+    dress: widget.dress ?? context.dress,
+    child: Builder(builder: _screen),
+  );
+
+  Widget _screen(BuildContext context) {
     final skin = context.skin;
+    final dressed = context.dress.isPaper;
     final type = skin.typography;
     final names = [for (final seat in widget.seats) seat.name];
     final captions = [for (var i = 0; i < 3; i++) centerName(i)];
@@ -306,6 +321,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           child: ScreenFrame(
             ground: GroundKind.night,
             fitsHeight: true,
+            // Dressed up the village is the mood behind the whole screen.
+            topScene: dressed ? null : LayeredSceneId.nightVillage,
+            topSceneFrom: dressed ? null : NightBoard.villageFrom,
+            topArtExtra: dressed ? 0 : _stripExtra(context),
+            topArtLayout: dressed ? TopArtLayout.scene : TopArtLayout.strip,
             body: MediaQuery.withClampedTextScaling(
               maxScaleFactor: NightBoard.labelScale,
               child: Column(
@@ -357,6 +377,18 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           ),
         );
       },
+    );
+  }
+
+  /// A table of three has two cards a row as wide as the phone allows, and on a
+  /// tall phone air to spare: the village strip takes some of it (it is only a
+  /// picture; nothing a neighbour could read moves).
+  double _stripExtra(BuildContext context) {
+    if (widget.seats.length != NightBoard.smallTable) return 0;
+    final height = MediaQuery.sizeOf(context).height;
+    return ((height - NightBoard.tallPhone) * NightBoard.stripShare).clamp(
+      0.0,
+      NightBoard.stripMost,
     );
   }
 
@@ -487,11 +519,15 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   /// A label on the board: a caption line in full ink, like the captions
   /// under the cards.
-  Widget _label(String text) => FitWords(
-    text,
-    textAlign: TextAlign.center,
-    maxLines: 1,
-    style: context.skin.typography.caption.copyWith(color: context.ground.text),
+  Widget _label(String text) => TextBacking(
+    child: FitWords(
+      text,
+      textAlign: TextAlign.center,
+      maxLines: 1,
+      style: context.skin.typography.caption.copyWith(
+        color: context.ground.text,
+      ),
+    ),
   );
 
   /// The Seer's thin rule with "or" on it, between her seats and the table's
@@ -538,7 +574,13 @@ class _NightBoardState extends ConsumerState<NightBoard> {
               // (`tapExtra`), so a tap is a thumb's height on a small card.
               padding: padding.copyWith(bottom: 0),
               decoration: BoxDecoration(
-                color: context.ground.panel.withValues(alpha: Mood.panelShow),
+                // Dressed up the village shows through the strip of centre
+                // cards.
+                color: context.dress.isPaper
+                    ? context.ground.panel.withValues(
+                        alpha: skin.mood.panelShow,
+                      )
+                    : context.ground.panel,
                 borderRadius: BorderRadius.circular(skin.shape.radius),
               ),
               child: Column(

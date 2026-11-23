@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../../helpers/paper_decoration.dart';
-import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
@@ -48,14 +46,6 @@ AnimatedContainer _mover(WidgetTester tester, String label) => tester
 double _dy(WidgetTester tester, String label) =>
     _mover(tester, label).transform!.getTranslation().y;
 
-/// How high the card lies: read from its cast (the paper shadow's fall).
-double _drop(WidgetTester tester, String label) =>
-    _shadows(
-      tester,
-      label,
-    ).firstWhere((s) => s.spreadRadius > 0 && s.blurRadius == 0).offset.dy /
-    PaperShadow.castFall;
-
 List<BoxShadow> _shadows(WidgetTester tester, String label) =>
     (_back(tester, label).decoration! as BoxDecoration).boxShadow!;
 
@@ -82,7 +72,7 @@ void main() {
       await board.pump(tester);
       final name = _seat(board);
       expect(_dy(tester, name), 0);
-      final lying = _drop(tester, name);
+      final lying = _shadows(tester, name).last.offset.dy;
 
       final finger = await tester.startGesture(tester.getCenter(card(name)));
       await tester.pump();
@@ -93,7 +83,7 @@ void main() {
         Motion.press,
         reason: 'the dip is a press',
       );
-      expect(_drop(tester, name), closeTo(lying - FaceDownCard.dip, 1e-9));
+      expect(_shadows(tester, name).last.offset.dy, lying - FaceDownCard.dip);
       await tester.pump(Motion.press);
 
       await finger.up();
@@ -161,7 +151,7 @@ void main() {
       // the lying shadow, the hairline ring.
       expect(_shadows(tester, name).first.color.a, 0);
       expect(_shadows(tester, name).first.blurRadius, 0);
-      final lying = _drop(tester, name);
+      final lying = _shadows(tester, name).last.offset.dy;
       final hairline = _ringWidth(tester, name);
 
       await tapCard(tester, name);
@@ -169,13 +159,13 @@ void main() {
       expect(_dy(tester, name), -FaceDownCard.lift);
       expect(_mover(tester, name).duration, Motion.quick);
       final shadows = _shadows(tester, name);
-      expect(shadows, hasLength(2 + PaperShadow.castSteps));
+      expect(shadows, hasLength(2));
       final glow = shadows.first;
       expect(glow.color, _night.elevation.glow);
       expect(glow.blurRadius, FaceDownCard.glowBlur);
       expect(glow.color.a, greaterThan(0.3), reason: 'the glow is seen');
-      expect(_drop(tester, name), 15, reason: 'a deeper one');
-      expect(_drop(tester, name), greaterThan(lying));
+      expect(shadows.last.offset, const Offset(0, 8), reason: 'a deeper one');
+      expect(shadows.last.offset.dy, greaterThan(lying));
       expect(shadows.last.blurRadius, 0, reason: 'the shadow stays paper');
       expect(_ringWidth(tester, name), greaterThan(hairline));
       expect(
@@ -304,16 +294,12 @@ void main() {
     PrimaryButton choose(WidgetTester tester) =>
         tester.widget<PrimaryButton>(find.byType(PrimaryButton));
 
-    AnimatedContainer shell(WidgetTester tester) => tester
-        .widgetList<AnimatedContainer>(
-          find.descendant(
-            of: find.byType(PrimaryButton),
-            matching: find.byType(AnimatedContainer),
-          ),
-        )
-        .first;
-    Decoration paper(WidgetTester tester) =>
-        paperUnder(tester, find.byType(PrimaryButton));
+    AnimatedContainer shell(WidgetTester tester) => tester.widget(
+      find.descendant(
+        of: find.byType(PrimaryButton),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
 
     testWidgets('waits as a slot on purpose: the spec’s outline with no fill, '
         'clearly drawn, a dark lip inside its top edge, its words in full '
@@ -343,9 +329,9 @@ void main() {
       expect(choose(tester).phase, ButtonPhase.ready);
       expect(choose(tester).rises, isTrue);
       expect(shell(tester).duration, Motion.quick);
-      expect(paperColor(paper(tester)), _night.accent);
+      expect((shell(tester).decoration! as BoxDecoration).color, _night.accent);
       expect(
-        shell(tester).transform!.getTranslation().y,
+        shell(tester).transform!.getTranslation().x,
         greaterThan(0),
         reason: 'it starts down in the slot',
       );
@@ -366,8 +352,8 @@ void main() {
       await tester.pumpAndSettle();
       final t = shell(tester).transform;
       expect(t == null || t.getTranslation().x == 0, isTrue);
-      final shadows = paperShadows(paper(tester));
-      expect(shadows.last.offset, const Offset(0, 5), reason: 'the backing');
+      final shadows = (shell(tester).decoration! as BoxDecoration).boxShadow!;
+      expect(shadows.single.offset, const Offset(5, 5));
     });
 
     testWidgets('taking the pick back returns it to the slot; a button that '
@@ -385,15 +371,7 @@ void main() {
       final button = tester.getRect(find.byType(PrimaryButton));
       final frame = await FramePixels.of(tester);
       final inside = frame.at(button.left + 10, button.center.dy + 8);
-      // The ground there is the mood's (a vignette of the night), so it is
-      // read beside the button, in the same light.
-      final beside = frame.at(button.left - 8, button.center.dy + 8);
-      for (final shift in [0, 8, 16]) {
-        expect(
-          ((inside >> shift) & 0xFF) - ((beside >> shift) & 0xFF),
-          inInclusiveRange(-6, 6),
-        );
-      }
+      expect(inside & 0xFFFFFF, _night.ground.toARGB32() & 0xFFFFFF);
       await tester.pumpAndSettle();
       expect((shell(tester).decoration! as BoxDecoration).color, isNull);
     });
@@ -415,7 +393,7 @@ void main() {
       await tester.pump();
       final t = shell(tester).transform;
       expect(t == null || t.getTranslation().x == 0, isTrue);
-      expect(paperColor(paper(tester)), _night.accent);
+      expect((shell(tester).decoration! as BoxDecoration).color, _night.accent);
     });
 
     testWidgets('the target stays 48 or more in every state', (tester) async {

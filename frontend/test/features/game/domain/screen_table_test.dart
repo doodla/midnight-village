@@ -45,7 +45,7 @@ void main() {
     );
   });
 
-  test('every recorded /me/ maps to the screen stated for it', () {
+  void everyMeMapsToItsScreen() {
     for (final MapEntry(key: name, value: expected) in meScreens.entries) {
       final me = FromSample.gameMe(recordedMe(name));
       // The deck step means nothing during a game.
@@ -67,9 +67,9 @@ void main() {
       ),
       AppScreen.results,
     );
-  });
+  }
 
-  test('every recorded where-am-I answer maps to its one screen', () {
+  void everyWhereAmIMapsToItsScreen() {
     AppScreen of(String name, {LocalSteps? local}) => screen(
       TableView.fromMyTable(
         FromSample.myTable(ContractSamples.map('http/lobby/my_table_$name')),
@@ -94,9 +94,9 @@ void main() {
       of('results', local: const LocalSteps(countSeen: true)),
       AppScreen.results,
     );
-  });
+  }
 
-  test('every recorded lobby body maps to its one screen', () {
+  void everyLobbyBodyMapsToItsScreen() {
     for (final (name, body) in lobbyBodies()) {
       final lobby = LobbyState.fromJson(body);
       for (final viewer in lobby.players) {
@@ -118,10 +118,25 @@ void main() {
         }
       }
     }
+  }
+
+  test('every recorded /me/ maps to the screen stated for it', () {
+    everyMeMapsToItsScreen();
+  });
+  test('every recorded where-am-I answer maps to its one screen', () {
+    everyWhereAmIMapsToItsScreen();
+  });
+  test('every recorded lobby body maps to its one screen', () {
+    everyLobbyBodyMapsToItsScreen();
   });
 
   test('every screen is reached by at least one recorded state', () {
-    // Runs after the three above (tests in a file run in order).
+    // Walks the three above itself: it does not lean on tests that ran
+    // before it, so any order (--test-randomize-ordering-seed) is the same.
+    reached.clear();
+    everyMeMapsToItsScreen();
+    everyWhereAmIMapsToItsScreen();
+    everyLobbyBodyMapsToItsScreen();
     expect(
       reached,
       AppScreen.values.toSet(),

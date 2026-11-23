@@ -3,24 +3,33 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
-/// One layer of what a piece of paper casts. A plain layer is a DROP: how far
-/// the paper lies above what is under it, in the ink it casts, drawn as the
-/// two-layer paper shadow ([PaperShadow]). An [edge] layer is the thickness
-/// of the paper itself (a stack of sheets, a button's backing): a hard copy of
-/// the shape, offset, in the paper's own colour.
+/// One layer of what a piece of paper casts. A plain layer is a hard copy of
+/// the shape, offset, never blurred (the look the game has today). A [drop]
+/// layer (the dressed-up paper) is how far the paper lies above what is under
+/// it, in the ink it casts, drawn as the two-layer paper shadow
+/// ([PaperShadow]). An [edge] layer is the thickness of the paper itself (a
+/// stack of sheets, a button's backing): a hard copy of the shape, offset, in
+/// the paper's own colour, that never leans away from a light.
 @immutable
 class HardShadow {
-  const HardShadow(this.offset, this.color) : edge = false;
+  const HardShadow(this.offset, this.color) : edge = false, drop = false;
 
   /// The edge of the paper: hard, never soft.
-  const HardShadow.edge(this.offset, this.color) : edge = true;
+  const HardShadow.edge(this.offset, this.color) : edge = true, drop = false;
+
+  /// A drop of dressed-up paper: the paper shadow ([PaperShadow]).
+  const HardShadow.drop(this.offset, this.color) : edge = false, drop = true;
 
   final Offset offset;
   final Color color;
   final bool edge;
+  final bool drop;
 
-  HardShadow withOffset(Offset offset) =>
-      edge ? HardShadow.edge(offset, color) : HardShadow(offset, color);
+  HardShadow withOffset(Offset offset) => edge
+      ? HardShadow.edge(offset, color)
+      : drop
+      ? HardShadow.drop(offset, color)
+      : HardShadow(offset, color);
 }
 
 /// The paper shadow, the one token every cast shadow goes through: a tight
@@ -77,15 +86,15 @@ class Elevation {
   final List<HardShadow> layers;
 
   /// For a [BoxDecoration]: Flutter paints shadows in list order, the last on
-  /// top, so the layers go in reversed. A drop is the paper shadow, an edge a
-  /// hard offset copy.
+  /// top, so the layers go in reversed. A [HardShadow.drop] is the paper
+  /// shadow; any other layer a hard offset copy.
   List<BoxShadow> get boxShadows => boxShadowsLeaning(0);
 
   /// The same, the drops leaning sideways by [lean] of their fall (away from
   /// the screen's light); an edge, the paper's own thickness, stays under it.
   List<BoxShadow> boxShadowsLeaning(double lean) => [
     for (final layer in layers.reversed)
-      if (layer.edge)
+      if (!layer.drop)
         BoxShadow(color: layer.color, offset: layer.offset)
       else
         for (final s in PaperShadow.of(layer.offset, layer.color))

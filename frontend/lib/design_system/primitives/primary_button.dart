@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/elevation.dart';
 import '../skin/skin.dart';
 import '../skin/skin_type.dart';
-import '../skin/skin_tilt.dart';
 import 'cut_paper.dart';
-import 'deckle.dart';
-import 'paper_mark.dart';
 import 'fit_line.dart';
+import 'paper_mark.dart';
+import 'plaque.dart';
 import 'secondary_button.dart' show BusyMark;
 
 /// The mocks' button sizes, shrunk with the type (the owner's type choice of
@@ -181,9 +181,6 @@ class PrimaryButton extends StatefulWidget {
   /// every phone (a device's fallback font would draw its own).
   static const checkMark = ' ✓';
 
-  /// The done mark's size, of the label's.
-  static const markScale = 1.4;
-
   final String label;
   final VoidCallback? onPressed;
   final VoidCallback? onLockedTap;
@@ -265,11 +262,11 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     final label = widget.label;
     Widget words(String text) =>
         FitWords(text, textAlign: TextAlign.center, maxLines: 2, style: style);
-    final check = PaperMark(
-      size:
-          MediaQuery.textScalerOf(context).scale(style.fontSize!) *
-          PrimaryButton.markScale,
-    );
+    final scaled = MediaQuery.textScalerOf(context).scale(style.fontSize!);
+    // Dressed up the done mark is the paper's own (wax and a brush tick).
+    final check = context.dress.isPaper
+        ? PaperMark(size: scaled * context.skin.parts.markScale)
+        : Icon(Icons.check, color: style.color, size: scaled);
     final bare = label.endsWith(PrimaryButton.checkMark)
         ? label.substring(0, label.length - PrimaryButton.checkMark.length)
         : label;
@@ -313,18 +310,18 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     };
     final style = widget.size.label(skin.typography);
     final edge = ground.accentEdge;
-    // The plaque is deckled amber paper on a darker paper backing (the
-    // elevation's edge), set down a hair off square, its words level.
-    final Decoration decoration = filled
-        ? deckledPaper(
+    // Dressed up the amber is a plaque (deckled paper on a backing, tilted):
+    // its paper is drawn by [Plaque], not by the button's own container.
+    final plaque = filled && context.dress.isPaper;
+    final decoration = filled
+        ? cutPaper(
             context,
             fill: ground.accent,
-            id: (widget.label, #plaque),
+            radius: radius,
             elevation: down ? rest.pressed(keep) : rest,
-            depth: 3.4,
-            step: 7,
-            side: edge != null && skin.shape.edgeWidth == 0
-                ? BorderSide(color: edge, width: skin.shape.stroke)
+          ).copyWith(
+            border: edge != null && skin.shape.edgeWidth == 0
+                ? Border.all(color: edge, width: skin.shape.stroke)
                 : null,
           )
         : widget.phase == ButtonPhase.done
@@ -345,7 +342,9 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       onTap: _onTap,
       excludeSemantics: true,
       child: AnimatedContainer(
-        key: ValueKey(_rises),
+        // A button that has done its thing is cut in, not blended from the
+        // amber it was (a muddy middle for a few frames).
+        key: ValueKey((_rises, widget.phase == ButtonPhase.done)),
         duration: Motion.within(context, _duration),
         curve: Motion.curve,
         constraints: BoxConstraints(
@@ -357,7 +356,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           down ? rest.travel(keep).dy : 0,
           0,
         ),
-        decoration: filled ? null : decoration,
+        decoration: plaque ? null : decoration,
         foregroundDecoration: widget.phase == ButtonPhase.locked && widget.slot
             // The slot's cut edge: a hard dark lip along its top, the paper
             // above it casting into the recess.
@@ -382,8 +381,13 @@ class _PrimaryButtonState extends State<PrimaryButton> {
               )
             : null,
         child: _paper(
-          decoration: decoration,
-          filled: filled,
+          plaque: plaque,
+          fill: ground.accent,
+          ink: ground.onAccent,
+          elevation: down ? rest.pressed(keep) : rest,
+          side: edge != null && skin.shape.edgeWidth == 0
+              ? BorderSide(color: edge, width: skin.shape.stroke)
+              : null,
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
@@ -398,17 +402,6 @@ class _PrimaryButtonState extends State<PrimaryButton> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // The plaque: a cut line set in from its edge, and a pin at
-                  // each end (ink on the amber, nothing the eye reads as a word).
-                  if (filled)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: _PlaqueTrim(
-                          ink: ground.onAccent,
-                          radius: radius,
-                        ),
-                      ),
-                    ),
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: Space.xl,
@@ -445,58 +438,24 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     );
   }
 
-  /// The plaque's paper, turned a hair (the same every build, from its
-  /// label); the words on it stay level.
+  /// The plaque's paper (dressed up: the same every build, from the label),
+  /// round the button's [child]; plain, the child as it is.
   Widget _paper({
-    required Decoration decoration,
-    required bool filled,
+    required bool plaque,
+    required Color fill,
+    required Color ink,
+    required Elevation elevation,
+    required BorderSide? side,
     required Widget child,
-  }) => filled
-      ? TiltedPaper(
-          angle: context.skin.tilt.angle(Tilt.seededRow(widget.label)),
+  }) => !plaque
+      ? child
+      : Plaque(
+          id: widget.label,
+          fill: fill,
+          ink: ink,
+          elevation: elevation,
           duration: Motion.within(context, _duration),
-          decoration: decoration,
+          side: side,
           child: child,
-        )
-      : child;
-}
-
-/// The plaque's trim: an inset line and a pin at each end.
-class _PlaqueTrim extends StatelessWidget {
-  const _PlaqueTrim({required this.ink, required this.radius});
-
-  final Color ink;
-  final BorderRadius radius;
-
-  static const _inset = 3.0;
-  static const _pin = 5.0;
-  static const _pinIn = 11.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final pin = DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: ink.withValues(alpha: 0.55),
-      ),
-    );
-    return Padding(
-      padding: const EdgeInsets.all(_inset),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: radius,
-          border: Border.all(color: ink.withValues(alpha: 0.28)),
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: _pinIn - _inset - _pin / 2),
-            SizedBox.square(dimension: _pin, child: pin),
-            const Spacer(),
-            SizedBox.square(dimension: _pin, child: pin),
-            const SizedBox(width: _pinIn - _inset - _pin / 2),
-          ],
-        ),
-      ),
-    );
-  }
+        );
 }

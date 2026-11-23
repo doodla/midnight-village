@@ -4,8 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/router/back_policy.dart';
-
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/faces/face_content.dart';
 import '../../../../design_system/faces/held_face.dart';
@@ -23,7 +21,6 @@ import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/skin.dart';
-import '../../../../design_system/teach/teaching_hold.dart';
 import '../../domain/game_me.dart';
 import '../live_game.dart';
 import '../stage_seconds.dart';
@@ -32,9 +29,9 @@ import '../stage_seconds.dart';
 /// phone's taps on it), the sun and its number from the stage's deadline
 /// ([StageSeconds]), "Ready to vote" sent through the game's outbox as a
 /// toggle. A phone whose night told it something it has not acknowledged
-/// opens the talk with My night open, once ([TalkView.resultOpen]): the ack
-/// goes when it is shown, a tap puts it away. Otherwise the results are
-/// acknowledged the first time My night is held for a reveal that counts.
+/// opens the talk with My night's sheet up, once ([TalkView.openNight]): the
+/// ack goes when it is shown, the sheet's Close (or Back) puts it away.
+/// Otherwise the results are acknowledged the first time My night is opened.
 /// The talk ends on the server (everyone ready, or its deadline); this
 /// screen never decides it.
 class TalkScreen extends ConsumerStatefulWidget {
@@ -52,10 +49,10 @@ class _TalkScreenState extends ConsumerState<TalkScreen> {
   LiveGameNotifier get _notifier =>
       ref.read(liveGameProvider(widget.gameId).notifier);
 
-  /// My night is open: decided once, on the talk's first frame (results the
-  /// server has not had acknowledged, and a night that told something);
-  /// false once put away. A restart after the ack opens nothing.
-  late bool _open =
+  /// My night's sheet comes up with the talk: decided once, on the talk's
+  /// first frame (results the server has not had acknowledged, and a night
+  /// that told something). A restart after the ack opens nothing.
+  late final bool _open =
       widget.game.me.hasUnseenResults && widget.game.me.report.tellsSomething;
 
   @override
@@ -73,43 +70,39 @@ class _TalkScreenState extends ConsumerState<TalkScreen> {
   @override
   Widget build(BuildContext context) {
     final me = widget.game.me;
-    // Back puts My night away, as a tap does.
-    return BackHandler(
-      open: _open,
-      onBack: () => setState(() => _open = false),
-      child: StageSeconds(
-        gameId: widget.gameId,
-        deadline: me.deadline,
-        builder: (context, seconds) {
-          final left = StageShare.left(
-            startedAt: me.stageStartedAt,
-            deadline: me.deadline,
-            secondsLeft: seconds,
-          );
-          return TalkView(
-            me: me,
-            secondsLeft: seconds,
-            elapsed: left == null ? null : 1 - left,
-            // A toggle; taps in a row go out in order, the latest last.
-            onReady: () => unawaited(_notifier.setReady(!(me.ready ?? false))),
-            onMyNightSeen: () => unawaited(_notifier.acknowledgeNightResults()),
-            resultOpen: _open,
-            onPutAway: () => setState(() => _open = false),
-            notSent: widget.game.unsent.contains(OutboxLane.ready),
-            onTryAgain: () => unawaited(_notifier.retry(OutboxLane.ready)),
-          );
-        },
-      ),
+    // My night's sheet is a route of its own: Back closes it before the
+    // screen's own Back is asked ([BackPolicy]).
+    return StageSeconds(
+      gameId: widget.gameId,
+      deadline: me.deadline,
+      builder: (context, seconds) {
+        final left = StageShare.left(
+          startedAt: me.stageStartedAt,
+          deadline: me.deadline,
+          secondsLeft: seconds,
+        );
+        return TalkView(
+          me: me,
+          secondsLeft: seconds,
+          elapsed: left == null ? null : 1 - left,
+          // A toggle; taps in a row go out in order, the latest last.
+          onReady: () => unawaited(_notifier.setReady(!(me.ready ?? false))),
+          onMyNightSeen: () => unawaited(_notifier.acknowledgeNightResults()),
+          openNight: _open,
+          notSent: widget.game.unsent.contains(OutboxLane.ready),
+          onTryAgain: () => unawaited(_notifier.retry(OutboxLane.ready)),
+        );
+      },
     );
   }
 }
 
 /// 08 Talk as drawn (first-time play spec, section 3 and section 7): the sun
 /// over the rooftops, the talk's number loudest with "The village wakes"
-/// beside it; My night, large, a hold box whose face is this phone's night
-/// (the result first, window 1's page when it ran, then "Dealt"), with the
-/// first-game hold ring on it; or, with [resultOpen], that face itself, open
-/// on the paper card a hold shows, until a tap puts it away into the box;
+/// beside it; My night, large, a box that opens this phone's night (the
+/// result first, window 1's page when it ran, then "Dealt") as a sheet from
+/// the bottom edge, the same place whatever was tapped, closed by its button,
+/// the scrim or Back; with [openNight] the sheet is up as the talk opens;
 /// the deck tonight (a held portrait opens the role's sheet); then how many
 /// are ready, as plain pips (this phone's own tap counted at once), and
 /// "Ready to vote", outlined and never locked, open card or not: "Ready ✓"
@@ -126,14 +119,13 @@ class TalkView extends StatelessWidget {
     required this.elapsed,
     required this.onReady,
     this.onMyNightSeen,
-    this.resultOpen = false,
-    this.onPutAway,
+    this.openNight = false,
     this.notSent = false,
     this.onTryAgain,
   });
 
   /// The least room the body is given under the band: My night and a row
-  /// of the deck, or the open card's words and a portrait. A shorter phone
+  /// of the deck. A shorter phone
   /// (large text) scrolls the band and the body together.
   static final minBody = PeekBox.largeCardSize.height * 1.5;
 
@@ -149,13 +141,12 @@ class TalkView extends StatelessWidget {
   /// "Ready to vote" / "Ready ✓" tapped.
   final VoidCallback onReady;
 
-  /// My night held for a reveal that counts.
+  /// My night's sheet came up (tapped, or [openNight]).
   final VoidCallback? onMyNightSeen;
 
-  /// My night is shown open, no hold: the talk's first sight of a night
-  /// that told this phone something. [onPutAway] is the tap that closes it.
-  final bool resultOpen;
-  final VoidCallback? onPutAway;
+  /// My night's sheet comes up with the talk: its first sight of a night
+  /// that told this phone something, once.
+  final bool openNight;
 
   /// The last ready tap got no answer: "Not sent." with [onTryAgain].
   final bool notSent;
@@ -172,62 +163,53 @@ class TalkView extends StatelessWidget {
         elapsed: elapsed,
         title: TalkCopy.headline,
       ),
-      // The body is given the room under the band. Open, the card takes it
-      // (its portrait gives up what the words need); else My night, and the
-      // deck in what is left (_DeckGrid): every word on screen.
+      // The body is given the room under the band: My night, and the deck
+      // in what is left (_DeckGrid): every word on screen.
       fitsHeight: true,
       minBodyHeight: TalkView.minBody,
-      body: resultOpen
-          ? _OpenNight(face: me.report.myNight, onPutAway: onPutAway)
-          : LayoutBuilder(
-              builder: (context, box) {
-                // The large box where the deck still fits under it whole,
-                // portraits and all; else the mock's smaller box where that
-                // keeps the portraits; else whichever leaves the deck whole.
-                double above(bool large) =>
-                    PeekBox.heightFor(
-                      context,
-                      large: large,
-                      teaching: true,
-                      title: TalkCopy.myNight,
-                    ) +
-                    Space.lg;
-                bool fits(bool large, {required bool portraits}) =>
-                    _DeckGrid.fits(
-                      context,
-                      me.deck,
-                      box.biggest,
-                      above: above(large),
-                      portraits: portraits,
-                    );
-                final large =
-                    fits(true, portraits: true) ||
-                    (!fits(false, portraits: true) &&
-                        fits(true, portraits: false));
-                return CustomMultiChildLayout(
-                  delegate: _BoxThenDeck(),
-                  children: [
-                    LayoutId(
-                      id: _BoxThenDeck.box,
-                      child: TeachingHold(
-                        target: TalkCopy.myNight,
-                        face: me.report.myNight,
-                        onRevealed: onMyNightSeen,
-                        cover: (teaching) => PeekBox(
-                          title: TalkCopy.myNight,
-                          teaching: teaching,
-                          large: large,
-                        ),
-                      ),
-                    ),
-                    LayoutId(
-                      id: _BoxThenDeck.deck,
-                      child: _DeckGrid(deck: me.deck),
-                    ),
-                  ],
-                );
-              },
-            ),
+      body: LayoutBuilder(
+        builder: (context, box) {
+          // The large box where the deck still fits under it whole,
+          // portraits and all; else the mock's smaller box where that
+          // keeps the portraits; else whichever leaves the deck whole.
+          double above(bool large) =>
+              PeekBox.heightFor(
+                context,
+                large: large,
+                teaching: false,
+                title: TalkCopy.myNight,
+              ) +
+              Space.lg;
+          bool fits(bool large, {required bool portraits}) => _DeckGrid.fits(
+            context,
+            me.deck,
+            box.biggest,
+            above: above(large),
+            portraits: portraits,
+          );
+          final large =
+              fits(true, portraits: true) ||
+              (!fits(false, portraits: true) && fits(true, portraits: false));
+          return CustomMultiChildLayout(
+            delegate: _BoxThenDeck(),
+            children: [
+              LayoutId(
+                id: _BoxThenDeck.box,
+                child: _NightBox(
+                  face: me.report.myNight,
+                  large: large,
+                  openAtStart: openNight,
+                  onSeen: onMyNightSeen,
+                ),
+              ),
+              LayoutId(
+                id: _BoxThenDeck.deck,
+                child: _DeckGrid(deck: me.deck),
+              ),
+            ],
+          );
+        },
+      ),
       actions: [
         if (notSent && onTryAgain != null)
           Notice(
@@ -254,17 +236,67 @@ class TalkView extends StatelessWidget {
   }
 }
 
-/// My night open on the talk's first frame: the paper card a hold shows,
-/// lying on the table, as tall as its words and portrait need and the room
-/// under the band allows; a tap anywhere on it puts it away into the box
-/// (the deck comes back under it).
-/// Spoken as the box is ("My night"), never its words: a phone on the table
-/// does not read a secret aloud.
-class _OpenNight extends StatelessWidget {
-  const _OpenNight({required this.face, this.onPutAway});
+/// "My night": the box on the talk. A tap opens the player's night as a
+/// sheet ([showMyNight]) from the bottom edge, the same place whatever was
+/// tapped; with [openAtStart] it comes up once, on the talk's first frame.
+/// Spoken as "My night", never its words: a phone on the table does not
+/// read a secret aloud.
+class _NightBox extends StatefulWidget {
+  const _NightBox({
+    required this.face,
+    required this.large,
+    required this.openAtStart,
+    this.onSeen,
+  });
 
   final FaceContent face;
-  final VoidCallback? onPutAway;
+  final bool large;
+  final bool openAtStart;
+  final VoidCallback? onSeen;
+
+  @override
+  State<_NightBox> createState() => _NightBoxState();
+}
+
+class _NightBoxState extends State<_NightBox> {
+  /// The open sheet's route and the navigator it is on, so the sheet goes
+  /// when the talk does (a sheet is a route: left alone it would outlive the
+  /// screen it was asked from and sit over the vote).
+  Route<void>? _sheet;
+  NavigatorState? _navigator;
+
+  @override
+  void dispose() {
+    final sheet = _sheet;
+    final navigator = _navigator;
+    if (sheet != null && sheet.isActive && navigator != null) {
+      // After this frame: a route cannot be removed while the tree is built.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (sheet.isActive) navigator.removeRoute(sheet);
+      });
+    }
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.openAtStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _open(ack: false);
+      });
+    }
+  }
+
+  /// [ack]: tell the server it was seen (a tap does; the talk's first
+  /// opening is acknowledged by [TalkScreen] as it shows).
+  void _open({bool ack = true}) {
+    if (ack) widget.onSeen?.call();
+    _navigator = Navigator.of(context);
+    unawaited(
+      showMyNight(context, widget.face, onRoute: (route) => _sheet = route),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -273,14 +305,48 @@ class _OpenNight extends StatelessWidget {
     excludeSemantics: true,
     child: GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onPutAway,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: HeldFace(content: face, page: 0),
+      onTap: _open,
+      child: PeekBox(
+        title: TalkCopy.myNight,
+        teaching: false,
+        large: widget.large,
       ),
     ),
   );
 }
+
+/// Opens a face (a player's own night) in the sheet every piece of
+/// information a player asks for opens in: up from the bottom edge, its
+/// paper card, a "Close" button; Back or a tap on the scrim closes it too.
+///
+/// [onRoute] is given the sheet's route once it is up (to take it away when
+/// the screen under it goes).
+Future<void> showMyNight(
+  BuildContext context,
+  FaceContent face, {
+  ValueChanged<Route<void>>? onRoute,
+}) => showSkinSheet<void>(
+  context,
+  builder: (sheet) {
+    final route = ModalRoute.of(sheet);
+    if (route != null && onRoute != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onRoute(route as Route<void>);
+      });
+    }
+    return SheetScaffold(
+      actions: [
+        const Spacer(),
+        PrimaryButton(
+          label: RoleSheetCopy.close,
+          onPressed: () => Navigator.of(sheet).pop(),
+          size: ButtonSize.compact,
+        ),
+      ],
+      child: HeldFace(content: face, page: 0, announce: true),
+    );
+  },
+);
 
 /// My night at the top, its own height; the deck in the rest of the body's
 /// height (never a Flex overflow: on a screen too short even for the box,

@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
 import 'cut_paper.dart';
-import 'deckle.dart';
+import 'deckled_paper.dart';
 import 'fit_line.dart';
 import 'paper_lantern.dart';
+import 'paper_pin.dart';
 import 'primary_button.dart';
+import 'tilted_paper.dart';
 
 /// A second, quieter action beside or below the primary one: an outline on
 /// the ground ("Do nothing tonight", "Take out of deck"). Like the primary
@@ -87,12 +90,111 @@ class SecondaryButton extends StatefulWidget {
 class _SecondaryButtonState extends State<SecondaryButton> {
   var _pressed = false;
 
-  static const _pinSize = 9.0;
-
   VoidCallback? get _onTap => widget.onPressed ?? widget.onLockedTap;
 
   @override
   Widget build(BuildContext context) {
+    if (context.dress.isPaper) return _scrap(context);
+    final skin = context.skin;
+    final ground = context.ground;
+    final busy = widget.busy;
+    final enabled =
+        widget.onPressed != null || widget.onLockedTap != null || busy;
+    final radius = BorderRadius.circular(skin.shape.radius);
+    final paper = widget._paper;
+
+    final Decoration decoration;
+    final TextStyle style;
+    if (paper) {
+      final rest = ground.elevation.raised;
+      decoration = cutPaper(
+        context,
+        fill: enabled ? ground.paper : ground.disabled,
+        radius: radius,
+        elevation: enabled && !_pressed
+            ? rest
+            : rest.pressed(skin.shape.pressKeep),
+      );
+      style = widget.size
+          .label(skin.typography)
+          .copyWith(color: enabled ? skin.paper.text : ground.onDisabled);
+    } else {
+      decoration = BoxDecoration(
+        color: _pressed ? ground.hairline : Colors.transparent,
+        borderRadius: radius,
+        border: Border.all(
+          color: enabled ? ground.outline : ground.hairline,
+          width: skin.shape.stroke,
+        ),
+      );
+      // A button's label is the buttons' one size (15), outlined or paper.
+      style = widget.size
+          .label(skin.typography)
+          .copyWith(color: enabled ? ground.text : ground.faintText);
+    }
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: widget.label,
+      hint: widget.reason,
+      value: busy ? SpokenCopy.working : null,
+      // The words are this node's own, and so is the tap (the ink's tap is
+      // left out with its words): a screen reader can press it.
+      onTap: busy ? null : _onTap,
+      excludeSemantics: true,
+      child: AnimatedContainer(
+        duration: Motion.press,
+        curve: Motion.curve,
+        constraints: BoxConstraints(
+          minHeight: widget.size.secondaryHeight,
+          minWidth: widget.size.minWidth,
+        ),
+        decoration: decoration,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: busy ? null : _onTap,
+            onHighlightChanged: (value) => setState(() => _pressed = value),
+            highlightColor: Colors.transparent,
+            borderRadius: radius,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.lg,
+                    vertical: Space.sm,
+                  ),
+                  child: Center(
+                    heightFactor: 1,
+                    widthFactor: 1,
+                    child: FitWords(
+                      widget.label,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      style: style,
+                    ),
+                  ),
+                ),
+                // Busy: the lantern burns in the button's own end padding,
+                // so the words stay where they are.
+                if (busy)
+                  PositionedDirectional(
+                    end: Space.smPlus,
+                    child: BusyMark(size: Space.xl, color: style.color),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Dressed up, every secondary action is a scrap of paper pinned to the
+  /// table (see [SecondaryButton]).
+  Widget _scrap(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
     final busy = widget.busy;
@@ -128,9 +230,7 @@ class _SecondaryButtonState extends State<SecondaryButton> {
     final style = widget.size
         .label(skin.typography)
         .copyWith(color: enabled ? ink : ground.onDisabled);
-    final pinInk = (bone ? skin.paper.text : ground.text).withValues(
-      alpha: 0.8,
-    );
+    final pinInk = bone ? skin.paper.text : ground.text;
 
     // A pinned scrap sinks into its shadow under a finger, as the plaque does.
     final sunk = enabled && _pressed
@@ -169,9 +269,9 @@ class _SecondaryButtonState extends State<SecondaryButton> {
                 children: [
                   // The pin that holds a scrap to the table.
                   Positioned(
-                    top: -_pinSize / 2,
+                    top: -skin.parts.pinSize / 2,
                     left: Space.lg,
-                    child: PaperPin(ink: pinInk, size: _pinSize),
+                    child: PaperPin(ink: pinInk, size: skin.parts.pinSize),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(

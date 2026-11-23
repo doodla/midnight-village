@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../../helpers/paper_decoration.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/paper_lantern.dart';
-import 'package:midnight_village/design_system/primitives/paper_mark.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
@@ -20,7 +18,7 @@ import '../../helpers/pump_skinned.dart';
 
 void main() {
   group('PrimaryButton', () {
-    testWidgets('a label ending in a check mark draws the paper mark '
+    testWidgets('a label ending in a check mark draws the mark as an icon '
         "(the skin's fonts have none) and still says it whole", (tester) async {
       final semantics = tester.ensureSemantics();
       await pumpSkinned(
@@ -28,7 +26,7 @@ void main() {
         const PrimaryButton.done(label: 'Ready${PrimaryButton.checkMark}'),
       );
       expect(find.text('Ready'), findsOneWidget);
-      expect(find.byType(PaperMark), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsOneWidget);
       expect(
         find.bySemanticsLabel('Ready${PrimaryButton.checkMark}'),
         findsOneWidget,
@@ -85,42 +83,41 @@ void main() {
       tester,
     ) async {
       final skin = skinsUnderTest.values.first;
-      Future<Decoration> drawn(Widget button, GroundKind ground) async {
+      Future<BoxDecoration> drawn(Widget button, GroundKind ground) async {
         await pumpSkinned(tester, button, ground: ground);
-        return paperUnder(tester, find.byType(PrimaryButton));
+        return tester
+                .widget<AnimatedContainer>(find.byType(AnimatedContainer))
+                .decoration!
+            as BoxDecoration;
       }
 
       final night = await drawn(
         PrimaryButton(label: 'Start game', onPressed: () {}),
         GroundKind.night,
       );
-      expect(paperColor(night), skin.night.accent);
-      expect(paperEdge(night), BorderSide.none);
+      expect(night.color, skin.night.accent);
+      expect(night.border, isNull);
       final day = await drawn(
         PrimaryButton(label: 'Lock in Cleo', onPressed: () {}),
         GroundKind.day,
       );
-      expect(paperColor(day), skin.day.accent);
-      expect(paperEdge(day).color, skin.day.accentEdge);
+      expect(day.color, skin.day.accent);
+      expect((day.border! as Border).top.color, skin.day.accentEdge);
       for (final quiet in [
         const PrimaryButton.waiting(label: 'Pick a name', reason: 'Pick first'),
         PrimaryButton.locked(label: 'Ready', onLockedTap: () {}),
         PrimaryButton.quiet(label: 'Ready to vote', onPressed: () {}),
       ]) {
         final outline = await drawn(quiet, GroundKind.day);
-        expect(paperColor(outline), isNull, reason: quiet.label);
-        expect(paperEdge(outline), isNot(BorderSide.none), reason: quiet.label);
+        expect(outline.color, isNull, reason: quiet.label);
+        expect(outline.border, isNotNull, reason: quiet.label);
       }
       for (final ground in GroundKind.values) {
         for (final label in ['Chosen', 'Locked', 'Ready ✓']) {
           final done = await drawn(PrimaryButton.done(label: label), ground);
-          expect(paperColor(done), isNull, reason: '$label: nothing to press');
-          expect(
-            paperEdge(done),
-            BorderSide.none,
-            reason: '$label: no gate outline',
-          );
-          expect(find.byType(PaperMark), findsOneWidget, reason: label);
+          expect(done.color, isNull, reason: '$label: nothing to press');
+          expect(done.border, isNull, reason: '$label: no gate outline');
+          expect(find.byIcon(Icons.check), findsOneWidget, reason: label);
           expect(find.text('Ready ✓'), findsNothing, reason: 'one check');
         }
       }
@@ -133,7 +130,7 @@ void main() {
         PrimaryButton.quiet(label: 'Ready ✓', onPressed: () {}),
       ]) {
         await pumpSkinned(tester, button, ground: GroundKind.day);
-        final check = tester.getCenter(find.byType(PaperMark));
+        final check = tester.getCenter(find.byIcon(Icons.check));
         final word = tester.getCenter(find.text('Ready'));
         expect(check.dx, lessThan(word.dx), reason: button.phase.name);
       }
@@ -157,6 +154,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final down = tester.getTopLeft(find.text('Deal the cards'));
+      expect(down.dx, greaterThan(rest.dx));
       expect(down.dy, greaterThan(rest.dy));
 
       await press.up();
@@ -327,13 +325,7 @@ void main() {
           (w) =>
               w is DecoratedBox &&
               w.decoration is BoxDecoration &&
-              (w.decoration as BoxDecoration).gradient is LinearGradient &&
-              // The fade is two colours (the mood's veil under the screen has
-              // more).
-              ((w.decoration as BoxDecoration).gradient! as LinearGradient)
-                      .colors
-                      .length ==
-                  2,
+              (w.decoration as BoxDecoration).gradient is LinearGradient,
         );
         return boxes.evaluate().isEmpty
             ? null

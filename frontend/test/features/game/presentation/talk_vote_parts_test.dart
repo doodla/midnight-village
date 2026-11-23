@@ -275,7 +275,9 @@ void main() {
         ground: GroundKind.day,
       );
       final rows = tester.widgetList<PlayerRow>(find.byType(PlayerRow));
-      expect(rows.every((r) => r.size == PlayerRowSize.large), isTrue);
+      // Three at 320 x 568: the room holds the grand rows, and what is left
+      // over is shared out between them, so the foot is not empty.
+      expect(rows.every((r) => r.size == PlayerRowSize.grand), isTrue);
       expect(find.byType(FadingScroll), findsNothing);
     });
 

@@ -23,6 +23,9 @@ enum TokenSize {
   /// A row in the vote (S09).
   vote(38),
 
+  /// A row in the vote when the room allows more than the mock's rows.
+  grand(60),
+
   /// The dead player in the count's band (S10).
   band(64);
 

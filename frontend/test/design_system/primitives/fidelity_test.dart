@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../../helpers/paper_decoration.dart';
-import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/band.dart';
@@ -38,8 +36,13 @@ Future<void> _pump(WidgetTester tester, Widget child, {GroundKind? ground}) {
   );
 }
 
-Decoration _decoration(WidgetTester tester, Finder of) =>
-    paperUnder(tester, of);
+BoxDecoration _decoration(WidgetTester tester, Finder of) =>
+    tester
+            .widget<AnimatedContainer>(
+              find.descendant(of: of, matching: find.byType(AnimatedContainer)),
+            )
+            .decoration!
+        as BoxDecoration;
 
 void main() {
   group('buttons: two sizes on the main screens, one in sheets', () {
@@ -48,7 +51,7 @@ void main() {
       (ButtonSize.regular, 48.0, 5.0), // S02, S03, S06 to S10
       (ButtonSize.compact, 48.0, 4.0), // S03b
     ]) {
-      testWidgets('${size.name}: $height tall, a $shadow px backing', (
+      testWidgets('${size.name}: $height tall, a $shadow,$shadow shadow', (
         tester,
       ) async {
         await _pump(
@@ -59,11 +62,10 @@ void main() {
         );
         final button = find.byType(PrimaryButton);
         expect(tester.getSize(button).height, height);
-        // The plaque's backing (hard) lies under its paper shadow: a drop
-        // of the size's share of 8, a backing of its share of 5.
-        final shadows = paperShadows(_decoration(tester, button));
-        expect(shadows.last.offset.dy, closeTo(shadow, 1e-9));
-        expect(shadows.last.blurRadius, 0);
+        expect(
+          _decoration(tester, button).boxShadow!.single.offset,
+          Offset(shadow, shadow),
+        );
         expect(
           tester.widget<Text>(find.text('Go')).style!.fontSize,
           size.label(_skin.typography).fontSize,
@@ -166,7 +168,7 @@ void main() {
   });
 
   group('face-down cards', () {
-    testWidgets('lie with a vertical paper shadow, not a diagonal one', (
+    testWidgets('lie with a vertical shadow (0, 4), not a diagonal one', (
       tester,
     ) async {
       await _pump(tester, const Center(child: FaceDownCard()));
@@ -180,12 +182,11 @@ void main() {
           )
           .firstWhere((c) => c.decoration is BoxDecoration);
       final shadows = (card.decoration! as BoxDecoration).boxShadow!;
-      expect(shadows.last.offset.dx, 0, reason: 'light falls from above');
-      expect(shadows.last.offset.dy, greaterThan(0));
-      expect(shadows.last.blurRadius, 0, reason: 'no blur per card');
+      expect(shadows.last.offset, const Offset(0, 4));
+      expect(shadows.last.blurRadius, 0, reason: 'the shadow stays hard');
       // The picked card's light is in the list, unlit, so it fades with the
       // pick (face_down_feel_test.dart).
-      expect(shadows.length, 2 + PaperShadow.castSteps);
+      expect(shadows.length, 2);
       expect(shadows.first.color.a, 0);
       expect(shadows.first.blurRadius, 0, reason: 'nothing soft to paint');
     });
@@ -392,7 +393,7 @@ void main() {
       ),
     );
     expect(bar.height, TimerBand.barHeight);
-    expect(bar.width, closeTo((390 - 2 * Space.gutter) * 0.3, 0.01));
+    expect(bar.width, closeTo(390 * 0.3, 0.01));
     expect(
       tester.getRect(find.text('Who dies today?')).top,
       band.bottom + Space.lg,

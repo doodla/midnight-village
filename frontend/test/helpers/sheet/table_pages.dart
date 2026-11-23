@@ -6,6 +6,7 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
 import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
+import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
@@ -53,15 +54,19 @@ class JoinPage extends StatelessWidget {
 /// 02: the host's table (guests scan the code) or a guest's ([guest]); Dev's
 /// phone has dropped.
 class TablePage extends StatelessWidget {
-  const TablePage({super.key, this.guest = false});
+  const TablePage({super.key, this.guest = false, this.dress});
 
   final bool guest;
+
+  /// How the table is dressed; null: plain.
+  final Dress? dress;
 
   @override
   Widget build(BuildContext context) {
     final lobby = _table();
     final viewer = lobby.players[guest ? 1 : 0].id;
     return AtTableView(
+      dress: dress,
       lobby: lobby,
       viewerId: viewer,
       link: _link(lobby),

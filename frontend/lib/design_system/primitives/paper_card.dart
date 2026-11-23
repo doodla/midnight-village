@@ -5,7 +5,9 @@ import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
-import 'deckle.dart';
+import '../skin/dress.dart';
+import 'deckled_paper.dart';
+import 'paper_pin.dart';
 
 /// How high a [PaperCard] lies.
 enum PaperLift { card, raised, slab, heroSlab }
@@ -29,7 +31,8 @@ class PaperCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final Tilt tilt;
 
-  /// A notice pinned up: a flat pin through each top corner.
+  /// A notice pinned up: a flat pin through each top corner (dressed up; a
+  /// plain screen's card is a plain card).
   final bool pinned;
 
   /// What seeds the torn edge (the same piece is torn the same on every
@@ -45,8 +48,8 @@ class PaperCard extends StatelessWidget {
         context,
         fill: context.ground.paper,
         id: id ?? (lift, #card),
-        depth: pinned ? 3.2 : 2.4,
-        step: pinned ? 8 : 6,
+        depth: pinned ? skin.parts.pinnedDepth : skin.parts.deckleDepth,
+        step: pinned ? skin.parts.pinnedStep : skin.parts.deckleStep,
         elevation: switch (lift) {
           PaperLift.card => elevation.card,
           PaperLift.raised => elevation.raised,
@@ -63,8 +66,8 @@ class PaperCard extends StatelessWidget {
     final shown = angle == 0
         ? card
         : Transform.rotate(angle: angle, child: card);
-    if (!pinned) return shown;
-    final pin = skin.paper.text.withValues(alpha: 0.82);
+    if (!pinned || !context.dress.isPaper) return shown;
+    final pin = skin.paper.text;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -72,12 +75,12 @@ class PaperCard extends StatelessWidget {
         Positioned(
           top: -2,
           left: Space.lg,
-          child: PaperPin(ink: pin, size: 11),
+          child: PaperPin(ink: pin, size: skin.parts.pinCardSize),
         ),
         Positioned(
           top: -2,
           right: Space.lg,
-          child: PaperPin(ink: pin, size: 11),
+          child: PaperPin(ink: pin, size: skin.parts.pinCardSize),
         ),
       ],
     );

@@ -10,7 +10,6 @@ import 'package:midnight_village/design_system/skin/card_back.dart';
 import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
-import 'package:midnight_village/design_system/skin/skin_tilt.dart';
 
 import '../../helpers/painted_text.dart';
 import '../../helpers/pump_skinned.dart';
@@ -235,26 +234,12 @@ void main() {
         }
       });
 
-      test('every shadow is the paper shadow or a hard paper edge: no blur, '
-          'a contact shadow and a stepped cast', () {
+      test('every shadow is a hard offset copy: no blur, no spread', () {
         for (final kind in GroundKind.values) {
           for (final elevation in _elevations(skin.ground(kind))) {
             for (final shadow in elevation.boxShadows) {
-              expect(shadow.blurRadius, 0, reason: 'a blur per item is out');
-            }
-            for (final layer in elevation.layers) {
-              final shadows = Elevation([layer]).boxShadows;
-              if (layer.edge) {
-                expect(shadows, hasLength(1));
-                expect(shadows.single.spreadRadius, 0);
-              } else {
-                // The contact shadow last (on top), the cast under it.
-                expect(shadows, hasLength(PaperShadow.castSteps + 1));
-                expect(shadows.last.spreadRadius, 0);
-                for (final cast in shadows.take(PaperShadow.castSteps)) {
-                  expect(cast.color.a, lessThan(shadows.last.color.a));
-                }
-              }
+              expect(shadow.blurRadius, 0);
+              expect(shadow.spreadRadius, 0);
             }
           }
           expect(
@@ -263,28 +248,6 @@ void main() {
             reason: 'the primary button stands off the $kind ground',
           );
         }
-      });
-
-      test('one corner for every cut of paper', () {
-        final shape = skin.shape;
-        expect(shape.radiusSmall, shape.radius);
-        expect(shape.radiusTiny, shape.radius);
-      });
-
-      test('a seeded tilt is the same every time, and within its bound', () {
-        final tilt = skin.tilt;
-        expect(tilt.seededCard, 2.5 * SkinTilt.degree);
-        expect(tilt.seededRow, 1.2 * SkinTilt.degree);
-        final seen = <double>{};
-        for (var i = 0; i < 200; i++) {
-          final card = tilt.angle(Tilt.seededCard('role-$i'));
-          final row = tilt.angle(Tilt.seededRow('player-$i'));
-          expect(card.abs(), lessThanOrEqualTo(2.5 * SkinTilt.degree));
-          expect(row.abs(), lessThanOrEqualTo(1.2 * SkinTilt.degree));
-          expect(card, tilt.angle(Tilt.seededCard('role-$i')));
-          seen.add(card);
-        }
-        expect(seen.length, greaterThan(100), reason: 'they differ by id');
       });
 
       test('shapes and tilts stay slight', () {

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
-import 'deckle.dart';
+import 'deckled_paper.dart';
 import 'fit_line.dart';
 
 /// A text field in the skin (S01):

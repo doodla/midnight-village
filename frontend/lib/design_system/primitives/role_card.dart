@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
 import '../models/role.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
 import 'art_picture.dart';
@@ -145,11 +146,16 @@ class RoleCard extends StatelessWidget {
       duration: Motion.quick,
       opacity: lit ? 1 : skin.dimmed,
       child: Container(
-        // A card lying on the table casts its paper shadow while it is in.
-        decoration: BoxDecoration(
-          borderRadius: corners,
-          boxShadow: lit ? context.ground.elevation.card.litBy(context) : null,
-        ),
+        // Dressed up, a card lying on the table casts its paper shadow while
+        // it is in.
+        decoration: context.dress.isPaper
+            ? BoxDecoration(
+                borderRadius: corners,
+                boxShadow: lit
+                    ? context.ground.elevation.card.litBy(context)
+                    : null,
+              )
+            : null,
         foregroundDecoration: ringDecoration(
           color: ringColor,
           width: ringWidth,
@@ -201,9 +207,11 @@ class RoleCard extends StatelessWidget {
     final ground = context.ground;
     // Set down by hand: the card turned a little, the same every build, from
     // its role; its name stays level.
-    final portrait = Transform.rotate(
-      angle: skin.tilt.angle(Tilt.seededCard(role.name)),
-      child: AspectRatio(
+    final angle = skin.tilt.angle(Tilt.seededCard(role.name));
+    Widget turned(Widget card) =>
+        angle == 0 ? card : Transform.rotate(angle: angle, child: card);
+    final portrait = turned(
+      AspectRatio(
         aspectRatio: _gridAspect,
         child: Stack(
           clipBehavior: Clip.none,
