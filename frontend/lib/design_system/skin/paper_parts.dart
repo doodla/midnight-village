@@ -59,6 +59,31 @@ class PaperParts {
     this.lanternHaloAlpha = 0.34,
     this.sealSize = 30,
     this.sealHang = 12,
+    this.boardShade = const Color(0xFF000000),
+    this.lanternGlowAlpha = 0.5,
+    this.winnerPaper = const Color(0xFFF4E8CB),
+    this.loserPaper = const Color(0xFFC9C0AA),
+    this.nightPaper = const Color(0xFFCFD2E2),
+    this.werewolfWonPaper = const Color(0xFF9A2C25),
+    this.werewolfLostPaper = const Color(0xFF7B231E),
+    this.boardFelt = const Color(0xFF20234A),
+    this.boardFeltNight = const Color(0xFF191B3A),
+    this.poolColor = const Color(0xFFFFB860),
+    this.poolAlpha = 0.25,
+    this.poolPull = 0.25,
+    this.vignetteLantern = 0.6,
+    this.vignetteEdge = 0.32,
+    this.loserKeep = 0.55,
+    this.loserDark = 0.78,
+    this.duskTint = const [
+      Color(0xD12C2460),
+      Color(0x80965C8C),
+      Color(0x73E88C70),
+      Color(0x80FABE82),
+      Color(0x80FCD6A5),
+    ],
+    this.duskStops = const [0, 0.1, 0.2, 0.34, 1],
+    this.duskReach = 300,
   });
 
   /// The standard parts (the dressed skin's).
@@ -192,4 +217,42 @@ class PaperParts {
   /// chip's corner.
   final double sealSize;
   final double sealHang;
+
+  /// The black a piece far from the light is darkened with (the end board's
+  /// `OneLight.dimFilter`), and the lantern's glow at its centre.
+  final Color boardShade;
+  final double lanternGlowAlpha;
+
+  /// The end board's card papers: a winner lit, a loser dull, the Werewolf
+  /// team's red (won, lost) and the cool paper of the replayed night. Ink on
+  /// the red ones is [onTeamTag].
+  final Color winnerPaper;
+  final Color loserPaper;
+  final Color nightPaper;
+  final Color werewolfWonPaper;
+  final Color werewolfLostPaper;
+
+  /// The felt the cards are pinned to, by day and by the replayed night.
+  final Color boardFelt;
+  final Color boardFeltNight;
+
+  /// The lantern's warm pool on the living winners: its colour, its strength,
+  /// and how far it is pulled toward the lantern; the two darkenings (round
+  /// the lantern, at the edges).
+  final Color poolColor;
+  final double poolAlpha;
+  final double poolPull;
+  final double vignetteLantern;
+  final double vignetteEdge;
+
+  /// The end board's sky at dawn: the dusk laid over the sky plate (under
+  /// the gallows and the roofs), top to bottom, at [duskStops] of
+  /// [duskReach] points; so the banner is the bright thing in the sky.
+  final List<Color> duskTint;
+  final List<double> duskStops;
+  final double duskReach;
+
+  /// A loser's portrait: how much of its colour it keeps, and how dark it is.
+  final double loserKeep;
+  final double loserDark;
 }

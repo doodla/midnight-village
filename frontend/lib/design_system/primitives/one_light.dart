@@ -83,8 +83,8 @@ class OneLight {
   }
 
   /// The colour filter for [darknessAt]: a black laid over by that much.
-  ColorFilter dimFilter(Rect rect) => ColorFilter.mode(
-    const Color(0xFF000000).withValues(alpha: darknessAt(rect)),
+  ColorFilter dimFilter(Rect rect, Color shade) => ColorFilter.mode(
+    shade.withValues(alpha: darknessAt(rect)),
     BlendMode.srcATop,
   );
 

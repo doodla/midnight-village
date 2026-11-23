@@ -22,9 +22,6 @@ class EndLantern extends StatelessWidget {
   /// How wide the glow is.
   static const glow = 180.0;
 
-  /// How strong it is at its centre.
-  static const glowAlpha = 0.5;
-
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
@@ -49,7 +46,7 @@ class EndLantern extends StatelessWidget {
                   child: CustomPaint(
                     painter: _GlowPainter(
                       color: skin.mood.lantern,
-                      alpha: glowAlpha,
+                      alpha: skin.parts.lanternGlowAlpha,
                     ),
                   ),
                 ),

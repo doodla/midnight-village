@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:midnight_village/design_system/models/role.dart';
+import 'package:midnight_village/design_system/primitives/board_pieces.dart';
 import 'package:midnight_village/design_system/primitives/death_mark.dart';
 import 'package:midnight_village/design_system/primitives/end_lantern.dart';
 import 'package:midnight_village/design_system/primitives/paper_scrap.dart';
@@ -125,6 +127,70 @@ final List<PartSample> endPartsCatalogue = [
     (c) => const SizedBox(width: 300, child: BoardRoof()),
   ),
   PartSample('EndLantern', PartState.rest, (c) => const EndLantern()),
+  PartSample(
+    'BoardCard / DealtCard / BoardLight / BoardFoot',
+    PartState.rest,
+    (c) => SizedBox(
+      width: 200,
+      height: 120,
+      child: Stack(
+        children: [
+          BoardCard(
+            name: 'Ana',
+            role: RoleId.seer,
+            strip: 'Seer',
+            paper: BoardPaper.winner,
+            size: const Size(98, 94),
+            portraitWidth: 90,
+            rect: const Rect.fromLTWH(0, 0, 98, 94),
+          ),
+          const Positioned(
+            left: 110,
+            child: BoardCard(
+              name: 'Cleo',
+              role: RoleId.werewolf,
+              strip: 'Werewolf',
+              paper: BoardPaper.werewolfLost,
+              size: Size(80, 74),
+              portraitWidth: 64,
+              rect: Rect.fromLTWH(110, 0, 80, 74),
+              raised: true,
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+  PartSample(
+    'BoardCard / DealtCard / BoardLight / BoardFoot',
+    PartState.picked,
+    (c) => const SizedBox(
+      width: 200,
+      height: 80,
+      child: Stack(
+        children: [
+          BoardLight(
+            size: Size(200, 80),
+            light: Offset(150, 20),
+            pools: [Rect.fromLTWH(10, 10, 60, 60)],
+          ),
+          Positioned(
+            left: 100,
+            child: DealtCard(
+              role: RoleId.robber,
+              size: Size(30, 39),
+              rect: Rect.fromLTWH(100, 0, 30, 39),
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+  PartSample(
+    'BoardCard / DealtCard / BoardLight / BoardFoot',
+    PartState.focused,
+    (c) => const SizedBox(width: 200, height: 70, child: BoardFoot(height: 70)),
+  ),
 ];
 
 class _Ribbon extends StatelessWidget {
