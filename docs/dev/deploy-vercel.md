@@ -25,7 +25,7 @@ Neither project builds `main`. Each builds **one branch of its own**: the server
 `live-server`, the app project `live-app`. `backend/vercel.json` and `frontend/vercel.json`
 carry `"git": {"deploymentEnabled": {"<its branch>": true, "**": false}}`, so Vercel creates no
 deployment for a push to any other branch. Each file sits in its project's Root Directory
-(`backend`, `frontend`). In each Vercel project, Settings, Git, **Production Branch** is that
+(`backend`, `frontend`). In each Vercel project, Settings, Environments, Production, **Branch Tracking** is that
 same branch (`live-server`, `live-app`): set by the owner, once.
 
 After every merge to `main`, the "Deployed Check" workflow runs `tool/promote_live.py`, which
