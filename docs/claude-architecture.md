@@ -72,8 +72,8 @@ job. `guardrails/tests/test_workflows.py` sets it apart (`PUBLISHING`) and holds
 The ruleset `docs/dev/main-ruleset.json` is what makes this the wall: a pull request on the
 default branch, squash merges only, every check above required (up to date with main not
 required, so two sessions do not block each other), no force pushes or deletion, nobody
-bypassing. It is not on today: the owner decides (GitHub reports main as not protected, with no
-rulesets). To turn it on: Settings, Rules, Rulesets, New ruleset, Import a ruleset, choose the
+bypassing. It is on: the owner imported it (GitHub reports main as protected, checked 23 November 2026).
+To import it again: Settings, Rules, Rulesets, New ruleset, Import a ruleset, choose the
 file; or as a repository admin:
 
 ```bash
@@ -126,7 +126,9 @@ The developer agents' briefs carry no old-look or protocol-1 rule any more: both
 
 ## Skills (`.claude/skills/`)
 
-Twelve third-party `flutter-*` skills (Flutter's generic guides on animation, architecture,
-layout, concurrency, HTTP and JSON, navigation, accessibility, state, macOS setup, testing,
-theming, databases), mirrored in `.agents/skills/`. Nothing here depends on them; keeping them
-is the owner's call.
+Seven third-party `flutter-*` skills (Flutter's generic guides on animation, layout,
+concurrency, HTTP and JSON, accessibility, testing, theming). Nothing here depends on them, and
+where one disagrees with `frontend/CLAUDE.md` the CLAUDE.md wins. Five were removed on 23
+November 2026: state and architecture (they prescribe `provider` and `ChangeNotifier`; the app
+is Riverpod), navigation (`Navigator.push`; the app is go_router), databases (SQLite; the app
+has none) and macOS setup. The second copy of all twelve, in a root `.agents` folder, is gone too.

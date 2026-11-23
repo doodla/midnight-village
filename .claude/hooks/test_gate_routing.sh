@@ -43,7 +43,7 @@ expect_route "guardrails"               .claude/hooks/git/pre-commit .claude/hoo
 expect_route "backend frontend guardrails" justfile
 expect_route "guardrails"               .github/workflows/flutter-tests.yml
 expect_route "guardrails"               docs/dev/main-ruleset.json
-expect_route "backend frontend"         .pre-commit-config.yaml
+expect_route "backend frontend"         .gitignore
 
 # ---- a throwaway repository with this repo's hooks ----
 R="$TMP/repo"
