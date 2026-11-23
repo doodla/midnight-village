@@ -275,7 +275,11 @@ Future<void> pumpResultsPlayingAgain(WidgetTester tester) async {
   setup.http
     ..hold(method: 'POST', path: path)
     ..answer('POST', path, ContractSamples.load('http/lobby/play_again'));
-  await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
+  await plainTap(
+    tester,
+    find.text(ResultsCopy.playAgain),
+    why: 'the gallery\'s picture of a busy button is timed from the tap',
+  );
   await setup.settle(tester);
 }
 
@@ -287,7 +291,11 @@ Future<void> pumpResultsLeaving(WidgetTester tester) async {
   setup.http
     ..hold(method: 'POST', path: path)
     ..answer('POST', path, ContractSamples.load('http/lobby/left'));
-  await pressLikeAFinger(tester, find.text(CommonCopy.leave));
+  await plainTap(
+    tester,
+    find.text(CommonCopy.leave),
+    why: 'the gallery\'s picture of a busy button is timed from the tap',
+  );
   await setup.settle(tester);
 }
 

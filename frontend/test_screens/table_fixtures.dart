@@ -122,7 +122,11 @@ Future<void> pumpJoinStarting(WidgetTester tester) async {
         status: 201,
       ),
   );
-  await pressLikeAFinger(tester, find.text(JoinCopy.startTable));
+  await plainTap(
+    tester,
+    find.text(JoinCopy.startTable),
+    why: 'the gallery\'s picture of a busy button is timed from the tap',
+  );
   await setup.settle(tester);
 }
 
@@ -553,7 +557,11 @@ Future<void> pumpTableDealing(WidgetTester tester) async {
         status: 201,
       ),
   );
-  await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
+  await plainTap(
+    tester,
+    find.byType(PrimaryButton).last,
+    why: 'the gallery\'s picture of a busy button is timed from the tap',
+  );
   await setup.settle(tester);
 }
 
@@ -589,7 +597,11 @@ Future<void> pumpTableLeaving(WidgetTester tester) async {
         ContractSamples.load('http/lobby/left'),
       ),
   );
-  await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
+  await plainTap(
+    tester,
+    find.text(CommonCopy.leave).last,
+    why: 'the gallery\'s picture of a busy button is timed from the tap',
+  );
   await setup.settle(tester);
 }
 
