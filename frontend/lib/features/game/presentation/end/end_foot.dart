@@ -13,6 +13,8 @@ import '../../../../design_system/skin/skin.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_board_metrics.dart';
 
+import 'end_reveal.dart';
+
 // The foot of the end board, on the cobbles, under the board's window: "What
 // happened" and the three cards nobody held on a row; then, for the host,
 // "Edit deck" and the amber "Play again", and for a guest "Leave" and who
@@ -238,6 +240,17 @@ class _MiddleCards extends StatelessWidget {
       scaler.scale(type.tag.fontSize!) * (type.tag.height ?? 1.2) + 2,
     );
     final sizes = _sizes(context);
+    final driver = EndRevealScope.maybeOf(context);
+    // In the reveal they lie face down and turn with the last row.
+    Widget turning(int i, Widget face) => driver == null
+        ? face
+        : revealMiddleTurn(
+            driver,
+            size: sizes[i],
+            portraitWidth: _middlePortrait.width,
+            angle: (i - 1) * _middleTurn,
+            face: face,
+          );
     return Semantics(
       label: EndCopy.middle.fill({
         'roles': roles.map((r) => r.displayName).join(EndCopy.listComma),
@@ -251,16 +264,19 @@ class _MiddleCards extends StatelessWidget {
           for (var i = 0; i < roles.length; i++)
             SizedBox.fromSize(
               size: sizes[i],
-              child: BoardCard(
-                role: roles[i],
-                strip: roles[i].displayName,
-                paper: BoardPaper.winner,
-                size: sizes[i],
-                portraitWidth: _middlePortrait.width,
-                rect: Offset.zero & sizes[i],
-                angle: (i - 1) * _middleTurn,
-                stripHeight: strip,
-                semantics: roles[i].displayName,
+              child: turning(
+                i,
+                BoardCard(
+                  role: roles[i],
+                  strip: roles[i].displayName,
+                  paper: BoardPaper.winner,
+                  size: sizes[i],
+                  portraitWidth: _middlePortrait.width,
+                  rect: Offset.zero & sizes[i],
+                  angle: (i - 1) * _middleTurn,
+                  stripHeight: strip,
+                  semantics: roles[i].displayName,
+                ),
               ),
             ),
         ],

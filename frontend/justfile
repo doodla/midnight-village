@@ -173,6 +173,16 @@ vote-frames folder="build/vote_frames" label="run" width="360":
       --dart-define=VOTE_FRAMES_LABEL={{label}} \
       --dart-define=VOTE_FRAMES_WIDTH={{width}}
 
+# The end board's reveal at its moments (one hanged, nobody hanged, the Hunter,
+# ten players; each PNG named with its time) and the one-hanged reveal filmed a
+# frame every 33 ms, into <folder>/<case>/ and <folder>/film/.
+# Usage: just end-reveal-frames [folder] [width]
+end-reveal-frames folder="build/end_reveal" width="390":
+    flutter test test_screens/end_reveal_frames_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=END_REVEAL_DIR={{folder}} \
+      --dart-define=END_REVEAL_WIDTH={{width}}
+
 # Your card turning over (frontend/test/README.md): a finger lands, the hold, the
 # turn to the face, the face, and the turn back, one PNG per 17 ms step into
 # <folder>/<label>. No backend.

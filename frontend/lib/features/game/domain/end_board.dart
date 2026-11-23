@@ -325,6 +325,7 @@ EndCard _card(
     lit: s.won && !s.died,
     rect: rect,
     portraitWidth: c.pw,
+    nameWidth: c.nameWidth,
     angle: EndMetrics.angleOf(c.id, hanged: s.died),
     column: column,
     tags: tags,

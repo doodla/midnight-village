@@ -6,6 +6,7 @@ import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
 import '../test/helpers/component_sheet.dart';
 import '../test/helpers/shell_setup.dart';
 import 'end_board_pages.dart';
+import 'end_reveal_pages.dart';
 import 'end_fixtures.dart';
 import 'shell_fixtures.dart';
 import 'table_fixtures.dart';
@@ -286,6 +287,7 @@ final screenCatalogue = <ScreenEntry>[
     '-x1.3': (tester) => pumpResultsVillage(tester, textScale: 1.3),
   }),
   ...endBoardEntries,
+  ...endRevealEntries,
   ...componentSheet,
 ];
 

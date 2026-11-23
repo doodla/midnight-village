@@ -1,11 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../../../../design_system/copy/copy.dart';
-import '../../../../design_system/primitives/board_pieces.dart';
-import '../../../../design_system/primitives/end_lantern.dart';
+import '../../../../design_system/feel/haptics.dart';
+import '../../../../design_system/layout/space.dart';
+import '../../../../design_system/primitives/furled_scroll.dart';
 import '../../../../design_system/primitives/layered_art.dart';
-import '../../../../design_system/primitives/one_light.dart';
-import '../../../../design_system/primitives/paper_scrap.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/sliced_art.dart';
 import '../../../../design_system/skin/art_set.dart';
@@ -16,9 +16,14 @@ import '../../../../design_system/skin/skin.dart';
 import '../../domain/end_banner.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_board_metrics.dart';
+import '../../domain/end_reveal.dart';
 import '../../domain/game_outcome.dart';
-import 'end_cards.dart';
+import '../../domain/outcome_view.dart' show endSeatsOf;
+export 'end_board_window.dart' show EndBoardWindow;
+
+import 'end_board_window.dart';
 import 'end_foot.dart';
+import 'end_reveal.dart';
 
 /// The end of the game, settled: a notice board in the village square at
 /// dawn, lit by one lantern (docs/specs/frontend/end-board.md). The banner
@@ -35,7 +40,15 @@ import 'end_foot.dart';
 /// Built from the results alone (what this phone's player may see is exactly
 /// what the results body gives), who this phone's player is ([viewerId]), and
 /// who is host.
-class EndBoardView extends StatelessWidget {
+///
+/// With [reveal] (the results arrived while this phone was in the game) the
+/// board plays its reveal once (`revealOf`, section 8 of the spec): face down
+/// in place, the hanged up big and stamped with the one knock, then every card
+/// turned and the board settled. A touch anywhere settles it at once (the
+/// controls work from the first frame); reduce motion or a screen reader gets
+/// the settled board, faded in. Without [reveal] (opened late, a second view)
+/// it is the settled board and nothing moves or vibrates.
+class EndBoardView extends StatefulWidget {
   const EndBoardView({
     super.key,
     required this.outcome,
@@ -48,6 +61,7 @@ class EndBoardView extends StatelessWidget {
     required this.onLeave,
     this.playAgainBusy = false,
     this.scrollController,
+    this.reveal = false,
   });
 
   final GameOutcome outcome;
@@ -63,38 +77,171 @@ class EndBoardView extends StatelessWidget {
   final VoidCallback onLeave;
   final bool playAgainBusy;
   final ScrollController? scrollController;
+  final bool reveal;
 
   @override
-  Widget build(BuildContext context) => DressScope(
-    dress: Dress.paper,
-    child: FrameMark(
-      child: Builder(
-        builder: (context) => Scaffold(
-          backgroundColor: context.skin.night.ground,
-          body: GroundScope(
-            ground: GroundKind.night,
-            child: LayoutBuilder(builder: _page),
+  State<EndBoardView> createState() => _EndBoardViewState();
+}
+
+class _EndBoardViewState extends State<EndBoardView>
+    with TickerProviderStateMixin {
+  late final _clock = AnimationController(vsync: this);
+  late final _driver = EndRevealDriver(_clock);
+  AnimationController? _fade;
+
+  /// The reveal is over (or never was): the board is drawn settled.
+  late var _settled = !widget.reveal;
+
+  /// How many of the reveal's knocks have come.
+  var _knocked = 0;
+  EndBoardPlan? _revealed;
+
+  @override
+  void initState() {
+    super.initState();
+    _clock
+      ..addListener(_onTick)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) _settle();
+      });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_settled || _clock.isAnimating) return;
+    final media = MediaQuery.of(context);
+    if (media.disableAnimations || media.accessibleNavigation) {
+      // The settled board, faded in (no motion of anything on it), and the
+      // one knock as it shows.
+      _fade ??= AnimationController(vsync: this, duration: Motion.quick)
+        ..forward();
+      _settled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _knock();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _clock.dispose();
+    _fade?.dispose();
+    super.dispose();
+  }
+
+  /// A knock as each stamp lands (as the banner unrolls when nobody hangs).
+  void _onTick() {
+    final r = _driver.reveal;
+    if (r == null) return;
+    while (_knocked < r.knocks.length && _driver.now >= r.knocks[_knocked]) {
+      _knock();
+    }
+  }
+
+  /// One of the reveal's knocks, through the `Haptics` seam: a thud for a
+  /// death, a light one when nobody hangs.
+  void _knock() {
+    if (!widget.reveal || !mounted) return;
+    _knocked++;
+    final r = _driver.reveal;
+    final thud = r?.thud ?? !deathsOf(endSeatsOf(widget.outcome)).nobody;
+    thud ? Haptics.thud(context) : Haptics.light(context);
+  }
+
+  /// The board settled before its time (a touch, a turned phone): the one
+  /// knock, if none had come yet; the rest of the reveal is not played.
+  void _settle() {
+    if (_settled || !mounted) return;
+    if (_knocked == 0) _knock();
+    _clock.stop();
+    setState(() => _settled = true);
+  }
+
+  /// The board is planned: the reveal's timeline is made once from it and the
+  /// clock starts. A board planned again (a turned phone) settles.
+  void _planned(EndBoardPlan plan) {
+    if (_settled) return;
+    if (_revealed != null) {
+      if (!identical(plan, _revealed)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _settle();
+        });
+      }
+      return;
+    }
+    _revealed = plan;
+    final reveal = revealOf(plan);
+    _driver.reveal = reveal;
+    _clock.duration = reveal.total;
+    unawaited(_clock.forward());
+  }
+
+  (Object, BannerFit, double)? _fit;
+  (Object, EndBoardPlan)? _plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final page = DressScope(
+      dress: Dress.paper,
+      child: FrameMark(
+        child: Builder(
+          builder: (context) => Scaffold(
+            backgroundColor: context.skin.night.ground,
+            body: GroundScope(
+              ground: GroundKind.night,
+              child: LayoutBuilder(builder: _page),
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+    final fade = _fade;
+    return EndRevealScope(
+      driver: _settled ? null : _driver,
+      child: Listener(
+        // A touch anywhere settles the reveal; it is no button of its own,
+        // and the controls under it take the same touch.
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => _settle(),
+        child: fade == null ? page : FadeTransition(opacity: fade, child: page),
+      ),
+    );
+  }
 
   Widget _page(BuildContext context, BoxConstraints box) {
+    final outcome = widget.outcome;
     final type = context.skin.typography;
     final direction = Directionality.of(context);
     final screen = Size(box.maxWidth, box.maxHeight);
     // The banner first: how tall its words are decides where the board starts.
-    final banner = endBannerOf(outcome, viewerId);
-    final fit = BannerSlice.fit(
-      forms: banner.forms,
-      minLines: 2,
-      room: screen.width - 2 * BannerSlice.margin,
-      style: type.screenTitle,
-      direction: direction,
-      scale: MediaQuery.textScalerOf(context).scale(1),
+    final banner = endBannerOf(outcome, widget.viewerId);
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    // Fitted once for this width and text size, not on every build.
+    // Keyed on all it reads: a new payload or viewer is fitted again.
+    final fitKey = (
+      outcome,
+      widget.viewerId,
+      screen.width,
+      scale,
+      direction,
+      type.screenTitle,
     );
-    final bannerHeight = BannerSlice.heightOf(fit, type.screenTitle, direction);
+    final bannerHeight = _fit?.$1 == fitKey
+        ? _fit!.$3
+        : () {
+            final fit = BannerSlice.fit(
+              forms: banner.forms,
+              minLines: 2,
+              room: screen.width - 2 * BannerSlice.margin,
+              style: type.screenTitle,
+              direction: direction,
+              scale: scale,
+            );
+            final h = BannerSlice.heightOf(fit, type.screenTitle, direction);
+            _fit = (fitKey, fit, h);
+            return h;
+          }();
     final bannerTop = EndMetrics.bannerTopFor(screen.height);
     final boardTop = EndMetrics.boardTopFor(screen.height, bannerHeight);
     final windowTop = boardTop - EndMetrics.roof;
@@ -105,7 +252,7 @@ class EndBoardView extends StatelessWidget {
           right: 0,
           top: 0,
           height: boardTop + EndMetrics.roof,
-          child: const _DawnSky(),
+          child: _still(context, const _DawnSky()),
         ),
         Positioned.fill(
           child: Column(
@@ -121,19 +268,25 @@ class EndBoardView extends StatelessWidget {
                   ),
                 ),
               ),
-              EndFootBand(
-                foot: EndFoot(
-                  host: isHost,
-                  whatHappened: outcome.timeline != null,
-                  hostName: hostName,
+              _still(
+                context,
+                EndFootBand(
+                  foot: EndFoot(
+                    host: widget.isHost,
+                    whatHappened: outcome.timeline != null,
+                    hostName: widget.hostName,
+                  ),
+                  centre: outcome.result.centerCards,
+                  screenHeight: screen.height,
+                  playAgainBusy: widget.playAgainBusy,
+                  onWhatHappened: () {
+                    _settle();
+                    widget.onWhatHappened();
+                  },
+                  onEditDeck: widget.onEditDeck,
+                  onPlayAgain: widget.onPlayAgain,
+                  onLeave: widget.onLeave,
                 ),
-                centre: outcome.result.centerCards,
-                screenHeight: screen.height,
-                playAgainBusy: playAgainBusy,
-                onWhatHappened: onWhatHappened,
-                onEditDeck: onEditDeck,
-                onPlayAgain: onPlayAgain,
-                onLeave: onLeave,
               ),
             ],
           ),
@@ -142,20 +295,53 @@ class EndBoardView extends StatelessWidget {
           left: 0,
           right: 0,
           top: windowTop,
-          child: BoardRoof(width: screen.width),
+          child: _still(context, BoardRoof(width: screen.width)),
         ),
         Positioned(
           left: 0,
           right: 0,
           top: bannerTop,
-          child: BannerSlice.sentences(
-            forms: banner.forms,
-            minLines: 2,
-            red: banner.red,
+          child: _unrolled(
+            context,
+            BannerSlice.sentences(
+              forms: banner.forms,
+              minLines: 2,
+              red: banner.red,
+            ),
+            width: screen.width,
+            height: bannerHeight,
+            // At rest the roll lies on the roof.
+            restDrop: windowTop - bannerTop - FurledScroll.thickness,
           ),
         ),
       ],
     );
+  }
+
+  /// What holds still in the reveal is its own layer, painted once. Settled
+  /// it keeps the same layer: settling the board must not rebuild the foot's
+  /// controls under a touch, or the touch that settled it is lost.
+  Widget _still(BuildContext context, Widget piece) =>
+      RepaintBoundary(child: piece);
+
+  /// The banner; in the reveal furled on the roof until its beat.
+  Widget _unrolled(
+    BuildContext context,
+    Widget banner, {
+    required double width,
+    required double height,
+    required double restDrop,
+  }) {
+    final driver = EndRevealScope.maybeOf(context);
+    return driver == null
+        ? banner
+        : revealUnroll(
+            driver,
+            banner,
+            width: width,
+            height: height,
+            restDrop: restDrop,
+          );
   }
 
   /// The board in its window, planned for the room the window has.
@@ -188,22 +374,47 @@ class EndBoardView extends StatelessWidget {
       return h;
     }
 
-    final plan = planEndBoard(
-      outcome: outcome,
-      viewerId: viewerId,
-      isHost: isHost,
-      hostName: hostName,
-      screen: screen,
-      boardTop: boardTop,
-      viewHeight: view,
-      nameLine: lineHeight(type.name),
-      roleLine: lineHeight(type.tag),
-      measure: (kind, text) => switch (kind) {
-        EndText.role => measure(type.tag, text),
-        EndText.name || EndText.tag || EndText.slip => measure(type.name, text),
-      },
+    // Planned once for this room and text size, not on every build; keyed on
+    // everything the plan reads, so a changed payload, viewer or host is
+    // planned again.
+    final key = (
+      widget.outcome,
+      widget.viewerId,
+      widget.isHost,
+      widget.hostName,
+      screen,
+      boardTop,
+      view,
+      scaler,
+      direction,
+      type,
     );
-    return EndBoardWindow(plan: plan, scrollController: scrollController);
+    final kept = _plan;
+    final plan = kept != null && kept.$1 == key
+        ? kept.$2
+        : planEndBoard(
+            outcome: widget.outcome,
+            viewerId: widget.viewerId,
+            isHost: widget.isHost,
+            hostName: widget.hostName,
+            screen: screen,
+            boardTop: boardTop,
+            viewHeight: view,
+            nameLine: lineHeight(type.name),
+            roleLine: lineHeight(type.tag),
+            measure: (kind, text) => switch (kind) {
+              EndText.role => measure(type.tag, text),
+              EndText.name ||
+              EndText.tag ||
+              EndText.slip => measure(type.name, text),
+            },
+          );
+    _plan = (key, plan);
+    _planned(plan);
+    return _still(
+      context,
+      EndBoardWindow(plan: plan, scrollController: widget.scrollController),
+    );
   }
 }
 
@@ -241,135 +452,4 @@ class _DawnSky extends StatelessWidget {
       },
     },
   );
-}
-
-/// The board's window: the frame, the cards and what hangs on them, the
-/// light, the lantern; scrolling when the plan says so, opened where the plan
-/// says ([EndBoardPlan.initialScroll]).
-class EndBoardWindow extends StatefulWidget {
-  const EndBoardWindow({super.key, required this.plan, this.scrollController});
-
-  final EndBoardPlan plan;
-  final ScrollController? scrollController;
-
-  @override
-  State<EndBoardWindow> createState() => _EndBoardWindowState();
-}
-
-class _EndBoardWindowState extends State<EndBoardWindow> {
-  ScrollController? _own;
-  var _opened = false;
-
-  ScrollController get _controller =>
-      widget.scrollController ??
-      (_own ??= ScrollController(
-        initialScrollOffset: widget.plan.initialScroll,
-      ));
-
-  @override
-  void initState() {
-    super.initState();
-    _openWhereTheHangedAre();
-  }
-
-  @override
-  void didUpdateWidget(EndBoardWindow old) {
-    super.didUpdateWidget(old);
-    _openWhereTheHangedAre();
-  }
-
-  /// A controller from outside starts at 0: it is moved, once, where the
-  /// plan opens the board.
-  void _openWhereTheHangedAre() {
-    final given = widget.scrollController;
-    if (given == null || _opened || widget.plan.initialScroll == 0) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !given.hasClients || _opened) return;
-      _opened = true;
-      given.jumpTo(widget.plan.initialScroll);
-    });
-  }
-
-  @override
-  void dispose() {
-    _own?.dispose();
-    super.dispose();
-  }
-
-  /// The board stands in from the screen's edge by half the margin.
-  static const _side = EndMetrics.boardMargin / 2;
-
-  @override
-  Widget build(BuildContext context) {
-    final plan = widget.plan;
-    // The board's content: the roof's height of air above the frame, for the
-    // lantern's hook and the eave.
-    const origin = Offset(_side, EndMetrics.roof);
-    final content = SizedBox(
-      width: plan.screen.width,
-      height: plan.boardHeight + EndMetrics.roof,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: _side,
-            top: EndMetrics.roof,
-            width: plan.boardWidth,
-            height: plan.boardHeight,
-            child: const BoardFrame(child: SizedBox.expand()),
-          ),
-          StrandTwines(plan: plan, origin: origin),
-          for (final pick in plan.picks)
-            HunterTwine(plan: plan, pick: pick, origin: origin),
-          for (final c in plan.cards)
-            EndCardView(card: c, plan: plan, origin: origin),
-          for (final c in plan.cards) EndTagsView(card: c, origin: origin),
-          for (final pick in plan.picks) _slip(pick, origin),
-          Positioned(
-            left: _side,
-            top: EndMetrics.roof,
-            width: plan.boardWidth,
-            height: plan.boardHeight,
-            child: BoardLight(
-              size: Size(plan.boardWidth, plan.boardHeight),
-              light: plan.light,
-              pools: [for (final c in plan.pool) c.rect],
-            ),
-          ),
-          Positioned(
-            left: plan.lantern.left + _side,
-            top: plan.lantern.top + EndMetrics.roof,
-            child: const EndLantern(),
-          ),
-        ],
-      ),
-    );
-    return ClipRect(
-      child: OneLightScope(
-        light: OneLight(plan.light + origin),
-        child: plan.scrolls
-            ? SingleChildScrollView(
-                controller: _controller,
-                physics: const ClampingScrollPhysics(),
-                child: content,
-              )
-            : content,
-      ),
-    );
-  }
-
-  Widget _slip(EndPick pick, Offset origin) {
-    final r = pick.slip;
-    return Positioned(
-      left: r.left + origin.dx,
-      top: r.top + origin.dy,
-      width: r.width,
-      child: LitAt(
-        rect: r,
-        child: PaperSlip(
-          label: EndCopy.picked.fill({'hunter': pick.hunterName}),
-        ),
-      ),
-    );
-  }
 }
