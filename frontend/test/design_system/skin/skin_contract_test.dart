@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/card_back.dart';
+import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
 import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
@@ -292,7 +293,9 @@ void main() {
         () async {
           final art = skin.art;
           final pictures = [
-            for (final role in RoleId.values) art.role(role),
+            for (final role in RoleId.values)
+              for (final wolf in WerewolfPortrait.values)
+                art.role(role, wolf: wolf),
             for (final scene in Scene.values) art.scene(scene),
             for (final back in CardBack.values) art.cardBack(back),
             for (final token in TokenId.values) art.token(token),

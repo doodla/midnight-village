@@ -12,7 +12,7 @@ pictures.
 |---|---|
 | `mocks/*.png` | The 11 screens (plus `03b`, the role sheet) at 390x844. These are the target. |
 | `mocks/*.dc.html` | The mock markup. Every size, colour, radius, shadow and font size is an inline style, so read these for exact values. Image `src` values (`/_blob/...`) only resolve inside the mock canvas; use the files in `art/` instead. |
-| `art/roles/` | 12 role portraits, 576x768, one per role, file named after the role. |
+| `art/roles/` | Role portraits, 576x768, file named after the role (the Werewolf has three: `werewolf_lunge`, `werewolf_stare`, `werewolf_snarl`); `PROVENANCE.md` says where they came from. |
 | `art/tokens/` | 10 player tokens (crow, key, moth, bell, thorn, antler, hare, lantern, spindle, scythe), 320x320, to be shown in a circle: one per seat at a table of 10. And the practice players' 9, each the thing it is named for (scarecrow, teapot, broom, kettle, haystack, bucket, candle, weathervane, wheelbarrow; `apps/core/practice.py`), never handed to a person. |
 | `art/scenes/` | Candle, table, street door, sleeping village (flat pictures). |
 | `art/card-backs/` | The five card backs (moon, window, teeth, eye, quilt), 1200x1600; one is drawn for a whole game. `PROVENANCE.md` says how each was made. |

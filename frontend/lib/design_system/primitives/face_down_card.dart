@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../layout/space.dart';
 import '../models/role.dart';
 import '../skin/card_back_scope.dart';
+import '../skin/werewolf_portrait.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
@@ -466,7 +467,7 @@ class _FaceDownCardState extends State<FaceDownCard> {
           fit: StackFit.expand,
           children: [
             if (widget.face case final role?)
-              ArtPicture(skin.art.role(role))
+              ArtPicture(context.roleArt(role))
             else
               ArtPicture(context.cardBack),
             // Over the card's eye, clear of the token on its lower edge.

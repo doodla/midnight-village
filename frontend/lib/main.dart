@@ -13,6 +13,7 @@ import 'design_system/skin/card_back.dart';
 import 'design_system/skin/ground.dart';
 import 'design_system/skin/skin_id.dart';
 import 'design_system/skin/system_bars.dart';
+import 'design_system/skin/werewolf_portrait.dart';
 import 'design_system/skin_loader.dart';
 import 'design_system/teach/learned_store.dart';
 import 'features/game/presentation/table_screen.dart';
@@ -46,6 +47,7 @@ Future<void> main() async {
         .prepare(
           SkinId.fallback.skin,
           back: CardBack.forGame(LastSeat.openingGame),
+          wolf: WerewolfPortrait.forGame(LastSeat.openingGame),
         )
         .whenComplete(webStartDone),
   );

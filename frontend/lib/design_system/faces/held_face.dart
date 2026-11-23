@@ -11,6 +11,7 @@ import '../primitives/tag_chip.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
+import '../skin/werewolf_portrait.dart';
 import 'face_content.dart';
 
 /// Every secret, drawn as the role card it is (S04): a piece of paper with
@@ -391,7 +392,7 @@ class _Portrait extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, box) => switch (portrait) {
             RoleFacePortrait(:final role) => ArtPicture(
-              skin.art.role(role),
+              context.roleArt(role),
               focus: skin.art.portraitCrop(role, box.biggest),
               decodeAt: HeldFace.portraitBox,
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'load_once_bundle.dart';
 import 'primitives/art_precache.dart';
+import 'skin/werewolf_portrait.dart';
 import 'skin/card_back.dart';
 import 'skin/skin.dart';
 
@@ -35,13 +36,17 @@ class SkinLoader {
   /// ratio. The secrets' art is asked for once the opening picture is in (or
   /// failed: it costs that picture, and 01 asks again): one picture, long
   /// before any card is dealt.
-  Future<void> prepare(Skin skin, {CardBack back = CardBack.fallback}) async {
+  Future<void> prepare(
+    Skin skin, {
+    CardBack back = CardBack.fallback,
+    WerewolfPortrait wolf = WerewolfPortrait.fallback,
+  }) async {
     await Future.wait([
       for (final image in openingArt(skin))
         _bundle.load(image.path).then((_) {}, onError: (Object _) {}),
     ]);
     await precacheArt(
-      secretArt(skin, back: back),
+      secretArt(skin, back: back, wolf: wolf),
       devicePixelRatio: _ratio(),
       bundle: _bundle,
     );
