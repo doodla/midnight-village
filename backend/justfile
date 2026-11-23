@@ -53,7 +53,7 @@ manage *args:
 # --- Database ---
 
 # Run migrations
-migrate:
+migrate: _env
     uv run python manage.py migrate
 
 # Create new migrations
@@ -66,39 +66,44 @@ makemigrations *args:
 # tests (marker `migration`) skip there and run in a second pass that applies the
 # real migrations. With arguments only the first pass runs.
 
+# A fresh worktree has no backend/.env: the recipes that use the database write one
+# first (tool/ensure_env.sh does nothing when it is there).
+_env:
+    @../tool/ensure_env.sh
+
 # Run all tests (and the migration tests when no arguments are given)
-test *args:
+test *args: _env
     uv run pytest {{args}}
     {{ if args == "" { "just test-migrations" } else { "true" } }}
 
 # The migration tests, against a database built by the real migrations (no coverage)
-test-migrations:
+test-migrations: _env
     uv run pytest --migrations --create-db --no-cov -m migration
 
 # Re-record contract_samples/ (repo root) from the real server, after a change
 # to any payload: review the diff, commit it, and update the app's fixtures if
 # a test now fails. `just test` fails while the committed samples are stale.
-samples:
+samples: _env
     UPDATE_CONTRACT_SAMPLES=1 uv run pytest tests/contract/test_contract_samples.py --no-cov -q
 
 # Run tests with coverage report (uses pyproject.toml config)
-test-cov:
+test-cov: _env
     uv run pytest
 
 # Run tests for specific marker (unit, integration, contract) - no coverage
-test-marker marker:
+test-marker marker: _env
     uv run pytest -m {{marker}} --no-cov
 
 # Run unit tests only (no coverage - may have insufficient coverage alone)
-test-unit:
+test-unit: _env
     uv run pytest -m unit --no-cov
 
 # Run integration tests only (no coverage - may have insufficient coverage alone)
-test-integration:
+test-integration: _env
     uv run pytest -m integration --no-cov
 
 # Run contract tests only (no coverage - may have insufficient coverage alone)
-test-contract:
+test-contract: _env
     uv run pytest -m contract --no-cov
 
 # --- Code Quality ---

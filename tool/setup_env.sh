@@ -9,30 +9,12 @@
 set -euo pipefail
 
 db="${1:?usage: tool/setup_env.sh <db_name>}"
-if [[ ! "$db" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
-  echo "setup_env: the database name may hold only letters, digits and _, got '$db'" >&2
-  exit 2
-fi
-# test_<name>_<process id> is what a test run calls its own database, and Postgres
-# cuts a name at 63 characters.
-if [[ "$db" == test_* || ${#db} -gt 40 ]]; then
-  echo "setup_env: the database name may not start with test_ or be longer than 40 characters, got '$db'" >&2
-  exit 2
-fi
-root=""$(git rev-parse --show-toplevel)"
-env_file="$root/backend/.env"
+root="$(git rev-parse --show-toplevel)"
 
 service postgresql start
 
-if [ ! -f "$env_file" ]; then
-  sed -e 's/^DB_USER=.*/DB_USER=postgres/' \
-      -e 's/^DB_PASSWORD=.*/DB_PASSWORD=postgres/' \
-      "$root/backend/.env.example" > "$env_file"
-fi
-# The checkout's own development database (each test run builds its own beside
-# it, backend/config/test_database.py); DJANGO_SETTINGS_MODULE makes the tests
-# run under dev settings, so it never belongs here.
-sed -i -e "s/^DB_NAME=.*/DB_NAME=$db/" -e '/^DJANGO_SETTINGS_MODULE=/d' "$env_file"
+# backend/.env with this name (and the rules for a name: tool/ensure_env.sh)
+"$root/tool/ensure_env.sh" "$db"
 
 # The commit gate is git's own hooks (core.hooksPath, shared by every worktree).
 "$root/.claude/hooks/session-start.sh" "$root"
