@@ -14,9 +14,13 @@ export PATH="$HOME/flutter/bin:$PATH"
 export FLUTTER_SUPPRESS_ANALYTICS=true CI=true
 flutter config --no-analytics >/dev/null 2>&1 || true
 flutter pub get
-flutter build web --release --dart-define=ENV=prod --dart-define="API_ORIGIN=$API_ORIGIN"
-# Which commit this build is: the check after each merge waits until the live app
-# serves the merged one (tool/deployed_check.py at the repo root reads /commit.txt).
-printf '%s\n' "${VERCEL_GIT_COMMIT_SHA:-}" > build/web/commit.txt
+# Which commit this build is: compiled into the app (BUILD_COMMIT: it asks /commit.txt
+# whether it is still the live one and reloads itself when it is not, lib/core/update/)
+# and written to /commit.txt (the check after each merge waits until the live app serves
+# the merged one: tool/deployed_check.py at the repo root reads it).
+BUILD_COMMIT="${VERCEL_GIT_COMMIT_SHA:-}"
+flutter build web --release --dart-define=ENV=prod --dart-define="API_ORIGIN=$API_ORIGIN" \
+  --dart-define="BUILD_COMMIT=$BUILD_COMMIT"
+printf '%s\n' "$BUILD_COMMIT" > build/web/commit.txt
 # Fail the deploy if the toolbar slipped in.
 bash tool/check_release_has_no_debug.sh build/web

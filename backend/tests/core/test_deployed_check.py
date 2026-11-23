@@ -90,15 +90,28 @@ def test_a_join_whose_answer_was_lost_is_still_cleaned_up(live_server, monkeypat
 
 
 class AppStub(http.server.BaseHTTPRequestHandler):
-    """The web app as Vercel serves it: real files first, the page for every other path."""
+    """The web app as Vercel serves it: real files first, the page for a path with no
+    extension, a 404 for any other missing file (frontend/vercel.json)."""
 
     files: dict = {}
+    serve_page_for_files = False
+    rewrite_app_routes = True
     page = (
-        b"<!DOCTYPE html><html><body><script>flutter bootstrap</script></body></html>"
+        b"<!DOCTYPE html><html><body>"
+        b'<script src="flutter_bootstrap.js" async></script></body></html>'
     )
 
     def do_GET(self):
-        body = self.files.get(self.path, self.page)
+        body = self.files.get(self.path)
+        if self.path == "/":  # index.html is a real file: no rewrite needed
+            body = self.page
+        is_route = "." not in self.path and self.rewrite_app_routes
+        if body is None and (self.serve_page_for_files or is_route):
+            body = self.page
+        if body is None:
+            self.send_response(404)
+            self.end_headers()
+            return
         self.send_response(200)
         self.send_header(
             "Content-Type", "text/html" if body is self.page else "text/plain"
@@ -116,6 +129,8 @@ def app_stub():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     AppStub.files = {}
+    AppStub.serve_page_for_files = False
+    AppStub.rewrite_app_routes = True
     yield f"http://127.0.0.1:{server.server_port}"
     server.shutdown()
     thread.join()
@@ -145,3 +160,50 @@ def test_the_app_steps_pass_when_bundle_and_cors_agree(live_server, app_stub, se
     settings.CORS_ALLOWED_ORIGINS = [app_stub]
     AppStub.files = {"/main.dart.js": f'var api="{live_server.url}";'.encode()}
     deployed_check.check_app(live_server.url, app_stub)
+
+
+def test_an_app_that_answers_a_missing_picture_with_its_page_fails(
+    live_server, app_stub, settings
+):
+    settings.CORS_ALLOWED_ORIGINS = [app_stub]
+    AppStub.files = {"/main.dart.js": f'var api="{live_server.url}";'.encode()}
+    AppStub.serve_page_for_files = True
+    with pytest.raises(deployed_check.Failed, match="wanted 404"):
+        deployed_check.check_app(live_server.url, app_stub)
+
+
+def test_the_join_link_of_an_open_table_must_serve_the_app(app_stub):
+    deployed_check.check_join_link(app_stub, "ABC123")
+    AppStub.rewrite_app_routes = False  # a broken rewrite: `/` still works, routes 404
+    with pytest.raises(deployed_check.Failed, match="rewrite for app routes"):
+        deployed_check.check_join_link(app_stub, "ABC123")
+
+
+def test_the_join_link_answered_with_something_else_fails(app_stub):
+    AppStub.files = {"/join/ABC123": b"not the app"}
+    with pytest.raises(deployed_check.Failed, match="not the app's page"):
+        deployed_check.check_join_link(app_stub, "ABC123")
+
+
+def test_the_apps_commit_must_be_the_merged_one(live_server, app_stub, settings):
+    settings.CORS_ALLOWED_ORIGINS = [app_stub]
+    AppStub.files = {
+        "/main.dart.js": f'var api="{live_server.url}";'.encode(),
+        "/commit.txt": b"abc123\n",
+    }
+    deployed_check.check_app(live_server.url, app_stub, commit="abc123")
+    with pytest.raises(deployed_check.Failed, match="wanted the merged commit"):
+        deployed_check.check_app(live_server.url, app_stub, commit="def456")
+
+
+def test_a_run_probes_the_join_link_of_the_table_it_opened(
+    live_server, app_stub, settings
+):
+    settings.CORS_ALLOWED_ORIGINS = [app_stub]
+    AppStub.files = {"/main.dart.js": f'var api="{live_server.url}";'.encode()}
+    assert deployed_check.run(live_server.url, app_stub) == []
+
+    AppStub.rewrite_app_routes = False
+    failures = deployed_check.run(live_server.url, app_stub)
+    assert len(failures) == 1 and "the table's link" in failures[0]
+    assert Lobby.objects.count() == 0  # the failed probe still left the table

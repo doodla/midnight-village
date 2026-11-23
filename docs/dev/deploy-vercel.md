@@ -190,7 +190,7 @@ before real players can use it.
 
 ## The app (web and Android)
 
-* **Web**: its own Vercel project `midnight-village-app` (root `frontend`, build `bash tool/vercel_build.sh`, output `build/web`, `frontend/vercel.json` sends every path to `index.html`, so a table's link, `<origin>/join/<code>`, opens the app on a cold load; the app uses the path URL strategy, no `#`). Vercel's builders have no Flutter, so the script fetches the pinned version and builds with `--dart-define=ENV=prod --dart-define=API_ORIGIN=<server origin>`. Flutter's service worker (offline-first, Flutter 3.38's default) serves repeat visits from its cache. `web/flutter_bootstrap.js` is inlined in `index.html`, which the worker always fetches from the network first, so the page always knows the deployed build. A first visit loads at once and registers the worker only once the app's own start is in (01's picture and the secrets' art, `lib/core/web/start_done_web.dart`), never waiting for it; that visit is not cached by it, so the first return still revalidates its files. A returning phone after a deploy has Flutter's loader update the worker before the app loads, for at most 4 s: if the new worker is in within that, the phone runs the new build on that first open; if not (a slow line), the old worker still serves the cached app for that one open, and the next open runs the new build. `just web-smoke` (`frontend/tool/web_smoke/`, CI job "Web page smoke") builds the page twice and checks a first visit, a return and a deploy in Chrome. **Removing or renaming a file the app draws.** The new worker drops from its cache every file the new build does not list, the moment the new build arrives, but a tab or installed app left open keeps running the old code, which asks the server for it and is answered with the app's page (no picture). So a picture a screen stops drawing stays in `assets/` as a copy of its successor (`ArtSet.retired`, `frontend/lib/design_system/skin/art_set.dart`) until no phone runs a build that draws it. 23 November 2026: the single `werewolf.webp` replaced by three portraits left an open app with an empty Werewolf; a reload fixes one, the kept copy prevents it. **Upgrading Flutter.** From 3.41 Flutter drops this worker (flutter/flutter#156910): the page then needs long cache headers on hashed files (`--web-content-hash`) in `frontend/vercel.json` instead. Any upgrade that changes the engine has one more risk: a phone whose worker update misses the 4 s runs the NEW inlined bootstrap (new engine revision, new CanvasKit) with the OLD cached `main.dart.js` for that one open, which can fail to start; the next open is the new build. Check that case with `just web-smoke` and a slow `main.dart.js` before shipping an engine change. `API_ORIGIN` is a project environment variable (currently `https://midnight-village-anthelion.vercel.app`). Production address: `https://midnight-village-app-anthelion.vercel.app`; production branch `main`.
+* **Web**: its own Vercel project `midnight-village-app` (root `frontend`, build `bash tool/vercel_build.sh`, output `build/web`, `frontend/vercel.json` sends app routes (any path that is not under `/assets/` and has no file extension) to `index.html`, so a table's link, `<origin>/join/<code>`, opens the app on a cold load, while a file that is not there (`/assets/...`, anything with an extension) is a real 404, never the app's page; the app uses the path URL strategy, no `#`). Vercel's builders have no Flutter, so the script fetches the pinned version and builds with `--dart-define=ENV=prod --dart-define=API_ORIGIN=<server origin>`. Flutter's service worker (offline-first, Flutter 3.38's default) serves repeat visits from its cache. `web/flutter_bootstrap.js` is inlined in `index.html`, which the worker always fetches from the network first, so the page always knows the deployed build. A first visit loads at once and registers the worker only once the app's own start is in (01's picture and the secrets' art, `lib/core/web/start_done_web.dart`), never waiting for it; that visit is not cached by it, so the first return still revalidates its files. A returning phone after a deploy has Flutter's loader update the worker before the app loads, for at most 4 s: if the new worker is in within that, the phone runs the new build on that first open; if not (a slow line), the old worker still serves the cached app for that one open, and the next open runs the new build. `just web-smoke` (`frontend/tool/web_smoke/`, CI job "Web page smoke") builds the page twice and checks a first visit, a return and a deploy in Chrome. **Removing or renaming a file the app draws.** The new worker drops from its cache every file the new build does not list, the moment the new build arrives, but a tab or installed app left open keeps running the old code, which asks the server for it and is answered with the app's page (no picture). So a picture a screen stops drawing stays in `assets/` as a copy of its successor (`ArtSet.retired`, `frontend/lib/design_system/skin/art_set.dart`) until no phone runs a build that draws it. 23 November 2026: the single `werewolf.webp` replaced by three portraits left an open app with an empty Werewolf; a reload fixes one, the kept copy prevents it. **Upgrading Flutter.** From 3.41 Flutter drops this worker (flutter/flutter#156910): the page then needs long cache headers on hashed files (`--web-content-hash`) in `frontend/vercel.json` instead. Any upgrade that changes the engine has one more risk: a phone whose worker update misses the 4 s runs the NEW inlined bootstrap (new engine revision, new CanvasKit) with the OLD cached `main.dart.js` for that one open, which can fail to start; the next open is the new build. Check that case with `just web-smoke` and a slow `main.dart.js` before shipping an engine change. `API_ORIGIN` is a project environment variable (currently `https://midnight-village-anthelion.vercel.app`). Production address: `https://midnight-village-app-anthelion.vercel.app`; production branch `main`.
 * **The server must know the app's address**: add its host to `ALLOWED_HOSTS` (the socket origin check uses it) and its origin to `CORS_ALLOWED_ORIGINS` on the server project; both are set for the address above. A new app address needs both, then a server redeploy.
 * **The toolbar**: a build with no `ENV` is prod and has no `/debug` toolbar; dev is explicit (`--dart-define=ENV=dev`, which the just recipes, the harness and CI pass). `tool/vercel_build.sh` also runs `tool/check_release_has_no_debug.sh` on `build/web` and fails the deploy if the toolbar is in it.
 * **Android** (sideloaded APK): `API_ORIGIN=<server origin> PUBLIC_ORIGIN=<web app origin> tool/build_android.sh` (`just build-android` in `frontend/`), which runs `flutter build apk --release --split-per-abi --dart-define=ENV=prod --dart-define=API_ORIGIN=... --dart-define=PUBLIC_ORIGIN=...` with the Android SDK (platform 36, build-tools 36.0.0) installed and `ANDROID_HOME` set. The web app's production origin is `https://midnight-village-app-anthelion.vercel.app` (above). The main manifest declares INTERNET (Flutter adds it only to the debug manifest); the scanner's plugin adds CAMERA.
@@ -200,6 +200,78 @@ before real players can use it.
   * **Table links open the installed app** (Android App Links): the manifest's `https://<PUBLIC_ORIGIN host>/join/` intent filter (`autoVerify`; the host comes from the same `PUBLIC_ORIGIN`, never written in the manifest) and the web app's `/.well-known/assetlinks.json` (`frontend/web/.well-known/`, served as application/json by `vercel.json`) naming the package and the key's SHA-256 (`09:0C:3F:15:6B:0D:B8:95:43:A1:FB:8C:80:AD:45:07:27:34:C5:2B:CB:B6:7B:89:68:A6:4D:2F:F7:E6:3B:A7`; a test fails if the file and the key disagree). The file holds no origin: it is the same for any host that serves it. Android checks it when the app is installed; with the app not installed (or not verified) the link opens in the browser, which is the web app. A new web origin needs an APK built with its `PUBLIC_ORIGIN`.
   * **The scan action** (01 "Join a table") uses the camera inside the app: Android through CameraX and ML Kit (the `mobile_scanner` package, BSD-3; the barcode model is bundled in the APK, so no Play services download), the web through the browser's `getUserMedia`, which needs https (localhost counts) and the player's permission. Browsers with a built-in barcode detector (Chrome on Android, Safari 17 and later) decode natively. The others (Firefox, Safari before 17, desktop Chrome on Windows and Linux) load a decoder, zxing-wasm 3.1.6 (MIT; about 40 KB of script and a 947 KB .wasm), **from the app's own files** `web/zxing/` the first time the scanner opens: nothing from a CDN, no third-party request. The pin, the licence and how it was made: `frontend/tool/zxing_wasm.sh` (`--check` verifies it). The web app's own `main.dart.js` grows by 93 KB (27 KB gzipped) for the scanner. Refused, no camera or an insecure page: one line and typing.
 * **Deployment Protection is off on both projects** so phones need no Vercel login.
+
+## What an open app does when a new build goes live
+
+**Before (what an old tab did, read from Flutter 3.38's generated `flutter_service_worker.js`).**
+The worker installs and activates at once when the page registers a new `?v=` (it calls
+`skipWaiting()` itself, and `clients.claim()`), but a tab already open keeps running the code it
+was loaded with: nothing told it. On activation the worker deletes every cached file the new
+build does not list or whose hash changed. Its fetch handler answers a file only if the NEW build
+lists it, cache first; anything else "falls to the network". The host used to answer an unknown
+path with `index.html` (every path was rewritten), so an old tab asking for a picture the new
+build removed (`werewolf.webp`, 23 November 2026) got a page of HTML: a blank box. A returning
+tab with a fresh page load is fine (the page's loader updates the worker, up to 4 s; see "The
+app" above); an open one was never updated.
+
+**Now (`frontend/lib/core/update/`, the rule in `lib/features/game/domain/reload_rule.dart`).**
+- The app knows its own build: the commit, `--dart-define=BUILD_COMMIT=<sha>` from
+  `tool/vercel_build.sh` (a local run, a test and the installed app are `local` and never look).
+  The live build is `/commit.txt` (the same script writes it), read with `cache: no-store`; the
+  worker lists no such file, so it always reaches the network. The server's `/api/health/`
+  `commit` is not used: the page's own host is the one that must agree.
+- It looks once when the app starts, when the tab is visible again (`appResumesProvider`), when
+  something smells of a stale build (a picture that will not decode or a file that will not
+  load; an API call answered with a page or a non-JSON 404: `StaleSmell`), and every 5 minutes.
+  One tiny request each; resume and smell looks are never closer than 10 s apart.
+- A different live build reloads the page at the next SAFE moment, by the one rule
+  `mayReloadNow`: never while a `playerRequest` is out (`playerRequestsOut`), a game tap is
+  queued, in flight or unsent (`Outbox.hasTapsOnTheWay`), a host's change is on its way, a name or
+  code is typed on 01 (`JoinDraft`; it is also kept in the tab's `sessionStorage` and restored
+  after any reload), text is in the focused field, or the camera scanner is open. Then at once on
+  01, at a table before the deal (02, 03), on the results (11) and on "You're at another table.".
+  **In a running game (04, the night board, 08, 09, the count 10) never on a phase change or on
+  the timer** (a player must not enter the night or the vote with a cold reload inside a timed
+  stage): only when the tab becomes visible again after being hidden for more than 5 seconds, and
+  nothing is in flight; otherwise it waits for the results (11) or the table. Nothing is shown or
+  said.
+- Before reloading the page asks its service worker to update (`registration.update()`) and waits
+  for the new worker to take over (the generated worker skips waiting and claims its clients),
+  for at most 10 seconds (`renewWorker`). Nothing is unregistered and no cache is deleted, so a
+  connection that drops at that moment leaves the old app running, never the browser's offline
+  page; if the worker does not take over in time the app leaves everything as it is and tries
+  again at its next look. The reload then fetches the page (`no-cache`) and the files from the new
+  worker. The app then opens as it does cold: `/me/table/` and the seat kept on the device
+  (`LastSeat`) put a seated player back on the same screen (tests: `new_build_restore_test.dart`
+  for a waiting table, the night, the talk, the vote and the count).
+- No loop: the build reloaded for is kept for THIS TAB (`sessionStorage`, `mv.reloadedFor.v1`;
+  another tab, still on the old build, reloads for it on its own). If the live build still differs
+  after a reload (a shell the network did not replace), the tab does not reload again for that
+  build; only a still newer one reloads it again.
+- `vercel.json` sends `Cache-Control: no-cache` for the page, `flutter_bootstrap.js`,
+  `main.dart.js`, `flutter_service_worker.js` and /commit.txt (every path outside
+  `/assets/`, `/canvaskit/`, `/icons/`, `/zxing/`), so the shell is revalidated, never kept.
+- **A file removed from the bundle** is still asked for by an app left open on the last release
+  (it reloads soon, but not at once, in a game). `tool/release_assets.json` lists the files of the
+  last release (a fallback; `just record-assets` in `frontend/` writes it and REFUSES while a
+  removal is uncovered); `test/design_system/asset_release_test.dart` compares the bundle with the
+  files at the main branch (origin/main) (CI fetches it) and fails when one is gone from the bundle unless it is a retired alias that stays as a copy (`ArtSet.retired`) or is in the file's
+  `removedOnPurpose` with a date and a reason.
+- **Checks**: "Web page smoke" first runs `tool/web_smoke/routes.test.cjs`, which compiles
+  `vercel.json` with Vercel's own `@vercel/routing-utils` (installed in that job only, by
+  `just web-smoke-setup`) and walks its routes; then `tool/web_smoke/smoke.cjs` serves the build
+  through the same walk: a made-up picture is a 404, `/commit.txt` is the commit built,
+  `/app` still redirects, app routes still get the page, an old tab reloads itself for the new
+  build when resumed, and a shell that stays old is reloaded for once, never in a loop. After a
+  merge, "Deployed Check" also asks the live host for `/commit.txt` (must be the merged commit),
+  a made-up picture (must be 404) and the join link of the table it opened, `/join/<code>` (must
+  be 200 with the app's page: `/` is a file, so only a route proves the rewrite).
+
+**The installed Android app** has no service worker and its pictures ship inside it: it never
+reloads and does not look (`BuildId.mine` is `local` off the web). An old installed app keeps its
+own pictures and screens and only talks to a newer server; the server's changes are
+deploy-safe for it (`Deploy-safe changes` below), and the owner installs a new file from
+`/app` when one is wanted. There is no updater.
 
 ## Android app download
 

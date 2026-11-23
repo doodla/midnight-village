@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../config/env.dart';
 import '../requests/player_request.dart';
 import 'auth_interceptor.dart';
+import '../update/stale_page_interceptor.dart';
 import 'logging_interceptor.dart';
 
 /// Authenticated HTTP client that injects JWT tokens on every request.
@@ -30,8 +31,9 @@ class AuthenticatedClient {
              ),
            ) {
     _dio.interceptors.add(interceptor);
-    if (dio == null && Env.isDev) {
-      _dio.interceptors.add(LoggingInterceptor());
+    if (dio == null) {
+      _dio.interceptors.add(StalePageInterceptor());
+      if (Env.isDev) _dio.interceptors.add(LoggingInterceptor());
     }
   }
 

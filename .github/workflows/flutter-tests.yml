@@ -123,6 +123,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The asset test compares the bundle with what main holds (a removed
+      # picture an open app still asks for): it needs main's file list.
+      - name: Fetch main for the asset comparison
+        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+
       - name: Install just
         uses: extractions/setup-just@v2
 

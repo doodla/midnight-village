@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -9,6 +10,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/requests/player_request.dart';
+import '../../../core/storage/tab_storage_provider.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
@@ -66,15 +68,52 @@ class JoinDraft {
   final String? name;
   final String code;
   final bool codeOpen;
+
+  /// Something the player typed: a name over their own, or a code.
+  bool get isTyped => (name?.isNotEmpty ?? false) || code.isNotEmpty;
+
+  String toJson() =>
+      jsonEncode({'name': name, 'code': code, 'codeOpen': codeOpen});
+
+  /// The draft [toJson] wrote; nothing (an empty draft) for anything else.
+  static JoinDraft fromJson(String? text) {
+    if (text == null) return const JoinDraft();
+    try {
+      final map = jsonDecode(text) as Map<String, dynamic>;
+      return JoinDraft(
+        name: map['name'] as String?,
+        code: map['code'] as String? ?? '',
+        codeOpen: map['codeOpen'] as bool? ?? false,
+      );
+    } catch (_) {
+      return const JoinDraft();
+    }
+  }
 }
 
+/// Where this tab keeps 01's form across the page's own reload (the app
+/// renewing itself for a newer build): the same key for write and read.
+const joinDraftKey = 'mv.joinDraft.v1';
+
 class JoinDraftNotifier extends Notifier<JoinDraft> {
+  /// What the tab kept before this page was reloaded (`TabStorage`), so the
+  /// reload shows 01 as it was.
   @override
-  JoinDraft build() => const JoinDraft();
+  JoinDraft build() =>
+      JoinDraft.fromJson(ref.read(tabStorageProvider).read(joinDraftKey));
 
-  void keep(JoinDraft draft) => state = draft;
+  void keep(JoinDraft draft) {
+    state = draft;
+    final storage = ref.read(tabStorageProvider);
+    draft.isTyped || draft.codeOpen
+        ? storage.write(joinDraftKey, draft.toJson())
+        : storage.remove(joinDraftKey);
+  }
 
-  void clear() => state = const JoinDraft();
+  void clear() {
+    state = const JoinDraft();
+    ref.read(tabStorageProvider).remove(joinDraftKey);
+  }
 }
 
 final joinDraftProvider = NotifierProvider<JoinDraftNotifier, JoinDraft>(

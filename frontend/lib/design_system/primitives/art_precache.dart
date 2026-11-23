@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../core/update/stale_smell.dart';
+
 import '../faces/held_face.dart';
 import '../load_once_bundle.dart';
 import '../models/role.dart';
@@ -126,6 +128,7 @@ Future<void> _resolve(
     },
     onError: (_, _) {
       config.bundle?.evict(path);
+      StaleSmell.report();
       finish();
     },
   );
