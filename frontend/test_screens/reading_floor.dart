@@ -1,3 +1,4 @@
+// Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';

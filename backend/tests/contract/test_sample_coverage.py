@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """Every night story the app can be asked to show has a recorded sample.
 
 The cases are not a list kept here: they come from the engine's own role table

@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """`just piece-check` (tool/piece_check.py): which tests a change can reach.
 
 Run with: python3 -m unittest discover -s .claude/guardrails/tests

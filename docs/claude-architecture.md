@@ -84,6 +84,13 @@ compares with main on the remote (fetched when a shallow checkout lacks it), so 
 that adds to a long file fails. Tests and generated code are not counted
 (`guardrails/tests/test_file_sizes.py`).
 
+**Guards.** A test that holds a rule for the whole app carries `Guard file` in a comment at
+its top (no list: a new guard joins by carrying the line). `tool/guard_edits.py`
+(`just guard-edits`, a step of GitHub's "Backend Checks") fails a pull request that edits one
+unless its description has a line `- <file name>: <why>`; locally it only reminds
+(`guardrails/tests/test_guard_edits.py`). `just check` also lints `tool/` and the hooks for
+errors swallowed in silence (`just lint-tools` in `backend/`).
+
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
 edits: the fast checks, every backend test on every core (about a minute and a half: choosing
 among them does not pay, the modules all lead to each other), and for the app only the test

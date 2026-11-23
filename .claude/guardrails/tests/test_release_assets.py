@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """The recorder of the last release's files (frontend/tool/record_release_assets.py) cannot
 be used to regenerate the list over a removal: a file of the last release that is gone from
 the bundle and has no dated "removedOnPurpose" line stops it (the removed picture an app left
