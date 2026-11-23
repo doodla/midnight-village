@@ -21,6 +21,9 @@ from typing import Any
 
 from .models import Game, Phase
 
+# Night windows: 1 = Doppelganger alone, 2 = everyone else at once.
+NIGHT_WINDOWS = (1, 2)
+
 # The stages, in the order a game goes through them.
 LOOK, W1, W2, TALK, VOTE = "look", "w1", "w2", "talk", "vote"
 NIGHT_CHOOSE_STAGES = (W1, W2)

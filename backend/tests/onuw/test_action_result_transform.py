@@ -9,7 +9,7 @@ names and the right action_type.
 import pytest
 
 from apps.onuw.engine.state import ActionResult, NightAction
-from apps.onuw.services import _client_action_type, _transform_revealed_info
+from apps.onuw.night_results import _client_action_type, _transform_revealed_info
 
 pytestmark = pytest.mark.unit
 

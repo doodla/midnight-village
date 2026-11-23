@@ -30,6 +30,7 @@ from .debug import ForcedAssignmentError, parse_forced_assignment
 from .engine.assignment import assign_roles
 from .engine.decks import auto_deck
 from .models import Game, Phase, PlayerRole
+from .night_results import acknowledge_night_results, night_timeline_for
 from .protocol import (
     LOOK,
     NIGHT_CHOOSE_STAGES,
@@ -49,12 +50,10 @@ from .services import (
     READY_ERROR_CODES,
     VOTE_ERROR_CODES,
     AlreadyActedError,
-    acknowledge_night_results,
     advance_wave,
     begin_night,
     end_discussion,
     ensure_timers,
-    night_timeline_for,
     reveal_votes,
     set_ready,
     submit_vote,

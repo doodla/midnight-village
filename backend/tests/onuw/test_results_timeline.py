@@ -127,7 +127,7 @@ class TestTheResultsCarryTheTimeline:
         ]
         Game.objects.filter(id=game_id).update(night_actions_log=bad)
 
-        with patch("apps.onuw.services.logger") as log:
+        with patch("apps.onuw.night_results.logger") as log:
             response = results(table, game_id)
 
         assert response.status_code == status.HTTP_200_OK
@@ -151,7 +151,7 @@ class TestTheResultsCarryTheTimeline:
             ],
         )
 
-        with patch("apps.onuw.services.logger") as log:
+        with patch("apps.onuw.night_results.logger") as log:
             body = results(table, game_id).data
 
         assert body["night_timeline"] is None
@@ -210,7 +210,7 @@ class TestAnyMalformedLogStillShowsTheResults:
             night_actions_log=[*game.night_actions_log, bad_entry]
         )
 
-        with patch("apps.onuw.services.logger") as log:
+        with patch("apps.onuw.night_results.logger") as log:
             response = results(table, game_id)
 
         assert response.status_code == status.HTTP_200_OK
