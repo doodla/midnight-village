@@ -71,6 +71,9 @@ class PaperParts {
     this.squareSpareBetween = 0.4,
     this.squareButtonWidest = 264,
     this.squareLeastBody = 380,
+    this.storySlipWidest = 360,
+    this.storySceneShare = 1.4,
+    this.storyLookSag = 8,
     this.winnerPaper = const Color(0xFFF4E8CB),
     this.loserPaper = const Color(0xFFC9C0AA),
     this.nightPaper = const Color(0xFFCFD2E2),
@@ -260,6 +263,13 @@ class PaperParts {
   /// board and its foot are given before the band and body scroll together.
   final double squareButtonWidest;
   final double squareLeastBody;
+
+  /// 08's picture story: the slip's sentence is set at most this wide, the
+  /// sleeping village is this many portrait widths tall, and a look across
+  /// a row sags this far.
+  final double storySlipWidest;
+  final double storySceneShare;
+  final double storyLookSag;
 
   /// The end board's card papers: a winner lit, a loser dull, the Werewolf
   /// team's red (won, lost) and the cool paper of the replayed night. Ink on

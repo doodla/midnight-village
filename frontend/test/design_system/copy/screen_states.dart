@@ -422,7 +422,7 @@ final screens = <String, Screen>{
     },
   ),
   '08 Talk': (
-    budget: 15,
+    budget: 16,
     states: {
       // A first game, My night not yet held: the cue's word on it.
       'not held': [

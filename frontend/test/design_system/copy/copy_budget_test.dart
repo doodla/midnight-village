@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 
@@ -12,8 +14,14 @@ import 'screen_states.dart';
 
 const _copyFile = 'lib/design_system/copy/copy.dart';
 
-/// The parts `copy.dart` exports, read with it.
-const _copyParts = ['lib/design_system/copy/story_copy.dart'];
+/// The parts `copy.dart` exports, read with it (whatever it exports).
+final _copyParts = [
+  for (final m in RegExp(
+    r'''^export '([^']+)';''',
+    multiLine: true,
+  ).allMatches(File(_copyFile).readAsStringSync()))
+    '${File(_copyFile).parent.path}/${m[1]}',
+];
 
 /// Every line the screens, banners and screen reader use, as written.
 final _counted = [

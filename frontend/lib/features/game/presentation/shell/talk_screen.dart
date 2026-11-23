@@ -142,6 +142,17 @@ class _TalkViewState extends ConsumerState<TalkView> {
   /// How many times the seal has stirred to teach the hold.
   late var _stirs = !_learned && !widget.openNight ? 1 : 0;
 
+  /// The held night's panel, kept while the night is the same: the clock's
+  /// tick rebuilds this screen every second, and the very same widget is not
+  /// built again (nor its picture laid out, nor repainted).
+  MyNightPanel? _panel;
+
+  Widget _panelOf(GameMe me) {
+    final story = NightStory.of(me.report);
+    if (_panel?.story != story) _panel = MyNightPanel(story: story);
+    return _panel!;
+  }
+
   bool get _learned => ref.read(learnedCuesProvider).contains(Cue.myNight);
 
   void _shown(bool shown) {
@@ -173,7 +184,7 @@ class _TalkViewState extends ConsumerState<TalkView> {
                 children: [
                   Expanded(
                     child: up
-                        ? MyNightPanel(story: NightStory.of(me.report))
+                        ? _panelOf(me)
                         : SquareBoard(
                             deck: me.deck,
                             seats: me.seats,

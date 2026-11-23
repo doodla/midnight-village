@@ -10,7 +10,7 @@ import 'template.dart';
 abstract final class StoryCopy {
   static const and = 'and';
   static const seerPlayer = Template("{name}'s card was the {role}.");
-  static const seerCenter = 'You saw two center cards.';
+  static const seerCenter = 'You saw 2 center cards.';
   static const robbed = Template("You took {name}'s card, the {role}.");
   static const drunk = Template('You took the {pos} card, unseen.');
   static const now = Template('Your card is now the {role}.');
@@ -28,7 +28,7 @@ abstract final class StoryCopy {
     "You copied {copied}, then saw {name}'s card.",
   );
   static const copiedCenter = Template(
-    'You copied {copied}, saw 2 center cards.',
+    'You copied {copied}, then saw 2 center cards.',
   );
   static const copiedTook = Template(
     "You copied {copied}, then took {name}'s card.",
@@ -37,7 +37,7 @@ abstract final class StoryCopy {
     'You copied {copied}, then swapped {a} and {b}.',
   );
   static const copiedDrunk = Template(
-    'You copied {copied}, took the {pos} card.',
+    'You copied {copied}, then took the {pos} card.',
   );
   static const copiedMinion = Template(
     'You copied {copied}, then saw the Werewolves.',

@@ -58,7 +58,7 @@ final _cases = <String, _Want>{
       ['Left:villager', 'Middle:villager', 'Right:down'],
     ],
     ['look $_you>${_at(1, 0)}', 'look $_you>${_at(1, 1)}'],
-    'You saw two center cards.',
+    'You saw 2 center cards.',
   ),
   'seer-skipped': _want(
     [
@@ -68,12 +68,14 @@ final _cases = <String, _Want>{
     'You did nothing.',
     sleeps: true,
   ),
+  // The server records the same skip for a Seer who timed out as for one who
+  // chose nothing: the story is `seer-skipped`'s (and a test below says so).
   'seer-timed-out': _want(
     [
       ['You:seer'],
     ],
     [],
-    'You slept.',
+    'You did nothing.',
     sleeps: true,
   ),
   'robber': _want(
@@ -180,7 +182,7 @@ final _cases = <String, _Want>{
       'look $_you>${_at(1, 0)}',
       'look $_you>${_at(1, 1)}',
     ],
-    'You copied Ben, saw 2 center cards.',
+    'You copied Ben, then saw 2 center cards.',
   ),
   'doppelganger-minion': _want(
     [
@@ -220,7 +222,7 @@ final _cases = <String, _Want>{
       ['Left:down', 'Middle:down', 'Right:down'],
     ],
     ['look $_you>${_at(0, 1)}', 'swap $_you>${_at(1, 1)}'],
-    'You copied Gus, took the middle card.',
+    'You copied Gus, then took the middle card.',
   ),
   'doppelganger-werewolf': _want(
     [
@@ -232,11 +234,11 @@ final _cases = <String, _Want>{
   ),
   'doppelganger-insomniac': _want(
     [
-      ['You:doppelganger', 'Hana:insomniac'],
+      ['You:doppelganger', 'Esme:insomniac'],
       ['Now:doppelganger'],
     ],
     ['look $_you>${_at(0, 1)}', 'look $_you>${_at(1, 0)}'],
-    'You copied Hana, the Insomniac.',
+    'You copied Esme, the Insomniac.',
   ),
   'doppelganger-villager': _want(
     [
@@ -270,6 +272,15 @@ void main() {
       expect(story.sleeps, want.sleeps);
     });
   }
+
+  test('a Seer who timed out has the story of one who chose nothing', () {
+    final timedOut = _story('seer-timed-out');
+    final skipped = _story('seer-skipped');
+    expect(_rows(timedOut), _rows(skipped));
+    expect(_links(timedOut), _links(skipped));
+    expect(timedOut.line.text, skipped.line.text);
+    expect(timedOut.sleeps, skipped.sleeps);
+  });
 
   test('your own card is on top, as dealt, marked You', () {
     for (final night in allNights.keys) {

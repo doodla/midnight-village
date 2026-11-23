@@ -116,6 +116,13 @@ class StoryLine {
 
   String get text => parts.map((p) => p.text).join();
 
+  @override
+  bool operator ==(Object other) =>
+      other is StoryLine && listEquals(other.parts, parts);
+
+  @override
+  int get hashCode => Object.hashAll(parts);
+
   static final _gap = RegExp(r'\{(\w+)\}');
 
   /// The gaps that hold names; any other gap holds plain words (a role).
@@ -181,6 +188,26 @@ class NightStory {
   static const youRef = (row: 0, col: 0);
 
   StoryCard cardAt(StoryRef ref) => rows[ref.row][ref.col];
+
+  /// By value: the same night told twice is one story (so a view keeps its
+  /// layout for it).
+  @override
+  bool operator ==(Object other) =>
+      other is NightStory &&
+      other.sleeps == sleeps &&
+      other.line == line &&
+      listEquals(other.links, links) &&
+      other.rows.length == rows.length &&
+      [for (var i = 0; i < rows.length; i++) listEquals(other.rows[i], rows[i])]
+          .every((same) => same);
+
+  @override
+  int get hashCode => Object.hash(
+    sleeps,
+    line,
+    Object.hashAll(links),
+    Object.hashAll(rows.map(Object.hashAll)),
+  );
 
   /// What a screen reader hears: the sentence, then every card.
   String get spoken => [

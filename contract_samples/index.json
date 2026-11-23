@@ -522,6 +522,14 @@
       "description": "/me/ in the talk: a Seer whose choose held nothing valid is told so (a `skip` result with `nothing_chosen`), only on their own phone."
     },
     {
+      "name": "http/game/me_discussion_choose_troublemaker",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the troublemaker's night results."
+    },
+    {
       "name": "http/game/me_discussion_choose_villager",
       "kind": "http",
       "method": "GET",

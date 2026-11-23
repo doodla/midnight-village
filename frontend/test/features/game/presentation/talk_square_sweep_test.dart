@@ -113,6 +113,65 @@ void _inside(List<Rect> pieces, Rect room, String what) {
   }
 }
 
+/// My night held, a story on a phone of [size] at text [scale]: nothing cut,
+/// no card on another or on the slip, the story inside its room (scrolling
+/// where it must, its end coming into view whole), never on the note.
+Future<void> _heldStory(
+  WidgetTester tester,
+  Map<String, dynamic> body,
+  Size size,
+  double scale,
+) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  tester.platformDispatcher.textScaleFactorTestValue = scale;
+  addTearDown(tester.view.reset);
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  await pumpSkinned(
+    tester,
+    ProviderScope(
+      overrides: learnedOverrides({...Cue.values}),
+      child: TalkView(
+        me: GameMe.fromJson(body),
+        secondsLeft: 192,
+        onReady: () {},
+        openNight: true,
+      ),
+    ),
+  );
+  await tester.pump();
+  expect(truncatedText(tester), isEmpty);
+  expect(brokenWords(tester), isEmpty);
+  final story = find.byType(NightStoryView);
+  final room = tester.getRect(story);
+  final note = tester.getRect(find.byType(SealedNote));
+  Finder inStory(Type type) =>
+      find.descendant(of: story, matching: find.byType(type));
+  final cards = _all(inStory(StoryCardFace));
+  final slip = _all(inStory(PaperPiece));
+  expect(slip, hasLength(1));
+  _apart(cards, cards, 'card on card', same: true);
+  _apart(cards, slip, 'card on the slip');
+  expect(_over(room, note), isFalse, reason: 'the story on the note');
+  final scrolls = inStory(Scrollable).evaluate().isNotEmpty;
+  if (!scrolls) {
+    _inside([...cards, ...slip], room, 'in its room');
+  } else {
+    final wide = Rect.fromLTRB(room.left, -1e6, room.right, 1e6);
+    _inside([...cards, ...slip], wide, 'across its room');
+    // To its end without a touch: the first touch anywhere puts a night that
+    // opened by itself away (a drag would leave nothing to measure).
+    final position = tester
+        .state<ScrollableState>(inStory(Scrollable))
+        .position;
+    expect(position.maxScrollExtent, greaterThan(0));
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pump();
+    expect(inStory(PaperPiece), findsOneWidget);
+    _inside(_all(inStory(PaperPiece)), room, 'scrolled');
+  }
+}
+
 void main() {
   for (final MapEntry(key: players, value: body) in _tables.entries) {
     for (final size in _sizes) {
@@ -230,50 +289,65 @@ void main() {
         final name =
             'My night held, $night, ${size.width.toInt()} x '
             '${size.height.toInt()}, text $scale';
-        testWidgets(name, (tester) async {
-          tester.view.physicalSize = size;
-          tester.view.devicePixelRatio = 1;
-          tester.platformDispatcher.textScaleFactorTestValue = scale;
-          addTearDown(tester.view.reset);
-          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-          await pumpSkinned(
-            tester,
-            ProviderScope(
-              overrides: learnedOverrides({...Cue.values}),
-              child: TalkView(
-                me: GameMe.fromJson(body()),
-                secondsLeft: 192,
-                onReady: () {},
-                openNight: true,
-              ),
-            ),
-          );
-          await tester.pump();
-          expect(truncatedText(tester), isEmpty);
-          expect(brokenWords(tester), isEmpty);
-          final story = find.byType(NightStoryView);
-          final room = tester.getRect(story);
-          final note = tester.getRect(find.byType(SealedNote));
-          Finder inStory(Type type) =>
-              find.descendant(of: story, matching: find.byType(type));
-          final cards = _all(inStory(StoryCardFace));
-          final slip = _all(inStory(PaperPiece));
-          expect(slip, hasLength(1));
-          _apart(cards, cards, 'card on card', same: true);
-          _apart(cards, slip, 'card on the slip');
-          expect(_over(room, note), isFalse, reason: 'the story on the note');
-          final scrolls = inStory(Scrollable).evaluate().isNotEmpty;
-          if (!scrolls) {
-            _inside([...cards, ...slip], room, 'in its room');
-          } else {
-            final wide = Rect.fromLTRB(room.left, -1e6, room.right, 1e6);
-            _inside([...cards, ...slip], wide, 'across its room');
-            await tester.drag(story, const Offset(0, -3000));
-            await tester.pumpAndSettle();
-            _inside(_all(inStory(PaperPiece)), room, 'scrolled');
-          }
-        });
+        testWidgets(name, (tester) => _heldStory(tester, body(), size, scale));
       }
     }
+  }
+
+  // Long names, as a table has them (the server's names run to 20
+  // characters): one that wraps between words, one a single long word, on
+  // the narrow short phone at the largest text.
+  for (final MapEntry(key: night, value: names) in _longNamed.entries) {
+    testWidgets('My night held, $night, long names ${names.values}', (
+      tester,
+    ) async {
+      final me = allNights[night]!();
+      _rename(me, names);
+      await _heldStory(tester, me, const Size(360, 640), 1.6);
+      final story = find.byType(NightStoryView);
+      final written = [
+        for (final text in tester.widgetList<RichText>(
+          find.descendant(of: story, matching: find.byType(RichText)),
+        ))
+          text.text.toPlainText(),
+      ];
+      // Every name whole where it is written: on the cards' tabs (words may
+      // wrap between words, never be cut) and in the one sentence.
+      for (final name in names.values) {
+        expect(
+          written.any((t) => t.contains(name)),
+          isTrue,
+          reason: '$name in $written',
+        );
+      }
+    });
+  }
+}
+
+/// Each night's players (their names in the server's `/me/`) renamed.
+const _longNamed = {
+  'troublemaker': {'Ana': 'Maximilian', 'Ben': 'Annabelle Whitlock'},
+  'werewolf-pair': {'Ida': 'Annabelle Whitlock'},
+  'mason': {'Fin': 'Rosa Maria'},
+  'doppelganger-troublemaker': {
+    'Gus': 'Maximilian',
+    'Ben': 'Rosa Maria',
+    'Cleo': 'Annabelle Whitlock',
+  },
+};
+
+/// [me] with [names] renamed everywhere the server writes them: the seats
+/// and the night record.
+void _rename(Map<String, dynamic> me, Map<String, String> names) {
+  dynamic renamed(dynamic value) => switch (value) {
+    String() => names[value] ?? value,
+    List() => [for (final v in value) renamed(v)],
+    Map() => <String, dynamic>{
+      for (final e in value.entries) '${e.key}': renamed(e.value),
+    },
+    _ => value,
+  };
+  for (final key in ['players', 'night_results']) {
+    me[key] = renamed(me[key]);
   }
 }

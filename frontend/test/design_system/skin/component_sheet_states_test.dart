@@ -29,7 +29,9 @@ void main() {
     ComponentPage.talkRobber: ["You took Ana's card, the Seer."],
     ComponentPage.talkLoneWerewolf: ['You are the only Werewolf.'],
     ComponentPage.talkDrunk: ['You took the middle card, unseen.'],
-    ComponentPage.talkDoppelganger: ['You copied Ben, saw 2 center cards.'],
+    ComponentPage.talkDoppelganger: [
+      'You copied Ben, then saw 2 center cards.',
+    ],
     ComponentPage.actionFollowUpHeld: ['You copied Ben.', NightCopy.seer],
     ComponentPage.voteLocked: [VoteCopy.locked],
   };

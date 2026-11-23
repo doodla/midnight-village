@@ -1,3 +1,4 @@
+import '../contract/contract_shape.dart';
 import 'sheet_data.dart';
 
 // Every night My night's picture story tells (08, held), each a talk `/me/`.
@@ -21,6 +22,8 @@ Map<String, dynamic> offContractMe(
   }
   final me = recordedMe(name);
   edit(me);
+  // Off the contract in its values only: its shape is one the server sends.
+  checkHttpBody('GET', '/onuw/games/g/me/', 200, me);
   return me;
 }
 
@@ -65,6 +68,7 @@ Map<String, dynamic> _copy(String name, String role) => _entry(
 final recordedNights = <String, Map<String, dynamic> Function()>{
   'seer': () => recordedMe('me_discussion_choose_seer'),
   'seer-skipped': () => recordedMe('me_discussion_choose_seer_nothing_chosen'),
+  'troublemaker': () => recordedMe('me_discussion_choose_troublemaker'),
   'robber': () => recordedMe('me_discussion_choose_robber'),
   'werewolf-pair': () => recordedMe('me_discussion_choose_werewolf_pack'),
   'werewolf-lone-looked': () =>
@@ -82,13 +86,14 @@ final recordedNights = <String, Map<String, dynamic> Function()>{
 
 /// Off the contract: the nights no recorded game has.
 final editedNights = <String, Map<String, dynamic> Function()>{
-  'troublemaker': () => _game7('Troublemaker', [
-    _night(2, 'swap_others', {'player1_name': 'Ana', 'player2_name': 'Ben'}),
-  ]),
   'seer-centre': () => _game7('Seer', [
     _entry('me_discussion_choose_doppelganger', 1)..['wave'] = 2,
   ]),
-  'seer-timed-out': () => _game7('Seer', []),
+  // The server records a skip for a Seer whose window timed out
+  // (night_window.py, `_timeout_action_type`): the very entry of a Seer who
+  // chose nothing.
+  'seer-timed-out': () =>
+      _game7('Seer', [_entry('me_discussion_choose_seer_nothing_chosen', 0)]),
   'insomniac-changed': () => _game8('Insomniac', [
     _entry('me_discussion_choose_insomniac', 0)
       ..['revealed_info'] = {'current_role': 'Seer'},
@@ -120,7 +125,7 @@ final editedNights = <String, Map<String, dynamic> Function()>{
     _entry('me_discussion_choose_werewolf_pack', 0),
   ]),
   'doppelganger-insomniac': () => _game8('Doppelganger', [
-    _copy('Hana', 'Insomniac'),
+    _copy('Esme', 'Insomniac'),
     _entry('me_discussion_choose_insomniac', 0)
       ..['revealed_info'] = {'current_role': 'Doppelganger'},
   ]),
