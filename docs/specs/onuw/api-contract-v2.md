@@ -34,11 +34,9 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
 
 - `POST /lobbies/` `{"game_type": "onuw", "defaults": "v2"}` opens a table. `defaults: "v2"`
   (the app's starting set) writes `card_look_seconds: 30`, `deck: "auto"`,
-  `deck_chip: "simple"` and `night_protocol: 2`, and nothing else (no timer length; settings
+  and `deck_chip: "simple"`, and nothing else (no timer length; settings
   given in the body win, `seats` among them: a table can be opened already set for a number).
-  `night_protocol: 2` is for the server code before the protocol-1
-  cleanup, which still serves for a moment during a deploy; this code ignores it (and writes
-  it on every game it deals too). It goes in a later push (`docs/dev/status.md`).
+  A table opened before 23 November 2026 may still store `night_protocol: 2`; it is ignored.
   Any other `defaults` value is `400 bad_request`; without it nothing is written. The merged
   settings are validated (`400 bad_request` with the errors).
 - `GET /lobbies/<code>/`, and every lobby answer and `lobby_update` event, carry the whole

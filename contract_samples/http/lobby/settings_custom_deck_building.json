@@ -14,7 +14,6 @@
     "deck": "custom",
     "seats": 8,
     "deck_chip": "classic",
-    "night_protocol": 2,
     "card_look_seconds": 30,
     "roles": {
       "Werewolf": 2,

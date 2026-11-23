@@ -24,7 +24,6 @@
     },
     "seats": 8,
     "deck_chip": "classic",
-    "night_protocol": 2,
     "card_look_seconds": 20,
     "discussion_seconds": 360,
     "voting_seconds": 90,
