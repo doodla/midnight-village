@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/copy/role_text.dart';
 import '../../../../design_system/faces/face_content.dart' show nameList;
+import '../../../../design_system/feel/haptics.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/models/game_result.dart';
 import '../../../../design_system/models/role.dart';
@@ -30,6 +31,11 @@ import '../../../../design_system/skin/skin.dart';
 import '../../domain/outcome_view.dart';
 import '../live_game.dart';
 import '../table_screen.dart';
+
+/// The games whose count has knocked on this phone already (this run): the
+/// knock is once per count, so a screen that opens again on the same result
+/// (the shell rebuilt, the app back from the background) does not knock again.
+final knockedCountsProvider = Provider<Set<String>>((ref) => <String>{});
 
 /// 10 The count (first-time play spec, section 3), wired to the game: the
 /// results body ([LiveGame.outcome], fetched again until it loads)
@@ -57,6 +63,8 @@ class CountScreen extends ConsumerWidget {
     return CountView(
       count: TheCount.of(outcome),
       viewerId: game?.me.playerId,
+      knocked: ref.read(knockedCountsProvider).contains(gameId),
+      onKnock: () => ref.read(knockedCountsProvider).add(gameId),
       onSeeWhoWon: () =>
           unawaited(ref.read(localStepsProvider.notifier).seeWhoWon(gameId)),
     );
@@ -118,16 +126,23 @@ class EndWaiting extends StatelessWidget {
 ///   "Doppelganger". With several dead the cards are smaller and "Dealt" and
 ///   "Now" are said on the first card only.
 /// - Motion (the same on every phone, from the moment it opens): the rows
-///   land one after another ([Motion.stagger]), a beat ([Motion.beat]), then
-///   the dead cards turn over ([Motion.reveal]). Nothing waits on it: "See
-///   who won" works at once, any other tap finishes it, and with reduce
-///   motion it starts finished.
+///   land one after another ([Motion.stagger]) and, as they do, the votes are
+///   struck on them one by one as paper tally marks (on a row of two votes or more), through the beat
+///   ([Motion.beat]) that follows; then the dead cards turn over
+///   ([Motion.reveal]), and as they land the outlines of the rows the vote
+///   killed are cut in thicker (ink, never red) and the phone knocks (a medium thud, once; a light one when nobody dies,
+///   as the marks finish). The band, each row's number and its voters are on
+///   the frame the row lands: the marks and the outline are how the count arrives,
+///   never what it says, and no length is added. "See who won" works at once,
+///   any other tap finishes it, and with reduce motion it starts finished.
 class CountView extends StatefulWidget {
   const CountView({
     super.key,
     required this.count,
     required this.onSeeWhoWon,
     this.viewerId,
+    this.knocked = false,
+    this.onKnock,
   });
 
   final TheCount count;
@@ -135,6 +150,12 @@ class CountView extends StatefulWidget {
 
   /// This phone's player: its row and its dead card say "You".
   final int? viewerId;
+
+  /// This count has knocked already on this phone: it knocks no more.
+  final bool knocked;
+
+  /// Called as the count knocks.
+  final VoidCallback? onKnock;
 
   @override
   State<CountView> createState() => _CountViewState();
@@ -148,12 +169,28 @@ class _CountViewState extends State<CountView>
   @override
   void initState() {
     super.initState();
-    final rows = widget.count.accused.length;
-    _landing = Motion.stagger * math.max(0, rows - 1) + Motion.settle;
+    final rows = widget.count.accused;
+    _landing = Motion.stagger * math.max(0, rows.length - 1) + Motion.settle;
     final total = widget.count.dead.isEmpty
         ? _landing
         : _landing + Motion.beat + Motion.reveal;
     _motion = AnimationController(vsync: this, duration: total);
+  }
+
+  (TheCount, List<List<Duration>>)? _struck;
+
+  /// When each vote's mark is struck, per row, for [count] (kept while it is
+  /// the same count).
+  List<List<Duration>> _strikesOf(TheCount count) {
+    if (_struck case (final of, final strikes) when identical(of, count)) {
+      return strikes;
+    }
+    final strikes = strikeTimes(
+      votes: [for (final row in count.accused) row.votes],
+      dies: count.dead.isNotEmpty,
+    );
+    _struck = (count, strikes);
+    return strikes;
   }
 
   @override
@@ -189,6 +226,7 @@ class _CountViewState extends State<CountView>
   Widget build(BuildContext context) {
     final count = widget.count;
     final dead = count.dead;
+    final strikes = _strikesOf(count);
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       // A finger's tap anywhere finishes the motion; it is no button of its
@@ -203,53 +241,68 @@ class _CountViewState extends State<CountView>
               : Curves.easeInOut.transform(
                   _phase(_landing + Motion.beat, Motion.reveal),
                 );
+          // The count is over: the cards are face up, the marks all struck.
+          final over = _motion.isCompleted;
           return ScreenFrame(
             ground: GroundKind.day,
             topSlot: Band(child: _Verdict(count: count)),
-            body: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (i, death) in dead.indexed) ...[
-                  if (i > 0) const SizedBox(height: Space.md),
-                  _DeadCard(
-                    death,
-                    you: death.seat.id == widget.viewerId,
-                    flip: flip,
-                    captions: i == 0,
-                    compact: dead.length > 1,
-                  ),
-                ],
-                if (dead.isNotEmpty) const SizedBox(height: Space.xl),
-                for (final (i, row) in count.accused.indexed) ...[
-                  if (i > 0) const SizedBox(height: Space.md),
-                  _Landing(
-                    t: _phase(Motion.stagger * i, Motion.settle),
-                    child: PlayerRow(
-                      token: row.player.seat.token,
-                      name: row.player.seat.name,
-                      size: PlayerRowSize.count,
-                      detail: nameList(row.voters.map((v) => v.name)),
-                      trailing: Tally(row.votes),
-                      // Voted out: the Hunter's pick was not.
-                      picked: row.player.diedBy == EliminationReason.vote,
-                      own: row.player.seat.id == widget.viewerId,
+            body: _Outcome(
+              over: over,
+              dies: dead.isNotEmpty,
+              knocked: widget.knocked,
+              onKnock: widget.onKnock,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (i, death) in dead.indexed) ...[
+                    if (i > 0) const SizedBox(height: Space.md),
+                    _DeadCard(
+                      death,
+                      you: death.seat.id == widget.viewerId,
+                      flip: flip,
+                      captions: i == 0,
+                      compact: dead.length > 1,
                     ),
-                  ),
-                ],
-                if (count.noVote.isNotEmpty) ...[
-                  const SizedBox(height: Space.md),
-                  Builder(
-                    builder: (context) => Text(
-                      CountCopy.noVote.fill({
-                        'names': nameList(count.noVote.map((s) => s.name)),
-                      }),
-                      style: context.skin.typography.body.copyWith(
-                        color: context.ground.text,
+                  ],
+                  if (dead.isNotEmpty) const SizedBox(height: Space.xl),
+                  for (final (i, row) in count.accused.indexed) ...[
+                    if (i > 0) const SizedBox(height: Space.md),
+                    _Landing(
+                      t: _phase(Motion.stagger * i, Motion.settle),
+                      child: PlayerRow(
+                        token: row.player.seat.token,
+                        name: row.player.seat.name,
+                        size: PlayerRowSize.count,
+                        detail: nameList(row.voters.map((v) => v.name)),
+                        trailing: Tally(
+                          row.votes,
+                          struck: (k) => _phase(strikes[i][k], Motion.quick),
+                        ),
+                        // Voted out: the Hunter's pick was not. Outlined from
+                        // the first frame, the outline cut in thicker as the
+                        // cards land (ink, never red).
+                        picked: row.player.diedBy == EliminationReason.vote,
+                        condemned:
+                            over && row.player.diedBy == EliminationReason.vote,
+                        own: row.player.seat.id == widget.viewerId,
                       ),
                     ),
-                  ),
+                  ],
+                  if (count.noVote.isNotEmpty) ...[
+                    const SizedBox(height: Space.md),
+                    Builder(
+                      builder: (context) => Text(
+                        CountCopy.noVote.fill({
+                          'names': nameList(count.noVote.map((s) => s.name)),
+                        }),
+                        style: context.skin.typography.body.copyWith(
+                          color: context.ground.text,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
             actions: [
               PrimaryButton(
@@ -264,7 +317,92 @@ class _CountViewState extends State<CountView>
   }
 }
 
-/// A row landing: in from a little below, fading up.
+/// When each vote's mark starts being struck, per row, from the count's first
+/// frame: spread over the landing and the beat, never before its row has
+/// landed, and every one early enough that it is struck whole ([Motion.quick])
+/// by the time the marks' stretch ends, with one row and one vote as with ten.
+@visibleForTesting
+List<List<Duration>> strikeTimes({
+  required List<int> votes,
+  required bool dies,
+}) {
+  final landing =
+      Motion.stagger * math.max(0, votes.length - 1) + Motion.settle;
+  final end = dies ? landing + Motion.beat : landing;
+  final latest = end > Motion.quick ? end - Motion.quick : Duration.zero;
+  final first = Motion.settle * 0.6 < latest ? Motion.settle * 0.6 : latest;
+  final span = latest - first;
+  final marks = votes.fold(0, (sum, v) => sum + v);
+  var k = 0;
+  return [
+    for (final (i, count) in votes.indexed)
+      [
+        for (var v = 0; v < count; v++)
+          () {
+            final at = first + span * (marks <= 1 ? 0 : k++ / (marks - 1));
+            final ready = Motion.stagger * i + Motion.press;
+            final start = at < ready ? ready : at;
+            return start > latest ? latest : start;
+          }(),
+      ],
+  ];
+}
+
+/// The count's knock: once, as it ends (the cards landing face up, or the
+/// last mark when nobody dies), on every phone at the same moment; at once when
+/// the screen opens finished (reduce motion). Made from under the screen's own
+/// ground, so it is never felt on the night's (`Haptics`).
+class _Outcome extends StatefulWidget {
+  const _Outcome({
+    required this.over,
+    required this.dies,
+    required this.knocked,
+    required this.onKnock,
+    required this.child,
+  });
+
+  final bool over;
+  final bool dies;
+  final bool knocked;
+  final VoidCallback? onKnock;
+  final Widget child;
+
+  @override
+  State<_Outcome> createState() => _OutcomeState();
+}
+
+class _OutcomeState extends State<_Outcome> {
+  /// Knocked already: on an earlier open of this count, or on this one.
+  late var _knocked = widget.knocked;
+
+  void _knock() {
+    if (_knocked || !widget.over) return;
+    _knocked = true;
+    widget.onKnock?.call();
+    widget.dies ? Haptics.thud(context) : Haptics.light(context);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _knock();
+    });
+  }
+
+  @override
+  void didUpdateWidget(_Outcome old) {
+    super.didUpdateWidget(old);
+    _knock();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// A row landing: cut from paper and dropped in from a little below, whole
+/// (never faded: paper and words at half strength read on nothing), the frame
+/// its turn comes; before that it is not there.
 class _Landing extends StatelessWidget {
   const _Landing({required this.t, required this.child});
 
@@ -275,7 +413,7 @@ class _Landing extends StatelessWidget {
   Widget build(BuildContext context) {
     final eased = Motion.curve.transform(t);
     return Opacity(
-      opacity: eased,
+      opacity: t > 0 ? 1 : 0,
       child: Transform.translate(
         offset: Offset(0, (1 - eased) * Space.md),
         child: child,
@@ -386,7 +524,9 @@ class _DeadCard extends StatelessWidget {
       builder: (context) {
         final type = context.skin.typography;
         final ground = context.ground;
-        final shown = ((flip - 0.5) * 2).clamp(0.0, 1.0);
+        // The face is cut in at the half turn, with the card's own face: its
+        // words are never half faded.
+        final shown = flip >= 0.5 ? 1.0 : 0.0;
         // "Now" and "Dealt" say which card is which: read to follow the
         // count, so at the acting size in full ink (playtest: "Now" tiny).
         final quiet = type.action.copyWith(color: ground.text);
@@ -525,7 +665,9 @@ class _TeamTag extends StatelessWidget {
 }
 
 /// A role portrait that turns over: the card's back until half way, then
-/// its face.
+/// its face. It is driven by [flip] (0 to 1), not a switch: a card picked up
+/// off the table, it rises a tenth in size at the half and comes down flat as
+/// it lands.
 class _Turning extends StatelessWidget {
   const _Turning({required this.role, required this.width, required this.flip});
 
@@ -538,23 +680,29 @@ class _Turning extends StatelessWidget {
     final skin = context.skin;
     final face = flip >= 0.5;
     final angle = face ? (1 - flip) * math.pi : flip * math.pi;
-    return Transform(
-      alignment: Alignment.center,
-      transform: Matrix4.identity()
-        ..setEntry(3, 2, 0.001)
-        ..rotateY(angle),
-      child: face
-          ? RolePortrait(role: role, width: width)
-          : SizedBox(
-              width: width,
-              child: AspectRatio(
-                aspectRatio: RolePortrait.aspect,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
-                  child: ArtPicture(context.cardBack),
+    return Transform.scale(
+      scale: 1 + _lift * math.sin(flip * math.pi),
+      child: Transform(
+        alignment: Alignment.center,
+        transform: Matrix4.identity()
+          ..setEntry(3, 2, 0.001)
+          ..rotateY(angle),
+        child: face
+            ? RolePortrait(role: role, width: width)
+            : SizedBox(
+                width: width,
+                child: AspectRatio(
+                  aspectRatio: RolePortrait.aspect,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
+                    child: ArtPicture(context.cardBack),
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
+
+  /// How much larger the card is at the top of its turn.
+  static const _lift = 0.1;
 }

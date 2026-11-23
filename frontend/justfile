@@ -147,6 +147,16 @@ night-frames folder="build/night_frames" label="run":
       --dart-define=NIGHT_FRAMES_DIR={{folder}} \
       --dart-define=NIGHT_FRAMES_LABEL={{label}}
 
+# The vote's choosing and locking in motion: a frame per 17 ms (a finger on a row,
+# the pick, the lock and the seal landing; six players, one long name) into
+# <folder>/<label>/vote. Usage: just vote-frames [folder] [label] [width]
+vote-frames folder="build/vote_frames" label="run" width="360":
+    flutter test test_screens/vote_frames_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=VOTE_FRAMES_DIR={{folder}} \
+      --dart-define=VOTE_FRAMES_LABEL={{label}} \
+      --dart-define=VOTE_FRAMES_WIDTH={{width}}
+
 # Your card turning over (frontend/test/README.md): a finger lands, the hold, the
 # turn to the face, the face, and the turn back, one PNG per 17 ms step into
 # <folder>/<label>. No backend.
@@ -245,3 +255,20 @@ deps:
 # Clean build artifacts
 clean:
     flutter clean && dart run build_runner clean
+
+# The vote's locked row in pictures (each locked look, the lock in four frames,
+# the vote at several table sizes) into <folder>. Usage: just vote-pictures [folder] [width]
+vote-pictures folder="build/vote_pictures" width="360":
+    flutter test test_screens/vote_pictures_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=VOTE_PICTURES_DIR={{folder}} \
+      --dart-define=VOTE_PICTURES_WIDTH={{width}}
+
+# The count in pictures (one death, a tie, nobody: at the end and one death as it
+# goes in four frames; ten players with long names at several widths and text
+# sizes) into <folder>. Usage: just count-pictures [folder] [width]
+count-pictures folder="build/count_pictures" width="360":
+    flutter test test_screens/count_pictures_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=COUNT_PICTURES_DIR={{folder}} \
+      --dart-define=COUNT_PICTURES_WIDTH={{width}}

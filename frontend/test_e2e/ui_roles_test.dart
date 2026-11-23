@@ -7,7 +7,6 @@ import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
-import 'package:midnight_village/design_system/primitives/panels.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
@@ -174,9 +173,8 @@ Future<void> _play(Phone r, ReferenceGame g, int seat) async {
     );
   }
 
-  // My night says what this player learned, as the game says it. Each hold
-  // shows its next page (what window 2 told, window 1's page, the dealt
-  // card): three holds read them all.
+  // My night says what this player learned, as the game says it: one sheet,
+  // every page stacked (what window 2 told, window 1's page, the dealt card).
   final read = <String>[];
   // Open as the talk opens where the night told this player something: read
   // there too, then put away.
@@ -187,15 +185,13 @@ Future<void> _play(Phone r, ReferenceGame g, int seat) async {
     ]);
     await r.shoot('talk-open');
   });
-  for (var page = 0; page < 3; page++) {
-    await r.holdThen(find.byType(PeekBox), () async {
-      read.addAll([
-        for (final text in r.tester.widgetList<RichText>(find.byType(RichText)))
-          text.text.toPlainText(),
-      ]);
-      await r.shoot('talk-my-night-${page + 1}');
-    });
-  }
+  await r.openMyNight(() async {
+    read.addAll([
+      for (final text in r.tester.widgetList<RichText>(find.byType(RichText)))
+        text.text.toPlainText(),
+    ]);
+    await r.shoot('talk-my-night');
+  });
   for (final line in _learned(g, seat)) {
     expect(
       read.any((text) => text.contains(line)),

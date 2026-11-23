@@ -137,6 +137,11 @@ abstract final class Motion {
 
   static const curve = Curves.easeOutCubic;
 
+  /// A stamp coming down: a short move that overshoots its rest by under a
+  /// tenth and settles (the vote's seal). Used over [quick]; nothing else
+  /// bounces.
+  static const land = Curves.easeOutBack;
+
   /// [duration], or no time at all when the phone asks for reduced motion
   /// (the shell and the scene switcher read it here; a motion that checks
   /// the setting itself is to move to this).

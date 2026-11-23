@@ -72,7 +72,7 @@ take 1.6 s. A tap finishes them.
 
 | Token | Start value | Pass | Why |
 |---|---|---|---|
-| `Motion.land` | a curve with at most 10% overshoot (`easeOutBack`) | 4, 6 | The lock stamp; a joining player's row dropping in |
+| `Motion.land` (built, pass 4a: `Curves.easeOutBack`) | a curve with at most 10% overshoot | 4, 6 | The lock stamp; a joining player's row dropping in |
 | `Motion.ambient` | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
 | the reduce-motion helper, the rest | Today six places check it (shell, the card flip, count, results, ring, wave) and, since pass 2, the night cards (dip, lift, glow, dim) and the Choose button's rise; buttons' press, rows, chips and dims ignore it. `Motion.within` exists (pass 1); passes 4 and 8 move the rest to it | 4, 8 | One check, so none is forgotten |
 
@@ -92,30 +92,27 @@ Decided 22 Nov 2026: everything is light except the dead card's flip, the one me
 | Name | Is | Fires |
 |---|---|---|
 | `tick` | `selectionClick`, light | A vote pick on 09, each time the pick moves. Taking back "Ready to vote" on 08 |
-| `light` | `lightImpact` | "Ready to vote" tapped (08). "Lock in {name}" tapped (09), on the tap, not on the answer. 11 Results: once, when the result lands (every phone, the same instant) |
-| `thud` | `mediumImpact`, the one medium | The dead card landing face up (10): once per count, with several dead too, on every phone at the same moment. A tap that finishes the flip fires it once, as it lands |
+| `light` | `lightImpact` | "Ready to vote" tapped (08). "Lock in {name}" tapped (09), on the tap, not on the answer. 11 Results: once, when the result lands (every phone, the same instant). 10 when nobody dies: once, as the last mark is struck |
+| `thud` | `mediumImpact`, the one medium | The dead card landing face up (10): once per count, with several dead too, on every phone at the same moment. A tap that finishes the flip fires it once, as it lands. Wired in pass 4b (`light` too, once, when nobody dies) |
 
 Decided 22 Nov 2026. Where: 08, 09, 10 and 11, the day. "Ready" means only 08's "Ready to vote"; 04's "Ready" is in the
 night and has none. 11 counts as a day screen although its ground is the night's.
 
-The one exception at night (decided 22 Nov 2026, the owner asked for it): `light` when your own
-card's face lands on 04 (`HoldToReveal` in place, through `PaperFlip.onLanded`). It is a hold of
-your own card in your own hand, the same on every phone and every role (everyone looks at the
-deal), once per turn that lands (a hold let go before the face lands gives none; a cut under
-reduce motion still gives it), and never when the card goes back. Holds of "You" and "My night"
-stay silent.
+No exception at night. Decided 22 Nov 2026 and withdrawn 23 Nov 2026: `light` when your own
+card's face lands on 04 was built (`PaperFlip.onLanded` wired to `Haptics.light`), and the owner,
+playing the live app, said: "The vibration on the card after I press to reveal it, I don't like
+it so maybe get rid of it." Nothing vibrates when a card is held, turned or revealed: your
+card, "You", "My night". `PaperFlip.onLanded` stays as a callback for the screen's own use; the
+card on 04 passes none.
 
-Never fires: at night (05, 06, the deal's dusk, and 04 but for that one); on any other hold or
-reveal; on 01 to 03; on a
+Never fires: at night (04, 05, 06, the deal's dusk); on any hold or reveal of a card; on 01 to 03; on a
 banner, error, disabled tap, timer tick, reconnect or a player arriving or leaving; for anything
 that only one phone gets because of its role or what it did at night; no `heavyImpact`, no long
 `vibrate`.
 
-How it is built: `Haptics` (`lib/design_system/feel/haptics.dart`, built in pass 3 with `light`
-only; pass 4 adds `tick` and `thud`) is the one place that asks for a vibration. Pass 4 makes it
-so: one `Haptics` class with these three names and nothing else calls
-`HapticFeedback` (a test fails any direct call, as `fixture_sources_test.dart` does for fixtures).
-It does nothing in the night phase whoever calls it, nothing under test, and never throws. A
+How it is built (`frontend/lib/design_system/feel/haptics.dart`): one `Haptics` class is the one place that asks for a vibration, and nothing else calls
+`HapticFeedback` (`haptics_only_here_test.dart` fails any direct call, as `fixture_sources_test.dart` does for fixtures).
+`tick`, `light` and `thud` take the touched widget's context and do nothing on the night's ground (so the call must be made from under the screen's own ground); there is no call for a card landing, and none may be added (the owner's line above). None throws; a test listens on the platform channel to see what fired. A
 vibration goes with a visible change on the same frame and is never the only sign.
 
 Where there is nothing to vibrate it does nothing, and the screen is complete without it: a phone
@@ -234,11 +231,11 @@ One body for every place the app waits (`Waiting`), laid in the frame of the scr
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
 | Rows arrive (first game) | The rows nudge 6 px in one wave; learned at the first taken lock | 120 / 90 ms | No wave | exists |
-| Finger on a row | The row dips 2 px the frame it lands. Today nothing until the tap ends | `press` | Colour only | pass 4 |
-| Tap picks a row | The row lifts 6 px with the ink outline; a tap on another row moves the pick (one settles as the other rises) | `quick` | Cut | exists |
-| A vote pick has a vibration | A tick each time the pick moves (day only; decided 22 Nov 2026) | `tick` | The vibration still fires | pass 4 |
+| Finger on a row | The row dips 2 px the frame it lands, the shadow staying where it was; it comes back on release or when the finger slides off (no pick) | `press` down, `quick` back | Tint only, no dip | exists (pass 4a) |
+| Tap picks a row | The row rises 6 px into the room kept above it, with the ink outline and the deeper hard shadow; a tap on another row moves the pick (one settles as the other rises). Before pass 4a the lift was cancelled by the row's own padding and only the outline and shadow changed | `quick` | Cut | exists |
+| A vote pick has a vibration | A tick each time the pick moves (day only; decided 22 Nov 2026) | `tick` | The vibration still fires | exists (pass 4a) |
 | First pick | "Pick a name" (outlined) becomes the one amber "Lock in {name}" | `press` | Cut | exists |
-| "Lock in {name}" tapped | The label lands like a stamp (scale 1.12 to 1) and reads "Locked"; the other rows dim to 40%; your pick stays lifted. A light vibration on the tap. Today a label change and the dim | `land` over `quick`, `light` | Cut | pass 4 |
+| "Lock in {name}" tapped | A seal with a scalloped cut edge and a padlock is stamped inside the lower right corner of the pick's token (a blood-red disc with a bone padlock on the bone paper): it comes down from 1.4 times its size, growing up and left away from the name, and settles (`land` over `quick`, tilted a little), the button reads "Locked" (cut in, never blended from amber) and the other rows dim to 40%; your pick stays lifted and outlined and keeps its bone paper (`LockedFill.sealOnly`, the spec's "stays as it is"). The owner may instead choose `LockedFill.bloodFill`: the pick's paper cut in dried-blood red on the same frame with its words in bone, the seal a bone disc. A light vibration on the tap, not on the answer. A screen that opens already locked has the seal in place, no stamp | `land` over `quick`, `light` | Cut: the end state in one frame | exists (pass 4a) |
 | A tap on a dimmed row | Nothing moves, nothing sounds | none | Same | exists |
 | A tap on a dimmed night card | The pick switches to it (lift and outline move). Dimmed on the night board means "cannot join this pick", not switched off; a screen reader hears "Switches your pick". Nothing is dimmed until the first pick, so no role shows across the table | `quick` | Same | exists |
 | Others lock | The pips count up, with no names and no vibration | none | Same | exists |
@@ -248,11 +245,12 @@ One body for every place the app waits (`Waiting`), laid in the frame of the scr
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| Count opens | Rows land one after another (12 px up, fading in), the same on every phone | `stagger`, `settle` | Starts finished | exists |
-| The held beat, then the dead card turns | Nothing moves for 1.2 s, then the face-down card turns over | `beat`, `reveal` (easeInOut) | Starts finished | exists |
-| The card lands face up | A thud, once per count, as the flip ends; with several dead they turn together, one thud | `thud` | The vibration still fires | pass 4 |
-| Tap anywhere | The motion jumps to its end; "See who won" worked all along | none | n/a | exists |
-| Nobody dies | "Nobody dies." and the rows land; no flip, no vibration | `stagger` | Starts finished | exists |
+| Count opens | Rows drop in whole, one after another (12 px up, never faded: paper and words at half strength read on nothing), the same on every phone. The band's verdict, each row's number and its voters are there from the row's first frame | `stagger`, `settle` | Starts finished | pass 4b |
+| The votes are struck | Under each number the votes are struck as paper tally marks (four strokes and a fifth across), one after another down the rows (on a row of two votes or more; one vote is the number alone), from the first row's landing to where the cards turn: the beat is filled, nothing is added, and every mark is whole by the end, on a tap and with reduce motion too. Marks only show how the count arrives; the number is whole from the start | `quick` each, spread over the landing and `beat` | All struck | pass 4b |
+| The dead card turns | Face down through the beat, then it rises a tenth in size and turns over (the face and its words cut in at the half, not faded) | `reveal` (easeInOut) | Starts finished | pass 4b |
+| The card lands face up | The outline of every row the vote killed (outlined from the first frame, as the spec says) is cut in thicker, in ink (a cut, never a blend; never red: on this screen red is the Werewolf team's, and a dead Villager must not read as a wolf); a thud, once per count (not again if the screen is rebuilt or opened again on the same result), with several dead too (a tie: both rows, one thud). The vibration is the owner's: "include vibration" (22 Nov 2026, about the polish passes) | `thud` | Red at once; the vibration still fires | pass 4b |
+| Tap anywhere | The motion jumps to its end (red and the thud as it lands); "See who won" worked all along | none | n/a | exists |
+| Nobody dies | "Nobody dies." and the rows land with their marks, none red; no flip; a light knock as the last mark is struck (the owner's "include vibration", 22 Nov 2026: the outcome of the count is felt, and nobody dying is an outcome) | `stagger`, `light` | All struck, the light knock at once | pass 4b |
 | "See who won" | Day to results: the band's scene rises. Today a crossfade | `settle` (`scene` if pass 5 needs it) | Cut | pass 5 |
 
 ### Results (11)
@@ -296,7 +294,7 @@ One body for every place the app waits (`Waiting`), laid in the frame of the scr
 | Progress pips advance | The pip fills, a small settle. Today a cut | `quick` | Cut | no pass |
 | Reduce motion: button press | The press sinks and returns over 90 ms although reduce motion is on. It should cut | the helper | Cut | pass 8 |
 | Reduce motion: quiet word and chip | The quiet word's dim and a chip's lift and outline still tween. They should cut | the helper | Cut | pass 8 |
-| Reduce motion: vote row | The row's lift, dim and padding still tween. They should cut | the helper | Cut | pass 4 |
+| Reduce motion: vote row | The row's lift, press, dim, paper colour and seal cut to the end state (`Motion.within`) | the helper | Cut | exists (pass 4a) |
 | Reduce motion: night card lift | A card's dip, lift, glow and dim cut to their end state | the helper | Cut | exists |
 | Reduce motion: deck role card dim | The portrait's dim still fades. It should cut | the helper | Cut | no pass |
 

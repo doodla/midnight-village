@@ -207,7 +207,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Bar 8 px full bleed, track hairline, 30% danger line | `TimerBand.bar(remaining:)` (`TimerBand.barHeight`, `night.hairline`, `night.dangerLine`); the share from `stage_started_at` (`StageShare`), unlit without it |
 | "Who dies today?" 34 lh 1.05, margin-top 6 | `type.screenTitle`, in the band (above) |
 | Rows 68 tall, radius 34/6, padding 0 16 0 8, gap 14, token 52, Gloock 26; gap 12 | `PlayerRow(size: PlayerRowSize.large, onTap:)`; `Space.md`. Sized to the room (`VoteRows`, measuring each name at the text size): `PlayerRowSize.compact` with `Space.sm` when the tall rows do not fit, scrolling with the fade (`FadingScroll`) only when nothing does. Each row keeps `Space.xs` for the lift, out of the gap, so a lifted row leaves the gaps even |
-| Picked: blood fill, 4,4 indigo, bone ring | `picked: true`: lifts and takes `ground.selection` (ink) at `shape.selectedRing`; the blood fill is cut. Once locked the pick stays as it is and every other row is `dimmed: true` (owner, 20 November 2026) |
+| Picked: blood fill, 4,4 indigo, bone ring | `picked: true`: lifts and takes `ground.selection` (ink) at `shape.selectedRing`; the blood fill is cut while choosing. Once locked the pick's row turns dried-blood red with a seal on its token (owner, 22 November 2026: "B: red row and seal", replacing "stays as it is") and every other row is `dimmed: true` (owner, 20 November 2026) |
 | X icon 26, stroke 3.5, "Your pick" | "Lock in {name}": `PrimaryButton(icon: Icons.lock_outline)`; the X is cut (it read as "remove") |
 | Token pips, "3 of 5 locked in" | `ProgressPips` plain, "{d} of {n} locked" |
 | "Lock in Cleo" | `PrimaryButton` |

@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import '../copy/copy.dart';
 import '../faces/face_content.dart';
 import '../faces/held_face.dart';
-import '../feel/haptics.dart';
 import '../layout/space.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
@@ -321,7 +320,6 @@ class _HoldToRevealState extends State<HoldToReveal>
     turned: _visible,
     pressed: _touching,
     back: widget.cover,
-    onLanded: Haptics.light,
     face: (context) => IgnorePointer(
       child: HeldFace(
         content: widget.face,

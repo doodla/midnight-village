@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
@@ -522,6 +523,18 @@ void main() {
       );
       await s.settle(tester);
       expect(find.text(ResultsCopy.playAgain), findsOneWidget);
+      await s.close(tester);
+    });
+
+    testWidgets('the count remembers it has knocked for this game, so a count '
+        'opened again on it is quiet', (tester) async {
+      final s = await _end(tester, recordedResults('results_doppelganger'));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CountView)),
+      );
+      expect(container.read(knockedCountsProvider), isEmpty);
+      await _countDone(tester);
+      expect(container.read(knockedCountsProvider), {s.gameId});
       await s.close(tester);
     });
 

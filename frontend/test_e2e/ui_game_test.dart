@@ -7,7 +7,6 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
-import 'package:midnight_village/design_system/primitives/panels.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
@@ -113,13 +112,13 @@ void main() {
       expect(looked.single['revealed_info']['target_name'], 'Cara');
 
       // My night: open as the talk opens (her night told her something),
-      // put away with a tap; then held, the same words.
+      // put away with Close; then opened by a tap, the same words.
       expect(find.byType(HeldFace), findsOneWidget);
       await r.putAwayMyNight(() async {
         expect(r.text("Cara's card was: Werewolf."), isTrue);
         await r.shoot('talk-open');
       });
-      await r.holdThen(find.byType(PeekBox), () async {
+      await r.openMyNight(() async {
         expect(r.text("Cara's card was: Werewolf."), isTrue);
         await r.shoot('talk-my-night');
       });
