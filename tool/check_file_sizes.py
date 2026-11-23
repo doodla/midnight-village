@@ -116,7 +116,14 @@ def main(argv: list[str]) -> int:
             f"{n} {p}" + (f" until {kept[p]}" if p in kept else "")
             for p, n in sorted(big.items(), key=lambda kv: (-kv[1], kv[0]))
         ]
-        CEILINGS.write_text(HEADER + "\n".join(lines) + "\n")
+        # the comment lines at the top of the list are kept as they are
+        try:
+            head = "".join(
+                line + "\n" for line in CEILINGS.read_text().splitlines() if line.startswith("#")
+            )
+        except OSError:
+            head = ""
+        CEILINGS.write_text((head or HEADER) + "\n".join(lines) + "\n")
         print(f"wrote {len(lines)} ceilings to {CEILINGS.relative_to(ROOT)}")
         return 0
     ceilings = read_ceilings(staged)
