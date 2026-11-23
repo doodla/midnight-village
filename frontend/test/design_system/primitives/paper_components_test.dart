@@ -3,8 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/drawn.dart';
-import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/primitives/paper_piece.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/dress_inventory.dart';
@@ -13,6 +14,7 @@ import 'package:midnight_village/design_system/skin/ground.dart';
 
 import '../../helpers/parts_catalogue.dart';
 import '../../helpers/pump_skinned.dart';
+import 'paper_rules_test.dart' show paperScreens, paperSheets;
 
 // One language for paper, and the mechanism that keeps it: (a) no component
 // paints a stroke, outline or border on a paper screen (outside the named
@@ -188,6 +190,29 @@ void main() {
       }
     }
 
+    // The parts page is not the screens: every paper SCREEN is walked too (the
+    // table as host and guest, your card both ways, the night board at 5 and
+    // 10, the deck page) and every sheet each can open, as built in the app.
+    for (final entry in paperScreens.entries) {
+      testWidgets('screen: ${entry.key}', (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await entry.value(tester);
+        expect(strokesIn(tester.binding.renderViews.first.child!), isEmpty);
+      });
+    }
+    for (final entry in paperSheets.entries) {
+      testWidgets('sheet: ${entry.key}', (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await entry.value.open(tester);
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(strokesIn(tester.binding.renderViews.first.child!), isEmpty);
+      });
+    }
+
     testWidgets('the test sees a stroke where there is one (plain dress)', (
       tester,
     ) async {
@@ -338,32 +363,105 @@ void main() {
       );
     });
 
-    test('every paper kind has both dresses in the one table, and its '
-        'component draws from it', () {
+    test('every paper kind has both dresses in the one table', () {
       expect(DressStyle.parts.keys.toSet(), PaperPart.values.toSet());
       for (final part in PaperPart.values) {
         expect(DressStyle.parts[part]!.plain, isNotEmpty);
         expect(DressStyle.of(part, Dress.plain), isNull);
         expect(DressStyle.of(part, Dress.paper), isNotNull);
       }
-      for (final e in inventory.where((e) => e.part != null)) {
-        final source = File('lib/design_system/${e.file}').readAsStringSync();
-        expect(
-          source,
-          contains('PaperPart.${e.part!.name}'),
-          reason: '${e.name} says it is ${e.part} but draws something else',
-        );
-      }
     });
 
-    test('the README lists every component in its table', () {
-      final readme = File('lib/design_system/README.md').readAsStringSync();
-      for (final e in inventory) {
+    // The registry is held on the WIDGETS, not on the text of a source file (a
+    // comment satisfied that): each component class is built on the parts page
+    // in both dresses, and where it says it is a kind of paper, a PaperPiece of
+    // that kind is built inside it.
+    for (final e in inventory) {
+      testWidgets('${e.name}: built in both dresses, made of ${e.part}', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final samples = partsCatalogue.where((s) => s.entry == e.name).toList();
         expect(
-          readme,
-          contains('| ${e.name} |'),
-          reason: '${e.name} is not in the README\'s inventory table',
+          samples,
+          isNotEmpty,
+          reason: '${e.name} is not on the parts page',
         );
+        final names = e.built ?? e.name.split(' / ');
+        bool isIt(Widget w) => names.contains(
+          w.runtimeType.toString().replaceAll(RegExp(r'<.*>'), ''),
+        );
+        final parts = <PaperPart>{};
+        for (final dress in Dress.values) {
+          var built = false;
+          for (final sample in samples) {
+            await pumpSkinned(
+              tester,
+              DressScope(
+                dress: dress,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: sampleOf(sample),
+                ),
+              ),
+            );
+            await tester.pump(const Duration(milliseconds: 100));
+            final at = find.byWidgetPredicate(isIt);
+            if (at.evaluate().isEmpty) continue;
+            built = true;
+            if (dress.isPaper) {
+              for (final piece
+                  in find
+                      .descendant(of: at, matching: find.byType(PaperPiece))
+                      .evaluate()) {
+                parts.add((piece.widget as PaperPiece).part);
+              }
+            } else {
+              // Plain draws no paper piece: its look is the component's own.
+              expect(
+                find.descendant(of: at, matching: find.byType(PaperPiece)),
+                findsNothing,
+                reason: '${e.name} draws paper on a plain screen',
+              );
+            }
+          }
+          expect(built, isTrue, reason: '${e.name} not built in ${dress.name}');
+        }
+        if (e.part != null) {
+          expect(
+            parts,
+            contains(e.part),
+            reason: '${e.name} says it is ${e.part}, built of $parts',
+          );
+        }
+      });
+    }
+
+    // The README's inventory table is the inventory: a ROW per component with
+    // its own plain and paper words and file, not a name found anywhere.
+    test('the README table has a row per component with its words', () {
+      final rows = {
+        for (final line in File(
+          'lib/design_system/README.md',
+        ).readAsLinesSync())
+          if (line.startsWith('| ') && line.endsWith('|'))
+            line
+                .substring(1, line.length - 1)
+                .split(' | ')
+                .map((c) => c.trim())
+                .toList()
+              ..[0] = line.split('|')[1].trim(),
+      };
+      final byName = {for (final r in rows) r.first: r};
+      for (final e in inventory) {
+        final row = byName[e.name];
+        expect(row, isNotNull, reason: '${e.name} has no row in the README');
+        expect(row!.length, greaterThanOrEqualTo(4), reason: '${e.name} row');
+        expect(row[1], e.plain, reason: '${e.name}: the plain look differs');
+        expect(row[2], e.paper, reason: '${e.name}: the paper look differs');
+        expect(row[3], contains(e.file), reason: '${e.name}: its file differs');
       }
     });
   });
@@ -423,13 +521,88 @@ void main() {
     });
   });
 
-  test(
-    'a paper component keeps its touch target and is no smaller than 48',
-    () {
-      expect(SecondaryButton.height, greaterThanOrEqualTo(48));
-      expect(ButtonSize.regular.primaryHeight, greaterThanOrEqualTo(48));
-    },
-  );
+  // Real hit-test areas, measured on the screens a player uses: every control
+  // that takes a tap (a gesture detector, an ink well) on every paper screen is
+  // at least the reading floor (`Sizes.touch`, 44) high and wide, or sits in a
+  // row or a card that reaches it. A control a finger cannot hit fails.
+  group('every tap target on a paper screen is hit-testable at 44', () {
+    List<String> small(WidgetTester tester) {
+      final faults = <String>[];
+      final seen = <RenderObject>{};
+      for (final e in tester.allElements) {
+        final w = e.widget;
+        final taps = switch (w) {
+          GestureDetector() => w.onTap != null || w.onLongPress != null,
+          RawGestureDetector() => w.gestures.isNotEmpty,
+          InkResponse() => w.onTap != null || w.onLongPress != null,
+          _ => false,
+        };
+        if (!taps) continue;
+        // What a sheet covers is behind its scrim.
+        if (!(ModalRoute.of(e)?.isCurrent ?? true)) continue;
+        final box = e.renderObject;
+        if (box is! RenderBox || !box.hasSize || !seen.add(box)) continue;
+        // A gesture detector a screen uses to catch a tap anywhere (the whole
+        // screen, a scrim) is not a control.
+        if (box.size.width > 300 && box.size.height > 300) continue;
+        final side = box.size.shortestSide;
+        // Off the screen (a page that scrolls) cannot be hit-tested here.
+        final view = tester.view.physicalSize / tester.view.devicePixelRatio;
+        final middle = box.localToGlobal(box.size.center(Offset.zero));
+        if (middle.dx < 0 ||
+            middle.dy < 0 ||
+            middle.dx > view.width ||
+            middle.dy > view.height) {
+          continue;
+        }
+        // What a finger can hit is the box AND the hit test: the centre must
+        // answer to it.
+        final centre = box.localToGlobal(box.size.center(Offset.zero));
+        final result = tester.hitTestOnBinding(centre);
+        final hit = result.path.any((h) => identical(h.target, box));
+        if (side < Sizes.touch - 0.5 || !hit) {
+          faults.add(
+            '${w.runtimeType} ${box.size.width.round()} x '
+            '${box.size.height.round()}${hit ? '' : ' (centre misses it)'}',
+          );
+        }
+      }
+      return faults;
+    }
+
+    for (final entry in paperScreens.entries) {
+      testWidgets(entry.key, (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await entry.value(tester);
+        // OPEN (found by this measurement, not fixed in this pass): the table's
+        // deck strip thumbnails are 30 x 40 and a tap on one reads its card;
+        // seven or more across the phone cannot each be 44 wide as drawn. The
+        // allowance is exactly them: any other small target fails, and so does
+        // this one when it is fixed (remove it then).
+        final known = entry.key.startsWith('table')
+            ? {'RawGestureDetector 30 x 40'}
+            : <String>{};
+        expect(small(tester).toSet(), known);
+      });
+    }
+
+    testWidgets('the check sees a control that is too small', (tester) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: GestureDetector(
+              onTap: () {},
+              child: const SizedBox(width: 30, height: 30),
+            ),
+          ),
+        ),
+      );
+      expect(small(tester), hasLength(1));
+    });
+  });
 }
 
 class _Line extends CustomPainter {

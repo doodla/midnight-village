@@ -126,7 +126,7 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   tap opens it as a sheet. Nothing vibrates on a card (owner, 23 November 2026).
 - **Information a player asks for opens as a sheet from the bottom edge** (`showSkinSheet`),
   the same place whatever was tapped, closed by its button, the scrim or Back; never a popover
-  at the touch point (`lib/design_system/README.md`, "Where information a player asks for appears").
+  at the touch point, and opened from a context under the screen's `ScreenFrame` (asserted), so it is dressed and lit as its screen is (`lib/design_system/README.md`, "Where information a player asks for appears").
 
 ## Screens
 

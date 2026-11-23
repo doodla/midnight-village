@@ -1,6 +1,6 @@
 // The paper components in pictures, for a look: the table (host and guest),
 // your card (back and face), the night board (5 and 10 at the table) and the
-// card-details sheet, as the live app has them, at 2x. All of ONE recorded game
+// card-details sheet (opened from the table and from the deck page), as the live app has them, at 2x. All of ONE recorded game
 // (game 7: Ana the moth, Ben the hare, Cleo the spindle, Dev the scythe, Esme
 // the bell; the ten-seat board is the same game with five more seats), so a
 // player's sigil is the same on every picture. Run it with
@@ -102,6 +102,18 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     await _settle(tester);
     await _save(tester, 'sheet');
+  });
+
+  testWidgets('the card-details sheet, opened from the deck set-up page', (
+    tester,
+  ) async {
+    _phone(tester);
+    await _page(tester, const DeckPage(lobby: gameSevenLobby));
+    await _settle(tester);
+    await tester.longPress(find.byType(RoleCard).first);
+    await tester.pump(const Duration(milliseconds: 600));
+    await _settle(tester);
+    await _save(tester, 'deck-sheet');
   });
 
   testWidgets('your card, back', (tester) async {

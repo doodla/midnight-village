@@ -37,10 +37,8 @@ class PaperParts {
     this.discStep = 5,
     this.waxDepth = 2.2,
     this.waxStep = 6,
-    this.lockedSaturation = 0.25,
-    this.lockedPale = const Color(0xFFD8D0BC),
-    this.lockedPaleMix = 0.78,
-    this.lockedMid = const Color(0xFF9C9279),
+    this.lockedWell = 0.9,
+    this.lockedDark = 0.72,
     this.lockedLift = 0.35,
     this.lockedShadow = 0.5,
     this.villageTag = const Color(0xFF203660),
@@ -48,6 +46,17 @@ class PaperParts {
     this.werewolfTag = const Color(0xFF6E1D18),
     this.onTeamTag = const Color(0xFFE9E2D0),
     this.cardRim = const Color(0xFF080A1A),
+    this.outSaturation = 0.15,
+    this.holdBand = 0.07,
+    this.holdBandLeast = 3,
+    this.holdBandGap = 2,
+    this.holdDrop = 2,
+    this.holdArcAlpha = 0.5,
+    this.tallyDrop = 1.5,
+    this.tallyAlpha = 0.4,
+    this.lanternCast = const Offset(0.07, 0.09),
+    this.lanternHalo = 1.25,
+    this.lanternHaloAlpha = 0.34,
     this.sealSize = 30,
     this.sealHang = 12,
   });
@@ -116,20 +125,19 @@ class PaperParts {
   /// so it keeps 3:1 against it.
   Color pipUnlit(Ground ground) => Color.lerp(ground.ground, ground.text, 0.5)!;
 
-  /// A locked piece (a button that cannot act yet) is one of paper that is
-  /// plainly not live, with no outline and no ring: its own paper keeps
-  /// [lockedSaturation] of its colour and is laid [lockedPaleMix] of the way
-  /// to [lockedPale] (the amber becomes a pale sand, clearly lighter and greyer
-  /// than the live amber, its words still 4.5:1), it lies flat (its lift is
-  /// [lockedLift] of the live piece's) and casts [lockedShadow] of the live
-  /// shadow's ink. `paper_locked_test.dart` holds the margins.
-  final double lockedSaturation;
-  final Color lockedPale;
+  /// A locked piece (a button that cannot act yet) is the QUIETEST form of
+  /// button, never the brightest: dark indigo paper, [lockedWell] of the way
+  /// from the ground to the ground's panel (so it stands off the ground by
+  /// 1.25:1 and lies lower than a chip), no amber and no bone, its words the
+  /// ground's own text (4.5:1 or more), barely lifted: its lift is
+  /// [lockedLift] of a scrap's and it casts [lockedShadow] of a scrap's ink.
+  /// `paper_rules_test.dart` ("locked") holds it lower than every live button
+  /// form in luminance and in shadow.
+  final double lockedWell;
 
-  /// Where the paper is laid instead on a ground too light for [lockedPale]
-  /// to stand off it (the day and paper grounds): a mid sand.
-  final Color lockedMid;
-  final double lockedPaleMix;
+  /// On a light ground: how far the paper is laid from the ground toward its
+  /// ink, so a locked piece is still the darkest button there.
+  final double lockedDark;
   final double lockedLift;
   final double lockedShadow;
 
@@ -145,6 +153,40 @@ class PaperParts {
   /// red (red is the Werewolf team's, on its tag, rows and markers, and
   /// nowhere else; `paper_red_test.dart`).
   final Color cardRim;
+
+  /// The hold disc's amber arc: its band's share of the disc (at least
+  /// [holdBandLeast] px), the gap between band and disc, and the ink of its
+  /// shadow (the drop is two px a unit of the light's lean, and two down).
+  final double holdBand;
+  final double holdBandLeast;
+  final double holdBandGap;
+  final double holdDrop;
+  final double holdArcAlpha;
+
+  /// A tally strip's shadow: how far it drops and its ink.
+  final double tallyDrop;
+  final double tallyAlpha;
+
+  /// The paper lantern's shadow (of its width, sideways and down), the glow
+  /// round it (its radius in widths) and how bright that is at most.
+  final Offset lanternCast;
+  final double lanternHalo;
+  final double lanternHaloAlpha;
+
+  /// A card OUT of the deck keeps this share of its colour (a colour matrix).
+  final double outSaturation;
+
+  /// A colour filter that keeps [keep] of every colour (1 all, 0 grey).
+  ColorFilter desaturate(double keep) {
+    final inv = 1 - keep;
+    final r = 0.2126 * inv, g = 0.7152 * inv, b = 0.0722 * inv;
+    return ColorFilter.matrix([
+      r + keep, g, b, 0, 0, //
+      r, g + keep, b, 0, 0, //
+      r, g, b + keep, 0, 0, //
+      0, 0, 0, 1, 0,
+    ]);
+  }
 
   /// The wax seal a picked chip wears: its size, and how far it hangs over the
   /// chip's corner.

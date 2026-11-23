@@ -23,7 +23,6 @@ import 'fit_line.dart';
 import 'hold_to_reveal.dart' show HoldPress;
 import 'player_token.dart';
 import 'text_backing.dart';
-import '../copy/role_text.dart';
 
 /// [FaceDownCard]'s sizes in the mocks. A card is at most this wide and
 /// shrinks, keeping its shape, when its parent is narrower (five players'
@@ -205,37 +204,45 @@ class _FaceDownCardState extends State<FaceDownCard> {
       button: widget.onTap != null,
       selected: widget.selected,
       excludeSemantics: widget.semanticLabel != null,
-      child: Listener(
-        // The press answers the frame the finger lands, not when the tap is
-        // recognised (a card under a hold's cover waits for neither).
-        onPointerDown: (_) => _touch(true),
-        onPointerUp: (_) => _touch(false),
-        onPointerCancel: (_) => _touch(false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: duration,
-            curve: Motion.curve,
-            transform: Matrix4.translationValues(
-              0,
-              (widget.selected ? -FaceDownCard.lift : 0) + dip,
-              0,
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final most = widget.cardWidth ?? size.mock.width;
-                final width = constraints.hasBoundedWidth
-                    ? most.clamp(0.0, constraints.maxWidth)
-                    : most;
-                final column = _column(context, width, duration, dip);
-                return widget.tapExtra == 0
-                    ? column
-                    : Padding(
-                        padding: EdgeInsets.only(bottom: widget.tapExtra),
-                        child: column,
-                      );
-              },
+      // Its own layer: a lift or a dip moves this card's picture, and never
+      // repaints the paper round it (`paint_cache_test.dart`).
+      child: RepaintBoundary(
+        child: Listener(
+          // The press answers the frame the finger lands, not when the tap is
+          // recognised (a card under a hold's cover waits for neither).
+          onPointerDown: (_) => _touch(true),
+          onPointerUp: (_) => _touch(false),
+          onPointerCancel: (_) => _touch(false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: duration,
+              curve: Motion.curve,
+              transform: Matrix4.translationValues(
+                0,
+                (widget.selected ? -FaceDownCard.lift : 0) + dip,
+                0,
+              ),
+              // A pick lifts the card as one picture: its paper is painted
+              // once, not again each frame of the lift.
+              child: RepaintBoundary(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final most = widget.cardWidth ?? size.mock.width;
+                    final width = constraints.hasBoundedWidth
+                        ? most.clamp(0.0, constraints.maxWidth)
+                        : most;
+                    final column = _column(context, width, duration, dip);
+                    return widget.tapExtra == 0
+                        ? column
+                        : Padding(
+                            padding: EdgeInsets.only(bottom: widget.tapExtra),
+                            child: column,
+                          );
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -426,22 +433,18 @@ class _FaceDownCardState extends State<FaceDownCard> {
     final style = base.copyWith(fontSize: size);
     final slip = painter.width.ceilToDouble() + padding.horizontal;
     painter.dispose();
-    // Dressed up the role is its team's cut-paper tag, laid across the card's
-    // foot at the same size and in the same room as the slip it replaces (a
-    // plate of paper behind the words, in the team's colour).
+    // Dressed up the role is a cut-paper name tag, laid across the card's
+    // foot at the same size and in the same room as the slip it replaces.
     if (dressed) {
-      final parts = skin.parts;
       return Positioned(
         left: (cardWidth - slip) / 2,
         width: slip,
         bottom: bottom + FaceDownCard.faceNameLift,
         child: TextBacking(
           id: role.name,
-          fill: switch (RoleText.of(role).team) {
-            TeamId.werewolf => parts.werewolfTag,
-            TeamId.village => parts.villageTag,
-            TeamId.independent => parts.tannerTag,
-          },
+          // Neutral navy paper, never a team's colour: a Minion's card must
+          // not read as a Werewolf's (red is the Werewolf team's tag alone).
+          part: PaperPart.nameTag,
           // The slip's own padding keeps the words in the middle of the plate
           // (the plate's stack would set them at its start edge).
           child: Padding(
@@ -452,7 +455,9 @@ class _FaceDownCardState extends State<FaceDownCard> {
               softWrap: false,
               textAlign: TextAlign.center,
               textScaler: TextScaler.noScaling,
-              style: style.copyWith(color: parts.onTeamTag),
+              style: style.copyWith(
+                color: TextBacking.inkOf(context, part: PaperPart.nameTag),
+              ),
             ),
           ),
         ),
@@ -601,20 +606,7 @@ class _FaceDownCardState extends State<FaceDownCard> {
             else
               ArtPicture(context.cardBack),
             // Over the card's eye, clear of the token on its lower edge.
-            if (widget.hold case final teaching? when teaching)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: widget.owner == null
-                      ? 0
-                      : FaceDownCard.ownerTokenFor(width) / 2,
-                ),
-                child: Center(
-                  child: HoldCue(
-                    teaching: teaching,
-                    size: width * FaceDownCard.holdShare,
-                  ),
-                ),
-              ),
+            if (_hold(context, width) case final over?) over,
           ],
         ),
       ),

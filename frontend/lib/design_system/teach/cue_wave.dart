@@ -82,11 +82,17 @@ class _CueWaveState extends State<CueWave> with SingleTickerProviderStateMixin {
         weight: (1 - start) / 2,
       ),
     ]).animate(_wave);
-    return AnimatedBuilder(
-      animation: lift,
-      builder: (context, child) =>
-          Transform.translate(offset: Offset(0, lift.value), child: child),
-      child: widget.child,
+    // Two layers: the moving one (only its transform is redone each frame)
+    // and the thing's own, painted once.
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: lift,
+        builder: (context, child) =>
+            Transform.translate(offset: Offset(0, lift.value), child: child),
+        // The thing lifts as one picture: the paper in it is painted once, not
+        // again every frame the wave moves it.
+        child: RepaintBoundary(child: widget.child),
+      ),
     );
   }
 }

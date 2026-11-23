@@ -22,6 +22,7 @@ import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
+import 'package:midnight_village/design_system/skin/mood_palette.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import 'package:midnight_village/design_system/skin/skin_tilt.dart';
@@ -310,11 +311,27 @@ void main() {
       final straight = drop.boxShadowsLeaning(0);
       final left = drop.boxShadowsLeaning(-0.5);
       expect(left.first.offset.dx, lessThan(straight.first.offset.dx));
-      // An edge, the paper's thickness, leans with the one light too.
+      // The edge, the paper's own thickness, leans with the one light too (the
+      // deliberate one-light direction since e0b1dce, not a drift): the moon
+      // stands high on the right at night, so everything it lights throws
+      // left, the edge by the SAME share of its fall as every cast copy. The
+      // expected value is derived from the light, no number written in.
+      final moon = Mood.leanOf(MoodKind.night, const MoodPalette());
+      expect(moon, lessThan(0), reason: 'the night\'s light is on the right');
       const edge = Elevation([
         HardShadow.edge(Offset(0, 5), Color(0xFF000000)),
       ]);
-      expect(edge.boxShadowsLeaning(-0.5).single.offset, const Offset(-2.5, 5));
+      final edgeAt = edge.boxShadowsLeaning(moon).single.offset;
+      expect(edgeAt.dx / edgeAt.dy, closeTo(moon, 1e-9));
+      for (final cast in drop.boxShadowsLeaning(moon)) {
+        expect(
+          cast.offset.dx / cast.offset.dy,
+          closeTo(edgeAt.dx / edgeAt.dy, 1e-9),
+          reason: 'the edge and the cast fall the same way',
+        );
+      }
+      // Lit from straight above it leans nowhere.
+      expect(edge.boxShadowsLeaning(0).single.offset, const Offset(0, 5));
       // And no layer is wider than its paper: moved copies, never a spread.
       for (final s in left) {
         expect(s.spreadRadius, lessThanOrEqualTo(0));

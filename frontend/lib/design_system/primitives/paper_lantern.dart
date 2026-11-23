@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../skin/paper_parts.dart';
 import '../skin/skin.dart';
 import '../skin/dress.dart';
 
@@ -52,6 +53,7 @@ class PaperLantern extends StatelessWidget {
         glow: ground.accent,
         stroke: skin.shape.stroke,
         cut: context.dress.isPaper,
+        parts: skin.parts,
       ),
     );
   }
@@ -68,6 +70,7 @@ class _LanternPainter extends CustomPainter {
     required this.shadow,
     required this.glow,
     required this.stroke,
+    required this.parts,
     this.cut = false,
   });
 
@@ -83,6 +86,7 @@ class _LanternPainter extends CustomPainter {
   final Color shadow;
   final Color glow;
   final double stroke;
+  final PaperParts parts;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -114,21 +118,24 @@ class _LanternPainter extends CustomPainter {
 
     // The glow in the air round it, then the hard paper shadow.
     if (lit > 0) {
-      final halo = Rect.fromCircle(center: body.center, radius: w * 1.25);
+      final halo = Rect.fromCircle(
+        center: body.center,
+        radius: w * parts.lanternHalo,
+      );
       canvas.drawCircle(
         body.center,
-        w * 1.25,
+        w * parts.lanternHalo,
         Paint()
           ..shader = RadialGradient(
             colors: [
-              glow.withValues(alpha: 0.34 * lit),
+              glow.withValues(alpha: parts.lanternHaloAlpha * lit),
               glow.withValues(alpha: 0),
             ],
           ).createShader(halo),
       );
     }
     canvas.drawRRect(
-      body.shift(Offset(w * 0.07, w * 0.09)),
+      body.shift(Offset(w * parts.lanternCast.dx, w * parts.lanternCast.dy)),
       Paint()..color = shadow,
     );
 

@@ -286,73 +286,76 @@ class DeckViewState extends State<DeckView> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DressScope(
+    dress: widget.dress ?? DeckView.defaultDress,
+    // Everything the page reads or opens (the type, a card's sheet) is read
+    // from a context UNDER the dress: this State's own is above it.
+    child: Builder(builder: _page),
+  );
+
+  Widget _page(BuildContext context) {
     final type = context.skin.typography;
     final table = lobby.table;
     final seats = table.seats;
     final picked = lobby.pickedCards;
     final need = lobby.cardsNeeded;
-    return DressScope(
-      dress: widget.dress ?? DeckView.defaultDress,
-      child: ScreenFrame(
-        ground: GroundKind.night,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: Space.lg,
-          children: [
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Semantics(
-                header: true,
-                child: FitLine(DeckCopy.headline, style: type.headline),
-              ),
+    return ScreenFrame(
+      ground: GroundKind.night,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Space.lg,
+        children: [
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Semantics(
+              header: true,
+              child: FitLine(DeckCopy.headline, style: type.headline),
             ),
-            _Players(
-              seats: seats,
-              present: _present,
-              range: _seatsRange,
-              // "Any" never quietly drops a deck of the host's own.
-              open: table.autoDeck,
-              onSeats: widget.onSeats,
-              practice: lobby.practiceOn
-                  ? (count: lobby.practiceCount, most: lobby.practiceLimit)
-                  : null,
-              onPracticeSwitch: widget.onPracticeSwitch,
-              onPractice: widget.onPractice,
+          ),
+          _Players(
+            seats: seats,
+            present: _present,
+            range: _seatsRange,
+            // "Any" never quietly drops a deck of the host's own.
+            open: table.autoDeck,
+            onSeats: widget.onSeats,
+            practice: lobby.practiceOn
+                ? (count: lobby.practiceCount, most: lobby.practiceLimit)
+                : null,
+            onPracticeSwitch: widget.onPracticeSwitch,
+            onPractice: widget.onPractice,
+          ),
+          _Chips(
+            labels: DeckCopy.chips,
+            selected: table.autoDeck ? table.deckChip?.index : null,
+            onTap: (i) => widget.onChip(DeckChip.values[i]),
+          ),
+          if (need != null)
+            Nudge(
+              key: _nudge,
+              child: DeckCount(key: _count, picked: picked, need: need),
             ),
-            _Chips(
-              labels: DeckCopy.chips,
-              selected: table.autoDeck ? table.deckChip?.index : null,
-              onTap: (i) => widget.onChip(DeckChip.values[i]),
-            ),
-            if (need != null)
-              Nudge(
-                key: _nudge,
-                child: DeckCount(key: _count, picked: picked, need: need),
-              ),
-            _Grid(
-              deck: lobby.tableCards,
-              onAdd: (role) => _change(role, RoleConfig.stepSize(role)),
-              onRemove: (role) => _change(role, -RoleConfig.stepSize(role)),
-              onHold: (role) => unawaited(showRoleSheet(context, role)),
-            ),
-            _Lengths(lobby: lobby, onLength: widget.onLength),
-          ],
-        ),
-        actions: [
-          if (lobby.notSent)
-            Notice(
-              message: BannerCopy.notSent,
-              action: BannerCopy.tryAgain,
-              onAction: widget.onRetry,
-            ),
-          // An action, always "Done": a host who only changed a timer leaves
-          // at once. With the wrong number of cards the first tap shows the
-          // count (the page is not left to a table that cannot start by
-          // accident), the second leaves.
-          PrimaryButton(label: DeckCopy.done, onPressed: leave),
+          _Grid(
+            deck: lobby.tableCards,
+            onAdd: (role) => _change(role, RoleConfig.stepSize(role)),
+            onRemove: (role) => _change(role, -RoleConfig.stepSize(role)),
+          ),
+          _Lengths(lobby: lobby, onLength: widget.onLength),
         ],
       ),
+      actions: [
+        if (lobby.notSent)
+          Notice(
+            message: BannerCopy.notSent,
+            action: BannerCopy.tryAgain,
+            onAction: widget.onRetry,
+          ),
+        // An action, always "Done": a host who only changed a timer leaves
+        // at once. With the wrong number of cards the first tap shows the
+        // count (the page is not left to a table that cannot start by
+        // accident), the second leaves.
+        PrimaryButton(label: DeckCopy.done, onPressed: leave),
+      ],
     );
   }
 }
@@ -660,13 +663,11 @@ class _Grid extends StatelessWidget {
     required this.deck,
     required this.onAdd,
     required this.onRemove,
-    required this.onHold,
   });
 
   final Map<RoleId, int> deck;
   final ValueChanged<RoleId> onAdd;
   final ValueChanged<RoleId> onRemove;
-  final ValueChanged<RoleId> onHold;
 
   static const _gap = Space.md;
 
@@ -707,7 +708,9 @@ class _Grid extends StatelessWidget {
               count: deck[role] ?? 0,
               lit: (deck[role] ?? 0) > 0,
               onTap: () => onAdd(role),
-              onLongPress: () => onHold(role),
+              // From this widget's own context: under the page's frame, so the
+              // sheet is lit and dressed as the page is.
+              onLongPress: () => unawaited(showRoleSheet(context, role)),
               onRemove: () => onRemove(role),
               removeLabel: SpokenCopy.takeOut.fill({'role': role.displayName}),
             ),

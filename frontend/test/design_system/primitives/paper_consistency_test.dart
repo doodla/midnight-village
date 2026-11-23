@@ -10,7 +10,6 @@ import 'package:midnight_village/design_system/primitives/chips.dart';
 import 'package:midnight_village/design_system/primitives/deckle.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/paper_piece.dart';
-import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/tag_chip.dart';
@@ -24,7 +23,8 @@ import 'package:midnight_village/design_system/teach/hold_cue.dart';
 
 import '../../helpers/pump_skinned.dart';
 import 'paper_components_test.dart' show paintCallsOf, paintCallsWithOwner;
-import 'paper_rules_test.dart' show contrast, paperScreens, piecesOf;
+import 'paper_rules_test.dart'
+    show contrast, paperScreens, paperSheets, piecesOf;
 
 // The art director's round-4 findings, each held at the component so it cannot
 // return (23 November 2026): a locked main button is unmistakable and says why;
@@ -32,8 +32,6 @@ import 'paper_rules_test.dart' show contrast, paperScreens, piecesOf;
 // Werewolf team's alone; a picked chip is no button; a role's name sits under
 // its portrait; names on the board are quiet tags with a gap between them;
 // progress dots are punched paper that shows.
-
-double _saturation(Color c) => HSLColor.fromColor(c).saturation;
 
 Future<void> _paper(WidgetTester tester, Widget child, {Size? size}) async {
   tester.view.physicalSize = size ?? const Size(800, 1400);
@@ -69,71 +67,11 @@ Future<void> _paper(WidgetTester tester, Widget child, {Size? size}) async {
 double _reach(List<(double, double)> shadows) =>
     shadows.fold(0.0, (m, s) => math.max(m, s.$1));
 
-double _ink(List<(double, double)> shadows) =>
-    shadows.fold(0.0, (sum, s) => sum + s.$2);
-
 void main() {
   group('1. a locked main button is unmistakable, and says why', () {
-    testWidgets('paler, flatter, greyer than the live piece, its words 4.5:1', (
-      tester,
-    ) async {
-      await _paper(
-        tester,
-        Column(
-          children: [
-            PrimaryButton(
-              key: const Key('live'),
-              label: 'Ready',
-              onPressed: () {},
-            ),
-            PrimaryButton.locked(
-              key: const Key('locked'),
-              label: CardCopy.readyLocked,
-              onLockedTap: () {},
-            ),
-            PrimaryButton.locked(
-              key: const Key('slot'),
-              label: NightCopy.chooseNone,
-              onLockedTap: () {},
-              slot: true,
-            ),
-          ],
-        ),
-      );
-      final live = _paperOf(tester, find.byKey(const Key('live')));
-      for (final key in ['locked', 'slot']) {
-        final locked = _paperOf(tester, find.byKey(Key(key)));
-        final lum =
-            locked.fill.computeLuminance() - live.fill.computeLuminance();
-        expect(
-          lum,
-          greaterThanOrEqualTo(0.1),
-          reason: '$key: paler by luminance',
-        );
-        expect(
-          _saturation(locked.fill),
-          lessThanOrEqualTo(_saturation(live.fill) * 0.5),
-          reason: '$key: lower saturation',
-        );
-        expect(
-          _reach(locked.shadows),
-          lessThanOrEqualTo(_reach(live.shadows) * 0.5),
-          reason: '$key: no lift (the shadow falls a short way)',
-        );
-        expect(
-          _ink(locked.shadows),
-          lessThanOrEqualTo(_ink(live.shadows) * 0.6),
-          reason: '$key: a lighter shadow',
-        );
-        expect(locked.shadows, isNotEmpty, reason: '$key: still casts one');
-        final ground = tester.element(find.byKey(Key(key))).ground;
-        expect(
-          contrast(ground.onAccent, locked.fill),
-          greaterThanOrEqualTo(4.5),
-          reason: '$key: its label',
-        );
-      }
-    });
+    // The look of the one locked form (the quietest button there is, lower than
+    // every live button form in luminance and in shadow, its words 4.5:1)
+    // is held in `paper_rules_test.dart`, "locked".
 
     // Every place a main button is locked, and what its label says. A new one
     // must be listed here (the scan below fails until it is), with the words
@@ -246,36 +184,32 @@ void main() {
   });
 
   group('3. red is the Werewolf team\'s alone', () {
-    Set<int> reds(BuildContext context) {
-      final skin = context.skin;
-      final parts = skin.parts;
-      int rgb(Color c) => c.toARGB32() & 0xFFFFFF;
-      final dressed = skin.dressedUp ?? skin;
-      return {
-        rgb(parts.werewolfTag),
-        for (final g in [dressed.night, dressed.day, dressed.paper])
-          for (final c in [g.danger, g.dangerLine, g.dangerText]) rgb(c),
-      };
+    // A hue, not a list of colours: any warm red (a team tag, a danger ink, a
+    // red a component cut for itself) is the Werewolf team's, and only on its
+    // team tag (`TagChip`). A name plate, a card, a rim and a button are never
+    // red, whatever they are made of.
+    bool isRed(Color c) {
+      if (c.a < 0.5) return false;
+      final hsl = HSLColor.fromColor(c);
+      final hue = hsl.hue;
+      return (hue >= 345 || hue <= 18) &&
+          hsl.saturation >= 0.3 &&
+          hsl.lightness >= 0.12 &&
+          hsl.lightness <= 0.8;
     }
 
-    // Who may paint the Werewolf red: the team's tag (a `TagChip`, or the plate
-    // of a role's name on a card, a `TextBacking`). A row or marker of the
-    // Werewolf team is a plain screen's (the count, the results) and is
-    // listed when a paper screen has one.
-    bool teamTag(RenderObject owner) {
-      final creator = owner.debugCreator;
-      if (creator is! DebugCreator) return false;
+    // A team tag is the one place. (The test app's debug banner, Flutter's own
+    // red ribbon, is skipped by its colour below.)
+    bool underTeamTag(Element e) {
       var found = false;
-      creator.element.visitAncestorElements((e) {
-        if (e.widget is TagChip || e.widget is TextBacking) found = true;
+      e.visitAncestorElements((a) {
+        if (a.widget is TagChip) found = true;
         return !found;
       });
       return found;
     }
 
     List<String> redPaint(WidgetTester tester) {
-      final element = tester.element(find.byType(Material).first);
-      final red = reds(element);
       final found = <String>[];
       for (final (call, owner) in paintCallsWithOwner(
         tester.binding.renderViews.first.child!,
@@ -283,19 +217,33 @@ void main() {
         final paint = call.invocation.positionalArguments
             .whereType<Paint>()
             .firstOrNull;
-        if (paint == null || !red.contains(paint.color.toARGB32() & 0xFFFFFF)) {
-          continue;
+        if (paint == null || !isRed(paint.color)) continue;
+        if (paint.color.toARGB32() == 0xA0B71C1C) continue; // the banner
+        final creator = owner.debugCreator;
+        final teamTag =
+            creator is DebugCreator && underTeamTag(creator.element);
+        if (!teamTag) {
+          found.add(
+            '${call.invocation.memberName} ${paint.color} in ${owner.runtimeType}',
+          );
         }
-        if (teamTag(owner)) continue;
-        found.add('${call.invocation.memberName} red in ${owner.runtimeType}');
+      }
+      // And words: a red text is no team tag's.
+      for (final e in tester.allElements) {
+        final w = e.widget;
+        final colour = switch (w) {
+          RichText() => w.text.style?.color,
+          _ => null,
+        };
+        if (colour != null && isRed(colour) && !underTeamTag(e)) {
+          found.add('words in $colour');
+        }
       }
       return found;
     }
 
     for (final entry in paperScreens.entries) {
-      testWidgets('${entry.key}: only a Werewolf tag paints it', (
-        tester,
-      ) async {
+      testWidgets('${entry.key}: only a team tag is red', (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
@@ -304,12 +252,48 @@ void main() {
       });
     }
 
-    testWidgets('the check sees a red card frame', (tester) async {
+    for (final entry in paperSheets.entries) {
+      testWidgets('${entry.key}: only a team tag is red', (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await entry.value.open(tester);
+        expect(redPaint(tester), isEmpty);
+      });
+    }
+
+    testWidgets('the check sees a red card frame, a red plate and red words', (
+      tester,
+    ) async {
       await _paper(
         tester,
         Container(width: 40, height: 40, color: const Color(0xFF6E1D18)),
       );
       expect(redPaint(tester), isNotEmpty);
+      await _paper(
+        tester,
+        // Any red, not only the one the skin names; under a name plate.
+        const TextBacking(
+          fill: Color(0xFFB02A22),
+          child: Text('Minion', style: TextStyle(color: Color(0xFFFFFFFF))),
+        ),
+      );
+      expect(redPaint(tester), isNotEmpty);
+      await _paper(
+        tester,
+        const Text('Wolf', style: TextStyle(color: Color(0xFFD64540))),
+      );
+      expect(redPaint(tester), isNotEmpty);
+    });
+
+    testWidgets('a Werewolf team tag is the one red there is', (tester) async {
+      await _paper(
+        tester,
+        const TagChip.team('Werewolf team', team: TeamId.werewolf),
+      );
+      expect(redPaint(tester), isEmpty);
+      final tag = tester.widget<TiltedPaper>(find.byType(TiltedPaper).first);
+      expect(isRed((tag.decoration as ShapeDecoration).color!), isTrue);
     });
 
     testWidgets('a face-down card\'s rim is indigo, never red', (tester) async {
@@ -323,20 +307,35 @@ void main() {
       );
       expect(redPaint(tester), isEmpty);
     });
+
+    testWidgets('a Minion\'s card reads as no Werewolf\'s: its name is on '
+        'neutral paper', (tester) async {
+      await _paper(
+        tester,
+        const SizedBox(
+          width: 120,
+          height: 180,
+          child: FaceDownCard(
+            size: FaceDownSize.board,
+            cardWidth: 100,
+            face: RoleId.minion,
+          ),
+        ),
+      );
+      expect(redPaint(tester), isEmpty);
+    });
   });
 
   group('4. a picked chip is no button', () {
     test('no picked-chip style equals any button style', () {
       final picked = DressStyle.paper(PaperPart.chipPicked);
-      expect(picked.seal, isTrue);
       for (final button in [PaperPart.primary, PaperPart.scrap]) {
         final b = DressStyle.paper(button);
         expect(
-          (picked.fill, picked.raise, picked.edge, picked.seal),
-          isNot((b.fill, b.raise, b.edge, b.seal)),
+          (picked.fill, picked.raise, picked.edge),
+          isNot((b.fill, b.raise, b.edge)),
           reason: 'a picked chip looks like $button',
         );
-        expect(b.seal, isFalse, reason: 'only a pick wears a seal');
         expect(picked.raise, isNot(b.raise), reason: 'a pick lifts higher');
       }
       final unpicked = DressStyle.paper(PaperPart.chip);
@@ -435,6 +434,8 @@ void main() {
             shadow: Colors.black,
             lean: 0,
             band: 7,
+            drop: 2,
+            castAlpha: 0.5,
           ),
         ),
       );

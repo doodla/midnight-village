@@ -378,20 +378,23 @@ void main() {
     late GroundKind inside;
     await pumpSkinned(
       tester,
-      Builder(
-        builder: (context) => TextButton(
-          onPressed: () => showSkinSheet<void>(
-            context,
-            builder: (_) => SheetScaffold(
-              child: Builder(
-                builder: (context) {
-                  inside = GroundScope.of(context);
-                  return const Text('Troublemaker');
-                },
+      ScreenFrame(
+        ground: GroundKind.night,
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showSkinSheet<void>(
+              context,
+              builder: (_) => SheetScaffold(
+                child: Builder(
+                  builder: (context) {
+                    inside = GroundScope.of(context);
+                    return const Text('Troublemaker');
+                  },
+                ),
               ),
             ),
+            child: const Text('Open'),
           ),
-          child: const Text('Open'),
         ),
       ),
     );

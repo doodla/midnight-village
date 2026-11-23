@@ -29,7 +29,6 @@ class MoodPalette {
     this.sun = const Color(0xFFFFD98E),
     this.dayVignetteInk = const Color(0xFF8A6A88),
     this.dayVignette = 0.26,
-    this.panelShow = 0.62,
     this.poolReach = 80,
     this.poolWide = 2.2,
     this.poolAlpha = 0.62,
@@ -76,9 +75,6 @@ class MoodPalette {
   final Color sun;
   final Color dayVignetteInk;
   final double dayVignette;
-
-  /// How much of a quiet strip's fill shows over the village behind it.
-  final double panelShow;
 
   /// A lantern's pool round a field (`LanternPool`): how far it reaches above
   /// and below the field, how much wider than it, and how warm.

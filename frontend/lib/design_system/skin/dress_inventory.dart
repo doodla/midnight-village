@@ -15,6 +15,7 @@ class PartEntry {
     required this.plain,
     required this.paper,
     this.part,
+    this.built,
   });
 
   /// The component's class (or the family of classes) as screens know it.
@@ -32,6 +33,11 @@ class PartEntry {
 
   /// The kind of paper it is made of (`PaperPiece`), where it is one.
   final PaperPart? part;
+
+  /// The widget classes the parts page builds for it (`paper_components_test`
+  /// finds them in the tree), where they are not its name's words (a family
+  /// `A / B` is each of those words).
+  final List<String>? built;
 }
 
 const inventory = <PartEntry>[
@@ -43,7 +49,7 @@ const inventory = <PartEntry>[
     plain:
         'amber fill, hard offset shadow, ink edge by day; waiting, locked and quiet are a 2 px outline',
     paper:
-        'ready: one amber piece on a darker backing, only its label in it; waiting and locked (the night board\'s "Choose" slot too): the SAME piece dimmed to ochre, its label saying why, still 4.5:1 (one locked form); quiet: a bone scrap; done: words and the paper mark, no paper',
+        'ready: one amber piece on a darker backing, only its label in it; waiting and locked (the night board\'s "Choose" slot too): the quietest piece there is, dark indigo paper barely lifted off the ground with its label saying why (one locked form, 4.5:1); quiet: a bone scrap; done: words and the paper mark, no paper',
   ),
   PartEntry(
     'SecondaryButton',
@@ -80,11 +86,12 @@ const inventory = <PartEntry>[
     part: PaperPart.disc,
     plain: 'two outlined round buttons round the value',
     paper:
-        'two cut paper discs (minus, plus), dimmed at the end of the range; the value on a panel of paper set into the ground',
+        'two cut paper discs (minus, plus), sunk into the panel at the end of the range; the value in a well (paper sunk into the panel, the ground\'s own colour)',
   ),
   PartEntry(
     'HoldRing',
     'teach/hold_cue.dart',
+    built: ['HoldCue'],
     plain: 'a ring that fills while the finger stays down, the word "Hold"',
     paper:
         'a navy paper disc with the word on it; the hold\'s progress an amber paper arc round it, filling clockwise over the same time (filled shapes only, no stroke)',
@@ -92,6 +99,7 @@ const inventory = <PartEntry>[
   PartEntry(
     'HoldToReveal',
     'primitives/hold_to_reveal.dart',
+    built: ['FaceDownCard'],
     plain: 'a focus outline on the cover',
     paper: 'focus lifts the cover (a deeper shadow), no outline',
   ),
@@ -171,7 +179,7 @@ const inventory = <PartEntry>[
     'primitives/role_card.dart',
     plain: 'portrait with a ring (lit or hairline) and a count badge',
     paper:
-        'a mini card cut from paper: deckled, with its shadow while it is in the deck; the count a wax badge on its corner',
+        'a mini card cut from paper. IN the deck: full colour, lifted paper, the paper mark on its corner, the name on a bone tag, a count a wax badge on its lower corner. OUT: lowered paper with no shadow, its colour mostly gone and faded, no mark, the name on the quiet navy tag',
   ),
   PartEntry(
     'Fanned',
@@ -184,7 +192,7 @@ const inventory = <PartEntry>[
     'primitives/face_down_card.dart',
     plain: 'card back in a ring, hard shadow; picked = ring, lift, glow',
     paper:
-        'two cut layers, a red one with the navy one laid on it a rim smaller, both deckled with their shadows (the card back\'s own printed rim and margin left outside, `CardBack.frameInset`); picked = lift, deeper shadow, the paper mark; no glow, no ring; the one hero card on a deckled bone card like the face',
+        'two cut layers, a darker indigo one (never red) with the navy one laid on it a rim smaller, both deckled with their shadows (the card back\'s own printed rim and margin left outside, `CardBack.frameInset`); picked = lift, deeper shadow, the paper mark; no glow, no ring; a face-up card\'s role name on the quiet navy tag (never a team\'s colour); the one hero card on a deckled bone card like the face',
   ),
   PartEntry(
     'PaperCard',
@@ -319,6 +327,7 @@ const inventory = <PartEntry>[
   PartEntry(
     'Waiting',
     'primitives/waiting_sign.dart',
+    built: ['PaperLantern'],
     plain: 'three paper lanterns on cords, lit one after another',
     paper: 'the same',
   ),

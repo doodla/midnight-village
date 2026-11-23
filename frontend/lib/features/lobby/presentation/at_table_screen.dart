@@ -313,27 +313,29 @@ class AtTableView extends StatelessWidget {
     // Back at the table asks first, for host and guest alike, with the
     // host's own "Stay" / "Leave"; a table that is gone goes home. Nothing
     // is asked while a deal or a leave is on its way.
-    return BackHandler(
-      onBack: () {
-        if (lobby.tableClosed) {
-          onGoHome?.call();
-        } else if (!leaving &&
-            !dealing &&
-            lobby.startedGameId == null &&
-            onLeave != null) {
-          unawaited(_confirmLeave(context));
-        }
-      },
-      child: ScreenFrame(
-        ground: GroundKind.night,
-        // Dressed up the village is the mood behind the whole screen, a
-        // lantern lighting the table.
-        mood: MoodKind.lantern,
-        moodLight: MoodLight.high,
-        topArt: roomy && !context.dress.isPaper ? skin.art.table : null,
-        topArtLayout: TopArtLayout.banner,
-        body: Builder(
-          builder: (context) => Column(
+    return ScreenFrame(
+      ground: GroundKind.night,
+      // Dressed up the village is the mood behind the whole screen, a
+      // lantern lighting the table.
+      mood: MoodKind.lantern,
+      moodLight: MoodLight.high,
+      topArt: roomy && !context.dress.isPaper ? skin.art.table : null,
+      topArtLayout: TopArtLayout.banner,
+      body: Builder(
+        // Back asks from a context UNDER the frame (the sheet is lit as the
+        // table is: `showSkinSheet` asserts it).
+        builder: (context) => BackHandler(
+          onBack: () {
+            if (lobby.tableClosed) {
+              onGoHome?.call();
+            } else if (!leaving &&
+                !dealing &&
+                lobby.startedGameId == null &&
+                onLeave != null) {
+              unawaited(_confirmLeave(context));
+            }
+          },
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: roomy ? Space.md : Space.sm,
             children: [
@@ -410,54 +412,54 @@ class AtTableView extends StatelessWidget {
             ],
           ),
         ),
-        actions: [
-          if (lobby.tableClosed)
-            Notice(
-              message: BannerCopy.tableClosed,
-              action: BannerCopy.goHome,
-              onAction: onGoHome,
-            )
-          else if (leaveFailure case final failure?)
-            Notice(
-              message: failure.words,
-              action: failure.canRetry ? BannerCopy.tryAgain : null,
-              onAction: failure.canRetry ? onRetry : null,
-            )
-          else if (notSent)
-            Notice(
-              message: BannerCopy.notSent,
-              action: BannerCopy.tryAgain,
-              onAction: onRetry,
-            )
-          // The button already says it when the table's new verdict agrees.
-          else if (host &&
-              refused != null &&
-              refused != _dealWords() &&
-              DealState.of(lobby) is! DeckDoesNotFit)
-            Notice(message: refused)
-          else if (copied)
-            const Notice(message: BannerCopy.copied),
-          // The host's Leave is a quiet word at the main button's side (it
-          // asks first), so it never floats alone in the empty middle of the
-          // screen.
-          if (host)
-            Builder(
-              builder: (context) => Row(
-                spacing: Space.md,
-                children: [
-                  TextAction(
-                    label: CommonCopy.leave,
-                    busy: leaving,
-                    onPressed: onLeave == null
-                        ? null
-                        : () => unawaited(_confirmLeave(context)),
-                  ),
-                  Expanded(child: _dealButton()),
-                ],
-              ),
-            ),
-        ],
       ),
+      actions: [
+        if (lobby.tableClosed)
+          Notice(
+            message: BannerCopy.tableClosed,
+            action: BannerCopy.goHome,
+            onAction: onGoHome,
+          )
+        else if (leaveFailure case final failure?)
+          Notice(
+            message: failure.words,
+            action: failure.canRetry ? BannerCopy.tryAgain : null,
+            onAction: failure.canRetry ? onRetry : null,
+          )
+        else if (notSent)
+          Notice(
+            message: BannerCopy.notSent,
+            action: BannerCopy.tryAgain,
+            onAction: onRetry,
+          )
+        // The button already says it when the table's new verdict agrees.
+        else if (host &&
+            refused != null &&
+            refused != _dealWords() &&
+            DealState.of(lobby) is! DeckDoesNotFit)
+          Notice(message: refused)
+        else if (copied)
+          const Notice(message: BannerCopy.copied),
+        // The host's Leave is a quiet word at the main button's side (it
+        // asks first), so it never floats alone in the empty middle of the
+        // screen.
+        if (host)
+          Builder(
+            builder: (context) => Row(
+              spacing: Space.md,
+              children: [
+                TextAction(
+                  label: CommonCopy.leave,
+                  busy: leaving,
+                  onPressed: onLeave == null
+                      ? null
+                      : () => unawaited(_confirmLeave(context)),
+                ),
+                Expanded(child: _dealButton()),
+              ],
+            ),
+          ),
+      ],
     );
   }
 

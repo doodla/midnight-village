@@ -223,7 +223,7 @@ class _GlyphButtonState extends State<GlyphButton> {
   /// Dressed up: a bone scrap with the glyph on it; a switch that is on is
   /// lifted and wears the paper mark (never a ring).
   Widget _scrap(BuildContext context, double side, bool enabled) {
-    final ink = PaperPiece.inkOf(context, PaperPart.scrap, enabled: enabled);
+    final ink = PaperPiece.inkOf(context, PaperPart.scrap, locked: !enabled);
     return PaperMarkCorner(
       shown: widget.lit,
       child: SizedBox.square(

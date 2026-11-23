@@ -202,7 +202,7 @@ class _SecondaryButtonState extends State<SecondaryButton> {
     final style = widget.size
         .label(skin.typography)
         .copyWith(
-          color: PaperPiece.inkOf(context, PaperPart.scrap, enabled: enabled),
+          color: PaperPiece.inkOf(context, PaperPart.scrap, locked: !enabled),
         );
     return Semantics(
       button: true,

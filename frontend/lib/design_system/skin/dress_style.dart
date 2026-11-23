@@ -15,15 +15,16 @@ import 'dress.dart';
 /// no pin on a button (pins only where something is pinned to a board: a
 /// notice, a slip, a tag); the primary action is one piece of amber paper on a
 /// darker backing with nothing drawn in it but its label, and when it cannot
-/// act yet it is that SAME piece dimmed to ochre with its label saying why
+/// act yet it is the quietest piece there is (dark indigo paper barely lifted off
+/// the ground, `PaperPiece.lockedPaper`) with its label saying why
 /// (one locked form: "Ready", "Choose a card", "Need 3 players"); a secondary
 /// action is a bone scrap (same material, a lower lift); a quiet action is
 /// plain serif words, no underline; chips and tags are cut-paper tags; picked
 /// and done are the `PaperMark` only; focus is a lifted shadow. A state never
-/// changes the material (`paper_material_test.dart`), and every piece's shadow
+/// changes the material (`paper_rules_test.dart`, "material"), and every piece's shadow
 /// falls away from the screen's one light, with no halo
-/// (`paper_shadow_test.dart`); a piece stands off what it lies on by 1.25:1
-/// and a shadow, its words at 4.5:1 (`paper_separation_test.dart`). `dress_style_test.dart` fails any paper component
+/// (`paper_rules_test.dart`, "one light"); a piece stands off what it lies on by 1.25:1
+/// and a shadow, its words at 4.5:1 (`paper_rules_test.dart`, "separation"). `paper_components_test.dart` fails any paper component
 /// that paints a stroke outside the named allow-list (`Drawn`).
 ///
 /// The plain dress keeps every component's own look exactly as it was (the
@@ -64,6 +65,11 @@ enum PaperPart {
 
   /// A panel of paper laid on the ground (a field, the deck's box).
   panel,
+
+  /// A hole in a panel: paper sunk into it, in the ground's own colour (the
+  /// stepper's value box, an empty seat or slot), so it reads against the
+  /// panel it lies in (1.25:1) and never as the panel's twin.
+  well,
 }
 
 /// What a paper material is made of.
@@ -79,6 +85,13 @@ enum PaperFill {
 
   /// The ground's text colour as paper ("Village" tags).
   ink,
+
+  /// The ground's own colour: a well sunk in a panel.
+  sunk,
+
+  /// The night's navy, whatever ground the piece lies on (a name plate on a
+  /// card's paper place is still the dark, quiet plate).
+  navy,
 }
 
 /// How high a piece lies above what is under it: the elevation of the
@@ -97,7 +110,6 @@ class PartLook {
     this.tilted = true,
     this.round = false,
     this.blob = false,
-    this.seal = false,
   });
 
   final PaperFill fill;
@@ -112,9 +124,6 @@ class PartLook {
 
   /// A drop of wax (a count), not a cut disc.
   final bool blob;
-
-  /// Wears a wax seal over its corner (a picked chip).
-  final bool seal;
 }
 
 /// A part's look in both dresses.
@@ -149,11 +158,7 @@ abstract final class DressStyle {
     ),
     PaperPart.chipPicked: PartDress(
       plain: 'outlined box, ring when selected',
-      paper: PartLook(
-        fill: PaperFill.bone,
-        raise: PaperRaise.lifted,
-        seal: true,
-      ),
+      paper: PartLook(fill: PaperFill.bone, raise: PaperRaise.lifted),
     ),
     PaperPart.tag: PartDress(
       plain: 'flat fill (ink), or an outline for "You"',
@@ -161,7 +166,7 @@ abstract final class DressStyle {
     ),
     PaperPart.nameTag: PartDress(
       plain: 'the name as words, no plate',
-      paper: PartLook(fill: PaperFill.inset, raise: PaperRaise.badge),
+      paper: PartLook(fill: PaperFill.navy, raise: PaperRaise.badge),
     ),
     PaperPart.disc: PartDress(
       plain: 'flat disc, outlined when empty',
@@ -194,6 +199,10 @@ abstract final class DressStyle {
     PaperPart.panel: PartDress(
       plain: '2 px hairline outline, no fill',
       paper: PartLook(fill: PaperFill.inset, raise: PaperRaise.card),
+    ),
+    PaperPart.well: PartDress(
+      plain: 'the value as words in a hairline box, an empty dot outlined',
+      paper: PartLook(fill: PaperFill.sunk, raise: PaperRaise.badge),
     ),
   };
 

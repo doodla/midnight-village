@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
+import 'package:midnight_village/design_system/primitives/screen_frame.dart';
 import 'package:midnight_village/design_system/skin/card_back.dart';
 import 'package:midnight_village/design_system/skin/card_back_scope.dart';
 import 'package:midnight_village/design_system/skin/dress.dart';
@@ -35,13 +36,16 @@ void main() {
           back: back,
           child: WerewolfPortraitScope(
             portrait: wolf,
-            child: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => show(context, (inner) {
-                  seen(inner);
-                  return const SizedBox();
-                }),
-                child: const Text('open'),
+            child: ScreenFrame(
+              ground: GroundKind.day,
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => show(context, (inner) {
+                    seen(inner);
+                    return const SizedBox();
+                  }),
+                  child: const Text('open'),
+                ),
               ),
             ),
           ),

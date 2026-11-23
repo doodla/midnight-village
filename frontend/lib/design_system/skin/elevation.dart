@@ -47,7 +47,7 @@ class HardShadow {
 /// reads as soft with no blur, no layer and no cost per frame (a blur per list
 /// item was ruled out). A copy is only ever MOVED, never grown: a shadow that
 /// is wider than its paper (a spread) shows on the side of the light, an
-/// all-round halo that reads as a border, and `paper_shadow_test.dart` fails
+/// all-round halo that reads as a border, and `paper_rules_test.dart` ("one light") fails
 /// any shadow that has one or that falls toward the light. A press scales the
 /// drop and so shrinks both.
 abstract final class PaperShadow {

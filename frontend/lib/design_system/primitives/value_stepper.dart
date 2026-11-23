@@ -71,7 +71,7 @@ class ValueStepper extends StatelessWidget {
   Widget _backed(BuildContext context, Widget value) => !context.dress.isPaper
       ? value
       : PaperPiece(
-          part: PaperPart.panel,
+          part: PaperPart.well,
           id: #value,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: Space.xxs),
@@ -257,7 +257,11 @@ class _GlyphState extends State<_Glyph> {
                 onHighlightChanged: (v) => setState(() => _pressed = v),
                 child: Icon(
                   widget.icon,
-                  color: PaperPiece.inkOf(context, PaperPart.disc, enabled: on),
+                  color: PaperPiece.inkOf(
+                    context,
+                    PaperPart.disc,
+                    disabled: !on,
+                  ),
                   size: ValueStepper.glyph * Sizes.glyphInDisc,
                 ),
               ),

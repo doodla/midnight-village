@@ -304,7 +304,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     final down = (_pressed && _acts) || widget.busy || _rising;
     // Dressed up every phase but done is a piece of paper (`PaperPiece`): the
     // amber plaque when ready; when it waits or is locked (a slot too) the
-    // SAME plaque dimmed to ochre, its label saying why (one locked form); a
+    // quietest piece (dark indigo, barely lifted: one locked form), its label saying why; a
     // quiet button a bone scrap.
     final onPaper = context.dress.isPaper && widget.phase != ButtonPhase.done;
     final part = widget.phase == ButtonPhase.quiet
@@ -314,7 +314,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         widget.phase == ButtonPhase.waiting ||
         widget.phase == ButtonPhase.locked;
     final ink = onPaper
-        ? PaperPiece.inkOf(context, part)
+        ? PaperPiece.inkOf(context, part, locked: dim)
         : switch (widget.phase) {
             ButtonPhase.ready => ground.onAccent,
             ButtonPhase.waiting => ground.quietText,

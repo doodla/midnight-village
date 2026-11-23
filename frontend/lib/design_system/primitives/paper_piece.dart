@@ -1,10 +1,9 @@
-import 'dart:math' as math;
-
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
 import '../skin/dress_style.dart';
 import '../skin/elevation.dart';
+import '../skin/ground.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
 import 'deckled_paper.dart';
@@ -18,11 +17,12 @@ import 'tilted_paper.dart';
 /// body here and nowhere else.
 ///
 /// States, all the paper's, and none of them changes WHAT the piece is (the
-/// same part, tear, tilt, grain and shadow; `paper_material_test.dart` holds
+/// same part, tear, tilt, grain and shadow; `paper_rules_test.dart`, "material", holds
 /// it): [pressed] sinks it into its shadow, [lifted] (a pick, or keyboard
 /// focus) raises it, [locked] (and [enabled] false, a piece nothing can be
-/// done with) dims its own paper (the amber to ochre) and its words say why,
-/// still at 4.5:1. Only the colour moves.
+/// done with) becomes the one locked paper (dark indigo, barely lifted, the
+/// quietest form of a button: [lockedPaper]) and its words say why, the
+/// ground's own text. Only the colour and the lift move.
 class PaperPiece extends StatelessWidget {
   const PaperPiece({
     super.key,
@@ -68,34 +68,29 @@ class PaperPiece extends StatelessWidget {
             : ground.ground,
       PaperFill.inset => ground.panel,
       PaperFill.ink => ground.text,
+      PaperFill.sunk => ground.ground,
+      PaperFill.navy => context.skin.night.panel,
     };
   }
 
-  /// [fill] as a locked piece's paper: the same paper with most of its colour
-  /// gone and laid toward a pale sand (`PaperParts.lockedSaturation`,
-  /// `lockedPale`), so a locked amber button is clearly lighter and greyer than
-  /// a live one even when none is beside it. Its words stay at 4.5:1 or more
-  /// ([ink]).
-  static Color dimmed(BuildContext context, Color fill, Color ink) {
+  /// A locked piece's paper, whatever it is a piece of: the ground's own
+  /// well (`PaperParts.lockedWell`), dark and quiet, the same on every part.
+  static Color lockedPaper(BuildContext context) {
+    final ground = context.ground;
     final parts = context.skin.parts;
-    final hsl = HSLColor.fromColor(fill);
-    final grey = hsl.withSaturation(hsl.saturation * parts.lockedSaturation);
-    // Pale on a dark ground; on a light one (where pale would not stand off
-    // it) a mid sand, still without its colour.
-    final onLight = context.ground.ground.computeLuminance() > 0.35;
-    final target = onLight ? parts.lockedMid : parts.lockedPale;
-    var t = parts.lockedPaleMix;
-    var out = Color.lerp(grey.toColor(), target, t)!;
-    while (t > 0.02 && _contrast(ink, out) < 4.6) {
-      t -= 0.02;
-      out = Color.lerp(grey.toColor(), target, t)!;
-    }
-    return out;
+    // On a light ground (the day, the paper) the well is no darker than the
+    // amber: the paper is laid toward the ground's ink instead, so a locked
+    // piece is still the darkest button on it.
+    return _light(ground)
+        ? Color.lerp(ground.ground, ground.text, parts.lockedDark)!
+        : Color.lerp(ground.ground, ground.panel, parts.lockedWell)!;
   }
+
+  static bool _light(Ground ground) => ground.ground.computeLuminance() > 0.35;
 
   /// A locked piece lies flat and casts less: no backing under it (the paper's
   /// own thickness is what lifts a live amber piece), and its lift and the ink
-  /// of its shadow are the skin's share of a live piece's.
+  /// of its shadow are the skin's share of a scrap's ([PaperRaise.card]).
   static Elevation flattened(BuildContext context, Elevation live) {
     final parts = context.skin.parts;
     return Elevation([
@@ -111,26 +106,26 @@ class PaperPiece extends StatelessWidget {
     ]);
   }
 
-  static double _contrast(Color a, Color b) {
-    final la = a.computeLuminance();
-    final lb = b.computeLuminance();
-    return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
-  }
-
   /// The ink of the words on [part]'s paper: the paper's own text on bone
-  /// paper (whatever ground it lies on), the ground's elsewhere. A locked
-  /// piece keeps it (its paper is dimmed to hold it, [dimmed]).
+  /// paper (whatever ground it lies on), the ground's elsewhere. A [locked]
+  /// piece (dark paper, [lockedPaper]) and a [disabled] one (sunk into its
+  /// panel) hold the ground's own text (the day's: its light).
   static Color inkOf(
     BuildContext context,
     PaperPart part, {
-    bool enabled = true,
+    bool locked = false,
+    bool disabled = false,
   }) {
     final ground = context.ground;
+    if (locked) return _light(ground) ? ground.ground : ground.text;
+    if (disabled) return ground.text;
     return switch (DressStyle.paper(part).fill) {
       PaperFill.amber => ground.onAccent,
       PaperFill.bone => context.skin.paper.text,
       PaperFill.inset => ground.text,
       PaperFill.ink => ground.ground,
+      PaperFill.sunk => ground.text,
+      PaperFill.navy => context.skin.night.text,
     };
   }
 
@@ -157,9 +152,11 @@ class PaperPiece extends StatelessWidget {
     final rest = _elevation(context, look.raise);
     final raised = lifted ? ground.elevation.selected : rest;
     final flat = locked || !enabled;
-    // A locked piece lies flat and casts less (see [flattened]).
+    // A locked piece lies flat and casts less (see [flattened]), whatever
+    // part it is: one locked form.
+    final low = _elevation(context, PaperRaise.card);
     final shown = flat
-        ? flattened(context, pressed && enabled ? rest.pressed(keep) : rest)
+        ? flattened(context, pressed && enabled ? low.pressed(keep) : low)
         : pressed && enabled
         ? rest.pressed(keep)
         : raised;
@@ -169,7 +166,14 @@ class PaperPiece extends StatelessWidget {
         ? const Offset(0, -Space.xxs)
         : Offset.zero;
     final base = fill ?? fillOf(context, part);
-    final paint = flat ? dimmed(context, base, inkOf(context, part)) : base;
+    // A locked piece is the one quiet form; a disc that cannot be used (a
+    // stepper's end of the range, always on a panel) is sunk into it, the
+    // well's own paper.
+    final paint = locked || (!enabled && !look.round)
+        ? lockedPaper(context)
+        : !enabled
+        ? fillOf(context, PaperPart.well)
+        : base;
     final parts = skin.parts;
     final (depth, step) = switch (look.edge) {
       PaperEdge.standard => (parts.deckleDepth, parts.deckleStep),

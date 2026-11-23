@@ -155,13 +155,16 @@ final List<PartSample> partsCatalogue = [
     PartSample(
       'ValueStepper',
       state,
-      (c) => ValueStepper(
-        value: '5',
-        widest: '10',
-        lowerLabel: 'Fewer',
-        higherLabel: 'More',
-        onLower: state == PartState.locked ? null : () {},
-        onHigher: () {},
+      // On the panel it always lies on (a well is paper sunk into a panel).
+      (c) => OutlinePanel(
+        child: ValueStepper(
+          value: '5',
+          widest: '10',
+          lowerLabel: 'Fewer',
+          higherLabel: 'More',
+          onLower: state == PartState.locked ? null : () {},
+          onHigher: () {},
+        ),
       ),
     ),
   PartSample(
@@ -212,18 +215,27 @@ final List<PartSample> partsCatalogue = [
   PartSample(
     'SeatDot / SlotMark',
     PartState.rest,
+    // Seats lie in the players' panel (wells in it); the slots on the page.
     (c) => Row(
       mainAxisSize: MainAxisSize.min,
       spacing: 6,
       children: [
-        for (final taken in [true, false])
-          SeatDot(
-            taken: taken,
-            side: 18,
-            ink: c.ground.text,
-            outline: c.ground.outline,
-            stroke: 2,
+        OutlinePanel(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 6,
+            children: [
+              for (final taken in [true, false])
+                SeatDot(
+                  taken: taken,
+                  side: 18,
+                  ink: c.ground.text,
+                  outline: c.ground.outline,
+                  stroke: 2,
+                ),
+            ],
           ),
+        ),
         for (final filled in [true, false])
           SlotMark(
             filled: filled,

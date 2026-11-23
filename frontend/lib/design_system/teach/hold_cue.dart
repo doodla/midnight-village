@@ -129,35 +129,42 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
         painter.dispose();
         final drawn = scaler.scale(cue.fontSize!) * fit;
         final showWord = widget.word && drawn >= HoldCue.wordFloor;
-        return ScaleTransition(
-          scale: Tween(
-            begin: 1.0,
-            end: HoldCue.breathScale,
-          ).animate(CurvedAnimation(parent: _breath, curve: Curves.easeInOut)),
-          child: SizedBox.square(
-            dimension: ring,
-            child: context.dress.isPaper
-                ? _paper(context, ring, showWord, cue, fit)
-                : CustomPaint(
-                    painter: HoldRingPainter(
-                      fill: _fill,
-                      veil: night.ground.withValues(alpha: _veil),
-                      track: night.text.withValues(alpha: _track),
-                      ink: night.text,
-                      width: skin.shape.selectedRing,
-                    ),
-                    child: showWord
-                        ? Center(
-                            child: Text(
-                              CommonCopy.hold,
-                              style: cue.copyWith(
-                                color: night.text,
-                                fontSize: cue.fontSize! * fit,
-                              ),
-                            ),
-                          )
-                        : null,
-                  ),
+        // Its own layer: the breathing ring repaints itself, never the paper
+        // round it (`paint_cache_test.dart`).
+        return RepaintBoundary(
+          child: ScaleTransition(
+            scale: Tween(begin: 1.0, end: HoldCue.breathScale).animate(
+              CurvedAnimation(parent: _breath, curve: Curves.easeInOut),
+            ),
+            // The disc itself is one more layer inside it: breathing moves
+            // the layer, it does not paint the disc again.
+            child: RepaintBoundary(
+              child: SizedBox.square(
+                dimension: ring,
+                child: context.dress.isPaper
+                    ? _paper(context, ring, showWord, cue, fit)
+                    : CustomPaint(
+                        painter: HoldRingPainter(
+                          fill: _fill,
+                          veil: night.ground.withValues(alpha: _veil),
+                          track: night.text.withValues(alpha: _track),
+                          ink: night.text,
+                          width: skin.shape.selectedRing,
+                        ),
+                        child: showWord
+                            ? Center(
+                                child: Text(
+                                  CommonCopy.hold,
+                                  style: cue.copyWith(
+                                    color: night.text,
+                                    fontSize: cue.fontSize! * fit,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+              ),
+            ),
           ),
         );
       },
@@ -177,7 +184,8 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
   ) {
     final skin = context.skin;
     final night = skin.night;
-    final band = math.max(3.0, ring * 0.07);
+    final parts = skin.parts;
+    final band = math.max(parts.holdBandLeast, ring * parts.holdBand);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -188,10 +196,12 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
             shadow: night.elevation.badge.layers.first.color,
             lean: PaperLight.of(context),
             band: band,
+            drop: parts.holdDrop,
+            castAlpha: parts.holdArcAlpha,
           ),
         ),
         Padding(
-          padding: EdgeInsets.all(band + 2),
+          padding: EdgeInsets.all(band + parts.holdBandGap),
           child: PaperPiece(
             part: PaperPart.disc,
             id: 'hold',
@@ -278,6 +288,8 @@ class HoldArcPainter extends CustomPainter {
     required this.shadow,
     required this.lean,
     required this.band,
+    required this.drop,
+    required this.castAlpha,
   }) : super(repaint: fill);
 
   final Animation<double> fill;
@@ -285,6 +297,11 @@ class HoldArcPainter extends CustomPainter {
   final Color shadow;
   final double lean;
   final double band;
+
+  /// How far the arc's shadow drops (down; sideways it leans with [lean] by
+  /// as much).
+  final double drop;
+  final double castAlpha;
 
   Path _band(Rect outer, double sweep) {
     final inner = outer.deflate(band);
@@ -298,15 +315,15 @@ class HoldArcPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final outer = Offset.zero & size;
     final full = 2 * math.pi - 0.0001;
-    final drop = Offset(lean * 2, 2);
+    final offset = Offset(lean * drop, drop);
     // No track under the arc: a dark band round the disc read as a stroked
     // inner ring (art director, 23 November 2026). The disc is the disc; only
     // the amber fill is drawn, and only while the finger is down.
     if (fill.value > 0) {
       final arc = _band(outer, math.min(full, 2 * math.pi * fill.value));
       canvas.drawPath(
-        arc.shift(drop),
-        Paint()..color = shadow.withValues(alpha: 0.5),
+        arc.shift(offset),
+        Paint()..color = shadow.withValues(alpha: castAlpha),
       );
       canvas.drawPath(arc, Paint()..color = amber);
     }

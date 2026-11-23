@@ -102,17 +102,39 @@ class DeckleBorder extends ShapeBorder {
     return path;
   }
 
-  @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => _path(rect);
+  /// The paths already cut, by what makes one (the edge's make and the rect):
+  /// a piece whose paper is painted again (a new painter, a clip asked for
+  /// again) is not torn again. A [Path] is only ever read after it is built;
+  /// a caller that moves one ([Path.shift]) gets a copy. Oldest out first.
+  static final _cut = <(int, double, double, bool, bool, bool, Rect), Path>{};
+  static const _cutMost = 512;
+
+  /// How many paths were torn (not found in the cache) since the app began:
+  /// `paint_cache_test.dart` reads it.
+  @visibleForTesting
+  static int tornCount = 0;
+
+  Path _cached(Rect rect) {
+    final key = (seed, depth, step, torn, round, blob, rect);
+    final found = _cut.remove(key);
+    if (found != null) return _cut[key] = found;
+    tornCount++;
+    final path = _path(rect);
+    if (_cut.length >= _cutMost) _cut.remove(_cut.keys.first);
+    return _cut[key] = path;
+  }
 
   @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => _path(rect);
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => _cached(rect);
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => _cached(rect);
 
   @override
   void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
     if (side.style == BorderStyle.none || side.width <= 0) return;
     canvas.drawPath(
-      _path(rect),
+      _cached(rect),
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeJoin = StrokeJoin.round

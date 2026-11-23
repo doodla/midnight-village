@@ -561,6 +561,8 @@ class Tally extends StatelessWidget {
                 ink,
                 // Dressed up each mark is a strip of paper with its shadow.
                 cast: context.dress.isPaper ? context.ground.shadow : null,
+                drop: context.skin.parts.tallyDrop,
+                castAlpha: context.skin.parts.tallyAlpha,
               ),
             ),
           ),
@@ -574,11 +576,21 @@ class Tally extends StatelessWidget {
 /// across them), each stroke drawn downward as it is struck. A hand's cut, so
 /// every stroke leans a little differently, the same each time.
 class TallyMarks extends CustomPainter {
-  TallyMarks(this.progress, this.ink, {this.cast});
+  TallyMarks(
+    this.progress,
+    this.ink, {
+    this.cast,
+    this.drop = 0,
+    this.castAlpha = 0,
+  });
 
   /// The ink the strips of paper cast, where the marks are cut paper (a
   /// dressed screen); null draws the plain strokes, as ever.
   final Color? cast;
+
+  /// How far a cut strip's shadow drops, and its ink (`PaperParts`).
+  final double drop;
+  final double castAlpha;
 
   /// How far each mark is struck, 0 to 1, in order.
   final List<double> progress;
@@ -614,8 +626,8 @@ class TallyMarks extends CustomPainter {
       ..close();
     canvas
       ..drawPath(
-        path.shift(const Offset(0, 1.5)),
-        Paint()..color = shadow.withValues(alpha: 0.4),
+        path.shift(Offset(0, drop)),
+        Paint()..color = shadow.withValues(alpha: castAlpha),
       )
       ..drawPath(path, Paint()..color = ink);
   }

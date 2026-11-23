@@ -610,13 +610,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
               // (`tapExtra`), so a tap is a thumb's height on a small card.
               padding: padding.copyWith(bottom: 0),
               plain: BoxDecoration(
-                // Dressed up the village shows through the strip of centre
-                // cards.
-                color: context.dress.isPaper
-                    ? context.ground.panel.withValues(
-                        alpha: skin.mood.panelShow,
-                      )
-                    : context.ground.panel,
+                color: context.ground.panel,
                 borderRadius: BorderRadius.circular(skin.shape.radius),
               ),
               child: Column(

@@ -36,7 +36,7 @@ class SeatDot extends StatelessWidget {
         child: PaperPiece(
           part: PaperPart.disc,
           id: taken,
-          fill: taken ? ink : context.ground.panel,
+          fill: taken ? ink : PaperPiece.fillOf(context, PaperPart.well),
           child: const SizedBox.expand(),
         ),
       );

@@ -60,6 +60,23 @@ enum TopArtLayout {
   final double veil;
 }
 
+/// Marks everything built under a [ScreenFrame]: the context a sheet or a
+/// dialog is opened from must be under one (`showSkinSheet` asserts it), for
+/// that is where the screen's dress, ground and light are declared. A State's
+/// own `context`, above the frame it builds, is not (it showed a card's sheet
+/// plain on a paper page): open from a widget the frame's body holds, or a
+/// `Builder` in it.
+class FrameMark extends InheritedWidget {
+  const FrameMark({super.key, required super.child});
+
+  /// Whether [context] is under a [ScreenFrame].
+  static bool under(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<FrameMark>() != null;
+
+  @override
+  bool updateShouldNotify(FrameMark old) => false;
+}
+
 /// A whole screen, laid out as a stack (design brief section 3, rule 6): an
 /// optional top (a picture behind the body's start, or a band in
 /// [topSlot]), the [body] (scrolling when it does not fit, with the ground
@@ -174,7 +191,7 @@ class ScreenFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DressScope(
     dress: dress ?? DressScope.of(context),
-    child: Builder(builder: _build),
+    child: FrameMark(child: Builder(builder: _build)),
   );
 
   static MoodKind? _moodOf(GroundKind ground) => switch (ground) {

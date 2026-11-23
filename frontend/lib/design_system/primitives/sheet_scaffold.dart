@@ -23,11 +23,16 @@ import 'screen_frame.dart';
 /// cancels it: a sheet that could be dragged was swept shut by that touch,
 /// and the Back after it then did the screen's Back too (03 went to 02; 02
 /// asked to leave again). A sheet is dressed as the screen it is opened from
-/// is ([DressScope]).
+/// is ([DressScope]), and lit as it is: so it is opened from a context UNDER
+/// the screen's `ScreenFrame` (a widget its body holds, or a `Builder` in it;
+/// asserted, [FrameMark]): a State's own `context` is above the frame and
+/// misses the dress, ground and light it declares (the deck page's card sheet
+/// once came up plain on a paper page).
 Future<T?> showSkinSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
 }) {
+  assert(FrameMark.under(context));
   final scopes = GameScopes.capture(context);
   return showModalBottomSheet<T>(
     context: context,
@@ -52,6 +57,7 @@ Future<T?> showSkinDialog<T>(
   required WidgetBuilder builder,
   bool barrierDismissible = true,
 }) {
+  assert(FrameMark.under(context));
   final scopes = GameScopes.capture(context);
   return showDialog<T>(
     context: context,
