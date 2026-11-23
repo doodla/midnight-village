@@ -14,7 +14,8 @@ import '../skin/skin.dart';
 /// what is tapped, the paper never reaches past its own slot further than half
 /// of the [gap] to a neighbour (the turn and the size are the skin's
 /// (`skin.parts`), taken down only as far as that takes): no pixel of a card
-/// is over the slot of another, so no tap can land on the wrong one. [index] of
+/// is over the slot of another, so no tap can land on the wrong one. Nor does
+/// the paper reach the row above it further than half of [above]. [index] of
 /// [count]. On a plain screen the card is as it is.
 class Fanned extends StatelessWidget {
   const Fanned({
@@ -23,6 +24,7 @@ class Fanned extends StatelessWidget {
     required this.count,
     required this.child,
     this.gap = Space.sm,
+    this.above = Space.sm,
   });
 
   final int index;
@@ -31,6 +33,10 @@ class Fanned extends StatelessWidget {
 
   /// The space the row leaves between two slots.
   final double gap;
+
+  /// The space between this row and the one above it: the paper's lift and
+  /// its turned and enlarged top never reach further up than half of it.
+  final double above;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +49,7 @@ class Fanned extends StatelessWidget {
       scale: parts.fanScale,
       lift: -Space.xs * spread * spread,
       room: gap / 2,
+      roomAbove: above / 2,
       left: index > 0,
       right: index < count - 1,
       child: child,
@@ -56,6 +63,7 @@ class _FanPaint extends SingleChildRenderObjectWidget {
     required this.scale,
     required this.lift,
     required this.room,
+    required this.roomAbove,
     required this.left,
     required this.right,
     required super.child,
@@ -65,12 +73,13 @@ class _FanPaint extends SingleChildRenderObjectWidget {
   final double scale;
   final double lift;
   final double room;
+  final double roomAbove;
   final bool left;
   final bool right;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _FanRender(angle, scale, lift, room, left, right);
+      _FanRender(angle, scale, lift, room, roomAbove, left, right);
 
   @override
   void updateRenderObject(BuildContext context, _FanRender render) {
@@ -79,6 +88,7 @@ class _FanPaint extends SingleChildRenderObjectWidget {
       ..scale = scale
       ..lift = lift
       ..room = room
+      ..roomAbove = roomAbove
       ..left = left
       ..right = right;
   }
@@ -91,6 +101,7 @@ class _FanRender extends RenderProxyBox {
     this._scale,
     this._lift,
     this._room,
+    this._roomAbove,
     this._left,
     this._right,
   );
@@ -99,6 +110,7 @@ class _FanRender extends RenderProxyBox {
   double _scale;
   double _lift;
   double _room;
+  double _roomAbove;
   bool _left;
   bool _right;
 
@@ -106,6 +118,7 @@ class _FanRender extends RenderProxyBox {
   set scale(double v) => _set(_scale, v, () => _scale = v);
   set lift(double v) => _set(_lift, v, () => _lift = v);
   set room(double v) => _set(_room, v, () => _room = v);
+  set roomAbove(double v) => _set(_roomAbove, v, () => _roomAbove = v);
   set left(bool v) => _set(_left, v, () => _left = v);
   set right(bool v) => _set(_right, v, () => _right = v);
 
@@ -135,9 +148,29 @@ class _FanRender extends RenderProxyBox {
     return (-least, most - w);
   }
 
+  /// The lift that is kept: the skin's, never further up than the room above.
+  double get _liftKept => math.max(_lift, -_roomAbove);
+
+  /// How far the paper reaches above the slot's top edge, lift included.
+  double _rise(double w, double h, double scale, double angle) {
+    final cos = math.cos(angle);
+    final sin = math.sin(angle);
+    var top = double.infinity;
+    for (final px in [0.0, w]) {
+      for (final py in [0.0, h]) {
+        final x = (px - w / 2) * scale;
+        final y = h / 2 + (py - h / 2) * scale;
+        top = math.min(top, h + x * sin + (y - h) * cos);
+      }
+    }
+    return -(top + _liftKept);
+  }
+
   bool _fits(double w, double h, double scale, double angle) {
     final (toLeft, toRight) = _reach(w, h, scale, angle);
-    return (!_left || toLeft <= _room) && (!_right || toRight <= _room);
+    return (!_left || toLeft <= _room) &&
+        (!_right || toRight <= _room) &&
+        _rise(w, h, scale, angle) <= _roomAbove + 0.01;
   }
 
   /// The skin's size and turn, taken down until the paper stays within its
@@ -175,7 +208,7 @@ class _FanRender extends RenderProxyBox {
     final h = size.height;
     final (scale, angle) = _fitted(w, h);
     return Matrix4.identity()
-      ..translateByDouble(0, _lift, 0, 1)
+      ..translateByDouble(0, _liftKept, 0, 1)
       ..translateByDouble(w / 2, h, 0, 1)
       ..rotateZ(angle)
       ..translateByDouble(0, -h / 2, 0, 1)

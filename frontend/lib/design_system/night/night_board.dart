@@ -39,10 +39,10 @@ import 'night_pick.dart';
 ///   ([BoardLayout]); in front of them the viewer's own card, "You", on its
 ///   paper place, beside Left, Middle and Right on their strip: the same
 ///   cards, places, lift and button on every phone, whatever the role.
-/// - Holding "You" shows [face] (what this phone may do); the hold ring is
-///   on it only on a device that has never held a face (`hold`: taught once,
-///   on 04).
-///   Nothing waits on the hold; a tap on "You" picks it at once.
+/// - "You" shows the role this phone was dealt, face up ([dealt]); holding it
+///   shows [face] (what this phone may do, and what the night changed). The
+///   hold is taught on 04, not here. Nothing waits on the hold; a tap on "You"
+///   picks it at once.
 /// - A tap selects a card the prompt's rule can take (lift plus the
 ///   selection's outline) and unselects a chosen one; a card it cannot take
 ///   does not select. "You" alone (do nothing) is always a choice. The picks
@@ -60,8 +60,9 @@ import 'night_pick.dart';
 /// - Choose changes what the table can see at once and never waits: see
 ///   [onChoose]. What the server sends back belongs on a held face.
 ///
-/// Hidden information: the role reaches this board only as [face], shown
-/// while held, and the prompt's rule, which only decides what the player's
+/// Hidden information: the role this phone was dealt (which it saw on 04) is
+/// shown face up on "You"; what the night changed reaches the board only as
+/// [face], while held, and the prompt's rule only decides what the player's
 /// own taps select; the board's layout and motion are the same for every role
 /// (test/design_system/night/night_layout_test.dart).
 class NightBoard extends ConsumerStatefulWidget {
@@ -83,6 +84,10 @@ class NightBoard extends ConsumerStatefulWidget {
   /// the seconds on a banner and the mood's own village behind the board
   /// instead of a strip of it.
   final Dress? dress;
+
+  /// The dress the live screen has (`dress` null): the one source the test
+  /// pages and their sweeps read, never a second constant.
+  static const defaultDress = Dress.paper;
 
   final List<NightSeat> seats;
 
@@ -296,7 +301,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   @override
   Widget build(BuildContext context) => DressScope(
-    dress: widget.dress ?? Dress.paper,
+    dress: widget.dress ?? NightBoard.defaultDress,
     child: Builder(builder: _screen),
   );
 

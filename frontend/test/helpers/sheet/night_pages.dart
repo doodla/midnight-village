@@ -149,7 +149,7 @@ class BoardPage extends StatelessWidget {
     this.dress,
   });
 
-  /// How the board is dressed; null: plain.
+  /// How the board is dressed; null: as the live screen (`NightBoard.defaultDress`).
   final Dress? dress;
 
   final Viewer viewer;
@@ -179,7 +179,7 @@ class BoardPage extends StatelessWidget {
         dealt: NightReport.fromMe(me).dealt,
         secondsLeft: secondsLeft,
         share: share,
-        dress: dress ?? Dress.plain,
+        dress: dress,
         onChoose: (_, _) async =>
             fails ? ChooseAnswer.notSent : ChooseAnswer.taken,
       ),

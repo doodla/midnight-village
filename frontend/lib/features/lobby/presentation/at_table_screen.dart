@@ -264,6 +264,10 @@ class AtTableView extends StatelessWidget {
   /// above it).
   final Dress? dress;
 
+  /// The dress the live screen has (`dress` null): the one source the test
+  /// pages and their sweeps read, never a second constant.
+  static const defaultDress = Dress.paper;
+
   final LobbyState lobby;
   final int viewerId;
   final Uri? link;
@@ -289,7 +293,7 @@ class AtTableView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DressScope(
-    dress: dress ?? Dress.paper,
+    dress: dress ?? AtTableView.defaultDress,
     child: Builder(builder: _view),
   );
 

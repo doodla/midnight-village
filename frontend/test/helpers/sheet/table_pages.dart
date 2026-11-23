@@ -58,7 +58,7 @@ class TablePage extends StatelessWidget {
 
   final bool guest;
 
-  /// How the table is dressed; null: plain.
+  /// How the table is dressed; null: as the live screen (`AtTableView.defaultDress`).
   final Dress? dress;
 
   @override
@@ -66,7 +66,7 @@ class TablePage extends StatelessWidget {
     final lobby = _table();
     final viewer = lobby.players[guest ? 1 : 0].id;
     return AtTableView(
-      dress: dress ?? Dress.plain,
+      dress: dress,
       lobby: lobby,
       viewerId: viewer,
       link: _link(lobby),

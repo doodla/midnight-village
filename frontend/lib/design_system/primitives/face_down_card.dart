@@ -14,6 +14,7 @@ import 'art_picture.dart';
 import 'cut_paper.dart';
 import 'paper_mark.dart';
 import 'fit_line.dart';
+import 'hold_to_reveal.dart' show HoldPress;
 import 'player_token.dart';
 import 'text_backing.dart';
 
@@ -153,6 +154,9 @@ class FaceDownCard extends StatefulWidget {
   /// A face-up card's role name sits this far above the token's top.
   static const faceNameLift = Space.xxs;
 
+  /// How far the text size grows a face-up card's role name.
+  static const roleNameScale = 1.6;
+
   /// The hold ring's share of a card back's width.
   static const holdShare = 0.8;
 
@@ -267,7 +271,9 @@ class _FaceDownCardState extends State<FaceDownCard> {
                   padding: EdgeInsets.only(bottom: token / 2),
                   child: card,
                 ),
-                if (widget.face case final role?)
+                // Held, the role's own card is shown over it: its slip would
+                // only peek out from under that.
+                if (widget.face case final role? when !HoldPress.of(context))
                   _roleName(context, role, width, bottom: token),
                 Positioned(
                   left: 0,
@@ -320,10 +326,12 @@ class _FaceDownCardState extends State<FaceDownCard> {
   }
 
   /// A face-up card's role name, on a slip of paper across the card's foot,
-  /// above the owner's token ([bottom] is the token's height). One line at the
-  /// label size (the token's own, whatever the text size), never smaller and
-  /// never cut: the slip is as wide as the word needs, centred on the card and
-  /// reaching past a narrow card's edges (its paper place has room for it).
+  /// above the owner's token ([bottom] is the token's height). One line,
+  /// whole: at the label size with the text size (as far as
+  /// [NightBoard]'s button scale, 1.6), set smaller to fit inside the card
+  /// and never under the reading floor (12 drawn). Only where even that is
+  /// wider than the card (a long name on the smallest card) does the slip
+  /// grow, evenly on both sides, to the word and no further.
   Widget _roleName(
     BuildContext context,
     RoleId role,
@@ -332,17 +340,35 @@ class _FaceDownCardState extends State<FaceDownCard> {
   }) {
     final skin = context.skin;
     final ground = context.ground;
-    final style = skin.typography.caption.copyWith(color: ground.text);
+    final base = skin.typography.caption.copyWith(color: ground.text);
     const padding = EdgeInsets.symmetric(
-      horizontal: Space.xs,
+      horizontal: Space.xxs,
       vertical: Space.xxs,
     );
-    final painter = TextPainter(
-      text: TextSpan(text: role.displayName, style: style),
+    final scale = MediaQuery.textScalerOf(
+      context,
+    ).scale(1).clamp(1.0, FaceDownCard.roleNameScale);
+    var size = base.fontSize! * scale;
+    TextPainter measure(double fontSize) => TextPainter(
+      text: TextSpan(
+        text: role.displayName,
+        style: base.copyWith(fontSize: fontSize),
+      ),
       textDirection: TextDirection.ltr,
-      textScaler: TextScaler.noScaling,
       maxLines: 1,
     )..layout();
+    var painter = measure(size);
+    final room = cardWidth - padding.horizontal;
+    if (painter.width > room) {
+      final fitted = math.max(
+        size * room / painter.width,
+        ReadingFloor.caption,
+      );
+      painter.dispose();
+      size = math.min(size, fitted);
+      painter = measure(size);
+    }
+    final style = base.copyWith(fontSize: size);
     final slip = painter.width.ceilToDouble() + padding.horizontal;
     painter.dispose();
     return Positioned(

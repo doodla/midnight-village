@@ -113,12 +113,12 @@ double _luminance(int pixel) {
 void main() {
   // The board is held to the same composition plain (today's look) and
   // dressed up: the same checks, the same numbers.
-  for (final dress in const [null, Dress.paper]) {
-    group(dress == null ? 'plain' : 'paper dress', () => _checks(dress));
+  for (final dress in const [Dress.plain, Dress.paper]) {
+    group(dress == Dress.plain ? 'plain' : 'paper dress', () => _checks(dress));
   }
 }
 
-void _checks(Dress? dress) {
+void _checks(Dress dress) {
   for (final phone in _phones) {
     for (final scale in const [1.0, 2.0]) {
       testWidgets('no dead band on a ${phone.width.round()} x '
@@ -309,7 +309,7 @@ void _checks(Dress? dress) {
   group('the village behind the title', () {
     // The strip of village is the plain look's; a dressed screen has the mood.
     void plainOnly(String name, Future<void> Function(WidgetTester) body) {
-      if (dress == null) testWidgets(name, body);
+      if (dress == Dress.plain) testWidgets(name, body);
     }
 
     // The strip is the plain look's: a dressed screen has the mood.
@@ -560,7 +560,7 @@ void _checks(Dress? dress) {
       );
     });
 
-    if (dress != null) {
+    if (dress.isPaper) {
       testWidgets('the village is the screen\'s own mood behind the board, '
           'not a strip of its own; the title and the seconds sit on one '
           'paper banner whose words keep the page margin', (tester) async {

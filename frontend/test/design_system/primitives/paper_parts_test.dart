@@ -17,6 +17,7 @@ import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
 import 'package:midnight_village/design_system/primitives/tilted_paper.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
@@ -442,6 +443,81 @@ void main() {
             }
           }
         }
+      }
+    });
+
+    testWidgets('no pixel of a fanned card reaches the row above it further '
+        'than half the space between them', (tester) async {
+      for (final (count, width, above) in [
+        (3, 90.0, 8.0),
+        (5, 52.0, 8.0),
+        (7, 30.0, 8.0),
+        (4, 70.0, 4.0),
+      ]) {
+        await tester.pumpWidget(const SizedBox());
+        await _pump(
+          tester,
+          Row(
+            spacing: 8,
+            children: [
+              for (var i = 0; i < count; i++)
+                SizedBox(
+                  width: width,
+                  height: width * 4 / 3,
+                  child: Fanned(
+                    index: i,
+                    count: count,
+                    above: above,
+                    child: const ColoredBox(color: Colors.white),
+                  ),
+                ),
+            ],
+          ),
+          dress: Dress.paper,
+        );
+        for (var i = 0; i < count; i++) {
+          final box = tester.renderObject<RenderBox>(
+            find.descendant(
+              of: find.byType(Fanned).at(i),
+              matching: find.byType(ColoredBox),
+            ),
+          );
+          final slot = tester.getRect(find.byType(Fanned).at(i));
+          for (final p in [Offset.zero, Offset(box.size.width, 0)]) {
+            expect(
+              box.localToGlobal(p).dy,
+              greaterThanOrEqualTo(slot.top - above / 2 - 0.01),
+              reason: 'card $i of $count (above $above)',
+            );
+          }
+        }
+      }
+    });
+
+    testWidgets('a tap in the gap above the table\'s fan opens no card', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            theme: skinTheme(_skin),
+            builder: (context, child) =>
+                GroundScope(ground: GroundKind.night, child: child!),
+            home: const TablePage(dress: Dress.paper),
+          ),
+        ),
+      );
+      await tester.pump();
+      final first = tester.getRect(find.byType(Fanned).first);
+      for (final dx in [0.2, 0.5, 0.8]) {
+        await tester.tapAt(
+          Offset(first.left + first.width * dx, first.top - Space.xs),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(RoleSheetBody), findsNothing, reason: 'at $dx');
       }
     });
 
