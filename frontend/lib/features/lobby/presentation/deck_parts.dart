@@ -1,7 +1,9 @@
 part of 'deck_screen.dart';
 
-// The pieces 03 is built from: the players stepper, the count, the lengths, the chips
-// and the grid of cards. Part of deck_screen.dart.
+// The pieces 03 is built from: the players stepper, the count (`DeckCount`, with
+// `deckFixWords`, which 02's button uses too), the lengths, the chips and the grid of
+// cards; and `showRoleSheet`, 03b: a card's details, which 02 opens too.
+// Part of deck_screen.dart.
 
 /// How many players the game is for: a stepper over the server's range
 /// ([range]: never below who is here, never above what the table holds);
