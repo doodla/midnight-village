@@ -53,6 +53,12 @@ test-guardrails:
     python3 -m unittest discover -s .claude/guardrails/tests
     .claude/hooks/test_gate_routing.sh
 
+# When the change has a migration: the previous build's own tests on a database built by
+# this change's migrations (the live server migrates while the previous build serves).
+# Does nothing without a migration. GitHub runs it in "Backend Checks".
+previous-build-check *args:
+    @tool/previous_build_check.sh {{args}}
+
 # While building: the fast checks and only the tests this change can reach
 # (tool/piece_check.py; `just piece-check --list` prints the plan). GitHub runs everything.
 piece-check *args:
