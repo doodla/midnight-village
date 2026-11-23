@@ -26,9 +26,9 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 5. **Where rules are stated.** Rules appear only in the role text (cards and 03b) and on the night face of "You". Every other screen states facts only, for example "Nobody got 2 or more votes."
 6. **Gestures are never explained in text.** The only exception is the one-word cue "Hold".
 7. **Reading floor.**
-   - 16 px minimum, at text scale 1.0, for anything a player must read in order to act.
-   - 14 px minimum for captions under cards and tokens.
-   - Contrast of at least 4.5:1; words that say something true or are read to follow the game ("✓ Nothing to do", "✓ Locked", every count, "Now" and "Dealt" on 10, the night on 11, a quiet "Leave") in full ink, not the quiet one (playtest, 21 November 2026: "small and pale"). Counts are set larger than body text (17, bold).
+   - 14 px minimum, at text scale 1.0, for anything a player must read in order to act (body, buttons at 15, names at 16). Set by the owner on 23 November 2026 ("Tight sizes, but keep the serif names"; was 16).
+   - 12 px minimum for small labels: captions under cards and tokens, tags, badges (was 14, same decision).
+   - Contrast of at least 4.5:1; words that say something true or are read to follow the game ("✓ Nothing to do", "✓ Locked", every count, "Now" and "Dealt" on 10, the night on 11, a quiet "Leave") in full ink, not the quiet one (playtest, 21 November 2026: "small and pale"). Counts are set a step larger than body text (15, bold).
    - No uppercase, letter-spaced micro-labels on player screens.
    - `just screens 390 strict` fails on any breach.
 8. **No naming in progress.** No copy names a player in connection with presence, progress, readiness, or a vote before the count. Progress is shown as "{d} of {n}" with plain pips: no tokens, no names.
@@ -468,7 +468,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 | §4.7: "Hides by itself" | Hold, a 5 s cap, and Done after a 0.8 s reveal and 4 s. |
 | §4.8 My night: "You slept through the night." and lit tokens | "You slept." and plain pips. |
 | §4.10: voters as tokens | Voters by name. |
-| §4 type scale: "labels 12 uppercase, body 15 to 17" | 16 px for anything a player must read to act; 14 px for captions; no uppercase tracked labels on player screens. |
+| §4 type scale: "labels 12 uppercase, body 15 to 17" | Body 14, buttons 15, names 16, labels 12 (the owner's choice of 23 November 2026, `docs/design/type-audit.md`); no uppercase tracked labels on player screens. |
 | §4: pace "Double" | "Copy". Normal Copy becomes 15 s. |
 | §5.2: Werewolves and Masons may see their team when the window opens | Team shown only at 07. |
 | §4.3: "Suggested decks" | The chips above, built by the server. |

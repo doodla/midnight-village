@@ -9,38 +9,39 @@ import 'fit_line.dart';
 import 'player_token.dart';
 import 'you_tag.dart';
 
-/// [PlayerRow]'s sizes, from the mocks.
+/// [PlayerRow]'s sizes: the mocks' rows, shrunk to the one name size (16,
+/// `type.name`; the owner's type choice of 23 November 2026). A row that is
+/// tapped (the vote's) is never under 48 tall.
 enum PlayerRowSize {
-  /// At the table (S02): 46 tall, a 32 token, the name at 18 (or the
-  /// [PlayerNameSize] above it).
+  /// At the table (S02): 38 tall, a 26 token (or the [PlayerNameSize] above
+  /// it for the name).
   lobby(
-    height: 46,
+    height: 38,
     token: TokenSize.lobby,
     gap: Space.smPlus,
     endPadding: Space.smPlus,
-    nameSize: 18,
   ),
 
-  /// The vote's compact fallback (S09): 52 tall, a 38 token, the name at 21.
+  /// The vote's compact fallback (S09): 48 tall, a 32 token.
   compact(
-    height: 52,
+    height: 48,
     token: TokenSize.row,
     gap: Space.md,
     endPadding: Space.md,
   ),
 
-  /// In the vote (S09): 68 tall, a 52 token, the name at 26.
+  /// In the vote (S09): 52 tall, a 38 token.
   large(
-    height: 68,
+    height: 52,
     token: TokenSize.vote,
     gap: Space.mdPlus,
     endPadding: Space.lg,
   ),
 
-  /// In the count (S10): 64 tall, a 48 token, the name at 24, the voters'
-  /// names under it and a [Tally] at the end.
+  /// In the count (S10): 52 tall, a 34 token, the voters' names under the
+  /// name and a [Tally] at the end.
   count(
-    height: 64,
+    height: 52,
     token: TokenSize.count,
     gap: Space.md,
     endPadding: Space.mdPlus,
@@ -51,9 +52,9 @@ enum PlayerRowSize {
     required this.token,
     required this.gap,
     required this.endPadding,
-    this.nameSize,
   });
 
+  /// The row's least height; it grows with larger text.
   final double height;
   final TokenSize token;
 
@@ -63,15 +64,8 @@ enum PlayerRowSize {
   /// After the trailing part.
   final double endPadding;
 
-  /// The name's size where it is not a role's own ([lobby]).
-  final double? nameSize;
-
-  TextStyle nameStyle(SkinType type) => switch (this) {
-    lobby => type.name.copyWith(fontSize: nameSize),
-    compact => type.name,
-    large => type.title,
-    count => type.heading,
-  };
+  /// A player's name is one role in every row.
+  TextStyle nameStyle(SkinType type) => type.name;
 }
 
 /// One name size for every [PlayerRowSize.lobby] row below it: the table's

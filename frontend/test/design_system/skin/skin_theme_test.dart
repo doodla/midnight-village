@@ -79,13 +79,13 @@ void main() {
           expect(style.fontFamily, type.buttonLabel.fontFamily);
           expect(
             tester.getSize(find.byType(FilledButton)).height,
-            greaterThanOrEqualTo(56),
+            greaterThanOrEqualTo(48),
           );
         }
         for (final secondary in ['Leave', 'Change']) {
           final style = _drawnStyle(tester, secondary);
-          expect(style.fontSize, type.action.fontSize, reason: secondary);
-          expect(style.fontWeight, type.action.fontWeight);
+          expect(style.fontSize, type.buttonLabel.fontSize, reason: secondary);
+          expect(style.fontWeight, type.buttonLabel.fontWeight);
         }
       });
 

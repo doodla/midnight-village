@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/candle_gauge.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
@@ -229,8 +230,8 @@ void main() {
       }
     });
 
-    testWidgets('the number is no bigger than it was in the thumbnail’s '
-        'unit, and nothing shifts as the digits change', (tester) async {
+    testWidgets('the number is the one timer style, and nothing shifts as '
+        'the digits change', (tester) async {
       final sizes = <double>[];
       final candleLefts = <double>[];
       for (final seconds in [30, 14, 9, 1, 0]) {
@@ -240,8 +241,8 @@ void main() {
           WorldTimer.candleCompact(
             secondsLeft: seconds,
             share: seconds / 30,
-            candleHeight: 90,
-            lineHeight: 36,
+            candleHeight: 64,
+            lineHeight: 64,
           ),
         );
         sizes.add(
@@ -252,36 +253,36 @@ void main() {
         );
         candleLefts.add(tester.getTopLeft(find.byType(CandleGauge)).dx);
       }
-      // The old unit drew the number at 34 x 46 / 58 = 27 px.
-      expect(sizes.toSet(), {
-        _skin.typography.timerCompact.fontSize! * WorldTimer.cornerNumberScale,
-      });
-      expect(sizes.first, lessThanOrEqualTo(27.5));
+      // The night's number is the skin's `timerSmall`, the style 05 draws.
+      expect(sizes.toSet(), {_skin.typography.timerSmall.fontSize!});
       expect(candleLefts.toSet(), hasLength(1), reason: '$candleLefts');
     });
 
-    testWidgets('the number sits level with the title’s first line and the '
-        'candle stands from the unit’s top', (tester) async {
+    testWidgets('the number is centred in its line, level with the candle '
+        'standing beside it', (tester) async {
       await _pump(
         tester,
         const WorldTimer.candleCompact(
           secondsLeft: 14,
           share: 0.6,
-          candleHeight: 100,
-          lineHeight: 36,
-          lift: 14,
+          candleHeight: 64,
+          lineHeight: 70,
         ),
       );
-      final unit = tester.getTopLeft(find.byType(WorldTimer));
-      expect(tester.getTopLeft(find.byType(CandleGauge)).dy, unit.dy);
-      final number = tester.getRect(find.text('14 s'));
-      // Inside the first line's box, 14 px under the unit's top.
-      expect(number.top, greaterThanOrEqualTo(unit.dy + 14));
-      expect(number.bottom, lessThanOrEqualTo(unit.dy + 14 + 36 + 0.5));
+      final unit = tester.getRect(find.byType(WorldTimer));
+      expect(unit.height, 70);
+      expect(
+        tester.getCenter(find.text('14 s')).dy,
+        closeTo(unit.center.dy, 0.5),
+      );
+      expect(
+        tester.getCenter(find.byType(CandleGauge)).dy,
+        closeTo(unit.center.dy, 0.5),
+      );
     });
 
     testWidgets('the number stands to the left of the candle with a clear gap '
-        '(at least the width of its "s") from the wax, the dish and the '
+        '(at least `Space.xs`) from the wax, the dish and the '
         'flame, full candle or stub, at every form of the clock', (
       tester,
     ) async {
@@ -299,34 +300,22 @@ void main() {
             secondsLeft: seconds,
             share: share,
             candleHeight: 88,
-            lineHeight: 36,
-            lift: 6,
+            lineHeight: 88,
           ),
         );
         final number = tester.getRect(find.text(WorldTimer.format(seconds)));
         final candle = tester.getRect(find.byType(CandleGauge));
-        final s = TextPainter(
-          text: TextSpan(
-            text: 's',
-            style: _skin.typography.timerCompact.copyWith(
-              fontSize:
-                  _skin.typography.timerCompact.fontSize! *
-                  WorldTimer.cornerNumberScale,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
         // Where the picture's own paper starts: the dish, the widest part.
         final art = _skin.art.candleCut;
         final scale = 88 / art.view.height;
         final dish = candle.left + (art.holder.at.dx - art.view.left) * scale;
         expect(
           dish - number.right,
-          greaterThanOrEqualTo(s.width - 0.5),
+          greaterThanOrEqualTo(Space.xs),
           reason: '${WorldTimer.format(seconds)}: the gap to the dish',
         );
         final wax = tester.getRect(find.byKey(const ValueKey(CandlePart.wax)));
-        expect(wax.left - number.right, greaterThanOrEqualTo(s.width));
+        expect(wax.left - number.right, greaterThanOrEqualTo(Space.sm));
         expect(
           number.right,
           lessThanOrEqualTo(candle.left),

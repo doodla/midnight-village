@@ -6,10 +6,17 @@ no literal size, colour, font or radius. Each mock is rebuilt this way in
 `frontend/test/helpers/component_sheet.dart` (pages `join` to `results`); `just screens` puts each
 next to its mock, and the contrast and fit tests measure them.
 
+**Type sizes are the owner's scale, not the mocks'** (choice of 23 November 2026,
+`type-audit.md`): a number in a mock is never copied; a role is converted at its cap (names 16,
+screen questions 24, headings 20, body 14, buttons 15, labels 12; the timers and the role on your
+own card keep the mock's size), and the rows, tokens and buttons that carry them shrink to
+fit (rows 38 to 52, buttons 48). Where a row below still quotes a mock's size, the primitive
+rules.
+
 **The first-time play spec (`docs/specs/frontend/first-time-play.md`) wins over the mocks.** Rows
 it changed say so: its copy (every word is in `lib/design_system/copy/copy.dart`), the amber rule
 (one amber fill per screen, the primary button, ink-edged by day; a selection is lift plus an
-outline, never amber or a fill), the reading floor (16 px to act, 14 px captions, no uppercase
+outline, never amber or a fill), the reading floor (14 px to act, 12 px labels, buttons 15, no uppercase
 tracked labels: the `label` and `micro` roles and `SectionLabel` are gone), plain progress pips,
 the held face (`HeldFace`: every secret in one frame, a similar size, the whole role card
 with its portrait in colour), the one night board (`NightBoard`, reading the server's prompt
@@ -58,7 +65,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | "Table code" 12/700 +0.14em, paper quiet | **Cut** by the first-time play spec ("Table code"); the code is printed under the QR, in `type.code` |
 | "K7QX4M" 46, +0.08em | `FitLine` in `type.heroCode` (hero line) |
 | "At the table · 5 players" | **Cut** by the first-time play spec ("At the table", "5 players") |
-| Player row: 52 tall, radius 26/6, padding 0 12 0 8, gap 12, 3,3 shadow, Gloock 21 | `PlayerRow(size: PlayerRowSize.lobby)`: 46 tall, a 32 token, gap and end padding 10, the name in `type.name` at 18; two to a line, every name at one size (`PlayerNameSize`: the size the longest word fits at, never under the reading floor 16, else one row each); rows `Space.sm` (8) apart (the owner, 22 November 2026: names too big; `compact` keeps the mock's size for the vote's fallback) (`elevation.card`, `shape.rowLeadRoundness`) |
+| Player row: 52 tall, radius 26/6, padding 0 12 0 8, gap 12, 3,3 shadow, Gloock 21 | `PlayerRow(size: PlayerRowSize.lobby)`: 38 tall, a 26 token, gap and end padding 10, the name in `type.name` at 16 (the serif); two to a line, every name at one size (`PlayerNameSize`: the size the longest word fits at, never under the reading floor 14, else one row each); rows `Space.sm` (8) apart (the owner, 22 and 23 November 2026: names too big) (`elevation.card`, `shape.rowLeadRoundness`) |
 | Token 38, ring 2 indigo | `PlayerToken` at `TokenSize.lobby` (32; `TokenSize.row`, 38, stays for the vote's fallback); ring `shape.ring` in the row's ink |
 | "Host · you" 12/700 +0.14em paper quiet | **Cut** by the first-time play spec ("Host · You"); your own row is `PlayerRow(own: true)`, a thicker ink outline |
 | Deck link: outline 2 px hairline, padding 10/12, radius 6 | `OutlinePanel(onTap: ...)` |
@@ -142,13 +149,13 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | "Your turn" 12/700 +0.14em quiet | **Cut** by the first-time play spec ("Your turn") |
 | "Seer" Gloock 26 lh 1.1 | **Cut**: the board's headline is "The village sleeps" on every phone (`type.screenTitle`, `FitWords`); the role is on the held face of "You" |
 | Header gap 10 | `Space.smPlus` |
-| Corner timer: candle 44 x 58 with hairline ring, gap 10, "14" 34 lh 1, "s" 13/700 quiet at 3 | `WorldTimer.candleCompact` (`CandleGauge`: the candle picture's paper candle cut into sprites, standing from above the title's top to below its foot on a ledge, its wax and flame shrinking with the window one step a second; `type.timerCompact` at 0.8, level with the title's first line; pass 2 of #28 replaced the 44 x 58 thumbnail); the "s" is cut. Beside it the title on one line (`FitWords(maxLines: 1)`, set smaller only where it must); the board's words grow with the text size to `NightBoard.labelScale` (1.3) |
+| Corner timer: candle 44 x 58 with hairline ring, gap 10, "14" 34 lh 1, "s" 13/700 quiet at 3 | `WorldTimer.candleCompact` (`CandleGauge`: the candle picture's paper candle cut into sprites, standing from above the title's top to below its foot on a ledge, its wax and flame shrinking with the window one step a second, standing beside the number as high as its line; the number is `type.timerSmall`, the one timer style (64, the unit at a share of it: `ClockFigure`), centred in the header's line; pass 2 of #28 replaced the 44 x 58 thumbnail). Beside it the title on two lines at most at the question token (`FitWords(maxLines: 2, noWidow: true)`, set smaller only where it must); the board's words grow with the text size to `NightBoard.labelScale` (1.3) |
 | Prompt 26 lh 1.15, margin-top 4 | **Cut**: what this phone may do is on the held face of "You" (the `hold` ring is on it only on a device that has never held a face) |
 | Player cards 78 x 106, radius 6, ring 2 hairline, 0 4 deep; margin-top 14 | `FaceDownCard(owner:, ownerName:)` (`elevation.lying`), placed by `BoardLayout`: balanced rows, never one card alone on a row (but at three others, the pair with a centred third, where that fills a tall phone), the largest cards that keep every name at its floor and every row on screen, up to `BoardLayout.largest` (the cards use the height the phone gives them; the mock's 96 is a full table's size); columns as wide as a card and `Space.lg`, or the widest name; `Space.sm` between columns, `Space.lg` between rows |
 | Picked card: ring 3 amber, 0 8 deep, up 8 | `selected: true`: lifts `Space.sm` and takes `ground.selection` (bone) at `shape.selectedRing`, a soft bone glow (`elevation.glow`) and the deeper hard shadow; a finger dips it `FaceDownCard.dip` the frame it lands; never amber or a fill |
 | Mark disc 40 amber at top 38, eye icon 26, 0 2 deep | **Cut** by the first-time play spec: the mark said what a pick would do, which tells the role |
 | Owner token 36 overlapping by 18, ring bone (amber when picked) | `TokenSize.card`, placed by `FaceDownCard`; smaller on a small card (`ownerTokenShare` of its width) |
-| Name Gloock 18 at 4, amber when picked | `type.nameSmall`, `ground.text` (the name does not change when picked); every name on the board at one size, the largest that fits every column (on two lines between words where it must; never below 14 px drawn while a split allows it), never cut |
+| Name Gloock 18 at 4, amber when picked | `type.nameSmall`, `ground.text` (the name does not change when picked); every name on the board at one size, the largest that fits every column (on two lines between words where it must; never below 14 px drawn while a split allows it (`nameSmall` is 14)), never cut |
 | (not in the mock) the viewer's own card | **Added**: not among the seats but in front of them, at the left of the band above the button: `FaceDownCard(owner:, ownerName: "You")` on a `PaperCard` (paper ground: ink name, ink ring when picked), one size with the table's cards (`BoardLayout.bandCard`); its first-game cue is `HoldCue`, a plain ring with "Hold" in it that breathes and fills while held (no thumbprint) |
 | Rule 2 px hairline, margin-top 6, padding-top 14 | A strip of the table instead, beside "You" in the band: `ground.panel`, `shape.radius`, `Space.md` above and below, `Space.sm` beside; `Space.xl` under the seats, with what is to spare split half above the seats and half above the band; the board never scrolls (`ScreenFrame(fitsHeight: true)`) |
 | "Center" centred label | Back (issue 37: the titles say "center cards", so the word is on the board): a `caption` line in full ink at the top of the strip, `NightCopy.centerLabel` (the Seer's board: "2 center cards", with "1 player" over the seats and a rule with "or" above the band, owner's choice 22 Nov 2026), the place leaving the same room above its card so the four cards sit level; Left, Middle and Right follow the players on the same board |

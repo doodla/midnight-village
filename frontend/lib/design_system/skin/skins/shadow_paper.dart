@@ -192,39 +192,43 @@ TextStyle _figtree(
   letterSpacing: em * size,
 );
 
+// The type scale: the owner's choice of 23 November 2026 ("Tight sizes, but keep
+// the serif names"; `docs/design/type-audit.md`). Names 16, screen questions
+// 24, body 14, buttons 15, labels 12; nine sizes besides the timers and the
+// role on a held face, which stay as big as the mocks drew them (they are read
+// across the table). A mock's bigger number is never copied: the cap per role
+// is in `test/design_system/skin/type_guard_test.dart`. Names stay in the
+// display serif (the paper's voice); buttons and small text are the text face.
 final _type = SkinType(
-  heroTitle: _gloock(46, height: 1, em: -0.02), // S01
-  heroCode: _gloock(46, height: 1, em: 0.08), // S02
-  heroVerdict: _gloock(44, height: 0.95, em: -0.01), // S10
-  heroWinner: _gloock(40, height: 0.95, em: -0.01), // S11 (the picture)
-  // S04's 58, to the hero scale's top.
-  heroRole: _gloock(46, height: 0.9, em: -0.02), // S04
-  display: _gloock(36, height: 0.95, em: -0.01), // S07, S10
-  screenTitle: _gloock(34, height: 1.05, em: -0.01), // S05, S09
-  headline: _gloock(32, height: 1, em: -0.01), // S03, S03b
-  title: _gloock(26, height: 1.15, em: -0.01), // S06, S09
-  tally: _gloock(28, height: 1), // S10
-  heading: _gloock(24, height: 1), // S03 pace, S08, S10 names
-  name: _gloock(21, height: 1.1), // S02
-  nameSmall: _gloock(18, height: 1.1), // S06
-  buttonLabelLarge: _gloock(21, height: 1), // S01, S04
-  buttonLabel: _gloock(20, height: 1),
-  buttonLabelSmall: _gloock(19, height: 1), // S01 Join, S03b Close
+  heroTitle: _gloock(36, height: 1, em: -0.02), // S01 (mock 46)
+  heroCode: _gloock(28, height: 1, em: 0.08), // S02 (mock 46)
+  heroVerdict: _gloock(32, height: 0.95, em: -0.01), // S10 (mock 44)
+  heroWinner: _gloock(32, height: 0.95, em: -0.01), // S11 (mock 40)
+  heroRole: _gloock(46, height: 0.9, em: -0.02), // S04 (mock 58): your own card
+  display: _gloock(28, height: 0.95, em: -0.01), // S07, S10 (mock 36)
+  screenTitle: _gloock(24, height: 1.05, em: -0.01), // S05, S09 (mock 34)
+  headline: _gloock(24, height: 1.05, em: -0.01), // S03, S03b (mock 32)
+  title: _gloock(20, height: 1.15, em: -0.01), // S06, S09 (mock 26)
+  tally: _gloock(20, height: 1), // S10 (mock 28)
+  heading: _gloock(20, height: 1), // S03 pace, S08 (mock 24)
+  name: _gloock(16, height: 1.1), // every player's name (mocks 18 to 26)
+  nameSmall: _gloock(14, height: 1.1), // S06 under a card (mock 18)
+  buttonLabelLarge: _figtree(15, FontWeight.w700, height: 1.1), // mock 21
+  buttonLabel: _figtree(15, FontWeight.w700, height: 1.1), // mock 20
+  buttonLabelSmall: _figtree(15, FontWeight.w700, height: 1.1), // mock 19
   timer: _gloock(84, height: 0.9, em: -0.02), // S08
   timerVote: _gloock(76, height: 0.9, em: -0.02), // S09
-  timerSmall: _gloock(64, height: 1), // S05
-  timerCompact: _gloock(34, height: 1), // S06
-  bodyLarge: _figtree(17, FontWeight.w500, height: 1.35),
-  lede: _figtree(16, FontWeight.w500, height: 1.3), // S01
-  // The reading floor (first-time play spec, copy rule 7): 16 for what a
-  // player reads to act (the mocks' 15), 14 for captions (their 12 and 13).
-  body: _figtree(16, FontWeight.w600, height: 1.35),
-  action: _figtree(16, FontWeight.w700, height: 1.2),
-  code: _figtree(17, FontWeight.w700, height: 1.2, em: 0.12), // S01
-  cue: _figtree(20, FontWeight.w700, height: 1.2),
-  caption: _figtree(14, FontWeight.w600, height: 1.3),
-  tag: _figtree(14, FontWeight.w700, height: 1.2),
-  badge: _figtree(14, FontWeight.w700, height: 1.2),
+  timerSmall: _gloock(64, height: 1), // S05, S06
+  bodyLarge: _figtree(15, FontWeight.w500, height: 1.35),
+  bodyStrong: _figtree(15, FontWeight.w700, height: 1.35),
+  lede: _figtree(14, FontWeight.w500, height: 1.3), // S01
+  body: _figtree(14, FontWeight.w600, height: 1.35),
+  action: _figtree(14, FontWeight.w700, height: 1.2),
+  code: _figtree(15, FontWeight.w700, height: 1.2, em: 0.12), // S01
+  cue: _figtree(16, FontWeight.w700, height: 1.2),
+  caption: _figtree(12, FontWeight.w600, height: 1.3),
+  tag: _figtree(12, FontWeight.w700, height: 1.2),
+  badge: _figtree(12, FontWeight.w700, height: 1.2),
 );
 
 // The candle's cuts (tool/candle/cut_candle.py prints these), on a canvas of

@@ -9,17 +9,18 @@ import 'cut_paper.dart';
 import 'fit_line.dart';
 import 'secondary_button.dart' show BusyMark;
 
-/// The mocks' button sizes.
+/// The mocks' button sizes, shrunk with the type (the owner's type choice of
+/// 23 November 2026); a touch target is never under 48.
 enum ButtonSize {
-  /// The screen's one big moment (S01, S04, S11 "Play again"): 60 tall.
-  large(primaryHeight: 60, secondaryHeight: 60, shadow: 1.2, minWidth: 0),
+  /// The screen's one big moment (S01, S04, S11 "Play again"): 50 tall.
+  large(primaryHeight: 50, secondaryHeight: 48, shadow: 1.2, minWidth: 0),
 
-  /// Everywhere else: 56 tall (a secondary button 48).
-  regular(primaryHeight: 56, secondaryHeight: 48, shadow: 1, minWidth: 0),
+  /// Everywhere else: 48 tall.
+  regular(primaryHeight: 48, secondaryHeight: 48, shadow: 1, minWidth: 0),
 
-  /// In a sheet or beside a field (S03b "Close", S01 "Join"): 52 tall, at
+  /// In a sheet or beside a field (S03b "Close", S01 "Join"): 48 tall, at
   /// least 104 wide.
-  compact(primaryHeight: 52, secondaryHeight: 52, shadow: 0.8, minWidth: 104);
+  compact(primaryHeight: 48, secondaryHeight: 48, shadow: 0.8, minWidth: 104);
 
   const ButtonSize({
     required this.primaryHeight,

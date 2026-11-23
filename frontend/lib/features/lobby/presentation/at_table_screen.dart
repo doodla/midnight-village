@@ -551,7 +551,7 @@ class _Rows extends StatelessWidget {
           half - Space.sm - size.token.size - size.gap - size.endPadding;
       // The size every name is set at: the role's own, or smaller where the
       // longest word needs it (a word's width is in step with the size).
-      final own = size.nameSize!;
+      final own = size.nameStyle(context.skin.typography).fontSize!;
       final widest = _widestWord(context, own);
       final fitted = widest > nameRoom ? own * nameRoom / widest * 0.99 : own;
       if (rows.length < Sizes.twoUpPlayers ||
@@ -737,16 +737,19 @@ class _JoinCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          // Share beside the words of the link it shares, so
-                          // the code has the column's whole width.
+                          // "Scan to join" has the column's whole width (beside
+                          // Share it left one word alone on a second line);
+                          // Share ends the hairline under it, and the code has
+                          // the width below.
                           children: [
+                            scan,
                             Row(
+                              spacing: Space.xs,
                               children: [
-                                Expanded(child: scan),
+                                Expanded(child: divider),
                                 ?shareButton,
                               ],
                             ),
-                            divider,
                             codeOnly,
                           ],
                         ),

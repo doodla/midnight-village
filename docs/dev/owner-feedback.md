@@ -165,3 +165,10 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
   answer JSON), and (3) the owner's yes. Live baseline to beat: Start 1.41 s fast, 2.78 s slow
   phone; Join 1.33 s, 2.60 s.
 
+## 23 November 2026: the type scale (heard directly)
+
+- "The text sizes ... are so huge ... especially around the names." Two scales were rendered; the
+  owner chose: "Tight sizes, but keep the serif names." Names 16 in the serif, screen questions 24, body
+  14, buttons 15, labels 12; the timers and the role on your own card stay as big as they were. The
+  reading floor is now body 14, labels 12. Built: `docs/design/type-audit.md`. A design round follows
+  for the room it freed.

@@ -87,10 +87,11 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   spec's budgets by `copy_budget_test.dart`; none in widgets.
 - **Names are never cut**: they wrap between words or are set smaller (`FitWords`, `FitLine`),
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
-- **Reading floor**: 16 px to act, 14 px captions, 7:1 contrast on player screens, full ink
+- **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink
   for anything that says something true; no uppercase micro-labels; one amber fill per screen; a selection is lift plus outline, never amber.
 - **Values from the skin**: build screens from `lib/design_system/primitives/`, read
-  `context.skin`, `context.ground`, `Space`, `Motion`; no literals, no `SkinId` checks in
+  `context.skin`, `context.ground`, `Space`, `Motion`; no literals (a text size, weight or face is a
+  type role, never a number in a widget: `type_guard_test.dart` fails it), no `SkinId` checks in
   layout code. One look, Shadow paper; a new look is a whole design, not a recolour.
 - **Secrets are held, not tapped**: `HoldToReveal` and `HeldFace`; art for secrets is
   precached at start so a reveal fetches nothing.

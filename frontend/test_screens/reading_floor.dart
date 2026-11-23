@@ -6,14 +6,16 @@ import 'package:midnight_village/design_system/skin/skin.dart';
 
 import '../test/helpers/painted_text.dart';
 
-// The reading floor (docs/specs/frontend/first-time-play.md, copy rule 7),
+// The reading floor (docs/specs/frontend/first-time-play.md, copy rule 7; set
+// to body 14 and labels 12 by the owner's type choice of 23 November 2026),
 // checked on what a player screen actually draws: `just screens ... strict`
 // fails a player screen with a breach.
 
-/// Anything a player reads to act, at text scale 1.0.
+/// Anything a player reads to act or to know who is who (body, buttons,
+/// names), at text scale 1.0.
 const readingFloor = ReadingFloor.act;
 
-/// Captions under cards and tokens.
+/// Small labels: captions, tags, badges.
 const captionFloor = ReadingFloor.caption;
 
 /// Tracked capitals smaller than this are a micro-label.
@@ -22,8 +24,8 @@ const _labelSize = 20.0;
 /// Every run of visible text on screen drawn below the floor, or set as an
 /// uppercase, letter-spaced micro-label, one line each. A run is measured as
 /// drawn: its size times the text scale's at 1.0 and any shrinking on the
-/// way (a `FitLine` set smaller). A role of 16 or more must stay at 16; a
-/// caption role (14, 15) at 14; nothing goes below 14. The table code,
+/// way (a `FitLine` set smaller). A role of 14 or more must stay at 14; a
+/// label role (12, 13) at 12; nothing goes below 12. The table code,
 /// tracked capitals read letter by letter, is not a label.
 List<String> readingFloorBreaches(WidgetTester tester) {
   final breaches = <String>[];

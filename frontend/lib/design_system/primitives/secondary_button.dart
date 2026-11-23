@@ -121,9 +121,10 @@ class _SecondaryButtonState extends State<SecondaryButton> {
           width: skin.shape.stroke,
         ),
       );
-      style = skin.typography.action.copyWith(
-        color: enabled ? ground.text : ground.faintText,
-      );
+      // A button's label is the buttons' one size (15), outlined or paper.
+      style = widget.size
+          .label(skin.typography)
+          .copyWith(color: enabled ? ground.text : ground.faintText);
     }
 
     return Semantics(

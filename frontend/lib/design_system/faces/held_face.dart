@@ -334,32 +334,6 @@ class _Balanced extends StatelessWidget {
   final String text;
   final TextStyle style;
 
-  /// The width to set [painter]'s text at in [width]: [width], or the
-  /// balanced width when the last line would be one word.
-  static double balanced(TextPainter painter, double width) {
-    painter.layout(maxWidth: width);
-    final lines = painter.computeLineMetrics();
-    if (lines.length <= 1) return width;
-    final last = lines.last;
-    final start = painter.getPositionForOffset(
-      Offset(0, last.baseline - last.ascent / 2),
-    );
-    final tail = painter.plainText.substring(start.offset).trim();
-    if (tail.contains(' ')) return width;
-    var low = width / 2;
-    var high = width;
-    for (var i = 0; i < 10; i++) {
-      final middle = (low + high) / 2;
-      painter.layout(maxWidth: middle);
-      if (painter.computeLineMetrics().length > lines.length) {
-        low = middle;
-      } else {
-        high = middle;
-      }
-    }
-    return high;
-  }
-
   @override
   Widget build(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
@@ -371,7 +345,7 @@ class _Balanced extends StatelessWidget {
           textDirection: Directionality.of(context),
         );
         final width = constraints.hasBoundedWidth
-            ? balanced(painter, constraints.maxWidth)
+            ? FitWords.widowFreeWidth(painter, constraints.maxWidth)
             : null;
         painter.dispose();
         return Align(

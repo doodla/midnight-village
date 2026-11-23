@@ -151,12 +151,7 @@ class OpeningWait extends StatelessWidget {
         children: [
           Semantics(
             header: true,
-            child: FitLine(
-              JoinCopy.title,
-              style: skin.typography.heroTitle.copyWith(
-                fontSize: Sizes.joinTitle,
-              ),
-            ),
+            child: FitLine(JoinCopy.title, style: skin.typography.heroTitle),
           ),
           // The lanterns hang from the title, as from a sign.
           Waiting(failing: unanswered, onRetry: onRetry),
@@ -500,12 +495,7 @@ class _JoinViewState extends State<JoinView> {
                   children: [
                     Semantics(
                       header: true,
-                      child: FitLine(
-                        JoinCopy.title,
-                        style: type.heroTitle.copyWith(
-                          fontSize: Sizes.joinTitle,
-                        ),
-                      ),
+                      child: FitLine(JoinCopy.title, style: type.heroTitle),
                     ),
                     Nudge(
                       key: _nameNudge,

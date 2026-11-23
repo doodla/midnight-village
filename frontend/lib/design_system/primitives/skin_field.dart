@@ -54,12 +54,8 @@ class SkinField extends StatelessWidget {
   final FocusNode? focusNode;
   final bool _paper;
 
-  static const paperHeight = 52.0;
-
-  /// The name's size in [SkinField.paper] (the heading role's face, set
-  /// smaller than the screen's own title: a name is read, not announced).
-  static const nameSize = 20.0;
-  static const codeHeight = 52.0;
+  static const paperHeight = 48.0;
+  static const codeHeight = 48.0;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +64,7 @@ class SkinField extends StatelessWidget {
     final type = skin.typography;
     final radius = BorderRadius.circular(skin.shape.radius);
     final style = _paper
-        ? type.title.copyWith(fontSize: nameSize, color: skin.paper.text)
+        ? type.name.copyWith(color: skin.paper.text)
         : type.code.copyWith(color: ground.text);
     final hintColor = _paper ? skin.paper.quietText : ground.quietText;
     final field = TextField(

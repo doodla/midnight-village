@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/night/board_layout.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
+import 'package:midnight_village/design_system/primitives/fit_line.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'board_harness.dart' show card;
-import 'titles_on_main.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
@@ -239,31 +239,31 @@ void main() {
     }
   }
 
-  // A title has two lines of room at the full title size on every board
-  // (issue 37: "1 player or 2 center cards" had been set at 21 px, a third
-  // under its siblings, and the seconds outshouted it).
+  // A title has two lines of room at the question token (24) on every board
+  // and is drawn at it unless it needs the fit rule: then 0.8 of it at the
+  // least, on two lines at most, never a word alone on the last line (issue
+  // 37: "1 player or 2 center cards" had been set a third under its siblings).
   for (final scale in _textScales) {
-    testWidgets('every night title is drawn at 0.8 of the title size or '
-        'more and whole, at 360 wide, text x$scale', (tester) async {
+    testWidgets('every night title is drawn at the question token, or smaller '
+        'only where it must (0.8 at the least), whole, at 360 wide, '
+        'text x$scale', (tester) async {
       tester.view.physicalSize = const Size(360, 779);
       tester.view.devicePixelRatio = 1;
       tester.platformDispatcher.textScaleFactorTestValue = scale;
       addTearDown(tester.view.reset);
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      final full = skinsUnderTest.values.first.typography.screenTitle.fontSize!;
-
       final findings = <String>[];
       final drawn = <String>[];
       for (final viewer in Viewer.values) {
         await tester.pumpWidget(const SizedBox());
         await _pump(tester, BoardPage(viewer: viewer, textScale: scale));
-        final title = viewer.prompt.kind.title;
-        final text = tester.widget<Text>(find.text(title));
-        final size = text.style!.fontSize!;
-        drawn.add('${viewer.name} ${size.toStringAsFixed(1)}');
-        if (size < 0.8 * full) {
-          findings.add('${viewer.name}: "$title" drawn at $size of $full');
-        }
+        final fit = _titleFit(
+          tester,
+          viewer.prompt.kind.title,
+          noOrphan: scale == 1,
+        );
+        drawn.add('${viewer.name} ${fit.size.toStringAsFixed(1)}');
+        findings.addAll([for (final f in fit.findings) '${viewer.name}: $f']);
         findings.addAll([
           for (final cut in truncatedText(tester)) '${viewer.name}: $cut',
           for (final word in brokenWords(tester)) '${viewer.name}: $word',
@@ -277,57 +277,52 @@ void main() {
   }
 
   // The candle and the seconds beside the title are their own size, whatever
-  // the text size and the clock: the title is never set smaller, nor broken
-  // onto more lines, than main drew it (`titles_on_main.dart`), at any width,
-  // text scale or time on the clock. (BoardPage takes the text scale itself:
+  // the text size and the clock: the title is at its role's size
+  // (`screenTitle`, 24; set smaller only where two lines are not enough, never
+  // under 0.8 of it) and never on more than the two lines it has room for,
+  // at any width, text scale or time on the clock. (BoardPage takes the text scale itself:
   // the platform's alone is not what it draws with.)
   for (final width in const [320, 360, 390]) {
     for (final scale in _textScales) {
-      testWidgets('the title is no smaller and on no more lines than on main, '
-          '$width wide, text x$scale, 14 s and 3:08 on the clock', (
-        tester,
-      ) async {
-        final phone = Size(width.toDouble(), width == 320 ? 568 : 844);
-        tester.view.physicalSize = phone;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        final findings = <String>[];
-        for (final viewer in [Viewer.drunk, Viewer.seer, Viewer.troublemaker]) {
-          for (final seconds in const [14, 188]) {
-            await tester.pumpWidget(const SizedBox());
-            await _pump(
-              tester,
-              BoardPage(viewer: viewer, textScale: scale, secondsLeft: seconds),
-            );
-            final title = viewer.prompt.kind.title;
-            final paragraph = tester.renderObject<RenderParagraph>(
-              find.byWidgetPredicate(
-                (w) => w is RichText && w.text.toPlainText() == title,
-              ),
-            );
-            final size = paragraph.text.style!.fontSize!;
-            final lines = paragraph
-                .getBoxesForSelection(
-                  TextSelection(
-                    baseOffset: 0,
-                    extentOffset: paragraph.text.toPlainText().length,
-                  ),
-                )
-                .map((b) => b.top.round())
-                .toSet()
-                .length;
-            final (sizeOnMain, linesOnMain) =
-                titlesOnMain[(width, scale, viewer.name, seconds)]!;
-            if (size < sizeOnMain - 0.05 || lines > linesOnMain) {
-              findings.add(
-                '${viewer.name} at ${seconds}s: ${size.toStringAsFixed(1)} px '
-                'on $lines lines, on main $sizeOnMain on $linesOnMain',
+      testWidgets(
+        'the title is the question token unless the fit rule shrinks it, on two '
+        'lines at most, no word alone, $width wide, text x$scale, 14 s and '
+        '3:08 on the clock',
+        (tester) async {
+          final phone = Size(width.toDouble(), width == 320 ? 568 : 844);
+          tester.view.physicalSize = phone;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final findings = <String>[];
+          for (final viewer in [
+            Viewer.drunk,
+            Viewer.seer,
+            Viewer.troublemaker,
+          ]) {
+            for (final seconds in const [14, 188]) {
+              await tester.pumpWidget(const SizedBox());
+              await _pump(
+                tester,
+                BoardPage(
+                  viewer: viewer,
+                  textScale: scale,
+                  secondsLeft: seconds,
+                ),
               );
+              final fit = _titleFit(
+                tester,
+                viewer.prompt.kind.title,
+                noOrphan: scale == 1,
+              );
+              findings.addAll([
+                for (final f in fit.findings)
+                  '${viewer.name} at ${seconds}s: $f',
+              ]);
             }
           }
-        }
-        expect(findings, isEmpty);
-      });
+          expect(findings, isEmpty);
+        },
+      );
     }
   }
 
@@ -370,4 +365,98 @@ Future<void> _pump(WidgetTester tester, Widget page) async {
     ),
   );
   await tester.pump();
+}
+
+/// How a night title is drawn on the board now on screen, and what is wrong
+/// with it: it is the question token (`screenTitle`) unless the full size
+/// would not fit its room in two lines (or a word is wider than the room),
+/// never under 0.8 of it, on two lines at most, and never ends on a word
+/// alone (at the default text size: larger text has less room, and the title
+/// then keeps its size and its two lines).
+({double size, List<String> findings}) _titleFit(
+  WidgetTester tester,
+  String title, {
+  bool noOrphan = true,
+}) {
+  final skin = skinsUnderTest.values.first;
+  final role = skin.typography.screenTitle;
+  final full = role.fontSize!;
+  final paragraph = tester.renderObject<RenderParagraph>(
+    find.byWidgetPredicate(
+      (w) => w is RichText && w.text.toPlainText() == title,
+    ),
+  );
+  final scaler = paragraph.textScaler;
+  // Nominal size; what is drawn is that times the text scale, which is what
+  // the 0.8 is held against (larger text is the player's own choice).
+  final size = paragraph.text.style!.fontSize!;
+  final drawnSize = size * scaler.scale(1);
+  // The room the title is given: the header's own box.
+  final room = tester
+      .getSize(
+        find
+            .ancestor(
+              of: find.text(title),
+              matching: find.byWidgetPredicate(
+                (w) => w is Semantics && w.properties.header == true,
+              ),
+            )
+            .first,
+      )
+      .width;
+  TextPainter painter(double fontSize, double width) => TextPainter(
+    text: TextSpan(
+      text: title,
+      style: role.copyWith(fontSize: fontSize),
+    ),
+    textDirection: TextDirection.ltr,
+    textScaler: scaler,
+  )..layout(maxWidth: width);
+  bool fitsAtFull() {
+    final p = painter(full, room);
+    // A title that would end on a word alone at the full size is set on one
+    // line, smaller, by the fit rule (`FitWords(noWidow: true)`).
+    final balanced = FitWords.widowFreeWidth(p, room);
+    p.layout(maxWidth: balanced);
+    final lines = p.computeLineMetrics().length;
+    final alone = FitWords.endsAlone(p);
+    p.dispose();
+    var widest = 0.0;
+    for (final word in title.split(' ')) {
+      final w = TextPainter(
+        text: TextSpan(text: word, style: role),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+      )..layout();
+      widest = widest > w.width ? widest : w.width;
+      w.dispose();
+    }
+    return lines <= 2 && widest <= room && !alone;
+  }
+
+  final findings = <String>[];
+  if (size > full + 0.01) {
+    findings.add('"$title" is drawn at $size, over $full');
+  }
+  if (drawnSize < 0.8 * full - 0.01) {
+    findings.add('"$title" is drawn at $drawnSize, under 0.8 of $full');
+  }
+  if (fitsAtFull() && size < full - 0.01) {
+    findings.add('"$title" fits at $full but is drawn at $size');
+  }
+  final drawn = painter(size, paragraph.size.width);
+  final lines = drawn.computeLineMetrics();
+  if (lines.length > 2) findings.add('"$title" is on ${lines.length} lines');
+  if (lines.length > 1) {
+    final last = lines.last;
+    final at = drawn.getPositionForOffset(
+      Offset(0, last.baseline - last.ascent / 2),
+    );
+    final tail = title.substring(at.offset).trim();
+    if (noOrphan && !tail.contains(' ')) {
+      findings.add('"$title" ends on "$tail" alone');
+    }
+  }
+  drawn.dispose();
+  return (size: size, findings: findings);
 }
