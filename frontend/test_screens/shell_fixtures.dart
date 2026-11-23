@@ -275,8 +275,8 @@ Future<void> pumpTalkSlept(WidgetTester tester) => _shell(
   learned: Cue.values.toSet(),
 );
 
-/// 08 with My night held on the phone of [me] (a talk `/me/`, recorded or
-/// edited off the contract: story_samples.dart): its night's picture story.
+/// 08 with My night held on the phone of [me] (a recorded talk `/me/`:
+/// story_samples.dart): its night's picture story.
 Future<void> pumpTalkHeldNight(
   WidgetTester tester,
   Map<String, dynamic> me,

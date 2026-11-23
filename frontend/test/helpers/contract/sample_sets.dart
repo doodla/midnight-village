@@ -2,84 +2,28 @@ import 'package:midnight_village/features/game/domain/screen_table.dart';
 
 import 'contract_samples.dart';
 
-/// The screen each recorded `/me/` is, stated per sample (the
-/// first-time play spec, section 3, as amended by sections 7 and 8), at its
-/// own game's table with no local step taken. A recorded sample missing here
-/// fails `screen_table_test.dart`.
-const meScreens = <String, AppScreen>{
-  'me_auto_deck_5': AppScreen.yourCard,
-  'me_auto_deck_9': AppScreen.yourCard,
-  'me_look_stage': AppScreen.yourCard,
-  'me_look_ready': AppScreen.yourCard,
-  'pack_look_robber': AppScreen.yourCard,
-  'pack_look_villager': AppScreen.yourCard,
-  'me_choose_prompt_doppelganger_look': AppScreen.nightBoard,
-  'me_choose_doppelganger_followup': AppScreen.nightBoard,
-  'me_choose_prompt_window1_sleeper': AppScreen.nightBoard,
-  'me_choose_prompt_drunk': AppScreen.nightBoard,
-  'me_choose_prompt_insomniac': AppScreen.nightBoard,
-  'me_choose_prompt_mason': AppScreen.nightBoard,
-  'me_choose_prompt_minion': AppScreen.nightBoard,
-  'me_choose_prompt_robber': AppScreen.nightBoard,
-  'me_choose_prompt_seer': AppScreen.nightBoard,
-  'me_choose_prompt_troublemaker': AppScreen.nightBoard,
-  'me_choose_prompt_villager': AppScreen.nightBoard,
-  'me_choose_prompt_werewolf_lone': AppScreen.nightBoard,
-  'me_choose_prompt_werewolf_pack': AppScreen.nightBoard,
-  'me_choose_chosen': AppScreen.nightBoard,
-  'me_choose_doppelganger_minion_followup': AppScreen.nightBoard,
-  'me_discussion_choose_doppelganger': AppScreen.talk,
-  'me_discussion_choose_doppelganger_minion': AppScreen.talk,
-  'me_discussion_choose_drunk': AppScreen.talk,
-  'me_discussion_choose_insomniac': AppScreen.talk,
-  'me_discussion_choose_mason': AppScreen.talk,
-  'me_discussion_choose_minion': AppScreen.talk,
-  'me_discussion_choose_robber': AppScreen.talk,
-  'me_discussion_choose_seer': AppScreen.talk,
-  'me_discussion_choose_seer_nothing_chosen': AppScreen.talk,
-  'me_discussion_choose_troublemaker': AppScreen.talk,
-  'me_discussion_choose_villager': AppScreen.talk,
-  'me_discussion_choose_werewolf_lone': AppScreen.talk,
-  'me_discussion_choose_werewolf_pack': AppScreen.talk,
-  // Every "My night" story (backend/tests/contract/story_scenarios.py), with
-  // the Troublemaker's above.
-  'me_discussion_choose_seer_center': AppScreen.talk,
-  'me_discussion_choose_insomniac_changed': AppScreen.talk,
-  'me_discussion_choose_minion_no_werewolves': AppScreen.talk,
-  'me_discussion_choose_mason_lone': AppScreen.talk,
-  'me_discussion_choose_hunter': AppScreen.talk,
-  'me_discussion_choose_tanner': AppScreen.talk,
-  'me_discussion_choose_seer_timed_out': AppScreen.talk,
-  'me_discussion_choose_doppelganger_troublemaker': AppScreen.talk,
-  'me_discussion_choose_doppelganger_robber': AppScreen.talk,
-  'me_discussion_choose_doppelganger_drunk': AppScreen.talk,
-  'me_discussion_choose_doppelganger_drunk_timed_out': AppScreen.talk,
-  'me_discussion_choose_doppelganger_werewolf': AppScreen.talk,
-  'me_discussion_choose_doppelganger_insomniac': AppScreen.talk,
-  'me_discussion_choose_doppelganger_villager': AppScreen.talk,
-  'me_discussion_choose_doppelganger_look_timed_out': AppScreen.talk,
-  'me_discussion_choose_doppelganger_mason': AppScreen.talk,
-  'me_discussion_choose_doppelganger_hunter': AppScreen.talk,
-  'me_discussion_choose_doppelganger_tanner': AppScreen.talk,
-  'me_talk_ready': AppScreen.talk,
-  'me_talk_results_seen': AppScreen.talk,
-  'me_talk_ten': AppScreen.talk,
-  'me_talk_untimed': AppScreen.talk,
-  'me_discussion_acting_host': AppScreen.talk,
-  'me_voting_unpicked': AppScreen.vote,
-  'pack_vote_robber': AppScreen.vote,
-  'pack_vote_villager': AppScreen.vote,
-  'me_voting_picked': AppScreen.vote,
-  'me_voting_locked': AppScreen.vote,
-  'me_voting_ten': AppScreen.vote,
-  'me_voting_untimed': AppScreen.vote,
-  'me_results': AppScreen.count,
-  // A table with practice players: the same screens as any table.
-  'me_look_practice': AppScreen.yourCard,
-  'me_window_practice': AppScreen.nightBoard,
-  'me_talk_practice': AppScreen.talk,
-  'me_voting_practice': AppScreen.vote,
+/// The screen each recorded `/me/` is (the first-time play spec, section 3,
+/// as amended by sections 7 and 8), at its own game's table with no local
+/// step taken, read from the sample's own words: the results phase is the
+/// count (10); else its stage names the screen, the look is your card (04),
+/// a night window the night board (05), the talk 08, the vote 09. A sample
+/// whose stage is none of these fails here, and so does `screen_table_test`.
+Map<String, AppScreen> get meScreens => {
+  for (final name in meSamples())
+    name: _screenOf(ContractSamples.map('http/game/$name')),
 };
+
+AppScreen _screenOf(Map<String, dynamic> me) {
+  if (me['phase'] == 'results') return AppScreen.count;
+  final stage = (me['stage'] as String).split('.').first;
+  return switch (stage) {
+    'look' => AppScreen.yourCard,
+    'w1' || 'w2' => AppScreen.nightBoard,
+    'talk' => AppScreen.talk,
+    'vote' => AppScreen.vote,
+    _ => throw StateError('a /me/ at stage "$stage": say which screen it is'),
+  };
+}
 
 /// Every recorded `/me/` sample, by its name under `http/game/`.
 List<String> meSamples() => [

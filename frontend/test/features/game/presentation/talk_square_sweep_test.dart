@@ -35,6 +35,7 @@ import '../../../helpers/component_sheet.dart' show learnedOverrides;
 import '../../../helpers/fit_checks.dart';
 import '../../../helpers/pump_skinned.dart';
 import '../../../helpers/sheet/sheet_data.dart' as sheet;
+import '../../../helpers/sheet/night_record.dart';
 import '../../../helpers/sheet/story_samples.dart';
 import '../../../helpers/truncated_text.dart';
 
@@ -295,14 +296,16 @@ void main() {
   }
 
   // Long names, as a table has them (the server's names run to 20
-  // characters): one that wraps between words, one a single long word, on
-  // the narrow short phone at the largest text.
-  for (final MapEntry(key: night, value: names) in _longNamed.entries) {
-    testWidgets('My night held, $night, long names ${names.values}', (
-      tester,
-    ) async {
-      final me = allNights[night]!();
-      _rename(me, names);
+  // characters): every recorded night that names a player, with the players
+  // it names renamed (some wrap between words, one is a single long word;
+  // `withLongNames`), on the narrow short phone at the largest text.
+  for (final night in allNights.keys) {
+    if (NightRecord(allNights[night]!()).names.isEmpty) continue;
+    testWidgets('My night held, $night, long names', (tester) async {
+      final (:me, :names) = withLongNames(
+        allNights[night]!(),
+        offContract: true,
+      );
       await _heldStory(tester, me, const Size(360, 640), 1.6);
       final story = find.byType(NightStoryView);
       final written = [
@@ -313,7 +316,7 @@ void main() {
       ];
       // Every name whole where it is written: on the cards' tabs (words may
       // wrap between words, never be cut) and in the one sentence.
-      for (final name in names.values) {
+      for (final name in names) {
         expect(
           written.any((t) => t.contains(name)),
           isTrue,
@@ -321,33 +324,5 @@ void main() {
         );
       }
     });
-  }
-}
-
-/// Each night's players (their names in the server's `/me/`) renamed.
-const _longNamed = {
-  'troublemaker': {'Ana': 'Maximilian', 'Ben': 'Annabelle Whitlock'},
-  'werewolf-pair': {'Ida': 'Annabelle Whitlock'},
-  'mason': {'Fin': 'Rosa Maria'},
-  'doppelganger-troublemaker': {
-    'Gus': 'Maximilian',
-    'Ben': 'Rosa Maria',
-    'Cleo': 'Annabelle Whitlock',
-  },
-};
-
-/// [me] with [names] renamed everywhere the server writes them: the seats
-/// and the night record.
-void _rename(Map<String, dynamic> me, Map<String, String> names) {
-  dynamic renamed(dynamic value) => switch (value) {
-    String() => names[value] ?? value,
-    List() => [for (final v in value) renamed(v)],
-    Map() => <String, dynamic>{
-      for (final e in value.entries) '${e.key}': renamed(e.value),
-    },
-    _ => value,
-  };
-  for (final key in ['players', 'night_results']) {
-    me[key] = renamed(me[key]);
   }
 }
