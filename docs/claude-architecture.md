@@ -80,7 +80,9 @@ nothing and holds no secret (`WorkflowAfterMerge` in the same test file).
 staged) and `just gate-full` when a source file passes 600 lines: a file that long cannot be
 read whole, and two branches that touch it collide. The files already over are listed with
 their size in `tool/file_size_ceilings.txt`; each may shrink but not grow (split it, or raise
-its line in the same commit where a reviewer sees it). Tests and generated code are not
+its line in the same commit where a reviewer sees it). A line ending `until <date>` lets a
+file grow while a piece of work is in the middle of it; a passed date is reported on every
+run and never turns into a failure. Tests and generated code are not
 counted. `guardrails/tests/test_file_sizes.py` also fails on a stale line in the list.
 
 The ruleset `docs/dev/main-ruleset.json` is what makes this the wall: a pull request on the

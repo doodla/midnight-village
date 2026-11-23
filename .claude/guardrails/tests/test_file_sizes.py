@@ -61,6 +61,16 @@ class FileSizes(unittest.TestCase):
         self.write("frontend/lib/big.dart", 901)
         self.assertEqual(self.run_check(), 1)
 
+    def test_an_allowance_lets_a_file_grow_and_a_passed_date_never_fails(self):
+        self.ceilings("700 frontend/lib/moving.dart until 2020-01-01\n")
+        self.write("frontend/lib/moving.dart", 2000)
+
+        self.assertEqual(self.run_check(), 0)  # the date is long past: said, never failed
+
+        self.assertEqual(self.run_check("--write"), 0)  # re-recording keeps the allowance
+        listed = self.check.read_ceilings(staged=False)
+        self.assertEqual(listed, {"frontend/lib/moving.dart": (2000, "2020-01-01")})
+
     def test_what_is_not_source_is_not_counted(self):
         for name in (
             "frontend/lib/a.g.dart",
@@ -86,16 +96,18 @@ class FileSizes(unittest.TestCase):
         self.write("tool/short.py", 20)
         self.assertEqual(self.run_check("--write"), 0)
         listed = self.check.read_ceilings(staged=False)
-        self.assertEqual(listed, {"tool/long.py": 700})
+        self.assertEqual(listed, {"tool/long.py": (700, "")})
         self.assertEqual(self.run_check(), 0)
 
     def test_this_repo_passes_and_its_list_has_no_stale_line(self):
         real = load(REPO)
         self.assertEqual(real.main([]), 0)
         counts = real.line_counts(staged=False)
-        for path, ceiling in real.read_ceilings(staged=False).items():
+        for path, (ceiling, until) in real.read_ceilings(staged=False).items():
             with self.subTest(path=path):
                 self.assertIn(path, counts, "listed but gone: remove its line")
+                if until:
+                    continue  # an allowance: free to grow or shrink while its work is in it
                 self.assertGreater(counts[path], real.LIMIT, "under the limit now: remove its line")
                 self.assertLessEqual(counts[path], ceiling)
 

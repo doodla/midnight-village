@@ -11,7 +11,11 @@ collide. So:
   ceiling: split it instead (or, when it truly must grow first, raise its line
   in that file in the same commit, where a reviewer sees it);
 - a listed file that is back under LIMIT, or gone, is reported (not failed), so
-  its line can be removed.
+  its line can be removed;
+- a line that ends `until YYYY-MM-DD` is an allowance: that file may grow (a
+  piece of work is in the middle of it). The date is a promise, not a trap: the
+  check never starts failing because a day passed. After the date it says so on
+  every run, and the line is then re-recorded without `until`.
 
 Checked: backend/apps (not migrations), frontend/lib (not generated code),
 .claude/hooks, .claude/guardrails (not tests) and tool. Tests are not checked.
@@ -23,6 +27,8 @@ file from what is there now (use it only to add a file on purpose).
 usage: tool/check_file_sizes.py [--staged] [--write]
 """
 
+import datetime
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +40,7 @@ HEADER = """\
 # Source files over 600 lines, with the size each had when it was listed
 # (tool/check_file_sizes.py). A file may shrink freely; it may not grow past
 # its number: split it. Remove a line once its file is under 600.
+# `until YYYY-MM-DD`: that file may grow until then (work in the middle of it).
 """
 
 
@@ -82,7 +89,8 @@ def line_counts(staged: bool) -> dict[str, int]:
     return counts
 
 
-def read_ceilings(staged: bool) -> dict[str, int]:
+def read_ceilings(staged: bool) -> dict[str, tuple[int, str]]:
+    """{path: (ceiling, allowance end date or "")} from the ceilings file."""
     try:
         if staged:
             text = git("show", ":tool/file_size_ceilings.txt").decode()
@@ -92,9 +100,9 @@ def read_ceilings(staged: bool) -> dict[str, int]:
         return {}
     ceilings = {}
     for line in text.splitlines():
-        if line.strip() and not line.startswith("#"):
-            size, _, path = line.strip().partition(" ")
-            ceilings[path.strip()] = int(size)
+        m = re.fullmatch(r"(\d+) (\S+)(?: until (\d{4}-\d{2}-\d{2}))?", line.strip())
+        if m:
+            ceilings[m.group(2)] = (int(m.group(1)), m.group(3) or "")
     return ceilings
 
 
@@ -102,17 +110,22 @@ def main(argv: list[str]) -> int:
     staged = "--staged" in argv
     counts = line_counts(staged)
     if "--write" in argv:
-        big = {p: n for p, n in counts.items() if n > LIMIT}
+        kept = {p: u for p, (_, u) in read_ceilings(staged=False).items() if u}
+        big = {p: n for p, n in counts.items() if n > LIMIT or p in kept}
         lines = [
-            f"{n} {p}" for p, n in sorted(big.items(), key=lambda kv: (-kv[1], kv[0]))
+            f"{n} {p}" + (f" until {kept[p]}" if p in kept else "")
+            for p, n in sorted(big.items(), key=lambda kv: (-kv[1], kv[0]))
         ]
         CEILINGS.write_text(HEADER + "\n".join(lines) + "\n")
         print(f"wrote {len(lines)} ceilings to {CEILINGS.relative_to(ROOT)}")
         return 0
     ceilings = read_ceilings(staged)
+    today = datetime.date.today().isoformat()
     problems, notes = [], []
     for path, lines in counts.items():
-        ceiling = ceilings.get(path)
+        ceiling, until = ceilings.get(path, (None, ""))
+        if until:
+            continue  # an allowance: it may grow while its piece of work is in it
         if ceiling is None and lines > LIMIT:
             problems.append(
                 f"{path} is {lines} lines, over the {LIMIT}-line limit: split it into parts"
@@ -123,11 +136,15 @@ def main(argv: list[str]) -> int:
                 f"{path} grew to {lines} lines; it is already over the limit and listed at"
                 f" {ceiling} in tool/file_size_ceilings.txt: move something out of it, do not add to it."
             )
-    for path in ceilings:
-        if path not in counts:
-            notes.append(
-                f"{path} is listed in tool/file_size_ceilings.txt but is gone: remove its line."
-            )
+    for path, (_, until) in ceilings.items():
+        if until:
+            if today > until:
+                notes.append(
+                    f"{path}: its allowance to grow ended on {until}. Re-record its line in"
+                    " tool/file_size_ceilings.txt at its size now, without `until` (or remove it)."
+                )
+        elif path not in counts:
+            notes.append(f"{path} is listed in tool/file_size_ceilings.txt but is gone: remove its line.")
         elif counts[path] <= LIMIT:
             notes.append(
                 f"{path} is down to {counts[path]} lines: remove its line from tool/file_size_ceilings.txt."
