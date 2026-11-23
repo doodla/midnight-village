@@ -45,8 +45,8 @@ class StoryCard {
 
   /// What a screen reader hears of it.
   String get spoken => role == null
-      ? StoryCopy.cardDown.fill({'who': label})
-      : StoryCopy.cardUp.fill({'who': label, 'role': role!.displayName});
+      ? NightStoryCopy.cardDown.fill({'who': label})
+      : NightStoryCopy.cardUp.fill({'who': label, 'role': role!.displayName});
 
   @override
   bool operator ==(Object other) =>
@@ -153,7 +153,7 @@ class StoryLine {
         // "Ana", "Ana and Ben", "Ana, Ben and Cleo".
         for (final (i, n) in value.indexed) {
           if (i > 0) {
-            plain(i == value.length - 1 ? ' ${StoryCopy.and} ' : ', ');
+            plain(i == value.length - 1 ? ' ${NightStoryCopy.and} ' : ', ');
           }
           out.add((text: n, name: true));
         }
@@ -255,29 +255,32 @@ class NightStory {
         : null;
     final c = {'copied': copy.name};
     final line = switch (then) {
-      SeerPlayerResult(:final name) => StoryLine._(StoryCopy.copiedSaw, {
+      SeerPlayerResult(:final name) => StoryLine._(NightStoryCopy.copiedSaw, {
         ...c,
         'name': name,
       }),
-      SeerCenterResult() => StoryLine._(StoryCopy.copiedCenter, c),
-      RobbedResult(:final name) => StoryLine._(StoryCopy.copiedTook, {
+      SeerCenterResult() => StoryLine._(NightStoryCopy.copiedCenter, c),
+      RobbedResult(:final name) => StoryLine._(NightStoryCopy.copiedTook, {
         ...c,
         'name': name,
       }),
       SwappedResult(:final a, :final b) => StoryLine._(
-        StoryCopy.copiedSwapped,
+        NightStoryCopy.copiedSwapped,
         {...c, 'a': a, 'b': b},
       ),
-      DrunkResult(:final center) => StoryLine._(StoryCopy.copiedDrunk, {
+      DrunkResult(:final center) => StoryLine._(NightStoryCopy.copiedDrunk, {
         ...c,
         'pos': centerName(center).toLowerCase(),
       }),
       MinionResult(:final names) => StoryLine._(
-        names.isEmpty ? StoryCopy.copiedNone : StoryCopy.copiedMinion,
+        names.isEmpty ? NightStoryCopy.copiedNone : NightStoryCopy.copiedMinion,
         c,
       ),
-      DidNothingResult() => StoryLine._(StoryCopy.copiedNothing, c),
-      _ => StoryLine._(StoryCopy.copied, {...c, 'role': copy.role.displayName}),
+      DidNothingResult() => StoryLine._(NightStoryCopy.copiedNothing, c),
+      _ => StoryLine._(NightStoryCopy.copied, {
+        ...c,
+        'role': copy.role.displayName,
+      }),
     };
     return NightStory._(
       rows: [
@@ -330,7 +333,7 @@ class _Piece {
           [_player(name, role)],
         ],
         each(StoryLinkKind.look, 1),
-        StoryLine._(StoryCopy.seerPlayer, {
+        StoryLine._(NightStoryCopy.seerPlayer, {
           'name': name,
           'role': role.displayName,
         }),
@@ -340,21 +343,24 @@ class _Piece {
           _center({for (final (i, role) in cards) i: role}),
         ],
         [for (final (i, _) in cards) _link(StoryLinkKind.look, base, i)],
-        StoryLine._(StoryCopy.seerCenter),
+        StoryLine._(NightStoryCopy.seerCenter),
       ),
       RobbedResult(:final name, :final role) => _Piece(
         [
           [_player(name, role)],
         ],
         each(StoryLinkKind.swap, 1),
-        StoryLine._(StoryCopy.robbed, {'name': name, 'role': role.displayName}),
+        StoryLine._(NightStoryCopy.robbed, {
+          'name': name,
+          'role': role.displayName,
+        }),
       ),
       NewCardResult(:final role) => _Piece(
         [
           [StoryCard._(StoryWho.now, CountCopy.now, role)],
         ],
         each(StoryLinkKind.look, 1),
-        StoryLine._(role == dealt ? StoryCopy.still : StoryCopy.now, {
+        StoryLine._(role == dealt ? NightStoryCopy.still : NightStoryCopy.now, {
           'role': role.displayName,
         }),
       ),
@@ -380,21 +386,23 @@ class _Piece {
       DrunkResult(:final center) => _Piece(
         [_center()],
         [_link(StoryLinkKind.swap, base, center)],
-        StoryLine._(StoryCopy.drunk, {'pos': centerName(center).toLowerCase()}),
+        StoryLine._(NightStoryCopy.drunk, {
+          'pos': centerName(center).toLowerCase(),
+        }),
       ),
       WerewolvesResult(:final names) => _Piece(
         [
           [for (final n in names) _player(n, RoleId.werewolf)],
         ],
         each(StoryLinkKind.see, names.length),
-        StoryLine._(StoryCopy.werewolves, {'names': names}),
+        StoryLine._(NightStoryCopy.werewolves, {'names': names}),
       ),
       LoneWerewolfResult(:final look) => _Piece(
         [
           if (look case (final i, final role)) _center({i: role}),
         ],
         [if (look case (final i, _)) _link(StoryLinkKind.look, base, i)],
-        StoryLine._(StoryCopy.onlyWerewolf),
+        StoryLine._(NightStoryCopy.onlyWerewolf),
       ),
       MinionResult(:final names) when names.isEmpty => _Piece(
         const [],
@@ -407,21 +415,21 @@ class _Piece {
         ],
         each(StoryLinkKind.look, names.length),
         StoryLine._(
-          names.length == 1 ? StoryCopy.minionOne : StoryCopy.minion,
+          names.length == 1 ? NightStoryCopy.minionOne : NightStoryCopy.minion,
           {'names': names},
         ),
       ),
       MasonsResult(:final names) when names.isEmpty => _Piece(
         const [],
         const [],
-        StoryLine._(StoryCopy.onlyMason),
+        StoryLine._(NightStoryCopy.onlyMason),
       ),
       MasonsResult(:final names) => _Piece(
         [
           [for (final n in names) _player(n, RoleId.mason)],
         ],
         each(StoryLinkKind.see, names.length),
-        StoryLine._(StoryCopy.masons, {'names': names}),
+        StoryLine._(NightStoryCopy.masons, {'names': names}),
       ),
       DidNothingResult() => didNothing,
       SleptResult() => _Piece(

@@ -24,6 +24,13 @@ class Template {
     return raw.replaceAllMapped(_gap, (m) => '${values[m[1]]}');
   }
 
+  /// The line with its gaps filled by [values], in the order they come.
+  String fillIn(List<Object> values) {
+    assert(values.length == gaps.length, '"$raw" fills ${gaps.length}');
+    var i = 0;
+    return raw.replaceAllMapped(_gap, (_) => '${values[i++]}');
+  }
+
   @override
   String toString() => raw;
 }

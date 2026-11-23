@@ -389,7 +389,21 @@ const inventory = <PartEntry>[
     'primitives/death_mark.dart',
     plain: 'the ribbon\'s picture alone; the stamp the same (no paper in it)',
     paper:
-        'the black mourning ribbon pinned on a card\'s top right corner, a bone edge so it reads on red, a shadow away from the light; the stamp an ink block with its word knocked out in bone and a spatter of ink round it, no outline; neither covers more than a set part of a portrait',
+        'the black mourning ribbon pinned on a card\'s top right corner, a bone edge so it reads on red, a shadow away from the light; the stamp a narrow plate of dark ink in a double bone rule, its word in bone, bone lines bursting out round it, laid across a card\'s lower edge clear of the face and the role',
+  ),
+  PartEntry(
+    'BoardCardBack',
+    'primitives/board_card_back.dart',
+    plain: 'the same card face down (the end board is paper only)',
+    paper:
+        'a board card face down before the reveal turns it: night paper with a bone edge, the name, the game\'s card back in a bone frame, every back of a board one portrait size',
+  ),
+  PartEntry(
+    'FurledScroll',
+    'primitives/furled_scroll.dart',
+    plain: 'nothing (the end board is paper only)',
+    paper:
+        'the banner rolled up before it unrolls: a bone roll with its curl at each end, tied twice, a soft shadow under it',
   ),
   PartEntry(
     'BannerSlice / BoardFrame / BoardRoof',

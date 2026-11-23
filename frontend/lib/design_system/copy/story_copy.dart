@@ -7,7 +7,7 @@ import 'template.dart';
 /// list is joined with ", " and [and]), and what a screen reader hears of
 /// each card. Slept, did nothing, the Troublemaker and no Werewolves are the
 /// night faces' own lines.
-abstract final class StoryCopy {
+abstract final class NightStoryCopy {
   static const and = 'and';
   static const seerPlayer = Template("{name}'s card was the {role}.");
   static const seerCenter = 'You saw 2 center cards.';

@@ -13,6 +13,8 @@ import 'fit_line.dart';
 import 'one_light.dart';
 import 'paper_light.dart';
 
+export 'board_card_back.dart';
+
 // The end board's own pieces beside the parts of piece 1: a player's card on
 // the board, the small card tucked behind it, the three cards in the middle,
 // the lantern's pool and the vignette, and the cobbles with their torn lip.
@@ -86,6 +88,9 @@ class BoardCard extends StatelessWidget {
   static const defaultHeaderHeight = 22.0;
   static const defaultStripHeight = 17.0;
   static const inset = 4.0;
+
+  /// The room beside the name in its header.
+  static const namePad = 10.0;
 
   /// The tab is as wide as its words and this each side, its foot this far
   /// above the card's.
@@ -214,7 +219,7 @@ class BoardCard extends StatelessWidget {
                     height: headerHeight,
                     width: size.width,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: namePad),
                       child: FitLine(
                         name!,
                         style: type.name.copyWith(color: ink),

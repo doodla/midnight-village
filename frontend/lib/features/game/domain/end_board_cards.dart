@@ -50,6 +50,7 @@ class EndCard {
     required this.lit,
     required this.rect,
     required this.portraitWidth,
+    required this.nameWidth,
     required this.angle,
     required this.column,
     required this.tags,
@@ -88,6 +89,9 @@ class EndCard {
   /// The card, upright, jitter included.
   final Rect rect;
   final double portraitWidth;
+
+  /// The name and its room in the header: the least a card with it is wide.
+  final double nameWidth;
   final double angle;
 
   /// The room across the board the card and its strand have: its slot.

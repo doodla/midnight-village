@@ -48,7 +48,7 @@ Pictures: the design round's `sheet-final.png`, `sheet-motion.png`, `compare-fin
   (the dashed boxes in `0-anatomy.png`).
 - **One light: the lantern.** Every shadow falls away from it. Cards further from it are a little darker. While What
   happened plays, the moon is the light and the lantern is out.
-- **One death mark: the black ribbon.** HANGED is a stamp seen only during the reveal (beat 3), then it lifts off.
+- **One death mark: the black ribbon.** HANGED is a stamp seen only during the reveal (beats 3 and 4b), then it lifts off.
 - **Vote tags** hang on one length of twine from the pin at the bottom-left of the card they voted for.
 - **The dealt card** is a small, older card tucked behind its own card's top-left corner. It shows only when the
   dealt role differs from the final one.
@@ -80,7 +80,7 @@ The numbers match `png/0-anatomy.png`. Positions are in pt on a 360 x 780 phone.
 | 10 | Pin and twine | ties the tags to the card | a paper disc of 10 at the card's bottom-left (x + 8, bottom - 6). The twine is a sagging quadratic curve with a soft shadow away from the light | — |
 | 8 | Vote tags | who voted for this card | a tag of bone paper, its left end cut to a point, at least 26 tall and as tall as its name at the phone's text size: punched hole, the voter's sigil in an 18 circle, their name in 16. Each tag stands apart: the first 4 under the card's lowest corner, then 4 between tags. More than three hang in columns, as many as fit (two in the card's own slot, up to three when the strand has the row: a card alone on its row, or beside one with no tags that is not the Hunter's pick; then the strand hangs under the lower of the two cards). They are pushed sideways to stay inside their room and never lie on a card | every player's `vote_target_id`, grouped by target, in the voters' seat order. **Shown under the hanged cards only. When nobody is hanged, they are shown under every card** (each has at most one). Players who did not vote (`null`) have no tag |
 | — | The Hunter's pick | why a second card died | bone twine between the two cards (red twine is the Werewolves' alone; the Hunter is the village's), with a slip, "Dev's pick" (16), hung between them where it covers no name, role, tag, seal or ribbon, and as little of either card as it can. One per Hunter the vote took who took someone | the player with `elimination_reason == "hunter_chain"`, and the eliminated Hunter (final role Hunter, or a Doppelganger who copied the Hunter) whose `vote_target_id` is that player |
-| 11 | What happened | replays the night on this board | torn bone scrap as wide as its words, 40 tall, at the foot's left, turned -3°, flat iron pin, 16 Gloock. Touch target 48 tall. Where one line leaves the middle cards no room beside it, its words go on two lines ("What / happened", 48 tall); where two lines do not either, the middle cards take a row of their own above it. While the night plays it reads "Back to / the result" on two lines (48 tall, same place) | shown when `night_timeline` is not null; hidden otherwise |
+| 11 | What happened | replays the night on this board | torn bone scrap as wide as its words, 40 tall, at the foot's left, turned -3°, flat iron pin, 16 Gloock. Touch target 48 tall. Where one line leaves the middle cards no room beside it, its words go on two lines ("What / happened", 48 tall); where two lines do not either, the middle cards take a row of their own above it. While the night plays it reads "The result" (same place, as wide) | shown when `night_timeline` is not null; hidden otherwise |
 | 12 | The middle cards | the three cards nobody held | no name; portrait 44 x 33; role tab 12. Width = role + 12 (at least 52). Face up, level, side by side, right-aligned, 3 apart; past the width they have they wrap to a second row (large text). Never a pile. In the fixed band | `center_cards` (final). At night: `night_timeline.dealt.center` and then each step's `positions_after.center` |
 | 13 | Edit deck | host: back to the table with the deck open | scrap as wide as its words, 40 tall, at the foot's left under What happened, turned 2°. Touch target 48 | host only (`is_host`) |
 | 14 | Play again | host: the one action | amber paper `#e0a03e` with a deckled edge on a darker backing `#4a2a12`, in the type scale's large button label. From Edit deck's right (12 apart) to the foot's right, 50 tall (taller with larger text) | host only. Busy and failed states as on today's 11 (`Pending`: "Not sent." / "Try again") |
@@ -159,10 +159,9 @@ Two lines, at most, at 24. They come from the payload, and every phone builds it
   - With two winning teams, name the one you are with; if you are with neither, name the first in `winning_teams`.
 - If a line is wider than about 320 pt (long names), the banner takes a third line: its middle band stretches in
   height (`centerSlice` `Rect.fromLTRB(300, 140, 1130, 330)`). It never goes smaller than 24.
-- **Steps of What happened:** the timeline rows of first-time-play section 3 ("Ana sees Cleo's card.", "Ben takes
-  Rosa Maria's card.", "Dev swaps Ana and Maximilian.", and so on), without the "{role}:" prefix. The card shows the
-  role.
-- **Controls:** "What happened", "Back to / the result", "Edit deck", "Play again", "Leave" and "{host} deals next.".
+- **Steps of What happened:** in the banner, one line a step, each leading with the role (section 8, "The lines").
+- **Controls:** "What happened", "The result" (at night), "Edit deck", "Play again", "Leave" and "{host} deals next.";
+  the first time only, the cue "Go on".
 - This changes first-time-play section 3: 10 and 11 become one screen. The headlines there say "{name} dies." The
   owner has seen and kept "hanged" since round two, so **update the spec in the same change** (TICKETS, piece 5).
 
@@ -259,47 +258,114 @@ It plays once, when the results arrive while this phone is in the game (the phas
 opens or restarts in the results phase shows the settled board at once. Nothing is kept on the device: this replaces
 `StepRecord.wonPrefix`.
 
+As built (piece 3 and its fixing pass): the timeline is `revealOf` in `features/game/domain/end_reveal.dart`, pure and
+tested on every recorded sample; the widgets read it off one clock.
+
 | Beat | What moves | Tokens |
 |---|---|---|
-| 0 | The vote gives way to the board (the existing "Vote ends to the count" crossfade). The board shows every card face down, at one size, in seat order (rows of two), the banner rolled and tied, the middle cards face down. The bottom band is whole and live | `settle` |
-| 1 | The held beat: nothing moves (the count's beat, kept by decision on 22 Nov) | `beat` 1200 ms |
-| 2 | The hanged card lifts out of its seat to the middle of the board, big, and turns face up on the way. The others dim | travel `settle`; the turn `PaperFlip` landing at the end of `reveal`; dim `quick` |
-| 3 | HANGED stamps on it, with the ink burst. The banner unrolls. **The knock** (below) | stamp `press` with `Motion.land`; banner `settle`; then it holds for `reveal` 400 ms |
-| 4 | The crows lift off the roof and the gallows. Every other card turns where it sits, row by row. The middle cards turn with the last row. The hanged card drops back to its seat; the stamp lifts off and the ribbon is pinned | turns `PaperFlip` (`quick`), rows `stagger` 150 ms apart; drop `settle`; crows `scene` |
-| 5 | Every card travels to its row and size. Winners grow, the pool comes on, and the tags drop in on their twine | `settle` (`curve`); tags `Motion.land` |
+| 0 | The board shows every card face down in the seat it keeps, every back with one portrait size (the least on the board, so no back says who won or who hangs) and a bone edge round it and round the game's card back. The board already stands where the settled board opens (scrolled to the dead on a tall board): nothing scrolls and no seat moves. The banner lies furled on the roof (`FurledScroll`). The middle cards face down. The bottom band is whole and live | — |
+| 1 | The held beat: nothing moves | `reveal` 400 ms (the owner's no-added-waits rule: shorter than the round's `beat`) |
+| 2 | The first death lifts out of its seat to the middle of the window, its art filling the card, a set share of the board wide (`RevealMetrics.bigWidthShare`), turned 3° and in the lantern's warm light, turning face up on the way (the back grows into the face's size edge on, so nothing is ever drawn smaller than it is). The board dims, still seen | lift `settle`; turn `quick` landing at the lift's end; dim `quick` |
+| 3 | The face is seen whole for a moment, then HANGED slams onto the card's lower edge, under the role's tab (a narrow plate in a double bone rule with bone lines bursting out, `InkStamp`), at its own size. **A knock** (below). The banner is taken up off the roof and unrolls down, once | seen `quick`; stamp `press` (`Motion.land`, stopped at its own size); banner `scene` |
+| 4 | It holds, then drops back to its seat; the stamp lifts off and the ribbon is pinned on | hold `reveal`; drop `settle`; ribbon `press` |
+| 4b | **Each further death** (the Hunter's pick, a tie's other) gets its own beat once the one before is back in its seat: a shorter lift, stamp and knock, held less. The Hunter's pick lands smaller (`pickShare`) and turned the other way; its twine and slip come on as it lands back | lift `settle`; seen `press`; stamp `press`; hold `settle`; drop `settle` |
+| 5 | As the last death drops, every other card turns where it sits, row by row (a winner's card grows to its size as it turns); the middle cards with the last row. Then the dealt cards and seals come out, the pool comes on and the tags drop in on their twine | turns `PaperFlip` (`quick`), rows `stagger` 150 ms apart (closed up past five rows); then `settle`; tags `Motion.land` |
 
-- **Length:** about 3.1 s at 6 players, and about 3.4 s at 10, all existing tokens.
-- **Several hanged:** beat 2 lifts them side by side, one stamp each, and one knock.
-- **Nobody hanged:** beats 2 and 3 are skipped, and the banner unrolls at the end of beat 1.
-- **Skip:** one tap anywhere on the board jumps to the settled board. There are no words; the reveal is short.
-  "What happened", "Edit deck" and "Play again" work from frame one. A tap on What happened finishes the reveal and
-  starts the night.
+- **Lengths** (at six players; more rows add 150 ms each, closed up past five): one hanged **2.03 s**; two hanged (a
+  tie) **2.88 s**; the Hunter and his pick **2.88 s**; nobody hanged **1.39 s**. Ten players with one hanged: 2.33 s.
+  Each further death adds about 0.96 s.
+- **Nobody hanged:** its own beat, shorter than a hanging: after the hold the winners rise together where they lie,
+  turning face up as the lantern's pool comes on (`rise` `settle`), are held a moment (`quick`), then settle as the
+  banner unrolls (the light knock) and the others turn row by row. (The round's idea of the empty noose swinging
+  needs the noose as its own layer; the gallows is one picture today.)
+- **Skip:** one touch anywhere jumps to the settled board, and the control under it still takes the touch (the board
+  keeps the same layers settled, so nothing above a control is built again). "What happened", "Edit deck" and "Play
+  again" work from frame one. A tap on What happened finishes the reveal and starts the night.
 - **Reduce motion** (`Motion.within`), or a screen reader on (`MediaQuery.accessibleNavigation`): the settled board
-  at once.
-- **At 7+ players:** the reveal plays at scroll 0. Cards below the window travel out of view.
+  at once, faded in.
+- **At 7+ players:** the reveal plays where the board opens (the dead in view, `initialScroll`); the big card is in the
+  middle of that window.
+- **Not built (differs from the round's mock):** the crows lifting; the gallows' disc. Cards keep their seats from the
+  first frame (the owner's ruling), where the mock moved them to their rows at the end.
+
 
 ### What happened, on the board (`png/3-what-1` to `-5`)
 
+As built (piece 4 and its fixing pass): the steps are `endStoryOf` in `features/game/domain/end_story.dart`, pure and
+tested on every recorded sample; `EndNight` steps through them. Calm, one thing at a time. Where the build differs from
+the round's mock, on purpose (the owner rejected busier designs; the fixing pass's decisions win):
+
+- **The step's line is in the banner.** No caption slip floats over the board: the banner, which by day says the result,
+  says the step. It keeps the room its tallest words need (the result's, or any line of this night's, up to three lines
+  by the result's rule, set smaller only where three will not take it, never under 24): the board never moves when the
+  words change. Back at the result, the banner says the result again. Bone at night (red is the result's).
+- **One step at a time.** Only the step shown has a thread. No number chips anywhere. Earlier steps leave nothing behind
+  but the cards' faces: you watch the cards change.
+- **The deal is the first step.** "What happened" turns every card to the face it was dealt and the banner says "The
+  cards as dealt."; each tap then plays one step. A night where nobody acted is the deal alone, then the result: the
+  scrap is still offered (the deal against the result shows who ended up with what).
+- **Every card the step is about is whole on screen before it plays** (name included), on every board, phone and text
+  size. On a board that scrolls the step's cards are centred in the window (`nightViewOf`,
+  `features/game/domain/end_night_view.dart`, pure); the deal brings the board to its top with "you" in view. Where
+  the step's cards cannot all be in the window together (a tall board, large text), the one who acted is, and each
+  other card is lifted from its seat to the window's nearest edge, in front, for that step. At night the board may
+  scroll a little further, so its lowest card stands above the foot's lip. `end_night_sweep_test.dart` fails when any
+  card of the step shown is clipped, covered or off screen, for every recorded night, ten players and a night where
+  nobody acted, at 360 x 640, 360 x 780 and 390 x 844, text 1.0, 1.3 and 1.6.
+- **A middle card's thread runs to it in the foot**, from the card of the one who acted, over the board's lip (drawn
+  on the page over both, following the board as it scrolls). Never a bare "Left", "Right" or "Middle".
+- **The way back reads "The result"** (two words); after the last step one more tap is the result. **No auto-advance**:
+  a step plays on a tap (or a swipe left; a swipe right goes back), its motion short (`settle` + `quick`; the deal
+  `scene`), and a tap while it plays finishes it: the owner's no-added-waits rule.
+- **The first time only, "Go on"** on a small bone scrap on the board's lower edge (over the foot's lip, covering no
+  card), gone at the first tap and never shown again on that device (`EndBoardView.stepTaught` and `onStepTaught`;
+  piece 5 keeps it as the learned cue `end_step`, `Cue.endStep`). The project's rule: teach a gesture once, by doing it.
+- **The way back is exact.** The settled board is hidden as it is, not rebuilt, and comes back pixel for pixel,
+  scrolled where it stood.
+- **Team twines are gapped** (a look), red for the Werewolves and the Minion, bone for the Masons. The mock drew the
+  Werewolves' solid.
+- **Card widths count the night.** Each card is as wide as every role it shows in the night (Ben, robbed of the
+  Troublemaker's card in `results`, is as wide as "Troublemaker"), so nothing moves when faces change; this can move
+  a card to the next row beside the lantern (rule 3). Each middle card likewise.
+- **The moon** is the night village's moon, at the skin's size (`PaperParts.nightMoonWidth`), up at the left, between
+  the sky plate and the hills and roofs (the dawn sky's slot), over the night's ground; a lighter veil lies over the
+  whole sky; the felt takes the moon's cool wash (`PaperParts.nightFeltReach`); the lantern goes dark.
+
+**The lines** (one function, `StoryCopy.line` in `design_system/copy/end_copy.dart`, a part of `copy.dart`; every form
+tested in `story_copy_test.dart`): each leads with the role and ends with what came of it.
+
+- "The cards as dealt."
+- "Werewolves Cleo and Esme meet." (three or more: "Cleo, Esme and Fin"); "Werewolf Cleo is alone."
+- "Lone Werewolf Cleo peeks at a middle card."
+- "Minion Dev sees the Werewolves." / "Minion Dev sees no Werewolves."
+- "Masons Esme and Fin meet." / "Mason Esme is alone."
+- "Seer Ana sees Cleo: Werewolf." / "Seer Ana peeks at two middle cards."
+- "Robber Ben takes Dev's card." / "Troublemaker Dev swaps Ana and Ben." / "Drunk Ida swaps with a middle card."
+- "Insomniac Hana wakes: still Insomniac." / "Insomniac Hana wakes: now the Seer."
+- "Doppelganger Ana copies Ben: now a Seer." (an Insomniac: "now an Insomniac"), then the copied act as "Doppelganger
+  Ana ..." in the same forms.
+
 | Moment | What moves | Tokens |
 |---|---|---|
-| Tap "What happened" | The sky turns to night. The moon comes up and becomes the light; the lantern goes out. Every card turns to the face it was dealt, on cool night paper. Tags, ribbons and dealt cards fade out; the seal stays. The scrap becomes "Back to / the result" | sky `scene` 500 ms; turns `PaperFlip`; fades `quick` |
-| Each step, one per beat | Its twine is drawn between the cards' corners, never across another card: it rounds the column's outer side when it would. A paper number slip is pinned on the twine, kept off every card. The step's words go on one slip pinned to the board's bottom rail, always in the same place. Cards whose card moved turn to their new face. Earlier twines dim to 55%. Red twine for the werewolves (`cards[].werewolf`), dashed for a look | `beat` per step; twine `settle`; slip `Motion.land`; turns `PaperFlip` |
-| A tap on the board | The next step, now | — |
-| After the last step | It stays until "Back to the result" or a tap | — |
-| "Back to the result" | Dawn returns. The cards turn to their final faces, and tags, ribbon and the pool come back | `scene` |
+| Tap "What happened" | The sky turns to night; the moon comes up behind the roofs and becomes the light; the lantern goes out. Every card turns to the face it was dealt, on cool night paper. Tags, ribbons and dealt cards fade out; the seal stays. The banner: "The cards as dealt." The scrap becomes "The result" | sky `scene`; turns `PaperFlip` |
+| Each step, one a tap | The board brings the step's cards whole into view. Its thread is drawn between the cards' corners, never across another card (it rounds the column's outer side), or down to the middle card in the foot. Cards whose card moved turn to their new face. The banner says the step. Red twine for the Werewolf team, gapped for a look | scroll `settle`; twine and turns `settle` + `quick` |
+| After the last step | It stays until a tap or "The result" | — |
+| "The result" | Dawn returns. The cards turn to their final faces, and tags, ribbon and the pool come back; the banner says the result | `scene` |
 
-- **7+ players:** each step scrolls its cards into view (`settle`).
-- **Reduce motion:** every change is a cut, and the steps still go one per beat.
-- **Screen reader:** each step's words are announced (`SemanticsService.announce`).
+- **Reduce motion:** every change is a cut, and the steps still go one a tap.
+- **Screen reader:** the banner is a live region: each step's line is read as it comes, and the banner is a button
+  that plays the next step.
 - **No timeline (null):** no scrap.
 
 ## 9. Haptics
 
 - **No vibration when cards turn,** by the owner's word: not on the reveal and not in What happened.
-- **The knock belongs to the stamp.** `Haptics.thud` (`mediumImpact`, planned in feel.md, pass 4) fires once, as
-  HANGED lands in beat 3, on every phone. It fires once however many are hanged.
+- **The knock belongs to the stamp.** `Haptics.thud` (`mediumImpact`) fires as each HANGED lands, through the
+  `Haptics` seam, on every phone. Two deaths (a tie, the Hunter's pick) are two stamps a beat apart, so **two
+  knocks**: each death is its own moment, and the second knock says "and another". Three deaths, three.
 - **Nobody hanged:** `Haptics.light` once, as the banner unrolls.
-- **A skipped or reduce-motion reveal** fires the same one vibration as the board settles.
+- **A skipped or reduce-motion reveal** fires one vibration as the board settles, if none had come yet; the knocks
+  not yet come are not played.
 - **Never:** What happened, a scroll, What happened's steps, Edit deck or Leave.
 - **Play again:** as today.
 
@@ -320,7 +386,7 @@ Screen-reader order:
 6. "Play again", button (host); or "Ana deals next." and "Leave", button (guest).
 
 Tags, twine, ribbon, seal, crows and the lantern are excluded from semantics: the card nodes say it all. While What
-happened plays, its steps are announced, and "Back to the result" is the first button. Text scales with the system
+happened plays, the banner reads out each step and plays the next on a tap, and "The result" leads back. Text scales with the system
 up to the point where a name would no longer fit a slot; past it, rows of one card.
 
 ## 11. Proof in this folder

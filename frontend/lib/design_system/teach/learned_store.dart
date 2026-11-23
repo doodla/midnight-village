@@ -25,7 +25,11 @@ enum Cue {
   /// 08's sealed "My night": until it has been held once (a reveal that
   /// counts), its seal lifts and settles as the talk opens and after a tap
   /// too short to open it. Taught by doing it, never in words.
-  myNight('my_night');
+  myNight('my_night'),
+
+  /// "Go on" on the end board's lower edge as What happened begins; learned
+  /// by the first step played (`EndBoardView.stepTaught`, `onStepTaught`).
+  endStep('end_step');
 
   const Cue(this.id);
 

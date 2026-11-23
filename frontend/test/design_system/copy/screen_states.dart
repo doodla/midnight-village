@@ -109,16 +109,31 @@ final _myNight = <String, List<Object>>{
   for (final MapEntry(:key, :value) in _saw.entries) 'face, $key': value,
   for (final line in <Object>[
     NightCopy.slept, SawCopy.didNothing, SawCopy.swapped, //
-    SawCopy.noWerewolves, StoryCopy.seerPlayer, StoryCopy.seerCenter,
-    StoryCopy.robbed, StoryCopy.drunk, StoryCopy.now, StoryCopy.still,
-    StoryCopy.onlyWerewolf, StoryCopy.minionOne, StoryCopy.onlyMason,
-    StoryCopy.copied, StoryCopy.copiedSaw, StoryCopy.copiedCenter,
-    StoryCopy.copiedTook, StoryCopy.copiedSwapped, StoryCopy.copiedDrunk,
-    StoryCopy.copiedMinion, StoryCopy.copiedNone, StoryCopy.copiedNothing,
+    SawCopy.noWerewolves, NightStoryCopy.seerPlayer, NightStoryCopy.seerCenter,
+    NightStoryCopy.robbed,
+    NightStoryCopy.drunk,
+    NightStoryCopy.now,
+    NightStoryCopy.still,
+    NightStoryCopy.onlyWerewolf,
+    NightStoryCopy.minionOne,
+    NightStoryCopy.onlyMason,
+    NightStoryCopy.copied,
+    NightStoryCopy.copiedSaw,
+    NightStoryCopy.copiedCenter,
+    NightStoryCopy.copiedTook,
+    NightStoryCopy.copiedSwapped,
+    NightStoryCopy.copiedDrunk,
+    NightStoryCopy.copiedMinion,
+    NightStoryCopy.copiedNone,
+    NightStoryCopy.copiedNothing,
   ])
     '$line': [line],
-  for (final list in [StoryCopy.werewolves, StoryCopy.minion, StoryCopy.masons])
-    '$list': [list, StoryCopy.and],
+  for (final list in [
+    NightStoryCopy.werewolves,
+    NightStoryCopy.minion,
+    NightStoryCopy.masons,
+  ])
+    '$list': [list, NightStoryCopy.and],
 };
 
 List<Line> _face(List<Object> lines) => [for (final l in lines) face(l)];
@@ -536,6 +551,16 @@ final screens = <String, Screen>{
           button(EndCopy.leave),
         ],
       },
+      // The reveal at the stamp: the word on the hanged card, the banner
+      // just out, the foot live.
+      'reveal, the stamp': [
+        text(EndCopy.hanged),
+        headline(EndCopy.youWinVillage),
+        text(EndCopy.hangedStamp),
+        button(EndCopy.whatHappened),
+        button(EndCopy.editDeck),
+        button(EndCopy.playAgain),
+      ],
       'nobody hanged, count form': [
         text(EndCopy.nobodyHanged),
         text(EndCopy.hangedCount),
@@ -545,6 +570,25 @@ final screens = <String, Screen>{
         button(EndCopy.editDeck),
         button(EndCopy.playAgain),
       ],
+      // What happened: the step's line in the banner, the cue the first
+      // time, the scrap that leads back.
+      'what happened, the deal': [
+        headline(StoryCopy.dealt),
+        text(StoryCopy.goOn),
+        button(EndCopy.backToResult),
+        button(EndCopy.editDeck),
+        button(EndCopy.playAgain),
+      ],
+      for (final line in _storyLines)
+        'what happened, $line': [
+          headline(line),
+          text(StoryCopy.who),
+          text(StoryCopy.loneWerewolf),
+          button(EndCopy.backToResult),
+          button(EndCopy.editDeck),
+          button(EndCopy.playAgain),
+        ],
+      'what happened, two lines': [button(EndCopy.backToResultTwoLines)],
       'one hanged, two hanged': [
         text(EndCopy.hanged),
         text(EndCopy.andThen),
@@ -554,6 +598,24 @@ final screens = <String, Screen>{
     },
   ),
 };
+
+const _storyLines = [
+  StoryCopy.werewolves,
+  StoryCopy.masons,
+  StoryCopy.alone,
+  StoryCopy.peeksMiddle,
+  StoryCopy.minion,
+  StoryCopy.minionNone,
+  StoryCopy.seesPlayer,
+  StoryCopy.seesMiddle,
+  StoryCopy.takes,
+  StoryCopy.swaps,
+  StoryCopy.swapsMiddle,
+  StoryCopy.still,
+  StoryCopy.now,
+  StoryCopy.copiesA,
+  StoryCopy.copiesAn,
+];
 
 const _endYouLines = [
   EndCopy.youWinVillage,
@@ -641,8 +703,8 @@ final spoken = [
   EndCopy.votes,
   EndCopy.middle,
   SpokenCopy.hidden,
-  StoryCopy.cardUp,
-  StoryCopy.cardDown,
+  NightStoryCopy.cardUp,
+  NightStoryCopy.cardDown,
   SpokenCopy.working,
   SpokenCopy.pickFirst,
   ResultsCopy.nightSpoken,

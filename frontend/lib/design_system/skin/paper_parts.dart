@@ -97,6 +97,9 @@ class PaperParts {
     ],
     this.duskStops = const [0, 0.1, 0.2, 0.34, 1],
     this.duskReach = 300,
+    this.nightMoonWidth = 40,
+    this.nightMoonAt = const Offset(72, 4),
+    this.nightFeltReach = 1.6,
   });
 
   /// The standard parts (the dressed skin's).
@@ -299,6 +302,16 @@ class PaperParts {
   final List<Color> duskTint;
   final List<double> duskStops;
   final double duskReach;
+
+  /// The end board's night (What happened): how wide the moon is in the
+  /// sky, and how far its cool light reaches across the felt from the top
+  /// left (a radial gradient's radius, in shares of the board).
+  final double nightMoonWidth;
+
+  /// Where the moon's top left is in the sky: clear of the chimneys and the
+  /// lantern, up at the left.
+  final Offset nightMoonAt;
+  final double nightFeltReach;
 
   /// A loser's portrait: how much of its colour it keeps, and how dark it is.
   final double loserKeep;

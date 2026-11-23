@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../design_system/faces/face_content.dart' show serverRole;
@@ -15,7 +17,8 @@ class GameOutcome {
     required this.result,
     required this.seats,
     required this.timeline,
-  });
+    required String body,
+  }) : _body = body;
 
   factory GameOutcome.fromJson(Map<String, dynamic> data) {
     final timeline = data['night_timeline'] as Map<String, dynamic>?;
@@ -23,8 +26,20 @@ class GameOutcome {
       result: gameResultFromServer(data),
       seats: NightSeat.seatsOf(data),
       timeline: timeline == null ? null : NightTimeline.fromJson(timeline),
+      body: jsonEncode(data),
     );
   }
+
+  /// The body it was read from: two outcomes are the same when their bodies
+  /// are (the same results fetched again change nothing).
+  final String _body;
+
+  @override
+  bool operator ==(Object other) =>
+      other is GameOutcome && other._body == _body;
+
+  @override
+  int get hashCode => _body.hashCode;
 
   final GameResult result;
 

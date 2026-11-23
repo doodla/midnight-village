@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 
@@ -12,15 +10,11 @@ import 'screen_states.dart';
 // every line written in lib/design_system/copy/copy.dart, and every state of
 // every screen (screen_states.dart) as the words visible at once.
 
-const _copyFile = 'lib/design_system/copy/copy.dart';
-
-/// The parts `copy.dart` exports, read with it (whatever it exports).
-final _copyParts = [
-  for (final m in RegExp(
-    r'''^export '([^']+)';''',
-    multiLine: true,
-  ).allMatches(File(_copyFile).readAsStringSync()))
-    '${File(_copyFile).parent.path}/${m[1]}',
+/// copy.dart and its parts.
+const _copyFiles = [
+  'lib/design_system/copy/copy.dart',
+  'lib/design_system/copy/end_copy.dart',
+  'lib/design_system/copy/story_copy.dart',
 ];
 
 /// Every line the screens, banners and screen reader use, as written.
@@ -35,12 +29,10 @@ final _counted = [
 ];
 
 void main() {
-  final copy = [_copyFile, ..._copyParts].map(stringsIn).fold(
-    (strings: <String>[], interpolated: <String>[]),
-    (all, file) => (
-      strings: [...all.strings, ...file.strings],
-      interpolated: [...all.interpolated, ...file.interpolated],
-    ),
+  final read = [for (final f in _copyFiles) stringsIn(f)];
+  final copy = (
+    strings: [for (final r in read) ...r.strings],
+    interpolated: [for (final r in read) ...r.interpolated],
   );
 
   group('rule 1: how words are counted', () {
