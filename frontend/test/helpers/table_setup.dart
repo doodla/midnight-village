@@ -328,6 +328,21 @@ class TableSetup {
   int count(String method, String path) =>
       http.requests.where((r) => r.method == method && r.path == path).length;
 
+  /// The server has this phone at no table (`/me/table/`) from the moment a
+  /// leave from [table] reaches it, answered or not, and not before: the
+  /// table's slow poll (50 ms in tests, 15 s on a phone) runs while a finger
+  /// is down, and a server that said "no table" before the leave would move
+  /// the phone off the table under the finger, which no phone sees.
+  void offTheTableOnceLeft(String table) => http.answerEach(
+    method: 'POST',
+    path: '/lobbies/$table/leave/',
+    answer: (_) => http.answer(
+      'GET',
+      '/me/table/',
+      ContractSamples.map('http/lobby/my_table_none'),
+    ),
+  );
+
   /// Lets answers and a screen change finish.
   Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 12; i++) {

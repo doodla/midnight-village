@@ -4,24 +4,23 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/finger.dart';
 import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/table_setup.dart';
 
 // A join that is refused or not sent says so on 01, pressed as a finger
-// presses (down, a frame, up) on a network that takes frames to answer: the
+// presses (`pressLikeAFinger`: down, frames, up) on a network that takes frames to answer: the
 // busy state is drawn, then the refusal lands. 01 is one screen through it
 // (never torn down and built again because a request is busy), so what was
 // typed, the focus and the banner all stay. `tester.tap` with an answer at
 // once hid this: the request began and ended inside one frame.
 
-/// A finger: down, a frame, up, a frame.
+/// A finger (the shared press, test/helpers/finger.dart), then a frame.
 Future<void> _press(WidgetTester tester, Finder what) async {
   await tester.ensureVisible(what);
   await tester.pump();
-  final finger = await tester.startGesture(tester.getCenter(what));
-  await tester.pump(const Duration(milliseconds: 16));
-  await finger.up();
-  await tester.pump(const Duration(milliseconds: 16));
+  await pressLikeAFinger(tester, what);
+  await tester.pump(fingerFrame);
 }
 
 /// Frames go by (the request is on its way, or its answer is landing).

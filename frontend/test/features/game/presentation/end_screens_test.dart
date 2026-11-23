@@ -66,6 +66,22 @@ Future<void> _countDone(WidgetTester tester) async {
 PrimaryButton _button(WidgetTester tester) =>
     tester.widget<PrimaryButton>(find.byType(PrimaryButton).last);
 
+/// The server's state after this phone's [endpoint] (under
+/// `/lobbies/{code}/`) reaches it, and not before: [then] registers it as the
+/// request arrives. A phone that reads `/me/table/` while the finger is still
+/// down (its slow poll) finds the table as it was.
+void _onceSent(ShellSetup s, String endpoint, void Function() then) =>
+    s.http.answerEach(
+      method: 'POST',
+      path: '/lobbies/${s.me['lobby_code']}/$endpoint/',
+      answer: (_) => then(),
+    );
+
+/// At no table: `/me/table/` says so and 01's own reads are answered.
+void _offTheTable(ShellSetup s) => s
+  ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
+  ..answerHome();
+
 Future<void> _seeWhoWon(WidgetTester tester, ShellSetup s) async {
   await _countDone(tester);
   await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
@@ -579,12 +595,12 @@ void main() {
       final s = await _end(tester, recordedResults('results'), viewer: 'Ana');
       await _seeWhoWon(tester, s);
       s.http.answer('POST', '/lobbies/${code(s)}/play-again/', s.playedAgain());
-      s.answerTable(waiting(s, host: true));
-      final from = s.http.requests.length;
-      await pressLostToday(
+      _onceSent(s, 'play-again', () => s.answerTable(waiting(s, host: true)));
+      var from = 0;
+      await pressLikeAFinger(
         tester,
         find.text(ResultsCopy.playAgain),
-        why: lostPastTheSink,
+        beforeLift: () => from = s.http.requests.length,
       );
       // Frames only, no time passing (the table's slow poll never comes due).
       for (
@@ -633,12 +649,8 @@ void main() {
       final s = await _end(tester, recordedResults('results'), viewer: 'Ana');
       await _seeWhoWon(tester, s);
       s.http.answer('POST', '/lobbies/${code(s)}/play-again/', s.playedAgain());
-      s.answerTable(waiting(s, host: true));
-      await pressLostToday(
-        tester,
-        find.text(ResultsCopy.editDeck),
-        why: lostPastTheSink,
-      );
+      _onceSent(s, 'play-again', () => s.answerTable(waiting(s, host: true)));
+      await pressLikeAFinger(tester, find.text(ResultsCopy.editDeck));
       await s.settle(tester);
       expect(_screen(tester, s), AppScreen.deck);
       await s.close(tester);
@@ -650,11 +662,7 @@ void main() {
       await _seeWhoWon(tester, s);
       final path = '/lobbies/${code(s)}/play-again/';
       s.http.answer('POST', path, 'Server Error', status: 503);
-      await pressLostToday(
-        tester,
-        find.text(ResultsCopy.playAgain),
-        why: lostPastTheSink,
-      );
+      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(find.byType(ResultsView), findsOneWidget);
@@ -690,10 +698,8 @@ void main() {
           ContractSamples.load('http/lobby/$sample'),
           status: 404,
         );
-        s
-          ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
-          ..answerHome();
-        await pressLostToday(tester, find.text(tap), why: lostPastTheSink);
+        _onceSent(s, endpoint, () => _offTheTable(s));
+        await pressLikeAFinger(tester, find.text(tap));
         await s.settle(tester);
         expect(_screen(tester, s), AppScreen.join);
         expect(find.text(BannerCopy.tableClosed), findsOneWidget);
@@ -736,14 +742,8 @@ void main() {
         '/lobbies/${code(s)}/leave/',
         ContractSamples.load('http/lobby/left'),
       );
-      s
-        ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
-        ..answerHome();
-      await pressLostToday(
-        tester,
-        find.text(CommonCopy.leave),
-        why: lostPastTheSink,
-      );
+      _onceSent(s, 'leave', () => _offTheTable(s));
+      await pressLikeAFinger(tester, find.text(CommonCopy.leave));
       await s.settle(tester);
       expect(_screen(tester, s), AppScreen.join);
       await s.close(tester);

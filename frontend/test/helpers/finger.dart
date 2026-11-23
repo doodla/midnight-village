@@ -1,3 +1,4 @@
+// Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -98,8 +99,19 @@ class Touch {
 /// that changes shape under the finger in those frames loses the tap here as
 /// it would on a phone. Returns what the finger went down on (null: no
 /// action there) so a test can ask whether the lift still reached it.
-Future<Touch?> pressLikeAFinger(WidgetTester tester, Finder finder) =>
-    pressAtLikeAFinger(tester, tester.getCenter(finder));
+/// [beforeLift] runs with the finger still down, after its frames: what the
+/// tap sends begins at the lift, so a test that counts the requests a tap
+/// makes counts from there (the screen's own polls go on while the finger
+/// is down, as on a phone).
+Future<Touch?> pressLikeAFinger(
+  WidgetTester tester,
+  Finder finder, {
+  void Function()? beforeLift,
+}) => pressAtLikeAFinger(
+  tester,
+  tester.getCenter(finder),
+  beforeLift: beforeLift,
+);
 
 /// [pressLikeAFinger] at a point of the screen. [lift] false takes the finger
 /// away without a tap (a cancel): what the press would set off is not set
@@ -108,6 +120,7 @@ Future<Touch?> pressAtLikeAFinger(
   WidgetTester tester,
   Offset point, {
   bool lift = true,
+  void Function()? beforeLift,
 }) async {
   final touch = Touch.at(point);
   final gesture = await tester.startGesture(point);
@@ -116,6 +129,7 @@ Future<Touch?> pressAtLikeAFinger(
     tester.binding.scheduleFrame();
     await tester.pump(fingerFrame);
   }
+  beforeLift?.call();
   if (lift) {
     await gesture.up();
   } else {
@@ -166,10 +180,9 @@ void installFingerRule() {
 
 var _plainOnPurpose = false;
 
-/// A plain `tester.tap` on an action, on purpose, saying [why]: a test that
-/// counts frames from the tap, or a press a finger loses today that is still
-/// to be looked at (the why says which). Each is a to-do: the rule above is
-/// what holds.
+/// A plain `tester.tap` on an action, on purpose, saying [why]: a test or a
+/// gallery picture that counts its frames from the tap. Each is a to-do: the
+/// rule above is what holds.
 Future<void> plainTap(
   WidgetTester tester,
   Finder finder, {
@@ -183,26 +196,3 @@ Future<void> plainTap(
     _plainOnPurpose = false;
   }
 }
-
-/// A press a finger held for a tenth of a second ([fingerFrames]) loses
-/// today, pressed as tests pressed before (down, a frame with no time, up),
-/// saying [why]. Found when the press began to last as long as a real one;
-/// each is a fault in the screen to look at, not a test to keep: the held
-/// press is what a phone does.
-Future<void> pressLostToday(
-  WidgetTester tester,
-  Finder finder, {
-  required String why,
-}) async {
-  assert(why.isNotEmpty);
-  final gesture = await tester.startGesture(tester.getCenter(finder));
-  tester.binding.scheduleFrame();
-  await tester.pump();
-  await gesture.up();
-  await tester.pump();
-}
-
-/// Why a press is [pressLostToday].
-const lostPastTheSink =
-    "a finger's tenth-of-a-second press is lost here (on 02 and 11 past the "
-    '90 ms press sink, on 11 within one frame): to look at';

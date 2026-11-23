@@ -205,13 +205,24 @@ void main() {
     final code = s.me['lobby_code'] as String;
     final path = '/lobbies/$code/play-again/';
     s.http.answer('POST', path, s.playedAgain());
-    s.http.answer('GET', '/me/table/', 'Server Error', status: 503);
-    final reads = s.http.requests.where((r) => r.path == '/me/table/').length;
-
-    await pressLostToday(
+    // `/me/table/` fails from the moment the play-again reaches the server:
+    // before it, the table's slow poll (50 ms here, 15 s on a phone) would
+    // fail under the finger and show "One moment" on 11, which is another
+    // test's (read_failing on 11).
+    s.http.answerEach(
+      method: 'POST',
+      path: path,
+      answer: (_) =>
+          s.http.answer('GET', '/me/table/', 'Server Error', status: 503),
+    );
+    // Counted at the lift: the table's slow poll goes on (and fails) while
+    // the finger is down, as on a phone; the tap's own reads start there.
+    var reads = 0;
+    await pressLikeAFinger(
       tester,
       find.text(ResultsCopy.playAgain),
-      why: lostPastTheSink,
+      beforeLift: () =>
+          reads = s.http.requests.where((r) => r.path == '/me/table/').length,
     );
     // Frames only, no time passing: the table's slow poll never comes due.
     for (var i = 0; i < 200 && s.screenOn(tester) != AppScreen.table; i++) {

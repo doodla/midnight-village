@@ -405,16 +405,8 @@ void main() {
           ContractSamples.map('http/lobby/left_owner'),
         );
         await _back(tester);
-        setup.http.answer(
-          'GET',
-          '/me/table/',
-          ContractSamples.map('http/lobby/my_table_none'),
-        );
-        await pressLostToday(
-          tester,
-          find.text(CommonCopy.leave).last,
-          why: lostPastTheSink,
-        );
+        setup.offTheTableOnceLeft('V9YC2J');
+        await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
         // Frame by frame, until 01 is the screen.
         for (var i = 0; i < 40 && _screen(tester) != AppScreen.join; i++) {
           await tester.pump(const Duration(milliseconds: 16));
@@ -445,22 +437,13 @@ void main() {
         expect(find.text(TableCopy.stay), findsNothing);
         expect(platform.left, isFalse);
 
-        setup.http
-          ..answer(
-            'POST',
-            '/lobbies/V9YC2J/leave/',
-            ContractSamples.map('http/lobby/left'),
-          )
-          ..answer(
-            'GET',
-            '/me/table/',
-            ContractSamples.map('http/lobby/my_table_none'),
-          );
-        await pressLostToday(
-          tester,
-          find.text(CommonCopy.leave),
-          why: lostPastTheSink,
+        setup.http.answer(
+          'POST',
+          '/lobbies/V9YC2J/leave/',
+          ContractSamples.map('http/lobby/left'),
         );
+        setup.offTheTableOnceLeft('V9YC2J');
+        await pressLikeAFinger(tester, find.text(CommonCopy.leave));
         await tester.pump();
         expect(find.text(TableCopy.stay), findsNothing);
         await _settled(tester);
@@ -508,26 +491,17 @@ void main() {
           lobby: v2Lobby('detail_auto_deck_5'),
           viewer: 'Ben',
         );
-        setup.http
-          ..answer(
-            'POST',
-            '/lobbies/V9YC2J/leave/',
-            ContractSamples.map('http/lobby/left'),
-          )
-          ..answer(
-            'GET',
-            '/me/table/',
-            ContractSamples.map('http/lobby/my_table_none'),
-          );
+        setup.http.answer(
+          'POST',
+          '/lobbies/V9YC2J/leave/',
+          ContractSamples.map('http/lobby/left'),
+        );
+        setup.offTheTableOnceLeft('V9YC2J');
         final leave = setup.http.hold(
           method: 'POST',
           path: '/lobbies/V9YC2J/leave/',
         );
-        await pressLostToday(
-          tester,
-          find.text(CommonCopy.leave),
-          why: lostPastTheSink,
-        );
+        await pressLikeAFinger(tester, find.text(CommonCopy.leave));
         await _until(tester, () => leave.length == 1);
         await _press(tester);
         await tester.pump(const Duration(milliseconds: 300));

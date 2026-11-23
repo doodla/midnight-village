@@ -1,3 +1,4 @@
+// Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 import 'dart:io';
 
 import 'package:analyzer/dart/analysis/utilities.dart';

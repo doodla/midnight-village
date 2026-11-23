@@ -19,33 +19,35 @@ import '../../../helpers/table_setup.dart';
 Future<void> _tap(WidgetTester tester, TableSetup setup, Finder what) async {
   await tester.ensureVisible(what);
   await tester.pump();
-  await pressLostToday(tester, what, why: lostPastTheSink);
+  await pressLikeAFinger(tester, what);
   await setup.settle(tester);
 }
 
-/// The host's Leave asks first; the guest's leaves at once. [then] runs
-/// just before the tap that sends the leave (what the server says after).
+/// The host's Leave asks first; the guest's leaves at once. With [leftFrom]
+/// (the table's code) the server has the phone at no table once the leave
+/// reaches it, and not before: a phone at the table that reads `/me/table/`
+/// while the finger is down still finds its seat.
 Future<void> _leave(
   WidgetTester tester,
   TableSetup setup, {
   bool host = true,
-  void Function()? then,
+  String? leftFrom,
 }) async {
   if (host) {
     await _tap(tester, setup, find.text(CommonCopy.leave).first);
     await tester.pumpAndSettle();
   }
-  then?.call();
+  if (leftFrom != null) setup.offTheTableOnceLeft(leftFrom);
   await _tap(tester, setup, find.text(CommonCopy.leave).last);
 }
 
-void main() {
-  void offTheTable(TableSetup setup) => setup.http.answer(
-    'GET',
-    '/me/table/',
-    ContractSamples.map('http/lobby/my_table_none'),
-  );
+void _offTheTable(TableSetup setup) => setup.http.answer(
+  'GET',
+  '/me/table/',
+  ContractSamples.map('http/lobby/my_table_none'),
+);
 
+void main() {
   testWidgets('a host who started the table on this phone, alone, confirms '
       'Leave: at 01, no "Not sent." (the harness\'s setup-leave-alone)', (
     tester,
@@ -77,7 +79,7 @@ void main() {
       '/lobbies/${created['code']}/leave/',
       ContractSamples.map('http/lobby/left_last_member'),
     );
-    await _leave(tester, setup, then: () => offTheTable(setup));
+    await _leave(tester, setup, leftFrom: created['code'] as String);
 
     expect(setup.count('POST', '/lobbies/${created['code']}/leave/'), 1);
     expect(find.text(JoinCopy.startTable), findsOneWidget);
@@ -98,7 +100,7 @@ void main() {
       ContractSamples.map('http/lobby/left_last_member'),
     );
 
-    await _leave(tester, setup, then: () => offTheTable(setup));
+    await _leave(tester, setup, leftFrom: 'R5ZD3H');
 
     expect(setup.count('POST', '/lobbies/R5ZD3H/leave/'), 1);
     expect(find.text(BannerCopy.notSent), findsNothing);
@@ -119,7 +121,8 @@ void main() {
       ContractSamples.map('http/lobby/left_owner'),
     );
 
-    await _leave(tester, setup, then: () => offTheTable(setup));
+    await _leave(tester, setup, leftFrom: 'V9YC2J');
+    expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
 
     expect(find.text(BannerCopy.notSent), findsNothing);
     expect(find.text(JoinCopy.startTable), findsOneWidget);
@@ -138,7 +141,8 @@ void main() {
       ContractSamples.map('http/lobby/left'),
     );
 
-    await _leave(tester, setup, host: false, then: () => offTheTable(setup));
+    await _leave(tester, setup, host: false, leftFrom: 'V9YC2J');
+    expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
 
     expect(find.text(BannerCopy.notSent), findsNothing);
     expect(find.text(JoinCopy.startTable), findsOneWidget);
@@ -170,7 +174,7 @@ void main() {
 
     // The server got it (it now has the phone at no table) but its answer
     // comes after the phone stops waiting.
-    offTheTable(setup);
+    _offTheTable(setup);
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(seconds: 1));
       expect(find.text(BannerCopy.notSent), findsNothing, reason: '${i}s');
@@ -197,7 +201,8 @@ void main() {
       status: 400,
     );
 
-    await _leave(tester, setup, host: false, then: () => offTheTable(setup));
+    await _leave(tester, setup, host: false, leftFrom: 'V9YC2J');
+    expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
 
     expect(find.text(BannerCopy.notSent), findsNothing);
     expect(find.text(JoinCopy.startTable), findsOneWidget);
@@ -217,7 +222,8 @@ void main() {
       status: 404,
     );
 
-    await _leave(tester, setup, then: () => offTheTable(setup));
+    await _leave(tester, setup, leftFrom: 'R5ZD3H');
+    expect(setup.count('POST', '/lobbies/R5ZD3H/leave/'), 1);
 
     expect(find.text(BannerCopy.notSent), findsNothing);
     expect(find.text(JoinCopy.startTable), findsOneWidget);
@@ -267,7 +273,7 @@ void main() {
       '/lobbies/V9YC2J/leave/',
       ContractSamples.map('http/lobby/left'),
     );
-    offTheTable(setup);
+    setup.offTheTableOnceLeft('V9YC2J');
     await _tap(tester, setup, find.text(BannerCopy.tryAgain));
 
     expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 2);
@@ -289,7 +295,8 @@ void main() {
       status: 503,
     );
 
-    await _leave(tester, setup, host: false, then: () => offTheTable(setup));
+    await _leave(tester, setup, host: false, leftFrom: 'V9YC2J');
+    expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
 
     expect(find.text(BannerCopy.notSent), findsNothing);
     expect(find.text(JoinCopy.startTable), findsOneWidget);

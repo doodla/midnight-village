@@ -394,12 +394,7 @@ void main() {
         await setup.settle(tester);
         await tester.enterText(find.byType(TextField).last, 'ZZZZZZ');
         await tester.pump();
-        await plainTap(
-          tester,
-          find.text(JoinCopy.join),
-          why:
-              'the 01 Join bug: pressed by a finger, a refused or unsent Join shows no refusal (fixed on branch fix-join-refusal)',
-        );
+        await pressLikeAFinger(tester, find.text(JoinCopy.join));
         await setup.settle(tester);
 
         expect(find.text(banner), findsOneWidget);
@@ -448,12 +443,7 @@ void main() {
         // And typing joins, as ever.
         await tester.enterText(find.byType(TextField).last, 'V9YC2J');
         await tester.pump();
-        await plainTap(
-          tester,
-          find.text(JoinCopy.join),
-          why:
-              'the 01 Join bug: pressed by a finger, a refused or unsent Join shows no refusal (fixed on branch fix-join-refusal)',
-        );
+        await pressLikeAFinger(tester, find.text(JoinCopy.join));
         await setup.settle(tester);
         expect(setup.count('POST', '/lobbies/V9YC2J/join/'), 1);
         await setup.close(tester);

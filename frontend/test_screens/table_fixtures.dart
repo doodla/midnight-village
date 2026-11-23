@@ -135,12 +135,7 @@ Future<void> _typeCodeAndJoin(WidgetTester tester, TableSetup setup) async {
   await tester.pump();
   await tester.enterText(find.byType(TextField).last, 'V9YC2J');
   await tester.pump();
-  await plainTap(
-    tester,
-    find.text(JoinCopy.join),
-    why:
-        'the 01 Join bug: pressed by a finger, a refused or unsent Join shows no refusal (fixed on branch fix-join-refusal)',
-  );
+  await pressLikeAFinger(tester, find.text(JoinCopy.join));
   await setup.settle(tester);
 }
 

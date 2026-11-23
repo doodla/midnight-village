@@ -44,22 +44,16 @@ Future<void> _tap(
   TableSetup setup,
   Finder what, {
   String? plain,
-  bool lost = false,
 }) async {
   await tester.ensureVisible(what);
   await tester.pump();
   if (plain != null) {
     await plainTap(tester, what, why: plain);
-  } else if (lost) {
-    await pressLostToday(tester, what, why: lostPastTheSink);
   } else {
     await pressLikeAFinger(tester, what);
   }
   await setup.settle(tester);
 }
-
-const _refusedJoin =
-    'the 01 Join bug: pressed by a finger, a refused or unsent Join shows no refusal (fixed on branch fix-join-refusal)';
 
 PresetChip _chip(WidgetTester tester, String label) => tester.widget(
   find.ancestor(of: find.text(label), matching: find.byType(PresetChip)),
@@ -251,12 +245,7 @@ void main() {
         await _tap(tester, setup, find.text(JoinCopy.joinTable));
         await tester.enterText(find.byType(TextField).last, 'ZZZZZZ');
         await tester.pump();
-        await _tap(
-          tester,
-          setup,
-          find.text(JoinCopy.join),
-          plain: _refusedJoin,
-        );
+        await _tap(tester, setup, find.text(JoinCopy.join));
 
         expect(find.text(banner), findsOneWidget);
         expect(find.text(BannerCopy.tryAgain), findsNothing);
@@ -283,7 +272,7 @@ void main() {
       await _tap(tester, setup, find.text(JoinCopy.joinTable));
       await tester.enterText(find.byType(TextField).last, 'V9YC2J');
       await tester.pump();
-      await _tap(tester, setup, find.text(JoinCopy.join), plain: _refusedJoin);
+      await _tap(tester, setup, find.text(JoinCopy.join));
       await setup.settle(tester);
 
       expect(
@@ -314,7 +303,7 @@ void main() {
       await _tap(tester, setup, find.text(JoinCopy.joinTable));
       await tester.enterText(find.byType(TextField).last, 'V9YC2J');
       await tester.pump();
-      await _tap(tester, setup, find.text(JoinCopy.join), plain: _refusedJoin);
+      await _tap(tester, setup, find.text(JoinCopy.join));
       await setup.settle(tester);
 
       expect(find.text(BannerCopy.alreadyInLobby), findsOneWidget);
@@ -771,19 +760,14 @@ void main() {
         lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
       );
-      setup.http
-        ..answer(
-          'POST',
-          '/lobbies/V9YC2J/leave/',
-          ContractSamples.map('http/lobby/left'),
-        )
-        ..answer(
-          'GET',
-          '/me/table/',
-          ContractSamples.map('http/lobby/my_table_none'),
-        );
+      setup.http.answer(
+        'POST',
+        '/lobbies/V9YC2J/leave/',
+        ContractSamples.map('http/lobby/left'),
+      );
+      setup.offTheTableOnceLeft('V9YC2J');
 
-      await _tap(tester, setup, find.text(CommonCopy.leave), lost: true);
+      await _tap(tester, setup, find.text(CommonCopy.leave));
       await setup.settle(tester);
 
       expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
@@ -849,24 +833,16 @@ void main() {
         ContractSamples.map('http/lobby/left'),
       );
 
-      await _tap(tester, setup, find.text(CommonCopy.leave), lost: true);
+      await _tap(tester, setup, find.text(CommonCopy.leave));
       await tester.pumpAndSettle();
       await pressLikeAFinger(tester, find.text(TableCopy.stay));
       await tester.pumpAndSettle();
       expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 0);
 
-      await _tap(tester, setup, find.text(CommonCopy.leave), lost: true);
+      await _tap(tester, setup, find.text(CommonCopy.leave));
       await tester.pumpAndSettle();
-      setup.http.answer(
-        'GET',
-        '/me/table/',
-        ContractSamples.map('http/lobby/my_table_none'),
-      );
-      await pressLostToday(
-        tester,
-        find.text(CommonCopy.leave).last,
-        why: lostPastTheSink,
-      );
+      setup.offTheTableOnceLeft('V9YC2J');
+      await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
       await tester.pumpAndSettle();
       await setup.settle(tester);
 

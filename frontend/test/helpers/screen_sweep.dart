@@ -1,3 +1,4 @@
+// Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
