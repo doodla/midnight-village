@@ -92,7 +92,7 @@ void main() {
         unlocked: null,
         why: 'what the table needs ("Need 3 players", "Add 1 card")',
       ),
-      'features/lobby/presentation/join_screen.dart': (
+      'features/lobby/presentation/join_view.dart': (
         says: JoinCopy.join,
         unlocked: JoinCopy.join,
         why:
@@ -121,7 +121,7 @@ void main() {
         reason: 'classify a new locked button',
       );
       for (final e in locked.entries) {
-        final plain = e.key.contains('join_screen');
+        final plain = e.key.contains('join_view');
         if (plain) continue; // a plain screen: its look is today's, unchanged
         final unlocked = e.value.unlocked;
         expect(

@@ -80,12 +80,12 @@ const _sites = [
     'a face-up card\'s role name set to fit its card (never under 12)',
   ),
   _Site(
-    'design_system/primitives/band.dart',
+    'design_system/primitives/timer_band.dart',
     'style: TextStyle(fontSize: size * unitShare),',
     'the clock\'s unit ("s") drawn at a share of its number',
   ),
   _Site(
-    'design_system/primitives/band.dart',
+    'design_system/primitives/timer_band.dart',
     'return FittedBox(',
     'ClockFigure: a clock\'s figure scaled down to its room',
   ),
