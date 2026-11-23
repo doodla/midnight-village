@@ -1,10 +1,12 @@
-"""The file size check (tool/check_file_sizes.py): a source file may not pass the limit,
-and one already over it may shrink but not grow.
+"""The file size check (tool/check_file_sizes.py): a change may not make a source file
+longer than can be read whole, and may not add to one that already is. There is no
+list to keep: the check compares with main.
 
 Run with: python3 -m unittest discover -s .claude/guardrails/tests
 """
 
 import importlib.util
+import os
 import subprocess
 import tempfile
 import unittest
@@ -20,7 +22,6 @@ def load(root: Path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.ROOT = root
-    module.CEILINGS = root / "tool" / "file_size_ceilings.txt"
     return module
 
 
@@ -28,50 +29,77 @@ class FileSizes(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        self.git("init", "-q", "-b", "main")
+        self.git("config", "user.email", "t@t")
+        self.git("config", "user.name", "t")
         self.check = load(self.root)
+        self.limit = self.check.LIMIT
+        os.environ["FILE_SIZE_BASE"] = "main"
+        self.addCleanup(os.environ.pop, "FILE_SIZE_BASE", None)
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def git(self, *args: str) -> None:
+        subprocess.run(["git", "-C", str(self.root), *args], check=True, capture_output=True)
 
     def write(self, name: str, lines: int) -> None:
         path = self.root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("x = 1\n" * lines)
 
-    def ceilings(self, text: str) -> None:
-        self.write("tool/file_size_ceilings.txt", 0)
-        (self.root / "tool" / "file_size_ceilings.txt").write_text(text)
+    def on_main(self, files: dict[str, int]) -> None:
+        """Commit these files on main, then start a branch for the change."""
+        for name, lines in files.items():
+            self.write(name, lines)
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "main")
+        self.git("checkout", "-q", "-b", "change")
 
     def run_check(self, *args: str) -> int:
         return self.check.main(list(args))
 
-    def test_a_file_at_the_limit_passes_and_one_line_more_fails(self):
-        self.write("backend/apps/onuw/night.py", self.check.LIMIT)
+    def test_a_new_file_at_the_limit_passes_and_one_line_more_fails(self):
+        self.on_main({"tool/small.py": 1})
+        self.write("backend/apps/onuw/night.py", self.limit)
         self.assertEqual(self.run_check(), 0)
-        self.write("backend/apps/onuw/night.py", self.check.LIMIT + 1)
+        self.write("backend/apps/onuw/night.py", self.limit + 1)
         self.assertEqual(self.run_check(), 1)
 
-    def test_a_listed_file_may_shrink_but_not_grow(self):
-        self.ceilings("900 frontend/lib/big.dart\n")
-        self.write("frontend/lib/big.dart", 900)
+    def test_a_file_under_the_limit_may_not_pass_it(self):
+        self.on_main({"tool/a.py": self.limit - 10})
+        self.write("tool/a.py", self.limit)
         self.assertEqual(self.run_check(), 0)
+        self.write("tool/a.py", self.limit + 1)
+        self.assertEqual(self.run_check(), 1)
+
+    def test_a_long_file_may_stay_or_shrink_but_not_grow(self):
+        self.on_main({"frontend/lib/big.dart": 900})
+        self.assertEqual(self.run_check(), 0)  # left alone: nothing to edit anywhere
         self.write("frontend/lib/big.dart", 850)
         self.assertEqual(self.run_check(), 0)
         self.write("frontend/lib/big.dart", 901)
         self.assertEqual(self.run_check(), 1)
 
-    def test_an_allowance_lets_a_file_grow_and_a_passed_date_never_fails(self):
-        self.ceilings("700 frontend/lib/moving.dart until 2020-01-01\n")
-        self.write("frontend/lib/moving.dart", 2000)
+    def test_growth_is_measured_from_main_not_from_the_last_commit(self):
+        """Small steps do not add up to a pass: every step is over main's size."""
+        self.on_main({"frontend/lib/big.dart": 900})
+        self.write("frontend/lib/big.dart", 901)
+        self.git("commit", "-qam", "one more line")
+        self.assertEqual(self.run_check(), 1)
+        self.assertEqual(self.run_check("--staged"), 1)
 
-        self.assertEqual(self.run_check(), 0)  # the date is long past: said, never failed
-
-        self.assertEqual(self.run_check("--write"), 0)  # re-recording keeps the allowance
-        listed = self.check.read_ceilings(staged=False)
-        self.assertEqual(listed, {"frontend/lib/moving.dart": (2000, "2020-01-01")})
+    def test_a_long_file_that_is_renamed_is_compared_with_its_old_path(self):
+        self.on_main({"frontend/lib/big.dart": 900})
+        self.git("mv", "frontend/lib/big.dart", "frontend/lib/moved.dart")
+        self.assertEqual(self.run_check("--staged"), 0)
+        self.git("commit", "-qm", "move")
+        self.assertEqual(self.run_check(), 0)
+        self.write("frontend/lib/moved.dart", 905)
+        self.assertEqual(self.run_check(), 1)
 
     def test_what_is_not_source_is_not_counted(self):
+        self.on_main({"tool/small.py": 1})
         for name in (
             "frontend/lib/a.g.dart",
             "frontend/lib/a.freezed.dart",
@@ -85,31 +113,27 @@ class FileSizes(unittest.TestCase):
         self.assertEqual(self.run_check(), 0)
 
     def test_staged_reads_what_is_being_committed(self):
+        self.on_main({"tool/small.py": 1})
         self.write("tool/long.py", 700)
-        subprocess.run(["git", "-C", str(self.root), "add", "tool/long.py"], check=True)
+        self.git("add", "tool/long.py")
         self.write("tool/long.py", 10)  # fixed on disk, but the long one is staged
         self.assertEqual(self.run_check(), 0)
         self.assertEqual(self.run_check("--staged"), 1)
 
-    def test_write_lists_exactly_the_files_over_the_limit(self):
-        self.write("tool/long.py", 700)
-        self.write("tool/short.py", 20)
-        self.assertEqual(self.run_check("--write"), 0)
-        listed = self.check.read_ceilings(staged=False)
-        self.assertEqual(listed, {"tool/long.py": (700, "")})
+    def test_without_that_base_the_change_is_compared_with_its_own_head(self):
+        self.on_main({"tool/long.py": 700})
+        os.environ["FILE_SIZE_BASE"] = "nowhere/main"
         self.assertEqual(self.run_check(), 0)
+        self.write("tool/long.py", 701)
+        self.assertEqual(self.run_check(), 1)
 
-    def test_this_repo_passes_and_its_list_has_no_stale_line(self):
-        real = load(REPO)
-        self.assertEqual(real.main([]), 0)
-        counts = real.line_counts(staged=False)
-        for path, (ceiling, until) in real.read_ceilings(staged=False).items():
-            with self.subTest(path=path):
-                self.assertIn(path, counts, "listed but gone: remove its line")
-                if until:
-                    continue  # an allowance: free to grow or shrink while its work is in it
-                self.assertGreater(counts[path], real.LIMIT, "under the limit now: remove its line")
-                self.assertLessEqual(counts[path], ceiling)
+    def test_a_repository_with_no_commit_holds_every_file_to_the_limit(self):
+        self.write("tool/long.py", 700)
+        self.assertEqual(self.run_check(), 1)
+
+    def test_this_repo_passes(self):
+        os.environ.pop("FILE_SIZE_BASE", None)
+        self.assertEqual(load(REPO).main([]), 0)
 
 
 if __name__ == "__main__":

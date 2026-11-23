@@ -78,12 +78,11 @@ nothing and holds no secret (`WorkflowAfterMerge` in the same test file).
 
 **File sizes.** `tool/check_file_sizes.py` fails `just check`, the commit gate (on what is
 staged) and `just gate-full` when a source file passes 600 lines: a file that long cannot be
-read whole, and two branches that touch it collide. The files already over are listed with
-their size in `tool/file_size_ceilings.txt`; each may shrink but not grow (split it, or raise
-its line in the same commit where a reviewer sees it). A line ending `until <date>` lets a
-file grow while a piece of work is in the middle of it; a passed date is reported on every
-run and never turns into a failure. Tests and generated code are not
-counted. `guardrails/tests/test_file_sizes.py` also fails on a stale line in the list.
+read whole, and two branches that touch it collide. A file already over it on main may stay
+or shrink but not grow: move something out first, then add. There is no list: the check
+compares with main on the remote (fetched when a shallow checkout lacks it), so only the change
+that adds to a long file fails. Tests and generated code are not counted
+(`guardrails/tests/test_file_sizes.py`).
 
 `guardrails/tests/test_checkout_whole.py` keeps a fresh checkout working as it stands: every
 shell script parses (`bash -n`), the lint and type tools in recipes and hooks are run as
