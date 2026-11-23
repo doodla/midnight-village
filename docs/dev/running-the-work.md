@@ -37,8 +37,7 @@ the end-to-end harness.
   tests, generated code, screens) in parallel, in minutes. It skips the browser, build and
   harness jobs, which only GitHub runs.
 - The ruleset `docs/dev/main-ruleset.json` is the wall: it makes a squash-merged pull request
-  and every check required on main. Not on until the owner imports it (`docs/claude-architecture.md`,
-  "GitHub: the wall"); until then the rule is ours to keep.
+  and every check required on main. It is on (`docs/claude-architecture.md`, "GitHub: the wall").
 - Add, rename or remove a check: change the job and `docs/dev/main-ruleset.json` in the same
   commit (a test fails until they match), then the owner imports the file again.
 

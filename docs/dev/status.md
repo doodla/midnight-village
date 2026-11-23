@@ -1,19 +1,18 @@
 # Status: where the rebuild stands
 
 Current state only; history is `git log`. Update this file when something lands or the plan
-changes. Last updated 20 November 2026.
+changes. "Branch and deployment" was last checked on 23 November 2026; the lists below were
+last gone through on 20 November, and what landed since is `git log` on main (#64 to #73).
 
 ## Branch and deployment
 
-- Work branch: `ccr-2435dc07-33z3jn`, shared with the deployment session, which pushes to it
-  too: `git fetch` and merge before pushing.
-- The server is LIVE on Vercel; every push builds and migrates the shared database
-  (`docs/dev/deploy-vercel.md`, "Deploy-safe changes"). After pushing anything that changes the
-  server, tell the deployment session `session_01Gu8f2jPBR1SQpcDEMca4hZ` (remote
-  `send_message` tool).
-- No pull request is open for this work yet.
+- Work lands on main by pull request, squash-merged when every GitHub check is green
+  (`docs/dev/running-the-work.md`). Each session works on its own branch, started from main.
+- The server is LIVE on Vercel; every merge builds and migrates the shared database
+  (`docs/dev/deploy-vercel.md`, "Deploy-safe changes"). A change to the server or to routing is
+  told to the session that looks after deployments before it merges.
 
-## Merged on the branch
+## Merged
 
 - Server: one game flow (one `choose` per window, stage tokens, look stage, lock-in vote,
   ready to vote, automatic decks, night timeline), tokens and seats, where-am-I, home extras.
@@ -23,7 +22,7 @@ changes. Last updated 20 November 2026.
   `night_protocol` key on an older table is ignored, a lobby PATCH checks only the keys it
   gives and the deal clamps stored timer values the server refuses today. New tables and
   dealt games still carry `night_protocol: 2` for the previous code during a deploy (see
-  "Next", 3). Runs on Vercel (durable timers and presence rows).
+  "Next", 2). Runs on Vercel (durable timers and presence rows).
 - Contract samples recorded from the real server, with drift, privacy and shape guards; the
   protocol-1 samples are gone and the app's tests read every sample.
 - App: the Shadow paper skin and primitives (the only look); the first-time-play pieces (copy,
@@ -52,8 +51,7 @@ changes. Last updated 20 November 2026.
 1. Rerun the cold-read playtest on the real screens (method in
    `docs/dev/playtests/2026-11-19-mocks-cold-read.md`). A screen passes when 4 of 5 simulated
    players name the right first action and nobody makes an unrecoverable mistake.
-2. Open the pull request; split it if it is too big to review.
-3. A later push, once no instance of the code before the protocol-1 cleanup serves: stop
+2. A later push, once no instance of the code before the protocol-1 cleanup serves: stop
    writing `night_protocol: 2` (`deal.OLD_CODE_NIGHT_FLAG`, used by `hooks.APP_DEFAULTS` and
    `deal.dealt_settings`; `tests/onuw/test_old_code_reads_new_rows.py` goes with it) and the
    play-again write of `LobbyMember.is_ready` (`core/lobbies.py`). After that, a later
