@@ -10,6 +10,7 @@ import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/art_precache.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/card_back.dart';
+import 'package:midnight_village/design_system/skin/end_art.dart';
 import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
 import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
@@ -432,6 +433,41 @@ void main() {
           expect(cut.view.contains(cut.wick), isTrue);
         },
       );
+
+      test('every end board ornament is in the bundle at its declared size, '
+          'and no other file is', () async {
+        final art = skin.art;
+        final declared = <String>{};
+        for (final piece in EndPiece.values) {
+          final picture = art.end.piece(piece);
+          declared.add(picture.path);
+          expect(assets, contains(picture.path));
+          expect(await _pixels(picture.path), piece.pixels, reason: piece.file);
+        }
+        final bundled = assets
+            .where((path) => path.startsWith('${art.folder}/end/'))
+            .toSet();
+        expect(bundled, declared, reason: 'an ornament nothing declares');
+        // A slice lies inside its picture, its middle is not empty, and an end
+        // is what the board draws (the frame about 19, the banner 128 tall).
+        for (final slice in [
+          SliceArt.banner,
+          SliceArt.bannerRed,
+          SliceArt.frame,
+          SliceArt.roof,
+        ]) {
+          final inside = (Offset.zero & slice.pixels).inflate(0.5);
+          expect(inside.contains(slice.slice.topLeft), isTrue);
+          expect(inside.contains(slice.slice.bottomRight), isTrue);
+          expect(slice.slice.width, greaterThan(0));
+          expect(slice.slice.height, greaterThan(0));
+        }
+        expect(SliceArt.banner.natural.height, closeTo(128, 0.01));
+        expect(SliceArt.roof.natural.height, closeTo(30, 0.01));
+        expect(SliceArt.frame.ends.left, closeTo(18.8, 0.1));
+        expect(SliceArt.bannerRed.slice, SliceArt.banner.slice);
+        expect(SliceArt.bannerTall.top, greaterThan(0));
+      });
 
       test('every layer of a layered scene is in the bundle at the size its '
           'scene says, and no other file is', () async {
