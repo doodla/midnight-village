@@ -1,8 +1,7 @@
 """Each test run has its own database, and only a dead run's database is dropped."""
 
+import multiprocessing
 import os
-import subprocess
-import sys
 
 from django.conf import settings
 from django.db import connection
@@ -45,10 +44,10 @@ def test_a_name_with_regex_characters_is_matched_literally():
 
 def test_this_process_is_alive_and_a_spent_one_is_not():
     assert process_is_alive(os.getpid())
-    spent = subprocess.Popen(  # noqa: S603 (this interpreter, doing nothing)
-        [sys.executable, "-c", "pass"]
-    )
-    spent.wait()
+    spent = multiprocessing.get_context("spawn").Process(target=int)
+    spent.start()
+    spent.join()
+    assert spent.pid is not None
     assert not process_is_alive(spent.pid)
 
 

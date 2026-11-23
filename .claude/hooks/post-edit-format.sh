@@ -20,8 +20,8 @@ if [[ "$FILE" == *.py ]]; then
 
   cd "$BACKEND_DIR" 2>/dev/null || exit 0
 
-  uv run ruff format "$FILE" 2>/dev/null
-  uv run ruff check --fix "$FILE" 2>/dev/null
+  uv run --group lint ruff format "$FILE" 2>/dev/null
+  uv run --group lint ruff check --fix "$FILE" 2>/dev/null
   exit 0
 fi
 

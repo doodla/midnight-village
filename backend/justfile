@@ -103,28 +103,32 @@ test-contract:
 
 # --- Code Quality ---
 
+# `--group lint` makes every run use the ruff in uv.lock. Without it, a checkout set up
+# by a plain `uv sync` has no ruff of its own and `uv run ruff` quietly takes whatever
+# ruff is on PATH: another version, with other findings than GitHub's.
+
 # Lint code with Ruff
 lint:
-    uv run ruff check .
+    uv run --group lint ruff check .
 
 # Lint and fix auto-fixable issues
 lint-fix:
-    uv run ruff check . --fix
+    uv run --group lint ruff check . --fix
 
 # Format code with Ruff
 format:
-    uv run ruff format .
+    uv run --group lint ruff format .
 
 # Check formatting without making changes
 format-check:
-    uv run ruff format . --check
+    uv run --group lint ruff format . --check
 
 # Type check with Pyrefly. Pyrefly's default excludes skip every file under a
 # hidden directory, so a checkout inside one (the repo's own `.claude/worktrees/`)
 # would be skipped entirely and fail; the default heuristics are replaced by the
 # explicit excludes below.
 typecheck:
-    uv run pyrefly check --disable-project-excludes-heuristics --project-excludes '**/node_modules' --project-excludes '**/__pycache__' --project-excludes '**/.venv/**' .
+    uv run --group lint pyrefly check --disable-project-excludes-heuristics --project-excludes '**/node_modules' --project-excludes '**/__pycache__' --project-excludes '**/.venv/**' .
 
 # The settings module only avoids needing a .env: nothing is applied.
 
