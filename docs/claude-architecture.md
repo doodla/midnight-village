@@ -69,11 +69,17 @@ runs on a pull request, is not in the ruleset, has a paths filter and `contents:
 job. `guardrails/tests/test_workflows.py` sets it apart (`PUBLISHING`) and holds it to those rules
 (`WorkflowPublishing`); the wall's rules above apply to every other workflow.
 
+A second workflow is not part of the wall: `deployed-check.yml` ("Deployed Check") runs after
+every merge to main and proves the live server and app work together
+(`tool/deployed_check.py`; `docs/dev/deploy-vercel.md`, "The check after each merge"). It can
+only run after the merge, so it is never a required check; it reads public addresses, writes
+nothing and holds no secret (`WorkflowAfterMerge` in the same test file).
+
 The ruleset `docs/dev/main-ruleset.json` is what makes this the wall: a pull request on the
 default branch, squash merges only, every check above required (up to date with main not
 required, so two sessions do not block each other), no force pushes or deletion, nobody
-bypassing. It is not on today: the owner decides (GitHub reports main as not protected, with no
-rulesets). To turn it on: Settings, Rules, Rulesets, New ruleset, Import a ruleset, choose the
+bypassing. It is on: the owner imported it (GitHub reports main as protected, checked 23 November 2026).
+To import it again: Settings, Rules, Rulesets, New ruleset, Import a ruleset, choose the
 file; or as a repository admin:
 
 ```bash
@@ -92,7 +98,7 @@ Every hook command starts from `$CLAUDE_PROJECT_DIR`, never a relative path: a s
 |---|---|---|
 | PreToolUse Agent, Task, Workflow | `guardrails/runner.py` | Blocks a subagent not pinned to `opus`, `sonnet` or `haiku` (on trial) with an effort, and forks. |
 | PreToolUse Bash | `hooks/git_guard.py` | Blocks a commit unless `core.hooksPath` is the git hooks; blocks `--no-verify`, `commit -n`, hooksPath changes, `GIT_*=` and HUSKY/SKIP switches, cherry-pick/revert without `--no-commit`, rebase and am (git runs no commit hooks for those); asks nothing of a committing call's timeout (the gate takes seconds). |
-| SessionStart startup, resume, compact | `hooks/session-start.sh` | Sets `core.hooksPath` to the git hooks if it is anything else and makes the hooks executable; silent, one line if it cannot, never fails the session. |
+| SessionStart startup, resume, compact | `hooks/session-start.sh` | Sets `core.hooksPath` to the git hooks if it is anything else and makes the hooks executable; starts Postgres when it is installed and down; silent, one line if it cannot set the gate, never fails the session. A fresh container's tools come from `tool/bootstrap_container.sh` (`docs/dev/environment.md`), not from this hook. |
 | PostToolUse Edit, Write | `hooks/post-edit-format.sh` | Formats the edited `.py` (ruff) or `.dart` file. |
 | Stop | `hooks/verify-done.sh` | With uncommitted `.py`/`.dart` work, runs the fast checks it touches (as the commit gate does), unless they already passed on the same inputs. No test suite. |
 
@@ -126,7 +132,9 @@ The developer agents' briefs carry no old-look or protocol-1 rule any more: both
 
 ## Skills (`.claude/skills/`)
 
-Twelve third-party `flutter-*` skills (Flutter's generic guides on animation, architecture,
-layout, concurrency, HTTP and JSON, navigation, accessibility, state, macOS setup, testing,
-theming, databases), mirrored in `.agents/skills/`. Nothing here depends on them; keeping them
-is the owner's call.
+Seven third-party `flutter-*` skills (Flutter's generic guides on animation, layout,
+concurrency, HTTP and JSON, accessibility, testing, theming). Nothing here depends on them, and
+where one disagrees with `frontend/CLAUDE.md` the CLAUDE.md wins. Five were removed on 23
+November 2026: state and architecture (they prescribe `provider` and `ChangeNotifier`; the app
+is Riverpod), navigation (`Navigator.push`; the app is go_router), databases (SQLite; the app
+has none) and macOS setup. The second copy of all twelve, in a root `.agents` folder, is gone too.

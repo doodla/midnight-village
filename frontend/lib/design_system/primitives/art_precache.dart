@@ -8,6 +8,7 @@ import '../models/role.dart';
 import '../skin/art_set.dart';
 import '../skin/card_back.dart';
 import '../skin/skin.dart';
+import '../skin/werewolf_portrait.dart';
 import 'face_down_card.dart';
 import 'role_card.dart';
 
@@ -23,12 +24,13 @@ import 'role_card.dart';
 List<(ArtImage, Size)> secretArt(
   Skin skin, {
   CardBack back = CardBack.fallback,
+  WerewolfPortrait wolf = WerewolfPortrait.fallback,
 }) => [
   for (final role in RoleId.values) ...[
-    (skin.art.role(role), HeldFace.portraitBox),
+    (skin.art.role(role, wolf: wolf), HeldFace.portraitBox),
     for (final size in RoleCardSize.values)
       if (size.thumbnail case final thumbnail?)
-        (skin.art.role(role), thumbnail),
+        (skin.art.role(role, wolf: wolf), thumbnail),
   ],
   for (final size in FaceDownSize.values) (skin.art.cardBack(back), size.mock),
   // A face that saw no card (the moon over the sleeping village).
@@ -42,6 +44,22 @@ List<(ArtImage, Size)> secretArt(
 /// those same bytes (`LoadOnceBundle`). Decoded here at full size, it was a
 /// second, larger copy that no screen drew.
 List<ArtImage> openingArt(Skin skin) => [skin.art.streetDoor];
+
+/// Decodes the Werewolf portrait [wolf] at the sizes secrets show it, for the
+/// game that is about to show it (the one in use, not the other two).
+Future<void> precacheWerewolf(BuildContext context, WerewolfPortrait wolf) {
+  final skin = context.skin;
+  return precacheArt(
+    [
+      (skin.art.role(RoleId.werewolf, wolf: wolf), HeldFace.portraitBox),
+      for (final size in RoleCardSize.values)
+        if (size.thumbnail case final thumbnail?)
+          (skin.art.role(RoleId.werewolf, wolf: wolf), thumbnail),
+    ],
+    devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    bundle: DefaultAssetBundle.of(context),
+  );
+}
 
 /// Decodes card back [back] at every face-down size, for the game that is
 /// about to show it: the one back in use, not the other four. Not awaited by

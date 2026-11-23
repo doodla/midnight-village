@@ -13,6 +13,7 @@ import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart';
 import 'package:midnight_village/design_system/skin/card_back.dart';
+import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
 import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
@@ -143,6 +144,10 @@ class ShellSetup {
   /// does, so it runs what players get.
   static CardBack? pinnedCardBack;
 
+  /// The Werewolf portrait every game is shown with, or null for the real
+  /// choice; only the screen gallery sets it (the lunge, as outside a game).
+  static WerewolfPortrait? pinnedWerewolf;
+
   /// The dress every screen of the app is shown in (`DressScope`): only the
   /// paper-dress pictures (`test_screens/paper_dress_test.dart`) set it; a
   /// test of the app never does, so it runs what players get (the screens the
@@ -195,6 +200,8 @@ class ShellSetup {
         // The screen gallery pins the back so its pictures are stable.
         if (pinnedCardBack case final back?)
           gameCardBackProvider.overrideWith((ref, id) => back),
+        if (pinnedWerewolf case final wolf?)
+          gameWerewolfPortraitProvider.overrideWith((ref, id) => wolf),
       ],
       child: Consumer(
         builder: (context, ref, _) {

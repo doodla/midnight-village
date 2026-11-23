@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:midnight_village/design_system/skin/card_back.dart';
+import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
 
 import '../test/flutter_test_config.dart' as base;
 import '../test/helpers/shell_setup.dart';
@@ -14,5 +15,7 @@ const _back = String.fromEnvironment('SCREENS_CARD_BACK');
 Future<void> testExecutable(FutureOr<void> Function() testMain) {
   ShellSetup.pinnedCardBack =
       CardBack.values.asNameMap()[_back] ?? CardBack.fallback;
+  // The Werewolf's portrait likewise: the lunge, as outside a game.
+  ShellSetup.pinnedWerewolf = WerewolfPortrait.fallback;
   return base.testExecutable(testMain);
 }

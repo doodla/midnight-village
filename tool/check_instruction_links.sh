@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fails when an instruction file names a repo path or a `just` recipe that does
-# not exist. Checked: the CLAUDE.md files, .claude/agents/*.md, docs/dev/*.md,
+# not exist. Checked: the root, docs and backend READMEs, the CLAUDE.md files, .claude/agents/*.md, docs/dev/*.md,
 # docs/claude-architecture.md, the READMEs the CLAUDE.md files point to,
 # frontend/docs/*.md and frontend/dart_test.yaml.
 # A path is any backticked text with a "/" or a file extension (also the first
@@ -32,7 +32,7 @@ recipes=$(for j in justfile backend/justfile frontend/justfile; do
 done | tr ' ' '\n' | sort -u)
 
 shopt -s nullglob
-files=(CLAUDE.md backend/CLAUDE.md frontend/CLAUDE.md docs/dev/*.md
+files=(README.md docs/README.md backend/README.md CLAUDE.md backend/CLAUDE.md frontend/CLAUDE.md docs/dev/*.md
   docs/claude-architecture.md docs/dev/models/README.md .claude/agents/*.md
   backend/apps/core/README.md backend/apps/onuw/README.md backend/tests/README.md
   frontend/README.md frontend/lib/design_system/README.md frontend/lib/features/game/README.md

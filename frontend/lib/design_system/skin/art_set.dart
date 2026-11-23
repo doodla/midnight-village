@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart';
 
 import '../models/role.dart';
 import 'card_back.dart';
+import 'werewolf_portrait.dart';
 
 /// The emblems players are known by at the table, one per seat: the people's
 /// ten, then the practice players' (each the thing it is named for: Teapot's
@@ -385,8 +386,15 @@ class ArtSet {
 
   final Map<Scene, Alignment> sceneFocus;
 
-  ArtImage role(RoleId role) => ArtImage(
-    '$folder/roles/${role.name}.webp',
+  /// [role]'s portrait. The Werewolf has three ([WerewolfPortrait]); [wolf]
+  /// says which. Screens never pass it: they draw `context.roleArt(role)`.
+  ArtImage role(
+    RoleId role, {
+    WerewolfPortrait wolf = WerewolfPortrait.fallback,
+  }) => ArtImage(
+    role == RoleId.werewolf
+        ? '$folder/roles/werewolf_${wolf.fileName}.webp'
+        : '$folder/roles/${role.name}.webp',
     pixels: rolePixels,
     focus: portraitFocus,
   );

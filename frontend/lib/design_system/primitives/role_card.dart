@@ -8,6 +8,7 @@ import '../layout/space.dart';
 import '../models/role.dart';
 import '../skin/dress.dart';
 import '../skin/skin.dart';
+import '../skin/werewolf_portrait.dart';
 import '../skin/skin_tilt.dart';
 import 'art_picture.dart';
 import 'count_badge.dart';
@@ -165,7 +166,7 @@ class RoleCard extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: corners,
-          child: ArtPicture(skin.art.role(role)),
+          child: ArtPicture(context.roleArt(role)),
         ),
       ),
     );
@@ -363,7 +364,7 @@ class RolePortrait extends StatelessWidget {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    final picture = ArtPicture(skin.art.role(role));
+    final picture = ArtPicture(context.roleArt(role));
     final Widget body;
     if (arched) {
       final arch = Radius.circular(

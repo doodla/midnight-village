@@ -21,3 +21,4 @@ Newest last. Calls past about 150 or a big token count are the signal to cut the
 | 23 Nov 2026 | deck dead end | frontend-developer | sonnet | builder 139 calls 266k tokens; review fixes 145 calls 255k | too big for one piece: should have been split in two |
 | 23 Nov 2026 | paper on three screens | frontend-developer | sonnet | 150 | 267k | builder |
 | 23 Nov 2026 | paper foundation (dress and parts) | frontend-developer | sonnet | 170 | 354k | too big: split foundation from fixes next time |
+| 23 Nov 2026 | codebase health audit, six read-only slices (docs, harness, hands-on loop, backend, frontend, GitHub and hygiene) | general-purpose | sonnet | 11 to 21 each, 99 in all | 101k to 135k each, 721k in all | all tools, so a heavy start; one to four minutes each except the hands-on loop (eight, it ran `just test`) |

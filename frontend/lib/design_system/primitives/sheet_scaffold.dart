@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../layout/space.dart';
 import '../skin/dress.dart';
+import '../skin/game_scopes.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
@@ -25,17 +26,10 @@ Future<T?> showSkinSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
 }) {
-  final ground = GroundScope.of(context);
-  final dress = context.dress;
+  final scopes = GameScopes.capture(context);
   return showModalBottomSheet<T>(
     context: context,
-    builder: (sheetContext) => DressScope(
-      dress: dress,
-      child: GroundScope(
-        ground: ground,
-        child: Builder(builder: builder),
-      ),
-    ),
+    builder: (sheetContext) => scopes.wrap(Builder(builder: builder)),
     isScrollControlled: true,
     // One back gesture, one thing: its touch never moves the sheet.
     enableDrag: false,
@@ -56,19 +50,12 @@ Future<T?> showSkinDialog<T>(
   required WidgetBuilder builder,
   bool barrierDismissible = true,
 }) {
-  final ground = GroundScope.of(context);
-  final dress = context.dress;
+  final scopes = GameScopes.capture(context);
   return showDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
     barrierColor: context.skin.scrim,
-    builder: (dialogContext) => DressScope(
-      dress: dress,
-      child: GroundScope(
-        ground: ground,
-        child: Builder(builder: builder),
-      ),
-    ),
+    builder: (dialogContext) => scopes.wrap(Builder(builder: builder)),
   );
 }
 

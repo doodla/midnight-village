@@ -46,10 +46,18 @@ enum CardBack {
   /// phone. (`String.hashCode` is not: it is not stable across platforms.)
   static CardBack forGame(String? gameId) {
     if (gameId == null || gameId.isEmpty) return fallback;
-    var hash = 5381;
-    for (final unit in gameId.codeUnits) {
-      hash = (hash * 33 + unit) & 0x7fffffff;
-    }
-    return values[hash % values.length];
+    return values[gameHash(gameId) % values.length];
   }
+}
+
+/// The djb2 hash of a game's id (with [salt] appended, so two choices made
+/// from one id do not move together), over UTF-16 units, kept under 2^31 at
+/// every step so it is the same on the web as on a phone. The one seed every
+/// per-game look is chosen from.
+int gameHash(String gameId, [String salt = '']) {
+  var hash = 5381;
+  for (final unit in '$gameId$salt'.codeUnits) {
+    hash = (hash * 33 + unit) & 0x7fffffff;
+  }
+  return hash;
 }

@@ -19,7 +19,7 @@ class TestHealthCheckEndpoint:
         response = api_client.get(url)
 
         assert response.status_code == 200
-        assert response.json() == {"status": "ok"}
+        assert response.json() == {"status": "ok", "commit": ""}
 
     def test_health_check_allows_any_permission(self, api_client):
         """Test that health check is accessible without authentication."""
