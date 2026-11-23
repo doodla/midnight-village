@@ -25,8 +25,8 @@ import 'where_am_i_provider.dart';
 ///   link, the table's screen naming no table, a way in on its way
 ///   ([JoinFlow])): one screen in one place, so a request that is busy never
 ///   tears it down and builds it again (what was typed, the cursor and the
-///   refusal that lands stay). It crossfades with what is not 01, as the
-///   table's shell crossfades its own screens.
+///   refusal that lands stay). It crossfades with the table's shell, as
+///   the shell's screens crossfade among themselves.
 /// - From a link ([code]): the table itself for a player at it; 01 with
 ///   the name and "Join" for one at no table; "You're at another table."
 ///   with "Go there" for one seated elsewhere (never a second seat).
@@ -49,8 +49,11 @@ class HomeGate extends ConsumerWidget {
     return BackPolicy(
       rule: rule,
       place: place,
+      // The table's shell and the gate's own screens (01, the opening)
+      // crossfade, as the shell's screens do among themselves; the gate's
+      // own change in place (the opening's village is 01's).
       child: SceneSwitcher<bool>(
-        stage: screen is JoinScreen,
+        stage: screen is TableShell,
         sceneBetween: _crossfade,
         child: screen,
       ),
