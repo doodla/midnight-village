@@ -1,0 +1,575 @@
+part of 'band.dart';
+
+// The band that carries a stage's clock (`TimerBand`), its sun and dots, and the clock's
+// figure. Part of band.dart: same library, so `Band`'s private shapes are shared.
+
+/// A day phase's countdown, edge to edge at the top of the screen (put it in
+/// `ScreenFrame.topSlot`). It shows what it is given and stops at 0.
+///
+/// - [TimerBand.sun]: the talk (S08): the sky over the rooftops with the pale
+///   sun [elapsed] of the way along its arc, fading into the day, then the
+///   large number.
+/// - [TimerBand.bar]: the vote (S09): a strip of night with the number, and
+///   a bar along its foot, [remaining] of it lit in the danger line.
+///
+/// The digits stand alone: the mocks' captions ("left to talk", "seconds to
+/// choose") are cut (first-time play spec, copy rule 9). The number is set
+/// smaller rather than pushed off a narrow phone. The screen's [title] sits
+/// beside the number, on two lines at most, where the two fit side by side,
+/// and under it where they do not (large text, a narrow phone).
+///
+/// Nothing is drawn that is not known: with no share of the stage (null
+/// [elapsed] or [remaining]: an untimed stage) the sun
+/// stands at one fixed place and the bar is unlit; with no deadline (null
+/// [secondsLeft]) there is no number either.
+class TimerBand extends StatelessWidget {
+  const TimerBand.sun({
+    super.key,
+    required this.secondsLeft,
+    required this.elapsed,
+    this.showSun = true,
+    this.title,
+    this.semanticLabel,
+  }) : _sun = true,
+       remaining = null;
+
+  const TimerBand.bar({
+    super.key,
+    required this.secondsLeft,
+    required this.remaining,
+    this.title,
+    this.semanticLabel,
+  }) : _sun = false,
+       showSun = true,
+       elapsed = null;
+
+  /// Null: the stage has no deadline, and nothing is counted.
+  final int? secondsLeft;
+
+  /// The sun: how far through the phase it is, 0 to 1; null when unknown.
+  final double? elapsed;
+
+  /// The sun: false draws the sky and its path with no sun (the talk's own
+  /// frame while its `/me/` loads: the table does not know where the talk is,
+  /// and a sun drawn at the start would be seen leaving as the real one comes).
+  final bool showSun;
+
+  /// The bar: how much of the phase is left, 0 to 1; null when unknown.
+  final double? remaining;
+
+  /// The screen's headline, beside or under the number.
+  final String? title;
+
+  /// Read out instead of the number.
+  final String? semanticLabel;
+  final bool _sun;
+
+  /// The sky's height below the status bar (S08), on a phone of the mock's
+  /// height; a shorter phone gets [skyShare] of its height at most, so the
+  /// talk's body keeps room for My night and the deck.
+  static const skyHeight = 250.0;
+  static const skyShare = 0.3;
+
+  /// The sky drawn on a screen [screenHeight] tall.
+  static double skyFor(double screenHeight) =>
+      math.min(skyHeight, screenHeight * skyShare);
+
+  /// The vote bar's thickness (S09).
+  static const barHeight = 8.0;
+
+  /// Where the sun stands when the share of the talk is not known (the
+  /// mock's place, about a third of the way along).
+  static const restingSun = 0.3;
+
+  @override
+  Widget build(BuildContext context) {
+    final seconds = secondsLeft;
+    final number = seconds == null ? null : WorldTimer.format(seconds);
+    return _sun ? _sky(context, number) : _bar(context, number);
+  }
+
+  /// The number and the title: side by side when the title fits beside the
+  /// number on two lines, else the title under it.
+  Widget _heading(
+    BuildContext context,
+    String? number,
+    TextStyle numberStyle,
+    Color titleColor,
+  ) {
+    final title = this.title;
+    final spoken = semanticLabel ?? number;
+    Widget digits(String number, {double? width}) => Semantics(
+      label: spoken,
+      excludeSemantics: true,
+      child: width == null
+          ? Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: ClockFigure(number, style: numberStyle),
+            )
+          : SizedBox(
+              width: width,
+              child: ClockFigure(number, style: numberStyle),
+            ),
+    );
+    if (title == null) {
+      return number == null ? const SizedBox.shrink() : digits(number);
+    }
+    final titleStyle = context.skin.typography.screenTitle.copyWith(
+      color: titleColor,
+    );
+    final head = Semantics(
+      header: true,
+      child: FitWords(title, style: titleStyle, maxLines: 2),
+    );
+    if (number == null) return head;
+    return LayoutBuilder(
+      builder: (context, room) {
+        final scaler = MediaQuery.textScalerOf(context);
+        // Side by side or stacked is decided on the number's shape
+        // ("0:00"): the band's height holds still while the clock ticks (a
+        // narrower "4:54" no longer stacks or unstacks the title, and with
+        // it moves the body under the band). The number itself takes its own
+        // width.
+        final shapeWidth = ClockFigure.width(
+          ClockFigure.shape(number),
+          numberStyle,
+          scaler,
+        ).ceilToDouble();
+        final numberWidth = ClockFigure.width(
+          number,
+          numberStyle,
+          scaler,
+        ).ceilToDouble();
+        final beside = room.maxWidth - shapeWidth - Space.lg;
+        if (_fitsTwoLines(title, titleStyle, scaler, beside)) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            spacing: Space.lg,
+            children: [
+              digits(number, width: numberWidth),
+              Expanded(child: head),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          spacing: Space.xs,
+          children: [digits(number), head],
+        );
+      },
+    );
+  }
+
+  static double _width(String text, TextStyle style, TextScaler scaler) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  /// [text] wraps between words into [room] on two lines at most.
+  static bool _fitsTwoLines(
+    String text,
+    TextStyle style,
+    TextScaler scaler,
+    double room,
+  ) {
+    if (room <= 0) return false;
+    final longestWord = text
+        .split(' ')
+        .map((w) => _width(w, style, scaler))
+        .fold<double>(0, (a, b) => a > b ? a : b);
+    if (longestWord > room) return false;
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+    )..layout(maxWidth: room);
+    final lines = painter.computeLineMetrics().length;
+    painter.dispose();
+    return lines <= 2;
+  }
+
+  Widget _sky(BuildContext context, String? number) {
+    final skin = context.skin;
+    final dressed = context.dress.isPaper;
+    final ground = context.ground;
+    final top = MediaQuery.paddingOf(context).top;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ExcludeSemantics(
+          // Dressed up, the sky is a sheet of paper torn off at its foot, over
+          // the day; plain, it fades into the ground.
+          child: _tornFoot(
+            context,
+            SizedBox(
+              height: skyFor(MediaQuery.sizeOf(context).height) + top,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // The night's ground is the sky's window until the day's
+                  // layers cover it. The dawn brings the roofs up into it from
+                  // below, the sun climbing from behind the hills, the text
+                  // under it not moving at all.
+                  ColoredBox(color: skin.night.ground),
+                  LayeredArt(
+                    LayeredSceneId.dawnGallows,
+                    slots: {
+                      'sun': (context, geometry, slot, arrival) => _Sun(
+                        geometry: geometry,
+                        slot: slot,
+                        arrival: arrival,
+                        elapsed: elapsed?.clamp(0, 1).toDouble(),
+                        showSun: showSun,
+                        art: skin.art.layer(
+                          LayeredSceneId.dawnGallows,
+                          slot.sprite!,
+                        ),
+                        line: ground.text,
+                        lineWidth: skin.shape.ring,
+                      ),
+                    },
+                  ),
+                  if (!dressed)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          // The mock's fade: the last 70 of 250.
+                          stops: const [0.72, 1],
+                          colors: [
+                            ground.ground.withValues(alpha: 0),
+                            ground.ground,
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Transform.translate(
+          offset: Offset(0, dressed ? -Space.xl : -Space.sm),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: dressed ? Space.md : Space.gutter,
+            ),
+            // Dressed up, the number is on a banner of torn paper.
+            child: PaperBanner(
+              id: #talk,
+              child: (context) => _heading(
+                context,
+                number,
+                dressed
+                    ? skin.typography.timer.copyWith(color: context.ground.text)
+                    : skin.typography.timer,
+                context.ground.text,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The sky's window: dressed up, its foot torn off along a seeded ragged
+  /// line, so the day's ground shows under a paper edge, not a hard straight
+  /// one.
+  Widget _tornFoot(BuildContext context, Widget sky) => !context.dress.isPaper
+      ? sky
+      : ClipPath(clipper: _TornFoot(context.skin.parts), child: sky);
+
+  Widget _bar(BuildContext context, String? number) {
+    final skin = context.skin;
+    final dressed = context.dress.isPaper;
+    final top = MediaQuery.paddingOf(context).top;
+    final lit = remaining;
+    return GroundScope(
+      ground: GroundKind.night,
+      fill: true,
+      child: Builder(
+        builder: (context) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          spacing: Space.md,
+          children: [
+            Padding(
+              padding: dressed
+                  ? EdgeInsets.fromLTRB(Space.md, Space.lg + top, Space.md, 0)
+                  : EdgeInsets.fromLTRB(
+                      Space.gutter,
+                      Space.xl + 2 + top,
+                      Space.gutter,
+                      0,
+                    ),
+              child: PaperBanner(
+                id: #vote,
+                child: (context) => _heading(
+                  context,
+                  number,
+                  dressed
+                      ? skin.typography.timerVote.copyWith(
+                          color: context.ground.text,
+                        )
+                      : skin.typography.timerVote,
+                  context.ground.text,
+                ),
+              ),
+            ),
+            _strip(context, number, lit),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The time left: a bar of the ground lit along its length (dressed up, a
+  /// strip of torn paper, set in from the margin).
+  Widget _strip(BuildContext context, String? number, double? lit) {
+    final night = context.skin.night;
+    final fill = FractionallySizedBox(
+      alignment: AlignmentDirectional.centerStart,
+      widthFactor: number == null || lit == null
+          ? 0
+          : lit.clamp(0, 1).toDouble(),
+      child: ColoredBox(color: night.dangerLine),
+    );
+    if (!context.dress.isPaper) {
+      return SizedBox(
+        height: barHeight,
+        child: ColoredBox(color: night.hairline, child: fill),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
+      child: SizedBox(
+        height: barHeight,
+        child: DecoratedBox(
+          decoration: ShapeDecoration(
+            color: night.ground,
+            shape: DeckleBorder(
+              seed: deckleSeed(#bar),
+              depth: context.skin.parts.barDepth,
+            ),
+          ),
+          child: fill,
+        ),
+      ),
+    );
+  }
+}
+
+/// The sun on its dotted path, drawn where the scene's draw order puts it
+/// (over the sky, under the hills, so the ends of the path and the sun at
+/// the start and the end of the day are behind them). The sun's place is
+/// where the talk is: [TimerBand.restingSun] of the way when that is not known,
+/// else [elapsed] of the way between where the path's `rise` and `set` put it,
+/// stepped by the clock, never tweened. Brought in by the dawn, it comes up
+/// from behind the hills to that place over the scene's arrival.
+class _Sun extends StatelessWidget {
+  const _Sun({
+    required this.geometry,
+    required this.slot,
+    required this.arrival,
+    required this.elapsed,
+    required this.showSun,
+    required this.art,
+    required this.line,
+    required this.lineWidth,
+  });
+
+  final SceneGeometry geometry;
+  final SceneSlot slot;
+  final Animation<double>? arrival;
+  final bool showSun;
+
+  /// Null: not known; the sun stands at [TimerBand.restingSun].
+  final double? elapsed;
+
+  final ArtImage art;
+  final Color line;
+  final double lineWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final arc = slot.arc!;
+    final sprite = slot.sprite!;
+    final path = Path()
+      ..moveTo(geometry.point(arc.start).dx, geometry.point(arc.start).dy)
+      ..quadraticBezierTo(
+        geometry.point(arc.control).dx,
+        geometry.point(arc.control).dy,
+        geometry.point(arc.end).dx,
+        geometry.point(arc.end).dy,
+      );
+    final metric = path.computeMetrics().first;
+    final target =
+        arc.rise + (arc.set - arc.rise) * (elapsed ?? TimerBand.restingSun);
+    final size = sprite.size * geometry.scale;
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    Widget sun(double landed) {
+      final at = metric.getTangentForOffset(metric.length * target)!.position;
+      final corner =
+          at +
+          (sprite.anchor + Offset(0, arc.dip * (1 - landed))) * geometry.scale;
+      return Positioned(
+        left: corner.dx,
+        top: corner.dy,
+        width: size.width,
+        height: size.height,
+        child: Image(
+          image: art.decodedFor(size, ratio),
+          fit: BoxFit.fill,
+          gaplessPlayback: true,
+          excludeFromSemantics: true,
+        ),
+      );
+    }
+
+    final arrival = this.arrival;
+    return Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.none,
+      children: [
+        CustomPaint(
+          painter: _DotsPainter(path: path, line: line, lineWidth: lineWidth),
+        ),
+        if (!showSun)
+          const SizedBox.shrink()
+        else if (arrival == null)
+          sun(1)
+        else
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: arrival,
+              builder: (context, _) => Stack(
+                clipBehavior: Clip.none,
+                children: [sun(arrival.value)],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The sun's path, dotted.
+class _DotsPainter extends CustomPainter {
+  _DotsPainter({
+    required this.path,
+    required this.line,
+    required this.lineWidth,
+  });
+
+  final Path path;
+  final Color line;
+  final double lineWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final metric = path.computeMetrics().first;
+    final dot = Paint()
+      ..color = line.withValues(alpha: 0.55)
+      ..strokeWidth = lineWidth
+      ..strokeCap = StrokeCap.round;
+    const step = 11.0;
+    final points = [
+      for (var d = 0.0; d < metric.length; d += step)
+        metric.getTangentForOffset(d)!.position,
+    ];
+    canvas.drawPoints(PointMode.points, points, dot);
+  }
+
+  // The path is made again with every build; its points are what is drawn.
+  @override
+  bool shouldRepaint(_DotsPainter old) =>
+      old.line != line ||
+      old.lineWidth != lineWidth ||
+      old.path.getBounds() != path.getBounds();
+}
+
+/// A clock's figure on one line, set smaller rather than broken: the number
+/// at [style], and its unit ("14 s": the space and what follows) at a fraction
+/// of it, so a hero-size number does not carry a hero-size "s".
+class ClockFigure extends StatelessWidget {
+  const ClockFigure(
+    this.text, {
+    super.key,
+    required this.style,
+    this.alignment = AlignmentDirectional.centerStart,
+    this.textScaler,
+  });
+
+  final String text;
+  final TextStyle style;
+
+  /// Where the figure sits in a box wider than it.
+  final AlignmentGeometry alignment;
+
+  /// Null: the text's own scale (the night's number keeps its size: it is
+  /// given [TextScaler.noScaling]).
+  final TextScaler? textScaler;
+
+  /// The unit's size against the number's.
+  static const unitShare = 0.4;
+
+  /// The figure as spans: the number, then the unit set smaller.
+  static TextSpan span(String text, TextStyle style) {
+    final space = text.lastIndexOf(' ');
+    final size = style.fontSize;
+    if (space < 0 || size == null) return TextSpan(text: text);
+    // The space goes with the unit, at its size: a hero-size gap would
+    // part them.
+    return TextSpan(
+      text: text.substring(0, space),
+      children: [
+        TextSpan(
+          text: text.substring(space),
+          style: TextStyle(fontSize: size * unitShare),
+        ),
+      ],
+    );
+  }
+
+  /// [text] with every digit a zero: the clock's shape, whatever it reads
+  /// (a digit wider than the zero is set a touch smaller in that room).
+  static String shape(String text) => text.replaceAll(RegExp(r'\d'), '0');
+
+  /// The figure's natural width, measured as it is drawn.
+  static double width(String text, TextStyle style, TextScaler scaler) {
+    final painter = TextPainter(
+      text: TextSpan(style: style, children: [span(text, style)]),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: alignment,
+      child: Text.rich(
+        span(text, style),
+        textScaler: textScaler,
+        maxLines: 1,
+        softWrap: false,
+        style: style,
+      ),
+    );
+  }
+}
