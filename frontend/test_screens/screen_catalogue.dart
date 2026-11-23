@@ -182,7 +182,8 @@ final screenCatalogue = <ScreenEntry>[
         () => pumpNightAs(tester, 'me_choose_prompt_werewolf_lone'),
       ),
     }),
-  // 04 to 11, through the real shell (shell_fixtures.dart, end_fixtures.dart).
+  // 04 to the end board, through the real shell (shell_fixtures.dart,
+  // end_fixtures.dart).
   ..._rebuilt('04-your-card', '04-your-card.png', {
     '': pumpYourCard,
     '-held': pumpYourCardHeld,
@@ -209,8 +210,8 @@ final screenCatalogue = <ScreenEntry>[
     '-not-sent': pumpVoteNotSent,
     '-offline': pumpVoteOffline,
   }),
-  ..._rebuilt('10-count', null, {'-loading': pumpCountLoading}),
-  ..._rebuilt('11-results', null, {
+  // The end board's live states, through the shell (end_fixtures.dart).
+  ..._rebuilt('12-end-shell', null, {
     '-loading': pumpResultsLoading,
     '-playing-again': pumpResultsPlayingAgain,
     '-leaving': pumpResultsLeaving,
@@ -271,29 +272,6 @@ final screenCatalogue = <ScreenEntry>[
     '-10-long-x1.6': (tester) => pumpVoteTenLong(tester, textScale: 1.6),
     '-practice': pumpVotePractice,
     '-x1.3': (tester) => pumpVoteOpen(tester, textScale: 1.3),
-  }),
-  ..._rebuilt('10-count', '10-the-count.png', {
-    '-one': pumpCountOne,
-    '-opening': pumpCountOpening,
-    '-hunter': pumpCountHunter,
-    '-moved': pumpCountMoved,
-    '-nobody': pumpCountNobody,
-    '-tanner': pumpCountTanner,
-    '-ten-long': pumpCountTen,
-    '-waiting': pumpCountWaiting,
-    '-x1.3': (tester) => pumpCountOne(tester, textScale: 1.3),
-  }),
-  ..._rebuilt('11-results', '11-results.png', {
-    '-village': pumpResultsVillage,
-    '-werewolves': pumpResultsWerewolves,
-    '-nobody': pumpResultsNobody,
-    '-tanner': pumpResultsTanner,
-    '-night': pumpResultsNight,
-    '-folded': pumpResultsFolded,
-    '-end': pumpResultsEnd,
-    '-five-end': pumpResultsFiveEnd,
-    '-ten-long': pumpResultsTen,
-    '-x1.3': (tester) => pumpResultsVillage(tester, textScale: 1.3),
   }),
   ...endBoardEntries,
   ...endRevealEntries,

@@ -127,6 +127,11 @@ class EndCard {
   /// The card as it lies tilted, as a box: its corners turned for real.
   Rect get leaned => EndMetrics.leaned(rect, angle);
 
+  /// The box the ribbon fills as drawn: turned by its own turn and the card's.
+  Rect? get ribbonDrawn => ribbonRect == null
+      ? null
+      : EndMetrics.leaned(ribbonRect!, EndMetrics.ribbonTurn + angle);
+
   /// Everything of this card: the card, what is pinned to it and its strand.
   Rect get reach {
     var r = leaned;
@@ -194,6 +199,8 @@ class EndBoardPlan {
     required this.light,
     required this.nobodyHanged,
     required this.initialScroll,
+    this.fit = EndFit.loose,
+    this.refused = const [],
   });
 
   final EndBanner banner;
@@ -234,6 +241,16 @@ class EndBoardPlan {
   /// Where the board stands scrolled when the screen opens: 0, or as far as
   /// brings the hanged into view (a short phone, a big table).
   final double initialScroll;
+
+  /// How hard this board worked to fit its window (`EndFit`): with six
+  /// players or fewer, the loosest step that fits, else the tightest whose
+  /// pieces cover nothing.
+  final EndFit fit;
+
+  /// The tighter steps it tried and did not take, because something hung on
+  /// a card would cover another card, a name or a tag there (the rules test
+  /// reads them: a board that scrolls gave up nothing it could have given).
+  final List<EndBoardPlan> refused;
 
   EndCard card(int id) => cards.firstWhere((c) => c.id == id);
 

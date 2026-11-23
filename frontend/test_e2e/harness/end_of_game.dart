@@ -1,22 +1,21 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
-import 'package:midnight_village/design_system/faces/face_content.dart'
-    show nameList;
-import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
-import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
+import 'package:midnight_village/features/game/presentation/end/end_board_view.dart';
 
 import 'live_table.dart';
 import 'time_budget.dart';
 import 'ui_harness.dart';
 
-/// The end of a game on [name]'s phone, already open on the
-/// game's shell, checked against the oracle, not against anything typed by
-/// the caller: 10's headline names whom the server eliminated by the vote
-/// (in seat order) and each the Hunter took; "See who won"; 11 says the
-/// server's winning teams and this phone's own outcome. Shared by the
-/// UI runners (`ui_end_test.dart` opens a phone at the
-/// results; `ui_game_test.dart` plays its phone there).
+/// The end of a game on [name]'s phone, already open on the game's shell:
+/// the end board, checked against the oracle, not against anything typed by
+/// the caller. Every card the server eliminated (by the vote and by the
+/// Hunter) says "Hanged."; this phone's own card says "Won." when the server
+/// says it won (and it was not hanged), and not otherwise; with nobody dead
+/// the banner says so. A phone that was in the game sees the reveal: it is
+/// caught as it plays, and one touch settles it. Shared by the UI runners
+/// (`ui_end_test.dart` opens a phone at the results; `ui_game_test.dart`
+/// plays its phone there).
 Future<void> endAsTheOracleSays({
   required WidgetTester tester,
   required UiHarness ui,
@@ -31,65 +30,53 @@ Future<void> endAsTheOracleSays({
   final reasons = (results['elimination_reasons'] as Map)
       .cast<String, String>();
   final byId = {for (final p in table.table.players) '${p.userId}': p};
-  final seats = [for (final p in table.table.players) '${p.userId}'];
-  List<String> dead(String why) => [
-    for (final id in seats)
-      if (reasons[id] == why) byId[id]!.displayName,
+  final dead = [
+    for (final MapEntry(key: id, value: why) in reasons.entries)
+      if (why == 'vote' || why == 'hunter_chain') byId[id]!.displayName,
   ];
-  final byVote = dead('vote');
-  final byHunter = dead('hunter_chain');
-  final headline = switch (byVote) {
-    [] => CountCopy.nobodyDies,
-    [final one] => CountCopy.dies.fill({'name': one}),
-    final several => CountCopy.die.fill({'names': nameList(several)}),
-  };
-  // Whoever the server says won, said as 11 says it: a deal nobody chose
-  // (the app's own) can end with nobody winning or two teams winning.
-  final teams = (results['winning_teams'] as List).cast<String>().toSet();
-  final headline11 = switch ((
-    teams.contains('village'),
-    teams.contains('werewolf'),
-    teams.contains('tanner'),
-  )) {
-    (false, false, false) => ResultsCopy.nobodyWins,
-    (true, false, false) => ResultsCopy.villageWins,
-    (false, true, false) => ResultsCopy.werewolvesWin,
-    (false, false, true) => ResultsCopy.tannerWins,
-    (true, false, true) => ResultsCopy.villageAndTanner,
-    (false, true, true) => ResultsCopy.werewolvesAndTanner,
-    _ => fail('winning teams the screen has no words for: $teams'),
-  };
   final outcome =
       (results['player_outcomes'] as Map)['${table.player(name).userId}'];
   bool shows<T extends Widget>() => find.byType(T).evaluate().isNotEmpty;
-  bool text(String t) => find.text(t).evaluate().isNotEmpty;
 
-  await ui.pumpUntil(shows<CountView>, reason: '10 The count');
-  // As it opens: the rows still landing, any dead card not turned (its beat
-  // alone outlasts the change of screen), so this frame and the next differ.
-  ui.captureMidMotion = true;
-  await shoot('count-opening');
-  await tester.tap(find.byType(CountView), warnIfMissed: false);
-  await tester.pump();
-  expect(text(headline), isTrue, reason: headline);
-  for (final picked in byHunter) {
-    expect(
-      find.textContaining('$picked, ').evaluate(),
-      isNotEmpty,
-      reason: "the Hunter's pick, $picked",
+  final semantics = tester.ensureSemantics();
+  try {
+    await ui.pumpUntil(shows<EndBoardView>, reason: 'the end board');
+    // As it opens: a phone that was in the game is in its reveal.
+    ui.captureMidMotion = true;
+    await shoot('end-opening');
+    // One touch anywhere settles the reveal (if it plays).
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pump();
+    await ui.settle();
+    // A card's words for a screen reader begin "{name}." or "{name}, ".
+    Finder card(String who, String saying) => find.bySemanticsLabel(
+      RegExp('^${RegExp.escape(who)}[.,].*${RegExp.escape(saying)}'),
     );
+    for (final who in dead) {
+      expect(
+        card(who, EndCopy.hangedWord).evaluate(),
+        isNotEmpty,
+        reason: '$who was eliminated',
+      );
+    }
+    if (!dead.contains(name)) {
+      expect(
+        card(name, EndCopy.wonWord).evaluate().isNotEmpty,
+        outcome == 'win',
+        reason: '$name: $outcome',
+      );
+    }
+    if (dead.isEmpty) {
+      expect(
+        find
+            .bySemanticsLabel(RegExp(RegExp.escape(EndCopy.nobodyHanged)))
+            .evaluate(),
+        isNotEmpty,
+        reason: 'nobody was eliminated',
+      );
+    }
+    await shoot('end');
+  } finally {
+    semantics.dispose();
   }
-  await shoot('count');
-
-  await tester.tap(find.text(CountCopy.seeWhoWon));
-  await tester.pump();
-  await ui.settle();
-  await ui.pumpUntil(shows<ResultsView>, reason: '11 Results');
-  expect(text(headline11), isTrue, reason: 'winners: $teams');
-  expect(
-    text(outcome == 'win' ? ResultsCopy.youWon : ResultsCopy.youLost),
-    isTrue,
-    reason: '$name: $outcome',
-  );
-  await shoot('results');
 }

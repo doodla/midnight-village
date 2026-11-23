@@ -186,8 +186,8 @@ void main() {
     await setup.close(tester);
   });
 
-  testWidgets('Play again at 11: the answer is the table and where the host '
-      'sits: 02 at once, nothing read after it (a failing /me/table/ is never '
+  testWidgets('Play again on the end board: the answer is the table and '
+      'where the host sits: 02 at once, nothing read after it (a failing /me/table/ is never '
       'asked), and the request is sent once', (tester) async {
     final results = recordedResults('results');
     final s = await ShellSetup.pump(
@@ -196,18 +196,13 @@ void main() {
       before: (s) => s.answerResults(results),
     );
     await s.settle(tester);
-    for (var i = 0; i < 40; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    await tester.tap(find.text(CountCopy.seeWhoWon));
-    await s.settle(tester);
     final code = s.me['lobby_code'] as String;
     final path = '/lobbies/$code/play-again/';
     s.http.answer('POST', path, s.playedAgain());
     s.http.answer('GET', '/me/table/', 'Server Error', status: 503);
     final reads = s.http.requests.where((r) => r.path == '/me/table/').length;
 
-    await tester.tap(find.text(ResultsCopy.playAgain));
+    await tester.tap(find.text(EndCopy.playAgain));
     // Frames only, no time passing: the table's slow poll never comes due.
     for (var i = 0; i < 200 && s.screenOn(tester) != AppScreen.table; i++) {
       await tester.pump(Duration.zero);

@@ -63,7 +63,7 @@ void main() {
             'Eve': 'Dan',
           },
         );
-        // A guest's phone (the Hunter's own), left at 11.
+        // A guest's phone (the Hunter's own), left at the end board.
         await r.endAsTheOracleSays('Bob');
         // The host plays again from her phone: this one goes to 02 by
         // itself (the table's event, or its poll), and the server has every
@@ -110,7 +110,7 @@ void main() {
         // The host's phone: "Play again" takes it to 02.
         await r.endAsTheOracleSays('Alice');
         await r.ui.tapAndSubmit(
-          find.text(ResultsCopy.playAgain),
+          find.text(EndCopy.playAgain),
           until: r.shows<AtTableScreen>,
         );
         await r.shoot('table');

@@ -13,6 +13,7 @@ import 'package:midnight_village/features/game/presentation/end/end_board_view.d
 import 'package:midnight_village/features/game/presentation/end/end_foot.dart';
 
 import '../../../helpers/end_board_pump.dart';
+import '../../../helpers/end_board_rules.dart';
 import '../../../helpers/outcome_samples.dart';
 import '../../../helpers/truncated_text.dart';
 
@@ -24,7 +25,8 @@ import '../../../helpers/truncated_text.dart';
 // another tag; the Hunter's slip covers no tag, seal or ribbon; the foot's
 // pieces lie apart and on the screen, each touch target 48 tall; the banner's
 // words lie inside the banner and on the screen; and the hanged are in the
-// board's window when it opens.
+// board's window when it opens. The plan it drew keeps the domain tests'
+// rules on the real fonts (`end_board_rules.dart`).
 
 const _sizes = [Size(360, 640), Size(360, 780), Size(390, 844)];
 const _scales = [1.0, 1.3, 1.6];
@@ -43,6 +45,8 @@ final _samples = <String, Map<String, dynamic> Function()>{
     'results_hunter_chain',
   ])
     name: () => recordedResults(name),
+  // The six-player Hunter game seen by the Hunter (his seal beside the slip).
+  'results_hunter_phone': () => recordedResults('results'),
   'ten_long_names': () => widened(
     recordedResults('results_doppelganger'),
     add: 2,
@@ -100,13 +104,31 @@ void main() {
           await pumpEndBoardOn(
             tester,
             entry.value(),
-            viewer: guest ? 2 : 0,
+            viewer: guest
+                ? 2
+                : entry.key == 'results_hunter_phone'
+                ? 5
+                : 0,
             host: !guest,
             scale: scale,
           );
           await tester.pump();
           expect(tester.takeException(), isNull);
           expect(truncatedText(tester), isEmpty);
+
+          // The plan the board drew, on the real fonts, keeps the same rules
+          // as the domain tests' stand-in measure: what hangs covers nothing,
+          // six or fewer gave up nothing they could give, and it opens by the
+          // rule (end_board_rules.dart).
+          final what =
+              '${entry.key} at ${size.width.toInt()}x${size.height.toInt()} '
+              'text x$scale';
+          final plan = tester
+              .widget<EndBoardWindow>(find.byType(EndBoardWindow))
+              .plan;
+          expect(coverFaults(plan), isEmpty, reason: what);
+          expectGaveUpNothing(plan, name: what);
+          expectOpensByTheRule(plan, name: what);
 
           final screen = Offset.zero & size;
           final foot = find.byType(EndFootBand);

@@ -19,7 +19,11 @@ enum AppScreen {
   talk('08', 'Talk'),
   vote('09', 'Vote'),
   count('10', 'The count'),
-  results('11', 'Results');
+  results('11', 'Results'),
+
+  /// The end board (`docs/specs/frontend/end-board.md`): the one screen of
+  /// the results phase, in place of 10 and 11 (which are no longer shown).
+  end('10', 'End board');
 
   const AppScreen(this.number, this.briefName);
 
@@ -89,10 +93,9 @@ class TableView {
 }
 
 /// What only this phone decides, inside one server state: the host opened
-/// the deck (03) from the table, or the player went on from the count (10)
-/// to who won (11). The deck is lost on a restart (02); who won is kept on
-/// the device (`StepRecord.wonPrefix`), so a phone that restarts at the
-/// results lands where it was, 10 or 11.
+/// the deck (03) from the table. The deck is lost on a restart (02).
+/// [countSeen] is the old step from the count (10) to who won (11); the
+/// results phase is the end board now, whatever it says.
 @immutable
 class LocalSteps {
   const LocalSteps({this.editingDeck = false, this.countSeen = false});
@@ -116,7 +119,7 @@ class LocalSteps {
 /// | night, window 1 or 2; or night with no `/me/` yet | night board (05 while loading, 06) |
 /// | discussion | 08 Talk |
 /// | voting | 09 Vote |
-/// | results | 10 The count; 11 Results once "See who won" was tapped |
+/// | results | the end board |
 ///
 /// `/me/` decides when it is the table's game. The game phase only moves
 /// forward, so when `/me/table/` already names a later
@@ -144,19 +147,16 @@ AppScreen screenFor(
         own.window == 0 ? AppScreen.yourCard : AppScreen.nightBoard,
       GamePhase.discussion => AppScreen.talk,
       GamePhase.voting => AppScreen.vote,
-      GamePhase.results => _end(local),
+      GamePhase.results => AppScreen.end,
     };
   }
   return switch (tablePhase) {
     null || GamePhase.night => AppScreen.nightBoard,
     GamePhase.discussion => AppScreen.talk,
     GamePhase.voting => AppScreen.vote,
-    GamePhase.results => _end(local),
+    GamePhase.results => AppScreen.end,
   };
 }
-
-AppScreen _end(LocalSteps local) =>
-    local.countSeen ? AppScreen.results : AppScreen.count;
 
 /// What Back does on each screen with nothing open on it (`BackPolicy` does
 /// it; a sheet, a dialog or something open on the screen is closed first).
@@ -168,7 +168,7 @@ AppScreen _end(LocalSteps local) =>
 /// | 01 Join | leaves the app |
 /// | 02 Table | asks first: the table's leave confirmation |
 /// | 03 Deck | back to 02 |
-/// | 04 to 11, the game | nothing; only Leave exits |
+/// | 04 to the end board, the game | nothing; only Leave exits |
 BackRule backRuleFor(AppScreen screen) => switch (screen) {
   AppScreen.join => BackRule.leavesApp,
   AppScreen.table => BackRule.asksToLeave,
@@ -178,5 +178,6 @@ BackRule backRuleFor(AppScreen screen) => switch (screen) {
   AppScreen.talk ||
   AppScreen.vote ||
   AppScreen.count ||
-  AppScreen.results => BackRule.staysPut,
+  AppScreen.results ||
+  AppScreen.end => BackRule.staysPut,
 };

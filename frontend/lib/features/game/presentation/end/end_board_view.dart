@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/primitives/pending.dart' show RequestFailure;
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/feel/haptics.dart';
 import '../../../../design_system/layout/space.dart';
@@ -23,6 +24,7 @@ import '../../domain/end_story.dart';
 import '../../domain/game_outcome.dart';
 import '../../domain/outcome_view.dart' show endSeatsOf;
 export 'end_board_window.dart' show EndBoardWindow;
+export 'end_foot.dart' show EndAct;
 
 import 'end_board_window.dart';
 import 'end_foot.dart';
@@ -66,11 +68,13 @@ class EndBoardView extends StatefulWidget {
     required this.viewerId,
     required this.isHost,
     required this.hostName,
-    required this.onWhatHappened,
+    this.onWhatHappened,
     required this.onEditDeck,
     required this.onPlayAgain,
     required this.onLeave,
-    this.playAgainBusy = false,
+    this.busy,
+    this.failure,
+    this.onTryAgain,
     this.scrollController,
     this.reveal = false,
     this.stepTaught = false,
@@ -84,11 +88,19 @@ class EndBoardView extends StatefulWidget {
   /// The host's name, while the host is at the table: a guest's "{host} deals
   /// next." (null: not said).
   final String? hostName;
-  final VoidCallback onWhatHappened;
+  final VoidCallback? onWhatHappened;
   final VoidCallback onEditDeck;
   final VoidCallback onPlayAgain;
   final VoidCallback onLeave;
-  final bool playAgainBusy;
+
+  /// The control whose request is on its way: it shows busy, and the others
+  /// take no second request.
+  final EndAct? busy;
+
+  /// The last request did not work: its words on one line over the foot's
+  /// controls, with "Try again" ([onTryAgain]) when it may be sent again.
+  final RequestFailure? failure;
+  final VoidCallback? onTryAgain;
   final ScrollController? scrollController;
   final bool reveal;
 
@@ -262,7 +274,7 @@ class _EndBoardViewState extends State<EndBoardView>
       _night.close();
     } else {
       _night.open();
-      widget.onWhatHappened();
+      widget.onWhatHappened?.call();
     }
   }
 
@@ -356,7 +368,9 @@ class _EndBoardViewState extends State<EndBoardView>
                   ),
                   centre: outcome.result.centerCards,
                   screenHeight: screen.height,
-                  playAgainBusy: widget.playAgainBusy,
+                  busy: widget.busy,
+                  failure: widget.failure,
+                  onTryAgain: widget.onTryAgain,
                   onWhatHappened: _whatHappened,
                   onEditDeck: widget.onEditDeck,
                   onPlayAgain: widget.onPlayAgain,

@@ -175,11 +175,6 @@ void main() {
       before: (s) => s.answerResults(results),
     );
     await s.settle(tester);
-    for (var i = 0; i < 40; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    await tester.tap(find.text(CountCopy.seeWhoWon));
-    await s.settle(tester);
     final code = s.me['lobby_code'] as String;
     final path = '/lobbies/$code/play-again/';
     late HeldReplies first;
@@ -189,7 +184,7 @@ void main() {
     final clip = _Clip(tester, 'failed-send-retry');
     await clip.run(_step * 3);
     final finger = await tester.startGesture(
-      tester.getCenter(find.text(ResultsCopy.playAgain)),
+      tester.getCenter(find.text(EndCopy.playAgain)),
     );
     await clip.run(_step * 2);
     await finger.up();
