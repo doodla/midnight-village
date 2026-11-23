@@ -46,9 +46,10 @@ abstract final class StoryMetrics {
   static const sceneLeast = 72.0;
   static const sceneMost = 180.0;
 
-  /// The village is cut in to its moon and roofs, the rooftop wolf left out.
-  static const sceneInset = 0.18;
-  static const sceneFocus = Alignment(-1, -0.85);
+  /// The village is cut in to its moon and roofs, the rooftop wolf left out:
+  /// drawn this much larger, from this corner.
+  static const sceneZoom = 1.65;
+  static const sceneFocus = Alignment(-1, -0.84);
 
   /// The swap's arcs bow this far; the two threads of a swap between rows
   /// stand this far either side of the cards' middle.
@@ -100,10 +101,11 @@ class NightStoryView extends StatelessWidget {
               rect: scene,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
-                child: ArtPicture(
-                  skin.art.sleepingVillage,
-                  inset: StoryMetrics.sceneInset,
-                  focus: StoryMetrics.sceneFocus,
+                // Its moon and roofs, the rooftop wolf left out of the cut.
+                child: Transform.scale(
+                  scale: StoryMetrics.sceneZoom,
+                  alignment: StoryMetrics.sceneFocus,
+                  child: ArtPicture(skin.art.sleepingVillage),
                 ),
               ),
             ),

@@ -32,6 +32,7 @@ import 'package:midnight_village/features/game/presentation/shell/talk_screen.da
 import 'package:midnight_village/features/game/presentation/shell/talk_square.dart';
 
 import '../../../helpers/component_sheet.dart' show learnedOverrides;
+import '../../../helpers/fit_checks.dart';
 import '../../../helpers/pump_skinned.dart';
 import '../../../helpers/sheet/sheet_data.dart' as sheet;
 import '../../../helpers/sheet/story_samples.dart';
@@ -249,6 +250,7 @@ void main() {
           );
           await tester.pump();
           expect(truncatedText(tester), isEmpty);
+          expect(brokenWords(tester), isEmpty);
           final story = find.byType(NightStoryView);
           final room = tester.getRect(story);
           final note = tester.getRect(find.byType(SealedNote));

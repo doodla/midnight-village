@@ -26,9 +26,12 @@ import '../test/helpers/shell_setup.dart';
 
 /// The countdown drawn as at 14 s before [me]'s deadline, so a capture does
 /// not depend on the clock.
-DateTime _fourteenBefore(Map<String, dynamic> me) => DateTime.parse(
-  me['deadline'] as String,
-).subtract(const Duration(seconds: 14));
+DateTime? _fourteenBefore(Map<String, dynamic> me) => switch (me['deadline']) {
+  final String deadline => DateTime.parse(
+    deadline,
+  ).subtract(const Duration(seconds: 14)),
+  _ => null, // an untimed talk
+};
 
 /// Pumps the shell on the phone of [me] (with the board's cue learned or
 /// not as in a first game: the hold learned on 04).

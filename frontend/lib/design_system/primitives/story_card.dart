@@ -98,9 +98,12 @@ class StoryCardFace extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: tabPad),
                   child: Center(
-                    child: Text(
+                    // Wrapped between words, else set smaller: never
+                    // broken inside a word, never cut.
+                    child: FitWords(
                       label,
                       textAlign: TextAlign.center,
+                      maxLines: 2,
                       style: type.name.copyWith(color: ink),
                     ),
                   ),
