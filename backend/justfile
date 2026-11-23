@@ -125,6 +125,11 @@ test-contract: _env
 lint:
     uv run --group lint ruff check .
 
+# The scripts and hooks outside backend/: an error there is never swallowed in silence
+# (a bare except, `except: pass`, a blind `except Exception`). A tool that fails says so.
+lint-tools:
+    uv run --group lint ruff check --no-cache --select E722,S110,S112,BLE001 ../tool ../.claude/hooks ../.claude/guardrails
+
 # Lint and fix auto-fixable issues
 lint-fix:
     uv run --group lint ruff check . --fix
