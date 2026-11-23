@@ -21,18 +21,27 @@ Local development, the tests and the debug harness keep the `memory` backend
 
 ## Which pushes deploy (and the daily cap)
 
-Both projects build **only `main`**. `backend/vercel.json` and `frontend/vercel.json` carry
-`"git": {"deploymentEnabled": {"main": true, "**": false}}`, so Vercel creates no deployment
-for a push to any other branch (a branch matching several rules deploys if one is `true`, so
-`main` still deploys). Each file sits in its project's Root Directory (`backend`, `frontend`).
-`backend/vercel.json` holds nothing else: the backend's build still comes from
-`pyproject.toml` and the dashboard.
+Neither project builds `main`. Each builds **one branch of its own**: the server project
+`live-server`, the app project `live-app`. `backend/vercel.json` and `frontend/vercel.json`
+carry `"git": {"deploymentEnabled": {"<its branch>": true, "**": false}}`, so Vercel creates no
+deployment for a push to any other branch. Each file sits in its project's Root Directory
+(`backend`, `frontend`). In each Vercel project, Settings, Git, **Production Branch** is that
+same branch (`live-server`, `live-app`): set by the owner, once.
+
+After every merge to `main`, the "Deployed Check" workflow runs `tool/promote_live.py`, which
+moves a live branch to the merged commit **only when the files that side ships changed**:
+everything under `backend/` (or `frontend/`) except its tests and its Markdown. A merge that
+touches only tests, docs, tooling or samples moves neither and costs no deployment; a server
+change costs one, not two. The script compares with what the branch holds, so a run that was
+cancelled is made up by the next one. Over the 24 hours in which this was written, 49 merges
+cost 98 deployments; with this they would have cost 35.
 
 * **Daily cap**: Vercel's Limits page lists 100 deployments created per day on Hobby (a
   86400 s window; once hit, wait for it to pass). Every deployment created counts, preview or
   production, on each project. Vercel's monorepo docs say builds canceled by an Ignored Build
   Step still count, which is why this uses `git.deploymentEnabled`, not `ignoreCommand`.
-* **Going live** is a merge to `main`: one deployment per project.
+* **Going live** is a merge to `main` that changes what a side ships: one deployment for
+  that side. Nobody pushes to `live-server` or `live-app` by hand.
 * **A one-off preview** of a branch: run `vercel deploy` from a checkout linked to the project
   (the CLI creates the deployment itself). It still counts toward the cap, and the backend
   needs the new address in `ALLOWED_HOSTS`, so only when a preview is really wanted.
@@ -290,10 +299,12 @@ Nobody watches deployments by hand. After every merge to `main` the workflow
 `.github/workflows/deployed-check.yml` ("Deployed Check") runs `tool/deployed_check.py`
 against the two live addresses, from outside, with no account and no secret:
 
-1. **Waits for the merged commit** (up to 15 minutes): the server's `/api/health/` names the
-   commit its build was made from (`commit`, Vercel's `VERCEL_GIT_COMMIT_SHA`) and the app
-   serves `/commit.txt` (written by `frontend/tool/vercel_build.sh`). Until both name the
-   merged commit, the previous build is still live and there is nothing to prove yet.
+1. **Moves the live branches** (`tool/promote_live.py`, above), then **waits for each side's
+   build** (up to 15 minutes): the server's `/api/health/` names the commit its build was made
+   from (`commit`, Vercel's `VERCEL_GIT_COMMIT_SHA`) and the app serves `/commit.txt`
+   (written by `frontend/tool/vercel_build.sh`). Each is compared with the commit its own
+   branch holds. When one does not arrive, the run says which side, goes on to check the
+   builds that are serving, and stays red.
 2. **Health** answers JSON.
 3. **The app and its server**: the page loads, its bundle names the server origin, and the
    server lets the app's origin call it (a CORS preflight).
