@@ -33,7 +33,8 @@ work stands: `docs/dev/status.md`.
 
 ```bash
 just check            # backend lint, format, types, migrations + instruction links
-just test             # backend tests + guardrail and gate-routing tests
+just piece-check      # while building: fast checks + only the tests this change reaches (a minute or two)
+just test             # backend tests (on every core) + guardrail and gate-routing tests
 just flutter-test     # frontend tests (frontend: just analyze, just format-check)
 just samples          # re-record contract_samples/
 just test-harness     # end-to-end harness against its own real backend (a free port)
@@ -47,7 +48,7 @@ More: `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `just --list`. Setup: `docs/dev
 
 - `type(scope): description`; types feat, fix, test, refactor, docs, chore. Tests: descriptive names, seeded, several players; coverage 80% minimum.
 - Git's own hooks (`.claude/hooks/git/`, switched on by `.claude/hooks/session-start.sh` at every session start) run the fast checks for what you commit (format, lint, types, analyze: seconds); never `--no-verify` or any other bypass.
-- GitHub is the wall: it runs every check on every pull request, and nothing merges to main except by pull request with every check green. Run the tests you touch while you work; `just gate-full` runs the whole local suite on demand (minutes).
+- GitHub is the wall: it runs every check on every pull request, and nothing merges to main except by pull request with every check green. Run `just piece-check` while you work; `just gate-full` runs the whole local suite on demand (minutes).
 - A change under `.claude/` updates `docs/claude-architecture.md` in the same commit.
 
 ## Pointers
