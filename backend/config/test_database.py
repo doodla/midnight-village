@@ -37,15 +37,11 @@ def leftover_databases(
 ) -> list[str]:
     """Test databases of this ``DB_NAME`` whose run is no longer there.
 
-    Also the name from before runs had their own (``test_<DB_NAME>``), which
-    nothing uses any more. Never this run's own, and never another base's.
+    Never this run's own, and never another base's.
     """
     pattern = re.compile(rf"^test_{re.escape(base)}_(\d+)$")
     gone = []
     for name in names:
-        if name == f"test_{base}":
-            gone.append(name)
-            continue
         match = pattern.match(name)
         if (
             match

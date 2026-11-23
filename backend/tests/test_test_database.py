@@ -1,6 +1,8 @@
 """Each test run has its own database, and only a dead run's database is dropped."""
 
 import os
+import subprocess
+import sys
 
 from django.conf import settings
 from django.db import connection
@@ -21,7 +23,7 @@ def test_only_databases_of_dead_runs_of_this_name_are_leftovers():
     names = [
         "postgres",
         "mv_dev",
-        "test_mv_dev",  # the name from before runs had their own
+        "test_mv_dev",  # not a run's database: could be someone's own
         "test_mv_dev_10",  # dead
         "test_mv_dev_20",  # still running
         "test_mv_dev_30",  # this run
@@ -31,7 +33,7 @@ def test_only_databases_of_dead_runs_of_this_name_are_leftovers():
     gone = leftover_databases(
         names, "mv_dev", own_pid=30, is_alive=lambda pid: pid == 20
     )
-    assert gone == ["test_mv_dev", "test_mv_dev_10"]
+    assert gone == ["test_mv_dev_10"]
 
 
 def test_a_name_with_regex_characters_is_matched_literally():
@@ -43,11 +45,11 @@ def test_a_name_with_regex_characters_is_matched_literally():
 
 def test_this_process_is_alive_and_a_spent_one_is_not():
     assert process_is_alive(os.getpid())
-    spent = os.fork()
-    if spent == 0:
-        os._exit(0)
-    os.waitpid(spent, 0)
-    assert not process_is_alive(spent)
+    spent = subprocess.Popen(  # noqa: S603 (this interpreter, doing nothing)
+        [sys.executable, "-c", "pass"]
+    )
+    spent.wait()
+    assert not process_is_alive(spent.pid)
 
 
 @pytest.mark.django_db

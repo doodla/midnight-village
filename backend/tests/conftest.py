@@ -3,6 +3,7 @@ Shared pytest fixtures for the Midnight Village backend.
 """
 
 import os
+import warnings
 from collections.abc import Generator
 from unittest.mock import patch
 
@@ -22,7 +23,11 @@ def django_db_modify_db_settings(django_db_blocker) -> None:
 
     A run's database is ``test_<DB_NAME>_<process id>`` (``config/test_database.py``).
     A database still in use is never dropped (Postgres refuses), and a failure here
-    never fails the run: it only leaves a database lying around.
+    never fails the run: it warns, and leaves a database lying around.
+
+    This replaces pytest-django's fixture of the same name, which only adds the
+    xdist and tox suffixes. That is meant: each xdist worker is its own process, so
+    it already has its own name, and a suffix would hide it from the cleanup.
     """
     base = os.environ.get("DB_NAME", "midnight_village_test")
     try:
@@ -36,10 +41,12 @@ def django_db_modify_db_settings(django_db_blocker) -> None:
                     cursor.execute(
                         f"DROP DATABASE IF EXISTS {connection.ops.quote_name(name)}"
                     )
-                except DatabaseError:
-                    pass
-    except DatabaseError:
-        pass
+                except DatabaseError as error:
+                    warnings.warn(f"left {name} in place: {error}", stacklevel=1)
+    except DatabaseError as error:
+        warnings.warn(
+            f"could not look for leftover test databases: {error}", stacklevel=1
+        )
 
 
 @pytest.fixture
