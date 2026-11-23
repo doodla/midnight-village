@@ -5,7 +5,7 @@ Their own results for the windows that have closed (``night_results_for_player``
 what ``GET /me/`` carries and what the ack counts), and at the end the whole night's
 timeline (``night_timeline_for``). Everything here READS the night's log; the one
 write is the ack, a single statement that only ever raises a player's own count.
-Nothing here moves the game on: that is ``services.py``.
+Nothing here moves the game on: that is ``night_flow.py`` and ``voting.py``.
 """
 
 from __future__ import annotations

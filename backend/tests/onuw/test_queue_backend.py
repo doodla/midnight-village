@@ -25,7 +25,7 @@ import pytest
 
 from apps.core import host, queue_worker, timers
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer
-from apps.onuw import presence, recovery, services
+from apps.onuw import game_presence, night_flow, presence, recovery, voting
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests import timer_threads
 from tests.onuw.stages import staged
@@ -371,10 +371,10 @@ class TestPresenceChecksOnTheQueue:
         key = presence.check_key("game", n.game.id, user_id)
 
         with n.committed():
-            services.register_connection(n.game.id, user_id, "chan-1")
+            game_presence.register_connection(n.game.id, user_id, "chan-1")
         channel = "chan-1"
         for _ in range(10):  # ten heartbeats
-            services.refresh_connection(n.game.id, user_id, channel)
+            game_presence.refresh_connection(n.game.id, user_id, channel)
 
         assert len(queue.for_key(key)) == 1  # the heartbeats wrote no timer
 
@@ -397,7 +397,7 @@ class TestPresenceChecksOnTheQueue:
         user_id = n.users["seer"].id
         key = presence.check_key("game", n.game.id, user_id)
         with n.committed():
-            services.register_connection(n.game.id, user_id, "chan-2")
+            game_presence.register_connection(n.game.id, user_id, "chan-2")
         SocketPresence.objects.update(last_seen=timezone.now() - timedelta(seconds=100))
         queue.make_due(key)
 
@@ -450,9 +450,9 @@ class TestAFailingJobKeepsItsTimer:
         n.start()
         key = key_of(n, "wave:2")
         queue.make_due(key)
-        flaky = _fail_once(services.advance_wave)
+        flaky = _fail_once(night_flow.advance_wave)
 
-        with patch("apps.onuw.services.advance_wave", side_effect=flaky):
+        with patch("apps.onuw.night_flow.advance_wave", side_effect=flaky):
             with pytest.raises(RuntimeError, match="transient"):
                 queue.deliver(key)
             assert ScheduledTimer.objects.filter(key=key).exists()  # kept
@@ -477,9 +477,9 @@ class TestAFailingJobKeepsItsTimer:
         )
         key = key_of(n, "voting")
         queue.make_due(key)
-        flaky = _fail_once(services.reveal_votes)
+        flaky = _fail_once(voting.reveal_votes)
 
-        with patch("apps.onuw.services.reveal_votes", side_effect=flaky):
+        with patch("apps.onuw.voting.reveal_votes", side_effect=flaky):
             with pytest.raises(RuntimeError):
                 queue.deliver(key)
             assert ScheduledTimer.objects.filter(key=key).exists()
@@ -496,12 +496,12 @@ class TestAFailingJobKeepsItsTimer:
         user_id = n.users["seer"].id
         key = presence.check_key("game", n.game.id, user_id)
         with n.committed():
-            services.register_connection(n.game.id, user_id, "chan-f")
+            game_presence.register_connection(n.game.id, user_id, "chan-f")
         SocketPresence.objects.update(last_seen=timezone.now() - timedelta(seconds=100))
         queue.make_due(key)
-        flaky = _fail_once(services.check_game_presence)
+        flaky = _fail_once(game_presence.check_game_presence)
 
-        with patch("apps.onuw.services.check_game_presence", side_effect=flaky):
+        with patch("apps.onuw.game_presence.check_game_presence", side_effect=flaky):
             with pytest.raises(RuntimeError):
                 queue.deliver(key)
             assert ScheduledTimer.objects.filter(key=key).exists()
@@ -516,9 +516,9 @@ class TestAFailingJobKeepsItsTimer:
         n.start()
         user_id = n.users["seer"].id
         with n.committed():
-            services.register_connection(n.game.id, user_id, "chan-g")
+            game_presence.register_connection(n.game.id, user_id, "chan-g")
         with n.committed():
-            services.unregister_connection(n.game.id, user_id, "chan-g")
+            game_presence.unregister_connection(n.game.id, user_id, "chan-g")
         key = key_of(n, f"grace:{user_id}")
         n.post("wolf", "see_team")
         n.post("robber", "skip")
@@ -528,9 +528,9 @@ class TestAFailingJobKeepsItsTimer:
             disconnected_at=timezone.now() - timedelta(seconds=40)
         )
         queue.make_due(key)
-        flaky = _fail_once(services._evaluate_presence)
+        flaky = _fail_once(game_presence._evaluate_presence)
 
-        with patch("apps.onuw.services._evaluate_presence", side_effect=flaky):
+        with patch("apps.onuw.game_presence._evaluate_presence", side_effect=flaky):
             with pytest.raises(RuntimeError):
                 queue.deliver(key)
             assert ScheduledTimer.objects.filter(key=key).exists()
@@ -577,9 +577,9 @@ class TestRetries:
             due_at=Now() - timedelta(seconds=1)
         )
         token = ScheduledTimer.objects.get(key=key).token
-        flaky = _fail_once(services.advance_wave)
+        flaky = _fail_once(night_flow.advance_wave)
 
-        with patch("apps.onuw.services.advance_wave", side_effect=flaky):
+        with patch("apps.onuw.night_flow.advance_wave", side_effect=flaky):
             timers._thread_fire(key, token)  # the timer thread's entry point
             timer_threads.settle(key)  # the retry thread has run and ended
 
@@ -606,7 +606,7 @@ class TestRetries:
             calls.append(1)
             raise RuntimeError("permanent")
 
-        with patch("apps.onuw.services.advance_wave", side_effect=always_fails):
+        with patch("apps.onuw.night_flow.advance_wave", side_effect=always_fails):
             timers._thread_fire(key, token)
             timer_threads.settle(key)  # the last attempt armed no other
 
@@ -846,13 +846,13 @@ class TestPresenceCheckLocking:
         n.start()
         user_id = n.users["seer"].id
         with n.committed():
-            services.register_connection(n.game.id, user_id, "chan-h")
+            game_presence.register_connection(n.game.id, user_id, "chan-h")
 
         with patch(
-            "apps.onuw.services._lock_game_and_player",
+            "apps.onuw.game_presence._lock_game_and_player",
             side_effect=AssertionError("must not lock"),
         ):
-            assert services.check_game_presence(n.game.id, user_id) is False
+            assert game_presence.check_game_presence(n.game.id, user_id) is False
 
         key = presence.check_key("game", n.game.id, user_id)
         assert ScheduledTimer.objects.filter(key=key).exists()  # re-armed
@@ -877,7 +877,7 @@ class TestPresenceCheckLocking:
         user_id = n.users["seer"].id
         key = presence.check_key("game", n.game.id, user_id)
         with n.committed():
-            services.register_connection(n.game.id, user_id, "chan-c")
+            game_presence.register_connection(n.game.id, user_id, "chan-c")
         SocketPresence.objects.update(last_seen=timezone.now() - timedelta(seconds=100))
         queue.make_due(key)
         seen: list[tuple[bool, bool]] = []
@@ -901,7 +901,7 @@ class TestPresenceCheckLocking:
         seer = n.users["seer"].id
         with n.committed():
             host.register_lobby_connection(code, seer, "chan-d1")
-            services.register_connection(game_id, seer, "chan-d2")
+            game_presence.register_connection(game_id, seer, "chan-d2")
         SocketPresence.objects.update(last_seen=timezone.now() - timedelta(seconds=100))
 
         # The owner is the last member and leaves: the lobby (and its game and
@@ -925,7 +925,7 @@ class TestPresenceCheckLocking:
 
         # A check that was already queued now finds nothing and does nothing.
         assert host.check_lobby_presence(lobby_id, seer) is False
-        assert services.check_game_presence(game_id, seer) is False
+        assert game_presence.check_game_presence(game_id, seer) is False
         assert not Game.objects.filter(pk=game_id).exists()
 
 
@@ -940,12 +940,12 @@ class TestInstanceClockSkew:
         n.start()
         user_id = n.users["seer"].id
         with n.committed():
-            services.register_connection(n.game.id, user_id, "chan-k")
+            game_presence.register_connection(n.game.id, user_id, "chan-k")
         future = timezone.now() + timedelta(hours=3)
 
         with patch("django.utils.timezone.now", return_value=future):
             assert presence.connected_user_ids(game_id=n.game.id) == {user_id}
-            assert services.check_game_presence(n.game.id, user_id) is False
+            assert game_presence.check_game_presence(n.game.id, user_id) is False
         assert (
             PlayerRole.objects.get(game=n.game, user_id=user_id).disconnected_at is None
         )
@@ -957,7 +957,7 @@ class TestInstanceClockSkew:
         n.start()
         user_id = n.users["seer"].id
         with n.committed():
-            services.register_connection(n.game.id, user_id, "chan-k2")
+            game_presence.register_connection(n.game.id, user_id, "chan-k2")
         SocketPresence.objects.update(last_seen=timezone.now() - timedelta(seconds=100))
         past = timezone.now() - timedelta(hours=3)
 

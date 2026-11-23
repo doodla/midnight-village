@@ -27,7 +27,7 @@ from channels.testing import WebsocketCommunicator
 from rest_framework import status
 
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
-from apps.onuw import presence, services
+from apps.onuw import game_presence, presence, readiness, voting
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
@@ -49,7 +49,7 @@ ROLES = {
 
 def connect(night: Night, name: str) -> None:
     with night.committed():
-        services.register_connection(night.game.id, night.users[name].id)
+        game_presence.register_connection(night.game.id, night.users[name].id)
 
 
 def socket_rows(night: Night, name: str) -> int:
@@ -66,7 +66,7 @@ def drop(night: Night, name: str, seconds_ago: float = 0) -> None:
     ).exists():
         connect(night, name)
     with night.committed():
-        services.unregister_connection(night.game.id, night.users[name].id)
+        game_presence.unregister_connection(night.game.id, night.users[name].id)
     if seconds_ago:
         PlayerRole.objects.filter(game=night.game, user=night.users[name]).update(
             disconnected_at=timezone.now() - timedelta(seconds=seconds_ago)
@@ -98,7 +98,7 @@ def to_voting(night: Night) -> None:
     )
     night.refresh()
     with night.committed():
-        services.transition_to_voting(night.game)
+        voting.transition_to_voting(night.game)
     night.refresh()
     assert night.game.phase == Phase.VOTING
 
@@ -152,7 +152,7 @@ class TestConnectionCounting:
         assert len(presence_events(night)) == 1  # only 0 -> 1 is news
 
         with night.committed():
-            services.unregister_connection(night.game.id, night.users["seer"].id)
+            game_presence.unregister_connection(night.game.id, night.users["seer"].id)
 
         pr = night.role_of("seer")
         assert socket_rows(night, "seer") == 1
@@ -161,7 +161,7 @@ class TestConnectionCounting:
         assert grace_callbacks(night, "seer") == []  # still here: nothing to time
 
         with night.committed():
-            services.unregister_connection(night.game.id, night.users["seer"].id)
+            game_presence.unregister_connection(night.game.id, night.users["seer"].id)
 
         pr = night.role_of("seer")
         assert socket_rows(night, "seer") == 0
@@ -176,8 +176,8 @@ class TestConnectionCounting:
         night.start()
 
         with night.committed():
-            services.unregister_connection(night.game.id, night.users["seer"].id)
-            services.unregister_connection(night.game.id, night.users["seer"].id)
+            game_presence.unregister_connection(night.game.id, night.users["seer"].id)
+            game_presence.unregister_connection(night.game.id, night.users["seer"].id)
 
         assert socket_rows(night, "seer") == 0
         assert presence_events(night) == []
@@ -768,11 +768,11 @@ class TestGraceSetting:
         self, make_night
     ) -> None:
         night = make_night(ROLES)
-        assert services._grace_seconds(night.game) == 25
+        assert readiness._grace_seconds(night.game) == 25
         night.game.settings = {"disconnect_grace_seconds": 999}
-        assert services._grace_seconds(night.game) == 25
+        assert readiness._grace_seconds(night.game) == 25
         night.game.settings = {"disconnect_grace_seconds": 40}
-        assert services._grace_seconds(night.game) == 40
+        assert readiness._grace_seconds(night.game) == 40
 
     def test_host_can_set_it_through_the_lobby_settings(self, db, api_client) -> None:
         host = User.objects.create_user(username="grace_host", password="pass")
@@ -992,7 +992,7 @@ class TestSocketRowsAndHeartbeats:
         ).exists()
 
         # ...the beat arrives (it re-registers: a real "coming back")
-        services.refresh_connection(night.game.id, night.users["seer"].id, channel)
+        game_presence.refresh_connection(night.game.id, night.users["seer"].id, channel)
         age_rows(night, "seer", 20)  # the next beat is 20 s later: still fresh
 
         assert presence.connected_user_ids(game_id=night.game.id) == {
@@ -1009,7 +1009,7 @@ class TestSocketRowsAndHeartbeats:
         age_rows(night, "seer", 30)
         events_before = len(night.recorder.events)
 
-        came_back = services.refresh_connection(
+        came_back = game_presence.refresh_connection(
             night.game.id, night.users["seer"].id, row.channel_name
         )
 
@@ -1029,7 +1029,7 @@ class TestSocketRowsAndHeartbeats:
         row.delete()  # e.g. the check cleaned it up during a long pause
 
         with night.committed():
-            came_back = services.refresh_connection(
+            came_back = game_presence.refresh_connection(
                 night.game.id, night.users["seer"].id, channel
             )
 
@@ -1120,7 +1120,9 @@ class TestSocketRowsAndHeartbeats:
 
         with patch("apps.core.timers.cancel") as cancel:
             with night.committed():
-                services.unregister_connection(night.game.id, night.users["seer"].id)
+                game_presence.unregister_connection(
+                    night.game.id, night.users["seer"].id
+                )
 
         cancel.assert_any_call(
             presence.check_key("game", night.game.id, night.users["seer"].id)

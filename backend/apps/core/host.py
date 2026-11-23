@@ -424,7 +424,7 @@ def unregister_lobby_connection(
 
 
 def refresh_lobby_connection(code: str, user_id: int, channel_name: str) -> bool:
-    """Heartbeat of a lobby socket (see services.refresh_connection)."""
+    """Heartbeat of a lobby socket (see game_presence.refresh_connection)."""
     try:
         lobby_id = Lobby.objects.filter(code=code).values_list("pk", flat=True).first()
         if lobby_id is None:

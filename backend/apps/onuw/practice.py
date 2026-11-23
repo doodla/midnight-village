@@ -2,11 +2,11 @@
 The server plays the practice players (``apps.core.practice``) of a game.
 
 There is no fake phone and no socket: when a stage opens, once its transaction has
-committed (``services._practice_after_commit``, at the look stage, each night
+committed (``basics._practice_after_commit``, at the look stage, each night
 window, the talk and the vote), ``drive`` acts for every practice player who still
 has something to do in the stage the game is in NOW, through the very functions a
-phone's request calls (``services.set_ready``, ``choose_night.submit_choose``,
-``services.submit_vote``), each with the stage token and the prompt's ``chosen`` a
+phone's request calls (``voting.set_ready``, ``choose_night.submit_choose``,
+``voting.submit_vote``), each with the stage token and the prompt's ``chosen`` a
 phone would echo. So the game cannot tell them from a person, and every rule
 (stages, resends, the window close, the minimum length, the vote's reveal) holds
 for them as for anyone. ``GET /me/`` drives too when a practice player is behind
@@ -47,8 +47,7 @@ from typing import Any
 
 from apps.core.practice import USERNAME_PREFIX, is_practice
 
-from . import choose_night
-from . import services as svc
+from . import basics, choose_night, voting
 from .engine.practice import practice_picks, practice_rng, practice_vote
 from .models import Game, Phase, PlayerRole
 from .protocol import (
@@ -122,16 +121,16 @@ def _act(game_id: Any, user_id: int) -> bool:
         return True
     try:
         if stage == LOOK and in_look_stage(game) and not pr.phase_ready:
-            svc.set_ready(game, user_id, True, token)
+            voting.set_ready(game, user_id, True, token)
         elif stage == TALK and not pr.phase_ready:
-            svc.set_ready(game, user_id, True, token)
+            voting.set_ready(game, user_id, True, token)
         elif stage in (W1, W2):
             _choose(game, pr, stage)
         elif stage == VOTE and not pr.has_acted:
             _vote(game, pr, token)
     except WrongStageError:
         return False
-    except svc.AlreadyActedError:
+    except basics.AlreadyActedError:
         pass  # done already (a drive racing another): nothing to do
     except Exception:
         # Given up for this stage; the others still act.
@@ -213,7 +212,7 @@ def _vote(game: Game, pr: PlayerRole, token: str | None) -> None:
     if target is None:
         return
     logger.info("game %s: practice player %s votes %s", game.id, pr.user_id, target)
-    svc.submit_vote(game, pr.user_id, target, lock=True, stage=token)
+    voting.submit_vote(game, pr.user_id, target, lock=True, stage=token)
 
 
 def behind(game: Game, player_roles: list[PlayerRole]) -> bool:

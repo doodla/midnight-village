@@ -10,7 +10,7 @@ from .decks import DECK_CHIPS, MAX_AUTO_PLAYERS, MIN_AUTO_PLAYERS
 from .roles import ROLE_REGISTRY
 
 # Every timer setting the server reads, in seconds. 0 disables that timer
-# (night_doppelganger_window_seconds: see services._fixed_window_seconds).
+# (night_doppelganger_window_seconds: see night_window._fixed_window_seconds).
 TIMER_SETTING_KEYS: tuple[str, ...] = (
     "night_wave_seconds",
     "night_min_window_seconds",

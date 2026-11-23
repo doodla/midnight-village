@@ -22,7 +22,7 @@ import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.onuw import services
+from apps.onuw import night_window
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import current_stage, staged
 from tests.onuw.test_night_windows import Night
@@ -46,7 +46,7 @@ def talk_night(make_night) -> Night:
     night = make_night(ROLES, CENTER, discussion_seconds=300, voting_seconds=120)
     night.start()
     with night.committed():
-        services.transition_to_discussion(night.game)
+        night_window.transition_to_discussion(night.game)
     night.refresh()
     assert night.game.phase == Phase.DISCUSSION
     night.recorder.events.clear()
@@ -126,7 +126,7 @@ class TestTheTap:
         night.recorder.events.clear()
 
         with night.committed():
-            services.transition_to_discussion(night.game)
+            night_window.transition_to_discussion(night.game)
 
         assert night.broadcasts("progress") == [
             {"type": "progress", "stage": "talk", "done": 0, "needed": 5}
@@ -138,7 +138,7 @@ class TestTheTap:
         PlayerRole.objects.filter(game=night.game).update(phase_ready=True)
 
         with night.committed():
-            services.transition_to_discussion(night.game)
+            night_window.transition_to_discussion(night.game)
 
         assert not PlayerRole.objects.filter(game=night.game, phase_ready=True).exists()
 

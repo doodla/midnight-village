@@ -23,7 +23,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
-from apps.onuw import recovery, services
+from apps.onuw import night_flow, recovery
 from apps.onuw.models import Phase
 from tests.onuw.stages import staged
 from tests.onuw.test_choose_night import choose
@@ -106,7 +106,7 @@ def iso(moment: datetime) -> str:
 
 def deal(night: Night) -> None:
     with night.committed():
-        services.begin_night(night.game)
+        night_flow.begin_night(night.game)
     night.refresh()
 
 

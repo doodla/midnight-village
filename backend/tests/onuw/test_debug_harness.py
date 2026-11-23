@@ -27,7 +27,7 @@ from rest_framework import status
 from apps.core import host as host_module
 from apps.core import timers
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
-from apps.onuw import services
+from apps.onuw import night_window
 from apps.onuw.models import Game, Phase, PlayerRole
 
 pytestmark = pytest.mark.integration
@@ -936,7 +936,7 @@ class TestFireTimer:
         )
         # Schedule the real window-2 timer via the service (no channel layer).
         with _no_channels(), django_capture_on_commit_callbacks(execute=True):
-            services.send_wave_prompts(game, 2)
+            night_window.send_wave_prompts(game, 2)
         assert f"{game.id}:wave:2" in timers._registry
 
         api_client.force_authenticate(user=host)
@@ -979,7 +979,7 @@ class TestFireTimer:
         game.settings = {"night_min_window_seconds": 3600}
         game.save(update_fields=["settings"])
         with _no_channels(), django_capture_on_commit_callbacks(execute=True):
-            services.send_wave_prompts(game, 2)
+            night_window.send_wave_prompts(game, 2)
 
         api_client.force_authenticate(user=host)
         with _no_channels(), django_capture_on_commit_callbacks(execute=True):

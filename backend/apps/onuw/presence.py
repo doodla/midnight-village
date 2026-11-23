@@ -66,9 +66,9 @@ def _check_game(scope_id: str, user_id: int) -> None:
     """Scope checker of the durable presence check: a game socket may have died."""
     from apps.core.effects import after_commit
 
-    from . import services
+    from . import game_presence, services
 
-    if services.check_game_presence(scope_id, user_id):
+    if game_presence.check_game_presence(scope_id, user_id):
         # Host handover has its own transaction and lock order (Lobby then
         # LobbyMember): it runs only after this one has committed.
         after_commit(lambda: services.report_game_presence(scope_id, user_id, False))

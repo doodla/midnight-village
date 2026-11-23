@@ -22,7 +22,7 @@ import pytest
 
 from apps.core import timers
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
-from apps.onuw import services
+from apps.onuw import night_flow, night_window, voting
 from apps.onuw.models import Game, Phase, PlayerRole
 from apps.onuw.protocol import stage_token
 
@@ -177,7 +177,7 @@ class TestWaveTimerLifecycle:
             patch("apps.core.effects.get_channel_layer", return_value=None),
             patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
-            services.send_wave_prompts(game, 2)
+            night_window.send_wave_prompts(game, 2)
 
         game.refresh_from_db()
         assert game.phase_deadline is None
@@ -199,7 +199,7 @@ class TestWaveTimerLifecycle:
             patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
             patch("apps.core.timers.schedule"),
         ):
-            services.send_wave_prompts(game, 2)
+            night_window.send_wave_prompts(game, 2)
 
         wave_events = [e for e in broadcast_events if e.get("type") == "night.window"]
         assert len(wave_events) == 1
@@ -224,7 +224,7 @@ class TestWaveTimerLifecycle:
             patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
             patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
         ):
-            services.send_wave_prompts(game, 2)
+            night_window.send_wave_prompts(game, 2)
 
         wave_events = [e for e in broadcast_events if e.get("type") == "night.window"]
         assert len(wave_events) == 1
@@ -249,7 +249,7 @@ class TestWaveTimerLifecycle:
             patch("apps.core.effects.get_channel_layer", return_value=None),
             patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
-            services.send_wave_prompts(game, 2)
+            night_window.send_wave_prompts(game, 2)
 
         assert len(captured_callbacks) == 1
 
@@ -281,7 +281,7 @@ class TestWaveTimerLifecycle:
 
         # Schedule a real wave timer via send_wave_prompts.
         with patch("apps.core.effects.get_channel_layer", return_value=None):
-            services.send_wave_prompts(game, 2)
+            night_window.send_wave_prompts(game, 2)
 
         timer_key = f"{game.id}:wave:2"
         with timers._lock:
@@ -319,7 +319,9 @@ class TestWaveTimerLifecycle:
             patch("apps.core.timers.schedule"),  # Prevent next-wave timer
             transaction.atomic(),
         ):
-            services._advance_if_ready(Game.objects.select_for_update().get(id=game.id))
+            night_flow._advance_if_ready(
+                Game.objects.select_for_update().get(id=game.id)
+            )
 
         with timers._lock:
             assert timer_key not in timers._registry
@@ -330,7 +332,7 @@ class TestWaveTimerLifecycle:
 
         # Schedule a real wave timer.
         with patch("apps.core.effects.get_channel_layer", return_value=None):
-            services.send_wave_prompts(game, 2)
+            night_window.send_wave_prompts(game, 2)
 
         timer_key = f"{game.id}:wave:2"
         with timers._lock:
@@ -341,7 +343,7 @@ class TestWaveTimerLifecycle:
             patch("apps.core.effects.get_channel_layer", return_value=None),
             patch("apps.core.timers.schedule"),  # Prevent next-wave timer
         ):
-            services.advance_wave(game)
+            night_flow.advance_wave(game)
 
         with timers._lock:
             assert timer_key not in timers._registry
@@ -367,7 +369,7 @@ class TestWaveTimerLifecycle:
         game.save(update_fields=["phase_deadline", "updated_at"])
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
-            services.transition_to_discussion(game)
+            night_window.transition_to_discussion(game)
 
         game.refresh_from_db()
         assert game.phase_deadline is None
@@ -391,11 +393,11 @@ class TestWaveTimerLifecycle:
             patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
             # Window 1 starts -- schedules wave:1 timer.
-            services.send_wave_prompts(game, 1)
+            night_window.send_wave_prompts(game, 1)
             assert any(str(game.id) + ":wave:1" in k for k in scheduled_keys)
 
             # Close window 1 -- advance_wave opens window 2 via send_wave_prompts.
-            services.advance_wave(game)
+            night_flow.advance_wave(game)
 
         wave_keys = [k for k in scheduled_keys if ":wave:" in k]
         assert len(wave_keys) >= 2, (
@@ -432,7 +434,7 @@ class TestDiscussionTimerLifecycle:
             patch("apps.core.effects.get_channel_layer", return_value=None),
             patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
-            services.transition_to_discussion(game)
+            night_window.transition_to_discussion(game)
 
         game.refresh_from_db()
         assert game.phase_deadline is not None
@@ -454,14 +456,14 @@ class TestDiscussionTimerLifecycle:
         game = _make_game(discussion_seconds=300)
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
-            services.transition_to_discussion(game)
+            night_window.transition_to_discussion(game)
 
         timer_key = f"{game.id}:discussion"
         with timers._lock:
             assert timer_key in timers._registry
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
-            services.end_discussion(game)
+            voting.end_discussion(game)
 
         with timers._lock:
             assert timer_key not in timers._registry
@@ -485,7 +487,7 @@ class TestDiscussionTimerLifecycle:
             patch("apps.core.effects.get_channel_layer", return_value=None),
             patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
-            services.transition_to_discussion(game)
+            night_window.transition_to_discussion(game)
 
         game.refresh_from_db()
         assert game.phase_deadline is None
@@ -512,7 +514,7 @@ class TestDiscussionTimerLifecycle:
             patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
             patch("apps.core.timers.schedule"),
         ):
-            services.transition_to_discussion(game)
+            night_window.transition_to_discussion(game)
 
         phase_events = [e for e in broadcast_events if e.get("type") == "phase.change"]
         assert len(phase_events) == 1
@@ -540,7 +542,7 @@ class TestDiscussionTimerLifecycle:
             patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
             patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
         ):
-            services.transition_to_discussion(game)
+            night_window.transition_to_discussion(game)
 
         phase_events = [e for e in broadcast_events if e.get("type") == "phase.change"]
         assert len(phase_events) == 1
@@ -574,7 +576,7 @@ class TestVotingTimerLifecycle:
             patch("apps.core.effects.get_channel_layer", return_value=None),
             patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
-            services.transition_to_voting(game)
+            voting.transition_to_voting(game)
 
         game.refresh_from_db()
         assert game.phase_deadline is not None
@@ -604,7 +606,7 @@ class TestVotingTimerLifecycle:
         with (
             patch("apps.core.effects.get_channel_layer", return_value=None),
         ):
-            services.transition_to_voting(game)
+            voting.transition_to_voting(game)
 
         timer_key = f"{game.id}:voting"
         with timers._lock:
@@ -621,7 +623,7 @@ class TestVotingTimerLifecycle:
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
             for voter_name, target_id in vote_pairs:
-                errors = services.submit_vote(
+                errors = voting.submit_vote(
                     game, users[voter_name].id, target_id, stage=stage
                 )
                 # Ignore "Game is not in voting phase" after auto-reveal on last vote
@@ -643,14 +645,14 @@ class TestVotingTimerLifecycle:
         )
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
-            services.transition_to_voting(game)
+            voting.transition_to_voting(game)
 
         timer_key = f"{game.id}:voting"
         with timers._lock:
             assert timer_key in timers._registry
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
-            services.reveal_votes(game)
+            voting.reveal_votes(game)
 
         with timers._lock:
             assert timer_key not in timers._registry
@@ -675,7 +677,7 @@ class TestVotingTimerLifecycle:
             patch("apps.core.effects.get_channel_layer", return_value=None),
             patch("apps.core.timers.schedule", side_effect=fake_schedule),
         ):
-            services.transition_to_voting(game)
+            voting.transition_to_voting(game)
 
         game.refresh_from_db()
         assert game.phase_deadline is None
@@ -704,7 +706,7 @@ class TestVotingTimerLifecycle:
             patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
             patch("apps.core.timers.schedule"),
         ):
-            services.transition_to_voting(game)
+            voting.transition_to_voting(game)
 
         phase_events = [e for e in broadcast_events if e.get("type") == "phase.change"]
         assert len(phase_events) == 1
@@ -733,7 +735,7 @@ class TestVotingTimerLifecycle:
             patch("apps.core.effects.get_channel_layer", return_value=mock_layer),
             patch("apps.core.effects.async_to_sync", side_effect=lambda f: f),
         ):
-            services.transition_to_voting(game)
+            voting.transition_to_voting(game)
 
         phase_events = [e for e in broadcast_events if e.get("type") == "phase.change"]
         assert len(phase_events) == 1
@@ -750,7 +752,7 @@ class TestVotingTimerLifecycle:
         game, users, _host = _make_game_with_players(player_count=3, voting_seconds=300)
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
-            services.transition_to_voting(game)
+            voting.transition_to_voting(game)
 
         usernames = list(users.keys())
         stage = stage_token(Game.objects.get(id=game.id))
@@ -762,7 +764,7 @@ class TestVotingTimerLifecycle:
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
             for voter_name, target_id in vote_pairs:
-                services.submit_vote(game, users[voter_name].id, target_id, stage=stage)
+                voting.submit_vote(game, users[voter_name].id, target_id, stage=stage)
 
         game.refresh_from_db()
         assert game.phase == Phase.RESULTS
@@ -779,7 +781,7 @@ class TestVotingTimerLifecycle:
         game, users, _host = _make_game_with_players(player_count=3, voting_seconds=300)
 
         with patch("apps.core.effects.get_channel_layer", return_value=None):
-            services.transition_to_voting(game)
+            voting.transition_to_voting(game)
 
         # Manually inject a stale wave timer to simulate an orphaned timer
         stale_key = f"{game.id}:wave:2"
@@ -794,7 +796,7 @@ class TestVotingTimerLifecycle:
         with patch("apps.core.effects.get_channel_layer", return_value=None):
             for i, name in enumerate(usernames):
                 target = users[usernames[(i + 1) % len(usernames)]].id
-                services.submit_vote(game, users[name].id, target, stage=stage)
+                voting.submit_vote(game, users[name].id, target, stage=stage)
 
         game.refresh_from_db()
         assert game.phase == Phase.RESULTS

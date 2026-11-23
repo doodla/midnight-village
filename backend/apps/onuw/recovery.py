@@ -7,9 +7,10 @@ failed send. ``ensure_timers`` puts back what one game should have now (called f
 it for every running game at start-up. Both work out the plan from the game's state
 alone: what should be scheduled, for when.
 
-This module uses the game's rules from ``services.py`` (each such call is written
-``services.<name>``), and opens a night that never started through it; nothing in
-``services.py`` depends on this module (``tests/onuw/test_module_directions.py``).
+This module uses the game's rules from the service's layers (each such call is
+written ``<module>.<name>``), and opens a night that never started through
+``night_flow``; no layer depends on this module
+(``tests/onuw/test_module_directions.py``).
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from django.utils import timezone
 
 from apps.core import timers
 
-from . import services
+from . import basics, night_flow, night_window, readiness, voting
 from .models import Game, Phase, PlayerRole
 from .protocol import NIGHT_WINDOWS, in_look_stage
 
@@ -112,10 +113,10 @@ def _night_timer_plan(game: Game) -> tuple[float, dict[str, Any]] | None:
             0.0, (game.phase_deadline - timezone.now()).total_seconds()
         )
     ready_delay: float | None = None
-    if services._fixed_window_seconds(
+    if night_window._fixed_window_seconds(
         game, window
-    ) == 0 and services._night_ready_to_close(game, ignore_recent_drops=True):
-        ready_delay = services._min_close_delay(game)
+    ) == 0 and readiness._night_ready_to_close(game, ignore_recent_drops=True):
+        ready_delay = night_window._min_close_delay(game)
     delays = [d for d in (deadline_delay, ready_delay) if d is not None]
     if not delays:
         return None
@@ -125,7 +126,7 @@ def _night_timer_plan(game: Game) -> tuple[float, dict[str, Any]] | None:
     closes_early = ready_delay is not None and (
         deadline_delay is None or ready_delay < deadline_delay
     )
-    return delay, services._window_job_params(game, window, deferred=closes_early)
+    return delay, basics._window_job_params(game, window, deferred=closes_early)
 
 
 def _phase_timer_plan(
@@ -141,13 +142,13 @@ def _phase_timer_plan(
         # The look backstop (the allowance above never clears a deadline).
         delay = max(0.0, (game.phase_deadline - timezone.now()).total_seconds())
         return (
-            services._look_timer_key(game),
+            night_window._look_timer_key(game),
             delay,
             "card_look",
             {"game_id": str(game.id)},
         )
     if game.phase == Phase.NIGHT and game.current_wave in NIGHT_WINDOWS:
-        key = services._window_timer_key(game, game.current_wave)
+        key = basics._window_timer_key(game, game.current_wave)
         plan = _night_timer_plan(game)
         return None if plan is None else (key, plan[0], "night_window", plan[1])
     if game.phase_deadline is None:
@@ -191,20 +192,20 @@ def ensure_timers(game: Game, player_roles: list[PlayerRole] | None = None) -> N
         # look stage (it has a deadline) is not stuck: it is waiting for the taps.
         if not looking:
             if game.current_wave == 0 and _night_start_is_stuck(game):
-                services.start_night_phase(game)
+                night_flow.start_night_phase(game)
             return
 
     if looking:
-        plan_key = services._look_timer_key(game)
+        plan_key = night_window._look_timer_key(game)
     elif game.phase == Phase.NIGHT:
-        plan_key = services._window_timer_key(game, game.current_wave)
+        plan_key = basics._window_timer_key(game, game.current_wave)
     else:
         plan_key = f"{game.id}:{game.phase}"
     if not timers.is_scheduled(plan_key):
-        if looking and services._stage_is_ready(game):
+        if looking and voting._stage_is_ready(game):
             # Everyone present had looked (a grace period ended while nothing was
             # running): the stage is over, not waiting for a timer.
-            services.start_night_phase(game)
+            night_flow.start_night_phase(game)
             return
         plan = _phase_timer_plan(game)
         if plan is not None:
@@ -216,12 +217,12 @@ def ensure_timers(game: Game, player_roles: list[PlayerRole] | None = None) -> N
             player_roles
             if player_roles is not None
             # pyrefly: ignore [missing-attribute]
-            else services._player_roles(game)
+            else readiness._player_roles(game)
         )
-        for user_id, delay in services._grace_timer_plan(
+        for user_id, delay in readiness._grace_timer_plan(
             game, prs, include_expired=True
         ):
-            key = services._grace_timer_key(game.id, user_id)
+            key = readiness._grace_timer_key(game.id, user_id)
             if not timers.is_scheduled(key):
                 timers.schedule(
                     key,
@@ -264,7 +265,7 @@ def recover_timers() -> int:
                 # Crashed between creating the game and opening its first
                 # window: open it now (a no-op if another worker already did).
                 # A look stage is not that: ensure_timers rebuilds its backstop.
-                services.start_night_phase(game)
+                night_flow.start_night_phase(game)
             else:
                 ensure_timers(game)
         except Exception:

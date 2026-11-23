@@ -21,7 +21,7 @@ from django.utils import timezone
 import pytest
 from rest_framework import status
 
-from apps.onuw import services
+from apps.onuw import game_presence, night_window
 from apps.onuw.models import Phase, PlayerRole
 from tests.onuw.test_night_windows import Night
 
@@ -38,7 +38,7 @@ SEED = 42  # what Night gives every game
 
 
 def expected_index(night: Night, name: str) -> int:
-    return services.drunk_timeout_center_index(SEED, night.users[name].id, 3)
+    return night_window.drunk_timeout_center_index(SEED, night.users[name].id, 3)
 
 
 def log_for(night: Night, name: str) -> list[dict[str, Any]]:
@@ -58,30 +58,30 @@ def everyone_else_acts(night: Night) -> None:
 
 class TestTheSeededChoice:
     def test_same_seed_and_player_always_give_the_same_index(self) -> None:
-        picks = {services.drunk_timeout_center_index(7, 12, 3) for _ in range(20)}
+        picks = {night_window.drunk_timeout_center_index(7, 12, 3) for _ in range(20)}
         assert len(picks) == 1
 
     def test_it_ignores_everything_but_seed_player_and_deck_size(self) -> None:
-        first = services.drunk_timeout_center_index(99, 5, 3)
+        first = night_window.drunk_timeout_center_index(99, 5, 3)
         # Other calls in between (other players, other games) change nothing.
         for pid in range(1, 30):
-            services.drunk_timeout_center_index(99, pid, 3)
-            services.drunk_timeout_center_index(pid, 5, 3)
-        assert services.drunk_timeout_center_index(99, 5, 3) == first
+            night_window.drunk_timeout_center_index(99, pid, 3)
+            night_window.drunk_timeout_center_index(pid, 5, 3)
+        assert night_window.drunk_timeout_center_index(99, 5, 3) == first
 
     def test_it_varies_across_players_and_games_and_covers_every_card(self) -> None:
         by_player = {
-            services.drunk_timeout_center_index(1, pid, 3) for pid in range(60)
+            night_window.drunk_timeout_center_index(1, pid, 3) for pid in range(60)
         }
         by_game = {
-            services.drunk_timeout_center_index(seed, 1, 3) for seed in range(60)
+            night_window.drunk_timeout_center_index(seed, 1, 3) for seed in range(60)
         }
         assert by_player == {0, 1, 2}
         assert by_game == {0, 1, 2}
 
     def test_it_is_always_a_valid_index(self) -> None:
         for seed in range(50):
-            assert 0 <= services.drunk_timeout_center_index(seed, 3, 3) < 3
+            assert 0 <= night_window.drunk_timeout_center_index(seed, 3, 3) < 3
 
 
 class TestARealDrunkRunsOutOfTime:
@@ -229,7 +229,7 @@ class TestARealDrunkRunsOutOfTime:
         night.host_close_window()
         (first,) = log_for(night, "drunk")
 
-        replay = services.drunk_timeout_center_index(
+        replay = night_window.drunk_timeout_center_index(
             night.game.random_seed, night.users["drunk"].id, 3
         )
 
@@ -238,7 +238,7 @@ class TestARealDrunkRunsOutOfTime:
     def test_a_different_game_seed_can_give_a_different_card(self, make_night) -> None:
         night = make_night(ROLES, CENTER, night_wave_seconds=60)
         mine = night.users["drunk"].id
-        picks = {services.drunk_timeout_center_index(s, mine, 3) for s in range(30)}
+        picks = {night_window.drunk_timeout_center_index(s, mine, 3) for s in range(30)}
         assert len(picks) > 1
 
 
@@ -250,9 +250,9 @@ class TestAnAbsentDrunk:
         night.start()
         idx = expected_index(night, "drunk")
         with night.committed():
-            services.register_connection(night.game.id, night.users["drunk"].id)
+            game_presence.register_connection(night.game.id, night.users["drunk"].id)
         with night.committed():
-            services.unregister_connection(night.game.id, night.users["drunk"].id)
+            game_presence.unregister_connection(night.game.id, night.users["drunk"].id)
         PlayerRole.objects.filter(game=night.game, user=night.users["drunk"]).update(
             disconnected_at=timezone.now() - timedelta(seconds=40)
         )
@@ -298,7 +298,7 @@ class TestDoppelgangerAsDrunk:
         night.start()
         night.post("d", "peek_player", {"player_id": night.users["dr"].id})
         assert night.refresh().current_wave == 1  # her follow-up is pending
-        idx = services.drunk_timeout_center_index(SEED, night.users["d"].id, 3)
+        idx = night_window.drunk_timeout_center_index(SEED, night.users["d"].id, 3)
 
         night.fire_timer(1)  # window 1's own timer: she did not choose
 

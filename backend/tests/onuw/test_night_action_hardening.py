@@ -113,7 +113,7 @@ class TestAPoisonedStoredActionCannotStopTheNight:
         assert result["action_type"] == "see_team"
 
     def test_a_poisoned_drunk_is_still_swapped_by_the_server(self, make_night, caplog):
-        from apps.onuw import services
+        from apps.onuw import night_window
 
         night = make_night(
             {"d": "Drunk", "w": "Werewolf", "v": "Villager", "x": "Villager"},
@@ -122,7 +122,7 @@ class TestAPoisonedStoredActionCannotStopTheNight:
         )
         night.start()
         self._poison(night, "d", "Drunk", "swap_with_center", {"center_index": None})
-        idx = services.drunk_timeout_center_index(42, night.users["d"].id, 3)
+        idx = night_window.drunk_timeout_center_index(42, night.users["d"].id, 3)
 
         with caplog.at_level(logging.ERROR):
             night.host_close_window()

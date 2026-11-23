@@ -52,7 +52,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apps.core import host, presence, timers
 from apps.core.consumers import LobbyConsumer
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
-from apps.onuw import choose_night, services
+from apps.onuw import choose_night, game_presence, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.models import Game, PlayerRole
 from apps.onuw.protocol import stage_token
@@ -469,14 +469,16 @@ class Table:
         """A game socket opens: what ``GameConsumer`` does on connect."""
         channel = f"socket.{self.pid(name)}"
         with self._capture_on_commit(execute=True):
-            if services.register_connection(self.game_id, self.pid(name), channel):
+            if game_presence.register_connection(self.game_id, self.pid(name), channel):
                 services.report_game_presence(self.game_id, self.pid(name), True)
 
     def disconnect(self, name: str) -> None:
         """The game socket closes: what ``GameConsumer`` does on disconnect."""
         channel = f"socket.{self.pid(name)}"
         with self._capture_on_commit(execute=True):
-            if services.unregister_connection(self.game_id, self.pid(name), channel):
+            if game_presence.unregister_connection(
+                self.game_id, self.pid(name), channel
+            ):
                 services.report_game_presence(self.game_id, self.pid(name), False)
 
     def connect_lobby(self, name: str) -> None:

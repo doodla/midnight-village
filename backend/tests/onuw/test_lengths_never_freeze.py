@@ -20,7 +20,7 @@ from django.utils import timezone
 
 import pytest
 
-from apps.onuw import services
+from apps.onuw import night_flow, voting
 from apps.onuw.engine.validation import (
     TIMER_SETTING_KEYS,
     length_errors,
@@ -74,7 +74,7 @@ def _live_players_act(night: Any) -> None:
     if in_look_stage(game):
         for name in live:
             with night.committed():
-                services.set_ready(
+                voting.set_ready(
                     game, night.users[name].id, True, stage=stage_token(game)
                 )
             game = night.refresh()
@@ -92,7 +92,7 @@ def _live_players_act(night: Any) -> None:
             if game.phase != Phase.DISCUSSION:
                 return
             with night.committed():
-                services.set_ready(
+                voting.set_ready(
                     game, night.users[name].id, True, stage=stage_token(game)
                 )
     elif game.phase == Phase.VOTING:
@@ -103,7 +103,7 @@ def _live_players_act(night: Any) -> None:
                 return
             target = night.users[names[(i + 1) % len(names)]].id
             with night.committed():
-                services.submit_vote(
+                voting.submit_vote(
                     game,
                     night.users[name].id,
                     target,
@@ -123,7 +123,7 @@ def test_a_game_with_a_dead_phone_still_finishes(make_night, settings, key) -> N
         disconnected_at=timezone.now() - timedelta(hours=2)
     )
     with night.committed():
-        services.begin_night(night.game)
+        night_flow.begin_night(night.game)
     fired = 0
     for _ in range(60):
         game = night.refresh()

@@ -25,7 +25,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core import timers
-from apps.onuw import recovery, services
+from apps.onuw import night_flow, night_window, recovery
 from apps.onuw.engine.validation import validate_onuw_settings
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import current_stage, staged
@@ -47,7 +47,7 @@ CENTER = ["Villager", "Tanner", "Villager"]
 def deal(night: Night) -> None:
     """The deal's own step: what ``GameStartView._deal`` calls last."""
     with night.committed():
-        services.begin_night(night.game)
+        night_flow.begin_night(night.game)
     night.refresh()
 
 
@@ -270,7 +270,7 @@ class TestTheStage:
         for name in ROLES:
             look(night, name)
         with night.committed():
-            services.transition_to_discussion(night.game)
+            night_window.transition_to_discussion(night.game)
 
         assert me(night, "seer")["progress"] == {
             "stage": "talk",

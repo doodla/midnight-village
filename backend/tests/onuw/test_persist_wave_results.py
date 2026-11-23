@@ -7,7 +7,7 @@ from django.test.utils import CaptureQueriesContext
 
 import pytest
 
-from apps.onuw import services
+from apps.onuw import basics, night_window
 from apps.onuw.engine.state import ActionResult
 
 pytestmark = pytest.mark.integration
@@ -32,24 +32,24 @@ def player_role_updates(queries: CaptureQueriesContext) -> list[str]:
 
 def test_a_window_with_no_swap_and_no_result_updates_no_player_row(make_night) -> None:
     night = make_night(ROLES, CENTER, night_wave_seconds=60)
-    state = services.build_game_state(night.game)
+    state = basics.build_game_state(night.game)
 
     with CaptureQueriesContext(connection) as queries:
-        services.persist_wave_results(night.game, state, [], 2)
+        night_window.persist_wave_results(night.game, state, [], 2)
 
     assert player_role_updates(queries) == []
 
 
 def test_only_the_two_players_whose_cards_moved_are_updated(make_night) -> None:
     night = make_night(ROLES, CENTER, night_wave_seconds=60)
-    state = services.build_game_state(night.game)
+    state = basics.build_game_state(night.game)
     roles = dict(state.player_roles)
     robber, seer = night.users["robber"].id, night.users["seer"].id
     roles[robber], roles[seer] = roles[seer], roles[robber]
     moved = dataclasses.replace(state, player_roles=roles)
 
     with CaptureQueriesContext(connection) as queries:
-        services.persist_wave_results(night.game, moved, [], 2)
+        night_window.persist_wave_results(night.game, moved, [], 2)
 
     assert len(player_role_updates(queries)) == 2
     assert night.role_of("robber").current_role == "Seer"
@@ -61,7 +61,7 @@ def test_a_player_with_a_result_gets_one_write_and_the_others_none(
     make_night,
 ) -> None:
     night = make_night(ROLES, CENTER, night_wave_seconds=60)
-    state = services.build_game_state(night.game)
+    state = basics.build_game_state(night.game)
     seer = night.users["seer"].id
     result = ActionResult(
         player_id=seer,
@@ -70,7 +70,7 @@ def test_a_player_with_a_result_gets_one_write_and_the_others_none(
     )
 
     with CaptureQueriesContext(connection) as queries:
-        services.persist_wave_results(night.game, state, [result], 2)
+        night_window.persist_wave_results(night.game, state, [result], 2)
 
     assert len(player_role_updates(queries)) == 1
     data = night.role_of("seer").night_action_data

@@ -98,7 +98,7 @@ class GameMeSerializer(serializers.Serializer):
         """While voting: the player ids the caller may vote for, in seat order
         (every player in the game but the caller: no self-votes,
         ``docs/specs/onuw/voting-and-resolution.md``; the same rule
-        ``services.submit_vote`` checks). None outside the vote."""
+        ``voting.submit_vote`` checks). None outside the vote."""
         player_role = self.context.get("player_role")
         if game.phase != Phase.VOTING or player_role is None:
             return None
@@ -230,7 +230,7 @@ class GameMeSerializer(serializers.Serializer):
     def _progress(self, game: Game) -> dict[str, Any] | None:
         """``{"stage", "done", "needed"}`` at the look, talk and vote stages: a
         count of the table's taps, never who tapped. None elsewhere."""
-        from .services import stage_progress
+        from .readiness import stage_progress
 
         return stage_progress(game)
 

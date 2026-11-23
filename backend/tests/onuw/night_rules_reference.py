@@ -181,7 +181,7 @@ def engine(dealt, center, choices):
 def engine_night(dealt, center, choices, ids=None):
     """The night through the real engine, collecting actions the way the server does.
 
-    ``services._collect_window_actions`` asks ``get_required_actions_for_window`` who
+    ``night_window._collect_window_actions`` asks ``get_required_actions_for_window`` who
     acts, which walks the dealt cards in SEAT order (so a Minion can sit between two
     Werewolves) and appends a Doppelganger's follow-up last; the window is then
     resolved with ``resolve_window``, the Doppelganger's look having been resolved on

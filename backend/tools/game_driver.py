@@ -150,7 +150,7 @@ def cmd_setup(args: argparse.Namespace) -> None:
     role_counts = dict(Counter(list(roles.values()) + list(center)))
 
     # Disable wall-clock auto-advance by default: a `*_seconds` of 0 makes the
-    # backend skip scheduling that phase/window timer (services.py), so NOTHING
+    # backend skip scheduling that phase/window timer (night_flow.py, voting.py), so NOTHING
     # advances on its own and the (slow) driver controls every transition via
     # advance-wave / end-discussion / reveal-votes. Without this, the night
     # times out before an LLM agent can act. The night has two windows:
