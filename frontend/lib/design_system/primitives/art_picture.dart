@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/update/stale_smell.dart';
 import '../skin/art_set.dart';
 
 /// The one way a skin's picture is drawn: cropped to cover the space it is
@@ -58,6 +59,8 @@ class ArtPicture extends StatelessWidget {
           // (`LoadOnceBundle`). Nothing is drawn meanwhile, as without this.
           errorBuilder: (context, error, stack) {
             DefaultAssetBundle.of(context).evict(image.path);
+            // A page where a picture should be: the build may be out of date.
+            StaleSmell.report();
             debugOnError?.call(image, error);
             return const SizedBox.expand();
           },

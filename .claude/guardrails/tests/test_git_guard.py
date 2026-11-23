@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 HOOKS = Path(__file__).resolve().parents[2] / "hooks"
@@ -320,9 +321,8 @@ class GitGuard(unittest.TestCase):
                     self.assertEqual(self.problems(line), [])
         self.assertGreater(lines, 20)
 
-    def test_odd_input_never_raises_and_big_input_is_quick(self):
+    def test_odd_input_never_raises(self):
         import random
-        import time
 
         rng = random.Random(7)
         pieces = ["git", "commit", "-n", "'", '"', "\\", "$(", ")", "`", "<<", "<<<", "EOF", "\n"]
@@ -331,16 +331,24 @@ class GitGuard(unittest.TestCase):
             command = "".join(rng.choice(pieces) for _ in range(rng.randint(1, 40)))
             with self.subTest(command=command):
                 git_guard.problems_with(command, self.repo)
-        big = [
-            "git status <<A " * 5000,
-            "cat > f <<'EOF'\n" + "git commit -n\n" * 60000 + "EOF\ngit status",
-            "echo " + "x" * 300000 + " && git status",
-            "git status; " * 2000,
-        ]
-        for command in big:
-            started = time.monotonic()
-            git_guard.problems_with(command, self.repo)
-            self.assertLess(time.monotonic() - started, 3, command[:30])
+
+    def test_big_input_costs_work_in_step_with_its_size(self):
+        """No clock here (a loaded machine is slow, not wrong): the two places that once
+        did the same work again for every word are counted instead."""
+        # one owner lookup per command, however many `<<` it carries (it was one per `<<`)
+        with mock.patch.object(git_guard, "first_word", wraps=git_guard.first_word) as owner:
+            git_guard.problems_with("git status <<A " * 5000, self.repo)
+        self.assertLessEqual(owner.call_count, 2)
+        # git's own commands are never looked up as aliases, and another name only once
+        with mock.patch.object(git_guard, "read_alias", wraps=git_guard.read_alias) as alias:
+            git_guard.problems_with("git status; " * 2000 + "git st; " * 2000, self.repo)
+        self.assertEqual([c.args[1] for c in alias.call_args_list], ["st"])
+        # a here-document's body is dropped before words are split: none of it is lexed
+        body = "git commit -n\n" * 60000
+        with mock.patch.object(git_guard, "simple_commands", wraps=git_guard.simple_commands) as lexed:
+            problems = git_guard.problems_with(f"cat > f <<'EOF'\n{body}EOF\ngit status", self.repo)
+        self.assertEqual(problems, ([], False))
+        self.assertLess(sum(len(c.args[0]) for c in lexed.call_args_list), 100)
 
     def test_an_open_quote_is_still_read(self):
         self.assertTrue(self.problems("git commit -n -m 'unfinished"))

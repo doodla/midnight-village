@@ -241,9 +241,11 @@ class WorkflowPublishing(unittest.TestCase):
             "android-latest/midnight-village.apk",
         )
         # The single-page rewrite stays; Vercel answers redirects before rewrites.
-        self.assertEqual(
-            cfg["rewrites"], [{"source": "/(.*)", "destination": "/index.html"}]
-        )
+        (rewrite,) = cfg["rewrites"]
+        self.assertEqual(rewrite["destination"], "/index.html")
+        # Which paths it takes (app routes only; a removed picture is a 404) is
+        # judged on what Vercel compiles from the file: frontend/tool/web_smoke/
+        # routes.test.cjs, run by "Web page smoke".
 
 
 class WorkflowAfterMerge(unittest.TestCase):

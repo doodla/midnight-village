@@ -8,6 +8,7 @@ import 'design_system/load_once_bundle.dart';
 import 'design_system/skin/ground.dart';
 import 'design_system/skin/ground_scope.dart';
 import 'design_system/skin/skin_choice.dart';
+import 'features/game/presentation/new_build_provider.dart';
 
 /// Root application widget. The app's ground is night until a screen says
 /// otherwise (`ScreenFrame`); a skin switch takes effect in one frame, with
@@ -18,6 +19,9 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appThemeProvider);
+    // Learns of a newer build and renews itself at a safe moment (nothing
+    // shown, nothing said); null where there is nothing to renew.
+    ref.watch(newBuildProvider);
     // The pictures are read through the bundle the start precaches with
     // (`SkinLoader`), which on the web reads each file once.
     return DefaultAssetBundle(bundle: appAssets, child: _app(ref, theme));

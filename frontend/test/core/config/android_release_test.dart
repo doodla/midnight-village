@@ -125,10 +125,13 @@ void main() {
         ),
         isTrue,
       );
-      // /join/<code> reaches the app through the one rewrite to index.html.
-      expect(vercel['rewrites'], [
-        {'source': '/(.*)', 'destination': '/index.html'},
-      ]);
+      // /join/<code> reaches the app through the one rewrite to index.html;
+      // which paths it takes, and that a missing file is a 404, is judged on
+      // what Vercel compiles from this file (tool/web_smoke/routes.test.cjs,
+      // run by `just web-smoke`), not on a hand-read pattern.
+      final rewrites = (vercel['rewrites'] as List).cast<Map>();
+      expect(rewrites, hasLength(1));
+      expect(rewrites.single['destination'], '/index.html');
     });
   });
 
