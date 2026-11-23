@@ -298,19 +298,18 @@ class MyNightPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
+    // The face takes the board's area from its top; its portrait takes what
+    // the words leave, so the words keep their size (the reading floor).
     builder: (context, box) => Align(
       alignment: Alignment.topCenter,
       child: Padding(
         padding: const EdgeInsets.only(top: Space.sm),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: HeldFace.widthFor(
-              math.min(box.maxWidth + 2 * Space.gutter, ScreenFrame.maxWidth),
-            ),
-            child: HeldFace(content: face, page: 0, announce: true),
+        child: SizedBox(
+          width: HeldFace.widthFor(
+            math.min(box.maxWidth + 2 * Space.gutter, ScreenFrame.maxWidth),
           ),
+          height: math.max(0.0, box.maxHeight - Space.sm),
+          child: HeldFace(content: face, page: 0, announce: true, fill: true),
         ),
       ),
     ),
