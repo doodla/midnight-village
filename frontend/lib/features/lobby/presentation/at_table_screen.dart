@@ -13,6 +13,7 @@ import '../../../design_system/layout/space.dart';
 import '../../../design_system/models/role.dart';
 import '../../../design_system/primitives/chips.dart';
 import '../../../design_system/primitives/fit_line.dart';
+import '../../../design_system/primitives/mood.dart';
 import '../../../design_system/primitives/notice.dart';
 import '../../../design_system/primitives/panels.dart';
 import '../../../design_system/primitives/paper_card.dart';
@@ -306,8 +307,8 @@ class AtTableView extends StatelessWidget {
       },
       child: ScreenFrame(
         ground: GroundKind.night,
-        topArt: roomy ? skin.art.table : null,
-        topArtLayout: TopArtLayout.banner,
+        mood: MoodKind.lantern,
+        moodLight: const Alignment(0, -0.1),
         body: Builder(
           builder: (context) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -644,6 +645,8 @@ class _JoinCard extends StatelessWidget {
     final link = this.link;
     final share = onShare;
     return PaperCard(
+      pinned: true,
+      id: #join,
       lift: PaperLift.slab,
       padding: const EdgeInsets.symmetric(
         horizontal: Space.md,
@@ -864,17 +867,42 @@ class _DeckStrip extends StatelessWidget {
             Row(
               spacing: gap,
               children: [
-                for (final MapEntry(key: role, value: count) in entries.sublist(
-                  i,
-                  math.min(i + perLine, entries.length),
-                ))
+                for (final (k, MapEntry(key: role, value: count))
+                    in entries
+                        .sublist(i, math.min(i + perLine, entries.length))
+                        .indexed)
                   Flexible(
-                    child: RoleCard(
-                      role: role,
-                      size: RoleCardSize.thumbSmall,
-                      count: count,
-                      onTap: () => onRead(role),
-                      onLongPress: () => onRead(role),
+                    // A fan: each card turned a little further from the
+                    // middle one, the middle ones standing a little higher
+                    // and every card a touch larger, so they overlap. Paint
+                    // only: the tap targets are the row's cells.
+                    child: Builder(
+                      builder: (context) {
+                        final count_ = math.min(perLine, entries.length - i);
+                        final mid = (count_ - 1) / 2;
+                        final off = k - mid;
+                        final spread = mid == 0 ? 0.0 : off / mid;
+                        return Transform.translate(
+                          offset: Offset(
+                            0,
+                            Space.xs * (spread * spread - 1) * -1 - Space.xs,
+                          ),
+                          child: Transform.rotate(
+                            angle: spread * 0.12,
+                            alignment: Alignment.bottomCenter,
+                            child: Transform.scale(
+                              scale: 1.1,
+                              child: RoleCard(
+                                role: role,
+                                size: RoleCardSize.thumbSmall,
+                                count: count,
+                                onTap: () => onRead(role),
+                                onLongPress: () => onRead(role),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
               ],

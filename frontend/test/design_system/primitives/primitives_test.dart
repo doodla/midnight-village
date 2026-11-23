@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../../helpers/paper_decoration.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/paper_lantern.dart';
@@ -84,40 +85,41 @@ void main() {
       tester,
     ) async {
       final skin = skinsUnderTest.values.first;
-      Future<BoxDecoration> drawn(Widget button, GroundKind ground) async {
+      Future<Decoration> drawn(Widget button, GroundKind ground) async {
         await pumpSkinned(tester, button, ground: ground);
-        return tester
-                .widget<AnimatedContainer>(find.byType(AnimatedContainer))
-                .decoration!
-            as BoxDecoration;
+        return paperUnder(tester, find.byType(PrimaryButton));
       }
 
       final night = await drawn(
         PrimaryButton(label: 'Start game', onPressed: () {}),
         GroundKind.night,
       );
-      expect(night.color, skin.night.accent);
-      expect(night.border, isNull);
+      expect(paperColor(night), skin.night.accent);
+      expect(paperEdge(night), BorderSide.none);
       final day = await drawn(
         PrimaryButton(label: 'Lock in Cleo', onPressed: () {}),
         GroundKind.day,
       );
-      expect(day.color, skin.day.accent);
-      expect((day.border! as Border).top.color, skin.day.accentEdge);
+      expect(paperColor(day), skin.day.accent);
+      expect(paperEdge(day).color, skin.day.accentEdge);
       for (final quiet in [
         const PrimaryButton.waiting(label: 'Pick a name', reason: 'Pick first'),
         PrimaryButton.locked(label: 'Ready', onLockedTap: () {}),
         PrimaryButton.quiet(label: 'Ready to vote', onPressed: () {}),
       ]) {
         final outline = await drawn(quiet, GroundKind.day);
-        expect(outline.color, isNull, reason: quiet.label);
-        expect(outline.border, isNotNull, reason: quiet.label);
+        expect(paperColor(outline), isNull, reason: quiet.label);
+        expect(paperEdge(outline), isNot(BorderSide.none), reason: quiet.label);
       }
       for (final ground in GroundKind.values) {
         for (final label in ['Chosen', 'Locked', 'Ready ✓']) {
           final done = await drawn(PrimaryButton.done(label: label), ground);
-          expect(done.color, isNull, reason: '$label: nothing to press');
-          expect(done.border, isNull, reason: '$label: no gate outline');
+          expect(paperColor(done), isNull, reason: '$label: nothing to press');
+          expect(
+            paperEdge(done),
+            BorderSide.none,
+            reason: '$label: no gate outline',
+          );
           expect(find.byType(PaperMark), findsOneWidget, reason: label);
           expect(find.text('Ready ✓'), findsNothing, reason: 'one check');
         }
@@ -325,7 +327,13 @@ void main() {
           (w) =>
               w is DecoratedBox &&
               w.decoration is BoxDecoration &&
-              (w.decoration as BoxDecoration).gradient is LinearGradient,
+              (w.decoration as BoxDecoration).gradient is LinearGradient &&
+              // The fade is two colours (the mood's veil under the screen has
+              // more).
+              ((w.decoration as BoxDecoration).gradient! as LinearGradient)
+                      .colors
+                      .length ==
+                  2,
         );
         return boxes.evaluate().isEmpty
             ? null

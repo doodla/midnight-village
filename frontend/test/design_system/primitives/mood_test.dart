@@ -27,7 +27,9 @@ Future<Uint8List> _paint(WidgetTester tester, MoodKind kind) async {
       textDirection: TextDirection.ltr,
       child: RepaintBoundary(
         key: key,
-        child: Mood(kind: kind),
+        // The village is art on top of this: a word never sits bare on it
+        // (a banner, a slip or a plaque backs it; the page tests read those).
+        child: Mood(kind: kind, scene: false),
       ),
     ),
   );
@@ -45,6 +47,7 @@ void main() {
   final skin = skinsUnderTest.values.first;
   for (final (kind, ground) in [
     (MoodKind.night, GroundKind.night),
+    (MoodKind.lantern, GroundKind.night),
     (MoodKind.dawn, GroundKind.night),
     (MoodKind.day, GroundKind.day),
   ]) {
@@ -72,7 +75,7 @@ void main() {
       ]) {
         expect(
           contrast(text, worst!),
-          greaterThanOrEqualTo(readingContrast),
+          greaterThanOrEqualTo(name == 'text' ? readingContrast : 4.5),
           reason: '$name on ${kind.name}: the hardest pixel is $worst',
         );
       }

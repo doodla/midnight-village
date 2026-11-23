@@ -10,26 +10,47 @@ what it describes.
 The long version, with every token and value, is `docs/design/feel.md` section 1a. In short, and
 all of it through the design system so a screen asks for none of it:
 
+- **One light per screen, shadows away from it.** `Mood.leanOf(kind)` says which way paper's
+  shadow leans (night: the moon high on the right, so left; day: a low sun on the left, so long to
+  the right; a lantern overhead: straight down). `ScreenFrame` declares it as `PaperLight`; `cutPaper`,
+  `deckledPaper`, `PaperPin` and the cards read it (`Elevation.litBy(context)`). An edge (the plaque's
+  backing, the thickness of paper) never leans.
 - **Paper shadow.** `HardShadow(offset, ink)` is a drop; `Elevation.boxShadows` turns it into the
-  two-layer `PaperShadow` (a contact shadow plus a cast of four stacked flat copies: no blur, no
-  saveLayer). `HardShadow.edge` stays a hard copy (the thickness of paper, the plaque's backing).
-  One radius (`SkinShape.radius` = `radiusSmall` = `radiusTiny`). `cutPaper` adds `PaperGrain`, a
+  two-layer `PaperShadow` (a contact shadow plus a cast of five stacked flat copies, deep and soft:
+  no blur, no saveLayer). `HardShadow.edge` stays a hard copy. `cutPaper` adds `PaperGrain`, a
   synchronous seeded tile, to every paper fill. `skin_contract_test.dart` holds "no blur".
-- **Parts.** `PrimaryButton` is the plaque (backing edge, cut line, two pins; still `color:
-  ground.accent`, so `amber_rule_test.dart` counts it); `SecondaryButton.paper` the pinned scrap
-  (pin, seeded tilt, sinks on press).
-- **`PaperMark`** (`primitives/paper_mark.dart`) is the one picked/done mark: wax in
-  `ground.mark`, a stamped ring and a brush tick in `ground.onMark`. `PaperMarkCorner` hangs it on
-  a picked `PlayerRow` and `FaceDownCard`; a done `PrimaryButton` wears it before its word
-  (`PrimaryButton.markScale`).
-- **`Mood`** (`primitives/mood.dart`) is painted by `ScreenFrame` under everything (`mood:`
-  overrides the one its ground gives; results are `MoodKind.dawn`): ground, three banks of
-  seeded paper roofs, a light, a vignette, once, in a repaint boundary. `mood_test.dart` measures
-  every pixel of each against the ground's words. The day ground is `#ECD5C2`, not lilac.
-- **Seeded tilt.** `Tilt.seededCard(id)` (at most `SkinTilt.seededCard`, 1.5 degrees) and
-  `Tilt.seededRow(id)` (0.6) read a djb2 of the item's id; same on every build and phone. Paint
-  only: no layout or hit target moves. Used by `RoleCard`, `PlayerRow`, `PresetChip`, `TagChip`
-  and the paper scrap.
+- **Torn edges** (`primitives/deckle.dart`). `DeckleBorder` is a rectangle whose sides step in and
+  out by a hair (seeded from the piece's own id, the same on every phone; `torn: true` for the long
+  bites of a banner); `deckledPaper(...)` is the `ShapeDecoration` (fill, grain, deckle, leaning
+  shadow) used by rows, slips, the name field, `PaperCard`, the plaque and the banners. Paint only:
+  the layout box and the hit target are the plain rectangle's. `PaperPin` is a flat matte pin with
+  its own small hard shadow, on rows, scraps, banners and the pinned join notice.
+- **Parts.** `PrimaryButton` is the plaque: deckled amber paper on a darker paper backing (5 px edge),
+  a cut line, two pins, a seeded tilt (still `color: ground.accent`; `amber_rule_test.dart` counts
+  it). Every `SecondaryButton` is a pinned scrap: bone by day and for `.paper`, a darker scrap with a
+  bone rim on the night; seeded tilt, sinks on press. `PaperBanner` (`primitives/paper_banner.dart`)
+  holds a screen's question or timer (`TimerBand`, the night board's header, your card's title) on torn
+  bone paper with two pins, its words in the day's ink and level; `bleed` lets the paper reach past the
+  words' box so the words keep their width. The talk's sky is a sheet torn off along a seeded line (no
+  hard straight edge).
+- **`PaperMark`** (`primitives/paper_mark.dart`) is the one picked/done mark (wax, stamped ring,
+  brush tick). `PaperMarkCorner` hangs it on a picked `PlayerRow` and `FaceDownCard`.
+- **`Mood`** (`primitives/mood.dart`) is painted by `ScreenFrame` under everything: the ground, the
+  game's own village (`LayeredArt`: the night village for night, the dawn gallows for day; a few image
+  layers, no blur, no saveLayer), a light and a heavy vignette (60% at the corners), once, in a repaint
+  boundary. Night: the village hangs from the top, lit in the top third and falling into shadow below,
+  the moon's cool pool and a cone of its light on the table. `MoodKind.lantern` (the table, the first
+  screen): the village stands at the foot behind what a table leaves empty and a warm lantern pool lies
+  on the players. Day: the dawn gallows at the foot under a low golden sun and a beam of light. A screen
+  with a picture of its own (`topArt`, `topScene`) has no village behind it. Bare words never sit on the
+  village: they sit on paper, or on the plain ground; `mood_test.dart` measures the ground and its lights
+  (`scene: false`) against the words (7:1 for `text`, 4.5:1 for the quieter inks), the page tests
+  (`contrast_test.dart`) measure the real screens, art included.
+- **Seeded tilt.** `Tilt.seededCard(id)` (at most `SkinTilt.seededCard`, 2.5 degrees) and
+  `Tilt.seededRow(id)` (1.2) read a djb2 of the item's id; same on every build and phone. Paint only:
+  no layout or hit target moves. Used by `RoleCard`, `PlayerRow`, `PresetChip`, `TagChip`, the scraps
+  and the plaque. The deck strip on 02 is a fan: each card turned a little further from the middle one
+  and overlapping, painted only.
 
 ## First-time play pieces
 

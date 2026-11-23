@@ -361,13 +361,18 @@ void main() {
         await _begun(tester, find.byType(YourCardScreen));
         final art = SkinId.fallback.skin.art;
         final scene = art.layeredScene(LayeredSceneId.nightVillage);
-        Finder layer(String file) => find.byWidgetPredicate(
-          (w) =>
-              w is Image &&
-              w.image is ResizeImage &&
-              ((w.image as ResizeImage).imageProvider as AssetImage).assetName
-                  .endsWith('/$file.webp'),
-        );
+        // The table under the card has its own village behind it (the
+        // lantern mood): the card's picture is the last of each.
+        Finder layer(String file) => find
+            .byWidgetPredicate(
+              (w) =>
+                  w is Image &&
+                  w.image is ResizeImage &&
+                  ((w.image as ResizeImage).imageProvider as AssetImage)
+                      .assetName
+                      .endsWith('/$file.webp'),
+            )
+            .last;
         final moon = scene.files.firstWhere((l) => l.file == 'moon');
         final plate = scene.files.firstWhere((l) => l.file == 'village_plate');
         final scale =

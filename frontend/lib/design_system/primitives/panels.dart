@@ -1,3 +1,4 @@
+import 'paper_light.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -126,7 +127,7 @@ class PeekBox extends StatelessWidget {
         border: skin.shape.edgeWidth > 0
             ? Border.all(color: ground.edge, width: skin.shape.edgeWidth)
             : null,
-        boxShadow: ground.elevation.raised.boxShadows,
+        boxShadow: ground.elevation.raised.litBy(context),
       ),
       child: GroundScope(
         ground: GroundKind.night,

@@ -273,14 +273,14 @@ void main() {
 
       test('a seeded tilt is the same every time, and within its bound', () {
         final tilt = skin.tilt;
-        expect(tilt.seededCard, 1.5 * SkinTilt.degree);
-        expect(tilt.seededRow, 0.6 * SkinTilt.degree);
+        expect(tilt.seededCard, 2.5 * SkinTilt.degree);
+        expect(tilt.seededRow, 1.2 * SkinTilt.degree);
         final seen = <double>{};
         for (var i = 0; i < 200; i++) {
           final card = tilt.angle(Tilt.seededCard('role-$i'));
           final row = tilt.angle(Tilt.seededRow('player-$i'));
-          expect(card.abs(), lessThanOrEqualTo(1.5 * SkinTilt.degree));
-          expect(row.abs(), lessThanOrEqualTo(0.6 * SkinTilt.degree));
+          expect(card.abs(), lessThanOrEqualTo(2.5 * SkinTilt.degree));
+          expect(row.abs(), lessThanOrEqualTo(1.2 * SkinTilt.degree));
           expect(card, tilt.angle(Tilt.seededCard('role-$i')));
           seen.add(card);
         }

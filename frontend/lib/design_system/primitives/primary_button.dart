@@ -5,7 +5,9 @@ import '../layout/space.dart';
 import '../skin/elevation.dart';
 import '../skin/skin.dart';
 import '../skin/skin_type.dart';
+import '../skin/skin_tilt.dart';
 import 'cut_paper.dart';
+import 'deckle.dart';
 import 'paper_mark.dart';
 import 'fit_line.dart';
 import 'secondary_button.dart' show BusyMark;
@@ -311,15 +313,18 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     };
     final style = widget.size.label(skin.typography);
     final edge = ground.accentEdge;
-    final decoration = filled
-        ? cutPaper(
+    // The plaque is deckled amber paper on a darker paper backing (the
+    // elevation's edge), set down a hair off square, its words level.
+    final Decoration decoration = filled
+        ? deckledPaper(
             context,
             fill: ground.accent,
-            radius: radius,
+            id: (widget.label, #plaque),
             elevation: down ? rest.pressed(keep) : rest,
-          ).copyWith(
-            border: edge != null && skin.shape.edgeWidth == 0
-                ? Border.all(color: edge, width: skin.shape.stroke)
+            depth: 3.4,
+            step: 7,
+            side: edge != null && skin.shape.edgeWidth == 0
+                ? BorderSide(color: edge, width: skin.shape.stroke)
                 : null,
           )
         : widget.phase == ButtonPhase.done
@@ -352,7 +357,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           down ? rest.travel(keep).dy : 0,
           0,
         ),
-        decoration: decoration,
+        decoration: filled ? null : decoration,
         foregroundDecoration: widget.phase == ButtonPhase.locked && widget.slot
             // The slot's cut edge: a hard dark lip along its top, the paper
             // above it casting into the recess.
@@ -376,62 +381,84 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                 ),
               )
             : null,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: _onTap,
-            onHighlightChanged: (value) => setState(() {
-              _pressed = value;
-              if (value && !_rising) _duration = Motion.press;
-            }),
-            highlightColor: Colors.transparent,
-            splashColor: Colors.transparent,
-            borderRadius: radius,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // The plaque: a cut line set in from its edge, and a pin at
-                // each end (ink on the amber, nothing the eye reads as a word).
-                if (filled)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: _PlaqueTrim(ink: ground.onAccent, radius: radius),
+        child: _paper(
+          decoration: decoration,
+          filled: filled,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: _onTap,
+              onHighlightChanged: (value) => setState(() {
+                _pressed = value;
+                if (value && !_rising) _duration = Motion.press;
+              }),
+              highlightColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              borderRadius: radius,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // The plaque: a cut line set in from its edge, and a pin at
+                  // each end (ink on the amber, nothing the eye reads as a word).
+                  if (filled)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: _PlaqueTrim(
+                          ink: ground.onAccent,
+                          radius: radius,
+                        ),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.xl,
+                      vertical: Space.sm,
+                    ),
+                    child: Center(
+                      heightFactor: 1,
+                      widthFactor: 1,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: Space.md,
+                        children: [
+                          if (widget.icon case final icon?)
+                            Icon(icon, color: ink, size: style.fontSize),
+                          Flexible(child: _label(style.copyWith(color: ink))),
+                        ],
+                      ),
                     ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.xl,
-                    vertical: Space.sm,
-                  ),
-                  child: Center(
-                    heightFactor: 1,
-                    widthFactor: 1,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: Space.md,
-                      children: [
-                        if (widget.icon case final icon?)
-                          Icon(icon, color: ink, size: style.fontSize),
-                        Flexible(child: _label(style.copyWith(color: ink))),
-                      ],
+                  // Busy: the mark turns in the button's own end padding, so
+                  // the label keeps its place and its line (it never wraps
+                  // for the mark).
+                  if (widget.busy)
+                    PositionedDirectional(
+                      end: Space.sm,
+                      child: BusyMark(size: Space.xl, color: ink),
                     ),
-                  ),
-                ),
-                // Busy: the mark turns in the button's own end padding, so
-                // the label keeps its place and its line (it never wraps
-                // for the mark).
-                if (widget.busy)
-                  PositionedDirectional(
-                    end: Space.sm,
-                    child: BusyMark(size: Space.xl, color: ink),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+
+  /// The plaque's paper, turned a hair (the same every build, from its
+  /// label); the words on it stay level.
+  Widget _paper({
+    required Decoration decoration,
+    required bool filled,
+    required Widget child,
+  }) => filled
+      ? TiltedPaper(
+          angle: context.skin.tilt.angle(Tilt.seededRow(widget.label)),
+          duration: Motion.within(context, _duration),
+          decoration: decoration,
+          child: child,
+        )
+      : child;
 }
 
 /// The plaque's trim: an inset line and a pin at each end.

@@ -81,9 +81,17 @@ class ValueStepper extends StatelessWidget {
         spacing: Space.xs,
         children: [
           _Glyph(icon: Icons.remove, label: lowerLabel, onTap: onLower),
-          SizedBox(
-            width: width,
-            child: FitLine(value, style: _style(context)),
+          // On a backing of the ground, so the value stays readable over
+          // the village behind (the moon passes under it on some phones).
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.ground.ground.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(context.skin.shape.radius),
+            ),
+            child: SizedBox(
+              width: width,
+              child: FitLine(value, style: _style(context)),
+            ),
           ),
           _Glyph(icon: Icons.add, label: higherLabel, onTap: onHigher),
         ],

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../copy/copy.dart';
 import '../faces/face_content.dart';
 import '../layout/space.dart';
+import '../primitives/paper_banner.dart';
 import '../primitives/candle_gauge.dart';
 import '../primitives/mood.dart';
 import '../primitives/face_down_card.dart';
@@ -16,7 +17,6 @@ import '../primitives/notice.dart';
 import '../primitives/paper_card.dart';
 import '../primitives/primary_button.dart';
 import '../primitives/screen_frame.dart';
-import '../skin/art_set.dart' show LayeredSceneId;
 import '../primitives/world_timer.dart';
 import '../skin/ground.dart';
 import '../skin/skin.dart';
@@ -306,10 +306,6 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           child: ScreenFrame(
             ground: GroundKind.night,
             fitsHeight: true,
-            topScene: LayeredSceneId.nightVillage,
-            topSceneFrom: NightBoard.villageFrom,
-            topArtExtra: _stripExtra(context),
-            topArtLayout: TopArtLayout.strip,
             body: MediaQuery.withClampedTextScaling(
               maxScaleFactor: NightBoard.labelScale,
               child: Column(
@@ -364,18 +360,6 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  /// A table of three has two cards a row as wide as the phone allows, and on a
-  /// tall phone air to spare: the village strip takes some of it (it is only a
-  /// picture; nothing a neighbour could read moves).
-  double _stripExtra(BuildContext context) {
-    if (widget.seats.length != NightBoard.smallTable) return 0;
-    final height = MediaQuery.sizeOf(context).height;
-    return ((height - NightBoard.tallPhone) * NightBoard.stripShare).clamp(
-      0.0,
-      NightBoard.stripMost,
-    );
-  }
-
   /// The title in a room two lines high at the full title size (the taller of
   /// that and the timer's line), the same height on every phone whatever the
   /// role (so the board below sits alike): the prompt's words wrap between
@@ -405,34 +389,39 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     // The seconds take at most this share of the header (a narrow phone with
     // minutes on the clock sets them smaller): the title keeps its room.
     return LayoutBuilder(
-      builder: (context, header) => Row(
-        spacing: Space.md,
-        children: [
-          Expanded(
-            child: SizedBox(
-              height: room,
-              child: Semantics(
-                header: true,
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: FitWords(
-                    widget.prompt.kind.title,
-                    maxLines: NightBoard.titleLines,
-                    noWidow: true,
-                    style: title,
+      builder: (context, header) => PaperBanner(
+        id: #night,
+        bleed: Space.md,
+        padding: const EdgeInsets.symmetric(vertical: Space.xxs),
+        child: (context) => Row(
+          spacing: Space.md,
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: room,
+                child: Semantics(
+                  header: true,
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: FitWords(
+                      widget.prompt.kind.title,
+                      maxLines: NightBoard.titleLines,
+                      noWidow: true,
+                      style: title,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          WorldTimer.candleCompact(
-            secondsLeft: widget.secondsLeft,
-            share: widget.share,
-            candleHeight: timerLine,
-            lineHeight: room,
-            maxNumberWidth: header.maxWidth * NightBoard.timerShare,
-          ),
-        ],
+            WorldTimer.candleCompact(
+              secondsLeft: widget.secondsLeft,
+              share: widget.share,
+              candleHeight: timerLine,
+              lineHeight: room,
+              maxNumberWidth: header.maxWidth * NightBoard.timerShare,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -33,16 +33,16 @@ class HardShadow {
 /// shrinks both.
 abstract final class PaperShadow {
   /// The contact shadow: its alpha, and how much of the drop it takes.
-  static const contactAlpha = 0.55;
+  static const contactAlpha = 0.62;
   static const contactReach = 0.2;
 
   /// The cast: the steps, how far it spreads (of the drop), how far down it
   /// falls (of the drop) and the alpha of each step (they add up near 0.3
   /// next to the paper).
-  static const castSteps = 4;
-  static const castSpread = 1.6;
-  static const castFall = 0.9;
-  static const castAlpha = 0.085;
+  static const castSteps = 5;
+  static const castSpread = 2.4;
+  static const castFall = 1.0;
+  static const castAlpha = 0.075;
 
   /// The shadows of a drop of [offset] cast in [ink], outermost first (the
   /// order a [BoxDecoration] paints them: the last is on top).
@@ -79,12 +79,25 @@ class Elevation {
   /// For a [BoxDecoration]: Flutter paints shadows in list order, the last on
   /// top, so the layers go in reversed. A drop is the paper shadow, an edge a
   /// hard offset copy.
-  List<BoxShadow> get boxShadows => [
+  List<BoxShadow> get boxShadows => boxShadowsLeaning(0);
+
+  /// The same, the drops leaning sideways by [lean] of their fall (away from
+  /// the screen's light); an edge, the paper's own thickness, stays under it.
+  List<BoxShadow> boxShadowsLeaning(double lean) => [
     for (final layer in layers.reversed)
       if (layer.edge)
         BoxShadow(color: layer.color, offset: layer.offset)
       else
-        ...PaperShadow.of(layer.offset, layer.color),
+        for (final s in PaperShadow.of(layer.offset, layer.color))
+          if (lean == 0)
+            s
+          else
+            BoxShadow(
+              color: s.color,
+              blurRadius: s.blurRadius,
+              spreadRadius: s.spreadRadius,
+              offset: s.offset + Offset(lean * s.offset.dy, 0),
+            ),
   ];
 
   /// The same stack with the shape pressed down: each layer keeps [keep] of

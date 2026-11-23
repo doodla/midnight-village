@@ -1,3 +1,4 @@
+import 'paper_light.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -147,7 +148,7 @@ class RoleCard extends StatelessWidget {
         // A card lying on the table casts its paper shadow while it is in.
         decoration: BoxDecoration(
           borderRadius: corners,
-          boxShadow: lit ? context.ground.elevation.card.boxShadows : null,
+          boxShadow: lit ? context.ground.elevation.card.litBy(context) : null,
         ),
         foregroundDecoration: ringDecoration(
           color: ringColor,
@@ -275,7 +276,7 @@ class _Minus extends StatelessWidget {
               decoration: BoxDecoration(
                 color: ground.mark,
                 shape: BoxShape.circle,
-                boxShadow: ground.elevation.badge.boxShadows,
+                boxShadow: ground.elevation.badge.litBy(context),
               ),
               child: Icon(
                 Icons.remove,
@@ -382,7 +383,7 @@ class RolePortrait extends StatelessWidget {
         decoration: framed
             ? BoxDecoration(
                 borderRadius: corners,
-                boxShadow: ground.elevation.heroSlab.boxShadows,
+                boxShadow: ground.elevation.heroSlab.litBy(context),
               )
             : null,
         foregroundDecoration: framed

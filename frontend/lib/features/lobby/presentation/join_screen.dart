@@ -13,6 +13,7 @@ import '../../../design_system/primitives/fit_line.dart';
 import '../../../design_system/primitives/notice.dart';
 import '../../../design_system/primitives/nudge.dart';
 import '../../../design_system/primitives/primary_button.dart';
+import '../../../design_system/primitives/mood.dart';
 import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
 import '../../../design_system/primitives/waiting_sign.dart';
@@ -497,19 +498,49 @@ class _JoinViewState extends State<JoinView> {
                       header: true,
                       child: FitLine(JoinCopy.title, style: type.heroTitle),
                     ),
-                    Nudge(
-                      key: _nameNudge,
-                      child: SkinField.paper(
-                        controller: _name,
-                        focusNode: _nameFocus,
-                        hint: JoinCopy.nameHint,
-                        semanticLabel: JoinCopy.nameHint,
-                        autofocus: widget.name.isEmpty,
-                        maxLength: JoinView.nameLength,
-                        inputFormatters: [_NameFormatter()],
-                        textInputAction: TextInputAction.go,
-                        onSubmitted: (_) => _nameEntered(link),
-                      ),
+                    // The lantern by the door throws its warm light on the
+                    // name field: a pool round it, behind it.
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: -80,
+                          bottom: -80,
+                          child: IgnorePointer(
+                            child: Transform.scale(
+                              scaleX: 2.2,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: RadialGradient(
+                                    colors: [
+                                      Mood.lantern.withValues(alpha: 0.62),
+                                      Mood.lantern.withValues(alpha: 0.24),
+                                      Mood.lantern.withValues(alpha: 0),
+                                    ],
+                                    stops: const [0, 0.5, 1],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Nudge(
+                          key: _nameNudge,
+                          child: SkinField.paper(
+                            controller: _name,
+                            focusNode: _nameFocus,
+                            hint: JoinCopy.nameHint,
+                            semanticLabel: JoinCopy.nameHint,
+                            autofocus: widget.name.isEmpty,
+                            maxLength: JoinView.nameLength,
+                            inputFormatters: [_NameFormatter()],
+                            textInputAction: TextInputAction.go,
+                            onSubmitted: (_) => _nameEntered(link),
+                          ),
+                        ),
+                      ],
                     ),
                     if (banner != null)
                       Notice(

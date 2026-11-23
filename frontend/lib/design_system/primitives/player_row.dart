@@ -6,6 +6,7 @@ import '../skin/skin.dart';
 import '../skin/skin_type.dart';
 import '../skin/skin_tilt.dart';
 import 'cut_paper.dart';
+import 'deckle.dart';
 import 'paper_mark.dart';
 import 'fit_line.dart';
 import 'player_token.dart';
@@ -159,10 +160,10 @@ class PlayerRow extends StatelessWidget {
       child: TiltedPaper(
         angle: skin.tilt.angle(Tilt.seededRow('${token?.name}:$name')),
         duration: Motion.quick,
-        decoration: cutPaper(
+        decoration: deckledPaper(
           context,
           fill: ground.paper,
-          radius: radius,
+          id: (token, name),
           elevation: picked ? ground.elevation.selected : ground.elevation.card,
         ),
         foregroundDecoration: picked
@@ -262,7 +263,21 @@ class PlayerRow extends StatelessWidget {
     final shown = AnimatedOpacity(
       duration: Motion.quick,
       opacity: dimmed ? skin.dimmed : 1,
-      child: PaperMarkCorner(shown: picked, child: row),
+      child: PaperMarkCorner(
+        shown: picked,
+        // Pinned to the table: a flat pin through the top edge.
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            row,
+            Positioned(
+              top: -3,
+              left: Space.xl + Space.lg,
+              child: PaperPin(ink: ink.withValues(alpha: 0.82)),
+            ),
+          ],
+        ),
+      ),
     );
     // Once locked (dimmed) a row cannot be picked: it reads as switched off.
     if (dimmed) return Semantics(enabled: false, child: shown);

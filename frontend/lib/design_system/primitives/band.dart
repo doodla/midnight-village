@@ -9,7 +9,9 @@ import '../skin/art_set.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import 'fit_line.dart';
+import 'deckle.dart';
 import 'layered_art.dart';
+import 'paper_banner.dart';
 import 'world_timer.dart';
 
 /// What a [Band] is painted in.
@@ -318,61 +320,54 @@ class TimerBand extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         ExcludeSemantics(
-          child: SizedBox(
-            height: skyFor(MediaQuery.sizeOf(context).height) + top,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // The night's ground is the sky's window until the day's
-                // layers cover it. The dawn brings the roofs up into it from
-                // below, the sun climbing from behind the hills, the text
-                // under it not moving at all.
-                ColoredBox(color: skin.night.ground),
-                LayeredArt(
-                  LayeredSceneId.dawnGallows,
-                  slots: {
-                    'sun': (context, geometry, slot, arrival) => _Sun(
-                      geometry: geometry,
-                      slot: slot,
-                      arrival: arrival,
-                      elapsed: elapsed?.clamp(0, 1).toDouble(),
-                      showSun: showSun,
-                      art: skin.art.layer(
-                        LayeredSceneId.dawnGallows,
-                        slot.sprite!,
+          // The sky is a sheet of paper torn off at its foot, over the day.
+          child: ClipPath(
+            clipper: const _TornFoot(),
+            child: SizedBox(
+              height: skyFor(MediaQuery.sizeOf(context).height) + top,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // The night's ground is the sky's window until the day's
+                  // layers cover it. The dawn brings the roofs up into it from
+                  // below, the sun climbing from behind the hills, the text
+                  // under it not moving at all.
+                  ColoredBox(color: skin.night.ground),
+                  LayeredArt(
+                    LayeredSceneId.dawnGallows,
+                    slots: {
+                      'sun': (context, geometry, slot, arrival) => _Sun(
+                        geometry: geometry,
+                        slot: slot,
+                        arrival: arrival,
+                        elapsed: elapsed?.clamp(0, 1).toDouble(),
+                        showSun: showSun,
+                        art: skin.art.layer(
+                          LayeredSceneId.dawnGallows,
+                          slot.sprite!,
+                        ),
+                        line: ground.text,
+                        lineWidth: skin.shape.ring,
                       ),
-                      line: ground.text,
-                      lineWidth: skin.shape.ring,
-                    ),
-                  },
-                ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      // The mock's fade: the last 70 of 250.
-                      stops: const [0.72, 1],
-                      colors: [
-                        ground.ground.withValues(alpha: 0),
-                        ground.ground,
-                      ],
-                    ),
+                    },
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
         Transform.translate(
-          offset: const Offset(0, -Space.sm),
+          offset: const Offset(0, -Space.xl),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
-            child: _heading(
-              context,
-              number,
-              skin.typography.timer,
-              ground.text,
+            padding: const EdgeInsets.symmetric(horizontal: Space.md),
+            child: PaperBanner(
+              id: #talk,
+              child: (context) => _heading(
+                context,
+                number,
+                skin.typography.timer.copyWith(color: context.ground.text),
+                context.ground.text,
+              ),
             ),
           ),
         ),
@@ -396,28 +391,40 @@ class TimerBand extends StatelessWidget {
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(
-                Space.gutter,
-                Space.xl + 2 + top,
-                Space.gutter,
+                Space.md,
+                Space.lg + top,
+                Space.md,
                 0,
               ),
-              child: _heading(
-                context,
-                number,
-                skin.typography.timerVote,
-                night.text,
+              child: PaperBanner(
+                id: #vote,
+                child: (context) => _heading(
+                  context,
+                  number,
+                  skin.typography.timerVote.copyWith(
+                    color: context.ground.text,
+                  ),
+                  context.ground.text,
+                ),
               ),
             ),
-            SizedBox(
-              height: barHeight,
-              child: ColoredBox(
-                color: night.hairline,
-                child: FractionallySizedBox(
-                  alignment: AlignmentDirectional.centerStart,
-                  widthFactor: number == null || lit == null
-                      ? 0
-                      : lit.clamp(0, 1).toDouble(),
-                  child: ColoredBox(color: night.dangerLine),
+            // The time left, a strip of torn paper lit along its length.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
+              child: SizedBox(
+                height: barHeight,
+                child: DecoratedBox(
+                  decoration: ShapeDecoration(
+                    color: night.ground,
+                    shape: DeckleBorder(seed: deckleSeed(#bar), depth: 2),
+                  ),
+                  child: FractionallySizedBox(
+                    alignment: AlignmentDirectional.centerStart,
+                    widthFactor: number == null || lit == null
+                        ? 0
+                        : lit.clamp(0, 1).toDouble(),
+                    child: ColoredBox(color: night.dangerLine),
+                  ),
                 ),
               ),
             ),
@@ -631,4 +638,24 @@ class ClockFigure extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The sky's window: its foot torn off along a seeded ragged line, so the
+/// day's ground shows under a paper edge, not a hard straight one.
+class _TornFoot extends CustomClipper<Path> {
+  const _TornFoot();
+
+  @override
+  Path getClip(Size size) {
+    final edge = DeckleBorder(
+      seed: deckleSeed(#sky),
+      depth: 9,
+      step: 16,
+      torn: true,
+    ).getOuterPath(Offset.zero & size);
+    return edge;
+  }
+
+  @override
+  bool shouldReclip(_TornFoot old) => false;
 }

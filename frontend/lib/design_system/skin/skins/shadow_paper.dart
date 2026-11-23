@@ -67,25 +67,25 @@ const _night = Ground(
   disabled: _nightHairline,
   onDisabled: _moonFaint,
   elevation: GroundElevation(
-    card: Elevation([HardShadow(Offset(0, 4), _deepShadow)]),
-    lying: Elevation([HardShadow(Offset(0, 5), _deepShadow)]),
-    raised: Elevation([HardShadow(Offset(0, 6), _deepShadow)]),
+    card: Elevation([HardShadow(Offset(0, 6), _deepShadow)]),
+    lying: Elevation([HardShadow(Offset(0, 8), _deepShadow)]),
+    raised: Elevation([HardShadow(Offset(0, 9), _deepShadow)]),
     slab: Elevation([
       HardShadow.edge(Offset(0, 5), _paperEdge),
-      HardShadow(Offset(0, 12), _deepShadow),
+      HardShadow(Offset(0, 18), _deepShadow),
     ]),
     heroSlab: Elevation([
       HardShadow.edge(Offset(0, 5), _paperEdge),
-      HardShadow(Offset(0, 14), _deepShadow),
+      HardShadow(Offset(0, 21), _deepShadow),
     ]),
     // The plaque: amber paper on a darker paper backing, and what it casts.
     primary: Elevation([
-      HardShadow.edge(Offset(0, 3), _amberBacking),
-      HardShadow(Offset(0, 8), _deepShadow),
+      HardShadow.edge(Offset(0, 5), _amberBacking),
+      HardShadow(Offset(0, 12), _deepShadow),
     ]),
     // A picked card at night lifts off the table (S06).
-    selected: Elevation([HardShadow(Offset(0, 10), _deepShadow)]),
-    badge: Elevation([HardShadow(Offset(0, 2), _deepShadow)]),
+    selected: Elevation([HardShadow(Offset(0, 15), _deepShadow)]),
+    badge: Elevation([HardShadow(Offset(0, 3), _deepShadow)]),
     glow: _boneGlow,
   ),
 );
@@ -119,23 +119,23 @@ const _day = Ground(
   disabled: _dayShadow,
   onDisabled: _dayQuiet,
   elevation: GroundElevation(
-    card: Elevation([HardShadow(Offset(0, 4), _dayCast)]),
-    lying: Elevation([HardShadow(Offset(0, 5), _dayCast)]),
-    raised: Elevation([HardShadow(Offset(0, 6), _dayCast)]),
+    card: Elevation([HardShadow(Offset(0, 6), _dayCast)]),
+    lying: Elevation([HardShadow(Offset(0, 8), _dayCast)]),
+    raised: Elevation([HardShadow(Offset(0, 9), _dayCast)]),
     slab: Elevation([
       HardShadow.edge(Offset(0, 5), _paperEdge),
-      HardShadow(Offset(0, 12), _dayCast),
+      HardShadow(Offset(0, 18), _dayCast),
     ]),
     heroSlab: Elevation([
       HardShadow.edge(Offset(0, 5), _paperEdge),
-      HardShadow(Offset(0, 14), _dayCast),
+      HardShadow(Offset(0, 21), _dayCast),
     ]),
     primary: Elevation([
-      HardShadow.edge(Offset(0, 3), _amberBacking),
-      HardShadow(Offset(0, 8), _dayCast),
+      HardShadow.edge(Offset(0, 5), _amberBacking),
+      HardShadow(Offset(0, 12), _dayCast),
     ]),
-    selected: Elevation([HardShadow(Offset(0, 8), _dayCast)]),
-    badge: Elevation([HardShadow(Offset(0, 2), _dayCast)]),
+    selected: Elevation([HardShadow(Offset(0, 12), _dayCast)]),
+    badge: Elevation([HardShadow(Offset(0, 3), _dayCast)]),
   ),
 );
 
@@ -165,18 +165,18 @@ const _paper = Ground(
   disabled: _paperEdge,
   onDisabled: _paperQuiet,
   elevation: GroundElevation(
-    card: Elevation([HardShadow(Offset(0, 4), _paperCast)]),
-    lying: Elevation([HardShadow(Offset(0, 5), _paperCast)]),
-    raised: Elevation([HardShadow(Offset(0, 6), _paperCast)]),
-    slab: Elevation([HardShadow(Offset(0, 5), _paperCast)]),
+    card: Elevation([HardShadow(Offset(0, 6), _paperCast)]),
+    lying: Elevation([HardShadow(Offset(0, 8), _paperCast)]),
+    raised: Elevation([HardShadow(Offset(0, 9), _paperCast)]),
+    slab: Elevation([HardShadow(Offset(0, 8), _paperCast)]),
     // The portrait in the role sheet (S03b).
-    heroSlab: Elevation([HardShadow(Offset(0, 9), _paperCast)]),
+    heroSlab: Elevation([HardShadow(Offset(0, 14), _paperCast)]),
     primary: Elevation([
-      HardShadow.edge(Offset(0, 3), _amberBacking),
-      HardShadow(Offset(0, 7), _paperCast),
+      HardShadow.edge(Offset(0, 5), _amberBacking),
+      HardShadow(Offset(0, 10), _paperCast),
     ]),
-    selected: Elevation([HardShadow(Offset(0, 8), _paperCast)]),
-    badge: Elevation([HardShadow(Offset(0, 2), _paperCast)]),
+    selected: Elevation([HardShadow(Offset(0, 12), _paperCast)]),
+    badge: Elevation([HardShadow(Offset(0, 3), _paperCast)]),
   ),
 );
 
@@ -482,8 +482,8 @@ final shadowPaper = Skin(
     scatter: [-4 * SkinTilt.degree, 1 * SkinTilt.degree, 5 * SkinTilt.degree],
     thumb: -4 * SkinTilt.degree, // S08
     hero: -3 * SkinTilt.degree, // S11
-    seededCard: 1.5 * SkinTilt.degree, // set down by hand, from the id
-    seededRow: 0.6 * SkinTilt.degree,
+    seededCard: 2.5 * SkinTilt.degree, // set down by hand, from the id
+    seededRow: 1.2 * SkinTilt.degree,
   ),
   art: shadowPaperArt,
   scrim: _deepShadow.withValues(alpha: 0.72),

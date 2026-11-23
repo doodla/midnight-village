@@ -1,3 +1,4 @@
+import 'paper_light.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -357,7 +358,7 @@ class _FaceDownCardState extends State<FaceDownCard> {
                         spreadRadius: FaceDownCard.glowSpread,
                       )
                     : BoxShadow(color: glow.withValues(alpha: 0)),
-              ...(dip > 0 ? base.lowered(dip) : base).boxShadows,
+              ...(dip > 0 ? base.lowered(dip) : base).litBy(context),
             ],
           ),
       foregroundDecoration: ringDecoration(

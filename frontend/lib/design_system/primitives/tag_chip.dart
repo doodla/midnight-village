@@ -1,3 +1,4 @@
+import 'paper_light.dart';
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
@@ -51,7 +52,7 @@ class TagChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
-        boxShadow: ground.elevation.badge.boxShadows,
+        boxShadow: ground.elevation.badge.litBy(context),
       ),
       child: Padding(
         padding: small

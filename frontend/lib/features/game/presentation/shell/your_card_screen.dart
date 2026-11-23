@@ -11,6 +11,7 @@ import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/primitives/progress_pips.dart';
+import '../../../../design_system/primitives/paper_banner.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/skin/art_set.dart';
 import '../../../../design_system/skin/skin_choice.dart';
@@ -118,9 +119,15 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
             alignment: Alignment.centerLeft,
             child: Semantics(
               header: true,
-              child: FitLine(
-                CardCopy.headline,
-                style: skin.typography.screenTitle,
+              // On a torn banner, pinned: the moon stays clear on the right.
+              child: PaperBanner(
+                id: #card,
+                child: (context) => FitLine(
+                  CardCopy.headline,
+                  style: skin.typography.screenTitle.copyWith(
+                    color: context.ground.text,
+                  ),
+                ),
               ),
             ),
           ),

@@ -47,17 +47,33 @@ so every screen has it; no screen asks.
 
 | Token | Value | What it does |
 |---|---|---|
-| `PaperShadow` | a tight CONTACT shadow (alpha .55, 0.5 px + 0.2 x the drop down) and a soft CAST of 4 stacked copies (spread 1.6 x the drop, fall 0.9 x the drop, alpha .085 each) | Every cast shadow of a card, row, chip, button or sheet. The cast is stepped flat copies, not a blur: no blur, no saveLayer, nothing per frame. Light falls from above; a press scales the drop |
+| `PaperShadow` | a tight CONTACT shadow (alpha .62, 0.5 px + 0.2 x the drop down) and a soft CAST of 5 stacked copies (spread 2.4 x the drop, fall 1.0 x the drop, alpha .075 each, leaning away from the screen's light) | Every cast shadow of a card, row, chip, button or sheet. The cast is stepped flat copies, not a blur: no blur, no saveLayer, nothing per frame. Light falls from above; a press scales the drop |
 | `HardShadow(offset, ink)` | a DROP: how high the paper lies, in the ink it casts (night `#07091A`, day `#2A1D2B`, paper `#3B2E22`) | Becomes the paper shadow. `Elevation.drop` heights: badge 2, card 4, lying 5, raised 6, selected 8 (day) or 10 (night), slab and hero 12 to 14 |
 | `HardShadow.edge` | a hard copy in the paper's own colour | The thickness of paper: a stack of sheets (`slab`, `heroSlab`), the plaque's backing |
 | `SkinShape.radius` | 5 for every cut of paper (`radiusSmall`, `radiusTiny` are the same) | One corner |
 | `PaperGrain` | a 96 px tile of speckle and fibre, drawn once from a fixed seed, tiled at alpha .5 over a paper fill | `cutPaper` puts it on every paper surface (a `BoxDecoration.image`; the image is there on the first frame, so no golden or screen ever shows a bare paper) |
 
-**Parts.** The primary button is a PLAQUE: amber paper on a darker amber backing (`HardShadow.edge`
-3 px) with the paper shadow, a cut line set in 3 px and a pin at each end; still the only amber
-control. The paper secondary button is a PINNED SCRAP: raised paper, a pin on its top edge, a
-seeded tilt, and it sinks into its shadow under a finger as the plaque does. The quiet button and
-the outlined secondary are as they were. Touch targets are as they were (48 and up).
+**Torn edges and pins** (`primitives/deckle.dart`). `DeckleBorder`: the four sides of a piece of
+paper step in by up to `depth` (2.4 px for cards, rows, scraps, the field; 3.2 for the plaque;
+4.5 and long bites, `torn`, for a banner; 9 for the talk's sky) in nibbles of `step` px, seeded from
+the piece's own id (`deckleSeed`), so the same piece is torn the same on every phone. Only the paint
+is torn: `dimensions` is zero, the layout box and the hit target are the plain rectangle's.
+`PaperPin`: a flat matte pin (9 px), its own hard shadow leaning away from the light.
+
+**Parts.** The primary button is a PLAQUE: deckled amber paper on a darker amber paper backing
+(`HardShadow.edge` 5 px) with the paper shadow, a cut line and a pin at each end, a seeded tilt;
+still the only amber control. Every secondary button is a PINNED SCRAP, torn at its edge, with a
+pin and a seeded tilt, sinking into its shadow under a finger as the plaque does: bone by day and
+for `SecondaryButton.paper`, a darker scrap (`ground.panel`) with a bone rim on the night. Player
+rows (the table, the vote) are paper slips with a pin through the top edge; the join code is a
+pinned notice (two pins). The deck strip is a fan of small cards. Touch targets are as they were
+(48 and up).
+
+**Headers on paper: `PaperBanner`.** The question and the timer sit on a ribbon of torn bone
+paper, a hair off square (-0.7 degrees), a pin at each end, set in the day's ink (`ground.text`
+inside it): the vote's and the talk's `TimerBand`, the night board's title with the candle, your
+card's title. The timer and the question keep their type roles (the timer styles, 24). The talk's
+sky window is torn off along a seeded line instead of fading to a straight edge.
 
 **One mark for picked and done.** `PaperMark` (`primitives/paper_mark.dart`): a drop of wax in
 the ground's `mark` colour (bone on night, ink on day and paper; never amber), its edge uneven, a
@@ -68,29 +84,30 @@ selection outline; the mark is what says "this one".
 
 **Light and ground per phase: `Mood`** (`primitives/mood.dart`), the layer under every
 `ScreenFrame` (the screen's `mood:` overrides what its ground gives: the results take dawn). One
-picture painted once (a repaint boundary: nothing per frame), three banks of cut-paper roofs along
-the foot (seeded, far to near, so the village continues behind the rows and cards), a light and
-a vignette:
+picture painted once (a repaint boundary: nothing per frame): a ground, the game's own village as
+the scene art already in the app (`LayeredArt`: a few image layers), one light and a heavy
+vignette, and shadows that fall AWAY from the light (`Mood.leanOf`, read as `PaperLight`):
 
-| Mood | Ground | Light | Vignette |
-|---|---|---|---|
-| night | `#14172F` and the dark roofs | a cool moon pool, `rgba(220,226,255,.10)` fading by 60%, upper right | `rgba(3,4,12,.62)` from 50%, an ellipse of 0.9 W by 0.7 H |
-| dawn | the night's | a warm lantern pooling low, `rgba(255,200,130,.14)`, the roofs dark against it | the night's at 90% |
-| day | a pale rose sky running to a golden foot (`#D9D4EA` to `#ECD5C2` to `#F2C98C`), warm haze roofs (as light as the ground allows) | a low sun, `rgba(255,226,168,.85)` fading by 55%, low and to the right | `rgba(122,100,136,.14)` |
+| Mood | Village | Light | Vignette | Shadows lean |
+|---|---|---|---|---|
+| night | the night village from the top, lit in the top third (the ground over it 0% to 22%), 74% at 62% of its height, whole at its foot | the moon's cool pool (`rgba(220,226,255,.20)`) round the moon, and a cone of it falling on the table | `rgba(3,4,12,.60)` at the corners, clear in the middle third | left (moon, upper right) |
+| lantern (the table, the first screen) | the night village standing at the foot, behind what the table leaves empty | a warm lantern pool (`rgba(255,190,110,.26)`) on the players; the first screen also lights its name field | the night's | straight down |
+| dawn (the results) | none | the lantern's pool low on the board | the night's | straight down |
+| day | the dawn gallows at the foot, clear in its middle, the day's gold over its top and its foot | a low sun on the left edge, a wide warm pool and a long beam across the screen | warm plum, 26% | right (long, from the left sun) |
 
-Contrast is held on every pixel of each mood (`mood_test.dart`: the lightest pixel under light
-words, the darkest under dark ones, 7:1 for the ground's text and quiet text, 4.5:1 for faint),
-and on the real screens by the page tests. That is why the moon pool is a tenth, the quiet text
-on night is `#BDC3E1`, and no window is lit in the roofs: a glow behind a word breaks it. The day
-ground is a warm paper light (`#ECD5C2`), not the lilac field. The night board's strip of centre
-cards is a translucent panel (`Mood.panelShow`), so the roofs show through it.
+A screen with a picture of its own (01's street, 04's backdrop, the talk's sky) has no village
+behind it. Bare words are not set on the village: they sit on paper (banner, slip, plaque), a
+backing of the ground (the deck's stepper values), or the plain ground. Contrast is held on the
+ground and its lights (`mood_test.dart`, `scene: false`: 7:1 for the ground's text, 4.5:1 for the
+quieter inks and faint) and on the real screens, village included, by the page tests
+(`contrast_test.dart`).
 
-**A little life in placement.** `Tilt.seededCard(id)` (at most 1.5 degrees either way: the role
-cards of the deck) and `Tilt.seededRow(id)` (at most 0.6: player rows, preset chips, tags, paper
-scraps), from the item's own id by djb2 (`SeededTilt.unit`), so it is the same on every build,
-phone and platform; nothing random. Only the paint turns (`Transform.rotate`): layout, hit
-targets and text measures are unchanged. None on text fields, the timer or the night board's cards
-(which keep their scatter tilts).
+**A little life in placement.** `Tilt.seededCard(id)` (at most 2.5 degrees either way: the role
+cards of the deck) and `Tilt.seededRow(id)` (at most 1.2: player rows, preset chips, tags, scraps,
+the plaque), from the item's own id by djb2 (`SeededTilt.unit`), so it is the same on every
+build, phone and platform; nothing random. Only the paint turns: layout, hit targets and text
+measures are unchanged. None on text fields, the timer or the night board's cards (which keep
+their scatter tilts).
 
 ## 2. Motion tokens
 

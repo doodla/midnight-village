@@ -1,3 +1,4 @@
+import 'paper_light.dart';
 import 'package:flutter/widgets.dart';
 
 import '../skin/elevation.dart';
@@ -38,7 +39,9 @@ class CountBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(
           skin.shape.corner(side, skin.shape.badgeRoundness),
         ),
-        boxShadow: (large ? ground.elevation.badge : Elevation.none).boxShadows,
+        boxShadow: (large ? ground.elevation.badge : Elevation.none).litBy(
+          context,
+        ),
       ),
       // Centred in the badge, which keeps to its own size wherever it is.
       child: Center(

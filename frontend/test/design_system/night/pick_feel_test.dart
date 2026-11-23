@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../../helpers/paper_decoration.dart';
 import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
@@ -173,7 +174,7 @@ void main() {
       expect(glow.color, _night.elevation.glow);
       expect(glow.blurRadius, FaceDownCard.glowBlur);
       expect(glow.color.a, greaterThan(0.3), reason: 'the glow is seen');
-      expect(_drop(tester, name), 10, reason: 'a deeper one');
+      expect(_drop(tester, name), 15, reason: 'a deeper one');
       expect(_drop(tester, name), greaterThan(lying));
       expect(shadows.last.blurRadius, 0, reason: 'the shadow stays paper');
       expect(_ringWidth(tester, name), greaterThan(hairline));
@@ -303,12 +304,16 @@ void main() {
     PrimaryButton choose(WidgetTester tester) =>
         tester.widget<PrimaryButton>(find.byType(PrimaryButton));
 
-    AnimatedContainer shell(WidgetTester tester) => tester.widget(
-      find.descendant(
-        of: find.byType(PrimaryButton),
-        matching: find.byType(AnimatedContainer),
-      ),
-    );
+    AnimatedContainer shell(WidgetTester tester) => tester
+        .widgetList<AnimatedContainer>(
+          find.descendant(
+            of: find.byType(PrimaryButton),
+            matching: find.byType(AnimatedContainer),
+          ),
+        )
+        .first;
+    Decoration paper(WidgetTester tester) =>
+        paperUnder(tester, find.byType(PrimaryButton));
 
     testWidgets('waits as a slot on purpose: the spec’s outline with no fill, '
         'clearly drawn, a dark lip inside its top edge, its words in full '
@@ -338,7 +343,7 @@ void main() {
       expect(choose(tester).phase, ButtonPhase.ready);
       expect(choose(tester).rises, isTrue);
       expect(shell(tester).duration, Motion.quick);
-      expect((shell(tester).decoration! as BoxDecoration).color, _night.accent);
+      expect(paperColor(paper(tester)), _night.accent);
       expect(
         shell(tester).transform!.getTranslation().y,
         greaterThan(0),
@@ -361,8 +366,8 @@ void main() {
       await tester.pumpAndSettle();
       final t = shell(tester).transform;
       expect(t == null || t.getTranslation().x == 0, isTrue);
-      final shadows = (shell(tester).decoration! as BoxDecoration).boxShadow!;
-      expect(shadows.last.offset, const Offset(0, 3), reason: 'the backing');
+      final shadows = paperShadows(paper(tester));
+      expect(shadows.last.offset, const Offset(0, 5), reason: 'the backing');
     });
 
     testWidgets('taking the pick back returns it to the slot; a button that '
@@ -410,7 +415,7 @@ void main() {
       await tester.pump();
       final t = shell(tester).transform;
       expect(t == null || t.getTranslation().x == 0, isTrue);
-      expect((shell(tester).decoration! as BoxDecoration).color, _night.accent);
+      expect(paperColor(paper(tester)), _night.accent);
     });
 
     testWidgets('the target stays 48 or more in every state', (tester) async {

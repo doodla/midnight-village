@@ -1,3 +1,4 @@
+import 'paper_light.dart';
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
@@ -23,7 +24,7 @@ BoxDecoration cutPaper(
     border: edgeWidth > 0
         ? Border.all(color: context.ground.edge, width: edgeWidth)
         : null,
-    boxShadow: elevation.boxShadows,
+    boxShadow: elevation.litBy(context),
   );
 }
 

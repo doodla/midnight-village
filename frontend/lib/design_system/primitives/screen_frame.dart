@@ -13,6 +13,7 @@ import '../skin/system_bars.dart';
 import 'art_picture.dart';
 import 'layered_art.dart';
 import 'mood.dart';
+import 'paper_light.dart';
 import 'scene_arrival.dart';
 
 /// How a picture sits across the top of a screen, from the mocks. All three
@@ -86,6 +87,7 @@ class ScreenFrame extends StatelessWidget {
     this.minBodyHeight,
     this.backdrop,
     this.mood,
+    this.moodLight = const Alignment(0, 0.1),
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
@@ -157,6 +159,9 @@ class ScreenFrame extends StatelessWidget {
   /// the day) unless the screen says otherwise (the results' dawn).
   final MoodKind? mood;
 
+  /// Where a lantern's pool lies on the screen ([MoodKind.lantern]).
+  final Alignment moodLight;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.skin.ground(ground);
@@ -180,13 +185,13 @@ class ScreenFrame extends StatelessWidget {
         colors,
         LayoutBuilder(
           builder: (context, box) => _ScrollBody(
-            fadeTo: colors.ground,
+            fadeTo: _fade(colors),
             bottom: bottom,
             child: _FillTop(
               keyboard: keyboard,
               minHeight: box.maxHeight - bottom,
               art: art,
-              fadeTo: colors.ground,
+              fadeTo: _fade(colors),
               safeTop: safeTop,
               body: Padding(padding: padded, child: body),
             ),
@@ -210,7 +215,7 @@ class ScreenFrame extends StatelessWidget {
                 picture: art != null
                     ? ArtPicture(art)
                     : LayeredArt(scene!, from: topSceneFrom),
-                fadeTo: colors.ground,
+                fadeTo: _fade(colors),
                 fadeFrom:
                     (layout.fadeFrom + topArtExtra + safeTop) /
                     (layout.height + topArtExtra + safeTop),
@@ -236,7 +241,7 @@ class ScreenFrame extends StatelessWidget {
           padding: EdgeInsets.only(bottom: bottom),
           child: LayoutBuilder(
             builder: (context, box) => _ScrollBody(
-              fadeTo: colors.ground,
+              fadeTo: _fade(colors),
               bottom: 0,
               child: _SlotThenRest(
                 viewport: box.maxHeight,
@@ -276,7 +281,7 @@ class ScreenFrame extends StatelessWidget {
               padding: EdgeInsets.only(bottom: bottom),
               child: top,
             )
-          : _ScrollBody(fadeTo: colors.ground, bottom: bottom, child: top),
+          : _ScrollBody(fadeTo: _fade(colors), bottom: bottom, child: top),
     );
   }
 
@@ -294,54 +299,75 @@ class ScreenFrame extends StatelessWidget {
     GroundKind.paper => null,
   };
 
+  MoodKind? get moodKind => mood ?? _moodOf(ground);
+
+  /// What the pictures and the body's lower edge fade into: the ground the
+  /// mood paints under them (the night's deep base, the day's golden foot), so
+  /// no seam shows where a fade ends.
+  Color _fade(Ground colors) => switch (moodKind) {
+    MoodKind.night || MoodKind.lantern || MoodKind.dawn => Mood.nightBase,
+    MoodKind.day => Mood.dayFoot,
+    null => colors.ground,
+  };
+
   Widget _scaffold(Ground colors, Widget main) {
     return Scaffold(
       backgroundColor: colors.ground,
       body: GroundScope(
         ground: ground,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // The paper ground (a sheet, a test page) has no light of its own.
-            if (mood ?? _moodOf(ground) case final kind?) Mood(kind: kind),
-            if (backdrop case final backdrop?)
+        child: PaperLight(
+          lean: Mood.leanOf(moodKind ?? MoodKind.night),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // The paper ground (a sheet, a test page) has no light of its own.
+              if (moodKind case final kind?)
+                Mood(
+                  kind: kind,
+                  // A screen with a picture of its own has no need of the
+                  // village behind it.
+                  scene: topArt == null && topScene == null,
+                  lightAt: moodLight,
+                ),
+              if (backdrop case final backdrop?)
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: maxWidth),
+                    child: IgnorePointer(child: backdrop),
+                  ),
+                ),
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: maxWidth),
-                  child: IgnorePointer(child: backdrop),
-                ),
-              ),
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: maxWidth),
-                // The top runs under the status bar: each kind of top clears it
-                // by itself (above).
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: main),
-                    if (actions.isNotEmpty)
-                      SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            Space.gutter,
-                            Space.xs,
-                            Space.gutter,
-                            Space.screenBottom,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            spacing: actionGap,
-                            children: actions,
+                  // The top runs under the status bar: each kind of top clears it
+                  // by itself (above).
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: main),
+                      if (actions.isNotEmpty)
+                        SafeArea(
+                          top: false,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              Space.gutter,
+                              Space.xs,
+                              Space.gutter,
+                              Space.screenBottom,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              spacing: actionGap,
+                              children: actions,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

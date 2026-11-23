@@ -11,7 +11,7 @@ import 'package:midnight_village/design_system/primitives/tag_chip.dart';
 import '../../helpers/pump_skinned.dart';
 
 // A little life in placement: a seeded tilt from the item's own id, the same
-// every build, within 1.5 degrees on cards and 0.6 on rows, chips and tags;
+// every build, within 2.5 degrees on cards and 1.2 on rows, chips and tags;
 // only the paint turns, never the layout.
 
 double _angleOf(WidgetTester tester, Finder inside) {
@@ -22,7 +22,7 @@ double _angleOf(WidgetTester tester, Finder inside) {
 }
 
 void main() {
-  const bound = 0.6 * math.pi / 180;
+  const bound = 1.2 * math.pi / 180;
 
   testWidgets('a row, a chip and a tag keep their tilt across a rebuild', (
     tester,
