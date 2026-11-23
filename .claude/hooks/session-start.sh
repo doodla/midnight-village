@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# SessionStart hook (and tool/setup_env.sh): turns the commit gate on.
+# SessionStart hook (and tool/setup_env.sh): turns the commit gate on, and starts
+# Postgres when it is installed and down (it is down after every container restart).
 # Points git at the tracked hooks (`core.hooksPath` = .claude/hooks/git, shared by
 # every worktree of the clone) when it points anywhere else, and makes the hook
 # files executable. Silent on success, one plain line on failure, and it never
@@ -14,6 +15,9 @@ want=".claude/hooks/git"
   if [ "$(git -C "$root" config --get core.hooksPath 2>/dev/null)" != "$want" ]; then
     git -C "$root" config core.hooksPath "$want" 2>/dev/null \
       || echo "Could not turn on the commit gate: run 'git config core.hooksPath $want' in $root."
+  fi
+  if command -v pg_isready >/dev/null && command -v service >/dev/null && ! pg_isready -q; then
+    service postgresql start >/dev/null || true
   fi
 } 2>/dev/null
 exit 0

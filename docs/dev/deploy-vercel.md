@@ -203,7 +203,7 @@ before real players can use it.
 
 ## Android app download
 
-Friends get the app from one stable address; nobody builds or hands out a file by hand any more (the deployment session no longer builds the APK).
+Friends get the app from one stable address; nobody builds or hands out a file by hand any more.
 
 * **How it is built:** the workflow `.github/workflows/android-download.yml` ("Android App Download") runs on every push to `main` that touches `frontend/**` and on manual dispatch ("Run workflow"). It runs `frontend/tool/build_android.sh` with `API_ORIGIN=https://midnight-village-anthelion.vercel.app` and `PUBLIC_ORIGIN=https://midnight-village-app-anthelion.vercel.app` (Flutter 3.38.10, Java 17, the runner's Android SDK), signed with the public key in `frontend/android/release-key/`.
 * **Where it goes:** the arm64 APK (nearly every phone since 2017; the script builds one APK per processor, so no universal one) is uploaded as `midnight-village.apk` to one rolling GitHub release, tag `android-latest`, replacing the previous file (uploaded under a temporary name, retried, then the old asset is deleted and the new one renamed through the REST API, so the release is never without a file; only from `main`; the release notes name the commit it was built from). The release is created on the first run, marked not "latest".

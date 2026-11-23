@@ -9,8 +9,9 @@ last gone through on 20 November, and what landed since is `git log` on main (#6
 - Work lands on main by pull request, squash-merged when every GitHub check is green
   (`docs/dev/running-the-work.md`). Each session works on its own branch, started from main.
 - The server is LIVE on Vercel; every merge builds and migrates the shared database
-  (`docs/dev/deploy-vercel.md`, "Deploy-safe changes"). A change to the server or to routing is
-  told to the session that looks after deployments before it merges.
+  (`docs/dev/deploy-vercel.md`, "Deploy-safe changes"). Nobody watches deployments by hand any more (23 November
+  2026): after a merge that changes the server or routing, open the live app and the server's
+  health address, until the automatic check after each merge exists.
 
 ## Merged
 
@@ -67,7 +68,7 @@ last gone through on 20 November, and what landed since is `git log` on main (#6
   line (15.1 px) fall under the reading floor (`just screens 320`, `04-your-card-held-minion`).
 - The server now sends `CORS_EXPOSE_HEADERS = ["Date"]` (base settings) and `/me/`
   `stage_started_at`; the app does not read either yet (it times fetches by the phone's
-  clock). The deployment session has to be told the CORS change.
+  clock). Nobody has checked that the live server sends it.
 - 01 to 03: no rename (a new name on a device makes a new guest account). 03 is the set-up
   page (players 3 to 10 or open, the deck face up, every length with its range; no pace
   presets); the lobby body carries `deck_cards`, `lengths`, `length_ranges` and `deal.seats`.
