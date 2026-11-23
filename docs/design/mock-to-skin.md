@@ -185,11 +185,7 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 
 | Element | Primitive / role |
 |---|---|
-| Sky 250 tall, full bleed, gallows picture focus 50% 40%, night behind | `ScreenFrame(topSlot: TimerBand.sun(...))` (`TimerBand.skyHeight`, `skin.art.dawnGallows`) |
-| Dotted arc 2 px at 55%, sun r19 amber with a 3 px indigo stroke | painted by `TimerBand.sun` (`ground.text`; the pale sun in `night.text`, not amber; `shape.ring`, `shape.selectedRing`) |
-| 70 px fade into the day | `TimerBand.sun` (the last 28% of the sky) |
-| "4:12" 84 lh 0.9 -0.02em, margin-top -8; "left to talk" 12/700 quiet, gap 12, baseline | `type.timer`; "left to talk" is **Cut** by the first-time play spec; in its place beside the number, the headline "The village wakes" (`TimerBand.sun(title:)`, `type.screenTitle`, two lines at most; under the number where the two do not fit side by side) |
-| Sun's place on the arc | the share of the talk left from the server's `stage_started_at` and `deadline` (`StageShare`); without `stage_started_at`, the sun rests at `TimerBand.restingSun` |
+| Sky 250 tall, dotted arc and sun, 70 px fade into the day, "4:12" 84 | **Replaced by the square (owner, 23 November 2026):** `SquareSky` (the dawn's layers under a veil of the night, the wall lantern, the board's roof); no sun and no arc; the clock is `type.timerTalk` (40); "left to talk" is **Cut**, and "The village wakes" is its spoken header, not drawn |
 | "My night" box: night ground on day, padding 10/16/10/10, gap 14, radius 6, 4,4 day shadow | `PeekBox(title:, teaching:, large: true)` (`night.ground`, day `elevation.raised`; large: a 76 x 103 card, `type.display`, `Space.lg` inset: the one thing on the talk's body), the cover of a `TeachingHold` |
 | Card back 50 x 68, ring 2 amber, rotated -4 | inside `PeekBox` (`ground.mark`: bone, `Tilt.thumb`), with the `HoldCue` on it |
 | "My night" Gloock 24, "Hold to peek" 14/600 quiet | `type.heading`; "Hold to peek" is cut; until My night has been held on this device the cue's "Hold" (`type.cue`) sits under the title |

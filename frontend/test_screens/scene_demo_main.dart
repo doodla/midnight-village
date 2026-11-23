@@ -9,12 +9,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
-import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/scene_switcher.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
+import 'package:midnight_village/design_system/primitives/square_sky.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
@@ -167,11 +167,7 @@ class _Talk extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ScreenFrame(
     ground: GroundKind.day,
-    topSlot: const TimerBand.sun(
-      secondsLeft: 300,
-      elapsed: 0.02,
-      title: 'The village wakes',
-    ),
+    topSlot: const SquareSky(secondsLeft: 300, title: 'The village wakes'),
     fitsHeight: true,
     minBodyHeight: 300,
     body: Column(

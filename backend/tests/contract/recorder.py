@@ -80,8 +80,11 @@ LOBBY_CODES = (
     # table of practice players after it (scenarios.practice_table) is given
     # this code by the generator and takes it from the create's answer.
     "F5HN2V",
-    # Its run.table() slot (never a lobby's code).
+    # Its run.table() slot (never a lobby's code). The story table
+    # (story_scenarios, after it) is given this one by the generator.
     "G8JP4W",
+    # The story table's run.table() slot (never a lobby's code).
+    "H6KS9X",
 )
 # Stand-ins for the game ids, in the order the games are dealt.
 GAME_IDS = (

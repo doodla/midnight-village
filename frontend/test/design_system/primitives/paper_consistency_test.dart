@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderCustomPaint;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/deck_pile.dart';
+import 'package:midnight_village/design_system/primitives/story_card.dart';
 import 'package:midnight_village/design_system/primitives/twine.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
@@ -205,7 +207,15 @@ void main() {
     bool underTeamTag(Element e) {
       var found = false;
       e.visitAncestorElements((a) {
-        if (a.widget is TagChip) found = true;
+        final w = a.widget;
+        // A card of the Werewolf team in the deck in play (08) is cut from
+        // the team's red, as its tag is.
+        // So is a face-up Werewolf-team card of a night's story (08, held).
+        if (w is TagChip ||
+            (w is DeckPile && w.role.team == TeamId.werewolf) ||
+            (w is StoryCardFace && w.role?.team == TeamId.werewolf)) {
+          found = true;
+        }
         return !found;
       });
       return found;

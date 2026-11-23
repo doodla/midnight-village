@@ -11,6 +11,8 @@
 #                 samples being up to date, then the migration tests against the
 #                 real migrations, then the .claude/ guardrail, gate-routing and
 #                 workflow tests)
+#   just previous-build-check   (when a migration is in the change: main's tests on
+#                 the database this change's migrations build)
 #
 # Required check: "Backend Checks" (the Flutter ones are listed in flutter-tests.yml).
 # No paths filter: a required check that does not start would block the merge for ever.
@@ -80,3 +82,10 @@ jobs:
       - name: Tests
         if: ${{ !cancelled() }}
         run: just test
+
+      # Only does work when the change has a migration: the live server migrates
+      # the database while the previous build still serves, so that build's own
+      # tests are run on a database built by this change's migrations.
+      - name: The previous build on this change's database
+        if: ${{ !cancelled() }}
+        run: just previous-build-check

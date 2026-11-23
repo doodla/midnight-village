@@ -1313,6 +1313,7 @@ def _plain_choose_table(run: Recording) -> None:
         ("Ana", "seer"),
         ("Ben", "robber"),
         ("Cleo", "werewolf_lone"),
+        ("Dev", "troublemaker"),
         ("Esme", "villager"),
     ]:
         t.record(
@@ -2633,3 +2634,7 @@ def record_all(run: Recording) -> None:
     results_tables(run)
     gone_account(run)
     practice_table(run)
+    # Last, so nothing recorded above moves (imported here: it uses this module).
+    from .story_scenarios import story_tables
+
+    story_tables(run)

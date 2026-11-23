@@ -14,6 +14,7 @@ import 'screen_states.dart';
 const _copyFiles = [
   'lib/design_system/copy/copy.dart',
   'lib/design_system/copy/end_copy.dart',
+  'lib/design_system/copy/story_copy.dart',
 ];
 
 /// Every line the screens, banners and screen reader use, as written.

@@ -125,7 +125,7 @@ List<Element> actingMainButtons() => [
 
 bool _acts(PrimaryButton b) => switch (b.phase) {
   ButtonPhase.ready => !b.busy,
-  ButtonPhase.quiet || ButtonPhase.locked => true,
+  ButtonPhase.quiet || ButtonPhase.on || ButtonPhase.locked => true,
   ButtonPhase.waiting || ButtonPhase.done => false,
 };
 

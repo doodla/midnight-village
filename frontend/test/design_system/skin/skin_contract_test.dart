@@ -82,7 +82,11 @@ enum _Kind {
   cue(16, 16),
   // Captions, tags, badges: the floor.
   label(12, 12),
-  timer(64, 84);
+  timer(64, 84),
+  // The talk's clock: the scale's one large timer, 40 (the square, the
+  // owner's choice of 23 November 2026); the vote's and the night's stay
+  // 64 and over.
+  timerTalk(40, 40);
 
   const _Kind(this.min, this.max);
 
@@ -109,7 +113,7 @@ const _kinds = {
   'buttonLabelLarge': _Kind.button,
   'buttonLabel': _Kind.button,
   'buttonLabelSmall': _Kind.button,
-  'timer': _Kind.timer,
+  'timerTalk': _Kind.timerTalk,
   'timerVote': _Kind.timer,
   'timerSmall': _Kind.timer,
   'bodyLarge': _Kind.body,

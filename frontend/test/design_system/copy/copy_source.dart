@@ -30,6 +30,9 @@ class _Strings extends RecursiveAstVisitor<void> {
   void visitPartOfDirective(PartOfDirective node) {}
 
   @override
+  void visitExportDirective(ExportDirective node) {}
+
+  @override
   void visitAdjacentStrings(AdjacentStrings node) => _add(node);
 
   @override

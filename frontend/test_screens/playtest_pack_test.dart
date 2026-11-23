@@ -20,7 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
-import 'package:midnight_village/design_system/primitives/panels.dart';
+import 'package:midnight_village/design_system/primitives/sealed_note.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
@@ -159,13 +159,12 @@ Future<void> _pump(
           viewer: viewer!,
           me: body,
           secondsLeft: step.secondsLeft!,
-          elapsed: step.share,
           open: step.screen == PackScreen.talkOpen,
         ),
         learned,
       );
       if (step.screen == PackScreen.talkHeld) {
-        await holdDown(tester, find.byType(PeekBox));
+        await holdDown(tester, find.byType(SealedNote));
       }
     case PackScreen.vote || PackScreen.votePicked || PackScreen.voteLocked:
       await _pumpView(

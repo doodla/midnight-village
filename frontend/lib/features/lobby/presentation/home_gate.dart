@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/router/back_policy.dart';
+import '../../../design_system/primitives/scene_switcher.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
-import '../../game/domain/screen_table.dart' show backRuleFor;
+import '../../game/domain/screen_table.dart' show AppScreen, backRuleFor;
 import '../../game/presentation/shell/table_shell.dart';
 import '../../game/presentation/new_build_provider.dart';
 import '../../game/presentation/table_screen.dart' show tableScreenProvider;
@@ -20,8 +21,12 @@ import 'where_am_i_provider.dart';
 /// While the saved account is read back (a try the server does not answer
 /// is made again by itself), the game opening (`OpeningWait`), never 01.
 ///
-/// - While a way in is on its way ([JoinFlow]), 01 stays (the account it
-///   makes first would otherwise swap the screen mid-way).
+/// - 01 is this gate's own, wherever it is reached from (signed out, a
+///   link, the table's screen naming no table, a way in on its way
+///   ([JoinFlow])): one screen in one place, so a request that is busy never
+///   tears it down and builds it again (what was typed, the cursor and the
+///   refusal that lands stay). It crossfades with the table's shell, as
+///   the shell's screens crossfade among themselves.
 /// - From a link ([code]): the table itself for a player at it; 01 with
 ///   the name and "Join" for one at no table; "You're at another table."
 ///   with "Go there" for one seated elsewhere (never a second seat).
@@ -41,8 +46,21 @@ class HomeGate extends ConsumerWidget {
     // The app renews itself for a newer build at a safe moment, by what is
     // shown (`mayReloadNow`).
     ref.read(newBuildProvider)?.seen(place);
-    return BackPolicy(rule: rule, place: place, child: screen);
+    return BackPolicy(
+      rule: rule,
+      place: place,
+      // The table's shell and the gate's own screens (01, the opening)
+      // crossfade, as the shell's screens do among themselves; the gate's
+      // own change in place (the opening's village is 01's).
+      child: SceneSwitcher<bool>(
+        stage: screen is TableShell,
+        sceneBetween: _crossfade,
+        child: screen,
+      ),
+    );
   }
+
+  static SceneKind? _crossfade(bool from, bool to) => null;
 
   /// The screen for where this phone is, which screen it is, and what Back
   /// does on it.
@@ -53,7 +71,17 @@ class HomeGate extends ConsumerWidget {
     // swap the shell away), and the read of the seat, which is all that
     // follows, must not be dropped between 01 and the table's shell (a second
     // read, and the opening shown for it, between 01 and 02).
-    if (auth is AuthAuthenticated) ref.listen(myTableProvider, (_, _) {});
+    if (auth is AuthAuthenticated) {
+      ref.listen(myTableProvider, (_, _) {});
+      // 01's last failure ("Not sent.", a refusal) belongs to 01: once the
+      // phone is anywhere else, it is gone, so it can never show up later,
+      // after a Leave, as a failure of something that worked.
+      ref.listen(tableScreenProvider.select((a) => a.value?.screen), (_, at) {
+        if (at != null && at != AppScreen.join) {
+          ref.read(joinFlowProvider.notifier).clearBanner();
+        }
+      });
+    }
     final busy = ref.watch(joinFlowProvider.select((f) => f.busy != null));
     final seatUnread = ref.watch(joinFlowProvider.select((f) => f.seatUnread));
     final link = code;
@@ -123,8 +151,11 @@ class HomeGate extends ConsumerWidget {
 
   /// The table's shell, by the rule of the screen it shows ([backRuleFor]);
   /// before the first answer names one, Back leaves, as on the opening wait.
+  /// At no table, 01: the gate's own (the same element as the 01 a way in
+  /// shows while it is busy, never the shell's).
   static (BackRule, Object, Widget) _shell(WidgetRef ref) =>
       switch (ref.watch(tableScreenProvider.select((at) => at.value?.screen))) {
+        AppScreen.join => (BackRule.leavesApp, 'join', const JoinScreen()),
         final screen? => (backRuleFor(screen), screen, const TableShell()),
         null => (BackRule.leavesApp, 'opening', const TableShell()),
       };

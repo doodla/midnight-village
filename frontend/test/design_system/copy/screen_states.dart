@@ -100,12 +100,40 @@ List<Object> _buttons(NightPrompt prompt) => [
   prompt.pass,
 ];
 
-/// My night's pages (08).
+/// My night held (08): the picture story's one sentence, each kind (a
+/// name list joined with "and"), and what a screen reader hears of a card.
 final _myNight = <String, List<Object>>{
+  // The held face's last page: still `HoldToReveal`'s face for the note,
+  // which shows the story instead (`away`).
   'dealt': [TalkCopy.dealt],
-  for (final MapEntry(:key, :value) in _windowOne.entries)
-    'window 1, $key': value,
-  for (final MapEntry(:key, :value) in _saw.entries) 'saw, $key': value,
+  for (final MapEntry(:key, :value) in _saw.entries) 'face, $key': value,
+  for (final line in <Object>[
+    NightCopy.slept, SawCopy.didNothing, SawCopy.swapped, //
+    SawCopy.noWerewolves, NightStoryCopy.seerPlayer, NightStoryCopy.seerCenter,
+    NightStoryCopy.robbed,
+    NightStoryCopy.drunk,
+    NightStoryCopy.now,
+    NightStoryCopy.still,
+    NightStoryCopy.onlyWerewolf,
+    NightStoryCopy.minionOne,
+    NightStoryCopy.onlyMason,
+    NightStoryCopy.copied,
+    NightStoryCopy.copiedSaw,
+    NightStoryCopy.copiedCenter,
+    NightStoryCopy.copiedTook,
+    NightStoryCopy.copiedSwapped,
+    NightStoryCopy.copiedDrunk,
+    NightStoryCopy.copiedMinion,
+    NightStoryCopy.copiedNone,
+    NightStoryCopy.copiedNothing,
+  ])
+    '$line': [line],
+  for (final list in [
+    NightStoryCopy.werewolves,
+    NightStoryCopy.minion,
+    NightStoryCopy.masons,
+  ])
+    '$list': [list, NightStoryCopy.and],
 };
 
 List<Line> _face(List<Object> lines) => [for (final l in lines) face(l)];
@@ -409,7 +437,7 @@ final screens = <String, Screen>{
     },
   ),
   '08 Talk': (
-    budget: 15,
+    budget: 16,
     states: {
       // A first game, My night not yet held: the cue's word on it.
       'not held': [
@@ -675,6 +703,8 @@ final spoken = [
   EndCopy.votes,
   EndCopy.middle,
   SpokenCopy.hidden,
+  NightStoryCopy.cardUp,
+  NightStoryCopy.cardDown,
   SpokenCopy.working,
   SpokenCopy.pickFirst,
   ResultsCopy.nightSpoken,

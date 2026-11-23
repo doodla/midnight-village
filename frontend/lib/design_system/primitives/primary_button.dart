@@ -67,14 +67,19 @@ enum ButtonPhase {
   /// Done: its label is the state in one word ("Chosen", "Locked",
   /// "Ready ✓"). Settled: no fill and no outline, only a check and the word
   /// in quiet ink where the button was, so it reads neither as a [locked]
-  /// gate nor as something to tap. (08's "Ready ✓" is a toggle, [quiet]:
-  /// still a button, outlined, with the same check before the word.)
+  /// gate nor as something to tap. (08's "Ready ✓" is a toggle, [on]:
+  /// still a button, with the same check before the word.)
   done,
 
   /// It acts, but is never amber: a button that must not be the loudest
-  /// thing (08's "Ready to vote", which a bored player would tap to end the
-  /// talk).
+  /// thing (a quiet action beside the screen's own).
   quiet,
+
+  /// It acts, and it is on: a toggle the player has pressed (08's "Ready ✓",
+  /// tapped again to take it back). Dressed up, dark navy paper pressed a
+  /// little into the ground where the amber was, its words in bone; never
+  /// amber, never the locked form.
+  on,
 }
 
 /// The one main action of a screen: lantern amber with a hard shadow (and an
@@ -106,10 +111,26 @@ class PrimaryButton extends StatefulWidget {
     this.size = ButtonSize.regular,
     this.icon,
     this.rises = false,
+    this.detail,
   }) : onLockedTap = null,
        reason = null,
        slot = false,
        _phase = ButtonPhase.ready;
+
+  /// A toggle that is on ([ButtonPhase.on]): a tap takes it back.
+  const PrimaryButton.on({
+    super.key,
+    required this.label,
+    required VoidCallback this.onPressed,
+    this.size = ButtonSize.regular,
+    this.detail,
+  }) : onLockedTap = null,
+       reason = null,
+       icon = null,
+       busy = false,
+       rises = false,
+       slot = false,
+       _phase = ButtonPhase.on;
 
   /// Nothing to do yet, and its label names what is missing ("Pick a name",
   /// "Need 3 players"): an outline with no fill that [reason] explains to a
@@ -126,6 +147,7 @@ class PrimaryButton extends StatefulWidget {
        icon = null,
        rises = false,
        slot = false,
+       detail = null,
        _phase = ButtonPhase.waiting;
 
   /// A gate, locked: a tap calls [onLockedTap] (replay the cue) and does not
@@ -141,6 +163,7 @@ class PrimaryButton extends StatefulWidget {
        reason = null,
        busy = false,
        rises = false,
+       detail = null,
        _phase = ButtonPhase.locked;
 
   /// It acts, outlined: never the screen's amber.
@@ -155,6 +178,7 @@ class PrimaryButton extends StatefulWidget {
        busy = false,
        rises = false,
        slot = false,
+       detail = null,
        _phase = ButtonPhase.quiet;
 
   /// After the action: [label] says the state, and it stays disabled.
@@ -169,6 +193,7 @@ class PrimaryButton extends StatefulWidget {
        busy = false,
        rises = false,
        slot = false,
+       detail = null,
        _phase = ButtonPhase.done;
 
   /// The regular minimum height.
@@ -207,6 +232,10 @@ class PrimaryButton extends StatefulWidget {
 
   /// A glyph before the label (the padlock of "Lock in Cleo").
   final IconData? icon;
+
+  /// A second line under the label, smaller (08's "2 of 6 ready"): it says
+  /// something true, so it is in the label's full ink.
+  final String? detail;
   final ButtonPhase _phase;
 
   ButtonPhase get phase => _phase;
@@ -261,12 +290,13 @@ class _PrimaryButtonState extends State<PrimaryButton> {
 
   bool get _acts =>
       (widget.phase == ButtonPhase.ready && !widget.busy) ||
-      widget.phase == ButtonPhase.quiet;
+      widget.phase == ButtonPhase.quiet ||
+      widget.phase == ButtonPhase.on;
 
   VoidCallback? get _onTap {
     final act = switch (widget.phase) {
       ButtonPhase.ready => widget.busy ? null : widget.onPressed,
-      ButtonPhase.quiet => widget.onPressed,
+      ButtonPhase.quiet || ButtonPhase.on => widget.onPressed,
       ButtonPhase.locked => widget.onLockedTap,
       ButtonPhase.waiting || ButtonPhase.done => null,
     };
@@ -321,9 +351,11 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     // quietest piece (dark indigo, barely lifted: one locked form), its label saying why; a
     // quiet button a bone scrap.
     final onPaper = context.dress.isPaper && widget.phase != ButtonPhase.done;
-    final part = widget.phase == ButtonPhase.quiet
-        ? PaperPart.scrap
-        : PaperPart.primary;
+    final part = switch (widget.phase) {
+      ButtonPhase.quiet => PaperPart.scrap,
+      ButtonPhase.on => PaperPart.primaryOn,
+      _ => PaperPart.primary,
+    };
     final dim =
         widget.phase == ButtonPhase.waiting ||
         widget.phase == ButtonPhase.locked;
@@ -337,7 +369,8 @@ class _PrimaryButtonState extends State<PrimaryButton> {
             // quiet ink read as too pale).
             ButtonPhase.done ||
             ButtonPhase.locked ||
-            ButtonPhase.quiet => ground.text,
+            ButtonPhase.quiet ||
+            ButtonPhase.on => ground.text,
           };
     final style = widget.size.label(skin.typography);
     final edge = ground.accentEdge;
@@ -364,7 +397,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       enabled: _acts,
       label: widget.label,
       hint: widget.reason,
-      value: widget.busy ? SpokenCopy.working : null,
+      value: widget.busy ? SpokenCopy.working : widget.detail,
       // The words are this node's own, and so is the tap (the ink's tap is
       // left out with its words): a screen reader can press it.
       onTap: _onTap,
@@ -447,7 +480,12 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                         children: [
                           if (widget.icon case final icon?)
                             Icon(icon, color: ink, size: style.fontSize),
-                          Flexible(child: _label(style.copyWith(color: ink))),
+                          Flexible(
+                            child: _withDetail(
+                              _label(style.copyWith(color: ink)),
+                              ink,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -466,6 +504,25 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           ),
         ),
       ),
+    );
+  }
+
+  /// The label, and under it the [PrimaryButton.detail] line where there is
+  /// one.
+  Widget _withDetail(Widget label, Color ink) {
+    final detail = widget.detail;
+    if (detail == null) return label;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        label,
+        FitWords(
+          detail,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          style: context.skin.typography.caption.copyWith(color: ink),
+        ),
+      ],
     );
   }
 
