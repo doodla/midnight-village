@@ -44,7 +44,7 @@ def _create_game(
         settings={"roles": {}, "voting_seconds": 0},
     )
     for user in users.values():
-        LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=user)
     lobby.status = Lobby.Status.IN_GAME
     lobby.save()
 

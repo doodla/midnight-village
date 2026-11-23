@@ -46,7 +46,7 @@ def _create_game_in_results(
         settings={"roles": {}},
     )
     for user in users.values():
-        LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=user)
     lobby.status = Lobby.Status.IN_GAME
     lobby.save()
 
@@ -150,7 +150,7 @@ class TestResultsEndpoint:
             settings={"roles": {}},
         )
         for user in users.values():
-            LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
+            LobbyMember.objects.create(lobby=lobby, user=user)
         lobby.status = Lobby.Status.IN_GAME
         lobby.save()
 

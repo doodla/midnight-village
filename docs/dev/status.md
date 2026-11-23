@@ -52,9 +52,15 @@ last gone through on 20 November, and what landed since is `git log` on main (#6
 1. Rerun the cold-read playtest on the real screens (method in
    `docs/dev/playtests/2026-11-19-mocks-cold-read.md`). A screen passes when 4 of 5 simulated
    players name the right first action and nobody makes an unrecoverable mistake.
-2. Once the push that stopped writing `LobbyMember.is_ready` is live (issue #19), a later
-   migration drops the column (issue #20; nothing reads it; the deploy-safe two-step: the
-   code stops writing it first, the column goes in the next push).
+2. The lobby ready column, in two more pushes (issue #20). It cannot be dropped at once: the
+   build that serves while a deploy migrates still names it in every INSERT, so a join would
+   fail until the new build is promoted. First push (core migration 0011): the model stops
+   naming the column and the database gives it a default, so both builds can seat a player.
+   Second push, once the first is live: a migration drops the column. `insert_member` in
+   `backend/tests/old_code.py` stays as it is (the tests of migration 0010 run it on the old
+   schema); that push adds a second frozen INSERT in the first push's shape (no `is_ready`,
+   with `token`) for its own test. After it, a rollback to a build from before the first push
+   cannot seat a player (`docs/dev/deploy-vercel.md`, "Deploy-safe changes").
 
 ## Open items
 

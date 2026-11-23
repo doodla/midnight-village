@@ -163,9 +163,6 @@ def connected(body: dict[str, Any]) -> dict[int, bool]:
 class TestNoReadyCheck:
     def test_a_table_deals_although_nobody_tapped_ready(self, table) -> None:
         t = table(players=5)
-        assert not any(
-            m.is_ready for m in LobbyMember.objects.filter(lobby__code=t.code)
-        )
 
         reply = t.deal()
 

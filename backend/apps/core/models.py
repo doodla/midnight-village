@@ -116,7 +116,6 @@ class LobbyMember(models.Model):
         on_delete=models.CASCADE,
         related_name="lobby_memberships",
     )
-    is_ready = models.BooleanField(default=False)
     # The member's table token (apps.core.tokens), assigned under the Lobby row
     # lock when they join; "" for a row made by code that predates tokens (the
     # database default keeps that code's INSERTs working during a rollout) and

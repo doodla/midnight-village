@@ -19,9 +19,9 @@ def _create_lobby_with_players(host, players, role_config):
         max_players=10,
         settings={"roles": role_config},
     )
-    LobbyMember.objects.create(lobby=lobby, user=host, is_ready=True)
+    LobbyMember.objects.create(lobby=lobby, user=host)
     for player in players:
-        LobbyMember.objects.create(lobby=lobby, user=player, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=player)
     return lobby
 
 
@@ -131,7 +131,7 @@ class TestGameStart:
             status=Lobby.Status.IN_GAME,
             settings={"roles": _standard_5p_roles()},
         )
-        LobbyMember.objects.create(lobby=lobby, user=host, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=host)
 
         api_client.force_authenticate(user=host)
         url = reverse("onuw:game-start", kwargs={"code": lobby.code})

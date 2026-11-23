@@ -25,8 +25,6 @@ class LobbyMemberSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LobbyMember
-        # ``is_ready`` stays in the table (no migration) but gates nothing and is no
-        # longer sent: the deal has no ready check (``docs/dev/status.md``).
         fields = ["user", "token", "joined_at"]
 
 
