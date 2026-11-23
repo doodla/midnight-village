@@ -100,7 +100,7 @@ EndBoardPlan planEndBoard({
           growth,
       name: s.seat.name,
       stripWords: [
-        _roleWords(s.copied != null ? RoleId.doppelganger : s.now),
+        _roleWords(_heldFace(s).strip),
         if (s.moved) _roleWords(s.dealt),
         if (story != null)
           for (final faces in [story.dealt, ...story.steps.map((t) => t.after)])
@@ -302,6 +302,10 @@ EndBoardPlan planEndBoard({
   );
 }
 
+/// What [s]'s card shows at the end: the card they hold, by [cardFace], the
+/// one rule the night's replay draws with too.
+StoryFace _heldFace(EndSeat s) => cardFace(s.now, copied: s.copied, held: true);
+
 /// One card placed at [rect], with what is pinned to it.
 EndCard _card(
   EndSeat s,
@@ -322,8 +326,8 @@ EndCard _card(
     token: s.seat.token,
     row: row,
     look: _lookOf(s),
-    face: s.plays,
-    strip: s.copied != null ? RoleId.doppelganger : s.now,
+    face: _heldFace(s).face,
+    strip: _heldFace(s).strip,
     dealt: c.dealt ? s.dealt : null,
     won: s.won,
     hanged: s.died,
